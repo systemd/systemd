@@ -565,7 +565,7 @@ static int add_partition_xbootldr(DissectedPartition *p) {
 static int add_partition_esp(DissectedPartition *p, bool has_xbootldr) {
         const char *esp_path = NULL, *id = NULL;
         _cleanup_free_ char *options = NULL;
-        int r;
+        int r, k;
 
         assert(p);
 
@@ -583,13 +583,24 @@ static int add_partition_esp(DissectedPartition *p, bool has_xbootldr) {
                 if (r < 0)
                         return r;
                 if (r == 0) {
-                        r = path_is_busy("/boot");
-                        if (r < 0)
-                                return r;
-                        if (r == 0) {
+                        k = path_is_busy("/boot");
+                        if (k < 0)
+                                return k;
+                        if (k == 0) {
                                 esp_path = "/boot";
                                 id = "boot";
                         }
+                }
+                if (r > 0) {
+                        /* Check if the fstab entry for /boot/ is already the ESP. If so, we don't need to
+                         * check /efi/ or duplicate the mount there. */
+                        k = fstab_is_mount_point_full("/boot", p->node);
+                        if (k < 0)
+                                log_debug_errno(k,
+                                                "Failed to check if fstab entry for /boot uses the same device as '%s', assuming not: %m",
+                                                p->node);
+                        if (k > 0)
+                                return 0;
                 }
         }
 
