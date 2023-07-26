@@ -401,7 +401,14 @@ int exec_spawn(Unit *unit,
         if (!fdset)
                 return log_oom();
 
-        r = exec_serialize_invocation(f, fdset, context, command, params, runtime, cgroup_context);
+        r = exec_serialize_invocation(f,
+                                      fdset,
+                                      /* serialize_fd_index= */ false,
+                                      context,
+                                      command,
+                                      params,
+                                      runtime,
+                                      cgroup_context);
         if (r < 0)
                 return log_unit_error_errno(unit, r, "Failed to serialize parameters: %m");
 
