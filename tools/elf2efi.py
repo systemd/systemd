@@ -231,6 +231,7 @@ def use_section(elf_s: ELFSection) -> bool:
         ".note.gnu.build-id",
         ".rel.dyn",
         ".rela.dyn",
+        ".relr.dyn",
     ]
 
     # Known sections we care about and want to be in the final PE.
