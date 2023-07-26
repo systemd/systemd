@@ -99,7 +99,7 @@ int serialize_item_format(FILE *f, const char *key, const char *format, ...) {
         return 1;
 }
 
-int serialize_fd(FILE *f, FDSet *fds, const char *key, int fd) {
+int serialize_fd_full(FILE *f, FDSet *fds, bool store_index, const char *key, int fd) {
         int copy;
 
         assert(f);
@@ -112,7 +112,7 @@ int serialize_fd(FILE *f, FDSet *fds, const char *key, int fd) {
         if (copy < 0)
                 return log_error_errno(copy, "Failed to add file descriptor to serialization set: %m");
 
-        return serialize_item_format(f, key, "%i", copy);
+        return serialize_item_format(f, key, "%i", store_index ? (int)(fdset_size(fds) - 1) : copy);
 }
 
 int serialize_usec(FILE *f, const char *key, usec_t usec) {
@@ -342,6 +342,42 @@ int deserialize_environment(const char *value, char ***list) {
                 return log_error_errno(r, "Failed to append environment variable: %m");
 
         return 0;
+}
+
+int deserialize_fd(const char *value, FDSet *fds, bool store_index) {
+        int fd, r;
+
+        assert(value);
+        assert(fds);
+
+        if (!store_index) {
+                fd = parse_fd(value);
+                if (fd < 0)
+                        return log_debug_errno(fd, "Failed to parse FD out of value: %s", value);
+
+                if (!fdset_contains(fds, fd))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "FD %d not in fdset.", fd);
+
+                r = fdset_remove(fds, fd);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to remove value=%d from fdset", fd);
+        } else {
+                size_t i;
+
+                r = safe_atozu(value, &i);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to parse FD index out of value: %s", value);
+
+                if (i >= fdset_size(fds))
+                        return log_debug_errno(SYNTHETIC_ERRNO(ERANGE), "FD index %zu not in fd array.", i);
+
+                /* Can't remove from the set, or the order will change */
+                FDSET_FOREACH(fd, fds)
+                        if (i-- == 0)
+                                break;
+        }
+
+        return fd;
 }
 
 int open_serialization_fd(const char *ident) {
