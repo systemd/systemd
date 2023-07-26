@@ -590,6 +590,16 @@ static int add_partition_esp(DissectedPartition *p, bool has_xbootldr) {
                                 esp_path = "/boot";
                                 id = "boot";
                         }
+                } else {
+                        /* Check if the fstab entry for /boot/ is already the ESP. If so, we don't need to
+                         * check /efi/ or duplicate the mount there. */
+                        r = fstab_is_mount_point_full("/boot", p->node);
+                        if (r < 0)
+                                return log_error_errno(r,
+                                                       "Failed to check if fstab entry for /boot uses the same device as '%s': %m",
+                                                       p->node);
+                        if (r > 0)
+                                return 0;
                 }
         }
 
