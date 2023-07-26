@@ -174,6 +174,10 @@ efi_c_ld_args = [
         '-T' + elf2efi_lds,
 ]
 
+# On CentOS 8 the nopack-relative-relocs linker flag is not supported, and we get:
+#   /usr/bin/ld.bfd: warning: -z nopack-relative-relocs ignored
+efi_c_ld_args += cc.get_supported_link_arguments('-Wl,-z,nopack-relative-relocs')
+
 # efi_c_args is explicitly passed to targets so that they can override distro-provided flags
 # that should not be used for EFI binaries.
 efi_disabled_c_args = cc.get_supported_arguments(
