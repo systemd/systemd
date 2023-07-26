@@ -387,7 +387,7 @@ int unit_deserialize_state(Unit *u, FILE *f, FDSet *fds) {
                 else if (STR_IN_SET(l, "ipv4-socket-bind-bpf-link-fd", "ipv6-socket-bind-bpf-link-fd")) {
                         int fd;
 
-                        fd = deserialize_fd(fds, v);
+                        fd = deserialize_fd_from_set(fds, v);
                         if (fd >= 0)
                                 (void) bpf_socket_bind_add_initial_link_fd(u, fd);
                         continue;
@@ -412,7 +412,7 @@ int unit_deserialize_state(Unit *u, FILE *f, FDSet *fds) {
                 } else if (streq(l, "restrict-ifaces-bpf-fd")) {
                         int fd;
 
-                        fd = deserialize_fd(fds, v);
+                        fd = deserialize_fd_from_set(fds, v);
                         if (fd >= 0)
                                 (void) restrict_network_interfaces_add_initial_link_fd(u, fd);
 
