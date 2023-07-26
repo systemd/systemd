@@ -59,6 +59,13 @@ static void test_config_parse_unsigned_one(const char *rvalue, unsigned expected
         assert_se(expected == v);
 }
 
+static void test_config_parse_unsigned_infinity_one(const char *rvalue, unsigned expected) {
+        unsigned v = 0;
+
+        assert_se(config_parse_unsigned_infinity("unit", "filename", 1, "section", 1, "lvalue", 0, rvalue, &v, NULL) >= 0);
+        assert_se(expected == v);
+}
+
 static void test_config_parse_strv_one(const char *rvalue, char **expected) {
         _cleanup_strv_free_ char **strv = NULL;
 
@@ -158,6 +165,19 @@ TEST(config_parse_unsigned) {
         test_config_parse_unsigned_one("1G", 0);
         test_config_parse_unsigned_one("garbage", 0);
         test_config_parse_unsigned_one("1000garbage", 0);
+}
+
+TEST(config_parse_unsigned_infinity) {
+        test_config_parse_unsigned_infinity_one("10241024", 10241024);
+        test_config_parse_unsigned_infinity_one("1024", 1024);
+        test_config_parse_unsigned_infinity_one("0", 0);
+
+        test_config_parse_unsigned_infinity_one("99999999999999999999999999999999999999999999999999999999", 0);
+        test_config_parse_unsigned_infinity_one("1G", 0);
+        test_config_parse_unsigned_infinity_one("garbage", 0);
+        test_config_parse_unsigned_infinity_one("1000garbage", 0);
+
+        test_config_parse_unsigned_infinity_one("infinity", UINT_MAX);
 }
 
 TEST(config_parse_strv) {
