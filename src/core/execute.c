@@ -5160,7 +5160,9 @@ int exec_spawn(Unit *unit,
         _cleanup_free_ char *subcgroup_path = NULL, *log_level = NULL;
         _cleanup_close_ int serialization_fd = -EBADF;
         _cleanup_fdset_free_ FDSet *fdset = NULL;
+        _cleanup_free_ int *fds_array = NULL;
         _cleanup_fclose_ FILE *f = NULL;
+        size_t n_fds_array = 0;
         pid_t pid;
         int r;
 
@@ -5220,7 +5222,16 @@ int exec_spawn(Unit *unit,
         if (!fdset)
                 return log_oom();
 
-        r = exec_serialize(f, fdset, unit, context, command, params, runtime, cgroup_context);
+        r = exec_serialize(f,
+                           fdset,
+                           &fds_array,
+                           &n_fds_array,
+                           unit,
+                           context,
+                           command,
+                           params,
+                           runtime,
+                           cgroup_context);
         if (r < 0)
                 return log_unit_error_errno(unit, r, "Failed to serialize parameters: %m");
 
