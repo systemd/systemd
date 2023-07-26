@@ -607,7 +607,8 @@ static DynamicUser* dynamic_user_destroy(DynamicUser *d) {
         return dynamic_user_free(d);
 }
 
-int dynamic_user_serialize_one(DynamicUser *d, const char *key, FILE *f, FDSet *fds) {
+int dynamic_user_serialize_one(DynamicUser *d, const char *key, FILE *f, FDSet *fds, int *index) {
+        _cleanup_free_ char *k = NULL;
         int copy0, copy1;
 
         assert(key);
@@ -620,13 +621,26 @@ int dynamic_user_serialize_one(DynamicUser *d, const char *key, FILE *f, FDSet *
         if (d->storage_socket[0] < 0 || d->storage_socket[1] < 0)
                 return 0;
 
-        copy0 = fdset_put_dup(fds, d->storage_socket[0]);
+        if (index)
+                copy0 = fdset_put_dup_indexed(fds, d->storage_socket[0], (*index)++);
+        else
+                copy0 = fdset_put_dup(fds, d->storage_socket[0]);
         if (copy0 < 0)
                 return log_error_errno(copy0, "Failed to add dynamic user storage fd to serialization: %m");
 
-        copy1 = fdset_put_dup(fds, d->storage_socket[1]);
+        if (index)
+                copy1 = fdset_put_dup_indexed(fds, d->storage_socket[1], (*index)++);
+        else
+                copy1 = fdset_put_dup(fds, d->storage_socket[1]);
         if (copy1 < 0)
                 return log_error_errno(copy1, "Failed to add dynamic user storage fd to serialization: %m");
+
+        if (index) {
+                k = strjoin(key, "-by-fd-index");
+                if (!k)
+                        return log_oom();
+                key = k;
+        }
 
         (void) serialize_item_format(f, key, "%s %i %i", d->name, copy0, copy1);
 
@@ -641,18 +655,25 @@ int dynamic_user_serialize(Manager *m, FILE *f, FDSet *fds) {
         /* Dump the dynamic user database into the manager serialization, to deal with daemon reloads. */
 
         HASHMAP_FOREACH(d, m->dynamic_users)
-                (void) dynamic_user_serialize_one(d, "dynamic-user", f, fds);
+                (void) dynamic_user_serialize_one(d, "dynamic-user", f, fds, /* index= */ NULL);
 
         return 0;
 }
 
-void dynamic_user_deserialize_one(Manager *m, const char *value, FDSet *fds, DynamicUser **ret) {
+void dynamic_user_deserialize_one(
+                Manager *m,
+                const char *value,
+                FDSet *fds,
+                int *fds_array,
+                size_t n_fds_array,
+                bool store_index,
+                DynamicUser **ret) {
+
         _cleanup_free_ char *name = NULL, *s0 = NULL, *s1 = NULL;
         _cleanup_close_ int fd0 = -EBADF, fd1 = -EBADF;
         int r;
 
         assert(value);
-        assert(fds);
 
         /* Parse the serialization again, after a daemon reload */
 
@@ -662,11 +683,17 @@ void dynamic_user_deserialize_one(Manager *m, const char *value, FDSet *fds, Dyn
                 return;
         }
 
-        fd0 = deserialize_fd(fds, s0);
+        if (store_index)
+                fd0 = deserialize_fd_from_array(fds_array, n_fds_array, s0);
+        else
+                fd0 = deserialize_fd_from_set(fds, s0);
         if (fd0 < 0)
                 return;
 
-        fd1 = deserialize_fd(fds, s1);
+        if (store_index)
+                fd1 = deserialize_fd_from_array(fds_array, n_fds_array, s1);
+        else
+                fd1 = deserialize_fd_from_set(fds, s1);
         if (fd1 < 0)
                 return;
 

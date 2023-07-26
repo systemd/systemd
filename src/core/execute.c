@@ -404,7 +404,15 @@ int exec_spawn(Unit *unit,
         if (!fdset)
                 return log_oom();
 
-        r = exec_serialize_invocation(f, fdset, context, command, params, runtime, cgroup_context);
+        r = exec_serialize_invocation(
+                        f,
+                        fdset,
+                        /* index= */ NULL,
+                        context,
+                        command,
+                        params,
+                        runtime,
+                        cgroup_context);
         if (r < 0)
                 return log_unit_error_errno(unit, r, "Failed to serialize parameters: %m");
 
@@ -2238,14 +2246,14 @@ int exec_shared_runtime_deserialize_compat(Unit *u, const char *key, const char 
         } else if (streq(key, "netns-socket-0")) {
 
                 safe_close(rt->netns_storage_socket[0]);
-                rt->netns_storage_socket[0] = deserialize_fd(fds, value);
+                rt->netns_storage_socket[0] = deserialize_fd_from_set(fds, value);
                 if (rt->netns_storage_socket[0] < 0)
                         return 0;
 
         } else if (streq(key, "netns-socket-1")) {
 
                 safe_close(rt->netns_storage_socket[1]);
-                rt->netns_storage_socket[1] = deserialize_fd(fds, value);
+                rt->netns_storage_socket[1] = deserialize_fd_from_set(fds, value);
                 if (rt->netns_storage_socket[1] < 0)
                         return 0;
         } else
@@ -2313,7 +2321,7 @@ int exec_shared_runtime_deserialize_one(Manager *m, const char *value, FDSet *fd
                 n = strcspn(v, " ");
                 buf = strndupa_safe(v, n);
 
-                netns_fdpair[0] = deserialize_fd(fds, buf);
+                netns_fdpair[0] = deserialize_fd_from_set(fds, buf);
                 if (netns_fdpair[0] < 0)
                         return netns_fdpair[0];
                 if (v[n] != ' ')
@@ -2328,7 +2336,7 @@ int exec_shared_runtime_deserialize_one(Manager *m, const char *value, FDSet *fd
                 n = strcspn(v, " ");
                 buf = strndupa_safe(v, n);
 
-                netns_fdpair[1] = deserialize_fd(fds, buf);
+                netns_fdpair[1] = deserialize_fd_from_set(fds, buf);
                 if (netns_fdpair[1] < 0)
                         return netns_fdpair[1];
                 if (v[n] != ' ')
@@ -2343,7 +2351,7 @@ int exec_shared_runtime_deserialize_one(Manager *m, const char *value, FDSet *fd
                 n = strcspn(v, " ");
                 buf = strndupa_safe(v, n);
 
-                ipcns_fdpair[0] = deserialize_fd(fds, buf);
+                ipcns_fdpair[0] = deserialize_fd_from_set(fds, buf);
                 if (ipcns_fdpair[0] < 0)
                         return ipcns_fdpair[0];
                 if (v[n] != ' ')
@@ -2358,7 +2366,7 @@ int exec_shared_runtime_deserialize_one(Manager *m, const char *value, FDSet *fd
                 n = strcspn(v, " ");
                 buf = strndupa_safe(v, n);
 
-                ipcns_fdpair[1] = deserialize_fd(fds, buf);
+                ipcns_fdpair[1] = deserialize_fd_from_set(fds, buf);
                 if (ipcns_fdpair[1] < 0)
                         return ipcns_fdpair[1];
         }
