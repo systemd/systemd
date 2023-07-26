@@ -1018,6 +1018,51 @@ static int ndisc_drop_outdated(Link *link, usec_t timestamp_usec) {
         return r;
 }
 
+static int ndisc_drop_lifetime_zero_router(Link *link, sd_ndisc_router *rt) {
+        struct in6_addr router, prefix;
+        unsigned prefixlen, lifetime_sec;
+        Route *route;
+        int r;
+
+        assert(link);
+
+        r = sd_ndisc_router_get_address(rt, &router);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to get gateway address from RA: %m");
+
+        r = sd_ndisc_router_prefix_get_address(rt, &prefix);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to get prefix address: %m");
+
+        r = sd_ndisc_router_prefix_get_prefixlen(rt, &prefixlen);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to get prefix length: %m");
+
+        r = sd_ndisc_router_prefix_get_valid_lifetime(rt, &lifetime_sec);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to get prefix lifetime: %m");
+
+        SET_FOREACH(route, link->routes) {
+                if (route->source != NETWORK_CONFIG_SOURCE_NDISC)
+                        continue;
+
+                if (route->gw_family == AF_INET6 && memcmp(&route->gw.in6, &router, sizeof(route->gw.in6)) == 0) {
+                        r = route_remove_and_drop(route);
+                        if (r < 0)
+                                log_link_warning_errno(link, r, "Failed to remove outdated SLAAC route, ignoring: %m");
+                }
+
+                if (route->family == AF_INET6 && memcmp(&route->dst.in6, &prefix, sizeof(route->dst.in6) == 0) &&
+                    route->dst_prefixlen == prefixlen && lifetime_sec == 0)  {
+                        r = route_remove_and_drop(route);
+                        if (r < 0)
+                                log_link_warning_errno(link, r, "Failed to remove outdated SLAAC route, ignoring: %m");
+                }
+        }
+
+        return 0;
+}
+
 static int ndisc_setup_expire(Link *link);
 
 static int ndisc_expire_handler(sd_event_source *s, uint64_t usec, void *userdata) {
@@ -1129,6 +1174,7 @@ static int ndisc_start_dhcp6_client(Link *link, sd_ndisc_router *rt) {
 }
 
 static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
+        uint16_t router_lifetime_sec;
         struct in6_addr router;
         usec_t timestamp_usec;
         int r;
@@ -1164,15 +1210,31 @@ static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
         if (r < 0)
                 return r;
 
+        r = sd_ndisc_router_get_lifetime(rt, &router_lifetime_sec);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to get lifetime of RA message: %m");
+
         r = ndisc_drop_outdated(link, timestamp_usec);
         if (r < 0)
                 return r;
 
-        r = ndisc_start_dhcp6_client(link, rt);
-        if (r < 0)
-                return r;
+        /* https://datatracker.ietf.org/doc/html/rfc4861
+         * Router Lifetime: A Lifetime of 0 indicates that the router is not a default router
+         * and SHOULD NOT appear on the default router list.
+         */
+        if (router_lifetime_sec == 0) {
+                log_link_debug(link, "Received RA with lifetime = 0, dropping route.");
 
-        r = ndisc_router_process_default(link, rt);
+                r = ndisc_drop_lifetime_zero_router(link, rt);
+                if (r < 0)
+                        log_link_warning_errno(link, r, "Failed to remove SLAAC route having lifetime = 0, ignoring: %m");
+        } else {
+                r = ndisc_router_process_default(link, rt);
+                if (r < 0)
+                        return r;
+        }
+
+        r = ndisc_start_dhcp6_client(link, rt);
         if (r < 0)
                 return r;
 
