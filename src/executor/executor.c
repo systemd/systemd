@@ -209,7 +209,14 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Failed to remove serialization fd from fd set: %m");
 
-        r = exec_deserialize(arg_serialization, fdset, &unit, &command, &params, &runtime);
+        r = exec_deserialize(arg_serialization,
+                             fdset,
+                             /* fds_array= */ NULL,
+                             /* n_fds_array= */ 0,
+                             &unit,
+                             &command,
+                             &params,
+                             &runtime);
         if (r < 0) {
                 exit_status = log_error_errno(r, "Failed to deserialize: %m");
                 goto out;
