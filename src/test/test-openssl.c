@@ -101,8 +101,7 @@ static void verify_digest(const char *digest_alg, const struct iovec *data, size
         assert_se(openssl_digest_many(digest_alg, data, n_data, &digest, &digest_size) == 0);
 
         DEFINE_HEX_PTR(e, expect);
-        assert_se(e_len == digest_size);
-        assert_se(memcmp(e, digest, e_len) == 0);
+        assert_se(memcmp_nn(e, e_len, digest, digest_size) == 0);
 }
 
 #define _DEFINE_DIGEST_TEST(uniq, alg, expect, ...)                     \
