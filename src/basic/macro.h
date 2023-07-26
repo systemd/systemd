@@ -335,6 +335,15 @@ static inline int __coverity_check_and_return__(int condition) {
                 }                                               \
         }
 
+/* When func() doesn't return the appropriate type, and is also a macro, set variable to empty afterwards. */
+#define DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_MACRO(type, func, empty)       \
+        static inline void func##p(type *p) {                           \
+                if (*p != (empty)) {                                    \
+                        func(*p);                                       \
+                        *p = (empty);                                   \
+                }                                                       \
+        }
+
 #define _DEFINE_TRIVIAL_REF_FUNC(type, name, scope)             \
         scope type *name##_ref(type *p) {                       \
                 if (!p)                                         \
