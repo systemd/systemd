@@ -919,9 +919,9 @@ static int parse_fstab_one(
         bool is_sysroot_usr = in_initrd() && path_equal(where, "/sysroot/usr");
 
         const char *target_unit =
-                        prefix_sysroot ?                    SPECIAL_INITRD_FS_TARGET :
                         is_sysroot ?                        SPECIAL_INITRD_ROOT_FS_TARGET :
                         is_sysroot_usr ?                    SPECIAL_INITRD_USR_FS_TARGET :
+                        prefix_sysroot ?                    SPECIAL_INITRD_FS_TARGET :
                         mount_is_network(fstype, options) ? SPECIAL_REMOTE_FS_TARGET :
                                                             SPECIAL_LOCAL_FS_TARGET;
 
