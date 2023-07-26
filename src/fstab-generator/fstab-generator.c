@@ -314,9 +314,9 @@ static bool mount_is_network(const char *fstype, const char *options) {
                 (fstype && fstype_is_network(fstype));
 }
 
-static bool mount_in_initrd(const char *where, const char *options) {
+static bool mount_in_initrd(const char *where, const char *options, bool accept_root) {
         return fstab_test_option(options, "x-initrd.mount\0") ||
-                (where && path_equal(where, "/usr"));
+                (where && PATH_IN_SET(where, "/usr", accept_root ? "/" : NULL));
 }
 
 static int write_timeout(
@@ -851,6 +851,7 @@ static int parse_fstab_one(
                 const char *options,
                 int passno,
                 bool prefix_sysroot,
+                bool accept_root, /* This takes an effect only when prefix_sysroot is true. */
                 bool use_swap_enabled) {
 
         _cleanup_free_ char *what = NULL, *where = NULL;
@@ -862,7 +863,7 @@ static int parse_fstab_one(
         assert(fstype);
         assert(options);
 
-        if (prefix_sysroot && !mount_in_initrd(where_original, options))
+        if (prefix_sysroot && !mount_in_initrd(where_original, options, accept_root))
                 return 0;
 
         is_swap = streq_ptr(fstype, "swap");
@@ -982,7 +983,9 @@ static int parse_fstab(bool prefix_sysroot) {
         while ((me = getmntent(f))) {
                 r = parse_fstab_one(fstab,
                                     me->mnt_fsname, me->mnt_dir, me->mnt_type, me->mnt_opts, me->mnt_passno,
-                                    prefix_sysroot, /* use_swap_enabled = */ true);
+                                    prefix_sysroot,
+                                    /* accept_root = */ false,
+                                    /* use_swap_enabled = */ true);
                 if (r < 0 && ret >= 0)
                         ret = r;
                 if (arg_sysroot_check && r > 0)
@@ -1301,6 +1304,7 @@ static int add_mounts_from_cmdline(void) {
                               m->options,
                               /* passno = */ 0,
                               /* prefix_sysroot = */ !m->for_initrd && in_initrd(),
+                              /* accept_root = */ true,
                               /* use_swap_enabled = */ false);
                 if (r < 0 && ret >= 0)
                         ret = r;
@@ -1337,6 +1341,7 @@ static int add_mounts_from_creds(bool prefix_sysroot) {
                                 me->mnt_opts,
                                 me->mnt_passno,
                                 /* prefix_sysroot = */ prefix_sysroot,
+                                /* accept_root = */ true,
                                 /* use_swap_enabled = */ true);
                 if (r < 0 && ret >= 0)
                         ret = r;
