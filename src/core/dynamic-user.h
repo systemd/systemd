@@ -26,8 +26,8 @@ struct DynamicUser {
 };
 
 int dynamic_user_serialize(Manager *m, FILE *f, FDSet *fds);
-int dynamic_user_serialize_one(DynamicUser *d, const char *key, FILE *f, FDSet *fds);
-void dynamic_user_deserialize_one(Manager *m, const char *value, FDSet *fds, DynamicUser **ret);
+int dynamic_user_serialize_one(DynamicUser *d, const char *key, FILE *f, FDSet *fds, bool store_index);
+void dynamic_user_deserialize_one(Manager *m, const char *value, FDSet *fds, bool store_index, DynamicUser **ret);
 DynamicUser* dynamic_user_free(DynamicUser *d);
 void dynamic_user_vacuum(Manager *m, bool close_user);
 

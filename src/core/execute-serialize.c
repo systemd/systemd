@@ -1089,7 +1089,7 @@ static int exec_cgroup_context_deserialize(CGroupContext *c, FILE *f) {
         return 0;
 }
 
-static int exec_runtime_serialize(const ExecRuntime *rt, FILE *f, FDSet *fds) {
+static int exec_runtime_serialize(const ExecRuntime *rt, FILE *f, FDSet *fds, bool serialize_fd_index) {
         int r;
 
         assert(f);
@@ -1124,6 +1124,11 @@ static int exec_runtime_serialize(const ExecRuntime *rt, FILE *f, FDSet *fds) {
                         if (b < 0)
                                 return b;
 
+                        if (serialize_fd_index) {
+                                a = fdset_size(fds) - 2;
+                                b = a + 1;
+                        }
+
                         r = serialize_item_format(f, "exec-runtime-netns-storage-socket", "%d %d", a, b);
                         if (r < 0)
                                 return r;
@@ -1140,6 +1145,11 @@ static int exec_runtime_serialize(const ExecRuntime *rt, FILE *f, FDSet *fds) {
                         if (b < 0)
                                 return b;
 
+                        if (serialize_fd_index) {
+                                a = fdset_size(fds) - 2;
+                                b = a + 1;
+                        }
+
                         r = serialize_item_format(f, "exec-runtime-ipcns-storage-socket", "%d %d", a, b);
                         if (r < 0)
                                 return r;
@@ -1147,7 +1157,7 @@ static int exec_runtime_serialize(const ExecRuntime *rt, FILE *f, FDSet *fds) {
         }
 
         if (rt->dynamic_creds) {
-                r = dynamic_user_serialize_one(rt->dynamic_creds->user, "exec-runtime-dynamic-creds-user", f, fds);
+                r = dynamic_user_serialize_one(rt->dynamic_creds->user, "exec-runtime-dynamic-creds-user", f, fds, serialize_fd_index);
                 if (r < 0)
                         return r;
         }
@@ -1157,7 +1167,7 @@ static int exec_runtime_serialize(const ExecRuntime *rt, FILE *f, FDSet *fds) {
                 if (r < 0)
                         return r;
         } else if (rt->dynamic_creds) {
-                r = dynamic_user_serialize_one(rt->dynamic_creds->group, "exec-runtime-dynamic-creds-group", f, fds);
+                r = dynamic_user_serialize_one(rt->dynamic_creds->group, "exec-runtime-dynamic-creds-group", f, fds, serialize_fd_index);
                 if (r < 0)
                         return r;
         }
@@ -1177,6 +1187,11 @@ static int exec_runtime_serialize(const ExecRuntime *rt, FILE *f, FDSet *fds) {
                 if (b < 0)
                         return b;
 
+                if (serialize_fd_index) {
+                        a = fdset_size(fds) - 2;
+                        b = a + 1;
+                }
+
                 r = serialize_item_format(f, "exec-runtime-ephemeral-storage-socket", "%d %d", a, b);
                 if (r < 0)
                         return r;
@@ -1187,7 +1202,8 @@ static int exec_runtime_serialize(const ExecRuntime *rt, FILE *f, FDSet *fds) {
         return 0;
 }
 
-static int exec_runtime_deserialize(ExecRuntime *rt, FILE *f, FDSet *fds) {
+static int exec_runtime_deserialize(ExecRuntime *rt, FILE *f, FDSet *fds, bool deserialize_fd_index) {
+
         int r;
 
         assert(rt);
@@ -1229,17 +1245,13 @@ static int exec_runtime_deserialize(ExecRuntime *rt, FILE *f, FDSet *fds) {
                                 if (r == 0)
                                         break;
 
-                                if ((fd = parse_fd(w)) < 0 || !fdset_contains(fds, fd))
-                                        log_debug("Failed to parse %s value: %s, ignoring.", l, w);
-                                else {
-                                        r = fdset_remove(fds, fd);
-                                        if (r < 0) {
-                                                log_debug_errno(r, "Failed to remove %s value=%d from fdset, ignoring: %m", l, fd);
-                                                continue;
-                                        }
-
-                                        rt->shared->netns_storage_socket[i] = fd;
+                                fd = deserialize_fd(w, fds, deserialize_fd_index);
+                                if (fd < 0) {
+                                        log_debug_errno(fd, "Failed to deserialize %s value: %s, ignoring.", l, w);
+                                        continue;
                                 }
+
+                                rt->shared->netns_storage_socket[i] = fd;
                         }
                 } else if ((val = startswith(l, "exec-runtime-ipcns-storage-socket="))) {
                         for (size_t i = 0; i < 2; ++i) {
@@ -1252,22 +1264,26 @@ static int exec_runtime_deserialize(ExecRuntime *rt, FILE *f, FDSet *fds) {
                                 if (r == 0)
                                         break;
 
-                                if ((fd = parse_fd(w)) < 0 || !fdset_contains(fds, fd))
-                                        log_debug("Failed to parse %s value: %s, ignoring.", l, w);
-                                else {
-                                        r = fdset_remove(fds, fd);
-                                        if (r < 0) {
-                                                log_debug_errno(r, "Failed to remove %s value=%d from fdset, ignoring: %m", l, fd);
-                                                continue;
-                                        }
-
-                                        rt->shared->ipcns_storage_socket[i] = fd;
+                                fd = deserialize_fd(w, fds, deserialize_fd_index);
+                                if (fd < 0) {
+                                        log_debug_errno(fd, "Failed to deserialize %s value: %s, ignoring.", l, w);
+                                        continue;
                                 }
+
+                                rt->shared->ipcns_storage_socket[i] = fd;
                         }
                 } else if ((val = startswith(l, "exec-runtime-dynamic-creds-user=")))
-                        dynamic_user_deserialize_one(/* m= */ NULL, val, fds, &rt->dynamic_creds->user);
+                        dynamic_user_deserialize_one(/* m= */ NULL,
+                                        val,
+                                        fds,
+                                        deserialize_fd_index,
+                                        &rt->dynamic_creds->user);
                 else if ((val = startswith(l, "exec-runtime-dynamic-creds-group=")))
-                        dynamic_user_deserialize_one(/* m= */ NULL, val, fds, &rt->dynamic_creds->group);
+                        dynamic_user_deserialize_one(/* m= */ NULL,
+                                        val,
+                                        fds,
+                                        deserialize_fd_index,
+                                        &rt->dynamic_creds->group);
                 else if ((val = startswith(l, "exec-runtime-dynamic-creds-groupcopy=yes"))) {
                         if (!rt->dynamic_creds->user)
                                 return -EINVAL;
@@ -1288,17 +1304,13 @@ static int exec_runtime_deserialize(ExecRuntime *rt, FILE *f, FDSet *fds) {
                                 if (r == 0)
                                         break;
 
-                                if ((fd = parse_fd(w)) < 0 || !fdset_contains(fds, fd))
-                                        log_debug("Failed to parse %s value: %s, ignoring.", l, w);
-                                else {
-                                        r = fdset_remove(fds, fd);
-                                        if (r < 0) {
-                                                log_debug_errno(r, "Failed to remove %s value=%d from fdset, ignoring: %m", l, fd);
-                                                continue;
-                                        }
-
-                                        rt->ephemeral_storage_socket[i] = fd;
+                                fd = deserialize_fd(w, fds, deserialize_fd_index);
+                                if (fd < 0) {
+                                        log_debug_errno(fd, "Failed to deserialize %s value: %s, ignoring.", l, w);
+                                        continue;
                                 }
+
+                                rt->ephemeral_storage_socket[i] = fd;
                         }
                 } else
                         log_warning("Failed to parse serialized line, ignorning: %s", l);
@@ -1307,7 +1319,7 @@ static int exec_runtime_deserialize(ExecRuntime *rt, FILE *f, FDSet *fds) {
         return 0;
 }
 
-static int exec_parameters_serialize(const ExecParameters *p, FILE *f, FDSet *fds) {
+static int exec_parameters_serialize(const ExecParameters *p, FILE *f, FDSet *fds, bool serialize_fd_index) {
         int r;
 
         assert(f);
@@ -1349,6 +1361,9 @@ static int exec_parameters_serialize(const ExecParameters *p, FILE *f, FDSet *fd
                                 copy = fdset_put_dup(fds, p->fds[i]);
                                 if (copy < 0)
                                         return copy;
+
+                                if (serialize_fd_index)
+                                        copy = fdset_size(fds) - 1;
                         }
 
                         r = strextendf(&serialized_fds, "%d ", copy);
@@ -1425,6 +1440,9 @@ static int exec_parameters_serialize(const ExecParameters *p, FILE *f, FDSet *fd
                                 copy = fdset_put_dup(fds, p->idle_pipe[i]);
                                 if (copy < 0)
                                         return copy;
+
+                                if (serialize_fd_index)
+                                        copy = fdset_size(fds) - 1;
                         }
 
                         r = strextendf(&serialized_fds, "%d ", copy);
@@ -1437,35 +1455,25 @@ static int exec_parameters_serialize(const ExecParameters *p, FILE *f, FDSet *fd
                         return r;
         }
 
-        if (p->stdin_fd >= 0) {
-                r = serialize_fd(f, fds, "exec-parameters-stdin-fd", p->stdin_fd);
-                if (r < 0)
-                        return r;
-        }
+        r = serialize_fd_full(f, fds, serialize_fd_index, "exec-parameters-stdin-fd", p->stdin_fd);
+        if (r < 0)
+                return r;
 
-        if (p->stdout_fd >= 0) {
-                r = serialize_fd(f, fds, "exec-parameters-stdout-fd", p->stdout_fd);
-                if (r < 0)
-                        return r;
-        }
+        r = serialize_fd_full(f, fds, serialize_fd_index, "exec-parameters-stdout-fd", p->stdout_fd);
+        if (r < 0)
+                return r;
 
-        if (p->stderr_fd >= 0) {
-                r = serialize_fd(f, fds, "exec-parameters-stderr-fd", p->stderr_fd);
-                if (r < 0)
-                        return r;
-        }
+        r = serialize_fd_full(f, fds, serialize_fd_index, "exec-parameters-stderr-fd", p->stderr_fd);
+        if (r < 0)
+                return r;
 
-        if (p->exec_fd >= 0) {
-                r = serialize_fd(f, fds, "exec-parameters-exec-fd", p->exec_fd);
-                if (r < 0)
-                        return r;
-        }
+        r = serialize_fd_full(f, fds, serialize_fd_index, "exec-parameters-exec-fd", p->exec_fd);
+        if (r < 0)
+                return r;
 
-        if (p->bpf_outer_map_fd >= 0) {
-                r = serialize_fd(f, fds, "exec-parameters-bpf-outer-map-fd", p->bpf_outer_map_fd);
-                if (r < 0)
-                        return r;
-        }
+        r = serialize_fd_full(f, fds, serialize_fd_index, "exec-parameters-bpf-outer-map-fd", p->bpf_outer_map_fd);
+        if (r < 0)
+                return r;
 
         r = serialize_item(f, "exec-parameters-notify-socket", p->notify_socket);
         if (r < 0)
@@ -1487,11 +1495,9 @@ static int exec_parameters_serialize(const ExecParameters *p, FILE *f, FDSet *fd
         if (r < 0)
                 return r;
 
-        if (p->user_lookup_fd >= 0) {
-                r = serialize_fd(f, fds, "exec-parameters-user-lookup-fd", p->user_lookup_fd);
-                if (r < 0)
-                        return r;
-        }
+        r = serialize_fd_full(f, fds, serialize_fd_index, "exec-parameters-user-lookup-fd", p->user_lookup_fd);
+        if (r < 0)
+                return r;
 
         r = serialize_strv(f, "exec-parameters-files-env", p->files_env);
         if (r < 0)
@@ -1510,7 +1516,7 @@ static int exec_parameters_serialize(const ExecParameters *p, FILE *f, FDSet *fd
         return 0;
 }
 
-static int exec_parameters_deserialize(ExecParameters *p, FILE *f, FDSet *fds) {
+static int exec_parameters_deserialize(ExecParameters *p, FILE *f, FDSet *fds, bool deserialize_fd_index) {
         int r, nr_open;
 
         assert(p);
@@ -1590,17 +1596,13 @@ static int exec_parameters_deserialize(ExecParameters *p, FILE *f, FDSet *fds) {
                                 if (r == 0)
                                         break;
 
-                                if ((fd = parse_fd(w)) < 0 || !fdset_contains(fds, fd))
-                                        log_debug("Failed to parse %s value: %s, ignoring.", l, w);
-                                else {
-                                        r = fdset_remove(fds, fd);
-                                        if (r < 0) {
-                                                log_debug_errno(r, "Failed to remove %s value=%d from fdset, ignoring: %m", l, fd);
-                                                continue;
-                                        }
-
-                                        p->fds[i] = fd;
+                                fd = deserialize_fd(w, fds, deserialize_fd_index);
+                                if (fd < 0) {
+                                        log_debug_errno(fd, "Failed to deserialize %s value: %s, ignoring.", l, w);
+                                        continue;
                                 }
+
+                                p->fds[i] = fd;
                         }
                 } else if ((val = startswith(l, "exec-parameters-fd-names="))) {
                         r = deserialize_strv(&p->fd_names, val);
@@ -1674,94 +1676,70 @@ static int exec_parameters_deserialize(ExecParameters *p, FILE *f, FDSet *fds) {
                                 if (r == 0)
                                         break;
 
-                                if ((fd = parse_fd(w)) < 0 || !fdset_contains(fds, fd))
-                                        log_debug("Failed to parse %s value: %s, ignoring.", l, w);
-                                else {
-                                        r = fdset_remove(fds, fd);
-                                        if (r < 0) {
-                                                log_debug_errno(r, "Failed to remove %s value=%d from fdset, ignoring: %m", l, fd);
-                                                continue;
-                                        }
-
-                                        p->idle_pipe[i] = fd;
+                                fd = deserialize_fd(w, fds, deserialize_fd_index);
+                                if (fd < 0) {
+                                        log_debug_errno(fd, "Failed to deserialize %s value: %s, ignoring.", l, w);
+                                        continue;
                                 }
+
+                                p->idle_pipe[i] = fd;
                         }
                 } else if ((val = startswith(l, "exec-parameters-stdin-fd="))) {
                         int fd;
 
-                        if ((fd = parse_fd(val)) < 0 || !fdset_contains(fds, fd))
-                                log_debug("Failed to parse %s value: %s, ignoring.", l, val);
-                        else {
-                                r = fdset_remove(fds, fd);
-                                if (r < 0) {
-                                        log_debug_errno(r, "Failed to remove %s value=%d from fdset, ignoring: %m", l, fd);
-                                        continue;
-                                }
-
-                                p->stdin_fd = fd;
+                        fd = deserialize_fd(val, fds, deserialize_fd_index);
+                        if (fd < 0) {
+                                log_debug_errno(fd, "Failed to deserialize %s value: %s, ignoring.", l, val);
+                                continue;
                         }
+
+                        p->stdin_fd = fd;
                 } else if ((val = startswith(l, "exec-parameters-stdout-fd="))) {
                         int fd;
 
-                        if ((fd = parse_fd(val)) < 0 || !fdset_contains(fds, fd))
-                                log_debug("Failed to parse %s value: %s, ignoring.", l, val);
-                        else {
-                                r = fdset_remove(fds, fd);
-                                if (r < 0) {
-                                        log_debug_errno(r, "Failed to remove %s value=%d from fdset, ignoring: %m", l, fd);
-                                        continue;
-                                }
-
-                                p->stdout_fd = fd;
+                        fd = deserialize_fd(val, fds, deserialize_fd_index);
+                        if (fd < 0) {
+                                log_debug_errno(fd, "Failed to deserialize %s value: %s, ignoring.", l, val);
+                                continue;
                         }
+
+                        p->stdout_fd = fd;
                 } else if ((val = startswith(l, "exec-parameters-stderr-fd="))) {
                         int fd;
 
-                        if ((fd = parse_fd(val)) < 0 || !fdset_contains(fds, fd))
-                                log_debug("Failed to parse %s value: %s, ignoring.", l, val);
-                        else {
-                                r = fdset_remove(fds, fd);
-                                if (r < 0) {
-                                        log_debug_errno(r, "Failed to remove %s value=%d from fdset, ignoring: %m", l, fd);
-                                        continue;
-                                }
-
-                                p->stderr_fd = fd;
+                        fd = deserialize_fd(val, fds, deserialize_fd_index);
+                        if (fd < 0) {
+                                log_debug_errno(fd, "Failed to deserialize %s value: %s, ignoring.", l, val);
+                                continue;
                         }
+
+                        p->stderr_fd = fd;
                 } else if ((val = startswith(l, "exec-parameters-exec-fd="))) {
                         int fd;
 
-                        if ((fd = parse_fd(val)) < 0 || !fdset_contains(fds, fd))
-                                log_debug("Failed to parse %s value: %s, ignoring.", l, val);
-                        else {
-                                r = fdset_remove(fds, fd);
-                                if (r < 0) {
-                                        log_debug_errno(r, "Failed to remove %s value=%d from fdset, ignoring: %m", l, fd);
-                                        continue;
-                                }
-
-                                /* This is special and relies on close-on-exec semantics, make sure it's
-                                 * there */
-                                r = fd_cloexec(fd, true);
-                                if (r < 0)
-                                        return r;
-
-                                p->exec_fd = fd;
+                        fd = deserialize_fd(val, fds, deserialize_fd_index);
+                        if (fd < 0) {
+                                log_debug_errno(fd, "Failed to deserialize %s value: %s, ignoring.", l, val);
+                                continue;
                         }
+
+                        /* This is special and relies on close-on-exec semantics, make sure it's
+                                * there */
+                        r = fd_cloexec(fd, true);
+                        if (r < 0)
+                                return r;
+
+                        p->exec_fd = fd;
                 } else if ((val = startswith(l, "exec-parameters-bpf-outer-map-fd="))) {
                         int fd;
 
-                        if ((fd = parse_fd(val)) < 0 || !fdset_contains(fds, fd))
-                                log_debug("Failed to parse %s value: %s, ignoring.", l, val);
-                        else {
-                                r = fdset_remove(fds, fd);
-                                if (r < 0) {
-                                        log_debug_errno(r, "Failed to remove %s value=%d from fdset, ignoring: %m", l, fd);
-                                        continue;
-                                }
-
-                                p->bpf_outer_map_fd = fd;
+                        fd = deserialize_fd(val, fds, deserialize_fd_index);
+                        if (fd < 0) {
+                                log_debug_errno(fd, "Failed to deserialize %s value: %s, ignoring.", l, val);
+                                continue;
                         }
+
+                        p->bpf_outer_map_fd = fd;
                 } else if ((val = startswith(l, "exec-parameters-notify-socket="))) {
                         r = free_and_strdup(&p->notify_socket, val);
                         if (r < 0)
@@ -1781,17 +1759,13 @@ static int exec_parameters_deserialize(ExecParameters *p, FILE *f, FDSet *fds) {
                 } else if ((val = startswith(l, "exec-parameters-user-lookup-fd="))) {
                         int fd;
 
-                        if ((fd = parse_fd(val)) < 0 || !fdset_contains(fds, fd))
-                                log_debug("Failed to parse %s value: %s, ignoring.", l, val);
-                        else {
-                                r = fdset_remove(fds, fd);
-                                if (r < 0) {
-                                        log_debug_errno(r, "Failed to remove %s value=%d from fdset, ignoring: %m", l, fd);
-                                        continue;
-                                }
-
-                                p->user_lookup_fd = fd;
+                        fd = deserialize_fd(val, fds, deserialize_fd_index);
+                        if (fd < 0) {
+                                log_debug_errno(fd, "Failed to deserialize %s value: %s, ignoring.", l, val);
+                                continue;
                         }
+
+                        p->user_lookup_fd = fd;
                 } else if ((val = startswith(l, "exec-parameters-files-env="))) {
                         r = deserialize_strv(&p->files_env, val);
                         if (r < 0)
@@ -1821,16 +1795,19 @@ static int exec_parameters_deserialize(ExecParameters *p, FILE *f, FDSet *fds) {
         return 0;
 }
 
-static int exec_context_serialize(const ExecContext *c, FILE *f, FDSet *fds) {
+static int exec_context_serialize(const ExecContext *c, FILE *f) {
         int r;
 
         assert(f);
-        assert(fds);
 
         if (!c)
                 return 0;
 
         r = serialize_strv(f, "exec-context-environment", c->environment);
+        if (r < 0)
+                return r;
+
+        r = serialize_strv(f, "exec-context-manager-environment", environ);
         if (r < 0)
                 return r;
 
@@ -2721,11 +2698,10 @@ static int exec_context_serialize(const ExecContext *c, FILE *f, FDSet *fds) {
         return 0;
 }
 
-static int exec_context_deserialize(ExecContext *c, FILE *f, FDSet *fds) {
+static int exec_context_deserialize(ExecContext *c, FILE *f) {
         int r;
 
         assert(f);
-        assert(fds);
 
         if (!c)
                 return 0;
@@ -3946,6 +3922,7 @@ static int exec_command_deserialize(ExecCommand *c, FILE *f) {
 int exec_serialize_invocation(
                 FILE *f,
                 FDSet *fds,
+                bool serialize_fd_index,
                 const ExecContext *ctx,
                 const ExecCommand *cmd,
                 const ExecParameters *p,
@@ -3957,7 +3934,7 @@ int exec_serialize_invocation(
         assert(f);
         assert(fds);
 
-        r = exec_context_serialize(ctx, f, fds);
+        r = exec_context_serialize(ctx, f);
         if (r < 0)
                 return log_debug_errno(r, "Failed to serialize context: %m");
 
@@ -3965,11 +3942,11 @@ int exec_serialize_invocation(
         if (r < 0)
                 return log_debug_errno(r, "Failed to serialize command: %m");
 
-        r = exec_parameters_serialize(p, f, fds);
+        r = exec_parameters_serialize(p, f, fds, serialize_fd_index);
         if (r < 0)
                 return log_debug_errno(r, "Failed to serialize parameters: %m");
 
-        r = exec_runtime_serialize(rt, f, fds);
+        r = exec_runtime_serialize(rt, f, fds, serialize_fd_index);
         if (r < 0)
                 return log_debug_errno(r, "Failed to serialize runtime: %m");
 
@@ -3983,6 +3960,7 @@ int exec_serialize_invocation(
 int exec_deserialize_invocation(
                 FILE *f,
                 FDSet *fds,
+                bool deserialize_fd_index,
                 ExecContext *ctx,
                 ExecCommand *cmd,
                 ExecParameters *p,
@@ -3994,7 +3972,7 @@ int exec_deserialize_invocation(
         assert(f);
         assert(fds);
 
-        r = exec_context_deserialize(ctx, f, fds);
+        r = exec_context_deserialize(ctx, f);
         if (r < 0)
                 return log_debug_errno(r, "Failed to deserialize context: %m");
 
@@ -4002,11 +3980,11 @@ int exec_deserialize_invocation(
         if (r < 0)
                 return log_debug_errno(r, "Failed to deserialize command: %m");
 
-        r = exec_parameters_deserialize(p, f, fds);
+        r = exec_parameters_deserialize(p, f, fds, deserialize_fd_index);
         if (r < 0)
                 return log_debug_errno(r, "Failed to deserialize parameters: %m");
 
-        r = exec_runtime_deserialize(rt, f, fds);
+        r = exec_runtime_deserialize(rt, f, fds, deserialize_fd_index);
         if (r < 0)
                 return log_debug_errno(r, "Failed to deserialize runtime: %m");
 
