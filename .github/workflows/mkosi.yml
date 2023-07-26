@@ -112,6 +112,20 @@ jobs:
         Format=squashfs
         EOF
 
+        # The emergency shell is not useful in the CI, as it just blocks for a long time before the job
+        # eventually times out. Override it to just shutdown immediately.
+        mkdir -p mkosi.presets/10-initrd/mkosi.extra/usr/lib/systemd/system/emergency.service.d/
+        mkdir -p mkosi.presets/20-final/mkosi.extra/usr/lib/systemd/system/emergency.service.d/
+        tee mkosi.presets/10-initrd/mkosi.extra/usr/lib/systemd/system/emergency.service.d/poweroff.conf <<- EOF
+        [Unit]
+        FailureAction=exit
+        [Service]
+        ExecStartPre=
+        ExecStart=
+        ExecStart=false
+        EOF
+        cp mkosi.presets/10-initrd/mkosi.extra/usr/lib/systemd/system/emergency.service.d/poweroff.conf mkosi.presets/20-final/mkosi.extra/usr/lib/systemd/system/emergency.service.d/poweroff.conf
+
     - name: Generate secure boot key
       run: mkosi --debug genkey
 
