@@ -456,7 +456,7 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                 } else if ((val = startswith(l, "notify-fd="))) {
                         int fd;
 
-                        fd = deserialize_fd(fds, val);
+                        fd = deserialize_fd_from_set(fds, val);
                         if (fd >= 0) {
                                 m->notify_event_source = sd_event_source_disable_unref(m->notify_event_source);
                                 safe_close(m->notify_fd);
@@ -471,7 +471,7 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                 } else if ((val = startswith(l, "cgroups-agent-fd="))) {
                         int fd;
 
-                        fd = deserialize_fd(fds, val);
+                        fd = deserialize_fd_from_set(fds, val);
                         if (fd >= 0) {
                                 m->cgroups_agent_event_source = sd_event_source_disable_unref(m->cgroups_agent_event_source);
                                 safe_close(m->cgroups_agent_fd);
@@ -491,7 +491,14 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         }
 
                 } else if ((val = startswith(l, "dynamic-user=")))
-                        dynamic_user_deserialize_one(m, val, fds, NULL);
+                        dynamic_user_deserialize_one(
+                                        m,
+                                        val,
+                                        fds,
+                                        /* fds_array= */ NULL,
+                                        /* n_fds_array= */ 0,
+                                        /* store_index= */ false,
+                                        /* ret= */ NULL);
                 else if ((val = startswith(l, "destroy-ipc-uid=")))
                         manager_deserialize_uid_refs_one(m, val);
                 else if ((val = startswith(l, "destroy-ipc-gid=")))
