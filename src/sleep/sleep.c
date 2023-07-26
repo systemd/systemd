@@ -262,15 +262,17 @@ static int execute(
                         return log_error_errno(r, "Failed to find location to hibernate to: %m");
                 resume_set = r > 0;
 
+                r = write_efi_hibernate_location(hibernate_location, !resume_set);
                 if (!resume_set) {
+                        if (r == -EOPNOTSUPP)
+                                return log_error_errno(r, "No valid 'resume=' option found, refusing to hibernate.");
+                        if (r < 0)
+                                return r;
+
                         r = write_kernel_hibernate_location(hibernate_location);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to prepare for hibernation: %m");
                 }
-
-                r = write_efi_hibernate_location(hibernate_location, !resume_set);
-                if (r < 0 && !resume_set)
-                        return r;
 
                 r = write_mode(modes);
                 if (r < 0)
