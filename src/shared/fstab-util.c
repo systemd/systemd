@@ -63,23 +63,53 @@ bool fstab_is_extrinsic(const char *mount, const char *opts) {
         return false;
 }
 
-int fstab_is_mount_point(const char *mount) {
+static int fstab_is_mount_point_of(const char *what_fstab, const char *path) {
+        _cleanup_free_ char *node = NULL;
+
+        assert(what_fstab);
+        assert(path);
+
+        node = fstab_node_to_udev_node(what_fstab);
+        if (!node)
+                return -ENOMEM;
+
+        if (path_equal(node, path))
+                return true;
+
+        if (is_device_node(path) && is_device_node(node))
+                return devnode_same(node, path);
+
+        return false;
+}
+
+int fstab_is_mount_point_full(const char *where, const char *path) {
         _cleanup_endmntent_ FILE *f = NULL;
-        struct mntent *m;
+        int r;
+
+        assert(where);
 
         f = setmntent(fstab_path(), "re");
         if (!f)
                 return errno == ENOENT ? false : -errno;
 
         for (;;) {
+                struct mntent *me;
+
                 errno = 0;
-                m = getmntent(f);
-                if (!m)
+                me = getmntent(f);
+                if (!me)
                         return errno != 0 ? -errno : false;
 
-                if (path_equal(m->mnt_dir, mount))
-                        return true;
+                if (path_equal(where, me->mnt_dir)) {
+                        if (!path)
+                                return true;
+
+                        r = fstab_is_mount_point_of(me->mnt_fsname, path);
+                        if (r > 0 || (r < 0 && !ERRNO_IS_DEVICE_ABSENT(r)))
+                                return r;
+                }
         }
+
         return false;
 }
 
