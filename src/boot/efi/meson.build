@@ -171,6 +171,7 @@ efi_c_ld_args = [
 
         '-z', 'noexecstack',
         '-z', 'norelro',
+        '-z', 'nopack-relative-relocs',
         '-T' + elf2efi_lds,
 ]
 
