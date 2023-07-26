@@ -99,7 +99,23 @@ int serialize_item_format(FILE *f, const char *key, const char *format, ...) {
         return 1;
 }
 
-int serialize_fd(FILE *f, FDSet *fds, const char *key, int fd) {
+int serialize_prepare_fd_array_or_set(int fd, FDSet *fds, int **fds_array, size_t *n_fds_array) {
+        assert(fd >= 0);
+        assert(fds || (fds_array && n_fds_array));
+
+        if (fds)
+                return fdset_put_dup(fds, fd);
+
+        *fds_array = GREEDY_REALLOC(*fds_array, *n_fds_array + 1);
+        if (!*fds_array)
+                return -ENOMEM;
+
+        (*fds_array)[*n_fds_array] = fd;
+
+        return (*n_fds_array)++;
+}
+
+int serialize_fd_array_or_set(FILE *f, FDSet *fds, int **fds_array, size_t *n_fds_array, const char *key, int fd) {
         int copy;
 
         assert(f);
@@ -108,7 +124,7 @@ int serialize_fd(FILE *f, FDSet *fds, const char *key, int fd) {
         if (fd < 0)
                 return 0;
 
-        copy = fdset_put_dup(fds, fd);
+        copy = serialize_prepare_fd_array_or_set(fd, fds, fds_array, n_fds_array);
         if (copy < 0)
                 return log_error_errno(copy, "Failed to add file descriptor to serialization set: %m");
 
@@ -322,6 +338,41 @@ int deserialize_environment(const char *value, char ***list) {
                 return log_error_errno(r, "Failed to append environment variable: %m");
 
         return 0;
+}
+
+int deserialize_fd_array_or_set(const char *value, FDSet *fds, int *fds_array, size_t n_fds_array) {
+        int fd, r;
+
+        assert(value);
+        assert(fds || fds_array);
+        assert(!(fds && fds_array));
+        assert(fds_array || n_fds_array == 0);
+
+        if (fds) {
+                fd = parse_fd(value);
+                if (fd < 0)
+                        return log_debug_errno(fd, "Failed to parse FD out of value: %s", value);
+
+                if (!fdset_contains(fds, fd))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "FD %d not in fdset.", fd);
+
+                r = fdset_remove(fds, fd);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to remove value=%d from fdset", fd);
+        } else {
+                size_t i;
+
+                r = safe_atozu(value, &i);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to parse FD index out of value: %s", value);
+
+                if (i >= n_fds_array)
+                        return log_debug_errno(SYNTHETIC_ERRNO(ERANGE), "FD index %zu not in fd array.", i);
+
+                fd = TAKE_FD(fds_array[i]);
+        }
+
+        return fd;
 }
 
 int open_serialization_fd(const char *ident) {
