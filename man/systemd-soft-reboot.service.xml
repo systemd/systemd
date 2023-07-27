@@ -96,12 +96,41 @@
       <listitem><para>The <filename>/run/</filename> file system remains mounted and populated and may be
       used to pass state information between such userspace reboot cycles.</para></listitem>
 
-      <listitem><para>Service processes may continue to run over the transition, if they are placed in
-      services that remain active until the very end of shutdown (which again is achieved via
-      <varname>DefaultDependencies=no</varname>). They must also be set up to avoid being killed by the
-      aforementioned <constant>SIGTERM</constant> spree (as per <ulink
-      url="https://systemd.io/ROOT_STORAGE_DAEMONS">systemd and Storage Daemons for the Root File
-      System</ulink>).</para></listitem>
+      <listitem><para>Service processes may continue to run over the transition, past soft-reboot and into
+      the next session, if they are placed in services that remain active until the very end of shutdown
+      (which again is achieved via <varname>DefaultDependencies=no</varname>). They must also be set up to
+      avoid being killed by the aforementioned <constant>SIGTERM</constant> and <constant>SIGKILL</constant>
+      via <varname>SurviveFinalKillSignal=yes</varname>, and also be configured to avoid being stopped on
+      isolate via <varname>IgnoreOnIsolate=yes</varname>. They also have to be configured to be stopped on
+      normal shutdown, reboot and maintenance mode. Finally, they have to be ordered after
+      <constant>basic.target</constant> to ensure correct ordeering on boot. Note that in case any new or
+      custom units are used to isolate to, or that implement an equivalent shutdown functionality, they will
+      also have to be configured manually for correct ordering and conflicting. For example:</para>
+
+      <programlisting>[Unit]
+Description=My surviving service
+SurviveFinalKillSignal=yes
+IgnoreOnIsolate=yes
+DefaultDependencies=no
+After=basic.target
+Conflicts=reboot.target
+Before=reboot.target
+Conflicts=kexec.target
+Before=kexec.target
+Conflicts=poweroff.target
+Before=poweroff.target
+Conflicts=halt.target
+Before=halt.target
+Conflicts=rescue.target
+Before=rescue.target
+Conflicts=emergency.target
+Before=emergency.target
+
+[Service]
+Type=oneshot
+ExecStart=sleep infinity
+      </programlisting>
+      </listitem>
 
       <listitem><para>File system mounts may remain mounted during the transition, and complex storage
       attached, if configured to remain until the very end of the shutdown process. (Also achieved via

@@ -11,6 +11,7 @@
 #include "alloc-util.h"
 #include "constants.h"
 #include "dirent-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "initrd-util.h"
@@ -22,10 +23,54 @@
 #include "string-util.h"
 #include "terminal-util.h"
 
-static bool ignore_proc(pid_t pid, bool warn_rootfs) {
+static bool argv_has_at(pid_t pid) {
         _cleanup_fclose_ FILE *f = NULL;
         const char *p;
         char c = 0;
+
+        p = procfs_file_alloca(pid, "cmdline");
+        f = fopen(p, "re");
+        if (!f) {
+                log_debug_errno(errno, "Failed to open %s, ignoring: %m", p);
+                return true; /* not really, but has the desired effect */
+        }
+
+        /* Try to read the first character of the command line. If the cmdline is empty (which might be the case for
+         * kernel threads but potentially also other stuff), this line won't do anything, but we don't care much, as
+         * actual kernel threads are already filtered out above. */
+        (void) fread(&c, 1, 1, f);
+
+        /* Processes with argv[0][0] = '@' we ignore from the killing spree.
+         *
+         * https://systemd.io/ROOT_STORAGE_DAEMONS */
+        return c == '@';
+}
+
+static bool is_survivor_cgroup(pid_t pid) {
+        _cleanup_free_ char *cgroup_path = NULL;
+        int r;
+
+        r = cg_pid_get_path(/* root= */ NULL, pid, &cgroup_path);
+        if (r < 0) {
+                log_warning_errno(r, "Failed to get cgroup path of process " PID_FMT ", ignoring: %m", pid);
+                return false;
+        }
+
+        r = cg_get_xattr_bool(SYSTEMD_CGROUP_CONTROLLER, cgroup_path, "user.survive_final_kill_signal");
+        /* user xattr support was added to kernel v5.7, try with the trusted namespace as a fallback */
+        if (ERRNO_IS_NEG_XATTR_ABSENT(r))
+                r = cg_get_xattr_bool(SYSTEMD_CGROUP_CONTROLLER,
+                                      cgroup_path,
+                                      "trusted.survive_final_kill_signal");
+        if (r < 0)
+                log_debug_errno(r,
+                                "Failed to get survive_final_kill_signal xattr of %s, ignoring: %m",
+                                cgroup_path);
+
+        return r > 0;
+}
+
+static bool ignore_proc(pid_t pid, bool warn_rootfs) {
         uid_t uid;
         int r;
 
@@ -38,6 +83,10 @@ static bool ignore_proc(pid_t pid, bool warn_rootfs) {
         if (r != 0)
                 return true; /* also ignore processes where we can't determine this */
 
+        /* Ignore processes that are part of a cgroup marked with the user.survive_final_kill_signal xattr */
+        if (is_survivor_cgroup(pid))
+                return true;
+
         r = get_process_uid(pid, &uid);
         if (r < 0)
                 return true; /* not really, but better safe than sorry */
@@ -46,20 +95,7 @@ static bool ignore_proc(pid_t pid, bool warn_rootfs) {
         if (uid != 0)
                 return false;
 
-        p = procfs_file_alloca(pid, "cmdline");
-        f = fopen(p, "re");
-        if (!f)
-                return true; /* not really, but has the desired effect */
-
-        /* Try to read the first character of the command line. If the cmdline is empty (which might be the case for
-         * kernel threads but potentially also other stuff), this line won't do anything, but we don't care much, as
-         * actual kernel threads are already filtered out above. */
-        (void) fread(&c, 1, 1, f);
-
-        /* Processes with argv[0][0] = '@' we ignore from the killing spree.
-         *
-         * https://systemd.io/ROOT_STORAGE_DAEMONS */
-        if (c != '@')
+        if (!argv_has_at(pid))
                 return false;
 
         if (warn_rootfs &&
