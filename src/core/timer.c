@@ -94,7 +94,13 @@ static int timer_add_default_dependencies(Timer *t) {
                 return r;
 
         if (MANAGER_IS_SYSTEM(UNIT(t)->manager)) {
-                r = unit_add_two_dependencies_by_name(UNIT(t), UNIT_AFTER, UNIT_REQUIRES, SPECIAL_SYSINIT_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
+                r = unit_add_two_dependencies_by_name(
+                                UNIT(t),
+                                UNIT_AFTER,
+                                unit_survives_soft_reboot(UNIT(t)) ? _UNIT_DEPENDENCY_INVALID : UNIT_REQUIRES,
+                                SPECIAL_SYSINIT_TARGET,
+                                /* add_reference= */ true,
+                                UNIT_DEPENDENCY_DEFAULT);
                 if (r < 0)
                         return r;
 
@@ -112,7 +118,7 @@ static int timer_add_default_dependencies(Timer *t) {
                 }
         }
 
-        return unit_add_two_dependencies_by_name(UNIT(t), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
+        return unit_add_dependencies_on_real_shutdown_targets(UNIT(t));
 }
 
 static int timer_add_trigger_dependencies(Timer *t) {
