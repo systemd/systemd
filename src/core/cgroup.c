@@ -885,6 +885,7 @@ int cgroup_log_xattr_apply(Unit *u, const char *cgroup_path) {
 
 static void cgroup_xattr_apply(Unit *u) {
         bool b;
+        int r;
 
         assert(u);
 
@@ -917,6 +918,32 @@ static void cgroup_xattr_apply(Unit *u) {
                         unit_set_xattr_graceful(u, NULL, xn, "1", 1);
                 else
                         unit_remove_xattr_graceful(u, NULL, xn);
+        }
+
+        if (u->survive_system_transition) {
+                r = cg_set_xattr(SYSTEMD_CGROUP_CONTROLLER,
+                                 u->cgroup_path,
+                                 "user.survive_system_transition",
+                                 "1",
+                                 1,
+                                 /* flags= */ 0);
+                /* user xattr support was added in kernel v5.7 */
+                if (r < 0 && ERRNO_IS_NOT_SUPPORTED(r))
+                        r = cg_set_xattr(SYSTEMD_CGROUP_CONTROLLER,
+                                        u->cgroup_path,
+                                        "trusted.survive_system_transition",
+                                        "1",
+                                        1,
+                                        /* flags= */ 0);
+                if (r < 0)
+                        log_unit_debug_errno(u,
+                                             r,
+                                             "Failed to set 'survive_system_transition' xattr on control "
+                                             "group %s, ignoring: %m",
+                                             empty_to_root(u->cgroup_path));
+        } else {
+                unit_remove_xattr_graceful(u, /* cgroup_path= */ NULL, "user.survive_system_transition");
+                unit_remove_xattr_graceful(u, /* cgroup_path= */ NULL, "trusted.survive_system_transition");
         }
 }
 
