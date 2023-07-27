@@ -54,6 +54,8 @@ KillMode=process
 {% endif %}
 IgnoreSIGPIPE=no
 SendSIGHUP=yes
+ImportCredential=agetty.*
+ImportCredential=login.*
 
 # Unset locale for the console getty since the console has problems
 # displaying some internationalized messages.
