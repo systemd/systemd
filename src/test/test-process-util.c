@@ -314,7 +314,7 @@ TEST(get_process_cmdline_harder) {
                 return;
         }
 
-        /* Set RLIMIT_STACK to infinity to test we don't try to allocate unncessarily large values to read
+        /* Set RLIMIT_STACK to infinity to test we don't try to allocate unnecessarily large values to read
          * the cmdline. */
         if (setrlimit(RLIMIT_STACK, &RLIMIT_MAKE_CONST(RLIM_INFINITY)) < 0)
                 log_warning("Testing without RLIMIT_STACK=infinity");
