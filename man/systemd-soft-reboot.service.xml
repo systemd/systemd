@@ -122,6 +122,11 @@
     url="https://systemd.io/PORTABLE_SERVICES">Portable Services</ulink>, but make sure no resource from
     the host's root filesystem is pinned via <varname>BindPaths=</varname> or similar unit settings,
     otherwise the old root filesystem will be kept in memory as long as the unit is running.</para>
+
+    <para>If units shall be left running until the very end of shutdown during a soft reboot operation, but
+    shall be terminated regularly during other forms of shutdown, they need to be nested under
+    <varname>survivors.slice</varname>. This will ensure that soft reboot operations do not affect them, but
+    other types of reboot or shutdown stop them as expected.</para>
   </refsect1>
 
   <refsect1>
