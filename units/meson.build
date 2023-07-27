@@ -195,6 +195,10 @@ units = [
         { 'file' : 'soft-reboot.target' },
         { 'file' : 'sound.target' },
         {
+          'file' : 'survivors.slice',
+          'symlinks' : ['sysinit.target.wants/'],
+        },
+        {
           'file' : 'suspend-then-hibernate.target',
           'conditions' : ['ENABLE_HIBERNATE'],
         },
