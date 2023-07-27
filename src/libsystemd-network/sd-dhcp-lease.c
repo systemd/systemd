@@ -201,6 +201,34 @@ int sd_dhcp_lease_get_netmask(sd_dhcp_lease *lease, struct in_addr *addr) {
         return 0;
 }
 
+int sd_dhcp_lease_get_prefix(sd_dhcp_lease *lease, struct in_addr *ret_prefix, uint8_t *ret_prefixlen) {
+        struct in_addr address, netmask;
+        uint8_t prefixlen;
+        int r;
+
+        assert_return(lease, -EINVAL);
+
+        r = sd_dhcp_lease_get_address(lease, &address);
+        if (r < 0)
+                return r;
+
+        r = sd_dhcp_lease_get_netmask(lease, &netmask);
+        if (r < 0)
+                return r;
+
+        prefixlen = in4_addr_netmask_to_prefixlen(&netmask);
+
+        r = in4_addr_mask(&address, prefixlen);
+        if (r < 0)
+                return r;
+
+        if (ret_prefix)
+                *ret_prefix = address;
+        if (ret_prefixlen)
+                *ret_prefixlen = prefixlen;
+        return 0;
+}
+
 int sd_dhcp_lease_get_server_identifier(sd_dhcp_lease *lease, struct in_addr *addr) {
         assert_return(lease, -EINVAL);
         assert_return(addr, -EINVAL);
