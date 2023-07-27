@@ -888,6 +888,7 @@ int cgroup_log_xattr_apply(Unit *u, const char *cgroup_path) {
 
 static void cgroup_xattr_apply(Unit *u) {
         bool b;
+        int r;
 
         assert(u);
 
@@ -920,6 +921,32 @@ static void cgroup_xattr_apply(Unit *u) {
                         unit_set_xattr_graceful(u, NULL, xn, "1", 1);
                 else
                         unit_remove_xattr_graceful(u, NULL, xn);
+        }
+
+        if (u->survive_final_kill_signal) {
+                r = cg_set_xattr(SYSTEMD_CGROUP_CONTROLLER,
+                                 u->cgroup_path,
+                                 "user.survive_final_kill_signal",
+                                 "1",
+                                 1,
+                                 /* flags= */ 0);
+                /* user xattr support was added in kernel v5.7 */
+                if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                        r = cg_set_xattr(SYSTEMD_CGROUP_CONTROLLER,
+                                        u->cgroup_path,
+                                        "trusted.survive_final_kill_signal",
+                                        "1",
+                                        1,
+                                        /* flags= */ 0);
+                if (r < 0)
+                        log_unit_debug_errno(u,
+                                             r,
+                                             "Failed to set 'survive_final_kill_signal' xattr on control "
+                                             "group %s, ignoring: %m",
+                                             empty_to_root(u->cgroup_path));
+        } else {
+                unit_remove_xattr_graceful(u, /* cgroup_path= */ NULL, "user.survive_final_kill_signal");
+                unit_remove_xattr_graceful(u, /* cgroup_path= */ NULL, "trusted.survive_final_kill_signal");
         }
 }
 
