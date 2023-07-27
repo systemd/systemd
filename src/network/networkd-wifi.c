@@ -116,8 +116,8 @@ int manager_genl_process_nl80211_config(sd_netlink *genl, sd_netlink_message *me
         }
 
         if (!streq(ifname, link->ifname)) {
-                log_link_debug_errno(link, r, "nl80211: received %s(%u) message with invalid interface name '%s', ignoring: %m",
-                                     strna(nl80211_cmd_to_string(cmd)), cmd, ifname);
+                log_link_debug(link, "nl80211: received %s(%u) message with invalid interface name '%s', ignoring: %m",
+                               strna(nl80211_cmd_to_string(cmd)), cmd, ifname);
                 return 0;
         }
 
