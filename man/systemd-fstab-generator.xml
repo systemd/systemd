@@ -242,11 +242,15 @@
 
       <varlistentry>
         <term><varname>systemd.mount-extra=<replaceable>WHAT</replaceable>:<replaceable>WHERE</replaceable>[:<replaceable>FSTYPE</replaceable>[:<replaceable>OPTIONS</replaceable>]]</varname></term>
+        <term><varname>rd.systemd.mount-extra=<replaceable>WHAT</replaceable>:<replaceable>WHERE</replaceable>[:<replaceable>FSTYPE</replaceable>[:<replaceable>OPTIONS</replaceable>]]</varname></term>
 
         <listitem>
           <para>Specifies the mount unit. Takes at least two and at most four fields separated with a colon
           (<literal>:</literal>). Each field is handled as the corresponding fstab field. This option can be
-          specified multiple times.</para>
+          specified multiple times. <varname>rd.systemd.mount-extra=</varname> is honored only in the initrd,
+          while <varname>systemd.mount-extra=</varname> is honored by both the main system and the initrd.
+          In the initrd, the mount point (and also source path if the mount is bind mount) specified in
+          <varname>systemd.mount-extra=</varname> is prefixed with <filename>/sysroot/</filename>.</para>
           <para>Example:
           <programlisting>
 systemd.mount-extra=/dev/sda1:/mount-point:ext4:rw,noatime</programlisting>
@@ -256,10 +260,13 @@ systemd.mount-extra=/dev/sda1:/mount-point:ext4:rw,noatime</programlisting>
 
       <varlistentry>
         <term><varname>systemd.swap-extra=<replaceable>WHAT</replaceable>[:<replaceable>OPTIONS</replaceable>]</varname></term>
+        <term><varname>rd.systemd.swap-extra=<replaceable>WHAT</replaceable>[:<replaceable>OPTIONS</replaceable>]</varname></term>
 
         <listitem>
           <para>Specifies the swap unit. Takes the block device to be used as a swap device, and optionally
-          takes mount options followed by a colon (<literal>:</literal>).</para>
+          takes mount options followed by a colon (<literal>:</literal>). This option can be specified
+          multiple times. <varname>rd.systemd.swap-extra=</varname> is honored only in the initrd, while
+          <varname>systemd.swap-extra=</varname> is honored by both the main system and the initrd.</para>
           <para>Example:
           <programlisting>
 systemd.swap=/dev/sda2:x-systemd.makefs</programlisting>
