@@ -5,6 +5,7 @@ typedef struct Scope Scope;
 
 #include "cgroup.h"
 #include "kill.h"
+#include "service.h"
 #include "unit.h"
 
 typedef enum ScopeResult {
