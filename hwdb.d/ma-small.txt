@@ -2840,12 +2840,6 @@ EC5000-EC5FFF     (base 16)		TATTILE SRL
 				Bione  Brescia  25070
 				IT
 
-70-B3-D5   (hex)		Lumentum
-BFD000-BFDFFF     (base 16)		Lumentum
-				460 N McCarthy Blvd
-				Milpitas  CA  95035
-				US
-
 70-B3-D5   (hex)		Ochno AB
 03A000-03AFFF     (base 16)		Ochno AB
 				c/o Westras, Kopparbergsv 6
@@ -6688,6 +6682,12 @@ B8A000-B8AFFF     (base 16)		Nexus Tech. VN
 				3 Bishan Place,
 				    579838
 				SG
+
+70-B3-D5   (hex)		Lumentum
+BFD000-BFDFFF     (base 16)		Lumentum
+				1001 Ridder Park Drive
+				San Jose  CA  95131
+				US
 
 8C-1F-64   (hex)		Jacobs Technology, Inc.
 A98000-A98FFF     (base 16)		Jacobs Technology, Inc.
@@ -13376,6 +13376,18 @@ EDD000-EDDFFF     (base 16)		Solar Network & Partners
 				Montreal  QC  H1V 2C8
 				CA
 
+8C-1F-64   (hex)		Guan Show Technologe Co., Ltd.
+451000-451FFF     (base 16)		Guan Show Technologe Co., Ltd.
+				No.127, Jianguo 1st Rd., Lingya Dist.
+				 Kaohsiung City     802
+				TW
+
+8C-1F-64   (hex)		EA Elektro-Automatik
+C6D000-C6DFFF     (base 16)		EA Elektro-Automatik
+				Helmholtzstraße 31-37
+				Viersen  Nordrhein-Westfalen  41747
+				DE
+
 8C-1F-64   (hex)		Vision Systems Safety Tech
 E6F000-E6FFFF     (base 16)		Vision Systems Safety Tech
 				5 Chemin de Chiradie
@@ -20002,6 +20014,18 @@ FD1000-FD1FFF     (base 16)		RedRat Ltd
 				ZRINYI STREET 38.
 				ZALAEGERSZEG  ZALA  8900
 				HU
+
+8C-1F-64   (hex)		DAVE SRL
+84D000-84DFFF     (base 16)		DAVE SRL
+				Via Talponedo 29a
+				Porcia  Pordenone  33080
+				IT
+
+8C-1F-64   (hex)		ASiS Technologies Pte Ltd
+BFC000-BFCFFF     (base 16)		ASiS Technologies Pte Ltd
+				71 Ubi Crescent
+				Singapore    408571
+				SG
 
 8C-1F-64   (hex)		Flow Power
 82B000-82BFFF     (base 16)		Flow Power
@@ -26672,6 +26696,12 @@ C8D000-C8DFFF     (base 16)		KST technology
 				Melbourne  Victoria  3004
 				AU
 
+8C-1F-64   (hex)		Motec USA, Inc.
+AFE000-AFEFFF     (base 16)		Motec USA, Inc.
+				235 Raceway Dr
+				Mooresville  NC  28117
+				US
+
 8C-1F-64   (hex)		Mobileye
 D63000-D63FFF     (base 16)		Mobileye
 				13 Hartom st.
@@ -33160,3 +33190,27 @@ B3D000-B3DFFF     (base 16)		Inras GmbH
 
 00-1B-C5   (hex)		Private
 00B000-00BFFF     (base 16)		Private
+
+8C-1F-64   (hex)		YUYAMA MFG Co.,Ltd
+CFB000-CFBFFF     (base 16)		YUYAMA MFG Co.,Ltd
+				1-4-30
+				MEISHINGUCHI,TOYONAKA  OSAKA  561-0841
+				JP
+
+8C-1F-64   (hex)		Unlimited Bandwidth LLC
+3D9000-3D9FFF     (base 16)		Unlimited Bandwidth LLC
+				1320 W. Northwest Highway
+				Palatine    60067
+				US
+
+8C-1F-64   (hex)		Global Design Solutions Korea
+D7B000-D7BFFF     (base 16)		Global Design Solutions Korea
+				room202, 260, Changnyong-daero, Yeongtong-gu
+				Suwon-si  Gyeonggi-do  16229
+				KR
+
+8C-1F-64   (hex)		eyrise B.V.
+028000-028FFF     (base 16)		eyrise B.V.
+				De Run 5432
+				Veldhoven  Noord Brabant  5504 DE
+				NL
