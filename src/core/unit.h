@@ -852,6 +852,8 @@ int unit_add_dependency_by_name(Unit *u, UnitDependency d, const char *name, boo
 int unit_add_two_dependencies_by_name(Unit *u, UnitDependency d, UnitDependency e, const char *name, bool add_reference, UnitDependencyMask mask);
 
 int unit_add_exec_dependencies(Unit *u, ExecContext *c);
+/* Helper for units that need to survive soft-reboot.target but not others */
+int unit_add_dependencies_on_real_shutdown_targets(Unit *u);
 
 int unit_choose_id(Unit *u, const char *name);
 int unit_set_description(Unit *u, const char *description);
@@ -1088,6 +1090,9 @@ int unit_freeze_vtable_common(Unit *u);
 int unit_thaw_vtable_common(Unit *u);
 
 Condition *unit_find_failed_condition(Unit *u);
+
+/* Whether the unit is configure to survive a soft reboot without stopping/starting. */
+bool unit_survives_soft_reboot(Unit *u);
 
 /* Macros which append UNIT= or USER_UNIT= to the message */
 

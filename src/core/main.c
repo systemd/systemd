@@ -1869,11 +1869,16 @@ static int do_reexecute(
 
         /* Kill all remaining processes from the initrd, but don't wait for them, so that we can handle the
          * SIGCHLD for them after deserializing. */
-        if (IN_SET(objective, MANAGER_SWITCH_ROOT, MANAGER_SOFT_REBOOT))
+        if (objective == MANAGER_SWITCH_ROOT)
                 broadcast_signal(SIGTERM, /* wait_for_exit= */ false, /* send_sighup= */ true, arg_default_timeout_stop_usec);
-        /* On soft reboot really make sure nothing is left */
-        if (objective == MANAGER_SOFT_REBOOT)
-                broadcast_signal(SIGKILL, /* wait_for_exit= */ false, /* send_sighup= */ false, arg_default_timeout_stop_usec);
+        else if (objective == MANAGER_SOFT_REBOOT) {
+                /* On soft reboot we want units in the survivors slice to not be interrupted,
+                 * so instead of broadcating SIGTERM to all running processes, kill all top-level cgroups
+                 * apart from our own scope and that special slice. */
+                r = cg_kill_all();
+                if (r < 0)
+                        log_error_errno(r, "Failed to kill top level cgroups, ignoring: %m");
+        }
 
         if (!switch_root_dir && objective == MANAGER_SOFT_REBOOT) {
                 /* If no switch root dir is specified, then check if /run/nextroot/ qualifies and use that */

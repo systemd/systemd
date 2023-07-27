@@ -628,7 +628,9 @@ static int transaction_apply(
                 HASHMAP_FOREACH(j, m->jobs) {
                         assert(j->installed);
 
-                        if (j->unit->ignore_on_isolate)
+                        if (j->unit->ignore_on_isolate ||
+                                        (manager_state(j->unit->manager) != MANAGER_RUNNING &&
+                                        unit_survives_soft_reboot(j->unit)))
                                 continue;
 
                         if (hashmap_contains(tr->jobs, j->unit))
@@ -1157,6 +1159,10 @@ static bool shall_stop_on_isolate(Transaction *tr, Unit *u) {
         assert(u);
 
         if (u->ignore_on_isolate)
+                return false;
+
+        /* When isolating on soft reboot, don't stop surviving units */
+        if (manager_state(u->manager) != MANAGER_RUNNING && unit_survives_soft_reboot(u))
                 return false;
 
         /* Is there already something listed for this? */
