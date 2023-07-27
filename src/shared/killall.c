@@ -11,6 +11,7 @@
 #include "alloc-util.h"
 #include "constants.h"
 #include "dirent-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "initrd-util.h"
@@ -23,6 +24,7 @@
 #include "terminal-util.h"
 
 static bool ignore_proc(pid_t pid, bool warn_rootfs) {
+        _cleanup_free_ char *cgroup_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         const char *p;
         char c = 0;
@@ -37,6 +39,20 @@ static bool ignore_proc(pid_t pid, bool warn_rootfs) {
         r = is_kernel_thread(pid);
         if (r != 0)
                 return true; /* also ignore processes where we can't determine this */
+
+        /* Ignore processes that are part of a cgroup marked with the trusted.survive xattr */
+        r = cg_pid_get_path_shifted(pid, /* root= */ NULL, &cgroup_path);
+        if (r < 0)
+                log_warning_errno(r, "Failed to get cgroup path of process " PID_FMT ", ignoring: %m", pid);
+        else {
+                r = cg_get_xattr_bool(SYSTEMD_CGROUP_CONTROLLER, cgroup_path, "trusted.survive");
+                if (r < 0 && !ERRNO_IS_XATTR_ABSENT(r))
+                        log_debug_errno(r,
+                                        "Failed to get trusted.survive xattr of cgroup %s, ignoring: %m",
+                                        cgroup_path);
+                if (r > 0)
+                        return true;
+        }
 
         r = get_process_uid(pid, &uid);
         if (r < 0)
