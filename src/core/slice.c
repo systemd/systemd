@@ -64,22 +64,14 @@ static int slice_add_parent_slice(Slice *s) {
 }
 
 static int slice_add_default_dependencies(Slice *s) {
-        int r;
-
         assert(s);
 
         if (!UNIT(s)->default_dependencies)
                 return 0;
 
-        /* Make sure slices are unloaded on shutdown */
-        r = unit_add_two_dependencies_by_name(
-                        UNIT(s),
-                        UNIT_BEFORE, UNIT_CONFLICTS,
-                        SPECIAL_SHUTDOWN_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
-        if (r < 0)
-                return r;
-
-        return 0;
+        /* Make sure slices are unloaded on shutdown, unless we are meant to survive soft reboot, in which
+         * case we need to conflict with non-soft-reboot targets. */
+        return unit_add_dependencies_on_real_shutdown_targets(UNIT(s));
 }
 
 static int slice_verify(Slice *s) {
