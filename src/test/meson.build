@@ -179,6 +179,7 @@ simple_tests += files(
         'test-web-util.c',
         'test-xattr-util.c',
         'test-xml.c',
+        'test-aux-scope.c',
 )
 
 ############################################################
