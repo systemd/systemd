@@ -2937,6 +2937,156 @@ static int method_dump_unit_descriptor_store(sd_bus_message *message, void *user
         return method_generic_unit_operation(message, userdata, error, bus_service_method_dump_file_descriptor_store, 0);
 }
 
+static int aux_scope_from_message(Manager *m, sd_bus_message *message, Unit **ret_scope, sd_bus_error *error) {
+        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
+        _cleanup_free_ pid_t *pids = NULL;
+        Unit *from, *scope;
+        CGroupContext *cc;
+        const char *name, *suffix;
+        size_t n_pids = 0;
+        pid_t pid;
+        int r;
+
+        assert(ret_scope);
+
+        r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_PID, &creds);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_creds_get_pid(creds, &pid);
+        if (r < 0)
+                return r;
+
+        from = manager_get_unit_by_pid(m, pid);
+        if (!from)
+                return sd_bus_error_set(error, BUS_ERROR_NO_SUCH_UNIT, "Client not member of any unit.");
+
+        if (from->type != UNIT_SERVICE)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                         "Starting auxiliary scope is supported only for service units, unit '%s' is not a service, refusing.", from->id);
+
+
+        if (!unit_name_is_valid(from->id, UNIT_NAME_PLAIN))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                         "Auxiliary scope can be started only for non-template service units, refusing.");
+
+        r = sd_bus_message_read(message, "s", &name);
+        if (r < 0)
+                return r;
+
+        if (!unit_name_is_valid(name, UNIT_NAME_PLAIN))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                         "Invalid name \"%s\" for auxiliary scope.", name);
+
+        suffix = strrchr(name, '.');
+        assert(suffix);
+
+        if (unit_type_from_string(suffix+1) != UNIT_SCOPE)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                         "Name \"%s\" of auxiliary scope doesn't have .scope suffix.", name);
+
+        r = sd_bus_message_enter_container(message, 'a', "h");
+        if (r < 0)
+                return r;
+
+        for (;;) {
+                _cleanup_free_ char *unit = NULL;
+                int fd;
+                pid_t q;
+
+                r = sd_bus_message_read(message, "h", &fd);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                r = pidfd_get_pid(fd, &q);
+                if (r < 0)
+                        return r;
+
+                r = cg_pid_get_unit(q, &unit);
+                if (r < 0)
+                        return r;
+
+                if (!streq(unit, from->id))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                 "PID " PID_FMT " is not running in the same service as calling process.", q);
+
+                if (!GREEDY_REALLOC(pids, n_pids+1))
+                        return -ENOMEM;
+
+                pids[n_pids++] = q;
+        }
+
+        r = sd_bus_message_exit_container(message);
+        if (r < 0)
+                return r;
+
+        r = manager_load_unit(m, name, NULL, error, &scope);
+        if (r < 0)
+                return r;
+
+        r = unit_set_slice(scope, UNIT_GET_SLICE(from));
+        if (r < 0)
+                return r;
+
+        cc = unit_get_cgroup_context(scope);
+
+        r = cgroup_context_copy(unit_get_cgroup_context(from), cc);
+        if (r < 0) {
+                log_warning_errno(r, "Failed to initialize cgroup context of the auxiliary scope, continuing with default context: %m");
+
+                cgroup_context_done(cc);
+                cgroup_context_init(cc);
+        }
+
+        r = unit_make_transient(scope);
+        if (r < 0)
+                return r;
+
+        FOREACH_ARRAY(p, pids, n_pids) {
+                r = unit_pid_attachable(scope, *p, error);
+                if (r < 0)
+                        return r;
+
+                r = unit_watch_pid(scope, *p, false);
+                if (r < 0 && r != -EEXIST)
+                        return r;
+        }
+
+        /* Now load the missing bits of the unit we just created */
+        unit_add_to_load_queue(scope);
+        manager_dispatch_load_queue(m);
+
+        *ret_scope = TAKE_PTR(scope);
+
+        return 1;
+}
+
+static int method_start_aux_scope(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Manager *m = ASSERT_PTR(userdata);
+        Unit *u = NULL; /* avoid false maybe-uninitialized warning */
+        int r;
+
+        assert(message);
+
+        r = mac_selinux_access_check(message, "start", error);
+        if (r < 0)
+                return r;
+
+        r = bus_verify_manage_units_async(m, message, error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
+
+        r = aux_scope_from_message(m, message, &u, error);
+        if (r < 0)
+                return r;
+
+        return bus_unit_queue_job(message, u, JOB_START, JOB_REPLACE, 0, error);
+}
+
 const sd_bus_vtable bus_manager_vtable[] = {
         SD_BUS_VTABLE_START(0),
 
@@ -3495,7 +3645,11 @@ const sd_bus_vtable bus_manager_vtable[] = {
                                 SD_BUS_RESULT("a(suuutuusu)", entries),
                                 method_dump_unit_descriptor_store,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
-
+        SD_BUS_METHOD_WITH_ARGS("StartAuxiliaryScope",
+                                SD_BUS_ARGS("s", name, "ah", pidfds),
+                                SD_BUS_RESULT("o", job),
+                                method_start_aux_scope,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_SIGNAL_WITH_ARGS("UnitNew",
                                 SD_BUS_ARGS("s", id, "o", unit),
                                 0),
