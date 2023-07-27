@@ -1129,7 +1129,7 @@
         nor failed, or a job is queued for the service, or the service is expected to be restarted. If
         <constant>yes</constant> the file descriptor store is kept around until the unit is removed from
         memory (i.e. is not referenced anymore and inactive). The latter is useful to keep entries in the
-        file descriptor store pinned until the service manage exits.</para>
+        file descriptor store pinned until the service manager exits.</para>
 
         <para>Use <command>systemctl clean --what=fdstore …</command> to release the file descriptor store
         explicitly.</para></listitem>
