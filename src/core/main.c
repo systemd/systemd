@@ -1868,13 +1868,14 @@ static int do_reexecute(
         if (saved_rlimit_memlock->rlim_cur != RLIM_INFINITY)
                 (void) setrlimit(RLIMIT_MEMLOCK, saved_rlimit_memlock);
 
-        /* Kill all remaining processes from the initrd, but don't wait for them, so that we can handle the
-         * SIGCHLD for them after deserializing. */
-        if (IN_SET(objective, MANAGER_SWITCH_ROOT, MANAGER_SOFT_REBOOT))
-                broadcast_signal(SIGTERM, /* wait_for_exit= */ false, /* send_sighup= */ true, arg_default_timeout_stop_usec);
-        /* On soft reboot really make sure nothing is left */
-        if (objective == MANAGER_SOFT_REBOOT)
-                broadcast_signal(SIGKILL, /* wait_for_exit= */ false, /* send_sighup= */ false, arg_default_timeout_stop_usec);
+        /* Kill all remaining processes from the initrd or the previous root, but don't wait for them, so
+         * that we can handle the SIGCHLD for them after deserializing. Note that this will skip cgroups
+         * of units that were configured with Survive=yes. */
+        if (IN_SET(objective, MANAGER_SWITCH_ROOT, MANAGER_SOFT_REBOOT)) {
+                r = cg_kill_all();
+                if (r < 0)
+                        log_error_errno(r, "Failed to kill cgroups, ignoring: %m");
+        }
 
         if (!switch_root_dir && objective == MANAGER_SOFT_REBOOT) {
                 /* If no switch root dir is specified, then check if /run/nextroot/ qualifies and use that */

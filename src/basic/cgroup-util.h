@@ -188,6 +188,7 @@ typedef enum CGroupFlags {
         CGROUP_SIGCONT     = 1 << 0,
         CGROUP_IGNORE_SELF = 1 << 1,
         CGROUP_REMOVE      = 1 << 2,
+        CGROUP_SOFT_REBOOT = 1 << 3,
 } CGroupFlags;
 
 typedef int (*cg_kill_log_func_t)(pid_t pid, int sig, void *userdata);
@@ -195,6 +196,8 @@ typedef int (*cg_kill_log_func_t)(pid_t pid, int sig, void *userdata);
 int cg_kill(const char *controller, const char *path, int sig, CGroupFlags flags, Set *s, cg_kill_log_func_t kill_log, void *userdata);
 int cg_kill_kernel_sigkill(const char *controller, const char *path);
 int cg_kill_recursive(const char *controller, const char *path, int sig, CGroupFlags flags, Set *s, cg_kill_log_func_t kill_log, void *userdata);
+/* Send SIGTERM + SIGKILL to all cgroups apart from init.scope and Survive=yes */
+int cg_kill_all(void);
 
 int cg_split_spec(const char *spec, char **ret_controller, char **ret_path);
 int cg_mangle_path(const char *path, char **result);

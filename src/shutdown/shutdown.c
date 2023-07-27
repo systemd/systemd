@@ -423,11 +423,13 @@ int main(int argc, char *argv[]) {
         disable_coredumps();
         disable_binfmt();
 
-        log_info("Sending SIGTERM to remaining processes...");
-        broadcast_signal(SIGTERM, true, true, arg_timeout);
-
-        log_info("Sending SIGKILL to remaining processes...");
-        broadcast_signal(SIGKILL, true, false, arg_timeout);
+        /* Kill all remaining processes from the initrd or the previous root, but don't wait for them, so
+         * that we can handle the SIGCHLD for them after deserializing. Note that this will skip cgroups
+         * of units that were configured with Survive=yes. */
+        log_info("Sending SIGTERM/SIGKILL to remaining processes...");
+        r = cg_kill_all();
+        if (r < 0)
+                log_error_errno(r, "Failed to kill cgroups, ignoring: %m");
 
         bool need_umount = !in_container, need_swapoff = !in_container, need_loop_detach = !in_container,
              need_dm_detach = !in_container, need_md_detach = !in_container, can_initrd, last_try = false;
