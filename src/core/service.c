@@ -722,11 +722,17 @@ static int service_add_default_dependencies(Service *s) {
          * majority of services. */
 
         if (MANAGER_IS_SYSTEM(UNIT(s)->manager)) {
-                /* First, pull in the really early boot stuff, and
-                 * require it, so that we fail if we can't acquire
-                 * it. */
+                /* First, pull in the really early boot stuff, and require it, so that we fail if we can't
+                 * acquire it. But only add ordering if this is meant to survive a soft reboot, otherwise
+                 * it will be pulled down. */
 
-                r = unit_add_two_dependencies_by_name(UNIT(s), UNIT_AFTER, UNIT_REQUIRES, SPECIAL_SYSINIT_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
+                r = unit_add_two_dependencies_by_name(
+                                UNIT(s),
+                                UNIT_AFTER,
+                                UNIT(s)->survive_system_transition ? _UNIT_DEPENDENCY_INVALID : UNIT_REQUIRES,
+                                SPECIAL_SYSINIT_TARGET,
+                                /* add_reference= */ true,
+                                UNIT_DEPENDENCY_DEFAULT);
                 if (r < 0)
                         return r;
         } else {
@@ -746,8 +752,9 @@ static int service_add_default_dependencies(Service *s) {
         if (r < 0)
                 return r;
 
-        /* Third, add us in for normal shutdown. */
-        return unit_add_two_dependencies_by_name(UNIT(s), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
+        /* Third, add us in for normal shutdown, unless we are meant to survive soft reboot, in which case
+         * we need to conflict with non-soft-reboot targets. */
+        return unit_add_dependencies_on_real_shutdown_targets(UNIT(s));
 }
 
 static void service_fix_stdio(Service *s) {

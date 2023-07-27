@@ -610,6 +610,20 @@ rescan:
         }
 }
 
+static bool ignore_on_isolate(Unit *u) {
+        assert(u);
+
+        if (u->ignore_on_isolate)
+                return true;
+
+        if (!u->survive_system_transition)
+                return false;
+
+        /* The SurviveSystemTransition= setting only applies to transitions, i.e.: only when the manager
+         * is starting/stopping on boot/shutdown. */
+        return IN_SET(manager_state(u->manager), MANAGER_INITIALIZING, MANAGER_STARTING, MANAGER_STOPPING);
+}
+
 static int transaction_apply(
                 Transaction *tr,
                 Manager *m,
@@ -628,7 +642,7 @@ static int transaction_apply(
                 HASHMAP_FOREACH(j, m->jobs) {
                         assert(j->installed);
 
-                        if (j->unit->ignore_on_isolate)
+                        if (ignore_on_isolate(j->unit))
                                 continue;
 
                         if (hashmap_contains(tr->jobs, j->unit))
@@ -1156,7 +1170,7 @@ static bool shall_stop_on_isolate(Transaction *tr, Unit *u) {
         assert(tr);
         assert(u);
 
-        if (u->ignore_on_isolate)
+        if (ignore_on_isolate(u))
                 return false;
 
         /* Is there already something listed for this? */
