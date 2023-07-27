@@ -47,6 +47,8 @@ KillMode=process
 {% endif %}
 IgnoreSIGPIPE=no
 SendSIGHUP=yes
+ImportCredential=agetty.*
+ImportCredential=login.*
 
 [Install]
 WantedBy=getty.target
