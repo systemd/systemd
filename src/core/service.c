@@ -1721,7 +1721,6 @@ static int service_spawn_internal(
                 if (asprintf(our_env + n_env++, "SERVICE_RESTART=1") < 0)
                         return -ENOMEM;
 
-
         if (s->socket_fd >= 0) {
                 union sockaddr_union sa;
                 socklen_t salen = sizeof(sa);
