@@ -682,6 +682,10 @@ CHANGES WITH 254 in spe:
           contain a list of TTY devices – one per line – to instantiate
           container-getty@.service and serial-getty@.service on.
 
+        * The getty/serial-getty/container-getty units now import the 'agetty.*'
+          and 'login.*' credentials, which are consumed by the 'login' and
+          'agetty' programs starting from util-linux v2.40.
+
         * systemd-sysupdate's sysupdate.d/ drop-ins gained a new setting
           PathRelativeTo=, which can be set to "esp", "xbootldr", "boot", in
           which case the Path= setting is taken relative to the ESP or XBOOTLDR
