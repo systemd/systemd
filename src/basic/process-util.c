@@ -5,6 +5,7 @@
 #include <limits.h>
 #include <linux/oom.h>
 #include <pthread.h>
+#include <spawn.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -1723,6 +1724,36 @@ int make_reaper_process(bool b) {
          * to avoid any ambiguities */
         if (prctl(PR_SET_CHILD_SUBREAPER, (unsigned long) b, 0UL, 0UL, 0UL) < 0)
                 return -errno;
+
+        return 0;
+}
+
+int posix_spawn_wrapper(const char *path, char *const *argv, char *const *envp, pid_t *ret_pid) {
+        _cleanup_(posix_spawnattr_destroy) posix_spawnattr_t attr;
+        sigset_t mask;
+        pid_t pid;
+        int r;
+
+        assert(path);
+        assert(argv);
+        assert(ret_pid);
+
+        assert_se(sigemptyset(&mask) >= 0);
+        assert_se(sigaddset(&mask, SIGCHLD) >= 0);
+
+        assert_se(posix_spawnattr_init(&attr) == 0);
+        r = posix_spawnattr_setflags(&attr, POSIX_SPAWN_SETSIGMASK);
+        if (r != 0)
+                return -r; /* These functions return a positive errno on failure */
+        r = posix_spawnattr_setsigmask(&attr, &mask);
+        if (r != 0)
+                return -r;
+
+        r = posix_spawn(&pid, path, NULL, &attr, argv, envp);
+        if (r != 0)
+                return -r;
+
+        *ret_pid = pid;
 
         return 0;
 }
