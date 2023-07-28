@@ -1386,14 +1386,15 @@ int socket_load_service_unit(Socket *s, int cfd, Unit **ret) {
 
         if (cfd >= 0) {
                 r = instance_from_socket(cfd, s->n_accepted, &instance);
-                if (ERRNO_IS_DISCONNECT(r))
-                        /* ENOTCONN is legitimate if TCP RST was received. Other socket families might return
-                         * different errors. This connection is over, but the socket unit lives on. */
-                        return log_unit_debug_errno(UNIT(s), r,
-                                                    "Got %s on incoming socket, assuming aborted connection attempt, ignoring.",
-                                                    errno_to_name(r));
-                if (r < 0)
+                if (r < 0) {
+                        if (ERRNO_IS_DISCONNECT(r))
+                                /* ENOTCONN is legitimate if TCP RST was received. Other socket families might return
+                                 * different errors. This connection is over, but the socket unit lives on. */
+                                return log_unit_debug_errno(UNIT(s), r,
+                                                            "Got %s on incoming socket, assuming aborted connection attempt, ignoring.",
+                                                            errno_to_name(r));
                         return r;
+                }
         }
 
         /* For accepting sockets, we don't know how the instance will be called until we get a connection and
@@ -2377,10 +2378,11 @@ static void socket_enter_running(Socket *s, int cfd_in) {
                 }
 
                 r = socket_load_service_unit(s, cfd, &service);
-                if (ERRNO_IS_DISCONNECT(r))
-                        return;
-                if (r < 0)
+                if (r < 0) {
+                        if (ERRNO_IS_DISCONNECT(r))
+                                return;
                         goto fail;
+                }
 
                 r = unit_add_two_dependencies(UNIT(s), UNIT_BEFORE, UNIT_TRIGGERS, service,
                                               false, UNIT_DEPENDENCY_IMPLICIT);
@@ -2390,10 +2392,11 @@ static void socket_enter_running(Socket *s, int cfd_in) {
                 s->n_accepted++;
 
                 r = service_set_socket_fd(SERVICE(service), cfd, s, p, s->selinux_context_from_net);
-                if (ERRNO_IS_DISCONNECT(r))
-                        return;
-                if (r < 0)
+                if (r < 0) {
+                        if (ERRNO_IS_DISCONNECT(r))
+                                return;
                         goto fail;
+                }
 
                 TAKE_FD(cfd); /* We passed ownership of the fd to the service now. Forget it here. */
                 s->n_connections++;
