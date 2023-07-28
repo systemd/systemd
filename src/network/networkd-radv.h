@@ -52,11 +52,22 @@ typedef struct RoutePrefix {
         usec_t lifetime;
 } RoutePrefix;
 
+typedef struct pref64Prefix {
+        Network *network;
+        ConfigSection *section;
+
+        struct in6_addr prefix;
+        uint8_t prefixlen;
+        usec_t lifetime;
+} pref64Prefix;
+
 Prefix *prefix_free(Prefix *prefix);
 RoutePrefix *route_prefix_free(RoutePrefix *prefix);
+pref64Prefix *pref64_prefix_free(pref64Prefix *prefix);
 
 void network_drop_invalid_prefixes(Network *network);
 void network_drop_invalid_route_prefixes(Network *network);
+void network_drop_invalid_pref64_prefixes(Network *network);
 void network_adjust_radv(Network *network);
 
 int link_request_radv_addresses(Link *link);
@@ -85,3 +96,5 @@ CONFIG_PARSER_PROTOTYPE(config_parse_radv_dns);
 CONFIG_PARSER_PROTOTYPE(config_parse_radv_search_domains);
 CONFIG_PARSER_PROTOTYPE(config_parse_route_prefix);
 CONFIG_PARSER_PROTOTYPE(config_parse_route_prefix_lifetime);
+CONFIG_PARSER_PROTOTYPE(config_parse_pref64_prefix);
+CONFIG_PARSER_PROTOTYPE(config_parse_pref64_prefix_lifetime);
