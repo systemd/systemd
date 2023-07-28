@@ -1672,11 +1672,6 @@ static int partition_read_definition(Partition *p, const char *path, const char 
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
                                   "Type= not defined, refusing.");
 
-        if ((p->copy_blocks_path || p->copy_blocks_auto) &&
-            (p->format || !strv_isempty(p->copy_files) || !strv_isempty(p->make_directories)))
-                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                  "Format=/CopyFiles=/MakeDirectories= and CopyBlocks= cannot be combined, refusing.");
-
         if ((!strv_isempty(p->copy_files) || !strv_isempty(p->make_directories)) && streq_ptr(p->format, "swap"))
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
                                   "Format=swap and CopyFiles= cannot be combined, refusing.");
@@ -5387,19 +5382,6 @@ static int resolve_copy_blocks_auto(
         dev_t devno, found = 0;
         int r;
 
-        /* Enforce some security restrictions: CopyBlocks=auto should not be an avenue to get outside of the
-         * --root=/--image= confinement. Specifically, refuse CopyBlocks= in combination with --root= at all,
-         * and restrict block device references in the --image= case to loopback block device we set up.
-         *
-         * restrict_devno contain the dev_t of the loop back device we operate on in case of --image=, and
-         * thus declares which device (and its partition subdevices) we shall limit access to. If
-         * restrict_devno is zero no device probing access shall be allowed at all (used for --root=) and if
-         * it is (dev_t) -1 then free access shall be allowed (if neither switch is used). */
-
-        if (restrict_devno == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EPERM),
-                                       "Automatic discovery of backing block devices not permitted in --root= mode, refusing.");
-
         /* Handles CopyBlocks=auto, and finds the right source partition to copy from. We look for matching
          * partitions in the host, using the appropriate directory as key and ensuring that the partition
          * type matches. */
@@ -5492,17 +5474,13 @@ static int resolve_copy_blocks_auto(
                         found = devno;
         }
 
-        if (found == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(ENXIO),
-                                       "Unable to automatically discover suitable partition to copy blocks from.");
-
         if (ret_devno)
                 *ret_devno = found;
 
         if (ret_uuid)
                 *ret_uuid = found_uuid;
 
-        return 0;
+        return found != 0;
 }
 
 static int context_open_copy_block_paths(
@@ -5544,9 +5522,35 @@ static int context_open_copy_block_paths(
                 } else if (p->copy_blocks_auto) {
                         dev_t devno = 0;  /* Fake initialization to appease gcc. */
 
+                        /* Enforce some security restrictions: CopyBlocks=auto should not be an avenue to get
+                         * outside of the --root=/--image= confinement. Specifically, refuse CopyBlocks= in
+                         * combination with --root= at all, and restrict block device references in the
+                         * --image= case to loopback block device we set up.
+                         *
+                         * restrict_devno contain the dev_t of the loop back device we operate on in case of
+                         * --image=, and thus declares which device (and its partition subdevices) we shall
+                         * limit access to. If restrict_devno is zero no device probing access shall be
+                         * allowed at all (used for --root=) and if it is (dev_t) -1 then free access shall
+                         * be allowed (if neither switch is used). */
+
+                        if (restrict_devno == 0) {
+                                if (!p->format && strv_isempty(p->copy_files) && strv_isempty(p->make_directories))
+                                        return log_error_errno(SYNTHETIC_ERRNO(EPERM),
+                                                               "Automatic discovery of backing block devices not permitted in --root= mode, refusing.");
+
+                                continue;
+                        }
+
                         r = resolve_copy_blocks_auto(p->type, p->copy_blocks_root, restrict_devno, &devno, &uuid);
                         if (r < 0)
                                 return r;
+                        if (r == 0) {
+                                if (!p->format && strv_isempty(p->copy_files) && strv_isempty(p->make_directories))
+                                        return log_error_errno(SYNTHETIC_ERRNO(ENXIO),
+                                                               "Unable to automatically discover suitable partition to copy blocks from.");
+
+                                continue;
+                        }
                         assert(devno != 0);
 
                         source_fd = r = device_open_from_devnum(S_IFBLK, devno, O_RDONLY|O_CLOEXEC|O_NONBLOCK, &opened);
@@ -5684,6 +5688,9 @@ static int context_minimize(Context *context) {
                 if (!p->format)
                         continue;
 
+                if (p->copy_blocks_fd >= 0)
+                        continue;
+
                 if (p->minimize == MINIMIZE_OFF)
                         continue;
 
@@ -5760,13 +5767,13 @@ static int context_minimize(Context *context) {
                 if (fstype_is_ro(p->format)) {
                         struct stat st;
 
-                        if (fd < 0) {
-                                fd = open(temp, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
-                                if (fd < 0)
-                                        return log_error_errno(errno, "Failed to open temporary file %s: %m", temp);
-                        }
+                        assert(fd < 0);
 
-                        if (stat(temp, &st) < 0)
+                        fd = open(temp, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
+                        if (fd < 0)
+                                return log_error_errno(errno, "Failed to open temporary file %s: %m", temp);
+
+                        if (fstat(fd, &st) < 0)
                                 return log_error_errno(errno, "Failed to stat temporary file: %m");
 
                         log_info("Minimal partition size of %s filesystem of partition %s is %s",
@@ -5837,6 +5844,8 @@ static int context_minimize(Context *context) {
                         if (r < 0)
                                 return r;
                 }
+
+                assert(fd >= 0);
 
                 p->copy_blocks_path = TAKE_PTR(temp);
                 p->copy_blocks_path_is_our_file = true;
