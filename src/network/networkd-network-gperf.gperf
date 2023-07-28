@@ -389,6 +389,8 @@ IPv6Prefix.RouteMetric,                      config_parse_prefix_metric,        
 IPv6Prefix.Token,                            config_parse_prefix_token,                                0,                             0
 IPv6RoutePrefix.Route,                       config_parse_route_prefix,                                0,                             0
 IPv6RoutePrefix.LifetimeSec,                 config_parse_route_prefix_lifetime,                       0,                             0
+IPv6PREF64Prefix.Prefix,                     config_parse_pref64_prefix,                               0,                             0
+IPv6PREF64Prefix.LifetimeSec,                config_parse_pref64_prefix_lifetime,                      0,                             0
 LLDP.MUDURL,                                 config_parse_mud_url,                                     0,                             offsetof(Network, lldp_mudurl)
 CAN.BitRate,                                 config_parse_can_bitrate,                                 0,                             offsetof(Network, can_bitrate)
 CAN.SamplePoint,                             config_parse_permille,                                    0,                             offsetof(Network, can_sample_point)
