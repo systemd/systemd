@@ -50,6 +50,7 @@ struct Route {
         uint32_t initcwnd;
         uint32_t initrwnd;
         uint32_t advmss;
+        uint32_t hop_limit;
         char *tcp_congestion_control_algo;
         unsigned char pref;
         unsigned flags;
