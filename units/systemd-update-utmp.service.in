@@ -22,5 +22,5 @@ RequiresMountsFor=/var/log/wtmp
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart={{ROOTLIBEXECDIR}}/systemd-update-utmp reboot
-ExecStop={{ROOTLIBEXECDIR}}/systemd-update-utmp shutdown
+ExecStart={{LIBEXECDIR}}/systemd-update-utmp reboot
+ExecStop={{LIBEXECDIR}}/systemd-update-utmp shutdown

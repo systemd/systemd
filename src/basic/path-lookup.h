@@ -10,7 +10,7 @@
 typedef enum LookupPathsFlags {
         LOOKUP_PATHS_EXCLUDE_GENERATED   = 1 << 0,
         LOOKUP_PATHS_TEMPORARY_GENERATED = 1 << 1,
-        LOOKUP_PATHS_SPLIT_USR           = 1 << 2,
+        LOOKUP_PATHS_SPLIT_USR           = 1 << 2, /* Legacy, use ONLY for image payloads which might be old */
 } LookupPathsFlags;
 
 typedef struct LookupPaths {
