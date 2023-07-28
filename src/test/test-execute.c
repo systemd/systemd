@@ -40,6 +40,7 @@
 
 static char *user_runtime_unit_dir = NULL;
 static bool can_unshare;
+static unsigned n_ran_tests = 0;
 
 STATIC_DESTRUCTOR_REGISTER(user_runtime_unit_dir, freep);
 
@@ -229,6 +230,8 @@ static void _test(const char *file, unsigned line, const char *func,
         start_parent_slices(unit);
         assert_se(unit_start(unit, NULL) >= 0);
         check_main_result(file, line, func, m, unit, status_expected, code_expected);
+
+        ++n_ran_tests;
 }
 #define test(m, unit_name, status_expected, code_expected) \
         _test(PROJECT_FILE, __LINE__, __func__, m, unit_name, status_expected, code_expected)
@@ -1267,6 +1270,7 @@ static void run_tests(RuntimeScope scope, char **patterns) {
 
         /* Measure and print the time that it takes to run tests, excluding startup of the manager object,
          * to try and measure latency of spawning services */
+        n_ran_tests = 0;
         start = now(CLOCK_MONOTONIC);
 
         for (const test_entry *test = tests; test->f; test++)
@@ -1277,7 +1281,8 @@ static void run_tests(RuntimeScope scope, char **patterns) {
 
         finish = now(CLOCK_MONOTONIC);
 
-        log_info("%s manager + unshare=%s test runtime: %s",
+        log_info("ran %u tests with %s manager + unshare=%s in: %s",
+                 n_ran_tests,
                  scope == RUNTIME_SCOPE_SYSTEM ? "system" : "user",
                  yes_no(can_unshare),
                  FORMAT_TIMESPAN(finish - start, USEC_PER_MSEC));
