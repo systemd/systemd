@@ -3184,6 +3184,32 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
     </refsect1>
 
     <refsect1>
+    <title>[IPv6PREFPrefix] Section Options</title>
+    <para>One or more [IPv6PREFPrefix] sections contain the IPv6 PREF (or NAT64) prefixes that are announced via Router
+    Advertisements. See <ulink url="https://tools.ietf.org/html/rfc8781">RFC 8781</ulink> for further
+    details.</para>
+
+    <variablelist class='network-directives'>
+
+      <varlistentry>
+        <term><varname>Prefix=</varname></term>
+
+        <listitem><para>The IPv6 PREF64 (or NAT64) prefix that is to be distributed to hosts. Similarly to configuring static
+        IPv6 addresses, the setting is configured as an IPv6 prefix and its prefix length, separated by a
+        <literal>/</literal> character. Use multiple [IPv6PREFPrefix] sections to configure multiple IPv6
+        prefixes since prefix lifetimes, address autoconfiguration and onlink status may differ from one
+        prefix to another.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ValidLifetimeSec=</varname></term>
+        <listitem><para>Valid lifetimes for the prefix measured in seconds.
+        <varname>ValidLifetimeSec=</varname> defaults to 3600 seconds (one hour).</para></listitem>
+      </varlistentry>
+    </variablelist>
+    </refsect1>
+
+    <refsect1>
     <title>[Bridge] Section Options</title>
       <para>The [Bridge] section accepts the following keys:</para>
       <variablelist class='network-directives'>
