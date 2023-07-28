@@ -287,7 +287,7 @@ void cgroup_context_done(CGroupContext *c) {
         while (c->bpf_foreign_programs)
                 cgroup_context_remove_bpf_foreign_program(c, c->bpf_foreign_programs);
 
-        c->restrict_network_interfaces = set_free(c->restrict_network_interfaces);
+        c->restrict_network_interfaces = set_free_free(c->restrict_network_interfaces);
 
         cpu_set_reset(&c->cpuset_cpus);
         cpu_set_reset(&c->startup_cpuset_cpus);
