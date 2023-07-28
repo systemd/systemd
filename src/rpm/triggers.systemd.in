@@ -13,20 +13,10 @@
 -- upgraded. We care about the case where a package is initially
 -- installed, because other cases are covered by the *un scriptlets,
 -- so sometimes we will reload needlessly.
-pid = posix.fork()
-if pid == 0 then
-    assert(posix.exec("{{SYSTEMD_UPDATE_HELPER_PATH}}", "system-reload-restart"))
-elseif pid > 0 then
-    posix.wait(pid)
-end
+assert(rpm.execute("{{SYSTEMD_UPDATE_HELPER_PATH}}", "system-reload-restart"))
 
 %transfiletriggerin -P 900899 -p <lua> -- {{USER_DATA_UNIT_DIR}} /etc/systemd/user
-pid = posix.fork()
-if pid == 0 then
-    assert(posix.exec("{{SYSTEMD_UPDATE_HELPER_PATH}}", "user-reload-restart"))
-elseif pid > 0 then
-    posix.wait(pid)
-end
+assert(rpm.execute("{{SYSTEMD_UPDATE_HELPER_PATH}}", "user-reload-restart"))
 
 %transfiletriggerpostun -P 1000100 -p <lua> -- {{SYSTEM_DATA_UNIT_DIR}} /etc/systemd/system
 -- On removal, we need to run daemon-reload after any units have been
@@ -34,39 +24,19 @@ end
 -- On upgrade, we need to run daemon-reload after any new unit files
 -- have been installed, but before %postun scripts in packages get
 -- executed.
-pid = posix.fork()
-if pid == 0 then
-    assert(posix.exec("{{SYSTEMD_UPDATE_HELPER_PATH}}", "system-reload"))
-elseif pid > 0 then
-    posix.wait(pid)
-end
+assert(rpm.execute("{{SYSTEMD_UPDATE_HELPER_PATH}}", "system-reload"))
 
 %transfiletriggerpostun -P 1000100 -p <lua> -- {{SYSTEM_DATA_UNIT_DIR}} /etc/systemd/system
 -- Execute daemon-reload in user managers.
-pid = posix.fork()
-if pid == 0 then
-    assert(posix.exec("{{SYSTEMD_UPDATE_HELPER_PATH}}", "user-reload"))
-elseif pid > 0 then
-    posix.wait(pid)
-end
+assert(rpm.execute("{{SYSTEMD_UPDATE_HELPER_PATH}}", "user-reload"))
 
 %transfiletriggerpostun -P 10000 -p <lua> -- {{SYSTEM_DATA_UNIT_DIR}} /etc/systemd/system
 -- We restart remaining system services that should be restarted here.
-pid = posix.fork()
-if pid == 0 then
-    assert(posix.exec("{{SYSTEMD_UPDATE_HELPER_PATH}}", "system-restart"))
-elseif pid > 0 then
-    posix.wait(pid)
-end
+assert(rpm.execute("{{SYSTEMD_UPDATE_HELPER_PATH}}", "system-restart"))
 
 %transfiletriggerpostun -P 9999 -p <lua> -- {{USER_DATA_UNIT_DIR}} /etc/systemd/user
 -- We restart remaining user services that should be restarted here.
-pid = posix.fork()
-if pid == 0 then
-    assert(posix.exec("{{SYSTEMD_UPDATE_HELPER_PATH}}", "user-restart"))
-elseif pid > 0 then
-    posix.wait(pid)
-end
+assert(rpm.execute("{{SYSTEMD_UPDATE_HELPER_PATH}}", "user-restart"))
 
 %transfiletriggerin -P 1000700 -p <lua> -- {{SYSUSERS_DIR}}
 -- This script will process files installed in {{SYSUSERS_DIR}} to create
@@ -88,12 +58,7 @@ assert(rpm.execute("journalctl", "--update-catalog"))
 -- This script will automatically apply binfmt rules if files have been
 -- installed or updated in {{BINFMT_DIR}}.
 if posix.access("/run/systemd/system") then
-    pid = posix.fork()
-    if pid == 0 then
-        assert(posix.exec("{{LIBEXECDIR}}/systemd-binfmt"))
-    elseif pid > 0 then
-        posix.wait(pid)
-    end
+    assert(rpm.execute("{{LIBEXECDIR}}/systemd-binfmt"))
 end
 
 %transfiletriggerin -P 1000600 -p <lua> -- {{TMPFILES_DIR}}
@@ -113,10 +78,5 @@ end
 -- This script will automatically apply sysctl rules if files have been
 -- installed or updated in {{SYSCTL_DIR}}.
 if posix.access("/run/systemd/system") then
-    pid = posix.fork()
-    if pid == 0 then
-        assert(posix.exec("{{LIBEXECDIR}}/systemd-sysctl"))
-    elseif pid > 0 then
-        posix.wait(pid)
-    end
+    assert(rpm.execute("{{LIBEXECDIR}}/systemd-sysctl"))
 end
