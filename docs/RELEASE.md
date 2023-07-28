@@ -24,3 +24,4 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 15. Check that announcement to systemd-devel, with a copy&paste from NEWS, was sent. This should happen automatically.
 16. Update IRC topic (`/msg chanserv TOPIC #systemd Version NNN released`)
 17. [FINAL] Push commits to stable, create an empty -stable branch: `git push systemd-stable --atomic origin/main:main origin/main:refs/heads/${version}-stable`, and change the default branch to latest release (https://github.com/systemd/systemd-stable/settings/branches).
+18. [FINAL] Change the Github Pages branch in the stable repository to the newly created branch (https://github.com/systemd/systemd-stable/settings/pages) and set the 'Custom domain' to 'systemd.io'
