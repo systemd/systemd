@@ -2643,8 +2643,7 @@ int config_parse_tcp_window(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(route_free_or_set_invalidp) Route *n = NULL;
-        Network *network = userdata;
+        uint32_t *window = ASSERT_PTR(data);
         uint32_t k;
         int r;
 
@@ -2653,15 +2652,6 @@ int config_parse_tcp_window(
         assert(lvalue);
         assert(rvalue);
         assert(data);
-
-        r = route_new_static(network, filename, section_line, &n);
-        if (r == -ENOMEM)
-                return log_oom();
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to allocate route, ignoring assignment: %m");
-                return 0;
-        }
 
         r = safe_atou32(rvalue, &k);
         if (r < 0) {
@@ -2680,12 +2670,52 @@ int config_parse_tcp_window(
                 return 0;
         }
 
+        *window = k;
+        return 0;
+}
+
+int config_parse_route_tcp_window(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_(route_free_or_set_invalidp) Route *n = NULL;
+        Network *network = userdata;
+        uint32_t *d;
+        int r;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = route_new_static(network, filename, section_line, &n);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to allocate route, ignoring assignment: %m");
+                return 0;
+        }
+
         if (streq(lvalue, "InitialCongestionWindow"))
-                n->initcwnd = k;
+                d = &n->initcwnd;
         else if (streq(lvalue, "InitialAdvertisedReceiveWindow"))
-                n->initrwnd = k;
+                d = &n->initrwnd;
         else
                 assert_not_reached();
+
+        r = config_parse_tcp_window(unit, filename, line, section, section_line, lvalue, ltype, rvalue, d, userdata);
+        if (r < 0)
+                return r;
 
         TAKE_PTR(n);
         return 0;
