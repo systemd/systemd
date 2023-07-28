@@ -14,7 +14,7 @@ Requires=systemd-journal-gatewayd.socket
 
 [Service]
 DynamicUser=yes
-ExecStart={{ROOTLIBEXECDIR}}/systemd-journal-gatewayd
+ExecStart={{LIBEXECDIR}}/systemd-journal-gatewayd
 LockPersonality=yes
 MemoryDenyWriteExecute=yes
 PrivateDevices=yes
