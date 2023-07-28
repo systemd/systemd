@@ -72,6 +72,13 @@ static int log_prohibited_symlink(int fd, ChaseFlags flags) {
                                  strna(n1));
 }
 
+static int chaseat_needs_absolute(int dir_fd, const char *path) {
+        if (dir_fd < 0)
+                return path_is_absolute(path);
+
+        return dir_fd_is_root(dir_fd);
+}
+
 int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int *ret_fd) {
         _cleanup_free_ char *buffer = NULL, *done = NULL;
         _cleanup_close_ int fd = -EBADF, root_fd = -EBADF;
@@ -205,7 +212,11 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
         /* If we receive an absolute path together with AT_FDCWD, we need to return an absolute path, because
          * a relative path would be interpreted relative to the current working directory. Also, let's make
          * the result absolute when the file descriptor of the root directory is specified. */
-        bool need_absolute = (dir_fd == AT_FDCWD && path_is_absolute(path)) || (dir_fd >= 0 && dir_fd_is_root(dir_fd) > 0);
+        r = chaseat_needs_absolute(dir_fd, path);
+        if (r < 0)
+                return r;
+
+        bool need_absolute = r;
         if (need_absolute) {
                 done = strdup("/");
                 if (!done)
