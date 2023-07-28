@@ -5760,6 +5760,12 @@ static int context_minimize(Context *context) {
                 if (fstype_is_ro(p->format)) {
                         struct stat st;
 
+                        if (fd < 0) {
+                                fd = open(temp, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
+                                if (fd < 0)
+                                        return log_error_errno(errno, "Failed to open temporary file %s: %m", temp);
+                        }
+
                         if (stat(temp, &st) < 0)
                                 return log_error_errno(errno, "Failed to stat temporary file: %m");
 
@@ -5768,6 +5774,8 @@ static int context_minimize(Context *context) {
 
                         p->copy_blocks_path = TAKE_PTR(temp);
                         p->copy_blocks_path_is_our_file = true;
+                        p->copy_blocks_fd = TAKE_FD(fd);
+                        p->copy_blocks_size = st.st_size;
                         continue;
                 }
 
@@ -5832,6 +5840,8 @@ static int context_minimize(Context *context) {
 
                 p->copy_blocks_path = TAKE_PTR(temp);
                 p->copy_blocks_path_is_our_file = true;
+                p->copy_blocks_fd = TAKE_FD(fd);
+                p->copy_blocks_size = fsz;
         }
 
         /* Now that we've done the data partitions, do the verity hash partitions. We do these in a separate
@@ -5840,6 +5850,7 @@ static int context_minimize(Context *context) {
         LIST_FOREACH(partitions, p, context->partitions) {
                 _cleanup_(unlink_and_freep) char *temp = NULL;
                 _cleanup_free_ char *hint = NULL;
+                _cleanup_close_ int fd = -EBADF;
                 struct stat st;
                 Partition *dp;
 
@@ -5882,7 +5893,11 @@ static int context_minimize(Context *context) {
                 if (r < 0)
                         return r;
 
-                if (stat(temp, &st) < 0)
+                fd = open(temp, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
+                if (fd < 0)
+                        return log_error_errno(errno, "Failed to open temporary file %s: %m", temp);
+
+                if (fstat(fd, &st) < 0)
                         return log_error_errno(r, "Failed to stat temporary file: %m");
 
                 log_info("Minimal partition size of verity hash partition %s is %s",
@@ -5890,6 +5905,8 @@ static int context_minimize(Context *context) {
 
                 p->copy_blocks_path = TAKE_PTR(temp);
                 p->copy_blocks_path_is_our_file = true;
+                p->copy_blocks_fd = TAKE_FD(fd);
+                p->copy_blocks_size = st.st_size;
         }
 
         return 0;
@@ -7001,12 +7018,6 @@ static int run(int argc, char *argv[]) {
                 return r;
 
         r = context_minimize(context);
-        if (r < 0)
-                return r;
-
-        /* We might have gotten more copy blocks paths to open during the minimize process, so let's make
-         * sure we open those as well. These should all be regular files, so don't allow any block devices. */
-        r = context_open_copy_block_paths(context, 0);
         if (r < 0)
                 return r;
 
