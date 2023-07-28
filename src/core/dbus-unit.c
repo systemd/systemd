@@ -1770,6 +1770,47 @@ int bus_unit_queue_job_one(
         Job *j, *a;
         int r;
 
+        if (FLAGS_SET(flags, BUS_UNIT_QUEUE_RELOAD_IF_POSSIBLE) && unit_can_reload(u)) {
+                if (type == JOB_RESTART)
+                        type = JOB_RELOAD_OR_START;
+                else if (type == JOB_TRY_RESTART)
+                        type = JOB_TRY_RELOAD;
+        }
+
+        if (type == JOB_STOP &&
+            IN_SET(u->load_state, UNIT_NOT_FOUND, UNIT_ERROR, UNIT_BAD_SETTING) &&
+            unit_active_state(u) == UNIT_INACTIVE)
+                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_UNIT, "Unit %s not loaded.", u->id);
+
+        if ((type == JOB_START && u->refuse_manual_start) ||
+            (type == JOB_STOP && u->refuse_manual_stop) ||
+            (IN_SET(type, JOB_RESTART, JOB_TRY_RESTART) && (u->refuse_manual_start || u->refuse_manual_stop)) ||
+            (type == JOB_RELOAD_OR_START && job_type_collapse(type, u) == JOB_START && u->refuse_manual_start))
+                return sd_bus_error_setf(error,
+                                         BUS_ERROR_ONLY_BY_DEPENDENCY,
+                                         "Operation refused, unit %s may be requested by dependency only (it is configured to refuse manual start/stop).",
+                                         u->id);
+
+        /* dbus-broker issues StartUnit for activation requests, and Type=dbus services automatically
+         * gain dependency on dbus.socket. Therefore, if dbus has a pending stop job, the new start
+         * job that pulls in dbus again would cause job type conflict. Let's avoid that by rejecting
+         * job enqueuing early.
+         *
+         * Note that unlike signal_activation_request(), we can't use unit_inactive_or_pending()
+         * here. StartUnit is a more generic interface, and thus users are allowed to use e.g. systemctl
+         * to start Type=dbus services even when dbus is inactive. */
+        if (type == JOB_START && u->type == UNIT_SERVICE && SERVICE(u)->type == SERVICE_DBUS)
+                FOREACH_STRING(dbus_unit, SPECIAL_DBUS_SOCKET, SPECIAL_DBUS_SERVICE) {
+                        Unit *dbus;
+
+                        dbus = manager_get_unit(u->manager, dbus_unit);
+                        if (dbus && unit_stop_pending(dbus))
+                                return sd_bus_error_setf(error,
+                                                         BUS_ERROR_SHUTTING_DOWN,
+                                                         "Operation for unit %s refused, D-Bus is shutting down.",
+                                                         u->id);
+                }
+
         if (FLAGS_SET(flags, BUS_UNIT_QUEUE_VERBOSE_REPLY)) {
                 affected = set_new(NULL);
                 if (!affected)
@@ -1861,47 +1902,6 @@ int bus_unit_queue_job(
                         error);
         if (r < 0)
                 return r;
-
-        if (FLAGS_SET(flags, BUS_UNIT_QUEUE_RELOAD_IF_POSSIBLE) && unit_can_reload(u)) {
-                if (type == JOB_RESTART)
-                        type = JOB_RELOAD_OR_START;
-                else if (type == JOB_TRY_RESTART)
-                        type = JOB_TRY_RELOAD;
-        }
-
-        if (type == JOB_STOP &&
-            IN_SET(u->load_state, UNIT_NOT_FOUND, UNIT_ERROR, UNIT_BAD_SETTING) &&
-            unit_active_state(u) == UNIT_INACTIVE)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_UNIT, "Unit %s not loaded.", u->id);
-
-        if ((type == JOB_START && u->refuse_manual_start) ||
-            (type == JOB_STOP && u->refuse_manual_stop) ||
-            (IN_SET(type, JOB_RESTART, JOB_TRY_RESTART) && (u->refuse_manual_start || u->refuse_manual_stop)) ||
-            (type == JOB_RELOAD_OR_START && job_type_collapse(type, u) == JOB_START && u->refuse_manual_start))
-                return sd_bus_error_setf(error,
-                                         BUS_ERROR_ONLY_BY_DEPENDENCY,
-                                         "Operation refused, unit %s may be requested by dependency only (it is configured to refuse manual start/stop).",
-                                         u->id);
-
-        /* dbus-broker issues StartUnit for activation requests, and Type=dbus services automatically
-         * gain dependency on dbus.socket. Therefore, if dbus has a pending stop job, the new start
-         * job that pulls in dbus again would cause job type conflict. Let's avoid that by rejecting
-         * job enqueuing early.
-         *
-         * Note that unlike signal_activation_request(), we can't use unit_inactive_or_pending()
-         * here. StartUnit is a more generic interface, and thus users are allowed to use e.g. systemctl
-         * to start Type=dbus services even when dbus is inactive. */
-        if (type == JOB_START && u->type == UNIT_SERVICE && SERVICE(u)->type == SERVICE_DBUS)
-                FOREACH_STRING(dbus_unit, SPECIAL_DBUS_SOCKET, SPECIAL_DBUS_SERVICE) {
-                        Unit *dbus;
-
-                        dbus = manager_get_unit(u->manager, dbus_unit);
-                        if (dbus && unit_stop_pending(dbus))
-                                return sd_bus_error_setf(error,
-                                                         BUS_ERROR_SHUTTING_DOWN,
-                                                         "Operation for unit %s refused, D-Bus is shutting down.",
-                                                         u->id);
-                }
 
         r = sd_bus_message_new_method_return(message, &reply);
         if (r < 0)
