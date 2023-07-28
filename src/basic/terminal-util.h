@@ -185,20 +185,20 @@ static inline const char *ansi_underline(void) {
         return underline_enabled() ? ANSI_UNDERLINE : ANSI_NORMAL;
 }
 
-#define DEFINE_ANSI_FUNC_UNDERLINE(name, NAME)                            \
-        static inline const char *ansi_##name(void) {                     \
-                return underline_enabled() ? ANSI_##NAME##_UNDERLINE : \
-                        colors_enabled() ? ANSI_##NAME : "";              \
+#define DEFINE_ANSI_FUNC_UNDERLINE(name, NAME)                          \
+        static inline const char *ansi_##name(void) {                   \
+                return underline_enabled() ? ANSI_##NAME##_UNDERLINE :  \
+                        colors_enabled() ? ANSI_##NAME : "";            \
         }
 
 
-#define DEFINE_ANSI_FUNC_UNDERLINE_256(name, NAME, FALLBACK)                                                           \
-        static inline const char *ansi_##name(void) {                                                                  \
-                switch (get_color_mode()) {                                                                            \
-                        case COLOR_OFF: return "";                                                                     \
+#define DEFINE_ANSI_FUNC_UNDERLINE_256(name, NAME, FALLBACK)                                                        \
+        static inline const char *ansi_##name(void) {                                                               \
+                switch (get_color_mode()) {                                                                         \
+                        case COLOR_OFF: return "";                                                                  \
                         case COLOR_16: return underline_enabled() ? ANSI_##FALLBACK##_UNDERLINE : ANSI_##FALLBACK;  \
                         default : return underline_enabled() ? ANSI_##NAME##_UNDERLINE: ANSI_##NAME;                \
-                }                                                                                                      \
+                }                                                                                                   \
         }
 
 DEFINE_ANSI_FUNC(normal,            NORMAL);

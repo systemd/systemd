@@ -258,10 +258,6 @@ Features:
   both so that suid executables can only be placed there. Do this already in
   the initrd. If /usr/ is not split out create a bind mount automatically.
 
-* rework journalctl -M to be based on a machined method that generates a mount
-  fd of the relevant journal dirs in the container with uidmapping applied to
-  allow the host to read it, while making everything read-only.
-
 * fix our various hwdb lookup keys to end with ":" again. The original idea was
   that hwdb patterns can match arbitrary fields with expressions like
   "*:foobar:*", to wildcard match both the start and the end of the string.
@@ -281,10 +277,6 @@ Features:
   based on lo_file_name.
 
 * remove tomoyo support, it's obsolete and unmaintained apparently
-
-* journald: add varlink service that allows subscribing to certain log events,
-  for example matching by message ID, or log level returns a list of journal
-  cursors as they happen.
 
 * In .socket units, add ConnectStream=, ConnectDatagram=,
   ConnectSequentialPacket= that create a socket, and then *connect to* rather than
@@ -314,20 +306,6 @@ Features:
 
 * SIGRTMIN+18 and memory pressure handling should still be added to: hostnamed,
   localed, oomd, timedated.
-
-* journald: also collect CLOCK_BOOTTIME timestamps per log entry. Then, derive
-  "corrected" CLOCK_REALTIME information on display from that and the timestamp
-  info of the newest entry of the specific boot (as identified by the boot
-  ID). This way, if a system comes up without a valid clock but acquires a
-  better clock later, we can "fix" older entry timestamps on display, by
-  calculating backwards. We cannot use CLOCK_MONOTONIC for this, since it does
-  not account for suspend phases. This would then also enable us to correct the
-  kmsg timestamping we consume (where we erroneously assume the clock was in
-  CLOCK_MONOTONIC, but it actually is CLOCK_BOOTTIME as per kernel).
-
-* sd-journal puts a limit on parallel journal files to view at once. journald
-  should probably honour that same limit (JOURNAL_FILES_MAX) when vacuuming to
-  ensure we never generate more files than we can actually view.
 
 * in order to make binding to PCR 4 realistic:
   - generate one keypair "U" and store it in a tpm2 nvindex.
@@ -395,18 +373,6 @@ Features:
 
 * homed: if for some reason the partition ended up being much smaller than
   whole disk, recover from that, and grow it again.
-
-* in journald, write out a recognizable log record whenever the system clock is
-  changed ("stepped"), and in timesyncd whenever we acquire an NTP fix
-  ("slewing"). Then, in journalctl for each boot time we come across, find
-  these records, and use the structured info they include to display
-  "corrected" wallclock time, as calculated from the monotonic timestamp in the
-  log record, adjusted by the delta declared in the structured log record.
-
-* in journald: whenever we start a new journal file because the boot ID
-  changed, let's generate a recognizable log record containing info about old
-  and new ID. Then, when displaying log stream in journalctl look for these
-  records, to be able to order them.
 
 * timesyncd: when saving/restoring clock try to take boot time into account.
   Specifically, along with the saved clock, store the current boot ID. When
@@ -523,10 +489,6 @@ Features:
   - Should it run on firstboot or on every boot?
   - If run on every boot, should it use the sysupdate config from the host on
     subsequent boots?
-
-* hook up journald with TPMs? measure new journal records to the TPM in regular
-  intervals, validate the journal against current TPM state with that. (taking
-  inspiration from IMA log)
 
 * provide an API (probably IPC) to apps to encrypt/decrypt
   credentials. usecase: allow bluez bluetooth daemon to pass pairings to initrd
@@ -783,11 +745,6 @@ Features:
   and that determines from which overlayfs layer it originates, which image, and with
   what it was signed.
 
-* journald: generate recognizable log events whenever we shutdown journald
-  cleanly, and when we migrate run → var. This way tools can verify that a
-  previous boot terminated cleanly, because either of these two messages must
-  be safely written to disk, then.
-
 * systemd-creds: extend encryption logic to support asymmetric
   encryption/authentication. Idea: add new verb "systemd-creds public-key"
   which generates a priv/pub key pair on the TPM2 and stores the priv key
@@ -1038,17 +995,6 @@ Features:
   uses RootDirectory= or RootImage=. (Might also over-mount
   /sys/class/dmi/id/*{uuid,serial} with /dev/null).
 
-* journalctl/timesyncd: whenever timesyncd acquires a synchronization from NTP,
-  create a structured log entry that contains boot ID, monotonic clock and
-  realtime clock (I mean, this requires no special work, as these three fields
-  are implicit). Then in journalctl when attempting to display the realtime
-  timestamp of a log entry, first search for the closest later log entry
-  of this kinda that has a matching boot id, and convert the monotonic clock
-  timestamp of the entry to the realtime clock using this info. This way we can
-  retroactively correct the wallclock timestamps, in particular for systems
-  without RTC, i.e. where initially wallclock timestamps carry rubbish, until
-  an NTP sync is acquired.
-
 * kernel-install:
   - add --all switch for rerunning kernel-install for all installed kernels
 
@@ -1215,12 +1161,6 @@ Features:
 
 * systemd-sysext: optionally, run it in initrd already, before transitioning
   into host, to open up possibility for services shipped like that.
-
-* maybe add a tool that displays most recent journal logs as QR code to scan
-  off screen and run it automatically on boot failures, emergency logs and
-  such. Use DRM APIs directly, see
-  https://github.com/dvdhrm/docs/blob/master/drm-howto/modeset.c for an example
-  for doing that.
 
 * introduce /dev/disk/root/* symlinks that allow referencing partitions on the
   disk the rootfs is on in a reasonably secure way. (or maybe: add
@@ -1461,12 +1401,7 @@ Features:
 
 * Move RestrictAddressFamily= to the new cgroup create socket
 
-* maybe implicitly attach monotonic+realtime timestamps to outgoing messages in
-  log.c and sd-journal-send
-
 * optionally: turn on cgroup delegation for per-session scope units
-
-* introduce per-unit (i.e. per-slice, per-service) journal log size limits.
 
 * sd-boot: optionally, show boot menu when previous default boot item has
   non-zero "tries done" count
@@ -2084,8 +2019,70 @@ Features:
   time-based policy, so that the verification key can remain on host and ve
   validated via TPM.
 
-* build short web pages out of each catalog entry, build them along with man
-  pages, and include hyperlinks to them in the journal output
+* rework journalctl -M to be based on a machined method that generates a mount
+  fd of the relevant journal dirs in the container with uidmapping applied to
+  allow the host to read it, while making everything read-only.
+
+* journald: add varlink service that allows subscribing to certain log events,
+  for example matching by message ID, or log level returns a list of journal
+  cursors as they happen.
+
+* journald: also collect CLOCK_BOOTTIME timestamps per log entry. Then, derive
+  "corrected" CLOCK_REALTIME information on display from that and the timestamp
+  info of the newest entry of the specific boot (as identified by the boot
+  ID). This way, if a system comes up without a valid clock but acquires a
+  better clock later, we can "fix" older entry timestamps on display, by
+  calculating backwards. We cannot use CLOCK_MONOTONIC for this, since it does
+  not account for suspend phases. This would then also enable us to correct the
+  kmsg timestamping we consume (where we erroneously assume the clock was in
+  CLOCK_MONOTONIC, but it actually is CLOCK_BOOTTIME as per kernel).
+
+* in journald, write out a recognizable log record whenever the system clock is
+  changed ("stepped"), and in timesyncd whenever we acquire an NTP fix
+  ("slewing"). Then, in journalctl for each boot time we come across, find
+  these records, and use the structured info they include to display
+  "corrected" wallclock time, as calculted from the monotonic timestamp in the
+  log record, adjusted by the delta declared in the structured log record.
+
+* in journald: whenever we start a new journal file because the boot ID
+  changed, let's generate a recognizable log record containing info about old
+  and new ID. Then, when displaying log stream in journalctl look for these
+  records, to be able to order them.
+
+* journald: generate recognizable log events whenever we shutdown journald
+  cleanly, and when we migrate run → var. This way tools can verify that a
+  previous boot terminated cleanly, because either of these two messages must
+  be safely written to disk, then.
+
+* hook up journald with TPMs? measure new journal records to the TPM in regular
+  intervals, validate the journal against current TPM state with that. (taking
+  inspiration from IMA log)
+
+* sd-journal puts a limit on parallel journal files to view at once. journald
+  should probably honour that same limit (JOURNAL_FILES_MAX) when vacuuming to
+  ensure we never generate more files than we can actually view.
+
+* maybe add a tool that displays most recent journal logs as QR code to scan
+  off screen and run it automatically on boot failures, emergency logs and
+  such. Use DRM APIs directly, see
+  https://github.com/dvdhrm/docs/blob/master/drm-howto/modeset.c for an example
+  for doing that.
+
+* maybe implicitly attach monotonic+realtime timestamps to outgoing messages in
+  log.c and sd-journal-send
+
+* journalctl/timesyncd: whenever timesyncd acquires a synchronization from NTP,
+  create a structured log entry that contains boot ID, monotonic clock and
+  realtime clock (I mean, this requires no special work, as these three fields
+  are implicit). Then in journalctl when attempting to display the realtime
+  timestamp of a log entry, first search for the closest later log entry
+  of this kinda that has a matching boot id, and convert the monotonic clock
+  timestamp of the entry to the realtime clock using this info. This way we can
+  retroactively correct the wallclock timestamps, in particular for systems
+  without RTC, i.e. where initially wallclock timestamps carry rubbish, until
+  an NTP sync is acquired.
+
+* introduce per-unit (i.e. per-slice, per-service) journal log size limits.
 
 * journald: do journal file writing out-of-process, with one writer process per
   client UID, so that synthetic hash table collisions can slow down a specific
@@ -2111,6 +2108,9 @@ Features:
     (Adding dashes in a catalog entry currently results in the catalog entry
      being silently skipped. journalctl --update-catalog must warn about this,
      and we should also have a unit test to check that all our message are OK.)
+
+* build short web pages out of each catalog entry, build them along with man
+  pages, and include hyperlinks to them in the journal output
 
 * homed:
   - when user tries to log into record signed by unrecognized key, automatically add key to our chain after polkit auth

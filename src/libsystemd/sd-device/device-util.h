@@ -13,33 +13,33 @@
 #define device_unref_and_replace(a, b)                                  \
         unref_and_replace_full(a, b, sd_device_ref, sd_device_unref)
 
-#define FOREACH_DEVICE_PROPERTY(device, key, value)                \
-        for (const char *value, *key = sd_device_get_property_first(device, &(value)); \
-             key;                                                  \
-             key = sd_device_get_property_next(device, &(value)))
+#define FOREACH_DEVICE_PROPERTY(device, key, value)                     \
+        for (const char *value, *key = sd_device_get_property_first(device, &value); \
+             key;                                                       \
+             key = sd_device_get_property_next(device, &value))
 
-#define FOREACH_DEVICE_TAG(device, tag)             \
-        for (const char *tag = sd_device_get_tag_first(device); \
-             tag;                                   \
+#define FOREACH_DEVICE_TAG(device, tag)                                 \
+        for (const char *tag = sd_device_get_tag_first(device);         \
+             tag;                                                       \
              tag = sd_device_get_tag_next(device))
 
-#define FOREACH_DEVICE_CURRENT_TAG(device, tag)             \
+#define FOREACH_DEVICE_CURRENT_TAG(device, tag)                         \
         for (const char *tag = sd_device_get_current_tag_first(device); \
-             tag;                                   \
+             tag;                                                       \
              tag = sd_device_get_current_tag_next(device))
 
-#define FOREACH_DEVICE_SYSATTR(device, attr)             \
-        for (const char *attr = sd_device_get_sysattr_first(device); \
-             attr;                                       \
+#define FOREACH_DEVICE_SYSATTR(device, attr)                            \
+        for (const char *attr = sd_device_get_sysattr_first(device);    \
+             attr;                                                      \
              attr = sd_device_get_sysattr_next(device))
 
-#define FOREACH_DEVICE_DEVLINK(device, devlink)             \
+#define FOREACH_DEVICE_DEVLINK(device, devlink)                         \
         for (const char *devlink = sd_device_get_devlink_first(device); \
-             devlink;                                   \
+             devlink;                                                   \
              devlink = sd_device_get_devlink_next(device))
 
 #define _FOREACH_DEVICE_CHILD(device, child, suffix_ptr)                \
-        for (sd_device *child = sd_device_get_child_first(device, suffix_ptr);     \
+        for (sd_device *child = sd_device_get_child_first(device, suffix_ptr); \
              child;                                                     \
              child = sd_device_get_child_next(device, suffix_ptr))
 
@@ -49,14 +49,14 @@
 #define FOREACH_DEVICE_CHILD_WITH_SUFFIX(device, child, suffix)         \
         _FOREACH_DEVICE_CHILD(device, child, &suffix)
 
-#define FOREACH_DEVICE(enumerator, device)                               \
+#define FOREACH_DEVICE(enumerator, device)                              \
         for (sd_device *device = sd_device_enumerator_get_device_first(enumerator); \
-             device;                                                     \
+             device;                                                    \
              device = sd_device_enumerator_get_device_next(enumerator))
 
-#define FOREACH_SUBSYSTEM(enumerator, device)                               \
+#define FOREACH_SUBSYSTEM(enumerator, device)                           \
         for (sd_device *device = sd_device_enumerator_get_subsystem_first(enumerator); \
-             device;                                                        \
+             device;                                                    \
              device = sd_device_enumerator_get_subsystem_next(enumerator))
 
 #define log_device_full_errno_zerook(device, level, error, ...)         \
@@ -81,17 +81,17 @@
 
 #define log_device_full(device, level, ...) (void) log_device_full_errno_zerook(device, level, 0, __VA_ARGS__)
 
-#define log_device_debug(device, ...)   log_device_full(device, LOG_DEBUG, __VA_ARGS__)
-#define log_device_info(device, ...)    log_device_full(device, LOG_INFO, __VA_ARGS__)
-#define log_device_notice(device, ...)  log_device_full(device, LOG_NOTICE, __VA_ARGS__)
+#define log_device_debug(device, ...)   log_device_full(device, LOG_DEBUG,   __VA_ARGS__)
+#define log_device_info(device, ...)    log_device_full(device, LOG_INFO,    __VA_ARGS__)
+#define log_device_notice(device, ...)  log_device_full(device, LOG_NOTICE,  __VA_ARGS__)
 #define log_device_warning(device, ...) log_device_full(device, LOG_WARNING, __VA_ARGS__)
-#define log_device_error(device, ...)   log_device_full(device, LOG_ERR, __VA_ARGS__)
+#define log_device_error(device, ...)   log_device_full(device, LOG_ERR,     __VA_ARGS__)
 
-#define log_device_debug_errno(device, error, ...)   log_device_full_errno(device, LOG_DEBUG, error, __VA_ARGS__)
-#define log_device_info_errno(device, error, ...)    log_device_full_errno(device, LOG_INFO, error, __VA_ARGS__)
-#define log_device_notice_errno(device, error, ...)  log_device_full_errno(device, LOG_NOTICE, error, __VA_ARGS__)
+#define log_device_debug_errno(device, error, ...)   log_device_full_errno(device, LOG_DEBUG,   error, __VA_ARGS__)
+#define log_device_info_errno(device, error, ...)    log_device_full_errno(device, LOG_INFO,    error, __VA_ARGS__)
+#define log_device_notice_errno(device, error, ...)  log_device_full_errno(device, LOG_NOTICE,  error, __VA_ARGS__)
 #define log_device_warning_errno(device, error, ...) log_device_full_errno(device, LOG_WARNING, error, __VA_ARGS__)
-#define log_device_error_errno(device, error, ...)   log_device_full_errno(device, LOG_ERR, error, __VA_ARGS__)
+#define log_device_error_errno(device, error, ...)   log_device_full_errno(device, LOG_ERR,     error, __VA_ARGS__)
 
 int devname_from_devnum(mode_t mode, dev_t devnum, char **ret);
 static inline int devname_from_stat_rdev(const struct stat *st, char **ret) {
