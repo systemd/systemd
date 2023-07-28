@@ -43,6 +43,8 @@ int read_credential_strings_many_internal(const char *first_name, char **first_v
 #define read_credential_strings_many(first_name, first_value, ...) \
         read_credential_strings_many_internal(first_name, first_value, __VA_ARGS__, NULL)
 
+int read_credential_bool(const char *name);
+
 typedef enum CredentialSecretFlags {
         CREDENTIAL_SECRET_GENERATE             = 1 << 0,
         CREDENTIAL_SECRET_WARN_NOT_ENCRYPTED   = 1 << 1,
