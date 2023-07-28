@@ -744,8 +744,7 @@ static int do_daemon_reload(void) {
                 k = bus_call_method(bus, bus_systemd_mgr, "StartUnit", &error, NULL, "ss", unit, "replace");
                 if (k < 0) {
                         log_error_errno(k, "Failed to (re)start %s: %s", unit, bus_error_message(&error, r));
-                        if (r == 0)
-                                r = k;
+                        RET_GATHER(r, k);
                 }
         }
 
