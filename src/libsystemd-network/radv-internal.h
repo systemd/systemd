@@ -55,10 +55,15 @@
 #define RADV_MAX_FINAL_RTR_ADVERTISEMENTS         3
 #define RADV_MIN_DELAY_BETWEEN_RAS                3
 #define RADV_MAX_RA_DELAY_TIME_USEC               (500 * USEC_PER_MSEC)
+/* From RFC 8781 section 4.1
+ * By default, the value of the Scaled Lifetime field SHOULD be set to the lesser of 3 x MaxRtrAdvInterval */
+#define RADV_DEFAULT_PRE64_LIFETIME_USEC          (3 * RADV_DEFAULT_MAX_TIMEOUT_USEC)
 
 #define RADV_OPT_ROUTE_INFORMATION                24
 #define RADV_OPT_RDNSS                            25
 #define RADV_OPT_DNSSL                            31
+/* Pref64 option type (RFC8781, section 4) */
+#define RADV_OPT_PREF64                           38
 
 enum RAdvState {
         RADV_STATE_IDLE                      = 0,
@@ -100,6 +105,9 @@ struct sd_radv {
 
         unsigned n_route_prefixes;
         LIST_HEAD(sd_radv_route_prefix, route_prefixes);
+
+        unsigned n_pref64_prefixes;
+        LIST_HEAD(sd_radv_pref64_prefix, pref64_prefixes);
 
         size_t n_rdnss;
         struct sd_radv_opt_dns *rdnss;
@@ -170,6 +178,32 @@ struct sd_radv_route_prefix {
         usec_t lifetime_usec;
         /* This is a point in time specified with clock_boottime_or_monotonic(), NOT a timespan. */
         usec_t valid_until;
+};
+
+/* rfc8781: section 4 - Scaled Lifetime: 13-bit unsigned integer. PLC (Prefix Length Code): 3-bit unsigned integer */
+#define radv_pref64_prefix_opt__contents { \
+        uint8_t type;                      \
+        uint8_t length;                    \
+        uint16_t lifetime_and_plc;         \
+        uint8_t prefix[12];                \
+}
+
+struct radv_pref64_prefix_opt radv_pref64_prefix_opt__contents;
+
+struct radv_pref64_prefix_opt__packed radv_pref64_prefix_opt__contents _packed_;
+assert_cc(sizeof(struct radv_pref64_prefix_opt) == sizeof(struct radv_pref64_prefix_opt__packed));
+
+struct sd_radv_pref64_prefix {
+        unsigned n_ref;
+
+        struct radv_pref64_prefix_opt opt;
+
+        struct in6_addr in6_addr;
+        uint8_t prefixlen;
+
+        usec_t lifetime_usec;
+
+        LIST_FIELDS(struct sd_radv_pref64_prefix, prefix);
 };
 
 #define log_radv_errno(radv, error, fmt, ...)           \
