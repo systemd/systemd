@@ -19,7 +19,7 @@ After=sys-devices-virtual-misc-rfkill.device
 Before=shutdown.target
 
 [Service]
-ExecStart={{ROOTLIBEXECDIR}}/systemd-rfkill
+ExecStart={{LIBEXECDIR}}/systemd-rfkill
 NoNewPrivileges=yes
 StateDirectory=systemd/rfkill
 TimeoutSec=30s
