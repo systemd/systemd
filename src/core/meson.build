@@ -192,6 +192,13 @@ executables += [
                         libshared
                 ],
         },
+        fuzz_template + {
+                'sources' : files('fuzz-execute-serialize.c'),
+                'link_with' : [
+                        libcore,
+                        libshared
+                ],
+        },
 ]
 
 in_files = [['system.conf',                     pkgsysconfdir],
