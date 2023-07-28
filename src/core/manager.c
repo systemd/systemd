@@ -1036,10 +1036,6 @@ int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, 
                         return r;
         }
 
-        m->taint_usr =
-                !in_initrd() &&
-                dir_is_empty("/usr", /* ignore_hidden_or_backup= */ false) > 0;
-
         /* Note that we do not set up the notify fd here. We do that after deserialization,
          * since they might have gotten serialized across the reexec. */
 
@@ -4739,11 +4735,8 @@ char* manager_taint_string(const Manager *m) {
 
         assert(m);
 
-        const char* stage[13] = {};
+        const char* stage[12] = {};
         size_t n = 0;
-
-        if (m->taint_usr)
-                stage[n++] = "split-usr";
 
         _cleanup_free_ char *usrbin = NULL;
         if (readlink_malloc("/bin", &usrbin) < 0 || !PATH_IN_SET(usrbin, "usr/bin", "/usr/bin"))

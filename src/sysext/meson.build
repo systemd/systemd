@@ -1,7 +1,16 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-systemd_sysext_sources = files('sysext.c')
+executables += [
+        executable_template + {
+                'name' : 'systemd-sysext',
+                'conditions' : ['ENABLE_SYSEXT'],
+                'public' : true,
+                'sources' : files('sysext.c'),
+        },
+]
 
-meson.add_install_script(meson_make_symlink,
-                         rootbindir / 'systemd-sysext',
-                         rootbindir / 'systemd-confext')
+if conf.get('ENABLE_SYSEXT') == 1
+        install_symlink('systemd-confext',
+                        pointing_to : 'systemd-sysext',
+                        install_dir : bindir)
+endif

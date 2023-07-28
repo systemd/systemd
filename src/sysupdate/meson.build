@@ -18,3 +18,18 @@ systemd_sysupdate_sources = files(
         'sysupdate.c',
         'sysupdate.h',
 )
+
+executables += [
+        libexec_template + {
+                'name' : 'systemd-sysupdate',
+                'conditions' : ['ENABLE_SYSUPDATE'],
+                'public' : true,
+                'sources' : systemd_sysupdate_sources,
+                'link_with' : [libshared,
+                               libshared_fdisk],
+                'dependencies' : [libblkid,
+                                  libfdisk,
+                                  libopenssl,
+                                  threads],
+        },
+]

@@ -20,7 +20,7 @@ Before=shutdown.target initrd-switch-root.target
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart={{ROOTLIBEXECDIR}}/systemd-network-generator
+ExecStart={{LIBEXECDIR}}/systemd-network-generator
 
 [Install]
 WantedBy=sysinit.target
