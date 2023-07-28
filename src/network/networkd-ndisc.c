@@ -575,8 +575,11 @@ static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
         }
 
         r = sd_ndisc_router_route_get_preference(rt, &preference);
-        if (r < 0)
-                return log_link_warning_errno(link, r, "Failed to get default router preference from RA: %m");
+        if (r < 0) {
+                if (DEBUG_LOGGING)
+                        log_link_debug(link, "Failed to get default router preference from RA: %m");
+                return 0;
+        }
 
         r = sd_ndisc_router_get_timestamp(rt, CLOCK_BOOTTIME, &timestamp_usec);
         if (r < 0)
