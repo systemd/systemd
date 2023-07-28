@@ -24,6 +24,7 @@
 #include "conf-files.h"
 #include "conf-parser.h"
 #include "constants.h"
+#include "creds-util.h"
 #include "cryptsetup-util.h"
 #include "device-util.h"
 #include "devnum-util.h"
@@ -153,6 +154,7 @@ static uint64_t arg_sector_size = 0;
 static ImagePolicy *arg_image_policy = NULL;
 static Architecture arg_architecture = _ARCHITECTURE_INVALID;
 static int arg_offline = -1;
+static bool arg_oem = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
@@ -205,6 +207,7 @@ typedef struct Partition {
 
         bool dropped;
         bool factory_reset;
+        int oem;
         int32_t priority;
 
         uint32_t weight, padding_weight;
@@ -350,6 +353,7 @@ static Partition *partition_new(void) {
                 .no_auto = -1,
                 .read_only = -1,
                 .growfs = -1,
+                .oem = -1,
         };
 
         return p;
@@ -423,8 +427,15 @@ static void partition_foreignize(Partition *p) {
         p->verity = VERITY_OFF;
 }
 
+static bool partition_is_oem(const Partition *p) {
+        return p->oem > 0 || (p->oem < 0 && !p->factory_reset);
+}
+
 static bool partition_exclude(const Partition *p) {
         assert(p);
+
+        if (arg_oem && !partition_is_oem(p))
+                return true;
 
         if (arg_filter_partitions_type == FILTER_PARTITIONS_NONE)
                 return false;
@@ -1631,6 +1642,7 @@ static int partition_read_definition(Partition *p, const char *path, const char 
                 { "Partition", "GrowFileSystem",     config_parse_tristate,      0, &p->growfs               },
                 { "Partition", "SplitName",          config_parse_string,        0, &p->split_name_format    },
                 { "Partition", "Minimize",           config_parse_minimize,      0, &p->minimize             },
+                { "Partition", "Oem",                config_parse_tristate,      0, &p->oem                  },
                 {}
         };
         int r;
@@ -1671,11 +1683,6 @@ static int partition_read_definition(Partition *p, const char *path, const char 
         if (sd_id128_is_null(p->type.uuid))
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
                                   "Type= not defined, refusing.");
-
-        if ((p->copy_blocks_path || p->copy_blocks_auto) &&
-            (p->format || !strv_isempty(p->copy_files) || !strv_isempty(p->make_directories)))
-                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                  "Format=/CopyFiles=/MakeDirectories= and CopyBlocks= cannot be combined, refusing.");
 
         if ((!strv_isempty(p->copy_files) || !strv_isempty(p->make_directories)) && streq_ptr(p->format, "swap"))
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
@@ -5387,19 +5394,6 @@ static int resolve_copy_blocks_auto(
         dev_t devno, found = 0;
         int r;
 
-        /* Enforce some security restrictions: CopyBlocks=auto should not be an avenue to get outside of the
-         * --root=/--image= confinement. Specifically, refuse CopyBlocks= in combination with --root= at all,
-         * and restrict block device references in the --image= case to loopback block device we set up.
-         *
-         * restrict_devno contain the dev_t of the loop back device we operate on in case of --image=, and
-         * thus declares which device (and its partition subdevices) we shall limit access to. If
-         * restrict_devno is zero no device probing access shall be allowed at all (used for --root=) and if
-         * it is (dev_t) -1 then free access shall be allowed (if neither switch is used). */
-
-        if (restrict_devno == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EPERM),
-                                       "Automatic discovery of backing block devices not permitted in --root= mode, refusing.");
-
         /* Handles CopyBlocks=auto, and finds the right source partition to copy from. We look for matching
          * partitions in the host, using the appropriate directory as key and ensuring that the partition
          * type matches. */
@@ -5493,8 +5487,7 @@ static int resolve_copy_blocks_auto(
         }
 
         if (found == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(ENXIO),
-                                       "Unable to automatically discover suitable partition to copy blocks from.");
+                return 0;
 
         if (ret_devno)
                 *ret_devno = found;
@@ -5502,7 +5495,7 @@ static int resolve_copy_blocks_auto(
         if (ret_uuid)
                 *ret_uuid = found_uuid;
 
-        return 0;
+        return 1;
 }
 
 static int context_open_copy_block_paths(
@@ -5544,9 +5537,35 @@ static int context_open_copy_block_paths(
                 } else if (p->copy_blocks_auto) {
                         dev_t devno = 0;  /* Fake initialization to appease gcc. */
 
+                        /* Enforce some security restrictions: CopyBlocks=auto should not be an avenue to get
+                         * outside of the --root=/--image= confinement. Specifically, refuse CopyBlocks= in
+                         * combination with --root= at all, and restrict block device references in the
+                         * --image= case to loopback block device we set up.
+                         *
+                         * restrict_devno contain the dev_t of the loop back device we operate on in case of
+                         * --image=, and thus declares which device (and its partition subdevices) we shall
+                         * limit access to. If restrict_devno is zero no device probing access shall be
+                         * allowed at all (used for --root=) and if it is (dev_t) -1 then free access shall
+                         * be allowed (if neither switch is used). */
+
+                        if (restrict_devno == 0) {
+                                if (!p->format && strv_isempty(p->copy_files) && strv_isempty(p->make_directories))
+                                        return log_error_errno(SYNTHETIC_ERRNO(EPERM),
+                                                               "Automatic discovery of backing block devices not permitted in --root= mode, refusing.");
+
+                                continue;
+                        }
+
                         r = resolve_copy_blocks_auto(p->type, p->copy_blocks_root, restrict_devno, &devno, &uuid);
                         if (r < 0)
                                 return r;
+                        if (r == 0) {
+                                if (!p->format && strv_isempty(p->copy_files) && strv_isempty(p->make_directories))
+                                        return log_error_errno(SYNTHETIC_ERRNO(ENXIO),
+                                                               "Unable to automatically discover suitable partition to copy blocks from.");
+
+                                continue;
+                        }
                         assert(devno != 0);
 
                         source_fd = r = device_open_from_devnum(S_IFBLK, devno, O_RDONLY|O_CLOEXEC|O_NONBLOCK, &opened);
@@ -5684,6 +5703,9 @@ static int context_minimize(Context *context) {
                 if (!p->format)
                         continue;
 
+                if (p->copy_blocks_fd >= 0)
+                        continue;
+
                 if (p->minimize == MINIMIZE_OFF)
                         continue;
 
@@ -5760,6 +5782,12 @@ static int context_minimize(Context *context) {
                 if (fstype_is_ro(p->format)) {
                         struct stat st;
 
+                        if (fd < 0) {
+                                fd = open(temp, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
+                                if (fd < 0)
+                                        return log_error_errno(errno, "Failed to open temporary file %s: %m", temp);
+                        }
+
                         if (stat(temp, &st) < 0)
                                 return log_error_errno(errno, "Failed to stat temporary file: %m");
 
@@ -5768,6 +5796,8 @@ static int context_minimize(Context *context) {
 
                         p->copy_blocks_path = TAKE_PTR(temp);
                         p->copy_blocks_path_is_our_file = true;
+                        p->copy_blocks_fd = TAKE_FD(fd);
+                        p->copy_blocks_size = st.st_size;
                         continue;
                 }
 
@@ -5832,6 +5862,8 @@ static int context_minimize(Context *context) {
 
                 p->copy_blocks_path = TAKE_PTR(temp);
                 p->copy_blocks_path_is_our_file = true;
+                p->copy_blocks_fd = TAKE_FD(fd);
+                p->copy_blocks_size = fsz;
         }
 
         /* Now that we've done the data partitions, do the verity hash partitions. We do these in a separate
@@ -5840,6 +5872,7 @@ static int context_minimize(Context *context) {
         LIST_FOREACH(partitions, p, context->partitions) {
                 _cleanup_(unlink_and_freep) char *temp = NULL;
                 _cleanup_free_ char *hint = NULL;
+                _cleanup_close_ int fd = -EBADF;
                 struct stat st;
                 Partition *dp;
 
@@ -5882,7 +5915,11 @@ static int context_minimize(Context *context) {
                 if (r < 0)
                         return r;
 
-                if (stat(temp, &st) < 0)
+                fd = open(temp, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
+                if (fd < 0)
+                        return log_error_errno(errno, "Failed to open temporary file %s: %m", temp);
+
+                if (fstat(fd, &st) < 0)
                         return log_error_errno(r, "Failed to stat temporary file: %m");
 
                 log_info("Minimal partition size of verity hash partition %s is %s",
@@ -5890,6 +5927,8 @@ static int context_minimize(Context *context) {
 
                 p->copy_blocks_path = TAKE_PTR(temp);
                 p->copy_blocks_path_is_our_file = true;
+                p->copy_blocks_fd = TAKE_FD(fd);
+                p->copy_blocks_size = st.st_size;
         }
 
         return 0;
@@ -5978,11 +6017,23 @@ static int help(void) {
                "     --sector-size=SIZE   Set the logical sector size for the image\n"
                "     --architecture=ARCH  Set the generic architecture for the image\n"
                "     --offline=BOOL       Whether to build the image offline\n"
+               "     --oem=BOOL           Whether to only include OEM partitions\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
                ansi_normal(),
                link);
+
+        return 0;
+}
+
+static int parse_credentials(void) {
+        int r;
+
+        r = read_credential_bool("repart.oem");
+        if (r < 0)
+                return log_error_errno(r, "Failed to read repart.oem credential: %m");
+        arg_oem = r;
 
         return 0;
 }
@@ -6021,6 +6072,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_SKIP_PARTITIONS,
                 ARG_ARCHITECTURE,
                 ARG_OFFLINE,
+                ARG_OEM,
         };
 
         static const struct option options[] = {
@@ -6055,6 +6107,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "sector-size",          required_argument, NULL, ARG_SECTOR_SIZE          },
                 { "architecture",         required_argument, NULL, ARG_ARCHITECTURE         },
                 { "offline",              required_argument, NULL, ARG_OFFLINE              },
+                { "oem",                  required_argument, NULL, ARG_OEM                  },
                 {}
         };
 
@@ -6374,6 +6427,14 @@ static int parse_argv(int argc, char *argv[]) {
                                 arg_offline = r;
                         }
 
+                        break;
+
+                case ARG_OEM:
+                        r = parse_boolean_argument("--oem=", optarg, NULL);
+                        if (r < 0)
+                                return r;
+
+                        arg_oem = r;
                         break;
 
                 case '?':
@@ -6870,6 +6931,10 @@ static int run(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
 
+        r = parse_credentials();
+        if (r < 0)
+                return r;
+
         r = parse_argv(argc, argv);
         if (r <= 0)
                 return r;
@@ -6999,12 +7064,6 @@ static int run(int argc, char *argv[]) {
                 return r;
 
         r = context_minimize(context);
-        if (r < 0)
-                return r;
-
-        /* We might have gotten more copy blocks paths to open during the minimize process, so let's make
-         * sure we open those as well. These should all be regular files, so don't allow any block devices. */
-        r = context_open_copy_block_paths(context, 0);
         if (r < 0)
                 return r;
 
