@@ -1,0 +1,3 @@
+exec-context-mount-image=/dev/foo / root:suid
+exec-context-mount-image=/tmp/tmp.RcqHuV/minimal_0.gpt /run/img1 root:noatime
+exec-context-mount-image=/tmp/tmp.RcqHuV/minimal_0.gpt /run/img1 root:noatime home:relatime
