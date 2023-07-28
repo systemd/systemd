@@ -268,6 +268,9 @@ Type=linux-generic
 Label=block-copy
 UUID=2a1d97e1d0a346cca26eadc643926617
 CopyBlocks=$imgs/block-copy
+# Test that these are ignored
+CopyFiles=abc
+Format=ext4
 EOF
 
     systemd-repart --offline="$OFFLINE" \
@@ -903,6 +906,8 @@ CopyFiles=/
 CopyFiles=/zzz:/
 CopyFiles=/:/oiu
 ExcludeFilesTarget=/oiu/usr
+# Test that this is just ignored
+CopyBlocks=auto
 EOF
 
     tee "$defs/10-usr.conf" <<EOF
