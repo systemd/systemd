@@ -529,6 +529,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                         "IPv6PrefixDelegation\0"
                         "IPv6Prefix\0"
                         "IPv6RoutePrefix\0"
+                        "IPv6PREF64Prefix\0"
                         "LLDP\0"
                         "TrafficControlQueueingDiscipline\0"
                         "CAN\0"
@@ -779,6 +780,7 @@ static Network *network_free(Network *network) {
         hashmap_free_with_destructor(network->address_labels_by_section, address_label_free);
         hashmap_free_with_destructor(network->prefixes_by_section, prefix_free);
         hashmap_free_with_destructor(network->route_prefixes_by_section, route_prefix_free);
+        hashmap_free_with_destructor(network->pref64_prefixes_by_section, pref64_prefix_free);
         hashmap_free_with_destructor(network->rules_by_section, routing_policy_rule_free);
         hashmap_free_with_destructor(network->dhcp_static_leases_by_section, dhcp_static_lease_free);
         ordered_hashmap_free_with_destructor(network->sr_iov_by_section, sr_iov_free);
@@ -842,6 +844,9 @@ bool network_has_static_ipv6_configurations(Network *network) {
                 return true;
 
         if (!hashmap_isempty(network->route_prefixes_by_section))
+                return true;
+
+        if (!hashmap_isempty(network->pref64_prefixes_by_section))
                 return true;
 
         return false;
