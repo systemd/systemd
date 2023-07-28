@@ -117,6 +117,13 @@ if [ $1 -ge 1 ] && [ -x "{{SYSTEMD_UPDATE_HELPER_PATH}}" ]; then \
 fi \
 %{nil}
 
+%systemd_user_daemon_reexec() \
+if [ $1 -ge 1 ] && [ -x "{{SYSTEMD_UPDATE_HELPER_PATH}}" ]; then \
+    # Package upgrade, not uninstall \
+    {{SYSTEMD_UPDATE_HELPER_PATH}} user-reexec || : \
+fi \
+%{nil}
+
 %udev_hwdb_update() %{nil}
 
 %udev_rules_update() %{nil}
