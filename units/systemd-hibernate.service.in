@@ -16,4 +16,4 @@ After=sleep.target
 
 [Service]
 Type=oneshot
-ExecStart={{ROOTLIBEXECDIR}}/systemd-sleep hibernate
+ExecStart={{LIBEXECDIR}}/systemd-sleep hibernate

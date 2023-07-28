@@ -3,8 +3,8 @@
 in_files = [
         ['macros.systemd',        rpmmacrosdir != 'no', rpmmacrosdir],
 
-        # we conditionalize on rpmmacrosdir, but install into rootlibexecdir
-        ['systemd-update-helper', rpmmacrosdir != 'no', rootlibexecdir],
+        # we conditionalize on rpmmacrosdir, but install into libexecdir
+        ['systemd-update-helper', rpmmacrosdir != 'no', libexecdir],
 
         ['triggers.systemd',      false],
         ['triggers.systemd.sh',   false]]

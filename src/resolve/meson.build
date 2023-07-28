@@ -125,7 +125,7 @@ if conf.get('ENABLE_RESOLVE') == 1
         install_data('org.freedesktop.resolve1.policy',
                      install_dir : polkitpolicydir)
         install_data('resolv.conf',
-                     install_dir : rootlibexecdir)
+                     install_dir : libexecdir)
 endif
 
 custom_target(
