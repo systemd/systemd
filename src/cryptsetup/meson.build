@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+subdir('cryptsetup-tokens')
+
 systemd_cryptsetup_sources = files(
         'cryptsetup-keyfile.c',
         'cryptsetup.c',
