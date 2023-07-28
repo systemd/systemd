@@ -10,3 +10,4 @@ IPv4ProxyARP=yes
 IPv6ProxyNDP=yes
 IPv6AcceptRA=no
 IPv4AcceptLocal=yes
+IPv4ReversePathFilter=no
