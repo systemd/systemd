@@ -40,6 +40,7 @@
 
 static char *user_runtime_unit_dir = NULL;
 static bool can_unshare;
+static unsigned n_ran_tests = 0;
 
 STATIC_DESTRUCTOR_REGISTER(user_runtime_unit_dir, freep);
 
@@ -229,6 +230,8 @@ static void _test(const char *file, unsigned line, const char *func,
         start_parent_slices(unit);
         assert_se(unit_start(unit, NULL) >= 0);
         check_main_result(file, line, func, m, unit, status_expected, code_expected);
+
+        ++n_ran_tests;
 }
 #define test(m, unit_name, status_expected, code_expected) \
         _test(PROJECT_FILE, __LINE__, __func__, m, unit_name, status_expected, code_expected)
@@ -1176,6 +1179,7 @@ static void run_tests(RuntimeScope scope, char **patterns) {
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
         _cleanup_free_ char *unit_paths = NULL;
         _cleanup_(manager_freep) Manager *m = NULL;
+        usec_t start, finish;
         int r;
 
         static const test_entry tests[] = {
@@ -1264,11 +1268,24 @@ static void run_tests(RuntimeScope scope, char **patterns) {
         //manager_override_log_target(m, LOG_TARGET_AUTO);
         //manager_override_log_level(m, LOG_DEBUG);
 
+        /* Measure and print the time that it takes to run tests, excluding startup of the manager object,
+         * to try and measure latency of spawning services */
+        n_ran_tests = 0;
+        start = now(CLOCK_MONOTONIC);
+
         for (const test_entry *test = tests; test->f; test++)
                 if (strv_fnmatch_or_empty(patterns, test->name, FNM_NOESCAPE))
                         test->f(m);
                 else
                         log_info("Skipping %s because it does not match any pattern.", test->name);
+
+        finish = now(CLOCK_MONOTONIC);
+
+        log_info("ran %u tests with %s manager + unshare=%s in: %s",
+                 n_ran_tests,
+                 scope == RUNTIME_SCOPE_SYSTEM ? "system" : "user",
+                 yes_no(can_unshare),
+                 FORMAT_TIMESPAN(finish - start, USEC_PER_MSEC));
 }
 
 static int prepare_ns(const char *process_name) {
