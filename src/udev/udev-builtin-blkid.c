@@ -126,9 +126,9 @@ static int find_gpt_root(sd_device *dev, blkid_probe pr, bool test) {
 
 #if defined(SD_GPT_ROOT_NATIVE) && ENABLE_EFI
 
-        _cleanup_free_ char *root_label = NULL;
+        _cleanup_free_ char *root_label = NULL, usr_label = NULL;
         bool found_esp_or_xbootldr = false;
-        sd_id128_t root_id = SD_ID128_NULL;
+        sd_id128_t root_id = SD_ID128_NULL, usr_id = SD_ID128_NULL;
         int r;
 
         assert(pr);
@@ -195,13 +195,35 @@ static int find_gpt_root(sd_device *dev, blkid_probe pr, bool test) {
                                 if (r < 0)
                                         return r;
                         }
+
+                } else if (sd_id128_equal(type, SD_GPT_USR_NATIVE)) {
+                        unsigned long long flags;
+
+                        flags = blkid_partition_get_flags(pp);
+                        if (flags & SD_GPT_FLAG_NO_AUTO)
+                                continue;
+
+                        /* We found a suitable usr partition, let's remember the first one, or the one with
+                         * the newest version, as determined by comparing the partition labels. */
+
+                        if (sd_id128_is_null(usr_id) || strverscmp_improved(label, usr_label) > 0) {
+                                usr_id = id;
+
+                                r = free_and_strdup(&usr_label, label);
+                                if (r < 0)
+                                        return r;
+                        }
                 }
         }
 
         /* We found the ESP/XBOOTLDR on this disk, and also found a root partition, nice! Let's export its
          * UUID */
-        if (found_esp_or_xbootldr && !sd_id128_is_null(root_id))
-                udev_builtin_add_property(dev, test, "ID_PART_GPT_AUTO_ROOT_UUID", SD_ID128_TO_UUID_STRING(root_id));
+        if (found_esp_or_xbootldr) {
+                if (!sd_id128_is_null(root_id))
+                        udev_builtin_add_property(dev, test, "ID_PART_GPT_AUTO_ROOT_UUID", SD_ID128_TO_UUID_STRING(root_id));
+                if (!sd_id128_is_null(usr_id))
+                        udev_builtin_add_property(dev, test, "ID_PART_GPT_AUTO_USR_UUID", SD_ID128_TO_UUID_STRING(usr_id));
+        }
 #endif
 
         return 0;
@@ -317,7 +339,7 @@ notloop:
 
 static int builtin_blkid(UdevEvent *event, int argc, char *argv[], bool test) {
         sd_device *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
-        const char *devnode, *root_partition = NULL, *data, *name;
+        const char *devnode, *root_partition = NULL, *usr_partition, *data, *name;
         _cleanup_(blkid_free_probep) blkid_probe pr = NULL;
         _cleanup_free_ char *backing_fname = NULL;
         bool noraid = false, is_gpt = false;
@@ -410,8 +432,9 @@ static int builtin_blkid(UdevEvent *event, int argc, char *argv[], bool test) {
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to probe superblocks: %m");
 
-        /* If the device is a partition then its parent passed the root partition UUID to the device */
+        /* If the device is a partition then its parent may pass the root and usr partitions UUID to the device */
         (void) sd_device_get_property_value(dev, "ID_PART_GPT_AUTO_ROOT_UUID", &root_partition);
+        (void) sd_device_get_property_value(dev, "ID_PART_GPT_AUTO_USR_UUID", &usr_partition);
 
         errno = 0;
         int nvals = blkid_probe_numof_values(pr);
@@ -428,10 +451,13 @@ static int builtin_blkid(UdevEvent *event, int argc, char *argv[], bool test) {
                 if (streq(name, "PTTYPE") && streq(data, "gpt"))
                         is_gpt = true;
 
-                /* Is this a partition that matches the root partition
-                 * property inherited from the parent? */
-                if (root_partition && streq(name, "PART_ENTRY_UUID") && streq(data, root_partition))
-                        udev_builtin_add_property(dev, test, "ID_PART_GPT_AUTO_ROOT", "1");
+                /* Is this a partition that matches the root or usr partition property inherited from the parent? */
+                if (streq(name, "PART_ENTRY_UUID")) {
+                        if (root_partition && streq(data, root_partition))
+                                udev_builtin_add_property(dev, test, "ID_PART_GPT_AUTO_ROOT", "1");
+                        if (usr_partition && streq(data, usr_partition))
+                                udev_builtin_add_property(dev, test, "ID_PART_GPT_AUTO_USR", "1");
+                }
         }
 
         if (is_gpt)
