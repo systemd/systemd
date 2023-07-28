@@ -568,6 +568,15 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>OEM=</varname></term>
+
+        <listitem><para>Takes a boolean argument. If specified the partition is marked as an OEM partition.
+        When the <option>--oem</option> is used, only OEM partitions are written to the partition table.
+        Unless configured explicitly with <varname>OEM=</varname>, a partition is an OEM partition if
+        <varname>FactoryReset=no</varname>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>Flags=</varname></term>
 
         <listitem><para>Configures the 64-bit GPT partition flags field to set for the partition when creating
