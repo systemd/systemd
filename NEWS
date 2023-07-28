@@ -1,6 +1,6 @@
 systemd System and Service Manager
 
-CHANGES WITH 254 in spe:
+CHANGES WITH 254:
 
         Announcements of Future Feature Removals and Incompatible Changes:
 
@@ -773,7 +773,7 @@ CHANGES WITH 254 in spe:
         Zbigniew Jędrzejewski-Szmek, zhmylove, ZjYwMj,
         Дамјан Георгиевски, наб
 
-        — Edinburgh, 2023-07-24
+        — Edinburgh, 2023-07-28
 
 CHANGES WITH 253:
 
