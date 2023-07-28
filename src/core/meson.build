@@ -225,4 +225,11 @@ fuzzers += [
                         libshared
                 ],
         },
+        {
+                'sources' : files('fuzz-execute-serialize.c'),
+                'link_with' : [
+                        libcore,
+                        libshared
+                ],
+        },
 ]
