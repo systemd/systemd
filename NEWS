@@ -673,9 +673,11 @@ CHANGES WITH 254 in spe:
 
         * systemd-fstab-generator now understands two new kernel command line
           options systemd.mount-extra= and systemd.swap-extra=, which configure
-          additional mounts or swaps in a format similar to /etc/fstab. It also
-          now supports the new fstab.extra and fstab.extra.initrd credentials
-          that may contain additional /etc/fstab lines to apply at boot.
+          additional mounts or swaps in a format similar to /etc/fstab. 'fsck'
+          will be ran on these block devices, like it already happens for
+          'root='. It also now supports the new fstab.extra and
+          fstab.extra.initrd credentials that may contain additional /etc/fstab
+          lines to apply at boot.
 
         * systemd-getty-generator now understands two new credentials
           getty.ttys.container and getty.ttys.serial. These credentials may
