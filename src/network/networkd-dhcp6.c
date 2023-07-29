@@ -72,11 +72,9 @@ static int dhcp6_remove(Link *link, bool only_marked) {
                 if (only_marked && !address_is_marked(address))
                         continue;
 
-                k = address_remove(address);
+                k = address_remove_and_drop(address);
                 if (k < 0)
                         r = k;
-
-                address_cancel_request(address);
         }
 
         return r;
@@ -163,7 +161,7 @@ static int verify_dhcp6_address(Link *link, const Address *address) {
 
         const char *pretty = IN6_ADDR_TO_STRING(&address->in_addr.in6);
 
-        if (address_get(link, address, &existing) < 0) {
+        if (address_get_harder(link, address, &existing) < 0) {
                 /* New address. */
                 log_level = LOG_INFO;
                 goto simple_log;
@@ -232,7 +230,7 @@ static int dhcp6_request_address(
         else
                 address_unmark(existing);
 
-        r = link_request_address(link, TAKE_PTR(addr), true, &link->dhcp6_messages,
+        r = link_request_address(link, addr, &link->dhcp6_messages,
                                  dhcp6_address_handler, NULL);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to request DHCPv6 address %s/128: %m",
