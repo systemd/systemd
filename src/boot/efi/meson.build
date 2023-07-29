@@ -315,46 +315,35 @@ foreach archspec : efi_archspecs
                 override_options : efi_override_options,
                 pic : true)
 
+        kwargs = {
+                'include_directories' : efi_includes,
+                'c_args' : archspec['c_args'],
+                'link_args' : archspec['link_args'],
+                'link_with' : libefi,
+                'link_depends' : elf2efi_lds,
+                'dependencies' : versiondep,
+                'gnu_symbol_visibility' : 'hidden',
+                'override_options' : efi_override_options,
+                'pie' : true,
+        }
+
         efi_elf_binaries += executable(
                 'systemd-boot' + archspec['arch'],
-                systemd_boot_sources,
-                include_directories : efi_includes,
-                c_args : archspec['c_args'],
-                link_args : archspec['link_args'],
-                link_with : libefi,
-                link_depends : elf2efi_lds,
-                dependencies : versiondep,
-                gnu_symbol_visibility : 'hidden',
-                override_options : efi_override_options,
+                sources : systemd_boot_sources,
                 name_suffix : 'elf',
-                pie : true)
+                kwargs : kwargs)
 
         efi_elf_binaries += executable(
                 'linux' + archspec['arch'],
-                stub_sources,
-                include_directories : efi_includes,
-                c_args : archspec['c_args'],
-                link_args : archspec['link_args'],
-                link_with : libefi,
-                link_depends : elf2efi_lds,
-                dependencies : versiondep,
-                gnu_symbol_visibility : 'hidden',
-                override_options : efi_override_options,
+                sources : stub_sources,
                 name_suffix : 'elf.stub',
-                pie : true)
+                kwargs : kwargs)
 
         efi_elf_binaries += executable(
                 'addon' + archspec['arch'],
-                addon_sources,
-                include_directories : efi_includes,
-                c_args : archspec['c_args'],
-                link_args : archspec['link_args'],
-                link_depends : elf2efi_lds,
-                dependencies : versiondep,
-                gnu_symbol_visibility : 'hidden',
-                override_options : efi_override_options,
+                sources : addon_sources,
                 name_suffix : 'elf.stub',
-                pie : true)
+                kwargs : kwargs)
 endforeach
 
 foreach efi_elf_binary : efi_elf_binaries
