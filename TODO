@@ -2039,7 +2039,7 @@ Features:
   changed ("stepped"), and in timesyncd whenever we acquire an NTP fix
   ("slewing"). Then, in journalctl for each boot time we come across, find
   these records, and use the structured info they include to display
-  "corrected" wallclock time, as calculted from the monotonic timestamp in the
+  "corrected" wallclock time, as calculated from the monotonic timestamp in the
   log record, adjusted by the delta declared in the structured log record.
 
 * in journald: whenever we start a new journal file because the boot ID
