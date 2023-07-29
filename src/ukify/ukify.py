@@ -1484,7 +1484,7 @@ def finalize_options(opts):
     # Figure out which syntax is being used, one of:
     # ukify verb --arg --arg --arg
     # ukify linux initrd…
-    if opts.positional[0] == 'inspect':
+    if len(opts.positional) >= 1 and opts.positional[0] == 'inspect':
         opts.verb = opts.positional[0]
         opts.files = opts.positional[1:]
         if not opts.files:
