@@ -36,7 +36,7 @@ rules = [
          conf.get('HAVE_KMOD') == 1],
 
         [files('70-memory.rules'),
-         dmi_arches.contains(host_machine.cpu_family())],
+         conf.get('HAVE_DMI') == 1],
 
         [files('70-power-switch.rules'),
          enable_logind],

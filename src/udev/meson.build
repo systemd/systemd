@@ -127,8 +127,7 @@ udev_progs = [['ata_id/ata_id.c'],
               ['mtd_probe/mtd_probe.c',
                'mtd_probe/probe_smartmedia.c']]
 
-dmi_arches = ['x86', 'x86_64', 'aarch64', 'arm', 'ia64', 'loongarch64', 'mips']
-if dmi_arches.contains(host_machine.cpu_family())
+if conf.get('HAVE_DMI') == 1
         udev_progs += [['dmi_memory_id/dmi_memory_id.c']]
 endif
 
