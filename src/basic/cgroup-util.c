@@ -471,6 +471,64 @@ int cg_kill_recursive(
         return ret;
 }
 
+int cg_kill_all(void) {
+        _cleanup_closedir_ DIR *d = NULL;
+        char *cg_root;
+        int r;
+
+        if (cg_all_unified() <= 0)
+                return -EOPNOTSUPP;
+
+        r = cg_get_root_path(&cg_root);
+        if (r < 0)
+                return r;
+
+        r = cg_enumerate_subgroups(SYSTEMD_CGROUP_CONTROLLER, cg_root, &d);
+        if (r < 0)
+                return r;
+
+        for (;;) {
+                _cleanup_free_ char *node = NULL, *path = NULL;
+
+                r = cg_read_subgroup(d, &node);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                if (STR_IN_SET(node, SPECIAL_INIT_SCOPE, SPECIAL_SOFT_REBOOT_SURVIVORS_SLICE))
+                        continue;
+
+                path = path_join(empty_to_root(cg_root), node);
+                if (!path)
+                        return -ENOMEM;
+
+                log_debug("Killing cgroup %s", path);
+
+                r = cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER,
+                                      path,
+                                      SIGTERM,
+                                      /* flags= */ 0,
+                                      /* s= */ NULL,
+                                      /* log_kill= */ NULL,
+                                      /* userdata= */ NULL);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to send SIGTERM to cgroup %s, ignoring: %m", path);
+
+                r = cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER,
+                                      path,
+                                      SIGKILL,
+                                      /* flags= */ 0,
+                                      /* s= */ NULL,
+                                      /* log_kill= */ NULL,
+                                      /* userdata= */ NULL);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to send SIGKILL to cgroup %s, ignoring: %m", path);
+        }
+
+        return 0;
+}
+
 static const char *controller_to_dirname(const char *controller) {
         assert(controller);
 
