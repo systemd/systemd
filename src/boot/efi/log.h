@@ -26,6 +26,9 @@ typedef enum {
         LOG_INFO,
         LOG_DEBUG,
         LOG_TRACE,
+
+        /* This flag ensures that log_internal() is always called if a debugcon is available. */
+        LOG_DEBUGCON_FLAG = (1 << 4),
 } LogLevel;
 
 extern LogLevel max_log_level;
