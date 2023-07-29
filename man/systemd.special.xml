@@ -1231,6 +1231,17 @@
             <filename>systemd-machined.service</filename>.</para>
           </listitem>
         </varlistentry>
+
+        <varlistentry>
+          <term><filename>survivors.slice</filename></term>
+          <listitem>
+            <para>Units that are part of this slice (directly or nested) will not be stopped or restarted
+            during a soft reboot operation (see:
+            <citerefentry><refentrytitle>systemd-soft-reboot.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>),
+            but will instead keep running uninterrupted. Note that this is only supported when booting with
+            the unified cgroup hierarchy.</para>
+          </listitem>
+        </varlistentry>
       </variablelist>
     </refsect2>
   </refsect1>

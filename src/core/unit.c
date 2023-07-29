@@ -3291,19 +3291,57 @@ int unit_add_dependency(
 }
 
 int unit_add_two_dependencies(Unit *u, UnitDependency d, UnitDependency e, Unit *other, bool add_reference, UnitDependencyMask mask) {
-        int r, s;
+        int r = 0, s = 0;
+
+        assert(u);
+        assert(d >= 0 || e >= 0);
+
+        if (d >= 0) {
+                r = unit_add_dependency(u, d, other, add_reference, mask);
+                if (r < 0)
+                        return r;
+        }
+
+        if (e >= 0) {
+                s = unit_add_dependency(u, e, other, add_reference, mask);
+                if (s < 0)
+                        return s;
+        }
+
+        return r > 0 || s > 0;
+}
+
+int unit_add_dependencies_on_real_shutdown_targets(Unit *u) {
+        int r;
 
         assert(u);
 
-        r = unit_add_dependency(u, d, other, add_reference, mask);
-        if (r < 0)
-                return r;
+        if (!unit_survives_soft_reboot(u))
+                return unit_add_two_dependencies_by_name(
+                                u,
+                                UNIT_BEFORE,
+                                UNIT_CONFLICTS,
+                                SPECIAL_SHUTDOWN_TARGET,
+                                /* add_reference= */ true,
+                                UNIT_DEPENDENCY_DEFAULT);
 
-        s = unit_add_dependency(u, e, other, add_reference, mask);
-        if (s < 0)
-                return s;
+        FOREACH_STRING(target,
+                       SPECIAL_REBOOT_TARGET,
+                       SPECIAL_KEXEC_TARGET,
+                       SPECIAL_HALT_TARGET,
+                       SPECIAL_POWEROFF_TARGET) {
+                r = unit_add_two_dependencies_by_name(
+                                u,
+                                UNIT_BEFORE,
+                                UNIT_CONFLICTS,
+                                target,
+                                /* add_reference= */ true,
+                                UNIT_DEPENDENCY_DEFAULT);
+                if (r < 0)
+                        return r;
+        }
 
-        return r > 0 || s > 0;
+        return 0;
 }
 
 static int resolve_template(Unit *u, const char *name, char **buf, const char **ret) {
@@ -6379,6 +6417,29 @@ int activation_details_append_pair(ActivationDetails *details, char ***strv) {
         }
 
         return r + !isempty(details->trigger_unit_name); /* Return the number of pairs added to the strv */
+}
+
+bool unit_survives_soft_reboot(Unit *u) {
+        assert(u);
+
+        /* Only supported for system units for now */
+        if (!MANAGER_IS_SYSTEM(u->manager))
+                return false;
+
+        /* Easiest case: if we have a slice, it might be the special one already */
+        if (u->type == UNIT_SLICE && streq(u->id, SPECIAL_SOFT_REBOOT_SURVIVORS_SLICE))
+                return true;
+
+        /* If the cgroup is realized already then we can just shortcut to check the path */
+        if (u->cgroup_path)
+                return startswith(u->cgroup_path, "/" SPECIAL_SOFT_REBOOT_SURVIVORS_SLICE);
+
+        /* Next shortcut, if the unit is directly configured in the special slice */
+        if (streq_ptr(unit_slice_name(u), SPECIAL_SOFT_REBOOT_SURVIVORS_SLICE))
+                return true;
+
+        /* Finally check if the unit is in a slice nested under the special slice */
+        return startswith(strempty(unit_slice_name(u)), "survivors-");
 }
 
 DEFINE_TRIVIAL_REF_UNREF_FUNC(ActivationDetails, activation_details, activation_details_free);
