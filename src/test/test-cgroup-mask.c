@@ -50,7 +50,7 @@ TEST_RET(cgroup_mask, .sd_booted = true) {
 
         assert_se(r >= 0);
 
-        /* Turn off all kinds of default accouning, so that we can
+        /* Turn off all kinds of default accounting, so that we can
          * verify the masks resulting of our configuration and nothing
          * else. */
         m->default_cpu_accounting =
