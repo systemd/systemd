@@ -1446,7 +1446,6 @@ static const char *const log_target_table[_LOG_TARGET_MAX] = {
 DEFINE_STRING_TABLE_LOOKUP(log_target, LogTarget);
 
 void log_task_chain(pid_t pid, const char *special_action_string) {
-        _cleanup_free_ char *cmdline = NULL;
         pid_t ppid;
         uid_t uid;
 
@@ -1461,6 +1460,7 @@ void log_task_chain(pid_t pid, const char *special_action_string) {
                 log_notice("%10s %10s %-64s", "PID", "UID", "CMDLINE");
 
                 do {
+                        _cleanup_free_ char *cmdline = NULL;
                         if(pid == 1)
                                 ppid = 0;
                         else if(get_process_ppid(pid, &ppid) < 0) {
