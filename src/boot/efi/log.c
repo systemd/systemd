@@ -5,6 +5,7 @@
 #include "proto/rng.h"
 #include "proto/simple-text-io.h"
 #include "util.h"
+#include "vmm.h"
 
 LogLevel max_log_level = LOG_WARNING;
 static const char *log_identity;
@@ -58,6 +59,31 @@ void efi_assert(const char *expr, const char *file, unsigned line, const char *f
         freeze();
 }
 
+#if defined(__i386__) || defined(__x86_64__)
+enum {
+        DEBUGCON_PORT = 0x402,
+        DEBUGCON_MAGIC = 0xe9,
+};
+
+static bool debugcon_check(void) {
+        return in_hypervisor() && inb(DEBUGCON_PORT) == DEBUGCON_MAGIC;
+}
+
+static void debugcon_out(const char16_t *msg) {
+        assert(msg);
+
+        for (; *msg != '\0'; msg++)
+                outb(DEBUGCON_PORT, *msg >= CHAR_MAX ? '?' : *msg);
+}
+
+#else
+static bool debugcon_check(void) {
+        return false;
+}
+static void debugcon_out(const char16_t *msg) {
+}
+#endif
+
 EFI_STATUS log_internal(
                 LogLevel level,
                 EFI_STATUS status,
@@ -69,31 +95,42 @@ EFI_STATUS log_internal(
 
         assert(format);
 
-        int32_t attr = ST->ConOut->Mode->Attribute;
-
-        if (ST->ConOut->Mode->CursorColumn > 0)
-                ST->ConOut->OutputString(ST->ConOut, (char16_t *) u"\r\n");
-        ST->ConOut->SetAttribute(ST->ConOut, log_colors[level]);
-
         EFI_TIME time = {};
         (void) RT->GetTime(&time, NULL);
-        printf_status(status,
-                      "[%s %4u-%02u-%02u %02u:%02u:%02u %s:%u] ",
-                      log_identity,
-                      time.Year,
-                      time.Month,
-                      time.Day,
-                      time.Hour,
-                      time.Minute,
-                      time.Second,
-                      file,
-                      line);
+        _cleanup_free_ char16_t *prefix = xasprintf_status(
+                        status,
+                        "[%s %4u-%02u-%02u %02u:%02u:%02u %s:%u] ",
+                        log_identity,
+                        time.Year,
+                        time.Month,
+                        time.Day,
+                        time.Hour,
+                        time.Minute,
+                        time.Second,
+                        file,
+                        line);
 
         va_list ap;
         va_start(ap, format);
-        vprintf_status(status, format, ap);
+        _cleanup_free_ char16_t *msg = xvasprintf_status(status, format, ap);
         va_end(ap);
 
+        /* Always log to debugcon if available. */
+        if (FLAGS_SET(max_log_level, LOG_DEBUGCON_FLAG)) {
+                debugcon_out(prefix);
+                debugcon_out(msg);
+                debugcon_out(u"\n");
+
+                if (level > (max_log_level & ~LOG_DEBUGCON_FLAG))
+                        return status;
+        }
+
+        int32_t attr = ST->ConOut->Mode->Attribute;
+        if (ST->ConOut->Mode->CursorColumn > 0)
+                ST->ConOut->OutputString(ST->ConOut, (char16_t *) u"\r\n");
+        ST->ConOut->SetAttribute(ST->ConOut, log_colors[level]);
+        ST->ConOut->OutputString(ST->ConOut, prefix);
+        ST->ConOut->OutputString(ST->ConOut, msg);
         ST->ConOut->OutputString(ST->ConOut, (char16_t *) u"\r\n");
         ST->ConOut->SetAttribute(ST->ConOut, attr);
 
@@ -138,6 +175,9 @@ void log_init(const char *identity) {
         _cleanup_free_ char16_t *level = NULL;
         if (efivar_get(MAKE_GUID_PTR(EFI_SHELL_VARIABLE), u"SYSTEMD_BOOT_LOG_LEVEL", &level) == EFI_SUCCESS)
                 set_log_level(level);
+
+        if (debugcon_check())
+                max_log_level |= LOG_DEBUGCON_FLAG;
 }
 
 _used_ intptr_t __stack_chk_guard = (intptr_t) 0x70f6967de78acae3;

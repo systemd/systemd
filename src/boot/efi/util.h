@@ -210,3 +210,15 @@ static inline bool efi_guid_equal(const EFI_GUID *a, const EFI_GUID *b) {
 void *find_configuration_table(const EFI_GUID *guid);
 
 char16_t *get_extra_dir(const EFI_DEVICE_PATH *file_path);
+
+#if defined(__i386__) || defined(__x86_64__)
+static inline uint8_t inb(uint16_t port) {
+        uint8_t value;
+        asm volatile("inb %1, %0" : "=a"(value) : "Nd"(port));
+        return value;
+}
+
+static inline void outb(uint16_t port, uint8_t value) {
+        asm volatile("outb %0, %1" : : "a"(value), "Nd"(port));
+}
+#endif

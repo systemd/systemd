@@ -566,16 +566,6 @@ __attribute__((noinline)) void notify_debugger(const char *identity, volatile bo
 }
 
 #if defined(__i386__) || defined(__x86_64__)
-static uint8_t inb(uint16_t port) {
-        uint8_t value;
-        asm volatile("inb %1, %0" : "=a"(value) : "Nd"(port));
-        return value;
-}
-
-static void outb(uint16_t port, uint8_t value) {
-        asm volatile("outb %0, %1" : : "a"(value), "Nd"(port));
-}
-
 void beep(unsigned beep_count) {
         enum {
                 PITCH                = 500,
