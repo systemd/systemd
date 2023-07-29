@@ -104,7 +104,7 @@ int verb_pcrs(int argc, char *argv[], void *userdata) {
                         return r;
         }
 
-        table = table_new("nr", "name", alg);
+        table = table_new("nr", "name", alg ?: "-");
         if (!table)
                 return log_oom();
 
