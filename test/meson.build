@@ -135,7 +135,7 @@ endif
 
 ############################################################
 
-if want_tests != 'false' and dmi_arches.contains(host_machine.cpu_family())
+if want_tests != 'false' and conf.get('HAVE_DMI') == 1
         udev_dmi_memory_id_test = find_program('udev-dmi-memory-id-test.sh')
 
         if git.found() and fs.is_dir(project_source_root / '.git')
