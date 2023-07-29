@@ -23,31 +23,26 @@ if efi_arch != ''
                         libshared,
                 ],
         }
+        efi_test_template = test_template + efitest_base
+        efi_fuzz_template = fuzz_template + efitest_base
 
-        tests += [
-                {
+        executables += [
+                efi_test_template + {
                         'sources' : files('test-bcd.c'),
                         'dependencies' : libzstd,
-                        'condition' : 'HAVE_ZSTD',
-                        'base' : efitest_base,
+                        'conditions' : ['HAVE_ZSTD'],
                 },
-                {
+                efi_test_template + {
                         'sources' : files('test-efi-string.c'),
-                        'base' : efitest_base,
                 },
-        ]
-        fuzzers += [
-                {
+                efi_fuzz_template + {
                         'sources' : files('fuzz-bcd.c'),
-                        'base' : efitest_base,
                 },
-                {
+                efi_fuzz_template + {
                         'sources' : files('fuzz-efi-string.c'),
-                        'base' : efitest_base,
                 },
-                {
+                efi_fuzz_template + {
                         'sources' : files('fuzz-efi-printf.c'),
-                        'base' : efitest_base,
                 },
         ]
 endif
@@ -98,13 +93,9 @@ elif get_option('sbat-distro') != ''
 
         pkgver = get_option('sbat-distro-version')
         if pkgver == ''
-                efi_conf.set('SBAT_DISTRO_VERSION', 'GIT_VERSION')
-                # This is determined during build, not configuration, so we can't display it yet.
-                sbat_distro_version_display = '(git version)'
-        else
-                efi_conf.set_quoted('SBAT_DISTRO_VERSION', pkgver)
-                sbat_distro_version_display = pkgver
+                pkgver = version_tag
         endif
+        efi_conf.set_quoted('SBAT_DISTRO_VERSION', pkgver)
 endif
 
 summary({'UEFI architectures' : efi_arch + (efi_arch_alt == '' ? '' : ', ' + efi_arch_alt)},
@@ -114,7 +105,7 @@ if efi_conf.get('SBAT_DISTRO', '') != ''
         summary({
                 'SBAT distro':              efi_conf.get('SBAT_DISTRO'),
                 'SBAT distro generation':   efi_conf.get('SBAT_DISTRO_GENERATION'),
-                'SBAT distro version':      sbat_distro_version_display,
+                'SBAT distro version':      efi_conf.get('SBAT_DISTRO_VERSION'),
                 'SBAT distro summary':      efi_conf.get('SBAT_DISTRO_SUMMARY'),
                 'SBAT distro URL':          efi_conf.get('SBAT_DISTRO_URL')},
                 section : 'UEFI')

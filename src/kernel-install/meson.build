@@ -2,6 +2,15 @@
 
 want_kernel_install = conf.get('ENABLE_KERNEL_INSTALL') == 1
 
+executables += [
+        executable_template + {
+                'name' : 'kernel-install',
+                'public' : true,
+                'conditions' : ['ENABLE_KERNEL_INSTALL'],
+                'sources' : files('kernel-install.c'),
+        },
+]
+
 ukify_install = custom_target(
         '60-ukify.install',
         input : '60-ukify.install.in',
@@ -22,10 +31,9 @@ loaderentry_install = custom_target(
 
 uki_copy_install = files('90-uki-copy.install')
 
-kernel_install_files = [
-        files('50-depmod.install'),
-        uki_copy_install,
-]
+kernel_install_files = uki_copy_install + files(
+        '50-depmod.install',
+)
 
 if want_kernel_install
         install_data(kernel_install_files,
@@ -36,9 +44,8 @@ if want_kernel_install
                      install_dir : kerneldir)
 
         if install_sysconfdir
-                meson.add_install_script('sh', '-c',
-                                         mkdir_p.format(sysconfdir / 'kernel/install.d'))
+                install_emptydir(sysconfdir / 'kernel/install.d')
         endif
-
-        test_kernel_install_sh = find_program('test-kernel-install.sh')
 endif
+
+test_kernel_install_sh = find_program('test-kernel-install.sh')

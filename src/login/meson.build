@@ -44,10 +44,77 @@ loginctl_sources = files(
         'sysfs-show.c',
 )
 
-user_runtime_dir_sources = files('user-runtime-dir.c')
+executables += [
+        libexec_template + {
+                'name' : 'systemd-logind',
+                'dbus' : true,
+                'conditions' : ['ENABLE_LOGIND'],
+                'sources' : systemd_logind_sources,
+                'link_with' : [
+                        liblogind_core,
+                        libshared,
+                ],
+                'dependencies' : [
+                        libacl,
+                        threads,
+                ],
+        },
+        executable_template + {
+                'name' : 'loginctl',
+                'public' : true,
+                'conditions' : ['ENABLE_LOGIND'],
+                'sources' : loginctl_sources,
+                'dependencies' : [
+                        liblz4,
+                        libxz,
+                        libzstd,
+                        threads,
+                ],
+        },
+        executable_template + {
+                'name' : 'systemd-inhibit',
+                'public' : true,
+                'conditions' : ['ENABLE_LOGIND'],
+                'sources' : files('inhibit.c'),
+        },
+        libexec_template + {
+                'name' : 'systemd-user-runtime-dir',
+                'conditions' : ['ENABLE_LOGIND'],
+                'sources' : files('user-runtime-dir.c'),
+        },
+        test_template + {
+                'sources' : files('test-inhibit.c'),
+                'type' : 'manual',
+        },
+        test_template + {
+                'sources' : files('test-login-tables.c'),
+                'link_with' : [
+                        liblogind_core,
+                        libshared,
+                ],
+                'dependencies' : threads,
+        },
+        test_template + {
+                'sources' : files('test-session-properties.c'),
+                'type' : 'manual',
+        },
+]
 
-pam_systemd_sym = 'src/login/pam_systemd.sym'
-pam_systemd_c = files('pam_systemd.c')
+simple_tests += files(
+        'test-login-shared.c'
+)
+
+modules += [
+        pam_template + {
+                'name' : 'pam_systemd',
+                'conditions' : [
+                        'ENABLE_LOGIND',
+                        'HAVE_PAM',
+                ],
+                'sources' : files('pam_systemd.c'),
+                'link_depends' : files('pam_systemd.sym'),
+        },
+]
 
 enable_logind = conf.get('ENABLE_LOGIND') == 1
 
@@ -75,28 +142,3 @@ if enable_logind
         install_data('org.freedesktop.login1.policy',
                      install_dir : polkitpolicydir)
 endif
-
-############################################################
-
-simple_tests += files(
-        'test-login-shared.c'
-)
-
-tests += [
-        {
-                'sources' : files('test-inhibit.c'),
-                'type' : 'manual',
-        },
-        {
-                'sources' : files('test-login-tables.c'),
-                'link_with' : [
-                        liblogind_core,
-                        libshared,
-                ],
-                'dependencies' : threads,
-        },
-        {
-                'sources' : files('test-session-properties.c'),
-                'type' : 'manual',
-        },
-]
