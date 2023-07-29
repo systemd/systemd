@@ -12,7 +12,7 @@ static Request *request_free(Request *req) {
                 return NULL;
 
         /* To prevent from triggering assertions in the hash and compare functions, remove this request
-         * before freeing userdata below. */
+         * from the set before freeing userdata below. */
         if (req->manager)
                 ordered_set_remove(req->manager->request_queue, req);
 
@@ -28,7 +28,6 @@ static Request *request_free(Request *req) {
 }
 
 DEFINE_TRIVIAL_REF_UNREF_FUNC(Request, request, request_free);
-DEFINE_TRIVIAL_DESTRUCTOR(request_destroy_callback, Request, request_unref);
 
 void request_detach(Manager *manager, Request *req) {
         assert(manager);
@@ -41,6 +40,15 @@ void request_detach(Manager *manager, Request *req) {
                 return;
 
         req->manager = NULL;
+        request_unref(req);
+}
+
+static void request_destroy_callback(Request *req) {
+        assert(req);
+
+        if (req->manager)
+                request_detach(req->manager, req);
+
         request_unref(req);
 }
 
@@ -134,7 +142,6 @@ static int request_new(
                 .link = link_ref(link), /* link may be NULL, but link_ref() handles it gracefully. */
                 .type = type,
                 .userdata = userdata,
-                .free_func = free_func,
                 .hash_func = hash_func,
                 .compare_func = compare_func,
                 .process = process,
@@ -153,6 +160,7 @@ static int request_new(
                 return r;
 
         req->manager = manager;
+        req->free_func = free_func;
         req->counter = counter;
         if (req->counter)
                 (*req->counter)++;
@@ -205,17 +213,24 @@ int manager_process_requests(sd_event_source *s, void *userdata) {
                 Request *req;
 
                 ORDERED_SET_FOREACH(req, manager->request_queue) {
-                        _unused_ _cleanup_(request_unrefp) Request *ref = request_ref(req);
                         _cleanup_(link_unrefp) Link *link = link_ref(req->link);
 
                         assert(req->process);
+
+                        if (req->waiting_reply)
+                                continue; /* Waiting for netlink reply. */
 
                         r = req->process(req, link, req->userdata);
                         if (r == 0)
                                 continue;
 
                         processed = true;
-                        request_detach(manager, req);
+
+                        /* If the request sends netlink message, e.g. for Address or so, the Request object
+                         * is referenced by the netlink slot, and will be detached later by its destroy callback.
+                         * Otherwise, e.g. for DHCP client or so, detach the request from queue now. */
+                        if (!req->waiting_reply)
+                                request_detach(manager, req);
 
                         if (r < 0 && link) {
                                 link_enter_failed(link);
@@ -263,6 +278,7 @@ int request_call_netlink_async(sd_netlink *nl, sd_netlink_message *m, Request *r
                 return r;
 
         request_ref(req);
+        req->waiting_reply = true;
         return 0;
 }
 
