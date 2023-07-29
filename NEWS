@@ -1,5 +1,38 @@
 systemd System and Service Manager
 
+CHANGES WITH 255 in spe:
+
+        Announcements of Future Feature Removals and Incompatible Changes:
+
+        * Support for split-usr (/usr/ mounted separately during late boot,
+          instead of being mounted by the initrd before switching to the rootfs)
+          and unmerged-usr (parallel directories /bin/ and /usr/bin/, /lib/ and
+          /usr/lib/, …) has been removed. For more details, see:
+          https://lists.freedesktop.org/archives/systemd-devel/2022-September/048352.html
+
+        * We intend to remove cgroup v1 support from a systemd release after
+          the end of 2023. If you run services that make explicit use of
+          cgroup v1 features (i.e. the "legacy hierarchy" with separate
+          hierarchies for each controller), please implement compatibility with
+          cgroup v2 (i.e. the "unified hierarchy") sooner rather than later.
+          Most of Linux userspace has been ported over already.
+
+        * Support for System V service scripts is now deprecated and will be
+          removed in a future release. Please make sure to update your software
+          *now* to include a native systemd unit file instead of a legacy
+          System V script to retain compatibility with future systemd releases.
+
+        * Support for the SystemdOptions EFI variable is deprecated.
+          'bootctl systemd-efi-options' will emit a warning when used. It seems
+          that this feature is little-used and it is better to use alternative
+          approaches like credentials and confexts. The plan is to drop support
+          altogether at a later point, but this might be revisited based on
+          user feedback.
+
+        * systemd-run's switch --expand-environment= which currently is disabled
+          by default when combined with --scope, will be changed in a future
+          release to be enabled by default.
+
 CHANGES WITH 254:
 
         Announcements of Future Feature Removals and Incompatible Changes:
