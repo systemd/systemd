@@ -33,6 +33,12 @@ CHANGES WITH 255 in spe:
           by default when combined with --scope, will be changed in a future
           release to be enabled by default.
 
+        Network Management:
+
+        * The "duid-only" option for DHCPv4 client's ClientIdentifier= setting
+          is now dropped, as it never worked, hence it should not be used by
+          anyone.
+
 CHANGES WITH 254:
 
         Announcements of Future Feature Removals and Incompatible Changes:
@@ -7926,7 +7932,8 @@ CHANGES WITH 239:
           hibernates again.
 
         * networkd's ClientIdentifier= now accepts a new option "duid-only". If
-          set the client will only send a DUID as client identifier.
+          set the client will only send a DUID as client identifier. (EDIT: the
+          option was broken, and was dropped in v255.)
 
         * The nss-systemd glibc NSS module will now enumerate dynamic users and
           groups in effect. Previously, it could resolve UIDs/GIDs to user
