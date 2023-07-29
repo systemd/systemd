@@ -13,6 +13,9 @@ int fstab_is_mount_point_full(const char *where, const char *path);
 static inline int fstab_is_mount_point(const char *where) {
         return fstab_is_mount_point_full(where, NULL);
 }
+static inline int fstab_has_node(const char *path) {
+        return fstab_is_mount_point_full(NULL, path);
+}
 
 int fstab_filter_options(
                 const char *opts,
