@@ -315,6 +315,8 @@ extern bool _log_message_dummy;
 #  define LOG_MESSAGE(fmt, ...) "MESSAGE=" fmt, ##__VA_ARGS__
 #endif
 
+void log_task_chain(pid_t pid, const char *special_action_string);
+
 void log_received_signal(int level, const struct signalfd_siginfo *si);
 
 /* If turned on, any requests for a log target involving "syslog" will be implicitly upgraded to the equivalent journal target */
