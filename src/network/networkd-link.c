@@ -160,6 +160,8 @@ static void link_free_engines(Link *link) {
         link->lldp_rx = sd_lldp_rx_unref(link->lldp_rx);
         link->lldp_tx = sd_lldp_tx_unref(link->lldp_tx);
 
+        link->ipv4acd_by_address = hashmap_free(link->ipv4acd_by_address);
+
         link->ipv4ll = sd_ipv4ll_unref(link->ipv4ll);
 
         link->dhcp6_client = sd_dhcp6_client_unref(link->dhcp6_client);

@@ -133,9 +133,9 @@ Address *address_free(Address *address) {
                 if (address->family == AF_INET6 &&
                     in6_addr_equal(&address->in_addr.in6, &address->link->ipv6ll_address))
                         memzero(&address->link->ipv6ll_address, sizeof(struct in6_addr));
-        }
 
-        sd_ipv4acd_unref(address->acd);
+                ipv4acd_detach(address->link, address);
+        }
 
         config_section_free(address->section);
         free(address->label);
@@ -153,8 +153,9 @@ static bool address_lifetime_is_valid(const Address *a) {
 
 bool address_is_ready(const Address *a) {
         assert(a);
+        assert(a->link);
 
-        if (!ipv4acd_bound(a))
+        if (!ipv4acd_bound(a->link, a))
                 return false;
 
         if (FLAGS_SET(a->flags, IFA_F_TENTATIVE))
@@ -476,7 +477,6 @@ int address_dup(const Address *src, Address **ret) {
         dest->section = NULL;
         dest->link = NULL;
         dest->label = NULL;
-        dest->acd = NULL;
         dest->netlabel = NULL;
 
         if (src->family == AF_INET) {
@@ -1231,7 +1231,7 @@ static bool address_is_ready_to_configure(Link *link, const Address *address) {
         if (!link_is_ready_to_configure(link, false))
                 return false;
 
-        if (!ipv4acd_bound(address))
+        if (!ipv4acd_bound(link, address))
                 return false;
 
         /* Refuse adding more than the limit */
@@ -1322,7 +1322,7 @@ int link_request_address(
                 existing->lifetime_preferred_usec = address->lifetime_preferred_usec;
         }
 
-        r = ipv4acd_configure(existing);
+        r = ipv4acd_configure(link, existing);
         if (r < 0)
                 return r;
 
