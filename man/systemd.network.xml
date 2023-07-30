@@ -3185,7 +3185,7 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
 
     <refsect1>
     <title>[IPv6PREF64Prefix] Section Options</title>
-    <para>One or more [IPv6PREF64Prefix] sections contain the IPv6 PREF (or NAT64) prefixes that are announced via Router
+    <para>One or more [IPv6PREF64Prefix] sections contain the IPv6 PREF64 (or NAT64) prefixes that are announced via Router
     Advertisements. See <ulink url="https://tools.ietf.org/html/rfc8781">RFC 8781</ulink> for further
     details.</para>
 
