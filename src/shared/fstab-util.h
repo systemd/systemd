@@ -7,8 +7,15 @@
 #include "macro.h"
 
 bool fstab_is_extrinsic(const char *mount, const char *opts);
-int fstab_is_mount_point(const char *mount);
 int fstab_has_fstype(const char *fstype);
+
+int fstab_is_mount_point_full(const char *where, const char *path);
+static inline int fstab_is_mount_point(const char *where) {
+        return fstab_is_mount_point_full(where, NULL);
+}
+static inline int fstab_has_node(const char *path) {
+        return fstab_is_mount_point_full(NULL, path);
+}
 
 int fstab_filter_options(
                 const char *opts,
@@ -40,3 +47,5 @@ char *fstab_node_to_udev_node(const char *p);
 static inline const char* fstab_path(void) {
         return secure_getenv("SYSTEMD_FSTAB") ?: "/etc/fstab";
 }
+
+bool fstab_is_bind(const char *options, const char *fstype);

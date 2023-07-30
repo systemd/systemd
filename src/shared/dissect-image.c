@@ -2102,7 +2102,9 @@ int dissected_image_mount(
                                 if (r < 0)
                                         return r;
                                 if (r == 0) {
-                                        r = path_is_extension_tree(IMAGE_SYSEXT, where, m->image_name, FLAGS_SET(flags, DISSECT_IMAGE_RELAX_SYSEXT_CHECK));
+                                        r = path_is_extension_tree(IMAGE_SYSEXT, where, m->image_name, FLAGS_SET(flags, DISSECT_IMAGE_RELAX_EXTENSION_CHECK));
+                                        if (r == 0)
+                                                r = path_is_extension_tree(IMAGE_CONFEXT, where, m->image_name, FLAGS_SET(flags, DISSECT_IMAGE_RELAX_EXTENSION_CHECK));
                                         if (r < 0)
                                                 return r;
                                         if (r > 0)
@@ -3295,10 +3297,12 @@ int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_
         int fds[2 * _META_MAX], r, v;
         int has_init_system = -1;
         ssize_t n;
+        ImageClass image_class = IMAGE_SYSEXT;
 
         BLOCK_SIGNALS(SIGCHLD);
 
         assert(m);
+        assert(image_class);
 
         for (; n_meta_initialized < _META_MAX; n_meta_initialized ++) {
                 if (!paths[n_meta_initialized]) {
@@ -3352,7 +3356,7 @@ int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_
 
                         switch (k) {
 
-                        case META_EXTENSION_RELEASE:
+                        case META_EXTENSION_RELEASE: {
                                 /* As per the os-release spec, if the image is an extension it will have a file
                                  * named after the image name in extension-release.d/ - we use the image name
                                  * and try to resolve it with the extension-release helpers, as sometimes
@@ -3362,10 +3366,23 @@ int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_
                                  * we allow a fallback that matches on the first extension-release
                                  * file found in the directory, if one named after the image cannot
                                  * be found first. */
+                                ImageClass class = IMAGE_SYSEXT;
                                 r = open_extension_release(t, IMAGE_SYSEXT, m->image_name, /* relax_extension_release_check= */ false, NULL, &fd);
+                                if (r == -ENOENT) {
+                                        r = open_extension_release(t, IMAGE_CONFEXT, m->image_name, /* relax_extension_release_check= */ false, NULL, &fd);
+                                        if (r >= 0)
+                                                class = IMAGE_CONFEXT;
+                                }
                                 if (r < 0)
-                                        fd = r; /* Propagate the error. */
+                                        fd = r;
+                                else {
+                                        r = loop_write(fds[2*k+1], &class, sizeof(class), false);
+                                        if (r < 0)
+                                                goto inner_fail; /* Propagate the error to the parent */
+                                }
+
                                 break;
+                        }
 
                         case META_HAS_INIT_SYSTEM: {
                                 bool found = false;
@@ -3487,12 +3504,23 @@ int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_
 
                         break;
 
-                case META_EXTENSION_RELEASE:
-                        r = load_env_file_pairs(f, "extension-release", &extension_release);
-                        if (r < 0)
-                                log_debug_errno(r, "Failed to read extension release file of image: %m");
+                case META_EXTENSION_RELEASE: {
+                        ImageClass cl = IMAGE_SYSEXT;
+                        size_t nr;
+
+                        errno = 0;
+                        nr = fread(&cl, 1, sizeof(cl), f);
+                        if (nr != sizeof(cl))
+                                log_debug_errno(errno_or_else(EIO), "Failed to read class of extension image: %m");
+                        else {
+                                image_class = cl;
+                                r = load_env_file_pairs(f, "extension-release", &extension_release);
+                                if (r < 0)
+                                        log_debug_errno(r, "Failed to read extension release file of image: %m");
+                        }
 
                         break;
+                }
 
                 case META_HAS_INIT_SYSTEM: {
                         bool b = false;
@@ -3532,6 +3560,7 @@ int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_
         strv_free_and_replace(m->initrd_release, initrd_release);
         strv_free_and_replace(m->extension_release, extension_release);
         m->has_init_system = has_init_system;
+        m->image_class = image_class;
 
 finish:
         for (unsigned k = 0; k < n_meta_initialized; k++)
@@ -3820,7 +3849,7 @@ int verity_dissect_and_mount(
                 return log_debug_errno(r, "Failed to load root hash: %m");
 
         dissect_image_flags = (verity.data_path ? DISSECT_IMAGE_NO_PARTITION_TABLE : 0) |
-                (relax_extension_release_check ? DISSECT_IMAGE_RELAX_SYSEXT_CHECK : 0) |
+                (relax_extension_release_check ? DISSECT_IMAGE_RELAX_EXTENSION_CHECK : 0) |
                 DISSECT_IMAGE_ADD_PARTITION_DEVICES |
                 DISSECT_IMAGE_PIN_PARTITION_DEVICES;
 
@@ -3889,10 +3918,16 @@ int verity_dissect_and_mount(
          * then a simple match on the ID will be performed. */
         if (required_host_os_release_id) {
                 _cleanup_strv_free_ char **extension_release = NULL;
+                ImageClass class = IMAGE_SYSEXT;
 
                 assert(!isempty(required_host_os_release_id));
 
                 r = load_extension_release_pairs(dest, IMAGE_SYSEXT, dissected_image->image_name, relax_extension_release_check, &extension_release);
+                if (r == -ENOENT) {
+                        r = load_extension_release_pairs(dest, IMAGE_CONFEXT, dissected_image->image_name, relax_extension_release_check, &extension_release);
+                        if (r >= 0)
+                                class = IMAGE_CONFEXT;
+                }
                 if (r < 0)
                         return log_debug_errno(r, "Failed to parse image %s extension-release metadata: %m", dissected_image->image_name);
 
@@ -3903,7 +3938,7 @@ int verity_dissect_and_mount(
                                 required_host_os_release_sysext_level,
                                 required_sysext_scope,
                                 extension_release,
-                                IMAGE_SYSEXT);
+                                class);
                 if (r == 0)
                         return log_debug_errno(SYNTHETIC_ERRNO(ESTALE), "Image %s extension-release metadata does not match the root's", dissected_image->image_name);
                 if (r < 0)

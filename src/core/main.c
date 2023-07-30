@@ -35,6 +35,7 @@
 #include "clock-util.h"
 #include "conf-parser.h"
 #include "confidential-virt.h"
+#include "copy.h"
 #include "cpu-set-util.h"
 #include "crash-handler.h"
 #include "dbus-manager.h"
@@ -220,6 +221,7 @@ static int manager_find_user_config_paths(char ***ret_files, char ***ret_dirs) {
 
 static int console_setup(void) {
         _cleanup_close_ int tty_fd = -EBADF;
+        unsigned rows, cols;
         int r;
 
         tty_fd = open_terminal("/dev/console", O_WRONLY|O_NOCTTY|O_CLOEXEC);
@@ -231,6 +233,15 @@ static int console_setup(void) {
         r = reset_terminal_fd(tty_fd, false);
         if (r < 0)
                 return log_error_errno(r, "Failed to reset /dev/console: %m");
+
+        r = proc_cmdline_tty_size("/dev/console", &rows, &cols);
+        if (r < 0)
+                log_warning_errno(r, "Failed to get terminal size, ignoring: %m");
+        else {
+                r = terminal_set_size_fd(tty_fd, NULL, rows, cols);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to set terminal size, ignoring: %m");
+        }
 
         return 0;
 }
@@ -1372,6 +1383,38 @@ static int os_release_status(void) {
         return 0;
 }
 
+static int setup_os_release(RuntimeScope scope) {
+        _cleanup_free_ char *os_release_dst = NULL;
+        const char *os_release_src = "/etc/os-release";
+        int r;
+
+        if (access("/etc/os-release", F_OK) < 0) {
+                if (errno != ENOENT)
+                        log_debug_errno(errno, "Failed to check if /etc/os-release exists, ignoring: %m");
+
+                os_release_src = "/usr/lib/os-release";
+        }
+
+        if (scope == RUNTIME_SCOPE_SYSTEM) {
+                os_release_dst = strdup("/run/systemd/propagate/os-release");
+                if (!os_release_dst)
+                        return log_oom_debug();
+        } else {
+                if (asprintf(&os_release_dst, "/run/user/" UID_FMT "/systemd/propagate/os-release", geteuid()) < 0)
+                        return log_oom_debug();
+        }
+
+        r = mkdir_parents_label(os_release_dst, 0755);
+        if (r < 0 && r != -EEXIST)
+                return log_debug_errno(r, "Failed to create parent directory of %s, ignoring: %m", os_release_dst);
+
+        r = copy_file(os_release_src, os_release_dst, /* open_flags= */ 0, 0644, COPY_MAC_CREATE);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to create %s, ignoring: %m", os_release_dst);
+
+        return 0;
+}
+
 static int write_container_id(void) {
         const char *c;
         int r = 0;  /* avoid false maybe-uninitialized warning */
@@ -1828,6 +1871,9 @@ static int do_reexecute(
          * SIGCHLD for them after deserializing. */
         if (IN_SET(objective, MANAGER_SWITCH_ROOT, MANAGER_SOFT_REBOOT))
                 broadcast_signal(SIGTERM, /* wait_for_exit= */ false, /* send_sighup= */ true, arg_default_timeout_stop_usec);
+        /* On soft reboot really make sure nothing is left */
+        if (objective == MANAGER_SOFT_REBOOT)
+                broadcast_signal(SIGKILL, /* wait_for_exit= */ false, /* send_sighup= */ false, arg_default_timeout_stop_usec);
 
         if (!switch_root_dir && objective == MANAGER_SOFT_REBOOT) {
                 /* If no switch root dir is specified, then check if /run/nextroot/ qualifies and use that */
@@ -1841,7 +1887,8 @@ static int do_reexecute(
         if (switch_root_dir) {
                 r = switch_root(/* new_root= */ switch_root_dir,
                                 /* old_root_after= */ NULL,
-                                /* flags= */ objective == MANAGER_SWITCH_ROOT ? SWITCH_ROOT_DESTROY_OLD_ROOT : 0);
+                                /* flags= */ (objective == MANAGER_SWITCH_ROOT ? SWITCH_ROOT_DESTROY_OLD_ROOT : 0) |
+                                             (objective == MANAGER_SOFT_REBOOT ? SWITCH_ROOT_SKIP_RECURSIVE_RUN : 0));
                 if (r < 0)
                         log_error_errno(r, "Failed to switch root, trying to continue: %m");
         }
@@ -2243,6 +2290,12 @@ static int initialize_runtime(
                         bump_file_max_and_nr_open();
                         test_usr();
                         write_container_id();
+
+                        /* Copy os-release to the propagate directory, so that we update it for services running
+                         * under RootDirectory=/RootImage= when we do a soft reboot. */
+                        r = setup_os_release(RUNTIME_SCOPE_SYSTEM);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to copy os-release for propagation, ignoring: %m");
                 }
 
                 r = watchdog_set_device(arg_watchdog_device);
@@ -2265,6 +2318,9 @@ static int initialize_runtime(
 
                 (void) mkdir_p_label(p, 0755);
                 (void) make_inaccessible_nodes(p, UID_INVALID, GID_INVALID);
+                r = setup_os_release(RUNTIME_SCOPE_USER);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to copy os-release for propagation, ignoring: %m");
                 break;
         }
 

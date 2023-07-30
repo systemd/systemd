@@ -1381,7 +1381,6 @@ static int synthesize_change(sd_device *dev) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         bool part_table_read;
         const char *sysname;
-        sd_device *d;
         int r, k;
 
         r = sd_device_get_sysname(dev, &sysname);
@@ -1846,7 +1845,7 @@ static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent) {
 
         r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, 0, &cgroup);
         if (r < 0)
-                log_warning_errno(r, "Failed to get cgroup, ignoring: %m");
+                log_debug_errno(r, "Failed to get cgroup, ignoring: %m");
         else if (endswith(cgroup, "/udev")) { /* If we are in a subcgroup /udev/ we assume it was delegated to us */
                 log_debug("Running in delegated subcgroup '%s'.", cgroup);
                 manager->cgroup = TAKE_PTR(cgroup);

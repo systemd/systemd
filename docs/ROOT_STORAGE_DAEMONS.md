@@ -25,13 +25,13 @@ When complex storage technologies are used as backing for the root file system
 this needs to be set up by the initrd, i.e. on Fedora by Dracut. In newer
 systemd versions tear-down of the root file system backing is also done by the
 initrd: after terminating all remaining running processes and unmounting all
-file systems it can (which means excluding the root fs) systemd will jump back
-into the initrd code allowing it to unmount the final file systems (and its
-storage backing) that could not be unmounted as long as the OS was still
-running from the main root file system. The initrd' job is to detach/unmount
-the root fs, i.e. inverting the exact commands it used to set them up in the
-first place. This is not only cleaner, but also allows for the first time
-arbitrary complex stacks of storage technology.
+file systems it can (which means excluding the root file system) systemd will
+jump back into the initrd code allowing it to unmount the final file systems
+(and its storage backing) that could not be unmounted as long as the OS was
+still running from the main root file system. The job of the initrd is to
+detach/unmount the root file system, i.e. inverting the exact commands it used
+to set them up in the first place. This is not only cleaner, but also allows
+for the first time arbitrary complex stacks of storage technology.
 
 Previous attempts to handle root file system setups with complex storage as
 backing usually tried to maintain the root storage with program code stored on
@@ -40,25 +40,23 @@ detaching such a root file system becomes messy, since the program code on the
 storage needs to stay around longer than the storage, which is technically
 contradicting.
 
-
 ## What's new?
 
 As a result, we hereby clarify that we do not support storage technology setups
-where the storage daemons are being run from the storage it maintains
-itself. In other words: a storage daemon backing the root file system cannot be
-stored on the root file system itself.
+where the storage daemons are being run from the storage they maintain
+themselves. In other words: a storage daemon backing the root file system cannot
+be stored on the root file system itself.
 
 What we do support instead is that these storage daemons are started from the
 initrd, stay running all the time during normal operation and are terminated
 only after we returned control back to the initrd and by the initrd. As such,
 storage daemons involved with maintaining the root file system storage
 conceptually are more like kernel threads than like normal system services:
-from the perspective of the init system (i.e. systemd) these services have been
-started before systemd got initialized and stay around until after systemd is
+from the perspective of the init system (i.e. systemd), these services have been
+started before systemd was initialized and stay around until after systemd is
 already gone. These daemons can only be updated by updating the initrd and
-rebooting, a takeover from initrd-supplied services to replacements from the
+rebooting; a takeover from initrd-supplied services to replacements from the
 root file system is not supported.
-
 
 ## What does this mean?
 
@@ -79,10 +77,10 @@ applied during the transition from the initrd to the main system (i.e. the
 main system.
 
 To implement the supported logic proposed above (i.e. where storage daemons
-needed for the root fs which are started by the initrd stay around during
-normal operation and are only killed after control is passed back to the
-initrd) we need to exclude these daemons from the shutdown/switch_root killing
-spree. To accomplish this the following logic is available starting with
+needed for the root file system which are started by the initrd stay around
+during normal operation and are only killed after control is passed back to the
+initrd), we need to exclude these daemons from the shutdown/switch_root killing
+spree. To accomplish this, the following logic is available starting with
 systemd 38:
 
 Processes (run by the root user) whose first character of the zeroth command
@@ -143,7 +141,7 @@ Note that your code should only modify `argv[0][0]` and leave the comm name
 
 These recommendations apply to those storage daemons which need to stay around
 until after the storage they maintain is unmounted. If your storage daemon is
-fine with being shut down before its storage device is unmounted you may ignore
+fine with being shut down before its storage device is unmounted, you may ignore
 the recommendations above.
 
 This all applies to storage technology only, not to daemons with any other
@@ -151,7 +149,7 @@ This all applies to storage technology only, not to daemons with any other
 
 ## What else to keep in mind?
 
-If your daemon implements the logic pointed out above it should work nicely
+If your daemon implements the logic pointed out above, it should work nicely
 from initrd environments. In many cases it might be necessary to additionally
 support storage daemons to be started from within the actual OS, for example
 when complex storage setups are used for auxiliary file systems, i.e. not the
@@ -182,7 +180,7 @@ few additional notes for supporting these setups:
   implemented by systemd. Transparently for your client code connecting to the
   socket of your storage daemon will result in the storage to be started. For
   that it is simply necessary to inform systemd about the socket you'd like it
-  to listen on on behalf of your daemon and minimally modify the daemon to
+  to listen on behalf of your daemon and minimally modify the daemon to
   receive the listening socket for its services from systemd instead of
   creating it on its own. Such modifications can be minimal, and are easily
   written in a way that does not negatively impact usability on non-systemd

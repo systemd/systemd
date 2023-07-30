@@ -26,6 +26,7 @@
 #include "fileio.h"
 #include "io-util.h"
 #include "locale-util.h"
+#include "lock-util.h"
 #include "log.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
@@ -239,7 +240,7 @@ static int toggle_utf8_vc(const char *name, int fd, bool utf8) {
         if (r < 0)
                 return log_warning_errno(errno, "Failed to %s UTF-8 kbdmode on %s: %m", enable_disable(utf8), name);
 
-        r = loop_write(fd, utf8 ? "\033%G" : "\033%@", 3, false);
+        r = loop_write(fd, utf8 ? "\033%G" : "\033%@", SIZE_MAX, false);
         if (r < 0)
                 return log_warning_errno(r, "Failed to %s UTF-8 term processing on %s: %m", enable_disable(utf8), name);
 
@@ -279,7 +280,7 @@ static int keyboard_load_and_wait(const char *vc, Context *c, bool utf8) {
         map_toggle = context_get_config(c, VC_KEYMAP_TOGGLE);
 
         /* An empty map means kernel map */
-        if (!map)
+        if (isempty(map))
                 return 0;
 
         args[i++] = KBD_LOADKEYS;
@@ -588,6 +589,14 @@ int main(int argc, char **argv) {
         utf8 = is_locale_utf8();
 
         context_load_config(&c);
+
+        /* Take lock around the remaining operation to avoid being interrupted by a tty reset operation
+         * performed for services with TTYVHangup=yes. */
+        r = lock_generic(fd, LOCK_BSD, LOCK_EX);
+        if (r < 0) {
+                log_error_errno(r, "Failed to lock console: %m");
+                return EXIT_FAILURE;
+        }
 
         (void) toggle_utf8_sysfs(utf8);
         (void) toggle_utf8_vc(vc, fd, utf8);

@@ -339,7 +339,7 @@ libshared = shared_library(
         dependencies : [libshared_deps,
                         userspace],
         install : true,
-        install_dir : rootpkglibdir)
+        install_dir : pkglibdir)
 
 shared_fdisk_sources = files(
         'fdisk-util.c',

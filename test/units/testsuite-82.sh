@@ -20,13 +20,9 @@ if [ -f /run/testsuite82.touch3 ]; then
     read -r x <&5
     test "$x" = "oinkoink"
 
-    # Check that the surviving service is still around
-    test "$(systemctl show -P ActiveState testsuite-82-survive.service)" = "active"
+    # Check that no service is still around
+    test "$(systemctl show -P ActiveState testsuite-82-survive.service)" != "active"
     test "$(systemctl show -P ActiveState testsuite-82-nosurvive.service)" != "active"
-
-    # Take out the big guns now, and kill the service via SIGKILL (SIGTERM is blocked after all, see below)
-    systemctl --signal=KILL kill testsuite-82-survive.service
-    systemctl stop testsuite-82-survive.service
 
     # All succeeded, exit cleanly now
 
@@ -47,13 +43,15 @@ elif [ -f /run/testsuite82.touch2 ]; then
     systemd-notify --fd=3 --pid=parent 3<"$T"
     rm "$T"
 
-    # Check that the surviving service is still around
-    test "$(systemctl show -P ActiveState testsuite-82-survive.service)" = "active"
+    # Check that no service is still around
+    test "$(systemctl show -P ActiveState testsuite-82-survive.service)" != "active"
     test "$(systemctl show -P ActiveState testsuite-82-nosurvive.service)" != "active"
 
     # Test that we really are in the new overlayfs root fs
     read -r x </lower
     test "$x" = "miep"
+    cmp /etc/os-release /run/systemd/propagate/os-release
+    grep -q MARKER=1 /etc/os-release
 
     # Switch back to the original root, away from the overlayfs
     mount --bind /original-root /run/nextroot
@@ -84,15 +82,24 @@ elif [ -f /run/testsuite82.touch ]; then
     systemd-notify --fd=3 --pid=parent 3<"$T"
     rm "$T"
 
-    # Check that the surviving service is still around
-    test "$(systemctl show -P ActiveState testsuite-82-survive.service)" = "active"
+    # Check that no service survived, regardless of the configuration
+    test "$(systemctl show -P ActiveState testsuite-82-survive.service)" != "active"
     test "$(systemctl show -P ActiveState testsuite-82-nosurvive.service)" != "active"
 
     # This time we test the /run/nextroot/ root switching logic. (We synthesize a new rootfs from the old via overlayfs)
     mkdir -p /run/nextroot /tmp/nextroot-lower /original-root
     mount -t tmpfs tmpfs /tmp/nextroot-lower
     echo miep >/tmp/nextroot-lower/lower
-    mount -t overlay nextroot /run/nextroot -o lowerdir=/:/tmp/nextroot-lower,ro
+
+    # Copy os-release away, so that we can manipulate it and check that it is updated in the propagate
+    # directory across soft reboots.
+    mkdir -p /tmp/nextroot-lower/usr/lib
+    cp /etc/os-release /tmp/nextroot-lower/usr/lib/os-release
+    echo MARKER=1 >>/tmp/nextroot-lower/usr/lib/os-release
+    cmp /etc/os-release /run/systemd/propagate/os-release
+    (! grep -q MARKER=1 /etc/os-release)
+
+    mount -t overlay nextroot /run/nextroot -o lowerdir=/tmp/nextroot-lower:/,ro
 
     # Bind our current root into the target so that we later can return to it
     mount --bind / /run/nextroot/original-root
@@ -140,8 +147,6 @@ EOF
 fi
 
 systemd-analyze log-level info
-echo OK >/testok
 
+touch /testok
 systemctl --no-block poweroff
-
-exit 0

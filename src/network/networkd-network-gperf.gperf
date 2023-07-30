@@ -140,6 +140,7 @@ Network.PrimarySlave,                        config_parse_bool,                 
 Network.IPv4ProxyARP,                        config_parse_tristate,                                    0,                             offsetof(Network, proxy_arp)
 Network.ProxyARP,                            config_parse_tristate,                                    0,                             offsetof(Network, proxy_arp)
 Network.IPv6ProxyNDPAddress,                 config_parse_ipv6_proxy_ndp_address,                      0,                             0
+Network.IPv4ReversePathFilter,               config_parse_ip_reverse_path_filter,                      0,                             offsetof(Network, ipv4_rp_filter)
 Network.BindCarrier,                         config_parse_strv,                                        0,                             offsetof(Network, bind_carrier)
 Network.ConfigureWithoutCarrier,             config_parse_bool,                                        0,                             offsetof(Network, configure_without_carrier)
 Network.IgnoreCarrierLoss,                   config_parse_ignore_carrier_loss,                         0,                             0
@@ -195,8 +196,8 @@ Route.GatewayOnlink,                         config_parse_route_boolean,        
 Route.IPv6Preference,                        config_parse_ipv6_route_preference,                       0,                             0
 Route.Protocol,                              config_parse_route_protocol,                              0,                             0
 Route.Type,                                  config_parse_route_type,                                  0,                             0
-Route.InitialCongestionWindow,               config_parse_tcp_window,                                  0,                             0
-Route.InitialAdvertisedReceiveWindow,        config_parse_tcp_window,                                  0,                             0
+Route.InitialCongestionWindow,               config_parse_route_tcp_window,                            0,                             0
+Route.InitialAdvertisedReceiveWindow,        config_parse_route_tcp_window,                            0,                             0
 Route.TCPAdvertisedMaximumSegmentSize,       config_parse_tcp_advmss,                                  0,                             0
 Route.TCPCongestionControlAlgorithm,         config_parse_tcp_congestion,                              0,                             0
 Route.QuickAck,                              config_parse_route_boolean,                               0,                             0
@@ -249,6 +250,8 @@ DHCPv4.SocketPriority,                       config_parse_dhcp_socket_priority, 
 DHCPv4.SendOption,                           config_parse_dhcp_send_option,                            AF_INET,                       offsetof(Network, dhcp_client_send_options)
 DHCPv4.SendVendorOption,                     config_parse_dhcp_send_option,                            0,                             offsetof(Network, dhcp_client_send_vendor_options)
 DHCPv4.RouteMTUBytes,                        config_parse_mtu,                                         AF_INET,                       offsetof(Network, dhcp_route_mtu)
+DHCPv4.InitialCongestionWindow,              config_parse_tcp_window,                                  0,                             offsetof(Network, dhcp_initial_congestion_window)
+DHCPv4.InitialAdvertisedReceiveWindow,       config_parse_tcp_window,                                  0,                             offsetof(Network, dhcp_advertised_receive_window)
 DHCPv4.FallbackLeaseLifetimeSec,             config_parse_dhcp_fallback_lease_lifetime,                0,                             0
 DHCPv4.Use6RD,                               config_parse_bool,                                        0,                             offsetof(Network, dhcp_use_6rd)
 DHCPv4.NetLabel,                             config_parse_string,                                      CONFIG_PARSE_STRING_SAFE,      offsetof(Network, dhcp_netlabel)

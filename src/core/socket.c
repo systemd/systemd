@@ -283,11 +283,7 @@ static int socket_add_default_dependencies(Socket *s) {
                         return r;
         }
 
-        r = unit_add_two_dependencies_by_name(UNIT(s), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
-        if (r < 0)
-                return r;
-
-        return exec_context_add_default_dependencies(UNIT(s), &s->exec_context);
+        return unit_add_two_dependencies_by_name(UNIT(s), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
 }
 
 _pure_ static bool socket_has_exec(Socket *s) {
@@ -2362,10 +2358,12 @@ static void socket_enter_running(Socket *s, int cfd_in) {
 
                 if (s->max_connections_per_source > 0) {
                         r = socket_acquire_peer(s, cfd, &p);
-                        if (ERRNO_IS_DISCONNECT(r))
-                                return;
-                        if (r < 0) /* We didn't have enough resources to acquire peer information, let's fail. */
+                        if (r < 0) {
+                                if (ERRNO_IS_DISCONNECT(r))
+                                        return;
+                                /* We didn't have enough resources to acquire peer information, let's fail. */
                                 goto fail;
+                        }
                         if (r > 0 && p->n_ref > s->max_connections_per_source) {
                                 _cleanup_free_ char *t = NULL;
 

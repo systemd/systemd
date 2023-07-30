@@ -777,6 +777,22 @@ Table=1234</programlisting></para>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>IPv4ReversePathFilter=</varname></term>
+        <listitem>
+          <para>Configure IPv4 Reverse Path Filtering. If enabled, when an IPv4 packet is received, the machine will first check
+          whether the <emphasis>source</emphasis> of the packet would be routed through the interface it came in. If there is no
+          route to the source on that interface, the machine will drop the packet. Takes one of
+          <literal>no</literal>, <literal>strict</literal>, or <literal>loose</literal>. When <literal>no</literal>,
+          no source validation will be done. When <literal>strict</literal>, mode each incoming packet is tested against the FIB and
+          if the incoming interface is not the best reverse path, the packet check will fail. By default failed packets are discarded.
+          When <literal>loose</literal>,  mode each incoming packet's source address is tested against the FIB. The packet is dropped
+          only if the source address is not reachable via any interface on that router.
+          See <ulink url="https://tools.ietf.org/html/rfc1027">RFC 3704</ulink>.
+          When unset, the kernel's default will be used.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>IPv4AcceptLocal=</varname></term>
         <listitem>
           <para>Takes a boolean. Accept packets with local source addresses. In combination with
@@ -1773,12 +1789,12 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
       <varlistentry>
         <term><varname>ClientIdentifier=</varname></term>
         <listitem>
-          <para>The DHCPv4 client identifier to use. Takes one of <option>mac</option>,
-          <option>duid</option> or <option>duid-only</option>. If set to <option>mac</option>, the
-          MAC address of the link is used. If set to <option>duid</option>, an RFC4361-compliant Client
-          ID, which is the combination of IAID and DUID (see below), is used. If set to
-          <option>duid-only</option>, only DUID is used, this may not be RFC compliant, but some setups
-          may require to use this. Defaults to <option>duid</option>.</para>
+          <para>The DHCPv4 client identifier to use. Takes one of <option>mac</option> or
+          <option>duid</option>. If set to <option>mac</option>, the MAC address of the link is used. If set
+          to <option>duid</option>, an RFC4361-compliant Client ID, which is the combination of IAID and
+          DUID, is used. IAID can be configured by <varname>IAID=</varname>. DUID can be configured by
+          <varname>DUIDType=</varname> and <varname>DUIDRawData=</varname>. Defaults to
+          <option>duid</option>.</para>
         </listitem>
       </varlistentry>
 
@@ -2070,6 +2086,20 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
         <listitem>
           <para>Takes a boolean. When true, the TCP quick ACK mode is enabled for the routes configured by
           the acquired DHCPv4 lease. When unset, the kernel's default will be used.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>InitialCongestionWindow=</varname></term>
+        <listitem>
+          <para>As in the [Route] section.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>InitialAdvertisedReceiveWindow=</varname></term>
+        <listitem>
+          <para>As in the [Route] section.</para>
         </listitem>
       </varlistentry>
 

@@ -107,7 +107,9 @@ static OrderedHashmap *members = NULL;
 
 static Hashmap *database_by_uid = NULL, *database_by_username = NULL;
 static Hashmap *database_by_gid = NULL, *database_by_groupname = NULL;
-static Set *database_users = NULL, *database_groups = NULL;
+
+/* A helper set to hold names that are used by database_by_{uid,gid,username,groupname} above. */
+static Set *names = NULL;
 
 static uid_t search_uid = UID_INVALID;
 static UidRange *uid_range = NULL;
@@ -122,10 +124,9 @@ STATIC_DESTRUCTOR_REGISTER(todo_uids, ordered_hashmap_freep);
 STATIC_DESTRUCTOR_REGISTER(todo_gids, ordered_hashmap_freep);
 STATIC_DESTRUCTOR_REGISTER(database_by_uid, hashmap_freep);
 STATIC_DESTRUCTOR_REGISTER(database_by_username, hashmap_freep);
-STATIC_DESTRUCTOR_REGISTER(database_users, set_free_freep);
 STATIC_DESTRUCTOR_REGISTER(database_by_gid, hashmap_freep);
 STATIC_DESTRUCTOR_REGISTER(database_by_groupname, hashmap_freep);
-STATIC_DESTRUCTOR_REGISTER(database_groups, set_free_freep);
+STATIC_DESTRUCTOR_REGISTER(names, set_free_freep);
 STATIC_DESTRUCTOR_REGISTER(uid_range, uid_range_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
@@ -184,31 +185,35 @@ static int load_user_database(void) {
         if (r < 0)
                 return r;
 
-        r = set_ensure_allocated(&database_users, NULL);
+        /* Note that we use NULL, i.e. trivial_hash_ops here, so identical strings can exist in the set. */
+        r = set_ensure_allocated(&names, NULL);
         if (r < 0)
                 return r;
 
         while ((r = fgetpwent_sane(f, &pw)) > 0) {
-                char *n;
-                int k, q;
 
-                n = strdup(pw->pw_name);
+                char *n = strdup(pw->pw_name);
                 if (!n)
                         return -ENOMEM;
 
-                k = set_put(database_users, n);
-                if (k < 0) {
-                        free(n);
-                        return k;
-                }
+                r = set_consume(names, n);
+                if (r < 0)
+                        return r;
+                assert(r > 0);  /* The set uses pointer comparisons, so n must not be in the set. */
 
-                k = hashmap_put(database_by_username, n, UID_TO_PTR(pw->pw_uid));
-                if (k < 0 && k != -EEXIST)
-                        return k;
+                r = hashmap_put(database_by_username, n, UID_TO_PTR(pw->pw_uid));
+                if (r == -EEXIST)
+                        log_debug_errno(r, "%s: user '%s' is listed twice, ignoring duplicate uid.",
+                                        passwd_path, n);
+                else if (r < 0)
+                        return r;
 
-                q = hashmap_put(database_by_uid, UID_TO_PTR(pw->pw_uid), n);
-                if (q < 0 && q != -EEXIST)
-                        return q;
+                r = hashmap_put(database_by_uid, UID_TO_PTR(pw->pw_uid), n);
+                if (r == -EEXIST)
+                        log_debug_errno(r, "%s: uid "UID_FMT" is listed twice, ignoring duplicate name.",
+                                        passwd_path, pw->pw_uid);
+                else if (r < 0)
+                        return r;
         }
         return r;
 }
@@ -232,31 +237,35 @@ static int load_group_database(void) {
         if (r < 0)
                 return r;
 
-        r = set_ensure_allocated(&database_groups, NULL);
+        /* Note that we use NULL, i.e. trivial_hash_ops here, so identical strings can exist in the set. */
+        r = set_ensure_allocated(&names, NULL);
         if (r < 0)
                 return r;
 
         while ((r = fgetgrent_sane(f, &gr)) > 0) {
-                char *n;
-                int k, q;
 
-                n = strdup(gr->gr_name);
+                char *n = strdup(gr->gr_name);
                 if (!n)
                         return -ENOMEM;
 
-                k = set_put(database_groups, n);
-                if (k < 0) {
-                        free(n);
-                        return k;
-                }
+                r = set_consume(names, n);
+                if (r < 0)
+                        return r;
+                assert(r > 0);  /* The set uses pointer comparisons, so n must not be in the set. */
 
-                k = hashmap_put(database_by_groupname, n, GID_TO_PTR(gr->gr_gid));
-                if (k < 0 && k != -EEXIST)
-                        return k;
+                r = hashmap_put(database_by_groupname, n, GID_TO_PTR(gr->gr_gid));
+                if (r == -EEXIST)
+                        log_debug_errno(r, "%s: group '%s' is listed twice, ignoring duplicate gid.",
+                                        group_path, n);
+                else if (r < 0)
+                        return r;
 
-                q = hashmap_put(database_by_gid, GID_TO_PTR(gr->gr_gid), n);
-                if (q < 0 && q != -EEXIST)
-                        return q;
+                r = hashmap_put(database_by_gid, GID_TO_PTR(gr->gr_gid), n);
+                if (r == -EEXIST)
+                        log_debug_errno(r, "%s: gid "GID_FMT" is listed twice, ignoring duplicate name.",
+                                        group_path, gr->gr_gid);
+                else if (r < 0)
+                        return r;
         }
         return r;
 }
@@ -867,13 +876,13 @@ static int write_temporary_gshadow(const char * gshadow_path, FILE **ret_tmpfile
 static int write_files(void) {
         _cleanup_fclose_ FILE *passwd = NULL, *group = NULL, *shadow = NULL, *gshadow = NULL;
         _cleanup_(unlink_and_freep) char *passwd_tmp = NULL, *group_tmp = NULL, *shadow_tmp = NULL, *gshadow_tmp = NULL;
-        const char *passwd_path, *shadow_path, *group_path, *gshadow_path;
         int r;
 
-        passwd_path = prefix_roota(arg_root, "/etc/passwd");
-        shadow_path = prefix_roota(arg_root, "/etc/shadow");
-        group_path = prefix_roota(arg_root, "/etc/group");
-        gshadow_path = prefix_roota(arg_root, "/etc/gshadow");
+        const char
+                *passwd_path = prefix_roota(arg_root, "/etc/passwd"),
+                *shadow_path = prefix_roota(arg_root, "/etc/shadow"),
+                *group_path = prefix_roota(arg_root, "/etc/group"),
+                *gshadow_path = prefix_roota(arg_root, "/etc/gshadow");
 
         r = write_temporary_group(group_path, &group, &group_tmp);
         if (r < 0)

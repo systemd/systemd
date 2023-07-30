@@ -597,7 +597,7 @@ static void log_route_debug(const Route *route, const char *str, const Link *lin
         if (in_addr_is_set(route->family, &route->prefsrc))
                 (void) in_addr_to_string(route->family, &route->prefsrc, &prefsrc);
         (void) route_scope_to_string_alloc(route->scope, &scope);
-        (void) manager_get_route_table_to_string(manager, route->table, &table);
+        (void) manager_get_route_table_to_string(manager, route->table, /* append_num = */ true, &table);
         (void) route_protocol_full_to_string_alloc(route->protocol, &proto);
         (void) route_flags_to_string_alloc(route->flags, &flags);
 
@@ -857,7 +857,7 @@ static void manager_mark_routes(Manager *manager, bool foreign, const Link *exce
 
 static int manager_drop_marked_routes(Manager *manager) {
         Route *route;
-        int k, r = 0;
+        int r = 0;
 
         assert(manager);
 
@@ -865,9 +865,7 @@ static int manager_drop_marked_routes(Manager *manager) {
                 if (!route_is_marked(route))
                         continue;
 
-                k = route_remove(route);
-                if (k < 0 && r >= 0)
-                        r = k;
+                RET_GATHER(r, route_remove(route));
         }
 
         return r;
@@ -907,7 +905,7 @@ static void link_unmark_wireguard_routes(Link *link) {
 
 int link_drop_foreign_routes(Link *link) {
         Route *route;
-        int k, r;
+        int r;
 
         assert(link);
         assert(link->manager);
@@ -962,23 +960,17 @@ int link_drop_foreign_routes(Link *link) {
                 if (!route_is_marked(route))
                         continue;
 
-                k = route_remove(route);
-                if (k < 0 && r >= 0)
-                        r = k;
+                RET_GATHER(r, route_remove(route));
         }
 
         manager_mark_routes(link->manager, /* foreign = */ true, NULL);
 
-        k = manager_drop_marked_routes(link->manager);
-        if (k < 0 && r >= 0)
-                r = k;
-
-        return r;
+        return RET_GATHER(r, manager_drop_marked_routes(link->manager));
 }
 
 int link_drop_managed_routes(Link *link) {
         Route *route;
-        int k, r = 0;
+        int r = 0;
 
         assert(link);
 
@@ -994,18 +986,12 @@ int link_drop_managed_routes(Link *link) {
                 if (!route_exists(route))
                         continue;
 
-                k = route_remove(route);
-                if (k < 0 && r >= 0)
-                        r = k;
+                RET_GATHER(r, route_remove(route));
         }
 
         manager_mark_routes(link->manager, /* foreign = */ false, link);
 
-        k = manager_drop_marked_routes(link->manager);
-        if (k < 0 && r >= 0)
-                r = k;
-
-        return r;
+        return RET_GATHER(r, manager_drop_marked_routes(link->manager));
 }
 
 void link_foreignize_routes(Link *link) {
@@ -2643,8 +2629,7 @@ int config_parse_tcp_window(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(route_free_or_set_invalidp) Route *n = NULL;
-        Network *network = userdata;
+        uint32_t *window = ASSERT_PTR(data);
         uint32_t k;
         int r;
 
@@ -2653,15 +2638,6 @@ int config_parse_tcp_window(
         assert(lvalue);
         assert(rvalue);
         assert(data);
-
-        r = route_new_static(network, filename, section_line, &n);
-        if (r == -ENOMEM)
-                return log_oom();
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to allocate route, ignoring assignment: %m");
-                return 0;
-        }
 
         r = safe_atou32(rvalue, &k);
         if (r < 0) {
@@ -2680,12 +2656,52 @@ int config_parse_tcp_window(
                 return 0;
         }
 
+        *window = k;
+        return 0;
+}
+
+int config_parse_route_tcp_window(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_(route_free_or_set_invalidp) Route *n = NULL;
+        Network *network = userdata;
+        uint32_t *d;
+        int r;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = route_new_static(network, filename, section_line, &n);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to allocate route, ignoring assignment: %m");
+                return 0;
+        }
+
         if (streq(lvalue, "InitialCongestionWindow"))
-                n->initcwnd = k;
+                d = &n->initcwnd;
         else if (streq(lvalue, "InitialAdvertisedReceiveWindow"))
-                n->initrwnd = k;
+                d = &n->initrwnd;
         else
                 assert_not_reached();
+
+        r = config_parse_tcp_window(unit, filename, line, section, section_line, lvalue, ltype, rvalue, d, userdata);
+        if (r < 0)
+                return r;
 
         TAKE_PTR(n);
         return 0;

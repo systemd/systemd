@@ -70,7 +70,7 @@ bool credential_glob_valid(const char *s) {
                 return false;
 
         /* Make a copy of the string without the '*' suffix */
-        a = strndupa(s, n);
+        a = strndupa_safe(s, n);
 
         return credential_name_valid(a);
 }
@@ -140,7 +140,7 @@ int read_credential_with_decryption(const char *name, void **ret, size_t *ret_si
          * yet.
          *
          * Note that read_credential_harder_and_warn() logs on its own, while read_credential() does not!
-         * (It's a lot more complex and error prone given its TPM2 connectivty, and is generally called from
+         * (It's a lot more complex and error prone given its TPM2 connectivity, and is generally called from
          * generators only where logging is OK).
          *
          * Error handling is also a bit different: if we can't find a credential we'll return 0 and NULL

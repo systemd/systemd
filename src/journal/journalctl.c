@@ -1242,7 +1242,7 @@ static int discover_next_boot(
                         return r;
 
                 /* We iterate through this in a loop, until the boot ID differs from the previous one. Note that
-                 * normally, this will only require a single iteration, as we seeked to the last entry of the previous
+                 * normally, this will only require a single iteration, as we moved to the last entry of the previous
                  * boot entry already. However, it might happen that the per-journal-field entry arrays are less
                  * complete than the main entry array, and hence might reference an entry that's not actually the last
                  * one of the boot ID as last one. Let's hence use the per-field array is initial seek position to

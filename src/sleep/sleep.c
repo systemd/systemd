@@ -53,8 +53,7 @@
 static SleepOperation arg_operation = _SLEEP_OPERATION_INVALID;
 
 static int write_efi_hibernate_location(const HibernateLocation *hibernate_location, bool required) {
-        int log_level = required ? LOG_ERR : LOG_DEBUG,
-            log_level_ignore = required ? LOG_WARNING : LOG_DEBUG;
+        int log_level = required ? LOG_ERR : LOG_DEBUG;
 
 #if ENABLE_EFI
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
@@ -64,7 +63,7 @@ static int write_efi_hibernate_location(const HibernateLocation *hibernate_locat
         const char *uuid_str;
         sd_id128_t uuid;
         struct utsname uts = {};
-        int r;
+        int r, log_level_ignore = required ? LOG_WARNING : LOG_DEBUG;
 
         assert(hibernate_location);
         assert(hibernate_location->swap);
@@ -263,15 +262,17 @@ static int execute(
                         return log_error_errno(r, "Failed to find location to hibernate to: %m");
                 resume_set = r > 0;
 
+                r = write_efi_hibernate_location(hibernate_location, !resume_set);
                 if (!resume_set) {
+                        if (r == -EOPNOTSUPP)
+                                return log_error_errno(r, "No valid 'resume=' option found, refusing to hibernate.");
+                        if (r < 0)
+                                return r;
+
                         r = write_kernel_hibernate_location(hibernate_location);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to prepare for hibernation: %m");
                 }
-
-                r = write_efi_hibernate_location(hibernate_location, !resume_set);
-                if (r < 0 && !resume_set)
-                        return r;
 
                 r = write_mode(modes);
                 if (r < 0)

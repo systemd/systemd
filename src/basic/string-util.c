@@ -535,8 +535,7 @@ char *ellipsize_mem(const char *s, size_t old_length, size_t new_length, unsigne
                 for (const char *p = s + len; p < j; ) {
                         size_t slen = ansi_sequence_length(p, j - p);
                         if (slen > 0) {
-                                memcpy(dst, p, slen);
-                                dst += slen;
+                                dst = mempcpy(dst, p, slen);
                                 p += slen;
                         } else
                                 p = utf8_next_char(p);
@@ -1433,6 +1432,16 @@ bool version_is_valid(const char *s) {
 
         /* This is a superset of the characters used by semver. We additionally allow "," and "_". */
         if (!in_charset(s, ALPHANUMERICAL ".,_-+"))
+                return false;
+
+        return true;
+}
+
+bool version_is_valid_versionspec(const char *s) {
+        if (!filename_part_is_valid(s))
+                return false;
+
+        if (!in_charset(s, ALPHANUMERICAL "-.~^"))
                 return false;
 
         return true;

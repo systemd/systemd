@@ -132,6 +132,12 @@ KERNEL!="sr*|mmcblk[0-9]boot[0-9]", IMPORT{builtin}="blkid"
 LABEL="persistent_storage_blkid_probe_end"
 {% endif %}
 
+# Decrease devlink priority for whole disk of ISO hybrid images, and make the
+# priority for partitions in the image relatively higher. This is for the case
+# that a disk and one of its partition have the same label or so.
+# See issue #28468.
+ENV{ID_FS_TYPE}=="iso9660", ENV{DEVTYPE}=="disk", OPTIONS+="link_priority=-10"
+
 # by-label/by-uuid links (filesystem metadata)
 ENV{ID_FS_USAGE}=="filesystem|other|crypto", ENV{ID_FS_UUID_ENC}=="?*", SYMLINK+="disk/by-uuid/$env{ID_FS_UUID_ENC}"
 ENV{ID_FS_USAGE}=="filesystem|other|crypto", ENV{ID_FS_LABEL_ENC}=="?*", SYMLINK+="disk/by-label/$env{ID_FS_LABEL_ENC}"
@@ -147,14 +153,5 @@ ENV{ID_PART_ENTRY_SCHEME}=="gpt", ENV{ID_PART_ENTRY_NAME}=="?*", SYMLINK+="disk/
 # the diskseq number from the path, then issue BLKGETDISKSEQ to verify they really got
 # the right device, to access specific disks in a race-free fashion)
 ENV{DISKSEQ}=="?*", ENV{ID_IGNORE_DISKSEQ}!="1", SYMLINK+="disk/by-diskseq/$env{DISKSEQ}$env{.PART_SUFFIX}"
-
-# Create symlinks that allow referencing loopback devices by their backing file's inode number
-ENV{ID_LOOP_BACKING_DEVICE}!="", ENV{ID_LOOP_BACKING_INODE}!="", SYMLINK+="loop/by-inode/$env{ID_LOOP_BACKING_DEVICE}-$env{ID_LOOP_BACKING_INODE}$env{.PART_SUFFIX}"
-
-# Similar, but uses the .lo_file_name field of the loopback device (note that
-# this is basically just a free-form string passed from userspace to the kernel
-# when the device is created, it is not necessarily a file system path like the
-# "loop/backing_file" sysfs attribute, which is always an absolute path)
-ENV{ID_LOOP_BACKING_FILENAME_ENC}!="", SYMLINK+="loop/by-ref/$env{ID_LOOP_BACKING_FILENAME_ENC}$env{.PART_SUFFIX}"
 
 LABEL="persistent_storage_end"

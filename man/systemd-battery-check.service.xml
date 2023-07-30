@@ -63,6 +63,26 @@
   </refsect1>
 
   <refsect1>
+    <title>Kernel Command Line</title>
+
+    <para>The following variables are understood:</para>
+
+    <variablelist class='kernel-commandline-options'>
+      <varlistentry>
+        <term><varname>systemd.battery-check=<replaceable>BOOL</replaceable></varname></term>
+
+        <listitem>
+          <para>Takes a boolean. If specified with false, <command>systemd-battery-check</command> command
+          will return immediately with exit status 0 without checking battery capacity and AC power
+          existence, and the service <filename>systemd-battery-check.service</filename> will succeed. This
+          may be useful when the command wrongly detects and reports battery capacity percentage or AC power
+          existence, or when you want to boot the system forcibly.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>

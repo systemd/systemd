@@ -2,6 +2,8 @@
 
 systemd_sysext_sources = files('sysext.c')
 
-meson.add_install_script(meson_make_symlink,
-                         rootbindir / 'systemd-sysext',
-                         rootbindir / 'systemd-confext')
+if conf.get('ENABLE_SYSEXT') == 1
+        meson.add_install_script(meson_make_symlink,
+                                 bindir / 'systemd-sysext',
+                                 bindir / 'systemd-confext')
+endif

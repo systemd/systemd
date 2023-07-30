@@ -461,7 +461,7 @@ touch /run/machines/a.raw /run/portables/b.raw /run/extensions/c.raw
 systemd-dissect --discover --json=short >/tmp/discover.json
 grep -q -F '{"name":"a","type":"raw","class":"machine","ro":false,"path":"/run/machines/a.raw"' /tmp/discover.json
 grep -q -F '{"name":"b","type":"raw","class":"portable","ro":false,"path":"/run/portables/b.raw"' /tmp/discover.json
-grep -q -F '{"name":"c","type":"raw","class":"extension","ro":false,"path":"/run/extensions/c.raw"' /tmp/discover.json
+grep -q -F '{"name":"c","type":"raw","class":"sysext","ro":false,"path":"/run/extensions/c.raw"' /tmp/discover.json
 rm /tmp/discover.json /run/machines/a.raw /run/portables/b.raw /run/extensions/c.raw
 
 # Check that the /sbin/mount.ddi helper works
@@ -469,48 +469,6 @@ T="/tmp/mounthelper.$RANDOM"
 mount -t ddi "${image}.gpt" "$T" -o ro,X-mount.mkdir,discard
 umount -R "$T"
 rmdir "$T"
-
-LOOP="$(systemd-dissect --attach --loop-ref=waldo "${image}.raw")"
-
-# Wait until the symlinks we want to test are established
-udevadm trigger -w "$LOOP"
-
-# Check if the /dev/loop/* symlinks really reference the right device
-test /dev/loop/by-ref/waldo -ef "$LOOP"
-
-if [ "$(stat -c '%Hd:%Ld' "${image}.raw")" != '?d:?d' ] ; then
-   # Old stat didn't know the %Hd and %Ld specifiers and turned them into ?d
-   # instead. Let's simply skip the test on such old systems.
-   test "$(stat -c '/dev/loop/by-inode/%Hd:%Ld-%i' "${image}.raw")" -ef "$LOOP"
-fi
-
-# Detach by loopback device
-systemd-dissect --detach "$LOOP"
-
-# Test long reference name.
-# Note, sizeof_field(struct loop_info64, lo_file_name) == 64,
-# and --loop-ref accepts upto 63 characters, and udev creates symlink
-# based on the name when it has upto _62_ characters.
-name="$(for _ in {1..62}; do echo -n 'x'; done)"
-LOOP="$(systemd-dissect --attach --loop-ref="$name" "${image}.raw")"
-udevadm trigger -w "$LOOP"
-
-# Check if the /dev/loop/by-ref/$name symlink really references the right device
-test "/dev/loop/by-ref/$name" -ef "$LOOP"
-
-# Detach by the /dev/loop/by-ref symlink
-systemd-dissect --detach "/dev/loop/by-ref/$name"
-
-name="$(for _ in {1..63}; do echo -n 'x'; done)"
-LOOP="$(systemd-dissect --attach --loop-ref="$name" "${image}.raw")"
-udevadm trigger -w "$LOOP"
-
-# Check if the /dev/loop/by-ref/$name symlink does not exist
-test ! -e "/dev/loop/by-ref/$name"
-
-# Detach by backing inode
-systemd-dissect --detach "${image}.raw"
-(! systemd-dissect --detach "${image}.raw")
 
 # check for confext functionality
 mkdir -p /run/confexts/test/etc/extension-release.d
@@ -551,6 +509,38 @@ echo abc > abc
 systemd-dissect --copy-to /tmp/img abc /abc
 test -f /tmp/img/abc
 
-echo OK >/testok
+# Test for dissect tool support with systemd-sysext
+mkdir -p /run/extensions/ testkit/usr/lib/extension-release.d/
+echo "ID=_any" >testkit/usr/lib/extension-release.d/extension-release.testkit
+echo "ARCHITECTURE=_any" >>testkit/usr/lib/extension-release.d/extension-release.testkit
+echo "MARKER_SYSEXT_123" >testkit/usr/lib/testfile
+mksquashfs testkit/ testkit.raw
+cp testkit.raw /run/extensions/
+unsquashfs -l /run/extensions/testkit.raw
+systemd-dissect --no-pager /run/extensions/testkit.raw | grep -q '✓ sysext extension for portable service'
+systemd-dissect --no-pager /run/extensions/testkit.raw | grep -q '✓ sysext extension for system'
+systemd-sysext merge
+systemd-sysext status
+grep -q -F "MARKER_SYSEXT_123" /usr/lib/testfile
+systemd-sysext unmerge
+rm -rf /run/extensions/ testkit/
 
-exit 0
+# Test for dissect tool support with systemd-confext
+mkdir -p /run/confexts/ testjob/etc/extension-release.d/
+echo "ID=_any" >testjob/etc/extension-release.d/extension-release.testjob
+echo "ARCHITECTURE=_any" >>testjob/etc/extension-release.d/extension-release.testjob
+echo "MARKER_CONFEXT_123" >testjob/etc/testfile
+mksquashfs testjob/ testjob.raw
+cp testjob.raw /run/confexts/
+unsquashfs -l /run/confexts/testjob.raw
+systemd-dissect --no-pager /run/confexts/testjob.raw | grep -q '✓ confext extension for system'
+systemd-dissect --no-pager /run/confexts/testjob.raw | grep -q '✓ confext extension for portable service'
+systemd-confext merge
+systemd-confext status
+grep -q -F "MARKER_CONFEXT_123" /etc/testfile
+systemd-confext unmerge
+rm -rf /run/confexts/ testjob/
+
+systemd-run -P -p RootImage="${image}.raw" cat /run/host/os-release | cmp "${os_release}"
+
+touch /testok

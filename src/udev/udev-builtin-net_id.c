@@ -110,7 +110,6 @@ static sd_device *skip_virtio(sd_device *dev) {
 static int get_virtfn_info(sd_device *pcidev, sd_device **ret_physfn_pcidev, char **ret_suffix) {
         _cleanup_(sd_device_unrefp) sd_device *physfn_pcidev = NULL;
         const char *syspath, *name;
-        sd_device *child;
         int r;
 
         assert(pcidev);
@@ -619,7 +618,7 @@ static int names_platform(sd_device *dev, NetNames *names, bool test) {
 
 static int dev_devicetree_onboard(sd_device *dev, NetNames *names) {
         _cleanup_(sd_device_unrefp) sd_device *aliases_dev = NULL, *ofnode_dev = NULL, *devicetree_dev = NULL;
-        const char *alias, *ofnode_path, *ofnode_syspath, *devicetree_syspath;
+        const char *ofnode_path, *ofnode_syspath, *devicetree_syspath;
         sd_device *parent;
         int r;
 

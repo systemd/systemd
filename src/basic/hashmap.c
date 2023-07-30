@@ -21,6 +21,7 @@
 #include "random-util.h"
 #include "set.h"
 #include "siphash24.h"
+#include "sort-util.h"
 #include "string-util.h"
 #include "strv.h"
 
@@ -2105,4 +2106,52 @@ bool set_fnmatch(Set *include_patterns, Set *exclude_patterns, const char *needl
                 return true;
 
         return set_fnmatch_one(include_patterns, needle);
+}
+
+static int hashmap_entry_compare(
+                struct hashmap_base_entry * const *a,
+                struct hashmap_base_entry * const *b,
+                compare_func_t compare) {
+
+        assert(a && *a);
+        assert(b && *b);
+        assert(compare);
+
+        return compare((*a)->key, (*b)->key);
+}
+
+int _hashmap_dump_sorted(HashmapBase *h, void ***ret, size_t *ret_n) {
+        _cleanup_free_ struct hashmap_base_entry **entries = NULL;
+        Iterator iter;
+        unsigned idx;
+        size_t n = 0;
+
+        assert(ret);
+
+        if (_hashmap_size(h) == 0) {
+                *ret = NULL;
+                if (ret_n)
+                        *ret_n = 0;
+                return 0;
+        }
+
+        entries = new(struct hashmap_base_entry*, _hashmap_size(h));
+        if (!entries)
+                return -ENOMEM;
+
+        HASHMAP_FOREACH_IDX(idx, h, iter)
+                entries[n++] = bucket_at(h, idx);
+
+        assert(n == _hashmap_size(h));
+
+        typesafe_qsort_r(entries, n, hashmap_entry_compare, h->hash_ops->compare);
+
+        /* Reuse the array. */
+        FOREACH_ARRAY(e, entries, n)
+                *e = entry_value(h, *e);
+
+        *ret = (void**) TAKE_PTR(entries);
+        if (ret_n)
+                *ret_n = n;
+        return 0;
 }

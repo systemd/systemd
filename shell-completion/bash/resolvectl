@@ -49,7 +49,7 @@ _resolvectl() {
         [RESOLVE]='llmnr mdns'
         [DNSSEC]='dnssec'
         [DNSOVERTLS]='dnsovertls'
-        [STANDALONE]='statistics reset-statistics flush-caches reset-server-features'
+        [STANDALONE]='statistics reset-statistics flush-caches reset-server-features show-cache'
         [LOG_LEVEL]='log-level'
     )
     local -A ARGS=(

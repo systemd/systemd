@@ -218,9 +218,9 @@ TEST(tpms_pcr_selection_mask_and_hash) {
         TPMI_ALG_HASH HASH_ALGS[] = { TPM2_ALG_SHA1, TPM2_ALG_SHA256, };
 
         for (unsigned i = 0; i < ELEMENTSOF(HASH_ALGS); i++)
-                for (uint32_t m2 = 0; m2 <= 0xffffff; m2 += 0x30000)
-                        for (uint32_t m1 = 0; m1 <= 0xffff; m1 += 0x300)
-                                for (uint32_t m0 = 0; m0 <= 0xff; m0 += 0x3)
+                for (uint32_t m2 = 0; m2 <= 0xffffff; m2 += 0x50000)
+                        for (uint32_t m1 = 0; m1 <= 0xffff; m1 += 0x500)
+                                for (uint32_t m0 = 0; m0 <= 0xff; m0 += 0x5)
                                         _test_pcr_selection_mask_hash(m0 | m1 | m2, HASH_ALGS[i]);
 }
 

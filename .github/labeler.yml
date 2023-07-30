@@ -6,6 +6,11 @@ binfmt:
   - '**/*binfmt*'
 btrfs:
   - '**/*btrfs*'
+build-system:
+  - meson_options.txt
+  - '**/meson.build'
+  - Makefile
+  - configure
 busctl:
   - '**/*busctl*'
 cgls:

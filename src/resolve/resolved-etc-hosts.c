@@ -189,9 +189,18 @@ static int parse_line(EtcHosts *hosts, unsigned nr, const char *line) {
                                 return log_oom();
                 }
 
-                r = set_ensure_consume(&item->names, &dns_name_hash_ops_free, TAKE_PTR(name));
+                r = set_ensure_put(&item->names, &dns_name_hash_ops_free, name);
                 if (r < 0)
                         return log_oom();
+                if (r == 0) /* the name is already listed */
+                        continue;
+                /*
+                 * Keep track of the first name listed for this address.
+                 * This name will be used in responses as the canonical name.
+                 */
+                if (!item->canonical_name)
+                        item->canonical_name = name;
+                TAKE_PTR(name);
         }
 
         if (!found)
@@ -372,6 +381,45 @@ static int manager_etc_hosts_read(Manager *m) {
         return 1;
 }
 
+static int answer_add_ptr(DnsAnswer *answer, DnsResourceKey *key, const char *name) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+
+        rr = dns_resource_record_new(key);
+        if (!rr)
+                return -ENOMEM;
+
+        rr->ptr.name = strdup(name);
+        if (!rr->ptr.name)
+                return -ENOMEM;
+
+        return dns_answer_add(answer, rr, 0, DNS_ANSWER_AUTHENTICATED, NULL);
+}
+
+static int answer_add_cname(DnsAnswer *answer, const char *name, const char *cname) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+
+        rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_CNAME, name);
+        if (!rr)
+                return -ENOMEM;
+
+        rr->cname.name = strdup(cname);
+        if (!rr->cname.name)
+                return -ENOMEM;
+
+        return dns_answer_add(answer, rr, 0, DNS_ANSWER_AUTHENTICATED, NULL);
+}
+
+static int answer_add_addr(DnsAnswer *answer, const char *name, const struct in_addr_data *a) {
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        int r;
+
+        r = dns_resource_record_new_address(&rr, a->family, &a->address, name);
+        if (r < 0)
+                return r;
+
+        return dns_answer_add(answer, rr, 0, DNS_ANSWER_AUTHENTICATED, NULL);
+}
+
 static int etc_hosts_lookup_by_address(
                 EtcHosts *hosts,
                 DnsQuestion *q,
@@ -418,18 +466,17 @@ static int etc_hosts_lookup_by_address(
                 if (r < 0)
                         return r;
 
+                if (item->canonical_name) {
+                        r = answer_add_ptr(*answer, found_ptr, item->canonical_name);
+                        if (r < 0)
+                                return r;
+                }
+
                 SET_FOREACH(n, item->names) {
-                        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+                        if (n == item->canonical_name)
+                                continue;
 
-                        rr = dns_resource_record_new(found_ptr);
-                        if (!rr)
-                                return -ENOMEM;
-
-                        rr->ptr.name = strdup(n);
-                        if (!rr->ptr.name)
-                                return -ENOMEM;
-
-                        r = dns_answer_add(*answer, rr, 0, DNS_ANSWER_AUTHENTICATED, NULL);
+                        r = answer_add_ptr(*answer, found_ptr, n);
                         if (r < 0)
                                 return r;
                 }
@@ -488,17 +535,26 @@ static int etc_hosts_lookup_by_name(
         }
 
         SET_FOREACH(a, item ? item->addresses : NULL) {
-                _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+                EtcHostsItemByAddress *item_by_addr;
+                const char *canonical_name;
 
                 if ((!found_a && a->family == AF_INET) ||
                     (!found_aaaa && a->family == AF_INET6))
                         continue;
 
-                r = dns_resource_record_new_address(&rr, a->family, &a->address, item->name);
-                if (r < 0)
-                        return r;
+                item_by_addr = hashmap_get(hosts->by_address, a);
+                if (item_by_addr && item_by_addr->canonical_name)
+                        canonical_name = item_by_addr->canonical_name;
+                else
+                        canonical_name = item->name;
 
-                r = dns_answer_add(*answer, rr, 0, DNS_ANSWER_AUTHENTICATED, NULL);
+                if (!streq(item->name, canonical_name)) {
+                        r = answer_add_cname(*answer, item->name, canonical_name);
+                        if (r < 0)
+                                return r;
+                }
+
+                r = answer_add_addr(*answer, canonical_name, a);
                 if (r < 0)
                         return r;
         }

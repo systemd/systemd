@@ -12,7 +12,7 @@
 static int device_is_power_sink(sd_device *device) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         bool found_source = false, found_sink = false;
-        sd_device *parent, *d;
+        sd_device *parent;
         int r;
 
         assert(device);
@@ -109,7 +109,6 @@ static bool battery_is_discharging(sd_device *d) {
 int on_ac_power(void) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         bool found_ac_online = false, found_discharging_battery = false;
-        sd_device *d;
         int r;
 
         r = sd_device_enumerator_new(&e);
@@ -234,7 +233,6 @@ int battery_read_capacity_percentage(sd_device *dev) {
 int battery_is_discharging_and_low(void) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         bool unsure = false, found_low = false;
-        sd_device *dev;
         int r;
 
          /* We have not used battery capacity_level since value is set to full

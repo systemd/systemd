@@ -138,25 +138,25 @@
 
       <varlistentry>
         <term><varname>DNSSEC=</varname></term>
-        <listitem><para>Takes a boolean argument or
-        <literal>allow-downgrade</literal>. If true all DNS lookups are
-        DNSSEC-validated locally (excluding LLMNR and Multicast
-        DNS). If the response to a lookup request is detected to be invalid
-        a lookup failure is returned to applications. Note that
-        this mode requires a DNS server that supports DNSSEC. If the
-        DNS server does not properly support DNSSEC all validations
-        will fail. If set to <literal>allow-downgrade</literal> DNSSEC
-        validation is attempted, but if the server does not support
-        DNSSEC properly, DNSSEC mode is automatically disabled. Note
-        that this mode makes DNSSEC validation vulnerable to
-        "downgrade" attacks, where an attacker might be able to
-        trigger a downgrade to non-DNSSEC mode by synthesizing a DNS
-        response that suggests DNSSEC was not supported. If set to
-        false, DNS lookups are not DNSSEC validated.</para>
+        <listitem><para>Takes a boolean argument or <literal>allow-downgrade</literal>.</para>
 
-        <para>Note that DNSSEC validation requires retrieval of
-        additional DNS data, and thus results in a small DNS look-up
-        time penalty.</para>
+        <para>If set to true, all DNS lookups are DNSSEC-validated locally (excluding LLMNR and Multicast
+        DNS). If the response to a lookup request is detected to be invalid a lookup failure is returned to
+        applications. Note that this mode requires a DNS server that supports DNSSEC. If the DNS server does
+        not properly support DNSSEC all validations will fail.</para>
+
+        <para>If set to <literal>allow-downgrade</literal>, DNSSEC validation is attempted, but if the server
+        does not support DNSSEC properly, DNSSEC mode is automatically disabled. Note that this mode makes
+        DNSSEC validation vulnerable to "downgrade" attacks, where an attacker might be able to trigger a
+        downgrade to non-DNSSEC mode by synthesizing a DNS response that suggests DNSSEC was not
+        supported.</para>
+
+        <para>If set to false, DNS lookups are not DNSSEC validated. In this mode, or when set to
+        <literal>allow-downgrade</literal> and the downgrade has happened, the resolver becomes
+        security-unaware and all forwarded queries have DNSSEC OK (DO) bit unset.</para>
+
+        <para>Note that DNSSEC validation requires retrieval of additional DNS data, and thus results in a
+        small DNS lookup time penalty.</para>
 
         <para>DNSSEC requires knowledge of "trust anchors" to prove
         data integrity. The trust anchor for the Internet root domain

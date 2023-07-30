@@ -143,7 +143,6 @@ int devnode_acl_all(const char *seat,
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         _cleanup_set_free_ Set *nodes = NULL;
         _cleanup_closedir_ DIR *dir = NULL;
-        sd_device *d;
         char *n;
         int r;
 
@@ -219,8 +218,8 @@ int devnode_acl_all(const char *seat,
                 k = devnode_acl(n, flush, del, old_uid, add, new_uid);
                 if (k == -ENOENT)
                         log_debug("Device %s disappeared while setting ACLs", n);
-                else if (k < 0 && r == 0)
-                        r = k;
+                else
+                        RET_GATHER(r, k);
         }
 
         return r;

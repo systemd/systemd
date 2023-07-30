@@ -36,6 +36,12 @@ except ImportError as e:
 sys.path.append(os.path.dirname(__file__) + '/..')
 import ukify
 
+build_root = os.getenv('PROJECT_BUILD_ROOT')
+arg_tools = ['--tools', build_root] if build_root else []
+
+def systemd_measure():
+    opts = ukify.create_parser().parse_args(arg_tools)
+    return ukify.find_tool('systemd-measure', opts=opts)
 
 def test_guess_efi_arch():
     arch = ukify.guess_efi_arch()
@@ -138,6 +144,11 @@ def test_apply_config(tmp_path):
     assert ns.phase_path_groups == [['enter-initrd:leave-initrd:sysinit:ready:shutdown:final']]
 
 def test_parse_args_minimal():
+    try:
+        ukify.parse_args([])
+    except ValueError as e:
+        print(f'expected failure: {e}')
+
     opts = ukify.parse_args('arg1 arg2'.split())
     assert opts.linux == pathlib.Path('arg1')
     assert opts.initrd == [pathlib.Path('arg2')]
@@ -354,6 +365,13 @@ def test_help(capsys):
     assert '--section' in out.out
     assert not out.err
 
+def test_help_display(capsys):
+    with pytest.raises(SystemExit):
+        ukify.parse_args(['inspect', '--help'])
+    out = capsys.readouterr()
+    assert '--section' in out.out
+    assert not out.err
+
 def test_help_error_deprecated(capsys):
     with pytest.raises(SystemExit):
         ukify.parse_args(['a', 'b', '--no-such-option'])
@@ -372,8 +390,13 @@ def test_help_error(capsys):
 
 @pytest.fixture(scope='session')
 def kernel_initrd():
+    opts = ukify.create_parser().parse_args(arg_tools)
+    bootctl = ukify.find_tool('bootctl', opts=opts)
+    if bootctl is None:
+        return None
+
     try:
-        text = subprocess.check_output(['bootctl', 'list', '--json=short'],
+        text = subprocess.check_output([bootctl, 'list', '--json=short'],
                                        text=True)
     except subprocess.CalledProcessError:
         return None
@@ -592,16 +615,64 @@ def test_efi_signing_pesign(kernel_initrd, tmpdir):
 
     assert f"The signer's common name is {author}" in dump
 
+def test_inspect(kernel_initrd, tmpdir, capsys):
+    if kernel_initrd is None:
+        pytest.skip('linux+initrd not found')
+    if not shutil.which('sbsign'):
+        pytest.skip('sbsign not found')
+
+    ourdir = pathlib.Path(__file__).parent
+    cert = unbase64(ourdir / 'example.signing.crt.base64')
+    key = unbase64(ourdir / 'example.signing.key.base64')
+
+    output = f'{tmpdir}/signed2.efi'
+    uname_arg='1.2.3'
+    osrel_arg='Linux'
+    cmdline_arg='ARG1 ARG2 ARG3'
+    opts = ukify.parse_args([
+        'build',
+        *kernel_initrd,
+        f'--cmdline={cmdline_arg}',
+        f'--os-release={osrel_arg}',
+        f'--uname={uname_arg}',
+        f'--output={output}',
+        f'--secureboot-certificate={cert.name}',
+        f'--secureboot-private-key={key.name}',
+    ])
+
+    ukify.check_inputs(opts)
+    ukify.make_uki(opts)
+
+    opts = ukify.parse_args(['inspect', output])
+    ukify.inspect_sections(opts)
+
+    text = capsys.readouterr().out
+
+    expected_osrel = f'.osrel:\n  size: {len(osrel_arg)}'
+    assert expected_osrel in text
+    expected_cmdline = f'.cmdline:\n  size: {len(cmdline_arg)}'
+    assert expected_cmdline in text
+    expected_uname = f'.uname:\n  size: {len(uname_arg)}'
+    assert expected_uname in text
+
+    expected_initrd = '.initrd:\n  size:'
+    assert expected_initrd in text
+    expected_linux = '.linux:\n  size:'
+    assert expected_linux in text
+
+
 def test_pcr_signing(kernel_initrd, tmpdir):
     if kernel_initrd is None:
         pytest.skip('linux+initrd not found')
+    if systemd_measure() is None:
+        pytest.skip('systemd-measure not found')
 
     ourdir = pathlib.Path(__file__).parent
     pub = unbase64(ourdir / 'example.tpm2-pcr-public.pem.base64')
     priv = unbase64(ourdir / 'example.tpm2-pcr-private.pem.base64')
 
     output = f'{tmpdir}/signed.efi'
-    opts = ukify.parse_args([
+    args = [
         'build',
         *kernel_initrd,
         f'--output={output}',
@@ -609,50 +680,55 @@ def test_pcr_signing(kernel_initrd, tmpdir):
         '--cmdline=ARG1 ARG2 ARG3',
         '--os-release=ID=foobar\n',
         '--pcr-banks=sha1',   # use sha1 because it doesn't really matter
-        f'--pcrpkey={pub.name}',
-        f'--pcr-public-key={pub.name}',
         f'--pcr-private-key={priv.name}',
-    ])
+    ] + arg_tools
 
-    try:
-        ukify.check_inputs(opts)
-    except OSError as e:
-        pytest.skip(str(e))
+    # If the public key is not explicitly specified, it is derived automatically. Let's make sure everything
+    # works as expected both when the public keys is specified explicitly and when it is derived from the
+    # private key.
+    for extra in ([f'--pcrpkey={pub.name}', f'--pcr-public-key={pub.name}'], []):
+        opts = ukify.parse_args(args + extra)
+        try:
+            ukify.check_inputs(opts)
+        except OSError as e:
+            pytest.skip(str(e))
 
-    ukify.make_uki(opts)
+        ukify.make_uki(opts)
 
-    # let's check that objdump likes the resulting file
-    dump = subprocess.check_output(['objdump', '-h', output], text=True)
+        # let's check that objdump likes the resulting file
+        dump = subprocess.check_output(['objdump', '-h', output], text=True)
 
-    for sect in 'text osrel cmdline linux initrd uname pcrsig'.split():
-        assert re.search(fr'^\s*\d+\s+.{sect}\s+0', dump, re.MULTILINE)
+        for sect in 'text osrel cmdline linux initrd uname pcrsig'.split():
+            assert re.search(fr'^\s*\d+\s+.{sect}\s+0', dump, re.MULTILINE)
 
-    # objcopy fails when called without an output argument (EPERM).
-    # It also fails when called with /dev/null (file truncated).
-    # It also fails when called with /dev/zero (because it reads the
-    # output file, infinitely in this case.)
-    # So let's just call it with a dummy output argument.
-    subprocess.check_call([
-        'objcopy',
-        *(f'--dump-section=.{n}={tmpdir}/out.{n}' for n in (
-            'pcrpkey', 'pcrsig', 'osrel', 'uname', 'cmdline')),
-        output,
-        tmpdir / 'dummy',
-    ],
-        text=True)
+        # objcopy fails when called without an output argument (EPERM).
+        # It also fails when called with /dev/null (file truncated).
+        # It also fails when called with /dev/zero (because it reads the
+        # output file, infinitely in this case.)
+        # So let's just call it with a dummy output argument.
+        subprocess.check_call([
+            'objcopy',
+            *(f'--dump-section=.{n}={tmpdir}/out.{n}' for n in (
+                'pcrpkey', 'pcrsig', 'osrel', 'uname', 'cmdline')),
+            output,
+            tmpdir / 'dummy',
+        ],
+            text=True)
 
-    assert open(tmpdir / 'out.pcrpkey').read() == open(pub.name).read()
-    assert open(tmpdir / 'out.osrel').read() == 'ID=foobar\n'
-    assert open(tmpdir / 'out.uname').read() == '1.2.3'
-    assert open(tmpdir / 'out.cmdline').read() == 'ARG1 ARG2 ARG3'
-    sig = open(tmpdir / 'out.pcrsig').read()
-    sig = json.loads(sig)
-    assert list(sig.keys()) == ['sha1']
-    assert len(sig['sha1']) == 4   # four items for four phases
+        assert open(tmpdir / 'out.pcrpkey').read() == open(pub.name).read()
+        assert open(tmpdir / 'out.osrel').read() == 'ID=foobar\n'
+        assert open(tmpdir / 'out.uname').read() == '1.2.3'
+        assert open(tmpdir / 'out.cmdline').read() == 'ARG1 ARG2 ARG3'
+        sig = open(tmpdir / 'out.pcrsig').read()
+        sig = json.loads(sig)
+        assert list(sig.keys()) == ['sha1']
+        assert len(sig['sha1']) == 4   # four items for four phases
 
 def test_pcr_signing2(kernel_initrd, tmpdir):
     if kernel_initrd is None:
         pytest.skip('linux+initrd not found')
+    if systemd_measure() is None:
+        pytest.skip('systemd-measure not found')
 
     ourdir = pathlib.Path(__file__).parent
     pub = unbase64(ourdir / 'example.tpm2-pcr-public.pem.base64')
@@ -683,7 +759,7 @@ def test_pcr_signing2(kernel_initrd, tmpdir):
         f'--pcr-public-key={pub2.name}',
         f'--pcr-private-key={priv2.name}',
         '--phases=sysinit ready shutdown final',  # yes, those phase paths are not reachable
-    ])
+    ] + arg_tools)
 
     try:
         ukify.check_inputs(opts)

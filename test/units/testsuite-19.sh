@@ -3,12 +3,9 @@
 set -eux
 set -o pipefail
 
-: >/failed
-
 # shellcheck source=test/units/test-control.sh
 . "$(dirname "$0")"/test-control.sh
 
 run_subtests
 
 touch /testok
-rm /failed

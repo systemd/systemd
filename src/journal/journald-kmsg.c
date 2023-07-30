@@ -237,12 +237,12 @@ void dev_kmsg_record(Server *s, char *p, size_t l) {
                         }
 
                         j = 0;
-                        FOREACH_DEVICE_DEVLINK(d, g) {
+                        FOREACH_DEVICE_DEVLINK(d, link) {
 
                                 if (j >= N_IOVEC_UDEV_FIELDS)
                                         break;
 
-                                b = strjoin("_UDEV_DEVLINK=", g);
+                                b = strjoin("_UDEV_DEVLINK=", link);
                                 if (b) {
                                         iovec[n++] = IOVEC_MAKE_STRING(b);
                                         z++;

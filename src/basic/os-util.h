@@ -19,6 +19,7 @@ const char* image_class_to_string(ImageClass cl) _const_;
 ImageClass image_class_from_string(const char *s) _pure_;
 
 /* The *_extension_release flavours will look for /usr/lib/extension-release/extension-release.NAME
+ * for sysext images and for /etc/extension-release.d/extension-release.NAME for confext images
  * in accordance with the OS extension specification, rather than for /usr/lib/ or /etc/os-release. */
 
 bool image_name_is_valid(const char *s) _pure_;

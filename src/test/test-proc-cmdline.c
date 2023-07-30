@@ -63,6 +63,7 @@ TEST(proc_cmdline_override) {
         assert_se(strv_equal(args, STRV_MAKE("hoge")));
         args = strv_free(args);
 
+#if ENABLE_EFI
         assert_se(proc_cmdline_get_key("foo_bar", 0, &value) > 0 && streq_ptr(value, "quux"));
         value = mfree(value);
 
@@ -71,6 +72,7 @@ TEST(proc_cmdline_override) {
 
         assert_se(proc_cmdline_get_key("and_one_more", 0, &value) > 0 && streq_ptr(value, "zzz aaa"));
         value = mfree(value);
+#endif
 }
 
 static int parse_item_given(const char *key, const char *value, void *data) {
@@ -282,14 +284,47 @@ TEST(proc_cmdline_filter_pid1_args) {
         test_proc_cmdline_filter_pid1_args_one("systemd\0",
                                                STRV_MAKE_EMPTY);
 
+        /* short option */
         test_proc_cmdline_filter_pid1_args_one("systemd\0"
-                                               "hoge\0"
-                                               "-x\0"
-                                               "foo\0"
-                                               "--aaa\0"
-                                               "var\0",
-                                               STRV_MAKE("hoge", "foo", "var"));
+                                               "-a\0"              /* unknown option */
+                                               "-abc\0"            /* unknown options */
+                                               "-h\0"              /* known option */
+                                               "-hDbs\0"           /* known options */
+                                               "-hsx\0"            /* mixed (known and unknown) options */
+                                               "-z\0drop1\0"       /* option with argument */
+                                               "-z\0-z\0accept1\0" /* the second -z is handled as argument */
+                                               "-az\0drop2\0"      /* options with argument */
+                                               "-za\0accept2\0"    /* options with argument */
+                                               "-z\0--\0-x\0",     /* "--" is handled as argument */
+                                               STRV_MAKE("accept1", "accept2"));
 
+        /* long option */
+        test_proc_cmdline_filter_pid1_args_one("systemd\0"
+                                               "--unknown\0accept1\0"                /* unknown option */
+                                               "--system\0accept2\0"                 /* no argument */
+                                               "--log-level\0drop1\0"                /* required argument (separated with space) */
+                                               "--log-level=drop2\0accept3\0"        /* required argument (concatenated with '=') */
+                                               "--log-level\0--log-level\0accept4\0" /* the second "--log-level" is handled as argument */
+                                               "--log-level\0--\0-x\0"               /* "--" is handled as argument */
+                                               "--log-color\0--log-level\0drop3\0"   /* optional argument ("--log-level" is handled as another option) */
+                                               "--log-color\0accept5\0"              /* optional argument (separated with space) */
+                                               "--log-color=drop4\0accept6\0"        /* optional argument (concatenated with '=') */
+                                               "--log-color\0--\0"                   /* "--" is _not_ handled as argument, and remaining strings are accepted */
+                                               "remaining\0-x\0--foo\0",
+                                               STRV_MAKE("accept1", "accept2", "accept3", "accept4", "accept5", "accept6", "remaining", "-x", "--foo"));
+
+        /* test for "--" */
+        test_proc_cmdline_filter_pid1_args_one("systemd\0"
+                                               "-a\0"
+                                               "--dropped\0"
+                                               "--\0"          /* remaining strings are accepted */
+                                               "-x\0"
+                                               "-abc\0"
+                                               "--hoge\0"
+                                               "accepted\0",
+                                               STRV_MAKE("-x", "-abc", "--hoge", "accepted"));
+
+        /* test for space */
         test_proc_cmdline_filter_pid1_args_one("/usr/lib/systemd/systemd\0"
                                                "--switched-root\0"
                                                "--system\0"

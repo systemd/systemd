@@ -1,4 +1,6 @@
-systemd.mount-extra=/dev/sdy1:none:swap
-systemd.mount-extra=/dev/sdy2:none:swap:x-systemd.makefs
-systemd.swap-extra=/dev/sdy3:x-systemd.makefs,nofail
-systemd.swap-extra=/dev/sdy4
+rd.systemd.mount-extra=/dev/sdy1:none:swap
+rd.systemd.mount-extra=/dev/sdy2:none:swap:x-systemd.makefs
+rd.systemd.swap-extra=/dev/sdy3:x-systemd.makefs,nofail
+rd.systemd.swap-extra=/dev/sdy4
+systemd.swap-extra=/dev/sdy5:x-initrd.mount
+systemd.swap-extra=/dev/sdy6

@@ -30,3 +30,5 @@ int bus_deserialize_and_dump_unit_file_changes(sd_bus_message *m, bool quiet);
 int unit_load_state(sd_bus *bus, const char *name, char **load_state);
 
 int unit_info_compare(const UnitInfo *a, const UnitInfo *b);
+
+int bus_service_manager_reload(sd_bus *bus);

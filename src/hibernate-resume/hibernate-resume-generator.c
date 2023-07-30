@@ -8,6 +8,7 @@
 #include "sd-id128.h"
 
 #include "alloc-util.h"
+#include "device-nodes.h"
 #include "dropin.h"
 #include "efivars.h"
 #include "fd-util.h"
@@ -21,6 +22,7 @@
 #include "main-func.h"
 #include "os-util.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "proc-cmdline.h"
 #include "special.h"
 #include "string-util.h"
@@ -32,6 +34,7 @@ static char *arg_resume_options = NULL;
 static char *arg_root_options = NULL;
 static bool arg_noresume = false;
 static uint64_t arg_resume_offset = 0;
+static bool arg_resume_offset_set = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_resume_device, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_resume_options, freep);
@@ -72,6 +75,8 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 r = safe_atou64(value, &arg_resume_offset);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse resume_offset=%s: %m", value);
+
+                arg_resume_offset_set = true;
 
         } else if (proc_cmdline_key_streq(key, "resumeflags")) {
 
@@ -166,9 +171,16 @@ static int parse_efi_hibernate_location(void) {
                 arg_resume_device = TAKE_PTR(device);
                 arg_resume_offset = location.offset;
         } else {
-                if (!streq(arg_resume_device, device))
-                        log_warning("resume=%s doesn't match with HibernateLocation device '%s', proceeding anyway with resume=.",
-                                    arg_resume_device, device);
+                if (!path_equal(arg_resume_device, device)) {
+                        r = devnode_same(arg_resume_device, device);
+                        if (r < 0)
+                                log_debug_errno(r,
+                                                "Failed to check if resume=%s is the same device as HibernateLocation device '%s', ignoring: %m",
+                                                arg_resume_device, device);
+                        if (r == 0)
+                                log_warning("resume=%s doesn't match with HibernateLocation device '%s', proceeding anyway with resume=.",
+                                            arg_resume_device, device);
+                }
 
                 if (arg_resume_offset != location.offset)
                         log_warning("resume_offset=%" PRIu64 " doesn't match with HibernateLocation offset %" PRIu64 ", proceeding anyway with resume_offset=.",
@@ -219,7 +231,7 @@ static int process_resume(void) {
                 "\n"
                 "[Service]\n"
                 "Type=oneshot\n"
-                "ExecStart=" ROOTLIBEXECDIR "/systemd-hibernate-resume %2$s %3$" PRIu64,
+                "ExecStart=" LIBEXECDIR "/systemd-hibernate-resume %2$s %3$" PRIu64 "\n",
                 device_unit,
                 arg_resume_device,
                 arg_resume_offset);
@@ -262,6 +274,11 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
                 log_info("Found \"noresume\" on the kernel command line, exiting.");
                 return 0;
         }
+
+        if (!arg_resume_device && arg_resume_offset_set)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Found resume_offset=%" PRIu64 " but resume= is unset, refusing.",
+                                       arg_resume_offset);
 
         r = parse_efi_hibernate_location();
         if (r == -ENOMEM)

@@ -78,4 +78,15 @@ TEST(UNPROTECT_ERRNO) {
         assert_se(errno == 4711);
 }
 
+TEST(RET_GATHER) {
+        int x = 0, y = 2;
+
+        assert_se(RET_GATHER(x, 5) == 0);
+        assert_se(RET_GATHER(x, -5) == -5);
+        assert_se(RET_GATHER(x, -1) == -5);
+
+        assert_se(RET_GATHER(x, y++) == -5);
+        assert_se(y == 3);
+}
+
 DEFINE_TEST_MAIN(LOG_INFO);

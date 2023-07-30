@@ -769,8 +769,11 @@
     the command line arguments passed to systemd itself, next to any of the command line options listed in
     the Options section above. If run outside of Linux containers, these arguments are parsed from
     <filename>/proc/cmdline</filename> and from the <literal>SystemdOptions</literal> EFI variable
-    (on EFI systems) instead. Options from <filename>/proc/cmdline</filename> have higher priority. The
-    following variables are understood:</para>
+    (on EFI systems) instead. Options from <filename>/proc/cmdline</filename> have higher priority.</para>
+
+    <para>Note: use of <literal>SystemdOptions</literal> is deprecated.</para>
+
+    <para>The following variables are understood:</para>
 
     <variablelist class='kernel-commandline-options'>
       <varlistentry>
