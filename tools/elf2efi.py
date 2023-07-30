@@ -210,6 +210,7 @@ FILE_ALIGNMENT = 512
 
 # Nobody cares about DOS headers, so put the PE header right after.
 PE_OFFSET = 64
+PE_MAGIC = b"PE\0\0"
 
 
 def align_to(x: int, align: int) -> int:
@@ -304,7 +305,10 @@ def copy_sections(elf: ELFFile, opt: PeOptionalHeader) -> typing.List[PeSection]
 
 
 def apply_elf_relative_relocation(
-    reloc: ElfRelocation, image_base: int, sections: typing.List[PeSection], addend_size: int
+    reloc: ElfRelocation,
+    image_base: int,
+    sections: typing.List[PeSection],
+    addend_size: int,
 ):
     # fmt: off
     [target] = [
@@ -439,7 +443,7 @@ def write_pe(
     file.seek(0x3C, io.SEEK_SET)
     file.write(PE_OFFSET.to_bytes(2, byteorder="little"))
     file.seek(PE_OFFSET, io.SEEK_SET)
-    file.write(b"PE\0\0")
+    file.write(PE_MAGIC)
     file.write(coff)
     file.write(opt)
 
@@ -452,6 +456,8 @@ def write_pe(
         pe_s.PointerToRawData = offset
         file.write(pe_s)
         offset = align_to(offset + len(pe_s.data), FILE_ALIGNMENT)
+
+    assert file.tell() <= opt.SizeOfHeaders
 
     for pe_s in sections:
         file.seek(pe_s.PointerToRawData, io.SEEK_SET)
@@ -515,6 +521,8 @@ def elf2efi(args: argparse.Namespace):
 
     opt.SizeOfHeaders = align_to(
         PE_OFFSET
+        + len(PE_MAGIC)
+        + sizeof(PeCoffHeader)
         + coff.SizeOfOptionalHeader
         + sizeof(PeSection) * max(coff.NumberOfSections, args.minimum_sections),
         FILE_ALIGNMENT,
