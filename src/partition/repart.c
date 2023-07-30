@@ -6484,10 +6484,11 @@ static int parse_efi_variable_factory_reset(void) {
                 return 0;
 
         r = efi_get_variable_string(EFI_SYSTEMD_VARIABLE(FactoryReset), &value);
-        if (r == -ENOENT || ERRNO_IS_NOT_SUPPORTED(r))
-                return 0;
-        if (r < 0)
+        if (r < 0) {
+                if (r == -ENOENT || ERRNO_IS_NOT_SUPPORTED(r))
+                        return 0;
                 return log_error_errno(r, "Failed to read EFI variable FactoryReset: %m");
+        }
 
         r = parse_boolean(value);
         if (r < 0)
@@ -6504,10 +6505,11 @@ static int remove_efi_variable_factory_reset(void) {
         int r;
 
         r = efi_set_variable(EFI_SYSTEMD_VARIABLE(FactoryReset), NULL, 0);
-        if (r == -ENOENT || ERRNO_IS_NOT_SUPPORTED(r))
-                return 0;
-        if (r < 0)
+        if (r < 0) {
+                if (r == -ENOENT || ERRNO_IS_NOT_SUPPORTED(r))
+                        return 0;
                 return log_error_errno(r, "Failed to remove EFI variable FactoryReset: %m");
+        }
 
         log_info("Successfully unset EFI variable FactoryReset.");
         return 0;
