@@ -73,6 +73,7 @@ int address_flags_to_string_alloc(uint32_t flags, int family, char **ret);
 int address_new(Address **ret);
 Address* address_free(Address *address);
 int address_get(Link *link, const Address *in, Address **ret);
+int address_get_harder(Link *link, const Address *in, Address **ret);
 int address_configure_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Link *link, const char *error_msg);
 int address_remove(Address *address);
 int address_remove_and_drop(Address *address);
@@ -117,9 +118,6 @@ int link_request_static_addresses(Link *link);
 int manager_rtnl_process_address(sd_netlink *nl, sd_netlink_message *message, Manager *m);
 
 int network_drop_invalid_addresses(Network *network);
-
-int address_compare_func(const Address *a1, const Address *a2);
-int address_equal(const Address *a1, const Address *a2);
 
 DEFINE_NETWORK_CONFIG_STATE_FUNCTIONS(Address, address);
 
