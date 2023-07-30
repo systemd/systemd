@@ -289,7 +289,7 @@ static int link_request_neighbor(Link *link, const Neighbor *neighbor) {
 
         if (neighbor->ll_addr.length != link->hw_addr.length) {
                 log_link_debug(link,
-                               "The link layer address lenght (%zu) for neighbor %s does not match with "
+                               "The link layer address length (%zu) for neighbor %s does not match with "
                                "the hardware address length (%zu), ignoring the setting.",
                                neighbor->ll_addr.length,
                                IN_ADDR_TO_STRING(neighbor->family, &neighbor->in_addr),
