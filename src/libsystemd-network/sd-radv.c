@@ -1099,12 +1099,6 @@ int sd_radv_pref64_prefix_set_prefix(
         assert_return(p, -EINVAL);
         assert_return(in6_addr, -EINVAL);
 
-        if (prefixlen > 128)
-                return -EINVAL;
-
-        if (prefixlen > 96)
-                log_radv(NULL, "Unusual PREF64 prefix length %u greater than 96", prefixlen);
-
         switch (prefixlen) {
         case 96:
                 prefixlen_code = 0;
@@ -1131,6 +1125,7 @@ int sd_radv_pref64_prefix_set_prefix(
                 prefixlen_code = 5;
                 break;
         default:
+                log_radv(NULL, "Unusual PREF64 prefix length %u greater than 96", prefixlen);
                 return -EINVAL;
         }
 
@@ -1141,6 +1136,5 @@ int sd_radv_pref64_prefix_set_prefix(
 
         p->in6_addr = *in6_addr;
         p->prefixlen = prefixlen;
-
         return 0;
 }
