@@ -347,7 +347,7 @@ foreach efi_elf_binary : efi_elf_binaries
         name += name.startswith('systemd-boot') ? '.efi' : '.efi.stub'
         # For the addon, given it's empty, we need to explicitly reserve space in the header to account for
         # the sections that ukify will add.
-        minimum_sections = name.startswith('addon') ? '7' : '0'
+        minimum_sections = name.endswith('.stub') ? '15' : '0'
         exe = custom_target(
                 name,
                 output : name,
