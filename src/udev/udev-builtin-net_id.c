@@ -230,7 +230,7 @@ static int get_port_specifier(sd_device *dev, bool fallback_to_dev_id, char **re
         return 0;
 }
 
-static bool is_valid_onboard_index(unsigned long idx) {
+static bool is_valid_onboard_index(unsigned idx) {
         /* Some BIOSes report rubbish indexes that are excessively high (2^24-1 is an index VMware likes to
          * report for example). Let's define a cut-off where we don't consider the index reliable anymore. We
          * pick some arbitrary cut-off, which is somewhere beyond the realistic number of physical network
@@ -243,8 +243,7 @@ static bool is_valid_onboard_index(unsigned long idx) {
 /* retrieve on-board index number and label from firmware */
 static int dev_pci_onboard(sd_device *dev, const LinkInfo *info, NetNames *names) {
         _cleanup_free_ char *port = NULL;
-        unsigned long idx;
-        const char *attr;
+        unsigned idx;
         size_t l;
         char *s;
         int r;
@@ -254,26 +253,19 @@ static int dev_pci_onboard(sd_device *dev, const LinkInfo *info, NetNames *names
         assert(names);
 
         /* ACPI _DSM — device specific method for naming a PCI or PCI Express device */
-        if (sd_device_get_sysattr_value(names->pcidev, "acpi_index", &attr) >= 0)
-                log_device_debug(names->pcidev, "acpi_index=%s", attr);
-        else {
-                /* SMBIOS type 41 — Onboard Devices Extended Information */
-                r = sd_device_get_sysattr_value(names->pcidev, "index", &attr);
-                if (r < 0)
-                        return r;
-                log_device_debug(names->pcidev, "index=%s", attr);
-        }
-
-        r = safe_atolu(attr, &idx);
+        r = device_get_sysattr_unsigned(names->pcidev, "acpi_index", &idx);
         if (r < 0)
-                return log_device_debug_errno(names->pcidev, r,
-                                              "Failed to parse onboard index \"%s\": %m", attr);
+                /* SMBIOS type 41 — Onboard Devices Extended Information */
+                r = device_get_sysattr_unsigned(names->pcidev, "index", &idx);
+        if (r < 0)
+                return r;
+
         if (idx == 0 && !naming_scheme_has(NAMING_ZERO_ACPI_INDEX))
                 return log_device_debug_errno(names->pcidev, SYNTHETIC_ERRNO(EINVAL),
                                               "Naming scheme does not allow onboard index==0.");
         if (!is_valid_onboard_index(idx))
                 return log_device_debug_errno(names->pcidev, SYNTHETIC_ERRNO(ENOENT),
-                                              "Not a valid onboard index: %lu", idx);
+                                              "Not a valid onboard index: %u", idx);
 
         r = get_port_specifier(dev, /* fallback_to_dev_id = */ false, &port);
         if (r < 0)
@@ -281,10 +273,10 @@ static int dev_pci_onboard(sd_device *dev, const LinkInfo *info, NetNames *names
 
         s = names->pci_onboard;
         l = sizeof(names->pci_onboard);
-        l = strpcpyf(&s, l, "o%lu%s", idx, strempty(port));
+        l = strpcpyf(&s, l, "o%u%s", idx, strempty(port));
         if (l == 0)
                 names->pci_onboard[0] = '\0';
-        log_device_debug(dev, "Onboard index identifier: index=%lu port=%s %s %s",
+        log_device_debug(dev, "Onboard index identifier: index=%u port=%s %s %s",
                          idx, strna(port),
                          special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), empty_to_na(names->pci_onboard));
 
