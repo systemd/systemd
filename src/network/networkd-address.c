@@ -1320,7 +1320,7 @@ static int address_process_request(Request *req, Link *link, Address *address) {
 
                 address_cancel_requesting(address);
                 if (address_get(link, address, &existing) >= 0)
-                        address_enter_configuring(existing);
+                        address_cancel_requesting(existing);
                 return 1;
         }
 
