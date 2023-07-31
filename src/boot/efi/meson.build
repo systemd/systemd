@@ -23,31 +23,26 @@ if efi_arch != ''
                         libshared,
                 ],
         }
+        efi_test_template = test_template + efitest_base
+        efi_fuzz_template = fuzz_template + efitest_base
 
-        tests += [
-                {
+        executables += [
+                efi_test_template + {
                         'sources' : files('test-bcd.c'),
                         'dependencies' : libzstd,
-                        'condition' : 'HAVE_ZSTD',
-                        'base' : efitest_base,
+                        'conditions' : ['HAVE_ZSTD'],
                 },
-                {
+                efi_test_template + {
                         'sources' : files('test-efi-string.c'),
-                        'base' : efitest_base,
                 },
-        ]
-        fuzzers += [
-                {
+                efi_fuzz_template + {
                         'sources' : files('fuzz-bcd.c'),
-                        'base' : efitest_base,
                 },
-                {
+                efi_fuzz_template + {
                         'sources' : files('fuzz-efi-string.c'),
-                        'base' : efitest_base,
                 },
-                {
+                efi_fuzz_template + {
                         'sources' : files('fuzz-efi-printf.c'),
-                        'base' : efitest_base,
                 },
         ]
 endif
