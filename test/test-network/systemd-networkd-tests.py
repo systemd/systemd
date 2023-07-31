@@ -2329,107 +2329,234 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
     def tearDown(self):
         tear_down_common()
 
-    def verify_address_static(self, route_metric):
-        # IPv4 addresses
-        output = check_output('ip -4 address show dev dummy98')
+    def verify_address_static(
+            self,
+            label1: str,
+            label2: str,
+            label3: str,
+            broadcast1: str,
+            broadcast2: str,
+            broadcast3: str,
+            peer1: str,
+            peer2: str,
+            peer3: str,
+            peer4: str,
+            peer5: str,
+            peer6: str,
+            scope1: str,
+            scope2: str,
+            deprecated1: str,
+            deprecated2: str,
+            deprecated3: str,
+            deprecated4: str,
+            route_metric: int,
+            flag1: str,
+            flag2: str,
+            flag3: str,
+            flag4: str,
+    ):
+        output = check_output('ip address show dev dummy98')
         print(output)
+
+        # simple settings
         self.assertIn('inet 10.1.2.3/16 brd 10.1.255.255 scope global dummy98', output)
         self.assertIn('inet 10.1.2.4/16 brd 10.1.255.255 scope global secondary dummy98', output)
         self.assertIn('inet 10.2.2.4/16 brd 10.2.255.255 scope global dummy98', output)
-        self.assertIn('inet 10.7.8.9/16 brd 10.7.255.255 scope link deprecated dummy98', output)
-        self.assertIn('inet 10.8.8.1/16 scope global dummy98', output)
-        self.assertIn('inet 10.8.8.2/16 brd 10.8.8.128 scope global secondary dummy98', output)
-        self.assertRegex(output, rf'inet 10.9.0.1/16 (metric {route_metric} |)brd 10.9.255.255 scope global dummy98')
-
-        # invalid sections
-        self.assertNotIn('10.10.0.1/16', output)
-        self.assertNotIn('10.10.0.2/16', output)
-
-        # address labels
-        output = check_output('ip -4 address show dev dummy98 label 32')
-        self.assertIn('inet 10.3.2.3/16 brd 10.3.255.255 scope global 32', output)
-
-        output = check_output('ip -4 address show dev dummy98 label 33')
-        self.assertIn('inet 10.4.2.3 peer 10.4.2.4/16 scope global 33', output)
-
-        output = check_output('ip -4 address show dev dummy98 label 34')
-        self.assertRegex(output, r'inet 192.168.[0-9]*.1/24 brd 192.168.[0-9]*.255 scope global 34')
-
-        output = check_output('ip -4 address show dev dummy98 label 35')
-        self.assertRegex(output, r'inet 172.[0-9]*.0.1/16 brd 172.[0-9]*.255.255 scope global 35')
-
-        # check metric of prefix route
-        output = check_output('ip -4 route show dev dummy98 10.9.0.0/16')
-        print(output)
-        self.assertIn(f'10.9.0.0/16 proto kernel scope link src 10.9.0.1 metric {route_metric}', output)
-        output = check_output('ip -6 route show dev dummy98 2001:db8:0:f104::/64')
-        print(output)
-        self.assertIn(f'2001:db8:0:f104::/64 proto kernel metric {route_metric}', output)
-
-        # IPv6 addresses
-        output = check_output('ip -6 address show dev dummy98')
-        print(output)
         self.assertIn('inet6 2001:db8:0:f101::15/64 scope global', output)
         self.assertIn('inet6 2001:db8:0:f101::16/64 scope global', output)
         self.assertIn('inet6 2001:db8:0:f102::15/64 scope global', output)
-        self.assertIn('inet6 2001:db8:0:f102::16/64 scope global', output)
-        self.assertIn('inet6 2001:db8:0:f103::20 peer 2001:db8:0:f103::10/128 scope global', output)
-        self.assertRegex(output, rf'inet6 2001:db8:0:f104::16/64 (metric {route_metric} |)scope global')
-        self.assertIn('inet6 2001:db8:1:f101::1/64 scope global deprecated', output)
-        self.assertRegex(output, r'inet6 fd[0-9a-f:]*1/64 scope global')
+
+        # label
+        self.assertIn(f'inet 10.3.1.1/24 brd 10.3.1.255 scope global {label1}', output)
+        self.assertIn(f'inet 10.3.2.1/24 brd 10.3.2.255 scope global {label2}', output)
+        self.assertIn(f'inet 10.3.3.1/24 brd 10.3.3.255 scope global {label3}', output)
+
+        # broadcast
+        self.assertIn(f'inet 10.4.1.1/24{broadcast1} scope global dummy98', output)
+        self.assertIn(f'inet 10.4.2.1/24{broadcast2} scope global dummy98', output)
+        self.assertIn(f'inet 10.4.3.1/24{broadcast3} scope global dummy98', output)
+
+        # peer
+        self.assertIn(f'inet 10.5.1.1{peer1} scope global dummy98', output)
+        self.assertIn(f'inet 10.5.2.1{peer2} scope global dummy98', output)
+        self.assertIn(f'inet 10.5.3.1{peer3} scope global dummy98', output)
+        self.assertIn(f'inet6 2001:db8:0:f103::1{peer4} scope global', output)
+        self.assertIn(f'inet6 2001:db8:0:f103::2{peer5} scope global', output)
+        self.assertIn(f'inet6 2001:db8:0:f103::3{peer6} scope global', output)
+
+        # scope
+        self.assertIn(f'inet 10.6.1.1/24 brd 10.6.1.255 scope {scope1} dummy98', output)
+        self.assertIn(f'inet 10.6.2.1/24 brd 10.6.2.255 scope {scope2} dummy98', output)
+
+        # lifetime
+        self.assertIn(f'inet 10.7.1.1/24 brd 10.7.1.255 scope global{deprecated1} dummy98', output)
+        self.assertIn(f'inet 10.7.2.1/24 brd 10.7.2.255 scope global{deprecated2} dummy98', output)
+        self.assertIn(f'inet6 2001:db8:0:f104::1/64 scope global{deprecated3}', output)
+        self.assertIn(f'inet6 2001:db8:0:f104::2/64 scope global{deprecated4}', output)
+
+        # route metric
+        self.assertRegex(output, rf'inet 10.8.1.1/24 (metric {route_metric} |)brd 10.8.1.255 scope global dummy98')
+        self.assertRegex(output, rf'inet6 2001:db8:0:f105::1/64 (metric {route_metric} |)scope global')
+
+        output_route = check_output('ip -4 route show dev dummy98 10.8.1.0/24')
+        print(output_route)
+        self.assertIn(f'10.8.1.0/24 proto kernel scope link src 10.8.1.1 metric {route_metric}', output_route)
+
+        output_route = check_output('ip -6 route show dev dummy98 2001:db8:0:f105::/64')
+        print(output_route)
+        self.assertIn(f'2001:db8:0:f105::/64 proto kernel metric {route_metric}', output_route)
+
+        # flags
+        self.assertIn(f'inet 10.9.1.1/24 brd 10.9.1.255 scope global{flag1} dummy98', output)
+        self.assertIn(f'inet 10.9.2.1/24 brd 10.9.2.255 scope global{flag2} dummy98', output)
+        self.assertIn(f'inet6 2001:db8:0:f106::1/64 scope global{flag3}', output)
+        self.assertIn(f'inet6 2001:db8:0:f106::2/64 scope global{flag4}', output)
+
+        # null address
+        self.assertRegex(output, r'inet [0-9]*.[0-9]*.0.1/16 brd [0-9]*.[0-9]*.255.255 scope global subnet16')
+        self.assertRegex(output, r'inet [0-9]*.[0-9]*.[0-9]*.1/24 brd [0-9]*.[0-9]*.[0-9]*.255 scope global subnet24')
+        self.assertRegex(output, r'inet6 [0-9a-f:]*:1/73 scope global')
+
+        # invalid sections
+        self.assertNotIn('10.4.4.1', output)
+        self.assertNotIn('10.5.4.1', output)
+        self.assertNotIn('10.5.5.1', output)
+        self.assertNotIn('10.8.2.1', output)
+        self.assertNotIn('10.9.3.1', output)
+        self.assertNotIn('2001:db8:0:f101::2', output)
+        self.assertNotIn('2001:db8:0:f103::4', output)
 
         # netlabel
-        self.check_netlabel('dummy98', r'10\.4\.3\.0/24')
+        self.check_netlabel('dummy98', r'10\.10\.1\.0/24')
 
         output = check_output(*networkctl_cmd, '--json=short', 'status', env=env)
         check_json(output)
 
     def test_address_static(self):
-        # test for #22515. The address will be removed and replaced with /64 prefix.
-        check_output('ip link add dummy98 type dummy')
-        check_output('ip link set dev dummy98 up')
-        check_output('ip -6 address add 2001:db8:0:f101::15/128 dev dummy98')
-        self.wait_address('dummy98', '2001:db8:0:f101::15/128', ipv='-6')
-        check_output('ip -4 address add 10.3.2.3/16 brd 10.3.255.250 scope global label dummy98:hoge dev dummy98')
-        self.wait_address('dummy98', '10.3.2.3/16 brd 10.3.255.250', ipv='-4')
-
         copy_network_unit('25-address-static.network', '12-dummy.netdev', copy_dropins=False)
         start_networkd()
 
         self.wait_online(['dummy98:routable'])
-        self.verify_address_static(route_metric=128)
+        self.verify_address_static(
+            label1='label1',
+            label2='label2',
+            label3='dummy98',
+            broadcast1='',
+            broadcast2=' brd 10.4.2.255',
+            broadcast3=' brd 10.4.3.63',
+            peer1=' peer 10.5.1.101/24',
+            peer2=' peer 10.5.2.101/24',
+            peer3='/24 brd 10.5.3.255',
+            peer4=' peer 2001:db8:0:f103::101/128',
+            peer5=' peer 2001:db8:0:f103::102/128',
+            peer6='/128',
+            scope1='global',
+            scope2='link',
+            deprecated1='',
+            deprecated2=' deprecated',
+            deprecated3='',
+            deprecated4=' deprecated',
+            route_metric=128,
+            flag1=' noprefixroute',
+            flag2='',
+            flag3=' noprefixroute',
+            flag4=' home mngtmpaddr',
+        )
 
-        copy_network_unit('25-address-static.network.d/10-override-route-metric.conf')
+        copy_network_unit('25-address-static.network.d/10-override.conf')
         networkctl_reload()
         self.wait_online(['dummy98:routable'])
-        self.verify_address_static(route_metric=256)
+        self.verify_address_static(
+            label1='new-label1',
+            label2='dummy98',
+            label3='new-label3',
+            broadcast1=' brd 10.4.1.255',
+            broadcast2='',
+            broadcast3=' brd 10.4.3.31',
+            peer1=' peer 10.5.1.102/24',
+            peer2='/24 brd 10.5.2.255',
+            peer3=' peer 10.5.3.102/24',
+            peer4=' peer 2001:db8:0:f103::201/128',
+            peer5='/128',
+            peer6=' peer 2001:db8:0:f103::203/128',
+            scope1='link',
+            scope2='global',
+            deprecated1=' deprecated',
+            deprecated2='',
+            deprecated3=' deprecated',
+            deprecated4='',
+            route_metric=256,
+            flag1='',
+            flag2=' noprefixroute',
+            flag3=' home mngtmpaddr',
+            flag4=' noprefixroute',
+        )
 
         networkctl_reconfigure('dummy98')
         self.wait_online(['dummy98:routable'])
-        self.verify_address_static(route_metric=256)
+        self.verify_address_static(
+            label1='new-label1',
+            label2='dummy98',
+            label3='new-label3',
+            broadcast1=' brd 10.4.1.255',
+            broadcast2='',
+            broadcast3=' brd 10.4.3.31',
+            peer1=' peer 10.5.1.102/24',
+            peer2='/24 brd 10.5.2.255',
+            peer3=' peer 10.5.3.102/24',
+            peer4=' peer 2001:db8:0:f103::201/128',
+            peer5='/128',
+            peer6=' peer 2001:db8:0:f103::203/128',
+            scope1='link',
+            scope2='global',
+            deprecated1=' deprecated',
+            deprecated2='',
+            deprecated3=' deprecated',
+            deprecated4='',
+            route_metric=256,
+            flag1='',
+            flag2=' noprefixroute',
+            flag3=' home mngtmpaddr',
+            flag4=' noprefixroute',
+        )
 
         # Tests for #20891.
         # 1. set preferred lifetime forever to drop the deprecated flag for testing #20891.
-        check_output('ip address change 10.7.8.9/16 dev dummy98 preferred_lft forever')
-        check_output('ip address change 2001:db8:1:f101::1/64 dev dummy98 preferred_lft forever')
-        output = check_output('ip -4 address show dev dummy98')
+        check_output('ip address change 10.7.1.1/24 dev dummy98 preferred_lft forever')
+        check_output('ip address change 2001:db8:0:f104::1/64 dev dummy98 preferred_lft forever')
+        output = check_output('ip address show dev dummy98')
         print(output)
-        self.assertNotIn('deprecated', output)
-        output = check_output('ip -6 address show dev dummy98')
-        print(output)
-        self.assertNotIn('deprecated', output)
+        self.assertNotRegex(output, '10.7.1.1/24 .* deprecated')
+        self.assertNotRegex(output, '2001:db8:0:f104::1/64 .* deprecated')
 
-        # 2. reconfigure the interface.
+        # 2. reconfigure the interface, and check the deprecated flag is set again
         networkctl_reconfigure('dummy98')
         self.wait_online(['dummy98:routable'])
-
-        # 3. check the deprecated flag is set for the address configured with PreferredLifetime=0
-        output = check_output('ip -4 address show dev dummy98')
-        print(output)
-        self.assertIn('inet 10.7.8.9/16 brd 10.7.255.255 scope link deprecated dummy98', output)
-        output = check_output('ip -6 address show dev dummy98')
-        print(output)
-        self.assertIn('inet6 2001:db8:1:f101::1/64 scope global deprecated', output)
+        self.verify_address_static(
+            label1='new-label1',
+            label2='dummy98',
+            label3='new-label3',
+            broadcast1=' brd 10.4.1.255',
+            broadcast2='',
+            broadcast3=' brd 10.4.3.31',
+            peer1=' peer 10.5.1.102/24',
+            peer2='/24 brd 10.5.2.255',
+            peer3=' peer 10.5.3.102/24',
+            peer4=' peer 2001:db8:0:f103::201/128',
+            peer5='/128',
+            peer6=' peer 2001:db8:0:f103::203/128',
+            scope1='link',
+            scope2='global',
+            deprecated1=' deprecated',
+            deprecated2='',
+            deprecated3=' deprecated',
+            deprecated4='',
+            route_metric=256,
+            flag1='',
+            flag2=' noprefixroute',
+            flag3=' home mngtmpaddr',
+            flag4=' noprefixroute',
+        )
 
         # test for ENOBUFS issue #17012 (with reload)
         copy_network_unit('25-address-static.network.d/10-many-address.conf')

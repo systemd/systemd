@@ -180,54 +180,6 @@ static int test_load_config(Manager *manager) {
         return 0;
 }
 
-static void test_address_equality(void) {
-        _cleanup_(address_freep) Address *a1 = NULL, *a2 = NULL;
-
-        assert_se(address_new(&a1) >= 0);
-        assert_se(address_new(&a2) >= 0);
-
-        assert_se(address_equal(NULL, NULL));
-        assert_se(!address_equal(a1, NULL));
-        assert_se(!address_equal(NULL, a2));
-        assert_se(address_equal(a1, a2));
-
-        a1->family = AF_INET;
-        assert_se(!address_equal(a1, a2));
-
-        a2->family = AF_INET;
-        assert_se(address_equal(a1, a2));
-
-        assert_se(in_addr_from_string(AF_INET, "192.168.3.9", &a1->in_addr) >= 0);
-        assert_se(!address_equal(a1, a2));
-        assert_se(in_addr_from_string(AF_INET, "192.168.3.9", &a2->in_addr) >= 0);
-        assert_se(address_equal(a1, a2));
-        assert_se(in_addr_from_string(AF_INET, "192.168.3.10", &a1->in_addr_peer) >= 0);
-        assert_se(!address_equal(a1, a2));
-        assert_se(in_addr_from_string(AF_INET, "192.168.3.11", &a2->in_addr_peer) >= 0);
-        assert_se(!address_equal(a1, a2));
-        assert_se(in_addr_from_string(AF_INET, "192.168.3.10", &a2->in_addr_peer) >= 0);
-        assert_se(address_equal(a1, a2));
-        a1->prefixlen = 10;
-        assert_se(!address_equal(a1, a2));
-        a2->prefixlen = 10;
-        assert_se(address_equal(a1, a2));
-
-        a1->family = AF_INET6;
-        assert_se(!address_equal(a1, a2));
-
-        a2->family = AF_INET6;
-        assert_se(in_addr_from_string(AF_INET6, "2001:4ca0:4f01::2", &a1->in_addr) >= 0);
-        assert_se(in_addr_from_string(AF_INET6, "2001:4ca0:4f01::2", &a2->in_addr) >= 0);
-        assert_se(address_equal(a1, a2));
-
-        a2->prefixlen = 8;
-        assert_se(!address_equal(a1, a2));
-
-        a2->prefixlen = 10;
-        assert_se(in_addr_from_string(AF_INET6, "2001:4ca0:4f01::1", &a2->in_addr) >= 0);
-        assert_se(!address_equal(a1, a2));
-}
-
 static void test_dhcp_hostname_shorten_overlong(void) {
         int r;
 
@@ -281,7 +233,6 @@ int main(void) {
 
         test_deserialize_in_addr();
         test_deserialize_dhcp_routes();
-        test_address_equality();
         test_dhcp_hostname_shorten_overlong();
 
         assert_se(manager_new(&manager, /* test_mode = */ true) >= 0);
