@@ -3023,7 +3023,7 @@ static int dump_server_state(JsonVariant *server) {
                 bool packet_rrsig_missing;
                 bool packet_invalid;
                 bool packet_do_off;
-        } server_state;
+        } server_state = {};
 
         int r;
 
