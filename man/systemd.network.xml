@@ -3196,8 +3196,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
 
         <listitem><para>The IPv6 PREF64 (or NAT64) prefix that is to be distributed to hosts. The setting holds
         an IPv6 prefix that should be set up for NAT64 translation (PLAT) to allow 464XLAT on the network segment.
-        <literal>/</literal> character. Use multiple [IPv6PREF64Prefix] sections to configure multiple IPv6
-        prefixes since prefix lifetimes, prefixes since prefix lifetimes may differ from one prefix to another..</para></listitem>
+        Use multiple [IPv6PREF64Prefix] sections to configure multiple IPv6 prefixes, since
+        prefix lifetimes may differ from one prefix to another.</para></listitem>
       </varlistentry>
 
       <varlistentry>
