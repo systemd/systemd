@@ -3179,29 +3179,52 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
     </variablelist>
     </refsect1>
 
-    <refsect1>
-    <title>[IPv6RoutePrefix] Section Options</title>
-    <para>One or more [IPv6RoutePrefix] sections contain the IPv6
-    prefix routes that are announced via Router Advertisements. See
-    <ulink url="https://tools.ietf.org/html/rfc4191">RFC 4191</ulink>
-    for further details.</para>
+ <refsect1>
+    <title>[IPv6PREF64Prefix] Section Options</title>
+    <para>One or more [IPv6PREF64Prefix] sections contain the IPv6 PREF64 (or NAT64) prefixes that are announced via Router
+    Advertisements. See <ulink url="https://tools.ietf.org/html/rfc8781">RFC 8781</ulink> for further
+    details.</para>
 
     <variablelist class='network-directives'>
 
       <varlistentry>
-        <term><varname>Route=</varname></term>
+        <term><varname>Prefix=</varname></term>
 
-        <listitem><para>The IPv6 route that is to be distributed to hosts. Similarly to configuring static
-        IPv6 routes, the setting is configured as an IPv6 prefix routes and its prefix route length,
-        separated by a <literal>/</literal> character. Use multiple [IPv6RoutePrefix] sections to configure
-        multiple IPv6 prefix routes.</para></listitem>
+        <listitem><para>The IPv6 PREF64 (or NAT64) prefix that is to be distributed to hosts. The setting holds
+        an IPv6 prefix that should be set up for NAT64 translation (PLAT) to allow 464XLAT on the network segment.
+        Use multiple [IPv6PREF64Prefix] sections to configure multiple IPv6
+        prefixes since prefix lifetimes, prefixes since prefix lifetimes may differ from one prefix to another..</para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term><varname>LifetimeSec=</varname></term>
+        <term><varname>ValidLifetimeSec=</varname></term>
+        <listitem><para>Valid lifetime for the prefix measured in seconds.
+        <varname>ValidLifetimeSec=</varname> defaults to 3600 seconds (one hour).</para></listitem>
+      </varlistentry>
+    </variablelist>
+    </refsect1>
 
-        <listitem><para>Lifetime for the route prefix measured in seconds.
-        <varname>LifetimeSec=</varname> defaults to 3600 seconds (one hour).</para></listitem>
+    <refsect1>
+    <title>[IPv6PREF64Prefix] Section Options</title>
+    <para>One or more [IPv6PREF64Prefix] sections contain the IPv6 PREF64 (or NAT64) prefixes that are announced via Router
+    Advertisements. See <ulink url="https://tools.ietf.org/html/rfc8781">RFC 8781</ulink> for further
+    details.</para>
+
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>Prefix=</varname></term>
+        <listitem><para>The IPv6 PREF64 (or NAT64) prefix that is to be distributed to hosts. The setting holds
+        an IPv6 prefix that should be set up for NAT64 translation (PLAT) to allow 464XLAT on the network segment.
+        Use multiple [IPv6PREF64Prefix] sections to configure multiple IPv6
+        <listitem><para>The IPv6 PREF64 (or NAT64) prefix that is to be distributed to hosts. Similarly to configuring static
+        IPv6 addresses, the setting is configured as an IPv6 prefix and its prefix length, separated by a
+        <literal>/</literal> character. Use multiple [IPv6PREF64Prefix] sections to configure multiple IPv6
+        prefixes since prefix lifetimes, prefixes since prefix lifetimes may differ from one prefix to another..</para></listitem>
+
+      <varlistentry>
+        <term><varname>ValidLifetimeSec=</varname></term>
+        <listitem><para>Valid lifetime for the prefix measured in seconds.
+        <varname>ValidLifetimeSec=</varname> defaults to 3600 seconds (one hour).</para></listitem>
       </varlistentry>
 
     </variablelist>
