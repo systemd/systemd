@@ -999,12 +999,28 @@ static int context_execute(Context *c) {
         return 0;
 }
 
+static bool bypass(void) {
+        int r;
+
+        r = getenv_bool("KERNEL_INSTALL_BYPASS");
+        if (r < 0 && r != -ENXIO)
+                log_debug_errno(r, "Failed to parse $KERNEL_INSTALL_BYPASS, assuming no.");
+        if (r <= 0)
+                return false;
+
+        log_debug("$KERNEL_INSTALL_BYPASS is enabled, skipping execution.");
+        return true;
+}
+
 static int verb_add(int argc, char *argv[], void *userdata) {
         Context *c = ASSERT_PTR(userdata);
         int r;
 
         assert(argc >= 3);
         assert(argv);
+
+        if (bypass())
+                return 0;
 
         c->action = ACTION_ADD;
 
@@ -1047,6 +1063,9 @@ static int verb_remove(int argc, char *argv[], void *userdata) {
         if (argc > 2)
                 log_debug("Too many arguments specified. 'kernel-install remove' takes only kernel version. "
                           "Ignoring residual arguments.");
+
+        if (bypass())
+                return 0;
 
         c->action = ACTION_REMOVE;
 
@@ -1096,19 +1115,6 @@ static int verb_inspect(int argc, char *argv[], void *userdata) {
         printf("    %s\n", strna(joined));
 
         return 0;
-}
-
-static bool bypass(void) {
-        int r;
-
-        r = getenv_bool("KERNEL_INSTALL_BYPASS");
-        if (r < 0 && r != -ENXIO)
-                log_debug_errno(r, "Failed to parse $KERNEL_INSTALL_BYPASS, assuming no.");
-        if (r <= 0)
-                return false;
-
-        log_debug("$KERNEL_INSTALL_BYPASS is enabled, skipping execution.");
-        return true;
 }
 
 static int help(void) {
@@ -1238,9 +1244,6 @@ static int run(int argc, char* argv[]) {
         int r;
 
         log_setup();
-
-        if (bypass())
-                return 0;
 
         r = parse_argv(argc, argv, &c);
         if (r <= 0)
