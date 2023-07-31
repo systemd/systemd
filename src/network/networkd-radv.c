@@ -871,7 +871,7 @@ static int pref64_prefix_section_verify(pref64Prefix *p) {
         if (p->prefixlen > 128)
                 return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
                                          "%s: Invalid prefix length %u is specified in [IPv6pref64Prefix] section. "
-                                         "Valid range is 0…128. Ignoring [IPv6pref64Prefix] section from line %u.",
+                                         "Valid lengths are \32, \40, \48, \56, \64 and \96. Ignoring [IPv6pref64Prefix] section from line %u.",
                                          p->section->filename, p->prefixlen, p->section->line);
 
         if (p->lifetime == 0)
