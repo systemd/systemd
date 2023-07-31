@@ -1,29 +1,33 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 udevadm_sources = files(
-        'udevadm.c',
         'udevadm-control.c',
         'udevadm-hwdb.c',
         'udevadm-info.c',
         'udevadm-lock.c',
         'udevadm-monitor.c',
         'udevadm-settle.c',
-        'udevadm-test.c',
         'udevadm-test-builtin.c',
+        'udevadm-test.c',
         'udevadm-trigger.c',
         'udevadm-util.c',
         'udevadm-verify.c',
         'udevadm-wait.c',
+        'udevadm.c',
         'udevd.c',
 )
 
 libudevd_core_sources = files(
+        'net/link-config.c',
         'udev-ctrl.c',
         'udev-event.c',
+        'udev-format.c',
+        'udev-manager.c',
         'udev-node.c',
         'udev-rules.c',
+        'udev-spawn.c',
         'udev-watch.c',
-        'udev-builtin.c',
+        'udev-worker.c',
         'udev-builtin-btrfs.c',
         'udev-builtin-hwdb.c',
         'udev-builtin-input_id.c',
@@ -32,7 +36,7 @@ libudevd_core_sources = files(
         'udev-builtin-net_setup_link.c',
         'udev-builtin-path_id.c',
         'udev-builtin-usb_id.c',
-        'net/link-config.c',
+        'udev-builtin.c',
 )
 
 if conf.get('HAVE_KMOD') == 1
@@ -167,10 +171,6 @@ if install_sysconfdir
                                  mkdir_p.format(sysconfdir / 'udev/rules.d'))
 endif
 
-simple_fuzzers += files(
-        'fuzz-udev-rule-parse-value.c',
-)
-
 fuzzer_udev_base = {
         'link_with' : [libudevd_core, libshared],
         'dependencies' : [threads, libacl],
@@ -180,6 +180,10 @@ fuzzers += [
         {
                 'sources' : files('net/fuzz-link-parser.c'),
                 'includes' : udev_includes,
+                'base' : fuzzer_udev_base,
+        },
+        {
+                'sources' : files('fuzz-udev-rule-parse-value.c'),
                 'base' : fuzzer_udev_base,
         },
         {
@@ -211,11 +215,23 @@ tests += [
                 'base' : test_libudev_base,
         },
         {
-                'sources' : files('test-udev-event.c'),
+                'sources' : files('test-udev-format.c'),
+                'base' : test_libudev_base,
+        },
+        {
+                'sources' : files('test-udev-manager.c'),
                 'base' : test_libudev_base,
         },
         {
                 'sources' : files('test-udev-node.c'),
+                'base' : test_libudev_base,
+        },
+        {
+                'sources' : files('test-udev-rules.c'),
+                'base' : test_libudev_base,
+        },
+        {
+                'sources' : files('test-udev-spawn.c'),
                 'base' : test_libudev_base,
         },
 ]
