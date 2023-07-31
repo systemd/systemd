@@ -2377,6 +2377,13 @@ subdir('src/busctl')
 subdir('src/coredump')
 subdir('src/cryptenroll')
 subdir('src/cryptsetup')
+subdir('src/debug-generator')
+subdir('src/dissect')
+subdir('src/environment-d-generator')
+subdir('src/fstab-generator')
+subdir('src/getty-generator')
+subdir('src/gpt-auto-generator')
+subdir('src/hibernate-resume')
 subdir('src/home')
 subdir('src/hostname')
 subdir('src/import')
@@ -2397,13 +2404,16 @@ subdir('src/portable')
 subdir('src/pstore')
 subdir('src/resolve')
 subdir('src/rpm')
+subdir('src/run-generator')
 subdir('src/shutdown')
+subdir('src/socket-activate')
 subdir('src/sysext')
 subdir('src/systemctl')
 subdir('src/sysupdate')
 subdir('src/timedate')
 subdir('src/timesync')
 subdir('src/tmpfiles')
+subdir('src/user-sessions')
 subdir('src/userdb')
 subdir('src/xdg-autostart-generator')
 
@@ -2533,120 +2543,15 @@ endforeach
 
 ############################################################
 
-exe = executable(
-        'systemd-analyze',
-        systemd_analyze_sources,
-        include_directories : core_includes,
-        link_with : [libcore,
-                     libshared],
-        dependencies : [libseccomp,
-                        userspace],
-        install_rpath : pkglibdir,
-        install : conf.get('ENABLE_ANALYZE') == 1)
-if conf.get('ENABLE_ANALYZE') == 1
-        public_programs += exe
-endif
-
 if want_tests != 'false'
+        exe = executables_by_name.get('systemd-analyze')
         test('test-compare-versions',
              test_compare_versions_sh,
              args : exe.full_path())
 endif
 
-executable(
-        'systemd-journald',
-        systemd_journald_sources,
-        include_directories : includes,
-        link_with : [libjournal_core,
-                     libshared],
-        dependencies : [liblz4,
-                        libselinux,
-                        libxz,
-                        libzstd,
-                        threads,
-                        userspace],
-        install_rpath : pkglibdir,
-        install : true,
-        install_dir : libexecdir)
-
-public_programs += executable(
-        'systemd-cat',
-        systemd_cat_sources,
-        include_directories : includes,
-        link_with : [libjournal_core,
-                     libshared],
-        dependencies : [threads,
-                        userspace],
-        install_rpath : pkglibdir,
-        install : true)
-
-if get_option('link-journalctl-shared')
-        journalctl_link_with = [libshared]
-else
-        journalctl_link_with = [libsystemd_static,
-                                libshared_static,
-                                libbasic_gcrypt]
-endif
-
-public_programs += executable(
-        'journalctl',
-        journalctl_sources,
-        include_directories : includes,
-        link_with : [journalctl_link_with],
-        dependencies : [libdl,
-                        liblz4,
-                        libxz,
-                        libzstd,
-                        threads,
-                        userspace],
-        install_rpath : pkglibdir,
-        install : true)
-
-executable(
-        'systemd-getty-generator',
-        'src/getty-generator/getty-generator.c',
-        include_directories : includes,
-        link_with : [libshared],
-        dependencies : userspace,
-        install_rpath : pkglibdir,
-        install : true,
-        install_dir : systemgeneratordir)
-
-executable(
-        'systemd-debug-generator',
-        'src/debug-generator/debug-generator.c',
-        include_directories : includes,
-        link_with : [libshared],
-        dependencies : userspace,
-        install_rpath : pkglibdir,
-        install : true,
-        install_dir : systemgeneratordir)
-
-executable(
-        'systemd-run-generator',
-        'src/run-generator/run-generator.c',
-        include_directories : includes,
-        link_with : [libshared],
-        dependencies : userspace,
-        install_rpath : pkglibdir,
-        install : true,
-        install_dir : systemgeneratordir)
-
-exe = executable(
-        'systemd-fstab-generator',
-        'src/fstab-generator/fstab-generator.c',
-        include_directories : includes,
-        link_with : [libshared],
-        dependencies : userspace,
-        install_rpath : pkglibdir,
-        install : true,
-        install_dir : systemgeneratordir)
-
-meson.add_install_script(meson_make_symlink,
-                         systemgeneratordir / 'systemd-fstab-generator',
-                         libexecdir / 'systemd-sysroot-fstab-check')
-
 if want_tests != 'false'
+        exe = executables_by_name.get('systemd-fstab-generator')
         test('test-fstab-generator',
              test_fstab_generator_sh,
              # https://github.com/mesonbuild/meson/issues/2681
@@ -2655,288 +2560,15 @@ if want_tests != 'false'
              depends : exe)
 endif
 
-if conf.get('ENABLE_ENVIRONMENT_D') == 1
-        executable(
-                '30-systemd-environment-d-generator',
-                'src/environment-d-generator/environment-d-generator.c',
-                include_directories : includes,
-                link_with : [libshared],
-                dependencies : userspace,
-                install_rpath : pkglibdir,
-                install : true,
-                install_dir : userenvgeneratordir)
-
-        meson.add_install_script(meson_make_symlink,
-                                 sysconfdir / 'environment',
-                                 environmentdir / '99-environment.conf')
-endif
-
-if conf.get('ENABLE_HIBERNATE') == 1
-        executable(
-                'systemd-hibernate-resume-generator',
-                'src/hibernate-resume/hibernate-resume-generator.c',
-                include_directories : includes,
-                link_with : [libshared],
-                dependencies : userspace,
-                install_rpath : pkglibdir,
-                install : true,
-                install_dir : systemgeneratordir)
-
-        executable(
-                'systemd-hibernate-resume',
-                'src/hibernate-resume/hibernate-resume.c',
-                include_directories : includes,
-                link_with : [libshared],
-                dependencies : userspace,
-                install_rpath : pkglibdir,
-                install : true,
-                install_dir : libexecdir)
-endif
-
-if conf.get('HAVE_BLKID') == 1
-        executable(
-                'systemd-gpt-auto-generator',
-                'src/gpt-auto-generator/gpt-auto-generator.c',
-                include_directories : includes,
-                link_with : [libshared],
-                dependencies : [libblkid,
-                                userspace],
-                install_rpath : pkglibdir,
-                install : true,
-                install_dir : systemgeneratordir)
-
-        public_programs += executable(
-                'systemd-dissect',
-                'src/dissect/dissect.c',
-                include_directories : includes,
-                link_with : [libshared],
-                dependencies : [userspace],
-                install_rpath : pkglibdir,
-                install : true)
-
-        meson.add_install_script(meson_make_symlink,
-                                 bindir / 'systemd-dissect',
-                                 sbindir / 'mount.ddi')
-endif
-
-if conf.get('ENABLE_RESOLVE') == 1
-        dbus_programs += executable(
-                'systemd-resolved',
-                systemd_resolved_sources,
-                include_directories : resolve_includes,
-                link_with : [libshared,
-                             libbasic_gcrypt,
-                             libsystemd_resolve_core],
-                dependencies : [systemd_resolved_dependencies,
-                                userspace],
-                install_rpath : pkglibdir,
-                install : true,
-                install_dir : libexecdir)
-
-        public_programs += executable(
-                'resolvectl',
-                resolvectl_sources,
-                include_directories : includes,
-                link_with : [libshared,
-                             libbasic_gcrypt,
-                             libsystemd_resolve_core],
-                dependencies : [lib_openssl_or_gcrypt,
-                                libidn,
-                                libm,
-                                threads,
-                                userspace],
-                install_rpath : pkglibdir,
-                install : true)
-
-        meson.add_install_script(meson_make_symlink,
-                                 bindir / 'resolvectl',
-                                 sbindir / 'resolvconf')
-
-        meson.add_install_script(meson_make_symlink,
-                                 bindir / 'resolvectl',
-                                 bindir / 'systemd-resolve')
-endif
-
-if conf.get('ENABLE_LOGIND') == 1
-        dbus_programs += executable(
-                'systemd-logind',
-                systemd_logind_sources,
-                include_directories : includes,
-                link_with : [liblogind_core,
-                             libshared],
-                dependencies : [libacl,
-                                threads,
-                                userspace],
-                install_rpath : pkglibdir,
-                install : true,
-                install_dir : libexecdir)
-
-        public_programs += executable(
-                'loginctl',
-                loginctl_sources,
-                include_directories : includes,
-                link_with : [libshared],
-                dependencies : [liblz4,
-                                libxz,
-                                libzstd,
-                                threads,
-                                userspace],
-                install_rpath : pkglibdir,
-                install : true)
-
-        public_programs += executable(
-                'systemd-inhibit',
-                'src/login/inhibit.c',
-                include_directories : includes,
-                link_with : [libshared],
-                dependencies : [userspace],
-                install_rpath : pkglibdir,
-                install : true)
-
-        if conf.get('HAVE_PAM') == 1
-                version_script_arg = project_source_root / pam_systemd_sym
-                pam_systemd = shared_library(
-                        'pam_systemd',
-                        pam_systemd_c,
-                        name_prefix : '',
-                        include_directories : includes,
-                        link_args : ['-shared',
-                                     '-Wl,--version-script=' + version_script_arg],
-                        link_with : [libsystemd_static,
-                                     libshared_static],
-                        dependencies : [libpam_misc,
-                                        libpam,
-                                        threads,
-                                        userspace],
-                        link_depends : pam_systemd_sym,
-                        install : true,
-                        install_tag : 'pam',
-                        install_dir : pamlibdir)
-
-                if want_tests != 'false'
-                        test('dlopen-pam_systemd',
-                             test_dlopen,
-                             # path to dlopen must include a slash
-                             args : pam_systemd.full_path(),
-                             depends : pam_systemd)
-                endif
-        endif
-
-        executable(
-                'systemd-user-runtime-dir',
-                user_runtime_dir_sources,
-                include_directories : includes,
-                link_with : [libshared],
-                dependencies : userspace,
-                install_rpath : pkglibdir,
-                install : true,
-                install_dir : libexecdir)
-endif
-
-if conf.get('HAVE_PAM') == 1
-        executable(
-                'systemd-user-sessions',
-                'src/user-sessions/user-sessions.c',
-                include_directories : includes,
-                link_with : [libshared],
-                dependencies : userspace,
-                install_rpath : pkglibdir,
-                install : true,
-                install_dir : libexecdir)
-endif
-
 if conf.get('HAVE_BLKID') == 1 and conf.get('ENABLE_BOOTLOADER') == 1
-        if get_option('link-boot-shared')
-                boot_link_with = [libshared]
-        else
-                boot_link_with = [libsystemd_static, libshared_static]
-        endif
-
-        exe = executable(
-                'bootctl',
-                bootctl_sources,
-                include_directories : includes,
-                link_with : [boot_link_with],
-                dependencies : [libblkid,
-                                userspace],
-                install_rpath : pkglibdir,
-                install : true)
-        public_programs += exe
-
         if want_tests != 'false'
+                exe = executables_by_name.get('bootctl')
                 test('test-bootctl-json',
                      test_bootctl_json_sh,
                      args : exe.full_path(),
                      depends : exe)
         endif
-
-        public_programs += executable(
-                'systemd-bless-boot',
-                'src/boot/bless-boot.c',
-                include_directories : includes,
-                link_with : [boot_link_with],
-                dependencies : [libblkid,
-                                userspace],
-                install_rpath : pkglibdir,
-                install : true,
-                install_dir : libexecdir)
-
-        executable(
-                'systemd-bless-boot-generator',
-                'src/boot/bless-boot-generator.c',
-                include_directories : includes,
-                link_with : [boot_link_with],
-                dependencies : userspace,
-                install_rpath : pkglibdir,
-                install : true,
-                install_dir : systemgeneratordir)
-
-        if conf.get('HAVE_OPENSSL') == 1 and conf.get('HAVE_TPM2') == 1
-                executable(
-                        'systemd-measure',
-                        'src/boot/measure.c',
-                        include_directories : includes,
-                        link_with : [libshared],
-                        dependencies : [libopenssl,
-                                        userspace],
-                        install_rpath : pkglibdir,
-                        install : true,
-                        install_dir : libexecdir)
-                executable(
-                        'systemd-pcrphase',
-                        'src/boot/pcrphase.c',
-                        include_directories : includes,
-                        link_with : [libshared],
-                        dependencies : [libblkid,
-                                        libopenssl,
-                                        tpm2,
-                                        userspace],
-                        install_rpath : pkglibdir,
-                        install : true,
-                        install_dir : libexecdir)
-        endif
 endif
-
-executable(
-        'systemd-boot-check-no-failures',
-        'src/boot/boot-check-no-failures.c',
-        include_directories : includes,
-        link_with : [libshared],
-        dependencies : [libblkid,
-                        userspace],
-        install_rpath : pkglibdir,
-        install : true,
-        install_dir : libexecdir)
-
-public_programs += executable(
-        'systemd-socket-activate',
-        'src/socket-activate/socket-activate.c',
-        include_directories : includes,
-        link_with : [libshared],
-        dependencies : [threads,
-                        userspace],
-        install_rpath : pkglibdir,
-        install : true)
 
 systemctl = executable(
         'systemctl',
