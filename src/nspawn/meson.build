@@ -35,50 +35,45 @@ libnspawn_core = static_library(
                         userspace],
         build_by_default : false)
 
-systemd_nspawn_sources = files('nspawn.c')
+nspawn_libs = [
+        libnspawn_core,
+        libshared,
+]
 
-############################################################
+nspawn_common_template = {
+        'link_with' : nspawn_libs,
+        'dependencies' : libseccomp,
+}
+nspawn_test_template = test_template + nspawn_common_template
+nspawn_fuzz_template = fuzz_template + nspawn_common_template
 
-tests += [
-        {
+executables += [
+        executable_template + {
+                'name' : 'systemd-nspawn',
+                'public' : true,
+                'sources' : files('nspawn.c'),
+                'link_with' : nspawn_libs,
+                'dependencies' : [
+                        libblkid,
+                        libseccomp,
+                ],
+        },
+        nspawn_test_template + {
                 'sources' : files('test-nspawn-tables.c'),
-                'link_with' : [
-                        libnspawn_core,
-                        libshared,
-                ],
-                'dependencies' : libseccomp,
         },
-        {
+        nspawn_test_template + {
                 'sources' : files('test-nspawn-util.c'),
-                'link_with' : [
-                        libnspawn_core,
-                        libshared,
-                ],
-                'dependencies' : libseccomp,
         },
-        {
+        test_template + {
                 'sources' : files('test-patch-uid.c'),
-                'link_with' : [
-                        libnspawn_core,
-                        libshared,
-                ],
+                'link_with' : nspawn_libs,
                 'dependencies' : libacl,
                 'type' : 'manual',
         },
-]
-
-fuzzer_nspawn_base = {
-        'link_with' : [libshared, libnspawn_core],
-        'dependencies' : libseccomp
-}
-
-fuzzers += [
-        {
+        nspawn_fuzz_template + {
                 'sources' : files('fuzz-nspawn-settings.c'),
-                'base' : fuzzer_nspawn_base,
         },
-        {
+        nspawn_fuzz_template + {
                 'sources' : files('fuzz-nspawn-oci.c'),
-                'base' : fuzzer_nspawn_base,
         },
 ]

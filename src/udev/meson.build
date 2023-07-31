@@ -84,9 +84,11 @@ keyboard_keys_from_name_h = custom_target(
 
 ############################################################
 
+udev_link_gperf_gperf = files('net/link-config-gperf.gperf')
+
 link_config_gperf_c = custom_target(
         'link-config-gperf.c',
-        input : 'net/link-config-gperf.gperf',
+        input : udev_link_gperf_gperf,
         output : 'link-config-gperf.c',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
 
@@ -116,39 +118,138 @@ libudevd_core = static_library(
                         userspace],
         build_by_default : false)
 
-udev_progs = [['ata_id/ata_id.c'],
-              ['cdrom_id/cdrom_id.c'],
-              ['fido_id/fido_id.c',
-               'fido_id/fido_id_desc.c'],
-              ['iocost/iocost.c'],
-              ['scsi_id/scsi_id.c',
-               'scsi_id/scsi_serial.c'],
-              ['v4l_id/v4l_id.c'],
-              ['mtd_probe/mtd_probe.c',
-               'mtd_probe/probe_smartmedia.c']]
+udev_plugin_template = executable_template + {
+        'public' : true,
+        'link_with' : udev_link_with,
+        'install_rpath' : udev_rpath,
+        'install_dir' : udevlibexecdir,
+}
 
-dmi_arches = ['x86', 'x86_64', 'aarch64', 'arm', 'ia64', 'loongarch64', 'mips']
-if dmi_arches.contains(host_machine.cpu_family())
-        udev_progs += [['dmi_memory_id/dmi_memory_id.c']]
-endif
+udev_common_template = {
+        'link_with' : [
+                libshared,
+                libudevd_core,
+        ],
+        'dependencies' : [
+                libacl,
+                threads,
+        ],
+}
+udev_test_template = test_template + udev_common_template
+udev_fuzz_template = fuzz_template + udev_common_template
 
-udev_prog_paths = {}
-foreach prog : udev_progs
-        name = fs.stem(prog[0])
+executables += [
+        executable_template + {
+                'name' : 'udevadm',
+                'public' : true,
+                'sources' : udevadm_sources,
+                'link_with' : [libudevd_core],
+                'dependencies' : [
+                        libacl,
+                        libblkid,
+                        libidn,
+                        libkmod,
+                        threads,
+                ],
+                'install_rpath' : udev_rpath,
+        },
+        udev_plugin_template + {
+                'name' : 'ata_id',
+                'sources' : files('ata_id/ata_id.c'),
+        },
+        udev_plugin_template + {
+                'name' : 'cdrom_id',
+                'sources' : files('cdrom_id/cdrom_id.c'),
+        },
+        udev_plugin_template + {
+                'name' : 'dmi_memory_id',
+                'conditions' : ['HAVE_DMI'],
+                'sources' : files('dmi_memory_id/dmi_memory_id.c'),
+        },
+        udev_plugin_template + {
+                'name' : 'fido_id',
+                'sources' : files(
+                        'fido_id/fido_id.c',
+                        'fido_id/fido_id_desc.c',
+                ),
+        },
+        udev_plugin_template + {
+                'name' : 'iocost',
+                'sources' : files('iocost/iocost.c'),
+        },
+        udev_plugin_template + {
+                'name' : 'mtd_probe',
+                'sources' : files(
+                        'mtd_probe/mtd_probe.c',
+                        'mtd_probe/probe_smartmedia.c',
+                ),
+        },
+        udev_plugin_template + {
+                'name' : 'scsi_id',
+                'sources' : files(
+                        'scsi_id/scsi_id.c',
+                        'scsi_id/scsi_serial.c',
+                ),
+        },
+        udev_plugin_template + {
+                'name' : 'v4l_id',
+                'sources' : files('v4l_id/v4l_id.c'),
+        },
+        test_template + {
+                'sources' : files(
+                        'fido_id/test-fido-id-desc.c',
+                        'fido_id/fido_id_desc.c',
+                ),
+                'suite' : 'udev',
+        },
+        udev_test_template + {
+                'sources' : files('test-udev-builtin.c'),
+        },
+        udev_test_template + {
+                'sources' : files('test-udev-format.c'),
+        },
+        udev_test_template + {
+                'sources' : files('test-udev-manager.c'),
+        },
+        udev_test_template + {
+                'sources' : files('test-udev-node.c'),
+        },
+        udev_test_template + {
+                'sources' : files('test-udev-rules.c'),
+        },
+        udev_test_template + {
+                'sources' : files('test-udev-spawn.c'),
+        },
+        fuzz_template + {
+                'sources' : files(
+                        'fido_id/fuzz-fido-id-desc.c',
+                        'fido_id/fido_id_desc.c',
+                ),
+        },
+        udev_fuzz_template + {
+                'sources' : files('net/fuzz-link-parser.c'),
+                'include_directories' : udev_includes,
+        },
+        udev_fuzz_template + {
+                'sources' : files('fuzz-udev-rule-parse-value.c'),
+        },
+        udev_fuzz_template + {
+                'sources' : files('fuzz-udev-rules.c'),
+        },
+]
 
-        exe = executable(
-                name,
-                prog,
-                include_directories : includes,
-                dependencies : [userspace],
-                link_with : udev_link_with,
-                install_rpath : udev_rpath,
-                install : true,
-                install_dir : udevlibexecdir)
-
-        udev_prog_paths += {name : exe}
-        public_programs += exe
-endforeach
+# Old systems (e.g. CentOS 8), 'systemd-udevd' is a regular file, and install_symlink() command cannot
+# replace existing non-symbolic file. Hence, we need to use 'ln -sf' command here. Let's replace it later
+# with the below when meson supports 'force' flag to replace existing file.
+#
+#assert(fs.parent(fs.parent(libexecdir)) / 'bin' == bindir)
+#install_symlink('systemd-udevd',
+#                pointing_to : '../../bin/udevadm',
+#                install_dir : libexecdir)
+#
+meson.add_install_script(sh, '-c',
+                         ln_s.format(bindir / 'udevadm',
+                                     libexecdir / 'systemd-udevd'))
 
 if install_sysconfdir_samples
         install_data('udev.conf',
@@ -167,71 +268,5 @@ udev_pc = custom_target(
         install_dir : pkgconfigdatadir)
 
 if install_sysconfdir
-        meson.add_install_script('sh', '-c',
-                                 mkdir_p.format(sysconfdir / 'udev/rules.d'))
+        install_emptydir(sysconfdir / 'udev/rules.d')
 endif
-
-fuzzer_udev_base = {
-        'link_with' : [libudevd_core, libshared],
-        'dependencies' : [threads, libacl],
-}
-
-fuzzers += [
-        {
-                'sources' : files('net/fuzz-link-parser.c'),
-                'includes' : udev_includes,
-                'base' : fuzzer_udev_base,
-        },
-        {
-                'sources' : files('fuzz-udev-rule-parse-value.c'),
-                'base' : fuzzer_udev_base,
-        },
-        {
-                'sources' : files('fuzz-udev-rules.c'),
-                'base' : fuzzer_udev_base,
-        },
-        {
-                'sources' : files(
-                        'fido_id/fuzz-fido-id-desc.c',
-                        'fido_id/fido_id_desc.c',
-                ),
-        },
-]
-
-test_libudev_base = {
-        'link_with' : [libudevd_core, libshared],
-        'dependencies' : [threads, libacl],
-}
-
-tests += [
-        {
-                'sources' : files(
-                        'fido_id/test-fido-id-desc.c',
-                        'fido_id/fido_id_desc.c',
-                ),
-        },
-        {
-                'sources' : files('test-udev-builtin.c'),
-                'base' : test_libudev_base,
-        },
-        {
-                'sources' : files('test-udev-format.c'),
-                'base' : test_libudev_base,
-        },
-        {
-                'sources' : files('test-udev-manager.c'),
-                'base' : test_libudev_base,
-        },
-        {
-                'sources' : files('test-udev-node.c'),
-                'base' : test_libudev_base,
-        },
-        {
-                'sources' : files('test-udev-rules.c'),
-                'base' : test_libudev_base,
-        },
-        {
-                'sources' : files('test-udev-spawn.c'),
-                'base' : test_libudev_base,
-        },
-]
