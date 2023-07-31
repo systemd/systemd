@@ -475,28 +475,29 @@ static int dev_pci_slot(sd_device *dev, const LinkInfo *info, NetNames *names) {
                 rewinddir(dir);
         }
 
-        if (hotplug_slot > 0) {
-                s = names->pci_slot;
-                l = sizeof(names->pci_slot);
-                if (domain > 0)
-                        l = strpcpyf(&s, l, "P%u", domain);
-                l = strpcpyf(&s, l, "s%"PRIu32, hotplug_slot);
-                if (func > 0 || is_pci_multifunction(names->pcidev) > 0)
-                        l = strpcpyf(&s, l, "f%u", func);
-                if (naming_scheme_has(NAMING_SR_IOV_R) && info->vf_representor_id >= 0)
-                        /* For VF representor append 'r<VF_NUM>' and not phys_port_name */
-                        l = strpcpyf(&s, l, "r%d", info->vf_representor_id);
-                else if (!isempty(info->phys_port_name))
-                        l = strpcpyf(&s, l, "n%s", info->phys_port_name);
-                else if (dev_port > 0)
-                        l = strpcpyf(&s, l, "d%lu", dev_port);
-                if (l == 0)
-                        names->pci_slot[0] = '\0';
+        if (hotplug_slot == 0)
+                return 0;
 
-                log_device_debug(dev, "Slot identifier: domain=%u slot=%"PRIu32" func=%u phys_port=%s dev_port=%lu %s %s",
-                                 domain, hotplug_slot, func, strempty(info->phys_port_name), dev_port,
-                                 special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), empty_to_na(names->pci_slot));
-        }
+        s = names->pci_slot;
+        l = sizeof(names->pci_slot);
+        if (domain > 0)
+                l = strpcpyf(&s, l, "P%u", domain);
+        l = strpcpyf(&s, l, "s%"PRIu32, hotplug_slot);
+        if (func > 0 || is_pci_multifunction(names->pcidev) > 0)
+                l = strpcpyf(&s, l, "f%u", func);
+        if (naming_scheme_has(NAMING_SR_IOV_R) && info->vf_representor_id >= 0)
+                /* For VF representor append 'r<VF_NUM>' and not phys_port_name */
+                l = strpcpyf(&s, l, "r%d", info->vf_representor_id);
+        else if (!isempty(info->phys_port_name))
+                l = strpcpyf(&s, l, "n%s", info->phys_port_name);
+        else if (dev_port > 0)
+                l = strpcpyf(&s, l, "d%lu", dev_port);
+        if (l == 0)
+                names->pci_slot[0] = '\0';
+
+        log_device_debug(dev, "Slot identifier: domain=%u slot=%"PRIu32" func=%u phys_port=%s dev_port=%lu %s %s",
+                         domain, hotplug_slot, func, strempty(info->phys_port_name), dev_port,
+                         special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), empty_to_na(names->pci_slot));
 
         return 0;
 }
