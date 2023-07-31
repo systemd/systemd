@@ -67,8 +67,6 @@ typedef struct LinkInfo {
         int ifindex;
         int iflink;
         int iftype;
-        int vf_representor_id;
-        const char *phys_port_name;
 } LinkInfo;
 
 /* skip intermediate virtio devices */
@@ -178,6 +176,60 @@ static int get_dev_port(sd_device *dev, bool fallback_to_dev_id, unsigned *ret) 
         return 0; /* zero */
 }
 
+static int get_port_specifier(sd_device *dev, bool fallback_to_dev_id, char **ret) {
+        const char *phys_port_name;
+        unsigned dev_port;
+        char *buf;
+        int r;
+
+        assert(dev);
+        assert(ret);
+
+        /* First, try to use the kernel provided front panel port name for multiple port PCI device. */
+        r = sd_device_get_sysattr_value(dev, "phys_port_name", &phys_port_name);
+        if (r >= 0 && !isempty(phys_port_name)) {
+                if (naming_scheme_has(NAMING_SR_IOV_R)) {
+                        int vf_id = -1;
+
+                        /* Check if phys_port_name indicates virtual device representor. */
+                        (void) sscanf(phys_port_name, "pf%*uvf%d", &vf_id);
+
+                        if (vf_id >= 0) {
+                                /* For VF representor append 'r<VF_NUM>'. */
+                                if (asprintf(&buf, "r%d", vf_id) < 0)
+                                        return -ENOMEM;
+
+                                *ret = buf;
+                                return 1;
+                        }
+                }
+
+                /* Otherwise, use phys_port_name as is. */
+                if (asprintf(&buf, "n%s", phys_port_name) < 0)
+                        return -ENOMEM;
+
+                *ret = buf;
+                return 1;
+        }
+
+        /* Then, try to use the kernel provided port index for the case when multiple ports on a single PCI
+         * function. */
+        r = get_dev_port(dev, fallback_to_dev_id, &dev_port);
+        if (r < 0)
+                return r;
+        if (r > 0) {
+                assert(dev_port > 0);
+                if (asprintf(&buf, "d%u", dev_port) < 0)
+                        return -ENOMEM;
+
+                *ret = buf;
+                return 1;
+        }
+
+        *ret = NULL;
+        return 0;
+}
+
 static bool is_valid_onboard_index(unsigned long idx) {
         /* Some BIOSes report rubbish indexes that are excessively high (2^24-1 is an index VMware likes to
          * report for example). Let's define a cut-off where we don't consider the index reliable anymore. We
@@ -190,11 +242,9 @@ static bool is_valid_onboard_index(unsigned long idx) {
 
 /* retrieve on-board index number and label from firmware */
 static int dev_pci_onboard(sd_device *dev, const LinkInfo *info, NetNames *names) {
+        _cleanup_free_ char *port = NULL;
         unsigned long idx;
-        unsigned dev_port;
         const char *attr;
-        size_t l;
-        char *s;
         int r;
 
         assert(dev);
@@ -223,25 +273,15 @@ static int dev_pci_onboard(sd_device *dev, const LinkInfo *info, NetNames *names
                 return log_device_debug_errno(names->pcidev, SYNTHETIC_ERRNO(ENOENT),
                                               "Not a valid onboard index: %lu", idx);
 
-        r = get_dev_port(dev, /* fallback_to_dev_id = */ false, &dev_port);
+        r = get_port_specifier(dev, /* fallback_to_dev_id = */ false, &port);
         if (r < 0)
                 return r;
 
-        s = names->pci_onboard;
-        l = sizeof(names->pci_onboard);
-        l = strpcpyf(&s, l, "o%lu", idx);
-        if (naming_scheme_has(NAMING_SR_IOV_R) && info->vf_representor_id >= 0)
-                /* For VF representor append 'r<VF_NUM>' and not phys_port_name */
-                l = strpcpyf(&s, l, "r%d", info->vf_representor_id);
-        else if (!isempty(info->phys_port_name))
-                /* kernel provided front panel port name for multiple port PCI device */
-                l = strpcpyf(&s, l, "n%s", info->phys_port_name);
-        else if (dev_port > 0)
-                l = strpcpyf(&s, l, "d%u", dev_port);
-        if (l == 0)
+        if (!snprintf_ok(names->pci_onboard, sizeof(names->pci_onboard), "o%lu%s", idx, strempty(port)))
                 names->pci_onboard[0] = '\0';
-        log_device_debug(dev, "Onboard index identifier: index=%lu phys_port=%s dev_port=%u %s %s",
-                         idx, strempty(info->phys_port_name), dev_port,
+
+        log_device_debug(dev, "Onboard index identifier: index=%lu port=%s %s %s",
+                         idx, strna(port),
                          special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), empty_to_na(names->pci_onboard));
 
         if (sd_device_get_sysattr_value(names->pcidev, "label", &names->pci_onboard_label) >= 0)
@@ -468,8 +508,9 @@ static int pci_get_hotplug_slot(sd_device *dev, uint32_t *ret) {
 }
 
 static int dev_pci_slot(sd_device *dev, const LinkInfo *info, NetNames *names) {
+        _cleanup_free_ char *port = NULL;
         const char *sysname;
-        unsigned domain, bus, slot, func, dev_port;
+        unsigned domain, bus, slot, func;
         uint32_t hotplug_slot = 0;  /* avoid false maybe-uninitialized warning */
         size_t l;
         char *s;
@@ -496,7 +537,7 @@ static int dev_pci_slot(sd_device *dev, const LinkInfo *info, NetNames *names) {
                  * where the slot makes up the upper 5 bits. */
                 func += slot * 8;
 
-        r = get_dev_port(dev, /* fallback_to_dev_id = */ true, &dev_port);
+        r = get_port_specifier(dev, /* fallback_to_dev_id = */ true, &port);
         if (r < 0)
                 return r;
 
@@ -508,19 +549,13 @@ static int dev_pci_slot(sd_device *dev, const LinkInfo *info, NetNames *names) {
         l = strpcpyf(&s, l, "p%us%u", bus, slot);
         if (func > 0 || is_pci_multifunction(names->pcidev) > 0)
                 l = strpcpyf(&s, l, "f%u", func);
-        if (naming_scheme_has(NAMING_SR_IOV_R) && info->vf_representor_id >= 0)
-                /* For VF representor append 'r<VF_NUM>' and not phys_port_name */
-                l = strpcpyf(&s, l, "r%d", info->vf_representor_id);
-        else if (!isempty(info->phys_port_name))
-                /* kernel provided front panel port name for multi-port PCI device */
-                l = strpcpyf(&s, l, "n%s", info->phys_port_name);
-        else if (dev_port > 0)
-                l = strpcpyf(&s, l, "d%u", dev_port);
+        if (port)
+                l = strpcpy(&s, l, port);
         if (l == 0)
                 names->pci_path[0] = '\0';
 
-        log_device_debug(dev, "PCI path identifier: domain=%u bus=%u slot=%u func=%u phys_port=%s dev_port=%u %s %s",
-                         domain, bus, slot, func, strempty(info->phys_port_name), dev_port,
+        log_device_debug(dev, "PCI path identifier: domain=%u bus=%u slot=%u func=%u port=%s %s %s",
+                         domain, bus, slot, func, strna(port),
                          special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), empty_to_na(names->pci_path));
 
         r = pci_get_hotplug_slot(names->pcidev, &hotplug_slot);
@@ -538,18 +573,13 @@ static int dev_pci_slot(sd_device *dev, const LinkInfo *info, NetNames *names) {
         l = strpcpyf(&s, l, "s%"PRIu32, hotplug_slot);
         if (func > 0 || is_pci_multifunction(names->pcidev) > 0)
                 l = strpcpyf(&s, l, "f%u", func);
-        if (naming_scheme_has(NAMING_SR_IOV_R) && info->vf_representor_id >= 0)
-                /* For VF representor append 'r<VF_NUM>' and not phys_port_name */
-                l = strpcpyf(&s, l, "r%d", info->vf_representor_id);
-        else if (!isempty(info->phys_port_name))
-                l = strpcpyf(&s, l, "n%s", info->phys_port_name);
-        else if (dev_port > 0)
-                l = strpcpyf(&s, l, "d%u", dev_port);
+        if (port)
+                l = strpcpy(&s, l, port);
         if (l == 0)
                 names->pci_slot[0] = '\0';
 
-        log_device_debug(dev, "Slot identifier: domain=%u slot=%"PRIu32" func=%u phys_port=%s dev_port=%u %s %s",
-                         domain, hotplug_slot, func, strempty(info->phys_port_name), dev_port,
+        log_device_debug(dev, "Slot identifier: domain=%u slot=%"PRIu32" func=%u port=%s %s %s",
+                         domain, hotplug_slot, func, strna(port),
                          special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), empty_to_na(names->pci_slot));
 
         return 0;
@@ -1255,11 +1285,6 @@ static int get_link_info(sd_device *dev, LinkInfo *info) {
         if (r < 0)
                 return r;
 
-        r = sd_device_get_sysattr_value(dev, "phys_port_name", &info->phys_port_name);
-        if (r >= 0)
-                /* Check if phys_port_name indicates virtual device representor */
-                (void) sscanf(info->phys_port_name, "pf%*uvf%d", &info->vf_representor_id);
-
         return 0;
 }
 
@@ -1267,9 +1292,7 @@ static int builtin_net_id(UdevEvent *event, int argc, char *argv[], bool test) {
         sd_device *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
         const char *prefix;
         NetNames names = {};
-        LinkInfo info = {
-                .vf_representor_id = -1,
-        };
+        LinkInfo info = {};
         int r;
 
         r = get_link_info(dev, &info);
