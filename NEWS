@@ -613,7 +613,7 @@ CHANGES WITH 254:
           specified command line after sending the requested messages. This is
           useful for sending out READY=1 first, and then continuing invocation
           without changing process ID, so that the tool can be nicely used
-          within an ExecStart= line of a unit file that uses Type=ready.
+          within an ExecStart= line of a unit file that uses Type=notify.
 
         sd-event + sd-bus APIs:
 
@@ -761,7 +761,7 @@ CHANGES WITH 254:
           systemd.battery-check=0 through the kernel command line.
 
         * The 'passwdqc' library is now supported as an alternative to the
-          'pwquality' library and it can be selected at build time.
+          'pwquality' library and can be selected at build time.
 
         Contributions from: 김인수, 07416, Addison Snelling, Adrian Vovk,
         Aidan Dang, Alexander Krabler, Alfred Klomp, Anatoli Babenia,
