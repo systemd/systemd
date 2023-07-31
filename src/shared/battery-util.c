@@ -254,19 +254,28 @@ int battery_is_discharging_and_low(void) {
 
                 level = battery_read_capacity_percentage(dev);
                 if (level < 0) {
+                        log_device_debug_errno(dev, level, "Battery capacity is unreadable: %m");
                         unsure = true;
                         continue;
                 }
 
-                if (level > BATTERY_LOW_CAPACITY_LEVEL) /* Found a charged battery */
+                if (level > BATTERY_LOW_CAPACITY_LEVEL) { /* Found a charged battery */
+                        log_device_full(dev,
+                                        found_low ? LOG_INFO : LOG_DEBUG,
+                                        "Found battery with capacity above threshold (%d%% > %d%%).",
+                                        level, BATTERY_LOW_CAPACITY_LEVEL);
                         return false;
+                }
 
+                log_device_info(dev,
+                                "Found battery with capacity below threshold (%d%% <= %d%%).",
+                                level, BATTERY_LOW_CAPACITY_LEVEL);
                 found_low = true;
         }
 
         /* If we found a battery whose state we couldn't read, don't assume we are in low battery state */
         if (unsure) {
-                log_debug("Found battery with unreadable state, assuming not in low battery state.");
+                log_info("Found battery with unreadable state, assuming not in low battery state.");
                 return false;
         }
 
