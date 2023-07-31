@@ -429,6 +429,9 @@ static int dev_pci_slot(sd_device *dev, const LinkInfo *info, NetNames *names) {
                         if (dot_or_dot_dot(de->d_name))
                                 continue;
 
+                        if (de->d_type != DT_DIR)
+                                continue;
+
                         r = safe_atou32(de->d_name, &i);
                         if (r < 0 || i <= 0)
                                 continue;
