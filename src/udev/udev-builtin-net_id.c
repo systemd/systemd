@@ -317,7 +317,7 @@ static int parse_hotplug_slot_from_function_id(sd_device *dev, int slots_dirfd, 
                 return log_device_debug_errno(dev, errno, "Cannot access %s under pci slots, ignoring: %m", filename);
 
         *ret = (uint32_t) function_id;
-        return 1; /* Found. We shoud ignore domain part. */
+        return 1; /* Found. We should ignore domain part. */
 }
 
 static int dev_pci_slot(sd_device *dev, const LinkInfo *info, NetNames *names) {
@@ -545,7 +545,7 @@ static int names_vio(sd_device *dev, const char *prefix, bool test) {
                 return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL),
                                               "VIO bus ID and slot ID contain invalid characters: %s", s);
 
-        /* Parse only slot ID (tha last 4 hexdigits). */
+        /* Parse only slot ID (the last 4 hexdigits). */
         r = safe_atou_full(s + 4, 16, &slotid);
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to parse VIO slot from syspath \"%s\": %m", syspath);
