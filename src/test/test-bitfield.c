@@ -214,7 +214,7 @@ TEST(bits) {
 
         /* Verify these use cases are constant-folded. */
 #if !defined(__clang__) || (__clang_major__ >= 13)
-        /* Clang 11 doesn't grok those; skip them. */
+        /* Clang 11 and 12 (and possibly older) do not grok those; skip them. */
         assert_cc(__builtin_constant_p(INDEX_TO_MASK(uint8_t, 1)));
         assert_cc(__builtin_constant_p(INDEX_TO_MASK(uint16_t, 1)));
         assert_cc(__builtin_constant_p(INDEX_TO_MASK(uint32_t, 1)));
