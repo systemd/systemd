@@ -345,7 +345,7 @@ static uint32_t address_prefix(const Address *a) {
                 return be32toh(a->in_addr.in.s_addr) >> (32 - a->prefixlen);
 }
 
-static void address_kernel_hash_func(const Address *a, struct siphash *state) {
+static void address_hash_func(const Address *a, struct siphash *state) {
         assert(a);
 
         siphash24_compress(&a->family, sizeof(a->family), state);
@@ -367,7 +367,7 @@ static void address_kernel_hash_func(const Address *a, struct siphash *state) {
         }
 }
 
-static int address_kernel_compare_func(const Address *a1, const Address *a2) {
+static int address_compare_func(const Address *a1, const Address *a2) {
         int r;
 
         r = CMP(a1->family, a2->family);
@@ -396,65 +396,93 @@ static int address_kernel_compare_func(const Address *a1, const Address *a2) {
 }
 
 DEFINE_PRIVATE_HASH_OPS(
-        address_kernel_hash_ops,
+        address_hash_ops,
         Address,
-        address_kernel_hash_func,
-        address_kernel_compare_func);
+        address_hash_func,
+        address_compare_func);
 
 DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
-        address_kernel_hash_ops_free,
+        address_hash_ops_free,
         Address,
-        address_kernel_hash_func,
-        address_kernel_compare_func,
+        address_hash_func,
+        address_compare_func,
         address_free);
 
-int address_compare_func(const Address *a1, const Address *a2) {
-        int r;
+static bool address_can_update(const Address *la, const Address *na) {
+        assert(la);
+        assert(la->link);
+        assert(na);
+        assert(na->network);
 
-        r = CMP(a1->family, a2->family);
-        if (r != 0)
-                return r;
+        /*
+         * property     |    IPv4     |  IPv6
+         * -----------------------------------------
+         * family       |      ✗      |     ✗
+         * prefixlen    |      ✗      |     ✗
+         * address      |      ✗      |     ✗
+         * scope        |      ✗      |     -
+         * label        |      ✗      |     -
+         * broadcast    |      ✗      |     -
+         * peer         |      ✗      |     ✓
+         * flags        |      ✗      |     ✓
+         * lifetime     |      ✓      |     ✓
+         * route metric |      ✓      |     ✓
+         * protocol     |      ✓      |     ✓
+         *
+         * ✗ : cannot be changed
+         * ✓ : can be changed
+         * - : unused
+         *
+         * IPv4 : See inet_rtm_newaddr() in net/ipv4/devinet.c.
+         * IPv6 : See inet6_addr_modify() in net/ipv6/addrconf.c.
+         */
 
-        if (!IN_SET(a1->family, AF_INET, AF_INET6))
-                return 0;
-
-        r = CMP(a1->prefixlen, a2->prefixlen);
-        if (r != 0)
-                return r;
-
-        r = memcmp(&a1->in_addr, &a2->in_addr, FAMILY_ADDRESS_SIZE(a1->family));
-        if (r != 0)
-                return r;
-
-        r = memcmp(&a1->in_addr_peer, &a2->in_addr_peer, FAMILY_ADDRESS_SIZE(a1->family));
-        if (r != 0)
-                return r;
-
-        if (a1->family == AF_INET) {
-                /* On update, the kernel ignores the address label and broadcast address, hence we need
-                 * to distinguish addresses with different labels or broadcast addresses. Otherwise,
-                 * the label or broadcast address change will not be applied when we reconfigure the
-                 * interface. */
-                r = strcmp_ptr(a1->label, a2->label);
-                if (r != 0)
-                        return r;
-
-                r = CMP(a1->broadcast.s_addr, a2->broadcast.s_addr);
-                if (r != 0)
-                        return r;
-        }
-
-        return 0;
-}
-
-int address_equal(const Address *a1, const Address *a2) {
-        if (a1 == a2)
-                return true;
-
-        if (!a1 || !a2)
+        if (la->family != na->family)
                 return false;
 
-        return address_compare_func(a1, a2) == 0;
+        if (la->prefixlen != na->prefixlen)
+                return false;
+
+        /* When a null address is requested, the address to be assigned/updated will be determined later. */
+        if (!address_is_static_null(na) &&
+            in_addr_equal(la->family, &la->in_addr, &na->in_addr) <= 0)
+                return false;
+
+        switch (la->family) {
+        case AF_INET: {
+                struct in_addr bcast;
+
+                if (la->scope != na->scope)
+                        return false;
+                if (((la->flags ^ na->flags) & KNOWN_FLAGS & ~IPV6ONLY_FLAGS & ~UNMANAGED_FLAGS) != 0)
+                        return false;
+                if (!streq_ptr(la->label, na->label))
+                        return false;
+                if (!in4_addr_equal(&la->in_addr_peer.in, &na->in_addr_peer.in))
+                        return false;
+                if (address_get_broadcast(na, la->link, &bcast) >= 0) {
+                        /* If the broadcast address can be determined now, check if they match. */
+                        if (!in4_addr_equal(&la->broadcast, &bcast))
+                                return false;
+                } else {
+                        /* When a null address is requested, then the broadcast address will be
+                         * automatically calculated from the acquired address, e.g.
+                         *     192.168.0.10/24 -> 192.168.0.255
+                         * So, here let's only check if the broadcast is the last address in the range, e.g.
+                         *     0.0.0.0/24 -> 0.0.0.255 */
+                        if (!FLAGS_SET(la->broadcast.s_addr, htobe32(UINT32_C(0xffffffff) >> la->prefixlen)))
+                                return false;
+                }
+                break;
+        }
+        case AF_INET6:
+                break;
+
+        default:
+                assert_not_reached();
+        }
+
+        return true;
 }
 
 int address_dup(const Address *src, Address **ret) {
@@ -533,7 +561,7 @@ static int address_add(Link *link, Address *address) {
         assert(link);
         assert(address);
 
-        r = set_ensure_put(&link->addresses, &address_kernel_hash_ops_free, address);
+        r = set_ensure_put(&link->addresses, &address_hash_ops_free, address);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -630,8 +658,8 @@ static int address_get_request(Link *link, const Address *address, Request **ret
                                 .link = link,
                                 .type = REQUEST_TYPE_ADDRESS,
                                 .userdata = (void*) address,
-                                .hash_func = (hash_func_t) address_kernel_hash_func,
-                                .compare_func = (compare_func_t) address_kernel_compare_func,
+                                .hash_func = (hash_func_t) address_hash_func,
+                                .compare_func = (compare_func_t) address_compare_func,
                         });
         if (req) {
                 if (ret)
@@ -1116,17 +1144,7 @@ int link_drop_foreign_addresses(Link *link) {
                 if (address_get(link, address, &existing) < 0)
                         continue;
 
-                /* On update, the kernel ignores the address label and broadcast address. Hence we need to
-                 * distinguish addresses with different labels or broadcast addresses. Thus, we need to check
-                 * the existing address with address_equal(). Otherwise, the label or broadcast address
-                 * change will not be applied when we reconfigure the interface. */
-                if (address_is_static_null(address)) {
-                        /* If the static configuration has null address, then the broadcast address will be
-                         * determined automatically. Hence, here we need to compare only address label. */
-                        if (address->family == AF_INET && !streq_ptr(address->label, existing->label))
-                                continue;
-
-                } else if (!address_equal(address, existing))
+                if (!address_can_update(existing, address))
                         continue;
 
                 /* Found matching static configuration. Keep the existing address. */
@@ -1256,7 +1274,7 @@ static int address_configure(const Address *address, const struct ifa_cacheinfo 
         if (r < 0)
                 return r;
 
-        if (in_addr_is_set(address->family, &address->in_addr_peer)) {
+        if (address->family == AF_INET6 || in_addr_is_set(address->family, &address->in_addr_peer)) {
                 r = netlink_message_append_in_addr_union(m, IFA_ADDRESS, address->family, &address->in_addr_peer);
                 if (r < 0)
                         return r;
@@ -1320,7 +1338,7 @@ static int address_process_request(Request *req, Link *link, Address *address) {
 
                 address_cancel_requesting(address);
                 if (address_get(link, address, &existing) >= 0)
-                        address_enter_configuring(existing);
+                        address_cancel_requesting(existing);
                 return 1;
         }
 
@@ -1388,8 +1406,8 @@ int link_request_address(
         r = link_queue_request_safe(link, REQUEST_TYPE_ADDRESS,
                                     tmp,
                                     address_free,
-                                    address_kernel_hash_func,
-                                    address_kernel_compare_func,
+                                    address_hash_func,
+                                    address_compare_func,
                                     address_process_request,
                                     message_counter, netlink_handler, ret);
         if (r < 0)
@@ -1479,8 +1497,8 @@ void address_cancel_request(Address *address) {
                 .link = address->link,
                 .type = REQUEST_TYPE_ADDRESS,
                 .userdata = address,
-                .hash_func = (hash_func_t) address_kernel_hash_func,
-                .compare_func = (compare_func_t) address_kernel_compare_func,
+                .hash_func = (hash_func_t) address_hash_func,
+                .compare_func = (compare_func_t) address_compare_func,
         };
 
         request_detach(address->link->manager, &req);
@@ -1825,7 +1843,7 @@ int config_parse_address(
                 r = in_addr_prefix_from_string_auto(rvalue, &f, &buffer, &prefixlen);
                 if (r >= 0)
                         log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Address '%s' is specified without prefix length. Assuming the prefix length is %u."
+                                   "Address '%s' is specified without prefix length. Assuming the prefix length is %u. "
                                    "Please specify the prefix length explicitly.", rvalue, prefixlen);
         }
         if (r < 0) {
@@ -1892,6 +1910,12 @@ int config_parse_label(
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to allocate new address, ignoring assignment: %m");
+                return 0;
+        }
+
+        if (isempty(rvalue)) {
+                n->label = mfree(n->label);
+                TAKE_PTR(n);
                 return 0;
         }
 
@@ -2318,9 +2342,9 @@ int network_drop_invalid_addresses(Network *network) {
                         address_free(dup);
                 }
 
-                /* Use address_kernel_hash_ops, instead of address_kernel_hash_ops_free. Otherwise, the
-                 * Address objects will be freed. */
-                r = set_ensure_put(&addresses, &address_kernel_hash_ops, address);
+                /* Use address_hash_ops, instead of address_hash_ops_free. Otherwise, the Address objects
+                 * will be freed. */
+                r = set_ensure_put(&addresses, &address_hash_ops, address);
                 if (r < 0)
                         return log_oom();
                 assert(r > 0);
