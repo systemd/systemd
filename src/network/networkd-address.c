@@ -1895,6 +1895,12 @@ int config_parse_label(
                 return 0;
         }
 
+        if (isempty(rvalue)) {
+                n->label = mfree(n->label);
+                TAKE_PTR(n);
+                return 0;
+        }
+
         if (!address_label_valid(rvalue)) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Interface label is too long or invalid, ignoring assignment: %s", rvalue);
