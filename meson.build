@@ -3918,6 +3918,20 @@ public_programs += executable(
         install_rpath : pkglibdir,
         install : true)
 
+if conf.get('HAVE_QRENCODE') == 1
+        public_programs += executable(
+                'systemd-bsod',
+                'src/journal/bsod.c',
+                include_directories : includes,
+                link_with : [libshared],
+                dependencies : [userspace,
+                                versiondep,
+                                libqrencode],
+                install_rpath : rootpkglibdir,
+                install_dir : rootlibexecdir,
+                install : true)
+endif
+
 public_programs += executable(
         'busctl',
         busctl_sources,
