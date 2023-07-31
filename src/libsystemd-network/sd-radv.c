@@ -1129,7 +1129,7 @@ int sd_radv_pref64_prefix_set_prefix(
                 prefixlen_code = 5;
                 break;
         default:
-                log_radv(NULL, "Unusual PREF64 prefix length %u greater than 96", prefixlen);
+                log_radv(NULL, "Unsupported PREF64 prefix length %u", prefixlen);
                 return -EINVAL;
         }
 
