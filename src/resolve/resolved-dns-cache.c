@@ -1030,9 +1030,10 @@ int dns_cache_lookup(
                 goto miss;
         }
 
-        if (FLAGS_SET(query_flags, SD_RESOLVED_CLAMP_TTL)) {
+        if ((query_flags & (SD_RESOLVED_CLAMP_TTL | SD_RESOLVED_NO_STALE)) != 0) {
                 /* 'current' is always passed to answer_add_clamp_ttl(), but is only used conditionally.
-                 * We'll do the same assert there to make sure that it was initialized properly. */
+                 * We'll do the same assert there to make sure that it was initialized properly.
+                 * 'current' is also used below when SD_RESOLVED_NO_STALE is set. */
                 current = now(CLOCK_BOOTTIME);
                 assert(current > 0);
         }
