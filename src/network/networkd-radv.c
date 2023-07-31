@@ -48,6 +48,7 @@ void network_adjust_radv(Network *network) {
         if (!FLAGS_SET(network->router_prefix_delegation, RADV_PREFIX_DELEGATION_STATIC)) {
                 network->prefixes_by_section = hashmap_free_with_destructor(network->prefixes_by_section, prefix_free);
                 network->route_prefixes_by_section = hashmap_free_with_destructor(network->route_prefixes_by_section, route_prefix_free);
+                network->pref64_prefixes_by_section = hashmap_free_with_destructor(network->pref64_prefixes_by_section, pref64_prefix_free);
         }
 }
 
@@ -177,6 +178,61 @@ static int route_prefix_new_static(Network *network, const char *filename, unsig
         return 0;
 }
 
+pref64Prefix *pref64_prefix_free(pref64Prefix *prefix) {
+        if (!prefix)
+                return NULL;
+
+        if (prefix->network) {
+                assert(prefix->section);
+                hashmap_remove(prefix->network->pref64_prefixes_by_section, prefix->section);
+        }
+
+        config_section_free(prefix->section);
+
+        return mfree(prefix);
+}
+
+DEFINE_SECTION_CLEANUP_FUNCTIONS(pref64Prefix, pref64_prefix_free);
+
+static int pref64_prefix_new_static(Network *network, const char *filename, unsigned section_line, pref64Prefix **ret) {
+        _cleanup_(config_section_freep) ConfigSection *n = NULL;
+        _cleanup_(pref64_prefix_freep) pref64Prefix *prefix = NULL;
+        int r;
+
+        assert(network);
+        assert(ret);
+        assert(filename);
+        assert(section_line > 0);
+
+        r = config_section_new(filename, section_line, &n);
+        if (r < 0)
+                return r;
+
+        prefix = hashmap_get(network->pref64_prefixes_by_section, n);
+        if (prefix) {
+                *ret = TAKE_PTR(prefix);
+                return 0;
+        }
+
+        prefix = new(pref64Prefix, 1);
+        if (!prefix)
+                return -ENOMEM;
+
+        *prefix = (pref64Prefix) {
+                .network = network,
+                .section = TAKE_PTR(n),
+
+                .lifetime = RADV_DEFAULT_VALID_LIFETIME_USEC,
+        };
+
+        r = hashmap_ensure_put(&network->pref64_prefixes_by_section, &config_section_hash_ops, prefix->section, prefix);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(prefix);
+        return 0;
+}
+
 int link_request_radv_addresses(Link *link) {
         Prefix *p;
         int r;
@@ -292,6 +348,25 @@ static int radv_set_route_prefix(Link *link, RoutePrefix *prefix) {
                 return r;
 
         return sd_radv_add_route_prefix(link->radv, p);
+}
+
+static int radv_set_pref64_prefix(Link *link, pref64Prefix *prefix) {
+        _cleanup_(sd_radv_pref64_prefix_unrefp) sd_radv_pref64_prefix *p = NULL;
+        int r;
+
+        assert(link);
+        assert(link->radv);
+        assert(prefix);
+
+        r = sd_radv_pref64_prefix_new(&p);
+        if (r < 0)
+                return r;
+
+        r = sd_radv_pref64_prefix_set_prefix(p, &prefix->prefix, prefix->prefixlen, prefix->lifetime);
+        if (r < 0)
+                return r;
+
+        return sd_radv_add_pref64_prefix(link->radv, p);
 }
 
 static int network_get_ipv6_dns(Network *network, struct in6_addr **ret_addresses, size_t *ret_size) {
@@ -441,6 +516,7 @@ static int radv_find_uplink(Link *link, Link **ret) {
 static int radv_configure(Link *link) {
         Link *uplink = NULL;
         RoutePrefix *q;
+        pref64Prefix *n;
         Prefix *p;
         int r;
 
@@ -494,6 +570,12 @@ static int radv_configure(Link *link) {
 
         HASHMAP_FOREACH(q, link->network->route_prefixes_by_section) {
                 r = radv_set_route_prefix(link, q);
+                if (r < 0 && r != -EEXIST)
+                        return r;
+        }
+
+        HASHMAP_FOREACH(n, link->network->pref64_prefixes_by_section) {
+                r = radv_set_pref64_prefix(link, n);
                 if (r < 0 && r != -EEXIST)
                         return r;
         }
@@ -782,6 +864,35 @@ void network_drop_invalid_route_prefixes(Network *network) {
                         route_prefix_free(p);
 }
 
+static int pref64_prefix_section_verify(pref64Prefix *p) {
+        if (section_is_invalid(p->section))
+                return -EINVAL;
+
+        if (p->prefixlen > 128)
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                         "%s: Invalid prefix length %u is specified in [IPv6pref64Prefix] section. "
+                                         "Valid range is 0…128. Ignoring [IPv6pref64Prefix] section from line %u.",
+                                         p->section->filename, p->prefixlen, p->section->line);
+
+        if (p->lifetime == 0)
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                         "%s: The lifetime of route cannot be zero. "
+                                         "Ignoring [IPv6pref64Prefix] section from line %u.",
+                                         p->section->filename, p->section->line);
+
+        return 0;
+}
+
+void network_drop_invalid_pref64_prefixes(Network *network) {
+        pref64Prefix *p;
+
+        assert(network);
+
+        HASHMAP_FOREACH(p, network->pref64_prefixes_by_section)
+                if (pref64_prefix_section_verify(p) < 0)
+                        pref64_prefix_free(p);
+}
+
 int config_parse_prefix(
                 const char *unit,
                 const char *filename,
@@ -1064,6 +1175,91 @@ int config_parse_route_prefix_lifetime(
         if (usec != USEC_INFINITY && DIV_ROUND_UP(usec, USEC_PER_SEC) >= UINT32_MAX) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Lifetime is too long, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+
+        p->lifetime = usec;
+
+        TAKE_PTR(p);
+        return 0;
+}
+
+int config_parse_pref64_prefix(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_(pref64_prefix_free_or_set_invalidp) pref64Prefix *p = NULL;
+        Network *network = ASSERT_PTR(userdata);
+        union in_addr_union a;
+        int r;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+
+        r = pref64_prefix_new_static(network, filename, section_line, &p);
+        if (r < 0)
+                return log_oom();
+
+        r = in_addr_prefix_from_string(rvalue, AF_INET6, &a, &p->prefixlen);
+        if (r < 0 || !IN_SET(p->prefixlen, 96, 64, 56, 48, 40, 32)) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "PREF64 prefix is invalid, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+
+        (void) in6_addr_mask(&a.in6, p->prefixlen);
+        p->prefix = a.in6;
+
+        TAKE_PTR(p);
+        return 0;
+}
+
+int config_parse_pref64_prefix_lifetime(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_(pref64_prefix_free_or_set_invalidp) pref64Prefix *p = NULL;
+        Network *network = ASSERT_PTR(userdata);
+        usec_t usec;
+        int r;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+
+        r = pref64_prefix_new_static(network, filename, section_line, &p);
+        if (r < 0)
+                return log_oom();
+
+        r = parse_sec(rvalue, &usec);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "PREF64 lifetime is invalid, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+
+        if (usec != USEC_INFINITY && DIV_ROUND_UP(usec, USEC_PER_SEC) >= UINT32_MAX) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "PREF64 lifetime is too long, ignoring assignment: %s", rvalue);
                 return 0;
         }
 
