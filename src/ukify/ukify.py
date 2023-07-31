@@ -792,10 +792,6 @@ def make_uki(opts):
     for section in opts.sections:
         uki.add_section(section)
 
-    # PCR measurement and signing
-
-    call_systemd_measure(uki, linux, opts=opts)
-
     # UKI or addon creation - addons don't use the stub so we add SBAT manually
 
     if linux is not None:
@@ -808,6 +804,10 @@ def make_uki(opts):
 uki,1,UKI,uki,1,https://www.freedesktop.org/software/systemd/man/systemd-stub.html
 """]
         uki.add_section(Section.create('.sbat', merge_sbat([], opts.sbat), measure=False))
+
+    # PCR measurement and signing
+
+    call_systemd_measure(uki, linux, opts=opts)
 
     if sign_args_present:
         unsigned = tempfile.NamedTemporaryFile(prefix='uki')
