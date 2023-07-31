@@ -1256,7 +1256,7 @@ static int address_configure(const Address *address, const struct ifa_cacheinfo 
         if (r < 0)
                 return r;
 
-        if (in_addr_is_set(address->family, &address->in_addr_peer)) {
+        if (address->family == AF_INET6 || in_addr_is_set(address->family, &address->in_addr_peer)) {
                 r = netlink_message_append_in_addr_union(m, IFA_ADDRESS, address->family, &address->in_addr_peer);
                 if (r < 0)
                         return r;
