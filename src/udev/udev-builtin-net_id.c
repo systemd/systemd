@@ -43,20 +43,6 @@
 #define ONBOARD_14BIT_INDEX_MAX ((1U << 14) - 1)
 #define ONBOARD_16BIT_INDEX_MAX ((1U << 16) - 1)
 
-typedef enum NetNameType {
-        NET_UNDEF,
-        NET_PCI,
-} NetNameType;
-
-typedef struct NetNames {
-        NetNameType type;
-
-        sd_device *pcidev;
-        char pci_slot[ALTIFNAMSIZ];
-        char pci_path[ALTIFNAMSIZ];
-        char pci_onboard[ALTIFNAMSIZ];
-} NetNames;
-
 /* skip intermediate virtio devices */
 static sd_device *skip_virtio(sd_device *dev) {
         /* there can only ever be one virtio bus per parent device, so we can
@@ -254,16 +240,17 @@ static int pci_get_onboard_index(sd_device *dev, unsigned *ret) {
         return 0;
 }
 
-static int dev_pci_onboard(sd_device *dev, NetNames *names) {
+static int names_pci_onboard(sd_device *dev, sd_device *pci_dev, const char *prefix, const char *suffix, bool test) {
         _cleanup_free_ char *port = NULL;
         unsigned idx = 0;  /* avoid false maybe-uninitialized warning */
         int r;
 
         assert(dev);
-        assert(names);
+        assert(pci_dev);
+        assert(prefix);
 
         /* retrieve on-board index number from firmware */
-        r = pci_get_onboard_index(names->pcidev, &idx);
+        r = pci_get_onboard_index(pci_dev, &idx);
         if (r < 0)
                 return r;
 
@@ -271,12 +258,13 @@ static int dev_pci_onboard(sd_device *dev, NetNames *names) {
         if (r < 0)
                 return r;
 
-        if (!snprintf_ok(names->pci_onboard, sizeof(names->pci_onboard), "o%u%s", idx, strempty(port)))
-                names->pci_onboard[0] = '\0';
+        char str[ALTIFNAMSIZ];
+        if (snprintf_ok(str, sizeof str, "%so%u%s%s", prefix, idx, strempty(port), strempty(suffix)))
+                udev_builtin_add_property(dev, test, "ID_NET_NAME_ONBOARD", str);
 
         log_device_debug(dev, "Onboard index identifier: index=%u port=%s %s %s",
                          idx, strna(port),
-                         special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), empty_to_na(names->pci_onboard));
+                         special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), empty_to_na(str));
 
         return 0;
 }
@@ -568,15 +556,17 @@ static int get_pci_slot_specifiers(
         return 0;
 }
 
-static int dev_pci_slot(sd_device *dev, NetNames *names) {
+static int names_pci_slot(sd_device *dev, sd_device *pci_dev, const char *prefix, const char *suffix, bool test) {
         _cleanup_free_ char *domain = NULL, *bus_and_slot = NULL, *func = NULL, *port = NULL;
         uint32_t hotplug_slot = 0;  /* avoid false maybe-uninitialized warning */
+        char str[ALTIFNAMSIZ];
         int r;
 
         assert(dev);
-        assert(names);
+        assert(pci_dev);
+        assert(prefix);
 
-        r = get_pci_slot_specifiers(names->pcidev, &domain, &bus_and_slot, &func);
+        r = get_pci_slot_specifiers(pci_dev, &domain, &bus_and_slot, &func);
         if (r < 0)
                 return r;
 
@@ -585,15 +575,15 @@ static int dev_pci_slot(sd_device *dev, NetNames *names) {
                 return r;
 
         /* compose a name based on the raw kernel's PCI bus, slot numbers */
-        if (!snprintf_ok(names->pci_path, sizeof(names->pci_path), "%s%s%s%s",
-                         strempty(domain), bus_and_slot, strempty(func), strempty(port)))
-                names->pci_path[0] = '\0';
+        if (snprintf_ok(str, sizeof str, "%s%s%s%s%s%s",
+                        prefix, strempty(domain), bus_and_slot, strempty(func), strempty(port), strempty(suffix)))
+                udev_builtin_add_property(dev, test, "ID_NET_NAME_PATH", str);
 
         log_device_debug(dev, "PCI path identifier: domain=%s bus_and_slot=%s func=%s port=%s %s %s",
                          strna(domain), bus_and_slot, strna(func), strna(port),
-                         special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), empty_to_na(names->pci_path));
+                         special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), empty_to_na(str));
 
-        r = pci_get_hotplug_slot(names->pcidev, &hotplug_slot);
+        r = pci_get_hotplug_slot(pci_dev, &hotplug_slot);
         if (r < 0)
                 return r;
         if (r > 0)
@@ -601,13 +591,13 @@ static int dev_pci_slot(sd_device *dev, NetNames *names) {
                  * See comments in parse_hotplug_slot_from_function_id(). */
                 domain = mfree(domain);
 
-        if (!snprintf_ok(names->pci_slot, sizeof(names->pci_slot), "%ss%"PRIu32"%s%s",
-                         strempty(domain), hotplug_slot, strempty(func), strempty(port)))
-                names->pci_slot[0] = '\0';
+        if (snprintf_ok(str, sizeof str, "%s%ss%"PRIu32"%s%s%s",
+                        prefix, strempty(domain), hotplug_slot, strempty(func), strempty(port), strempty(suffix)))
+                udev_builtin_add_property(dev, test, "ID_NET_NAME_SLOT", str);
 
         log_device_debug(dev, "Slot identifier: domain=%s slot=%"PRIu32" func=%s port=%s %s %s",
                          strna(domain), hotplug_slot, strna(func), strna(port),
-                         special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), empty_to_na(names->pci_slot));
+                         special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), empty_to_na(str));
 
         return 0;
 }
@@ -851,7 +841,7 @@ static int names_devicetree(sd_device *dev, const char *prefix, bool test) {
         return -ENOENT;
 }
 
-static int names_pci(sd_device *dev, const char *prefix, NetNames *names, bool test) {
+static int names_pci(sd_device *dev, const char *prefix, bool test) {
         _cleanup_(sd_device_unrefp) sd_device *physfn_pcidev = NULL;
         _cleanup_free_ char *virtfn_suffix = NULL;
         sd_device *parent;
@@ -860,58 +850,33 @@ static int names_pci(sd_device *dev, const char *prefix, NetNames *names, bool t
 
         assert(dev);
         assert(prefix);
-        assert(names);
 
         r = sd_device_get_parent(dev, &parent);
         if (r < 0)
                 return r;
+
         /* skip virtio subsystem if present */
         parent = skip_virtio(parent);
-
         if (!parent)
                 return -ENOENT;
 
         /* check if our direct parent is a PCI device with no other bus in-between */
-        if (sd_device_get_subsystem(parent, &subsystem) >= 0 &&
-            streq(subsystem, "pci")) {
-                names->type = NET_PCI;
-                names->pcidev = parent;
-        } else {
-                r = sd_device_get_parent_with_subsystem_devtype(dev, "pci", NULL, &names->pcidev);
-                if (r < 0)
-                        return r;
-        }
+        r = sd_device_get_subsystem(parent, &subsystem);
+        if (r < 0)
+                return r;
 
+        if (!streq(subsystem, "pci"))
+                return -EINVAL;
+
+        /* If this is an SR-IOV virtual device, get base name using physical device and add virtfn suffix. */
         if (naming_scheme_has(NAMING_SR_IOV_V) &&
-            get_virtfn_info(names->pcidev, &physfn_pcidev, &virtfn_suffix) >= 0) {
-                NetNames vf_names = {};
+            get_virtfn_info(parent, &physfn_pcidev, &virtfn_suffix) >= 0)
+                parent = physfn_pcidev;
+        else
+                (void) names_pci_onboard_label(dev, parent, prefix, test);
 
-                /* If this is an SR-IOV virtual device, get base name using physical device and add virtfn suffix. */
-                vf_names.pcidev = physfn_pcidev;
-                dev_pci_onboard(dev, &vf_names);
-                dev_pci_slot(dev, &vf_names);
-
-                if (vf_names.pci_onboard[0])
-                        if (strlen(vf_names.pci_onboard) + strlen(virtfn_suffix) < sizeof(names->pci_onboard))
-                                strscpyl(names->pci_onboard, sizeof(names->pci_onboard),
-                                         vf_names.pci_onboard, virtfn_suffix, NULL);
-                if (vf_names.pci_slot[0])
-                        if (strlen(vf_names.pci_slot) + strlen(virtfn_suffix) < sizeof(names->pci_slot))
-                                strscpyl(names->pci_slot, sizeof(names->pci_slot),
-                                         vf_names.pci_slot, virtfn_suffix, NULL);
-                if (vf_names.pci_path[0])
-                        if (strlen(vf_names.pci_path) + strlen(virtfn_suffix) < sizeof(names->pci_path))
-                                strscpyl(names->pci_path, sizeof(names->pci_path),
-                                         vf_names.pci_path, virtfn_suffix, NULL);
-
-                return 0;
-        }
-
-        if (names->type == NET_PCI)
-                (void) names_pci_onboard_label(dev, names->pcidev, prefix, test);
-
-        dev_pci_onboard(dev, names);
-        dev_pci_slot(dev, names);
+        (void) names_pci_onboard(dev, parent, prefix, virtfn_suffix, test);
+        (void) names_pci_slot(dev, parent, prefix, virtfn_suffix, test);
         return 0;
 }
 
@@ -974,14 +939,13 @@ static int get_usb_specifier(sd_device *dev, char **ret) {
         return 0;
 }
 
-static int names_usb(sd_device *dev, const char *prefix, NetNames *names, bool test) {
+static int names_usb(sd_device *dev, const char *prefix, bool test) {
         _cleanup_free_ char *suffix = NULL;
-        sd_device *usbdev;
+        sd_device *usbdev, *pcidev;
         int r;
 
         assert(dev);
         assert(prefix);
-        assert(names);
 
         /* USB device */
 
@@ -994,19 +958,12 @@ static int names_usb(sd_device *dev, const char *prefix, NetNames *names, bool t
                 return r;
 
         /* If the USB bus is on PCI bus, then suffix the USB specifier to the name based on the PCI bus. */
-        if (names) {
-                char buf[ALTIFNAMSIZ];
-                if (names->pci_path[0] &&
-                    snprintf_ok(buf, sizeof buf, "%s%s%s", prefix, names->pci_path, suffix))
-                        udev_builtin_add_property(dev, test, "ID_NET_NAME_PATH", buf);
+        r = sd_device_get_parent_with_subsystem_devtype(usbdev, "pci", NULL, &pcidev);
+        if (r >= 0)
+                return names_pci_slot(dev, pcidev, prefix, suffix, test);
 
-                if (names->pci_slot[0] &&
-                    snprintf_ok(buf, sizeof buf, "%s%s%s", prefix, names->pci_slot, suffix))
-                        udev_builtin_add_property(dev, test, "ID_NET_NAME_SLOT", buf);
-        }
-
-        if (!naming_scheme_has(NAMING_USB_HOST))
-                return 0;
+        if (r != -ENOENT || !naming_scheme_has(NAMING_USB_HOST))
+                return r;
 
         /* Otherwise, e.g. on-chip asics that have USB ports, use the USB specifier as is. */
         char str[ALTIFNAMSIZ];
@@ -1046,35 +1003,27 @@ static int get_bcma_specifier(sd_device *dev, char **ret) {
         return 0;
 }
 
-static int names_bcma(sd_device *dev, const char *prefix, NetNames *names, bool test) {
+static int names_bcma(sd_device *dev, const char *prefix, bool test) {
         _cleanup_free_ char *suffix = NULL;
-        sd_device *bcmadev;
+        sd_device *bcmadev, *pcidev;
         int r;
 
         assert(dev);
         assert(prefix);
-        assert(names);
-
-        /* Broadcom bus */
 
         r = sd_device_get_parent_with_subsystem_devtype(dev, "bcma", NULL, &bcmadev);
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Could not get bcma parent device: %m");
 
+        r = sd_device_get_parent_with_subsystem_devtype(bcmadev, "pci", NULL, &pcidev);
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Could not get pci parent device: %m");
+
         r = get_bcma_specifier(bcmadev, &suffix);
         if (r < 0)
                 return r;
 
-        char str[ALTIFNAMSIZ];
-        if (names->pci_path[0] &&
-            snprintf_ok(str, sizeof str, "%s%s%s", prefix, names->pci_path, suffix))
-                udev_builtin_add_property(dev, test, "ID_NET_NAME_PATH", str);
-
-        if (names->pci_slot[0] &&
-            snprintf_ok(str, sizeof str, "%s%s%s", prefix, names->pci_slot, suffix))
-                udev_builtin_add_property(dev, test, "ID_NET_NAME_SLOT", str);
-
-        return 0;
+        return names_pci_slot(dev, pcidev, prefix, suffix, test);
 }
 
 static int names_ccw(sd_device *dev, const char *prefix, bool test) {
@@ -1382,7 +1331,6 @@ static int device_is_stacked(sd_device *dev) {
 static int builtin_net_id(UdevEvent *event, int argc, char *argv[], bool test) {
         sd_device *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
         const char *prefix;
-        NetNames names = {};
         int r;
 
         /* skip stacked devices, like VLANs, ... */
@@ -1405,34 +1353,9 @@ static int builtin_net_id(UdevEvent *event, int argc, char *argv[], bool test) {
         (void) names_platform(dev, prefix, test);
         (void) names_netdevsim(dev, prefix, test);
         (void) names_xen(dev, prefix, test);
-
-        /* get PCI based path names */
-        r = names_pci(dev, prefix, &names, test);
-        if (r == -ENOENT)
-                (void) names_usb(dev, prefix, NULL, test);
-        if (r < 0)
-                return 0;
-
-        /* plain PCI device */
-        if (names.type == NET_PCI) {
-                char str[ALTIFNAMSIZ];
-
-                if (names.pci_onboard[0] &&
-                    snprintf_ok(str, sizeof str, "%s%s", prefix, names.pci_onboard))
-                        udev_builtin_add_property(dev, test, "ID_NET_NAME_ONBOARD", str);
-
-                if (names.pci_path[0] &&
-                    snprintf_ok(str, sizeof str, "%s%s", prefix, names.pci_path))
-                        udev_builtin_add_property(dev, test, "ID_NET_NAME_PATH", str);
-
-                if (names.pci_slot[0] &&
-                    snprintf_ok(str, sizeof str, "%s%s", prefix, names.pci_slot))
-                        udev_builtin_add_property(dev, test, "ID_NET_NAME_SLOT", str);
-                return 0;
-        }
-
-        (void) names_usb(dev, prefix, &names, test);
-        (void) names_bcma(dev, prefix, &names, test);
+        (void) names_pci(dev, prefix, test);
+        (void) names_usb(dev, prefix, test);
+        (void) names_bcma(dev, prefix, test);
 
         return 0;
 }
