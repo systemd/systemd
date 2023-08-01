@@ -63,12 +63,6 @@ typedef struct NetNames {
         char bcma_core[ALTIFNAMSIZ];
 } NetNames;
 
-typedef struct LinkInfo {
-        int ifindex;
-        int iflink;
-        int iftype;
-} LinkInfo;
-
 /* skip intermediate virtio devices */
 static sd_device *skip_virtio(sd_device *dev) {
         /* there can only ever be one virtio bus per parent device, so we can
@@ -266,13 +260,12 @@ static int pci_get_onboard_index(sd_device *dev, unsigned *ret) {
         return 0;
 }
 
-static int dev_pci_onboard(sd_device *dev, const LinkInfo *info, NetNames *names) {
+static int dev_pci_onboard(sd_device *dev, NetNames *names) {
         _cleanup_free_ char *port = NULL;
         unsigned idx = 0;  /* avoid false maybe-uninitialized warning */
         int r;
 
         assert(dev);
-        assert(info);
         assert(names);
 
         /* retrieve on-board index number and label from firmware */
@@ -306,6 +299,8 @@ static int is_pci_multifunction(sd_device *dev) {
         size_t len;
         int r;
 
+        assert(dev);
+
         r = sd_device_get_syspath(dev, &syspath);
         if (r < 0)
                 return r;
@@ -326,16 +321,15 @@ static int is_pci_multifunction(sd_device *dev) {
 }
 
 static bool is_pci_ari_enabled(sd_device *dev) {
-        const char *a;
+        assert(dev);
 
-        if (sd_device_get_sysattr_value(dev, "ari_enabled", &a) < 0)
-                return false;
-
-        return streq(a, "1");
+        return device_get_sysattr_bool(dev, "ari_enabled") > 0;
 }
 
 static bool is_pci_bridge(sd_device *dev) {
         const char *v, *p;
+
+        assert(dev);
 
         if (sd_device_get_sysattr_value(dev, "modalias", &v) < 0)
                 return false;
@@ -563,13 +557,12 @@ static int get_pci_slot_specifiers(
         return 0;
 }
 
-static int dev_pci_slot(sd_device *dev, const LinkInfo *info, NetNames *names) {
+static int dev_pci_slot(sd_device *dev, NetNames *names) {
         _cleanup_free_ char *domain = NULL, *bus_and_slot = NULL, *func = NULL, *port = NULL;
         uint32_t hotplug_slot = 0;  /* avoid false maybe-uninitialized warning */
         int r;
 
         assert(dev);
-        assert(info);
         assert(names);
 
         r = get_pci_slot_specifiers(names->pcidev, &domain, &bus_and_slot, &func);
@@ -847,7 +840,7 @@ static int names_devicetree(sd_device *dev, const char *prefix, bool test) {
         return -ENOENT;
 }
 
-static int names_pci(sd_device *dev, const LinkInfo *info, NetNames *names) {
+static int names_pci(sd_device *dev, NetNames *names) {
         _cleanup_(sd_device_unrefp) sd_device *physfn_pcidev = NULL;
         _cleanup_free_ char *virtfn_suffix = NULL;
         sd_device *parent;
@@ -855,7 +848,6 @@ static int names_pci(sd_device *dev, const LinkInfo *info, NetNames *names) {
         int r;
 
         assert(dev);
-        assert(info);
         assert(names);
 
         r = sd_device_get_parent(dev, &parent);
@@ -884,8 +876,8 @@ static int names_pci(sd_device *dev, const LinkInfo *info, NetNames *names) {
 
                 /* If this is an SR-IOV virtual device, get base name using physical device and add virtfn suffix. */
                 vf_names.pcidev = physfn_pcidev;
-                dev_pci_onboard(dev, info, &vf_names);
-                dev_pci_slot(dev, info, &vf_names);
+                dev_pci_onboard(dev, &vf_names);
+                dev_pci_slot(dev, &vf_names);
 
                 if (vf_names.pci_onboard[0])
                         if (strlen(vf_names.pci_onboard) + strlen(virtfn_suffix) < sizeof(names->pci_onboard))
@@ -900,8 +892,8 @@ static int names_pci(sd_device *dev, const LinkInfo *info, NetNames *names) {
                                 strscpyl(names->pci_path, sizeof(names->pci_path),
                                          vf_names.pci_path, virtfn_suffix, NULL);
         } else {
-                dev_pci_onboard(dev, info, names);
-                dev_pci_slot(dev, info, names);
+                dev_pci_onboard(dev, names);
+                dev_pci_slot(dev, names);
         }
 
         return 0;
@@ -956,11 +948,11 @@ static int names_usb(sd_device *dev, NetNames *names) {
 
         /* append USB config number, suppress the common config == 1 */
         if (!streq(config, "1"))
-                l = strpcpyl(&s, sizeof(names->usb_ports), "c", config, NULL);
+                l = strpcpyl(&s, l, "c", config, NULL);
 
         /* append USB interface number, suppress the interface == 0 */
         if (!streq(interf, "0"))
-                l = strpcpyl(&s, sizeof(names->usb_ports), "i", interf, NULL);
+                l = strpcpyl(&s, l, "i", interf, NULL);
         if (l == 0)
                 return log_device_debug_errno(dev, SYNTHETIC_ERRNO(ENAMETOOLONG),
                                               "Generated USB name would be too long.");
@@ -1290,41 +1282,32 @@ static int get_ifname_prefix(sd_device *dev, const char **ret) {
         }
 }
 
-static int get_link_info(sd_device *dev, LinkInfo *info) {
-        int r;
+static int device_is_stacked(sd_device *dev) {
+        int ifindex, iflink, r;
 
         assert(dev);
-        assert(info);
 
-        r = sd_device_get_ifindex(dev, &info->ifindex);
+        r = sd_device_get_ifindex(dev, &ifindex);
         if (r < 0)
                 return r;
 
-        r = device_get_sysattr_int(dev, "iflink", &info->iflink);
+        r = device_get_sysattr_int(dev, "iflink", &iflink);
         if (r < 0)
                 return r;
 
-        r = device_get_sysattr_int(dev, "type", &info->iftype);
-        if (r < 0)
-                return r;
-
-        return 0;
+        return ifindex != iflink;
 }
 
 static int builtin_net_id(UdevEvent *event, int argc, char *argv[], bool test) {
         sd_device *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
         const char *prefix;
         NetNames names = {};
-        LinkInfo info = {};
         int r;
 
-        r = get_link_info(dev, &info);
-        if (r < 0)
-                return r;
-
         /* skip stacked devices, like VLANs, ... */
-        if (info.ifindex != info.iflink)
-                return 0;
+        r = device_is_stacked(dev);
+        if (r != 0)
+                return r;
 
         r = get_ifname_prefix(dev, &prefix);
         if (r < 0) {
@@ -1343,7 +1326,7 @@ static int builtin_net_id(UdevEvent *event, int argc, char *argv[], bool test) {
         (void) names_xen(dev, prefix, test);
 
         /* get PCI based path names */
-        r = names_pci(dev, &info, &names);
+        r = names_pci(dev, &names);
         if (r < 0) {
                 /*
                  * check for usb devices that are not off pci interfaces to
