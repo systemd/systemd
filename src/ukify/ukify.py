@@ -435,7 +435,7 @@ def key_path_groups(opts):
                    pp_groups)
 
 
-def call_systemd_measure(uki, linux, opts):
+def call_systemd_measure(uki, opts):
     measure_tool = find_tool('systemd-measure',
                              '/usr/lib/systemd/systemd-measure',
                              opts=opts)
@@ -450,7 +450,6 @@ def call_systemd_measure(uki, linux, opts):
         cmd = [
             measure_tool,
             'calculate',
-            f'--linux={linux}',
             *(f"--{s.name.removeprefix('.')}={s.content}"
               for s in uki.sections
               if s.measure),
@@ -473,7 +472,6 @@ def call_systemd_measure(uki, linux, opts):
         cmd = [
             measure_tool,
             'sign',
-            f'--linux={linux}',
             *(f"--{s.name.removeprefix('.')}={s.content}"
               for s in uki.sections
               if s.measure),
@@ -792,10 +790,6 @@ def make_uki(opts):
     for section in opts.sections:
         uki.add_section(section)
 
-    # PCR measurement and signing
-
-    call_systemd_measure(uki, linux, opts=opts)
-
     # UKI or addon creation - addons don't use the stub so we add SBAT manually
 
     if linux is not None:
@@ -808,6 +802,10 @@ def make_uki(opts):
 uki,1,UKI,uki,1,https://www.freedesktop.org/software/systemd/man/systemd-stub.html
 """]
         uki.add_section(Section.create('.sbat', merge_sbat([], opts.sbat), measure=False))
+
+    # PCR measurement and signing
+
+    call_systemd_measure(uki, opts=opts)
 
     if sign_args_present:
         unsigned = tempfile.NamedTemporaryFile(prefix='uki')
