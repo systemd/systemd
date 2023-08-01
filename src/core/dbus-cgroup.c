@@ -2159,7 +2159,7 @@ int bus_cgroup_set_property(
 
                         if (strv_isempty(l)) {
                                 c->restrict_network_interfaces_is_allow_list = false;
-                                c->restrict_network_interfaces = set_free(c->restrict_network_interfaces);
+                                c->restrict_network_interfaces = set_free_free(c->restrict_network_interfaces);
 
                                 unit_write_settingf(u, flags, name, "%s=", name);
                                 return 1;
