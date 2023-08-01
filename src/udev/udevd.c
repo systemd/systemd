@@ -6,14 +6,13 @@
  */
 
 #include <getopt.h>
+#include <unistd.h>
 
 #include "sd-daemon.h"
 
-#include "cpu-set-util.h"
 #include "env-file.h"
 #include "errno-util.h"
 #include "fd-util.h"
-#include "limits-util.h"
 #include "mkdir.h"
 #include "parse-util.h"
 #include "pretty-print.h"
@@ -26,8 +25,6 @@
 #include "udev-util.h"
 #include "udevd.h"
 #include "version.h"
-
-#define WORKER_NUM_MAX 2048U
 
 static bool arg_debug = false;
 static int arg_daemonize = false;
@@ -360,22 +357,6 @@ int run_udevd(int argc, char *argv[]) {
         r = must_be_root();
         if (r < 0)
                 return r;
-
-        if (manager->children_max == 0) {
-                unsigned long cpu_limit, mem_limit, cpu_count = 1;
-
-                r = cpus_in_affinity_mask();
-                if (r < 0)
-                        log_warning_errno(r, "Failed to determine number of local CPUs, ignoring: %m");
-                else
-                        cpu_count = r;
-
-                cpu_limit = cpu_count * 2 + 16;
-                mem_limit = MAX(physical_memory() / (128UL*1024*1024), 10U);
-
-                manager->children_max = MIN3(cpu_limit, mem_limit, WORKER_NUM_MAX);
-                log_debug("Set children_max to %u", manager->children_max);
-        }
 
         /* set umask before creating any file/directory */
         umask(022);
