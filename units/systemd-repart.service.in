@@ -30,7 +30,6 @@ Before=shutdown.target initrd-switch-root.target
 Type=oneshot
 RemainAfterExit=yes
 ExecStart={{BINDIR}}/systemd-repart --dry-run=no
-ImportCredential=repart.*
 
 # The tool returns 77 if there's no existing GPT partition table
 SuccessExitStatus=77
