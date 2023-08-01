@@ -373,7 +373,10 @@
         data is never overwritten. Note that the data is copied in before the partition table is updated,
         i.e. before the partition actually is persistently created. This provides robustness: it is
         guaranteed that the partition either doesn't exist or exists fully populated; it is not possible that
-        the partition exists but is not or only partially populated.</para></listitem>
+        the partition exists but is not or only partially populated.</para>
+
+        <para>This option cannot be combined with <varname>Format=</varname> or
+        <varname>CopyFiles=</varname>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -392,7 +395,9 @@
 
         <para>Similarly to the behaviour of <varname>CopyBlocks=</varname>, the file system is formatted
         before the partition is created, ensuring that the partition only ever exists with a fully
-        initialized file system.</para></listitem>
+        initialized file system.</para>
+
+        <para>This option cannot be combined with <varname>CopyBlocks=</varname>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -434,10 +439,7 @@
         <citerefentry project='man-pages'><refentrytitle>mkfs.xfs</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         due to limitations of its protofile format.</para>
 
-        <para>When this option is used in combination with <varname>CopyBlocks=</varname>,
-        <command>systemd-repart</command> will first try the <varname>CopyBlocks=</varname> logic and will
-        only fall back to the <varname>CopyFiles=</varname> logic if the <varname>CopyBlocks=</varname> logic
-        cannot be used.</para>
+        <para>This option cannot be combined with <varname>CopyBlocks=</varname>.</para>
 
         <para>When
         <citerefentry><refentrytitle>systemd-repart</refentrytitle><manvolnum>8</manvolnum></citerefentry>
