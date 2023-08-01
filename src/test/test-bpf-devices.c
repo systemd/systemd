@@ -272,9 +272,11 @@ int main(int argc, char *argv[]) {
         r = enter_cgroup_subroot(&cgroup);
         if (r == -ENOMEDIUM)
                 return log_tests_skipped("cgroupfs not available");
+        if (r < 0)
+                return log_tests_skipped_errno(r, "Failed to prepare cgroup subtree");
 
         r = bpf_devices_supported();
-        if (!r)
+        if (r == 0)
                 return log_tests_skipped("BPF device filter not supported");
         assert_se(r == 1);
 
