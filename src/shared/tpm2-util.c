@@ -1204,15 +1204,14 @@ static int tpm2_get_or_create_srk(
 /* Utility functions for TPMS_PCR_SELECTION. */
 
 /* Convert a TPMS_PCR_SELECTION object to a mask. */
-void tpm2_tpms_pcr_selection_to_mask(const TPMS_PCR_SELECTION *s, uint32_t *ret) {
+uint32_t tpm2_tpms_pcr_selection_to_mask(const TPMS_PCR_SELECTION *s) {
         assert(s);
         assert(s->sizeofSelect <= sizeof(s->pcrSelect));
-        assert(ret);
 
         uint32_t mask = 0;
         for (unsigned i = 0; i < s->sizeofSelect; i++)
                 SET_FLAG(mask, (uint32_t)s->pcrSelect[i] << (i * 8), true);
-        *ret = mask;
+        return mask;
 }
 
 /* Convert a mask and hash alg to a TPMS_PCR_SELECTION object. */
@@ -1235,25 +1234,27 @@ void tpm2_tpms_pcr_selection_from_mask(uint32_t mask, TPMI_ALG_HASH hash_alg, TP
 
 /* Add all PCR selections in 'b' to 'a'. Both must have the same hash alg. */
 void tpm2_tpms_pcr_selection_add(TPMS_PCR_SELECTION *a, const TPMS_PCR_SELECTION *b) {
+        uint32_t maska, maskb;
+
         assert(a);
         assert(b);
         assert(a->hash == b->hash);
 
-        uint32_t maska, maskb;
-        tpm2_tpms_pcr_selection_to_mask(a, &maska);
-        tpm2_tpms_pcr_selection_to_mask(b, &maskb);
+        maska = tpm2_tpms_pcr_selection_to_mask(a);
+        maskb = tpm2_tpms_pcr_selection_to_mask(b);
         tpm2_tpms_pcr_selection_from_mask(maska | maskb, a->hash, a);
 }
 
 /* Remove all PCR selections in 'b' from 'a'. Both must have the same hash alg. */
 void tpm2_tpms_pcr_selection_sub(TPMS_PCR_SELECTION *a, const TPMS_PCR_SELECTION *b) {
+        uint32_t maska, maskb;
+
         assert(a);
         assert(b);
         assert(a->hash == b->hash);
 
-        uint32_t maska, maskb;
-        tpm2_tpms_pcr_selection_to_mask(a, &maska);
-        tpm2_tpms_pcr_selection_to_mask(b, &maskb);
+        maska = tpm2_tpms_pcr_selection_to_mask(a);
+        maskb = tpm2_tpms_pcr_selection_to_mask(b);
         tpm2_tpms_pcr_selection_from_mask(maska & ~maskb, a->hash, a);
 }
 
@@ -1269,11 +1270,7 @@ void tpm2_tpms_pcr_selection_move(TPMS_PCR_SELECTION *a, TPMS_PCR_SELECTION *b) 
 #define FOREACH_PCR_IN_TPMS_PCR_SELECTION(pcr, tpms)                    \
         _FOREACH_PCR_IN_TPMS_PCR_SELECTION(pcr, tpms, UNIQ)
 #define _FOREACH_PCR_IN_TPMS_PCR_SELECTION(pcr, tpms, uniq)             \
-        FOREACH_PCR_IN_MASK(pcr,                                        \
-                            ({ uint32_t UNIQ_T(_mask, uniq);            \
-                                    tpm2_tpms_pcr_selection_to_mask(tpms, &UNIQ_T(_mask, uniq)); \
-                                    UNIQ_T(_mask, uniq);                \
-                            }))
+        FOREACH_PCR_IN_MASK(pcr, tpm2_tpms_pcr_selection_to_mask(tpms))
 
 #define FOREACH_TPMS_PCR_SELECTION_IN_TPML_PCR_SELECTION(tpms, tpml)    \
         UNIQ_FOREACH_TPMS_PCR_SELECTION_IN_TPML_PCR_SELECTION(tpms, tpml, UNIQ)
@@ -1295,21 +1292,17 @@ char *tpm2_tpms_pcr_selection_to_string(const TPMS_PCR_SELECTION *s) {
 
         const char *algstr = strna(tpm2_hash_alg_to_string(s->hash));
 
-        uint32_t mask;
-        tpm2_tpms_pcr_selection_to_mask(s, &mask);
-        _cleanup_free_ char *maskstr = tpm2_pcr_mask_to_string(mask);
-        if (!maskstr)
+        _cleanup_free_ char *mask = tpm2_pcr_mask_to_string(tpm2_tpms_pcr_selection_to_mask(s));
+        if (!mask)
                 return NULL;
 
-        return strjoin(algstr, "(", maskstr, ")");
+        return strjoin(algstr, "(", mask, ")");
 }
 
 size_t tpm2_tpms_pcr_selection_weight(const TPMS_PCR_SELECTION *s) {
         assert(s);
 
-        uint32_t mask;
-        tpm2_tpms_pcr_selection_to_mask(s, &mask);
-        return popcount(mask);
+        return popcount(tpm2_tpms_pcr_selection_to_mask(s));
 }
 
 /* Utility functions for TPML_PCR_SELECTION. */
@@ -1360,10 +1353,9 @@ static TPMS_PCR_SELECTION *tpm2_tpml_pcr_selection_get_tpms_pcr_selection(
         return selection;
 }
 
-/* Convert a TPML_PCR_SELECTION object to a mask. Returns -ENOENT if 'hash_alg' is not in the object. */
-int tpm2_tpml_pcr_selection_to_mask(const TPML_PCR_SELECTION *l, TPMI_ALG_HASH hash_alg, uint32_t *ret) {
+/* Convert a TPML_PCR_SELECTION object to a mask. Returns empty mask (i.e. 0) if 'hash_alg' is not in the object. */
+uint32_t tpm2_tpml_pcr_selection_to_mask(const TPML_PCR_SELECTION *l, TPMI_ALG_HASH hash_alg) {
         assert(l);
-        assert(ret);
 
         /* Make a copy, as tpm2_tpml_pcr_selection_get_tpms_pcr_selection() will modify the object if there
          * are multiple entries with the requested hash alg. */
@@ -1372,10 +1364,9 @@ int tpm2_tpml_pcr_selection_to_mask(const TPML_PCR_SELECTION *l, TPMI_ALG_HASH h
         TPMS_PCR_SELECTION *s;
         s = tpm2_tpml_pcr_selection_get_tpms_pcr_selection(&lcopy, hash_alg);
         if (!s)
-                return SYNTHETIC_ERRNO(ENOENT);
+                return 0;
 
-        tpm2_tpms_pcr_selection_to_mask(s, ret);
-        return 0;
+        return tpm2_tpms_pcr_selection_to_mask(s);
 }
 
 /* Convert a mask and hash alg to a TPML_PCR_SELECTION object. */
@@ -2634,10 +2625,7 @@ static int find_signature(
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Signature is not a JSON object.");
 
         uint16_t pcr_bank = pcr_selection->pcrSelections[0].hash;
-        uint32_t pcr_mask;
-        r = tpm2_tpml_pcr_selection_to_mask(pcr_selection, pcr_bank, &pcr_mask);
-        if (r < 0)
-                return r;
+        uint32_t pcr_mask = tpm2_tpml_pcr_selection_to_mask(pcr_selection, pcr_bank);
 
         k = tpm2_hash_alg_to_string(pcr_bank);
         if (!k)

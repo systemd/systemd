@@ -158,9 +158,7 @@ static void verify_tpms_pcr_selection(TPMS_PCR_SELECTION *s, uint32_t mask, TPMI
         assert_se(s->pcrSelect[2] == ((mask >> 16) & 0xff));
         assert_se(s->pcrSelect[3] == 0);
 
-        uint32_t m = POISON_U32;
-        tpm2_tpms_pcr_selection_to_mask(s, &m);
-        assert_se(m == mask);
+        assert_se(tpm2_tpms_pcr_selection_to_mask(s) == mask);
 }
 
 static void verify_tpml_pcr_selection(TPML_PCR_SELECTION *l, TPMS_PCR_SELECTION s[], size_t count) {
@@ -168,10 +166,8 @@ static void verify_tpml_pcr_selection(TPML_PCR_SELECTION *l, TPMS_PCR_SELECTION 
         for (size_t i = 0; i < count; i++) {
                 assert_tpms_pcr_selection_eq(&s[i], &l->pcrSelections[i]);
 
-                uint32_t mask = POISON_U32;
                 TPMI_ALG_HASH hash = l->pcrSelections[i].hash;
-                assert_se(tpm2_tpml_pcr_selection_to_mask(l, hash, &mask) == 0);
-                verify_tpms_pcr_selection(&l->pcrSelections[i], mask, hash);
+                verify_tpms_pcr_selection(&l->pcrSelections[i], tpm2_tpml_pcr_selection_to_mask(l, hash), hash);
         }
 }
 
