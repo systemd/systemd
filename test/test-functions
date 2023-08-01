@@ -1289,6 +1289,7 @@ install_suse_systemd() {
         systemd-container
         systemd-coredump
         systemd-experimental
+        systemd-homed
         systemd-journal-remote
         # Since commit fb6f25d7b979134a, systemd-resolved, which is shipped by
         # systemd-network sub-package on openSUSE, has its own testsuite.
@@ -2251,8 +2252,8 @@ install_zoneinfo() {
 install_fonts() {
     dinfo "Install system fonts"
     for i in \
-        /usr/lib/kbd/consolefonts/eurlatgr* \
-        /usr/lib/kbd/consolefonts/latarcyrheb-sun16*; do
+        /usr/{lib,share}/kbd/consolefonts/eurlatgr* \
+        /usr/{lib,share}/kbd/consolefonts/latarcyrheb-sun16*; do
             [[ -f "$i" ]] || continue
             inst "$i"
     done
