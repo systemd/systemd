@@ -153,6 +153,7 @@ static uint64_t arg_sector_size = 0;
 static ImagePolicy *arg_image_policy = NULL;
 static Architecture arg_architecture = _ARCHITECTURE_INVALID;
 static int arg_offline = -1;
+static char *arg_copy_from = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
@@ -164,6 +165,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_tpm2_device, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_public_key, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_filter_partitions, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_copy_from, freep);
 
 typedef struct FreeArea FreeArea;
 
@@ -228,6 +230,7 @@ typedef struct Partition {
         bool copy_blocks_auto;
         const char *copy_blocks_root;
         int copy_blocks_fd;
+        uint64_t copy_blocks_offset;
         uint64_t copy_blocks_size;
 
         char *format;
@@ -346,6 +349,7 @@ static Partition *partition_new(void) {
                 .partno = UINT64_MAX,
                 .offset = UINT64_MAX,
                 .copy_blocks_fd = -EBADF,
+                .copy_blocks_offset = UINT64_MAX,
                 .copy_blocks_size = UINT64_MAX,
                 .no_auto = -1,
                 .read_only = -1,
@@ -1801,9 +1805,231 @@ static int find_verity_sibling(Context *context, Partition *p, VerityMode mode, 
         return 0;
 }
 
+static int context_open_and_lock_backing_fd(const char *node, int *backing_fd) {
+        _cleanup_close_ int fd = -EBADF;
+
+        assert(node);
+        assert(backing_fd);
+
+        if (*backing_fd >= 0)
+                return 0;
+
+        fd = open(node, O_RDONLY|O_CLOEXEC);
+        if (fd < 0)
+                return log_error_errno(errno, "Failed to open device '%s': %m", node);
+
+        /* Tell udev not to interfere while we are processing the device */
+        if (flock(fd, arg_dry_run ? LOCK_SH : LOCK_EX) < 0)
+                return log_error_errno(errno, "Failed to lock device '%s': %m", node);
+
+        log_debug("Device %s opened and locked.", node);
+        *backing_fd = TAKE_FD(fd);
+        return 1;
+}
+
+static int determine_current_padding(
+                struct fdisk_context *c,
+                struct fdisk_table *t,
+                struct fdisk_partition *p,
+                uint64_t secsz,
+                uint64_t grainsz,
+                uint64_t *ret) {
+
+        size_t n_partitions;
+        uint64_t offset, next = UINT64_MAX;
+
+        assert(c);
+        assert(t);
+        assert(p);
+        assert(ret);
+
+        if (!fdisk_partition_has_end(p))
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Partition has no end!");
+
+        offset = fdisk_partition_get_end(p);
+        assert(offset < UINT64_MAX);
+        offset++; /* The end is one sector before the next partition or padding. */
+        assert(offset < UINT64_MAX / secsz);
+        offset *= secsz;
+
+        n_partitions = fdisk_table_get_nents(t);
+        for (size_t i = 0; i < n_partitions; i++) {
+                struct fdisk_partition *q;
+                uint64_t start;
+
+                q = fdisk_table_get_partition(t, i);
+                if (!q)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to read partition metadata: %m");
+
+                if (fdisk_partition_is_used(q) <= 0)
+                        continue;
+
+                if (!fdisk_partition_has_start(q))
+                        continue;
+
+                start = fdisk_partition_get_start(q);
+                assert(start < UINT64_MAX / secsz);
+                start *= secsz;
+
+                if (start >= offset && (next == UINT64_MAX || next > start))
+                        next = start;
+        }
+
+        if (next == UINT64_MAX) {
+                /* No later partition? In that case check the end of the usable area */
+                next = fdisk_get_last_lba(c);
+                assert(next < UINT64_MAX);
+                next++; /* The last LBA is one sector before the end */
+
+                assert(next < UINT64_MAX / secsz);
+                next *= secsz;
+
+                if (offset > next)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Partition end beyond disk end.");
+        }
+
+        assert(next >= offset);
+        offset = round_up_size(offset, grainsz);
+        next = round_down_size(next, grainsz);
+
+        *ret = LESS_BY(next, offset); /* Saturated subtraction, rounding might have fucked things up */
+        return 0;
+}
+
+static int context_copy_from(Context *context) {
+        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(fdisk_unref_contextp) struct fdisk_context *c = NULL;
+        _cleanup_(fdisk_unref_tablep) struct fdisk_table *t = NULL;
+        Partition *last = NULL;
+        unsigned long secsz, grainsz;
+        size_t n_partitions;
+        int r;
+
+        if (!arg_copy_from)
+                return 0;
+
+        r = context_open_and_lock_backing_fd(arg_copy_from, &fd);
+        if (r < 0)
+                return r;
+
+        r = fd_verify_regular(fd);
+        if (r < 0)
+                return log_error_errno(r, "%s is not a file: %m", arg_copy_from);
+
+        r = fdisk_new_context_fd(fd, /* read_only = */ true, /* sector_size = */ UINT32_MAX, &c);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create fdisk context: %m");
+
+        secsz = fdisk_get_sector_size(c);
+        grainsz = fdisk_get_grain_size(c);
+
+        /* Insist on a power of two, and that it's a multiple of 512, i.e. the traditional sector size. */
+        if (secsz < 512 || !ISPOWEROF2(secsz))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Sector size %lu is not a power of two larger than 512? Refusing.", secsz);
+
+        if (!fdisk_is_labeltype(c, FDISK_DISKLABEL_GPT))
+                return log_error_errno(SYNTHETIC_ERRNO(EHWPOISON), "Cannot copy from disk %s with no GPT disk label.", arg_copy_from);
+
+        r = fdisk_get_partitions(c, &t);
+        if (r < 0)
+                return log_error_errno(r, "Failed to acquire partition table: %m");
+
+        n_partitions = fdisk_table_get_nents(t);
+        for (size_t i = 0; i < n_partitions; i++) {
+                _cleanup_(partition_freep) Partition *np = NULL;
+                _cleanup_free_ char *label_copy = NULL;
+                struct fdisk_partition *p;
+                const char *label;
+                uint64_t sz, start, padding;
+                sd_id128_t ptid, id;
+                GptPartitionType type;
+
+                p = fdisk_table_get_partition(t, i);
+                if (!p)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to read partition metadata: %m");
+
+                if (fdisk_partition_is_used(p) <= 0)
+                        continue;
+
+                if (fdisk_partition_has_start(p) <= 0 ||
+                    fdisk_partition_has_size(p) <= 0 ||
+                    fdisk_partition_has_partno(p) <= 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Found a partition without a position, size or number.");
+
+                r = fdisk_partition_get_type_as_id128(p, &ptid);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to query partition type UUID: %m");
+
+                type = gpt_partition_type_from_uuid(ptid);
+
+                r = fdisk_partition_get_uuid_as_id128(p, &id);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to query partition UUID: %m");
+
+                label = fdisk_partition_get_name(p);
+                if (!isempty(label)) {
+                        label_copy = strdup(label);
+                        if (!label_copy)
+                                return log_oom();
+                }
+
+                sz = fdisk_partition_get_size(p);
+                assert(sz <= UINT64_MAX/secsz);
+                sz *= secsz;
+
+                start = fdisk_partition_get_start(p);
+                assert(start <= UINT64_MAX/secsz);
+                start *= secsz;
+
+                if (partition_type_exclude(type))
+                        continue;
+
+                np = partition_new();
+                if (!np)
+                        return log_oom();
+
+                np->type = type;
+                np->new_uuid = id;
+                np->new_uuid_is_set = true;
+                np->size_min = np->size_max = sz;
+                np->new_label = TAKE_PTR(label_copy);
+
+                np->definition_path = strdup(arg_copy_from);
+                if (!np->definition_path)
+                        return log_oom();
+
+                r = determine_current_padding(c, t, p, secsz, grainsz, &padding);
+                if (r < 0)
+                        return r;
+
+                np->padding_min = np->padding_max = padding;
+
+                np->copy_blocks_path = strdup(arg_copy_from);
+                if (!np->copy_blocks_path)
+                        return log_oom();
+
+                np->copy_blocks_fd = fcntl(fd, F_DUPFD_CLOEXEC, 3);
+                if (np->copy_blocks_fd < 0)
+                        return log_error_errno(r, "Failed to duplicate file descriptor of %s: %m", arg_copy_from);
+
+                np->copy_blocks_offset = start;
+                np->copy_blocks_size = sz;
+
+                r = fdisk_partition_get_attrs_as_uint64(p, &np->gpt_flags);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get partition flags: %m");
+
+                LIST_INSERT_AFTER(partitions, context->partitions, last, np);
+                last = TAKE_PTR(np);
+                context->n_partitions++;
+        }
+
+        return 0;
+}
+
 static int context_read_definitions(Context *context) {
         _cleanup_strv_free_ char **files = NULL;
-        Partition *last = NULL;
+        Partition *last = LIST_FIND_TAIL(partitions, context->partitions);
         const char *const *dirs;
         int r;
 
@@ -1899,74 +2125,6 @@ static int context_read_definitions(Context *context) {
         return 0;
 }
 
-static int determine_current_padding(
-                struct fdisk_context *c,
-                struct fdisk_table *t,
-                struct fdisk_partition *p,
-                uint64_t secsz,
-                uint64_t grainsz,
-                uint64_t *ret) {
-
-        size_t n_partitions;
-        uint64_t offset, next = UINT64_MAX;
-
-        assert(c);
-        assert(t);
-        assert(p);
-
-        if (!fdisk_partition_has_end(p))
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Partition has no end!");
-
-        offset = fdisk_partition_get_end(p);
-        assert(offset < UINT64_MAX);
-        offset++; /* The end is one sector before the next partition or padding. */
-        assert(offset < UINT64_MAX / secsz);
-        offset *= secsz;
-
-        n_partitions = fdisk_table_get_nents(t);
-        for (size_t i = 0; i < n_partitions; i++) {
-                struct fdisk_partition *q;
-                uint64_t start;
-
-                q = fdisk_table_get_partition(t, i);
-                if (!q)
-                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to read partition metadata: %m");
-
-                if (fdisk_partition_is_used(q) <= 0)
-                        continue;
-
-                if (!fdisk_partition_has_start(q))
-                        continue;
-
-                start = fdisk_partition_get_start(q);
-                assert(start < UINT64_MAX / secsz);
-                start *= secsz;
-
-                if (start >= offset && (next == UINT64_MAX || next > start))
-                        next = start;
-        }
-
-        if (next == UINT64_MAX) {
-                /* No later partition? In that case check the end of the usable area */
-                next = fdisk_get_last_lba(c);
-                assert(next < UINT64_MAX);
-                next++; /* The last LBA is one sector before the end */
-
-                assert(next < UINT64_MAX / secsz);
-                next *= secsz;
-
-                if (offset > next)
-                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Partition end beyond disk end.");
-        }
-
-        assert(next >= offset);
-        offset = round_up_size(offset, grainsz);
-        next = round_down_size(next, grainsz);
-
-        *ret = LESS_BY(next, offset); /* Saturated subtraction, rounding might have fucked things up */
-        return 0;
-}
-
 static int fdisk_ask_cb(struct fdisk_context *c, struct fdisk_ask *ask, void *data) {
         _cleanup_free_ char *ids = NULL;
         int r;
@@ -2022,28 +2180,6 @@ static int derive_uuid(sd_id128_t base, const char *token, sd_id128_t *ret) {
         return 0;
 }
 
-static int context_open_and_lock_backing_fd(Context *context, const char *node) {
-        _cleanup_close_ int fd = -EBADF;
-
-        assert(context);
-        assert(node);
-
-        if (context->backing_fd >= 0)
-                return 0;
-
-        fd = open(node, O_RDONLY|O_CLOEXEC);
-        if (fd < 0)
-                return log_error_errno(errno, "Failed to open device '%s': %m", node);
-
-        /* Tell udev not to interfere while we are processing the device */
-        if (flock(fd, arg_dry_run ? LOCK_SH : LOCK_EX) < 0)
-                return log_error_errno(errno, "Failed to lock device '%s': %m", node);
-
-        log_debug("Device %s opened and locked.", node);
-        context->backing_fd = TAKE_FD(fd);
-        return 1;
-}
-
 static int context_load_partition_table(Context *context) {
         _cleanup_(fdisk_unref_contextp) struct fdisk_context *c = NULL;
         _cleanup_(fdisk_unref_tablep) struct fdisk_table *t = NULL;
@@ -2072,7 +2208,7 @@ static int context_load_partition_table(Context *context) {
         else {
                 uint32_t ssz;
 
-                r = context_open_and_lock_backing_fd(context, context->node);
+                r = context_open_and_lock_backing_fd(context->node, &context->backing_fd);
                 if (r < 0)
                         return r;
 
@@ -2119,7 +2255,7 @@ static int context_load_partition_table(Context *context) {
 
         if (context->backing_fd < 0) {
                 /* If we have no fd referencing the device yet, make a copy of the fd now, so that we have one */
-                r = context_open_and_lock_backing_fd(context, FORMAT_PROC_FD_PATH(fdisk_get_devfd(c)));
+                r = context_open_and_lock_backing_fd(FORMAT_PROC_FD_PATH(fdisk_get_devfd(c)), &context->backing_fd);
                 if (r < 0)
                         return r;
         }
@@ -3939,6 +4075,9 @@ static int context_copy_blocks(Context *context) {
 
                 log_info("Copying in '%s' (%s) on block level into future partition %" PRIu64 ".",
                          p->copy_blocks_path, FORMAT_BYTES(p->copy_blocks_size), p->partno);
+
+                if (p->copy_blocks_offset != UINT64_MAX && lseek(p->copy_blocks_fd, p->copy_blocks_offset, SEEK_SET) < 0)
+                        return log_error_errno(errno, "Failed to seek to copy blocks offset in %s: %m", p->copy_blocks_path);
 
                 r = copy_bytes(p->copy_blocks_fd, partition_target_fd(t), p->copy_blocks_size, COPY_REFLINK);
                 if (r < 0)
@@ -5996,6 +6135,7 @@ static int help(void) {
                "     --sector-size=SIZE   Set the logical sector size for the image\n"
                "     --architecture=ARCH  Set the generic architecture for the image\n"
                "     --offline=BOOL       Whether to build the image offline\n"
+               "     --copy-from=IMAGE    Copy partitions from the given image\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -6039,6 +6179,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_SKIP_PARTITIONS,
                 ARG_ARCHITECTURE,
                 ARG_OFFLINE,
+                ARG_COPY_FROM,
         };
 
         static const struct option options[] = {
@@ -6073,6 +6214,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "sector-size",          required_argument, NULL, ARG_SECTOR_SIZE          },
                 { "architecture",         required_argument, NULL, ARG_ARCHITECTURE         },
                 { "offline",              required_argument, NULL, ARG_OFFLINE              },
+                { "copy-from",            required_argument, NULL, ARG_COPY_FROM            },
                 {}
         };
 
@@ -6392,6 +6534,12 @@ static int parse_argv(int argc, char *argv[]) {
                                 arg_offline = r;
                         }
 
+                        break;
+
+                case ARG_COPY_FROM:
+                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_copy_from);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case '?':
@@ -6944,6 +7092,10 @@ static int run(int argc, char *argv[]) {
         context = context_new(arg_seed);
         if (!context)
                 return log_oom();
+
+        r = context_copy_from(context);
+        if (r < 0)
+                return r;
 
         strv_uniq(arg_definitions);
 

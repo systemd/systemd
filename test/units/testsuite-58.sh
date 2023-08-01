@@ -161,6 +161,27 @@ $imgs/zzz1 : start=        2048, size=     1775576, type=933AC7E1-2EB4-4F13-B844
 $imgs/zzz2 : start=     1777624, size=      131072, type=0657FD6D-A4AB-43C4-84E5-0933C84B4F4F, uuid=78C92DB8-3D2B-4823-B0DC-792B78F66F1E, name=\"swap\""
 
     systemd-repart --offline="$OFFLINE" \
+                   --empty=create \
+                   --size=1G \
+                   --dry-run=no \
+                   --seed="$seed" \
+                   --copy-from="$imgs/zzz" \
+                   "$imgs/copy"
+
+    output=$(sfdisk -d "$imgs/copy" | grep -v -e 'sector-size' -e '^$')
+
+    assert_eq "$output" "label: gpt
+label-id: 1D2CE291-7CCE-4F7D-BC83-FDB49AD74EBD
+device: $imgs/copy
+unit: sectors
+first-lba: 2048
+last-lba: 2097118
+$imgs/copy1 : start=        2048, size=     1775576, type=933AC7E1-2EB4-4F13-B844-0E14E2AEF915, uuid=4980595D-D74A-483A-AA9E-9903879A0EE5, name=\"home-first\", attrs=\"GUID:59\"
+$imgs/copy2 : start=     1777624, size=      131072, type=0657FD6D-A4AB-43C4-84E5-0933C84B4F4F, uuid=78C92DB8-3D2B-4823-B0DC-792B78F66F1E, name=\"swap\""
+
+    rm "$imgs/copy" # Save disk space
+
+    systemd-repart --offline="$OFFLINE" \
                    --definitions="$defs" \
                    --dry-run=no \
                    --seed="$seed" \
