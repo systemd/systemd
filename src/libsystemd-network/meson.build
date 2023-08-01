@@ -39,86 +39,73 @@ libsystemd_network_includes = [includes, include_directories('.')]
 
 ############################################################
 
-test_libsystemd_network_base = {
-        'link_with' : [libshared, libsystemd_network],
+network_test_template = test_template + {
+        'link_with' : [
+                libshared,
+                libsystemd_network,
+        ],
+        'suite' : 'network',
 }
 
-tests += [
-        {
+network_fuzz_template = fuzz_template + {
+        'link_with' : [
+                libshared,
+                libsystemd_network,
+        ],
+}
+
+executables += [
+        network_test_template + {
                 'sources' : files('test-acd.c'),
-                'base' : test_libsystemd_network_base,
                 'type' : 'manual',
         },
-        {
+        network_test_template + {
                 'sources' : files('test-dhcp-client.c'),
-                'base' : test_libsystemd_network_base,
         },
-        {
+        network_test_template + {
                 'sources' : files('test-dhcp-option.c'),
-                'base' : test_libsystemd_network_base,
         },
-        {
+        network_test_template + {
                 'sources' : files('test-dhcp-server.c'),
-                'base' : test_libsystemd_network_base,
         },
-        {
+        network_test_template + {
                 'sources' : files('test-dhcp6-client.c'),
-                'base' : test_libsystemd_network_base,
         },
-        {
+        network_test_template + {
                 'sources' : files('test-ipv4ll-manual.c'),
-                'base' : test_libsystemd_network_base,
                 'type' : 'manual',
         },
-        {
+        network_test_template + {
                 'sources' : files('test-ipv4ll.c'),
-                'base' : test_libsystemd_network_base,
         },
-        {
+        network_test_template + {
                 'sources' : files('test-lldp-rx.c'),
-                'base' : test_libsystemd_network_base,
         },
-        {
+        network_test_template + {
                 'sources' : files('test-ndisc-ra.c'),
-                'base' : test_libsystemd_network_base,
         },
-        {
+        network_test_template + {
                 'sources' : files('test-ndisc-rs.c'),
-                'base' : test_libsystemd_network_base,
         },
-        {
+        network_test_template + {
                 'sources' : files('test-sd-dhcp-lease.c'),
-                'base' : test_libsystemd_network_base,
         },
-]
-
-fuzzer_network_base = {
-        'link_with' : [libshared, libsystemd_network],
-}
-
-fuzzers += [
-        {
+        network_fuzz_template + {
                 'sources' : files('fuzz-dhcp-client.c'),
-                'base' : fuzzer_network_base,
         },
-        {
+        network_fuzz_template + {
                 'sources' : files('fuzz-dhcp6-client.c'),
-                'base' : fuzzer_network_base,
         },
-        {
+        network_fuzz_template + {
                 'sources' : files('fuzz-dhcp-server.c'),
-                'base' : fuzzer_network_base,
         },
-        {
+        network_fuzz_template + {
                 'sources' : files('fuzz-dhcp-server-relay.c'),
-                'base' : fuzzer_network_base,
         },
-        {
+        network_fuzz_template + {
                 'sources' : files('fuzz-lldp-rx.c'),
-                'base' : fuzzer_network_base,
         },
-        {
+        network_fuzz_template + {
                 'sources' : files('fuzz-ndisc-rs.c'),
-                'base' : fuzzer_network_base,
         },
 ]

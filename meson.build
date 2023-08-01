@@ -1689,6 +1689,9 @@ if dbus_interfaces_dir == '' or dbus_interfaces_dir == 'yes'
         endif
 endif
 
+dmi_arches = ['x86', 'x86_64', 'aarch64', 'arm', 'ia64', 'loongarch64', 'mips']
+conf.set10('HAVE_DMI', dmi_arches.contains(host_machine.cpu_family()))
+
 # We support one or the other. If gcrypt is available, we assume it's there to
 # be used, and use it in preference.
 opt = get_option('cryptolib')
@@ -2169,14 +2172,14 @@ man_page_depends = []
 
 ############################################################
 
-tests = []
 simple_tests = []
-fuzzers = []
+libsystemd_tests = []
 simple_fuzzers = []
 catalogs = []
 modules = [] # nss, pam, and other plugins
 executables = []
 executables_by_name = {}
+fuzzer_exes = []
 
 # binaries that have --help and are intended for use by humans,
 # usually, but not always, installed in /bin.
@@ -2300,6 +2303,27 @@ install_libudev_static = static_library(
 
 ############################################################
 
+runtest_env = custom_target(
+        'systemd-runtest.env',
+        output : 'systemd-runtest.env',
+        command : [sh, '-c',
+                   '{ echo SYSTEMD_TEST_DATA=@0@; echo SYSTEMD_CATALOG_DIR=@1@; } >@OUTPUT@'.format(
+                           project_source_root / 'test',
+                           project_build_root / 'catalog')],
+        depends : catalogs,
+        build_by_default : true)
+
+test_cflags = ['-DTEST_CODE=1']
+# We intentionally do not do inline initializations with definitions for a
+# bunch of _cleanup_ variables in tests, to ensure valgrind is triggered if we
+# use the variable unexpectedly. This triggers a lot of maybe-uninitialized
+# false positives when the combination of -O2 and -flto is used. Suppress them.
+if '-O2' in c_args and '-flto=auto' in c_args
+        test_cflags += cc.first_supported_argument('-Wno-maybe-uninitialized')
+endif
+
+############################################################
+
 executable_template = {
         'include_directories' : includes,
         'link_with' : libshared,
@@ -2317,6 +2341,40 @@ libexec_template = executable_template + {
 
 executable_additional_kwargs = {
         'dependencies' : userspace,
+}
+
+test_template = executable_template + {
+        'build_by_default' : want_tests != 'false',
+        'install' : install_tests,
+        'install_dir' : unittestsdir,
+}
+
+test_additional_kwargs = {
+        'c_args' : test_cflags,
+        'link_depends' : runtest_env,
+}
+
+fuzz_template = executable_template + {
+        'build_by_default' : fuzzer_build,
+        'install' : false,
+}
+
+if want_ossfuzz or (want_libfuzzer and fuzzing_engine.found())
+        fuzz_additional_kwargs = {
+                'dependencies' : fuzzing_engine,
+        }
+elif want_libfuzzer and not fuzzing_engine.found()
+        fuzz_additional_kwargs = {
+                'link_args' : ['-fsanitize=fuzzer'],
+        }
+else
+        fuzz_additional_kwargs = {
+                'sources' : files('src/fuzz/fuzz-main.c'),
+        }
+endif
+fuzz_additional_kwargs += {
+        'include_directories' : include_directories('src/fuzz'),
+        'c_args' : test_cflags,
 }
 
 nss_template = {
@@ -2466,16 +2524,34 @@ subdir('src/systemd')
 
 subdir('src/test')
 subdir('src/fuzz')
-subdir('rules.d')
-subdir('test')
 subdir('src/ukify/test')  # needs to be last for test_env variable
+subdir('test/fuzz')
 
 alias_target('devel', libsystemd_pc, libudev_pc, systemd_pc, udev_pc)
 
 ############################################################
 
+foreach test : simple_tests
+        executables += test_template + { 'sources' : [test] }
+endforeach
+
+foreach test : libsystemd_tests
+        executables += test_template + test
+endforeach
+
+foreach fuzzer : simple_fuzzers
+        executables += fuzz_template + { 'sources' : [fuzzer] }
+endforeach
+
 foreach dict : executables
-        name = dict.get('name')
+        name = dict.get('name', '')
+        if name == ''
+                name = fs.stem(dict.get('sources')[0])
+                assert(name.split('-')[0] in ['test', 'fuzz'])
+        endif
+
+        is_test = name.startswith('test-')
+        is_fuzz = name.startswith('fuzz-')
 
         build = true
         foreach cond : dict.get('conditions', [])
@@ -2490,15 +2566,30 @@ foreach dict : executables
 
         kwargs = {}
         foreach key, val : dict
-                if key in ['name', 'dbus', 'public', 'conditions']
+                if key in ['name', 'dbus', 'public', 'conditions',
+                           'type', 'suite', 'timeout', 'parallel']
                         continue
                 endif
+
                 kwargs += { key : val }
         endforeach
 
         foreach key, val : executable_additional_kwargs
                 kwargs += { key : [ kwargs.get(key, []), val ]}
         endforeach
+
+        if is_test
+                kwargs += { 'install_dir' : kwargs.get('install_dir') / dict.get('type', '') }
+                foreach key, val : test_additional_kwargs
+                        kwargs += { key : [ kwargs.get(key, []), val ] }
+                endforeach
+        endif
+
+        if is_fuzz
+                foreach key, val : fuzz_additional_kwargs
+                        kwargs += { key : [ kwargs.get(key, []), val ] }
+                endforeach
+        endif
 
         exe = executable(
                 name,
@@ -2515,20 +2606,59 @@ foreach dict : executables
                         public_programs += exe
                 endif
         endif
+
+        if is_test
+                type = dict.get('type', '')
+                suite = dict.get('suite', '')
+                if suite == ''
+                        suite = fs.name(fs.parent(dict.get('sources')[0]))
+                        if suite.startswith('sd-')
+                                suite = 'libsystemd'
+                        endif
+                endif
+
+                if type == 'manual'
+                        message('@0@/@1@ is a manual test'.format(suite, name))
+                elif type == 'unsafe' and want_tests != 'unsafe'
+                        message('@0@/@1@ is an unsafe test'.format(suite, name))
+                elif dict.get('build_by_default')
+                        test(name, exe,
+                             env : test_env,
+                             timeout : dict.get('timeout', 30),
+                             suite : suite,
+                             is_parallel : dict.get('parallel', true))
+                endif
+        endif
+
+        if is_fuzz
+                fuzzer_exes += exe
+
+                if want_tests != 'false'
+                        # Run the fuzz regression tests without any sanitizers enabled.
+                        # Additional invocations with sanitizers may be added below.
+                        fuzz_ins = fuzz_regression_tests.get(name, {})
+                        foreach directive : fuzz_ins.get('directives', [])
+                                test('@0@_@1@'.format(name, fs.name(directive.full_path())),
+                                     exe,
+                                     suite : 'fuzz',
+                                     args : directive.full_path(),
+                                     depends : directive)
+                        endforeach
+                        foreach file : fuzz_ins.get('files', [])
+                                test('@0@_@1@'.format(name, fs.name(file)),
+                                     exe,
+                                     suite : 'fuzz',
+                                     args : file)
+                        endforeach
+                endif
+        endif
 endforeach
+
+alias_target('fuzzers', fuzzer_exes)
 
 ############################################################
 
-# only static linking apart from libdl, to make sure that the
-# module is linked to all libraries that it uses.
-test_dlopen = executable(
-        'test-dlopen',
-        test_dlopen_c,
-        include_directories : includes,
-        link_with : [libbasic],
-        dependencies : [libdl,
-                        userspace],
-        build_by_default : want_tests != 'false')
+test_dlopen = executables_by_name.get('test-dlopen')
 
 foreach dict : modules
         name = dict.get('name')
@@ -2582,116 +2712,12 @@ foreach dict : modules
                      test_dlopen,
                      # path to dlopen must include a slash
                      args : lib.full_path(),
-                     depends : lib)
+                     depends : lib,
+                     suite : is_nss ? 'nss' : 'pam')
         endif
 endforeach
 
 ############################################################
-
-if want_tests != 'false'
-        exe = executables_by_name.get('systemd-analyze')
-        test('test-compare-versions',
-             test_compare_versions_sh,
-             args : exe.full_path())
-endif
-
-if want_tests != 'false'
-        exe = executables_by_name.get('systemd-fstab-generator')
-        test('test-fstab-generator',
-             test_fstab_generator_sh,
-             # https://github.com/mesonbuild/meson/issues/2681
-             args : exe.full_path(),
-             env : test_env,
-             depends : exe)
-endif
-
-if conf.get('HAVE_BLKID') == 1 and conf.get('ENABLE_BOOTLOADER') == 1
-        if want_tests != 'false'
-                exe = executables_by_name.get('bootctl')
-                test('test-bootctl-json',
-                     test_bootctl_json_sh,
-                     args : exe.full_path(),
-                     depends : exe)
-        endif
-endif
-
-if want_tests != 'false'
-        systemctl = executables_by_name.get('systemctl')
-        systemd_id128 = executables_by_name.get('systemd-id128')
-        test('test-systemctl-enable',
-             test_systemctl_enable_sh,
-             # https://github.com/mesonbuild/meson/issues/2681
-             args : [systemctl.full_path(),
-                     systemd_id128.full_path()])
-endif
-
-if enable_sysusers
-        if want_tests != 'false'
-                exe = executables_by_name.get('systemd-sysusers')
-                test('test-sysusers',
-                     test_sysusers_sh,
-                     # https://github.com/mesonbuild/meson/issues/2681
-                     args : exe.full_path())
-        endif
-
-        if have_standalone_binaries
-                if want_tests != 'false'
-                        exe = executables_by_name.get('systemd-sysusers.standalone')
-                        test('test-sysusers.standalone',
-                             test_sysusers_sh,
-                             # https://github.com/mesonbuild/meson/issues/2681
-                             args : exe.full_path())
-                endif
-        endif
-endif
-
-if conf.get('ENABLE_TMPFILES') == 1
-        if want_tests != 'false'
-                exe = executables_by_name.get('systemd-tmpfiles')
-                test('test-systemd-tmpfiles',
-                     test_systemd_tmpfiles_py,
-                     # https://github.com/mesonbuild/meson/issues/2681
-                     args : exe.full_path())
-        endif
-
-        if have_standalone_binaries
-                if want_tests != 'false'
-                        exe = executables_by_name.get('systemd-tmpfiles.standalone')
-                        test('test-systemd-tmpfiles.standalone',
-                             test_systemd_tmpfiles_py,
-                             # https://github.com/mesonbuild/meson/issues/2681
-                             args : exe.full_path())
-                endif
-        endif
-endif
-
-if conf.get('ENABLE_HWDB') == 1
-        if want_tests != 'false'
-                exe = executables_by_name.get('systemd-hwdb')
-                test('hwdb-test',
-                     hwdb_test_sh,
-                     suite : 'dist',
-                     args : exe.full_path(),
-                     timeout : 90)
-        endif
-endif
-
-if want_tests != 'false'
-        exe = executables_by_name.get('udevadm')
-        test('udev-rules-check',
-             exe,
-             suite : 'dist',
-             args : ['verify', '--resolve-names=never', all_rules])
-endif
-
-if want_tests != 'false'
-        exe = executables_by_name.get('systemd-network-generator')
-        test('test-network-generator-conversion',
-             test_network_generator_conversion_sh,
-             # https://github.com/mesonbuild/meson/issues/2681
-             args : exe.full_path(),
-             depends : exe)
-endif
 
 ukify = custom_target(
         'ukify',
@@ -2705,234 +2731,10 @@ if want_ukify
         public_programs += ukify
 endif
 
-if want_tests != 'false' and conf.get('ENABLE_KERNEL_INSTALL') == 1
-        kernel_install = executables_by_name.get('kernel-install')
-        args = [kernel_install.full_path(), loaderentry_install.full_path(), uki_copy_install]
-        deps = [kernel_install, loaderentry_install]
-        if want_ukify and boot_stubs.length() > 0
-                args += [ukify.full_path(), ukify_install.full_path(), boot_stubs[0]]
-                deps += [ukify, ukify_install, boot_stubs[0]]
-        endif
-
-        test('test-kernel-install',
-             test_kernel_install_sh,
-             env : test_env,
-             args : args,
-             depends: deps)
-endif
-
 ############################################################
 
-runtest_env = custom_target(
-        'systemd-runtest.env',
-        output : 'systemd-runtest.env',
-        command : [sh, '-c',
-                   '{ echo SYSTEMD_TEST_DATA=@0@; echo SYSTEMD_CATALOG_DIR=@1@; } >@OUTPUT@'.format(
-                           project_source_root / 'test',
-                           project_build_root / 'catalog')],
-        depends : catalogs,
-        build_by_default : true)
-
-test_cflags = ['-DTEST_CODE=1']
-# We intentionally do not do inline initializations with definitions for a
-# bunch of _cleanup_ variables in tests, to ensure valgrind is triggered if we
-# use the variable unexpectedly. This triggers a lot of maybe-uninitialized
-# false positives when the combination of -O2 and -flto is used. Suppress them.
-if '-O2' in c_args and '-flto=auto' in c_args
-        test_cflags += cc.first_supported_argument('-Wno-maybe-uninitialized')
-endif
-
-foreach test : simple_tests
-        tests += { 'sources' : [test] }
-endforeach
-
-TESTS = {}
-foreach test : tests
-        sources = test.get('sources')
-        condition = test.get('condition', '')
-        type = test.get('type', '')
-        base = test.get('base', {})
-        deps = [
-                base.get('dependencies', []),
-                test.get('dependencies', []),
-        ]
-
-        name = fs.name(sources[0])
-        if name.endswith('.cc')
-                deps += [versiondep]
-        else
-                deps += [userspace]
-        endif
-        name = fs.stem(name)
-
-        suite = fs.name(fs.parent(sources[0])).replace('sd-', '')
-
-        if condition != '' and conf.get(condition) == 0
-                message('Not compiling @0@ because @1@ is not true'.format(name, condition))
-                continue
-        endif
-
-        exe = executable(
-                name,
-                sources,
-                include_directories : [base.get('includes', []), test.get('includes', includes)],
-                link_with : [base.get('link_with', []), test.get('link_with', libshared)],
-                dependencies : deps,
-                c_args : [test_cflags, test.get('c_args', [])],
-                build_by_default : want_tests != 'false',
-                install_rpath : pkglibdir,
-                install : install_tests,
-                install_dir : unittestsdir / type,
-                link_depends : runtest_env)
-
-        if type == 'manual'
-                message('@0@ is a manual test'.format(name))
-        elif type == 'unsafe' and want_tests != 'unsafe'
-                message('@0@ is an unsafe test'.format(name))
-        elif want_tests != 'false'
-                test(name, exe,
-                     env : test_env,
-                     timeout : test.get('timeout', 30),
-                     suite : suite,
-                     is_parallel : test.get('parallel', true))
-        endif
-
-        TESTS += { name : exe }
-endforeach
-
-exe = executable(
-        'test-libsystemd-sym',
-        test_libsystemd_sym_c,
-        include_directories : includes,
-        link_with : [libsystemd],
-        dependencies : userspace,
-        build_by_default : want_tests != 'false',
-        install : install_tests,
-        install_dir : unittestsdir)
-if want_tests != 'false'
-        test('test-libsystemd-sym', exe)
-endif
-
-exe = executable(
-        'test-libsystemd-static-sym',
-        test_libsystemd_sym_c,
-        include_directories : includes,
-        link_with : [install_libsystemd_static],
-        dependencies : [
-                # threads is already included in dependencies on the library,
-                # but does not seem to get propagated. Add here as a work-around.
-                threads,
-                userspace,
-        ],
-        build_by_default : want_tests != 'false' and static_libsystemd != 'false',
-        install : install_tests and static_libsystemd != 'false',
-        install_dir : unittestsdir)
-if want_tests != 'false' and static_libsystemd != 'false'
-        test('test-libsystemd-static-sym', exe)
-endif
-
-exe = executable(
-        'test-libudev-sym',
-        test_libudev_sym_c,
-        include_directories : libudev_includes,
-        c_args : ['-Wno-deprecated-declarations'] + test_cflags,
-        link_with : [libudev],
-        dependencies : userspace,
-        build_by_default : want_tests != 'false',
-        install : install_tests,
-        install_dir : unittestsdir)
-if want_tests != 'false'
-        test('test-libudev-sym', exe)
-endif
-
-exe = executable(
-        'test-libudev-static-sym',
-        test_libudev_sym_c,
-        include_directories : libudev_includes,
-        c_args : ['-Wno-deprecated-declarations'] + test_cflags,
-        link_with : [install_libudev_static],
-        dependencies : userspace,
-        build_by_default : want_tests != 'false' and static_libudev != 'false',
-        install : install_tests and static_libudev != 'false',
-        install_dir : unittestsdir)
-if want_tests != 'false' and static_libudev != 'false'
-        test('test-libudev-static-sym', exe)
-endif
-
-if want_tests != 'false'
-        exe = TESTS.get('udev-rule-runner')
-        test('test-udev',
-             test_udev_py,
-             args : ['-v'],
-             env : ['UDEV_RULE_RUNNER=' + exe.full_path()],
-             depends : exe,
-             timeout : 180)
-endif
-
-############################################################
-
-foreach fuzzer : simple_fuzzers
-        fuzzers += { 'sources' : [fuzzer] }
-endforeach
-
-fuzzer_exes = []
-
-foreach fuzzer : fuzzers
-        sources = fuzzer.get('sources')
-        base = fuzzer.get('base', {})
-        dependencies = [base.get('dependencies', []), fuzzer.get('dependencies', [])]
-        link_args = []
-
-        if want_ossfuzz
-                dependencies += fuzzing_engine
-        elif want_libfuzzer
-                if fuzzing_engine.found()
-                        dependencies += fuzzing_engine
-                else
-                        link_args += ['-fsanitize=fuzzer']
-                endif
-        else
-                sources += files('src/fuzz/fuzz-main.c')
-        endif
-        sources += fuzz_generated_directives
-
-        name = fs.stem(sources[0])
-
-        exe = executable(
-                name,
-                sources,
-                include_directories : [
-                        base.get('includes', []),
-                        fuzzer.get('includes', includes),
-                        include_directories('src/fuzz'),
-                ],
-                link_with : [base.get('link_with', []), fuzzer.get('link_with', libshared)],
-                dependencies : [
-                        dependencies,
-                        userspace,
-                ],
-                c_args : [test_cflags, fuzzer.get('c_args', [])],
-                link_args: link_args,
-                install : false,
-                build_by_default : fuzzer_build)
-        fuzzer_exes += exe
-
-        if want_tests != 'false' and name in fuzz_regression_tests
-                # Run the fuzz regression tests without any sanitizers enabled.
-                # Additional invocations with sanitizers may be added below.
-                foreach tuple : fuzz_regression_tests[name]
-                        fuzz_dir = tuple[0]
-                        fuzz_in = tuple[1]
-                        test('@0@_@1@'.format(name, fuzz_in),
-                             exe,
-                             suite : 'fuzz',
-                             args : [fuzz_dir != '' ? project_source_root / fuzz_dir / name / fuzz_in
-                                                    : fuzz_generated_in_dir / '@0@_@1@'.format(name, fuzz_in)])
-                endforeach
-        endif
-endforeach
-
-alias_target('fuzzers', fuzzer_exes)
+subdir('rules.d')
+subdir('test')
 
 ############################################################
 
@@ -3035,24 +2837,28 @@ foreach tuple : fuzz_sanitizers
                         exe = custom_target(
                                 name,
                                 output : name,
-                                depends : [build] + fuzz_generated_directives,
+                                depends : build,
                                 command : [ln, '-fs',
                                            build.full_path() / fuzzer,
                                            '@OUTPUT@'],
                                 build_by_default : true)
 
-                        foreach tuple : fuzz_ins
-                                fuzz_dir = tuple[0]
-                                fuzz_in = tuple[1]
-
-                                test('@0@_@1@_@2@'.format(fuzzer, fuzz_in, sanitizer),
+                        foreach directive : fuzz_ins.get('directives', [])
+                                test('@0@_@1@_@2@'.format(fuzzer, fs.name(directive.full_path()), sanitizer),
                                      env,
                                      suite : 'fuzz+san',
                                      env : ['UBSAN_OPTIONS=print_stacktrace=1:print_summary=1:halt_on_error=1'],
                                      timeout : 60,
-                                     args : [exe.full_path(),
-                                             fuzz_dir != '' ? project_source_root / fuzz_dir / fuzzer / fuzz_in
-                                                            : fuzz_generated_in_dir / '@0@_@1@'.format(fuzzer, fuzz_in)])
+                                     args : [exe.full_path(), directive.full_path()],
+                                     depends : directive)
+                        endforeach
+                        foreach file : fuzz_ins.get('files', [])
+                                test('@0@_@1@_@2@'.format(fuzzer, fs.name(file), sanitizer),
+                                     env,
+                                     suite : 'fuzz+san',
+                                     env : ['UBSAN_OPTIONS=print_stacktrace=1:print_summary=1:halt_on_error=1'],
+                                     timeout : 60,
+                                     args : [exe.full_path(), file])
                         endforeach
                 endforeach
         endif
@@ -3083,7 +2889,8 @@ if git.found()
                         test('check-includes',
                              files('tools/check-includes.py'),
                              args: all_files,
-                             env : ['PROJECT_SOURCE_ROOT=@0@'.format(project_source_root)])
+                             env : ['PROJECT_SOURCE_ROOT=@0@'.format(project_source_root)],
+                             suite : 'headers')
                 endif
         endif
 
@@ -3286,6 +3093,7 @@ foreach tuple : [
         ['xdg-autostart'],
 
         # optional features
+        ['dmi'],
         ['idn'],
         ['polkit'],
         ['nscd'],
