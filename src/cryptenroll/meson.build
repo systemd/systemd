@@ -19,3 +19,18 @@ endif
 if conf.get('HAVE_TPM2') == 1
         systemd_cryptenroll_sources += files('cryptenroll-tpm2.c')
 endif
+
+executables += [
+        executable_template + {
+                'name' : 'systemd-cryptenroll',
+                'public' : true,
+                'conditions' : ['HAVE_LIBCRYPTSETUP'],
+                'sources' : systemd_cryptenroll_sources,
+                'dependencies' : [
+                        libcryptsetup,
+                        libdl,
+                        libopenssl,
+                        libp11kit,
+                ],
+        },
+]
