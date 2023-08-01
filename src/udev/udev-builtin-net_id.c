@@ -998,10 +998,39 @@ static int names_usb(sd_device *dev, const char *prefix, NetNames *names, bool t
         return 0;
 }
 
-static int names_bcma(sd_device *dev, NetNames *names) {
-        sd_device *bcmadev;
-        unsigned core;
+static int get_bcma_specifier(sd_device *dev, char **ret) {
         const char *sysname;
+        char *buf = NULL;
+        unsigned core;
+        int r;
+
+        assert(dev);
+        assert(ret);
+
+        r = sd_device_get_sysname(dev, &sysname);
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to get sysname: %m");
+
+        /* bus num:core num */
+        r = sscanf(sysname, "bcma%*u:%u", &core);
+        if (r != 1)
+                return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL),
+                                              "Failed to parse bcma device information.");
+
+        /* suppress the common core == 0 */
+        if (core > 0 && asprintf(&buf, "b%u", core) < 0)
+                return log_oom_debug();
+
+        log_device_debug(dev, "BCMA core identifier: core=%u %s \"%s\"",
+                         core, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), strna(buf));
+
+        *ret = buf;
+        return 0;
+}
+
+static int names_bcma(sd_device *dev, NetNames *names) {
+        _cleanup_free_ char *suffix = NULL;
+        sd_device *bcmadev;
         int r;
 
         assert(dev);
@@ -1009,25 +1038,16 @@ static int names_bcma(sd_device *dev, NetNames *names) {
 
         r = sd_device_get_parent_with_subsystem_devtype(dev, "bcma", NULL, &bcmadev);
         if (r < 0)
-                return log_device_debug_errno(dev, r, "sd_device_get_parent_with_subsystem_devtype() failed: %m");
+                return log_device_debug_errno(dev, r, "Could not get bcma parent device: %m");
 
-        r = sd_device_get_sysname(bcmadev, &sysname);
+        r = get_bcma_specifier(bcmadev, &suffix);
         if (r < 0)
-                return log_device_debug_errno(dev, r, "sd_device_get_sysname() failed: %m");
+                return r;
 
-        /* bus num:core num */
-        r = sscanf(sysname, "bcma%*u:%u", &core);
-        log_device_debug(dev, "Parsing bcma device information from sysname \"%s\": %s",
-                         sysname, r == 1 ? "success" : "failure");
-        if (r != 1)
-                return -EINVAL;
-        /* suppress the common core == 0 */
-        if (core > 0)
-                xsprintf(names->bcma_core, "b%u", core);
+        size_t l = strscpy(names->bcma_core, sizeof(names->bcma_core), strempty(suffix));
+        if (l != 0)
+                names->type = NET_BCMA;
 
-        names->type = NET_BCMA;
-        log_device_debug(dev, "BCMA core identifier: core=%u %s \"%s\"",
-                         core, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), names->bcma_core);
         return 0;
 }
 
