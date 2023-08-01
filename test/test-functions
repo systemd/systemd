@@ -1289,6 +1289,7 @@ install_suse_systemd() {
         systemd-container
         systemd-coredump
         systemd-experimental
+        systemd-homed
         systemd-journal-remote
         # Since commit fb6f25d7b979134a, systemd-resolved, which is shipped by
         # systemd-network sub-package on openSUSE, has its own testsuite.
