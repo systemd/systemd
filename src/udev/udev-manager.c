@@ -3,6 +3,7 @@
 #include "blockdev-util.h"
 #include "cgroup-util.h"
 #include "common-signal.h"
+#include "cpu-set-util.h"
 #include "daemon-util.h"
 #include "device-monitor-private.h"
 #include "device-private.h"
@@ -14,9 +15,11 @@
 #include "hashmap.h"
 #include "inotify-util.h"
 #include "io-util.h"
+#include "limits-util.h"
 #include "list.h"
 #include "mkdir.h"
 #include "process-util.h"
+#include "rlimit-util.h"
 #include "selinux-util.h"
 #include "signal-util.h"
 #include "socket-util.h"
@@ -32,6 +35,8 @@
 #include "udev-util.h"
 #include "udev-watch.h"
 #include "udev-worker.h"
+
+#define WORKER_NUM_MAX UINT64_C(2048)
 
 #define EVENT_RETRY_INTERVAL_USEC (200 * USEC_PER_MSEC)
 #define EVENT_RETRY_TIMEOUT_USEC  (3 * USEC_PER_MINUTE)
@@ -829,6 +834,35 @@ static int on_worker(sd_event_source *s, int fd, uint32_t revents, void *userdat
         return 1;
 }
 
+static void manager_set_default_children_max(Manager *manager) {
+        uint64_t cpu_limit, mem_limit, nof_limit, cpu_count = 1;
+        struct rlimit rl;
+        int r;
+
+        assert(manager);
+
+        if (manager->children_max != 0)
+                return;
+
+        r = cpus_in_affinity_mask();
+        if (r < 0)
+                log_warning_errno(r, "Failed to determine number of local CPUs, ignoring: %m");
+        else
+                cpu_count = r;
+
+        if (getrlimit(RLIMIT_NOFILE, &rl) < 0) {
+                log_debug_errno(errno, "Failed to query RLIMIT_NOFILE, ignoring: %m");
+                rl.rlim_cur = FD_SETSIZE;
+        }
+
+        cpu_limit = cpu_count * 2 + 16;
+        mem_limit = MAX(physical_memory() / (128*1024*1024), UINT64_C(10));
+        nof_limit = MAX((uint64_t) rl.rlim_cur / 4, UINT64_C(10));
+
+        manager->children_max = MIN(MIN3(cpu_limit, mem_limit, nof_limit), WORKER_NUM_MAX);
+        log_debug("Set children_max to %u", manager->children_max);
+}
+
 /* receive the udevd message from userspace */
 static int on_ctrl_msg(UdevCtrl *uctrl, UdevCtrlMessageType type, const UdevCtrlMessageValue *value, void *userdata) {
         Manager *manager = ASSERT_PTR(userdata);
@@ -921,13 +955,16 @@ static int on_ctrl_msg(UdevCtrl *uctrl, UdevCtrlMessageType type, const UdevCtrl
                 break;
         }
         case UDEV_CTRL_SET_CHILDREN_MAX:
-                if (value->intval <= 0) {
+                if (value->intval < 0) {
                         log_debug("Received invalid udev control message (SET_MAX_CHILDREN, %i), ignoring.", value->intval);
                         return 0;
                 }
 
                 log_debug("Received udev control message (SET_MAX_CHILDREN), setting children_max=%i", value->intval);
                 manager->children_max = value->intval;
+
+                /* When 0 is specified, determine the maximum based on the system resources. */
+                manager_set_default_children_max(manager);
 
                 notify_ready(manager);
                 break;
@@ -1226,6 +1263,12 @@ int manager_init(Manager *manager, int fd_ctrl, int fd_uevent) {
 
 int manager_main(Manager *manager) {
         int fd_worker, r;
+
+        /* First bump RLIMIT_NOFILE, as it will be taken into account when calculating the maximum number of
+         * worker processes. */
+        (void) rlimit_nofile_safe();
+
+        manager_set_default_children_max(manager);
 
         /* unnamed socket from workers to the main daemon */
         r = socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, manager->worker_watch);

@@ -53,7 +53,8 @@
         <term><varname>children_max=</varname></term>
 
         <listitem>
-          <para>An integer. The maximum number of events executed in parallel.</para>
+          <para>An integer. The maximum number of events executed in parallel. When unspecified or 0 is
+          specified, the maximum is determined based on the system resources.</para>
 
           <para>This is the same as the <option>--children-max=</option> option.</para>
         </listitem>
