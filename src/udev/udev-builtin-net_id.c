@@ -899,11 +899,68 @@ static int names_pci(sd_device *dev, NetNames *names) {
         return 0;
 }
 
-static int names_usb(sd_device *dev, NetNames *names) {
-        sd_device *usbdev;
-        char name[256], *ports, *config, *interf, *s;
+static int get_usb_specifier(sd_device *dev, char **ret) {
+        char *ports, *config, *interf, *s, *buf;
         const char *sysname;
-        size_t l;
+        int r;
+
+        assert(dev);
+        assert(ret);
+
+        r = sd_device_get_sysname(dev, &sysname);
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to get sysname: %m");
+
+        /* get USB port number chain, configuration, interface */
+        s = strchr(sysname, '-');
+        if (!s)
+                return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL),
+                                              "sysname \"%s\" does not have '-' in the expected place.", sysname);
+
+        ports = strdupa(s + 1);
+        s = strchr(ports, ':');
+        if (!s)
+                return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL),
+                                              "sysname \"%s\" does not have ':' in the expected place.", sysname);
+
+        *s = '\0';
+        config = s + 1;
+        s = strchr(config, '.');
+        if (!s)
+                return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL),
+                                              "sysname \"%s\" does not have '.' in the expected place.", sysname);
+
+        *s = '\0';
+        interf = s + 1;
+
+        /* prefix every port number in the chain with "u" */
+        string_replace_char(ports, '.', 'u');
+
+        /* suppress the common config == 1 */
+        if (streq(config, "1"))
+                config = NULL;
+
+        /* suppress the interface == 0 */
+        if (streq(interf, "0"))
+                interf = NULL;
+
+        if (asprintf(&buf, "u%s%s%s%s%s",
+                     ports,
+                     config ? "c" : "", strempty(config),
+                     interf ? "i" : "", strempty(interf)) < 0)
+                return log_oom_debug();
+
+        log_device_debug(dev, "USB name identifier: ports=%s config=%s interface=%s %s %s",
+                         ports, strna(config), strna(interf),
+                         special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), buf);
+
+        *ret = buf;
+        return 0;
+}
+
+static int names_usb(sd_device *dev, NetNames *names) {
+        _cleanup_free_ char *suffix = NULL;
+        sd_device *usbdev;
         int r;
 
         assert(dev);
@@ -911,55 +968,17 @@ static int names_usb(sd_device *dev, NetNames *names) {
 
         r = sd_device_get_parent_with_subsystem_devtype(dev, "usb", "usb_interface", &usbdev);
         if (r < 0)
-                return log_device_debug_errno(dev, r, "sd_device_get_parent_with_subsystem_devtype() failed: %m");
+                return log_device_debug_errno(dev, r, "Could not find usb parent device: %m");
 
-        r = sd_device_get_sysname(usbdev, &sysname);
+        r = get_usb_specifier(usbdev, &suffix);
         if (r < 0)
-                return log_device_debug_errno(usbdev, r, "sd_device_get_sysname() failed: %m");
+                return r;
 
-        /* get USB port number chain, configuration, interface */
-        strscpy(name, sizeof(name), sysname);
-        s = strchr(name, '-');
-        if (!s)
-                return log_device_debug_errno(usbdev, SYNTHETIC_ERRNO(EINVAL),
-                                              "sysname \"%s\" does not have '-' in the expected place.", sysname);
-        ports = s+1;
-
-        s = strchr(ports, ':');
-        if (!s)
-                return log_device_debug_errno(usbdev, SYNTHETIC_ERRNO(EINVAL),
-                                              "sysname \"%s\" does not have ':' in the expected place.", sysname);
-        s[0] = '\0';
-        config = s+1;
-
-        s = strchr(config, '.');
-        if (!s)
-                return log_device_debug_errno(usbdev, SYNTHETIC_ERRNO(EINVAL),
-                                              "sysname \"%s\" does not have '.' in the expected place.", sysname);
-        s[0] = '\0';
-        interf = s+1;
-
-        /* prefix every port number in the chain with "u" */
-        s = ports;
-        while ((s = strchr(s, '.')))
-                s[0] = 'u';
-        s = names->usb_ports;
-        l = strpcpyl(&s, sizeof(names->usb_ports), "u", ports, NULL);
-
-        /* append USB config number, suppress the common config == 1 */
-        if (!streq(config, "1"))
-                l = strpcpyl(&s, l, "c", config, NULL);
-
-        /* append USB interface number, suppress the interface == 0 */
-        if (!streq(interf, "0"))
-                l = strpcpyl(&s, l, "i", interf, NULL);
+        size_t l = strscpy(names->usb_ports, sizeof(names->usb_ports), suffix);
         if (l == 0)
-                return log_device_debug_errno(dev, SYNTHETIC_ERRNO(ENAMETOOLONG),
-                                              "Generated USB name would be too long.");
-        log_device_debug(dev, "USB name identifier: ports=%.*s config=%s interface=%s %s %s",
-                         (int) strlen(ports), sysname + (ports - name), config, interf,
-                         special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), names->usb_ports);
-        names->type = NET_USB;
+                names->usb_ports[0] = '\0';
+        else
+                names->type = NET_USB;
         return 0;
 }
 
