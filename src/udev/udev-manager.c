@@ -947,13 +947,16 @@ static int on_ctrl_msg(UdevCtrl *uctrl, UdevCtrlMessageType type, const UdevCtrl
                 break;
         }
         case UDEV_CTRL_SET_CHILDREN_MAX:
-                if (value->intval <= 0) {
+                if (value->intval < 0) {
                         log_debug("Received invalid udev control message (SET_MAX_CHILDREN, %i), ignoring.", value->intval);
                         return 0;
                 }
 
                 log_debug("Received udev control message (SET_MAX_CHILDREN), setting children_max=%i", value->intval);
                 manager->children_max = value->intval;
+
+                /* When 0 is specified, determine the maximum based on the system resources. */
+                manager_set_default_children_max(manager);
 
                 notify_ready(manager);
                 break;
