@@ -132,9 +132,6 @@ EOF
 Type=home
 Label=home-first
 Label=home-always-too-long-xxxxxxxxxxxxxx-%v
-# Test that OEM=yes makes sure that a partition is OEM even if FactoryReset=yes is set.
-FactoryReset=yes
-OEM=yes
 EOF
 
     tee "$defs/swap.conf" <<EOF
@@ -142,8 +139,6 @@ EOF
 Type=swap
 SizeMaxBytes=64M
 PaddingMinBytes=92M
-# No OEM=yes here so this should not be considered an OEM partition since FactoryReset=yes.
-FactoryReset=yes
 EOF
 
     systemd-repart --offline="$OFFLINE" \
@@ -164,26 +159,6 @@ first-lba: 2048
 last-lba: 2097118
 $imgs/zzz1 : start=        2048, size=     1775576, type=933AC7E1-2EB4-4F13-B844-0E14E2AEF915, uuid=4980595D-D74A-483A-AA9E-9903879A0EE5, name=\"home-first\", attrs=\"GUID:59\"
 $imgs/zzz2 : start=     1777624, size=      131072, type=0657FD6D-A4AB-43C4-84E5-0933C84B4F4F, uuid=78C92DB8-3D2B-4823-B0DC-792B78F66F1E, name=\"swap\""
-
-    systemd-repart --offline="$OFFLINE" \
-                   --definitions="$defs" \
-                   --dry-run=no \
-                   --seed="$seed" \
-                   --empty=force \
-                   --include-partitions=home,swap \
-                   --oem=yes \
-                   --offline="$OFFLINE" \
-                   "$imgs/zzz"
-
-    output=$(sfdisk -d "$imgs/zzz" | grep -v -e 'sector-size' -e '^$')
-
-    assert_eq "$output" "label: gpt
-label-id: 1D2CE291-7CCE-4F7D-BC83-FDB49AD74EBD
-device: $imgs/zzz
-unit: sectors
-first-lba: 2048
-last-lba: 2097118
-$imgs/zzz1 : start=        2048, size=     2095064, type=933AC7E1-2EB4-4F13-B844-0E14E2AEF915, uuid=4980595D-D74A-483A-AA9E-9903879A0EE5, name=\"home-first\", attrs=\"GUID:59\""
 
     systemd-repart --offline="$OFFLINE" \
                    --definitions="$defs" \

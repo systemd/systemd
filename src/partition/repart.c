@@ -24,7 +24,6 @@
 #include "conf-files.h"
 #include "conf-parser.h"
 #include "constants.h"
-#include "creds-util.h"
 #include "cryptsetup-util.h"
 #include "device-util.h"
 #include "devnum-util.h"
@@ -154,7 +153,6 @@ static uint64_t arg_sector_size = 0;
 static ImagePolicy *arg_image_policy = NULL;
 static Architecture arg_architecture = _ARCHITECTURE_INVALID;
 static int arg_offline = -1;
-static bool arg_oem = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
@@ -207,7 +205,6 @@ typedef struct Partition {
 
         bool dropped;
         bool factory_reset;
-        int oem;
         int32_t priority;
 
         uint32_t weight, padding_weight;
@@ -353,7 +350,6 @@ static Partition *partition_new(void) {
                 .no_auto = -1,
                 .read_only = -1,
                 .growfs = -1,
-                .oem = -1,
         };
 
         return p;
@@ -427,15 +423,8 @@ static void partition_foreignize(Partition *p) {
         p->verity = VERITY_OFF;
 }
 
-static bool partition_is_oem(const Partition *p) {
-        return p->oem > 0 || (p->oem < 0 && !p->factory_reset);
-}
-
 static bool partition_exclude(const Partition *p) {
         assert(p);
-
-        if (arg_oem && !partition_is_oem(p))
-                return true;
 
         if (arg_filter_partitions_type == FILTER_PARTITIONS_NONE)
                 return false;
@@ -1642,7 +1631,6 @@ static int partition_read_definition(Partition *p, const char *path, const char 
                 { "Partition", "GrowFileSystem",     config_parse_tristate,      0, &p->growfs               },
                 { "Partition", "SplitName",          config_parse_string,        0, &p->split_name_format    },
                 { "Partition", "Minimize",           config_parse_minimize,      0, &p->minimize             },
-                { "Partition", "OEM",                config_parse_tristate,      0, &p->oem                  },
                 {}
         };
         int r;
@@ -6016,23 +6004,11 @@ static int help(void) {
                "     --sector-size=SIZE   Set the logical sector size for the image\n"
                "     --architecture=ARCH  Set the generic architecture for the image\n"
                "     --offline=BOOL       Whether to build the image offline\n"
-               "     --oem=BOOL           Whether to only include OEM partitions\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
                ansi_normal(),
                link);
-
-        return 0;
-}
-
-static int parse_credentials(void) {
-        int r;
-
-        r = read_credential_bool("repart.oem");
-        if (r < 0)
-                return log_error_errno(r, "Failed to read repart.oem credential: %m");
-        arg_oem = r;
 
         return 0;
 }
@@ -6071,7 +6047,6 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_SKIP_PARTITIONS,
                 ARG_ARCHITECTURE,
                 ARG_OFFLINE,
-                ARG_OEM,
         };
 
         static const struct option options[] = {
@@ -6106,7 +6081,6 @@ static int parse_argv(int argc, char *argv[]) {
                 { "sector-size",          required_argument, NULL, ARG_SECTOR_SIZE          },
                 { "architecture",         required_argument, NULL, ARG_ARCHITECTURE         },
                 { "offline",              required_argument, NULL, ARG_OFFLINE              },
-                { "oem",                  required_argument, NULL, ARG_OEM                  },
                 {}
         };
 
@@ -6425,13 +6399,6 @@ static int parse_argv(int argc, char *argv[]) {
 
                                 arg_offline = r;
                         }
-
-                        break;
-
-                case ARG_OEM:
-                        r = parse_boolean_argument("--oem=", optarg, &arg_oem);
-                        if (r < 0)
-                                return r;
 
                         break;
 
@@ -6930,10 +6897,6 @@ static int run(int argc, char *argv[]) {
         log_show_color(true);
         log_parse_environment();
         log_open();
-
-        r = parse_credentials();
-        if (r < 0)
-                return r;
 
         r = parse_argv(argc, argv);
         if (r <= 0)
