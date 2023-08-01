@@ -46,7 +46,6 @@
 typedef enum NetNameType {
         NET_UNDEF,
         NET_PCI,
-        NET_BCMA,
 } NetNameType;
 
 typedef struct NetNames {
@@ -57,8 +56,6 @@ typedef struct NetNames {
         char pci_path[ALTIFNAMSIZ];
         char pci_onboard[ALTIFNAMSIZ];
         const char *pci_onboard_label;
-
-        char bcma_core[ALTIFNAMSIZ];
 } NetNames;
 
 /* skip intermediate virtio devices */
@@ -1028,13 +1025,16 @@ static int get_bcma_specifier(sd_device *dev, char **ret) {
         return 0;
 }
 
-static int names_bcma(sd_device *dev, NetNames *names) {
+static int names_bcma(sd_device *dev, const char *prefix, NetNames *names, bool test) {
         _cleanup_free_ char *suffix = NULL;
         sd_device *bcmadev;
         int r;
 
         assert(dev);
+        assert(prefix);
         assert(names);
+
+        /* Broadcom bus */
 
         r = sd_device_get_parent_with_subsystem_devtype(dev, "bcma", NULL, &bcmadev);
         if (r < 0)
@@ -1044,9 +1044,14 @@ static int names_bcma(sd_device *dev, NetNames *names) {
         if (r < 0)
                 return r;
 
-        size_t l = strscpy(names->bcma_core, sizeof(names->bcma_core), strempty(suffix));
-        if (l != 0)
-                names->type = NET_BCMA;
+        char str[ALTIFNAMSIZ];
+        if (names->pci_path[0] &&
+            snprintf_ok(str, sizeof str, "%s%s%s", prefix, names->pci_path, suffix))
+                udev_builtin_add_property(dev, test, "ID_NET_NAME_PATH", str);
+
+        if (names->pci_slot[0] &&
+            snprintf_ok(str, sizeof str, "%s%s%s", prefix, names->pci_slot, suffix))
+                udev_builtin_add_property(dev, test, "ID_NET_NAME_SLOT", str);
 
         return 0;
 }
@@ -1412,20 +1417,7 @@ static int builtin_net_id(UdevEvent *event, int argc, char *argv[], bool test) {
         }
 
         (void) names_usb(dev, prefix, &names, test);
-
-        /* Broadcom bus */
-        if (names_bcma(dev, &names) >= 0 && names.type == NET_BCMA) {
-                char str[ALTIFNAMSIZ];
-
-                if (names.pci_path[0] &&
-                    snprintf_ok(str, sizeof str, "%s%s%s", prefix, names.pci_path, names.bcma_core))
-                        udev_builtin_add_property(dev, test, "ID_NET_NAME_PATH", str);
-
-                if (names.pci_slot[0] &&
-                    snprintf_ok(str, sizeof str, "%s%s%s", prefix, names.pci_slot, names.bcma_core))
-                        udev_builtin_add_property(dev, test, "ID_NET_NAME_SLOT", str);
-                return 0;
-        }
+        (void) names_bcma(dev, prefix, &names, test);
 
         return 0;
 }
