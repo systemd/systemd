@@ -46,7 +46,6 @@
 typedef enum NetNameType {
         NET_UNDEF,
         NET_PCI,
-        NET_USB,
         NET_BCMA,
 } NetNameType;
 
@@ -59,7 +58,6 @@ typedef struct NetNames {
         char pci_onboard[ALTIFNAMSIZ];
         const char *pci_onboard_label;
 
-        char usb_ports[ALTIFNAMSIZ];
         char bcma_core[ALTIFNAMSIZ];
 } NetNames;
 
@@ -958,13 +956,16 @@ static int get_usb_specifier(sd_device *dev, char **ret) {
         return 0;
 }
 
-static int names_usb(sd_device *dev, NetNames *names) {
+static int names_usb(sd_device *dev, const char *prefix, NetNames *names, bool test) {
         _cleanup_free_ char *suffix = NULL;
         sd_device *usbdev;
         int r;
 
         assert(dev);
+        assert(prefix);
         assert(names);
+
+        /* USB device */
 
         r = sd_device_get_parent_with_subsystem_devtype(dev, "usb", "usb_interface", &usbdev);
         if (r < 0)
@@ -974,11 +975,26 @@ static int names_usb(sd_device *dev, NetNames *names) {
         if (r < 0)
                 return r;
 
-        size_t l = strscpy(names->usb_ports, sizeof(names->usb_ports), suffix);
-        if (l == 0)
-                names->usb_ports[0] = '\0';
-        else
-                names->type = NET_USB;
+        /* If the USB bus is on PCI bus, then suffix the USB specifier to the name based on the PCI bus. */
+        if (names) {
+                char buf[ALTIFNAMSIZ];
+                if (names->pci_path[0] &&
+                    snprintf_ok(buf, sizeof buf, "%s%s%s", prefix, names->pci_path, suffix))
+                        udev_builtin_add_property(dev, test, "ID_NET_NAME_PATH", buf);
+
+                if (names->pci_slot[0] &&
+                    snprintf_ok(buf, sizeof buf, "%s%s%s", prefix, names->pci_slot, suffix))
+                        udev_builtin_add_property(dev, test, "ID_NET_NAME_SLOT", buf);
+        }
+
+        if (!naming_scheme_has(NAMING_USB_HOST))
+                return 0;
+
+        /* Otherwise, e.g. on-chip asics that have USB ports, use the USB specifier as is. */
+        char str[ALTIFNAMSIZ];
+        if (snprintf_ok(str, sizeof str, "%s%s", prefix, suffix))
+                udev_builtin_add_property(dev, test, "ID_NET_NAME_PATH", str);
+
         return 0;
 }
 
@@ -1346,22 +1362,10 @@ static int builtin_net_id(UdevEvent *event, int argc, char *argv[], bool test) {
 
         /* get PCI based path names */
         r = names_pci(dev, &names);
-        if (r < 0) {
-                /*
-                 * check for usb devices that are not off pci interfaces to
-                 * support various on-chip asics that have usb ports
-                 */
-                if (r == -ENOENT &&
-                    naming_scheme_has(NAMING_USB_HOST) &&
-                    names_usb(dev, &names) >= 0 && names.type == NET_USB) {
-                        char str[ALTIFNAMSIZ];
-
-                        if (snprintf_ok(str, sizeof str, "%s%s", prefix, names.usb_ports))
-                                udev_builtin_add_property(dev, test, "ID_NET_NAME_PATH", str);
-                }
-
+        if (r == -ENOENT)
+                (void) names_usb(dev, prefix, NULL, test);
+        if (r < 0)
                 return 0;
-        }
 
         /* plain PCI device */
         if (names.type == NET_PCI) {
@@ -1387,19 +1391,7 @@ static int builtin_net_id(UdevEvent *event, int argc, char *argv[], bool test) {
                 return 0;
         }
 
-        /* USB device */
-        if (names_usb(dev, &names) >= 0 && names.type == NET_USB) {
-                char str[ALTIFNAMSIZ];
-
-                if (names.pci_path[0] &&
-                    snprintf_ok(str, sizeof str, "%s%s%s", prefix, names.pci_path, names.usb_ports))
-                        udev_builtin_add_property(dev, test, "ID_NET_NAME_PATH", str);
-
-                if (names.pci_slot[0] &&
-                    snprintf_ok(str, sizeof str, "%s%s%s", prefix, names.pci_slot, names.usb_ports))
-                        udev_builtin_add_property(dev, test, "ID_NET_NAME_SLOT", str);
-                return 0;
-        }
+        (void) names_usb(dev, prefix, &names, test);
 
         /* Broadcom bus */
         if (names_bcma(dev, &names) >= 0 && names.type == NET_BCMA) {
