@@ -63,12 +63,6 @@ typedef struct NetNames {
         char bcma_core[ALTIFNAMSIZ];
 } NetNames;
 
-typedef struct LinkInfo {
-        int ifindex;
-        int iflink;
-        int iftype;
-} LinkInfo;
-
 /* skip intermediate virtio devices */
 static sd_device *skip_virtio(sd_device *dev) {
         /* there can only ever be one virtio bus per parent device, so we can
@@ -1287,41 +1281,32 @@ static int get_ifname_prefix(sd_device *dev, const char **ret) {
         }
 }
 
-static int get_link_info(sd_device *dev, LinkInfo *info) {
-        int r;
+static int device_is_stacked(sd_device *dev) {
+        int ifindex, iflink, r;
 
         assert(dev);
-        assert(info);
 
-        r = sd_device_get_ifindex(dev, &info->ifindex);
+        r = sd_device_get_ifindex(dev, &ifindex);
         if (r < 0)
                 return r;
 
-        r = device_get_sysattr_int(dev, "iflink", &info->iflink);
+        r = device_get_sysattr_int(dev, "iflink", &iflink);
         if (r < 0)
                 return r;
 
-        r = device_get_sysattr_int(dev, "type", &info->iftype);
-        if (r < 0)
-                return r;
-
-        return 0;
+        return ifindex != iflink;
 }
 
 static int builtin_net_id(UdevEvent *event, int argc, char *argv[], bool test) {
         sd_device *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
         const char *prefix;
         NetNames names = {};
-        LinkInfo info = {};
         int r;
 
-        r = get_link_info(dev, &info);
-        if (r < 0)
-                return r;
-
         /* skip stacked devices, like VLANs, ... */
-        if (info.ifindex != info.iflink)
-                return 0;
+        r = device_is_stacked(dev);
+        if (r != 0)
+                return r;
 
         r = get_ifname_prefix(dev, &prefix);
         if (r < 0) {
