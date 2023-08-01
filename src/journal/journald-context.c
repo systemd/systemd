@@ -182,8 +182,8 @@ static void client_context_reset(Server *s, ClientContext *c) {
         c->log_ratelimit_interval = s->ratelimit_interval;
         c->log_ratelimit_burst = s->ratelimit_burst;
 
-        c->log_filter_allowed_patterns = set_free(c->log_filter_allowed_patterns);
-        c->log_filter_denied_patterns = set_free(c->log_filter_denied_patterns);
+        c->log_filter_allowed_patterns = set_free_free(c->log_filter_allowed_patterns);
+        c->log_filter_denied_patterns = set_free_free(c->log_filter_denied_patterns);
 }
 
 static ClientContext* client_context_free(Server *s, ClientContext *c) {
