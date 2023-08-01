@@ -55,7 +55,6 @@ typedef struct NetNames {
         char pci_slot[ALTIFNAMSIZ];
         char pci_path[ALTIFNAMSIZ];
         char pci_onboard[ALTIFNAMSIZ];
-        const char *pci_onboard_label;
 } NetNames;
 
 /* skip intermediate virtio devices */
@@ -263,7 +262,7 @@ static int dev_pci_onboard(sd_device *dev, NetNames *names) {
         assert(dev);
         assert(names);
 
-        /* retrieve on-board index number and label from firmware */
+        /* retrieve on-board index number from firmware */
         r = pci_get_onboard_index(names->pcidev, &idx);
         if (r < 0)
                 return r;
@@ -279,11 +278,28 @@ static int dev_pci_onboard(sd_device *dev, NetNames *names) {
                          idx, strna(port),
                          special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), empty_to_na(names->pci_onboard));
 
-        if (sd_device_get_sysattr_value(names->pcidev, "label", &names->pci_onboard_label) >= 0)
-                log_device_debug(dev, "Onboard label from PCI device: %s", names->pci_onboard_label);
-        else
-                names->pci_onboard_label = NULL;
+        return 0;
+}
 
+static int names_pci_onboard_label(sd_device *dev, sd_device *pci_dev, const char *prefix, bool test) {
+        const char *label;
+        int r;
+
+        assert(dev);
+        assert(prefix);
+
+        /* retrieve on-board label from firmware */
+        r = sd_device_get_sysattr_value(pci_dev, "label", &label);
+        if (r < 0)
+                return r;
+
+        char str[ALTIFNAMSIZ];
+        if (snprintf_ok(str, sizeof str, "%s%s",
+                        naming_scheme_has(NAMING_LABEL_NOPREFIX) ? "" : prefix,
+                        label))
+                udev_builtin_add_property(dev, test, "ID_NET_LABEL_ONBOARD", str);
+
+        log_device_debug(dev, "Onboard label from PCI device: %s", label);
         return 0;
 }
 
@@ -835,7 +851,7 @@ static int names_devicetree(sd_device *dev, const char *prefix, bool test) {
         return -ENOENT;
 }
 
-static int names_pci(sd_device *dev, NetNames *names) {
+static int names_pci(sd_device *dev, const char *prefix, NetNames *names, bool test) {
         _cleanup_(sd_device_unrefp) sd_device *physfn_pcidev = NULL;
         _cleanup_free_ char *virtfn_suffix = NULL;
         sd_device *parent;
@@ -843,6 +859,7 @@ static int names_pci(sd_device *dev, NetNames *names) {
         int r;
 
         assert(dev);
+        assert(prefix);
         assert(names);
 
         r = sd_device_get_parent(dev, &parent);
@@ -886,11 +903,15 @@ static int names_pci(sd_device *dev, NetNames *names) {
                         if (strlen(vf_names.pci_path) + strlen(virtfn_suffix) < sizeof(names->pci_path))
                                 strscpyl(names->pci_path, sizeof(names->pci_path),
                                          vf_names.pci_path, virtfn_suffix, NULL);
-        } else {
-                dev_pci_onboard(dev, names);
-                dev_pci_slot(dev, names);
+
+                return 0;
         }
 
+        if (names->type == NET_PCI)
+                (void) names_pci_onboard_label(dev, names->pcidev, prefix, test);
+
+        dev_pci_onboard(dev, names);
+        dev_pci_slot(dev, names);
         return 0;
 }
 
@@ -1386,7 +1407,7 @@ static int builtin_net_id(UdevEvent *event, int argc, char *argv[], bool test) {
         (void) names_xen(dev, prefix, test);
 
         /* get PCI based path names */
-        r = names_pci(dev, &names);
+        r = names_pci(dev, prefix, &names, test);
         if (r == -ENOENT)
                 (void) names_usb(dev, prefix, NULL, test);
         if (r < 0)
@@ -1399,12 +1420,6 @@ static int builtin_net_id(UdevEvent *event, int argc, char *argv[], bool test) {
                 if (names.pci_onboard[0] &&
                     snprintf_ok(str, sizeof str, "%s%s", prefix, names.pci_onboard))
                         udev_builtin_add_property(dev, test, "ID_NET_NAME_ONBOARD", str);
-
-                if (names.pci_onboard_label &&
-                    snprintf_ok(str, sizeof str, "%s%s",
-                                naming_scheme_has(NAMING_LABEL_NOPREFIX) ? "" : prefix,
-                                names.pci_onboard_label))
-                        udev_builtin_add_property(dev, test, "ID_NET_LABEL_ONBOARD", str);
 
                 if (names.pci_path[0] &&
                     snprintf_ok(str, sizeof str, "%s%s", prefix, names.pci_path))
