@@ -607,8 +607,8 @@
           <term><option>-m</option></term>
           <term><option>--children-max=</option><replaceable>value</replaceable></term>
           <listitem>
-            <para>Set the maximum number of events, systemd-udevd will handle at the
-            same time.</para>
+            <para>Set the maximum number of events, systemd-udevd will handle at the same time. When 0 is
+            specified, then the maximum is determined based on the system resources.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
