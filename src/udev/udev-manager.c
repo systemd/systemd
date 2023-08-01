@@ -19,6 +19,7 @@
 #include "list.h"
 #include "mkdir.h"
 #include "process-util.h"
+#include "rlimit-util.h"
 #include "selinux-util.h"
 #include "signal-util.h"
 #include "socket-util.h"
@@ -834,7 +835,8 @@ static int on_worker(sd_event_source *s, int fd, uint32_t revents, void *userdat
 }
 
 static void manager_set_default_children_max(Manager *manager) {
-        uint64_t cpu_limit, mem_limit, cpu_count = 1;
+        uint64_t cpu_limit, mem_limit, nof_limit, cpu_count = 1;
+        struct rlimit rl;
         int r;
 
         assert(manager);
@@ -848,10 +850,16 @@ static void manager_set_default_children_max(Manager *manager) {
         else
                 cpu_count = r;
 
+        if (getrlimit(RLIMIT_NOFILE, &rl) < 0) {
+                log_debug_errno(errno, "Failed to query RLIMIT_NOFILE, ignoring: %m");
+                rl.rlim_cur = FD_SETSIZE;
+        }
+
         cpu_limit = cpu_count * 2 + 16;
         mem_limit = MAX(physical_memory() / (128*1024*1024), UINT64_C(10));
+        nof_limit = MAX((uint64_t) rl.rlim_cur / 4, UINT64_C(10));
 
-        manager->children_max = MIN3(cpu_limit, mem_limit, WORKER_NUM_MAX);
+        manager->children_max = MIN(MIN3(cpu_limit, mem_limit, nof_limit), WORKER_NUM_MAX);
         log_debug("Set children_max to %u", manager->children_max);
 }
 
@@ -1255,6 +1263,10 @@ int manager_init(Manager *manager, int fd_ctrl, int fd_uevent) {
 
 int manager_main(Manager *manager) {
         int fd_worker, r;
+
+        /* First bump RLIMIT_NOFILE, as it will be taken into account when calculating the maximum number of
+         * worker processes. */
+        (void) rlimit_nofile_safe();
 
         manager_set_default_children_max(manager);
 
