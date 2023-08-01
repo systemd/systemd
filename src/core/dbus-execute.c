@@ -1915,8 +1915,8 @@ int bus_exec_context_set_transient_property(
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         if (strv_isempty(allow_list) && strv_isempty(deny_list)) {
-                                c->log_filter_allowed_patterns = set_free(c->log_filter_allowed_patterns);
-                                c->log_filter_denied_patterns = set_free(c->log_filter_denied_patterns);
+                                c->log_filter_allowed_patterns = set_free_free(c->log_filter_allowed_patterns);
+                                c->log_filter_denied_patterns = set_free_free(c->log_filter_denied_patterns);
                                 unit_write_settingf(u, flags, name, "%s=", name);
                         } else {
                                 r = set_put_strdupv(&c->log_filter_allowed_patterns, allow_list);
@@ -2124,7 +2124,7 @@ int bus_exec_context_set_transient_property(
 
                         if (strv_isempty(l)) {
                                 c->restrict_filesystems_allow_list = false;
-                                c->restrict_filesystems = set_free(c->restrict_filesystems);
+                                c->restrict_filesystems = set_free_free(c->restrict_filesystems);
 
                                 unit_write_setting(u, flags, name, "RestrictFileSystems=");
                                 return 1;
@@ -2374,7 +2374,7 @@ int bus_exec_context_set_transient_property(
                         return r;
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags) && isempty) {
-                        c->import_credentials = set_free(c->import_credentials);
+                        c->import_credentials = set_free_free(c->import_credentials);
                         (void) unit_write_settingf(u, flags, name, "%s=", name);
                 }
 
