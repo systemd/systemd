@@ -507,55 +507,79 @@ static int pci_get_hotplug_slot(sd_device *dev, uint32_t *ret) {
         return -ENOENT;
 }
 
-static int dev_pci_slot(sd_device *dev, const LinkInfo *info, NetNames *names) {
-        _cleanup_free_ char *port = NULL;
-        const char *sysname;
+static int get_pci_slot_specifiers(
+                sd_device *dev,
+                char **ret_domain,
+                char **ret_bus_and_slot,
+                char **ret_func) {
+
+        _cleanup_free_ char *domain_spec = NULL, *bus_and_slot_spec = NULL, *func_spec = NULL;
         unsigned domain, bus, slot, func;
+        const char *sysname;
+        int r;
+
+        assert(dev);
+        assert(ret_domain);
+        assert(ret_bus_and_slot);
+        assert(ret_func);
+
+        r = sd_device_get_sysname(dev, &sysname);
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to get sysname: %m");
+
+        r = sscanf(sysname, "%x:%x:%x.%u", &domain, &bus, &slot, &func);
+        log_device_debug(dev, "Parsing slot information from PCI device sysname \"%s\": %s",
+                         sysname, r == 4 ? "success" : "failure");
+        if (r != 4)
+                return -EINVAL;
+
+        if (naming_scheme_has(NAMING_NPAR_ARI) &&
+            is_pci_ari_enabled(dev))
+                /* ARI devices support up to 256 functions on a single device ("slot"), and interpret the
+                 * traditional 5-bit slot and 3-bit function number as a single 8-bit function number,
+                 * where the slot makes up the upper 5 bits. */
+                func += slot * 8;
+
+        if (domain > 0 && asprintf(&domain_spec, "P%u", domain) < 0)
+                return -ENOMEM;
+
+        if (asprintf(&bus_and_slot_spec, "p%us%u", bus, slot) < 0)
+                return -ENOMEM;
+
+        if ((func > 0 || is_pci_multifunction(dev) > 0) &&
+            asprintf(&func_spec, "f%u", func) < 0)
+                return -ENOMEM;
+
+        *ret_domain = TAKE_PTR(domain_spec);
+        *ret_bus_and_slot = TAKE_PTR(bus_and_slot_spec);
+        *ret_func = TAKE_PTR(func_spec);
+        return 0;
+}
+
+static int dev_pci_slot(sd_device *dev, const LinkInfo *info, NetNames *names) {
+        _cleanup_free_ char *domain = NULL, *bus_and_slot = NULL, *func = NULL, *port = NULL;
         uint32_t hotplug_slot = 0;  /* avoid false maybe-uninitialized warning */
-        size_t l;
-        char *s;
         int r;
 
         assert(dev);
         assert(info);
         assert(names);
 
-        r = sd_device_get_sysname(names->pcidev, &sysname);
+        r = get_pci_slot_specifiers(names->pcidev, &domain, &bus_and_slot, &func);
         if (r < 0)
-                return log_device_debug_errno(names->pcidev, r, "Failed to get sysname: %m");
-
-        r = sscanf(sysname, "%x:%x:%x.%u", &domain, &bus, &slot, &func);
-        log_device_debug(dev, "Parsing slot information from PCI device sysname \"%s\": %s",
-                         sysname, r == 4 ? "success" : "failure");
-        if (r != 4)
-                return -ENOENT;
-
-        if (naming_scheme_has(NAMING_NPAR_ARI) &&
-            is_pci_ari_enabled(names->pcidev))
-                /* ARI devices support up to 256 functions on a single device ("slot"), and interpret the
-                 * traditional 5-bit slot and 3-bit function number as a single 8-bit function number,
-                 * where the slot makes up the upper 5 bits. */
-                func += slot * 8;
+                return r;
 
         r = get_port_specifier(dev, /* fallback_to_dev_id = */ true, &port);
         if (r < 0)
                 return r;
 
         /* compose a name based on the raw kernel's PCI bus, slot numbers */
-        s = names->pci_path;
-        l = sizeof(names->pci_path);
-        if (domain > 0)
-                l = strpcpyf(&s, l, "P%u", domain);
-        l = strpcpyf(&s, l, "p%us%u", bus, slot);
-        if (func > 0 || is_pci_multifunction(names->pcidev) > 0)
-                l = strpcpyf(&s, l, "f%u", func);
-        if (port)
-                l = strpcpy(&s, l, port);
-        if (l == 0)
+        if (!snprintf_ok(names->pci_path, sizeof(names->pci_path), "%s%s%s%s",
+                         strempty(domain), bus_and_slot, strempty(func), strempty(port)))
                 names->pci_path[0] = '\0';
 
-        log_device_debug(dev, "PCI path identifier: domain=%u bus=%u slot=%u func=%u port=%s %s %s",
-                         domain, bus, slot, func, strna(port),
+        log_device_debug(dev, "PCI path identifier: domain=%s bus_and_slot=%s func=%s port=%s %s %s",
+                         strna(domain), bus_and_slot, strna(func), strna(port),
                          special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), empty_to_na(names->pci_path));
 
         r = pci_get_hotplug_slot(names->pcidev, &hotplug_slot);
@@ -564,22 +588,14 @@ static int dev_pci_slot(sd_device *dev, const LinkInfo *info, NetNames *names) {
         if (r > 0)
                 /* If the hotplug slot is found through the function ID, then drop the domain from the name.
                  * See comments in parse_hotplug_slot_from_function_id(). */
-                domain = 0;
+                domain = mfree(domain);
 
-        s = names->pci_slot;
-        l = sizeof(names->pci_slot);
-        if (domain > 0)
-                l = strpcpyf(&s, l, "P%u", domain);
-        l = strpcpyf(&s, l, "s%"PRIu32, hotplug_slot);
-        if (func > 0 || is_pci_multifunction(names->pcidev) > 0)
-                l = strpcpyf(&s, l, "f%u", func);
-        if (port)
-                l = strpcpy(&s, l, port);
-        if (l == 0)
+        if (!snprintf_ok(names->pci_slot, sizeof(names->pci_slot), "%ss%"PRIu32"%s%s",
+                         strempty(domain), hotplug_slot, strempty(func), strempty(port)))
                 names->pci_slot[0] = '\0';
 
-        log_device_debug(dev, "Slot identifier: domain=%u slot=%"PRIu32" func=%u port=%s %s %s",
-                         domain, hotplug_slot, func, strna(port),
+        log_device_debug(dev, "Slot identifier: domain=%s slot=%"PRIu32" func=%s port=%s %s %s",
+                         strna(domain), hotplug_slot, strna(func), strna(port),
                          special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), empty_to_na(names->pci_slot));
 
         return 0;
