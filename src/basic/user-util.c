@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/file.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <utmp.h>
