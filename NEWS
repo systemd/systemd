@@ -702,8 +702,8 @@ CHANGES WITH 254:
           server-side environment variable expansion in specified command
           lines. Expansion defaults to enabled for all execution types except
           --scope, where it defaults to off (and prints a warning) for backward
-          compatibility reasons. --scope will be flipped to default enabled too
-          in a future release, so if you are using --scope and passing a '$'
+          compatibility reasons. --scope will be flipped to enabled by default
+          too in a future release. If you are using --scope and passing a '$'
           character in the payload you should start explicitly using
           --expand-environment=yes/no according to the use case.
 
