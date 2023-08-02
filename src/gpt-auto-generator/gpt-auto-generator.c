@@ -589,7 +589,7 @@ static int add_partition_esp(DissectedPartition *p, bool has_xbootldr) {
                 r = slash_boot_in_fstab();
                 if (r < 0)
                         return r;
-                if (r == 0) {
+                if (r >= 0) {
                         r = path_is_busy("/boot");
                         if (r < 0)
                                 return r;
