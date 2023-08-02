@@ -1108,10 +1108,15 @@ void network_dump(Network *network, FILE *f) {
         assert(network);
         assert(f);
 
-        fprintf(f,
-                "[Match]\n"
-                "Name=%s\n",
-                isempty(network->ifname) ? "*" : network->ifname);
+        fputs("[Match]\n", f);
+
+        if (isempty(network->ifname))
+                /* If the interface name is not specified, then let's make the .network file match the all
+                 * physical interfaces. */
+                fputs("Kind=!*\n"
+                      "Type=!loopback\n", f);
+        else
+                fprintf(f, "Name=%s\n", network->ifname);
 
         fputs("\n[Link]\n", f);
 
