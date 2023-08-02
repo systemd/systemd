@@ -10,6 +10,7 @@
 #include "sd-dhcp6-lease.h"
 
 #include "dhcp6-option.h"
+#include "dhcp6-protocol.h"
 #include "macro.h"
 #include "time-util.h"
 
