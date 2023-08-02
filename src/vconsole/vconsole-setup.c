@@ -11,6 +11,7 @@
 #include <linux/vt.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include <sys/file.h>
 #include <sys/ioctl.h>
 #include <sysexits.h>
 #include <termios.h>
