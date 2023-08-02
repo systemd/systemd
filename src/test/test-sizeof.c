@@ -1,10 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <sched.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/resource.h>
 #include <sys/socket.h>
+#include <sys/timex.h>
 #include <sys/types.h>
 
 #define __STDC_WANT_IEC_60559_TYPES_EXT__
