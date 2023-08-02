@@ -73,6 +73,9 @@ CHANGES WITH 254:
           trailing with escape as a non comment line. For details, see:
           https://github.com/systemd/systemd/issues/27975
 
+        * PrivateNetwork=yes and NetworkNamespacePath= now imply
+          PrivateMounts=yes unless PrivateMounts=no is explicitly specified.
+
         * Behaviour of sandboxing options for the per-user service manager
           units has changed. They now imply PrivateUsers=yes, which means user
           namespaces will be implicitly enabled when a sandboxing option is
