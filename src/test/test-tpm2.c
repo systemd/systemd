@@ -988,11 +988,18 @@ static void check_supports_alg(Tpm2Context *c) {
 static void check_supports_command(Tpm2Context *c) {
         assert(c);
 
-        /* Test invalid commands */
-        assert_se(!tpm2_supports_command(c, TPM2_CC_FIRST - 1));
-        assert_se(!tpm2_supports_command(c, TPM2_CC_LAST + 1));
+        /* Test invalid commands. TPM specification Part 2 ("Structures") section "TPM_CC (Command Codes)"
+         * states bits 31:30 and 28:16 are reserved and must be 0. */
+        assert_se(!tpm2_supports_command(c, UINT32_C(0x80000000)));
+        assert_se(!tpm2_supports_command(c, UINT32_C(0x40000000)));
+        assert_se(!tpm2_supports_command(c, UINT32_C(0x00100000)));
+        assert_se(!tpm2_supports_command(c, UINT32_C(0x80000144)));
+        assert_se(!tpm2_supports_command(c, UINT32_C(0x40000144)));
+        assert_se(!tpm2_supports_command(c, UINT32_C(0x00100144)));
 
-        /* Test valid commands */
+        /* Test valid commands. We should be able to expect all TPMs support these. */
+        assert_se(tpm2_supports_command(c, TPM2_CC_Startup));
+        assert_se(tpm2_supports_command(c, TPM2_CC_StartAuthSession));
         assert_se(tpm2_supports_command(c, TPM2_CC_Create));
         assert_se(tpm2_supports_command(c, TPM2_CC_CreatePrimary));
         assert_se(tpm2_supports_command(c, TPM2_CC_Unseal));
