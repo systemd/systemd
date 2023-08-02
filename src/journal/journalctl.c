@@ -2328,10 +2328,12 @@ static int setup_event(Context *c, int fd, sd_event **ret) {
         if (r < 0)
                 return log_error_errno(r, "Failed to add io event source for journal: %m");
 
-        /* Also keeps an eye on STDOUT, and exits as soon as we see a POLLHUP on that, i.e. when it is closed. */
-        r = sd_event_add_io(e, NULL, STDOUT_FILENO, EPOLLHUP|EPOLLERR, NULL, INT_TO_PTR(-ECANCELED));
-        if (r < 0)
-                return log_error_errno(r, "Failed to add io event source for stdout: %m");
+        if (isatty(STDOUT_FILENO)) {
+                /* Also keeps an eye on STDOUT, and exits as soon as we see a POLLHUP on that, i.e. when it is closed. */
+                r = sd_event_add_io(e, NULL, STDOUT_FILENO, EPOLLHUP|EPOLLERR, NULL, INT_TO_PTR(-ECANCELED));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add io event source for stdout: %m");
+        }
 
         if (arg_lines != 0 || arg_since_set) {
                 r = sd_event_add_defer(e, NULL, on_first_event, c);
