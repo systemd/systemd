@@ -65,7 +65,8 @@ static void test_link_one(const char *filename, const char *key, const char *val
 int main(int argc, char *argv[]) {
         test_network_one("", "ip", "dhcp6",
                          "[Match]\n"
-                         "Name=*\n"
+                         "Kind=!*\n"
+                         "Type=!loopback\n"
                          "\n[Link]\n"
                          "\n[Network]\n"
                          "DHCP=ipv6\n"
@@ -228,7 +229,8 @@ int main(int argc, char *argv[]) {
 
         test_network_one("", "rd.route", "10.1.2.3/16:10.0.2.3",
                          "[Match]\n"
-                         "Name=*\n"
+                         "Kind=!*\n"
+                         "Type=!loopback\n"
                          "\n[Link]\n"
                          "\n[Network]\n"
                          "\n[DHCP]\n"
@@ -250,7 +252,8 @@ int main(int argc, char *argv[]) {
 
         test_network_one("", "nameserver", "10.1.2.3",
                          "[Match]\n"
-                         "Name=*\n"
+                         "Kind=!*\n"
+                         "Type=!loopback\n"
                          "\n[Link]\n"
                          "\n[Network]\n"
                          "DNS=10.1.2.3\n"
@@ -259,7 +262,8 @@ int main(int argc, char *argv[]) {
 
         test_network_one("", "rd.peerdns", "0",
                          "[Match]\n"
-                         "Name=*\n"
+                         "Kind=!*\n"
+                         "Type=!loopback\n"
                          "\n[Link]\n"
                          "\n[Network]\n"
                          "\n[DHCP]\n"
@@ -268,7 +272,8 @@ int main(int argc, char *argv[]) {
 
         test_network_one("", "rd.peerdns", "1",
                          "[Match]\n"
-                         "Name=*\n"
+                         "Kind=!*\n"
+                         "Type=!loopback\n"
                          "\n[Link]\n"
                          "\n[Network]\n"
                          "\n[DHCP]\n"
