@@ -113,10 +113,12 @@ CHANGES WITH 254:
 
         Service Manager:
 
-        * "Startup" memory settings are now supported. Previously IO and CPU
-          settings were already supported via StartupCPUWeight= and similar.
-          The same logic has been added for the various per-unit memory
-          settings StartupMemoryMax= and related.
+        * Memory limits that apply while the unit is activating are now
+          supported. Previously IO and CPU settings were already supported via
+          StartupCPUWeight= and similar. The same logic has been added for the
+          various manager and unit memory settings (DefaultStartupMemoryLow=,
+          StartupMemoryLow=, StartupMemoryHigh=, StartupMemoryMax=,
+          StartupMemorySwapMax=, StartupMemoryZSwapMax=).
 
         * The service manager gained support for enqueuing POSIX signals to
           services that carry an additional integer value, exposing the
