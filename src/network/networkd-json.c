@@ -5,7 +5,11 @@
 #include "dhcp-server-internal.h"
 #include "dns-domain.h"
 #include "ip-protocol-list.h"
+#include "dhcp6-protocol.h"
+#include "dhcp-lease-internal.h"
+#include "dhcp6-lease-internal.h"
 #include "netif-util.h"
+#include "networkd-link.h"
 #include "networkd-address.h"
 #include "networkd-dhcp-common.h"
 #include "networkd-json.h"
@@ -31,6 +35,8 @@ static int json_append_one(JsonVariant **v, const char *name, JsonVariant *w) {
 static int address_build_json(Address *address, JsonVariant **ret) {
         _cleanup_free_ char *scope = NULL, *flags = NULL, *state = NULL;
         int r;
+        usec_t lifetime_t1 = 0, lifetime_t2 = 0, lifetime_valid = 0;
+        uint32_t t1, t2;
 
         assert(address);
         assert(ret);
@@ -47,6 +53,24 @@ static int address_build_json(Address *address, JsonVariant **ret) {
         if (r < 0)
                 return r;
 
+        /*
+         * Get T1 and T2 values only when config source is DHCP
+         */
+        if(strcmp(network_config_source_to_string(address->source), "DHCPv6") == 0) {
+                r = dhcp6_lease_get_lifetime(address->link->dhcp6_lease, &lifetime_t1, &lifetime_t2, &lifetime_valid);
+                if( r < 0)
+                        return r;
+        } else if(strcmp(network_config_source_to_string(address->source), "DHCPv4") == 0) {
+                r = sd_dhcp_lease_get_t1(address->link->dhcp_lease, &t1);
+                if (r < 0)
+                        return r;
+                r = sd_dhcp_lease_get_t2(address->link->dhcp_lease, &t2);
+                if (r < 0)
+                        return r;
+                lifetime_t1 = t1;
+                lifetime_t2 = t2;
+        }
+
         return json_build(ret, JSON_BUILD_OBJECT(
                                 JSON_BUILD_PAIR_INTEGER("Family", address->family),
                                 JSON_BUILD_PAIR_IN_ADDR("Address", &address->in_addr, address->family),
@@ -62,6 +86,8 @@ static int address_build_json(Address *address, JsonVariant **ret) {
                                 JSON_BUILD_PAIR_FINITE_USEC("PreferredLifetimeUsec", address->lifetime_preferred_usec), /* for backward compat */
                                 JSON_BUILD_PAIR_FINITE_USEC("ValidLifetimeUSec", address->lifetime_valid_usec),
                                 JSON_BUILD_PAIR_FINITE_USEC("ValidLifetimeUsec", address->lifetime_valid_usec), /* for backward compat */
+                                JSON_BUILD_PAIR_FINITE_USEC("T1", lifetime_t1),
+                                JSON_BUILD_PAIR_FINITE_USEC("T2", lifetime_t2),
                                 JSON_BUILD_PAIR_STRING("ConfigSource", network_config_source_to_string(address->source)),
                                 JSON_BUILD_PAIR_STRING("ConfigState", state),
                                 JSON_BUILD_PAIR_IN_ADDR_NON_NULL("ConfigProvider", &address->provider, address->family)));
