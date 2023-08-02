@@ -163,15 +163,24 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int switch_root_initramfs(void) {
+        if (mount("/run/initramfs", "/run/initramfs", NULL, MS_BIND, NULL) < 0)
+                return log_error_errno(errno, "Failed to mount bind /run/initramfs on /run/initramfs: %m");
+
+        if (mount(NULL, "/run/initramfs", NULL, MS_PRIVATE, NULL) < 0)
+                return log_error_errno(errno, "Failed to make /run/initramfs private mount: %m");
+
         /* Do not detach the old root, because /run/initramfs/shutdown needs to access it.
          *
          * Disable sync() during switch-root, we after all sync'ed here plenty, and a dumb sync (as opposed
          * to the "smart" sync() we did here that looks at progress parameters) would defeat much of our
-         * efforts here. */
+         * efforts here. As the new root will be /run/initramfs/, it is not necessary to mount /run/
+         * recursively. Also, do not umount filesystems before MS_MOVE, as that should be done by ourself. */
         return switch_root(
                         /* new_root= */ "/run/initramfs",
                         /* old_root_after= */ "/oldroot",
-                        /* flags= */ SWITCH_ROOT_DONT_SYNC);
+                        /* flags= */ SWITCH_ROOT_DONT_SYNC |
+                                     SWITCH_ROOT_SKIP_RECURSIVE_RUN |
+                                     SWITCH_ROOT_SKIP_RECURSIVE_UMOUNT);
 }
 
 /* Read the following fields from /proc/meminfo:

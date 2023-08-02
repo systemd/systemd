@@ -72,11 +72,6 @@ int switch_root(const char *new_root,
                 return 0;
         }
 
-        /* Make the new root directory a mount point if it isn't */
-        r = fd_make_mount_point(new_root_fd);
-        if (r < 0)
-                return log_error_errno(r, "Failed to make new root directory a mount point: %m");
-
         if (FLAGS_SET(flags, SWITCH_ROOT_DESTROY_OLD_ROOT)) {
                 istmp = fd_is_temporary_fs(old_root_fd);
                 if (istmp < 0)
@@ -166,7 +161,8 @@ int switch_root(const char *new_root,
                  * MS_MOVE won't magically unmount anything below it. Once the chroot() succeeds the mounts
                  * below would still be around but invisible to us, because not accessible via
                  * /proc/self/mountinfo. Hence, let's clean everything up first, as long as we still can. */
-                (void) umount_recursive_full(NULL, MNT_DETACH, STRV_MAKE(new_root));
+                if (!FLAGS_SET(flags, SWITCH_ROOT_SKIP_RECURSIVE_UMOUNT))
+                        (void) umount_recursive_full(NULL, MNT_DETACH, STRV_MAKE(new_root));
 
                 if (mount(".", "/", NULL, MS_MOVE, NULL) < 0)
                         return log_error_errno(errno, "Failed to move %s to /: %m", new_root);
