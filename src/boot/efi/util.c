@@ -412,7 +412,7 @@ void sort_pointer_array(
 }
 
 EFI_STATUS get_file_info(EFI_FILE *handle, EFI_FILE_INFO **ret, size_t *ret_size) {
-        size_t size = offsetof(EFI_FILE_INFO, FileName) + 256;
+        size_t size = EFI_FILE_INFO_MIN_SIZE;
         _cleanup_free_ EFI_FILE_INFO *fi = NULL;
         EFI_STATUS err;
 
@@ -454,12 +454,7 @@ EFI_STATUS readdir(
          * the specified buffer needs to be freed by caller, after final use. */
 
         if (!*buffer) {
-                /* Some broken firmware violates the EFI spec by still advancing the readdir
-                 * position when returning EFI_BUFFER_TOO_SMALL, effectively skipping over any files when
-                 * the buffer was too small. Therefore, start with a buffer that should handle FAT32 max
-                 * file name length.
-                 * As a side effect, most readdir() calls will now be slightly faster. */
-                sz = sizeof(EFI_FILE_INFO) + 256 * sizeof(char16_t);
+                sz = EFI_FILE_INFO_MIN_SIZE;
                 *buffer = xmalloc(sz);
                 *buffer_size = sz;
         } else
