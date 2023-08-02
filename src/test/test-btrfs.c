@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
+#include <sys/file.h>
 
 #include "btrfs-util.h"
 #include "fd-util.h"
