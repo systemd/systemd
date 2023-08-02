@@ -197,8 +197,8 @@ test_network_base = {
 tests += [
         {
                 'sources' : files(
+                        'generator/test-network-generator.c',
                         'generator/network-generator.c',
-                        'generator/test-network-generator.c'
                 )
         },
         {
