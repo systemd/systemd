@@ -167,11 +167,13 @@ static int switch_root_initramfs(void) {
          *
          * Disable sync() during switch-root, we after all sync'ed here plenty, and a dumb sync (as opposed
          * to the "smart" sync() we did here that looks at progress parameters) would defeat much of our
-         * efforts here. */
+         * efforts here. As the new root will be /run/initramfs/, it is not necessary to mount /run/
+         * recursively. */
         return switch_root(
                         /* new_root= */ "/run/initramfs",
                         /* old_root_after= */ "/oldroot",
-                        /* flags= */ SWITCH_ROOT_DONT_SYNC);
+                        /* flags= */ SWITCH_ROOT_DONT_SYNC |
+                                     SWITCH_ROOT_SKIP_RECURSIVE_RUN);
 }
 
 /* Read the following fields from /proc/meminfo:
