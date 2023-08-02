@@ -166,7 +166,8 @@ int switch_root(const char *new_root,
                  * MS_MOVE won't magically unmount anything below it. Once the chroot() succeeds the mounts
                  * below would still be around but invisible to us, because not accessible via
                  * /proc/self/mountinfo. Hence, let's clean everything up first, as long as we still can. */
-                (void) umount_recursive_full(NULL, MNT_DETACH, STRV_MAKE(new_root));
+                if (!FLAGS_SET(flags, SWITCH_ROOT_SKIP_RECURSIVE_UMOUNT))
+                        (void) umount_recursive_full(NULL, MNT_DETACH, STRV_MAKE(new_root));
 
                 if (mount(".", "/", NULL, MS_MOVE, NULL) < 0)
                         return log_error_errno(errno, "Failed to move %s to /: %m", new_root);
