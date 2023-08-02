@@ -633,7 +633,7 @@ static int varlink_write(Varlink *v) {
 #define VARLINK_FDS_MAX (16U*1024U)
 
 static int varlink_read(Varlink *v) {
-        CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(int) * VARLINK_FDS_MAX)) control;
+        _cleanup_free_ struct cmsghdr *cmsg_fds = NULL;
         struct iovec iov;
         struct msghdr mh;
         size_t rs;
@@ -690,9 +690,13 @@ static int varlink_read(Varlink *v) {
                 mh = (struct msghdr) {
                         .msg_iov = &iov,
                         .msg_iovlen = 1,
-                        .msg_control = &control,
-                        .msg_controllen = sizeof(control),
                 };
+
+                mh.msg_controllen = CMSG_SPACE(sizeof(int) * VARLINK_FDS_MAX);
+                mh.msg_control = cmsg_fds = malloc(mh.msg_controllen);
+                if (!cmsg_fds)
+                        return -ENOMEM;
+
                 n = recvmsg_safe(v->fd, &mh, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
         } else {
                 bool prefer_read = v->prefer_read_write;
