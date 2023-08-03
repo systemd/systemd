@@ -4768,7 +4768,7 @@ if want_tests != 'false' and static_libudev != 'false'
 endif
 
 if want_tests != 'false'
-        exe = TESTS.get('udev-rule-runner')
+        exe = TESTS.get('test-udev-rule-runner')
         test('test-udev',
              test_udev_py,
              args : ['-v'],

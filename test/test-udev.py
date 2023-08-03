@@ -43,7 +43,7 @@ SYS_SCRIPT     = Path(__file__).with_name('sys-script.py')
 try:
     UDEV_BIN   = Path(os.environ['UDEV_RULE_RUNNER'])
 except KeyError:
-    UDEV_BIN   = Path(__file__).parent / 'manual/udev-rule-runner'
+    UDEV_BIN   = Path(__file__).parent / 'manual/test-udev-rule-runner'
 UDEV_BIN = UDEV_BIN.absolute()
 
 # Those will be set by the udev_setup() fixture

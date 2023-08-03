@@ -227,6 +227,23 @@ tests += [
                 'base' : test_libudev_base,
         },
         {
+                'sources' : files('test-udev-rule-runner.c'),
+                'link_with' : [
+                        libshared,
+                        libudevd_core,
+                ],
+                'dependencies' : [
+                        libacl,
+                        libblkid,
+                        libkmod,
+                        librt,
+                        libselinux,
+                        threads,
+                ],
+                'includes' : udev_includes,
+                'type' : 'manual',
+        },
+        {
                 'sources' : files('test-udev-rules.c'),
                 'base' : test_libudev_base,
         },

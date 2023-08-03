@@ -410,23 +410,6 @@ tests += [
                 'timeout' : 120,
         },
         {
-                'sources' : files('udev-rule-runner.c'),
-                'link_with' : [
-                        libshared,
-                        libudevd_core,
-                ],
-                'dependencies' : [
-                        libacl,
-                        libblkid,
-                        libkmod,
-                        librt,
-                        libselinux,
-                        threads,
-                ],
-                'includes' : udev_includes,
-                'type' : 'manual',
-        },
-        {
                 'sources' : files('test-utmp.c'),
                 'condition' : 'ENABLE_UTMP',
         },
