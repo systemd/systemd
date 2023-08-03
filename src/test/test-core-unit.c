@@ -11,8 +11,8 @@ static void test_unit_escape_setting_one(
                 const char *expected_exec,
                 const char *expected_c) {
 
-        _cleanup_free_ char *a = NULL, *b, *c, *d,
-                *s_esc, *a_esc, *b_esc, *c_esc, *d_esc;
+        _cleanup_free_ char *a = NULL, *b = NULL, *c = NULL, *d = NULL,
+                *s_esc = NULL, *a_esc = NULL, *b_esc = NULL, *c_esc = NULL, *d_esc = NULL;
         const char *t;
 
         if (!expected_exec_env)
@@ -66,8 +66,8 @@ static void test_unit_concat_strv_one(
                 const char *expected_exec,
                 const char *expected_c) {
 
-        _cleanup_free_ char *a, *b, *c, *d,
-                *s_ser, *s_esc, *a_esc, *b_esc, *c_esc, *d_esc;
+        _cleanup_free_ char *a = NULL, *b = NULL, *c = NULL, *d = NULL,
+                *s_ser = NULL, *s_esc = NULL, *a_esc = NULL, *b_esc = NULL, *c_esc = NULL, *d_esc = NULL;
 
         assert_se(s_ser = strv_join(s, "_"));
         assert_se(s_esc = cescape(s_ser));
