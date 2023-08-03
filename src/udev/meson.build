@@ -247,9 +247,18 @@ executables += [
         },
 ]
 
-meson.add_install_script(meson_make_symlink,
-                         bindir / 'udevadm',
-                         libexecdir / 'systemd-udevd')
+# Old systems (e.g. CentOS 8), 'systemd-udevd' is a regular file, and install_symlink() command cannot
+# replace existing non-symbolic file. Hence, we need to use 'ln -sf' command here. Let's replace it later
+# with the below when meson supports 'force' flag to replace existing file.
+#
+#assert(fs.parent(fs.parent(libexecdir)) / 'bin' == bindir)
+#install_symlink('systemd-udevd',
+#                pointing_to : '../../bin/udevadm',
+#                install_dir : libexecdir)
+#
+meson.add_install_script(sh, '-c',
+                         ln_s.format(bindir / 'udevadm',
+                                     libexecdir / 'systemd-udevd'))
 
 if install_sysconfdir_samples
         install_data('udev.conf',
@@ -268,6 +277,5 @@ udev_pc = custom_target(
         install_dir : pkgconfigdatadir)
 
 if install_sysconfdir
-        meson.add_install_script('sh', '-c',
-                                 mkdir_p.format(sysconfdir / 'udev/rules.d'))
+        install_emptydir(sysconfdir / 'udev/rules.d')
 endif
