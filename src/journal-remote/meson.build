@@ -81,6 +81,14 @@ executables += [
                 'sources' : systemd_journal_gatewayd_sources,
                 'dependencies' : common_deps + [libmicrohttpd],
         },
+        fuzz_template + {
+                'sources' : files('fuzz-journal-remote.c'),
+                'link_with' : [
+                        libshared,
+                        libsystemd_journal_remote,
+                ],
+                'include_directories' : journal_includes,
+        },
 ]
 
 in_files = [
@@ -112,16 +120,3 @@ if conf.get('ENABLE_REMOTE') == 1 and conf.get('HAVE_MICROHTTPD') == 1
                                             chmod 755 $DESTDIR/var/log/journal/remote || :''')
         endif
 endif
-
-############################################################
-
-fuzzers += [
-        {
-                'sources' : files('fuzz-journal-remote.c'),
-                'link_with' : [
-                        libshared,
-                        libsystemd_journal_remote,
-                ],
-                'includes' : journal_includes,
-        },
-]
