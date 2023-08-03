@@ -41,7 +41,8 @@ static void scope_init(Unit *u) {
         assert(u->load_state == UNIT_STUB);
 
         s->runtime_max_usec = USEC_INFINITY;
-        s->timeout_stop_usec = u->manager->default_timeout_stop_usec;
+        if (u->manager)
+                s->timeout_stop_usec = u->manager->default_timeout_stop_usec;
         u->ignore_on_isolate = true;
         s->user = s->group = NULL;
         s->oom_policy = _OOM_POLICY_INVALID;
@@ -156,7 +157,8 @@ static int scope_verify(Scope *s) {
 
         if (set_isempty(UNIT(s)->pids) &&
             !MANAGER_IS_RELOADING(UNIT(s)->manager) &&
-            !unit_has_name(UNIT(s), SPECIAL_INIT_SCOPE))
+            !unit_has_name(UNIT(s), SPECIAL_INIT_SCOPE) &&
+            !unit_has_name(UNIT(s), SPECIAL_INIT_WORKERS_SCOPE))
                 return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOENT), "Scope has no PIDs. Refusing.");
 
         return 0;
@@ -165,14 +167,14 @@ static int scope_verify(Scope *s) {
 static int scope_load_init_scope(Unit *u) {
         assert(u);
 
-        if (!unit_has_name(u, SPECIAL_INIT_SCOPE))
+        if (!unit_has_name(u, SPECIAL_INIT_SCOPE) && !unit_has_name(u, SPECIAL_INIT_WORKERS_SCOPE))
                 return 0;
 
         u->transient = true;
         u->perpetual = true;
 
-        /* init.scope is a bit special, as it has to stick around forever. Because of its special semantics we
-         * synthesize it here, instead of relying on the unit file on disk. */
+        /* init.scope and init-workers.scope are a bit special, as it has to stick around forever. Because
+         * of its special semantics we synthesize it here, instead of relying on the unit file on disk. */
 
         u->default_dependencies = false;
 
@@ -480,7 +482,7 @@ static int scope_start(Unit *u) {
 
         assert(s);
 
-        if (unit_has_name(u, SPECIAL_INIT_SCOPE))
+        if (unit_has_name(u, SPECIAL_INIT_SCOPE) || unit_has_name(u, SPECIAL_INIT_WORKERS_SCOPE))
                 return -EPERM;
 
         if (s->state == SCOPE_FAILED)
@@ -727,7 +729,7 @@ static int scope_dispatch_timer(sd_event_source *source, usec_t usec, void *user
 int scope_abandon(Scope *s) {
         assert(s);
 
-        if (unit_has_name(UNIT(s), SPECIAL_INIT_SCOPE))
+        if (unit_has_name(UNIT(s), SPECIAL_INIT_SCOPE) || unit_has_name(UNIT(s), SPECIAL_INIT_WORKERS_SCOPE))
                 return -EPERM;
 
         if (!IN_SET(s->state, SCOPE_RUNNING, SCOPE_ABANDONED))
@@ -765,30 +767,32 @@ static void scope_enumerate_perpetual(Manager *m) {
 
         assert(m);
 
-        /* Let's unconditionally add the "init.scope" special unit
-         * that encapsulates PID 1. Note that PID 1 already is in the
-         * cgroup for this, we hence just need to allocate the object
-         * for it and that's it. */
+        /* Let's unconditionally add the "init.scope" and "init-workers.scope" special units that
+         * encapsulate PID 1 and the workers pool. Note that PID 1 already is in the cgroup for
+         * this, we hence just need to allocate the object for it and that's it. */
 
-        u = manager_get_unit(m, SPECIAL_INIT_SCOPE);
-        if (!u) {
-                r = unit_new_for_name(m, sizeof(Scope), SPECIAL_INIT_SCOPE, &u);
-                if (r < 0)  {
-                        log_error_errno(r, "Failed to allocate the special " SPECIAL_INIT_SCOPE " unit: %m");
-                        return;
+        STRV_FOREACH(scope, STRV_MAKE(SPECIAL_INIT_SCOPE, SPECIAL_INIT_WORKERS_SCOPE)) {
+                u = manager_get_unit(m, *scope);
+                if (!u) {
+                        r = unit_new_for_name(m, sizeof(Scope), *scope, &u);
+                        if (r < 0)  {
+                                log_error_errno(r, "Failed to allocate the special %s unit: %m", *scope);
+                                return;
+                        }
                 }
+
+                u->transient = true;
+                u->perpetual = true;
+                SCOPE(u)->deserialized_state = SCOPE_RUNNING;
+
+                unit_add_to_load_queue(u);
+                unit_add_to_dbus_queue(u);
+                /* Enqueue an explicit cgroup realization here. Unlike other cgroups this one already
+                 * exists and is populated (by us, after all!) already, even when we are not in a reload
+                 * cycle. Hence we cannot apply the settings at creation time anymore, but let's at least
+                 * apply them asynchronously. */
+                unit_add_to_cgroup_realize_queue(u);
         }
-
-        u->transient = true;
-        u->perpetual = true;
-        SCOPE(u)->deserialized_state = SCOPE_RUNNING;
-
-        unit_add_to_load_queue(u);
-        unit_add_to_dbus_queue(u);
-        /* Enqueue an explicit cgroup realization here. Unlike other cgroups this one already exists and is
-         * populated (by us, after all!) already, even when we are not in a reload cycle. Hence we cannot
-         * apply the settings at creation time anymore, but let's at least apply them asynchronously. */
-        unit_add_to_cgroup_realize_queue(u);
 }
 
 static const char* const scope_result_table[_SCOPE_RESULT_MAX] = {

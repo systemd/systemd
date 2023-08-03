@@ -35,6 +35,7 @@ libcore_sources = files(
         'efi-random.c',
         'emergency-action.c',
         'execute.c',
+        'execute-serialize.c',
         'generator-setup.c',
         'ima-setup.c',
         'import-creds.c',
@@ -163,6 +164,13 @@ executables += [
         },
         fuzz_template + {
                 'sources' : files('fuzz-manager-serialize.c'),
+                'link_with' : [
+                        libcore,
+                        libshared
+                ],
+        },
+        fuzz_template + {
+                'sources' : files('fuzz-execute-serialize.c'),
                 'link_with' : [
                         libcore,
                         libshared
