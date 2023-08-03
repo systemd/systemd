@@ -260,7 +260,7 @@ TEST(real_pressure) {
         assert_se(sd_event_source_set_memory_pressure_period(es, 70 * USEC_PER_MSEC, USEC_PER_SEC) == 0);
         assert_se(sd_event_source_set_enabled(es, SD_EVENT_ONESHOT) >= 0);
 
-        _cleanup_free_ char *uo;
+        _cleanup_free_ char *uo = NULL;
         assert_se(uo = unit_dbus_path_from_name(scope));
 
         uint64_t mcurrent = UINT64_MAX;

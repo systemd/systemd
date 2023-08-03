@@ -137,7 +137,7 @@ TEST(ellipsize_ansi) {
 }
 
 TEST(ellipsize_ansi_cats) {
-        _cleanup_free_ char *e, *f, *g, *h;
+        _cleanup_free_ char *e = NULL, *f = NULL, *g = NULL, *h = NULL;
 
         /* Make sure we don't cut off in the middle of an ANSI escape sequence. */
 
