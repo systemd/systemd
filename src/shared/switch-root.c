@@ -76,6 +76,18 @@ int switch_root(const char *new_root,
         r = fd_make_mount_point(new_root_fd);
         if (r < 0)
                 return log_error_errno(r, "Failed to make new root directory a mount point: %m");
+        if (r > 0) {
+                int fd;
+
+                /* When the path was not a mount point, then we need to reopen the path, otherwise, it still
+                 * points to the underlying directory. */
+
+                fd = open(new_root, O_DIRECTORY|O_CLOEXEC);
+                if (fd < 0)
+                        return log_error_errno(errno, "Failed to reopen target directory '%s': %m", new_root);
+
+                close_and_replace(new_root_fd, fd);
+        }
 
         if (FLAGS_SET(flags, SWITCH_ROOT_DESTROY_OLD_ROOT)) {
                 istmp = fd_is_temporary_fs(old_root_fd);
