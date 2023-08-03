@@ -985,6 +985,11 @@ nspawn_locale = get_option('nspawn-locale')
 conf.set_quoted('SYSTEMD_NSPAWN_LOCALE', nspawn_locale)
 
 default_keymap = get_option('default-keymap')
+if default_keymap == ''
+        # We canonicalize empty keymap to 'kernel', as it makes the default value
+        # in the factory provided /etc/vconsole.conf more obvious.
+        default_keymap = 'kernel'
+endif
 conf.set_quoted('SYSTEMD_DEFAULT_KEYMAP', default_keymap)
 
 localegen_path = get_option('localegen-path')

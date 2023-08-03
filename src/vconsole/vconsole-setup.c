@@ -281,7 +281,7 @@ static int keyboard_load_and_wait(const char *vc, Context *c, bool utf8) {
         map_toggle = context_get_config(c, VC_KEYMAP_TOGGLE);
 
         /* An empty map means kernel map */
-        if (isempty(map))
+        if (isempty(map) || streq(map, "kernel"))
                 return 0;
 
         args[i++] = KBD_LOADKEYS;
