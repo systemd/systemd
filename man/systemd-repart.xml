@@ -440,6 +440,14 @@
         due to missing permissions.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--copy-from=</option><arg>IMAGE</arg></term>
+
+        <listitem><para>Instructs <command>systemd-repart</command> to copy the partitions from the given
+        image. The partitions from the given image are synthesized into partition definitions that are
+        parsed before the partition definition files.</para></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
       <xi:include href="standard-options.xml" xpointer="no-pager" />
