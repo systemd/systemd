@@ -123,6 +123,19 @@ link_with = [
         libsystemd_resolve_core,
 ]
 
+resolve_common_template = {
+        'link_with' : [
+                libshared,
+                libsystemd_resolve_core,
+        ],
+        'dependencies' : [
+                lib_openssl_or_gcrypt,
+                libm,
+        ],
+}
+resolve_test_template = test_template + resolve_common_template
+resolve_fuzz_template = fuzz_template + resolve_common_template
+
 executables += [
         libexec_template + {
                 'name' : 'systemd-resolved',
@@ -146,6 +159,54 @@ executables += [
                         libm,
                         threads,
                 ],
+        },
+        resolve_test_template + {
+                'sources' : files('test-resolve-tables.c'),
+        },
+        resolve_test_template + {
+                'sources' : files('test-dns-packet.c'),
+        },
+        resolve_test_template + {
+                'sources' : files(
+                        'test-resolved-etc-hosts.c',
+                        'resolved-etc-hosts.c',
+                ),
+        },
+        resolve_test_template + {
+                'sources' : files('test-resolved-packet.c'),
+        },
+        resolve_test_template + {
+                'sources' : files('test-dnssec.c'),
+                'conditions' : ['HAVE_OPENSSL_OR_GCRYPT'],
+        },
+        resolve_test_template + {
+                'sources' : files('test-dnssec-complex.c'),
+                'type' : 'manual',
+        },
+        test_template + {
+                'sources' : [
+                        files('test-resolved-stream.c'),
+                        basic_dns_sources,
+                        systemd_resolved_sources,
+                ],
+                'dependencies' : [
+                        lib_openssl_or_gcrypt,
+                        libm,
+                        systemd_resolved_dependencies,
+                ],
+                'include_directories' : resolve_includes,
+        },
+        resolve_fuzz_template + {
+                'sources' : files('fuzz-dns-packet.c'),
+        },
+        resolve_fuzz_template + {
+                'sources' : files(
+                        'fuzz-etc-hosts.c',
+                        'resolved-etc-hosts.c',
+                ),
+        },
+        resolve_fuzz_template + {
+                'sources' : files('fuzz-resource-record.c'),
         },
 ]
 
@@ -175,78 +236,3 @@ custom_target(
         command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
         install : conf.get('ENABLE_RESOLVE') == 1 and install_sysconfdir_samples,
         install_dir : pkgsysconfdir)
-
-############################################################
-
-test_resolve_base = {
-        'link_with' : [libsystemd_resolve_core, libshared],
-        'dependencies' : [lib_openssl_or_gcrypt, libm],
-}
-
-tests += [
-        {
-                'sources' : files('test-resolve-tables.c'),
-                'base' : test_resolve_base,
-        },
-        {
-                'sources' : files('test-dns-packet.c'),
-                'base' : test_resolve_base,
-        },
-        {
-                'sources' : files(
-                        'test-resolved-etc-hosts.c',
-                        'resolved-etc-hosts.c',
-                ),
-                'base' : test_resolve_base,
-        },
-        {
-                'sources' : files('test-resolved-packet.c'),
-                'base' : test_resolve_base,
-        },
-        {
-                'sources' : files('test-dnssec.c'),
-                'base' : test_resolve_base,
-                'condition' : 'HAVE_OPENSSL_OR_GCRYPT',
-        },
-        {
-                'sources' : files('test-dnssec-complex.c'),
-                'base' : test_resolve_base,
-                'type' : 'manual',
-        },
-        {
-                'sources' : [
-                        files('test-resolved-stream.c'),
-                        basic_dns_sources,
-                        systemd_resolved_sources,
-                ],
-                'dependencies' : [
-                        lib_openssl_or_gcrypt,
-                        libm,
-                        systemd_resolved_dependencies,
-                ],
-                'includes' : resolve_includes,
-        },
-]
-
-fuzzer_resolve_base = {
-        'link_with' : [libsystemd_resolve_core, libshared],
-        'dependencies' : [lib_openssl_or_gcrypt, libm],
-}
-
-fuzzers += [
-        {
-                'sources' : files('fuzz-dns-packet.c'),
-                'base' : fuzzer_resolve_base,
-        },
-        {
-                'sources' : files(
-                        'fuzz-etc-hosts.c',
-                        'resolved-etc-hosts.c',
-                ),
-                'base' : fuzzer_resolve_base,
-        },
-        {
-                'sources' : files('fuzz-resource-record.c'),
-                'base' : fuzzer_resolve_base,
-        },
-]
