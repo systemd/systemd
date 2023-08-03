@@ -140,9 +140,12 @@ static size_t arg_key_size = 0;
 static EVP_PKEY *arg_private_key = NULL;
 static X509 *arg_certificate = NULL;
 static char *arg_tpm2_device = NULL;
-static uint32_t arg_tpm2_pcr_mask = UINT32_MAX;
+static Tpm2PCRValue *arg_tpm2_hash_pcr_values = NULL;
+static size_t arg_tpm2_n_hash_pcr_values = 0;
+static bool arg_tpm2_hash_pcr_values_use_default = true;
 static char *arg_tpm2_public_key = NULL;
-static uint32_t arg_tpm2_public_key_pcr_mask = UINT32_MAX;
+static uint32_t arg_tpm2_public_key_pcr_mask = 0;
+static bool arg_tpm2_public_key_pcr_mask_use_default = true;
 static bool arg_split = false;
 static GptPartitionType *arg_filter_partitions = NULL;
 static size_t arg_n_filter_partitions = 0;
@@ -162,6 +165,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_key, erase_and_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_private_key, EVP_PKEY_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_certificate, X509_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_device, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_tpm2_hash_pcr_values, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_public_key, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_filter_partitions, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
@@ -3639,10 +3643,9 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                 _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
                 _cleanup_(erase_and_freep) void *secret = NULL;
                 _cleanup_free_ void *pubkey = NULL;
-                _cleanup_free_ void *blob = NULL, *hash = NULL, *srk_buf = NULL;
-                size_t secret_size, blob_size, hash_size, pubkey_size = 0, srk_buf_size = 0;
+                _cleanup_free_ void *blob = NULL, *srk_buf = NULL;
+                size_t secret_size, blob_size, pubkey_size = 0, srk_buf_size = 0;
                 ssize_t base64_encoded_size;
-                uint16_t pcr_bank, primary_alg;
                 int keyslot;
 
                 if (arg_tpm2_public_key_pcr_mask != 0) {
@@ -3656,18 +3659,51 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                         }
                 }
 
-                r = tpm2_seal(arg_tpm2_device,
-                              arg_tpm2_pcr_mask,
-                              pubkey, pubkey_size,
-                              arg_tpm2_public_key_pcr_mask,
+                _cleanup_(tpm2_context_unrefp) Tpm2Context *tpm2_context = NULL;
+                r = tpm2_context_new(arg_tpm2_device, &tpm2_context);
+                if (r < 0)
+                        return r;
+
+                TPM2B_PUBLIC public;
+                if (pubkey) {
+                        r = tpm2_tpm2b_public_from_pem(pubkey, pubkey_size, &public);
+                        if (r < 0)
+                                return log_error_errno(r, "Could not convert public key to TPM2B_PUBLIC: %m");
+                }
+
+                r = tpm2_pcr_read_missing_values(tpm2_context, arg_tpm2_hash_pcr_values, arg_tpm2_n_hash_pcr_values);
+                if (r < 0)
+                        return r;
+
+                uint16_t hash_pcr_bank = 0;
+                uint32_t hash_pcr_mask = 0;
+                if (arg_tpm2_n_hash_pcr_values > 0) {
+                        size_t hash_count;
+                        r = tpm2_pcr_values_hash_count(arg_tpm2_hash_pcr_values, arg_tpm2_n_hash_pcr_values, &hash_count);
+                        if (r < 0)
+                                return log_error_errno(r, "Could not get hash count: %m");
+
+                        if (hash_count > 1)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Multiple PCR banks selected.");
+
+                        hash_pcr_bank = arg_tpm2_hash_pcr_values[0].hash;
+                        r = tpm2_pcr_values_to_mask(arg_tpm2_hash_pcr_values, arg_tpm2_n_hash_pcr_values, hash_pcr_bank, &hash_pcr_mask);
+                        if (r < 0)
+                                return log_error_errno(r, "Could not get hash mask: %m");
+                }
+
+                TPM2B_DIGEST policy = TPM2B_DIGEST_MAKE(NULL, TPM2_SHA256_DIGEST_SIZE);
+                r = tpm2_calculate_sealing_policy(arg_tpm2_hash_pcr_values, arg_tpm2_n_hash_pcr_values, &public, /* use_pin= */ false, &policy);
+                if (r < 0)
+                        return r;
+
+                r = tpm2_seal(tpm2_context,
+                              &policy,
                               /* pin= */ NULL,
                               &secret, &secret_size,
                               &blob, &blob_size,
-                              &hash, &hash_size,
-                              &pcr_bank,
-                              &primary_alg,
-                              &srk_buf,
-                              &srk_buf_size);
+                              /* ret_primary_alg= */ NULL,
+                              &srk_buf, &srk_buf_size);
                 if (r < 0)
                         return log_error_errno(r, "Failed to seal to TPM2: %m");
 
@@ -3691,13 +3727,13 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
 
                 r = tpm2_make_luks2_json(
                                 keyslot,
-                                arg_tpm2_pcr_mask,
-                                pcr_bank,
+                                hash_pcr_mask,
+                                hash_pcr_bank,
                                 pubkey, pubkey_size,
                                 arg_tpm2_public_key_pcr_mask,
-                                primary_alg,
+                                /* primary_alg= */ 0,
                                 blob, blob_size,
-                                hash, hash_size,
+                                policy.buffer, policy.size,
                                 NULL, 0, /* no salt because tpm2_seal has no pin */
                                 srk_buf, srk_buf_size,
                                 0,
@@ -6447,7 +6483,8 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
                 case ARG_TPM2_PCRS:
-                        r = tpm2_parse_pcr_argument(optarg, &arg_tpm2_pcr_mask);
+                        arg_tpm2_hash_pcr_values_use_default = false;
+                        r = tpm2_parse_pcr_argument_append(optarg, &arg_tpm2_hash_pcr_values, &arg_tpm2_n_hash_pcr_values);
                         if (r < 0)
                                 return r;
 
@@ -6461,7 +6498,8 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_TPM2_PUBLIC_KEY_PCRS:
-                        r = tpm2_parse_pcr_argument(optarg, &arg_tpm2_public_key_pcr_mask);
+                        arg_tpm2_public_key_pcr_mask_use_default = false;
+                        r = tpm2_parse_pcr_argument_to_mask(optarg, &arg_tpm2_public_key_pcr_mask);
                         if (r < 0)
                                 return r;
 
@@ -6597,10 +6635,15 @@ static int parse_argv(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "A path to a loopback file must be specified when --split is used.");
 
-        if (arg_tpm2_pcr_mask == UINT32_MAX)
-                arg_tpm2_pcr_mask = TPM2_PCR_MASK_DEFAULT;
-        if (arg_tpm2_public_key_pcr_mask == UINT32_MAX)
-                arg_tpm2_public_key_pcr_mask = UINT32_C(1) << TPM_PCR_INDEX_KERNEL_IMAGE;
+        if (arg_tpm2_public_key_pcr_mask_use_default && arg_tpm2_public_key)
+                arg_tpm2_public_key_pcr_mask = INDEX_TO_MASK(uint32_t, TPM_PCR_INDEX_KERNEL_IMAGE);
+
+        if (arg_tpm2_hash_pcr_values_use_default && !GREEDY_REALLOC_APPEND(
+                        arg_tpm2_hash_pcr_values,
+                        arg_tpm2_n_hash_pcr_values,
+                        &TPM2_PCR_VALUE_MAKE(TPM2_PCR_INDEX_DEFAULT, /* hash= */ 0, /* value= */ {}),
+                        1))
+                return log_oom();
 
         if (arg_pretty < 0 && isatty(STDOUT_FILENO))
                 arg_pretty = true;
