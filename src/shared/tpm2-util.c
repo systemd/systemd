@@ -1552,6 +1552,63 @@ static int tpm2_get_policy_digest(
         return 0;
 }
 
+static int tpm2_create_primary(
+                Tpm2Context *c,
+                const Tpm2Handle *parent,
+                const Tpm2Handle *session,
+                const TPM2B_PUBLIC *template,
+                const TPM2B_SENSITIVE_CREATE *sensitive,
+                TPM2B_PUBLIC **ret_public,
+                Tpm2Handle **ret_handle) {
+
+        usec_t ts;
+        TSS2_RC rc;
+        int r;
+
+        assert(c);
+        assert(template);
+
+        log_debug("Creating primary key on TPM.");
+
+        ts = now(CLOCK_MONOTONIC);
+
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *handle = NULL;
+        r = tpm2_handle_new(c, &handle);
+        if (r < 0)
+                return r;
+
+        _cleanup_(Esys_Freep) TPM2B_PUBLIC *public = NULL;
+        rc = sym_Esys_CreatePrimary(
+                        c->esys_context,
+                        parent ? parent->esys_handle : ESYS_TR_RH_OWNER,
+                        session ? session->esys_handle : ESYS_TR_PASSWORD,
+                        ESYS_TR_NONE,
+                        ESYS_TR_NONE,
+                        sensitive ? sensitive : &(TPM2B_SENSITIVE_CREATE) {},
+                        template,
+                        /* outsideInfo= */ NULL,
+                        &(TPML_PCR_SELECTION) {},
+                        &handle->esys_handle,
+                        &public,
+                        /* creationData= */ NULL,
+                        /* creationHash= */ NULL,
+                        /* creationTicket= */ NULL);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to generate primary key in TPM: %s",
+                                       sym_Tss2_RC_Decode(rc));
+
+        log_debug("Successfully created primary key on TPM in %s.",
+                  FORMAT_TIMESPAN(now(CLOCK_MONOTONIC) - ts, USEC_PER_MSEC));
+
+        if (ret_public)
+                *ret_public = TAKE_PTR(public);
+        if (ret_handle)
+                *ret_handle = TAKE_PTR(handle);
+
+        return 0;
+}
+
 static int tpm2_create(
                 Tpm2Context *c,
                 const Tpm2Handle *parent,
@@ -3303,29 +3360,28 @@ int tpm2_seal(const char *device,
                         return r;
         } else {
                 /* TODO: force all callers to provide ret_srk_buf, so we can stop sealing with the legacy templates. */
-                TPMT_PUBLIC template;
-                r = tpm2_get_legacy_template(TPM2_ALG_ECC, &template);
+                TPM2B_PUBLIC template = { .size = sizeof(TPMT_PUBLIC), };
+                r = tpm2_get_legacy_template(TPM2_ALG_ECC, &template.publicArea);
                 if (r < 0)
                         return log_error_errno(r, "Could not get legacy ECC template: %m");
 
-                if (!tpm2_supports_tpmt_public(c, &template)) {
-                        r = tpm2_get_legacy_template(TPM2_ALG_RSA, &template);
+                if (!tpm2_supports_tpmt_public(c, &template.publicArea)) {
+                        r = tpm2_get_legacy_template(TPM2_ALG_RSA, &template.publicArea);
                         if (r < 0)
                                 return log_error_errno(r, "Could not get legacy RSA template: %m");
 
-                        if (!tpm2_supports_tpmt_public(c, &template))
+                        if (!tpm2_supports_tpmt_public(c, &template.publicArea))
                                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                                        "TPM does not support either ECC or RSA legacy template.");
                 }
 
-                r = tpm2_create_loaded(
+                r = tpm2_create_primary(
                                 c,
                                 /* parent= */ NULL,
                                 /* session= */ NULL,
                                 &template,
                                 /* sensitive= */ NULL,
                                 &primary_public,
-                                /* ret_private= */ NULL,
                                 &primary_handle);
                 if (r < 0)
                         return r;
@@ -3509,19 +3565,18 @@ int tpm2_unseal(const char *device,
                         return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                                "Failed to deserialize primary key: %s", sym_Tss2_RC_Decode(rc));
         } else if (primary_alg != 0) {
-                TPMT_PUBLIC template;
-                r = tpm2_get_legacy_template(primary_alg, &template);
+                TPM2B_PUBLIC template = { .size = sizeof(TPMT_PUBLIC), };
+                r = tpm2_get_legacy_template(primary_alg, &template.publicArea);
                 if (r < 0)
                         return log_error_errno(r, "Could not get legacy template: %m");
 
-                r = tpm2_create_loaded(
+                r = tpm2_create_primary(
                                 c,
                                 /* parent= */ NULL,
                                 /* session= */ NULL,
                                 &template,
                                 /* sensitive= */ NULL,
                                 /* ret_public= */ NULL,
-                                /* ret_private= */ NULL,
                                 &primary_handle);
                 if (r < 0)
                         return r;
