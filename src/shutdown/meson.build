@@ -12,8 +12,8 @@ systemd_shutdown_sources = files(
 tests += [
         {
                 'sources' : files(
-                        'detach-swap.c',
                         'test-umount.c',
+                        'detach-swap.c',
                         'umount.c',
                 ),
                 'dependencies' : libmount,
