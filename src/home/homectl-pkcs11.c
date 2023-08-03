@@ -8,7 +8,6 @@
 #include "memory-util.h"
 #include "openssl-util.h"
 #include "pkcs11-util.h"
-#include "random-util.h"
 #include "strv.h"
 
 static int add_pkcs11_encrypted_key(
@@ -158,9 +157,9 @@ static int acquire_pkcs11_certificate(
 }
 
 int identity_add_pkcs11_key_data(JsonVariant **v, const char *uri) {
-        _cleanup_(erase_and_freep) void *decrypted_key = NULL, *savedata = NULL;
+        _cleanup_(erase_and_freep) void *decrypted_key = NULL, *saved_key = NULL;
         _cleanup_(erase_and_freep) char *pin = NULL;
-        size_t decrypted_key_size, savedata_size;
+        size_t decrypted_key_size, saved_key_size;
         _cleanup_(X509_freep) X509 *cert = NULL;
         int r;
 
@@ -170,9 +169,9 @@ int identity_add_pkcs11_key_data(JsonVariant **v, const char *uri) {
         if (r < 0)
                 return r;
 
-        r = X509_certificate_generate_volume_key(cert, &decrypted_key, &decrypted_key_size, &savedata, &savedata_size);
+        r = X509_certificate_generate_volume_key(cert, &decrypted_key, &decrypted_key_size, &saved_key, &saved_key_size);
         if (r < 0)
-                return log_error_errno(r, "Failed to generate secret key for X.509 certifcate: %m");
+                return r;
 
         /* Add the token URI to the public part of the record. */
         r = add_pkcs11_token_uri(v, uri);
@@ -183,7 +182,7 @@ int identity_add_pkcs11_key_data(JsonVariant **v, const char *uri) {
         r = add_pkcs11_encrypted_key(
                         v,
                         uri,
-                        savedata, savedata_size,
+                        saved_key, saved_key_size,
                         decrypted_key, decrypted_key_size);
         if (r < 0)
                 return r;

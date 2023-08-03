@@ -6,7 +6,6 @@
 #include "memory-util.h"
 #include "openssl-util.h"
 #include "pkcs11-util.h"
-#include "random-util.h"
 
 int enroll_pkcs11(
                 struct crypt_device *cd,
@@ -18,8 +17,8 @@ int enroll_pkcs11(
         _cleanup_(erase_and_freep) char *base64_encoded = NULL;
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
         _cleanup_free_ char *keyslot_as_string = NULL;
-        size_t decrypted_key_size, savedata_size;
-        _cleanup_free_ void *savedata = NULL;
+        size_t decrypted_key_size, saved_key_size;
+        _cleanup_free_ void *saved_key = NULL;
         _cleanup_(X509_freep) X509 *cert = NULL;
         const char *node;
         int keyslot, r;
@@ -35,9 +34,9 @@ int enroll_pkcs11(
         if (r < 0)
                 return r;
 
-        r = X509_certificate_generate_volume_key(cert, &decrypted_key, &decrypted_key_size, &savedata, &savedata_size);
+        r = X509_certificate_generate_volume_key(cert, &decrypted_key, &decrypted_key_size, &saved_key, &saved_key_size);
         if (r < 0)
-                return log_error_errno(r, "Failed to generate secret key for X.509 certifcate: %m");
+                return r;
 
         /* Let's base64 encode the key to use, for compat with homed (and it's easier to type it in by
          * keyboard, if that might ever end up being necessary.) */
@@ -67,7 +66,7 @@ int enroll_pkcs11(
                                        JSON_BUILD_PAIR("type", JSON_BUILD_CONST_STRING("systemd-pkcs11")),
                                        JSON_BUILD_PAIR("keyslots", JSON_BUILD_ARRAY(JSON_BUILD_STRING(keyslot_as_string))),
                                        JSON_BUILD_PAIR("pkcs11-uri", JSON_BUILD_STRING(uri)),
-                                       JSON_BUILD_PAIR("pkcs11-key", JSON_BUILD_BASE64(savedata, savedata_size))));
+                                       JSON_BUILD_PAIR("pkcs11-key", JSON_BUILD_BASE64(saved_key, saved_key_size))));
         if (r < 0)
                 return log_error_errno(r, "Failed to prepare PKCS#11 JSON token object: %m");
 
