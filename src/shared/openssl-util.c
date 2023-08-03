@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "openssl-util.h"
 #include "alloc-util.h"
 #include "hexdecoct.h"
+#include "openssl-util.h"
 #include "random-util.h"
 
 #if HAVE_OPENSSL
@@ -168,16 +168,17 @@ int pubkey_fingerprint(EVP_PKEY *pk, const EVP_MD *md, void **ret, size_t *ret_s
 
 static int pkey_generate_ec_key(int nid, EVP_PKEY **ret_ppkey) {
 
-        assert(ret_ppkey);
-        assert_se(nid != NID_undef);
-
-        int r = 0;
         _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *pctx = NULL;
         _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *kctx = NULL;
         _cleanup_(EVP_PKEY_freep) EVP_PKEY *params = NULL;
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *ppkey = NULL;
+        int r;
+
+        assert(ret_ppkey);
+        assert_se(nid != NID_undef);
 
         pctx = EVP_PKEY_CTX_new_id(EVP_PKEY_EC, NULL);
-        if (pctx == NULL)
+        if (pctx)
                 return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to allocate pkey context");
 
         r = EVP_PKEY_paramgen_init(pctx);
@@ -200,12 +201,11 @@ static int pkey_generate_ec_key(int nid, EVP_PKEY **ret_ppkey) {
         if (r != 1)
                 return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to initialize pkey keygen context");
 
-        *ret_ppkey = NULL;
-
-        r = EVP_PKEY_keygen(kctx, ret_ppkey);
+        r = EVP_PKEY_keygen(kctx, &ppkey);
         if (r != 1)
                 return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to generate pkey");
 
+        *ret_ppkey = TAKE_PTR(ppkey);
         return 0;
 }
 
@@ -216,8 +216,8 @@ static int pkey_ecdh_derive_shared_secret(
                 size_t *ret_shared_secret_len) {
 
         _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *ctx = NULL;
-        int r = 0;
         size_t secret_len = 0;
+        int r;
 
         assert(pkey);
         assert(peer_key);
@@ -280,24 +280,23 @@ int string_hashsum(
 }
 #  endif
 
-/* We use derived shared secret as volume key for EC keys.
- * The following is the procedure.
- * First we generate a pair of EC key of the same curve group.
- * Then we use newly generated private key to derive shared secret
- * with the public key in the token.
- * Finally, we simplely forget the private key, store the public key
- * to pkcs11-key field of LUKS token and use the dervied shared secret
- * as the volume key (we don't apply any KDF here since LUKS will apply
- * PBKDF on the key).
+/* We use derived shared secret as volume key for EC keys. The following is the procedure. First we generate
+ * a pair of EC key of the same curve group. Then we use newly generated private key to derive shared secret
+ * with the public key in the token. Finally, we simplely forget the private key, store the public key to
+ * pkcs11-key field of the LUKS2 header and use the derived shared secret as the volume key (we don't apply
+ * any KDF here since LUKS will apply PBKDF on the key).
  */
 static int pkey_generate_volume_key_ec(
                 EVP_PKEY *pkey,
                 void **ret_decrypted_key,
                 size_t *ret_decrypted_key_size,
-                void **ret_savedata,
-                size_t *ret_savedata_size) {
+                void **ret_saved_key,
+                size_t *ret_saved_key_size) {
 
         _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey_new = NULL;
+        _cleanup_free_ uint8_t *decrypted_key = NULL;
+        _cleanup_free_ uint8_t *saved_key = NULL;
+        size_t decrypted_key_size, saved_key_size;
         int nid = NID_undef;
         int r;
 
@@ -307,7 +306,7 @@ static int pkey_generate_volume_key_ec(
         if (EVP_PKEY_get_group_name(pkey, NULL, 0, &len) != 1 || len == 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to determine PKEY group name length");
         len += 1;
-        curve_name = malloc(len);
+        curve_name = new(char, len);
         if (!curve_name)
                 return log_oom();
 
@@ -329,109 +328,126 @@ static int pkey_generate_volume_key_ec(
         if (r < 0)
                 return log_error_errno(r, "Failed to generate ec key: %m");
 
-        r = pkey_ecdh_derive_shared_secret(pkey_new, pkey, NULL, ret_decrypted_key_size);
-        if (r < 0 || *ret_decrypted_key_size == 0)
+        r = pkey_ecdh_derive_shared_secret(pkey_new, pkey, NULL, &decrypted_key_size);
+        if (r < 0)
                 return log_error_errno(r, "Failed to determine derived shared secret size: %m");
 
-        *ret_decrypted_key = malloc(*ret_decrypted_key_size);
-        if (!*ret_decrypted_key)
+        if (decrypted_key_size == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to determine derived shared secret size");
+
+        decrypted_key = new(uint8_t, decrypted_key_size);
+        if (!decrypted_key)
                 return log_oom();
 
-        r = pkey_ecdh_derive_shared_secret(pkey_new, pkey, *ret_decrypted_key, ret_decrypted_key_size);
+        r = pkey_ecdh_derive_shared_secret(pkey_new, pkey, decrypted_key, &decrypted_key_size);
         if (r < 0)
                 return log_error_errno(r, "Failed to derive shared secret: %m");
 
-        *ret_savedata_size = i2d_PUBKEY(pkey_new, NULL);
-        if (*ret_savedata_size == 0)
+        saved_key_size = i2d_PUBKEY(pkey_new, NULL);
+        if (saved_key_size == 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to determine encoded public key size");
 
-        *ret_savedata = malloc(*ret_savedata_size);
-        if (!*ret_savedata)
+        saved_key = new(uint8_t, saved_key_size);
+        if (!saved_key)
                 return log_oom();
 
         /* i2d_PUBKEY function has a side effect that makes *pp point to end of the allocated buffer */
-        uint8_t *buffer = *ret_savedata;
-        *ret_savedata_size = i2d_PUBKEY(pkey_new, &buffer);
-        if (*ret_savedata_size == 0)
-                return  log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to get encoded public key");
+        uint8_t *buffer = saved_key;
+        saved_key_size = i2d_PUBKEY(pkey_new, &buffer);
+        if (saved_key_size == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to get encoded public key");
 
+        *ret_decrypted_key = TAKE_PTR(decrypted_key);
+        *ret_decrypted_key_size = decrypted_key_size;
+        *ret_saved_key = TAKE_PTR(saved_key);
+        *ret_saved_key_size = saved_key_size;
         return 0;
-
 }
 
 static int pkey_generate_volume_key_rsa(
                 EVP_PKEY *pkey,
                 void **ret_decrypted_key,
                 size_t *ret_decrypted_key_size,
-                void **ret_savedata,
-                size_t *ret_savedata_size) {
+                void **ret_saved_key,
+                size_t *ret_saved_key_size) {
+
+        _cleanup_free_ uint8_t *decrypted_key = NULL;
+        _cleanup_free_ uint8_t *saved_key = NULL;
+        size_t decrypted_key_size, saved_key_size;
+        int r;
 
         assert(pkey);
         assert(ret_decrypted_key);
-        assert(ret_savedata);
-        assert(ret_savedata_size);
+        assert(ret_decrypted_key_size);
+        assert(ret_saved_key);
+        assert(ret_saved_key_size);
 
-        int r = rsa_pkey_to_suitable_key_size(pkey, ret_decrypted_key_size);
+        r = rsa_pkey_to_suitable_key_size(pkey, &decrypted_key_size);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine RSA public key size.");
 
-        log_debug("Generating %zu bytes random key.", *ret_decrypted_key_size);
+        log_debug("Generating %zu bytes random key.", decrypted_key_size);
 
-        *ret_decrypted_key = malloc(*ret_decrypted_key_size);
-        if (!*ret_decrypted_key)
-                        return log_oom();
+        decrypted_key = new(uint8_t, decrypted_key_size);
+        if (!decrypted_key)
+                return log_oom();
 
-        r = crypto_random_bytes(*ret_decrypted_key, *ret_decrypted_key_size);
+        r = crypto_random_bytes(decrypted_key, decrypted_key_size);
         if (r < 0)
                 return log_error_errno(r, "Failed to generate random key: %m");
 
-        r = rsa_encrypt_bytes(pkey, *ret_decrypted_key, *ret_decrypted_key_size, ret_savedata, ret_savedata_size);
+        r = rsa_encrypt_bytes(pkey, decrypted_key, decrypted_key_size, (void**)&saved_key, &saved_key_size);
         if (r < 0)
                 return log_error_errno(r, "Failed to encrypt key: %m");
 
+        *ret_decrypted_key = TAKE_PTR(decrypted_key);
+        *ret_decrypted_key_size = decrypted_key_size;
+        *ret_saved_key = TAKE_PTR(saved_key);
+        *ret_saved_key_size = saved_key_size;
         return 0;
-
 }
 
 int X509_certificate_generate_volume_key(
                 X509 *cert,
                 void **ret_decrypted_key,
                 size_t *ret_decrypted_key_size,
-                void **ret_savedata,
-                size_t *ret_savedata_size) {
+                void **ret_saved_key,
+                size_t *ret_saved_key_size) {
+
+        _cleanup_(erase_and_freep) void *decrypted_key = NULL;
+        size_t decrypted_key_size = 0;
+        _cleanup_free_ void *saved_key = NULL;
+        size_t saved_key_size = 0;
+        int r;
 
         assert_se(cert);
         assert_se(ret_decrypted_key);
         assert_se(ret_decrypted_key_size);
-        assert_se(ret_savedata);
-        assert_se(ret_savedata_size);
-
-        _cleanup_free_ void *decrypted_key = NULL;
-        size_t decrypted_key_size = 0;
-        _cleanup_free_ void *savedata = NULL;
-        size_t savedata_size = 0;
-        int r = 0;
+        assert_se(ret_saved_key);
+        assert_se(ret_saved_key_size);
 
         EVP_PKEY *pkey = X509_get0_pubkey(cert);
         if (!pkey)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to extract public key from X.509 certificate.");
 
-
         int type = EVP_PKEY_base_id(pkey);
-        if (type == EVP_PKEY_RSA)
-                r = pkey_generate_volume_key_rsa(pkey, &decrypted_key, &decrypted_key_size, &savedata, &savedata_size);
-        else if (type == EVP_PKEY_EC)
-                r = pkey_generate_volume_key_ec(pkey, &decrypted_key, &decrypted_key_size, &savedata, &savedata_size);
-        else
-                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Unsuported public key type: %s", OBJ_nid2sn(type));
-
+        switch (type) {
+        case EVP_PKEY_RSA:
+                r = pkey_generate_volume_key_rsa(pkey, &decrypted_key, &decrypted_key_size, &saved_key, &saved_key_size);
+                break;
+        case EVP_PKEY_EC:
+                r = pkey_generate_volume_key_ec(pkey, &decrypted_key, &decrypted_key_size, &saved_key, &saved_key_size);
+                break;
+        default:
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Unsupported public key type: %s", OBJ_nid2sn(type));
+        }
         if (r < 0)
                 return r;
 
         *ret_decrypted_key = TAKE_PTR(decrypted_key);
         *ret_decrypted_key_size = decrypted_key_size;
-        *ret_savedata = TAKE_PTR(savedata);
-        *ret_savedata_size = savedata_size;
+        *ret_saved_key = TAKE_PTR(saved_key);
+        *ret_saved_key_size = saved_key_size;
         return 0;
 }
 #endif

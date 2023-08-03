@@ -820,7 +820,7 @@ static int pkcs11_token_ecdh_derive_shared_secret(
                 *ret_shared_secret_len = shared_secret_len;
 
 #if OPENSSL_VERSION_NUMBER >= 0x30000000
-        if(EVP_PKEY_set_utf8_string_param(peer_key,
+        if (EVP_PKEY_set_utf8_string_param(peer_key,
                                           OSSL_PKEY_PARAM_EC_POINT_CONVERSION_FORMAT,
                                           OSSL_PKEY_EC_POINT_CONVERSION_FORMAT_UNCOMPRESSED) != 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO),
@@ -846,8 +846,8 @@ static int pkcs11_token_ecdh_derive_shared_secret(
         if (public_data_len == 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to determine public data size");
 
-        buffer = malloc(public_data_len);
-        if(!buffer)
+        buffer = new(uint8_t, public_data_len);
+        if (!buffer)
                 return log_oom();
 
         public_data_len = EC_POINT_point2oct(EC_KEY_get0_group(ec_key),
@@ -993,20 +993,6 @@ static int pkcs11_token_decrypt_data_rsa(
         return 0;
 }
 
-/* We only care about asymmetric key so only asymmetric key type is listed here */
-static const char *pkcs11_key_type_to_string(CK_KEY_TYPE type) {
-        switch(type) {
-                case CKK_EC:
-                        return "ec";
-                case CKK_RSA:
-                        return "rsa";
-                case CKK_EC_EDWARDS:
-                        return "ed25519";
-                default:
-                        return NULL;
-        }
-}
-
 int pkcs11_token_decrypt_data(
                 CK_FUNCTION_LIST *m,
                 CK_SESSION_HANDLE session,
@@ -1037,20 +1023,18 @@ int pkcs11_token_decrypt_data(
         if (rv != CKR_OK)
                 return log_error_errno(EIO, "Failed to retrieve private key type");
 
-        if (key_type == CKK_RSA)
+        switch (key_type) {
+        case CKK_RSA:
                 r = pkcs11_token_decrypt_data_rsa(m, session, object, encrypted_data, encrypted_data_size, &decrypted_data, &decrypted_data_size);
+                break;
 #if HAVE_OPENSSL
-        else if (key_type == CKK_EC)
+        case CKK_EC:
                 r = pkcs11_token_decrypt_data_ec(m, session, object, encrypted_data, encrypted_data_size, &decrypted_data, &decrypted_data_size);
+                break;
 #endif
-        else {
-                const char *key_type_str = pkcs11_key_type_to_string(key_type);
-                if (key_type_str != NULL)
-                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Unsupported private key type: %s", key_type_str);
-                else
-                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Unsupported private key type: %lu", key_type);
+        default:
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Unsupported private key type: %lu", key_type);
         }
-
         if (r < 0)
                 return r;
 
