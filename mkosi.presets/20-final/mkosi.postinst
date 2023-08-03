@@ -6,6 +6,10 @@ if [ "$1" = "build" ]; then
     exit 0
 fi
 
+if [ "${container:-}" != "mkosi" ]; then
+    exec mkosi-chroot "$SCRIPT" "$@"
+fi
+
 if [ -n "$SANITIZERS" ]; then
     LD_PRELOAD=$(ldd /usr/lib/systemd/systemd | grep libasan.so | awk '{print $3}')
 

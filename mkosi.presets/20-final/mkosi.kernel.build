@@ -2,6 +2,10 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 set -e
 
+if [ "${container:-}" != "mkosi" ]; then
+    exec mkosi-chroot "$SCRIPT" "$@"
+fi
+
 if [ -d "$SRCDIR"/mkosi.kernel/ ]; then
     SRCDIR="$SRCDIR/mkosi.kernel"
     BUILDDIR="$BUILDDIR/mkosi.kernel"
