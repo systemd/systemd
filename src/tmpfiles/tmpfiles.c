@@ -237,6 +237,7 @@ static inline bool ERRNO_IS_NOINFO(int r) {
         return IN_SET(abs(r),
                       EUNATCH,    /* os-release or machine-id missing */
                       ENOMEDIUM,  /* machine-id or another file empty */
+                      ENOPKG,     /* machine-id is uninitialized */
                       ENXIO);     /* env var is unset */
 }
 
