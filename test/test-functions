@@ -2339,14 +2339,7 @@ inst_libs() {
         [[ "$line" = 'not a dynamic executable' ]] && break
         # Ignore errors about our own stuff missing. This is most likely caused
         # by ldd attempting to use the unprefixed RPATH.
-        [[ "$line" =~ libsystemd.*\ not\ found ]] && continue
-
-        if [[ "$line" =~ $so_regex ]]; then
-            file="${BASH_REMATCH[1]}"
-            [[ -e "${initdir:?}/$file" ]] && continue
-            inst_library "$file"
-            continue
-        fi
+        [[ "$line" =~ (libsystemd|libudev).*\ not\ found ]] && continue
 
         if [[ "$line" =~ not\ found ]]; then
             dfatal "Missing a shared library required by $bin."
@@ -2354,6 +2347,12 @@ inst_libs() {
             dfatal "$line"
             dfatal "Cannot create a test image."
             exit 1
+        fi
+
+        if [[ "$line" =~ $so_regex ]]; then
+            file="${BASH_REMATCH[1]}"
+            [[ -e "${initdir:?}/$file" ]] && continue
+            inst_library "$file"
         fi
     done < <(LC_ALL=C ldd "$bin" 2>/dev/null)
 }
