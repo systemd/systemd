@@ -6,6 +6,32 @@
 #include "hexdecoct.h"
 
 #if HAVE_OPENSSL
+/* For each error in the the Openssl thread error queue, log the provided message and the Openssl error
+ * string. If there are no errors in the Openssl thread queue, this logs the message with "No openssl
+ * errors." This logs at level debug. Returns -EIO (or -ENOMEM). */
+#define log_openssl_errors(fmt, ...) _log_openssl_errors(UNIQ, fmt, ##__VA_ARGS__)
+#define _log_openssl_errors(u, fmt, ...)                                \
+        ({                                                              \
+                size_t UNIQ_T(MAX, u) = 512 /* arbitrary, but openssl doc states it must be >= 256 */; \
+                _cleanup_free_ char *UNIQ_T(BUF, u) = malloc(UNIQ_T(MAX, u)); \
+                !UNIQ_T(BUF, u)                                         \
+                        ? log_oom_debug()                               \
+                        : __log_openssl_errors(u, UNIQ_T(BUF, u), UNIQ_T(MAX, u), fmt, ##__VA_ARGS__) \
+                        ?: log_debug_errno(SYNTHETIC_ERRNO(EIO), fmt ": No openssl errors.", ##__VA_ARGS__); \
+        })
+#define __log_openssl_errors(u, buf, max, fmt, ...)                     \
+        ({                                                              \
+                int UNIQ_T(R, u) = 0;                                   \
+                for (;;) {                                              \
+                        unsigned long UNIQ_T(E, u) = ERR_get_error();   \
+                        if (UNIQ_T(E, u) == 0)                          \
+                                break;                                  \
+                        ERR_error_string_n(UNIQ_T(E, u), buf, max);     \
+                        UNIQ_T(R, u) = log_debug_errno(SYNTHETIC_ERRNO(EIO), fmt ": %s", ##__VA_ARGS__, buf); \
+                }                                                       \
+                UNIQ_T(R, u);                                           \
+        })
+
 int openssl_pkey_from_pem(const void *pem, size_t pem_size, EVP_PKEY **ret) {
         assert(pem);
         assert(ret);
@@ -17,7 +43,7 @@ int openssl_pkey_from_pem(const void *pem, size_t pem_size, EVP_PKEY **ret) {
 
         _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = PEM_read_PUBKEY(f, NULL, NULL, NULL);
         if (!pkey)
-                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to parse PEM.");
+                return log_openssl_errors("Failed to parse PEM");
 
         *ret = TAKE_PTR(pkey);
 
@@ -74,23 +100,23 @@ int rsa_encrypt_bytes(
 
         ctx = EVP_PKEY_CTX_new(pkey, NULL);
         if (!ctx)
-                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to allocate public key context");
+                return log_openssl_errors("Failed to allocate public key context");
 
         if (EVP_PKEY_encrypt_init(ctx) <= 0)
-                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to initialize public key context");
+                return log_openssl_errors("Failed to initialize public key context");
 
         if (EVP_PKEY_CTX_set_rsa_padding(ctx, RSA_PKCS1_PADDING) <= 0)
-                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to configure PKCS#1 padding");
+                return log_openssl_errors("Failed to configure PKCS#1 padding");
 
         if (EVP_PKEY_encrypt(ctx, NULL, &l, decrypted_key, decrypted_key_size) <= 0)
-                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to determine encrypted key size");
+                return log_openssl_errors("Failed to determine encrypted key size");
 
         b = malloc(l);
         if (!b)
                 return -ENOMEM;
 
         if (EVP_PKEY_encrypt(ctx, b, &l, decrypted_key, decrypted_key_size) <= 0)
-                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to determine encrypted key size");
+                return log_openssl_errors("Failed to determine encrypted key size");
 
         *ret_encrypt_key = TAKE_PTR(b);
         *ret_encrypt_key_size = l;
@@ -139,53 +165,53 @@ int rsa_pkey_from_n_e(const void *n, size_t n_size, const void *e, size_t e_size
 
         _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_RSA, NULL);
         if (!ctx)
-                return log_oom_debug();
+                return log_openssl_errors("Failed to create new EVP_PKEY_CTX");
 
         _cleanup_(BN_freep) BIGNUM *bn_n = BN_bin2bn(n, n_size, NULL);
         if (!bn_n)
-                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to create BIGNUM for RSA n.");
+                return log_openssl_errors("Failed to create BIGNUM for RSA n");
 
         _cleanup_(BN_freep) BIGNUM *bn_e = BN_bin2bn(e, e_size, NULL);
         if (!bn_e)
-                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to create BIGNUM for RSA e.");
+                return log_openssl_errors("Failed to create BIGNUM for RSA e");
 
 #if OPENSSL_VERSION_MAJOR >= 3
         if (EVP_PKEY_fromdata_init(ctx) <= 0)
-                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to initialize EVP_PKEY_CTX.");
+                return log_openssl_errors("Failed to initialize EVP_PKEY_CTX");
 
         _cleanup_(OSSL_PARAM_BLD_freep) OSSL_PARAM_BLD *bld = OSSL_PARAM_BLD_new();
         if (!bld)
-                return log_oom_debug();
+                return log_openssl_errors("Failed to create new OSSL_PARAM_BLD");
 
         if (!OSSL_PARAM_BLD_push_BN(bld, OSSL_PKEY_PARAM_RSA_N, bn_n))
-                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to set RSA OSSL_PKEY_PARAM_RSA_N.");
+                return log_openssl_errors("Failed to set RSA OSSL_PKEY_PARAM_RSA_N");
 
         if (!OSSL_PARAM_BLD_push_BN(bld, OSSL_PKEY_PARAM_RSA_E, bn_e))
-                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to set RSA OSSL_PKEY_PARAM_RSA_E.");
+                return log_openssl_errors("Failed to set RSA OSSL_PKEY_PARAM_RSA_E");
 
         _cleanup_(OSSL_PARAM_freep) OSSL_PARAM *params = OSSL_PARAM_BLD_to_param(bld);
         if (!params)
-                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to build RSA OSSL_PARAM.");
+                return log_openssl_errors("Failed to build RSA OSSL_PARAM");
 
         if (EVP_PKEY_fromdata(ctx, &pkey, EVP_PKEY_PUBLIC_KEY, params) <= 0)
-                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to create RSA EVP_PKEY.");
+                return log_openssl_errors("Failed to create RSA EVP_PKEY");
 #else
         _cleanup_(RSA_freep) RSA *rsa_key = RSA_new();
         if (!rsa_key)
-                return log_oom_debug();
+                return log_openssl_errors("Failed to create new RSA");
 
         if (!RSA_set0_key(rsa_key, bn_n, bn_e, NULL))
-                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to set RSA n/e.");
+                return log_openssl_errors("Failed to set RSA n/e");
         /* rsa_key owns these now, don't free */
         TAKE_PTR(bn_n);
         TAKE_PTR(bn_e);
 
         pkey = EVP_PKEY_new();
         if (!pkey)
-                return log_oom_debug();
+                return log_openssl_errors("Failed to create new EVP_PKEY");
 
         if (!EVP_PKEY_assign_RSA(pkey, rsa_key))
-                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to assign RSA key.");
+                return log_openssl_errors("Failed to assign RSA key");
         /* pkey owns this now, don't free */
         TAKE_PTR(rsa_key);
 #endif
@@ -212,24 +238,23 @@ int rsa_pkey_to_n_e(
 #if OPENSSL_VERSION_MAJOR >= 3
         _cleanup_(BN_freep) BIGNUM *bn_n = NULL;
         if (!EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_RSA_N, &bn_n))
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to get RSA n.");
+                return log_openssl_errors("Failed to get RSA n");
 
         _cleanup_(BN_freep) BIGNUM *bn_e = NULL;
         if (!EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_RSA_E, &bn_e))
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to get RSA e.");
+                return log_openssl_errors("Failed to get RSA e");
 #else
         const RSA *rsa = EVP_PKEY_get0_RSA((EVP_PKEY*) pkey);
         if (!rsa)
-                return log_debug_errno(SYNTHETIC_ERRNO(EIO),
-                                       "Failed to get RSA key from public key.");
+                return log_openssl_errors("Failed to get RSA key from public key");
 
         const BIGNUM *bn_n = RSA_get0_n(rsa);
         if (!bn_n)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to get RSA n.");
+                return log_openssl_errors("Failed to get RSA n");
 
         const BIGNUM *bn_e = RSA_get0_e(rsa);
         if (!bn_e)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to get RSA e.");
+                return log_openssl_errors("Failed to get RSA e");
 #endif
 
         size_t n_size = BN_num_bytes(bn_n), e_size = BN_num_bytes(bn_e);
@@ -254,17 +279,17 @@ int rsa_pkey_new(size_t bits, EVP_PKEY **ret) {
 
         _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_RSA, NULL);
         if (!ctx)
-                return log_oom_debug();
+                return log_openssl_errors("Failed to create new EVP_PKEY_CTX");
 
         if (EVP_PKEY_keygen_init(ctx) <= 0)
-                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to initialize EVP_PKEY_CTX.");
+                return log_openssl_errors("Failed to initialize EVP_PKEY_CTX");
 
         if (EVP_PKEY_CTX_set_rsa_keygen_bits(ctx, (int) bits) <= 0)
-                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to set RSA bits to %zu.", bits);
+                return log_openssl_errors("Failed to set RSA bits to %zu", bits);
 
         _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = NULL;
         if (EVP_PKEY_keygen(ctx, &pkey) <= 0)
-                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to generate ECC key.");
+                return log_openssl_errors("Failed to generate ECC key");
 
         *ret = TAKE_PTR(pkey);
 
@@ -286,70 +311,71 @@ int ecc_pkey_from_curve_x_y(
 
         _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_EC, NULL);
         if (!ctx)
-                return log_oom_debug();
+                return log_openssl_errors("Failed to create new EVP_PKEY_CTX");
 
-        _cleanup_(BN_freep) BIGNUM *bn_x = BN_bin2bn(x, x_size, NULL), *bn_y = BN_bin2bn(y, y_size, NULL);
-        if (!bn_x || !bn_y)
-                return log_oom_debug();
+        _cleanup_(BN_freep) BIGNUM *bn_x = BN_bin2bn(x, x_size, NULL);
+        if (!bn_x)
+                return log_openssl_errors("Failed to create BIGNUM x");
+
+        _cleanup_(BN_freep) BIGNUM *bn_y = BN_bin2bn(y, y_size, NULL);
+        if (!bn_y)
+                return log_openssl_errors("Failed to create BIGNUM y");
 
         _cleanup_(EC_GROUP_freep) EC_GROUP *group = EC_GROUP_new_by_curve_name(curve_id);
         if (!group)
-                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                       "ECC curve id %d not supported.", curve_id);
+                return log_openssl_errors("ECC curve id %d not supported", curve_id);
 
         _cleanup_(EC_POINT_freep) EC_POINT *point = EC_POINT_new(group);
         if (!point)
-                return log_oom_debug();
+                return log_openssl_errors("Failed to create new EC_POINT");
 
         if (!EC_POINT_set_affine_coordinates(group, point, bn_x, bn_y, NULL))
-                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to set ECC coordinates.");
+                return log_openssl_errors("Failed to set ECC coordinates");
 
 #if OPENSSL_VERSION_MAJOR >= 3
         if (EVP_PKEY_fromdata_init(ctx) <= 0)
-                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                       "Failed to initialize EVP_PKEY_CTX.");
+                return log_openssl_errors("Failed to initialize EVP_PKEY_CTX");
 
         _cleanup_(OSSL_PARAM_BLD_freep) OSSL_PARAM_BLD *bld = OSSL_PARAM_BLD_new();
         if (!bld)
-                return log_oom_debug();
+                return log_openssl_errors("Failed to create new OSSL_PARAM_BLD");
 
         if (!OSSL_PARAM_BLD_push_utf8_string(bld, OSSL_PKEY_PARAM_GROUP_NAME, (char*) OSSL_EC_curve_nid2name(curve_id), 0))
-                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to add ECC OSSL_PKEY_PARAM_GROUP_NAME.");
+                return log_openssl_errors("Failed to add ECC OSSL_PKEY_PARAM_GROUP_NAME");
 
         _cleanup_(OPENSSL_freep) void *pbuf = NULL;
         size_t pbuf_len = 0;
         pbuf_len = EC_POINT_point2buf(group, point, POINT_CONVERSION_UNCOMPRESSED, (unsigned char**) &pbuf, NULL);
         if (pbuf_len == 0)
-                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to convert ECC point to buffer.");
+                return log_openssl_errors("Failed to convert ECC point to buffer");
 
         if (!OSSL_PARAM_BLD_push_octet_string(bld, OSSL_PKEY_PARAM_PUB_KEY, pbuf, pbuf_len))
-                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to add ECC OSSL_PKEY_PARAM_PUB_KEY.");
+                return log_openssl_errors("Failed to add ECC OSSL_PKEY_PARAM_PUB_KEY");
 
         _cleanup_(OSSL_PARAM_freep) OSSL_PARAM *params = OSSL_PARAM_BLD_to_param(bld);
         if (!params)
-                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to build ECC OSSL_PARAM.");
+                return log_openssl_errors("Failed to build ECC OSSL_PARAM");
 
         _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = NULL;
         if (EVP_PKEY_fromdata(ctx, &pkey, EVP_PKEY_PUBLIC_KEY, params) <= 0)
-                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                       "Failed to create ECC EVP_PKEY.");
+                return log_openssl_errors("Failed to create ECC EVP_PKEY");
 #else
         _cleanup_(EC_KEY_freep) EC_KEY *eckey = EC_KEY_new();
         if (!eckey)
-                return log_oom_debug();
+                return log_openssl_errors("Failed to create new EC_KEY");
 
         if (!EC_KEY_set_group(eckey, group))
-                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to set ECC group.");
+                return log_openssl_errors("Failed to set ECC group");
 
         if (!EC_KEY_set_public_key(eckey, point))
-                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to set ECC point.");
+                return log_openssl_errors("Failed to set ECC point");
 
         _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = EVP_PKEY_new();
         if (!pkey)
-                return log_oom_debug();
+                return log_openssl_errors("Failed to create new EVP_PKEY");
 
         if (!EVP_PKEY_assign_EC_KEY(pkey, eckey))
-                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to assign ECC key.");
+                return log_openssl_errors("Failed to assign ECC key");
         /* pkey owns this now, don't free */
         TAKE_PTR(eckey);
 #endif
@@ -375,48 +401,48 @@ int ecc_pkey_to_curve_x_y(
 #if OPENSSL_VERSION_MAJOR >= 3
         size_t name_size;
         if (!EVP_PKEY_get_utf8_string_param(pkey, OSSL_PKEY_PARAM_GROUP_NAME, NULL, 0, &name_size))
-                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to get ECC group name size.");
+                return log_openssl_errors("Failed to get ECC group name size");
 
         _cleanup_free_ char *name = malloc(name_size + 1);
         if (!name)
                 return log_oom_debug();
 
         if (!EVP_PKEY_get_utf8_string_param(pkey, OSSL_PKEY_PARAM_GROUP_NAME, name, name_size + 1, NULL))
-                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to get ECC group name.");
+                return log_openssl_errors("Failed to get ECC group name");
 
         curve_id = OBJ_sn2nid(name);
         if (curve_id == NID_undef)
-                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to get ECC curve id.");
+                return log_openssl_errors("Failed to get ECC curve id");
 
         if (!EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_EC_PUB_X, &bn_x))
-                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to get ECC point x.");
+                return log_openssl_errors("Failed to get ECC point x");
 
         if (!EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_EC_PUB_Y, &bn_y))
-                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to get ECC point y.");
+                return log_openssl_errors("Failed to get ECC point y");
 #else
         const EC_KEY *eckey = EVP_PKEY_get0_EC_KEY((EVP_PKEY*) pkey);
         if (!eckey)
-                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to get EC_KEY.");
+                return log_openssl_errors("Failed to get EC_KEY");
 
         const EC_GROUP *group = EC_KEY_get0_group(eckey);
         if (!group)
-                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to get EC_GROUP.");
+                return log_openssl_errors("Failed to get EC_GROUP");
 
         curve_id = EC_GROUP_get_curve_name(group);
         if (curve_id == NID_undef)
-                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to get ECC curve id.");
+                return log_openssl_errors("Failed to get ECC curve id");
 
         const EC_POINT *point = EC_KEY_get0_public_key(eckey);
         if (!point)
-                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to get EC_POINT.");
+                return log_openssl_errors("Failed to get EC_POINT");
 
         bn_x = BN_new();
         bn_y = BN_new();
         if (!bn_x || !bn_y)
-                return log_oom_debug();
+                return log_openssl_errors("Failed to create new BIGNUM");
 
         if (!EC_POINT_get_affine_coordinates(group, point, bn_x, bn_y, NULL))
-                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to get ECC x/y.");
+                return log_openssl_errors("Failed to get ECC x/y.");
 #endif
 
         size_t x_size = BN_num_bytes(bn_x), y_size = BN_num_bytes(bn_y);
@@ -447,17 +473,17 @@ int ecc_pkey_new(int curve_id, EVP_PKEY **ret) {
 
         _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_EC, NULL);
         if (!ctx)
-                return log_oom_debug();
+                return log_openssl_errors("Failed to create new EVP_PKEY_CTX");
 
         if (EVP_PKEY_keygen_init(ctx) <= 0)
-                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to initialize EVP_PKEY_CTX.");
+                return log_openssl_errors("Failed to initialize EVP_PKEY_CTX");
 
         if (EVP_PKEY_CTX_set_ec_paramgen_curve_nid(ctx, curve_id) <= 0)
-                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to set ECC curve %d.", curve_id);
+                return log_openssl_errors("Failed to set ECC curve %d", curve_id);
 
         _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = NULL;
         if (EVP_PKEY_keygen(ctx, &pkey) <= 0)
-                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to generate ECC key.");
+                return log_openssl_errors("Failed to generate ECC key");
 
         *ret = TAKE_PTR(pkey);
 
@@ -480,8 +506,7 @@ int pubkey_fingerprint(EVP_PKEY *pk, const EVP_MD *md, void **ret, size_t *ret_s
 
         sz = i2d_PublicKey(pk, NULL);
         if (sz < 0)
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Unable to convert public key to DER format: %s",
-                                       ERR_error_string(ERR_get_error(), NULL));
+                return log_openssl_errors("Unable to convert public key to DER format");
 
         dd = d = malloc(sz);
         if (!d)
@@ -489,18 +514,17 @@ int pubkey_fingerprint(EVP_PKEY *pk, const EVP_MD *md, void **ret, size_t *ret_s
 
         lsz = i2d_PublicKey(pk, &dd);
         if (lsz < 0)
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Unable to convert public key to DER format: %s",
-                                       ERR_error_string(ERR_get_error(), NULL));
+                return log_openssl_errors("Unable to convert public key to DER format");
 
         m = EVP_MD_CTX_new();
         if (!m)
-                return log_oom_debug();
+                return log_openssl_errors("Failed to create new EVP_MD_CTX");
 
         if (EVP_DigestInit_ex(m, md, NULL) != 1)
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to initialize %s context.", EVP_MD_name(md));
+                return log_openssl_errors("Failed to initialize %s context", EVP_MD_name(md));
 
         if (EVP_DigestUpdate(m, d, lsz) != 1)
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to run %s context.", EVP_MD_name(md));
+                return log_openssl_errors("Failed to run %s context", EVP_MD_name(md));
 
         msz = EVP_MD_size(md);
         assert(msz > 0);
@@ -511,7 +535,7 @@ int pubkey_fingerprint(EVP_PKEY *pk, const EVP_MD *md, void **ret, size_t *ret_s
 
         umsz = msz;
         if (EVP_DigestFinal_ex(m, h, &umsz) != 1)
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to finalize hash context.");
+                return log_openssl_errors("Failed to finalize hash context");
 
         assert(umsz == (unsigned) msz);
 
@@ -560,8 +584,7 @@ int x509_fingerprint(X509 *cert, uint8_t buffer[static SHA256_DIGEST_SIZE]) {
 
         dersz = i2d_X509(cert, &der);
         if (dersz < 0)
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Unable to convert PEM certificate to DER format: %s",
-                                       ERR_error_string(ERR_get_error(), NULL));
+                return log_openssl_errors("Unable to convert PEM certificate to DER format");
 
         sha256_direct(der, dersz, buffer);
         return 0;
