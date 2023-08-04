@@ -1326,7 +1326,7 @@ size_t tpm2_tpms_pcr_selection_weight(const TPMS_PCR_SELECTION *s) {
 /* Remove the (0-based) index entry from 'l', shift all following entries, and update the count. */
 static void tpm2_tpml_pcr_selection_remove_index(TPML_PCR_SELECTION *l, uint32_t index) {
         assert(l);
-        assert(l->count <= sizeof(l->pcrSelections));
+        assert(l->count <= ELEMENTSOF(l->pcrSelections));
         assert(index < l->count);
 
         size_t s = l->count - (index + 1);
@@ -1342,6 +1342,7 @@ static TPMS_PCR_SELECTION *tpm2_tpml_pcr_selection_get_tpms_pcr_selection(
                 TPMI_ALG_HASH hash_alg) {
 
         assert(l);
+        assert(l->count <= ELEMENTSOF(l->pcrSelections));
 
         TPMS_PCR_SELECTION *selection = NULL;
         FOREACH_TPMS_PCR_SELECTION_IN_TPML_PCR_SELECTION(s, l)
@@ -1422,13 +1423,13 @@ void tpm2_tpml_pcr_selection_add_tpms_pcr_selection(TPML_PCR_SELECTION *l, const
         }
 
         /* It's already broken if the count is higher than the array has size for. */
-        assert(!(l->count > sizeof(l->pcrSelections)));
+        assert(l->count <= ELEMENTSOF(l->pcrSelections));
 
         /* If full, the cleanup should result in at least one available entry. */
-        if (l->count == sizeof(l->pcrSelections))
+        if (l->count == ELEMENTSOF(l->pcrSelections))
                 tpm2_tpml_pcr_selection_cleanup(l);
 
-        assert(l->count < sizeof(l->pcrSelections));
+        assert(l->count < ELEMENTSOF(l->pcrSelections));
         l->pcrSelections[l->count++] = *s;
 }
 
@@ -1509,7 +1510,7 @@ char *tpm2_tpml_pcr_selection_to_string(const TPML_PCR_SELECTION *l) {
 
 size_t tpm2_tpml_pcr_selection_weight(const TPML_PCR_SELECTION *l) {
         assert(l);
-        assert(l->count <= sizeof(l->pcrSelections));
+        assert(l->count <= ELEMENTSOF(l->pcrSelections));
 
         size_t weight = 0;
         FOREACH_TPMS_PCR_SELECTION_IN_TPML_PCR_SELECTION(s, l) {
