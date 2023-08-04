@@ -831,23 +831,13 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
                         if (tpmalg < 0)
                                 return log_error_errno(tpmalg, "Unsupported PCR bank");
 
-                        TPML_PCR_SELECTION pcr_selection;
-                        tpm2_tpml_pcr_selection_from_mask(1 << TPM_PCR_INDEX_KERNEL_IMAGE,
-                                                          tpmalg,
-                                                          &pcr_selection);
+                        Tpm2PCRValue pcr_value = TPM2_PCR_VALUE_MAKE(TPM_PCR_INDEX_KERNEL_IMAGE,
+                                                                     tpmalg,
+                                                                     TPM2B_DIGEST_MAKE(p->value, p->value_size));
 
-                        TPM2B_DIGEST pcr_values = {
-                                .size = p->value_size,
-                        };
-                        assert(sizeof(pcr_values.buffer) >= p->value_size);
-                        memcpy_safe(pcr_values.buffer, p->value, p->value_size);
+                        TPM2B_DIGEST pcr_policy_digest = TPM2B_DIGEST_MAKE(NULL, TPM2_SHA256_DIGEST_SIZE);
 
-                        TPM2B_DIGEST pcr_policy_digest;
-                        r = tpm2_digest_init(TPM2_ALG_SHA256, &pcr_policy_digest);
-                        if (r < 0)
-                                return r;
-
-                        r = tpm2_calculate_policy_pcr(&pcr_selection, &pcr_values, 1, &pcr_policy_digest);
+                        r = tpm2_calculate_policy_pcr(&pcr_value, 1, &pcr_policy_digest);
                         if (r < 0)
                                 return r;
 
