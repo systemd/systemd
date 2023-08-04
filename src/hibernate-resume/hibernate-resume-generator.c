@@ -11,6 +11,7 @@
 #include "device-nodes.h"
 #include "dropin.h"
 #include "efivars.h"
+#include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fstab-util.h"
@@ -196,7 +197,7 @@ static int parse_efi_hibernate_location(void) {
 }
 
 static int process_resume(void) {
-        _cleanup_free_ char *device_unit = NULL;
+        _cleanup_free_ char *device_unit = NULL, *device_escaped = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
@@ -213,6 +214,10 @@ static int process_resume(void) {
                           "JobTimeoutSec=infinity\n");
         if (r < 0)
                 log_warning_errno(r, "Failed to write device timeout drop-in, ignoring: %m");
+
+        device_escaped = cescape(arg_resume_device);
+        if (!device_escaped)
+                return log_oom();
 
         r = generator_open_unit_file(arg_dest, NULL, SPECIAL_HIBERNATE_RESUME_SERVICE, &f);
         if (r < 0)
@@ -233,7 +238,7 @@ static int process_resume(void) {
                 "Type=oneshot\n"
                 "ExecStart=" ROOTLIBEXECDIR "/systemd-hibernate-resume %2$s %3$" PRIu64 "\n",
                 device_unit,
-                arg_resume_device,
+                device_escaped,
                 arg_resume_offset);
 
         r = fflush_and_check(f);
