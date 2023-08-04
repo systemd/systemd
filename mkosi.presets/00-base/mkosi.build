@@ -9,6 +9,11 @@ if [ "${container:-}" != "mkosi" ]; then
     exec mkosi-chroot "$SCRIPT" "$@"
 fi
 
+# We don't want to install our build of systemd in the base image, but use it as an extra tree for the
+# initrd and final images, so override DESTDIR to store it in the output directory so we can reference it as
+# an extra tree in the initrd and final image builds.
+DESTDIR="$OUTPUTDIR/systemd"
+
 # If mkosi.builddir/ exists mkosi will set $BUILDDIR to it, let's then use it
 # as out-of-tree build dir. Otherwise, let's make up our own builddir.
 [ -z "$BUILDDIR" ] && BUILDDIR="$PWD"/build
@@ -29,7 +34,8 @@ done
 # CentOS Stream 8 includes bpftool 4.18.0 which is lower than what we need. However, they've backported the
 # specific feature we need ("gen skeleton") to this version, so we replace bpftool with a script that reports
 # version 5.6.0 to satisfy meson which makes bpf work on CentOS Stream 8 as well.
-if [ "$(grep '^ID=' /etc/os-release)" = "ID=\"centos\"" ] && [ "$(grep '^VERSION=' /etc/os-release)" = "VERSION=\"8\"" ]; then
+. /usr/lib/os-release
+if [ "$ID" = "centos" ] && [ "$VERSION" = "8" ]; then
     cat >"$BUILDDIR"/bpftool <<EOF
 #!/bin/sh
 if [ "\$1" = --version ]; then
@@ -44,7 +50,6 @@ fi
 if [ ! -f "$BUILDDIR"/build.ninja ]; then
     sysvinit_path=$(realpath /etc/init.d)
 
-    . /etc/os-release
     if [ "$ID" = "centos" ] && [ "$VERSION" = "8" ]; then
         UKIFY=false
     else
@@ -157,7 +162,7 @@ if [ ! -f "$BUILDDIR"/build.ninja ]; then
     # On debian-like systems the library directory is not /usr/lib64 but /usr/lib/<arch-triplet>/.
     # It is important to use the right one especially for cryptsetup plugins, otherwise they will be
     # installed in the wrong directory and not be found by cryptsetup. Assume native build.
-    if grep -q -e "ID=debian" -e "ID_LIKE=debian" /etc/os-release && command -v dpkg 2>/dev/null; then
+    if grep -q -e "ID=debian" -e "ID_LIKE=debian" /usr/lib/os-release && command -v dpkg 2>/dev/null; then
         CONFIGURE_OPTS+=(
             -D libdir="/usr/lib/$(dpkg-architecture -qDEB_HOST_MULTIARCH)"
             -D pamlibdir="/usr/lib/$(dpkg-architecture -qDEB_HOST_MULTIARCH)/security"
@@ -167,7 +172,7 @@ if [ ! -f "$BUILDDIR"/build.ninja ]; then
     # Set various uids and gids for which Fedora has "soft static" allocations.
     # Without this, we would get warning about mismatched sysusers.d entries
     # between the files that we and Fedora's setup package install.
-    if grep -q '^ID=fedora' /etc/os-release; then
+    if grep -q '^ID=fedora' /usr/lib/os-release; then
         CONFIGURE_OPTS+=(
             -Dadm-gid=4
             -Daudio-gid=63
@@ -192,7 +197,7 @@ if [ ! -f "$BUILDDIR"/build.ninja ]; then
         )
     fi
 
-    if grep -q '^ID="opensuse' /etc/os-release; then
+    if grep -q '^ID="opensuse' /usr/lib/os-release; then
         CONFIGURE_OPTS+=(
             -Dbpf-compiler=gcc
         )
