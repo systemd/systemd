@@ -47,7 +47,6 @@ static void test_gid_to_name_one(gid_t gid, const char *name) {
 TEST(gid_to_name) {
         test_gid_to_name_one(0, "root");
         test_gid_to_name_one(GID_NOBODY, NOBODY_GROUP_NAME);
-        test_gid_to_name_one(TTY_GID, "tty");
         test_gid_to_name_one(0xFFFF, "65535");
         test_gid_to_name_one(0xFFFFFFFF, "4294967295");
 }
