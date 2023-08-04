@@ -2330,7 +2330,7 @@ static int setup_event(Context *c, int fd, sd_event **ret) {
                 return log_error_errno(r, "Failed to add io event source for journal: %m");
 
         if (fstat(STDOUT_FILENO, &st) < 0)
-                return log_error_errno(r, "Failed to stat stdout: %m");
+                return log_error_errno(errno, "Failed to stat stdout: %m");
 
         if (IN_SET(st.st_mode & S_IFMT, S_IFCHR, S_IFIFO, S_IFSOCK)) {
                 /* Also keeps an eye on STDOUT, and exits as soon as we see a POLLHUP on that, i.e. when it is closed. */
