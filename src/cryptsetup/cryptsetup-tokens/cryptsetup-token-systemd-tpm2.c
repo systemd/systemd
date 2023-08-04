@@ -278,7 +278,7 @@ _public_ int cryptsetup_token_validate(
                 }
 
                 u = json_variant_unsigned(e);
-                if (!TPM2_PCR_VALID(u)) {
+                if (!TPM2_PCR_INDEX_VALID(u)) {
                         crypt_log_debug(cd, "TPM2 PCR number out of range.");
                         return 1;
                 }
