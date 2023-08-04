@@ -1060,7 +1060,7 @@
         specified, see
         <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
         The default is <literal>infinity</literal> (job timeouts disabled), except for device units where
-        <varname>JobRunningTimeoutSec=</varname> defaults to <varname>DefaultTimeoutStartSec=</varname>.
+        <varname>JobRunningTimeoutSec=</varname> defaults to <varname>DefaultDeviceTimeoutSec=</varname>.
         </para>
 
         <para>Note: these timeouts are independent from any unit-specific timeouts (for example, the timeout
