@@ -17,7 +17,3 @@ fi
 
 # Exit with non-zero EC if the /failed-services file is not empty (we have -e set)
 [[ ! -s /failed-services ]]
-
-# On success, exit with 123 so that we can check that we receive the actual exit code from the script on the
-# host.
-exit 123
