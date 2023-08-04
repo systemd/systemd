@@ -112,7 +112,7 @@ static int generate_wants_symlinks(void) {
         int r = 0;
 
         STRV_FOREACH(u, arg_wants) {
-                _cleanup_free_ char *p = NULL, *f = NULL;
+                _cleanup_free_ char *f = NULL;
                 const char *target;
 
                 /* This should match what do_queue_default_job() in core/main.c does. */
@@ -123,20 +123,13 @@ static int generate_wants_symlinks(void) {
                 else
                         target = SPECIAL_DEFAULT_TARGET;
 
-                p = strjoin(arg_dest, "/", target, ".wants/", *u);
-                if (!p)
-                        return log_oom();
-
                 f = path_join(SYSTEM_DATA_UNIT_DIR, *u);
                 if (!f)
                         return log_oom();
 
-                (void) mkdir_parents_label(p, 0755);
-
-                if (symlink(f, p) < 0)
-                        r = log_error_errno(errno,
-                                            "Failed to create wants symlink %s: %m",
-                                            p);
+                r = generator_add_symlink(arg_dest, target, "wants", f);
+                if (r < 0)
+                        return r;
         }
 
         return r;
