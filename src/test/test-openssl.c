@@ -94,4 +94,147 @@ TEST(ecc_pkey_curve_x_y) {
         assert_se(memcmp_nn(y, y_len, y2, y2_size) == 0);
 }
 
+static void verify_digest(const char *digest_alg, const struct iovec *data, size_t n_data, const char *expect) {
+        _cleanup_free_ void *digest = NULL;
+        size_t digest_size;
+
+        assert_se(openssl_digest_many(digest_alg, data, n_data, &digest, &digest_size) == 0);
+
+        DEFINE_HEX_PTR(e, expect);
+        assert_se(memcmp_nn(e, e_len, digest, digest_size) == 0);
+}
+
+#define _DEFINE_DIGEST_TEST(uniq, alg, expect, ...)                     \
+        const struct iovec UNIQ_T(i, uniq)[] = { __VA_ARGS__ };         \
+        verify_digest(alg,                                              \
+                      UNIQ_T(i, uniq),                                  \
+                      ELEMENTSOF(UNIQ_T(i, uniq)),                      \
+                      expect);
+#define DEFINE_DIGEST_TEST(alg, expect, ...) _DEFINE_DIGEST_TEST(UNIQ, alg, expect, __VA_ARGS__)
+#define DEFINE_SHA1_TEST(expect, ...) DEFINE_DIGEST_TEST("SHA1", expect, __VA_ARGS__)
+#define DEFINE_SHA256_TEST(expect, ...) DEFINE_DIGEST_TEST("SHA256", expect, __VA_ARGS__)
+#define DEFINE_SHA384_TEST(expect, ...) DEFINE_DIGEST_TEST("SHA384", expect, __VA_ARGS__)
+#define DEFINE_SHA512_TEST(expect, ...) DEFINE_DIGEST_TEST("SHA512", expect, __VA_ARGS__)
+
+TEST(digest_many) {
+        const struct iovec test = IOVEC_MAKE_STRING("test");
+
+        /* Empty digests */
+        DEFINE_SHA1_TEST("da39a3ee5e6b4b0d3255bfef95601890afd80709");
+        DEFINE_SHA256_TEST("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
+        DEFINE_SHA384_TEST("38b060a751ac96384cd9327eb1b1e36a21fdb71114be07434c0cc7bf63f6e1da274edebfe76f65fbd51ad2f14898b95b");
+        DEFINE_SHA512_TEST("cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce47d0d13c5d85f2b0ff8318d2877eec2f63b931bd47417a81a538327af927da3e");
+
+        DEFINE_SHA1_TEST("a94a8fe5ccb19ba61c4c0873d391e987982fbbd3", test);
+        DEFINE_SHA256_TEST("9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08", test);
+        DEFINE_SHA384_TEST("768412320f7b0aa5812fce428dc4706b3cae50e02a64caa16a782249bfe8efc4b7ef1ccb126255d196047dfedf17a0a9", test);
+        DEFINE_SHA512_TEST("ee26b0dd4af7e749aa1a8ee3c10ae9923f618980772e473f8819a5d4940e0db27ac185f8a0e1d5f84f88bc887fd67b143732c304cc5fa9ad8e6f57f50028a8ff", test);
+
+        DEFINE_HEX_PTR(h1, "e9ff2b6dfbc03b8dd0471a0f23840334e3ef51c64a325945524563c0375284a092751eca8d084fae22f74a104559a0ee8339d1845538481e674e6d31d4f63089");
+        DEFINE_HEX_PTR(h2, "5b6e809933a1b8d5a4a6bb62e20b36ae82d9408141e7479d0aa067273bd2d04007fb1977bad549d54330a49ed98f82b495ba");
+        DEFINE_HEX_PTR(h3, "d2aeef94d7ba2a");
+        DEFINE_HEX_PTR(h4, "1557db45ded3e38c79b5bb25c83ade42fa7d13047ef1b9a0b21a3c2ab2d4eee5c75e2927ce643163addbda65331035850a436c0acffc723f419e1d1cbf04c9064e6d850580c0732a12600f9feb");
+
+        const struct iovec i1 = IOVEC_MAKE(h1, h1_len);
+        const struct iovec i2 = IOVEC_MAKE(h2, h2_len);
+        const struct iovec i3 = IOVEC_MAKE(h3, h3_len);
+        const struct iovec i4 = IOVEC_MAKE(h4, h4_len);
+
+        DEFINE_SHA1_TEST("8e7c659a6331508b06adf98b430759dafb92fc43", i1, i2, i3, i4);
+        DEFINE_SHA256_TEST("4d6be38798786a5500651c1a02d96aa010e9d7b2bece1695294cd396d456cde8", i1, i2, i3, i4);
+        DEFINE_SHA384_TEST("82e6ec14f8d90f1ae1fd4fb7f415ea6fdb674515b13092e3e548a8d37a8faed30cda8ea613ec2a015a51bc578dacc995", i1, i2, i3, i4);
+        DEFINE_SHA512_TEST("21fe5beb15927257a9143ff59010e51d4c65c7c5237b0cd9a8db3c3fabe429be3a0759f9ace3cdd70f6ea543f998bec9bc3308833d70aa1bd380364de872a62c", i1, i2, i3, i4);
+
+        DEFINE_SHA256_TEST("0e0ed67d6717dc08dd6f472f6c35107a92b8c2695dcba344b884436f97a9eb4d", i1, i1, i1, i4);
+
+        DEFINE_SHA256_TEST("8fe8b8d1899c44bfb82e1edc4ff92642db5b2cb25c4210ea06c3846c757525a8", i1, i1, i1, i4, i4, i4, i4, i3, i3, i2);
+}
+
+static void verify_hmac(
+                const char *digest_alg,
+                const char *key,
+                const struct iovec *data,
+                size_t n_data,
+                const char *expect) {
+
+        DEFINE_HEX_PTR(k, key);
+        DEFINE_HEX_PTR(e, expect);
+        _cleanup_free_ void *digest = NULL;
+        size_t digest_size;
+
+        if (n_data == 0) {
+                assert_se(openssl_hmac(digest_alg, k, k_len, NULL, 0, &digest, &digest_size) == 0);
+                assert_se(memcmp_nn(e, e_len, digest, digest_size) == 0);
+                digest = mfree(digest);
+        } else if(n_data == 1) {
+                assert_se(openssl_hmac(digest_alg, k, k_len, data[0].iov_base, data[0].iov_len, &digest, &digest_size) == 0);
+                assert_se(memcmp_nn(e, e_len, digest, digest_size) == 0);
+                digest = mfree(digest);
+        }
+
+        assert_se(openssl_hmac_many(digest_alg, k, k_len, data, n_data, &digest, &digest_size) == 0);
+        assert_se(memcmp_nn(e, e_len, digest, digest_size) == 0);
+}
+
+#define _DEFINE_HMAC_TEST(uniq, alg, key, expect, ...)                  \
+        const struct iovec UNIQ_T(i, uniq)[] = { __VA_ARGS__ };         \
+        verify_hmac(alg,                                                \
+                    key,                                                \
+                    UNIQ_T(i, uniq),                                    \
+                    ELEMENTSOF(UNIQ_T(i, uniq)),                        \
+                    expect);
+#define DEFINE_HMAC_TEST(alg, key, expect, ...) _DEFINE_HMAC_TEST(UNIQ, alg, key, expect, __VA_ARGS__)
+#define DEFINE_HMAC_SHA1_TEST(key, expect, ...) DEFINE_HMAC_TEST("SHA1", key, expect, __VA_ARGS__)
+#define DEFINE_HMAC_SHA256_TEST(key, expect, ...) DEFINE_HMAC_TEST("SHA256", key, expect, __VA_ARGS__)
+#define DEFINE_HMAC_SHA384_TEST(key, expect, ...) DEFINE_HMAC_TEST("SHA384", key, expect, __VA_ARGS__)
+#define DEFINE_HMAC_SHA512_TEST(key, expect, ...) DEFINE_HMAC_TEST("SHA512", key, expect, __VA_ARGS__)
+
+TEST(hmac_many) {
+        const char *key1 = "760eb6845073862c1914c6d188bf8214",
+                *key2 = "0628d1a5f83fce99779e12e2336d87046d42d74b755f00d9f72350668860fd00",
+                *key3 = "b61158912b76348c54f104629924be4178b8a9c9459c3a6e9daa1885445a61fccc1aa0f749c31f3ade4e227f64dd0e86a94b25c2e181f044af22d0a8c07074c3";
+        const struct iovec test = IOVEC_MAKE_STRING("test");
+
+        /* Empty digests */
+        DEFINE_HMAC_SHA1_TEST(key1, "EB9725FC9A99A652C3171E0863984AC42461F88B");
+        DEFINE_HMAC_SHA256_TEST(key1, "82A15D4DD5F583CF8F06D3E447DF0FDFF95A24E29229934B48BD0A5B4E0ADC85");
+        DEFINE_HMAC_SHA384_TEST(key1, "C60F15C4E18736750D91095ADA148C4179825A487CCA3AE047A2FB94F85A5587AB6AF57678AA79715FEF848129C108C3");
+        DEFINE_HMAC_SHA512_TEST(key1, "2B10DC9BFC0349400F8965482EA149C1C51C865BB7B16097623F41C14CF6C8A678724BFAE0CE842EED899C12CC17B5D8C4287F72BE788532FE7CF0BE2EBCD447");
+
+        DEFINE_HMAC_SHA1_TEST(key2, "F9AA74F129681E91807EB264EA6E1B5C5F9B4CFD");
+        DEFINE_HMAC_SHA256_TEST(key2, "B4ADEBF8B3044A5B0668B742C0A49B61D8380F89938C84794C92567F5A33CC7D");
+        DEFINE_HMAC_SHA384_TEST(key2, "E5EACAB7A13CF5BE60FA228D771E183CD6E57536BB9EAFC34A6BB52B1B1324BD6FB8A1713F91EC040790AE97F5672D53");
+        DEFINE_HMAC_SHA512_TEST(key2, "75A597D83A6270FC3204DE741E76DEFCF42D3E1812C71E41EEA8C0F23C07315822E83BE8B54705CB00FEF4CE1BAF80E3975414925C83BF3719CEBC27DD133F7D");
+
+        DEFINE_HMAC_SHA1_TEST(key3, "4B8EACB3C3935ACC8C58995C89F16020FC993569");
+        DEFINE_HMAC_SHA256_TEST(key3, "520E8C0323A1994D58EF5456611BCB6CD701399B24F8FBA0B5A3CD3186780E8E");
+        DEFINE_HMAC_SHA384_TEST(key3, "52ADAF691EFDC377B7349EAA45EE1BFAFA27CAC1FFE08B942C80426D1CA9F3464E3A71D611DA0B415435E82D6EE9F34A");
+        DEFINE_HMAC_SHA512_TEST(key3, "22D8C17BAF591E07CD2BD58A1B3D76D5904EC45C9099F0171A243F07611E25208A395833BC3F9BBD425636FD8D574BE1A1A367DCB6C40AD3C06E2B57E8FD2729");
+
+        /* test message */
+        DEFINE_HMAC_SHA1_TEST(key2, "DEE6313BE6391523D0B2B326890F13A65F3965B2", test);
+        DEFINE_HMAC_SHA256_TEST(key2, "496FF3E9DA52B2B490CD5EAE23457F8A33E61AB7B42F6E6374B7629CFBE1FCED", test);
+        DEFINE_HMAC_SHA384_TEST(key2, "F5223F750D671453CA6159C1354242DB13E0189CB79AC73E4964F623181B00C811A596F7CE3408DDE06B96C6D792F41E", test);
+        DEFINE_HMAC_SHA512_TEST(key2, "8755A8B0D85D89AFFE7A15702BBA0F835CDE454334EC952ED777A30035D6BD9407EA5DF8DCB89814C1DF7EE215022EA68D9D2BC4E4B299CD6F55CD60C269A706", test);
+
+        DEFINE_HEX_PTR(h1, "e9ff2b6dfbc03b8dd0471a0f23840334e3ef51c64a325945524563c0375284a092751eca8d084fae22f74a104559a0ee8339d1845538481e674e6d31d4f63089");
+        DEFINE_HEX_PTR(h2, "5b6e809933a1b8d5a4a6bb62e20b36ae82d9408141e7479d0aa067273bd2d04007fb1977bad549d54330a49ed98f82b495ba");
+        DEFINE_HEX_PTR(h3, "d2aeef94d7ba2a");
+        DEFINE_HEX_PTR(h4, "1557db45ded3e38c79b5bb25c83ade42fa7d13047ef1b9a0b21a3c2ab2d4eee5c75e2927ce643163addbda65331035850a436c0acffc723f419e1d1cbf04c9064e6d850580c0732a12600f9feb");
+
+        const struct iovec i1 = IOVEC_MAKE(h1, h1_len);
+        const struct iovec i2 = IOVEC_MAKE(h2, h2_len);
+        const struct iovec i3 = IOVEC_MAKE(h3, h3_len);
+        const struct iovec i4 = IOVEC_MAKE(h4, h4_len);
+
+        DEFINE_HMAC_SHA1_TEST(key2, "28C041532012BFF1B7C87B2A15A8C43EB8037D27", i1, i2, i3, i4);
+        DEFINE_HMAC_SHA256_TEST(key2, "F8A1FBDEE3CD383EA2B4940A3C8E72F443DB5B247016C9F84E2D2FEF3C5A0A23", i1, i2, i3, i4);
+        DEFINE_HMAC_SHA384_TEST(key2, "4D2AB0516F1F5C73BD0761407E0AF42361C1CAE761685FC65D1199598315EE3DCA4DB88E4D96FB06C2DA215A33FA9CE9", i1, i2, i3, i4);
+        DEFINE_HMAC_SHA512_TEST(key2, "E9BF8FC6FDE75FD5E4EF2DF399EE675C57B60C59A7B331F30535FDE68D8072185552E9A8BFA2008C52437F1BCC1472D16FBCF2A77C37339752938E42D2642150", i1, i2, i3, i4);
+
+        DEFINE_HMAC_SHA256_TEST(key3, "94D4E4B55368A533F6A7FDCC3B93E1F283BB1CA387BB5D14FAFF44A009EDF040", i1, i1, i1, i4);
+
+        DEFINE_HMAC_SHA256_TEST(key3, "5BE1F4D9C2AFAA2BB3F58FCE967BC7D3084BB8F512659875BDA634991145B0F0", i1, i1, i1, i4, i4, i4, i4, i3, i3, i2);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
