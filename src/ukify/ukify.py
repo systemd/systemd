@@ -1016,6 +1016,8 @@ class ConfigItem:
         assert not group
 
         old = getattr(namespace, dest, [])
+        if old is None:
+            old = []
         setattr(namespace, dest, value + old)
 
     @staticmethod
