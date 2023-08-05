@@ -76,7 +76,7 @@ static int fstab_is_same_node(const char *what_fstab, const char *path) {
         if (path_equal(node, path))
                 return true;
 
-        if (is_device_node(path) && is_device_node(node))
+        if (is_device_path(path) && is_device_path(node))
                 return devnode_same(node, path);
 
         return false;
