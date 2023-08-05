@@ -114,7 +114,7 @@ def we_are_wanted() -> bool:
         log(f'{KERNEL_INSTALL_LAYOUT=}, quitting.')
         return False
 
-    KERNEL_INSTALL_UKI_GENERATOR = os.getenv('KERNEL_INSTALL_UKI_GENERATOR')
+    KERNEL_INSTALL_UKI_GENERATOR = os.getenv('KERNEL_INSTALL_UKI_GENERATOR') or 'ukify'
 
     if KERNEL_INSTALL_UKI_GENERATOR != 'ukify':
         log(f'{KERNEL_INSTALL_UKI_GENERATOR=}, quitting.')
