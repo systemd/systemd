@@ -12,6 +12,7 @@ Description=Rule-based Manager for Device Events and Files
 Documentation=man:systemd-udevd.service(8) man:udev(7)
 DefaultDependencies=no
 After=systemd-sysusers.service systemd-hwdb-update.service
+After=systemd-tmpfiles-setup-dev.service
 Before=sysinit.target
 ConditionPathIsReadWrite=/sys
 

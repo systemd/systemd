@@ -79,13 +79,13 @@ udevadm info -w /sys/class/net/$netdev
 udevadm info --wait-for-initialization=5 /sys/class/net/$netdev
 udevadm info -h
 
-assert_rc 124 timeout 5 udevadm monitor
-assert_rc 124 timeout 5 udevadm monitor -k
-assert_rc 124 timeout 5 udevadm monitor -u
-assert_rc 124 timeout 5 udevadm monitor -s net
-assert_rc 124 timeout 5 udevadm monitor --subsystem-match net/$netdev
-assert_rc 124 timeout 5 udevadm monitor -t systemd
-assert_rc 124 timeout 5 udevadm monitor --tag-match hello
+assert_rc 124 timeout 1 udevadm monitor
+assert_rc 124 timeout 1 udevadm monitor -k
+assert_rc 124 timeout 1 udevadm monitor -u
+assert_rc 124 timeout 1 udevadm monitor -s net
+assert_rc 124 timeout 1 udevadm monitor --subsystem-match net/$netdev
+assert_rc 124 timeout 1 udevadm monitor -t systemd
+assert_rc 124 timeout 1 udevadm monitor --tag-match hello
 udevadm monitor -h
 
 udevadm settle
