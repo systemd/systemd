@@ -586,10 +586,6 @@ static int add_partition_esp(DissectedPartition *p, bool has_xbootldr) {
          * Otherwise, if /efi/ is unused and empty (or missing), we'll take that.
          * Otherwise, we do nothing. */
         if (!has_xbootldr && slash_boot_exists()) {
-                r = slash_boot_in_fstab();
-                if (r < 0)
-                        return r;
-
                 r = path_is_busy("/boot");
                 if (r < 0)
                         return r;
