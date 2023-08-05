@@ -5808,6 +5808,7 @@ static int context_minimize(Context *context) {
                 _cleanup_close_ int fd = -EBADF;
                 _cleanup_free_ char *hint = NULL;
                 sd_id128_t fs_uuid;
+                struct stat st;
                 uint64_t fsz;
 
                 if (p->dropped)
@@ -5896,8 +5897,6 @@ static int context_minimize(Context *context) {
                 /* Read-only filesystems are minimal from the first try because they create and size the
                  * loopback file for us. */
                 if (fstype_is_ro(p->format)) {
-                        struct stat st;
-
                         assert(fd < 0);
 
                         fd = open(temp, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
@@ -5976,12 +5975,13 @@ static int context_minimize(Context *context) {
                                 return r;
                 }
 
-                assert(fd >= 0);
+                if (fstat(fd, &st) < 0)
+                        return log_error_errno(errno, "Failed to stat temporary file: %m");
 
                 p->copy_blocks_path = TAKE_PTR(temp);
                 p->copy_blocks_path_is_our_file = true;
                 p->copy_blocks_fd = TAKE_FD(fd);
-                p->copy_blocks_size = fsz;
+                p->copy_blocks_size = st.st_size;
         }
 
         /* Now that we've done the data partitions, do the verity hash partitions. We do these in a separate
