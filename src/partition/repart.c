@@ -3895,17 +3895,51 @@ static int partition_format_verity_hash(
 
         cryptsetup_enable_logging(cd);
 
-        r = sym_crypt_format(
-                        cd, CRYPT_VERITY, NULL, NULL, NULL, NULL, 0,
-                        &(struct crypt_params_verity){
-                                .data_device = data_node,
-                                .flags = CRYPT_VERITY_CREATE_HASH,
-                                .hash_name = "sha256",
-                                .hash_type = 1,
-                                .data_block_size = context->sector_size,
-                                .hash_block_size = context->sector_size,
-                                .salt_size = 32,
-                        });
+        /* If a random seed was requested, we neither pass a value for uuid nor for salt to crypt_format
+         * to cause libcryptsetup to allocate a random uuid and a random salt. In any other case, we
+         * derive stable values for uuid and salt from the seed and pass them to crypt_format. This way,
+         * we create reproducible verity volumes by default but keep the possibility to produce random
+         * uuid and salt values upon request. */
+        if (arg_randomize) {
+                r = sym_crypt_format(
+                                cd, CRYPT_VERITY, NULL, NULL, NULL, NULL, 0,
+                                &(struct crypt_params_verity){
+                                        .data_device = data_node,
+                                        .flags = CRYPT_VERITY_CREATE_HASH,
+                                        .hash_name = "sha256",
+                                        .hash_type = 1,
+                                        .data_block_size = context->sector_size,
+                                        .hash_block_size = context->sector_size,
+                                        .salt_size = 32,
+                                });
+        } else {
+                sd_id128_t uuid;
+                union {
+                        uint8_t md[SHA256_DIGEST_SIZE];
+                        const char buf[SHA256_DIGEST_SIZE];
+                } salt;
+                const char salt_token[] = "verity-salt";
+
+                hmac_sha256(context->seed.bytes, sizeof(context->seed.bytes), salt_token, strlen(salt_token), salt.md);
+
+                r = derive_uuid(context->seed, "verity-uuid", &uuid);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to acquire verity uuid: %m");
+
+                r = sym_crypt_format(
+                                cd, CRYPT_VERITY, NULL, NULL, SD_ID128_TO_UUID_STRING(uuid), NULL, 0,
+                                &(struct crypt_params_verity){
+                                        .data_device = data_node,
+                                        .flags = CRYPT_VERITY_CREATE_HASH,
+                                        .hash_name = "sha256",
+                                        .hash_type = 1,
+                                        .data_block_size = context->sector_size,
+                                        .hash_block_size = context->sector_size,
+                                        .salt_size = sizeof(salt),
+                                        .salt = salt.buf,
+                                });
+        }
+
         if (r < 0) {
                 /* libcryptsetup reports non-descriptive EIO errors for every I/O failure. Luckily, it
                  * doesn't clobber errno so let's check for ENOSPC so we can report a better error if the
