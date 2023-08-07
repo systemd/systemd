@@ -4,6 +4,7 @@
 #include <fcntl.h>
 #include <poll.h>
 #include <sys/eventfd.h>
+#include <sys/file.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <sys/mount.h>
@@ -208,10 +209,8 @@ static const char *exec_context_tty_path(const ExecContext *context) {
 }
 
 static int exec_context_tty_size(const ExecContext *context, unsigned *ret_rows, unsigned *ret_cols) {
-        _cleanup_free_ char *rowskey = NULL, *rowsvalue = NULL, *colskey = NULL, *colsvalue = NULL;
         unsigned rows, cols;
         const char *tty;
-        int r;
 
         assert(context);
         assert(ret_rows);
@@ -221,45 +220,8 @@ static int exec_context_tty_size(const ExecContext *context, unsigned *ret_rows,
         cols = context->tty_cols;
 
         tty = exec_context_tty_path(context);
-        if (!tty || (rows != UINT_MAX && cols != UINT_MAX)) {
-                *ret_rows = rows;
-                *ret_cols = cols;
-                return 0;
-        }
-
-        tty = skip_dev_prefix(tty);
-        if (!in_charset(tty, ALPHANUMERICAL)) {
-                log_debug("%s contains non-alphanumeric characters, ignoring", tty);
-                *ret_rows = rows;
-                *ret_cols = cols;
-                return 0;
-        }
-
-        rowskey = strjoin("systemd.tty.rows.", tty);
-        if (!rowskey)
-                return -ENOMEM;
-
-        colskey = strjoin("systemd.tty.columns.", tty);
-        if (!colskey)
-                return -ENOMEM;
-
-        r = proc_cmdline_get_key_many(/* flags = */ 0,
-                                      rowskey, &rowsvalue,
-                                      colskey, &colsvalue);
-        if (r < 0)
-                log_debug_errno(r, "Failed to read TTY size of %s from kernel cmdline, ignoring: %m", tty);
-
-        if (rows == UINT_MAX && rowsvalue) {
-                r = safe_atou(rowsvalue, &rows);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to parse %s=%s, ignoring: %m", rowskey, rowsvalue);
-        }
-
-        if (cols == UINT_MAX && colsvalue) {
-                r = safe_atou(colsvalue, &cols);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to parse %s=%s, ignoring: %m", colskey, colsvalue);
-        }
+        if (tty)
+                (void) proc_cmdline_tty_size(tty, rows == UINT_MAX ? &rows : NULL, cols == UINT_MAX ? &cols : NULL);
 
         *ret_rows = rows;
         *ret_cols = cols;
@@ -268,25 +230,34 @@ static int exec_context_tty_size(const ExecContext *context, unsigned *ret_rows,
 }
 
 static void exec_context_tty_reset(const ExecContext *context, const ExecParameters *p) {
-        const char *path;
+        _cleanup_close_ int fd = -EBADF;
+        const char *path = exec_context_tty_path(ASSERT_PTR(context));
 
-        assert(context);
+        /* Take a lock around the device for the duration of the setup that we do here.
+         * systemd-vconsole-setup.service also takes the lock to avoid being interrupted.
+         * We open a new fd that will be closed automatically, and operate on it for convenience.
+         */
 
-        path = exec_context_tty_path(context);
+        if (p && p->stdin_fd >= 0) {
+                fd = xopenat_lock(p->stdin_fd, NULL,
+                                  O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY, 0, 0, LOCK_BSD, LOCK_EX);
+                if (fd < 0)
+                        return;
+        } else if (path) {
+                fd = open_terminal(path, O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
+                if (fd < 0)
+                        return;
 
-        if (context->tty_vhangup) {
-                if (p && p->stdin_fd >= 0)
-                        (void) terminal_vhangup_fd(p->stdin_fd);
-                else if (path)
-                        (void) terminal_vhangup(path);
-        }
+                if (lock_generic(fd, LOCK_BSD, LOCK_EX) < 0)
+                        return;
+        } else
+                return;   /* nothing to do */
 
-        if (context->tty_reset) {
-                if (p && p->stdin_fd >= 0)
-                        (void) reset_terminal_fd(p->stdin_fd, true);
-                else if (path)
-                        (void) reset_terminal(path);
-        }
+        if (context->tty_vhangup)
+                (void) terminal_vhangup_fd(fd);
+
+        if (context->tty_reset)
+                (void) reset_terminal_fd(fd, true);
 
         if (p && p->stdin_fd >= 0) {
                 unsigned rows = context->tty_rows, cols = context->tty_cols;
@@ -2519,7 +2490,7 @@ static int setup_exec_directory(
                          * didn't know the more recent addition to the xdg-basedir spec: the $XDG_STATE_HOME
                          * directory. In older systemd versions EXEC_DIRECTORY_STATE was aliased to
                          * EXEC_DIRECTORY_CONFIGURATION, with the advent of $XDG_STATE_HOME is is now
-                         * seperated. If a service has both dirs configured but only the configuration dir
+                         * separated. If a service has both dirs configured but only the configuration dir
                          * exists and the state dir does not, we assume we are looking at an update
                          * situation. Hence, create a compatibility symlink, so that all expectations are
                          * met.
@@ -3997,7 +3968,7 @@ static int apply_mount_namespace(
         _cleanup_strv_free_ char **empty_directories = NULL, **symlinks = NULL,
                         **read_write_paths_cleanup = NULL;
         _cleanup_free_ char *creds_path = NULL, *incoming_dir = NULL, *propagate_dir = NULL,
-                        *extension_dir = NULL;
+                        *extension_dir = NULL, *host_os_release = NULL;
         const char *root_dir = NULL, *root_image = NULL, *tmp_dir = NULL, *var_tmp_dir = NULL;
         char **read_write_paths;
         NamespaceInfo ns_info;
@@ -4117,11 +4088,24 @@ static int apply_mount_namespace(
                 extension_dir = strdup("/run/systemd/unit-extensions");
                 if (!extension_dir)
                         return -ENOMEM;
+
+                /* If running under a different root filesystem, propagate the host's os-release. We make a
+                 * copy rather than just bind mounting it, so that it can be updated on soft-reboot. */
+                if (root_dir || root_image) {
+                        host_os_release = strdup("/run/systemd/propagate/os-release");
+                        if (!host_os_release)
+                                return -ENOMEM;
+                }
         } else {
                 assert(params->runtime_scope == RUNTIME_SCOPE_USER);
 
                 if (asprintf(&extension_dir, "/run/user/" UID_FMT "/systemd/unit-extensions", geteuid()) < 0)
                         return -ENOMEM;
+
+                if (root_dir || root_image) {
+                        if (asprintf(&host_os_release, "/run/user/" UID_FMT "/systemd/propagate/os-release", geteuid()) < 0)
+                                return -ENOMEM;
+                }
         }
 
         if (root_image) {
@@ -4169,6 +4153,7 @@ static int apply_mount_namespace(
                         incoming_dir,
                         extension_dir,
                         root_dir || root_image ? params->notify_socket : NULL,
+                        host_os_release,
                         error_path);
 
         /* If we couldn't set up the namespace this is probably due to a missing capability. setup_namespace() reports
@@ -5114,20 +5099,24 @@ static int exec_child(
                 /* When we can't make this change due to EPERM, then let's silently skip over it. User namespaces
                  * prohibit write access to this file, and we shouldn't trip up over that. */
                 r = set_oom_score_adjust(context->oom_score_adjust);
-                if (ERRNO_IS_PRIVILEGE(r))
-                        log_unit_debug_errno(unit, r, "Failed to adjust OOM setting, assuming containerized execution, ignoring: %m");
-                else if (r < 0) {
-                        *exit_status = EXIT_OOM_ADJUST;
-                        return log_unit_error_errno(unit, r, "Failed to adjust OOM setting: %m");
+                if (r < 0) {
+                        if (ERRNO_IS_PRIVILEGE(r))
+                                log_unit_debug_errno(unit, r, "Failed to adjust OOM setting, assuming containerized execution, ignoring: %m");
+                        else {
+                                *exit_status = EXIT_OOM_ADJUST;
+                                return log_unit_error_errno(unit, r, "Failed to adjust OOM setting: %m");
+                        }
                 }
         }
 
         if (context->coredump_filter_set) {
                 r = set_coredump_filter(context->coredump_filter);
-                if (ERRNO_IS_PRIVILEGE(r))
-                        log_unit_debug_errno(unit, r, "Failed to adjust coredump_filter, ignoring: %m");
-                else if (r < 0)
-                        return log_unit_error_errno(unit, r, "Failed to adjust coredump_filter: %m");
+                if (r < 0) {
+                        if (ERRNO_IS_PRIVILEGE(r))
+                                log_unit_debug_errno(unit, r, "Failed to adjust coredump_filter, ignoring: %m");
+                        else
+                                return log_unit_error_errno(unit, r, "Failed to adjust coredump_filter: %m");
+                }
         }
 
         if (context->nice_set) {
@@ -6181,7 +6170,7 @@ void exec_context_done(ExecContext *c) {
         c->apparmor_profile = mfree(c->apparmor_profile);
         c->smack_process_label = mfree(c->smack_process_label);
 
-        c->restrict_filesystems = set_free(c->restrict_filesystems);
+        c->restrict_filesystems = set_free_free(c->restrict_filesystems);
 
         c->syscall_filter = hashmap_free(c->syscall_filter);
         c->syscall_archs = set_free(c->syscall_archs);
@@ -6193,8 +6182,8 @@ void exec_context_done(ExecContext *c) {
         c->log_level_max = -1;
 
         exec_context_free_log_extra_fields(c);
-        c->log_filter_allowed_patterns = set_free(c->log_filter_allowed_patterns);
-        c->log_filter_denied_patterns = set_free(c->log_filter_denied_patterns);
+        c->log_filter_allowed_patterns = set_free_free(c->log_filter_allowed_patterns);
+        c->log_filter_denied_patterns = set_free_free(c->log_filter_denied_patterns);
 
         c->log_ratelimit_interval_usec = 0;
         c->log_ratelimit_burst = 0;
@@ -6209,7 +6198,7 @@ void exec_context_done(ExecContext *c) {
 
         c->load_credentials = hashmap_free(c->load_credentials);
         c->set_credentials = hashmap_free(c->set_credentials);
-        c->import_credentials = set_free(c->import_credentials);
+        c->import_credentials = set_free_free(c->import_credentials);
 
         c->root_image_policy = image_policy_free(c->root_image_policy);
         c->mount_image_policy = image_policy_free(c->mount_image_policy);
@@ -7217,16 +7206,6 @@ bool exec_context_has_encrypted_credentials(ExecContext *c) {
                         return true;
 
         return false;
-}
-
-int exec_context_add_default_dependencies(Unit *u, const ExecContext *c) {
-        assert(u);
-        assert(u->default_dependencies);
-
-        if (c && exec_context_needs_term(c))
-                return unit_add_dependency_by_name(u, UNIT_AFTER, SPECIAL_VCONSOLE_SETUP_SERVICE,
-                                                   /* add_reference= */ true, UNIT_DEPENDENCY_DEFAULT);
-        return 0;
 }
 
 void exec_status_start(ExecStatus *s, pid_t pid) {

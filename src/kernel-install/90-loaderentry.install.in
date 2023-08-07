@@ -115,6 +115,43 @@ install -m 0644 "$KERNEL_IMAGE" "$KERNEL_DEST" || {
 }
 chown root:root "$KERNEL_DEST" || :
 
+if [ -n "$KERNEL_INSTALL_CONF_ROOT" ]; then
+    if [ -f "$KERNEL_INSTALL_CONF_ROOT/devicetree" ]; then
+        read -r DEVICETREE <"$KERNEL_INSTALL_CONF_ROOT/devicetree"
+    fi
+elif [ -f /etc/kernel/devicetree ]; then
+    read -r DEVICETREE </etc/kernel/devicetree
+elif [ -f /usr/lib/kernel/devicetree ]; then
+    read -r DEVICETREE </usr/lib/kernel/devicetree
+fi
+if [ -n "$DEVICETREE" ]; then
+    for prefix in \
+        "/boot/dtb-$KERNEL_VERSION" \
+        "/boot/dtbs/$KERNEL_VERSION" \
+        "/lib/firmware/$KERNEL_VERSION/device-tree" \
+        "/lib/linux-image-$KERNEL_VERSION" \
+        "/lib/modules/$KERNEL_VERSION/dtb"
+    do
+        [ -f "$prefix/$DEVICETREE" ] || continue
+        DEVICETREE_SRC="$prefix/$DEVICETREE"
+        break
+    done
+
+    [ -n "$DEVICETREE_SRC" ] || {
+        echo "Error: could not find device tree blob '$DEVICETREE'." >&2
+        exit 1
+    }
+
+    DEVICETREE_DEST="$ENTRY_DIR_ABS/${DEVICETREE##*/}"
+    DEVICETREE_ENTRY="$ENTRY_DIR/${DEVICETREE##*/}"
+
+    install -m 0644 "$DEVICETREE_SRC" "$DEVICETREE_DEST" || {
+        echo "Error: could not copy '$DEVICETREE_SRC' to '$DEVICETREE_DEST'." >&2
+        exit 1
+    }
+    chown root:root "$DEVICETREE_DEST" || :
+fi
+
 shift "$INITRD_OPTIONS_SHIFT"
 # All files listed as arguments, and staged files starting with "initrd" are installed as initrds.
 for initrd in "${KERNEL_INSTALL_STAGING_AREA}"/microcode* "${@}" "${KERNEL_INSTALL_STAGING_AREA}"/initrd*; do
@@ -154,6 +191,7 @@ mkdir -p "${LOADER_ENTRY%/*}" || {
     [ -n "$SORT_KEY" ] && echo "sort-key   $SORT_KEY"
     echo "options    $BOOT_OPTIONS"
     echo "linux      $KERNEL_ENTRY"
+    [ -n "$DEVICETREE_ENTRY" ] && echo "devicetree $DEVICETREE_ENTRY"
 
     have_initrd=
     for initrd in "${KERNEL_INSTALL_STAGING_AREA}"/microcode* "${@}" "${KERNEL_INSTALL_STAGING_AREA}"/initrd*; do

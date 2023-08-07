@@ -653,11 +653,8 @@ EOF
     rm -f "$SCRIPT" "$PAMSERVICE"
 }
 
-: >/failed
-
 setup_test_user
 test_enable_debug
 run_testcases
 
 touch /testok
-rm /failed

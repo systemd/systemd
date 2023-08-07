@@ -91,7 +91,7 @@ else
 fi
 
 if ! ROOTLIBDIR=$(pkg-config --variable=systemdutildir systemd); then
-    echo "WARNING! Cannot determine rootlibdir from pkg-config, assuming /usr/lib/systemd" >&2
+    echo "WARNING! Cannot determine libdir from pkg-config, assuming /usr/lib/systemd" >&2
     ROOTLIBDIR=/usr/lib/systemd
 fi
 
@@ -1289,6 +1289,7 @@ install_suse_systemd() {
         systemd-container
         systemd-coredump
         systemd-experimental
+        systemd-homed
         systemd-journal-remote
         # Since commit fb6f25d7b979134a, systemd-resolved, which is shipped by
         # systemd-network sub-package on openSUSE, has its own testsuite.
@@ -2191,14 +2192,6 @@ install_keymaps() {
 
     dinfo "Install console keymaps"
 
-    if command -v meson >/dev/null \
-            && [[ "$(meson configure "${BUILD_DIR:?}" | grep 'split-usr' | awk '{ print $2 }')" == "true" ]] \
-            || [[ ! -L /lib ]]; then
-        prefix+=(
-            "/lib"
-        )
-    fi
-
     if (( $# == 0 )); then
         for p in "${prefix[@]}"; do
             # The first three paths may be deprecated.
@@ -2259,8 +2252,8 @@ install_zoneinfo() {
 install_fonts() {
     dinfo "Install system fonts"
     for i in \
-        /usr/lib/kbd/consolefonts/eurlatgr* \
-        /usr/lib/kbd/consolefonts/latarcyrheb-sun16*; do
+        /usr/{lib,share}/kbd/consolefonts/eurlatgr* \
+        /usr/{lib,share}/kbd/consolefonts/latarcyrheb-sun16*; do
             [[ -f "$i" ]] || continue
             inst "$i"
     done
@@ -2338,14 +2331,7 @@ inst_libs() {
         [[ "$line" = 'not a dynamic executable' ]] && break
         # Ignore errors about our own stuff missing. This is most likely caused
         # by ldd attempting to use the unprefixed RPATH.
-        [[ "$line" =~ libsystemd.*\ not\ found ]] && continue
-
-        if [[ "$line" =~ $so_regex ]]; then
-            file="${BASH_REMATCH[1]}"
-            [[ -e "${initdir:?}/$file" ]] && continue
-            inst_library "$file"
-            continue
-        fi
+        [[ "$line" =~ (libsystemd|libudev).*\ not\ found ]] && continue
 
         if [[ "$line" =~ not\ found ]]; then
             dfatal "Missing a shared library required by $bin."
@@ -2353,6 +2339,12 @@ inst_libs() {
             dfatal "$line"
             dfatal "Cannot create a test image."
             exit 1
+        fi
+
+        if [[ "$line" =~ $so_regex ]]; then
+            file="${BASH_REMATCH[1]}"
+            [[ -e "${initdir:?}/$file" ]] && continue
+            inst_library "$file"
         fi
     done < <(LC_ALL=C ldd "$bin" 2>/dev/null)
 }

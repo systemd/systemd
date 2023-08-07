@@ -2726,8 +2726,7 @@ static int offline_security_checks(
                 k = verify_prepare_filename(*filename, &prepared);
                 if (k < 0) {
                         log_warning_errno(k, "Failed to prepare filename %s: %m", *filename);
-                        if (r == 0)
-                                r = k;
+                        RET_GATHER(r, k);
                         continue;
                 }
 
@@ -2760,19 +2759,15 @@ static int offline_security_checks(
 
                 k = manager_load_startable_unit_or_warn(m, NULL, prepared, &units[count]);
                 if (k < 0) {
-                        if (r == 0)
-                                r = k;
+                        RET_GATHER(r, k);
                         continue;
                 }
 
                 count++;
         }
 
-        for (size_t i = 0; i < count; i++) {
-                k = offline_security_check(units[i], threshold, policy, pager_flags, json_format_flags);
-                if (k < 0 && r == 0)
-                        r = k;
-        }
+        for (size_t i = 0; i < count; i++)
+                RET_GATHER(r, offline_security_check(units[i], threshold, policy, pager_flags, json_format_flags));
 
         return r;
 }

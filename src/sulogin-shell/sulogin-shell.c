@@ -8,42 +8,20 @@
 
 #include "sd-bus.h"
 
-#include "bus-locator.h"
-#include "bus-util.h"
 #include "bus-error.h"
+#include "bus-locator.h"
+#include "bus-unit-util.h"
+#include "bus-util.h"
 #include "constants.h"
 #include "env-util.h"
 #include "initrd-util.h"
 #include "log.h"
 #include "main-func.h"
-#include "process-util.h"
 #include "proc-cmdline.h"
+#include "process-util.h"
 #include "signal-util.h"
 #include "special.h"
 #include "unit-def.h"
-
-static int reload_manager(sd_bus *bus) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
-        int r;
-
-        log_info("Reloading system manager configuration");
-
-        r = bus_message_new_method_call(
-                        bus,
-                        &m,
-                        bus_systemd_mgr,
-                        "Reload");
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        /* Reloading the daemon may take long, hence set a longer timeout here */
-        r = sd_bus_call(bus, m, DAEMON_RELOAD_TIMEOUT_SEC, &error, NULL);
-        if (r < 0)
-                return log_error_errno(r, "Failed to reload daemon: %s", bus_error_message(&error, r));
-
-        return 0;
-}
 
 static int target_is_inactive(sd_bus *bus, const char *target) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -151,7 +129,9 @@ static int run(int argc, char *argv[]) {
                         goto fallback;
                 }
 
-                if (reload_manager(bus) < 0)
+                log_info("Reloading system manager configuration.");
+                r = bus_service_manager_reload(bus);
+                if (r < 0)
                         goto fallback;
 
                 const char *target = in_initrd() ? SPECIAL_INITRD_TARGET : SPECIAL_DEFAULT_TARGET;
@@ -160,7 +140,7 @@ static int run(int argc, char *argv[]) {
                 if (r < 0)
                         goto fallback;
                 if (!r) {
-                        log_warning("%s is not inactive. Please review the %s setting.\n", target, target);
+                        log_warning("%s is not inactive. Please review the %s setting.", target, target);
                         goto fallback;
                 }
 
@@ -168,7 +148,7 @@ static int run(int argc, char *argv[]) {
                         break;
 
         fallback:
-                log_warning("Fallback to the single-user shell.\n");
+                log_warning("Fallback to the single-user shell.");
         }
 
         return 0;

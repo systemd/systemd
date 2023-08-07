@@ -144,9 +144,18 @@ int in4_addr_default_subnet_mask(const struct in_addr *addr, struct in_addr *mas
 int in4_addr_mask(struct in_addr *addr, unsigned char prefixlen);
 int in6_addr_mask(struct in6_addr *addr, unsigned char prefixlen);
 int in_addr_mask(int family, union in_addr_union *addr, unsigned char prefixlen);
-int in4_addr_prefix_covers(const struct in_addr *prefix, unsigned char prefixlen, const struct in_addr *address);
-int in6_addr_prefix_covers(const struct in6_addr *prefix, unsigned char prefixlen, const struct in6_addr *address);
-int in_addr_prefix_covers(int family, const union in_addr_union *prefix, unsigned char prefixlen, const union in_addr_union *address);
+int in4_addr_prefix_covers_full(const struct in_addr *prefix, unsigned char prefixlen, const struct in_addr *address, unsigned char address_prefixlen);
+int in6_addr_prefix_covers_full(const struct in6_addr *prefix, unsigned char prefixlen, const struct in6_addr *address, unsigned char address_prefixlen);
+int in_addr_prefix_covers_full(int family, const union in_addr_union *prefix, unsigned char prefixlen, const union in_addr_union *address, unsigned char address_prefixlen);
+static inline int in4_addr_prefix_covers(const struct in_addr *prefix, unsigned char prefixlen, const struct in_addr *address) {
+        return in4_addr_prefix_covers_full(prefix, prefixlen, address, 32);
+}
+static inline int in6_addr_prefix_covers(const struct in6_addr *prefix, unsigned char prefixlen, const struct in6_addr *address) {
+        return in6_addr_prefix_covers_full(prefix, prefixlen, address, 128);
+}
+static inline int in_addr_prefix_covers(int family, const union in_addr_union *prefix, unsigned char prefixlen, const union in_addr_union *address) {
+        return in_addr_prefix_covers_full(family, prefix, prefixlen, address, family == AF_INET ? 32 : family == AF_INET6 ? 128 : 0);
+}
 int in_addr_parse_prefixlen(int family, const char *p, unsigned char *ret);
 int in_addr_prefix_from_string(const char *p, int family, union in_addr_union *ret_prefix, unsigned char *ret_prefixlen);
 
@@ -185,6 +194,16 @@ extern const struct hash_ops in_addr_data_hash_ops;
 extern const struct hash_ops in_addr_data_hash_ops_free;
 extern const struct hash_ops in6_addr_hash_ops;
 extern const struct hash_ops in6_addr_hash_ops_free;
+
+static inline void PTR_TO_IN4_ADDR(const void *p, struct in_addr *ret) {
+        assert(ret);
+        ret->s_addr = (uint32_t) ((uintptr_t) p);
+}
+
+static inline void* IN4_ADDR_TO_PTR(const struct in_addr *a) {
+        assert(a);
+        return (void*) ((uintptr_t) a->s_addr);
+}
 
 #define IPV4_ADDRESS_FMT_STR     "%u.%u.%u.%u"
 #define IPV4_ADDRESS_FMT_VAL(address)              \

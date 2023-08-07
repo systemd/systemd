@@ -97,8 +97,7 @@ static int apply_file(struct kmod_ctx *ctx, const char *path, bool ignore_enoent
                 k = module_load_and_warn(ctx, l, true);
                 if (k == -ENOENT)
                         continue;
-                if (k < 0 && r >= 0)
-                        r = k;
+                RET_GATHER(r, k);
         }
 
         return r;
@@ -186,11 +185,8 @@ static int run(int argc, char *argv[]) {
         r = 0;
 
         if (argc > optind) {
-                for (int i = optind; i < argc; i++) {
-                        k = apply_file(ctx, argv[i], false);
-                        if (k < 0 && r == 0)
-                                r = k;
-                }
+                for (int i = optind; i < argc; i++)
+                        RET_GATHER(r, apply_file(ctx, argv[i], false));
 
         } else {
                 _cleanup_strv_free_ char **files = NULL;
@@ -199,23 +195,15 @@ static int run(int argc, char *argv[]) {
                         k = module_load_and_warn(ctx, *i, true);
                         if (k == -ENOENT)
                                 continue;
-                        if (k < 0 && r == 0)
-                                r = k;
+                        RET_GATHER(r, k);
                 }
 
                 k = conf_files_list_nulstr(&files, ".conf", NULL, 0, conf_file_dirs);
-                if (k < 0) {
-                        log_error_errno(k, "Failed to enumerate modules-load.d files: %m");
-                        if (r == 0)
-                                r = k;
-                        return r;
-                }
+                if (k < 0)
+                        return log_error_errno(k, "Failed to enumerate modules-load.d files: %m");
 
-                STRV_FOREACH(fn, files) {
-                        k = apply_file(ctx, *fn, true);
-                        if (k < 0 && r == 0)
-                                r = k;
-                }
+                STRV_FOREACH(fn, files)
+                        RET_GATHER(r, apply_file(ctx, *fn, true));
         }
 
         return r;

@@ -106,12 +106,24 @@ int loop_read_exact(int fd, void *buf, size_t nbytes, bool do_poll) {
 }
 
 int loop_write(int fd, const void *buf, size_t nbytes, bool do_poll) {
-        const uint8_t *p = ASSERT_PTR(buf);
+        const uint8_t *p;
 
         assert(fd >= 0);
 
-        if (_unlikely_(nbytes > (size_t) SSIZE_MAX))
-                return -EINVAL;
+        if (nbytes == 0) {
+                static const dummy_t dummy[0];
+                assert_cc(sizeof(dummy) == 0);
+                p = (const void*) dummy; /* Some valid pointer, in case NULL was specified */
+        } else {
+                assert(buf);
+
+                if (nbytes == SIZE_MAX)
+                        nbytes = strlen(buf);
+                else if (_unlikely_(nbytes > (size_t) SSIZE_MAX))
+                        return -EINVAL;
+
+                p = buf;
+        }
 
         do {
                 ssize_t k;

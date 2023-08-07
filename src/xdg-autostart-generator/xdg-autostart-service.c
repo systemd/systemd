@@ -592,7 +592,7 @@ int xdg_autostart_service_generate_unit(
                                 return 0;
                         }
                 }
-                log_debug("%s: GNOME startup phases are handled seprately, marking as NotShowIn=GNOME.",
+                log_debug("%s: GNOME startup phases are handled separately, marking as NotShowIn=GNOME.",
                           service->path);
 
                 if (strv_extend(&not_show_in, "GNOME") < 0)
@@ -669,7 +669,7 @@ int xdg_autostart_service_generate_unit(
 
                 /* Just assume the values are reasonably sane */
                 fprintf(f,
-                        "ExecCondition=" ROOTLIBEXECDIR "/systemd-xdg-autostart-condition \"%s\" \"%s\"\n",
+                        "ExecCondition=" LIBEXECDIR "/systemd-xdg-autostart-condition \"%s\" \"%s\"\n",
                         e_only_show_in,
                         e_not_show_in);
         }

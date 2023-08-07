@@ -311,7 +311,7 @@ services where they are ultimately consumed.
    credentials during the transition. The files (and their directory) are
    removed once this is completed.
 
-5. Credentials may also be passed from the UEFI environment to userspace, if
+4. Credentials may also be passed from the UEFI environment to userspace, if
    the
    [`systemd-stub`](https://www.freedesktop.org/software/systemd/man/systemd-stub.html)
    UEFI kernel stub is used. This allows placing encrypted credentials in the
@@ -321,7 +321,7 @@ services where they are ultimately consumed.
    initrds, as userspace can place credentials next to these EFI kernels, and
    be sure they can be accessed securely from initrd context.
 
-4. Credentials can also be passed into a system via the kernel command line,
+5. Credentials can also be passed into a system via the kernel command line,
    via the `systemd.set_credential=` and `systemd.set_credential_binary=`
    kernel command line options (the latter takes Base64 encoded binary
    data). Note though that any data specified here is visible to all userspace

@@ -1438,9 +1438,13 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMicro-Star*:pn*PR200*:*
  KEYBOARD_KEY_f7=reserved
  KEYBOARD_KEY_f8=reserved
 
-# MSI Wind U90/U100 generates separate touchpad on/off keycodes so ignore touchpad toggle keycode
+# MSI Wind U90/U100 generates separate touchpad on/off keycodes so ignore touchpad toggle keycode.
+# Also ignore Wi-Fi and Bluetooth keycodes, because they are generated when the HW rfkill state
+# changes, but the userspace also toggles the SW rfkill upon receiving these keycodes.
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMICRO-STAR*:pnU90/U100:*
- KEYBOARD_KEY_e4=reserved
+ KEYBOARD_KEY_e4=unknown
+ KEYBOARD_KEY_e2=unknown
+ KEYBOARD_KEY_f6=unknown
 
 # Keymaps MSI Prestige And MSI Modern FnKeys and Special keys
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMicro-Star*:pn*Prestige*:*

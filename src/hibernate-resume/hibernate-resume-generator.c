@@ -8,8 +8,10 @@
 #include "sd-id128.h"
 
 #include "alloc-util.h"
+#include "device-nodes.h"
 #include "dropin.h"
 #include "efivars.h"
+#include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fstab-util.h"
@@ -21,6 +23,7 @@
 #include "main-func.h"
 #include "os-util.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "proc-cmdline.h"
 #include "special.h"
 #include "string-util.h"
@@ -169,9 +172,16 @@ static int parse_efi_hibernate_location(void) {
                 arg_resume_device = TAKE_PTR(device);
                 arg_resume_offset = location.offset;
         } else {
-                if (!streq(arg_resume_device, device))
-                        log_warning("resume=%s doesn't match with HibernateLocation device '%s', proceeding anyway with resume=.",
-                                    arg_resume_device, device);
+                if (!path_equal(arg_resume_device, device)) {
+                        r = devnode_same(arg_resume_device, device);
+                        if (r < 0)
+                                log_debug_errno(r,
+                                                "Failed to check if resume=%s is the same device as HibernateLocation device '%s', ignoring: %m",
+                                                arg_resume_device, device);
+                        if (r == 0)
+                                log_warning("resume=%s doesn't match with HibernateLocation device '%s', proceeding anyway with resume=.",
+                                            arg_resume_device, device);
+                }
 
                 if (arg_resume_offset != location.offset)
                         log_warning("resume_offset=%" PRIu64 " doesn't match with HibernateLocation offset %" PRIu64 ", proceeding anyway with resume_offset=.",
@@ -187,7 +197,7 @@ static int parse_efi_hibernate_location(void) {
 }
 
 static int process_resume(void) {
-        _cleanup_free_ char *device_unit = NULL;
+        _cleanup_free_ char *device_unit = NULL, *device_escaped = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
@@ -204,6 +214,10 @@ static int process_resume(void) {
                           "JobTimeoutSec=infinity\n");
         if (r < 0)
                 log_warning_errno(r, "Failed to write device timeout drop-in, ignoring: %m");
+
+        device_escaped = cescape(arg_resume_device);
+        if (!device_escaped)
+                return log_oom();
 
         r = generator_open_unit_file(arg_dest, NULL, SPECIAL_HIBERNATE_RESUME_SERVICE, &f);
         if (r < 0)
@@ -222,9 +236,9 @@ static int process_resume(void) {
                 "\n"
                 "[Service]\n"
                 "Type=oneshot\n"
-                "ExecStart=" ROOTLIBEXECDIR "/systemd-hibernate-resume %2$s %3$" PRIu64,
+                "ExecStart=" LIBEXECDIR "/systemd-hibernate-resume %2$s %3$" PRIu64 "\n",
                 device_unit,
-                arg_resume_device,
+                device_escaped,
                 arg_resume_offset);
 
         r = fflush_and_check(f);

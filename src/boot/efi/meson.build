@@ -23,31 +23,26 @@ if efi_arch != ''
                         libshared,
                 ],
         }
+        efi_test_template = test_template + efitest_base
+        efi_fuzz_template = fuzz_template + efitest_base
 
-        tests += [
-                {
+        executables += [
+                efi_test_template + {
                         'sources' : files('test-bcd.c'),
                         'dependencies' : libzstd,
-                        'condition' : 'HAVE_ZSTD',
-                        'base' : efitest_base,
+                        'conditions' : ['HAVE_ZSTD'],
                 },
-                {
+                efi_test_template + {
                         'sources' : files('test-efi-string.c'),
-                        'base' : efitest_base,
                 },
-        ]
-        fuzzers += [
-                {
+                efi_fuzz_template + {
                         'sources' : files('fuzz-bcd.c'),
-                        'base' : efitest_base,
                 },
-                {
+                efi_fuzz_template + {
                         'sources' : files('fuzz-efi-string.c'),
-                        'base' : efitest_base,
                 },
-                {
+                efi_fuzz_template + {
                         'sources' : files('fuzz-efi-printf.c'),
-                        'base' : efitest_base,
                 },
         ]
 endif
@@ -98,13 +93,9 @@ elif get_option('sbat-distro') != ''
 
         pkgver = get_option('sbat-distro-version')
         if pkgver == ''
-                efi_conf.set('SBAT_DISTRO_VERSION', 'GIT_VERSION')
-                # This is determined during build, not configuration, so we can't display it yet.
-                sbat_distro_version_display = '(git version)'
-        else
-                efi_conf.set_quoted('SBAT_DISTRO_VERSION', pkgver)
-                sbat_distro_version_display = pkgver
+                pkgver = version_tag
         endif
+        efi_conf.set_quoted('SBAT_DISTRO_VERSION', pkgver)
 endif
 
 summary({'UEFI architectures' : efi_arch + (efi_arch_alt == '' ? '' : ', ' + efi_arch_alt)},
@@ -114,7 +105,7 @@ if efi_conf.get('SBAT_DISTRO', '') != ''
         summary({
                 'SBAT distro':              efi_conf.get('SBAT_DISTRO'),
                 'SBAT distro generation':   efi_conf.get('SBAT_DISTRO_GENERATION'),
-                'SBAT distro version':      sbat_distro_version_display,
+                'SBAT distro version':      efi_conf.get('SBAT_DISTRO_VERSION'),
                 'SBAT distro summary':      efi_conf.get('SBAT_DISTRO_SUMMARY'),
                 'SBAT distro URL':          efi_conf.get('SBAT_DISTRO_URL')},
                 section : 'UEFI')
@@ -174,6 +165,10 @@ efi_c_ld_args = [
         '-T' + elf2efi_lds,
 ]
 
+# On CentOS 8 the nopack-relative-relocs linker flag is not supported, and we get:
+#   /usr/bin/ld.bfd: warning: -z nopack-relative-relocs ignored
+efi_c_ld_args += cc.get_supported_link_arguments('-Wl,-z,nopack-relative-relocs')
+
 # efi_c_args is explicitly passed to targets so that they can override distro-provided flags
 # that should not be used for EFI binaries.
 efi_disabled_c_args = cc.get_supported_arguments(
@@ -203,29 +198,20 @@ if cc.get_id() == 'clang'
         efi_c_ld_args += '-Wno-unused-command-line-argument'
 endif
 
-if host_machine.cpu_family() == 'arm'
-        # libgcc is not compiled with -fshort-wchar, but it does not use it anyways,
-        # so it's fine to link against it.
-        efi_c_ld_args += '-Wl,--no-wchar-size-warning'
-endif
-
-efi_c_args_primary = [efi_c_args, '-DEFI_MACHINE_TYPE_NAME="' + efi_arch + '"']
-efi_c_args_alt = [efi_c_args, '-DEFI_MACHINE_TYPE_NAME="' + efi_arch_alt + '"']
-efi_c_ld_args_primary = efi_c_ld_args
-efi_c_ld_args_alt = efi_c_ld_args
-
 efi_arch_c_args = {
         'aarch64' : ['-mgeneral-regs-only'],
         'arm'     : ['-mgeneral-regs-only'],
-        'x86_64'  : ['-march=x86-64', '-mno-red-zone', '-mgeneral-regs-only'],
-        'x86'     : ['-march=i686', '-mgeneral-regs-only', '-malign-double'],
+        # Pass -m64/32 explicitly to make building on x32 work.
+        'x86_64'  : ['-m64', '-march=x86-64', '-mno-red-zone', '-mgeneral-regs-only'],
+        'x86'     : ['-m32', '-march=i686', '-mgeneral-regs-only', '-malign-double'],
 }
-efi_c_args_primary += efi_arch_c_args.get(host_machine.cpu_family(), [])
-
-if efi_arch_alt == 'ia32'
-        efi_c_args_alt += ['-m32', efi_arch_c_args['x86']]
-        efi_c_ld_args_alt += '-m32'
-endif
+efi_arch_c_ld_args = {
+        # libgcc is not compiled with -fshort-wchar, but it does not use it anyways,
+        # so it's fine to link against it.
+        'arm'    : ['-Wl,--no-wchar-size-warning'],
+        'x86_64' : ['-m64'],
+        'x86'    : ['-m32'],
+}
 
 ############################################################
 
@@ -282,15 +268,29 @@ efi_elf_binaries = []
 efi_archspecs = [
         {
                 'arch' : efi_arch,
-                'c_args' : efi_c_args_primary,
-                'link_args' : efi_c_ld_args_primary,
+                'c_args' : [
+                        efi_c_args,
+                        '-DEFI_MACHINE_TYPE_NAME="' + efi_arch + '"',
+                        efi_arch_c_args.get(host_machine.cpu_family(), []),
+                ],
+                'link_args' : [
+                        efi_c_ld_args,
+                        efi_arch_c_ld_args.get(host_machine.cpu_family(), []),
+                ],
         },
 ]
 if efi_arch_alt != ''
         efi_archspecs += {
                 'arch' : efi_arch_alt,
-                'c_args' : efi_c_args_alt,
-                'link_args' : efi_c_ld_args_alt,
+                'c_args' : [
+                        efi_c_args,
+                        '-DEFI_MACHINE_TYPE_NAME="' + efi_arch_alt + '"',
+                        efi_arch_c_args.get(efi_cpu_family_alt, []),
+                ],
+                'link_args' : [
+                        efi_c_ld_args,
+                        efi_arch_c_ld_args.get(efi_cpu_family_alt, []),
+                ],
         }
 endif
 
@@ -306,46 +306,35 @@ foreach archspec : efi_archspecs
                 override_options : efi_override_options,
                 pic : true)
 
+        kwargs = {
+                'include_directories' : efi_includes,
+                'c_args' : archspec['c_args'],
+                'link_args' : archspec['link_args'],
+                'link_with' : libefi,
+                'link_depends' : elf2efi_lds,
+                'dependencies' : versiondep,
+                'gnu_symbol_visibility' : 'hidden',
+                'override_options' : efi_override_options,
+                'pie' : true,
+        }
+
         efi_elf_binaries += executable(
                 'systemd-boot' + archspec['arch'],
-                systemd_boot_sources,
-                include_directories : efi_includes,
-                c_args : archspec['c_args'],
-                link_args : archspec['link_args'],
-                link_with : libefi,
-                link_depends : elf2efi_lds,
-                dependencies : versiondep,
-                gnu_symbol_visibility : 'hidden',
-                override_options : efi_override_options,
+                sources : systemd_boot_sources,
                 name_suffix : 'elf',
-                pie : true)
+                kwargs : kwargs)
 
         efi_elf_binaries += executable(
                 'linux' + archspec['arch'],
-                stub_sources,
-                include_directories : efi_includes,
-                c_args : archspec['c_args'],
-                link_args : archspec['link_args'],
-                link_with : libefi,
-                link_depends : elf2efi_lds,
-                dependencies : versiondep,
-                gnu_symbol_visibility : 'hidden',
-                override_options : efi_override_options,
+                sources : stub_sources,
                 name_suffix : 'elf.stub',
-                pie : true)
+                kwargs : kwargs)
 
         efi_elf_binaries += executable(
                 'addon' + archspec['arch'],
-                addon_sources,
-                include_directories : efi_includes,
-                c_args : archspec['c_args'],
-                link_args : archspec['link_args'],
-                link_depends : elf2efi_lds,
-                dependencies : versiondep,
-                gnu_symbol_visibility : 'hidden',
-                override_options : efi_override_options,
+                sources : addon_sources,
                 name_suffix : 'elf.stub',
-                pie : true)
+                kwargs : kwargs)
 endforeach
 
 foreach efi_elf_binary : efi_elf_binaries
@@ -353,7 +342,7 @@ foreach efi_elf_binary : efi_elf_binaries
         name += name.startswith('systemd-boot') ? '.efi' : '.efi.stub'
         # For the addon, given it's empty, we need to explicitly reserve space in the header to account for
         # the sections that ukify will add.
-        minimum_sections = name.startswith('addon') ? '7' : '0'
+        minimum_sections = name.endswith('.stub') ? '15' : '0'
         exe = custom_target(
                 name,
                 output : name,

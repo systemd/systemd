@@ -216,11 +216,9 @@ int dhcp_pd_remove(Link *link, bool only_marked) {
 
                         link_remove_dhcp_pd_subnet_prefix(link, &prefix);
 
-                        k = address_remove(address);
+                        k = address_remove_and_drop(address);
                         if (k < 0)
                                 r = k;
-
-                        address_cancel_request(address);
                 }
         }
 
@@ -361,7 +359,7 @@ static void log_dhcp_pd_address(Link *link, const Address *address) {
         assert(address);
         assert(address->family == AF_INET6);
 
-        int log_level = address_get(link, address, NULL) >= 0 ? LOG_DEBUG : LOG_INFO;
+        int log_level = address_get_harder(link, address, NULL) >= 0 ? LOG_DEBUG : LOG_INFO;
 
         if (log_level < log_get_max_level())
                 return;
@@ -421,7 +419,7 @@ static int dhcp_pd_request_address(
                 else
                         address_unmark(existing);
 
-                r = link_request_address(link, TAKE_PTR(address), true, &link->dhcp_pd_messages,
+                r = link_request_address(link, address, &link->dhcp_pd_messages,
                                          dhcp_pd_address_handler, NULL);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Failed to request DHCP delegated prefix address: %m");

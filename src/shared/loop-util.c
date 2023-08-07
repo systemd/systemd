@@ -1156,11 +1156,7 @@ int loop_device_set_filename(LoopDevice *d, const char *name) {
         /* Sets the .lo_file_name of the loopback device. This is supposed to contain the path to the file
          * backing the block device, but is actually just a free-form string you can pass to the kernel. Most
          * tools that actually care for the backing file path use the sysfs attribute file loop/backing_file
-         * which is a kernel generated string, subject to file system namespaces and such.
-         *
-         * .lo_file_name is useful since userspace can select it freely when creating a loopback block
-         * device, and we can use it for /dev/loop/by-ref/ symlinks, and similar, so that apps can recognize
-         * their own loopback files. */
+         * which is a kernel generated string, subject to file system namespaces and such. */
 
         if (name && strlen(name) >= sizeof(info.lo_file_name))
                 return -ENOBUFS;

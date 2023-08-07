@@ -53,7 +53,7 @@ static void test_receive_device_fail(void) {
 
 static void test_send_receive_one(sd_device *device, bool subsystem_filter, bool tag_filter, bool use_bpf) {
         _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor_server = NULL, *monitor_client = NULL;
-        const char *syspath, *subsystem, *tag, *devtype = NULL;
+        const char *syspath, *subsystem, *devtype = NULL;
 
         log_device_info(device, "/* %s(subsystem_filter=%s, tag_filter=%s, use_bpf=%s) */", __func__,
                         true_false(subsystem_filter), true_false(tag_filter), true_false(use_bpf));
@@ -90,7 +90,6 @@ static void test_subsystem_filter(sd_device *device) {
         _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor_server = NULL, *monitor_client = NULL;
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         const char *syspath, *subsystem;
-        sd_device *d;
 
         log_device_info(device, "/* %s */", __func__);
 
@@ -131,7 +130,6 @@ static void test_tag_filter(sd_device *device) {
         _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor_server = NULL, *monitor_client = NULL;
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         const char *syspath;
-        sd_device *d;
 
         log_device_info(device, "/* %s */", __func__);
 
@@ -170,7 +168,6 @@ static void test_sysattr_filter(sd_device *device, const char *sysattr) {
         _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor_server = NULL, *monitor_client = NULL;
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         const char *syspath, *sysattr_value;
-        sd_device *d;
 
         log_device_info(device, "/* %s(%s) */", __func__, sysattr);
 
@@ -216,7 +213,7 @@ static void test_parent_filter(sd_device *device) {
         _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor_server = NULL, *monitor_client = NULL;
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         const char *syspath, *parent_syspath;
-        sd_device *parent, *d;
+        sd_device *parent;
         int r;
 
         log_device_info(device, "/* %s */", __func__);

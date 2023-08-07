@@ -18,7 +18,7 @@ static int get_pcr_alg(const char **ret) {
                         return log_oom();
 
                 if (access(p, F_OK) < 0) {
-                        if (errno != -ENOENT)
+                        if (errno != ENOENT)
                                 return log_error_errno(errno, "Failed to determine whether %s exists: %m", p);
                 } else {
                         *ret = alg;
@@ -97,14 +97,14 @@ int verb_pcrs(int argc, char *argv[], void *userdata) {
         int r;
 
         if (tpm2_support() != TPM2_SUPPORT_FULL)
-                log_notice("System has not TPM2 support, not showing PCR state.");
+                log_notice("System lacks full TPM2 support, not showing PCR state.");
         else {
                 r = get_pcr_alg(&alg);
                 if (r < 0)
                         return r;
         }
 
-        table = table_new("nr", "name", alg);
+        table = table_new("nr", "name", alg ?: "-");
         if (!table)
                 return log_oom();
 

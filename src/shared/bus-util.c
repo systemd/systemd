@@ -516,14 +516,8 @@ int bus_track_add_name_many(sd_bus_track *t, char **l) {
 
         /* Continues adding after failure, and returns the first failure. */
 
-        STRV_FOREACH(i, l) {
-                int k;
-
-                k = sd_bus_track_add_name(t, *i);
-                if (k < 0 && r >= 0)
-                        r = k;
-        }
-
+        STRV_FOREACH(i, l)
+                RET_GATHER(r, sd_bus_track_add_name(t, *i));
         return r;
 }
 

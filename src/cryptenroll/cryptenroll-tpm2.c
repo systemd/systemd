@@ -133,7 +133,8 @@ int enroll_tpm2(struct crypt_device *cd,
                 const void *volume_key,
                 size_t volume_key_size,
                 const char *device,
-                uint32_t hash_pcr_mask,
+                Tpm2PCRValue *hash_pcr_values,
+                size_t n_hash_pcr_values,
                 const char *pubkey_path,
                 uint32_t pubkey_pcr_mask,
                 const char *signature_path,
@@ -143,9 +144,8 @@ int enroll_tpm2(struct crypt_device *cd,
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *signature_json = NULL;
         _cleanup_(erase_and_freep) char *base64_encoded = NULL;
         _cleanup_free_ void *srk_buf = NULL;
-        size_t secret_size, blob_size, hash_size, pubkey_size = 0, srk_buf_size = 0;
-        _cleanup_free_ void *blob = NULL, *hash = NULL, *pubkey = NULL;
-        uint16_t pcr_bank, primary_alg;
+        size_t secret_size, blob_size, pubkey_size = 0, srk_buf_size = 0;
+        _cleanup_free_ void *blob = NULL, *pubkey = NULL;
         const char *node;
         _cleanup_(erase_and_freep) char *pin_str = NULL;
         ssize_t base64_encoded_size;
@@ -163,7 +163,7 @@ int enroll_tpm2(struct crypt_device *cd,
         assert(cd);
         assert(volume_key);
         assert(volume_key_size > 0);
-        assert(TPM2_PCR_MASK_VALID(hash_pcr_mask));
+        assert(TPM2_PCR_VALUES_VALID(hash_pcr_values, n_hash_pcr_values));
         assert(TPM2_PCR_MASK_VALID(pubkey_pcr_mask));
 
         assert_se(node = crypt_get_device_name(cd));
@@ -206,23 +206,69 @@ int enroll_tpm2(struct crypt_device *cd,
                         return log_debug_errno(r, "Failed to read TPM PCR signature: %m");
         }
 
-        r = tpm2_seal(device,
-                      hash_pcr_mask,
-                      pubkey, pubkey_size,
-                      pubkey_pcr_mask,
+        _cleanup_(tpm2_context_unrefp) Tpm2Context *tpm2_context = NULL;
+        r = tpm2_context_new(device, &tpm2_context);
+        if (r < 0)
+                return r;
+
+        bool pcr_value_specified = false;
+        for (size_t i = 0; i < n_hash_pcr_values; i++)
+                if (hash_pcr_values[i].value.size > 0) {
+                        pcr_value_specified = true;
+                        break;
+                }
+
+        r = tpm2_pcr_read_missing_values(tpm2_context, hash_pcr_values, n_hash_pcr_values);
+        if (r < 0)
+                return r;
+
+        uint16_t hash_pcr_bank = 0;
+        uint32_t hash_pcr_mask = 0;
+        if (n_hash_pcr_values > 0) {
+                size_t hash_count;
+                r = tpm2_pcr_values_hash_count(hash_pcr_values, n_hash_pcr_values, &hash_count);
+                if (r < 0)
+                        return log_error_errno(r, "Could not get hash count: %m");
+
+                if (hash_count > 1)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Multiple PCR banks selected.");
+
+                hash_pcr_bank = hash_pcr_values[0].hash;
+                r = tpm2_pcr_values_to_mask(hash_pcr_values, n_hash_pcr_values, hash_pcr_bank, &hash_pcr_mask);
+                if (r < 0)
+                        return log_error_errno(r, "Could not get hash mask: %m");
+        }
+
+        TPM2B_PUBLIC public;
+        if (pubkey) {
+                r = tpm2_tpm2b_public_from_pem(pubkey, pubkey_size, &public);
+                if (r < 0)
+                        return log_error_errno(r, "Could not convert public key to TPM2B_PUBLIC: %m");
+        }
+
+        TPM2B_DIGEST policy = TPM2B_DIGEST_MAKE(NULL, TPM2_SHA256_DIGEST_SIZE);
+        r = tpm2_calculate_sealing_policy(
+                        hash_pcr_values,
+                        n_hash_pcr_values,
+                        pubkey ? &public : NULL,
+                        use_pin,
+                        &policy);
+        if (r < 0)
+                return r;
+
+        r = tpm2_seal(tpm2_context,
+                      &policy,
                       pin_str,
                       &secret, &secret_size,
                       &blob, &blob_size,
-                      &hash, &hash_size,
-                      &pcr_bank,
-                      &primary_alg,
+                      /* ret_primary_alg= */ NULL,
                       &srk_buf,
                       &srk_buf_size);
         if (r < 0)
                 return r;
 
         /* Let's see if we already have this specific PCR policy hash enrolled, if so, exit early. */
-        r = search_policy_hash(cd, hash, hash_size);
+        r = search_policy_hash(cd, policy.buffer, policy.size);
         if (r == -ENOENT)
                 log_debug_errno(r, "PCR policy hash not yet enrolled, enrolling now.");
         else if (r < 0)
@@ -233,21 +279,21 @@ int enroll_tpm2(struct crypt_device *cd,
         }
 
         /* Quick verification that everything is in order, we are not in a hurry after all. */
-        if (!pubkey || signature_json) {
+        if ((!pubkey || signature_json) && !pcr_value_specified) {
                 _cleanup_(erase_and_freep) void *secret2 = NULL;
                 size_t secret2_size;
 
                 log_debug("Unsealing for verification...");
                 r = tpm2_unseal(device,
                                 hash_pcr_mask,
-                                pcr_bank,
+                                hash_pcr_bank,
                                 pubkey, pubkey_size,
                                 pubkey_pcr_mask,
                                 signature_json,
                                 pin_str,
-                                primary_alg,
+                                /* primary_alg= */ 0,
                                 blob, blob_size,
-                                hash, hash_size,
+                                policy.buffer, policy.size,
                                 srk_buf, srk_buf_size,
                                 &secret2, &secret2_size);
                 if (r < 0)
@@ -279,12 +325,12 @@ int enroll_tpm2(struct crypt_device *cd,
         r = tpm2_make_luks2_json(
                         keyslot,
                         hash_pcr_mask,
-                        pcr_bank,
+                        hash_pcr_bank,
                         pubkey, pubkey_size,
                         pubkey_pcr_mask,
-                        primary_alg,
+                        /* primary_alg= */ 0,
                         blob, blob_size,
-                        hash, hash_size,
+                        policy.buffer, policy.size,
                         use_pin ? binary_salt : NULL,
                         use_pin ? sizeof(binary_salt) : 0,
                         srk_buf, srk_buf_size,

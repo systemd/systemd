@@ -565,7 +565,6 @@ static bool manager_is_docked(Manager *m) {
 
 static int manager_count_external_displays(Manager *m) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
-        sd_device *d;
         int r, n = 0;
 
         r = sd_device_enumerator_new(&e);
@@ -829,13 +828,14 @@ int manager_read_efi_boot_loader_entries(Manager *m) {
                 return 0;
 
         r = efi_loader_get_entries(&m->efi_boot_loader_entries);
-        if (r == -ENOENT || ERRNO_IS_NOT_SUPPORTED(r)) {
-                log_debug_errno(r, "Boot loader reported no entries.");
-                m->efi_boot_loader_entries_set = true;
-                return 0;
-        }
-        if (r < 0)
+        if (r < 0) {
+                if (r == -ENOENT || ERRNO_IS_NOT_SUPPORTED(r)) {
+                        log_debug_errno(r, "Boot loader reported no entries.");
+                        m->efi_boot_loader_entries_set = true;
+                        return 0;
+                }
                 return log_error_errno(r, "Failed to determine entries reported by boot loader: %m");
+        }
 
         m->efi_boot_loader_entries_set = true;
         return 1;

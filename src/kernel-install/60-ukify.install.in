@@ -171,6 +171,14 @@ def kernel_cmdline(opts) -> str:
     return ' ' + ' '.join(options)
 
 
+def initrd_list(opts) -> list[Path]:
+    microcode = sorted(opts.staging_area.glob('microcode/*'))
+    initrd = sorted(opts.staging_area.glob('initrd*'))
+
+    #Order taken from 90-loaderentry.install
+    return [*microcode, *opts.initrd, *initrd]
+
+
 def call_ukify(opts):
     # Punish me harder.
     # We want this:
@@ -191,7 +199,7 @@ def call_ukify(opts):
     opts2.config = config_file_location()
     opts2.uname = opts.kernel_version
     opts2.linux = opts.kernel_image
-    opts2.initrd = opts.initrd
+    opts2.initrd = initrd_list(opts)
     # Note that 'uki.efi' is the name required by 90-uki-copy.install.
     opts2.output = opts.staging_area / 'uki.efi'
 

@@ -1159,8 +1159,6 @@ testcase_mdadm_lvm() {
     helper_check_device_units
 }
 
-: >/failed
-
 udevadm settle
 udevadm control --log-level debug
 lsblk -a
@@ -1187,4 +1185,3 @@ udevadm control --log-level info
 systemctl status systemd-udevd
 
 touch /testok
-rm /failed

@@ -133,6 +133,7 @@ int setup_namespace(
                 const char *incoming_dir,
                 const char *extension_dir,
                 const char *notify_socket,
+                const char *host_os_release,
                 char **error_path);
 
 #define RUN_SYSTEMD_EMPTY "/run/systemd/empty"

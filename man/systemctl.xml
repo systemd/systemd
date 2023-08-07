@@ -101,7 +101,7 @@ To show all installed unit files use 'systemctl list-unit-files'.</programlistin
             <constant>failed</constant>, <constant>activating</constant>, <constant>deactivating</constant>. The SUB
             column shows the unit-type-specific detailed state of the unit, possible values vary by unit type. The list
             of possible LOAD, ACTIVE, and SUB states is not constant and new systemd releases may both add and remove
-            values. <programlisting>systemctl --state=help</programlisting> command maybe be used to display the
+            values. <programlisting>systemctl --state=help</programlisting> command may be used to display the
             current set of possible values.</para>
 
             <para>This is the default command.</para>
@@ -2633,18 +2633,18 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         <citerefentry project='die-net'><refentrytitle>vi</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
         </para></listitem>
       </varlistentry>
+      <xi:include href="common-variables.xml" xpointer="log-level"/>
+      <xi:include href="common-variables.xml" xpointer="log-color"/>
+      <xi:include href="common-variables.xml" xpointer="log-time"/>
+      <xi:include href="common-variables.xml" xpointer="log-location"/>
+      <xi:include href="common-variables.xml" xpointer="log-target"/>
+      <xi:include href="common-variables.xml" xpointer="pager"/>
+      <xi:include href="common-variables.xml" xpointer="less"/>
+      <xi:include href="common-variables.xml" xpointer="lesscharset"/>
+      <xi:include href="common-variables.xml" xpointer="lesssecure"/>
+      <xi:include href="common-variables.xml" xpointer="colors"/>
+      <xi:include href="common-variables.xml" xpointer="urlify"/>
     </variablelist>
-    <xi:include href="common-variables.xml" xpointer="log-level"/>
-    <xi:include href="common-variables.xml" xpointer="log-color"/>
-    <xi:include href="common-variables.xml" xpointer="log-time"/>
-    <xi:include href="common-variables.xml" xpointer="log-location"/>
-    <xi:include href="common-variables.xml" xpointer="log-target"/>
-    <xi:include href="common-variables.xml" xpointer="pager"/>
-    <xi:include href="common-variables.xml" xpointer="less"/>
-    <xi:include href="common-variables.xml" xpointer="lesscharset"/>
-    <xi:include href="common-variables.xml" xpointer="lesssecure"/>
-    <xi:include href="common-variables.xml" xpointer="colors"/>
-    <xi:include href="common-variables.xml" xpointer="urlify"/>
   </refsect1>
 
   <refsect1>

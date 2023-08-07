@@ -21,6 +21,4 @@ grep -q "thisshouldnotbehere" "$RESULTS_FILE" && exit 42
 
 systemd-analyze log-level info
 
-echo OK >/testok
-
-exit 0
+touch /testok

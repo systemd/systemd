@@ -487,33 +487,6 @@ static int slash_boot_in_fstab(void) {
         return cache;
 }
 
-static int slash_efi_in_fstab(void) {
-        static int cache = -1;
-
-        if (cache >= 0)
-                return cache;
-
-        cache = fstab_is_mount_point("/efi");
-        if (cache < 0)
-                return log_error_errno(cache, "Failed to parse fstab: %m");
-        return cache;
-}
-
-static bool slash_boot_exists(void) {
-        static int cache = -1;
-
-        if (cache >= 0)
-                return cache;
-
-        if (access("/boot", F_OK) >= 0)
-                return (cache = true);
-        if (errno != ENOENT)
-                log_error_errno(errno, "Failed to determine whether /boot/ exists, assuming no: %m");
-        else
-                log_debug_errno(errno, "/boot/: %m");
-        return (cache = false);
-}
-
 static int add_partition_xbootldr(DissectedPartition *p) {
         _cleanup_free_ char *options = NULL;
         int r;
@@ -562,6 +535,33 @@ static int add_partition_xbootldr(DissectedPartition *p) {
 }
 
 #if ENABLE_EFI
+static int slash_efi_in_fstab(void) {
+        static int cache = -1;
+
+        if (cache >= 0)
+                return cache;
+
+        cache = fstab_is_mount_point("/efi");
+        if (cache < 0)
+                return log_error_errno(cache, "Failed to parse fstab: %m");
+        return cache;
+}
+
+static bool slash_boot_exists(void) {
+        static int cache = -1;
+
+        if (cache >= 0)
+                return cache;
+
+        if (access("/boot", F_OK) >= 0)
+                return (cache = true);
+        if (errno != ENOENT)
+                log_error_errno(errno, "Failed to determine whether /boot/ exists, assuming no: %m");
+        else
+                log_debug_errno(errno, "/boot/: %m");
+        return (cache = false);
+}
+
 static int add_partition_esp(DissectedPartition *p, bool has_xbootldr) {
         const char *esp_path = NULL, *id = NULL;
         _cleanup_free_ char *options = NULL;
@@ -574,10 +574,17 @@ static int add_partition_esp(DissectedPartition *p, bool has_xbootldr) {
                 return 0;
         }
 
+        /* Check if there's an existing fstab entry for ESP. If so, we just skip the gpt-auto logic. */
+        r = fstab_has_node(p->node);
+        if (r < 0)
+                return log_error_errno(r,
+                                       "Failed to check if fstab entry for device '%s' exists: %m", p->node);
+        if (r > 0)
+                return 0;
+
         /* If /boot/ is present, unused, and empty, we'll take that.
          * Otherwise, if /efi/ is unused and empty (or missing), we'll take that.
-         * Otherwise, we do nothing.
-         */
+         * Otherwise, we do nothing. */
         if (!has_xbootldr && slash_boot_exists()) {
                 r = slash_boot_in_fstab();
                 if (r < 0)
@@ -753,7 +760,7 @@ static int add_root_mount(void) {
 
 static int process_loader_partitions(DissectedPartition *esp, DissectedPartition *xbootldr) {
         sd_id128_t loader_uuid;
-        int r, ret = 0;
+        int r;
 
         assert(esp);
         assert(xbootldr);
@@ -787,26 +794,21 @@ static int process_loader_partitions(DissectedPartition *esp, DissectedPartition
         return 0;
 
 mount:
-        if (xbootldr->found) {
-                r = add_partition_xbootldr(xbootldr);
-                if (r < 0)
-                        ret = r;
-        }
+        r = 0;
 
-        if (esp->found) {
-                r = add_partition_esp(esp, xbootldr->found);
-                if (r < 0)
-                        ret = r;
-        }
+        if (xbootldr->found)
+                RET_GATHER(r, add_partition_xbootldr(xbootldr));
+        if (esp->found)
+                RET_GATHER(r, add_partition_esp(esp, xbootldr->found));
 
-        return ret;
+        return r;
 }
 
 static int enumerate_partitions(dev_t devnum) {
         _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
         _cleanup_(loop_device_unrefp) LoopDevice *loop = NULL;
         _cleanup_free_ char *devname = NULL;
-        int r, k;
+        int r;
 
         r = block_get_whole_disk(devnum, &devnum);
         if (r < 0)
@@ -846,45 +848,29 @@ static int enumerate_partitions(dev_t devnum) {
                 return ok ? 0 : r;
         }
 
-        if (m->partitions[PARTITION_SWAP].found) {
-                k = add_partition_swap(m->partitions + PARTITION_SWAP);
-                if (k < 0)
-                        r = k;
-        }
+        if (m->partitions[PARTITION_SWAP].found)
+                RET_GATHER(r, add_partition_swap(m->partitions + PARTITION_SWAP));
 
-        k = process_loader_partitions(m->partitions + PARTITION_ESP, m->partitions + PARTITION_XBOOTLDR);
-        if (k < 0)
-                r = k;
+        RET_GATHER(r, process_loader_partitions(m->partitions + PARTITION_ESP, m->partitions + PARTITION_XBOOTLDR));
 
-        if (m->partitions[PARTITION_HOME].found) {
-                k = add_partition_mount(PARTITION_HOME, m->partitions + PARTITION_HOME, "home", "/home", "Home Partition");
-                if (k < 0)
-                        r = k;
-        }
+        if (m->partitions[PARTITION_HOME].found)
+                RET_GATHER(r, add_partition_mount(PARTITION_HOME, m->partitions + PARTITION_HOME,
+                                                  "home", "/home", "Home Partition"));
 
-        if (m->partitions[PARTITION_SRV].found) {
-                k = add_partition_mount(PARTITION_SRV, m->partitions + PARTITION_SRV, "srv", "/srv", "Server Data Partition");
-                if (k < 0)
-                        r = k;
-        }
+        if (m->partitions[PARTITION_SRV].found)
+                RET_GATHER(r, add_partition_mount(PARTITION_SRV, m->partitions + PARTITION_SRV,
+                                                  "srv", "/srv", "Server Data Partition"));
 
-        if (m->partitions[PARTITION_VAR].found) {
-                k = add_partition_mount(PARTITION_VAR, m->partitions + PARTITION_VAR, "var", "/var", "Variable Data Partition");
-                if (k < 0)
-                        r = k;
-        }
+        if (m->partitions[PARTITION_VAR].found)
+                RET_GATHER(r, add_partition_mount(PARTITION_VAR, m->partitions + PARTITION_VAR,
+                                                  "var", "/var", "Variable Data Partition"));
 
-        if (m->partitions[PARTITION_TMP].found) {
-                k = add_partition_mount(PARTITION_TMP, m->partitions + PARTITION_TMP, "var-tmp", "/var/tmp", "Temporary Data Partition");
-                if (k < 0)
-                        r = k;
-        }
+        if (m->partitions[PARTITION_TMP].found)
+                RET_GATHER(r, add_partition_mount(PARTITION_TMP, m->partitions + PARTITION_TMP,
+                                                  "var-tmp", "/var/tmp", "Temporary Data Partition"));
 
-        if (m->partitions[PARTITION_ROOT].found) {
-                k = add_partition_root_rw(m->partitions + PARTITION_ROOT);
-                if (k < 0)
-                        r = k;
-        }
+        if (m->partitions[PARTITION_ROOT].found)
+                RET_GATHER(r, add_partition_root_rw(m->partitions + PARTITION_ROOT));
 
         return r;
 }

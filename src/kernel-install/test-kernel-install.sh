@@ -48,6 +48,7 @@ export MACHINE_ID='3e0484f3634a418b8e6a39e8828b03e3'
 export KERNEL_INSTALL_UKIFY="$ukify"
 export KERNEL_INSTALL_BOOT_STUB="$boot_stub"
 export KERNEL_INSTALL_READ_MACHINE_INFO="no"
+export KERNEL_INSTALL_BYPASS="no"
 
 # Test type#1 installation
 "$kernel_install" -v add 1.1.1 "$D/sources/linux" "$D/sources/initrd"
@@ -67,6 +68,18 @@ grep -qE 'initrd' "$BOOT_ROOT/the-token/1.1.1/initrd"
 "$kernel_install" inspect "$D/sources/linux"
 
 "$kernel_install" -v remove 1.1.1
+test ! -e "$entry"
+test ! -e "$BOOT_ROOT/the-token/1.1.1/linux"
+test ! -e "$BOOT_ROOT/the-token/1.1.1/initrd"
+
+# Test again with too many arguments for 'remove' command. See #28448.
+"$kernel_install" -v add 1.1.1 "$D/sources/linux" "$D/sources/initrd"
+
+test -f "$entry"
+test -f "$BOOT_ROOT/the-token/1.1.1/linux"
+test -f "$BOOT_ROOT/the-token/1.1.1/initrd"
+
+"$kernel_install" -v remove 1.1.1 hoge foo bar
 test ! -e "$entry"
 test ! -e "$BOOT_ROOT/the-token/1.1.1/linux"
 test ! -e "$BOOT_ROOT/the-token/1.1.1/initrd"

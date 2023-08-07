@@ -237,6 +237,7 @@ static inline bool ERRNO_IS_NOINFO(int r) {
         return IN_SET(abs(r),
                       EUNATCH,    /* os-release or machine-id missing */
                       ENOMEDIUM,  /* machine-id or another file empty */
+                      ENOPKG,     /* machine-id is uninitialized */
                       ENXIO);     /* env var is unset */
 }
 
@@ -1883,7 +1884,7 @@ static int create_directory_or_subvolume(
         } else
                 r = 0;
 
-        if (!subvol || ERRNO_IS_NOT_SUPPORTED(r))
+        if (!subvol || (r < 0 && ERRNO_IS_NOT_SUPPORTED(r)))
                 WITH_UMASK(0000)
                         r = mkdirat_label(pfd, bn, mode);
 

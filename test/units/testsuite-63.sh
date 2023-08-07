@@ -82,4 +82,4 @@ assert_in "test63-issue-24577-dep.service" "$output"
 
 systemctl log-level info
 
-echo OK >/testok
+touch /testok

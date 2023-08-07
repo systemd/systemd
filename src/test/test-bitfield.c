@@ -213,6 +213,8 @@ TEST(bits) {
         assert_se(_u64 == u64);
 
         /* Verify these use cases are constant-folded. */
+#if !defined(__clang__) || (__clang_major__ >= 13)
+        /* Clang 11 and 12 (and possibly older) do not grok those; skip them. */
         assert_cc(__builtin_constant_p(INDEX_TO_MASK(uint8_t, 1)));
         assert_cc(__builtin_constant_p(INDEX_TO_MASK(uint16_t, 1)));
         assert_cc(__builtin_constant_p(INDEX_TO_MASK(uint32_t, 1)));
@@ -222,6 +224,7 @@ TEST(bits) {
         assert_cc(__builtin_constant_p(BIT_SET((uint16_t)2, 1)));
         assert_cc(__builtin_constant_p(BIT_SET((uint32_t)2, 1)));
         assert_cc(__builtin_constant_p(BIT_SET((uint64_t)2, 1)));
+#endif
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);

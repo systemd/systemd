@@ -1036,10 +1036,6 @@ int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, 
                         return r;
         }
 
-        m->taint_usr =
-                !in_initrd() &&
-                dir_is_empty("/usr", /* ignore_hidden_or_backup= */ false) > 0;
-
         /* Note that we do not set up the notify fd here. We do that after deserialization,
          * since they might have gotten serialized across the reexec. */
 
@@ -3423,7 +3419,7 @@ usec_t manager_get_watchdog(Manager *m, WatchdogType t) {
         if (MANAGER_IS_USER(m))
                 return USEC_INFINITY;
 
-        if (timestamp_is_set(m->watchdog_overridden[t]))
+        if (m->watchdog_overridden[t] != USEC_INFINITY)
                 return m->watchdog_overridden[t];
 
         return m->watchdog[t];
@@ -3439,17 +3435,18 @@ void manager_set_watchdog(Manager *m, WatchdogType t, usec_t timeout) {
         if (m->watchdog[t] == timeout)
                 return;
 
-        if (t == WATCHDOG_RUNTIME) {
-                if (!timestamp_is_set(m->watchdog_overridden[WATCHDOG_RUNTIME]))
+        if (m->watchdog_overridden[t] == USEC_INFINITY) {
+                if (t == WATCHDOG_RUNTIME)
                         (void) watchdog_setup(timeout);
-        } else if (t == WATCHDOG_PRETIMEOUT)
-                if (m->watchdog_overridden[WATCHDOG_PRETIMEOUT] == USEC_INFINITY)
+                else if (t == WATCHDOG_PRETIMEOUT)
                         (void) watchdog_setup_pretimeout(timeout);
+        }
 
         m->watchdog[t] = timeout;
 }
 
 void manager_override_watchdog(Manager *m, WatchdogType t, usec_t timeout) {
+        usec_t usec;
 
         assert(m);
 
@@ -3459,12 +3456,11 @@ void manager_override_watchdog(Manager *m, WatchdogType t, usec_t timeout) {
         if (m->watchdog_overridden[t] == timeout)
                 return;
 
-        if (t == WATCHDOG_RUNTIME) {
-                usec_t usec = timestamp_is_set(timeout) ? timeout : m->watchdog[t];
-
+        usec = (timeout == USEC_INFINITY) ? m->watchdog[t] : timeout;
+        if (t == WATCHDOG_RUNTIME)
                 (void) watchdog_setup(usec);
-        } else if (t == WATCHDOG_PRETIMEOUT)
-                (void) watchdog_setup_pretimeout(timeout);
+        else if (t == WATCHDOG_PRETIMEOUT)
+                (void) watchdog_setup_pretimeout(usec);
 
         m->watchdog_overridden[t] = timeout;
 }
@@ -4739,11 +4735,8 @@ char* manager_taint_string(const Manager *m) {
 
         assert(m);
 
-        const char* stage[13] = {};
+        const char* stage[12] = {};
         size_t n = 0;
-
-        if (m->taint_usr)
-                stage[n++] = "split-usr";
 
         _cleanup_free_ char *usrbin = NULL;
         if (readlink_malloc("/bin", &usrbin) < 0 || !PATH_IN_SET(usrbin, "usr/bin", "/usr/bin"))

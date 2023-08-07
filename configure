@@ -21,4 +21,4 @@ done
 
 export "${cflags?}" "${cxxflags?}"
 set -x
-exec meson build "${args[@]}"
+exec meson setup build "${args[@]}"

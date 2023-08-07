@@ -498,10 +498,11 @@ static int acquire_open_luks_device(
                 return r;
 
         r = sym_crypt_init_by_name(&cd, setup->dm_name);
-        if ((ERRNO_IS_DEVICE_ABSENT(r) || r == -EINVAL) && graceful)
-                return 0;
-        if (r < 0)
+        if (r < 0) {
+                if ((ERRNO_IS_DEVICE_ABSENT(r) || r == -EINVAL) && graceful)
+                        return 0;
                 return log_error_errno(r, "Failed to initialize cryptsetup context for %s: %m", setup->dm_name);
+        }
 
         cryptsetup_enable_logging(cd);
 
@@ -572,7 +573,7 @@ static int luks_open(
         if (r == -ENOKEY)
                 return log_error_errno(r, "No valid password for LUKS superblock.");
         if (r < 0)
-                return log_error_errno(r, "Failed to unlocks LUKS superblock: %m");
+                return log_error_errno(r, "Failed to unlock LUKS superblock: %m");
 
         log_info("Discovered used LUKS device /dev/mapper/%s, and validated password.", setup->dm_name);
 
@@ -601,7 +602,7 @@ static int fs_validate(
                 sd_id128_t *ret_found_uuid) {
 
         _cleanup_free_ char *fstype = NULL;
-        sd_id128_t u;
+        sd_id128_t u = SD_ID128_NULL; /* avoid false maybe-unitialized warning */
         int r;
 
         assert(dm_node);
@@ -1638,11 +1639,12 @@ int home_deactivate_luks(UserRecord *h, HomeSetup *setup) {
                 cryptsetup_enable_logging(setup->crypt_device);
 
                 r = sym_crypt_deactivate_by_name(setup->crypt_device, setup->dm_name, 0);
-                if (ERRNO_IS_DEVICE_ABSENT(r) || r == -EINVAL)
-                        log_debug_errno(r, "LUKS device %s is already detached.", setup->dm_node);
-                else if (r < 0)
-                        return log_info_errno(r, "LUKS device %s couldn't be deactivated: %m", setup->dm_node);
-                else {
+                if (r < 0) {
+                        if (ERRNO_IS_DEVICE_ABSENT(r) || r == -EINVAL)
+                                log_debug_errno(r, "LUKS device %s is already detached.", setup->dm_node);
+                        else
+                                return log_info_errno(r, "LUKS device %s couldn't be deactivated: %m", setup->dm_node);
+                } else {
                         log_info("LUKS device detaching completed.");
                         we_detached = true;
                 }
@@ -3630,7 +3632,7 @@ int home_passwd_luks(
         if (r == -ENOKEY)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOKEY), "Failed to unlock LUKS superblock with supplied passwords.");
         if (r < 0)
-                return log_error_errno(r, "Failed to unlocks LUKS superblock: %m");
+                return log_error_errno(r, "Failed to unlock LUKS superblock: %m");
 
         n_effective = strv_length(effective_passwords);
 

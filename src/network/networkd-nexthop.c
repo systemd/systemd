@@ -388,7 +388,7 @@ static int nexthop_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link 
 }
 
 static int nexthop_remove(NextHop *nexthop) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         Manager *manager;
         Link *link;
         int r;
@@ -407,15 +407,15 @@ static int nexthop_remove(NextHop *nexthop) {
 
         log_nexthop_debug(nexthop, "Removing", link);
 
-        r = sd_rtnl_message_new_nexthop(manager->rtnl, &req, RTM_DELNEXTHOP, AF_UNSPEC, RTPROT_UNSPEC);
+        r = sd_rtnl_message_new_nexthop(manager->rtnl, &m, RTM_DELNEXTHOP, AF_UNSPEC, RTPROT_UNSPEC);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not create RTM_DELNEXTHOP message: %m");
 
-        r = sd_netlink_message_append_u32(req, NHA_ID, nexthop->id);
+        r = sd_netlink_message_append_u32(m, NHA_ID, nexthop->id);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not append NHA_ID attribute: %m");
 
-        r = netlink_call_async(manager->rtnl, NULL, req, nexthop_remove_handler,
+        r = netlink_call_async(manager->rtnl, NULL, m, nexthop_remove_handler,
                                link ? link_netlink_destroy_callback : NULL, link);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
@@ -687,7 +687,7 @@ static void manager_mark_nexthops(Manager *manager, bool foreign, const Link *ex
 
 static int manager_drop_marked_nexthops(Manager *manager) {
         NextHop *nexthop;
-        int k, r = 0;
+        int r = 0;
 
         assert(manager);
 
@@ -695,9 +695,7 @@ static int manager_drop_marked_nexthops(Manager *manager) {
                 if (!nexthop_is_marked(nexthop))
                         continue;
 
-                k = nexthop_remove(nexthop);
-                if (k < 0 && r >= 0)
-                        r = k;
+                RET_GATHER(r, nexthop_remove(nexthop));
         }
 
         return r;
@@ -705,7 +703,7 @@ static int manager_drop_marked_nexthops(Manager *manager) {
 
 int link_drop_foreign_nexthops(Link *link) {
         NextHop *nexthop;
-        int k, r = 0;
+        int r = 0;
 
         assert(link);
         assert(link->manager);
@@ -741,23 +739,17 @@ int link_drop_foreign_nexthops(Link *link) {
                 if (!nexthop_is_marked(nexthop))
                         continue;
 
-                k = nexthop_remove(nexthop);
-                if (k < 0 && r >= 0)
-                        r = k;
+                RET_GATHER(r, nexthop_remove(nexthop));
         }
 
         manager_mark_nexthops(link->manager, /* foreign = */ true, NULL);
 
-        k = manager_drop_marked_nexthops(link->manager);
-        if (k < 0 && r >= 0)
-                r = k;
-
-        return r;
+        return RET_GATHER(r, manager_drop_marked_nexthops(link->manager));
 }
 
 int link_drop_managed_nexthops(Link *link) {
         NextHop *nexthop;
-        int k, r = 0;
+        int r = 0;
 
         assert(link);
         assert(link->manager);
@@ -775,18 +767,12 @@ int link_drop_managed_nexthops(Link *link) {
                 if (!nexthop_exists(nexthop))
                         continue;
 
-                k = nexthop_remove(nexthop);
-                if (k < 0 && r >= 0)
-                        r = k;
+                RET_GATHER(r, nexthop_remove(nexthop));
         }
 
         manager_mark_nexthops(link->manager, /* foreign = */ false, link);
 
-        k = manager_drop_marked_nexthops(link->manager);
-        if (k < 0 && r >= 0)
-                r = k;
-
-        return r;
+        return RET_GATHER(r, manager_drop_marked_nexthops(link->manager));
 }
 
 void link_foreignize_nexthops(Link *link) {
@@ -849,7 +835,7 @@ int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, 
                 }
 
                 r = link_get_by_index(m, ifindex, &link);
-                if (r < 0 || !link) {
+                if (r < 0) {
                         if (!m->enumerating)
                                 log_warning("rtnl: received nexthop message for link (%"PRIu32") we do not know about, ignoring", ifindex);
                         return 0;

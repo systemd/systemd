@@ -3,7 +3,7 @@
 set -eux
 set -o pipefail
 
-fail () {
+fail() {
     systemd-analyze log-level info
     exit 1
 }
@@ -11,7 +11,7 @@ fail () {
 # Wait for a service to enter a state within a timeout period, if it doesn't
 # enter the desired state within the timeout period then this function will
 # exit the test case with a non zero exit code.
-wait_on_state_or_fail () {
+wait_on_state_or_fail() {
     service=$1
     expected_state=$2
     timeout=$3
@@ -157,6 +157,4 @@ rm /run/notify-reload-test.sh
 
 systemd-analyze log-level info
 
-echo OK >/testok
-
-exit 0
+touch /testok

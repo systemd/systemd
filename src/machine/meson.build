@@ -1,9 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-systemd_machined_sources = files(
-        'machined.c',
-)
-
 libmachine_core_sources = files(
         'image-dbus.c',
         'machine-dbus.c',
@@ -22,17 +18,30 @@ libmachine_core = static_library(
                         userspace],
         build_by_default : false)
 
-if conf.get('ENABLE_MACHINED') == 1
-        install_data('org.freedesktop.machine1.conf',
-                     install_dir : dbuspolicydir)
-        install_data('org.freedesktop.machine1.service',
-                     install_dir : dbussystemservicedir)
-        install_data('org.freedesktop.machine1.policy',
-                     install_dir : polkitpolicydir)
-endif
-
-tests += [
-        {
+executables += [
+        libexec_template + {
+                'name' : 'systemd-machined',
+                'dbus' : true,
+                'conditions' : ['ENABLE_MACHINED'],
+                'sources' : files('machined.c'),
+                'link_with' : [
+                        libmachine_core,
+                        libshared,
+                ],
+        },
+        executable_template + {
+                'name' : 'machinectl',
+                'public' : true,
+                'conditions' : ['ENABLE_MACHINED'],
+                'sources' : files('machinectl.c'),
+                'dependencies' : [
+                        liblz4,
+                        libxz,
+                        libzstd,
+                        threads,
+                ],
+        },
+        test_template + {
                 'sources' : files('test-machine-tables.c'),
                 'link_with': [
                         libmachine_core,
@@ -41,3 +50,12 @@ tests += [
                 'dependencies': threads,
         },
 ]
+
+if conf.get('ENABLE_MACHINED') == 1
+        install_data('org.freedesktop.machine1.conf',
+                     install_dir : dbuspolicydir)
+        install_data('org.freedesktop.machine1.service',
+                     install_dir : dbussystemservicedir)
+        install_data('org.freedesktop.machine1.policy',
+                     install_dir : polkitpolicydir)
+endif

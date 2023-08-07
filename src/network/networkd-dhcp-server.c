@@ -108,14 +108,14 @@ int link_request_dhcp_server_address(Link *link) {
         address->prefixlen = link->network->dhcp_server_address_prefixlen;
         address_set_broadcast(address, link);
 
-        if (address_get(link, address, &existing) >= 0 &&
-            address_exists(existing) &&
+        if (address_get_harder(link, address, &existing) >= 0 &&
+            (address_exists(existing) || address_is_requesting(existing)) &&
             existing->source == NETWORK_CONFIG_SOURCE_STATIC)
                 /* The same address seems explicitly configured in [Address] or [Network] section.
                  * Configure the DHCP server address only when it is not. */
                 return 0;
 
-        return link_request_static_address(link, TAKE_PTR(address), true);
+        return link_request_static_address(link, address);
 }
 
 static int link_find_dhcp_server_address(Link *link, Address **ret) {

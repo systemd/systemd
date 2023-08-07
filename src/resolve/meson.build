@@ -117,63 +117,73 @@ if conf.get('ENABLE_DNS_OVER_TLS') == 1
         endif
 endif
 
-if conf.get('ENABLE_RESOLVE') == 1
-        install_data('org.freedesktop.resolve1.conf',
-                     install_dir : dbuspolicydir)
-        install_data('org.freedesktop.resolve1.service',
-                     install_dir : dbussystemservicedir)
-        install_data('org.freedesktop.resolve1.policy',
-                     install_dir : polkitpolicydir)
-        install_data('resolv.conf',
-                     install_dir : rootlibexecdir)
-endif
+link_with = [
+        libbasic_gcrypt,
+        libshared,
+        libsystemd_resolve_core,
+]
 
-custom_target(
-        'resolved.conf',
-        input : 'resolved.conf.in',
-        output : 'resolved.conf',
-        command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
-        install : conf.get('ENABLE_RESOLVE') == 1 and install_sysconfdir_samples,
-        install_dir : pkgsysconfdir)
-
-############################################################
-
-test_resolve_base = {
-        'link_with' : [libsystemd_resolve_core, libshared],
-        'dependencies' : [lib_openssl_or_gcrypt, libm],
+resolve_common_template = {
+        'link_with' : [
+                libshared,
+                libsystemd_resolve_core,
+        ],
+        'dependencies' : [
+                lib_openssl_or_gcrypt,
+                libm,
+        ],
 }
+resolve_test_template = test_template + resolve_common_template
+resolve_fuzz_template = fuzz_template + resolve_common_template
 
-tests += [
-        {
+executables += [
+        libexec_template + {
+                'name' : 'systemd-resolved',
+                'dbus' : true,
+                'conditions' : ['ENABLE_RESOLVE'],
+                'sources' : systemd_resolved_sources +
+                            files('resolved.c'),
+                'include_directories' : resolve_includes,
+                'link_with' : link_with,
+                'dependencies' : systemd_resolved_dependencies,
+        },
+        executable_template + {
+                'name' : 'resolvectl',
+                'public' : true,
+                'conditions' : ['ENABLE_RESOLVE'],
+                'sources' : resolvectl_sources,
+                'link_with' : link_with,
+                'dependencies' : [
+                        lib_openssl_or_gcrypt,
+                        libidn,
+                        libm,
+                        threads,
+                ],
+        },
+        resolve_test_template + {
                 'sources' : files('test-resolve-tables.c'),
-                'base' : test_resolve_base,
         },
-        {
+        resolve_test_template + {
                 'sources' : files('test-dns-packet.c'),
-                'base' : test_resolve_base,
         },
-        {
+        resolve_test_template + {
                 'sources' : files(
                         'test-resolved-etc-hosts.c',
                         'resolved-etc-hosts.c',
                 ),
-                'base' : test_resolve_base,
         },
-        {
+        resolve_test_template + {
                 'sources' : files('test-resolved-packet.c'),
-                'base' : test_resolve_base,
         },
-        {
+        resolve_test_template + {
                 'sources' : files('test-dnssec.c'),
-                'base' : test_resolve_base,
-                'condition' : 'HAVE_OPENSSL_OR_GCRYPT',
+                'conditions' : ['HAVE_OPENSSL_OR_GCRYPT'],
         },
-        {
+        resolve_test_template + {
                 'sources' : files('test-dnssec-complex.c'),
-                'base' : test_resolve_base,
                 'type' : 'manual',
         },
-        {
+        test_template + {
                 'sources' : [
                         files('test-resolved-stream.c'),
                         basic_dns_sources,
@@ -184,31 +194,45 @@ tests += [
                         libm,
                         systemd_resolved_dependencies,
                 ],
-                'includes' : resolve_includes,
+                'include_directories' : resolve_includes,
         },
-]
-
-fuzzer_resolve_base = {
-        'link_with' : [libsystemd_resolve_core, libshared],
-        'dependencies' : [lib_openssl_or_gcrypt, libm],
-}
-
-fuzzers += [
-        {
+        resolve_fuzz_template + {
                 'sources' : files('fuzz-dns-packet.c'),
-                'base' : fuzzer_resolve_base,
         },
-        {
+        resolve_fuzz_template + {
                 'sources' : files(
                         'fuzz-etc-hosts.c',
                         'resolved-etc-hosts.c',
                 ),
-                'base' : fuzzer_resolve_base,
         },
-        {
+        resolve_fuzz_template + {
                 'sources' : files('fuzz-resource-record.c'),
-                'base' : fuzzer_resolve_base,
         },
 ]
 
-systemd_resolved_sources += files('resolved.c')
+if conf.get('ENABLE_RESOLVE') == 1
+        install_data('org.freedesktop.resolve1.conf',
+                     install_dir : dbuspolicydir)
+        install_data('org.freedesktop.resolve1.service',
+                     install_dir : dbussystemservicedir)
+        install_data('org.freedesktop.resolve1.policy',
+                     install_dir : polkitpolicydir)
+        install_data('resolv.conf',
+                     install_dir : libexecdir)
+
+        meson.add_install_script(meson_make_symlink,
+                                 bindir / 'resolvectl',
+                                 sbindir / 'resolvconf')
+
+        meson.add_install_script(meson_make_symlink,
+                                 bindir / 'resolvectl',
+                                 bindir / 'systemd-resolve')
+endif
+
+custom_target(
+        'resolved.conf',
+        input : 'resolved.conf.in',
+        output : 'resolved.conf',
+        command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
+        install : conf.get('ENABLE_RESOLVE') == 1 and install_sysconfdir_samples,
+        install_dir : pkgsysconfdir)

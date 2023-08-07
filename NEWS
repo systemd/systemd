@@ -1,6 +1,45 @@
 systemd System and Service Manager
 
-CHANGES WITH 254 in spe:
+CHANGES WITH 255 in spe:
+
+        Announcements of Future Feature Removals and Incompatible Changes:
+
+        * Support for split-usr (/usr/ mounted separately during late boot,
+          instead of being mounted by the initrd before switching to the rootfs)
+          and unmerged-usr (parallel directories /bin/ and /usr/bin/, /lib/ and
+          /usr/lib/, …) has been removed. For more details, see:
+          https://lists.freedesktop.org/archives/systemd-devel/2022-September/048352.html
+
+        * We intend to remove cgroup v1 support from a systemd release after
+          the end of 2023. If you run services that make explicit use of
+          cgroup v1 features (i.e. the "legacy hierarchy" with separate
+          hierarchies for each controller), please implement compatibility with
+          cgroup v2 (i.e. the "unified hierarchy") sooner rather than later.
+          Most of Linux userspace has been ported over already.
+
+        * Support for System V service scripts is now deprecated and will be
+          removed in a future release. Please make sure to update your software
+          *now* to include a native systemd unit file instead of a legacy
+          System V script to retain compatibility with future systemd releases.
+
+        * Support for the SystemdOptions EFI variable is deprecated.
+          'bootctl systemd-efi-options' will emit a warning when used. It seems
+          that this feature is little-used and it is better to use alternative
+          approaches like credentials and confexts. The plan is to drop support
+          altogether at a later point, but this might be revisited based on
+          user feedback.
+
+        * systemd-run's switch --expand-environment= which currently is disabled
+          by default when combined with --scope, will be changed in a future
+          release to be enabled by default.
+
+        Network Management:
+
+        * The "duid-only" option for DHCPv4 client's ClientIdentifier= setting
+          is now dropped, as it never worked, hence it should not be used by
+          anyone.
+
+CHANGES WITH 254:
 
         Announcements of Future Feature Removals and Incompatible Changes:
 
@@ -23,14 +62,24 @@ CHANGES WITH 254 in spe:
           *now* to include a native systemd unit file instead of a legacy
           System V script to retain compatibility with future systemd releases.
 
+        * Support for the SystemdOptions EFI variable is deprecated.
+          'bootctl systemd-efi-options' will emit a warning when used. It seems
+          that this feature is little-used and it is better to use alternative
+          approaches like credentials and confexts. The plan is to drop support
+          altogether at a later point, but this might be revisited based on
+          user feedback.
+
         * EnvironmentFile= now treats the line following a comment line
           trailing with escape as a non comment line. For details, see:
           https://github.com/systemd/systemd/issues/27975
 
+        * PrivateNetwork=yes and NetworkNamespacePath= now imply
+          PrivateMounts=yes unless PrivateMounts=no is explicitly specified.
+
         * Behaviour of sandboxing options for the per-user service manager
           units has changed. They now imply PrivateUsers=yes, which means user
           namespaces will be implicitly enabled when a sandboxing option is
-          enabled in a user unit. Enabling user namespaces has the the drawback
+          enabled in a user unit. Enabling user namespaces has the drawback
           that system users will no longer be visible (and processes/files will
           appear as owned by 'nobody') in the user unit.
 
@@ -41,6 +90,10 @@ CHANGES WITH 254 in spe:
           enabled when used in the per-user service manager, which is not
           needed in the system service manager. For more details, see:
           https://lists.freedesktop.org/archives/systemd-devel/2022-December/048682.html
+
+        * systemd-run's switch --expand-environment= which currently is disabled
+          by default when combined with --scope, will be changed in a future
+          release to be enabled by default.
 
         Security Relevant Changes:
 
@@ -60,10 +113,12 @@ CHANGES WITH 254 in spe:
 
         Service Manager:
 
-        * "Startup" memory settings are now supported. Previously IO and CPU
-          settings were already supported via StartupCPUWeight= and similar.
-          The same logic has been added for the various per-unit memory
-          settings StartupMemoryMax= and related.
+        * Memory limits that apply while the unit is activating are now
+          supported. Previously IO and CPU settings were already supported via
+          StartupCPUWeight= and similar. The same logic has been added for the
+          various manager and unit memory settings (DefaultStartupMemoryLow=,
+          StartupMemoryLow=, StartupMemoryHigh=, StartupMemoryMax=,
+          StartupMemorySwapMax=, StartupMemoryZSwapMax=).
 
         * The service manager gained support for enqueuing POSIX signals to
           services that carry an additional integer value, exposing the
@@ -99,7 +154,7 @@ CHANGES WITH 254 in spe:
           or RootDirectory= an ephemeral copy of the disk image or directory
           tree is made when the service is started. It is removed automatically
           when the service is stopped. That ephemeral copy is made using
-          btrfs/xfs reflinks or btrfs snaphots, if available.
+          btrfs/xfs reflinks or btrfs snapshots, if available.
 
         * The service activation logic gained new settings RestartSteps= and
           RestartMaxDelaySec= which allow exponentially-growing restart
@@ -176,12 +231,16 @@ CHANGES WITH 254 in spe:
           system reset involves. Moreover, open file descriptors may be passed
           across the soft reboot into the new system where they will be passed
           back to the originating services. This allows pinning resources
-          across the reboot, thus minimizing grey-out time further. Moreover,
-          it is possible to allow specific crucial services to survive the
-          reboot process, if they run off a separate root file system (i.e. use
-          RootDirectory= or RootImage=, or are portable services). This new
+          across the reboot, thus minimizing grey-out time further. This new
           reboot mechanism is accessible via the new "systemctl soft-reboot"
           command.
+
+        * Services using RootDirectory= or RootImage= will now have read-only
+          access to a copy of the host's os-release file under
+          /run/host/os-release, which will be kept up-to-date on 'soft-reboot'.
+          This was already the case for Portable Services, and the feature has
+          now been extended to all services that do not run off the host's
+          root filesystem.
 
         * A new service setting MemoryKSM= has been added to enable kernel
           same-page merging individually for services.
@@ -238,6 +297,11 @@ CHANGES WITH 254 in spe:
           and will also set a SYSTEMD_CONFIDENTIAL_VIRTUALIZATION= environment
           variable for unit generators. Finally, udev rules can match on a new
           'cvm' key that will be set when in a confidential VM.
+          Additionally, when running in a 'Confidential Virtual Machine', SMBIOS
+          strings and QEMU's fw_cfg protocol will not be used to import
+          credentials and kernel command line parameters by the system manager,
+          systemd-boot and systemd-stub, because the hypervisor is considered
+          untrusted in this particular setting.
 
         Journal:
 
@@ -276,6 +340,10 @@ CHANGES WITH 254 in spe:
           partitions) configured in the partition drop-in files are
           automatically adjusted to match the specified CPU architecture, in
           order to simplify cross-architecture DDI building.
+
+        * systemd-repart will now default to a minimum size of 300MB for XFS
+          filesystems if no size parameter is specified. This matches what the
+          XFS tools (xfsprogs) can support.
 
         systemd-boot, systemd-stub, ukify, bootctl, kernel-install:
 
@@ -492,21 +560,6 @@ CHANGES WITH 254 in spe:
         * udevadm gained the new "verify" verb for validating udev rules files
           offline.
 
-        * udev will now create symlinks to loopback block devices in the
-          /dev/loop/by-ref/ directory that are based on the .lo_file_name
-          string field selected during allocation. The systemd-dissect tool and
-          the util-linux losetup command now supports a complementing new
-          switch --loop-ref= for selecting the string. This means a loopback
-          block device may now be allocated under a caller-chosen reference and
-          can subsequently be referenced by that without first having to look
-          up the block device name the caller ended up with.
-
-        * udev also creates symlinks to loopback block devices in the
-          /dev/loop/by-ref/ directory based on the .st_dev/st_ino fields of the
-          inode attached to the loopback block device. This means that attaching
-          a file to a loopback device will implicitly make a handle available to
-          be found via that file's inode information.
-
         * udev gained a new tool "iocost" that can be used to configure QoS IO
           cost data based on hwdb information onto suitable block devices. Also
           see https://github.com/iocost-benchmark/iocost-benchmarks.
@@ -565,7 +618,7 @@ CHANGES WITH 254 in spe:
           specified command line after sending the requested messages. This is
           useful for sending out READY=1 first, and then continuing invocation
           without changing process ID, so that the tool can be nicely used
-          within an ExecStart= line of a unit file that uses Type=ready.
+          within an ExecStart= line of a unit file that uses Type=notify.
 
         sd-event + sd-bus APIs:
 
@@ -589,7 +642,7 @@ CHANGES WITH 254 in spe:
           more resilient in case of network problems.
 
         * resolvectl gained a new verb "show-cache" to show the current cache
-          contents of systemd-resolved. This verb comunicates with the
+          contents of systemd-resolved. This verb communicates with the
           systemd-resolved daemon and requires privileges.
 
         Other:
@@ -647,7 +700,12 @@ CHANGES WITH 254 in spe:
 
         * systemd-run gained a new switch --expand-environment=no to disable
           server-side environment variable expansion in specified command
-          lines.
+          lines. Expansion defaults to enabled for all execution types except
+          --scope, where it defaults to off (and prints a warning) for backward
+          compatibility reasons. --scope will be flipped to enabled by default
+          too in a future release. If you are using --scope and passing a '$'
+          character in the payload you should start explicitly using
+          --expand-environment=yes/no according to the use case.
 
         * The systemd-system-update-generator has been updated to also look for
           the special flag file /etc/system-update in addition to the existing
@@ -659,14 +717,20 @@ CHANGES WITH 254 in spe:
 
         * systemd-fstab-generator now understands two new kernel command line
           options systemd.mount-extra= and systemd.swap-extra=, which configure
-          additional mounts or swaps in a format similar to /etc/fstab. It also
-          now supports the new fstab.extra and fstab.extra.initrd credentials
-          that may contain additional /etc/fstab lines to apply at boot.
+          additional mounts or swaps in a format similar to /etc/fstab. 'fsck'
+          will be ran on these block devices, like it already happens for
+          'root='. It also now supports the new fstab.extra and
+          fstab.extra.initrd credentials that may contain additional /etc/fstab
+          lines to apply at boot.
 
         * systemd-getty-generator now understands two new credentials
           getty.ttys.container and getty.ttys.serial. These credentials may
           contain a list of TTY devices – one per line – to instantiate
           container-getty@.service and serial-getty@.service on.
+
+        * The getty/serial-getty/container-getty units now import the 'agetty.*'
+          and 'login.*' credentials, which are consumed by the 'login' and
+          'agetty' programs starting from util-linux v2.40.
 
         * systemd-sysupdate's sysupdate.d/ drop-ins gained a new setting
           PathRelativeTo=, which can be set to "esp", "xbootldr", "boot", in
@@ -698,10 +762,11 @@ CHANGES WITH 254 in spe:
           charge level of the system. In case the charge level is very low the
           user is notified (graphically via Plymouth – if available – as well
           as in text form on the console), and the system is turned off after a
-          10s delay.
+          10s delay. The feature can be disabled by passing
+          systemd.battery-check=0 through the kernel command line.
 
         * The 'passwdqc' library is now supported as an alternative to the
-          'pwquality' library and it can be selected at build time.
+          'pwquality' library and can be selected at build time.
 
         Contributions from: 김인수, 07416, Addison Snelling, Adrian Vovk,
         Aidan Dang, Alexander Krabler, Alfred Klomp, Anatoli Babenia,
@@ -710,45 +775,49 @@ CHANGES WITH 254 in spe:
         Asier Sarasua Garmendia, Balló György, Bastien Nocera,
         Benjamin Herrenschmidt, Benjamin Raison, Bill Peterson,
         Brad Fitzpatrick, Brett Holman, bri, Chen Qi, Chitoku,
-        Christoph Anton Mitterer, Christopher Gurnee, Colin Walters,
-        Cornelius Hoffmann, Cristian Rodríguez, cunshunxia, cvlc12,
-        Cyril Roelandt, Daan De Meyer, Daniele Medri,
-        Daniel P. Berrangé, Dan Streetman, David Edmundson,
+        Christian Hesse, Christoph Anton Mitterer, Christopher Gurnee,
+        Colin Walters, Cornelius Hoffmann, Cristian Rodríguez, cunshunxia,
+        cvlc12, Cyril Roelandt, Daan De Meyer, Daniele Medri,
+        Daniel P. Berrangé, Daniel Rusek, Dan Streetman, David Edmundson,
         David Schroeder, David Tardon, dependabot[bot],
         Dimitri John Ledkov, Dmitrii Fomchenkov, Dmitry V. Levin, dmkUK,
         Dominique Martinet, don bright, drosdeck, Edson Juliano Drosdeck,
         Egor Ignatov, EinBaum, Emanuele Giuseppe Esposito, Eric Curtin,
-        Evgeny Vereshchagin, Florian Klink, Franck Bui, François Rigault,
-        Fran Diéguez, Franklin Yu, Frantisek Sumsal, Gaël PORTAY,
-        Gerd Hoffmann, Gertalitec, Gibeom Gwon, Gustavo Noronha Silva,
-        Hannu Lounento, Hans de Goede, Haochen Tong, HATAYAMA Daisuke,
-        Henrik Holst, Hoe Hao Cheng, Igor Tsiglyar, Ivan Vecera,
-        James Hilliard, Jan Engelhardt, Jan Janssen, Jan Luebbe,
-        Jan Macku, Janne Sirén, jcg, Jeidnx, Joan Bruguera,
-        Joerg Behrmann, jonathanmetzman, Jordan Rome, Josef Miegl,
-        Joshua Goins, Joyce, Joyce Brum, Juno Computers, Kai Lueke,
-        Kevin P. Fleming, Kiran Vemula, Klaus, Klaus Zipfel,
-        Lawrence Thorpe, Lennart Poettering, licunlong, Lily Foster,
-        Luca Boccassi, Ludwig Nussel, maanyagoenka, Maksim Kliazovich,
-        Malte Poll, Marko Korhonen, Masatake YAMATO, Mateusz Poliwczak,
-        Matt Johnston, Miao Wang, Michal Koutný, Michal Sekletár,
-        Mike Yuan, mooo, Morten Linderud, msizanoen, Nick Rosbrook, nikstur,
-        Olivier Gayot, Omojola Joshua, Paolo Velati, Paul Barker,
+        Erik Sjölund, Evgeny Vereshchagin, Florian Klink, Franck Bui,
+        François Rigault, Fran Diéguez, Franklin Yu, Frantisek Sumsal,
+        Fuminobu TAKEYAMA, Gaël PORTAY, Gerd Hoffmann, Gertalitec,
+        Gibeom Gwon, Gustavo Noronha Silva, Hannu Lounento,
+        Hans de Goede, Haochen Tong, HATAYAMA Daisuke, Henrik Holst,
+        Hoe Hao Cheng, Igor Tsiglyar, Ivan Vecera, James Hilliard,
+        Jan Engelhardt, Jan Janssen, Jan Luebbe, Jan Macku, Janne Sirén,
+        jcg, Jeidnx, Joan Bruguera, Joerg Behrmann, jonathanmetzman,
+        Jordan Rome, Josef Miegl, Joshua Goins, Joyce, Joyce Brum,
+        Juno Computers, Kai Lueke, Kevin P. Fleming, Kiran Vemula, Klaus,
+        Klaus Zipfel, Lawrence Thorpe, Lennart Poettering, licunlong,
+        Lily Foster, Luca Boccassi, Ludwig Nussel, Luna Jernberg,
+        maanyagoenka, Maanya Goenka, Maksim Kliazovich, Malte Poll,
+        Marko Korhonen, Masatake YAMATO, Mateusz Poliwczak, Matt Johnston,
+        Miao Wang, Micah Abbott, Michael A Cassaniti, Michal Koutný,
+        Michal Sekletár, Mike Yuan, mooo, Morten Linderud, msizanoen,
+        Nick Rosbrook, nikstur, Olivier Gayot, Omojola Joshua,
+        Paolo Velati, Paul Barker, Pavel Borecki, Petr Menšík,
         Philipp Kern, Philip Withnall, Piotr Drąg, Quintin Hill,
         Rene Hollander, Richard Phibel, Robert Meijers, Robert Scheck,
-        Romain Geissler, Ronan Pigott, Russell Harmon, saikat0511,
-        Samanta Navarro, Sam James, Sam Morris, Simon Braunschmidt,
-        Sjoerd Simons, Sorah Fukumori, Stanislaw Gruszka, Stefan Roesch,
-        Steven Luo, Steve Ramage, taniishkaaa, Tanishka, Thierry Martin,
-        Thomas Blume, Thomas Genty, Thomas Weißschuh, Thorsten Kukuk,
-        Times-Z, Tobias Powalowski, tofylion, Topi Miettinen,
-        Uwe Kleine-König, Velislav Ivanov, Vitaly Kuznetsov, Vít Zikmund,
-        Will Fancher, William Roberts, Winterhuman, Wolfgang Müller,
-        Xiaotian Wu, Xi Ruoyao, Yu Watanabe, Yuxiang Zhu,
+        Roger Gammans, Romain Geissler, Ronan Pigott, Russell Harmon,
+        saikat0511, Samanta Navarro, Sam James, Sam Morris,
+        Simon Braunschmidt, Sjoerd Simons, Sorah Fukumori,
+        Stanislaw Gruszka, Stefan Roesch, Steven Luo, Steve Ramage,
+        Susant Sahani, taniishkaaa, Tanishka, Temuri Doghonadze,
+        Thierry Martin, Thomas Blume, Thomas Genty, Thomas Weißschuh,
+        Thorsten Kukuk, Times-Z, Tobias Powalowski, tofylion,
+        Topi Miettinen, Uwe Kleine-König, Velislav Ivanov,
+        Vitaly Kuznetsov, Vít Zikmund, Weblate, Will Fancher,
+        William Roberts, Winterhuman, Wolfgang Müller, Xeonacid,
+        Xiaotian Wu, Xi Ruoyao, Yuri Chornoivan, Yu Watanabe, Yuxiang Zhu,
         Zbigniew Jędrzejewski-Szmek, zhmylove, ZjYwMj,
         Дамјан Георгиевски, наб
 
-        — Edinburgh, 2023-07-06
+        — Edinburgh, 2023-07-28
 
 CHANGES WITH 253:
 
@@ -7868,7 +7937,8 @@ CHANGES WITH 239:
           hibernates again.
 
         * networkd's ClientIdentifier= now accepts a new option "duid-only". If
-          set the client will only send a DUID as client identifier.
+          set the client will only send a DUID as client identifier. (EDIT: the
+          option was broken, and was dropped in v255.)
 
         * The nss-systemd glibc NSS module will now enumerate dynamic users and
           groups in effect. Previously, it could resolve UIDs/GIDs to user

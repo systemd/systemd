@@ -2828,10 +2828,8 @@ static int table_to_json_regular(Table *t, JsonVariant **ret) {
                 /* If sorting is requested, let's calculate an index table we use to lookup the actual index to display with. */
 
                 sorted = new(size_t, n_rows);
-                if (!sorted) {
-                        r = -ENOMEM;
-                        goto finish;
-                }
+                if (!sorted)
+                        return -ENOMEM;
 
                 for (size_t i = 0; i < n_rows; i++)
                         sorted[i] = i * t->n_columns;
@@ -2846,10 +2844,10 @@ static int table_to_json_regular(Table *t, JsonVariant **ret) {
         assert(display_columns > 0);
 
         elements = new0(JsonVariant*, display_columns * 2);
-        if (!elements) {
-                r = -ENOMEM;
-                goto finish;
-        }
+        if (!elements)
+                return -ENOMEM;
+
+        CLEANUP_ARRAY(elements, (size_t) { display_columns * 2 }, json_variant_unref_many);
 
         for (size_t j = 0; j < display_columns; j++) {
                 _cleanup_free_ char *mangled = NULL;
@@ -2863,21 +2861,21 @@ static int table_to_json_regular(Table *t, JsonVariant **ret) {
                 if (!n) {
                         r = table_make_json_field_name(t, ASSERT_PTR(t->data[c]), &mangled);
                         if (r < 0)
-                                goto finish;
+                                return r;
 
                         n = mangled;
                 }
 
                 r = json_variant_new_string(elements + j*2, n);
                 if (r < 0)
-                        goto finish;
+                        return r;
         }
 
         rows = new0(JsonVariant*, n_rows-1);
-        if (!rows) {
-                r = -ENOMEM;
-                goto finish;
-        }
+        if (!rows)
+                return -ENOMEM;
+
+        CLEANUP_ARRAY(rows, (size_t) { n_rows - 1 }, json_variant_unref_many);
 
         for (size_t i = 1; i < n_rows; i++) {
                 TableData **row;
@@ -2898,28 +2896,15 @@ static int table_to_json_regular(Table *t, JsonVariant **ret) {
 
                         r = table_data_to_json(d, elements + k);
                         if (r < 0)
-                                goto finish;
+                                return r;
                 }
 
                 r = json_variant_new_object(rows + i - 1, elements, display_columns * 2);
                 if (r < 0)
-                        goto finish;
+                        return r;
         }
 
-        r = json_variant_new_array(ret, rows, n_rows - 1);
-
-finish:
-        if (rows) {
-                json_variant_unref_many(rows, n_rows-1);
-                free(rows);
-        }
-
-        if (elements) {
-                json_variant_unref_many(elements, display_columns*2);
-                free(elements);
-        }
-
-        return r;
+        return json_variant_new_array(ret, rows, n_rows - 1);
 }
 
 static int table_to_json_vertical(Table *t, JsonVariant **ret) {
@@ -2937,10 +2922,10 @@ static int table_to_json_vertical(Table *t, JsonVariant **ret) {
         assert(t->n_cells % t->n_columns == 0);
 
         elements = new0(JsonVariant *, t->n_cells);
-        if (!elements) {
-                r = -ENOMEM;
-                goto finish;
-        }
+        if (!elements)
+                return -ENOMEM;
+
+        CLEANUP_ARRAY(elements, n_elements, json_variant_unref_many);
 
         for (size_t i = t->n_columns; i < t->n_cells; i++) {
 
@@ -2952,7 +2937,7 @@ static int table_to_json_vertical(Table *t, JsonVariant **ret) {
                         if (!n) {
                                 r = table_make_json_field_name(t, ASSERT_PTR(t->data[i]), &mangled);
                                 if (r < 0)
-                                        goto finish;
+                                        return r;
 
                                 n = mangled;
                         }
@@ -2961,20 +2946,12 @@ static int table_to_json_vertical(Table *t, JsonVariant **ret) {
                 } else
                         r = table_data_to_json(t->data[i], elements + n_elements);
                 if (r < 0)
-                        goto finish;
+                        return r;
 
                 n_elements++;
         }
 
-        r = json_variant_new_object(ret, elements, n_elements);
-
-finish:
-        if (elements) {
-                json_variant_unref_many(elements, n_elements);
-                free(elements);
-        }
-
-        return r;
+        return json_variant_new_object(ret, elements, n_elements);
 }
 
 int table_to_json(Table *t, JsonVariant **ret) {

@@ -231,8 +231,8 @@ static int extract_now(
         }
 
         /* Then, send unit file data to the parent (or/and add it to the hashmap). For that we use our usual unit
-         * discovery logic. Note that we force looking inside of /lib/systemd/system/ for units too, as we mightbe
-         * compiled for a split-usr system but the image might be a legacy-usr one. */
+         * discovery logic. Note that we force looking inside of /lib/systemd/system/ for units too, as the
+         * image might have a legacy split-usr layout. */
         r = lookup_paths_init(&paths, RUNTIME_SCOPE_SYSTEM, LOOKUP_PATHS_SPLIT_USR, where);
         if (r < 0)
                 return log_debug_errno(r, "Failed to acquire lookup paths: %m");
@@ -420,7 +420,7 @@ static int portable_extract_by_path(
                         seq[0] = safe_close(seq[0]);
 
                         if (path_is_extension)
-                                flags |= DISSECT_IMAGE_VALIDATE_OS_EXT | (relax_extension_release_check ? DISSECT_IMAGE_RELAX_SYSEXT_CHECK : 0);
+                                flags |= DISSECT_IMAGE_VALIDATE_OS_EXT | (relax_extension_release_check ? DISSECT_IMAGE_RELAX_EXTENSION_CHECK : 0);
                         else
                                 flags |= DISSECT_IMAGE_VALIDATE_OS;
 
@@ -1052,19 +1052,11 @@ static int install_chroot_dropin(
                 return log_debug_errno(r, "Failed to generate marker string for portable drop-in: %m");
 
         if (endswith(m->name, ".service")) {
-                const char *os_release_source, *root_type;
+                const char *root_type;
                 _cleanup_free_ char *base_name = NULL;
                 Image *ext;
 
                 root_type = root_setting_from_image(type);
-
-                if (access("/etc/os-release", F_OK) < 0) {
-                        if (errno != ENOENT)
-                                return log_debug_errno(errno, "Failed to check if /etc/os-release exists: %m");
-
-                        os_release_source = "/usr/lib/os-release";
-                } else
-                        os_release_source = "/etc/os-release";
 
                 r = path_extract_filename(m->image_path ?: image_path, &base_name);
                 if (r < 0)
@@ -1075,7 +1067,6 @@ static int install_chroot_dropin(
                                "[Service]\n",
                                root_type, image_path, "\n"
                                "Environment=PORTABLE=", base_name, "\n"
-                               "BindReadOnlyPaths=", os_release_source, ":/run/host/os-release\n"
                                "LogExtraFields=PORTABLE=", base_name, "\n"))
                         return -ENOMEM;
 
@@ -1493,7 +1484,7 @@ int portable_attach(
                                 strempty(extensions_joined));
         }
 
-        r = lookup_paths_init(&paths, RUNTIME_SCOPE_SYSTEM, LOOKUP_PATHS_SPLIT_USR, NULL);
+        r = lookup_paths_init(&paths, RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, NULL);
         if (r < 0)
                 return r;
 
@@ -1693,7 +1684,7 @@ int portable_detach(
 
         assert(name_or_path);
 
-        r = lookup_paths_init(&paths, RUNTIME_SCOPE_SYSTEM, LOOKUP_PATHS_SPLIT_USR, NULL);
+        r = lookup_paths_init(&paths, RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, NULL);
         if (r < 0)
                 return r;
 
@@ -1880,7 +1871,7 @@ static int portable_get_state_internal(
         assert(name_or_path);
         assert(ret);
 
-        r = lookup_paths_init(&paths, RUNTIME_SCOPE_SYSTEM, LOOKUP_PATHS_SPLIT_USR, NULL);
+        r = lookup_paths_init(&paths, RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, NULL);
         if (r < 0)
                 return r;
 

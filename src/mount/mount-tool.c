@@ -779,7 +779,6 @@ static int find_mount_points(const char *what, char ***list) {
 
 static int find_loop_device(const char *backing_file, sd_device **ret) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
-        sd_device *dev;
         int r;
 
         assert(backing_file);
@@ -1366,7 +1365,6 @@ enum {
 static int list_devices(void) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         _cleanup_(table_unrefp) Table *table = NULL;
-        sd_device *d;
         unsigned c;
         int r;
 

@@ -890,6 +890,7 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "@signal\0"
                 "@sync\0"
                 "@timer\0"
+                "arm_fadvise64_64\0"
                 "capget\0"
                 "capset\0"
                 "copy_file_range\0"
@@ -1091,10 +1092,11 @@ int seccomp_load_syscall_filter_set(uint32_t default_action, const SyscallFilter
                         return log_debug_errno(r, "Failed to add filter set: %m");
 
                 r = seccomp_load(seccomp);
-                if (ERRNO_IS_SECCOMP_FATAL(r))
-                        return r;
-                if (r < 0)
+                if (r < 0) {
+                        if (ERRNO_IS_SECCOMP_FATAL(r))
+                                return r;
                         log_debug_errno(r, "Failed to install filter set for architecture %s, skipping: %m", seccomp_arch_to_string(arch));
+                }
         }
 
         return 0;
@@ -1152,11 +1154,12 @@ int seccomp_load_syscall_filter_set_raw(uint32_t default_action, Hashmap* filter
                 }
 
                 r = seccomp_load(seccomp);
-                if (ERRNO_IS_SECCOMP_FATAL(r))
-                        return r;
-                if (r < 0)
+                if (r < 0) {
+                        if (ERRNO_IS_SECCOMP_FATAL(r))
+                                return r;
                         log_debug_errno(r, "Failed to install system call filter for architecture %s, skipping: %m",
                                         seccomp_arch_to_string(arch));
+                }
         }
 
         return 0;
@@ -1357,10 +1360,11 @@ int seccomp_restrict_namespaces(unsigned long retain) {
                         continue;
 
                 r = seccomp_load(seccomp);
-                if (ERRNO_IS_SECCOMP_FATAL(r))
-                        return r;
-                if (r < 0)
+                if (r < 0) {
+                        if (ERRNO_IS_SECCOMP_FATAL(r))
+                                return r;
                         log_debug_errno(r, "Failed to install namespace restriction rules for architecture %s, skipping: %m", seccomp_arch_to_string(arch));
+                }
         }
 
         return 0;
@@ -1400,10 +1404,11 @@ int seccomp_protect_sysctl(void) {
                 }
 
                 r = seccomp_load(seccomp);
-                if (ERRNO_IS_SECCOMP_FATAL(r))
-                        return r;
-                if (r < 0)
+                if (r < 0) {
+                        if (ERRNO_IS_SECCOMP_FATAL(r))
+                                return r;
                         log_debug_errno(r, "Failed to install sysctl protection rules for architecture %s, skipping: %m", seccomp_arch_to_string(arch));
+                }
         }
 
         return 0;
@@ -1432,10 +1437,11 @@ int seccomp_protect_syslog(void) {
                 }
 
                 r = seccomp_load(seccomp);
-                if (ERRNO_IS_SECCOMP_FATAL(r))
-                        return r;
-                if (r < 0)
+                if (r < 0) {
+                        if (ERRNO_IS_SECCOMP_FATAL(r))
+                                return r;
                         log_debug_errno(r, "Failed to install syslog protection rules for architecture %s, skipping %m", seccomp_arch_to_string(arch));
+                }
         }
 
         return 0;
@@ -1602,10 +1608,11 @@ int seccomp_restrict_address_families(Set *address_families, bool allow_list) {
                 }
 
                 r = seccomp_load(seccomp);
-                if (ERRNO_IS_SECCOMP_FATAL(r))
-                        return r;
-                if (r < 0)
+                if (r < 0) {
+                        if (ERRNO_IS_SECCOMP_FATAL(r))
+                                return r;
                         log_debug_errno(r, "Failed to install socket family rules for architecture %s, skipping: %m", seccomp_arch_to_string(arch));
+                }
         }
 
         return 0;
@@ -1681,10 +1688,11 @@ int seccomp_restrict_realtime_full(int error_code) {
                 }
 
                 r = seccomp_load(seccomp);
-                if (ERRNO_IS_SECCOMP_FATAL(r))
-                        return r;
-                if (r < 0)
+                if (r < 0) {
+                        if (ERRNO_IS_SECCOMP_FATAL(r))
+                                return r;
                         log_debug_errno(r, "Failed to install realtime protection rules for architecture %s, skipping: %m", seccomp_arch_to_string(arch));
+                }
         }
 
         return 0;
@@ -1815,11 +1823,12 @@ int seccomp_memory_deny_write_execute(void) {
                 }
 
                 r = seccomp_load(seccomp);
-                if (ERRNO_IS_SECCOMP_FATAL(r))
-                        return r;
-                if (r < 0)
+                if (r < 0) {
+                        if (ERRNO_IS_SECCOMP_FATAL(r))
+                                return r;
                         log_debug_errno(r, "Failed to install MemoryDenyWriteExecute= rule for architecture %s, skipping: %m",
                                         seccomp_arch_to_string(arch));
+                }
                 loaded++;
         }
 
@@ -1888,10 +1897,11 @@ int seccomp_restrict_archs(Set *archs) {
                 return r;
 
         r = seccomp_load(seccomp);
-        if (ERRNO_IS_SECCOMP_FATAL(r))
-                return r;
-        if (r < 0)
+        if (r < 0) {
+                if (ERRNO_IS_SECCOMP_FATAL(r))
+                        return r;
                 log_debug_errno(r, "Failed to restrict system call architectures, skipping: %m");
+        }
 
         return 0;
 }
@@ -1983,10 +1993,11 @@ int seccomp_lock_personality(unsigned long personality) {
                 }
 
                 r = seccomp_load(seccomp);
-                if (ERRNO_IS_SECCOMP_FATAL(r))
-                        return r;
-                if (r < 0)
+                if (r < 0) {
+                        if (ERRNO_IS_SECCOMP_FATAL(r))
+                                return r;
                         log_debug_errno(r, "Failed to enable personality lock for architecture %s, skipping: %m", seccomp_arch_to_string(arch));
+                }
         }
 
         return 0;
@@ -2024,10 +2035,11 @@ int seccomp_protect_hostname(void) {
                 }
 
                 r = seccomp_load(seccomp);
-                if (ERRNO_IS_SECCOMP_FATAL(r))
-                        return r;
-                if (r < 0)
+                if (r < 0) {
+                        if (ERRNO_IS_SECCOMP_FATAL(r))
+                                return r;
                         log_debug_errno(r, "Failed to apply hostname restrictions for architecture %s, skipping: %m", seccomp_arch_to_string(arch));
+                }
         }
 
         return 0;
@@ -2202,10 +2214,11 @@ int seccomp_restrict_suid_sgid(void) {
                         continue;
 
                 r = seccomp_load(seccomp);
-                if (ERRNO_IS_SECCOMP_FATAL(r))
-                        return r;
-                if (r < 0)
+                if (r < 0) {
+                        if (ERRNO_IS_SECCOMP_FATAL(r))
+                                return r;
                         log_debug_errno(r, "Failed to apply suid/sgid restrictions for architecture %s, skipping: %m", seccomp_arch_to_string(arch));
+                }
         }
 
         return 0;
@@ -2347,10 +2360,11 @@ int seccomp_suppress_sync(void) {
 #endif
 
                 r = seccomp_load(seccomp);
-                if (ERRNO_IS_SECCOMP_FATAL(r))
-                        return r;
-                if (r < 0)
+                if (r < 0) {
+                        if (ERRNO_IS_SECCOMP_FATAL(r))
+                                return r;
                         log_debug_errno(r, "Failed to apply sync() suppression for architecture %s, skipping: %m", seccomp_arch_to_string(arch));
+                }
         }
 
         return 0;

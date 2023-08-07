@@ -50,6 +50,7 @@ struct Route {
         uint32_t initcwnd;
         uint32_t initrwnd;
         uint32_t advmss;
+        uint32_t hop_limit;
         char *tcp_congestion_control_algo;
         unsigned char pref;
         unsigned flags;
@@ -122,6 +123,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_route_boolean);
 CONFIG_PARSER_PROTOTYPE(config_parse_ipv6_route_preference);
 CONFIG_PARSER_PROTOTYPE(config_parse_route_protocol);
 CONFIG_PARSER_PROTOTYPE(config_parse_route_type);
+CONFIG_PARSER_PROTOTYPE(config_parse_route_tcp_window);
 CONFIG_PARSER_PROTOTYPE(config_parse_tcp_window);
 CONFIG_PARSER_PROTOTYPE(config_parse_route_mtu);
 CONFIG_PARSER_PROTOTYPE(config_parse_multipath_route);

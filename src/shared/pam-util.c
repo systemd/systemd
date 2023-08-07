@@ -88,7 +88,7 @@ static void pam_bus_data_destroy(pam_handle_t *handle, void *data, int error_sta
          * happen. */
 
         if (error_status & PAM_DATA_SILENT)
-                pam_syslog(handle, LOG_WARNING, "Attempted to close sd-bus after fork, this should not happen.");
+                pam_syslog(handle, LOG_DEBUG, "Attempted to close sd-bus after fork, this should not happen.");
 
         pam_bus_data_free(data);
 }

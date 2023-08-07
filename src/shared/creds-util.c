@@ -22,6 +22,7 @@
 #include "memory-util.h"
 #include "mkdir.h"
 #include "openssl-util.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "random-util.h"
 #include "sparse-endian.h"
@@ -70,7 +71,7 @@ bool credential_glob_valid(const char *s) {
                 return false;
 
         /* Make a copy of the string without the '*' suffix */
-        a = strndupa(s, n);
+        a = strndupa_safe(s, n);
 
         return credential_name_valid(a);
 }
@@ -140,7 +141,7 @@ int read_credential_with_decryption(const char *name, void **ret, size_t *ret_si
          * yet.
          *
          * Note that read_credential_harder_and_warn() logs on its own, while read_credential() does not!
-         * (It's a lot more complex and error prone given its TPM2 connectivty, and is generally called from
+         * (It's a lot more complex and error prone given its TPM2 connectivity, and is generally called from
          * generators only where logging is OK).
          *
          * Error handling is also a bit different: if we can't find a credential we'll return 0 and NULL
@@ -251,6 +252,17 @@ int read_credential_strings_many_internal(
 
         va_end(ap);
         return ret;
+}
+
+int read_credential_bool(const char *name) {
+        _cleanup_free_ void *data = NULL;
+        int r;
+
+        r = read_credential(name, &data, NULL);
+        if (r < 0)
+                return IN_SET(r, -ENXIO, -ENOENT) ? 0 : r;
+
+        return parse_boolean(data);
 }
 
 int get_credential_user_password(const char *username, char **ret_password, bool *ret_is_hashed) {
@@ -813,18 +825,49 @@ int encrypt_credential_and_warn(
                 if (!pubkey)
                         tpm2_pubkey_pcr_mask = 0;
 
-                r = tpm2_seal(tpm2_device,
-                              tpm2_hash_pcr_mask,
-                              pubkey, pubkey_size,
-                              tpm2_pubkey_pcr_mask,
+                _cleanup_(tpm2_context_unrefp) Tpm2Context *tpm2_context = NULL;
+                r = tpm2_context_new(tpm2_device, &tpm2_context);
+                if (r < 0)
+                        return r;
+
+                r = tpm2_get_best_pcr_bank(tpm2_context, tpm2_hash_pcr_mask | tpm2_pubkey_pcr_mask, &tpm2_pcr_bank);
+                if (r < 0)
+                        return r;
+
+                TPML_PCR_SELECTION tpm2_hash_pcr_selection;
+                tpm2_tpml_pcr_selection_from_mask(tpm2_hash_pcr_mask, tpm2_pcr_bank, &tpm2_hash_pcr_selection);
+
+                _cleanup_free_ Tpm2PCRValue *tpm2_hash_pcr_values = NULL;
+                size_t tpm2_n_hash_pcr_values;
+                r = tpm2_pcr_read(tpm2_context, &tpm2_hash_pcr_selection, &tpm2_hash_pcr_values, &tpm2_n_hash_pcr_values);
+                if (r < 0)
+                        return r;
+
+                TPM2B_PUBLIC public;
+                if (pubkey) {
+                        r = tpm2_tpm2b_public_from_pem(pubkey, pubkey_size, &public);
+                        if (r < 0)
+                                return log_error_errno(r, "Could not convert public key to TPM2B_PUBLIC: %m");
+                }
+
+                TPM2B_DIGEST tpm2_policy = TPM2B_DIGEST_MAKE(NULL, TPM2_SHA256_DIGEST_SIZE);
+                r = tpm2_calculate_sealing_policy(
+                                tpm2_hash_pcr_values,
+                                tpm2_n_hash_pcr_values,
+                                pubkey ? &public : NULL,
+                                /* use_pin= */ false,
+                                &tpm2_policy);
+                if (r < 0)
+                        return r;
+
+                r = tpm2_seal(tpm2_context,
+                              &tpm2_policy,
                               /* pin= */ NULL,
                               &tpm2_key, &tpm2_key_size,
                               &tpm2_blob, &tpm2_blob_size,
-                              &tpm2_policy_hash, &tpm2_policy_hash_size,
-                              &tpm2_pcr_bank,
                               &tpm2_primary_alg,
                               /* ret_srk_buf= */ NULL,
-                              /* ret_srk_buf_size= */ 0);
+                              /* ret_srk_buf_size= */ NULL);
                 if (r < 0) {
                         if (sd_id128_equal(with_key, _CRED_AUTO_INITRD))
                                 log_warning("TPM2 present and used, but we didn't manage to talk to it. Credential will be refused if SecureBoot is enabled.");
@@ -833,6 +876,12 @@ int encrypt_credential_and_warn(
 
                         log_notice_errno(r, "TPM2 sealing didn't work, continuing without TPM2: %m");
                 }
+
+                tpm2_policy_hash_size = tpm2_policy.size;
+                tpm2_policy_hash = malloc(tpm2_policy_hash_size);
+                if (!tpm2_policy_hash)
+                        return log_oom();
+                memcpy(tpm2_policy_hash, tpm2_policy.buffer, tpm2_policy_hash_size);
 
                 assert(tpm2_blob_size <= CREDENTIAL_FIELD_SIZE_MAX);
                 assert(tpm2_policy_hash_size <= CREDENTIAL_FIELD_SIZE_MAX);

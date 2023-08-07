@@ -9,6 +9,37 @@ systemd_portabled_sources = files(
         'portabled.c',
 )
 
+if get_option('link-portabled-shared')
+        portabled_link_with = [libshared]
+else
+        portabled_link_with = [
+                libshared_static,
+                libsystemd_static,
+        ]
+endif
+
+executables += [
+        libexec_template + {
+                'name' : 'systemd-portabled',
+                'dbus' : true,
+                'conditions' : ['ENABLE_PORTABLED'],
+                'sources' : systemd_portabled_sources,
+                'link_with' : portabled_link_with,
+                'dependencies' : [
+                        libselinux,
+                        threads,
+                ],
+        },
+        executable_template + {
+                'name' : 'portablectl',
+                'public' : true,
+                'conditions' : ['ENABLE_PORTABLED'],
+                'sources' : files('portablectl.c'),
+                'link_with' : portabled_link_with,
+                'dependencies' : threads,
+        },
+]
+
 if conf.get('ENABLE_PORTABLED') == 1
         install_data('org.freedesktop.portable1.conf',
                      install_dir : dbuspolicydir)

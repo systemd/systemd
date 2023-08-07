@@ -31,8 +31,8 @@ fi
 
 systemd-dissect --no-pager /usr/share/minimal_0.raw | grep -q '✓ portable service'
 systemd-dissect --no-pager /usr/share/minimal_1.raw | grep -q '✓ portable service'
-systemd-dissect --no-pager /usr/share/app0.raw | grep -q '✓ extension for portable service'
-systemd-dissect --no-pager /usr/share/app1.raw | grep -q '✓ extension for portable service'
+systemd-dissect --no-pager /usr/share/app0.raw | grep -q '✓ sysext extension for portable service'
+systemd-dissect --no-pager /usr/share/app1.raw | grep -q '✓ sysext extension for portable service'
 
 export SYSTEMD_LOG_LEVEL=debug
 mkdir -p /run/systemd/system/systemd-portabled.service.d/
@@ -43,12 +43,16 @@ EOF
 
 portablectl "${ARGS[@]}" attach --now --runtime /usr/share/minimal_0.raw minimal-app0
 
+portablectl is-attached minimal-app0
+portablectl inspect /usr/share/minimal_0.raw minimal-app0.service
 systemctl is-active minimal-app0.service
 systemctl is-active minimal-app0-foo.service
 systemctl is-active minimal-app0-bar.service && exit 1
 
 portablectl "${ARGS[@]}" reattach --now --runtime /usr/share/minimal_1.raw minimal-app0
 
+portablectl is-attached minimal-app0
+portablectl inspect /usr/share/minimal_0.raw minimal-app0.service
 systemctl is-active minimal-app0.service
 systemctl is-active minimal-app0-bar.service
 systemctl is-active minimal-app0-foo.service && exit 1
@@ -57,6 +61,32 @@ portablectl list | grep -q -F "minimal_1"
 busctl tree org.freedesktop.portable1 --no-pager | grep -q -F '/org/freedesktop/portable1/image/minimal_5f1'
 
 portablectl detach --now --runtime /usr/share/minimal_1.raw minimal-app0
+
+portablectl list | grep -q -F "No images."
+busctl tree org.freedesktop.portable1 --no-pager | grep -q -F '/org/freedesktop/portable1/image/minimal_5f1' && exit 1
+
+# Ensure we don't regress (again) when using --force
+
+portablectl "${ARGS[@]}" attach --force --now --runtime /usr/share/minimal_0.raw minimal-app0
+
+portablectl is-attached --force minimal-app0
+portablectl inspect --force /usr/share/minimal_0.raw minimal-app0.service
+systemctl is-active minimal-app0.service
+systemctl is-active minimal-app0-foo.service
+systemctl is-active minimal-app0-bar.service && exit 1
+
+portablectl "${ARGS[@]}" reattach --force --now --runtime /usr/share/minimal_1.raw minimal-app0
+
+portablectl is-attached --force minimal-app0
+portablectl inspect --force /usr/share/minimal_0.raw minimal-app0.service
+systemctl is-active minimal-app0.service
+systemctl is-active minimal-app0-bar.service
+systemctl is-active minimal-app0-foo.service && exit 1
+
+portablectl list | grep -q -F "minimal_1"
+busctl tree org.freedesktop.portable1 --no-pager | grep -q -F '/org/freedesktop/portable1/image/minimal_5f1'
+
+portablectl detach --force --now --runtime /usr/share/minimal_1.raw minimal-app0
 
 portablectl list | grep -q -F "No images."
 busctl tree org.freedesktop.portable1 --no-pager | grep -q -F '/org/freedesktop/portable1/image/minimal_5f1' && exit 1
@@ -231,6 +261,4 @@ touch /tmp/emptyext/usr/lib/extension-release.d/extension-release.emptyext
 res="$(! portablectl attach --extension /tmp/emptyext /tmp/emptyroot 2> >(grep "Remote peer disconnected"))"
 test -z "${res}"
 
-echo OK >/testok
-
-exit 0
+touch /testok

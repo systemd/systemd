@@ -20,6 +20,8 @@ int fstab_has_fstype(const char *fstype) {
         _cleanup_endmntent_ FILE *f = NULL;
         struct mntent *m;
 
+        assert(fstype);
+
         f = setmntent(fstab_path(), "re");
         if (!f)
                 return errno == ENOENT ? false : -errno;
@@ -61,23 +63,54 @@ bool fstab_is_extrinsic(const char *mount, const char *opts) {
         return false;
 }
 
-int fstab_is_mount_point(const char *mount) {
+static int fstab_is_same_node(const char *what_fstab, const char *path) {
+        _cleanup_free_ char *node = NULL;
+
+        assert(what_fstab);
+        assert(path);
+
+        node = fstab_node_to_udev_node(what_fstab);
+        if (!node)
+                return -ENOMEM;
+
+        if (path_equal(node, path))
+                return true;
+
+        if (is_device_path(path) && is_device_path(node))
+                return devnode_same(node, path);
+
+        return false;
+}
+
+int fstab_is_mount_point_full(const char *where, const char *path) {
         _cleanup_endmntent_ FILE *f = NULL;
-        struct mntent *m;
+        int r;
+
+        assert(where || path);
 
         f = setmntent(fstab_path(), "re");
         if (!f)
                 return errno == ENOENT ? false : -errno;
 
         for (;;) {
+                struct mntent *me;
+
                 errno = 0;
-                m = getmntent(f);
-                if (!m)
+                me = getmntent(f);
+                if (!me)
                         return errno != 0 ? -errno : false;
 
-                if (path_equal(m->mnt_dir, mount))
+                if (where && !path_equal(where, me->mnt_dir))
+                        continue;
+
+                if (!path)
                         return true;
+
+                r = fstab_is_same_node(me->mnt_fsname, path);
+                if (r > 0 || (r < 0 && !ERRNO_IS_DEVICE_ABSENT(r)))
+                        return r;
         }
+
         return false;
 }
 
@@ -272,19 +305,36 @@ static char *tag_to_udev_node(const char *tagvalue, const char *by) {
 }
 
 char *fstab_node_to_udev_node(const char *p) {
+        const char *q;
+
         assert(p);
 
-        if (startswith(p, "LABEL="))
-                return tag_to_udev_node(p+6, "label");
+        q = startswith(p, "LABEL=");
+        if (q)
+                return tag_to_udev_node(q, "label");
 
-        if (startswith(p, "UUID="))
-                return tag_to_udev_node(p+5, "uuid");
+        q = startswith(p, "UUID=");
+        if (q)
+                return tag_to_udev_node(q, "uuid");
 
-        if (startswith(p, "PARTUUID="))
-                return tag_to_udev_node(p+9, "partuuid");
+        q = startswith(p, "PARTUUID=");
+        if (q)
+                return tag_to_udev_node(q, "partuuid");
 
-        if (startswith(p, "PARTLABEL="))
-                return tag_to_udev_node(p+10, "partlabel");
+        q = startswith(p, "PARTLABEL=");
+        if (q)
+                return tag_to_udev_node(q, "partlabel");
 
         return strdup(p);
+}
+
+bool fstab_is_bind(const char *options, const char *fstype) {
+
+        if (fstab_test_option(options, "bind\0" "rbind\0"))
+                return true;
+
+        if (fstype && STR_IN_SET(fstype, "bind", "rbind"))
+                return true;
+
+        return false;
 }

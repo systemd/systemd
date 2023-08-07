@@ -43,11 +43,12 @@ static int boot_config_load_and_select(
                 _cleanup_strv_free_ char **efi_entries = NULL;
 
                 r = efi_loader_get_entries(&efi_entries);
-                if (r == -ENOENT || ERRNO_IS_NOT_SUPPORTED(r))
-                        log_debug_errno(r, "Boot loader reported no entries.");
-                else if (r < 0)
-                        log_warning_errno(r, "Failed to determine entries reported by boot loader, ignoring: %m");
-                else
+                if (r < 0) {
+                        if (r == -ENOENT || ERRNO_IS_NOT_SUPPORTED(r))
+                                log_debug_errno(r, "Boot loader reported no entries.");
+                        else
+                                log_warning_errno(r, "Failed to determine entries reported by boot loader, ignoring: %m");
+                } else
                         (void) boot_config_augment_from_loader(config, efi_entries, /* only_auto= */ false);
         }
 
@@ -483,17 +484,11 @@ int verb_status(int argc, char *argv[], void *userdata) {
                        "Not booted with EFI\n\n",
                        ansi_underline(), ansi_normal());
 
-        if (arg_esp_path) {
-                k = status_binaries(arg_esp_path, esp_uuid);
-                if (k < 0)
-                        r = k;
-        }
+        if (arg_esp_path)
+                RET_GATHER(r, status_binaries(arg_esp_path, esp_uuid));
 
-        if (!arg_root && is_efi_boot()) {
-                k = status_variables();
-                if (k < 0)
-                        r = k;
-        }
+        if (!arg_root && is_efi_boot())
+                RET_GATHER(r, status_variables());
 
         if (arg_esp_path || arg_xbootldr_path) {
                 _cleanup_(boot_config_free) BootConfig config = BOOT_CONFIG_NULL;
@@ -501,15 +496,13 @@ int verb_status(int argc, char *argv[], void *userdata) {
                 k = boot_config_load_and_select(&config,
                                                 arg_esp_path, esp_devid,
                                                 arg_xbootldr_path, xbootldr_devid);
-                if (k < 0)
-                        r = k;
-                else {
-                        k = status_entries(&config,
-                                           arg_esp_path, esp_uuid,
-                                           arg_xbootldr_path, xbootldr_uuid);
-                        if (k < 0)
-                                r = k;
-                }
+                RET_GATHER(r, k);
+
+                if (k >= 0)
+                        RET_GATHER(r,
+                                   status_entries(&config,
+                                                  arg_esp_path, esp_uuid,
+                                                  arg_xbootldr_path, xbootldr_uuid));
         }
 
         return r;

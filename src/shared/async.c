@@ -41,7 +41,7 @@ int asynchronous_sync(pid_t *ret_pid) {
 static int close_func(void *p) {
         unsigned v = PTR_TO_UINT(p);
 
-        (void) prctl(PR_SET_NAME, (unsigned long*) "(close)");
+        (void) prctl(PR_SET_NAME, (unsigned long*) "(sd-close)");
 
         /* Note: 💣 This function is invoked in a child process created via glibc's clone() wrapper. In such
          *       children memory allocation is not allowed, since glibc does not release malloc mutexes in
@@ -103,10 +103,9 @@ int asynchronous_close(int fd) {
                  *
                  * We usually prefer calling waitid(), but before kernel 4.7 it didn't support __WCLONE while
                  * waitpid() did. Hence let's use waitpid() here, it's good enough for our purposes here. */
-                for (;;) {
-                        if (waitpid(pid, NULL, WEXITED|__WCLONE) >= 0 || errno != EINTR)
+                for (;;)
+                        if (waitpid(pid, NULL, __WCLONE) >= 0 || errno != EINTR)
                                 break;
-                }
         }
 
         return -EBADF; /* return an invalidated fd */
@@ -129,7 +128,7 @@ int asynchronous_rm_rf(const char *p, RemoveFlags flags) {
         r = rm_rf(p, flags);
         if (r < 0) {
                 log_debug_errno(r, "Failed to rm -rf '%s', ignoring: %m", p);
-                _exit(EXIT_FAILURE); /* This is a detached process, hence noone really cares, but who knows
+                _exit(EXIT_FAILURE); /* This is a detached process, hence no one really cares, but who knows
                                       * maybe it's good for debugging/tracing to return an exit code
                                       * indicative of our failure here. */
         }

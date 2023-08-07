@@ -16,12 +16,12 @@ int verb_compare_versions(int argc, char *argv[], void *userdata) {
         assert(argv);
 
         /* We only output a warning on invalid version strings (instead of failing), since the comparison
-         * functions try to handle invalid strings graceful and it's still interesting to see what the
+         * functions try to handle invalid strings gracefully and it's still interesting to see what the
          * comparison result will be. */
-        if (!version_is_valid(v1))
-                log_warning("Version string 1 is not valid, comparing anyway: %s", v1);
-        if (!version_is_valid(v2))
-                log_warning("Version string 2 is not valid, comparing anyway: %s", v2);
+        if (!version_is_valid_versionspec(v1))
+                log_warning("Version string 1 contains disallowed characters, they will be treated as separators: %s", v1);
+        if (!version_is_valid_versionspec(v2))
+                log_warning("Version string 2 contains disallowed characters, they will be treated as separators: %s", v2);
 
         if (argc == 3) {
                 r = strverscmp_improved(v1, v2);

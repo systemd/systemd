@@ -12,7 +12,7 @@
 static int device_is_power_sink(sd_device *device) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         bool found_source = false, found_sink = false;
-        sd_device *parent, *d;
+        sd_device *parent;
         int r;
 
         assert(device);
@@ -109,7 +109,6 @@ static bool battery_is_discharging(sd_device *d) {
 int on_ac_power(void) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         bool found_ac_online = false, found_discharging_battery = false;
-        sd_device *d;
         int r;
 
         r = sd_device_enumerator_new(&e);
@@ -234,7 +233,6 @@ int battery_read_capacity_percentage(sd_device *dev) {
 int battery_is_discharging_and_low(void) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         bool unsure = false, found_low = false;
-        sd_device *dev;
         int r;
 
          /* We have not used battery capacity_level since value is set to full
@@ -256,19 +254,28 @@ int battery_is_discharging_and_low(void) {
 
                 level = battery_read_capacity_percentage(dev);
                 if (level < 0) {
+                        log_device_debug_errno(dev, level, "Battery capacity is unreadable: %m");
                         unsure = true;
                         continue;
                 }
 
-                if (level > BATTERY_LOW_CAPACITY_LEVEL) /* Found a charged battery */
+                if (level > BATTERY_LOW_CAPACITY_LEVEL) { /* Found a charged battery */
+                        log_device_full(dev,
+                                        found_low ? LOG_INFO : LOG_DEBUG,
+                                        "Found battery with capacity above threshold (%d%% > %d%%).",
+                                        level, BATTERY_LOW_CAPACITY_LEVEL);
                         return false;
+                }
 
+                log_device_info(dev,
+                                "Found battery with capacity below threshold (%d%% <= %d%%).",
+                                level, BATTERY_LOW_CAPACITY_LEVEL);
                 found_low = true;
         }
 
         /* If we found a battery whose state we couldn't read, don't assume we are in low battery state */
         if (unsure) {
-                log_debug("Found battery with unreadable state, assuming not in low battery state.");
+                log_info("Found battery with unreadable state, assuming not in low battery state.");
                 return false;
         }
 

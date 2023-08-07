@@ -702,7 +702,7 @@ int link_request_stacked_netdev(Link *link, NetDev *netdev) {
 
         link->stacked_netdevs_created = false;
         r = link_queue_request_full(link, REQUEST_TYPE_NETDEV_STACKED,
-                                    netdev_ref(netdev), (mfree_func_t) netdev_unref,
+                                    netdev, (mfree_func_t) netdev_unref,
                                     trivial_hash_func, trivial_compare_func,
                                     stacked_netdev_process_request,
                                     &link->create_stacked_netdev_messages,
@@ -710,9 +710,12 @@ int link_request_stacked_netdev(Link *link, NetDev *netdev) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to request stacked netdev '%s': %m",
                                             netdev->ifname);
+        if (r == 0)
+                return 0;
 
+        netdev_ref(netdev);
         log_link_debug(link, "Requested stacked netdev '%s'", netdev->ifname);
-        return 0;
+        return 1;
 }
 
 static int independent_netdev_process_request(Request *req, Link *link, void *userdata) {

@@ -5,6 +5,15 @@ set -e
 # This is a build script for OS image generation using mkosi (https://github.com/systemd/mkosi).
 # Simply invoke "mkosi" in the project directory to build an OS image.
 
+if [ "${container:-}" != "mkosi" ]; then
+    exec mkosi-chroot "$SCRIPT" "$@"
+fi
+
+# We don't want to install our build of systemd in the base image, but use it as an extra tree for the
+# initrd and final images, so override DESTDIR to store it in the output directory so we can reference it as
+# an extra tree in the initrd and final image builds.
+DESTDIR="$OUTPUTDIR/systemd"
+
 # If mkosi.builddir/ exists mkosi will set $BUILDDIR to it, let's then use it
 # as out-of-tree build dir. Otherwise, let's make up our own builddir.
 [ -z "$BUILDDIR" ] && BUILDDIR="$PWD"/build
@@ -25,7 +34,8 @@ done
 # CentOS Stream 8 includes bpftool 4.18.0 which is lower than what we need. However, they've backported the
 # specific feature we need ("gen skeleton") to this version, so we replace bpftool with a script that reports
 # version 5.6.0 to satisfy meson which makes bpf work on CentOS Stream 8 as well.
-if [ "$(grep '^ID=' /etc/os-release)" = "ID=\"centos\"" ] && [ "$(grep '^VERSION=' /etc/os-release)" = "VERSION=\"8\"" ]; then
+. /usr/lib/os-release
+if [ "$ID" = "centos" ] && [ "$VERSION" = "8" ]; then
     cat >"$BUILDDIR"/bpftool <<EOF
 #!/bin/sh
 if [ "\$1" = --version ]; then
@@ -40,17 +50,21 @@ fi
 if [ ! -f "$BUILDDIR"/build.ninja ]; then
     sysvinit_path=$(realpath /etc/init.d)
 
-    init_path=$(realpath /sbin/init 2>/dev/null)
-    if [ -z "$init_path" ]; then
-        rootprefix=""
+    if [ "$ID" = "centos" ] && [ "$VERSION" = "8" ]; then
+        UKIFY=false
     else
-        rootprefix=${init_path%/lib/systemd/systemd}
-        rootprefix=/${rootprefix#/}
+        UKIFY=true
+    fi
+
+    # On Debian 'loadkeys us' fails
+    if [ "$ID" = "debian" ] || [ "$ID_LIKE" = "debian" ]; then
+        DEFAULT_KEYMAP=""
+    else
+        DEFAULT_KEYMAP="us"
     fi
 
     CONFIGURE_OPTS=(
         -D sysvinit-path="$sysvinit_path"
-        -D rootprefix="$rootprefix"
         -D man=false
         -D translations=false
         -D version-tag="${VERSION_TAG}"
@@ -133,7 +147,7 @@ if [ ! -f "$BUILDDIR"/build.ninja ]; then
         -D kernel-install=true
         -D analyze=true
         -D bpf-framework=true
-        -D ukify=true
+        -D ukify="$UKIFY"
         -D seccomp=true
         -D selinux=auto
         -D apparmor=auto
@@ -142,14 +156,15 @@ if [ ! -f "$BUILDDIR"/build.ninja ]; then
         -D first-boot-full-preset=true
         -D initrd=true
         -D fexecve=true
+        -D default-keymap="$DEFAULT_KEYMAP"
     )
 
     # On debian-like systems the library directory is not /usr/lib64 but /usr/lib/<arch-triplet>/.
     # It is important to use the right one especially for cryptsetup plugins, otherwise they will be
     # installed in the wrong directory and not be found by cryptsetup. Assume native build.
-    if grep -q -e "ID=debian" -e "ID_LIKE=debian" /etc/os-release && command -v dpkg 2>/dev/null; then
+    if grep -q -e "ID=debian" -e "ID_LIKE=debian" /usr/lib/os-release && command -v dpkg 2>/dev/null; then
         CONFIGURE_OPTS+=(
-            -D rootlibdir="/usr/lib/$(dpkg-architecture -qDEB_HOST_MULTIARCH)"
+            -D libdir="/usr/lib/$(dpkg-architecture -qDEB_HOST_MULTIARCH)"
             -D pamlibdir="/usr/lib/$(dpkg-architecture -qDEB_HOST_MULTIARCH)/security"
         )
     fi
@@ -157,7 +172,7 @@ if [ ! -f "$BUILDDIR"/build.ninja ]; then
     # Set various uids and gids for which Fedora has "soft static" allocations.
     # Without this, we would get warning about mismatched sysusers.d entries
     # between the files that we and Fedora's setup package install.
-    if grep -q '^ID=fedora' /etc/os-release; then
+    if grep -q '^ID=fedora' /usr/lib/os-release; then
         CONFIGURE_OPTS+=(
             -Dadm-gid=4
             -Daudio-gid=63
@@ -182,7 +197,7 @@ if [ ! -f "$BUILDDIR"/build.ninja ]; then
         )
     fi
 
-    if grep -q '^ID="opensuse' /etc/os-release; then
+    if grep -q '^ID="opensuse' /usr/lib/os-release; then
         CONFIGURE_OPTS+=(
             -Dbpf-compiler=gcc
         )

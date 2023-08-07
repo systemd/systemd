@@ -1172,7 +1172,6 @@ int xopenat_lock(
         int r;
 
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
-        assert(path);
         assert(IN_SET(operation & ~LOCK_NB, LOCK_EX, LOCK_SH));
 
         /* POSIX/UNPOSIX locks don't work on directories (errno is set to -EBADF so let's return early with

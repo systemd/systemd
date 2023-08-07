@@ -30,17 +30,23 @@ int switch_root(const char *new_root,
                 const char *old_root_after,   /* path below the new root, where to place the old root after the transition; may be NULL to unmount it */
                 SwitchRootFlags flags) {
 
+        /* Stuff mounted below /run we don't save on soft reboot, as it might have lost its relevance, i.e.
+         * credentials, removable media and such, we rather want that the new boot mounts this fresh.
+         * But on the switch from initrd we do use MS_REC, as it is expected that mounts set up in /run
+         * are maintained. */
+        unsigned long run_mount_flags = MS_BIND|(!FLAGS_SET(flags, SWITCH_ROOT_SKIP_RECURSIVE_RUN) ? MS_REC : 0);
         struct {
                 const char *path;
                 unsigned long mount_flags;
+                bool skip_if_run_is_rec; /* For child mounts of /run, if it's moved recursively no need to handle */
         } transfer_table[] = {
-                { "/dev",                                 MS_BIND|MS_REC }, /* Recursive, because we want to save the original /dev/shm + /dev/pts and similar */
-                { "/sys",                                 MS_BIND|MS_REC }, /* Similar, we want to retain various API VFS, or the cgroupv1 /sys/fs/cgroup/ tree */
-                { "/proc",                                MS_BIND|MS_REC }, /* Similar */
-                { "/run",                                 MS_BIND        }, /* Stuff mounted below this we don't save, as it might have lost its relevance, i.e. credentials, removable media and such, we rather want that the new boot mounts this fresh */
-                { SYSTEM_CREDENTIALS_DIRECTORY,           MS_BIND        }, /* Credentials passed into the system should survive */
-                { ENCRYPTED_SYSTEM_CREDENTIALS_DIRECTORY, MS_BIND        }, /* Similar */
-                { "/run/host",                            MS_BIND|MS_REC }, /* Host supplied hierarchy should also survive */
+                { "/dev",                                 MS_BIND|MS_REC,  false }, /* Recursive, because we want to save the original /dev/shm + /dev/pts and similar */
+                { "/sys",                                 MS_BIND|MS_REC,  false }, /* Similar, we want to retain various API VFS, or the cgroupv1 /sys/fs/cgroup/ tree */
+                { "/proc",                                MS_BIND|MS_REC,  false }, /* Similar */
+                { "/run",                                 run_mount_flags, false }, /* Recursive except on soft reboot, see above */
+                { SYSTEM_CREDENTIALS_DIRECTORY,           MS_BIND,         true },  /* Credentials passed into the system should survive */
+                { ENCRYPTED_SYSTEM_CREDENTIALS_DIRECTORY, MS_BIND,         true },  /* Similar */
+                { "/run/host",                            MS_BIND|MS_REC,  true },  /* Host supplied hierarchy should also survive */
         };
 
         _cleanup_close_ int old_root_fd = -EBADF, new_root_fd = -EBADF;
@@ -70,6 +76,18 @@ int switch_root(const char *new_root,
         r = fd_make_mount_point(new_root_fd);
         if (r < 0)
                 return log_error_errno(r, "Failed to make new root directory a mount point: %m");
+        if (r > 0) {
+                int fd;
+
+                /* When the path was not a mount point, then we need to reopen the path, otherwise, it still
+                 * points to the underlying directory. */
+
+                fd = open(new_root, O_DIRECTORY|O_CLOEXEC);
+                if (fd < 0)
+                        return log_error_errno(errno, "Failed to reopen target directory '%s': %m", new_root);
+
+                close_and_replace(new_root_fd, fd);
+        }
 
         if (FLAGS_SET(flags, SWITCH_ROOT_DESTROY_OLD_ROOT)) {
                 istmp = fd_is_temporary_fs(old_root_fd);
@@ -111,6 +129,9 @@ int switch_root(const char *new_root,
 
         FOREACH_ARRAY(transfer, transfer_table, ELEMENTSOF(transfer_table)) {
                 _cleanup_free_ char *chased = NULL;
+
+                if (transfer->skip_if_run_is_rec && !FLAGS_SET(flags, SWITCH_ROOT_SKIP_RECURSIVE_RUN))
+                        continue;
 
                 if (access(transfer->path, F_OK) < 0) {
                         log_debug_errno(errno, "Path '%s' to move to target root directory, not found, ignoring: %m", transfer->path);
@@ -157,7 +178,8 @@ int switch_root(const char *new_root,
                  * MS_MOVE won't magically unmount anything below it. Once the chroot() succeeds the mounts
                  * below would still be around but invisible to us, because not accessible via
                  * /proc/self/mountinfo. Hence, let's clean everything up first, as long as we still can. */
-                (void) umount_recursive_full(NULL, MNT_DETACH, STRV_MAKE(new_root));
+                if (!FLAGS_SET(flags, SWITCH_ROOT_SKIP_RECURSIVE_UMOUNT))
+                        (void) umount_recursive_full(NULL, MNT_DETACH, STRV_MAKE(new_root));
 
                 if (mount(".", "/", NULL, MS_MOVE, NULL) < 0)
                         return log_error_errno(errno, "Failed to move %s to /: %m", new_root);

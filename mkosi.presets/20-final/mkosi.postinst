@@ -6,6 +6,10 @@ if [ "$1" = "build" ]; then
     exit 0
 fi
 
+if [ "${container:-}" != "mkosi" ]; then
+    exec mkosi-chroot "$SCRIPT" "$@"
+fi
+
 if [ -n "$SANITIZERS" ]; then
     LD_PRELOAD=$(ldd /usr/lib/systemd/systemd | grep libasan.so | awk '{print $3}')
 
@@ -75,7 +79,7 @@ fi
 # Let tmpfiles.d/systemd-resolve.conf handle the symlink
 rm -f /etc/resolv.conf
 
-. /etc/os-release
+. /usr/lib/os-release
 
 if [ "$ID" = "centos" ] && [ "$VERSION" = "8" ]; then
     alternatives --install /usr/bin/python3 python3 /usr/bin/python3.9 1

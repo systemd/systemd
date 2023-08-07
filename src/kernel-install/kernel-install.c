@@ -340,7 +340,7 @@ static int context_ensure_conf_root(Context *c) {
 }
 
 static int context_load_install_conf_one(Context *c, const char *path) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char
                 *conf = NULL, *machine_id = NULL, *boot_root = NULL, *layout = NULL,
                 *initrd_generator = NULL, *uki_generator = NULL;
@@ -353,7 +353,7 @@ static int context_load_install_conf_one(Context *c, const char *path) {
         if (!conf)
                 return log_oom();
 
-        r = chaseat(c->rfd, conf, CHASE_AT_RESOLVE_IN_ROOT, NULL, &fd);
+        r = chase_and_fopenat_unlocked(c->rfd, conf, CHASE_AT_RESOLVE_IN_ROOT, "re", NULL, &f);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
@@ -361,12 +361,12 @@ static int context_load_install_conf_one(Context *c, const char *path) {
 
         log_debug("Loading %s…", conf);
 
-        r = parse_env_file_fd(fd, conf,
-                              "MACHINE_ID",       &machine_id,
-                              "BOOT_ROOT",        &boot_root,
-                              "layout",           &layout,
-                              "initrd_generator", &initrd_generator,
-                              "uki_generator",    &uki_generator);
+        r = parse_env_file(f, conf,
+                           "MACHINE_ID",       &machine_id,
+                           "BOOT_ROOT",        &boot_root,
+                           "layout",           &layout,
+                           "initrd_generator", &initrd_generator,
+                           "uki_generator",    &uki_generator);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse '%s': %m", conf);
 
@@ -401,7 +401,7 @@ static int context_load_install_conf(Context *c) {
 }
 
 static int context_load_machine_info(Context *c) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *machine_id = NULL, *layout = NULL;
         static const char *path = "/etc/machine-info";
         int r;
@@ -423,7 +423,7 @@ static int context_load_machine_info(Context *c) {
                 return 0;
         }
 
-        r = chaseat(c->rfd, path, CHASE_AT_RESOLVE_IN_ROOT, NULL, &fd);
+        r = chase_and_fopenat_unlocked(c->rfd, path, CHASE_AT_RESOLVE_IN_ROOT, "re", NULL, &f);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
@@ -431,9 +431,9 @@ static int context_load_machine_info(Context *c) {
 
         log_debug("Loading %s…", path);
 
-        r = parse_env_file_fd(fd, path,
-                              "KERNEL_INSTALL_MACHINE_ID", &machine_id,
-                              "KERNEL_INSTALL_LAYOUT", &layout);
+        r = parse_env_file(f, path,
+                           "KERNEL_INSTALL_MACHINE_ID", &machine_id,
+                           "KERNEL_INSTALL_LAYOUT", &layout);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse '%s': %m", path);
 
@@ -999,12 +999,28 @@ static int context_execute(Context *c) {
         return 0;
 }
 
+static bool bypass(void) {
+        int r;
+
+        r = getenv_bool("KERNEL_INSTALL_BYPASS");
+        if (r < 0 && r != -ENXIO)
+                log_debug_errno(r, "Failed to parse $KERNEL_INSTALL_BYPASS, assuming no.");
+        if (r <= 0)
+                return false;
+
+        log_debug("$KERNEL_INSTALL_BYPASS is enabled, skipping execution.");
+        return true;
+}
+
 static int verb_add(int argc, char *argv[], void *userdata) {
         Context *c = ASSERT_PTR(userdata);
         int r;
 
         assert(argc >= 3);
         assert(argv);
+
+        if (bypass())
+                return 0;
 
         c->action = ACTION_ADD;
 
@@ -1041,8 +1057,15 @@ static int verb_remove(int argc, char *argv[], void *userdata) {
         Context *c = ASSERT_PTR(userdata);
         int r;
 
-        assert(argc == 2);
+        assert(argc >= 2);
         assert(argv);
+
+        if (argc > 2)
+                log_debug("Too many arguments specified. 'kernel-install remove' takes only kernel version. "
+                          "Ignoring residual arguments.");
+
+        if (bypass())
+                return 0;
 
         c->action = ACTION_REMOVE;
 
@@ -1092,19 +1115,6 @@ static int verb_inspect(int argc, char *argv[], void *userdata) {
         printf("    %s\n", strna(joined));
 
         return 0;
-}
-
-static bool bypass(void) {
-        int r;
-
-        r = getenv_bool("KERNEL_INSTALL_BYPASS");
-        if (r < 0 && r != -ENXIO)
-                log_debug_errno(r, "Failed to parse $KERNEL_INSTALL_BYPASS, assuming no.");
-        if (r <= 0)
-                return false;
-
-        log_debug("$KERNEL_INSTALL_BYPASS is enabled, skipping execution.");
-        return true;
 }
 
 static int help(void) {
@@ -1220,7 +1230,7 @@ static int parse_argv(int argc, char *argv[], Context *c) {
 static int run(int argc, char* argv[]) {
         static const Verb verbs[] = {
                 { "add",         3,        VERB_ANY, 0,            verb_add            },
-                { "remove",      2,        2,        0,            verb_remove         },
+                { "remove",      2,        VERB_ANY, 0,            verb_remove         },
                 { "inspect",     1,        2,        VERB_DEFAULT, verb_inspect        },
                 {}
         };
@@ -1234,9 +1244,6 @@ static int run(int argc, char* argv[]) {
         int r;
 
         log_setup();
-
-        if (bypass())
-                return 0;
 
         r = parse_argv(argc, argv, &c);
         if (r <= 0)

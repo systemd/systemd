@@ -6,6 +6,7 @@
 #include <stddef.h>
 
 #include "macro.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
@@ -24,19 +25,9 @@
 #  define PATH_SBIN_BIN_NULSTR(x) PATH_NORMAL_SBIN_BIN_NULSTR(x)
 #endif
 
-#define DEFAULT_PATH_NORMAL PATH_SBIN_BIN("/usr/local/") ":" PATH_SBIN_BIN("/usr/")
-#define DEFAULT_PATH_NORMAL_NULSTR PATH_SBIN_BIN_NULSTR("/usr/local/") PATH_SBIN_BIN_NULSTR("/usr/")
-#define DEFAULT_PATH_SPLIT_USR DEFAULT_PATH_NORMAL ":" PATH_SBIN_BIN("/")
-#define DEFAULT_PATH_SPLIT_USR_NULSTR DEFAULT_PATH_NORMAL_NULSTR PATH_SBIN_BIN_NULSTR("/")
+#define DEFAULT_PATH PATH_SBIN_BIN("/usr/local/") ":" PATH_SBIN_BIN("/usr/")
+#define DEFAULT_PATH_NULSTR PATH_SBIN_BIN_NULSTR("/usr/local/") PATH_SBIN_BIN_NULSTR("/usr/")
 #define DEFAULT_PATH_COMPAT PATH_SPLIT_SBIN_BIN("/usr/local/") ":" PATH_SPLIT_SBIN_BIN("/usr/") ":" PATH_SPLIT_SBIN_BIN("/")
-
-#if HAVE_SPLIT_USR
-#  define DEFAULT_PATH DEFAULT_PATH_SPLIT_USR
-#  define DEFAULT_PATH_NULSTR DEFAULT_PATH_SPLIT_USR_NULSTR
-#else
-#  define DEFAULT_PATH DEFAULT_PATH_NORMAL
-#  define DEFAULT_PATH_NULSTR DEFAULT_PATH_NORMAL_NULSTR
-#endif
 
 #ifndef DEFAULT_USER_PATH
 #  define DEFAULT_USER_PATH DEFAULT_PATH
@@ -77,7 +68,9 @@ static inline bool path_equal_filename(const char *a, const char *b) {
         return path_compare_filename(a, b) == 0;
 }
 
-bool path_equal_or_inode_same(const char *a, const char *b, int flags);
+static inline bool path_equal_or_inode_same(const char *a, const char *b, int flags) {
+        return path_equal(a, b) || inode_same(a, b, flags) > 0;
+}
 
 char* path_extend_internal(char **x, ...);
 #define path_extend(x, ...) path_extend_internal(x, __VA_ARGS__, POINTER_MAX)

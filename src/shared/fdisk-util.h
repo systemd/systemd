@@ -19,4 +19,7 @@ int fdisk_new_context_fd(int fd, bool read_only, uint32_t sector_size, struct fd
 int fdisk_partition_get_uuid_as_id128(struct fdisk_partition *p, sd_id128_t *ret);
 int fdisk_partition_get_type_as_id128(struct fdisk_partition *p, sd_id128_t *ret);
 
+int fdisk_partition_get_attrs_as_uint64(struct fdisk_partition *pa, uint64_t *ret);
+int fdisk_partition_set_attrs_as_uint64(struct fdisk_partition *pa, uint64_t flags);
+
 #endif

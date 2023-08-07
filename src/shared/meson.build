@@ -311,8 +311,7 @@ libshared_deps = [threads,
                   libselinux,
                   libxenctrl,
                   libxz,
-                  libzstd,
-                  versiondep]
+                  libzstd]
 
 libshared_sym_path = '@0@/libshared.sym'.format(meson.current_source_dir())
 libshared_build_dir = meson.current_build_dir()
@@ -339,7 +338,7 @@ libshared = shared_library(
         dependencies : [libshared_deps,
                         userspace],
         install : true,
-        install_dir : rootpkglibdir)
+        install_dir : pkglibdir)
 
 shared_fdisk_sources = files(
         'fdisk-util.c',

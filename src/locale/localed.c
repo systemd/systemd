@@ -13,6 +13,7 @@
 #include "bus-log-control-api.h"
 #include "bus-message.h"
 #include "bus-polkit.h"
+#include "bus-unit-util.h"
 #include "constants.h"
 #include "kbd-util.h"
 #include "localed-util.h"
@@ -26,18 +27,6 @@
 #include "string-util.h"
 #include "strv.h"
 #include "user-util.h"
-
-static int reload_system_manager(sd_bus *bus) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        int r;
-
-        assert(bus);
-
-        r = bus_call_method(bus, bus_systemd_mgr, "Reload", &error, NULL, NULL);
-        if (r < 0)
-                return log_error_errno(r, "Failed to reload system manager: %s", bus_error_message(&error, r));
-        return 0;
-}
 
 static int vconsole_reload(sd_bus *bus) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -326,7 +315,7 @@ static int method_set_locale(sd_bus_message *m, void *userdata, sd_bus_error *er
          * update its default locale settings. It's important to not use UnsetAndSetEnvironment or a similar
          * method because in this case unsetting variables means restoring them to PID1 default values, which
          * may be outdated, since locale.conf has just changed and PID1 hasn't read it */
-        (void) reload_system_manager(sd_bus_message_get_bus(m));
+        (void) bus_service_manager_reload(sd_bus_message_get_bus(m));
 
         if (!strv_isempty(l_set)) {
                 _cleanup_free_ char *line = NULL;

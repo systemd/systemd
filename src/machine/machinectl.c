@@ -1822,9 +1822,9 @@ static int enable_machine(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        r = bus_call_method(bus, bus_systemd_mgr, "Reload", &error, NULL, NULL);
+        r = bus_service_manager_reload(bus);
         if (r < 0)
-                return log_error_errno(r, "Failed to reload daemon: %s", bus_error_message(&error, r));
+                return r;
 
         if (arg_now) {
                 _cleanup_strv_free_ char **new_args = NULL;

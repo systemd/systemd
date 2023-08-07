@@ -153,7 +153,7 @@
 # @todo _systemd-run has a helper with the same name, so we must redefine
 __systemctl()
 {
-    systemctl $_sys_service_mgr --full --legend=no --no-pager --plain "$@" 2>/dev/null
+    command systemctl $_sys_service_mgr --full --legend=no --no-pager --plain "$@" 2>/dev/null
 }
 
 
@@ -161,11 +161,10 @@ __systemctl()
 (( $+functions[_systemctl_all_units] )) ||
     _systemctl_all_units()
 {
-    if ( [[ ${+_sys_all_units} -eq 0 ]] || _cache_invalid SYS_ALL_UNITS$_sys_service_mgr ) ||
-           ! _retrieve_cache SYS_ALL_UNITS$_sys_service_mgr;
+    if _cache_invalid SYS_ALL_UNITS$_sys_service_mgr || ! _retrieve_cache SYS_ALL_UNITS$_sys_service_mgr;
     then
         _sys_all_units=( ${${(f)"$(__systemctl list-units --all)"}%% *} )
-        _store_cache SYS_ALL_UNITS$_sys_service_mgr _sys_all_unis
+        _store_cache SYS_ALL_UNITS$_sys_service_mgr _sys_all_units
     fi
 }
 
@@ -175,8 +174,7 @@ __systemctl()
 {
     local -a all_unit_files;
     local -a really_all_units;
-    if ( [[ ${+_sys_really_all_units} -eq 0 ]] || _cache_invalid SYS_REALLY_ALL_UNITS$_sys_service_mgr ) ||
-           ! _retrieve_cache SYS_REALLY_ALL_UNITS$_sys_service_mgr;
+    if _cache_invalid SYS_REALLY_ALL_UNITS$_sys_service_mgr || ! _retrieve_cache SYS_REALLY_ALL_UNITS$_sys_service_mgr;
     then
         all_unit_files=( ${${(f)"$(__systemctl list-unit-files)"}%% *} )
         _systemctl_all_units
@@ -202,7 +200,10 @@ __systemctl()
   )"}:#*@.*}%%[[:space:]]*} }
 
 (( $+functions[_systemctl_get_template_names] )) ||
-    _systemctl_get_template_names() { echo -E - ${^${(M)${(f)"$(__systemctl list-unit-files)"}##*@.[^[:space:]]##}%%@.*}\@ }
+    _systemctl_get_template_names() {
+        local pathkind=systemd-search-${_sys_service_mgr##*--}-unit
+        print -r - ${(s-:-)^$(_call_program $pathkind systemd-path $pathkind)}/*@.(${(~j.|.)$(__systemctl --type=help)})(N:t:r)
+    }
 
 (( $+functions[_systemctl_active_units] )) ||
     _systemctl_active_units()  {_sys_active_units=(  ${${(f)"$(__systemctl list-units)"}%% *} )}
@@ -426,20 +427,13 @@ done
 (( $+functions[_systemctl_caching_policy] )) ||
     _systemctl_caching_policy()
 {
-    local _sysunits
-    local -a oldcache
-
     # rebuild if cache is more than a day old
-    oldcache=( "$1"(mh+1) )
-    (( $#oldcache )) && return 0
+    [[ -n $1(#qNmd+1) ]] && return 0
 
-    _sysunits=(${${(f)"$(__systemctl --all)"}%% *})
-
-    if (( $#_sysunits )); then
-        for unit in $_sysunits; do
-            [[ "$unit" -nt "$1" ]] && return 0
-        done
-    fi
+    local pathkind=systemd-search-${1##*--}-unit
+    for dir in ${(s-:-)^$(_call_program $pathkind systemd-path $pathkind)}; do
+        [[ $dir -nt $1 ]] && return 0
+    done
 
     return 1
 }
@@ -460,13 +454,9 @@ done
 
 (( $+functions[_systemctl_unit_properties] )) ||
     _systemctl_unit_properties() {
-        if ( [[ ${+_sys_all_properties} -eq 0 ]] || _cache_invalid SYS_ALL_PROPERTIES$_sys_service_mgr ) ||
-               ! _retrieve_cache SYS_ALL_PROPERTIES$_sys_service_mgr;
-        then
-            _sys_all_properties=( ${${(M)${(f)"$({{ROOTLIBEXECDIR}}/systemd --dump-bus-properties)"}}} )
-            _store_cache SYS_ALL_PROPERTIES$_sys_service_mgr _sys_all_properties
-        fi
-        _values -s , "${_sys_all_properties[@]}"
+		local -a _sys_all_properties=( ${(f)"$({{LIBEXECDIR}}/systemd --no-pager --dump-bus-properties 2>/dev/null)"} )
+        _wanted systemd-unit-properties expl 'unit property' \
+			_values -s , "${_sys_all_properties[@]}"
     }
 
 (( $+functions[_systemctl_job_modes] )) ||
@@ -491,9 +481,8 @@ done
     }
 
 # Build arguments for "systemctl" to be used in completion.
-local -a _modes; _modes=("--user" "--system")
-# Use the last mode (they are exclusive and the last one is used).
-local _sys_service_mgr=${${words:*_modes}[(R)(${(j.|.)_modes})]}
+# Use the last mode, or --system (they are exclusive and the last one is used).
+local _sys_service_mgr=${words[(R)(--user|--system)]:---system}
 _arguments -s \
     {-h,--help}'[Show help]' \
     '--version[Show package version]' \

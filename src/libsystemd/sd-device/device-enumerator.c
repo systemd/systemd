@@ -471,9 +471,7 @@ static bool match_property(sd_device_enumerator *enumerator, sd_device *device) 
         if (hashmap_isempty(enumerator->match_property))
                 return true;
 
-        HASHMAP_FOREACH_KEY(value_patterns, property_pattern, enumerator->match_property) {
-                const char *property, *value;
-
+        HASHMAP_FOREACH_KEY(value_patterns, property_pattern, enumerator->match_property)
                 FOREACH_DEVICE_PROPERTY(device, property, value) {
                         if (fnmatch(property_pattern, property, 0) != 0)
                                 continue;
@@ -481,7 +479,6 @@ static bool match_property(sd_device_enumerator *enumerator, sd_device *device) 
                         if (strv_fnmatch(value_patterns, value))
                                 return true;
                 }
-        }
 
         return false;
 }
@@ -616,38 +613,30 @@ static int enumerator_add_parent_devices(
                 sd_device *device,
                 MatchFlag flags) {
 
-        int k, r = 0;
+        int r;
 
         assert(enumerator);
         assert(device);
 
         for (;;) {
-                k = sd_device_get_parent(device, &device);
-                if (k == -ENOENT) /* Reached the top? */
-                        break;
-                if (k < 0) {
-                        r = k;
-                        break;
-                }
+                r = sd_device_get_parent(device, &device);
+                if (r == -ENOENT) /* Reached the top? */
+                        return 0;
+                if (r < 0)
+                        return r;
 
-                k = test_matches(enumerator, device, flags);
-                if (k < 0) {
-                        r = k;
-                        break;
-                }
-                if (k == 0)
+                r = test_matches(enumerator, device, flags);
+                if (r < 0)
+                        return r;
+                if (r == 0)
                         continue;
 
-                k = device_enumerator_add_device(enumerator, device);
-                if (k < 0) {
-                        r = k;
-                        break;
-                }
-                if (k == 0) /* Exists already? Then no need to go further up. */
-                        break;
+                r = device_enumerator_add_device(enumerator, device);
+                if (r < 0)
+                        return r;
+                if (r == 0) /* Exists already? Then no need to go further up. */
+                        return 0;
         }
-
-        return r;
 }
 
 int device_enumerator_add_parent_devices(sd_device_enumerator *enumerator, sd_device *device) {

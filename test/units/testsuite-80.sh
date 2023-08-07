@@ -7,8 +7,6 @@ set -o pipefail
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
-: >/failed
-
 mkfifo /tmp/syncfifo1 /tmp/syncfifo2
 
 sync_in() {
@@ -126,6 +124,3 @@ assert_eq "$(systemctl show fdstore-pin.service -P SubState)" dead
 assert_eq "$(systemctl show fdstore-nopin.service -P SubState)" dead
 
 touch /testok
-rm /failed
-
-exit 0

@@ -394,21 +394,35 @@ bool statx_mount_same(const struct new_statx *a, const struct new_statx *b) {
                 a->stx_dev_minor == b->stx_dev_minor;
 }
 
+static bool is_statx_fatal_error(int err, int flags) {
+        assert(err < 0);
+
+        /* If statx() is not supported or if we see EPERM (which might indicate seccomp filtering or so),
+         * let's do a fallback. Note that on EACCES we'll not fall back, since that is likely an indication of
+         * fs access issues, which we should propagate. */
+        if (ERRNO_IS_NOT_SUPPORTED(err) || err == -EPERM)
+                return false;
+
+        /* When unsupported flags are specified, glibc's fallback function returns -EINVAL.
+         * See statx_generic() in glibc. */
+        if (err != -EINVAL)
+                return true;
+
+        if ((flags & ~(AT_EMPTY_PATH | AT_NO_AUTOMOUNT | AT_SYMLINK_NOFOLLOW | AT_STATX_SYNC_AS_STAT)) != 0)
+                return false; /* Unsupported flags are specified. Let's try to use our implementation. */
+
+        return true;
+}
+
 int statx_fallback(int dfd, const char *path, int flags, unsigned mask, struct statx *sx) {
         static bool avoid_statx = false;
         struct stat st;
+        int r;
 
         if (!avoid_statx) {
-                if (statx(dfd, path, flags, mask, sx) < 0) {
-                        if (!ERRNO_IS_NOT_SUPPORTED(errno) && errno != EPERM)
-                                return -errno;
-
-                        /* If statx() is not supported or if we see EPERM (which might indicate seccomp
-                         * filtering or so), let's do a fallback. Not that on EACCES we'll not fall back,
-                         * since that is likely an indication of fs access issues, which we should
-                         * propagate */
-                } else
-                        return 0;
+                r = RET_NERRNO(statx(dfd, path, flags, mask, sx));
+                if (r >= 0 || is_statx_fatal_error(r, flags))
+                        return r;
 
                 avoid_statx = true;
         }

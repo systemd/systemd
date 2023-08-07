@@ -31,13 +31,152 @@ libjournal_core = static_library(
 
 journal_includes = [includes, include_directories('.')]
 
-systemd_journald_sources = files(
-        'journald.c',
-)
+if get_option('link-journalctl-shared')
+        journalctl_link_with = [libshared]
+else
+        journalctl_link_with = [
+                libbasic_gcrypt,
+                libshared_static,
+                libsystemd_static,
+        ]
+endif
 
-systemd_cat_sources = files('cat.c')
+journal_test_template = test_template + {
+        'link_with' : [
+                libjournal_core,
+                libshared,
+        ],
+}
 
-journalctl_sources = files('journalctl.c')
+journal_fuzz_template = fuzz_template + {
+        'link_with' : [
+                libjournal_core,
+                libshared,
+        ],
+        'dependencies' : libselinux,
+}
+
+executables += [
+        libexec_template + {
+                'name' : 'systemd-journald',
+                'sources' : files('journald.c'),
+                'link_with' : [
+                        libjournal_core,
+                        libshared,
+                ],
+                'dependencies' : [
+                        liblz4,
+                        libselinux,
+                        libxz,
+                        libzstd,
+                        threads,
+                ],
+        },
+        executable_template + {
+                'name' : 'systemd-cat',
+                'public' : true,
+                'sources' : files('cat.c'),
+                'link_with' : [
+                        libjournal_core,
+                        libshared,
+                ],
+                'dependencies' : threads,
+        },
+        executable_template + {
+                'name' : 'journalctl',
+                'public' : true,
+                'sources' : files('journalctl.c'),
+                'link_with' : journalctl_link_with,
+                'dependencies' : [
+                        libdl,
+                        liblz4,
+                        libxz,
+                        libzstd,
+                        threads,
+                ],
+        },
+        executable_template + {
+                'name' : 'systemd-bsod',
+                'conditions' : ['HAVE_QRENCODE'],
+                'public' : true,
+                'sources' : files('bsod.c'),
+                'link_with' : libshared,
+                'dependencies' : libqrencode,
+        },
+        journal_test_template + {
+                'sources' : files('test-journal-append.c'),
+                'type' : 'manual',
+        },
+        journal_test_template + {
+                'sources' : files('test-journal-config.c'),
+                'dependencies' : [
+                        liblz4,
+                        libselinux,
+                        libxz,
+                ],
+        },
+        journal_test_template + {
+                'sources' : files('test-journal-flush.c'),
+        },
+        journal_test_template + {
+                'sources' : files('test-journal-interleaving.c'),
+        },
+        journal_test_template + {
+                'sources' : files('test-journal-stream.c'),
+        },
+        journal_test_template + {
+                'sources' : files('test-journal-syslog.c'),
+                'dependencies' : [
+                        liblz4,
+                        libselinux,
+                        libxz,
+                        threads,
+                ],
+        },
+        journal_test_template + {
+                'sources' : files('test-journal-verify.c'),
+                'timeout' : 90,
+        },
+        journal_test_template + {
+                'sources' : files('test-journal.c'),
+        },
+        journal_fuzz_template + {
+                'sources' : files(
+                        'fuzz-journald-audit.c',
+                        'fuzz-journald.c',
+                ),
+        },
+        journal_fuzz_template + {
+                'sources' : files(
+                        'fuzz-journald-kmsg.c',
+                        'fuzz-journald.c',
+                ),
+        },
+        journal_fuzz_template + {
+                'sources' : files(
+                        'fuzz-journald-native.c',
+                        'fuzz-journald.c',
+                ),
+        },
+        journal_fuzz_template + {
+                'sources' : files(
+                        'fuzz-journald-native-fd.c',
+                        'fuzz-journald.c',
+                ),
+        },
+        journal_fuzz_template + {
+                'sources' : files(
+                        'fuzz-journald-stream.c',
+                        'fuzz-journald.c',
+                ),
+        },
+        journal_fuzz_template + {
+                'sources' : files(
+                        'fuzz-journald-syslog.c',
+                        'fuzz-journald.c',
+                ),
+        },
+]
 
 if install_sysconfdir_samples
         install_data('journald.conf',
@@ -63,107 +202,3 @@ if get_option('create-log-dirs')
                         'setfacl -nm g:wheel:rx,d:g:wheel:rx $DESTDIR/var/log/journal || :')
         endif
 endif
-
-############################################################
-
-test_journal_base = {
-        'link_with' : [libjournal_core, libshared],
-}
-
-tests += [
-        {
-                'sources' : files('test-journal-config.c'),
-                'dependencies' : [
-                        liblz4,
-                        libselinux,
-                        libxz,
-                ],
-                'base' : test_journal_base,
-        },
-        {
-                'sources' : files('test-journal-flush.c'),
-                'base' : test_journal_base,
-        },
-        {
-                'sources' : files('test-journal-interleaving.c'),
-                'base' : test_journal_base,
-        },
-        {
-                'sources' : files('test-journal-stream.c'),
-                'base' : test_journal_base,
-        },
-        {
-                'sources' : files('test-journal-syslog.c'),
-                'dependencies' : [
-                        liblz4,
-                        libselinux,
-                        libxz,
-                        threads,
-                ],
-                'base' : test_journal_base,
-        },
-        {
-                'sources' : files('test-journal-verify.c'),
-                'base' : test_journal_base,
-                'timeout' : 90,
-        },
-        {
-                'sources' : files('test-journal.c'),
-                'base' : test_journal_base,
-        },
-        {
-                'sources' : files('test-journal-append.c'),
-                'base' : test_journal_base,
-                'type' : 'manual',
-        },
-]
-
-fuzzer_journald_base = {
-        'link_with' : [libjournal_core, libshared],
-        'dependencies' : [libselinux],
-}
-
-fuzzers += [
-        {
-                'sources' : files(
-                        'fuzz-journald-audit.c',
-                        'fuzz-journald.c',
-                ),
-                'base' : fuzzer_journald_base,
-        },
-        {
-                'sources' : files(
-                        'fuzz-journald-kmsg.c',
-                        'fuzz-journald.c',
-                ),
-                'base' : fuzzer_journald_base,
-        },
-        {
-                'sources' : files(
-                        'fuzz-journald-native.c',
-                        'fuzz-journald.c',
-                ),
-                'base' : fuzzer_journald_base,
-        },
-        {
-                'sources' : files(
-                        'fuzz-journald-native-fd.c',
-                        'fuzz-journald.c',
-                ),
-                'base' : fuzzer_journald_base,
-        },
-        {
-                'sources' : files(
-                        'fuzz-journald-stream.c',
-                        'fuzz-journald.c',
-                ),
-                'base' : fuzzer_journald_base,
-        },
-        {
-                'sources' : files(
-                        'fuzz-journald-syslog.c',
-                        'fuzz-journald.c',
-                ),
-                'base' : fuzzer_journald_base,
-        },
-]

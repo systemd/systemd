@@ -7,6 +7,7 @@
 #include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-locator.h"
+#include "bus-unit-util.h"
 #include "chase.h"
 #include "creds-util.h"
 #include "efi-loader.h"
@@ -48,6 +49,7 @@ typedef enum MountPointFlags {
 } MountPointFlags;
 
 typedef struct Mount {
+        bool for_initrd;
         char *what;
         char *where;
         char *fstype;
@@ -101,7 +103,13 @@ static void mount_array_free(Mount *mounts, size_t n) {
         free(mounts);
 }
 
-static int mount_array_add_internal(char *in_what, char *in_where, const char *in_fstype, const char *in_options) {
+static int mount_array_add_internal(
+                bool for_initrd,
+                char *in_what,
+                char *in_where,
+                const char *in_fstype,
+                const char *in_options) {
+
         _cleanup_free_ char *what = NULL, *where = NULL, *fstype = NULL, *options = NULL;
         int r;
 
@@ -134,6 +142,7 @@ static int mount_array_add_internal(char *in_what, char *in_where, const char *i
                 return -ENOMEM;
 
         arg_mounts[arg_n_mounts++] = (Mount) {
+                .for_initrd = for_initrd,
                 .what = TAKE_PTR(what),
                 .where = TAKE_PTR(where),
                 .fstype = TAKE_PTR(fstype),
@@ -143,7 +152,7 @@ static int mount_array_add_internal(char *in_what, char *in_where, const char *i
         return 0;
 }
 
-static int mount_array_add(const char *str) {
+static int mount_array_add(bool for_initrd, const char *str) {
         _cleanup_free_ char *what = NULL, *where = NULL, *fstype = NULL, *options = NULL;
         int r;
 
@@ -158,10 +167,10 @@ static int mount_array_add(const char *str) {
         if (!isempty(str))
                 return -EINVAL;
 
-        return mount_array_add_internal(TAKE_PTR(what), TAKE_PTR(where), fstype, options);
+        return mount_array_add_internal(for_initrd, TAKE_PTR(what), TAKE_PTR(where), fstype, options);
 }
 
-static int mount_array_add_swap(const char *str) {
+static int mount_array_add_swap(bool for_initrd, const char *str) {
         _cleanup_free_ char *what = NULL, *options = NULL;
         int r;
 
@@ -176,7 +185,7 @@ static int mount_array_add_swap(const char *str) {
         if (!isempty(str))
                 return -EINVAL;
 
-        return mount_array_add_internal(TAKE_PTR(what), NULL, "swap", options);
+        return mount_array_add_internal(for_initrd, TAKE_PTR(what), NULL, "swap", options);
 }
 
 static int write_options(FILE *f, const char *options) {
@@ -305,9 +314,9 @@ static bool mount_is_network(const char *fstype, const char *options) {
                 (fstype && fstype_is_network(fstype));
 }
 
-static bool mount_in_initrd(const char *where, const char *options) {
+static bool mount_in_initrd(const char *where, const char *options, bool accept_root) {
         return fstab_test_option(options, "x-initrd.mount\0") ||
-                (where && path_equal(where, "/usr"));
+                (where && PATH_IN_SET(where, "/usr", accept_root ? "/" : NULL));
 }
 
 static int write_timeout(
@@ -712,7 +721,6 @@ static int add_mount(
 
 static int do_daemon_reload(void) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r, k;
 
@@ -722,13 +730,9 @@ static int do_daemon_reload(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to get D-Bus connection: %m");
 
-        r = bus_message_new_method_call(bus, &m, bus_systemd_mgr, "Reload");
+        r = bus_service_manager_reload(bus);
         if (r < 0)
-                return bus_log_create_error(r);
-
-        r = sd_bus_call(bus, m, DAEMON_RELOAD_TIMEOUT_SEC, &error, NULL);
-        if (r < 0)
-                return log_error_errno(r, "Failed to reload daemon: %s", bus_error_message(&error, r));
+                return r;
 
         /* We need to requeue the two targets so that any new units which previously were not part of the
          * targets, and which we now added, will be started. */
@@ -740,8 +744,7 @@ static int do_daemon_reload(void) {
                 k = bus_call_method(bus, bus_systemd_mgr, "StartUnit", &error, NULL, "ss", unit, "replace");
                 if (k < 0) {
                         log_error_errno(k, "Failed to (re)start %s: %s", unit, bus_error_message(&error, r));
-                        if (r == 0)
-                                r = k;
+                        RET_GATHER(r, k);
                 }
         }
 
@@ -805,6 +808,40 @@ static MountPointFlags fstab_options_to_flags(const char *options, bool is_swap)
         return flags;
 }
 
+static int canonicalize_mount_path(const char *path, const char *type, bool prefix_sysroot, char **ret) {
+        _cleanup_free_ char *p = NULL;
+        bool changed;
+        int r;
+
+        assert(path);
+        assert(type);
+        assert(STR_IN_SET(type, "where", "what"));
+        assert(ret);
+
+        // FIXME: when chase() learns to chase non-existent paths, use this here and drop the prefixing with
+        // /sysroot on error below.
+        r = chase(path, prefix_sysroot ? "/sysroot" : NULL, CHASE_PREFIX_ROOT | CHASE_NONEXISTENT, &p, NULL);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to chase '%s', using as-is: %m", path);
+
+                if (prefix_sysroot)
+                        p = path_join("/sysroot", path);
+                else
+                        p = strdup(path);
+                if (!p)
+                        return log_oom();
+
+                path_simplify(p);
+        }
+
+        changed = !streq(path, p);
+        if (changed)
+                log_debug("Canonicalized %s=%s to %s", type, path, p);
+
+        *ret = TAKE_PTR(p);
+        return changed;
+}
+
 static int parse_fstab_one(
                 const char *source,
                 const char *what_original,
@@ -812,19 +849,20 @@ static int parse_fstab_one(
                 const char *fstype,
                 const char *options,
                 int passno,
-                bool initrd,
+                bool prefix_sysroot,
+                bool accept_root, /* This takes an effect only when prefix_sysroot is true. */
                 bool use_swap_enabled) {
 
         _cleanup_free_ char *what = NULL, *where = NULL;
         MountPointFlags flags;
-        bool is_swap;
+        bool is_swap, where_changed;
         int r;
 
         assert(what_original);
         assert(fstype);
         assert(options);
 
-        if (initrd && !mount_in_initrd(where_original, options))
+        if (prefix_sysroot && !mount_in_initrd(where_original, options, accept_root))
                 return 0;
 
         is_swap = streq_ptr(fstype, "swap");
@@ -849,10 +887,13 @@ static int parse_fstab_one(
         if (is_swap)
                 return add_swap(source, what, options, flags);
 
+        if (passno < 0)
+                passno = is_device_path(what);
+
         assert(where_original); /* 'where' is not necessary for swap entry. */
 
         if (!is_path(where_original)) {
-                log_warning("Mount point %s is not a valid path, ignoring.", where);
+                log_warning("Mount point %s is not a valid path, ignoring.", where_original);
                 return 0;
         }
 
@@ -860,54 +901,46 @@ static int parse_fstab_one(
          * mount units, but causes problems since it historically worked to have symlinks in e.g.
          * /etc/fstab. So we canonicalize here. Note that we use CHASE_NONEXISTENT to handle the case
          * where a symlink refers to another mount target; this works assuming the sub-mountpoint
-         * target is the final directory.
-         *
-         * FIXME: when chase() learns to chase non-existent paths, use this here and
-         *        drop the prefixing with /sysroot on error below.
-         */
-        r = chase(where_original, initrd ? "/sysroot" : NULL, CHASE_PREFIX_ROOT | CHASE_NONEXISTENT, &where, NULL);
-        if (r < 0) {
-                /* If we can't canonicalize, continue as if it wasn't a symlink */
-                log_debug_errno(r, "Failed to read symlink target for %s, using as-is: %m", where_original);
+         * target is the final directory. */
+        r = canonicalize_mount_path(where_original, "where", prefix_sysroot, &where);
+        if (r < 0)
+                return r;
+        where_changed = r > 0;
 
-                if (initrd)
-                        where = path_join("/sysroot", where_original);
-                else
-                        where = strdup(where_original);
-                if (!where)
-                        return log_oom();
+        if (prefix_sysroot && fstab_is_bind(options, fstype)) {
+                /* When in initrd, the source of bind mount needs to be prepended with /sysroot as well. */
+                _cleanup_free_ char *p = NULL;
 
-                path_simplify(where);
+                r = canonicalize_mount_path(what, "what", prefix_sysroot, &p);
+                if (r < 0)
+                        return r;
+
+                free_and_replace(what, p);
         }
-
-        if (streq(where, where_original)) /* If it was fully canonicalized, suppress the change */
-                where = mfree(where);
-        else
-                log_debug("Canonicalized what=%s where=%s to %s", what, where_original, where);
 
         log_debug("Found entry what=%s where=%s type=%s makefs=%s growfs=%s pcrfs=%s noauto=%s nofail=%s",
                   what, where, strna(fstype),
                   yes_no(flags & MOUNT_MAKEFS), yes_no(flags & MOUNT_GROWFS), yes_no(flags & MOUNT_PCRFS),
                   yes_no(flags & MOUNT_NOAUTO), yes_no(flags & MOUNT_NOFAIL));
 
-        bool is_sysroot = in_initrd() && path_equal(where ?: where_original, "/sysroot");
+        bool is_sysroot = in_initrd() && path_equal(where, "/sysroot");
         /* See comment from add_sysroot_usr_mount() about the need for extra indirection in case /usr needs
          * to be mounted in order for the root fs to be synthesized based on configuration included in /usr/,
          * e.g. systemd-repart. */
-        bool is_sysroot_usr = in_initrd() && path_equal(where ?: where_original, "/sysroot/usr");
+        bool is_sysroot_usr = in_initrd() && path_equal(where, "/sysroot/usr");
 
         const char *target_unit =
-                        initrd ?                            SPECIAL_INITRD_FS_TARGET :
                         is_sysroot ?                        SPECIAL_INITRD_ROOT_FS_TARGET :
                         is_sysroot_usr ?                    SPECIAL_INITRD_USR_FS_TARGET :
+                        prefix_sysroot ?                    SPECIAL_INITRD_FS_TARGET :
                         mount_is_network(fstype, options) ? SPECIAL_REMOTE_FS_TARGET :
                                                             SPECIAL_LOCAL_FS_TARGET;
 
         r = add_mount(source,
                       arg_dest,
                       what,
-                      is_sysroot_usr ? "/sysusr/usr" : where ?: where_original,
-                      !is_sysroot_usr && where ? where_original : NULL,
+                      is_sysroot_usr ? "/sysusr/usr" : where,
+                      !is_sysroot_usr && where_changed ? where_original : NULL,
                       fstype,
                       options,
                       passno,
@@ -926,13 +959,13 @@ static int parse_fstab_one(
         return true;
 }
 
-static int parse_fstab(bool initrd) {
+static int parse_fstab(bool prefix_sysroot) {
         _cleanup_endmntent_ FILE *f = NULL;
         const char *fstab;
         struct mntent *me;
         int r, ret = 0;
 
-        if (initrd)
+        if (prefix_sysroot)
                 fstab = sysroot_fstab_path();
         else {
                 fstab = fstab_path();
@@ -952,7 +985,9 @@ static int parse_fstab(bool initrd) {
         while ((me = getmntent(f))) {
                 r = parse_fstab_one(fstab,
                                     me->mnt_fsname, me->mnt_dir, me->mnt_type, me->mnt_opts, me->mnt_passno,
-                                    initrd, /* use_swap_enabled = */ true);
+                                    prefix_sysroot,
+                                    /* accept_root = */ false,
+                                    /* use_swap_enabled = */ true);
                 if (r < 0 && ret >= 0)
                         ret = r;
                 if (arg_sysroot_check && r > 0)
@@ -1260,14 +1295,18 @@ static int add_mounts_from_cmdline(void) {
         /* Handle each entries found in cmdline as a fstab entry. */
 
         FOREACH_ARRAY(m, arg_mounts, arg_n_mounts) {
+                if (m->for_initrd && !in_initrd())
+                        continue;
+
                 r = parse_fstab_one(
                               "/proc/cmdline",
                               m->what,
                               m->where,
                               m->fstype,
                               m->options,
-                              /* passno = */ 0,
-                              /* initrd = */ false,
+                              /* passno = */ -1,
+                              /* prefix_sysroot = */ !m->for_initrd && in_initrd(),
+                              /* accept_root = */ true,
                               /* use_swap_enabled = */ false);
                 if (r < 0 && ret >= 0)
                         ret = r;
@@ -1276,14 +1315,16 @@ static int add_mounts_from_cmdline(void) {
         return ret;
 }
 
-static int add_mounts_from_creds(void) {
+static int add_mounts_from_creds(bool prefix_sysroot) {
         _cleanup_free_ void *b = NULL;
         struct mntent *me;
         int r, ret = 0;
         size_t bs;
 
+        assert(in_initrd() || !prefix_sysroot);
+
         r = read_credential_with_decryption(
-                        in_initrd() ? "fstab.extra.initrd" : "fstab.extra",
+                        in_initrd() && !prefix_sysroot ? "fstab.extra.initrd" : "fstab.extra",
                         &b, &bs);
         if (r <= 0)
                 return r;
@@ -1301,7 +1342,8 @@ static int add_mounts_from_creds(void) {
                                 me->mnt_type,
                                 me->mnt_opts,
                                 me->mnt_passno,
-                                /* initrd = */ false,
+                                /* prefix_sysroot = */ prefix_sysroot,
+                                /* accept_root = */ true,
                                 /* use_swap_enabled = */ true);
                 if (r < 0 && ret >= 0)
                         ret = r;
@@ -1415,21 +1457,21 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 else
                         arg_verity = r;
 
-        } else if (streq(key, "systemd.mount-extra")) {
+        } else if (STR_IN_SET(key, "systemd.mount-extra", "rd.systemd.mount-extra")) {
 
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
-                r = mount_array_add(value);
+                r = mount_array_add(startswith(key, "rd."), value);
                 if (r < 0)
                         log_warning("Failed to parse systemd.mount-extra= option, ignoring: %s", value);
 
-        } else if (streq(key, "systemd.swap-extra")) {
+        } else if (STR_IN_SET(key, "systemd.swap-extra", "rd.systemd.swap-extra")) {
 
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
-                r = mount_array_add_swap(value);
+                r = mount_array_add_swap(startswith(key, "rd."), value);
                 if (r < 0)
                         log_warning("Failed to parse systemd.swap-extra= option, ignoring: %s", value);
         }
@@ -1495,7 +1537,7 @@ static int run_generator(void) {
         (void) determine_usr();
 
         if (arg_sysroot_check) {
-                r = parse_fstab(/* initrd= */ true);
+                r = parse_fstab(/* prefix_sysroot = */ true);
                 if (r == 0)
                         log_debug("Nothing interesting found, not doing daemon-reload.");
                 if (r > 0)
@@ -1525,13 +1567,13 @@ static int run_generator(void) {
         /* Honour /etc/fstab only when that's enabled */
         if (arg_fstab_enabled) {
                 /* Parse the local /etc/fstab, possibly from the initrd */
-                r = parse_fstab(/* initrd= */ false);
+                r = parse_fstab(/* prefix_sysroot = */ false);
                 if (r < 0 && ret >= 0)
                         ret = r;
 
                 /* If running in the initrd also parse the /etc/fstab from the host */
                 if (in_initrd())
-                        r = parse_fstab(/* initrd= */ true);
+                        r = parse_fstab(/* prefix_sysroot = */ true);
                 else
                         r = generator_enable_remount_fs_service(arg_dest);
                 if (r < 0 && ret >= 0)
@@ -1542,9 +1584,15 @@ static int run_generator(void) {
         if (r < 0 && ret >= 0)
                 ret = r;
 
-        r = add_mounts_from_creds();
+        r = add_mounts_from_creds(/* prefix_sysroot = */ false);
         if (r < 0 && ret >= 0)
                 ret = r;
+
+        if (in_initrd()) {
+                r = add_mounts_from_creds(/* prefix_sysroot = */ true);
+                if (r < 0 && ret >= 0)
+                        ret = r;
+        }
 
         return ret;
 }

@@ -72,6 +72,13 @@ static int log_prohibited_symlink(int fd, ChaseFlags flags) {
                                  strna(n1));
 }
 
+static int chaseat_needs_absolute(int dir_fd, const char *path) {
+        if (dir_fd < 0)
+                return path_is_absolute(path);
+
+        return dir_fd_is_root(dir_fd);
+}
+
 int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int *ret_fd) {
         _cleanup_free_ char *buffer = NULL, *done = NULL;
         _cleanup_close_ int fd = -EBADF, root_fd = -EBADF;
@@ -205,12 +212,27 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
         /* If we receive an absolute path together with AT_FDCWD, we need to return an absolute path, because
          * a relative path would be interpreted relative to the current working directory. Also, let's make
          * the result absolute when the file descriptor of the root directory is specified. */
-        bool need_absolute = (dir_fd == AT_FDCWD && path_is_absolute(path)) || (dir_fd >= 0 && dir_fd_is_root(dir_fd) > 0);
+        r = chaseat_needs_absolute(dir_fd, path);
+        if (r < 0)
+                return r;
+
+        bool need_absolute = r;
         if (need_absolute) {
                 done = strdup("/");
                 if (!done)
                         return -ENOMEM;
         }
+
+        /* If a positive directory file descriptor is provided, always resolve the given path relative to it,
+         * regardless of whether it is absolute or not. If we get AT_FDCWD, follow regular openat()
+         * semantics, if the path is relative, resolve against the current working directory. Otherwise,
+         * resolve against root. */
+        fd = openat(dir_fd, done ?: ".", O_CLOEXEC|O_DIRECTORY|O_PATH);
+        if (fd < 0)
+                return -errno;
+
+        if (fstat(fd, &st) < 0)
+                return -errno;
 
         /* If we get AT_FDCWD, we always resolve symlinks relative to the host's root. Only if a positive
          * directory file descriptor is provided we will look at CHASE_AT_RESOLVE_IN_ROOT to determine
@@ -220,20 +242,6 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
         else
                 root_fd = open("/", O_CLOEXEC|O_DIRECTORY|O_PATH);
         if (root_fd < 0)
-                return -errno;
-
-        /* If a positive directory file descriptor is provided, always resolve the given path relative to it,
-         * regardless of whether it is absolute or not. If we get AT_FDCWD, follow regular openat()
-         * semantics, if the path is relative, resolve against the current working directory. Otherwise,
-         * resolve against root. */
-        if (dir_fd >= 0 || !path_is_absolute(path))
-                fd = openat(dir_fd, ".", O_CLOEXEC|O_DIRECTORY|O_PATH);
-        else
-                fd = open("/", O_CLOEXEC|O_DIRECTORY|O_PATH);
-        if (fd < 0)
-                return -errno;
-
-        if (fstat(fd, &st) < 0)
                 return -errno;
 
         if (FLAGS_SET(flags, CHASE_TRAIL_SLASH))
@@ -267,8 +275,11 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
 
                         /* If we already are at the top, then going up will not change anything. This is
                          * in-line with how the kernel handles this. */
-                        if (empty_or_root(done) && FLAGS_SET(flags, CHASE_AT_RESOLVE_IN_ROOT))
+                        if (empty_or_root(done) && FLAGS_SET(flags, CHASE_AT_RESOLVE_IN_ROOT)) {
+                                if (FLAGS_SET(flags, CHASE_STEP))
+                                        goto chased_one;
                                 continue;
+                        }
 
                         fd_parent = openat(fd, "..", O_CLOEXEC|O_NOFOLLOW|O_PATH|O_DIRECTORY);
                         if (fd_parent < 0)
@@ -284,14 +295,33 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
                                 r = dir_fd_is_root(fd);
                                 if (r < 0)
                                         return r;
-                                if (r > 0)
+                                if (r > 0) {
+                                        if (FLAGS_SET(flags, CHASE_STEP))
+                                                goto chased_one;
                                         continue;
+                                }
                         }
 
                         r = path_extract_directory(done, &parent);
-                        if (r >= 0 || r == -EDESTADDRREQ)
+                        if (r >= 0) {
+                                assert(!need_absolute || path_is_absolute(parent));
                                 free_and_replace(done, parent);
-                        else if (IN_SET(r, -EINVAL, -EADDRNOTAVAIL)) {
+                        } else if (r == -EDESTADDRREQ) {
+                                /* 'done' contains filename only (i.e. no slash). */
+                                assert(!need_absolute);
+                                done = mfree(done);
+                        } else if (r == -EADDRNOTAVAIL) {
+                                /* 'done' is "/". This branch should be already handled in the above. */
+                                assert(!FLAGS_SET(flags, CHASE_AT_RESOLVE_IN_ROOT));
+                                assert_not_reached();
+                        } else if (r == -EINVAL) {
+                                /* 'done' is an empty string, ends with '..', or an invalid path. */
+                                assert(!need_absolute);
+                                assert(!FLAGS_SET(flags, CHASE_AT_RESOLVE_IN_ROOT));
+
+                                if (!path_is_valid(done))
+                                        return -EINVAL;
+
                                 /* If we're at the top of "dir_fd", start appending ".." to "done". */
                                 if (!path_extend(&done, ".."))
                                         return -ENOMEM;
@@ -446,6 +476,7 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
                 }
 
                 if (!done) {
+                        assert(!need_absolute || FLAGS_SET(flags, CHASE_EXTRACT_FILENAME));
                         done = strdup(append_trail_slash ? "./" : ".");
                         if (!done)
                                 return -ENOMEM;
@@ -472,6 +503,7 @@ chased_one:
                 const char *e;
 
                 if (!done) {
+                        assert(!need_absolute);
                         done = strdup(append_trail_slash ? "./" : ".");
                         if (!done)
                                 return -ENOMEM;
@@ -497,6 +529,27 @@ chased_one:
         return 0;
 }
 
+static int empty_or_root_to_null(const char **path) {
+        int r;
+
+        assert(path);
+
+        /* This nullifies the input path when the path is empty or points to "/". */
+
+        if (empty_or_root(*path)) {
+                *path = NULL;
+                return 0;
+        }
+
+        r = path_is_root(*path);
+        if (r < 0)
+                return r;
+        if (r > 0)
+                *path = NULL;
+
+        return 0;
+}
+
 int chase(const char *path, const char *root, ChaseFlags flags, char **ret_path, int *ret_fd) {
         _cleanup_free_ char *root_abs = NULL, *absolute = NULL, *p = NULL;
         _cleanup_close_ int fd = -EBADF, pfd = -EBADF;
@@ -507,10 +560,19 @@ int chase(const char *path, const char *root, ChaseFlags flags, char **ret_path,
         if (isempty(path))
                 return -EINVAL;
 
+        r = empty_or_root_to_null(&root);
+        if (r < 0)
+                return r;
+
         /* A root directory of "/" or "" is identical to "/". */
-        if (empty_or_root(root))
+        if (empty_or_root(root)) {
                 root = "/";
-        else {
+
+                /* When the root directory is "/", we will drop CHASE_AT_RESOLVE_IN_ROOT in chaseat(),
+                 * hence below is not necessary, but let's shortcut. */
+                flags &= ~CHASE_AT_RESOLVE_IN_ROOT;
+
+        } else {
                 r = path_make_absolute_cwd(root, &root_abs);
                 if (r < 0)
                         return r;
@@ -598,8 +660,13 @@ int chaseat_prefix_root(const char *path, const char *root, char **ret) {
         if (!path_is_absolute(path)) {
                 _cleanup_free_ char *root_abs = NULL;
 
+                r = empty_or_root_to_null(&root);
+                if (r < 0 && r != -ENOENT)
+                        return r;
+
                 /* If the dir_fd points to the root directory, chaseat() always returns an absolute path. */
-                assert(!empty_or_root(root));
+                if (empty_or_root(root))
+                        return -EINVAL;
 
                 r = path_make_absolute_cwd(root, &root_abs);
                 if (r < 0)
@@ -631,6 +698,10 @@ int chase_extract_filename(const char *path, const char *root, char **ret) {
 
         if (!path_is_absolute(path))
                 return -EINVAL;
+
+        r = empty_or_root_to_null(&root);
+        if (r < 0 && r != -ENOENT)
+                return r;
 
         if (!empty_or_root(root)) {
                 _cleanup_free_ char *root_abs = NULL;

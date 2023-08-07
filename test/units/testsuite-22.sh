@@ -6,9 +6,6 @@ set -o pipefail
 # shellcheck source=test/units/test-control.sh
 . "$(dirname "$0")"/test-control.sh
 
-: >/failed
-
 run_subtests
 
 touch /testok
-rm /failed

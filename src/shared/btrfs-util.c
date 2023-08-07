@@ -10,6 +10,7 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/file.h>
 #include <sys/ioctl.h>
 #include <sys/sysmacros.h>
 #include <unistd.h>
@@ -1565,14 +1566,16 @@ int btrfs_subvol_snapshot_at_full(
                         return -EISDIR;
 
                 r = btrfs_subvol_make_fd(new_fd, subvolume);
-                if (ERRNO_IS_NOT_SUPPORTED(r) && (flags & BTRFS_SNAPSHOT_FALLBACK_DIRECTORY)) {
-                        /* If the destination doesn't support subvolumes, then use a plain directory, if that's requested. */
-                        if (mkdirat(new_fd, subvolume, 0755) < 0)
-                                return -errno;
+                if (r < 0) {
+                        if (ERRNO_IS_NOT_SUPPORTED(r) && (flags & BTRFS_SNAPSHOT_FALLBACK_DIRECTORY)) {
+                                /* If the destination doesn't support subvolumes, then use a plain directory, if that's requested. */
+                                if (mkdirat(new_fd, subvolume, 0755) < 0)
+                                        return -errno;
 
-                        plain_directory = true;
-                } else if (r < 0)
-                        return r;
+                                plain_directory = true;
+                        } else
+                                return r;
+                }
 
                 if (FLAGS_SET(flags, BTRFS_SNAPSHOT_LOCK_BSD)) {
                         subvolume_fd = xopenat_lock(new_fd, subvolume,

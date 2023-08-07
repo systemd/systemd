@@ -9,11 +9,29 @@ systemd_shutdown_sources = files(
         'umount.c',
 )
 
-tests += [
-        {
+executables += [
+        libexec_template + {
+                'name' : 'systemd-shutdown',
+                'sources' : systemd_shutdown_sources,
+                'dependencies' : libmount,
+        },
+        libexec_template + {
+                'name' : 'systemd-shutdown.standalone',
+                'sources' : systemd_shutdown_sources,
+                'c_args' : '-DSTANDALONE',
+                'link_with' : [
+                        libbasic,
+                        libshared_static,
+                        libsystemd_static,
+                ],
+                'dependencies' : libmount,
+                'build_by_default' : have_standalone_binaries,
+                'install' : have_standalone_binaries,
+        },
+        test_template + {
                 'sources' : files(
-                        'detach-swap.c',
                         'test-umount.c',
+                        'detach-swap.c',
                         'umount.c',
                 ),
                 'dependencies' : libmount,

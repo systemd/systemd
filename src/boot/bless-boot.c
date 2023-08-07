@@ -483,6 +483,7 @@ static int verb_set(int argc, char *argv[], void *userdata) {
                         log_debug_errno(errno, "Failed to synchronize $BOOT partition, ignoring: %m");
 
                 log_info("Marked boot as '%s'. (Boot attempt counter is at %" PRIu64".)", argv[0], done);
+                return 0;
         }
 
         log_error_errno(SYNTHETIC_ERRNO(EBUSY), "Can't find boot counter source file for '%s': %m", target);
