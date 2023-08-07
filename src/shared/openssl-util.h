@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "io-util.h"
 #include "macro.h"
 #include "sha256.h"
 
@@ -22,6 +23,7 @@
 #  endif
 #  if OPENSSL_VERSION_MAJOR >= 3
 #    include <openssl/core_names.h>
+#    include <openssl/kdf.h>
 #    include <openssl/param_build.h>
 #  endif
 
@@ -39,10 +41,17 @@ DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(SSL*, SSL_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(BIO*, BIO_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(EVP_MD_CTX*, EVP_MD_CTX_free, NULL);
 #if OPENSSL_VERSION_MAJOR >= 3
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(EVP_CIPHER*, EVP_CIPHER_free, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(EVP_KDF*, EVP_KDF_free, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(EVP_KDF_CTX*, EVP_KDF_CTX_free, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(EVP_MAC*, EVP_MAC_free, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(EVP_MAC_CTX*, EVP_MAC_CTX_free, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(EVP_MD*, EVP_MD_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(OSSL_PARAM*, OSSL_PARAM_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(OSSL_PARAM_BLD*, OSSL_PARAM_BLD_free, NULL);
 #else
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(EC_KEY*, EC_KEY_free, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(HMAC_CTX*, HMAC_CTX_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(RSA*, RSA_free, NULL);
 #endif
 
@@ -55,9 +64,29 @@ static inline void sk_X509_free_allp(STACK_OF(X509) **sk) {
 
 int openssl_pkey_from_pem(const void *pem, size_t pem_size, EVP_PKEY **ret);
 
-int openssl_hash(const EVP_MD *alg, const void *msg, size_t msg_len, uint8_t *ret_hash, size_t *ret_hash_len);
+int openssl_digest_size(const char *digest_alg, size_t *ret_digest_size);
+
+int openssl_digest_many(const char *digest_alg, const struct iovec data[], size_t n_data, void **ret_digest, size_t *ret_digest_size);
+
+static inline int openssl_digest(const char *digest_alg, const void *buf, size_t len, void **ret_digest, size_t *ret_digest_size) {
+        return openssl_digest_many(digest_alg, &IOVEC_MAKE((void*) buf, len), 1, ret_digest, ret_digest_size);
+}
+
+int openssl_hmac_many(const char *digest_alg, const void *key, size_t key_size, const struct iovec data[], size_t n_data, void **ret_digest, size_t *ret_digest_size);
+
+static inline int openssl_hmac(const char *digest_alg, const void *key, size_t key_size, const void *buf, size_t len, void **ret_digest, size_t *ret_digest_size) {
+        return openssl_hmac_many(digest_alg, key, key_size, &IOVEC_MAKE((void*) buf, len), 1, ret_digest, ret_digest_size);
+}
+
+int openssl_cipher(const char *alg, size_t bits, const char *mode, const void *key, size_t key_size, const void *iv, size_t iv_size, const struct iovec data[], size_t n_data, void **ret, size_t *ret_size);
+
+int kdf_ss_derive(const char *digest, const void *key, size_t key_size, const void *salt, size_t salt_size, const void *info, size_t info_size, size_t derive_size, void **ret);
+
+int kdf_kb_hmac_derive(const char *mode, const char *digest, const void *key, size_t n_key, const void *salt, size_t n_salt, const void *info, size_t n_info, const void *seed, size_t n_seed, size_t n_derive, void **ret);
 
 int rsa_encrypt_bytes(EVP_PKEY *pkey, const void *decrypted_key, size_t decrypted_key_size, void **ret_encrypt_key, size_t *ret_encrypt_key_size);
+
+int rsa_oaep_encrypt_bytes(const EVP_PKEY *pkey, const char *digest_alg, const char *label, const void *decrypted_key, size_t decrypted_key_size, void **ret_encrypt_key, size_t *ret_encrypt_key_size);
 
 int rsa_pkey_to_suitable_key_size(EVP_PKEY *pkey, size_t *ret_suitable_key_size);
 
@@ -72,6 +101,8 @@ int ecc_pkey_from_curve_x_y(int curve_id, const void *x, size_t x_size, const vo
 int ecc_pkey_to_curve_x_y(const EVP_PKEY *pkey, int *ret_curve_id, void **ret_x, size_t *ret_x_size, void **ret_y, size_t *ret_y_size);
 
 int ecc_pkey_new(int curve_id, EVP_PKEY **ret);
+
+int ecc_ecdh(const EVP_PKEY *peerkey, EVP_PKEY **ret_pkey, void **ret_shared_secret, size_t *ret_shared_secret_size);
 
 int pubkey_fingerprint(EVP_PKEY *pk, const EVP_MD *md, void **ret, size_t *ret_size);
 
@@ -118,13 +149,13 @@ typedef gcry_md_hd_t hash_context_t;
 #endif
 
 #if PREFER_OPENSSL
-int string_hashsum(const char *s, size_t len, hash_algorithm_t md_algorithm, char **ret);
+int string_hashsum(const char *s, size_t len, const char *md_algorithm, char **ret);
 
 static inline int string_hashsum_sha224(const char *s, size_t len, char **ret) {
-        return string_hashsum(s, len, EVP_sha224(), ret);
+        return string_hashsum(s, len, "SHA224", ret);
 }
 
 static inline int string_hashsum_sha256(const char *s, size_t len, char **ret) {
-        return string_hashsum(s, len, EVP_sha256(), ret);
+        return string_hashsum(s, len, "SHA256", ret);
 }
 #endif
