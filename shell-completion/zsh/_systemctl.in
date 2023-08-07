@@ -194,10 +194,10 @@ __systemctl()
     }
 
 (( $+functions[_systemctl_get_non_template_names] )) ||
-    _systemctl_get_non_template_names() { echo -E - ${^${(R)${(f)"$(
-    __systemctl list-unit-files
-    __systemctl list-units --all
-  )"}:#*@.*}%%[[:space:]]*} }
+    _systemctl_get_non_template_names() {
+        _systemctl_really_all_units
+        print -r - ${_sys_really_all_units:#*@.*}
+    }
 
 (( $+functions[_systemctl_get_template_names] )) ||
     _systemctl_get_template_names() {
