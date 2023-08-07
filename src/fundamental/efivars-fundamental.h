@@ -31,6 +31,7 @@
 #define EFI_STUB_FEATURE_RANDOM_SEED               (UINT64_C(1) << 4)
 #define EFI_STUB_FEATURE_CMDLINE_ADDONS            (UINT64_C(1) << 5)
 #define EFI_STUB_FEATURE_CMDLINE_SMBIOS            (UINT64_C(1) << 6)
+#define EFI_STUB_FEATURE_DEVICETREE_ADDONS         (UINT64_C(1) << 7)
 
 typedef enum SecureBootMode {
         SECURE_BOOT_UNSUPPORTED,
