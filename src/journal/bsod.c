@@ -22,6 +22,8 @@
 #include "sysctl-util.h"
 #include "terminal-util.h"
 
+static bool is_wait = false;
+
 static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -36,6 +38,7 @@ static int help(void) {
                "as a string and a QR code.\n\n%s"
                "   -h --help            Show this help\n"
                "      --version         Show package version\n"
+               "   -w --wait            Wait for changes in the journal\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -75,13 +78,24 @@ static int acquire_first_emergency_log_message(char **ret) {
         if (r < 0)
                 return log_error_errno(r, "Failed to seek to start of jornal: %m");
 
-        r = sd_journal_next(j);
-        if (r < 0)
-                return log_error_errno(r, "Failed to read next journal entry: %m");
-        if (r == 0) {
-                log_debug("No emergency level entries in the journal");
-                *ret = NULL;
-                return 0;
+        for(;;) {
+                r = sd_journal_next(j);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read next journal entry: %m");
+
+                if (r == 0) {
+                        if (is_wait) {
+                                r = sd_journal_wait(j, (uint64_t) -1);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to wait for changes: %m");
+                                continue;
+                        } else {
+                                log_debug("No emergency level entries in the journal");
+                                *ret = NULL;
+                                return 0;
+                        }
+                }
+                break;
         }
 
         r = sd_journal_get_data(j, "MESSAGE", &d, &l);
@@ -210,6 +224,7 @@ static int parse_argv(int argc, char * argv[]) {
         static const struct option options[] = {
                 { "help",    no_argument, NULL, 'h'         },
                 { "version", no_argument, NULL, ARG_VERSION },
+                { "wait",    no_argument, NULL, 'w'         },
                 {}
         };
 
@@ -218,7 +233,7 @@ static int parse_argv(int argc, char * argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hw", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -227,6 +242,10 @@ static int parse_argv(int argc, char * argv[]) {
 
                 case ARG_VERSION:
                         return version();
+
+                case 'w':
+                        is_wait = true;
+                        break;
 
                 case '?':
                         return -EINVAL;

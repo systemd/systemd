@@ -44,6 +44,10 @@
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
     </variablelist>
+
+    <para>The <option> --wait </option> can be used to make systemd-bsod wait indefinitely for a change in the
+         journal's status if doesn't find any emergency messages on initial attempt.</para>
+
   </refsect1>
 
   <refsect1>
