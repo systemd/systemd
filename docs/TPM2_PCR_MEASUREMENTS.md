@@ -90,6 +90,16 @@ UTF-16.
 → **Measured hash** covers the literal kernel command line in UTF-16 (without any
 trailing NUL bytes).
 
+### PCR 12, `EV_EVENT_TAG`, "Devicetrees"
+
+Devicetree addons are measured individually as a tagged event.
+
+→ **Event Tag** `0x6c46f751`
+
+→ **Description** the addon filename.
+
+→ **Measured hash** covers the content of the Devicetree.
+
 ### PCR 12, `EV_IPL`, "Per-UKI Credentials initrd"
 
 → **Description** in the event log record is the constant string "Credentials
