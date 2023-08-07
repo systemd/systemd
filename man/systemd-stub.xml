@@ -161,19 +161,20 @@
       <citerefentry><refentrytitle>ukify</refentrytitle><manvolnum>1</manvolnum></citerefentry> tool will
       add a SBAT policy by default if none is passed when building addons. For more information on SBAT see
       <ulink url="https://github.com/rhboot/shim/blob/main/SBAT.md">Shim's documentation</ulink>.
-      Addons are supposed to be used to pass additional kernel command line parameters, regardless of the
-      kernel image being booted, for example to allow platform vendors to ship platform-specific
-      configuration. The loaded command line addon files are sorted, loaded, measured into TPM PCR 12 (if a
-      TPM is present) and appended to the kernel command line. UKI command line options are listed first,
-      then options from addons in <filename>/loader/addons/*.addon.efi</filename> are appended next, and
-      finally UKI-specific addons are appended last. Addons are always loaded in the same order based on the
-      filename, so that, given the same set of addons, the same set of measurements can be expected in
-      PCR12, however note that the filename is not protected by the PE signature, and as such an attacker
-      with write access to the ESP could potentially rename these files to change the order in which they
-      are loaded, in a way that could alter the functionality of the kernel, as some options might be order
-      dependent. If you sign such addons, you should pay attention to the PCR12 values and make use of an
-      attestation service so that improper use of your signed addons can be detected and dealt with using
-      one of the aforementioned revocation mechanisms.</para></listitem>
+      Addons are supposed to be used to pass additional kernel command line parameters or devite tree blobs,
+      regardless of the kernel image being booted, for example to allow platform vendors to ship
+      platform-specific configuration. The loaded command line addon files are sorted, loaded, and measured
+      into TPM PCR 12 (if a TPM is present) and appended to the kernel command line. UKI command line options
+      are listed first, then options from addons in <filename>/loader/addons/*.addon.efi</filename>, and
+      finally UKI-specific addons. Device tree blobs are loaded following the same algorithm, but they are
+      not measured by the stub. Addons are always loaded in the same order based on the filename, so that,
+      given the same set of addons, the same set of measurements can be expected in PCR12. However, note
+      that the filename is not protected by the PE signature, and as such an attacker with write access to
+      the ESP could potentially rename these files to change the order in which they are loaded, in a way
+      that could alter the functionality of the kernel, as some options might be order dependent. If you
+      sign such addons, you should pay attention to the PCR12 values and make use of an attestation service
+      so that improper use of your signed addons can be detected and dealt with using one of the
+      aforementioned revocation mechanisms.</para></listitem>
 
       <listitem><para>Files <filename>/loader/credentials/*.cred</filename> are packed up in a
       <command>cpio</command> archive and placed in the <filename>/.extra/global_credentials/</filename>
@@ -182,9 +183,9 @@
       measured into TPM PCR 12 (if a TPM is present).</para></listitem>
 
       <listitem><para>Additionally, files <filename>/loader/addons/*.addon.efi</filename> are loaded and
-      verified as PE binaries, and a <literal>.cmdline</literal> section is parsed from them. This is
-      supposed to be used to pass additional command line parameters to the kernel, regardless of the kernel
-      being booted.</para></listitem>
+      verified as PE binaries, and <literal>.cmdline</literal> and/or <literal>.dtb</literal> sections are
+      parsed from them. This is supposed to be used to pass additional command line parameters or device
+      tree blobs to the kernel, regardless of the kernel being booted.</para></listitem>
     </itemizedlist>
 
     <para>These mechanisms may be used to parameterize and extend trusted (i.e. signed), immutable initrd
