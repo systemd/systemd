@@ -208,6 +208,8 @@ typedef struct Partition {
         bool new_uuid_is_set;
         char *current_label, *new_label;
         sd_id128_t fs_uuid, luks_uuid;
+        sd_id128_t verity_uuid;
+        uint8_t verity_salt[SHA256_DIGEST_SIZE];
 
         bool dropped;
         bool factory_reset;
@@ -3896,7 +3898,7 @@ static int partition_format_verity_hash(
         cryptsetup_enable_logging(cd);
 
         r = sym_crypt_format(
-                        cd, CRYPT_VERITY, NULL, NULL, NULL, NULL, 0,
+                        cd, CRYPT_VERITY, NULL, NULL, SD_ID128_TO_UUID_STRING(p->verity_uuid), NULL, 0,
                         &(struct crypt_params_verity){
                                 .data_device = data_node,
                                 .flags = CRYPT_VERITY_CREATE_HASH,
@@ -3904,7 +3906,8 @@ static int partition_format_verity_hash(
                                 .hash_type = 1,
                                 .data_block_size = context->sector_size,
                                 .hash_block_size = context->sector_size,
-                                .salt_size = 32,
+                                .salt_size = sizeof(p->verity_salt),
+                                .salt = (const char*)p->verity_salt,
                         });
         if (r < 0) {
                 /* libcryptsetup reports non-descriptive EIO errors for every I/O failure. Luckily, it
@@ -4864,6 +4867,20 @@ static int context_acquire_partition_uuids_and_labels(Context *context) {
                         r = derive_uuid(uuid, "luks-uuid", &p->luks_uuid);
                         if (r < 0)
                                 return r;
+                }
+
+                /* Derive the verity salt and verity superblock UUID from the seed to keep them reproducible */
+                if (p->verity == VERITY_HASH) {
+                        const char salt_token[] = "verity-salt";
+                        hmac_sha256(context->seed.bytes,
+                                    sizeof(context->seed.bytes),
+                                    salt_token,
+                                    strlen(salt_token),
+                                    p->verity_salt);
+
+                        r = derive_uuid(context->seed, "verity-uuid", &p->verity_uuid);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to acquire verity uuid: %m");
                 }
 
                 if (!isempty(p->current_label)) {
