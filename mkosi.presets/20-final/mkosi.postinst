@@ -76,7 +76,9 @@ if command -v authselect >/dev/null; then
     fi
 fi
 
-# Let tmpfiles.d/systemd-resolve.conf handle the symlink
+# Let tmpfiles.d/systemd-resolve.conf handle the symlink. /etc/resolv.conf might be mounted over so undo that
+# if that's the case.
+mountpoint -q /etc/resolv.conf && umount /etc/resolv.conf
 rm -f /etc/resolv.conf
 
 . /usr/lib/os-release
