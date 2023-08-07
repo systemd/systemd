@@ -43,14 +43,23 @@
     <variablelist>
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
+
+     <varlistentry>
+        <term><option>-w</option></term>
+        <term><option>-wait</option></term>
+
+        <listitem><para> Used to make systemd-bsod wait indefinitely for a change in the
+         journal's status if doesn't find any emergency messages on initial attempt.</para></listitem>
+     </varlistentry>
     </variablelist>
+
   </refsect1>
 
   <refsect1>
     <title>Exit status</title>
 
     <para>On success (displaying the journal message successfully), 0 is returned, a non-zero failure code otherwise.</para>
-  </refsect1>
+  </refsect1>i
 
   <refsect1>
     <title>See Also</title>
