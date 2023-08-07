@@ -129,6 +129,15 @@ Deprecations and removals:
 
 Features:
 
+* use sd-event ratelimit feature optionally for .socket units to "pause" overly
+  busy sockets temporarily. (as a less drastic version of the trigger
+  ratelimit)
+
+* similar, add the same for journal stream clients that log too much
+
+* systemd-mount sould only consider modern file systems when mounting, similar
+  to systemd-dissect
+
 * new "systemd-pcrlock" component for dealing with PCR4. Design idea:
   1. define /{etc,usr,var/lib}/pcrlock.d/<component>/<version>.pcrlock
   2. these files contain list of hashes that will be measured when component is
