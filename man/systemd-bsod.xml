@@ -43,6 +43,7 @@
     <variablelist>
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
+      <xi:include href="standard-options.xml" xpointer="wait" />
     </variablelist>
   </refsect1>
 
