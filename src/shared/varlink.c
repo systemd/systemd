@@ -133,6 +133,9 @@ struct Varlink {
         size_t input_buffer_size;
         size_t input_buffer_unscanned;
 
+        void *input_control_buffer;
+        size_t input_control_buffer_size;
+
         char *output_buffer; /* valid data starts at output_buffer_index, ends at output_buffer_index+output_buffer_size */
         size_t output_buffer_index;
         size_t output_buffer_size;
@@ -457,6 +460,9 @@ static void varlink_clear(Varlink *v) {
         v->input_buffer = mfree(v->input_buffer);
         v->output_buffer = v->output_buffer_sensitive ? erase_and_free(v->output_buffer) : mfree(v->output_buffer);
 
+        v->input_control_buffer = mfree(v->input_control_buffer);
+        v->input_control_buffer_size = 0;
+
         varlink_clear_current(v);
 
         close_many(v->output_fds, v->n_output_fds);
@@ -633,7 +639,6 @@ static int varlink_write(Varlink *v) {
 #define VARLINK_FDS_MAX (16U*1024U)
 
 static int varlink_read(Varlink *v) {
-        _cleanup_free_ struct cmsghdr *cmsg_fds = NULL;
         struct iovec iov;
         struct msghdr mh;
         size_t rs;
@@ -687,15 +692,21 @@ static int varlink_read(Varlink *v) {
 
         if (v->allow_fd_passing_input) {
                 iov = IOVEC_MAKE(p, rs);
+
+                /* Allocate the fd buffer on the heap, since we need a lot of space potentially */
+                if (!v->input_control_buffer) {
+                        v->input_control_buffer_size = CMSG_SPACE(sizeof(int) * VARLINK_FDS_MAX);
+                        v->input_control_buffer = malloc(v->input_control_buffer_size);
+                        if (!v->input_control_buffer)
+                                return -ENOMEM;
+                }
+
                 mh = (struct msghdr) {
                         .msg_iov = &iov,
                         .msg_iovlen = 1,
+                        .msg_control = v->input_control_buffer,
+                        .msg_controllen = v->input_control_buffer_size,
                 };
-
-                mh.msg_controllen = CMSG_SPACE(sizeof(int) * VARLINK_FDS_MAX);
-                mh.msg_control = cmsg_fds = malloc(mh.msg_controllen);
-                if (!cmsg_fds)
-                        return -ENOMEM;
 
                 n = recvmsg_safe(v->fd, &mh, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
         } else {
