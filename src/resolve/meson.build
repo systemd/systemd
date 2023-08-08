@@ -220,14 +220,13 @@ if conf.get('ENABLE_RESOLVE') == 1
         install_data('resolv.conf',
                      install_dir : libexecdir)
 
-        install_emptydir(sbindir)
-        meson.add_install_script(sh, '-c',
-                                 ln_s.format(bindir / 'resolvectl',
-                                             sbindir / 'resolvconf'))
+        install_symlink('resolvconf',
+                        pointing_to : sbin_to_bin + 'resolvectl',
+                        install_dir : sbindir)
 
-        meson.add_install_script(sh, '-c',
-                                 ln_s.format(bindir / 'resolvectl',
-                                             bindir / 'systemd-resolve'))
+        install_symlink('systemd-resolve',
+                        pointing_to : 'resolvectl',
+                        install_dir : bindir)
 endif
 
 custom_target(

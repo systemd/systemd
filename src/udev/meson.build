@@ -246,6 +246,15 @@ executables += [
         },
 ]
 
+# Old systems (e.g. CentOS 8), 'systemd-udevd' is a regular file, and install_symlink() command cannot
+# replace existing non-symbolic file. Hence, we need to use 'ln -sf' command here. Let's replace it later
+# with the below when meson supports 'force' flag to replace existing file.
+#
+#assert(fs.parent(fs.parent(libexecdir)) / 'bin' == bindir)
+#install_symlink('systemd-udevd',
+#                pointing_to : '../../bin/udevadm',
+#                install_dir : libexecdir)
+#
 meson.add_install_script(sh, '-c', ln_s.format(bindir / 'udevadm',
                                                libexecdir / 'systemd-udevd'))
 

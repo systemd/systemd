@@ -211,12 +211,17 @@ if install_sysconfdir
         install_emptydir(pkgsysconfdir / 'system')
         install_emptydir(pkgsysconfdir / 'user')
         install_emptydir(sysconfdir / 'xdg/systemd')
-        meson.add_install_script(sh, '-c', ln_s.format(pkgsysconfdir / 'user',
-                                                       sysconfdir / 'xdg/systemd/user'))
+
+        assert(sysconfdir / 'systemd' == pkgsysconfdir)
+        install_symlink('user',
+                        pointing_to : '../../systemd/user',
+                        install_dir : sysconfdir / 'xdg/systemd')
 endif
 
-install_emptydir(sbindir)
-meson.add_install_script(sh, '-c', ln_s.format(libexecdir / 'systemd', sbindir / 'init'))
+assert(fs.parent(sbindir) / 'lib/systemd' == libexecdir)
+install_symlink('init',
+                pointing_to : '../lib/systemd/systemd',
+                install_dir : sbindir)
 
 ############################################################
 
