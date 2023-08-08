@@ -13,14 +13,57 @@
 #include "nulstr-util.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "proc-cmdline.h"
 #include "string-util.h"
 #include "strv.h"
+
+static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
+        int r, *enabled = ASSERT_PTR(data);
+
+        assert(key);
+
+        if (streq(key, "fstab")) {
+
+                r = value ? parse_boolean(value) : 1;
+                if (r < 0)
+                        log_debug_errno(r, "Failed to parse fstab switch '%s', ignoring: %m", value);
+                else
+                        *enabled = r;
+        }
+
+        return 0;
+}
+
+bool fstab_enabled_full(int enabled) {
+        static int cached = -1;
+        int r;
+
+        /* If 'enabled' is non-negative, then update the cache with it. */
+        if (enabled >= 0)
+                cached = enabled;
+
+        if (cached >= 0)
+                return cached;
+
+        r = proc_cmdline_parse(parse_proc_cmdline_item, &cached, PROC_CMDLINE_STRIP_RD_PREFIX);
+        if (r < 0)
+                log_debug_errno(r, "Failed to parse kernel command line, ignoring: %m");
+
+        /* If nothing specified, then defaults to true. */
+        if (cached < 0)
+                cached = true;
+
+        return cached;
+}
 
 int fstab_has_fstype(const char *fstype) {
         _cleanup_endmntent_ FILE *f = NULL;
         struct mntent *m;
 
         assert(fstype);
+
+        if (!fstab_enabled())
+                return false;
 
         f = setmntent(fstab_path(), "re");
         if (!f)
@@ -87,6 +130,9 @@ int fstab_is_mount_point_full(const char *where, const char *path) {
         int r;
 
         assert(where || path);
+
+        if (!fstab_enabled())
+                return false;
 
         f = setmntent(fstab_path(), "re");
         if (!f)
