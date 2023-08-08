@@ -79,8 +79,8 @@ static const char * const vc_env_names[_VC_META_MAX] = {
 static void context_done(Context *c) {
         assert(c);
 
-        for (VCMeta i = 0; i < _VC_META_MAX; i++)
-                free(c->config[i]);
+        FOREACH_ARRAY(cc, c->config, _VC_META_MAX)
+                free(*cc);
 }
 
 static void context_merge_config(
