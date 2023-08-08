@@ -10,7 +10,8 @@ executables += [
 ]
 
 if conf.get('ENABLE_ENVIRONMENT_D') == 1
-        meson.add_install_script(meson_make_symlink,
-                                 sysconfdir / 'environment',
-                                 environmentdir / '99-environment.conf')
+        install_emptydir(environmentdir)
+        meson.add_install_script(sh, '-c',
+                                 ln_s.format(sysconfdir / 'environment',
+                                             environmentdir / '99-environment.conf'))
 endif

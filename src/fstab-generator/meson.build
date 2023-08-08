@@ -7,6 +7,6 @@ executables += [
         },
 ]
 
-meson.add_install_script(meson_make_symlink,
-                         systemgeneratordir / 'systemd-fstab-generator',
-                         libexecdir / 'systemd-sysroot-fstab-check')
+meson.add_install_script(sh, '-c',
+                         ln_s.format(systemgeneratordir / 'systemd-fstab-generator',
+                                     libexecdir / 'systemd-sysroot-fstab-check'))
