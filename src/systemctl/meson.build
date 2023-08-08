@@ -75,7 +75,8 @@ executables += [
 
 foreach alias : (['halt', 'poweroff', 'reboot', 'shutdown'] +
                  (conf.get('HAVE_SYSV_COMPAT') == 1 ? ['runlevel', 'telinit'] : []))
-        meson.add_install_script(meson_make_symlink,
-                                 bindir / 'systemctl',
-                                 sbindir / alias)
+        install_emptydir(sbindir)
+        meson.add_install_script(sh, '-c',
+                                 ln_s.format(bindir / 'systemctl',
+                                             sbindir / alias))
 endforeach
