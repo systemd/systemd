@@ -78,6 +78,9 @@ static int remount_by_fstab(Hashmap **ret_pids) {
 
         assert(ret_pids);
 
+        if (!fstab_enabled())
+                return 0;
+
         f = setmntent(fstab_path(), "re");
         if (!f) {
                 if (errno != ENOENT)
