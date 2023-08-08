@@ -829,7 +829,7 @@ int generator_write_veritysetup_unit_section(
         fprintf(f,
                 "DefaultDependencies=no\n"
                 "IgnoreOnIsolate=true\n"
-                "After=cryptsetup-pre.target systemd-udevd-kernel.socket\n"
+                "After=veritysetup-pre.target systemd-udevd-kernel.socket\n"
                 "Before=blockdev@dev-mapper-%%i.target\n"
                 "Wants=blockdev@dev-mapper-%%i.target\n");
 
