@@ -184,13 +184,8 @@ if install_sysconfdir_samples
 endif
 
 if get_option('create-log-dirs')
-        meson.add_install_script(
-                'sh', '-c',
-                mkdir_p.format('/var/log/journal'))
-        meson.add_install_script(
-                'sh', '-c',
-                '''chown 0:0 $DESTDIR/var/log/journal &&
-                   chmod 755 $DESTDIR/var/log/journal || :''')
+        install_emptydir('/var/log/journal',
+                         install_mode : [ 'rwxr-xr-x', 'root', 'root' ])
         if get_option('adm-group')
                 meson.add_install_script(
                         'sh', '-c',

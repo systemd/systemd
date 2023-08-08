@@ -10,7 +10,8 @@ executables += [
 ]
 
 if conf.get('HAVE_BLKID') == 1
-        meson.add_install_script(meson_make_symlink,
-                                 bindir / 'systemd-dissect',
-                                 sbindir / 'mount.ddi')
+        install_emptydir(sbindir)
+        meson.add_install_script(sh, '-c',
+                                 ln_s.format(bindir / 'systemd-dissect',
+                                             sbindir / 'mount.ddi'))
 endif

@@ -201,20 +201,21 @@ install_data('org.freedesktop.systemd1.conf',
 install_data('org.freedesktop.systemd1.service',
              install_dir : dbussystemservicedir)
 
-meson.add_install_script('sh', '-c', mkdir_p.format(systemshutdowndir))
-meson.add_install_script('sh', '-c', mkdir_p.format(systemsleepdir))
-meson.add_install_script('sh', '-c', mkdir_p.format(systemgeneratordir))
-meson.add_install_script('sh', '-c', mkdir_p.format(usergeneratordir))
+install_emptydir(systemshutdowndir)
+install_emptydir(systemsleepdir)
+install_emptydir(systemgeneratordir)
+install_emptydir(usergeneratordir)
 
 if install_sysconfdir
-        meson.add_install_script('sh', '-c', mkdir_p.format(pkgsysconfdir / 'system'))
-        meson.add_install_script('sh', '-c', mkdir_p.format(pkgsysconfdir / 'user'))
-        meson.add_install_script('sh', '-c', mkdir_p.format(sysconfdir / 'xdg/systemd'))
+        install_emptydir(pkgsysconfdir / 'system')
+        install_emptydir(pkgsysconfdir / 'user')
+        install_emptydir(sysconfdir / 'xdg/systemd')
+        meson.add_install_script(sh, '-c', ln_s.format(pkgsysconfdir / 'user',
+                                                       sysconfdir / 'xdg/systemd/user'))
 endif
 
-meson.add_install_script(meson_make_symlink,
-                         libexecdir / 'systemd',
-                         sbindir / 'init')
+install_emptydir(sbindir)
+meson.add_install_script(sh, '-c', ln_s.format(libexecdir / 'systemd', sbindir / 'init'))
 
 ############################################################
 
