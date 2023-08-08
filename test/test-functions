@@ -1311,6 +1311,7 @@ install_suse_systemd() {
 
     dinfo "Install the data needed by the tests at runtime"
     inst_recursive "${SOURCE_DIR}/testdata"
+    inst_recursive "${SOURCE_DIR}/unit-tests/manual"
 
     # On openSUSE, this directory is not created at package install, at least
     # for now.
