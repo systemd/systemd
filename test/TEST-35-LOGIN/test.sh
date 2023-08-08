@@ -8,6 +8,7 @@ TEST_DESCRIPTION="Tests for systemd-logind"
 . "${TEST_BASE_DIR:?}/test-functions"
 
 test_append_files() {
+    get_bool "${NO_BUILD:-}" && inst "${SOURCE_DIR}/unit-tests/manual/test-session-properties"
     image_install -o evemu-device evemu-event
     instmods uinput
     generate_module_dependencies
