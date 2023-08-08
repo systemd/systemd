@@ -26,7 +26,9 @@ STATIC_DESTRUCTOR_REGISTER(arg_failure_action, freep);
 static int parse(const char *key, const char *value, void *data) {
         int r;
 
-        if (proc_cmdline_key_streq(key, "systemd.run")) {
+        assert(key);
+
+        if (streq(key, "systemd.run")) {
 
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
