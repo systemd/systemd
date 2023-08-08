@@ -229,6 +229,21 @@ static const char * const mount_mode_table[_MOUNT_MODE_MAX] = {
         [MQUEUEFS]             = "mqueuefs",
 };
 
+/* Helper struct for naming simplicity and reusability */
+static const struct {
+        const char *level_env;
+        const char *name_env;
+} image_class_info[_IMAGE_CLASS_MAX] = {
+        [IMAGE_SYSEXT] = {
+                .level_env = "SYSEXT_LEVEL",
+                .name_env = "SYSTEMD_SYSEXT_HIERARCHIES",
+        },
+        [IMAGE_CONFEXT] = {
+                .level_env = "CONFEXT_LEVEL",
+                .name_env = "SYSTEMD_CONFEXT_HIERARCHIES",
+        }
+};
+
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(mount_mode, MountMode);
 
 static const char *mount_entry_path(const MountEntry *p) {
@@ -1231,17 +1246,30 @@ static int mount_image(
                 const ImagePolicy *image_policy) {
 
         _cleanup_free_ char *host_os_release_id = NULL, *host_os_release_version_id = NULL,
-                            *host_os_release_sysext_level = NULL;
+                            *host_os_release_level = NULL, *extension_name = NULL;
+        _cleanup_strv_free_ char **extension_release = NULL;
+        ImageClass class = IMAGE_SYSEXT;
         int r;
 
         assert(m);
 
+        r = path_extract_filename(mount_entry_source(m), &extension_name);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to extract extension name from %s: %m", mount_entry_source(m));
+
         if (m->mode == EXTENSION_IMAGES) {
+                r = load_extension_release_pairs(mount_entry_source(m), IMAGE_SYSEXT, extension_name, /* relax_extension_release_check= */ false, &extension_release);
+                if (r == -ENOENT) {
+                        r = load_extension_release_pairs(mount_entry_source(m), IMAGE_CONFEXT, extension_name, /* relax_extension_release_check= */ false, &extension_release);
+                        if (r >= 0)
+                                class = IMAGE_CONFEXT;
+                }
+
                 r = parse_os_release(
                                 empty_to_root(root_directory),
                                 "ID", &host_os_release_id,
                                 "VERSION_ID", &host_os_release_version_id,
-                                "SYSEXT_LEVEL", &host_os_release_sysext_level,
+                                image_class_info[class].level_env, &host_os_release_level,
                                 NULL);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to acquire 'os-release' data of OS tree '%s': %m", empty_to_root(root_directory));
@@ -1257,7 +1285,7 @@ static int mount_image(
                         image_policy,
                         host_os_release_id,
                         host_os_release_version_id,
-                        host_os_release_sysext_level,
+                        host_os_release_level,
                         NULL);
         if (r == -ENOENT && m->ignore)
                 return 0;
@@ -1268,8 +1296,8 @@ static int mount_image(
                                        host_os_release_id,
                                        host_os_release_version_id ? " VERSION_ID=" : "",
                                        strempty(host_os_release_version_id),
-                                       host_os_release_sysext_level ? " SYSEXT_LEVEL=" : "",
-                                       strempty(host_os_release_sysext_level));
+                                       host_os_release_level ? image_class_info[class].level_env : "",
+                                       strempty(host_os_release_level));
         if (r < 0)
                 return log_debug_errno(r, "Failed to mount image %s on %s: %m", mount_entry_source(m), mount_entry_path(m));
 
@@ -1402,25 +1430,33 @@ static int apply_one_mount(
 
         case EXTENSION_DIRECTORIES: {
                 _cleanup_free_ char *host_os_release_id = NULL, *host_os_release_version_id = NULL,
-                                *host_os_release_sysext_level = NULL, *extension_name = NULL;
+                                *host_os_release_level = NULL, *extension_name = NULL;
                 _cleanup_strv_free_ char **extension_release = NULL;
+                ImageClass class = IMAGE_SYSEXT;
 
                 r = path_extract_filename(mount_entry_source(m), &extension_name);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to extract extension name from %s: %m", mount_entry_source(m));
 
+                r = load_extension_release_pairs(mount_entry_source(m), IMAGE_SYSEXT, extension_name, /* relax_extension_release_check= */ false, &extension_release);
+                if (r == -ENOENT) {
+                        r = load_extension_release_pairs(mount_entry_source(m), IMAGE_CONFEXT, extension_name, /* relax_extension_release_check= */ false, &extension_release);
+                        if (r >= 0)
+                                class = IMAGE_CONFEXT;
+                }
+
                 r = parse_os_release(
                                 empty_to_root(root_directory),
                                 "ID", &host_os_release_id,
                                 "VERSION_ID", &host_os_release_version_id,
-                                "SYSEXT_LEVEL", &host_os_release_sysext_level,
+                                image_class_info[class].level_env, &host_os_release_level,
                                 NULL);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to acquire 'os-release' data of OS tree '%s': %m", empty_to_root(root_directory));
                 if (isempty(host_os_release_id))
                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "'ID' field not found or empty in 'os-release' data of OS tree '%s': %m", empty_to_root(root_directory));
 
-                r = load_extension_release_pairs(mount_entry_source(m), IMAGE_SYSEXT, extension_name, /* relax_extension_release_check= */ false, &extension_release);
+                r = load_extension_release_pairs(mount_entry_source(m), class, extension_name, /* relax_extension_release_check= */ false, &extension_release);
                 if (r == -ENOENT && m->ignore)
                         return 0;
                 if (r < 0)
@@ -1430,10 +1466,10 @@ static int apply_one_mount(
                                 extension_name,
                                 host_os_release_id,
                                 host_os_release_version_id,
-                                host_os_release_sysext_level,
-                                /* host_sysext_scope */ NULL, /* Leave empty, we need to accept both system and portable */
+                                host_os_release_level,
+                                /* host_extension_scope */ NULL, /* Leave empty, we need to accept both system and portable */
                                 extension_release,
-                                IMAGE_SYSEXT);
+                                class);
                 if (r == 0)
                         return log_debug_errno(SYNTHETIC_ERRNO(ESTALE), "Directory %s extension-release metadata does not match the root's", extension_name);
                 if (r < 0)
@@ -2091,6 +2127,7 @@ int setup_namespace(
         }
 
         if (n_extension_images > 0 || !strv_isempty(extension_directories)) {
+                // r = parse_env_extension_hierarchies(&hierarchies, image_class_info[dissected_image->image_class].level_env);
                 r = parse_env_extension_hierarchies(&hierarchies, "SYSTEMD_SYSEXT_HIERARCHIES");
                 if (r < 0)
                         return r;
