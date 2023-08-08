@@ -11,6 +11,9 @@ set -o pipefail
 assert_in "systemd-tmpfiles-setup-dev.service" "$(systemctl show --property After --value systemd-udevd.service)"
 assert_in "systemd-udevd.service" "$(systemctl show --property Before --value systemd-tmpfiles-setup-dev.service)"
 
+assert_in "systemd-tmpfiles-setup.service" "$(systemctl show --property After --value systemd-udevd.service)"
+assert_in "systemd-udevd.service" "$(systemctl show --property Before --value systemd-tmpfiles-setup.service)"
+
 if [[ -f /dev/vfio/vfio ]]; then
    assert_in "crw-rw-rw-" "$(stat --format=%A /dev/vfio/vfio)"
 fi
