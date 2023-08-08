@@ -6,6 +6,14 @@
 
 #include "macro.h"
 
+bool fstab_enabled_full(int enabled);
+static inline bool fstab_enabled(void) {
+        return fstab_enabled_full(-1);
+}
+static inline bool fstab_set_enabled(bool enabled) {
+        return fstab_enabled_full(enabled);
+}
+
 bool fstab_is_extrinsic(const char *mount, const char *opts);
 int fstab_has_fstype(const char *fstype);
 
