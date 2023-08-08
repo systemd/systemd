@@ -452,6 +452,12 @@ static void setup_remaining_vcs(int src_fd, unsigned src_idx, bool utf8) {
                         continue;
                 }
 
+                r = lock_generic(fd_d, LOCK_BSD, LOCK_EX);
+                if (r < 0) {
+                        log_warning_errno(fd_d, "Unable to lock tty%u, fonts will not be copied: %m", i);
+                        continue;
+                }
+
                 if (verify_vc_kbmode(fd_d) < 0)
                         continue;
 
