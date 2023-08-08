@@ -94,4 +94,12 @@ TEST(ecc_pkey_curve_x_y) {
         assert_se(memcmp_nn(y, y_len, y2, y2_size) == 0);
 }
 
+TEST(invalid) {
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = NULL;
+
+        DEFINE_HEX_PTR(key, "2d2d2d2d2d424547494e205055424c4943204b45592d2d2d2d2d0a4d466b7b");
+        assert_se(openssl_pkey_from_pem(key, key_len, &pkey) == -EIO);
+        assert_se(pkey == NULL);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
