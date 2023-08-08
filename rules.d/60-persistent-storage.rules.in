@@ -87,16 +87,18 @@ KERNEL=="pmem*", ATTRS{uuid}=="?*", SYMLINK+="disk/by-id/pmem-$attr{uuid}$env{.P
 KERNEL=="sd*|sr*", ATTRS{ieee1394_id}=="?*", SYMLINK+="disk/by-id/ieee1394-$attr{ieee1394_id}$env{.PART_SUFFIX}"
 
 # MMC
-KERNEL!="mmcblk[0-9]|mmcblk[0-9]p[0-9]*", GOTO="mmc_end"
-SUBSYSTEMS!="mmc", GOTO="mmc_end"
+KERNEL=="mmcblk[0-9]|mmcblk[0-9]p[0-9]*", SUBSYSTEMS=="mmc", GOTO="mmc_start"
+GOTO="mmc_end"
+LABEL="mmc_start"
 ATTRS{name}=="?*", ENV{ID_NAME}="$attr{name}"
 ATTRS{serial}=="?*", ENV{ID_SERIAL}="$attr{serial}"
 ENV{ID_NAME}=="?*", ENV{ID_SERIAL}=="?*", SYMLINK+="disk/by-id/mmc-$env{ID_NAME}_$env{ID_SERIAL}$env{.PART_SUFFIX}"
 LABEL="mmc_end"
 
 # Memstick
-KERNEL!="msblk[0-9]|mspblk[0-9]|msblk[0-9]p[0-9]|mspblk[0-9]p[0-9]", GOTO="memstick_end"
-SUBSYSTEMS!="memstick", GOTO="memstick_end"
+KERNEL=="msblk[0-9]|mspblk[0-9]|msblk[0-9]p[0-9]|mspblk[0-9]p[0-9]", SUBSYSTEMS=="memstick", GOTO="memstick_start"
+GOTO="memstick_end"
+LABEL="memstick_start"
 ATTRS{name}=="?*", ENV{ID_NAME}="$attr{name}"
 ATTRS{serial}=="?*", ENV{ID_SERIAL}="$attr{serial}"
 ENV{ID_NAME}=="?*", ENV{ID_SERIAL}=="?*", SYMLINK+="disk/by-id/memstick-$env{ID_NAME}_$env{ID_SERIAL}$env{.PART_SUFFIX}"

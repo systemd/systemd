@@ -75,20 +75,33 @@ static int md_list_get(RaidDevice **head) {
                 RaidDevice *m;
                 dev_t devnum;
 
-                if (sd_device_get_devnum(d, &devnum) < 0 ||
-                    sd_device_get_devname(d, &dn) < 0)
-                        continue;
-
-                r = sd_device_get_property_value(d, "MD_LEVEL", &md_level);
+                r = sd_device_get_devname(d, &dn);
                 if (r < 0) {
-                        log_warning_errno(r, "Failed to get MD_LEVEL property for %s, ignoring: %m", dn);
+                        log_device_warning_errno(d, r, "Failed to get name of enumerated device, ignoring: %m");
                         continue;
                 }
 
-                /* MD "containers" are a special type of MD devices, used for external metadata.  Since it
-                 * doesn't provide RAID functionality in itself we don't need to stop it. */
-                if (streq(md_level, "container"))
+                r = sd_device_get_devnum(d, &devnum);
+                if (r < 0) {
+                        log_device_warning_errno(d, r, "Failed to get devno of enumerated device '%s', ignoring device: %m", dn);
                         continue;
+                }
+
+                /* MD "containers" are a special type of MD devices, used for external metadata. Since they
+                 * don't provide RAID functionality in themselves we don't need to stop them. Note that the
+                 * MD_LEVEL udev property is set by mdadm in userspace, which is an optional package. Hence
+                 * let's handle gracefully if the property is missing. */
+
+                r = sd_device_get_property_value(d, "MD_LEVEL", &md_level);
+                if (r < 0)
+                        log_device_full_errno(d,
+                                              r == -ENOENT ? LOG_DEBUG : LOG_WARNING,
+                                              r,
+                                              "Failed to get MD_LEVEL property for %s, assuming regular MD device, not a container: %m", dn);
+                else if (streq(md_level, "container")) {
+                        log_device_debug(d, "Skipping MD device '%s' because it is a container MD device.", dn);
+                        continue;
+                }
 
                 p = strdup(dn);
                 if (!p)
