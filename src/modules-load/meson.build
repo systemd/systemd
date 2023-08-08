@@ -10,10 +10,8 @@ executables += [
 ]
 
 if conf.get('HAVE_KMOD') == 1
-        meson.add_install_script('sh', '-c',
-                                 mkdir_p.format(modulesloaddir))
+        install_emptydir(modulesloaddir)
         if install_sysconfdir
-                meson.add_install_script('sh', '-c',
-                                         mkdir_p.format(sysconfdir / 'modules-load.d'))
+                install_emptydir(sysconfdir / 'modules-load.d')
         endif
 endif

@@ -113,10 +113,7 @@ if conf.get('ENABLE_REMOTE') == 1 and conf.get('HAVE_MICROHTTPD') == 1
                      install_dir : pkgdatadir / 'gatewayd')
 
         if get_option('create-log-dirs')
-                meson.add_install_script('sh', '-c',
-                                         mkdir_p.format('/var/log/journal/remote'))
-                meson.add_install_script('sh', '-c',
-                                         '''chown 0:0 $DESTDIR/var/log/journal/remote &&
-                                            chmod 755 $DESTDIR/var/log/journal/remote || :''')
+                install_emptydir('/var/log/journal/remote',
+                                 install_mode : [ 'rwxr-xr-x', 'root', 'root' ])
         endif
 endif
