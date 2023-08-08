@@ -814,7 +814,7 @@
         <term><option>--smart-relinquish-var</option></term>
 
         <listitem><para>Similar to <option>--relinquish-var</option>, but executes no operation if the root
-        file system and <filename>/var/lib/journal/</filename> reside on the same mount point. This operation
+        file system and <filename>/var/log/journal/</filename> reside on the same mount point. This operation
         is used during system shutdown in order to make the journal daemon stop writing data to
         <filename>/var/log/journal/</filename> in case that directory is located on a mount point that needs
         to be unmounted.</para></listitem>
