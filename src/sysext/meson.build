@@ -10,6 +10,7 @@ executables += [
 ]
 
 if conf.get('ENABLE_SYSEXT') == 1
-        meson.add_install_script(sh, '-c', ln_s.format(bindir / 'systemd-sysext',
-                                                       bindir / 'systemd-confext'))
+        install_symlink('systemd-confext',
+                        pointing_to : 'systemd-sysext',
+                        install_dir : bindir)
 endif

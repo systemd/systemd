@@ -10,6 +10,8 @@ executables += [
 ]
 
 if conf.get('ENABLE_ENVIRONMENT_D') == 1
+        # install_symlink() does not support broken symlink, and /etc/environment is not managed by us, thus
+        # may not exist. Hence, we need to create it by using the custom install script here.
         install_emptydir(environmentdir)
         meson.add_install_script(sh, '-c',
                                  ln_s.format(sysconfdir / 'environment',
