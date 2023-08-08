@@ -503,12 +503,12 @@ static void setup_remaining_vcs(int src_fd, unsigned src_idx, bool utf8) {
 static int find_source_vc(char **ret_path, unsigned *ret_idx) {
         int r, err = 0;
 
-        _cleanup_free_ char *path = new(char, sizeof("/dev/tty63"));
-        if (!path)
-                return log_oom();
+        assert(ret_path);
+        assert(ret_idx);
 
         for (unsigned i = 1; i <= 63; i++) {
                 _cleanup_close_ int fd = -EBADF;
+                _cleanup_free_ char *path = NULL;
 
                 r = verify_vc_allocation(i);
                 if (r < 0) {
@@ -517,7 +517,9 @@ static int find_source_vc(char **ret_path, unsigned *ret_idx) {
                         continue;
                 }
 
-                sprintf(path, "/dev/tty%u", i);
+                if (asprintf(&path, "/dev/tty%u", i) < 0)
+                        return log_oom();
+
                 fd = open_terminal(path, O_RDWR|O_CLOEXEC|O_NOCTTY);
                 if (fd < 0) {
                         if (!err)
