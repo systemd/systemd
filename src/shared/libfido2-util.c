@@ -60,10 +60,18 @@ int (*sym_fido_dev_make_cred)(fido_dev_t *, fido_cred_t *, const char *) = NULL;
 fido_dev_t* (*sym_fido_dev_new)(void) = NULL;
 int (*sym_fido_dev_open)(fido_dev_t *, const char *) = NULL;
 int (*sym_fido_dev_close)(fido_dev_t *) = NULL;
+void (*sym_fido_init)(int) = NULL;
+void (*sym_fido_set_log_handler)(fido_log_handler_t *) = NULL;
 const char* (*sym_fido_strerr)(int) = NULL;
 
+static void fido_log_propagate_handler(const char *s) {
+        log_debug("libfido2: %s", strempty(s));
+}
+
 int dlopen_libfido2(void) {
-        return dlopen_many_sym_or_warn(
+        int r;
+
+        r = dlopen_many_sym_or_warn(
                         &libfido2_dl, "libfido2.so.1", LOG_DEBUG,
                         DLSYM_ARG(fido_assert_allow_cred),
                         DLSYM_ARG(fido_assert_free),
@@ -109,7 +117,16 @@ int dlopen_libfido2(void) {
                         DLSYM_ARG(fido_dev_new),
                         DLSYM_ARG(fido_dev_open),
                         DLSYM_ARG(fido_dev_close),
+                        DLSYM_ARG(fido_init),
+                        DLSYM_ARG(fido_set_log_handler),
                         DLSYM_ARG(fido_strerr));
+        if (r < 0)
+                return r;
+
+        sym_fido_init(FIDO_DEBUG);
+        sym_fido_set_log_handler(fido_log_propagate_handler);
+
+        return 0;
 }
 
 static int verify_features(
