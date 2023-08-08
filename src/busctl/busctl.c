@@ -1735,11 +1735,14 @@ static int json_transform_variant(sd_bus_message *m, const char *contents, JsonV
 }
 
 static int json_transform_dict_array(sd_bus_message *m, JsonVariant **ret) {
-        _cleanup_(json_variant_unrefp) JsonVariant *array = NULL;
+        JsonVariant **elements = NULL;
+        size_t n_elements = 0;
         int r;
 
         assert(m);
         assert(ret);
+
+        CLEANUP_ARRAY(elements, n_elements, json_variant_unref_many);
 
         for (;;) {
                 const char *contents;
@@ -1757,28 +1760,31 @@ static int json_transform_dict_array(sd_bus_message *m, JsonVariant **ret) {
 
                 assert(type == 'e');
 
+                if (!GREEDY_REALLOC(elements, n_elements + 2))
+                        return log_oom();
+
                 r = sd_bus_message_enter_container(m, type, contents);
                 if (r < 0)
                         return bus_log_parse_error(r);
 
-                r = json_transform_and_append(m, &array);
+                r = json_transform_one(m, elements + n_elements);
                 if (r < 0)
                         return r;
 
-                r = json_transform_and_append(m, &array);
+                n_elements++;
+
+                r = json_transform_one(m, elements + n_elements);
                 if (r < 0)
                         return r;
+
+                n_elements++;
 
                 r = sd_bus_message_exit_container(m);
                 if (r < 0)
                         return bus_log_parse_error(r);
         }
 
-        if (!array)
-                return json_variant_new_array(ret, NULL, 0);
-
-        *ret = TAKE_PTR(array);
-        return 0;
+        return json_variant_new_object(ret, elements, n_elements);
 }
 
 static int json_transform_one(sd_bus_message *m, JsonVariant **ret) {
