@@ -512,8 +512,9 @@ static int find_source_vc(char **ret_path, unsigned *ret_idx) {
 
                 r = verify_vc_allocation(i);
                 if (r < 0) {
-                        if (!err)
-                                err = -r;
+                        log_debug_errno(r, "VC %u existance check failed, skipping: %m", i);
+                        if (err >= 0)
+                                err = r;
                         continue;
                 }
 
@@ -522,14 +523,16 @@ static int find_source_vc(char **ret_path, unsigned *ret_idx) {
 
                 fd = open_terminal(path, O_RDWR|O_CLOEXEC|O_NOCTTY);
                 if (fd < 0) {
-                        if (!err)
-                                err = -fd;
+                        log_debug_errno(fd, "Failed to open terminal %s, ignoring: %m", path);
+                        if (err >= 0)
+                                err = fd;
                         continue;
                 }
                 r = verify_vc_kbmode(fd);
                 if (r < 0) {
-                        if (!err)
-                                err = -r;
+                        log_debug_errno(r, "Failed to check VC %s keyboard mode: %m", path);
+                        if (err >= 0)
+                                err = r;
                         continue;
                 }
 
