@@ -146,7 +146,7 @@ static void test_message_handler(void) {
         test.option_type.code = 0;
         test.option_type.length = 0;
         test.option_type.type = 0;
-        assert_se(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test)) == 0);
+        assert_se(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test)) == -ENOMSG);
         test.option_type.code = SD_DHCP_OPTION_MESSAGE_TYPE;
         test.option_type.length = 1;
         test.option_type.type = DHCP_DISCOVER;
