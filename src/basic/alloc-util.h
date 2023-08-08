@@ -147,6 +147,7 @@ static inline void *memdup_suffix0_multiply(const void *p, size_t size, size_t n
 
 void* greedy_realloc(void **p, size_t need, size_t size);
 void* greedy_realloc0(void **p, size_t need, size_t size);
+void* greedy_realloc_prepend(void **p, size_t *n_p, const void *from, size_t n_from, size_t size);
 void* greedy_realloc_append(void **p, size_t *n_p, const void *from, size_t n_from, size_t size);
 
 #define GREEDY_REALLOC(array, need)                                     \
@@ -154,6 +155,9 @@ void* greedy_realloc_append(void **p, size_t *n_p, const void *from, size_t n_fr
 
 #define GREEDY_REALLOC0(array, need)                                    \
         greedy_realloc0((void**) &(array), (need), sizeof((array)[0]))
+
+#define GREEDY_REALLOC_PREPEND(array, n_array, from, n_from)            \
+        greedy_realloc_prepend((void**) &(array), (size_t*) &(n_array), (from), (n_from), sizeof((array)[0]))
 
 #define GREEDY_REALLOC_APPEND(array, n_array, from, n_from)             \
         greedy_realloc_append((void**) &(array), (size_t*) &(n_array), (from), (n_from), sizeof((array)[0]))
