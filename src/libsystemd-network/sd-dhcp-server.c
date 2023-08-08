@@ -1121,7 +1121,7 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message, siz
 
         type = dhcp_option_parse(message, length, parse_request, req, &error_message);
         if (type < 0)
-                return 0;
+                return type;
 
         r = ensure_sane_request(server, req, message);
         if (r < 0)
