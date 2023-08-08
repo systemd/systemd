@@ -29,6 +29,7 @@
 #include "locale-util.h"
 #include "lock-util.h"
 #include "log.h"
+#include "main-func.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
 #include "signal-util.h"
@@ -78,8 +79,8 @@ static const char * const vc_env_names[_VC_META_MAX] = {
 static void context_done(Context *c) {
         assert(c);
 
-        for (VCMeta i = 0; i < _VC_META_MAX; i++)
-                free(c->config[i]);
+        FOREACH_ARRAY(cc, c->config, _VC_META_MAX)
+                free(*cc);
 }
 
 static void context_merge_config(
@@ -502,31 +503,36 @@ static void setup_remaining_vcs(int src_fd, unsigned src_idx, bool utf8) {
 static int find_source_vc(char **ret_path, unsigned *ret_idx) {
         int r, err = 0;
 
-        _cleanup_free_ char *path = new(char, sizeof("/dev/tty63"));
-        if (!path)
-                return log_oom();
+        assert(ret_path);
+        assert(ret_idx);
 
         for (unsigned i = 1; i <= 63; i++) {
                 _cleanup_close_ int fd = -EBADF;
+                _cleanup_free_ char *path = NULL;
 
                 r = verify_vc_allocation(i);
                 if (r < 0) {
-                        if (!err)
-                                err = -r;
+                        log_debug_errno(r, "VC %u existance check failed, skipping: %m", i);
+                        if (err >= 0)
+                                err = r;
                         continue;
                 }
 
-                sprintf(path, "/dev/tty%u", i);
+                if (asprintf(&path, "/dev/tty%u", i) < 0)
+                        return log_oom();
+
                 fd = open_terminal(path, O_RDWR|O_CLOEXEC|O_NOCTTY);
                 if (fd < 0) {
-                        if (!err)
-                                err = -fd;
+                        log_debug_errno(fd, "Failed to open terminal %s, ignoring: %m", path);
+                        if (err >= 0)
+                                err = fd;
                         continue;
                 }
                 r = verify_vc_kbmode(fd);
                 if (r < 0) {
-                        if (!err)
-                                err = -r;
+                        log_debug_errno(r, "Failed to check VC %s keyboard mode: %m", path);
+                        if (err >= 0)
+                                err = r;
                         continue;
                 }
 
@@ -568,7 +574,7 @@ static int verify_source_vc(char **ret_path, const char *src_vc) {
         return TAKE_FD(fd);
 }
 
-int main(int argc, char **argv) {
+static int run(int argc, char **argv) {
         _cleanup_(context_done) Context c = {};
         _cleanup_free_ char *vc = NULL;
         _cleanup_close_ int fd = -EBADF;
@@ -585,7 +591,7 @@ int main(int argc, char **argv) {
         else
                 fd = find_source_vc(&vc, &idx);
         if (fd < 0)
-                return EXIT_FAILURE;
+                return fd;
 
         utf8 = is_locale_utf8();
 
@@ -594,10 +600,8 @@ int main(int argc, char **argv) {
         /* Take lock around the remaining operation to avoid being interrupted by a tty reset operation
          * performed for services with TTYVHangup=yes. */
         r = lock_generic(fd, LOCK_BSD, LOCK_EX);
-        if (r < 0) {
-                log_error_errno(r, "Failed to lock console: %m");
-                return EXIT_FAILURE;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to lock console: %m");
 
         (void) toggle_utf8_sysfs(utf8);
         (void) toggle_utf8_vc(vc, fd, utf8);
@@ -619,3 +623,5 @@ int main(int argc, char **argv) {
 
         return IN_SET(r, 0, EX_OSERR) && keyboard_ok ? EXIT_SUCCESS : EXIT_FAILURE;
 }
+
+DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run);
