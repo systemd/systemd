@@ -1367,7 +1367,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (r < 0)
                         log_warning("Failed to parse fstab switch %s. Ignoring.", value);
                 else
-                        arg_fstab_enabled = r;
+                        arg_fstab_enabled = fstab_set_enabled(r);
 
         } else if (streq(key, "root")) {
 
