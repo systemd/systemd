@@ -61,6 +61,8 @@ extern int (*sym_fido_dev_make_cred)(fido_dev_t *, fido_cred_t *, const char *);
 extern fido_dev_t* (*sym_fido_dev_new)(void);
 extern int (*sym_fido_dev_open)(fido_dev_t *, const char *);
 extern int (*sym_fido_dev_close)(fido_dev_t *);
+extern void (*sym_fido_init)(int);
+extern void (*sym_fido_set_log_handler)(fido_log_handler_t *);
 extern const char* (*sym_fido_strerr)(int);
 
 int dlopen_libfido2(void);
