@@ -29,6 +29,7 @@
 #include "locale-util.h"
 #include "lock-util.h"
 #include "log.h"
+#include "main-func.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
 #include "signal-util.h"
@@ -568,7 +569,7 @@ static int verify_source_vc(char **ret_path, const char *src_vc) {
         return TAKE_FD(fd);
 }
 
-int main(int argc, char **argv) {
+static int run(int argc, char **argv) {
         _cleanup_(context_done) Context c = {};
         _cleanup_free_ char *vc = NULL;
         _cleanup_close_ int fd = -EBADF;
@@ -585,7 +586,7 @@ int main(int argc, char **argv) {
         else
                 fd = find_source_vc(&vc, &idx);
         if (fd < 0)
-                return EXIT_FAILURE;
+                return fd;
 
         utf8 = is_locale_utf8();
 
@@ -594,10 +595,8 @@ int main(int argc, char **argv) {
         /* Take lock around the remaining operation to avoid being interrupted by a tty reset operation
          * performed for services with TTYVHangup=yes. */
         r = lock_generic(fd, LOCK_BSD, LOCK_EX);
-        if (r < 0) {
-                log_error_errno(r, "Failed to lock console: %m");
-                return EXIT_FAILURE;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to lock console: %m");
 
         (void) toggle_utf8_sysfs(utf8);
         (void) toggle_utf8_vc(vc, fd, utf8);
@@ -619,3 +618,5 @@ int main(int argc, char **argv) {
 
         return IN_SET(r, 0, EX_OSERR) && keyboard_ok ? EXIT_SUCCESS : EXIT_FAILURE;
 }
+
+DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run);
