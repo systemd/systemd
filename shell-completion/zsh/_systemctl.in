@@ -194,10 +194,10 @@ __systemctl()
     }
 
 (( $+functions[_systemctl_get_non_template_names] )) ||
-    _systemctl_get_non_template_names() { echo -E - ${^${(R)${(f)"$(
-    __systemctl list-unit-files
-    __systemctl list-units --all
-  )"}:#*@.*}%%[[:space:]]*} }
+    _systemctl_get_non_template_names() {
+        _systemctl_really_all_units
+        print -r - ${_sys_really_all_units:#*@.*}
+    }
 
 (( $+functions[_systemctl_get_template_names] )) ||
     _systemctl_get_template_names() {
@@ -206,23 +206,37 @@ __systemctl()
     }
 
 (( $+functions[_systemctl_active_units] )) ||
-    _systemctl_active_units()  {_sys_active_units=(  ${${(f)"$(__systemctl list-units)"}%% *} )}
+    _systemctl_active_units()  {
+        local pattern
+        if zstyle -T ":completion:$curcontext" use-pattern; then
+            pattern="$PREFIX*$SUFFIX"
+        fi
+        _sys_active_units=(  ${${(f)"$(__systemctl list-units $pattern)"}%% *} )
+    }
 
 (( $+functions[_systemctl_startable_units] )) ||
     _systemctl_startable_units(){
+        local pattern
+        if zstyle -T ":completion:$curcontext" use-pattern; then
+            pattern="$PREFIX*$SUFFIX"
+        fi
         _sys_startable_units=( $( _filter_units_by_property ActiveState inactive $(
                                       _filter_units_by_property CanStart yes ${${${(f)"$(
-      __systemctl list-unit-files --state enabled,enabled-runtime,linked,linked-runtime,static,indirect,disabled,generated,transient
-      __systemctl list-units --state inactive,failed
+      __systemctl list-unit-files --state enabled,enabled-runtime,linked,linked-runtime,static,indirect,disabled,generated,transient $pattern
+      __systemctl list-units --state inactive,failed $pattern
     )"}:#*@.*}%%[[:space:]]*}
                                                             )) )
     }
 
 (( $+functions[_systemctl_restartable_units] )) ||
     _systemctl_restartable_units(){
+        local pattern
+        if zstyle -T ":completion:$curcontext" use-pattern; then
+            pattern="$PREFIX*$SUFFIX"
+        fi
         _sys_restartable_units=( $( _filter_units_by_property CanStart yes ${${${(f)"$(
-    __systemctl list-unit-files --state enabled,disabled,static
-    __systemctl list-units
+    __systemctl list-unit-files --state enabled,disabled,static $pattern
+    __systemctl list-units $pattern
   )"}:#*@.*}%%[[:space:]]*} ) )
     }
 
@@ -232,8 +246,12 @@ __systemctl()
 (( $+functions[_systemctl_unit_state] )) ||
     _systemctl_unit_state() {
         setopt localoptions extendedglob
+        local pattern
+        if zstyle -T ":completion:$curcontext" use-pattern; then
+            pattern="$PREFIX*$SUFFIX"
+        fi
         typeset -gA _sys_unit_state
-        _sys_unit_state=( ${=${${(f)"$(__systemctl list-unit-files)"}%%[[:space:]]#}% *} )
+        _sys_unit_state=( ${=${${(f)"$(__systemctl list-unit-files $pattern)"}%%[[:space:]]#}% *} )
     }
 
 local fun
