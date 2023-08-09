@@ -240,7 +240,7 @@ static int get_port_specifier(sd_device *dev, bool fallback_to_dev_id, char **re
                         if (vf_id >= 0) {
                                 /* For VF representor append 'r<VF_NUM>'. */
                                 if (asprintf(&buf, "r%d", vf_id) < 0)
-                                        return -ENOMEM;
+                                        return log_oom_debug();
 
                                 *ret = buf;
                                 return 1;
@@ -249,7 +249,7 @@ static int get_port_specifier(sd_device *dev, bool fallback_to_dev_id, char **re
 
                 /* Otherwise, use phys_port_name as is. */
                 if (asprintf(&buf, "n%s", phys_port_name) < 0)
-                        return -ENOMEM;
+                        return log_oom_debug();
 
                 *ret = buf;
                 return 1;
@@ -259,11 +259,11 @@ static int get_port_specifier(sd_device *dev, bool fallback_to_dev_id, char **re
          * function. */
         r = get_dev_port(dev, fallback_to_dev_id, &dev_port);
         if (r < 0)
-                return r;
+                return log_device_debug_errno(dev, r, "Failed to get device port index: %m");
         if (r > 0) {
                 assert(dev_port > 0);
                 if (asprintf(&buf, "d%u", dev_port) < 0)
-                        return -ENOMEM;
+                        return log_oom_debug();
 
                 *ret = buf;
                 return 1;
@@ -296,7 +296,7 @@ static int pci_get_onboard_index(sd_device *dev, unsigned *ret) {
                 /* SMBIOS type 41 — Onboard Devices Extended Information */
                 r = device_get_sysattr_unsigned(dev, "index", &idx);
         if (r < 0)
-                return r;
+                return log_device_debug_errno(dev, r, "Could not obtain onboard index: %m");
 
         if (idx == 0 && !naming_scheme_has(NAMING_ZERO_ACPI_INDEX))
                 return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL),
@@ -348,7 +348,7 @@ static int names_pci_onboard_label(sd_device *dev, sd_device *pci_dev, const cha
         /* retrieve on-board label from firmware */
         r = sd_device_get_sysattr_value(pci_dev, "label", &label);
         if (r < 0)
-                return r;
+                return log_device_debug_errno(pci_dev, r, "Failed to get PCI onboard label: %m");
 
         char str[ALTIFNAMSIZ];
         if (snprintf_ok(str, sizeof str, "%s%s",
@@ -502,7 +502,7 @@ static int pci_get_hotplug_slot_from_address(
 
                 path = path_join("slots", de->d_name, "address");
                 if (!path)
-                        return -ENOMEM;
+                        return log_oom_debug();
 
                 if (sd_device_get_sysattr_value(pci, path, &address) < 0)
                         continue;
@@ -597,10 +597,9 @@ static int get_pci_slot_specifiers(
                 return log_device_debug_errno(dev, r, "Failed to get sysname: %m");
 
         r = sscanf(sysname, "%x:%x:%x.%u", &domain, &bus, &slot, &func);
-        log_device_debug(dev, "Parsing slot information from PCI device sysname \"%s\": %s",
-                         sysname, r == 4 ? "success" : "failure");
         if (r != 4)
-                return -EINVAL;
+                return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL),
+                                              "Failed to parse slot information from PCI device sysname.");
 
         if (naming_scheme_has(NAMING_NPAR_ARI) &&
             is_pci_ari_enabled(dev))
@@ -610,14 +609,14 @@ static int get_pci_slot_specifiers(
                 func += slot * 8;
 
         if (domain > 0 && asprintf(&domain_spec, "P%u", domain) < 0)
-                return -ENOMEM;
+                return log_oom_debug();
 
         if (asprintf(&bus_and_slot_spec, "p%us%u", bus, slot) < 0)
-                return -ENOMEM;
+                return log_oom_debug();
 
         if ((func > 0 || is_pci_multifunction(dev) > 0) &&
             asprintf(&func_spec, "f%u", func) < 0)
-                return -ENOMEM;
+                return log_oom_debug();
 
         *ret_domain = TAKE_PTR(domain_spec);
         *ret_bus_and_slot = TAKE_PTR(bus_and_slot_spec);
@@ -797,24 +796,24 @@ static int names_devicetree(sd_device *dev, const char *prefix, bool test) {
         /* check if our direct parent has an of_node */
         r = sd_device_get_parent(dev, &parent);
         if (r < 0)
-                return r;
+                return log_device_debug_errno(dev, r, "Failed to get parent device: %m");
 
         r = sd_device_new_child(&ofnode_dev, parent, "of_node");
         if (r < 0)
-                return r;
+                return log_device_debug_errno(parent, r, "Failed to get 'of_node' child device: %m");
 
         r = sd_device_get_syspath(ofnode_dev, &ofnode_syspath);
         if (r < 0)
-                return r;
+                return log_device_debug_errno(ofnode_dev, r, "Failed to get syspath: %m");
 
         /* /proc/device-tree should be a symlink to /sys/firmware/devicetree/base. */
         r = sd_device_new_from_path(&devicetree_dev, "/proc/device-tree");
         if (r < 0)
-                return r;
+                return log_debug_errno(r, "Failed to create sd-device object from '/proc/device-tree': %m");
 
         r = sd_device_get_syspath(devicetree_dev, &devicetree_syspath);
         if (r < 0)
-                return r;
+                return log_device_debug_errno(devicetree_dev, r, "Failed to get syspath: %m");
 
         /*
          * Example paths:
@@ -824,7 +823,9 @@ static int names_devicetree(sd_device *dev, const char *prefix, bool test) {
          */
         ofnode_path = path_startswith(ofnode_syspath, devicetree_syspath);
         if (!ofnode_path)
-                return -ENOENT;
+                return log_device_debug_errno(ofnode_dev, SYNTHETIC_ERRNO(EINVAL),
+                                              "The device '%s' is not a child device of '%s': %m",
+                                              ofnode_syspath, devicetree_syspath);
 
         /* Get back our leading / to match the contents of the aliases */
         ofnode_path--;
@@ -832,7 +833,8 @@ static int names_devicetree(sd_device *dev, const char *prefix, bool test) {
 
         r = sd_device_new_child(&aliases_dev, devicetree_dev, "aliases");
         if (r < 0)
-                return r;
+                return log_device_debug_errno(devicetree_dev, r,
+                                              "Failed to get 'aliases' child device: %m");
 
         FOREACH_DEVICE_SYSATTR(aliases_dev, alias) {
                 const char *alias_path, *alias_index, *conflict;
@@ -983,7 +985,7 @@ static int names_usb(sd_device *dev, const char *prefix, bool test) {
                 return names_pci_slot(dev, pcidev, prefix, suffix, test);
 
         if (r != -ENOENT || !naming_scheme_has(NAMING_USB_HOST))
-                return r;
+                return log_device_debug_errno(usbdev, r, "Failed to get parent PCI bus: %m");
 
         /* Otherwise, e.g. on-chip asics that have USB ports, use the USB specifier as is. */
         char str[ALTIFNAMSIZ];
@@ -1075,8 +1077,7 @@ static int names_ccw(sd_device *dev, const char *prefix, bool test) {
          */
         bus_id_len = strlen(bus_id);
         if (!IN_SET(bus_id_len, 8, 9))
-                return log_device_debug_errno(cdev, SYNTHETIC_ERRNO(EINVAL),
-                                              "Invalid bus_id: %s", bus_id);
+                return log_device_debug_errno(cdev, SYNTHETIC_ERRNO(EINVAL), "Invalid bus_id: %s", bus_id);
 
         /* Strip leading zeros from the bus id for aesthetic purposes. This
          * keeps the ccw names stable, yet much shorter in general case of
@@ -1195,17 +1196,18 @@ static int names_netdevsim(sd_device *dev, const char *prefix, bool test) {
 
         r = sd_device_get_sysnum(netdevsimdev, &sysnum);
         if (r < 0)
-                return r;
+                return log_device_debug_errno(netdevsimdev, r, "Failed to get device sysnum: %m");
 
         r = safe_atou(sysnum, &addr);
         if (r < 0)
-                return r;
+                return log_device_debug_errno(netdevsimdev, r, "Failed to parse device sysnum: %m");
 
         r = sd_device_get_sysattr_value(dev, "phys_port_name", &phys_port_name);
         if (r < 0)
-                return r;
+                return log_device_debug_errno(dev, r, "Failed to get 'phys_port_name' attribute: %m");
         if (isempty(phys_port_name))
-                return -EOPNOTSUPP;
+                return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                              "The 'phys_port_name' attribute is empty.");
 
         char str[ALTIFNAMSIZ];
         if (snprintf_ok(str, sizeof str, "%si%un%s", prefix, addr, phys_port_name))
@@ -1322,8 +1324,10 @@ static int builtin_net_id(UdevEvent *event, int argc, char *argv[], bool test) {
 
         /* skip stacked devices, like VLANs, ... */
         r = device_is_stacked(dev);
-        if (r != 0)
-                return r;
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to check if the device is stacked: %m");
+        if (r > 0)
+                return 0;
 
         r = get_ifname_prefix(dev, &prefix);
         if (r < 0) {
