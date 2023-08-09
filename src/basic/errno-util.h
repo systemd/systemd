@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <inttypes.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -96,14 +97,16 @@ static inline int errno_or_else(int fallback) {
 
 /* abs(3) says: Trying to take the absolute value of the most negative integer is not defined. */
 #define _DEFINE_ABS_WRAPPER(name)                         \
-        static inline bool ERRNO_IS_##name(int r) {       \
-                if (r == INT_MIN)                         \
+        static inline bool ERRNO_IS_##name(intmax_t r) {  \
+                if (r == INTMAX_MIN)                      \
                         return false;                     \
-                return ERRNO_IS_NEG_##name(-abs(r));      \
+                return ERRNO_IS_NEG_##name(-imaxabs(r));  \
         }
 
+assert_cc(INT_MAX <= INTMAX_MAX);
+
 /* For send()/recv() or read()/write(). */
-static inline bool ERRNO_IS_NEG_TRANSIENT(int r) {
+static inline bool ERRNO_IS_NEG_TRANSIENT(intmax_t r) {
         return IN_SET(r,
                       -EAGAIN,
                       -EINTR);
@@ -117,7 +120,7 @@ _DEFINE_ABS_WRAPPER(TRANSIENT);
  *
  * Hint #3: When asynchronous connect() on TCP fails because the host never acknowledges a single packet,
  *          kernel tells us that with ETIMEDOUT, see tcp(7). */
-static inline bool ERRNO_IS_NEG_DISCONNECT(int r) {
+static inline bool ERRNO_IS_NEG_DISCONNECT(intmax_t r) {
         return IN_SET(r,
                       -ECONNABORTED,
                       -ECONNREFUSED,
@@ -139,7 +142,7 @@ _DEFINE_ABS_WRAPPER(DISCONNECT);
 
 /* Transient errors we might get on accept() that we should ignore. As per error handling comment in
  * the accept(2) man page. */
-static inline bool ERRNO_IS_NEG_ACCEPT_AGAIN(int r) {
+static inline bool ERRNO_IS_NEG_ACCEPT_AGAIN(intmax_t r) {
         return ERRNO_IS_NEG_DISCONNECT(r) ||
                 ERRNO_IS_NEG_TRANSIENT(r) ||
                 r == -EOPNOTSUPP;
@@ -147,7 +150,7 @@ static inline bool ERRNO_IS_NEG_ACCEPT_AGAIN(int r) {
 _DEFINE_ABS_WRAPPER(ACCEPT_AGAIN);
 
 /* Resource exhaustion, could be our fault or general system trouble */
-static inline bool ERRNO_IS_NEG_RESOURCE(int r) {
+static inline bool ERRNO_IS_NEG_RESOURCE(intmax_t r) {
         return IN_SET(r,
                       -EMFILE,
                       -ENFILE,
@@ -156,7 +159,7 @@ static inline bool ERRNO_IS_NEG_RESOURCE(int r) {
 _DEFINE_ABS_WRAPPER(RESOURCE);
 
 /* Seven different errors for "operation/system call/ioctl/socket feature not supported" */
-static inline bool ERRNO_IS_NEG_NOT_SUPPORTED(int r) {
+static inline bool ERRNO_IS_NEG_NOT_SUPPORTED(intmax_t r) {
         return IN_SET(r,
                       -EOPNOTSUPP,
                       -ENOTTY,
@@ -169,7 +172,7 @@ static inline bool ERRNO_IS_NEG_NOT_SUPPORTED(int r) {
 _DEFINE_ABS_WRAPPER(NOT_SUPPORTED);
 
 /* Two different errors for access problems */
-static inline bool ERRNO_IS_NEG_PRIVILEGE(int r) {
+static inline bool ERRNO_IS_NEG_PRIVILEGE(intmax_t r) {
         return IN_SET(r,
                       -EACCES,
                       -EPERM);
@@ -177,7 +180,7 @@ static inline bool ERRNO_IS_NEG_PRIVILEGE(int r) {
 _DEFINE_ABS_WRAPPER(PRIVILEGE);
 
 /* Three different errors for "not enough disk space" */
-static inline bool ERRNO_IS_NEG_DISK_SPACE(int r) {
+static inline bool ERRNO_IS_NEG_DISK_SPACE(intmax_t r) {
         return IN_SET(r,
                       -ENOSPC,
                       -EDQUOT,
@@ -186,7 +189,7 @@ static inline bool ERRNO_IS_NEG_DISK_SPACE(int r) {
 _DEFINE_ABS_WRAPPER(DISK_SPACE);
 
 /* Three different errors for "this device does not quite exist" */
-static inline bool ERRNO_IS_NEG_DEVICE_ABSENT(int r) {
+static inline bool ERRNO_IS_NEG_DEVICE_ABSENT(intmax_t r) {
         return IN_SET(r,
                       -ENODEV,
                       -ENXIO,
@@ -196,7 +199,7 @@ _DEFINE_ABS_WRAPPER(DEVICE_ABSENT);
 
 /* Quite often we want to handle cases where the backing FS doesn't support extended attributes at all and
  * where it simply doesn't have the requested xattr the same way */
-static inline bool ERRNO_IS_NEG_XATTR_ABSENT(int r) {
+static inline bool ERRNO_IS_NEG_XATTR_ABSENT(intmax_t r) {
         return r == -ENODATA ||
                 ERRNO_IS_NEG_NOT_SUPPORTED(r);
 }
