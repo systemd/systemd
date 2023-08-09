@@ -8,6 +8,8 @@
 int verb_systemd_efi_options(int argc, char *argv[], void *userdata) {
         int r;
 
+        /* This is obsolete and subject to removal */
+
         if (!arg_quiet)
                 log_notice("Use of the SystemdOptions EFI variable is deprecated.");
 

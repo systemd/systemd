@@ -142,8 +142,6 @@ static int help(int argc, char *argv[], void *userdata) {
                "  status               Show status of installed boot loader and EFI variables\n"
                "  reboot-to-firmware [BOOL]\n"
                "                       Query or set reboot-to-firmware EFI flag\n"
-               "  systemd-efi-options [STRING]\n"
-               "                       Query or set system options string in EFI variable\n"
                "\n%3$sBoot Loader Specification Commands:%4$s\n"
                "  list                 List boot loader entries\n"
                "  unlink ID            Remove boot loader entry\n"

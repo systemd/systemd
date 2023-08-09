@@ -69,19 +69,6 @@
         <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
         for details.</para></listitem>
       </varlistentry>
-
-      <varlistentry>
-        <term><option>systemd-efi-options</option> <optional><replaceable>STRING</replaceable></optional></term>
-
-        <listitem><para>When called without the optional argument, prints the current value of the
-        <literal>SystemdOptions</literal> EFI variable. When called with an argument, sets the variable to
-        that value. See
-        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry> for the
-        meaning of that variable.</para>
-
-        <para>Note: use of <literal>SystemdOptions</literal> and this command is deprecated.</para>
-        </listitem>
-      </varlistentry>
     </variablelist>
   </refsect1>
 
