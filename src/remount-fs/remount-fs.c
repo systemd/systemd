@@ -69,11 +69,46 @@ static int do_remount(const char *path, bool force_rw, Hashmap **pids) {
         return track_pid(pids, path, pid);
 }
 
-static int run(int argc, char *argv[]) {
+static int remount_by_fstab(Hashmap **ret_pids) {
         _cleanup_hashmap_free_free_ Hashmap *pids = NULL;
         _cleanup_endmntent_ FILE *f = NULL;
         bool has_root = false;
         struct mntent* me;
+        int r;
+
+        assert(ret_pids);
+
+        if (!fstab_enabled())
+                return 0;
+
+        f = setmntent(fstab_path(), "re");
+        if (!f) {
+                if (errno != ENOENT)
+                        return log_error_errno(errno, "Failed to open %s: %m", fstab_path());
+
+                return 0;
+        }
+
+        while ((me = getmntent(f))) {
+                /* Remount the root fs, /usr, and all API VFSs */
+                if (!mount_point_is_api(me->mnt_dir) &&
+                    !PATH_IN_SET(me->mnt_dir, "/", "/usr"))
+                        continue;
+
+                if (path_equal(me->mnt_dir, "/"))
+                        has_root = true;
+
+                r = do_remount(me->mnt_dir, false, &pids);
+                if (r < 0)
+                        return r;
+        }
+
+        *ret_pids = TAKE_PTR(pids);
+        return has_root;
+}
+
+static int run(int argc, char *argv[]) {
+        _cleanup_hashmap_free_free_ Hashmap *pids = NULL;
         int r;
 
         log_setup();
@@ -84,26 +119,10 @@ static int run(int argc, char *argv[]) {
 
         umask(0022);
 
-        f = setmntent(fstab_path(), "re");
-        if (!f) {
-                if (errno != ENOENT)
-                        return log_error_errno(errno, "Failed to open %s: %m", fstab_path());
-        } else
-                while ((me = getmntent(f))) {
-                        /* Remount the root fs, /usr, and all API VFSs */
-                        if (!mount_point_is_api(me->mnt_dir) &&
-                            !PATH_IN_SET(me->mnt_dir, "/", "/usr"))
-                                continue;
-
-                        if (path_equal(me->mnt_dir, "/"))
-                                has_root = true;
-
-                        r = do_remount(me->mnt_dir, false, &pids);
-                        if (r < 0)
-                                return r;
-                }
-
-        if (!has_root) {
+        r = remount_by_fstab(&pids);
+        if (r < 0)
+                return r;
+        if (r == 0) {
                 /* The $SYSTEMD_REMOUNT_ROOT_RW environment variable is set by systemd-gpt-auto-generator to tell us
                  * whether to remount things. We honour it only if there's no explicit line in /etc/fstab configured
                  * which takes precedence. */
