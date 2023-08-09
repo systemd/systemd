@@ -20,7 +20,7 @@
 #include "user-util.h"
 #include "utmp-wtmp.h"
 
-_const_ static usec_t when_wall(usec_t n, usec_t elapse) {
+static usec_t when_wall(usec_t n, usec_t elapse) {
         static const int wall_timers[] = {
                 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
                 25, 40, 55, 70, 100, 130, 150, 180,
