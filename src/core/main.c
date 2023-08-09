@@ -1872,7 +1872,8 @@ static int do_reexecute(
          * SIGCHLD for them after deserializing. */
         if (IN_SET(objective, MANAGER_SWITCH_ROOT, MANAGER_SOFT_REBOOT))
                 broadcast_signal(SIGTERM, /* wait_for_exit= */ false, /* send_sighup= */ true, arg_default_timeout_stop_usec);
-        /* On soft reboot really make sure nothing is left */
+        /* On soft reboot really make sure nothing is left. Note that this will skip cgroups
+         * of units that were configured with Survive=yes. */
         if (objective == MANAGER_SOFT_REBOOT)
                 broadcast_signal(SIGKILL, /* wait_for_exit= */ false, /* send_sighup= */ false, arg_default_timeout_stop_usec);
 
