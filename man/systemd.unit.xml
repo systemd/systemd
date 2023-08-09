@@ -980,6 +980,20 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>SurviveSystemTransition=</varname></term>
+
+        <listitem><para>Takes a boolean argument. Defaults to <option>no</option>. If <option>yes</option>,
+        the unit will be configured to survive a switch root from inirtd/to exitrd, or a soft reboot (see:
+        <citerefentry><refentrytitle>systemd-soft-reboot.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>).
+        This will ensure the unit is stopped normally during reboot or shutdown operations, but it survives
+        switch root or soft reboot by not being stopped on the way down or on the way back up.
+        This is a similar but enhanced mechanism with regards to setting <literal>argv[0][0] = '@'</literal>
+        as described at <ulink url="https://systemd.io/ROOT_STORAGE_DAEMONS">systemd and Storage Daemons for
+        the Root File System</ulink>, but automatically provides additional features such as ensuring the
+        unit is not stopped as part of the shutdown transition or an isolate operation.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>CollectMode=</varname></term>
 
         <listitem><para>Tweaks the "garbage collection" algorithm for this unit. Takes one of <option>inactive</option>

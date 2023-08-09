@@ -79,11 +79,11 @@
     reboot operation. Specifically:</para>
 
     <itemizedlist>
-      <listitem><para>File descriptors placed in the file descriptor store of services that remain active
-      until the very end are passed to the next boot, where they are placed in the file descriptor store of
-      the same unit. For this to work, units must declare <varname>DefaultDependencies=no</varname> (and
-      avoid a manual <varname>Conflicts=shutdown.target</varname> or similar) to ensure they are not
-      terminated as usual during the system shutdown operation. Alternatively, use
+      <listitem><para>Service processes may continue to run over the transition, if they are placed in
+      services that remain active across system transitions, which is achieved via the
+      <varname>SurviveSystemTransition=yes</varname> setting.</para></listitem>
+
+      <listitem><para>File descriptors placed in the file descriptor store of services that use
       <varname>FileDescriptorStorePreserve=</varname> to allow the file descriptor store to remain pinned
       even when the unit is down. See
       <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
@@ -91,22 +91,14 @@
 
       <listitem><para>Similar to this, file descriptors associated with <filename>.socket</filename> units
       remain open (and connectible) if the units are not stopped during the transition. (Achieved by
-      <varname>DefaultDependencies=no</varname>.)</para></listitem>
+      <varname>SurviveSystemTransition=yes</varname>.)</para></listitem>
 
       <listitem><para>The <filename>/run/</filename> file system remains mounted and populated and may be
       used to pass state information between such userspace reboot cycles.</para></listitem>
 
-      <listitem><para>Service processes may continue to run over the transition, if they are placed in
-      services that remain active until the very end of shutdown (which again is achieved via
-      <varname>DefaultDependencies=no</varname>). They must also be set up to avoid being killed by the
-      aforementioned <constant>SIGTERM</constant> spree (as per <ulink
-      url="https://systemd.io/ROOT_STORAGE_DAEMONS">systemd and Storage Daemons for the Root File
-      System</ulink>).</para></listitem>
-
       <listitem><para>File system mounts may remain mounted during the transition, and complex storage
       attached, if configured to remain until the very end of the shutdown process. (Also achieved via
-      <varname>DefaultDependencies=no</varname>, and by avoiding
-      <varname>Conflicts=umount.target</varname>)</para></listitem>
+      <varname>SurviveSystemTransition=yes</varname>)</para></listitem>
     </itemizedlist>
 
     <para>Even though passing resources from one soft reboot cycle to the next is possible this way, we
@@ -122,6 +114,12 @@
     url="https://systemd.io/PORTABLE_SERVICES">Portable Services</ulink>, but make sure no resource from
     the host's root filesystem is pinned via <varname>BindPaths=</varname> or similar unit settings,
     otherwise the old root filesystem will be kept in memory as long as the unit is running.</para>
+
+    <para>If units shall be left running until the very end of shutdown during a soft reboot operation, but
+    shall be terminated regularly during other forms of shutdown, they need to be configured with
+    <varname>SurviveSystemTransition=yes</varname>. This will ensure that soft reboot operations (and other
+    system transitions such as switch root from initrd to root file system) do not affect them, but other
+    types of reboot or shutdown stop them as expected.</para>
   </refsect1>
 
   <refsect1>
