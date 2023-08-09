@@ -94,12 +94,21 @@ static inline int errno_or_else(int fallback) {
         return -abs(fallback);
 }
 
+/* abs(3) says: Trying to take the absolute value of the most negative integer is not defined. */
+#define _DEFINE_ABS_WRAPPER(name)                         \
+        static inline bool ERRNO_IS_##name(int r) {       \
+                if (r == INT_MIN)                         \
+                        return false;                     \
+                return ERRNO_IS_NEG_##name(-abs(r));      \
+        }
+
 /* For send()/recv() or read()/write(). */
-static inline bool ERRNO_IS_TRANSIENT(int r) {
-        return IN_SET(abs(r),
-                      EAGAIN,
-                      EINTR);
+static inline bool ERRNO_IS_NEG_TRANSIENT(int r) {
+        return IN_SET(r,
+                      -EAGAIN,
+                      -EINTR);
 }
+_DEFINE_ABS_WRAPPER(TRANSIENT);
 
 /* Hint #1: ENETUNREACH happens if we try to connect to "non-existing" special IP addresses, such as ::5.
  *
@@ -108,79 +117,87 @@ static inline bool ERRNO_IS_TRANSIENT(int r) {
  *
  * Hint #3: When asynchronous connect() on TCP fails because the host never acknowledges a single packet,
  *          kernel tells us that with ETIMEDOUT, see tcp(7). */
-static inline bool ERRNO_IS_DISCONNECT(int r) {
-        return IN_SET(abs(r),
-                      ECONNABORTED,
-                      ECONNREFUSED,
-                      ECONNRESET,
-                      EHOSTDOWN,
-                      EHOSTUNREACH,
-                      ENETDOWN,
-                      ENETRESET,
-                      ENETUNREACH,
-                      ENONET,
-                      ENOPROTOOPT,
-                      ENOTCONN,
-                      EPIPE,
-                      EPROTO,
-                      ESHUTDOWN,
-                      ETIMEDOUT);
+static inline bool ERRNO_IS_NEG_DISCONNECT(int r) {
+        return IN_SET(r,
+                      -ECONNABORTED,
+                      -ECONNREFUSED,
+                      -ECONNRESET,
+                      -EHOSTDOWN,
+                      -EHOSTUNREACH,
+                      -ENETDOWN,
+                      -ENETRESET,
+                      -ENETUNREACH,
+                      -ENONET,
+                      -ENOPROTOOPT,
+                      -ENOTCONN,
+                      -EPIPE,
+                      -EPROTO,
+                      -ESHUTDOWN,
+                      -ETIMEDOUT);
 }
+_DEFINE_ABS_WRAPPER(DISCONNECT);
 
 /* Transient errors we might get on accept() that we should ignore. As per error handling comment in
  * the accept(2) man page. */
-static inline bool ERRNO_IS_ACCEPT_AGAIN(int r) {
-        return ERRNO_IS_DISCONNECT(r) ||
-                ERRNO_IS_TRANSIENT(r) ||
-                abs(r) == EOPNOTSUPP;
+static inline bool ERRNO_IS_NEG_ACCEPT_AGAIN(int r) {
+        return ERRNO_IS_NEG_DISCONNECT(r) ||
+                ERRNO_IS_NEG_TRANSIENT(r) ||
+                r == -EOPNOTSUPP;
 }
+_DEFINE_ABS_WRAPPER(ACCEPT_AGAIN);
 
 /* Resource exhaustion, could be our fault or general system trouble */
-static inline bool ERRNO_IS_RESOURCE(int r) {
-        return IN_SET(abs(r),
-                      EMFILE,
-                      ENFILE,
-                      ENOMEM);
+static inline bool ERRNO_IS_NEG_RESOURCE(int r) {
+        return IN_SET(r,
+                      -EMFILE,
+                      -ENFILE,
+                      -ENOMEM);
 }
+_DEFINE_ABS_WRAPPER(RESOURCE);
 
 /* Seven different errors for "operation/system call/ioctl/socket feature not supported" */
-static inline bool ERRNO_IS_NOT_SUPPORTED(int r) {
-        return IN_SET(abs(r),
-                      EOPNOTSUPP,
-                      ENOTTY,
-                      ENOSYS,
-                      EAFNOSUPPORT,
-                      EPFNOSUPPORT,
-                      EPROTONOSUPPORT,
-                      ESOCKTNOSUPPORT);
+static inline bool ERRNO_IS_NEG_NOT_SUPPORTED(int r) {
+        return IN_SET(r,
+                      -EOPNOTSUPP,
+                      -ENOTTY,
+                      -ENOSYS,
+                      -EAFNOSUPPORT,
+                      -EPFNOSUPPORT,
+                      -EPROTONOSUPPORT,
+                      -ESOCKTNOSUPPORT);
 }
+_DEFINE_ABS_WRAPPER(NOT_SUPPORTED);
 
 /* Two different errors for access problems */
-static inline bool ERRNO_IS_PRIVILEGE(int r) {
-        return IN_SET(abs(r),
-                      EACCES,
-                      EPERM);
+static inline bool ERRNO_IS_NEG_PRIVILEGE(int r) {
+        return IN_SET(r,
+                      -EACCES,
+                      -EPERM);
 }
+_DEFINE_ABS_WRAPPER(PRIVILEGE);
 
 /* Three different errors for "not enough disk space" */
-static inline bool ERRNO_IS_DISK_SPACE(int r) {
-        return IN_SET(abs(r),
-                      ENOSPC,
-                      EDQUOT,
-                      EFBIG);
+static inline bool ERRNO_IS_NEG_DISK_SPACE(int r) {
+        return IN_SET(r,
+                      -ENOSPC,
+                      -EDQUOT,
+                      -EFBIG);
 }
+_DEFINE_ABS_WRAPPER(DISK_SPACE);
 
 /* Three different errors for "this device does not quite exist" */
-static inline bool ERRNO_IS_DEVICE_ABSENT(int r) {
-        return IN_SET(abs(r),
-                      ENODEV,
-                      ENXIO,
-                      ENOENT);
+static inline bool ERRNO_IS_NEG_DEVICE_ABSENT(int r) {
+        return IN_SET(r,
+                      -ENODEV,
+                      -ENXIO,
+                      -ENOENT);
 }
+_DEFINE_ABS_WRAPPER(DEVICE_ABSENT);
 
 /* Quite often we want to handle cases where the backing FS doesn't support extended attributes at all and
  * where it simply doesn't have the requested xattr the same way */
-static inline bool ERRNO_IS_XATTR_ABSENT(int r) {
-        return abs(r) == ENODATA ||
-                ERRNO_IS_NOT_SUPPORTED(r);
+static inline bool ERRNO_IS_NEG_XATTR_ABSENT(int r) {
+        return r == -ENODATA ||
+                ERRNO_IS_NEG_NOT_SUPPORTED(r);
 }
+_DEFINE_ABS_WRAPPER(XATTR_ABSENT);
