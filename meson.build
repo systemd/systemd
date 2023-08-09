@@ -1197,41 +1197,20 @@ else
 endif
 conf.set10('HAVE_PASSWDQC', have)
 
-want_seccomp = get_option('seccomp')
-if want_seccomp != 'false' and not skip_deps
-        libseccomp = dependency('libseccomp',
-                                version : '>= 2.3.1',
-                                required : want_seccomp == 'true')
-        have = libseccomp.found()
-else
-        have = false
-        libseccomp = []
-endif
-conf.set10('HAVE_SECCOMP', have)
+libseccomp = dependency('libseccomp',
+                        version : '>= 2.3.1',
+                        required : get_option('seccomp'))
+conf.set10('HAVE_SECCOMP', libseccomp.found())
 
-want_selinux = get_option('selinux')
-if want_selinux != 'false' and not skip_deps
-        libselinux = dependency('libselinux',
-                                version : '>= 2.1.9',
-                                required : want_selinux == 'true')
-        have = libselinux.found()
-else
-        have = false
-        libselinux = []
-endif
-conf.set10('HAVE_SELINUX', have)
+libselinux = dependency('libselinux',
+                        version : '>= 2.1.9',
+                        required : get_option('selinux'))
+conf.set10('HAVE_SELINUX', libselinux.found())
 
-want_apparmor = get_option('apparmor')
-if want_apparmor != 'false' and not skip_deps
-        libapparmor = dependency('libapparmor',
-                                 version : '>= 2.13',
-                                 required : want_apparmor == 'true')
-        have = libapparmor.found()
-else
-        have = false
-        libapparmor = []
-endif
-conf.set10('HAVE_APPARMOR', have)
+libapparmor = dependency('libapparmor',
+                         version : '>= 2.13',
+                         required : get_option('apparmor'))
+conf.set10('HAVE_APPARMOR', libapparmor.found())
 
 have = get_option('smack') and get_option('smack-run-label') != ''
 conf.set10('HAVE_SMACK_RUN_LABEL', have)
@@ -1259,62 +1238,29 @@ if want_polkit != 'false' and not skip_deps
 endif
 conf.set10('ENABLE_POLKIT', install_polkit)
 
-want_acl = get_option('acl')
-if want_acl != 'false' and not skip_deps
-        libacl = dependency('libacl', required : want_acl == 'true')
-        have = libacl.found()
-else
-        have = false
-        libacl = []
-endif
-conf.set10('HAVE_ACL', have)
+libacl = dependency('libacl',
+                    required : get_option('acl'))
+conf.set10('HAVE_ACL', libacl.found())
 
-want_audit = get_option('audit')
-if want_audit != 'false' and not skip_deps
-        libaudit = dependency('audit', required : want_audit == 'true')
-        have = libaudit.found()
-else
-        have = false
-        libaudit = []
-endif
-conf.set10('HAVE_AUDIT', have)
+libaudit = dependency('audit',
+                      required : get_option('audit'))
+conf.set10('HAVE_AUDIT', libaudit.found())
 
-want_blkid = get_option('blkid')
-if want_blkid != 'false' and not skip_deps
-        libblkid = dependency('blkid', required : want_blkid == 'true')
-        have = libblkid.found()
+libblkid = dependency('blkid',
+                      required : get_option('blkid'))
+conf.set10('HAVE_BLKID', libblkid.found())
+conf.set10('HAVE_BLKID_PROBE_SET_HINT',
+           libblkid.found() and cc.has_function('blkid_probe_set_hint', dependencies : libblkid))
 
-        conf.set10('HAVE_BLKID_PROBE_SET_HINT',
-                   have and cc.has_function('blkid_probe_set_hint', dependencies : libblkid))
-else
-        have = false
-        libblkid = []
-endif
-conf.set10('HAVE_BLKID', have)
+libkmod = dependency('libkmod',
+                     version : '>= 15',
+                     required : get_option('kmod'))
+conf.set10('HAVE_KMOD', libkmod.found())
 
-want_kmod = get_option('kmod')
-if want_kmod != 'false' and not skip_deps
-        libkmod = dependency('libkmod',
-                             version : '>= 15',
-                             required : want_kmod == 'true')
-        have = libkmod.found()
-else
-        have = false
-        libkmod = []
-endif
-conf.set10('HAVE_KMOD', have)
-
-want_xenctrl = get_option('xenctrl')
-if want_xenctrl != 'false' and not skip_deps
-        libxenctrl = dependency('xencontrol',
-                                version : '>= 4.9',
-                                required : want_xenctrl == 'true')
-        have = libxenctrl.found()
-else
-        have = false
-        libxenctrl = []
-endif
-conf.set10('HAVE_XENCTRL', have)
+libxenctrl = dependency('xencontrol',
+                        version : '>= 4.9',
+                        required : get_option('xenctrl'))
+conf.set10('HAVE_XENCTRL', libxenctrl.found())
 
 want_pam = get_option('pam')
 if want_pam != 'false' and not skip_deps
@@ -1335,17 +1281,10 @@ else
 endif
 conf.set10('HAVE_PAM', have)
 
-want_microhttpd = get_option('microhttpd')
-if want_microhttpd != 'false' and not skip_deps
-        libmicrohttpd = dependency('libmicrohttpd',
-                                   version : '>= 0.9.33',
-                                   required : want_microhttpd == 'true')
-        have = libmicrohttpd.found()
-else
-        have = false
-        libmicrohttpd = []
-endif
-conf.set10('HAVE_MICROHTTPD', have)
+libmicrohttpd = dependency('libmicrohttpd',
+                           version : '>= 0.9.33',
+                           required : get_option('microhttpd'))
+conf.set10('HAVE_MICROHTTPD', libmicrohttpd.found())
 
 want_libcryptsetup = get_option('libcryptsetup')
 want_libcryptsetup_plugins = get_option('libcryptsetup-plugins')
@@ -1392,17 +1331,10 @@ else
 endif
 conf.set10('HAVE_LIBCRYPTSETUP_PLUGINS', have)
 
-want_libcurl = get_option('libcurl')
-if want_libcurl != 'false' and not skip_deps
-        libcurl = dependency('libcurl',
-                             version : '>= 7.32.0',
-                             required : want_libcurl == 'true')
-        have = libcurl.found()
-else
-        have = false
-        libcurl = []
-endif
-conf.set10('HAVE_LIBCURL', have)
+libcurl = dependency('libcurl',
+                     version : '>= 7.32.0',
+                     required : get_option('libcurl'))
+conf.set10('HAVE_LIBCURL', libcurl.found())
 conf.set10('CURL_NO_OLDIES', conf.get('BUILD_MODE_DEVELOPER') == 1)
 
 want_libidn = get_option('libidn')
@@ -1430,28 +1362,14 @@ else
 endif
 conf.set10('HAVE_LIBIDN', have)
 
-want_libiptc = get_option('libiptc')
-if want_libiptc != 'false' and not skip_deps
-        libiptc = dependency('libiptc',
-                             required : want_libiptc == 'true')
-        have = libiptc.found()
-else
-        have = false
-        libiptc = []
-endif
-conf.set10('HAVE_LIBIPTC', have)
+libiptc = dependency('libiptc',
+                     required : get_option('libiptc'))
+conf.set10('HAVE_LIBIPTC', libiptc.found())
 
-want_qrencode = get_option('qrencode')
-if want_qrencode != 'false' and not skip_deps
-        libqrencode = dependency('libqrencode',
-                                 version : '>= 3',
-                                 required : want_qrencode == 'true')
-        have = libqrencode.found()
-else
-        have = false
-        libqrencode = []
-endif
-conf.set10('HAVE_QRENCODE', have)
+libqrencode = dependency('libqrencode',
+                         version : '>= 3',
+                         required : get_option('qrencode'))
+conf.set10('HAVE_QRENCODE', libqrencode.found())
 
 want_gcrypt = get_option('gcrypt')
 if want_gcrypt != 'false' and not skip_deps
@@ -1472,43 +1390,21 @@ if not have
 endif
 conf.set10('HAVE_GCRYPT', have)
 
-want_gnutls = get_option('gnutls')
-if want_gnutls != 'false' and not skip_deps
-        libgnutls = dependency('gnutls',
-                               version : '>= 3.1.4',
-                               required : want_gnutls == 'true')
-        have = libgnutls.found()
-else
-        have = false
-        libgnutls = []
-endif
-conf.set10('HAVE_GNUTLS', have)
+libgnutls = dependency('gnutls',
+                       version : '>= 3.1.4',
+                       required : get_option('gnutls'))
+conf.set10('HAVE_GNUTLS', libgnutls.found())
 
-want_openssl = get_option('openssl')
-if want_openssl != 'false' and not skip_deps
-        libopenssl = dependency('openssl',
-                                version : '>= 1.1.0',
-                                required : want_openssl == 'true')
-        have = libopenssl.found()
-else
-        have = false
-        libopenssl = []
-endif
-conf.set10('HAVE_OPENSSL', have)
+libopenssl = dependency('openssl',
+                        version : '>= 1.1.0',
+                        required : get_option('openssl'))
+conf.set10('HAVE_OPENSSL', libopenssl.found())
 
-want_p11kit = get_option('p11kit')
-if want_p11kit != 'false' and not skip_deps
-        libp11kit = dependency('p11-kit-1',
-                               version : '>= 0.23.3',
-                               required : want_p11kit == 'true')
-        have = libp11kit.found()
-        libp11kit_cflags = libp11kit.partial_dependency(includes: true, compile_args: true)
-else
-        have = false
-        libp11kit_cflags = []
-        libp11kit = []
-endif
-conf.set10('HAVE_P11KIT', have)
+libp11kit = dependency('p11-kit-1',
+                       version : '>= 0.23.3',
+                       required : get_option('p11kit'))
+conf.set10('HAVE_P11KIT', libp11kit.found())
+libp11kit_cflags = libp11kit.partial_dependency(includes: true, compile_args: true)
 
 want_libfido2 = get_option('libfido2')
 if want_libfido2 != 'false' and not skip_deps
@@ -1528,45 +1424,21 @@ else
 endif
 conf.set10('HAVE_LIBFIDO2', have)
 
-want_tpm2 = get_option('tpm2')
-if want_tpm2 != 'false' and not skip_deps
-        tpm2 = dependency('tss2-esys tss2-rc tss2-mu tss2-tcti-device',
-                          required : want_tpm2 == 'true')
-        have = tpm2.found()
-        have_esys3 = tpm2.version().version_compare('>= 3.0.0')
-else
-        have = false
-        have_esys3 = false
-        tpm2 = []
-endif
-conf.set10('HAVE_TPM2', have)
-conf.set10('HAVE_TSS2_ESYS3', have_esys3)
+tpm2 = dependency('tss2-esys tss2-rc tss2-mu tss2-tcti-device',
+                  required : get_option('tpm2'))
+conf.set10('HAVE_TPM2', tpm2.found())
+conf.set10('HAVE_TSS2_ESYS3', tpm2.found() and tpm2.version().version_compare('>= 3.0.0'))
 
-want_elfutils = get_option('elfutils')
-if want_elfutils != 'false' and not skip_deps
-        libdw = dependency('libdw',
-                           required : want_elfutils == 'true')
-        have = libdw.found()
+libdw = dependency('libdw',
+                   required : get_option('elfutils'))
+conf.set10('HAVE_ELFUTILS', libdw.found())
+# New in elfutils 0.177
+conf.set10('HAVE_DWELF_ELF_E_MACHINE_STRING',
+           libdw.found() and cc.has_function('dwelf_elf_e_machine_string', dependencies : libdw))
 
-        # New in elfutils 0.177
-        conf.set10('HAVE_DWELF_ELF_E_MACHINE_STRING',
-                   have and cc.has_function('dwelf_elf_e_machine_string', dependencies : libdw))
-else
-        have = false
-        libdw = []
-endif
-conf.set10('HAVE_ELFUTILS', have)
-
-want_zlib = get_option('zlib')
-if want_zlib != 'false' and not skip_deps
-        libz = dependency('zlib',
-                          required : want_zlib == 'true')
-        have = libz.found()
-else
-        have = false
-        libz = []
-endif
-conf.set10('HAVE_ZLIB', have)
+libz = dependency('zlib',
+                  required : get_option('zlib'))
+conf.set10('HAVE_ZLIB', libz.found())
 
 want_bzip2 = get_option('bzip2')
 if want_bzip2 != 'false' and not skip_deps
@@ -1582,104 +1454,60 @@ else
 endif
 conf.set10('HAVE_BZIP2', have)
 
-want_xz = get_option('xz')
-if want_xz != 'false' and not skip_deps
-        libxz = dependency('liblzma',
-                           required : want_xz == 'true')
-        have_xz = libxz.found()
-else
-        have_xz = false
-        libxz = []
-endif
-conf.set10('HAVE_XZ', have_xz)
+libxz = dependency('liblzma',
+                   required : get_option('xz'))
+conf.set10('HAVE_XZ', libxz.found())
 
-want_lz4 = get_option('lz4')
-if want_lz4 != 'false' and not skip_deps
-        liblz4 = dependency('liblz4',
-                            version : '>= 1.3.0',
-                            required : want_lz4 == 'true')
-        have_lz4 = liblz4.found()
-else
-        have_lz4 = false
-        liblz4 = []
-endif
-conf.set10('HAVE_LZ4', have_lz4)
+liblz4 = dependency('liblz4',
+                    version : '>= 1.3.0',
+                    required : get_option('lz4'))
+conf.set10('HAVE_LZ4', liblz4.found())
 
-want_zstd = get_option('zstd')
-if want_zstd != 'false' and not skip_deps
-        libzstd = dependency('libzstd',
-                             required : want_zstd == 'true',
-                             version : '>= 1.4.0')
-        have_zstd = libzstd.found()
-else
-        have_zstd = false
-        libzstd = []
-endif
-conf.set10('HAVE_ZSTD', have_zstd)
+libzstd = dependency('libzstd',
+                     version : '>= 1.4.0',
+                     required : get_option('zstd'))
+conf.set10('HAVE_ZSTD', libzstd.found())
 
-conf.set10('HAVE_COMPRESSION', have_xz or have_lz4 or have_zstd)
+conf.set10('HAVE_COMPRESSION', libxz.found() or liblz4.found() or libzstd.found())
 
 compression = get_option('default-compression')
 if compression == 'auto'
-        if have_zstd
+        if libzstd.found()
                 compression = 'zstd'
-        elif have_lz4
+        elif liblz4.found()
                 compression = 'lz4'
-        elif have_xz
+        elif libxz.found()
                 compression = 'xz'
         else
                 compression = 'none'
         endif
-elif compression == 'zstd' and not have_zstd
+elif compression == 'zstd' and not libzstd.found()
         error('default-compression=zstd requires zstd')
-elif compression == 'lz4' and not have_lz4
+elif compression == 'lz4' and not liblz4.found()
         error('default-compression=lz4 requires lz4')
-elif compression == 'xz' and not have_xz
+elif compression == 'xz' and not libxz.found()
         error('default-compression=xz requires xz')
 endif
 conf.set('DEFAULT_COMPRESSION', 'COMPRESSION_@0@'.format(compression.to_upper()))
 
-want_xkbcommon = get_option('xkbcommon')
-if want_xkbcommon != 'false' and not skip_deps
-        libxkbcommon = dependency('xkbcommon',
-                                  version : '>= 0.3.0',
-                                  required : want_xkbcommon == 'true')
-        have = libxkbcommon.found()
-else
-        have = false
-        libxkbcommon = []
-endif
-conf.set10('HAVE_XKBCOMMON', have)
+libxkbcommon = dependency('xkbcommon',
+                          version : '>= 0.3.0',
+                          required : get_option('xkbcommon'))
+conf.set10('HAVE_XKBCOMMON', libxkbcommon.found())
 
-want_pcre2 = get_option('pcre2')
-if want_pcre2 != 'false' and not skip_deps
-        libpcre2 = dependency('libpcre2-8',
-                              required : want_pcre2 == 'true')
-        have = libpcre2.found()
-else
-        have = false
-        libpcre2 = []
-endif
-conf.set10('HAVE_PCRE2', have)
+libpcre2 = dependency('libpcre2-8',
+                      required : get_option('pcre2'))
+conf.set10('HAVE_PCRE2', libpcre2.found())
 
-want_glib = get_option('glib')
-if want_glib != 'false' and not skip_deps
-        libglib =    dependency('glib-2.0',
-                                version : '>= 2.22.0',
-                                required : want_glib == 'true')
-        libgobject = dependency('gobject-2.0',
-                                version : '>= 2.22.0',
-                                required : want_glib == 'true')
-        libgio =     dependency('gio-2.0',
-                                required : want_glib == 'true')
-        have = libglib.found() and libgobject.found() and libgio.found()
-else
-        have = false
-        libglib = []
-        libgobject = []
-        libgio = []
-endif
-conf.set10('HAVE_GLIB', have)
+libglib =    dependency('glib-2.0',
+                        version : '>= 2.22.0',
+                        required : get_option('glib'))
+libgobject = dependency('gobject-2.0',
+                        version : '>= 2.22.0',
+                        required : get_option('glib'))
+libgio =     dependency('gio-2.0',
+                        required : get_option('glib'))
+conf.set10('HAVE_GLIB', libglib.found() and libgobject.found() and libgio.found())
 
 want_dbus = get_option('dbus')
 if want_dbus != 'false' and not skip_deps

@@ -350,11 +350,11 @@ option('www-target', type : 'string',
        description : 'the address and dir to upload docs too',
        value : 'www.freedesktop.org:/srv/www.freedesktop.org/www/software/systemd')
 
-option('seccomp', type : 'combo', choices : ['auto', 'true', 'false'],
+option('seccomp', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'SECCOMP support')
-option('selinux', type : 'combo', choices : ['auto', 'true', 'false'],
+option('selinux', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'SELinux support')
-option('apparmor', type : 'combo', choices : ['auto', 'true', 'false'],
+option('apparmor', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'AppArmor support')
 option('smack', type : 'boolean',
        description : 'SMACK support')
@@ -367,17 +367,17 @@ option('polkit', type : 'combo', choices : ['auto', 'true', 'false'],
 option('ima', type : 'boolean',
        description : 'IMA support')
 
-option('acl', type : 'combo', choices : ['auto', 'true', 'false'],
+option('acl', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'libacl support')
-option('audit', type : 'combo', choices : ['auto', 'true', 'false'],
+option('audit', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'libaudit support')
-option('blkid', type : 'combo', choices : ['auto', 'true', 'false'],
+option('blkid', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'libblkid support')
 option('fdisk', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'libfdisk support')
-option('kmod', type : 'combo', choices : ['auto', 'true', 'false'],
+option('kmod', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'support for loadable modules')
-option('xenctrl', type : 'combo', choices : ['auto', 'true', 'false'],
+option('xenctrl', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'support for Xen kexec')
 option('pam', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'PAM support')
@@ -385,13 +385,13 @@ option('passwdqc', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'libpasswdqc support')
 option('pwquality', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'libpwquality support')
-option('microhttpd', type : 'combo', choices : ['auto', 'true', 'false'],
+option('microhttpd', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'libµhttpd support')
 option('libcryptsetup', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'libcryptsetup support')
 option('libcryptsetup-plugins', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'libcryptsetup LUKS2 external token handlers support (plugins)')
-option('libcurl', type : 'combo', choices : ['auto', 'true', 'false'],
+option('libcurl', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'libcurl support')
 option('idn', type : 'boolean',
        description : 'use IDN when printing hostnames')
@@ -399,43 +399,43 @@ option('libidn2', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'libidn2 support')
 option('libidn', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'libidn support')
-option('libiptc', type : 'combo', choices : ['auto', 'true', 'false'],
+option('libiptc', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'libiptc support')
-option('qrencode', type : 'combo', choices : ['auto', 'true', 'false'],
+option('qrencode', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'libqrencode support')
 option('gcrypt', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'gcrypt support')
-option('gnutls', type : 'combo', choices : ['auto', 'true', 'false'],
+option('gnutls', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'gnutls support')
-option('openssl', type : 'combo', choices : ['auto', 'true', 'false'],
+option('openssl', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'openssl support')
 option('cryptolib', type : 'combo', choices : ['auto', 'openssl', 'gcrypt'],
        description : 'whether to use openssl or gcrypt where both are supported')
-option('p11kit', type : 'combo', choices : ['auto', 'true', 'false'],
+option('p11kit', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'p11kit support')
 option('libfido2', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'FIDO2 support')
-option('tpm2', type : 'combo', choices : ['auto', 'true', 'false'],
+option('tpm2', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'TPM2 support')
-option('elfutils', type : 'combo', choices : ['auto', 'true', 'false'],
+option('elfutils', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'elfutils support')
-option('zlib', type : 'combo', choices : ['auto', 'true', 'false'],
+option('zlib', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'zlib compression support')
 option('bzip2', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'bzip2 compression support')
-option('xz', type : 'combo', choices : ['auto', 'true', 'false'],
+option('xz', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'xz compression support')
-option('lz4', type : 'combo', choices : ['auto', 'true', 'false'],
+option('lz4', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'lz4 compression support')
-option('zstd', type : 'combo', choices : ['auto', 'true', 'false'],
+option('zstd', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'zstd compression support')
 option('default-compression', type : 'combo', choices : ['auto', 'zstd', 'lz4', 'xz'], value: 'auto',
        description : 'default compression algorithm')
-option('xkbcommon', type : 'combo', choices : ['auto', 'true', 'false'],
+option('xkbcommon', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'xkbcommon keymap support')
-option('pcre2', type : 'combo', choices : ['auto', 'true', 'false'],
+option('pcre2', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'regexp matching support using pcre2')
-option('glib', type : 'combo', choices : ['auto', 'true', 'false'],
+option('glib', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'libglib support (for tests only)')
 option('dbus', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'libdbus support (for tests only)')
