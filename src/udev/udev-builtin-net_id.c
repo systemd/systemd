@@ -44,7 +44,7 @@
 #define ONBOARD_16BIT_INDEX_MAX ((1U << 16) - 1)
 
 /* skip intermediate virtio devices */
-static sd_device *skip_virtio(sd_device *dev) {
+static sd_device *device_skip_virtio(sd_device *dev) {
         /* there can only ever be one virtio bus per parent device, so we can
          * safely ignore any virtio buses. see
          * http://lists.linuxfoundation.org/pipermail/virtualization/2015-August/030331.html */
@@ -62,6 +62,46 @@ static sd_device *skip_virtio(sd_device *dev) {
         }
 
         return dev;
+}
+
+static int get_matching_parent(
+                sd_device *dev,
+                char * const *parent_subsystems,
+                bool skip_virtio,
+                sd_device **ret) {
+
+        sd_device *parent;
+        int r;
+
+        assert(dev);
+
+        r = sd_device_get_parent(dev, &parent);
+        if (r < 0)
+                return r;
+
+        if (skip_virtio) {
+                /* skip virtio subsystem if present */
+                parent = device_skip_virtio(parent);
+                if (!parent)
+                        return -ENODEV;
+        }
+
+        if (!strv_isempty(parent_subsystems)) {
+                const char *subsystem;
+
+                /* check if our direct parent is in an expected subsystem. */
+                r = sd_device_get_subsystem(parent, &subsystem);
+                if (r < 0)
+                        return r;
+
+                if (!strv_contains(parent_subsystems, subsystem))
+                        return -ENODEV;
+        }
+
+        if (ret)
+                *ret = parent;
+
+        return 0;
 }
 
 static int get_virtfn_info(sd_device *pcidev, sd_device **ret_physfn_pcidev, char **ret_suffix) {
@@ -603,8 +643,7 @@ static int names_pci_slot(sd_device *dev, sd_device *pci_dev, const char *prefix
 }
 
 static int names_vio(sd_device *dev, const char *prefix, bool test) {
-        const char *syspath, *subsystem, *p, *s;
-        sd_device *parent;
+        const char *syspath, *p, *s;
         unsigned slotid;
         int r;
 
@@ -614,15 +653,9 @@ static int names_vio(sd_device *dev, const char *prefix, bool test) {
         /* get ibmveth/ibmvnic slot-based names. */
 
         /* check if our direct parent is a VIO device with no other bus in-between */
-        r = sd_device_get_parent(dev, &parent);
-        if (r < 0)
-                return log_device_debug_errno(dev, r, "sd_device_get_parent() failed: %m");
+        if (get_matching_parent(dev, STRV_MAKE("vio"), /* skip_virtio = */ false, NULL) < 0)
+                return 0;
 
-        r = sd_device_get_subsystem(parent, &subsystem);
-        if (r < 0)
-                return log_device_debug_errno(parent, r, "sd_device_get_subsystem() failed: %m");
-        if (!streq(subsystem, "vio"))
-                return -ENOENT;
         log_device_debug(dev, "Parent device is in the vio subsystem.");
 
         /* The devices' $DEVPATH number is tied to (virtual) hardware (slot id
@@ -663,10 +696,9 @@ static int names_vio(sd_device *dev, const char *prefix, bool test) {
 }
 
 static int names_platform(sd_device *dev, const char *prefix, bool test) {
-        const char *syspath, *subsystem, *p, *validchars;
+        const char *syspath, *p, *validchars;
         char *vendor, *model_str, *instance_str;
         unsigned model, instance;
-        sd_device *parent;
         int r;
 
         assert(dev);
@@ -675,16 +707,9 @@ static int names_platform(sd_device *dev, const char *prefix, bool test) {
         /* get ACPI path names for ARM64 platform devices */
 
         /* check if our direct parent is a platform device with no other bus in-between */
-        r = sd_device_get_parent(dev, &parent);
-        if (r < 0)
-                return log_device_debug_errno(dev, r, "sd_device_get_parent() failed: %m");
+        if (get_matching_parent(dev, STRV_MAKE("platform"), /* skip_virtio = */ false, NULL) < 0)
+                return 0;
 
-        r = sd_device_get_subsystem(parent, &subsystem);
-        if (r < 0)
-                return log_device_debug_errno(parent, r, "sd_device_get_subsystem() failed: %m");
-
-        if (!streq(subsystem, "platform"))
-                 return -ENOENT;
         log_device_debug(dev, "Parent device is in the platform subsystem.");
 
         r = sd_device_get_syspath(dev, &syspath);
@@ -841,28 +866,13 @@ static int names_pci(sd_device *dev, const char *prefix, bool test) {
         _cleanup_(sd_device_unrefp) sd_device *physfn_pcidev = NULL;
         _cleanup_free_ char *virtfn_suffix = NULL;
         sd_device *parent;
-        const char *subsystem;
-        int r;
 
         assert(dev);
         assert(prefix);
 
-        r = sd_device_get_parent(dev, &parent);
-        if (r < 0)
-                return r;
-
-        /* skip virtio subsystem if present */
-        parent = skip_virtio(parent);
-        if (!parent)
-                return -ENOENT;
-
         /* check if our direct parent is a PCI device with no other bus in-between */
-        r = sd_device_get_subsystem(parent, &subsystem);
-        if (r < 0)
-                return r;
-
-        if (!streq(subsystem, "pci"))
-                return -EINVAL;
+        if (get_matching_parent(dev, STRV_MAKE("pci"), /* skip_virtio = */ true, &parent) < 0)
+                return 0;
 
         /* If this is an SR-IOV virtual device, get base name using physical device and add virtfn suffix. */
         if (naming_scheme_has(NAMING_SR_IOV_V) &&
@@ -1024,7 +1034,7 @@ static int names_bcma(sd_device *dev, const char *prefix, bool test) {
 
 static int names_ccw(sd_device *dev, const char *prefix, bool test) {
         sd_device *cdev;
-        const char *bus_id, *subsys;
+        const char *bus_id;
         size_t bus_id_start, bus_id_len;
         int r;
 
@@ -1033,23 +1043,9 @@ static int names_ccw(sd_device *dev, const char *prefix, bool test) {
 
         /* get path names for Linux on System z network devices */
 
-        /* Retrieve the associated CCW device */
-        r = sd_device_get_parent(dev, &cdev);
-        if (r < 0)
-                return log_device_debug_errno(dev, r, "sd_device_get_parent() failed: %m");
+        if (get_matching_parent(dev, STRV_MAKE("ccwgroup", "ccw"), /* skip_virtio = */ true, &cdev) < 0)
+                return 0;
 
-        /* skip virtio subsystem if present */
-        cdev = skip_virtio(cdev);
-        if (!cdev)
-                return -ENOENT;
-
-        r = sd_device_get_subsystem(cdev, &subsys);
-        if (r < 0)
-                return log_device_debug_errno(cdev, r, "sd_device_get_subsystem() failed: %m");
-
-        /* Network devices are either single or grouped CCW devices */
-        if (!STR_IN_SET(subsys, "ccwgroup", "ccw"))
-                return -ENOENT;
         log_device_debug(dev, "Device is CCW.");
 
         /* Retrieve bus-ID of the CCW device.  The bus-ID uniquely
@@ -1206,9 +1202,8 @@ static int names_netdevsim(sd_device *dev, const char *prefix, bool test) {
 }
 
 static int names_xen(sd_device *dev, const char *prefix, bool test) {
-        sd_device *parent;
         unsigned id;
-        const char *syspath, *subsystem, *p, *p2;
+        const char *syspath, *p, *p2;
         int r;
 
         assert(dev);
@@ -1220,19 +1215,8 @@ static int names_xen(sd_device *dev, const char *prefix, bool test) {
                 return 0;
 
         /* check if our direct parent is a Xen VIF device with no other bus in-between */
-        r = sd_device_get_parent(dev, &parent);
-        if (r < 0)
-                return r;
-
-        /* Do an exact-match on subsystem "xen". This will miss on "xen-backend" on
-         * purpose as the VIFs on the backend (dom0) have their own naming scheme
-         * which we don't want to affect
-         */
-        r = sd_device_get_subsystem(parent, &subsystem);
-        if (r < 0)
-                return r;
-        if (!streq(subsystem, "xen"))
-                return -ENOENT;
+        if (get_matching_parent(dev, STRV_MAKE("xen"), /* skip_virtio = */ false, NULL) < 0)
+                return 0;
 
         /* Use the vif-n name to extract "n" */
         r = sd_device_get_syspath(dev, &syspath);
