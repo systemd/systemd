@@ -144,10 +144,8 @@ def test_apply_config(tmp_path):
     assert ns.phase_path_groups == [['enter-initrd:leave-initrd:sysinit:ready:shutdown:final']]
 
 def test_parse_args_minimal():
-    try:
+    with pytest.raises(ValueError):
         ukify.parse_args([])
-    except ValueError as e:
-        print(f'expected failure: {e}')
 
     opts = ukify.parse_args('arg1 arg2'.split())
     assert opts.linux == pathlib.Path('arg1')
