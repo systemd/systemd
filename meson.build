@@ -1217,18 +1217,13 @@ if have
         conf.set_quoted('SMACK_DEFAULT_PROCESS_LABEL', get_option('smack-default-process-label'))
 endif
 
-want_polkit = get_option('polkit')
-install_polkit = false
-install_polkit_pkla = false
-if want_polkit != 'false' and not skip_deps
-        install_polkit = true
-
-        libpolkit = dependency('polkit-gobject-1',
-                               required : false)
-        if libpolkit.found() and libpolkit.version().version_compare('< 0.106')
-                message('Old polkit detected, will install pkla files')
-                install_polkit_pkla = true
-        endif
+feature = get_option('polkit')
+libpolkit = dependency('polkit-gobject-1',
+                       required : feature.disabled() ? feature : false)
+install_polkit = feature.allowed()
+install_polkit_pkla = libpolkit.found() and libpolkit.version().version_compare('< 0.106')
+if install_polkit_pkla
+        message('Old polkit detected, will install pkla files')
 endif
 conf.set10('ENABLE_POLKIT', install_polkit)
 
@@ -1256,24 +1251,19 @@ libxenctrl = dependency('xencontrol',
                         required : get_option('xenctrl'))
 conf.set10('HAVE_XENCTRL', libxenctrl.found())
 
-want_pam = get_option('pam')
-if want_pam != 'false' and not skip_deps
-        libpam = dependency('pam', required : false)
-        if not libpam.found()
-                # Debian older than bookworm and Ubuntu older than 22.10 do not provide the .pc file.
-                libpam = cc.find_library('pam', required : want_pam == 'true')
-        endif
-        libpam_misc = dependency('pam_misc', required : false)
-        if not libpam_misc.found()
-                libpam_misc = cc.find_library('pam_misc', required : want_pam == 'true')
-        endif
-        have = libpam.found() and libpam_misc.found()
-else
-        have = false
-        libpam = []
-        libpam_misc = []
+feature = get_option('pam')
+libpam = dependency('pam',
+                    required : feature.disabled() ? feature : false)
+if not libpam.found()
+        # Debian older than bookworm and Ubuntu older than 22.10 do not provide the .pc file.
+        libpam = cc.find_library('pam', required : feature)
 endif
-conf.set10('HAVE_PAM', have)
+libpam_misc = dependency('pam_misc',
+                         required : feature.disabled() ? feature : false)
+if not libpam_misc.found()
+        libpam_misc = cc.find_library('pam_misc', required : feature)
+endif
+conf.set10('HAVE_PAM', libpam.found() and libpam_misc.found())
 
 libmicrohttpd = dependency('libmicrohttpd',
                            version : '>= 0.9.33',
@@ -1365,18 +1355,17 @@ libqrencode = dependency('libqrencode',
                          required : get_option('qrencode'))
 conf.set10('HAVE_QRENCODE', libqrencode.found())
 
-want_gcrypt = get_option('gcrypt')
-if want_gcrypt != 'false' and not skip_deps
-        libgcrypt = dependency('libgcrypt', required : want_gcrypt == 'true')
-        libgpg_error = dependency('gpg-error', required : false)
-        if not libgpg_error.found()
-                # CentOS 8 does not provide the .pc file.
-                libgpg_error = cc.find_library('gpg-error', required : want_gcrypt == 'true')
-        endif
-        have = libgcrypt.found() and libgpg_error.found()
-else
-        have = false
+feature = get_option('gcrypt')
+libgcrypt = dependency('libgcrypt',
+                       required : feature)
+libgpg_error = dependency('gpg-error',
+                          required : feature.disabled() ? feature : false)
+if not libgpg_error.found()
+        # CentOS 8 does not provide the .pc file.
+        libgpg_error = cc.find_library('gpg-error', required : feature)
 endif
+
+have = libgcrypt.found() and libgpg_error.found()
 if not have
         # link to neither of the libs if one is not found
         libgcrypt = []
@@ -1434,19 +1423,14 @@ libz = dependency('zlib',
                   required : get_option('zlib'))
 conf.set10('HAVE_ZLIB', libz.found())
 
-want_bzip2 = get_option('bzip2')
-if want_bzip2 != 'false' and not skip_deps
-        libbzip2 = dependency('bzip2', required : false)
-        if not libbzip2.found()
-                # Debian and Ubuntu do not provide the .pc file.
-                libbzip2 = cc.find_library('bz2', required : want_bzip2 == 'true')
-        endif
-        have = libbzip2.found()
-else
-        have = false
-        libbzip2 = []
+feature = get_option('bzip2')
+libbzip2 = dependency('bzip2',
+                      required : feature.disabled() ? feature : false)
+if not libbzip2.found()
+        # Debian and Ubuntu do not provide the .pc file.
+        libbzip2 = cc.find_library('bz2', required : feature)
 endif
-conf.set10('HAVE_BZIP2', have)
+conf.set10('HAVE_BZIP2', libbzip2.found())
 
 libxz = dependency('liblzma',
                    required : get_option('xz'))

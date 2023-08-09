@@ -120,13 +120,13 @@ if [ ! -f "$BUILDDIR"/build.ninja ]; then
         -D rfkill=true
         -D xdg-autostart=true
         -D translations=true
-        -D polkit=true
+        -D polkit=enabled
         -D acl=enabled
         -D audit=enabled
         -D blkid=enabled
         -D fdisk=enabled
         -D kmod=enabled
-        -D pam=true
+        -D pam=enabled
         -D pwquality=true
         -D microhttpd=enabled
         -D libcryptsetup=true
@@ -134,7 +134,7 @@ if [ ! -f "$BUILDDIR"/build.ninja ]; then
         -D idn=true
         -D libidn2=true
         -D qrencode=enabled
-        -D gcrypt=true
+        -D gcrypt=enabled
         -D gnutls=enabled
         -D openssl=enabled
         -D cryptolib=openssl
