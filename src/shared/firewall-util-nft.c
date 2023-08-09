@@ -827,7 +827,7 @@ int fw_nftables_init_tables(FirewallContext *ctx) {
         if (socket_ipv6_is_supported()) {
                 r = fw_nftables_init_family(ctx->nfnl, AF_INET6);
                 if (r < 0)
-                        log_debug_errno(r, "Failed to init ipv6 NAT: %m");
+                        return log_error_errno(r, "Failed to init ipv6 NAT: %m");
         }
         return 0;
 }
