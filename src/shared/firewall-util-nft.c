@@ -14,6 +14,8 @@
 #include "sd-netlink.h"
 
 #include "alloc-util.h"
+#include "escape.h"
+#include "extract-word.h"
 #include "firewall-util.h"
 #include "firewall-util-private.h"
 #include "in-addr-util.h"
@@ -21,6 +23,7 @@
 #include "netlink-internal.h"
 #include "netlink-util.h"
 #include "socket-util.h"
+#include "string-table.h"
 #include "time-util.h"
 
 #define NFT_SYSTEMD_DNAT_MAP_NAME "map_port_ipport"
@@ -941,6 +944,67 @@ int nft_set_element_modify_iprange(
         return sd_nfnl_call_batch(ctx->nfnl, &m, 1, NFNL_DEFAULT_TIMEOUT_USECS, NULL);
 }
 
+int nft_set_element_modify_ip(
+                FirewallContext *ctx,
+                bool add,
+                int nfproto,
+                int af,
+                const char *table,
+                const char *set,
+                const union in_addr_union *source) {
+
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        int r;
+
+        assert(ctx->nfnl);
+        assert(IN_SET(af, AF_INET, AF_INET6));
+        assert(nfproto_is_valid(nfproto));
+        assert(table);
+        assert(set);
+
+        if (!source)
+                return -EINVAL;
+
+        r = sd_nfnl_nft_message_new_setelems(ctx->nfnl, &m, add, nfproto, table, set);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_open_container(m, NFTA_SET_ELEM_LIST_ELEMENTS);
+        if (r < 0)
+                return r;
+
+        r = sd_nfnl_nft_message_append_setelem(m, 0, source, FAMILY_ADDRESS_SIZE(af), NULL, 0, 0);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_close_container(m); /* NFTA_SET_ELEM_LIST_ELEMENTS */
+        if (r < 0)
+                return r;
+
+        return sd_nfnl_call_batch(ctx->nfnl, &m, 1, NFNL_DEFAULT_TIMEOUT_USECS, NULL);
+}
+
+int nft_set_element_modify_any(FirewallContext *ctx, bool add, int nfproto, const char *table, const char *set, const void *element, size_t element_size) {
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        int r;
+
+        assert(ctx);
+        assert(ctx->nfnl);
+        assert(nfproto_is_valid(nfproto));
+        assert(table);
+        assert(set);
+        assert(element);
+
+        if (add)
+                r = nft_add_element(ctx->nfnl, &m, nfproto, table, set, element, element_size, NULL, 0);
+        else
+                r = nft_del_element(ctx->nfnl, &m, nfproto, table, set, element, element_size, NULL, 0);
+        if (r < 0)
+                return r;
+
+        return sd_nfnl_call_batch(ctx->nfnl, &m, 1, NFNL_DEFAULT_TIMEOUT_USECS, NULL);
+}
+
 static int af_to_nfproto(int af) {
         assert(IN_SET(af, AF_INET, AF_INET6));
 
@@ -1121,4 +1185,182 @@ int fw_nftables_add_local_dnat(
 
         /* table created anew; previous address already gone */
         return fw_nftables_add_local_dnat_internal(ctx->nfnl, add, af, protocol, local_port, remote, remote_port, NULL);
+}
+
+static const char *const nfproto_table[] = {
+        [NFPROTO_ARP]    = "arp",
+        [NFPROTO_BRIDGE] = "bridge",
+        [NFPROTO_INET]   = "inet",
+        [NFPROTO_IPV4]   = "ip",
+        [NFPROTO_IPV6]   = "ip6",
+        [NFPROTO_NETDEV] = "netdev",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(nfproto, int);
+
+static const char *const nft_set_source_table[] = {
+        [NFT_SET_SOURCE_ADDRESS] = "address",
+        [NFT_SET_SOURCE_PREFIX]  = "prefix",
+        [NFT_SET_SOURCE_IFINDEX] = "ifindex",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(nft_set_source, int);
+
+void nft_set_context_clear(NFTSetContext *s) {
+        assert(s);
+
+        FOREACH_ARRAY(nft_set, s->sets, s->n_sets) {
+                free(nft_set->table);
+                free(nft_set->set);
+        }
+
+        s->n_sets = 0;
+        s->sets = mfree(s->sets);
+}
+
+static int nft_set_add(NFTSetContext *s, NFTSetSource source, int nfproto, const char *table, const char *set) {
+        _cleanup_free_ char *table_dup = NULL, *set_dup = NULL;
+
+        assert(s);
+        assert(IN_SET(source, NFT_SET_SOURCE_ADDRESS, NFT_SET_SOURCE_PREFIX, NFT_SET_SOURCE_IFINDEX));
+        assert(nfproto_is_valid(nfproto));
+        assert(table);
+        assert(set);
+
+        table_dup = strdup(table);
+        if (!table_dup)
+                return -ENOMEM;
+
+        set_dup = strdup(set);
+        if (!set_dup)
+                return -ENOMEM;
+
+        if (!GREEDY_REALLOC(s->sets, s->n_sets + 1))
+                return -ENOMEM;
+
+        s->sets[s->n_sets++] = (NFTSet) {
+                .source = source,
+                .nfproto = nfproto,
+                .table = TAKE_PTR(table_dup),
+                .set = TAKE_PTR(set_dup),
+        };
+
+        return 0;
+}
+
+int nft_set_context_dup(const NFTSetContext *src, NFTSetContext *dst) {
+        int r;
+        _cleanup_(nft_set_context_clear) NFTSetContext d = (NFTSetContext) {};
+
+        assert(src);
+        assert(dst);
+
+        FOREACH_ARRAY(nft_set, src->sets, src->n_sets) {
+                r = nft_set_add(&d, nft_set->source, nft_set->nfproto, nft_set->table, nft_set->set);
+                if (r < 0)
+                        return r;
+        }
+
+        *dst = TAKE_STRUCT(d);
+
+        return 0;
+}
+
+int config_parse_nft_set(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        NFTSetContext *nft_set_context = ASSERT_PTR(data);
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(nft_set_context);
+
+        if (isempty(rvalue)) {
+                nft_set_context_clear(nft_set_context);
+
+                return 0;
+        }
+
+        for (const char *p = rvalue;;) {
+                _cleanup_free_ char *tuple = NULL, *source_str = NULL, *family_str = NULL, *table = NULL, *set = NULL;
+                const char *q = NULL;
+                int nfproto;
+                NFTSetSource source;
+
+                r = extract_first_word(&p, &tuple, NULL, EXTRACT_UNQUOTE|EXTRACT_RETAIN_ESCAPE);
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        _cleanup_free_ char *esc = NULL;
+
+                        esc = cescape(rvalue);
+                        log_syntax(unit, LOG_WARNING, filename, line, r, "Invalid syntax %s=%s, ignoring: %m", lvalue, strna(esc));
+                        return 0;
+                }
+                if (r == 0)
+                        return 0;
+
+                q = tuple;
+                r = extract_many_words(&q, ":", EXTRACT_CUNESCAPE, &source_str, &family_str, &table, &set, NULL);
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r != 4 || !isempty(q)) {
+                        _cleanup_free_ char *esc = NULL;
+
+                        esc = cescape(tuple);
+                        return log_syntax(unit, LOG_WARNING, filename, line, 0, "Failed to parse NFT set %s, ignoring", strna(esc));
+                }
+
+                assert(source_str);
+                assert(family_str);
+                assert(table);
+                assert(set);
+
+                source = nft_set_source_from_string(source_str);
+                if (source < 0) {
+                        _cleanup_free_ char *esc = NULL;
+
+                        esc = cescape(source_str);
+                        return log_syntax(unit, LOG_WARNING, filename, line, 0, "Unknown NFT source %s, ignoring", strna(esc));
+                }
+
+                nfproto = nfproto_from_string(family_str);
+                if (nfproto < 0) {
+                        _cleanup_free_ char *esc = NULL;
+
+                        esc = cescape(family_str);
+                        return log_syntax(unit, LOG_WARNING, filename, line, 0, "Unknown NFT protocol family %s, ignoring", strna(esc));
+                }
+
+                if (!nft_identifier_valid(table)) {
+                        _cleanup_free_ char *esc = NULL;
+
+                        esc = cescape(table);
+                        return log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid table name %s, ignoring", strna(esc));
+                }
+
+                if (!nft_identifier_valid(set)) {
+                        _cleanup_free_ char *esc = NULL;
+
+                        esc = cescape(set);
+                        return log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid set name %s, ignoring", strna(esc));
+                }
+
+                r = nft_set_add(nft_set_context, source, nfproto, table, set);
+                if (r < 0)
+                        return r;
+        }
+
+        assert_not_reached();
 }
