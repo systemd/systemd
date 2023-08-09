@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: LGPL-2.1-or-later
+# pylint: disable=missing-module-docstring,missing-function-docstring
 from argparse import ArgumentParser
 from pathlib import Path
-from subprocess import run, PIPE
+from subprocess import PIPE, run
+
 
 def extract_interfaces_xml(output_dir, executable):
     proc = run(

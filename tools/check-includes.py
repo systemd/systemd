@@ -28,5 +28,5 @@ def check_file(filename):
     return good
 
 if __name__ == '__main__':
-    good = all(check_file(name) for name in sys.argv[1:])
-    sys.exit(0 if good else 1)
+    all_good = all(check_file(name) for name in sys.argv[1:])
+    sys.exit(0 if all_good else 1)
