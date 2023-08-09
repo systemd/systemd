@@ -220,10 +220,8 @@ static AsyncPolkitQuery *async_polkit_query_free(AsyncPolkitQuery *q) {
 
         sd_event_source_disable_unref(q->defer_event_source);
 
-        while ((a = q->authorized_actions)) {
-                LIST_REMOVE(authorized, q->authorized_actions, a);
+        while ((a = LIST_POP(authorized, q->authorized_actions)))
                 async_polkit_query_action_free(a);
-        }
 
         async_polkit_query_action_free(q->denied_action);
         async_polkit_query_action_free(q->error_action);
