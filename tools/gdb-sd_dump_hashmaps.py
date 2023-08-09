@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: LGPL-2.1-or-later
+# pylint: disable=consider-using-f-string
 
 import gdb
 
@@ -9,7 +10,7 @@ class sd_dump_hashmaps(gdb.Command):
     def __init__(self):
         super().__init__("sd_dump_hashmaps", gdb.COMMAND_DATA, gdb.COMPLETE_NONE)
 
-    def invoke(self, arg, from_tty):
+    def invoke(self, arg, _from_tty):
         d = gdb.parse_and_eval("hashmap_debug_list")
         hashmap_type_info = gdb.parse_and_eval("hashmap_type_info")
         uchar_t = gdb.lookup_type("unsigned char")
