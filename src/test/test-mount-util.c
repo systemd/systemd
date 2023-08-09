@@ -470,10 +470,8 @@ TEST(umount_recursive) {
                               FORK_MOUNTNS_SLAVE,
                               NULL);
 
-                if (r < 0 && ERRNO_IS_PRIVILEGE(r)) {
-                        log_notice("Skipping umount_recursive() test, lacking privileges");
-                        return;
-                }
+                if (ERRNO_IS_NEG_PRIVILEGE(r))
+                        return (void) log_notice("Skipping umount_recursive() test, lacking privileges");
 
                 assert_se(r >= 0);
                 if (r == 0) { /* child */
@@ -575,10 +573,9 @@ TEST(bind_mount_submounts) {
 
         assert_se(mkdtemp_malloc(NULL, &a) >= 0);
         r = mount_nofollow_verbose(LOG_INFO, "tmpfs", a, "tmpfs", 0, NULL);
-        if (r < 0 && ERRNO_IS_PRIVILEGE(r)) {
-                (void) log_tests_skipped("Skipping bind_mount_submounts() test, lacking privileges");
-                return;
-        }
+        if (ERRNO_IS_NEG_PRIVILEGE(r))
+                return (void) log_tests_skipped("Skipping bind_mount_submounts() test, lacking privileges");
+
         assert_se(r >= 0);
 
         assert_se(x = path_join(a, "foo"));
