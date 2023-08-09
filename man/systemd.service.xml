@@ -161,11 +161,13 @@
           <option>notify-reload</option>, or <option>idle</option>:</para>
 
           <itemizedlist>
-            <listitem><para>If set to <option>simple</option> (the default if <varname>ExecStart=</varname> is
-            specified but neither <varname>Type=</varname> nor <varname>BusName=</varname> are), the service manager
-            will consider the unit started immediately after the main service process has been forked off.
-            <emphasis>The use of this type is discouraged, use <option>exec</option> instead.
-            </emphasis></para>
+            <listitem><para>If set to <option>simple</option> (the default if <varname>ExecStart=</varname>
+            is specified but neither <varname>Type=</varname> nor <varname>BusName=</varname> are), the
+            service manager will consider the unit started immediately after the main service process has
+            been forked off (i.e. immediately after <function>fork()</function>, and before various process
+            attributes have been configured and in particular before the new process has called
+            <function>execve()</function> to invoke the actual service binary). Typically,
+            <varname>Type=</varname><option>exec</option> (see below) is the better choice, see below.</para>
 
             <para>It is expected that the process configured with <varname>ExecStart=</varname> is the main
             process of the service. In this mode, if the process offers functionality to other processes on
@@ -268,13 +270,15 @@
             anyway.</para></listitem>
           </itemizedlist>
 
-          <para>It is generally recommended to use <varname>Type=</varname><option>exec</option> for
-          long-running services whenever possible, as it is the simplest and fastest option. However, as this
-          service type won't propagate service start-up failures and doesn't allow ordering of other units
-          against completion of initialization of the service (which for example is useful if clients need to
-          connect to the service through some form of IPC, and the IPC channel is only established by the
-          service itself — in contrast to doing this ahead of time through socket or bus activation or
-          similar), it might not be sufficient for many cases. If so, <option>notify</option>,
+          <para>It is recommended to use <varname>Type=</varname><option>exec</option> for long-running
+          services, as it ensures that process setup errors (e.g. errors such as a missing service
+          executable, or missing user) are properly tracked. However, as this service type won't propagate
+          the failures in the service's own startup code (as opposed to failures in the preparatory steps the
+          service manager executes before <function>execve()</function>) and doesn't allow ordering of other
+          units against completion of initialization of the service code itself (which for example is useful
+          if clients need to connect to the service through some form of IPC, and the IPC channel is only
+          established by the service itself — in contrast to doing this ahead of time through socket or bus
+          activation or similar), it might not be sufficient for many cases. If so, <option>notify</option>,
           <option>notify-reload</option>, or <option>dbus</option> (the latter only in case the service
           provides a D-Bus interface) are the preferred options as they allow service program code to
           precisely schedule when to consider the service started up successfully and when to proceed with
@@ -282,12 +286,17 @@
           explicit support in the service codebase (as <function>sd_notify()</function> or an equivalent API
           needs to be invoked by the service at the appropriate time) — if it's not supported, then
           <option>forking</option> is an alternative: it supports the traditional heavy-weight UNIX service
-          start-up protocol. Note that using any type other than
-          <option>simple</option>/<option>exec</option> possibly delays the boot process, as the service
-          manager needs to wait for service initialization to complete. (Also note it is generally not
-          recommended to use <option>idle</option> or <option>oneshot</option> for long-running services.)
-          </para>
-        </listitem>
+          start-up protocol. Note that using any type other than <option>simple</option> possibly delays the
+          boot process, as the service manager needs to wait for at least some service initialization to
+          complete. (Also note it is generally not recommended to use <option>idle</option> or
+          <option>oneshot</option> for long-running services.)</para>
+
+          <para>Note that various service settings (e.g. <varname>User=</varname>, <varname>Group=</varname>
+          through libc NSS) might result in "hidden" blocking IPC calls to other services when
+          used. Sometimes it might be advisable to use the <option>simple</option> service type to ensure
+          that the service manager's transaction logic is not affected by such potentially slow operations
+          and hidden dependencies, as this is the only service type where the service manager will not wait
+          for such service execution setup operations to complete before proceeding.</para></listitem>
       </varlistentry>
 
       <varlistentry>
