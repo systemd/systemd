@@ -20,6 +20,7 @@
 # ELF dynamic relocations at runtime.
 
 # pylint: disable=missing-docstring,invalid-name,attribute-defined-outside-init
+# pylint: disable=too-few-public-methods,too-many-instance-attributes
 
 import argparse
 import hashlib
