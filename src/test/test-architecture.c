@@ -21,7 +21,7 @@ int main(int argc, char *argv[]) {
         assert_se(architecture_from_string(architecture_to_string(1)) == 1);
 
         v = detect_virtualization();
-        if (v < 0 && ERRNO_IS_PRIVILEGE(v))
+        if (ERRNO_IS_NEG_PRIVILEGE(v))
                 return log_tests_skipped("Cannot detect virtualization");
 
         assert_se(v >= 0);
