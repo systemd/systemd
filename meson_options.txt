@@ -373,7 +373,7 @@ option('audit', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : '
        description : 'libaudit support')
 option('blkid', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'libblkid support')
-option('fdisk', type : 'combo', choices : ['auto', 'true', 'false'],
+option('fdisk', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'libfdisk support')
 option('kmod', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'support for loadable modules')
