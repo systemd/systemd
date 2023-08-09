@@ -362,7 +362,7 @@ option('smack-run-label', type : 'string',
        description : 'run systemd --system itself with a specific SMACK label')
 option('smack-default-process-label', type : 'string',
        description : 'default SMACK label for executed processes')
-option('polkit', type : 'combo', choices : ['auto', 'true', 'false'],
+option('polkit', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'polkit support')
 option('ima', type : 'boolean',
        description : 'IMA support')
@@ -379,7 +379,7 @@ option('kmod', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'd
        description : 'support for loadable modules')
 option('xenctrl', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'support for Xen kexec')
-option('pam', type : 'combo', choices : ['auto', 'true', 'false'],
+option('pam', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'PAM support')
 option('passwdqc', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'libpasswdqc support')
@@ -403,7 +403,7 @@ option('libiptc', type : 'feature', deprecated : { 'true' : 'enabled', 'false' :
        description : 'libiptc support')
 option('qrencode', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'libqrencode support')
-option('gcrypt', type : 'combo', choices : ['auto', 'true', 'false'],
+option('gcrypt', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'gcrypt support')
 option('gnutls', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'gnutls support')
@@ -421,7 +421,7 @@ option('elfutils', type : 'feature', deprecated : { 'true' : 'enabled', 'false' 
        description : 'elfutils support')
 option('zlib', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'zlib compression support')
-option('bzip2', type : 'combo', choices : ['auto', 'true', 'false'],
+option('bzip2', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'bzip2 compression support')
 option('xz', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'xz compression support')
