@@ -89,4 +89,11 @@ TEST(RET_GATHER) {
         assert_se(y == 3);
 }
 
+TEST(ERRNO_IS_TRANSIENT) {
+        assert_se( ERRNO_IS_NEG_TRANSIENT(-EINTR));
+        assert_se(!ERRNO_IS_NEG_TRANSIENT(EINTR));
+        assert_se( ERRNO_IS_TRANSIENT(-EINTR));
+        assert_se( ERRNO_IS_TRANSIENT(EINTR));
+}
+
 DEFINE_TEST_MAIN(LOG_INFO);
