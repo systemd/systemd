@@ -94,6 +94,13 @@ TEST(ERRNO_IS_TRANSIENT) {
         assert_se(!ERRNO_IS_NEG_TRANSIENT(EINTR));
         assert_se( ERRNO_IS_TRANSIENT(-EINTR));
         assert_se( ERRNO_IS_TRANSIENT(EINTR));
+
+        /* Test with type wider than int */
+        ssize_t r = -EAGAIN;
+        assert_se( ERRNO_IS_NEG_TRANSIENT(r));
+
+        r += 2 * (ssize_t) INT_MAX;
+        assert_se(!ERRNO_IS_NEG_TRANSIENT(r));
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);
