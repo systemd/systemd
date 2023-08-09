@@ -27,12 +27,10 @@ static int load_etc_machine_id(void) {
         int r;
 
         r = sd_id128_get_machine(&arg_machine_id);
-        if (r < 0) {
-                if (ERRNO_IS_MACHINE_ID_UNSET(r)) /* Not set or empty */
-                        return 0;
-
+        if (ERRNO_IS_NEG_MACHINE_ID_UNSET(r)) /* Not set or empty */
+                return 0;
+        if (r < 0)
                 return log_error_errno(r, "Failed to get machine-id: %m");
-        }
 
         log_debug("Loaded machine ID %s from /etc/machine-id.", SD_ID128_TO_STRING(arg_machine_id));
         return 0;
