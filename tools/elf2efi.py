@@ -19,7 +19,7 @@
 # the resulting binary useless. gnu-efi relies on this method and contains a stub that performs the
 # ELF dynamic relocations at runtime.
 
-# pylint: disable=missing-docstring,invalid-name,attribute-defined-outside-init
+# pylint: disable=attribute-defined-outside-init
 
 import argparse
 import hashlib

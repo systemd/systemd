@@ -1,8 +1,5 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: LGPL-2.1-or-later
-# pylint: disable=line-too-long,too-many-lines,too-many-branches,too-many-statements,too-many-arguments
-# pylint: disable=too-many-public-methods,too-many-boolean-expressions,invalid-name
-# pylint: disable=missing-function-docstring,missing-class-docstring,missing-module-docstring
 # systemd-networkd tests
 
 # These tests can be executed in the systemd mkosi image when booted in QEMU. After booting the QEMU VM,

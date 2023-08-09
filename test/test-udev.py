@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-# pylint: disable=missing-docstring,redefined-outer-name,invalid-name
-# pylint: disable=unspecified-encoding,no-else-return,line-too-long,too-many-lines
-# pylint: disable=multiple-imports,too-many-instance-attributes,consider-using-with
-# pylint: disable=global-statement
+# pylint: disable=redefined-outer-name,no-else-return,multiple-imports
+# pylint: disable=consider-using-with,global-statement
 
 # udev test
 #
