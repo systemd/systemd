@@ -844,14 +844,11 @@ static int fd_copy_fifo(
         r = RET_NERRNO(mkfifoat(dt, to, st->st_mode & 07777));
         if (copy_flags & COPY_MAC_CREATE)
                 mac_selinux_create_file_clear();
-        if (r < 0) {
-                if (FLAGS_SET(copy_flags, COPY_GRACEFUL_WARN) && (ERRNO_IS_PRIVILEGE(r) || ERRNO_IS_NOT_SUPPORTED(r))) {
-                        log_notice_errno(r, "Failed to copy fifo '%s', ignoring: %m", from);
-                        return 0;
-                }
-
+        if (FLAGS_SET(copy_flags, COPY_GRACEFUL_WARN) && (ERRNO_IS_NEG_PRIVILEGE(r) || ERRNO_IS_NEG_NOT_SUPPORTED(r))) {
+                log_notice_errno(r, "Failed to copy fifo '%s', ignoring: %m", from);
+                return 0;
+        } else if (r < 0)
                 return r;
-        }
 
         if (fchownat(dt, to,
                      uid_is_valid(override_uid) ? override_uid : st->st_uid,
@@ -898,14 +895,11 @@ static int fd_copy_node(
         r = RET_NERRNO(mknodat(dt, to, st->st_mode, st->st_rdev));
         if (copy_flags & COPY_MAC_CREATE)
                 mac_selinux_create_file_clear();
-        if (r < 0) {
-                if (FLAGS_SET(copy_flags, COPY_GRACEFUL_WARN) && (ERRNO_IS_PRIVILEGE(r) || ERRNO_IS_NOT_SUPPORTED(r))) {
-                        log_notice_errno(r, "Failed to copy node '%s', ignoring: %m", from);
-                        return 0;
-                }
-
+        if (FLAGS_SET(copy_flags, COPY_GRACEFUL_WARN) && (ERRNO_IS_NEG_PRIVILEGE(r) || ERRNO_IS_NEG_NOT_SUPPORTED(r))) {
+                log_notice_errno(r, "Failed to copy node '%s', ignoring: %m", from);
+                return 0;
+        } else if (r < 0)
                 return r;
-        }
 
         if (fchownat(dt, to,
                      uid_is_valid(override_uid) ? override_uid : st->st_uid,

@@ -55,32 +55,26 @@ int home_update_quota_classic(UserRecord *h, const char *path) {
                 return log_error_errno(SYNTHETIC_ERRNO(ENODEV), "File system %s not backed by a block device.", path);
 
         r = quotactl_devnum(QCMD_FIXED(Q_GETQUOTA, USRQUOTA), devno, h->uid, &req);
-        if (r < 0) {
-                if (ERRNO_IS_NOT_SUPPORTED(r))
-                        return log_error_errno(r, "No UID quota support on %s.", path);
-
-                if (r != -ESRCH)
-                        return log_error_errno(r, "Failed to query disk quota for UID " UID_FMT ": %m", h->uid);
-
+        if (r == -ESRCH)
                 zero(req);
-        } else {
+        else if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                return log_error_errno(r, "No UID quota support on %s.", path);
+        else if (r < 0)
+                return log_error_errno(r, "Failed to query disk quota for UID " UID_FMT ": %m", h->uid);
+        else if (FLAGS_SET(req.dqb_valid, QIF_BLIMITS) && h->disk_size / QIF_DQBLKSIZE == req.dqb_bhardlimit) {
                 /* Shortcut things if everything is set up properly already */
-                if (FLAGS_SET(req.dqb_valid, QIF_BLIMITS) && h->disk_size / QIF_DQBLKSIZE == req.dqb_bhardlimit) {
-                        log_info("Configured quota already matches the intended setting, not updating quota.");
-                        return 0;
-                }
+                log_info("Configured quota already matches the intended setting, not updating quota.");
+                return 0;
         }
 
         req.dqb_valid = QIF_BLIMITS;
         req.dqb_bsoftlimit = req.dqb_bhardlimit = h->disk_size / QIF_DQBLKSIZE;
 
         r = quotactl_devnum(QCMD_FIXED(Q_SETQUOTA, USRQUOTA), devno, h->uid, &req);
-        if (r < 0) {
-                if (r == -ESRCH)
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOTTY), "UID quota not available on %s.", path);
-
+        if (r == -ESRCH)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTTY), "UID quota not available on %s.", path);
+        if (r < 0)
                 return log_error_errno(r, "Failed to set disk quota for UID " UID_FMT ": %m", h->uid);
-        }
 
         log_info("Updated per-UID quota.");
 

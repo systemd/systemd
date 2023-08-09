@@ -2839,16 +2839,15 @@ static int setup_machine_id(const char *directory) {
          * container behaves nicely). */
 
         r = id128_get_machine(directory, &arg_uuid);
-        if (r < 0) {
-                if (!ERRNO_IS_MACHINE_ID_UNSET(r)) /* If the file is missing, empty, or uninitialized, we don't mind */
-                        return log_error_errno(r, "Failed to read machine ID from container image: %m");
-
+        if (ERRNO_IS_NEG_MACHINE_ID_UNSET(r)) {
+                /* If the file is missing, empty, or uninitialized, we don't mind */
                 if (sd_id128_is_null(arg_uuid)) {
                         r = sd_id128_randomize(&arg_uuid);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to acquire randomized machine UUID: %m");
                 }
-        }
+        } else if (r < 0)
+                return log_error_errno(r, "Failed to read machine ID from container image: %m");
 
         return 0;
 }
@@ -3826,20 +3825,19 @@ static int outer_child(
             arg_uid_shift != 0) {
 
                 r = remount_idmap(directory, arg_uid_shift, arg_uid_range, UID_INVALID, REMOUNT_IDMAPPING_HOST_ROOT);
-                if (r < 0) {
-                        if (r == -EINVAL || ERRNO_IS_NOT_SUPPORTED(r)) {
-                                /* This might fail because the kernel or file system doesn't support idmapping. We
-                                 * can't really distinguish this nicely, nor do we have any guarantees about the
-                                 * error codes we see, could be EOPNOTSUPP or EINVAL. */
-                                if (arg_userns_ownership != USER_NAMESPACE_OWNERSHIP_AUTO)
-                                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                                               "ID mapped mounts are apparently not available, sorry.");
+                if (r == -EINVAL || ERRNO_IS_NEG_NOT_SUPPORTED(r)) {
+                        /* This might fail because the kernel or file system doesn't support idmapping. We
+                         * can't really distinguish this nicely, nor do we have any guarantees about the
+                         * error codes we see, could be EOPNOTSUPP or EINVAL. */
+                        if (arg_userns_ownership != USER_NAMESPACE_OWNERSHIP_AUTO)
+                                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                                       "ID mapped mounts are apparently not available, sorry.");
 
-                                log_debug("ID mapped mounts are apparently not available on this kernel or for the selected file system, reverting to recursive chown()ing.");
-                                arg_userns_ownership = USER_NAMESPACE_OWNERSHIP_CHOWN;
-                        } else
-                                return log_error_errno(r, "Failed to set up ID mapped mounts: %m");
-                } else {
+                        log_debug("ID mapped mounts are apparently not available on this kernel or for the selected file system, reverting to recursive chown()ing.");
+                        arg_userns_ownership = USER_NAMESPACE_OWNERSHIP_CHOWN;
+                } else if (r < 0)
+                        return log_error_errno(r, "Failed to set up ID mapped mounts: %m");
+                else {
                         log_debug("ID mapped mounts available, making use of them.");
                         idmap = true;
                 }
@@ -4264,15 +4262,13 @@ static int nspawn_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t r
         }
 
         n = recvmsg_safe(fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
-        if (n < 0) {
-                if (ERRNO_IS_TRANSIENT(n))
-                        return 0;
-                if (n == -EXFULL) {
-                        log_warning("Got message with truncated control data (too many fds sent?), ignoring.");
-                        return 0;
-                }
+        if (ERRNO_IS_NEG_TRANSIENT(n))
+                return 0;
+        else if (n == -EXFULL) {
+                log_warning("Got message with truncated control data (too many fds sent?), ignoring.");
+                return 0;
+        } else if (n < 0)
                 return log_warning_errno(n, "Couldn't read notification socket: %m");
-        }
 
         cmsg_close_all(&msghdr);
 
@@ -5414,13 +5410,11 @@ static int cant_be_in_netns(void) {
                 return log_error_errno(errno, "Failed to allocate udev control socket: %m");
 
         r = connect_unix_path(fd, AT_FDCWD, "/run/udev/control");
-        if (r < 0) {
-                if (r == -ENOENT || ERRNO_IS_DISCONNECT(r))
-                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                               "Sorry, but --image= requires access to the host's /run/ hierarchy, since we need access to udev.");
-
+        if (r == -ENOENT || ERRNO_IS_NEG_DISCONNECT(r))
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "Sorry, but --image= requires access to the host's /run/ hierarchy, since we need access to udev.");
+        if (r < 0)
                 return log_error_errno(r, "Failed to connect socket to udev control socket: %m");
-        }
 
         r = getpeercred(fd, &ucred);
         if (r < 0)

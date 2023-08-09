@@ -158,16 +158,14 @@ static int ask_password_keyring(const char *keyname, AskPasswordFlags flags, cha
                 return -EUNATCH;
 
         r = lookup_key(keyname, &serial);
-        if (r < 0) {
-                /* when retrieving the distinction between "kernel or container manager don't support
-                 * or allow this" and "no matching key known" doesn't matter. Note that we propagate
-                 * EACCESS here (even if EPERM not) since that is used if the keyring is available but
-                 * we lack access to the key. */
-                if (ERRNO_IS_NOT_SUPPORTED(r) || r == -EPERM)
-                        return -ENOKEY;
-
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(r) || r == -EPERM)
+                /* When retrieving, the distinction between "kernel or container manager don't support or
+                 * allow this" and "no matching key known" doesn't matter. Note that we propagate EACCESS
+                 * here (even if EPERM not) since that is used if the keyring is available, but we lack
+                 * access to the key. */
+                return -ENOKEY;
+        if (r < 0)
                 return r;
-        }
 
         return retrieve_key(serial, ret);
 }
@@ -867,14 +865,12 @@ int ask_password_agent(
                 };
 
                 n = recvmsg_safe(socket_fd, &msghdr, 0);
-                if (n < 0) {
-                        if (ERRNO_IS_TRANSIENT(n))
-                                continue;
-                        if (n == -EXFULL) {
-                                log_debug("Got message with truncated control data, ignoring.");
-                                continue;
-                        }
-
+                if (ERRNO_IS_NEG_TRANSIENT(n))
+                        continue;
+                else if (n == -EXFULL) {
+                        log_debug("Got message with truncated control data, ignoring.");
+                        continue;
+                } else if (n < 0) {
                         r = (int) n;
                         goto finish;
                 }

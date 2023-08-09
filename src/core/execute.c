@@ -5130,27 +5130,24 @@ static int exec_child(
         }
 
         if (context->oom_score_adjust_set) {
-                /* When we can't make this change due to EPERM, then let's silently skip over it. User namespaces
-                 * prohibit write access to this file, and we shouldn't trip up over that. */
+                /* When we can't make this change due to EPERM, then let's silently skip over it. User
+                 * namespaces prohibit write access to this file, and we shouldn't trip up over that. */
                 r = set_oom_score_adjust(context->oom_score_adjust);
-                if (r < 0) {
-                        if (ERRNO_IS_PRIVILEGE(r))
-                                log_unit_debug_errno(unit, r, "Failed to adjust OOM setting, assuming containerized execution, ignoring: %m");
-                        else {
-                                *exit_status = EXIT_OOM_ADJUST;
-                                return log_unit_error_errno(unit, r, "Failed to adjust OOM setting: %m");
-                        }
+                if (ERRNO_IS_NEG_PRIVILEGE(r))
+                        log_unit_debug_errno(unit, r,
+                                             "Failed to adjust OOM setting, assuming containerized execution, ignoring: %m");
+                else if (r < 0) {
+                        *exit_status = EXIT_OOM_ADJUST;
+                        return log_unit_error_errno(unit, r, "Failed to adjust OOM setting: %m");
                 }
         }
 
         if (context->coredump_filter_set) {
                 r = set_coredump_filter(context->coredump_filter);
-                if (r < 0) {
-                        if (ERRNO_IS_PRIVILEGE(r))
-                                log_unit_debug_errno(unit, r, "Failed to adjust coredump_filter, ignoring: %m");
-                        else
-                                return log_unit_error_errno(unit, r, "Failed to adjust coredump_filter: %m");
-                }
+                if (ERRNO_IS_NEG_PRIVILEGE(r))
+                        log_unit_debug_errno(unit, r, "Failed to adjust coredump_filter, ignoring: %m");
+                else if (r < 0)
+                        return log_unit_error_errno(unit, r, "Failed to adjust coredump_filter: %m");
         }
 
         if (context->nice_set) {
@@ -5198,13 +5195,11 @@ static int exec_child(
 
         if (mpol_is_valid(numa_policy_get_type(&context->numa_policy))) {
                 r = apply_numa_policy(&context->numa_policy);
-                if (r < 0) {
-                        if (ERRNO_IS_NOT_SUPPORTED(r))
-                                log_unit_debug_errno(unit, r, "NUMA support not available, ignoring.");
-                        else {
-                                *exit_status = EXIT_NUMA_POLICY;
-                                return log_unit_error_errno(unit, r, "Failed to set NUMA memory policy: %m");
-                        }
+                if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                        log_unit_debug_errno(unit, r, "NUMA support not available, ignoring.");
+                else if (r < 0) {
+                        *exit_status = EXIT_NUMA_POLICY;
+                        return log_unit_error_errno(unit, r, "Failed to set NUMA memory policy: %m");
                 }
         }
 
@@ -5486,14 +5481,12 @@ static int exec_child(
                  * namespace without the ability to set up "lo". Hence gracefully skip things then. */
                 if (ns_type_supported(NAMESPACE_NET) && have_effective_cap(CAP_NET_ADMIN) > 0) {
                         r = setup_shareable_ns(runtime->shared->netns_storage_socket, CLONE_NEWNET);
-                        if (r < 0) {
-                                if (ERRNO_IS_PRIVILEGE(r))
-                                        log_unit_notice_errno(unit, r,
-                                                               "PrivateNetwork=yes is configured, but network namespace setup not permitted, proceeding without: %m");
-                                else {
-                                        *exit_status = EXIT_NETWORK;
-                                        return log_unit_error_errno(unit, r, "Failed to set up network namespacing: %m");
-                                }
+                        if (ERRNO_IS_NEG_PRIVILEGE(r))
+                                log_unit_notice_errno(unit, r,
+                                                      "PrivateNetwork=yes is configured, but network namespace setup not permitted, proceeding without: %m");
+                        else if (r < 0) {
+                                *exit_status = EXIT_NETWORK;
+                                return log_unit_error_errno(unit, r, "Failed to set up network namespacing: %m");
                         }
                 } else if (context->network_namespace_path) {
                         *exit_status = EXIT_NETWORK;
