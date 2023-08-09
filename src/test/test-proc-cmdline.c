@@ -178,19 +178,19 @@ TEST(proc_cmdline_get_bool) {
         assert_se(putenv((char*) "SYSTEMD_PROC_CMDLINE=foo_bar bar-waldo=1 x_y-z=0 quux=miep\nda=yes\nthe=1") == 0);
         assert_se(putenv((char*) "SYSTEMD_EFI_OPTIONS=") == 0);
 
-        assert_se(proc_cmdline_get_bool("", &value) == -EINVAL);
-        assert_se(proc_cmdline_get_bool("abc", &value) == 0 && value == false);
-        assert_se(proc_cmdline_get_bool("foo_bar", &value) > 0 && value == true);
-        assert_se(proc_cmdline_get_bool("foo-bar", &value) > 0 && value == true);
-        assert_se(proc_cmdline_get_bool("bar-waldo", &value) > 0 && value == true);
-        assert_se(proc_cmdline_get_bool("bar_waldo", &value) > 0 && value == true);
-        assert_se(proc_cmdline_get_bool("x_y-z", &value) > 0 && value == false);
-        assert_se(proc_cmdline_get_bool("x-y-z", &value) > 0 && value == false);
-        assert_se(proc_cmdline_get_bool("x-y_z", &value) > 0 && value == false);
-        assert_se(proc_cmdline_get_bool("x_y_z", &value) > 0 && value == false);
-        assert_se(proc_cmdline_get_bool("quux", &value) == -EINVAL && value == false);
-        assert_se(proc_cmdline_get_bool("da", &value) > 0 && value == true);
-        assert_se(proc_cmdline_get_bool("the", &value) > 0 && value == true);
+        assert_se(proc_cmdline_get_bool("", /* flags = */ 0, &value) == -EINVAL);
+        assert_se(proc_cmdline_get_bool("abc", /* flags = */ 0, &value) == 0 && value == false);
+        assert_se(proc_cmdline_get_bool("foo_bar", /* flags = */ 0, &value) > 0 && value == true);
+        assert_se(proc_cmdline_get_bool("foo-bar", /* flags = */ 0, &value) > 0 && value == true);
+        assert_se(proc_cmdline_get_bool("bar-waldo", /* flags = */ 0, &value) > 0 && value == true);
+        assert_se(proc_cmdline_get_bool("bar_waldo", /* flags = */ 0, &value) > 0 && value == true);
+        assert_se(proc_cmdline_get_bool("x_y-z", /* flags = */ 0, &value) > 0 && value == false);
+        assert_se(proc_cmdline_get_bool("x-y-z", /* flags = */ 0, &value) > 0 && value == false);
+        assert_se(proc_cmdline_get_bool("x-y_z", /* flags = */ 0, &value) > 0 && value == false);
+        assert_se(proc_cmdline_get_bool("x_y_z", /* flags = */ 0, &value) > 0 && value == false);
+        assert_se(proc_cmdline_get_bool("quux", /* flags = */ 0, &value) == -EINVAL && value == false);
+        assert_se(proc_cmdline_get_bool("da", /* flags = */ 0, &value) > 0 && value == true);
+        assert_se(proc_cmdline_get_bool("the", /* flags = */ 0, &value) > 0 && value == true);
 }
 
 #if ENABLE_EFI
@@ -200,19 +200,19 @@ TEST(proc_cmdline_get_bool_efi) {
         assert_se(putenv((char*) "SYSTEMD_PROC_CMDLINE=") == 0);
         assert_se(putenv((char*) "SYSTEMD_EFI_OPTIONS=foo_bar bar-waldo=1 x_y-z=0 quux=miep\nda=yes\nthe=1") == 0);
 
-        assert_se(proc_cmdline_get_bool("", &value) == -EINVAL);
-        assert_se(proc_cmdline_get_bool("abc", &value) == 0 && value == false);
-        assert_se(proc_cmdline_get_bool("foo_bar", &value) > 0 && value == true);
-        assert_se(proc_cmdline_get_bool("foo-bar", &value) > 0 && value == true);
-        assert_se(proc_cmdline_get_bool("bar-waldo", &value) > 0 && value == true);
-        assert_se(proc_cmdline_get_bool("bar_waldo", &value) > 0 && value == true);
-        assert_se(proc_cmdline_get_bool("x_y-z", &value) > 0 && value == false);
-        assert_se(proc_cmdline_get_bool("x-y-z", &value) > 0 && value == false);
-        assert_se(proc_cmdline_get_bool("x-y_z", &value) > 0 && value == false);
-        assert_se(proc_cmdline_get_bool("x_y_z", &value) > 0 && value == false);
-        assert_se(proc_cmdline_get_bool("quux", &value) == -EINVAL && value == false);
-        assert_se(proc_cmdline_get_bool("da", &value) > 0 && value == true);
-        assert_se(proc_cmdline_get_bool("the", &value) > 0 && value == true);
+        assert_se(proc_cmdline_get_bool("", /* flags = */ 0, &value) == -EINVAL);
+        assert_se(proc_cmdline_get_bool("abc", /* flags = */ 0, &value) == 0 && value == false);
+        assert_se(proc_cmdline_get_bool("foo_bar", /* flags = */ 0, &value) > 0 && value == true);
+        assert_se(proc_cmdline_get_bool("foo-bar", /* flags = */ 0, &value) > 0 && value == true);
+        assert_se(proc_cmdline_get_bool("bar-waldo", /* flags = */ 0, &value) > 0 && value == true);
+        assert_se(proc_cmdline_get_bool("bar_waldo", /* flags = */ 0, &value) > 0 && value == true);
+        assert_se(proc_cmdline_get_bool("x_y-z", /* flags = */ 0, &value) > 0 && value == false);
+        assert_se(proc_cmdline_get_bool("x-y-z", /* flags = */ 0, &value) > 0 && value == false);
+        assert_se(proc_cmdline_get_bool("x-y_z", /* flags = */ 0, &value) > 0 && value == false);
+        assert_se(proc_cmdline_get_bool("x_y_z", /* flags = */ 0, &value) > 0 && value == false);
+        assert_se(proc_cmdline_get_bool("quux", /* flags = */ 0, &value) == -EINVAL && value == false);
+        assert_se(proc_cmdline_get_bool("da", /* flags = */ 0, &value) > 0 && value == true);
+        assert_se(proc_cmdline_get_bool("the", /* flags = */ 0, &value) > 0 && value == true);
 }
 #endif
 

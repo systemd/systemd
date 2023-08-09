@@ -392,13 +392,13 @@ int proc_cmdline_get_key(const char *key, ProcCmdlineFlags flags, char **ret_val
         return cmdline_get_key(args, key, flags, ret_value);
 }
 
-int proc_cmdline_get_bool(const char *key, bool *ret) {
+int proc_cmdline_get_bool(const char *key, ProcCmdlineFlags flags, bool *ret) {
         _cleanup_free_ char *v = NULL;
         int r;
 
         assert(ret);
 
-        r = proc_cmdline_get_key(key, PROC_CMDLINE_VALUE_OPTIONAL, &v);
+        r = proc_cmdline_get_key(key, flags | PROC_CMDLINE_VALUE_OPTIONAL, &v);
         if (r < 0)
                 return r;
         if (r == 0) { /* key not specified at all */

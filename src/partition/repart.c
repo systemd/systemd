@@ -6647,7 +6647,7 @@ static int parse_proc_cmdline_factory_reset(void) {
         if (!in_initrd()) /* Never honour kernel command line factory reset request outside of the initrd */
                 return 0;
 
-        r = proc_cmdline_get_bool("systemd.factory_reset", &b);
+        r = proc_cmdline_get_bool("systemd.factory_reset", /* flags = */ 0, &b);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse systemd.factory_reset kernel command line argument: %m");
         if (r > 0) {

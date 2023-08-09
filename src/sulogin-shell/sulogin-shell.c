@@ -109,7 +109,7 @@ static int run(int argc, char *argv[]) {
                 /* We look the argument in the kernel cmdline under the same name as the environment variable
                  * to express that this is not supported at the same level as the regular kernel cmdline
                  * switches. */
-                r = proc_cmdline_get_bool("SYSTEMD_SULOGIN_FORCE", &force);
+                r = proc_cmdline_get_bool("SYSTEMD_SULOGIN_FORCE", /* flags = */ 0, &force);
                 if (r < 0)
                         log_debug_errno(r, "Failed to parse SYSTEMD_SULOGIN_FORCE from kernel command line, ignoring: %m");
         }
