@@ -224,7 +224,7 @@ int battery_read_capacity_percentage(sd_device *dev) {
                 return log_device_debug_errno(dev, r, "Failed to read/parse POWER_SUPPLY_CAPACITY: %m");
 
         if (battery_capacity < 0 || battery_capacity > 100)
-                return log_device_debug_errno(dev, SYNTHETIC_ERRNO(ERANGE), "Invalid battery capacity");
+                return log_device_debug_errno(dev, SYNTHETIC_ERRNO(ERANGE), "Invalid battery capacity: %d", battery_capacity);
 
         return battery_capacity;
 }
@@ -254,7 +254,6 @@ int battery_is_discharging_and_low(void) {
 
                 level = battery_read_capacity_percentage(dev);
                 if (level < 0) {
-                        log_device_debug_errno(dev, level, "Battery capacity is unreadable: %m");
                         unsure = true;
                         continue;
                 }
