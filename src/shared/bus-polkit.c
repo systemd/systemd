@@ -363,7 +363,7 @@ static int async_polkit_callback(sd_bus_message *reply, void *userdata, sd_bus_e
         return r;
 }
 
-_pure_ static int async_polkit_query_check_action(
+static int async_polkit_query_check_action(
                 AsyncPolkitQuery *q,
                 const char *action,
                 const char **details,

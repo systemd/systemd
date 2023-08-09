@@ -55,19 +55,19 @@ static bool SWAP_STATE_WITH_PROCESS(SwapState state) {
                       SWAP_CLEANING);
 }
 
-_pure_ static UnitActiveState swap_active_state(Unit *u) {
+static UnitActiveState swap_active_state(Unit *u) {
         assert(u);
 
         return state_translation_table[SWAP(u)->state];
 }
 
-_pure_ static const char *swap_sub_state_to_string(Unit *u) {
+static const char *swap_sub_state_to_string(Unit *u) {
         assert(u);
 
         return swap_state_to_string(SWAP(u)->state);
 }
 
-_pure_ static bool swap_may_gc(Unit *u) {
+static bool swap_may_gc(Unit *u) {
         Swap *s = SWAP(u);
 
         assert(s);
@@ -78,7 +78,7 @@ _pure_ static bool swap_may_gc(Unit *u) {
         return true;
 }
 
-_pure_ static bool swap_is_extrinsic(Unit *u) {
+static bool swap_is_extrinsic(Unit *u) {
         assert(SWAP(u));
 
         return MANAGER_IS_USER(u->manager);
