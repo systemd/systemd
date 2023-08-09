@@ -104,6 +104,35 @@ static int get_matching_parent(
         return 0;
 }
 
+static int get_first_syspath_component(sd_device *dev, const char *prefix, char **ret) {
+        _cleanup_free_ char *buf = NULL;
+        const char *syspath, *p, *q;
+        int r;
+
+        assert(dev);
+        assert(prefix);
+        assert(ret);
+
+        r = sd_device_get_syspath(dev, &syspath);
+        if (r < 0)
+                return r;
+
+        p = path_startswith(syspath, prefix);
+        if (!p)
+                return -EINVAL;
+
+        r = path_find_first_component(&p, /* accept_dot_dot = */ false, &q);
+        if (r < 0)
+                return r;
+
+        buf = strndup(q, r);
+        if (!buf)
+                return -ENOMEM;
+
+        *ret = TAKE_PTR(buf);
+        return r; /* return the length of the string */
+}
+
 static int get_virtfn_info(sd_device *pcidev, sd_device **ret_physfn_pcidev, char **ret_suffix) {
         _cleanup_(sd_device_unrefp) sd_device *physfn_pcidev = NULL;
         const char *syspath, *name;
@@ -643,7 +672,7 @@ static int names_pci_slot(sd_device *dev, sd_device *pci_dev, const char *prefix
 }
 
 static int names_vio(sd_device *dev, const char *prefix, bool test) {
-        const char *syspath, *p, *s;
+        _cleanup_free_ char *s = NULL;
         unsigned slotid;
         int r;
 
@@ -662,22 +691,14 @@ static int names_vio(sd_device *dev, const char *prefix, bool test) {
          * selected in the HMC), thus this provides a reliable naming (e.g.
          * "/devices/vio/30000002/net/eth1"); we ignore the bus number, as
          * there should only ever be one bus, and then remove leading zeros. */
-        r = sd_device_get_syspath(dev, &syspath);
+        r = get_first_syspath_component(dev, "/sys/devices/vio/", &s);
         if (r < 0)
-                return log_device_debug_errno(dev, r, "sd_device_get_syspath() failed: %m");
+                return log_device_debug_errno(dev, r, "Failed to get VIO bus ID and slot ID: %m");
 
-        p = path_startswith(syspath, "/sys/devices/vio/");
-        if (!p)
-                return -EINVAL;
-
-        r = path_find_first_component(&p, /* accept_dot_dot = */ false, &s);
-        if (r < 0)
-                return r;
         if (r != 8)
                 return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL),
-                                              "VIO bus ID and slot ID have invalid length: %s", syspath);
+                                              "VIO bus ID and slot ID have invalid length: %s", s);
 
-        s = strndupa(s, 8);
         if (!in_charset(s, HEXDIGITS))
                 return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL),
                                               "VIO bus ID and slot ID contain invalid characters: %s", s);
@@ -685,7 +706,7 @@ static int names_vio(sd_device *dev, const char *prefix, bool test) {
         /* Parse only slot ID (the last 4 hexdigits). */
         r = safe_atou_full(s + 4, 16, &slotid);
         if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to parse VIO slot from syspath \"%s\": %m", syspath);
+                return log_device_debug_errno(dev, r, "Failed to parse VIO slot from '%s': %m", s);
 
         char str[ALTIFNAMSIZ];
         if (snprintf_ok(str, sizeof str, "%sv%u", prefix, slotid))
@@ -696,7 +717,8 @@ static int names_vio(sd_device *dev, const char *prefix, bool test) {
 }
 
 static int names_platform(sd_device *dev, const char *prefix, bool test) {
-        const char *syspath, *p, *validchars;
+        _cleanup_free_ char *p = NULL;
+        const char *validchars;
         char *vendor, *model_str, *instance_str;
         unsigned model, instance;
         int r;
@@ -712,17 +734,9 @@ static int names_platform(sd_device *dev, const char *prefix, bool test) {
 
         log_device_debug(dev, "Parent device is in the platform subsystem.");
 
-        r = sd_device_get_syspath(dev, &syspath);
+        r = get_first_syspath_component(dev, "/sys/devices/platform/", &p);
         if (r < 0)
-                return log_device_debug_errno(dev, r, "sd_device_get_syspath() failed: %m");
-
-        syspath = path_startswith(syspath, "/sys/devices/platform/");
-        if (!syspath)
-                return -EINVAL;
-
-        r = path_find_first_component(&syspath, /* accept_dot_dot = */ false, &p);
-        if (r < 0)
-                return r;
+                return log_device_debug_errno(dev, r, "Failed to get platform ID: %m");
 
         /* Platform devices are named after ACPI table match, and instance id
          * eg. "/sys/devices/platform/HISI00C2:00"
@@ -1202,8 +1216,9 @@ static int names_netdevsim(sd_device *dev, const char *prefix, bool test) {
 }
 
 static int names_xen(sd_device *dev, const char *prefix, bool test) {
+        _cleanup_free_ char *vif = NULL;
+        const char *p;
         unsigned id;
-        const char *syspath, *p, *p2;
         int r;
 
         assert(dev);
@@ -1219,26 +1234,18 @@ static int names_xen(sd_device *dev, const char *prefix, bool test) {
                 return 0;
 
         /* Use the vif-n name to extract "n" */
-        r = sd_device_get_syspath(dev, &syspath);
+        r = get_first_syspath_component(dev, "/sys/devices/", &vif);
         if (r < 0)
-                return r;
+                return log_device_debug_errno(dev, r, "Failed to get Xen VIF name: %m");
 
-        p = path_startswith(syspath, "/sys/devices/");
+        p = startswith(vif, "vif-");
         if (!p)
-                return -ENOENT;
-        p = startswith(p, "vif-");
-        if (!p)
-                return -ENOENT;
-        p2 = strchr(p, '/');
-        if (!p2)
-                return -ENOENT;
-        p = strndupa_safe(p, p2 - p);
-        if (!p)
-                return -ENOENT;
+                return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL), "Invalid vif name: %s: %m", vif);
+
         r = safe_atou_full(p, SAFE_ATO_REFUSE_PLUS_MINUS | SAFE_ATO_REFUSE_LEADING_ZERO |
                            SAFE_ATO_REFUSE_LEADING_WHITESPACE | 10, &id);
         if (r < 0)
-                return r;
+                return log_device_debug_errno(dev, r, "Failed to parse vif index from '%s': %m", p);
 
         char str[ALTIFNAMSIZ];
         if (snprintf_ok(str, sizeof str, "%sX%u", prefix, id))
