@@ -220,10 +220,8 @@ static AsyncPolkitQuery *async_polkit_query_free(AsyncPolkitQuery *q) {
 
         sd_event_source_disable_unref(q->defer_event_source);
 
-        while ((a = q->authorized_actions)) {
-                LIST_REMOVE(authorized, q->authorized_actions, a);
+        while ((a = LIST_POP(authorized, q->authorized_actions)))
                 async_polkit_query_action_free(a);
-        }
 
         async_polkit_query_action_free(q->denied_action);
         async_polkit_query_action_free(q->error_action);
@@ -255,6 +253,11 @@ static int async_polkit_read_reply(sd_bus_message *reply, AsyncPolkitQuery *q) {
         assert(reply);
         assert(q);
 
+        /* Processing of a PolicyKit checks is canceled on the first auth. error. */
+        assert(!q->denied_action);
+        assert(!q->error_action);
+        assert(!sd_bus_error_is_set(&q->error));
+
         assert(q->action);
         a = TAKE_PTR(q->action);
 
@@ -272,7 +275,6 @@ static int async_polkit_read_reply(sd_bus_message *reply, AsyncPolkitQuery *q) {
 
                 /* Treat no PK available as access denied */
                 q->denied_action = TAKE_PTR(a);
-
                 return 0;
         }
 
@@ -281,12 +283,6 @@ static int async_polkit_read_reply(sd_bus_message *reply, AsyncPolkitQuery *q) {
                 r = sd_bus_message_read(reply, "bb", &authorized, &challenge);
         if (r < 0)
                 return r;
-
-        /* It's currently expected that processing of a DBus message shall be interrupted on the first
-         * auth. error */
-        assert(!q->denied_action);
-        assert(!q->error_action);
-        assert(!sd_bus_error_is_set(&q->error));
 
         if (authorized)
                 LIST_PREPEND(authorized, q->authorized_actions, TAKE_PTR(a));
