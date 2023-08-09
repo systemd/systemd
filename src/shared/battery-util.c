@@ -274,7 +274,7 @@ int battery_is_discharging_and_low(void) {
 
         /* If we found a battery whose state we couldn't read, don't assume we are in low battery state */
         if (unsure) {
-                log_info("Found battery with unreadable state, assuming not in low battery state.");
+                log_notice("Found battery with unreadable state, assuming not in low battery state.");
                 return false;
         }
 
