@@ -904,7 +904,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 else
                         arg_enabled = r;
 
-        } else if (proc_cmdline_key_streq(key, "root")) {
+        } else if (streq(key, "root")) {
 
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
@@ -917,7 +917,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                         log_debug("Disabling root partition auto-detection, root= is defined.");
                 }
 
-        } else if (proc_cmdline_key_streq(key, "roothash")) {
+        } else if (streq(key, "roothash")) {
 
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
@@ -941,14 +941,14 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (!strextend_with_separator(&arg_root_options, ",", value))
                         return log_oom();
 
-        } else if (proc_cmdline_key_streq(key, "rw") && !value)
+        } else if (streq(key, "rw") && !value)
                 arg_root_rw = true;
-        else if (proc_cmdline_key_streq(key, "ro") && !value)
+        else if (streq(key, "ro") && !value)
                 arg_root_rw = false;
         else if (proc_cmdline_key_streq(key, "systemd.image_policy"))
                 return parse_image_policy_argument(optarg, &arg_image_policy);
 
-        else if (proc_cmdline_key_streq(key, "systemd.swap")) {
+        else if (streq(key, "systemd.swap")) {
 
                 r = value ? parse_boolean(value) : 1;
                 if (r < 0)

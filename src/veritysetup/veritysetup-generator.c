@@ -136,7 +136,9 @@ static int create_usr_device(void) {
 static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
         int r;
 
-        if (proc_cmdline_key_streq(key, "systemd.verity")) {
+        assert(key);
+
+        if (streq(key, "systemd.verity")) {
 
                 r = value ? parse_boolean(value) : 1;
                 if (r < 0)
@@ -152,7 +154,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 else
                         arg_read_veritytab = r;
 
-        } else if (proc_cmdline_key_streq(key, "roothash")) {
+        } else if (streq(key, "roothash")) {
 
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
@@ -188,7 +190,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (r < 0)
                         return log_oom();
 
-        } else if (proc_cmdline_key_streq(key, "usrhash")) {
+        } else if (streq(key, "usrhash")) {
 
                 if (proc_cmdline_value_missing(key, value))
                         return 0;

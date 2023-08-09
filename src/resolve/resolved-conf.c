@@ -512,12 +512,17 @@ static int proc_cmdline_callback(const char *key, const char *value, void *data)
         struct ProcCmdlineInfo *info = ASSERT_PTR(data);
         int r;
 
+        assert(key);
         assert(info->manager);
 
         /* The kernel command line option names are chosen to be compatible with what various tools already
          * interpret, for example dracut and SUSE Linux. */
 
-        if (proc_cmdline_key_streq(key, "nameserver")) {
+        if (streq(key, "nameserver")) {
+
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
+
                 if (!info->dns_server_unlinked) {
                         /* The kernel command line overrides any prior configuration */
                         dns_server_unlink_all(manager_get_first_dns_server(info->manager, DNS_SERVER_SYSTEM));
@@ -530,7 +535,10 @@ static int proc_cmdline_callback(const char *key, const char *value, void *data)
 
                 info->manager->read_resolv_conf = false;
 
-        } else if (proc_cmdline_key_streq(key, "domain")) {
+        } else if (streq(key, "domain")) {
+
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
 
                 if (!info->search_domain_unlinked) {
                         dns_search_domain_unlink_all(info->manager->search_domains);
