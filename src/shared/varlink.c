@@ -1368,14 +1368,11 @@ int varlink_flush(Varlink *v) {
                 }
 
                 r = fd_wait_for_event(v->fd, POLLOUT, USEC_INFINITY);
-                if (r < 0) {
-                        if (ERRNO_IS_TRANSIENT(r))
-                                continue;
-
+                if (ERRNO_IS_NEG_TRANSIENT(r))
+                        continue;
+                if (r < 0)
                         return varlink_log_errno(v, r, "Poll failed on fd: %m");
-                }
-
-                assert(r != 0);
+                assert(r > 0);
 
                 handle_revents(v, r);
         }
