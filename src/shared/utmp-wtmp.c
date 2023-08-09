@@ -313,11 +313,10 @@ static int write_to_terminal(const char *tty, const char *message) {
                         return -ETIME;
 
                 k = fd_wait_for_event(fd, POLLOUT, end - t);
-                if (k < 0) {
-                        if (ERRNO_IS_TRANSIENT(k))
-                                continue;
+                if (ERRNO_IS_NEG_TRANSIENT(k))
+                        continue;
+                if (k < 0)
                         return k;
-                }
                 if (k == 0)
                         return -ETIME;
 
