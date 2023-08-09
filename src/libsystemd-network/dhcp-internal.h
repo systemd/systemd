@@ -57,7 +57,7 @@ int dhcp_option_remove_option(uint8_t *options, size_t buflen, uint8_t option_co
 typedef int (*dhcp_option_callback_t)(uint8_t code, uint8_t len,
                                 const void *option, void *userdata);
 
-int dhcp_option_parse(DHCPMessage *message, size_t len, dhcp_option_callback_t cb, void *userdata, char **error_message);
+int dhcp_option_parse(DHCPMessage *message, size_t len, dhcp_option_callback_t cb, void *userdata, char **ret_error_message);
 
 int dhcp_option_parse_string(const uint8_t *option, size_t len, char **ret);
 
