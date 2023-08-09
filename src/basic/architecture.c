@@ -70,7 +70,7 @@ Architecture uname_architecture(void) {
                 { "parisc64",   ARCHITECTURE_PARISC64 },
                 { "parisc",     ARCHITECTURE_PARISC   },
 
-#elif defined(__loongarch64)
+#elif defined(__loongarch_lp64)
                 { "loongarch64", ARCHITECTURE_LOONGARCH64 },
 
 #elif defined(__m68k__)
