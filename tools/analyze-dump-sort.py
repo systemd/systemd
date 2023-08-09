@@ -1,5 +1,6 @@
 #!/usr/bin/python
 # SPDX-License-Identifier: LGPL-2.1-or-later
+# pylint: disable=consider-using-with
 
 """
 A helper to compare 'systemd-analyze dump' outputs.
@@ -13,8 +14,9 @@ tools/analyze-dump-sort.py /var/tmp/{dump1,dump2} → this does a diff from dump
 """
 
 import argparse
-import tempfile
 import subprocess
+import tempfile
+
 
 def sort_dump(sourcefile, destfile=None):
     if destfile is None:
@@ -66,9 +68,9 @@ def parse_args():
 if __name__ == '__main__':
     opts = parse_args()
 
-    one = sort_dump(open(opts.one))
+    one = sort_dump(open(opts.one, encoding='utf-8'))
     if opts.two:
-        two = sort_dump(open(opts.two))
+        two = sort_dump(open(opts.two, encoding='utf-8'))
     else:
         user = ['--user'] if opts.user else []
         two = subprocess.run(['systemd-analyze', 'dump', *user],

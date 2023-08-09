@@ -1,8 +1,5 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: LGPL-2.1-or-later
-# pylint: disable=line-too-long,too-many-lines,too-many-branches,too-many-statements,too-many-arguments
-# pylint: disable=too-many-public-methods,too-many-boolean-expressions,invalid-name,no-self-use
-# pylint: disable=missing-function-docstring,missing-class-docstring,missing-module-docstring
 #
 #  Copyright © 2017 Michal Sekletar <msekleta@redhat.com>
 
