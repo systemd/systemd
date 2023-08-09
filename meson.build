@@ -1158,17 +1158,11 @@ endif
 libmount = dependency('mount',
                       version : fuzzer_build ? '>= 0' : '>= 2.30')
 
-want_libfdisk = get_option('fdisk')
-if want_libfdisk != 'false' and not skip_deps
-        libfdisk = dependency('fdisk',
-                              version : '>= 2.32',
-                              required : want_libfdisk == 'true')
-        have = libfdisk.found()
-else
-        have = false
-        libfdisk = []
-endif
-conf.set10('HAVE_LIBFDISK', have)
+libfdisk = dependency('fdisk',
+                      version : '>= 2.32',
+                      disabler : true,
+                      required : get_option('fdisk'))
+conf.set10('HAVE_LIBFDISK', libfdisk.found())
 
 want_passwdqc = get_option('passwdqc')
 want_pwquality = get_option('pwquality')

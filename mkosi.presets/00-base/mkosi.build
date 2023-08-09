@@ -124,7 +124,7 @@ if [ ! -f "$BUILDDIR"/build.ninja ]; then
         -D acl=enabled
         -D audit=enabled
         -D blkid=enabled
-        -D fdisk=true
+        -D fdisk=enabled
         -D kmod=enabled
         -D pam=true
         -D pwquality=true
