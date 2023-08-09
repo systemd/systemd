@@ -113,7 +113,7 @@ int shall_restore_state(void) {
         bool ret;
         int r;
 
-        r = proc_cmdline_get_bool("systemd.restore_state", &ret);
+        r = proc_cmdline_get_bool("systemd.restore_state", /* flags = */ 0, &ret);
         if (r < 0)
                 return r;
 
