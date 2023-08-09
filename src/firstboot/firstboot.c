@@ -1650,7 +1650,7 @@ static int run(int argc, char *argv[]) {
                  * opposed to some other file system tree/image) */
 
                 bool enabled;
-                r = proc_cmdline_get_bool("systemd.firstboot", &enabled);
+                r = proc_cmdline_get_bool("systemd.firstboot", /* flags = */ 0, &enabled);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse systemd.firstboot= kernel command line argument, ignoring: %m");
                 if (r > 0 && !enabled) {

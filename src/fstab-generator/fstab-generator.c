@@ -1355,6 +1355,8 @@ static int add_mounts_from_creds(bool prefix_sysroot) {
 static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
         int r;
 
+        assert(key);
+
         /* root=, usr=, usrfstype= and roofstype= may occur more than once, the last
          * instance should take precedence.  In the case of multiple rootflags=
          * or usrflags= the arguments should be concatenated */
@@ -1365,7 +1367,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (r < 0)
                         log_warning("Failed to parse fstab switch %s. Ignoring.", value);
                 else
-                        arg_fstab_enabled = r;
+                        arg_fstab_enabled = fstab_set_enabled(r);
 
         } else if (streq(key, "root")) {
 

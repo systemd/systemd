@@ -355,7 +355,7 @@ static int parse_options(const uint8_t options[], size_t buflen, uint8_t *overlo
         return 0;
 }
 
-int dhcp_option_parse(DHCPMessage *message, size_t len, dhcp_option_callback_t cb, void *userdata, char **_error_message) {
+int dhcp_option_parse(DHCPMessage *message, size_t len, dhcp_option_callback_t cb, void *userdata, char **ret_error_message) {
         _cleanup_free_ char *error_message = NULL;
         uint8_t overload = 0;
         uint8_t message_type = 0;
@@ -388,8 +388,8 @@ int dhcp_option_parse(DHCPMessage *message, size_t len, dhcp_option_callback_t c
         if (message_type == 0)
                 return -ENOMSG;
 
-        if (_error_message && IN_SET(message_type, DHCP_NAK, DHCP_DECLINE))
-                *_error_message = TAKE_PTR(error_message);
+        if (ret_error_message && IN_SET(message_type, DHCP_NAK, DHCP_DECLINE))
+                *ret_error_message = TAKE_PTR(error_message);
 
         return message_type;
 }

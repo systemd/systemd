@@ -213,7 +213,7 @@ static void remove_item(Prioq *q, struct prioq_item *i) {
         }
 }
 
-_pure_ static struct prioq_item* find_item(Prioq *q, void *data, unsigned *idx) {
+static struct prioq_item* find_item(Prioq *q, void *data, unsigned *idx) {
         struct prioq_item *i;
 
         assert(q);

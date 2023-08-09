@@ -1448,19 +1448,19 @@ static int mount_deserialize_item(Unit *u, const char *key, const char *value, F
         return 0;
 }
 
-_pure_ static UnitActiveState mount_active_state(Unit *u) {
+static UnitActiveState mount_active_state(Unit *u) {
         assert(u);
 
         return state_translation_table[MOUNT(u)->state];
 }
 
-_pure_ static const char *mount_sub_state_to_string(Unit *u) {
+static const char *mount_sub_state_to_string(Unit *u) {
         assert(u);
 
         return mount_state_to_string(MOUNT(u)->state);
 }
 
-_pure_ static bool mount_may_gc(Unit *u) {
+static bool mount_may_gc(Unit *u) {
         Mount *m = MOUNT(u);
 
         assert(m);

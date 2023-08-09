@@ -3156,7 +3156,7 @@ found:
         return 1;
 }
 
-_pure_ static int test_object_offset(JournalFile *f, uint64_t p, uint64_t needle) {
+static int test_object_offset(JournalFile *f, uint64_t p, uint64_t needle) {
         assert(f);
         assert(p > 0);
 

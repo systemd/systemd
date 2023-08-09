@@ -56,7 +56,9 @@ typedef struct EFIHibernateLocation {
 static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
         int r;
 
-        if (proc_cmdline_key_streq(key, "resume")) {
+        assert(key);
+
+        if (streq(key, "resume")) {
                 char *s;
 
                 if (proc_cmdline_value_missing(key, value))
@@ -79,7 +81,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 
                 arg_resume_offset_set = true;
 
-        } else if (proc_cmdline_key_streq(key, "resumeflags")) {
+        } else if (streq(key, "resumeflags")) {
 
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
@@ -87,7 +89,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (!strextend_with_separator(&arg_resume_options, ",", value))
                         return log_oom();
 
-        } else if (proc_cmdline_key_streq(key, "rootflags")) {
+        } else if (streq(key, "rootflags")) {
 
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
@@ -95,7 +97,8 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (!strextend_with_separator(&arg_root_options, ",", value))
                         return log_oom();
 
-        } else if (proc_cmdline_key_streq(key, "noresume")) {
+        } else if (streq(key, "noresume")) {
+
                 if (value) {
                         log_warning("\"noresume\" kernel command line switch specified with an argument, ignoring.");
                         return 0;

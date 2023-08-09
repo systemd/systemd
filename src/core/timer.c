@@ -733,13 +733,13 @@ static int timer_deserialize_item(Unit *u, const char *key, const char *value, F
         return 0;
 }
 
-_pure_ static UnitActiveState timer_active_state(Unit *u) {
+static UnitActiveState timer_active_state(Unit *u) {
         assert(u);
 
         return state_translation_table[TIMER(u)->state];
 }
 
-_pure_ static const char *timer_sub_state_to_string(Unit *u) {
+static const char *timer_sub_state_to_string(Unit *u) {
         assert(u);
 
         return timer_state_to_string(TIMER(u)->state);
