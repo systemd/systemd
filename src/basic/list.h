@@ -192,6 +192,18 @@
                 _p;                                                     \
         })
 
+#define LIST_CLEAR(name, head, free_func)       \
+        _LIST_CLEAR(name, head, free_func, UNIQ_T(elem, UNIQ))
+
+/* Clear the list, destroing each element with free_func */
+#define _LIST_CLEAR(name, head, free_func, elem)        \
+        ({                                              \
+                typeof(head) elem;                      \
+                while ((elem = LIST_POP(name, head)))   \
+                        free_func(elem);                \
+                head;                                   \
+        })
+
 /* Now include "macro.h", because we want our definition of assert() which the macros above use. We include
  * it down here instead of up top, since macro.h pulls in log.h which in turn needs our own definitions. */
 #include "macro.h"
