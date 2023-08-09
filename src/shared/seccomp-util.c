@@ -47,6 +47,8 @@ uint32_t seccomp_local_archs[] = {
                 SCMP_ARCH_AARCH64,     /* native */
 #elif defined(__arm__)
                 SCMP_ARCH_ARM,
+#elif defined(__loongarch_lp64)
+                SCMP_ARCH_LOONGARCH64,
 #elif defined(__mips__) && __BYTE_ORDER == __BIG_ENDIAN && _MIPS_SIM == _MIPS_SIM_ABI32
                 SCMP_ARCH_MIPSEL,
                 SCMP_ARCH_MIPS,        /* native */
@@ -126,6 +128,10 @@ const char* seccomp_arch_to_string(uint32_t c) {
                 return "arm";
         case SCMP_ARCH_AARCH64:
                 return "arm64";
+#ifdef SCMP_ARCH_LOONGARCH64
+        case SCMP_ARCH_LOONGARCH64:
+                return "loongarch64";
+#endif
         case SCMP_ARCH_MIPS:
                 return "mips";
         case SCMP_ARCH_MIPS64:
@@ -183,6 +189,10 @@ int seccomp_arch_from_string(const char *n, uint32_t *ret) {
                 *ret = SCMP_ARCH_ARM;
         else if (streq(n, "arm64"))
                 *ret = SCMP_ARCH_AARCH64;
+#ifdef SCMP_ARCH_LOONGARCH64
+        else if (streq(n, "loongarch64"))
+                *ret = SCMP_ARCH_LOONGARCH64;
+#endif
         else if (streq(n, "mips"))
                 *ret = SCMP_ARCH_MIPS;
         else if (streq(n, "mips64"))
@@ -1381,6 +1391,9 @@ int seccomp_protect_sysctl(void) {
 
                 if (IN_SET(arch,
                            SCMP_ARCH_AARCH64,
+#ifdef SCMP_ARCH_LOONGARCH64
+                           SCMP_ARCH_LOONGARCH64,
+#endif
 #ifdef SCMP_ARCH_RISCV64
                            SCMP_ARCH_RISCV64,
 #endif
@@ -1463,6 +1476,9 @@ int seccomp_restrict_address_families(Set *address_families, bool allow_list) {
                 case SCMP_ARCH_X32:
                 case SCMP_ARCH_ARM:
                 case SCMP_ARCH_AARCH64:
+#ifdef SCMP_ARCH_LOONGARCH64
+                case SCMP_ARCH_LOONGARCH64:
+#endif
                 case SCMP_ARCH_MIPSEL64N32:
                 case SCMP_ARCH_MIPS64N32:
                 case SCMP_ARCH_MIPSEL64:
@@ -1719,7 +1735,7 @@ static int add_seccomp_syscall_filter(scmp_filter_ctx seccomp,
 }
 
 /* For known architectures, check that syscalls are indeed defined or not. */
-#if defined(__x86_64__) || defined(__arm__) || defined(__aarch64__) || (defined(__riscv) && __riscv_xlen == 64)
+#if defined(__x86_64__) || defined(__arm__) || defined(__aarch64__) || defined(__loongarch_lp64) || (defined(__riscv) && __riscv_xlen == 64)
 assert_cc(SCMP_SYS(shmget) > 0);
 assert_cc(SCMP_SYS(shmat) > 0);
 assert_cc(SCMP_SYS(shmdt) > 0);
@@ -1768,16 +1784,19 @@ int seccomp_memory_deny_write_execute(void) {
                 case SCMP_ARCH_X86_64:
                 case SCMP_ARCH_X32:
                 case SCMP_ARCH_AARCH64:
+#ifdef SCMP_ARCH_LOONGARCH64
+                case SCMP_ARCH_LOONGARCH64:
+#endif
 #ifdef SCMP_ARCH_RISCV64
                 case SCMP_ARCH_RISCV64:
 #endif
-                        filter_syscall = SCMP_SYS(mmap); /* amd64, x32, arm64 and riscv64 have only mmap */
+                        filter_syscall = SCMP_SYS(mmap); /* amd64, x32, arm64, loongarch64 and riscv64 have only mmap */
                         shmat_syscall = SCMP_SYS(shmat);
                         break;
 
                 /* Please add more definitions here, if you port systemd to other architectures! */
 
-#if !defined(__i386__) && !defined(__x86_64__) && !defined(__hppa__) && !defined(__hppa64__) && !defined(__powerpc__) && !defined(__powerpc64__) && !defined(__arm__) && !defined(__aarch64__) && !defined(__s390__) && !defined(__s390x__) && !(defined(__riscv) && __riscv_xlen == 64)
+#if !defined(__i386__) && !defined(__x86_64__) && !defined(__hppa__) && !defined(__hppa64__) && !defined(__powerpc__) && !defined(__powerpc64__) && !defined(__arm__) && !defined(__aarch64__) && !defined(__s390__) && !defined(__s390x__) && !(defined(__riscv) && __riscv_xlen == 64) && !defined(__loongarch_lp64)
 #warning "Consider adding the right mmap() syscall definitions here!"
 #endif
                 }
