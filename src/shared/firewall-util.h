@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "conf-parser.h"
 #include "in-addr-util.h"
 
 typedef struct FirewallContext FirewallContext;
@@ -31,6 +32,23 @@ int fw_add_local_dnat(
                 uint16_t remote_port,
                 const union in_addr_union *previous_remote);
 
+typedef struct NFTSet {
+        int nfproto;
+        char *table;
+        char *set;
+} NFTSet;
+
+typedef struct NFTSetContext {
+        NFTSet *sets;
+        size_t n_sets;
+} NFTSetContext;
+
+void nft_set_context_clear(NFTSetContext *s);
+int nft_set_context_dup(const NFTSetContext *src, NFTSetContext *dst);
+
+const char *nfproto_to_string(int i) _const_;
+int nfproto_from_string(const char *s) _pure_;
+
 int nft_set_element_modify_in_addr(
                 FirewallContext *ctx,
                 bool add,
@@ -40,3 +58,5 @@ int nft_set_element_modify_in_addr(
                 const char *set,
                 const union in_addr_union *source,
                 unsigned int source_prefixlen);
+
+CONFIG_PARSER_PROTOTYPE(config_parse_nft_set);
