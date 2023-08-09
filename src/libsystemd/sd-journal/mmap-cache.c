@@ -132,7 +132,7 @@ static void window_free(Window *w) {
         free(w);
 }
 
-_pure_ static bool window_matches(Window *w, uint64_t offset, size_t size) {
+static bool window_matches(Window *w, uint64_t offset, size_t size) {
         assert(w);
         assert(size > 0);
 
@@ -141,7 +141,7 @@ _pure_ static bool window_matches(Window *w, uint64_t offset, size_t size) {
                 offset + size <= w->offset + w->size;
 }
 
-_pure_ static bool window_matches_fd(Window *w, MMapFileDescriptor *f, uint64_t offset, size_t size) {
+static bool window_matches_fd(Window *w, MMapFileDescriptor *f, uint64_t offset, size_t size) {
         assert(w);
         assert(f);
 

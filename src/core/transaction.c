@@ -123,7 +123,7 @@ static void transaction_merge_and_delete_job(Transaction *tr, Job *j, Job *other
         transaction_delete_job(tr, other, true);
 }
 
-_pure_ static bool job_is_conflicted_by(Job *j) {
+static bool job_is_conflicted_by(Job *j) {
         assert(j);
 
         /* Returns true if this job is pulled in by a least one
@@ -308,7 +308,7 @@ static void transaction_drop_redundant(Transaction *tr) {
         } while (again);
 }
 
-_pure_ static bool job_matters_to_anchor(Job *job) {
+static bool job_matters_to_anchor(Job *job) {
         assert(job);
         assert(!job->transaction_prev);
 

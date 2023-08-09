@@ -2823,7 +2823,7 @@ static int service_reload(Unit *u) {
         return 1;
 }
 
-_pure_ static bool service_can_reload(Unit *u) {
+static bool service_can_reload(Unit *u) {
         Service *s = SERVICE(u);
 
         assert(s);
@@ -3394,7 +3394,7 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
         return 0;
 }
 
-_pure_ static UnitActiveState service_active_state(Unit *u) {
+static UnitActiveState service_active_state(Unit *u) {
         const UnitActiveState *table;
 
         assert(u);

@@ -751,13 +751,13 @@ static int path_deserialize_item(Unit *u, const char *key, const char *value, FD
         return 0;
 }
 
-_pure_ static UnitActiveState path_active_state(Unit *u) {
+static UnitActiveState path_active_state(Unit *u) {
         assert(u);
 
         return state_translation_table[PATH(u)->state];
 }
 
-_pure_ static const char *path_sub_state_to_string(Unit *u) {
+static const char *path_sub_state_to_string(Unit *u) {
         assert(u);
 
         return path_state_to_string(PATH(u)->state);

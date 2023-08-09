@@ -747,13 +747,13 @@ int scope_abandon(Scope *s) {
         return 0;
 }
 
-_pure_ static UnitActiveState scope_active_state(Unit *u) {
+static UnitActiveState scope_active_state(Unit *u) {
         assert(u);
 
         return state_translation_table[SCOPE(u)->state];
 }
 
-_pure_ static const char *scope_sub_state_to_string(Unit *u) {
+static const char *scope_sub_state_to_string(Unit *u) {
         assert(u);
 
         return scope_state_to_string(SCOPE(u)->state);
