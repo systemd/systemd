@@ -262,6 +262,16 @@ CONFIG_ITEMS_CURRENT = [
 ]
 
 
+CONFIG_ITEMS_LIST = [
+    ConfigItem(
+        '--folder',
+        type = pathlib.Path,
+        help = 'path to addons folder, default is /usr/share/uki/addons',
+        default = '/usr/share/uki/addons'
+    ),
+]
+
+
 def create_generic_parser():
     p = argparse.ArgumentParser(
         description='Manage UKI command line addons. Note that this tool is not made to inspect a single addon, for that use the \"ukify inspect\" command',        allow_abbrev=False,
@@ -525,6 +535,21 @@ def list_current_cmdline(opts):
         json_dump(uki_list, opts.json)
 
 
+def list_fs_cmdline(opts):
+    folder_str = str(opts.folder)
+    if opts.folder.is_dir():
+        list_addons = search_addons_dir(folder_str, opts.ukify)
+        if opts.json == "off":
+            print_list_cmdline(list_addons)
+        else:
+            obj = {}
+            for el in list_addons:
+                obj[el.uki_path] = el.cmdline
+            json_dump(obj, opts.json)
+    else:
+        print(f'Warning: folder {folder_str} does not exist')
+
+
 def parse_args():
     parser = create_generic_parser()
     subparsers = parser.add_subparsers(help='Commands to manipulate the command line addons')
@@ -534,6 +559,12 @@ def parse_args():
                      "current [uki.efi] [options...]",
                      CONFIG_ITEMS_CURRENT + CONFIG_ITEMS_JSON,
                      list_current_cmdline)
+
+    create_subparser(subparsers, "list",
+                     "List all cmdline addons (.efi) present in a folder",
+                     "list [options...]",
+                     CONFIG_ITEMS_LIST + CONFIG_ITEMS_JSON,
+                     list_fs_cmdline)
     return parser.parse_args()
 
 
