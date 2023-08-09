@@ -947,6 +947,37 @@ class Utilities():
             print(output)
             self.assertRegex(output, f'interface:{interface},address:{address},label:"{label}"')
 
+    def setup_nftset(self, filter_name, filter_type, flags=''):
+        if not shutil.which('nft'):
+            print('## Setting up NFT sets skipped: nft command not found.')
+        else:
+            if call(f'nft add table inet sd_test') != 0:
+                print('## Setting up NFT table failed.')
+                self.fail()
+            if call(f'nft add set inet sd_test {filter_name} {{ type {filter_type}; {flags} }}') != 0:
+                print('## Setting up NFT sets failed.')
+                self.fail()
+
+    def teardown_nftset(self, *filters):
+        if not shutil.which('nft'):
+            print('## Tearing down NFT sets skipped: nft command not found.')
+        else:
+            for filter_name in filters:
+                if call(f'nft delete set inet sd_test {filter_name}') != 0:
+                    print('## Tearing down NFT sets failed.')
+                    self.fail()
+            if call(f'nft delete table inet sd_test') != 0:
+                print('## Tearing down NFT table failed.')
+                self.fail()
+
+    def check_nftset(self, filter_name, contents):
+        if not shutil.which('nft'):
+            print('## Checking NFT sets skipped: nft command not found.')
+        else:
+            output = check_output(f'nft list set inet sd_test {filter_name}')
+            print(output)
+            self.assertRegex(output, r'.*elements = { [^}]*' + contents + r'[^}]* }.*')
+
 class NetworkctlTests(unittest.TestCase, Utilities):
 
     def setUp(self):
@@ -2435,6 +2466,9 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
     def test_address_static(self):
         copy_network_unit('25-address-static.network', '12-dummy.netdev', copy_dropins=False)
         start_networkd()
+        self.setup_nftset('addr4', 'ipv4_addr')
+        self.setup_nftset('network4', 'ipv4_addr', 'flags interval;')
+        self.setup_nftset('ifindex', 'iface_index')
 
         self.wait_online(['dummy98:routable'])
         self.verify_address_static(
@@ -2462,6 +2496,12 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
             flag3=' noprefixroute',
             flag4=' home mngtmpaddr',
         )
+        # nft set
+        self.check_nftset('addr4', r'10\.10\.1\.1')
+        self.check_nftset('network4', r'10\.10\.1\.0/24')
+        self.check_nftset('ifindex', 'dummy98')
+
+        self.teardown_nftset('addr4', 'network4', 'ifindex')
 
         copy_network_unit('25-address-static.network.d/10-override.conf')
         networkctl_reload()
@@ -4703,6 +4743,9 @@ class NetworkdRATests(unittest.TestCase, Utilities):
 
     def test_ipv6_prefix_delegation(self):
         copy_network_unit('25-veth.netdev', '25-ipv6-prefix.network', '25-ipv6-prefix-veth.network')
+        self.setup_nftset('addr6', 'ipv6_addr')
+        self.setup_nftset('network6', 'ipv6_addr', 'flags interval;')
+        self.setup_nftset('ifindex', 'iface_index')
         start_networkd()
         self.wait_online(['veth99:routable', 'veth-peer:degraded'])
 
@@ -4721,6 +4764,14 @@ class NetworkdRATests(unittest.TestCase, Utilities):
 
         self.check_netlabel('veth99', '2002:da8:1::/64')
         self.check_netlabel('veth99', '2002:da8:2::/64')
+
+        self.check_nftset('addr6', '2002:da8:1:[0-9a-f]*:[0-9a-f]*:[0-9a-f]*:[0-9a-f]*:[0-9a-f]*')
+        self.check_nftset('addr6', '2002:da8:2:[0-9a-f]*:[0-9a-f]*:[0-9a-f]*:[0-9a-f]*:[0-9a-f]*')
+        self.check_nftset('network6', '2002:da8:1::/64')
+        self.check_nftset('network6', '2002:da8:2::/64')
+        self.check_nftset('ifindex', 'veth99')
+
+        self.teardown_nftset('addr6', 'network6', 'ifindex')
 
     def test_ipv6_token_static(self):
         copy_network_unit('25-veth.netdev', '25-ipv6-prefix.network', '25-ipv6-prefix-veth-token-static.network')
@@ -5024,6 +5075,10 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
     def test_dhcp_client_ipv4_only(self):
         copy_network_unit('25-veth.netdev', '25-dhcp-server-veth-peer.network', '25-dhcp-client-ipv4-only.network')
 
+        self.setup_nftset('addr4', 'ipv4_addr')
+        self.setup_nftset('network4', 'ipv4_addr', 'flags interval;')
+        self.setup_nftset('ifindex', 'iface_index')
+
         start_networkd()
         self.wait_online(['veth-peer:carrier'])
         start_dnsmasq('--dhcp-option=option:dns-server,192.168.5.6,192.168.5.7',
@@ -5138,6 +5193,12 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertIn('26:mtu', output)
 
         self.check_netlabel('veth99', r'192\.168\.5\.0/24')
+
+        self.check_nftset('addr4', r'192\.168\.5\.1')
+        self.check_nftset('network4', r'192\.168\.5\.0/24')
+        self.check_nftset('ifindex', 'veth99')
+
+        self.teardown_nftset('addr4', 'network4', 'ifindex')
 
     def test_dhcp_client_ipv4_use_routes_gateway(self):
         first = True
@@ -5595,6 +5656,10 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
                           '12-dummy.netdev', '25-dhcp-pd-downstream-dummy98.network',
                           '13-dummy.netdev', '25-dhcp-pd-downstream-dummy99.network')
 
+        self.setup_nftset('addr6', 'ipv6_addr')
+        self.setup_nftset('network6', 'ipv6_addr', 'flags interval;')
+        self.setup_nftset('ifindex', 'iface_index')
+
         start_networkd()
         self.wait_online(['veth-peer:routable'])
         start_isc_dhcpd(conf_file='isc-dhcpd-dhcp6pd.conf', ipv='-6')
@@ -5781,6 +5846,13 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
         self.assertRegex(output, '3ffe:501:ffff:[2-9a-f]02::/64 proto dhcp metric [0-9]* expires')
 
         self.check_netlabel('dummy98', '3ffe:501:ffff:[2-9a-f]00::/64')
+
+        self.check_nftset('addr6', '3ffe:501:ffff:[2-9a-f]00:1a:2b:3c:4d')
+        self.check_nftset('addr6', '3ffe:501:ffff:[2-9a-f]00:[0-9a-f]*:[0-9a-f]*:[0-9a-f]*:[0-9a-f]*')
+        self.check_nftset('network6', '3ffe:501:ffff:[2-9a-f]00::/64')
+        self.check_nftset('ifindex', 'dummy98')
+
+        self.teardown_nftset('addr6', 'network6', 'ifindex')
 
     def verify_dhcp4_6rd(self, tunnel_name):
         print('### ip -4 address show dev veth-peer scope global')
