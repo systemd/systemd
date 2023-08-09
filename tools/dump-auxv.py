@@ -1,5 +1,9 @@
 #!/usr/bin/python
 # SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# Note: the no-value-for-parameter here is expected, as the click module
+#       decorators modify function arguments which pylint doesn't know
+# pylint: disable=no-value-for-parameter
 
 """
 A program to parse auxv (e.g. /proc/self/auxv).
@@ -109,12 +113,12 @@ def dump(endian, field_width, file):
 
     width = {32:'II', 64:'QQ'}[field_width]
 
-    format = f'{endian}{width}'
-    print(f'# {format=}')
+    format_str = f'{endian}{width}'
+    print(f'# {format_str=}')
 
     seen_null = False
 
-    for item in struct.iter_unpack(format, data):
+    for item in struct.iter_unpack(format_str, data):
         key, val = item
         name = AT_AUXV_NAMES.get(key, f'unknown ({key})')
         if name.endswith(('UID', 'GID')):
@@ -123,7 +127,7 @@ def dump(endian, field_width, file):
             pref, fmt = '0x', 'x'
 
         if seen_null:
-            print('# trailing garbarbage after AT_NULL')
+            print('# trailing garbage after AT_NULL')
 
         print(f'{name:18} = {pref}{val:{fmt}}')
 
