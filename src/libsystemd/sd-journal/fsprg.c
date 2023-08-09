@@ -82,7 +82,7 @@ static void uint64_export(void *buf, size_t buflen, uint64_t x) {
         ((uint8_t*) buf)[7] = (x >>  0) & 0xff;
 }
 
-_pure_ static uint64_t uint64_import(const void *buf, size_t buflen) {
+static uint64_t uint64_import(const void *buf, size_t buflen) {
         assert(buflen == 8);
         return
                 (uint64_t)(((uint8_t*) buf)[0]) << 56 |

@@ -286,7 +286,7 @@ static int socket_add_default_dependencies(Socket *s) {
         return unit_add_two_dependencies_by_name(UNIT(s), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
 }
 
-_pure_ static bool socket_has_exec(Socket *s) {
+static bool socket_has_exec(Socket *s) {
         unsigned i;
         assert(s);
 
@@ -548,7 +548,7 @@ int socket_acquire_peer(Socket *s, int fd, SocketPeer **p) {
         return 1;
 }
 
-_const_ static const char* listen_lookup(int family, int type) {
+static const char* listen_lookup(int family, int type) {
 
         if (family == AF_NETLINK)
                 return "ListenNetlink";
@@ -2871,13 +2871,13 @@ static void socket_distribute_fds(Unit *u, FDSet *fds) {
         }
 }
 
-_pure_ static UnitActiveState socket_active_state(Unit *u) {
+static UnitActiveState socket_active_state(Unit *u) {
         assert(u);
 
         return state_translation_table[SOCKET(u)->state];
 }
 
-_pure_ static const char *socket_sub_state_to_string(Unit *u) {
+static const char *socket_sub_state_to_string(Unit *u) {
         assert(u);
 
         return socket_state_to_string(SOCKET(u)->state);
@@ -2945,7 +2945,7 @@ SocketType socket_port_type_from_string(const char *s) {
                 return _SOCKET_TYPE_INVALID;
 }
 
-_pure_ static bool socket_may_gc(Unit *u) {
+static bool socket_may_gc(Unit *u) {
         Socket *s = SOCKET(u);
 
         assert(u);

@@ -191,7 +191,7 @@ int fd_cloexec_many(const int fds[], size_t n_fds, bool cloexec) {
         return ret;
 }
 
-_pure_ static bool fd_in_set(int fd, const int fdset[], size_t n_fdset) {
+static bool fd_in_set(int fd, const int fdset[], size_t n_fdset) {
         assert(n_fdset == 0 || fdset);
 
         for (size_t i = 0; i < n_fdset; i++) {
