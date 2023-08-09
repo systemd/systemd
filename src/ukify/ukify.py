@@ -16,12 +16,8 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with systemd; If not, see <https://www.gnu.org/licenses/>.
 
-# pylint: disable=missing-docstring,invalid-name,import-outside-toplevel
-# pylint: disable=consider-using-with,unspecified-encoding,line-too-long
-# pylint: disable=too-many-locals,too-many-statements,too-many-return-statements
-# pylint: disable=too-many-branches,too-many-lines,too-many-instance-attributes
-# pylint: disable=too-many-arguments,unnecessary-lambda-assignment,fixme
-# pylint: disable=unused-argument
+# pylint: disable=import-outside-toplevel,consider-using-with,unused-argument
+# pylint: disable=unnecessary-lambda-assignment
 
 import argparse
 import configparser
