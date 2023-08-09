@@ -796,13 +796,10 @@ int manager_recv(Manager *m, int fd, DnsProtocol protocol, DnsPacket **ret) {
         iov = IOVEC_MAKE(DNS_PACKET_DATA(p), p->allocated);
 
         l = recvmsg_safe(fd, &mh, 0);
-        if (l < 0) {
-                if (ERRNO_IS_TRANSIENT(l))
-                        return 0;
-                return l;
-        }
-        if (l == 0)
+        if (ERRNO_IS_NEG_TRANSIENT(l))
                 return 0;
+        if (l <= 0)
+                return l;
 
         assert(!(mh.msg_flags & MSG_TRUNC));
 
@@ -914,11 +911,10 @@ static int sendmsg_loop(int fd, struct msghdr *mh, int flags) {
                         return -errno;
 
                 r = fd_wait_for_event(fd, POLLOUT, LESS_BY(end, now(CLOCK_MONOTONIC)));
-                if (r < 0) {
-                        if (ERRNO_IS_TRANSIENT(r))
-                                continue;
+                if (ERRNO_IS_NEG_TRANSIENT(r))
+                        continue;
+                if (r < 0)
                         return r;
-                }
                 if (r == 0)
                         return -ETIMEDOUT;
         }
@@ -942,11 +938,10 @@ static int write_loop(int fd, void *message, size_t length) {
                         return -errno;
 
                 r = fd_wait_for_event(fd, POLLOUT, LESS_BY(end, now(CLOCK_MONOTONIC)));
-                if (r < 0) {
-                        if (ERRNO_IS_TRANSIENT(r))
-                                continue;
+                if (ERRNO_IS_NEG_TRANSIENT(r))
+                        continue;
+                if (r < 0)
                         return r;
-                }
                 if (r == 0)
                         return -ETIMEDOUT;
         }

@@ -82,14 +82,12 @@ int get_keymaps(char ***ret) {
                                 &(struct recurse_dir_userdata) {
                                         .keymaps = keymaps,
                                 });
-                if (r < 0) {
-                        if (r == -ENOENT)
-                                continue;
-                        if (ERRNO_IS_RESOURCE(r))
-                                return log_warning_errno(r, "Failed to read keymap list from %s: %m", dir);
-
+                if (r == -ENOENT)
+                        continue;
+                if (ERRNO_IS_NEG_RESOURCE(r))
+                        return log_warning_errno(r, "Failed to read keymap list from %s: %m", dir);
+                if (r < 0)
                         log_debug_errno(r, "Failed to read keymap list from %s, ignoring: %m", dir);
-                }
         }
 
         _cleanup_strv_free_ char **l = set_get_strv(keymaps);

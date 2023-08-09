@@ -118,12 +118,10 @@ int is_pressure_supported(void) {
 
         FOREACH_STRING(p, "/proc/pressure/cpu", "/proc/pressure/io", "/proc/pressure/memory") {
                 r = read_virtual_file(p, 0, NULL, NULL);
-                if (r < 0) {
-                        if (r == -ENOENT || ERRNO_IS_NOT_SUPPORTED(r))
-                                return (cached = false);
-
+                if (r == -ENOENT || ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                        return (cached = false);
+                if (r < 0)
                         return r;
-                }
         }
 
         return (cached = true);

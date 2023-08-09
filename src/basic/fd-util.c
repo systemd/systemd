@@ -936,11 +936,10 @@ int path_is_root_at(int dir_fd, const char *path) {
                 int mntid;
 
                 r = path_get_mnt_id_at_fallback(dir_fd, "", &mntid);
-                if (r < 0) {
-                        if (ERRNO_IS_NOT_SUPPORTED(r))
-                                return true; /* skip the mount ID check */
+                if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                        return true; /* skip the mount ID check */
+                if (r < 0)
                         return r;
-                }
                 assert(mntid >= 0);
 
                 st.nsx.stx_mnt_id = mntid;
@@ -951,11 +950,10 @@ int path_is_root_at(int dir_fd, const char *path) {
                 int mntid;
 
                 r = path_get_mnt_id_at_fallback(dir_fd, "..", &mntid);
-                if (r < 0) {
-                        if (ERRNO_IS_NOT_SUPPORTED(r))
-                                return true; /* skip the mount ID check */
+                if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                        return true; /* skip the mount ID check */
+                if (r < 0)
                         return r;
-                }
                 assert(mntid >= 0);
 
                 pst.nsx.stx_mnt_id = mntid;
