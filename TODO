@@ -84,6 +84,10 @@ Janitorial Clean-ups:
   Having two lists is not nice, but maybe it's now worth making a dependency on
   libmount for something so trivial.
 
+* drop set_free_free() and switch things over from string_hash_ops to
+  string_hash_ops_free everywhere, so that destruction is implicit rather than
+  explicit. Similar, for other special hashmap/set/ordered_hashmap destructors.
+
 Deprecations and removals:
 
 * Remove any support for booting without /usr pre-mounted in the initrd entirely.
