@@ -1468,7 +1468,7 @@ static int process_backtrace(int argc, char *argv[]) {
 
                 r = iovw_put_string_field(iovw, "MESSAGE=", message);
                 if (r < 0)
-                        return r;
+                        goto finish;
         } else {
                 /* The imported iovecs are not supposed to be freed by us so let's store
                  * them at the end of the array so we can skip them while freeing the
