@@ -1038,24 +1038,32 @@ static int mount_bind_dev(const MountEntry *m) {
 }
 
 static int mount_private_sysfs(const MountEntry *m) {
-        const char *p = mount_entry_path(ASSERT_PTR(m));
-        int r;
+        const char *entry_path = mount_entry_path(ASSERT_PTR(m));
+        int r, n;
 
-        (void) mkdir_p_label(p, 0755);
+        (void) mkdir_p_label(entry_path, 0755);
 
-        r = remount_sysfs(p);
-        if (r < 0 && (ERRNO_IS_PRIVILEGE(r) || ERRNO_IS_NOT_SUPPORTED(r))) {
-                /* Running with an unprivileged user (PrivateUsers=yes), or the kernel seems old. Falling
-                 * back to bind mount the host's version so that we get all child mounts of it, too. */
+        n = umount_recursive(entry_path, 0);
 
-                log_debug_errno(r, "Failed to remount sysfs on %s, falling back to bind mount: %m", p);
+        r = mount_nofollow_verbose(LOG_DEBUG, "sysfs", entry_path, "sysfs", MS_NOSUID|MS_NOEXEC|MS_NODEV, NULL);
+        if (r < 0) {
+                if (!ERRNO_IS_PRIVILEGE(r))
+                        return r;
 
-                (void) umount_recursive(p, 0);
+                if (n > 0)
+                        /* /sys or some of sub-mounts are umounted in the above. Refuse incomplete tree.
+                         * Propagate the original error code returned by mount() in the above. */
+                        return r;
 
-                r = mount_nofollow_verbose(LOG_DEBUG, "/sys", p, NULL, MS_BIND|MS_REC, NULL);
-        }
-        if (r < 0)
-                return log_debug_errno(r, "Failed to remount sysfs on %s: %m", p);
+                /* We lack permissions to mount a new instance of /sys. But we can access the host's, so as a
+                 * fallback bind-mount it to the destination, as most likely we are inside a user manager in
+                 * an unprivileged user namespace. */
+                r = mount_nofollow_verbose(LOG_DEBUG, "/sys", entry_path, NULL, MS_BIND|MS_REC, NULL);
+                if (r < 0)
+                        return r;
+        } else
+                /* We mounted a new instance now. Let's bind mount the children over now. */
+                (void) bind_mount_submounts("/sys", entry_path);
 
         return 1;
 }
