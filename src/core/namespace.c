@@ -1173,34 +1173,32 @@ static int mount_procfs(const MountEntry *m, const NamespaceInfo *ns_info) {
                  * means we really don't want to use it, since it would affect our host's /proc
                  * mount. Hence let's gracefully fallback to a classic, unrestricted version. */
                 r = mount_nofollow_verbose(LOG_DEBUG, "proc", entry_path, "proc", MS_NOSUID|MS_NOEXEC|MS_NODEV, NULL);
-        if (r == -EPERM) {
-                /* When we do not have enough privileges to mount /proc, fallback to use existing /proc. */
+        if (ERRNO_IS_NEG_PRIVILEGE(r)) {
+                /* When we do not have enough privileges to mount /proc, fall back to use existing /proc. */
 
                 if (n > 0)
                         /* /proc or some of sub-mounts are umounted in the above. Refuse incomplete tree.
                          * Propagate the original error code returned by mount() in the above. */
-                        return -EPERM;
+                        return r;
 
                 r = path_is_mount_point(entry_path, NULL, 0);
                 if (r < 0)
                         return log_debug_errno(r, "Unable to determine whether /proc is already mounted: %m");
-                if (r == 0) {
-                        /* We lack permissions to mount a new instance of /proc, and it is not already
-                         * mounted. But we can access the host's, so as a final fallback bind-mount it to
-                         * the destination, as most likely we are inside a user manager in an unprivileged
-                         * user namespace. */
-                        r = mount_nofollow_verbose(LOG_DEBUG, "/proc", entry_path, NULL, MS_BIND|MS_REC, NULL);
-                        if (r < 0)
-                                return -EPERM;
-                }
+                if (r > 0)
+                        return 0;
+
+                /* We lack permissions to mount a new instance of /proc, and it is not already mounted. But
+                 * we can access the host's, so as a final fallback bind-mount it to the destination, as most
+                 * likely we are inside a user manager in an unprivileged user namespace. */
+                return mount_nofollow_verbose(LOG_DEBUG, "/proc", entry_path, NULL, MS_BIND|MS_REC, NULL);
+
         } else if (r < 0)
                 return r;
-        else
-                /* We mounted a new instance now. Let's bind mount the children over now. This matters for
-                 * nspawn where a bunch of files are overmounted, in particular the boot id */
-                (void) bind_mount_submounts("/proc", entry_path);
 
-        return 1;
+        /* We mounted a new instance now. Let's bind mount the children over now. This matters for nspawn
+         * where a bunch of files are overmounted, in particular the boot id */
+        (void) bind_mount_submounts("/proc", entry_path);
+        return 0;
 }
 
 static int mount_tmpfs(const MountEntry *m) {
