@@ -2746,6 +2746,7 @@ static int write_credential(
                 const void *data,
                 size_t size,
                 uid_t uid,
+                gid_t gid,
                 bool ownership_ok) {
 
         _cleanup_(unlink_and_freep) char *tmp = NULL;
@@ -2783,7 +2784,7 @@ static int write_credential(
                                             * user can no longer chmod() the file to gain write access. */
                                 return r;
 
-                        if (fchown(fd, uid, GID_INVALID) < 0)
+                        if (fchown(fd, uid, gid) < 0)
                                 return -errno;
                 }
         }
@@ -2845,6 +2846,7 @@ static int maybe_decrypt_and_write_credential(
                 const char *id,
                 bool encrypted,
                 uid_t uid,
+                gid_t gid,
                 bool ownership_ok,
                 const char *data,
                 size_t size,
@@ -2870,7 +2872,7 @@ static int maybe_decrypt_and_write_credential(
         if (add > *left)
                 return -E2BIG;
 
-        r = write_credential(dir_fd, id, data, size, uid, ownership_ok);
+        r = write_credential(dir_fd, id, data, size, uid, gid, ownership_ok);
         if (r < 0)
                 return log_debug_errno(r, "Failed to write credential '%s': %m", id);
 
@@ -2885,6 +2887,7 @@ static int load_credential_glob(
                 ReadFullFileFlags flags,
                 int write_dfd,
                 uid_t uid,
+                gid_t gid,
                 bool ownership_ok,
                 uint64_t *left) {
 
@@ -2932,6 +2935,7 @@ static int load_credential_glob(
                                 fn,
                                 encrypted,
                                 uid,
+                                gid,
                                 ownership_ok,
                                 data, size,
                                 left);
@@ -2955,6 +2959,7 @@ static int load_credential(
                 int read_dfd,
                 int write_dfd,
                 uid_t uid,
+                gid_t gid,
                 bool ownership_ok,
                 uint64_t *left) {
 
@@ -3066,7 +3071,7 @@ static int load_credential(
         if (r < 0)
                 return log_debug_errno(r, "Failed to read credential '%s': %m", path);
 
-        return maybe_decrypt_and_write_credential(write_dfd, id, encrypted, uid, ownership_ok, data, size, left);
+        return maybe_decrypt_and_write_credential(write_dfd, id, encrypted, uid, gid, ownership_ok, data, size, left);
 }
 
 struct load_cred_args {
@@ -3076,6 +3081,7 @@ struct load_cred_args {
         const char *unit;
         int dfd;
         uid_t uid;
+        gid_t gid;
         bool ownership_ok;
         uint64_t *left;
 };
@@ -3123,6 +3129,7 @@ static int load_cred_recurse_dir_cb(
                         dir_fd,
                         args->dfd,
                         args->uid,
+                        args->gid,
                         args->ownership_ok,
                         args->left);
         if (r < 0)
@@ -3137,6 +3144,7 @@ static int acquire_credentials(
                 const char *unit,
                 const char *p,
                 uid_t uid,
+                gid_t gid,
                 bool ownership_ok) {
 
         uint64_t left = CREDENTIALS_TOTAL_SIZE_MAX;
@@ -3186,6 +3194,7 @@ static int acquire_credentials(
                                         AT_FDCWD,
                                         dfd,
                                         uid,
+                                        gid,
                                         ownership_ok,
                                         &left);
                 else
@@ -3204,6 +3213,7 @@ static int acquire_credentials(
                                                 .unit = unit,
                                                 .dfd = dfd,
                                                 .uid = uid,
+                                                .gid = gid,
                                                 .ownership_ok = ownership_ok,
                                                 .left = &left,
                                         });
@@ -3227,6 +3237,7 @@ static int acquire_credentials(
                                 READ_FULL_FILE_SECURE|READ_FULL_FILE_FAIL_WHEN_LARGER,
                                 dfd,
                                 uid,
+                                gid,
                                 ownership_ok,
                                 &left);
                 if (r < 0)
@@ -3244,6 +3255,7 @@ static int acquire_credentials(
                                 READ_FULL_FILE_SECURE|READ_FULL_FILE_FAIL_WHEN_LARGER|READ_FULL_FILE_UNBASE64,
                                 dfd,
                                 uid,
+                                gid,
                                 ownership_ok,
                                 &left);
                 if (r < 0)
@@ -3281,7 +3293,7 @@ static int acquire_credentials(
                 if (add > left)
                         return -E2BIG;
 
-                r = write_credential(dfd, sc->id, data, size, uid, ownership_ok);
+                r = write_credential(dfd, sc->id, data, size, uid, gid, ownership_ok);
                 if (r < 0)
                         return r;
 
@@ -3304,7 +3316,7 @@ static int acquire_credentials(
                         if (!ownership_ok)
                                 return r;
 
-                        if (fchown(dfd, uid, GID_INVALID) < 0)
+                        if (fchown(dfd, uid, gid) < 0)
                                 return -errno;
                 }
         }
@@ -3320,7 +3332,8 @@ static int setup_credentials_internal(
                 const char *workspace,    /* This is where we can prepare it before moving it to the final place */
                 bool reuse_workspace,     /* Whether to reuse any existing workspace mount if it already is a mount */
                 bool must_mount,          /* Whether to require that we mount something, it's not OK to use the plain directory fall back */
-                uid_t uid) {
+                uid_t uid,
+                gid_t gid) {
 
         int r, workspace_mounted; /* negative if we don't know yet whether we have/can mount something; true
                                    * if we mounted something; false if we definitely can't mount anything */
@@ -3406,7 +3419,7 @@ static int setup_credentials_internal(
 
         (void) label_fix_full(AT_FDCWD, where, final, 0);
 
-        r = acquire_credentials(context, params, unit, where, uid, workspace_mounted);
+        r = acquire_credentials(context, params, unit, where, uid, gid, workspace_mounted);
         if (r < 0)
                 return r;
 
@@ -3461,7 +3474,8 @@ static int setup_credentials(
                 const ExecContext *context,
                 const ExecParameters *params,
                 const char *unit,
-                uid_t uid) {
+                uid_t uid,
+                gid_t gid) {
 
         _cleanup_free_ char *p = NULL, *q = NULL;
         int r;
@@ -3528,7 +3542,8 @@ static int setup_credentials(
                                 u,       /* temporary workspace to overmount */
                                 true,    /* reuse the workspace if it is already a mount */
                                 false,   /* it's OK to fall back to a plain directory if we can't mount anything */
-                                uid);
+                                uid,
+                                gid);
 
                 (void) rmdir(u); /* remove the workspace again if we can. */
 
@@ -3566,7 +3581,8 @@ static int setup_credentials(
                                 "/dev/shm",  /* temporary workspace to overmount */
                                 false,       /* do not reuse /dev/shm if it is already a mount, under no circumstances */
                                 true,        /* insist that something is mounted, do not allow fallback to plain directory */
-                                uid);
+                                uid,
+                                gid);
                 if (r < 0)
                         goto child_fail;
 
@@ -5276,7 +5292,7 @@ static int exec_child(
         }
 
         if (FLAGS_SET(params->flags, EXEC_WRITE_CREDENTIALS)) {
-                r = setup_credentials(context, params, unit->id, uid);
+                r = setup_credentials(context, params, unit->id, uid, gid);
                 if (r < 0) {
                         *exit_status = EXIT_CREDENTIALS;
                         return log_unit_error_errno(unit, r, "Failed to set up credentials: %m");
