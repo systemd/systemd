@@ -48,7 +48,6 @@ static const UnitActiveState state_translation_table[_MOUNT_STATE_MAX] = {
         [MOUNT_REMOUNTING_SIGKILL] = UNIT_RELOADING,
         [MOUNT_UNMOUNTING_SIGTERM] = UNIT_DEACTIVATING,
         [MOUNT_UNMOUNTING_SIGKILL] = UNIT_DEACTIVATING,
-        [MOUNT_UNMOUNTING_CATCHUP] = UNIT_DEACTIVATING,
         [MOUNT_FAILED] = UNIT_FAILED,
         [MOUNT_CLEANING] = UNIT_MAINTENANCE,
 };
@@ -1063,37 +1062,11 @@ static void mount_enter_unmounting(Mount *m) {
 
         assert(m);
 
-        r = path_is_mount_point(m->where, NULL, 0);
-        if (IN_SET(r, 0, -ENOENT)) {
-                /* Not a mount point anymore ? Then we raced against something else which unmounted it? Let's
-                 * handle this gracefully, and wait until we get the kernel notification about it. */
-
-                log_unit_debug(UNIT(m), "Path '%s' is not a mount point anymore, waiting for mount table refresh.", m->where);
-
-                /* Apparently our idea of the kernel mount table is out of date. Make sure we re-read it
-                 * again, soon, so that we don't delay mount handling unnecessarily. */
-                (void) sd_event_source_leave_ratelimit(UNIT(m)->manager->mount_event_source);
-
-                m->control_command_id = _MOUNT_EXEC_COMMAND_INVALID;
-                mount_unwatch_control_pid(m);
-
-                r = mount_arm_timer(m, usec_add(now(CLOCK_MONOTONIC), m->timeout_usec));
-                if (r < 0)
-                        goto fail;
-
-                /* Let's enter a distinct state where we just wait for the mount table to catch up */
-                mount_set_state(m, MOUNT_UNMOUNTING_CATCHUP);
-                return;
-        }
-        if (r < 0)
-                log_unit_debug_errno(UNIT(m), r, "Unable to determine if '%s' is a mount point, ignoring: %m", m->where);
-
         /* Start counting our attempts */
         if (!IN_SET(m->state,
                     MOUNT_UNMOUNTING,
                     MOUNT_UNMOUNTING_SIGTERM,
-                    MOUNT_UNMOUNTING_SIGKILL,
-                    MOUNT_UNMOUNTING_CATCHUP))
+                    MOUNT_UNMOUNTING_SIGKILL))
                 m->n_retry_umount = 0;
 
         m->control_command_id = MOUNT_EXEC_UNMOUNT;
@@ -1114,6 +1087,7 @@ static void mount_enter_unmounting(Mount *m) {
                 goto fail;
 
         mount_set_state(m, MOUNT_UNMOUNTING);
+
         return;
 
 fail:
@@ -1286,7 +1260,6 @@ static int mount_start(Unit *u) {
                    MOUNT_UNMOUNTING,
                    MOUNT_UNMOUNTING_SIGTERM,
                    MOUNT_UNMOUNTING_SIGKILL,
-                   MOUNT_UNMOUNTING_CATCHUP,
                    MOUNT_CLEANING))
                 return -EAGAIN;
 
@@ -1316,7 +1289,6 @@ static int mount_stop(Unit *u) {
         case MOUNT_UNMOUNTING:
         case MOUNT_UNMOUNTING_SIGKILL:
         case MOUNT_UNMOUNTING_SIGTERM:
-        case MOUNT_UNMOUNTING_CATCHUP:
                 /* Already on it */
                 return 0;
 
@@ -1582,10 +1554,6 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                 mount_enter_dead_or_mounted(m, f);
                 break;
 
-        case MOUNT_UNMOUNTING_CATCHUP:
-                log_unit_debug(u, "Was notified about control process death, but wasn't expecting it. Ignoring.");
-                break;
-
         case MOUNT_CLEANING:
                 if (m->clean_result == MOUNT_SUCCESS)
                         m->clean_result = f;
@@ -1657,11 +1625,6 @@ static int mount_dispatch_timer(sd_event_source *source, usec_t usec, void *user
 
         case MOUNT_UNMOUNTING_SIGKILL:
                 log_unit_warning(UNIT(m), "Mount process still around after SIGKILL. Ignoring.");
-                mount_enter_dead_or_mounted(m, MOUNT_FAILURE_TIMEOUT);
-                break;
-
-        case MOUNT_UNMOUNTING_CATCHUP:
-                log_unit_warning(UNIT(m), "Waiting for unmount notification timed out. Giving up.");
                 mount_enter_dead_or_mounted(m, MOUNT_FAILURE_TIMEOUT);
                 break;
 
@@ -2121,7 +2084,6 @@ static int mount_process_proc_self_mountinfo(Manager *m) {
                         switch (mount->state) {
 
                         case MOUNT_MOUNTED:
-                        case MOUNT_UNMOUNTING_CATCHUP:
                                 /* This has just been unmounted by somebody else, follow the state change. */
                                 mount_enter_dead(mount, MOUNT_SUCCESS);
                                 break;
