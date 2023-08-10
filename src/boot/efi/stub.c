@@ -151,6 +151,10 @@ static bool use_load_options(
         if (secure_boot_enabled() && have_cmdline)
                 return false;
 
+        /* Disable custom command lines if we are in confidential VMs */
+        if (secure_boot_enabled() && is_confidential_vm())
+                return false;
+
         /* We also do a superficial check whether first character of passed command line
          * is printable character (for compat with some Dell systems which fill in garbage?). */
         if (loaded_image->LoadOptionsSize < sizeof(char16_t) || ((char16_t *) loaded_image->LoadOptions)[0] <= 0x1F)
