@@ -3409,13 +3409,11 @@ static int inner_child(
         if (arg_seccomp) {
 
                 if (is_seccomp_available()) {
-
                         r = seccomp_load(arg_seccomp);
-                        if (r < 0) {
-                                if (ERRNO_IS_SECCOMP_FATAL(r))
-                                        return log_error_errno(r, "Failed to install seccomp filter: %m");
+                        if (ERRNO_IS_NEG_SECCOMP_FATAL(r))
+                                return log_error_errno(r, "Failed to install seccomp filter: %m");
+                        if (r < 0)
                                 log_debug_errno(r, "Failed to install seccomp filter: %m");
-                        }
                 }
         } else
 #endif
