@@ -1066,23 +1066,14 @@ foreach ident : [
         conf.set10('HAVE_' + ident[0].to_upper(), have)
 endforeach
 
-want_bpf_framework = get_option('bpf-framework')
+bpf_framework = get_option('bpf-framework')
 bpf_compiler = get_option('bpf-compiler')
-bpf_framework_required = want_bpf_framework == 'true'
-
-libbpf_version_requirement = '>= 0.1.0'
-if bpf_compiler == 'gcc'
-        libbpf_version_requirement = '>= 1.0.0'
-endif
-libbpf = dependency('libbpf', required : bpf_framework_required, version : libbpf_version_requirement)
+libbpf = dependency('libbpf',
+                    required : bpf_framework,
+                    version : bpf_compiler == 'gcc' ? '>= 1.0.0' : '>= 0.1.0')
 conf.set10('HAVE_LIBBPF', libbpf.found())
 
-bpftool_strip_version_requirement = '>= 5.13.0'
-if bpf_compiler == 'gcc'
-        bpftool_strip_version_requirement = '>= 7.0.0'
-endif
-
-if want_bpf_framework == 'false' or not libbpf.found() or skip_deps
+if not libbpf.found()
         conf.set10('BPF_FRAMEWORK', false)
 else
         clang_found = false
@@ -1095,7 +1086,9 @@ else
                 # Support 'versioned' clang/llvm-strip binaries, as seen on Debian/Ubuntu
                 # (like clang-10/llvm-strip-10)
                 if meson.is_cross_build() or cc.get_id() != 'clang' or cc.cmd_array()[0].contains('afl-clang') or cc.cmd_array()[0].contains('hfuzz-clang')
-                        r = find_program('clang', required : bpf_framework_required, version : '>= 10.0.0')
+                        r = find_program('clang',
+                                         required : bpf_framework,
+                                         version : '>= 10.0.0')
                         clang_found = r.found()
                         if clang_found
                                 clang = r.full_path()
@@ -1121,11 +1114,10 @@ else
                 # Debian installs this in /usr/sbin/ which is not in $PATH.
                 # We check for 'bpftool' first, honouring $PATH, and in /usr/sbin/ for Debian.
                 # We use 'bpftool gen object' subcommand for bpftool strip, it was added by d80b2fcbe0a023619e0fc73112f2a02c2662f6ab (v5.13).
-                bpftool_strip_required = bpf_framework_required and bpf_compiler == 'gcc'
                 bpftool = find_program('bpftool',
                                        '/usr/sbin/bpftool',
-                                       required : bpftool_strip_required,
-                                       version : bpftool_strip_version_requirement)
+                                       required : bpf_framework.enabled() and bpf_compiler == 'gcc',
+                                       version : bpf_compiler == 'gcc' ? '>= 7.0.0' : '>= 5.13.0')
 
                 if bpftool.found()
                         bpftool_strip = true
@@ -1134,7 +1126,7 @@ else
                         # We require the 'bpftool gen skeleton' subcommand, it was added by 985ead416df39d6fe8e89580cc1db6aa273e0175 (v5.6).
                         bpftool = find_program('bpftool',
                                                '/usr/sbin/bpftool',
-                                               required : bpf_framework_required,
+                                               required : bpf_framework,
                                                version : '>= 5.6.0')
                 endif
 
@@ -1146,7 +1138,9 @@ else
                         else
                                 llvm_strip_bin = 'llvm-strip'
                         endif
-                        llvm_strip = find_program(llvm_strip_bin, required : bpf_framework_required, version : '>= 10.0.0')
+                        llvm_strip = find_program(llvm_strip_bin,
+                                                  required : bpf_framework,
+                                                  version : '>= 10.0.0')
                         deps_found = llvm_strip.found()
                 endif
         endif
