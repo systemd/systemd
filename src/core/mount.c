@@ -195,6 +195,9 @@ static int mount_arm_timer(Mount *m, usec_t usec) {
 
         assert(m);
 
+        if (usec == USEC_INFINITY)
+                return sd_event_source_set_enabled(m->timer_event_source, SD_EVENT_OFF);
+
         if (m->timer_event_source) {
                 r = sd_event_source_set_time(m->timer_event_source, usec);
                 if (r < 0)
@@ -202,9 +205,6 @@ static int mount_arm_timer(Mount *m, usec_t usec) {
 
                 return sd_event_source_set_enabled(m->timer_event_source, SD_EVENT_ONESHOT);
         }
-
-        if (usec == USEC_INFINITY)
-                return 0;
 
         r = sd_event_add_time(
                         UNIT(m)->manager->event,
