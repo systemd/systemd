@@ -1350,23 +1350,12 @@ libp11kit = dependency('p11-kit-1',
 conf.set10('HAVE_P11KIT', libp11kit.found())
 libp11kit_cflags = libp11kit.partial_dependency(includes: true, compile_args: true)
 
-want_libfido2 = get_option('libfido2')
-if want_libfido2 != 'false' and not skip_deps
-        if conf.get('HAVE_OPENSSL') == 1
-                libfido2 = dependency('libfido2',
-                                      required : want_libfido2 == 'true')
-                have = libfido2.found()
-        elif want_libfido2 == 'true'
-                error('libfido2=true requires openssl')
-        else
-                have = false
-                libfido2 = []
-        endif
-else
-        have = false
-        libfido2 = []
-endif
-conf.set10('HAVE_LIBFIDO2', have)
+feature = get_option('libfido2').require(
+        conf.get('HAVE_OPENSSL') == 1,
+        error_message : 'openssl required')
+libfido2 = dependency('libfido2',
+                      required : feature)
+conf.set10('HAVE_LIBFIDO2', libfido2.found())
 
 tpm2 = dependency('tss2-esys tss2-rc tss2-mu tss2-tcti-device',
                   required : get_option('tpm2'))
@@ -1550,15 +1539,9 @@ conf.set('DEFAULT_LLMNR_MODE',
          'RESOLVE_SUPPORT_' + default_llmnr.to_upper())
 conf.set_quoted('DEFAULT_LLMNR_MODE_STR', default_llmnr)
 
-want_repart = get_option('repart')
-if want_repart != 'false'
-        have = conf.get('HAVE_LIBFDISK') == 1
-        if want_repart == 'true' and not have
-                error('repart support was requested, but dependencies are not available')
-        endif
-else
-        have = false
-endif
+have = get_option('repart').require(
+        conf.get('HAVE_LIBFDISK') == 1,
+        error_message : 'fdisk required').allowed()
 conf.set10('ENABLE_REPART', have)
 
 default_dnssec = get_option('default-dnssec')
@@ -1573,43 +1556,25 @@ conf.set('DEFAULT_DNSSEC_MODE',
          'DNSSEC_' + default_dnssec.underscorify().to_upper())
 conf.set_quoted('DEFAULT_DNSSEC_MODE_STR', default_dnssec)
 
-want_sysupdate = get_option('sysupdate')
-if want_sysupdate != 'false'
-        have = (conf.get('HAVE_OPENSSL') == 1 and
-                conf.get('HAVE_LIBFDISK') == 1)
-        if want_sysupdate == 'true' and not have
-                error('sysupdate support was requested, but dependencies are not available')
-        endif
-else
-        have = false
-endif
+have = get_option('sysupdate').require(
+        conf.get('HAVE_OPENSSL') == 1 and
+        conf.get('HAVE_LIBFDISK') == 1,
+        error_message : 'fdisk and openssl required').allowed()
 conf.set10('ENABLE_SYSUPDATE', have)
 
-want_importd = get_option('importd')
-if want_importd != 'false'
-        have = (conf.get('HAVE_LIBCURL') == 1 and
-                conf.get('HAVE_OPENSSL_OR_GCRYPT') == 1 and
-                conf.get('HAVE_ZLIB') == 1 and
-                conf.get('HAVE_XZ') == 1)
-        if want_importd == 'true' and not have
-                error('importd support was requested, but dependencies are not available')
-        endif
-else
-        have = false
-endif
+have = get_option('importd').require(
+        conf.get('HAVE_LIBCURL') == 1 and
+        conf.get('HAVE_OPENSSL_OR_GCRYPT') == 1 and
+        conf.get('HAVE_ZLIB') == 1 and
+        conf.get('HAVE_XZ') == 1,
+        error_message : 'curl, openssl/grypt, zlib and xz required').allowed()
 conf.set10('ENABLE_IMPORTD', have)
 
-want_homed = get_option('homed')
-if want_homed != 'false'
-        have = (conf.get('HAVE_OPENSSL') == 1 and
-                conf.get('HAVE_LIBFDISK') == 1 and
-                conf.get('HAVE_LIBCRYPTSETUP') == 1)
-        if want_homed == 'true' and not have
-                error('homed support was requested, but dependencies are not available')
-        endif
-else
-        have = false
-endif
+have = get_option('homed').require(
+        conf.get('HAVE_OPENSSL') == 1 and
+        conf.get('HAVE_LIBFDISK') == 1 and
+        conf.get('HAVE_LIBCRYPTSETUP') == 1,
+        error_message : 'openssl, fdisk and libcryptsetup required').allowed()
 conf.set10('ENABLE_HOMED', have)
 
 have = have and conf.get('HAVE_PAM') == 1
@@ -1842,18 +1807,19 @@ efi_arch = {
         'x86'         : 'ia32',
 }.get(host_machine.cpu_family(), '')
 
-if get_option('bootloader') != 'false' and efi_arch != ''
-        conf.set_quoted('EFI_MACHINE_TYPE_NAME', efi_arch)
-elif get_option('bootloader') == 'false' and efi_arch != ''
-        # Ensure that if the option is explicitly set to false, then no EFI code is built, including tests
-        efi_arch = ''
-elif get_option('bootloader') == 'true' and efi_arch == ''
-        error('EFI not supported for this arch.')
-endif
+pyelftools = pymod.find_installation('python3',
+                                     required : get_option('bootloader'),
+                                     modules : ['elftools'])
+
+have = get_option('bootloader').require(
+        pyelftools.found() and get_option('efi') and efi_arch != '',
+        error_message : 'unsupported EFI arch or EFI support is disabled').allowed()
+conf.set10('ENABLE_BOOTLOADER', have)
+conf.set_quoted('EFI_MACHINE_TYPE_NAME', have ? efi_arch : '')
 
 efi_arch_alt = ''
 efi_cpu_family_alt = ''
-if efi_arch == 'x64' and cc.links('''
+if have and efi_arch == 'x64' and cc.links('''
                 #include <limits.h>
                 int main(int argc, char *argv[]) {
                         return __builtin_popcount(argc - CHAR_MAX);
@@ -1862,26 +1828,9 @@ if efi_arch == 'x64' and cc.links('''
         efi_cpu_family_alt = 'x86'
 endif
 
-have_pyelftools = pymod.find_installation('python3', required : false, modules : ['elftools']).found()
-if get_option('bootloader') == 'true' and not have_pyelftools
-        error('EFI bootloader support requires pyelftools.')
-endif
-
-conf.set10(
-        'ENABLE_BOOTLOADER',
-        get_option('efi') and
-        get_option('bootloader') in ['auto', 'true'] and
-        efi_arch != '' and
-        have_pyelftools,
-)
-
-if get_option('ukify') == 'auto'
-    want_ukify = python_39  and conf.get('ENABLE_BOOTLOADER') == 1
-elif get_option('ukify') == 'true' and (not python_39 or conf.get('ENABLE_BOOTLOADER') != 1)
-    error('ukify requires Python >= 3.9 and -Dbootloader=true')
-else
-    want_ukify = get_option('ukify') == 'true'
-endif
+want_ukify = get_option('ukify').require(
+        python_39 and conf.get('ENABLE_BOOTLOADER') == 1,
+        error_message : 'Python >= 3.9 and -Dbootloader=true required').allowed()
 conf.set10('ENABLE_UKIFY', want_ukify)
 
 ############################################################
