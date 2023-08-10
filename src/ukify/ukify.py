@@ -958,8 +958,9 @@ def inspect_section(opts, section):
 
     ttype = config.output_mode if config else DEFAULT_SECTIONS_TO_SHOW.get(name, 'binary')
 
-    data = section.get_data(ignore_padding=True)
     size = section.Misc_VirtualSize
+    # TODO: Use ignore_padding once we can depend on a newer version of pefile
+    data = section.get_data(length=size)
     digest = sha256(data).hexdigest()
 
     struct = {
