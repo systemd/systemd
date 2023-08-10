@@ -31,6 +31,7 @@ import pathlib
 import pydoc
 import subprocess
 import sys
+import shutil
 from typing import (Any,
                     Callable,
                     Optional,
@@ -266,6 +267,28 @@ CONFIG_ITEMS_LIST = [
         type = pathlib.Path,
         help = 'path to addons folder, default is /usr/share/uki/addons',
         default = '/usr/share/uki/addons'
+    ),
+]
+
+
+CONFIG_ITEMS_ADD = [
+    ConfigItem(
+        'addons',
+        nargs = '+',
+        type = pathlib.Path,
+        help = 'path to the addon(s) to install',
+    ),
+
+    ConfigItem(
+        '--dest-uki',
+        help = 'addons will be installed in the given uki.extra.d folder',
+    ),
+
+    ConfigItem(
+        '--dest',
+        type = pathlib.Path,
+        default = GLOBAL_ADDONS_PATH,
+        help = f'path to the folder where to install the addons. When --dest and --dest-uki are not specified, defaults to {GLOBAL_ADDONS_PATH}',
     ),
 ]
 
@@ -548,6 +571,47 @@ def list_fs_cmdline(opts):
         print(f'Warning: folder {folder_str} does not exist')
 
 
+def check_destination(opts):
+    if str(opts.dest) != GLOBAL_ADDONS_PATH and opts.dest_uki:
+        print('Error: do not provide both --dest and --dest-uki')
+        return None
+
+    destination = ''
+    if opts.dest_uki:
+        if not opts.dest_uki.endswith('.efi'):
+            print('Error: --dest-uki parameter must end with .efi')
+            return None
+        uki_path = str(opts.efi_path) + '/' + opts.dest_uki + '.extra.d'
+        if pathlib.Path(uki_path).is_dir():
+            destination = uki_path
+        else:
+            print(f'Error: UKI {uki_path} is not a folder')
+            return None
+
+    if not destination:
+        if opts.dest.is_dir():
+            destination = opts.dest
+        else:
+            print(f'Error: destination {str(opts.dest)} is not a folder')
+            return None
+
+    return destination
+
+
+def add_cmdline(opts):
+    destination = check_destination(opts)
+    if not destination:
+        return
+
+    for addon in opts.addons:
+        addon_str = str(addon)
+        if check_addon_has_cmdline(addon_str, opts.ukify):
+            shutil.copy(addon_str, destination)
+        else:
+            print(f'Warning: addon {addon_str} ignored')
+            return
+
+
 def parse_args():
     parser = create_generic_parser()
     subparsers = parser.add_subparsers(help='Commands to manipulate the command line addons')
@@ -563,6 +627,12 @@ def parse_args():
                      "list [options...]",
                      CONFIG_ITEMS_LIST + CONFIG_ITEMS_JSON,
                      list_fs_cmdline)
+
+    create_subparser(subparsers, "add",
+                     "Add the provided cmdline addons (.efi) to a specific UKI or global addons. If destination contains already the file, it will be replaced.",
+                     "add source_addon(s) [options...]",
+                     CONFIG_ITEMS_ADD,
+                     add_cmdline)
     return parser.parse_args()
 
 
