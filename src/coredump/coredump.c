@@ -1205,6 +1205,9 @@ static int gather_pid_metadata_from_argv(
         int r, signo;
         char *t;
 
+        assert(iovw);
+        assert(context);
+
         /* We gather all metadata that were passed via argv[] into an array of iovecs that
          * we'll forward to the socket unit */
 
@@ -1257,6 +1260,9 @@ static int gather_pid_metadata(struct iovec_wrapper *iovw, Context *context) {
         size_t size;
         const char *p;
         int r;
+
+        assert(iovw);
+        assert(context);
 
         /* Note that if we fail on oom later on, we do not roll-back changes to the iovec
          * structure. (It remains valid, with the first iovec fields initialized.) */
