@@ -74,10 +74,10 @@
         <term><varname>KEYMAP=</varname></term>
         <term><varname>KEYMAP_TOGGLE=</varname></term>
 
-        <listitem><para>Configures the key mapping table for the keyboard.
-        <varname>KEYMAP=</varname> defaults to <literal>&DEFAULT_KEYMAP;</literal> if not set. Specially,
-        if <literal>kernel</literal> is specified, no keymap will be loaded, i.e. the kernel keymap is used.
-        The <varname>KEYMAP_TOGGLE=</varname> can be used to configure a second toggle keymap and is by default
+        <listitem><para>Configures the key mapping table for the keyboard.  <varname>KEYMAP=</varname>
+        defaults to <literal>&DEFAULT_KEYMAP;</literal> if not set. Specially, if <literal>@kernel</literal>
+        is specified, no keymap will be loaded, i.e. the kernel's default keymap is used.  The
+        <varname>KEYMAP_TOGGLE=</varname> can be used to configure a second toggle keymap and is by default
         unset.</para></listitem>
       </varlistentry>
 
