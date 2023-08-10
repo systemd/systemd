@@ -47,7 +47,6 @@ if want_ossfuzz and want_libfuzzer
         error('only one of oss-fuzz or llvm-fuzz can be specified')
 endif
 
-skip_deps = want_ossfuzz or get_option('skip-deps')
 fuzzer_build = want_ossfuzz or want_libfuzzer
 
 # If we're building *not* for actual fuzzing, allow input samples of any size
@@ -1562,9 +1561,6 @@ conf.set10('DNS_OVER_TLS_USE_GNUTLS', have_gnutls)
 conf.set10('DNS_OVER_TLS_USE_OPENSSL', have_openssl)
 
 default_dns_over_tls = get_option('default-dns-over-tls')
-if skip_deps
-        default_dns_over_tls = 'no'
-endif
 if default_dns_over_tls != 'no' and conf.get('ENABLE_DNS_OVER_TLS') == 0
         message('default-dns-over-tls cannot be enabled or set to opportunistic when DNS-over-TLS support is disabled. Setting default-dns-over-tls to no.')
         default_dns_over_tls = 'no'
@@ -1595,9 +1591,6 @@ endif
 conf.set10('ENABLE_REPART', have)
 
 default_dnssec = get_option('default-dnssec')
-if skip_deps
-        default_dnssec = 'no'
-endif
 if default_dnssec != 'no' and conf.get('HAVE_OPENSSL_OR_GCRYPT') == 0
         message('default-dnssec cannot be set to yes or allow-downgrade openssl and gcrypt are disabled. Setting default-dnssec to no.')
         default_dnssec = 'no'

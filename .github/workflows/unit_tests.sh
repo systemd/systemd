@@ -87,7 +87,7 @@ for phase in "${PHASES[@]}"; do
                 MESON_ARGS+=(-Db_lundef=false -Dfuzz-tests=true)
 
                 if [[ "$phase" == "RUN_CLANG_ASAN_UBSAN_NO_DEPS" ]]; then
-                    MESON_ARGS+=(-Dskip-deps=true)
+                    MESON_ARGS+=(--auto-features=disabled)
                 fi
             fi
             MESON_ARGS+=(--fatal-meson-warnings)

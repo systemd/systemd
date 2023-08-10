@@ -506,6 +506,3 @@ option('bpf-compiler', type : 'combo', choices : ['clang', 'gcc'],
     description: 'compiler used to build BPF programs')
 option('bpf-framework', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
     description: 'build BPF programs from source code in restricted C')
-
-option('skip-deps', type : 'boolean', value : false,
-       description : 'skip optional dependencies')

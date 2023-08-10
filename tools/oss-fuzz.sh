@@ -27,10 +27,12 @@ build="$WORK/build"
 rm -rf "$build"
 mkdir -p "$build"
 
+meson_args=("-Db_lundef=false")
+
 if [ -z "$FUZZING_ENGINE" ]; then
-    fuzzflag="llvm-fuzz=true"
+    meson_args+=("-Dllvm-fuzz=true")
 else
-    fuzzflag="oss-fuzz=true"
+    meson_args+=("-Doss-fuzz=true" "--auto-features=disabled")
 
     apt-get update
     apt-get install -y gperf m4 gettext python3-pip \
@@ -67,7 +69,7 @@ else
     fi
 fi
 
-if ! meson setup "$build" "-D$fuzzflag" -Db_lundef=false; then
+if ! meson setup "$build" "${meson_args[@]}"; then
     cat "$build/meson-logs/meson-log.txt"
     exit 1
 fi
