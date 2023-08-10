@@ -2624,21 +2624,20 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
         }
 
         n = recvmsg_safe(m->notify_fd, &msghdr, MSG_DONTWAIT|MSG_CMSG_CLOEXEC|MSG_TRUNC);
-        if (n < 0) {
-                if (ERRNO_IS_TRANSIENT(n))
-                        return 0; /* Spurious wakeup, try again */
-                if (n == -EXFULL) {
-                        log_warning("Got message with truncated control data (too many fds sent?), ignoring.");
-                        return 0;
-                }
-                /* If this is any other, real error, then let's stop processing this socket. This of course
-                 * means we won't take notification messages anymore, but that's still better than busy
-                 * looping around this: being woken up over and over again but being unable to actually read
-                 * the message off the socket. */
-                return log_error_errno(n, "Failed to receive notification message: %m");
+        if (ERRNO_IS_NEG_TRANSIENT(n))
+                return 0; /* Spurious wakeup, try again */
+        if (n == -EXFULL) {
+                log_warning("Got message with truncated control data (too many fds sent?), ignoring.");
+                return 0;
         }
+        if (n < 0)
+                /* If this is any other, real error, then stop processing this socket. This of course means
+                 * we won't take notification messages anymore, but that's still better than busy looping:
+                 * being woken up over and over again, but being unable to actually read the message from the
+                 * socket. */
+                return log_error_errno(n, "Failed to receive notification message: %m");
 
-        CMSG_FOREACH(cmsg, &msghdr) {
+        CMSG_FOREACH(cmsg, &msghdr)
                 if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SCM_RIGHTS) {
 
                         assert(!fd_array);
@@ -2652,7 +2651,6 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
                         assert(!ucred);
                         ucred = CMSG_TYPED_DATA(cmsg, struct ucred);
                 }
-        }
 
         if (n_fds > 0) {
                 assert(fd_array);
@@ -4723,11 +4721,10 @@ static int short_uid_range(const char *path) {
          * i.e. from root to nobody. */
 
         r = uid_range_load_userns(&p, path);
-        if (r < 0) {
-                if (ERRNO_IS_NOT_SUPPORTED(r))
-                        return false;
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                return false;
+        if (r < 0)
                 return log_debug_errno(r, "Failed to load %s: %m", path);
-        }
 
         return !uid_range_covers(p, 0, 65535);
 }
