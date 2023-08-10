@@ -1205,6 +1205,9 @@ static int gather_pid_metadata_from_argv(
         int r, signo;
         char *t;
 
+        assert(iovw);
+        assert(context);
+
         /* We gather all metadata that were passed via argv[] into an array of iovecs that
          * we'll forward to the socket unit */
 
@@ -1250,13 +1253,16 @@ static int gather_pid_metadata_from_argv(
         return save_context(context, iovw);
 }
 
-static int gather_pid_metadata(struct iovec_wrapper *iovw, Context *context) {
+static int gather_pid_metadata_from_procfs(struct iovec_wrapper *iovw, Context *context) {
         uid_t owner_uid;
         pid_t pid;
         char *t;
         size_t size;
         const char *p;
         int r;
+
+        assert(iovw);
+        assert(context);
 
         /* Note that if we fail on oom later on, we do not roll-back changes to the iovec
          * structure. (It remains valid, with the first iovec fields initialized.) */
@@ -1363,8 +1369,8 @@ static int gather_pid_metadata(struct iovec_wrapper *iovw, Context *context) {
 }
 
 static int process_kernel(int argc, char* argv[]) {
+        _cleanup_(iovw_free_freep) struct iovec_wrapper *iovw = NULL;
         Context context = {};
-        struct iovec_wrapper *iovw;
         int r;
 
         /* When we're invoked by the kernel, stdout/stderr are closed which is dangerous because the fds
@@ -1386,12 +1392,12 @@ static int process_kernel(int argc, char* argv[]) {
         /* Collect all process metadata passed by the kernel through argv[] */
         r = gather_pid_metadata_from_argv(iovw, &context, argc - 1, argv + 1);
         if (r < 0)
-                goto finish;
+                return r;
 
         /* Collect the rest of the process metadata retrieved from the runtime */
-        r = gather_pid_metadata(iovw, &context);
+        r = gather_pid_metadata_from_procfs(iovw, &context);
         if (r < 0)
-                goto finish;
+                return r;
 
         if (!context.is_journald)
                 /* OK, now we know it's not the journal, hence we can make use of it now. */
@@ -1409,13 +1415,9 @@ static int process_kernel(int argc, char* argv[]) {
         }
 
         if (context.is_journald || context.is_pid1)
-                r = submit_coredump(&context, iovw, STDIN_FILENO);
-        else
-                r = send_iovec(iovw, STDIN_FILENO);
+                return submit_coredump(&context, iovw, STDIN_FILENO);
 
- finish:
-        iovw = iovw_free_free(iovw);
-        return r;
+        return send_iovec(iovw, STDIN_FILENO);
 }
 
 static int process_backtrace(int argc, char *argv[]) {
@@ -1441,7 +1443,7 @@ static int process_backtrace(int argc, char *argv[]) {
                 goto finish;
 
         /* Collect the rest of the process metadata retrieved from the runtime */
-        r = gather_pid_metadata(iovw, &context);
+        r = gather_pid_metadata_from_procfs(iovw, &context);
         if (r < 0)
                 goto finish;
 
@@ -1466,16 +1468,13 @@ static int process_backtrace(int argc, char *argv[]) {
 
                 r = iovw_put_string_field(iovw, "MESSAGE=", message);
                 if (r < 0)
-                        return r;
+                        goto finish;
         } else {
                 /* The imported iovecs are not supposed to be freed by us so let's store
                  * them at the end of the array so we can skip them while freeing the
                  * rest. */
-                for (size_t i = 0; i < importer.iovw.count; i++) {
-                        struct iovec *iovec = importer.iovw.iovec + i;
-
+                FOREACH_ARRAY(iovec, importer.iovw.iovec, importer.iovw.count)
                         iovw_put(iovw, iovec->iov_base, iovec->iov_len);
-                }
         }
 
         r = sd_journal_sendv(iovw->iovec, iovw->count);
