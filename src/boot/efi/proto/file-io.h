@@ -35,7 +35,7 @@ typedef struct {
  * position when returning EFI_BUFFER_TOO_SMALL, effectively skipping over any files when
  * the buffer was too small. Therefore, we always start with a buffer that should handle FAT32
  * max file name length. */
-#define EFI_FILE_INFO_MIN_SIZE (sizeof(EFI_FILE_INFO) + 256 * sizeof(char16_t))
+#define EFI_FILE_INFO_MIN_SIZE (offsetof(EFI_FILE_INFO, FileName) + 256U * sizeof(char16_t))
 
 typedef struct EFI_SIMPLE_FILE_SYSTEM_PROTOCOL EFI_SIMPLE_FILE_SYSTEM_PROTOCOL;
 struct EFI_SIMPLE_FILE_SYSTEM_PROTOCOL {
