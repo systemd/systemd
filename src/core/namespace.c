@@ -1073,29 +1073,6 @@ static int mount_bind_dev(const MountEntry *m) {
         return 1;
 }
 
-static int mount_private_sysfs(const MountEntry *m) {
-        const char *p = mount_entry_path(ASSERT_PTR(m));
-        int r;
-
-        (void) mkdir_p_label(p, 0755);
-
-        r = remount_sysfs(p);
-        if (r < 0 && (ERRNO_IS_PRIVILEGE(r) || ERRNO_IS_NOT_SUPPORTED(r))) {
-                /* Running with an unprivileged user (PrivateUsers=yes), or the kernel seems old. Falling
-                 * back to bind mount the host's version so that we get all child mounts of it, too. */
-
-                log_debug_errno(r, "Failed to remount sysfs on %s, falling back to bind mount: %m", p);
-
-                (void) umount_recursive(p, 0);
-
-                r = mount_nofollow_verbose(LOG_DEBUG, "/sys", p, NULL, MS_BIND|MS_REC, NULL);
-        }
-        if (r < 0)
-                return log_debug_errno(r, "Failed to remount sysfs on %s: %m", p);
-
-        return 1;
-}
-
 static int mount_bind_sysfs(const MountEntry *m) {
         int r;
 
@@ -1115,6 +1092,33 @@ static int mount_bind_sysfs(const MountEntry *m) {
                 return r;
 
         return 1;
+}
+
+static int mount_private_sysfs(const MountEntry *m) {
+        const char *entry_path = mount_entry_path(ASSERT_PTR(m));
+        int r, n;
+
+        (void) mkdir_p_label(entry_path, 0755);
+
+        n = umount_recursive(entry_path, 0);
+
+        r = mount_nofollow_verbose(LOG_DEBUG, "sysfs", entry_path, "sysfs", MS_NOSUID|MS_NOEXEC|MS_NODEV, NULL);
+        if (ERRNO_IS_NEG_PRIVILEGE(r)) {
+                /* When we do not have enough privileges to mount sysfs, fall back to use existing /sys. */
+
+                if (n > 0)
+                        /* /sys or some of sub-mounts are umounted in the above. Refuse incomplete tree.
+                         * Propagate the original error code returned by mount() in the above. */
+                        return r;
+
+                return mount_bind_sysfs(m);
+
+        } else if (r < 0)
+                return r;
+
+        /* We mounted a new instance now. Let's bind mount the children over now. */
+        (void) bind_mount_submounts("/sys", entry_path);
+        return 0;
 }
 
 static int mount_procfs(const MountEntry *m, const NamespaceInfo *ns_info) {
