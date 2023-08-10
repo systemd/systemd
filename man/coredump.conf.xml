@@ -57,18 +57,22 @@
         <term><varname>Storage=</varname></term>
 
         <listitem><para>Controls where to store cores. One of <literal>none</literal>,
-        <literal>external</literal>, and <literal>journal</literal>. When
-        <literal>none</literal>, the core dumps may be logged (including the backtrace if
-        possible), but not stored permanently. When <literal>external</literal> (the
-        default), cores will be stored in <filename>/var/lib/systemd/coredump/</filename>.
-        When <literal>journal</literal>, cores will be stored in the journal and rotated
-        following normal journal rotation patterns.</para>
+        <literal>external</literal>, and <literal>journal</literal>. When <literal>none</literal>, the core
+        dumps may be logged (including the backtrace if possible), but not stored permanently. When
+        <literal>external</literal> (the default), cores will be stored in
+        <filename>/var/lib/systemd/coredump/</filename>.  When <literal>journal</literal>, cores will be
+        stored in the journal and rotated following normal journal rotation patterns.</para>
 
-        <para>When cores are stored in the journal, they might be
-        compressed following journal compression settings, see
+        <para>When cores are stored in the journal, they might be compressed following journal compression
+        settings, see
         <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-        When cores are stored externally, they will be compressed
-        by default, see below.</para></listitem>
+        When cores are stored externally, they will be compressed by default, see below.</para>
+
+        <para>Note that in order to process a coredump (i.e. extract a stack trace) the core must be written
+        to disk first. Thus, unless <varname>ProcessSizeMax=</varname> is set to 0 (see below), the core will
+        be written to <filename>/var/lib/systemd/coredump/</filename> either way (under a temporary filename,
+        or even in an unlinked file), <varname>Storage=</varname> thus only controls whether to leave it
+        there even after it was processed.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -84,7 +88,7 @@
         <term><varname>ProcessSizeMax=</varname></term>
 
         <listitem><para>The maximum size in bytes of a core which will be processed. Core dumps exceeding
-        this size may be stored, but the backtrace will not be generated.  Like other sizes in this same
+        this size may be stored, but the stack trace will not be generated.  Like other sizes in this same
         config file, the usual suffixes to the base of 1024 are allowed (B, K, M, G, T, P, and E). Defaults
         to 1G on 32-bit systems, 32G on 64-bit systems.</para>
 
