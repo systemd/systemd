@@ -1279,8 +1279,8 @@ int varlink_wait(Varlink *v, usec_t timeout) {
                 return events;
 
         r = fd_wait_for_event(fd, events, t);
-        if (r < 0 && ERRNO_IS_TRANSIENT(r)) /* Treat EINTR as not a timeout, but also nothing happened, and
-                                             * the caller gets a chance to call back into us */
+        if (ERRNO_IS_NEG_TRANSIENT(r)) /* Treat EINTR as not a timeout, but also nothing happened, and
+                                        * the caller gets a chance to call back into us */
                 return 1;
         if (r <= 0)
                 return r;
@@ -1368,14 +1368,11 @@ int varlink_flush(Varlink *v) {
                 }
 
                 r = fd_wait_for_event(v->fd, POLLOUT, USEC_INFINITY);
-                if (r < 0) {
-                        if (ERRNO_IS_TRANSIENT(r))
-                                continue;
-
+                if (ERRNO_IS_NEG_TRANSIENT(r))
+                        continue;
+                if (r < 0)
                         return varlink_log_errno(v, r, "Poll failed on fd: %m");
-                }
-
-                assert(r != 0);
+                assert(r > 0);
 
                 handle_revents(v, r);
         }

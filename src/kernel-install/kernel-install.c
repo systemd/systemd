@@ -448,11 +448,10 @@ static int context_load_machine_id(Context *c) {
         assert(c);
 
         r = id128_get_machine_at(c->rfd, &c->machine_id);
-        if (r < 0) {
-                if (ERRNO_IS_MACHINE_ID_UNSET(r))
-                        return 0;
+        if (ERRNO_IS_NEG_MACHINE_ID_UNSET(r))
+                return 0;
+        if (r < 0)
                 return log_error_errno(r, "Failed to load machine ID from /etc/machine-id: %m");
-        }
 
         log_debug("MACHINE_ID=%s set via /etc/machine-id.", SD_ID128_TO_STRING(c->machine_id));
         return 1; /* loaded */

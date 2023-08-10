@@ -2191,9 +2191,9 @@ static int method_enqueue_marked_jobs(sd_bus_message *message, void *userdata, s
                         r = bus_unit_queue_job_one(message, u,
                                                    JOB_TRY_RESTART, JOB_FAIL, flags,
                                                    reply, error);
+                if (ERRNO_IS_NEG_RESOURCE(r))
+                        return r;
                 if (r < 0) {
-                        if (ERRNO_IS_RESOURCE(r))
-                                return r;
                         if (ret >= 0)
                                 ret = r;
                         sd_bus_error_free(error);
