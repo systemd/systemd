@@ -72,17 +72,55 @@ bool exec_context_has_encrypted_credentials(ExecContext *c) {
         return false;
 }
 
-int exec_context_destroy_credentials(const ExecContext *c, const char *runtime_prefix, const char *unit) {
-        _cleanup_free_ char *p = NULL;
+static int get_credential_directory(
+                const char *runtime_prefix,
+                const char *unit,
+                char **ret) {
 
-        assert(c);
+        char *p;
 
-        if (!runtime_prefix || !unit)
+        assert(ret);
+
+        if (!runtime_prefix || !unit) {
+                *ret = NULL;
                 return 0;
+        }
 
         p = path_join(runtime_prefix, "credentials", unit);
         if (!p)
                 return -ENOMEM;
+
+        *ret = p;
+        return 1;
+}
+
+int exec_context_get_credential_directory(
+                const ExecContext *context,
+                const ExecParameters *params,
+                const char *unit,
+                char **ret) {
+
+        assert(context);
+        assert(params);
+        assert(ret);
+
+        if (!exec_context_has_credentials(context)) {
+                *ret = NULL;
+                return 0;
+        }
+
+        return get_credential_directory(params->prefix[EXEC_DIRECTORY_RUNTIME], unit, ret);
+}
+
+int exec_context_destroy_credentials(const ExecContext *c, const char *runtime_prefix, const char *unit) {
+        _cleanup_free_ char *p = NULL;
+        int r;
+
+        assert(c);
+
+        r = get_credential_directory(runtime_prefix, unit, &p);
+        if (r <= 0)
+                return r;
 
         /* This is either a tmpfs/ramfs of its own, or a plain directory. Either way, let's first try to
          * unmount it, and afterwards remove the mount point */
