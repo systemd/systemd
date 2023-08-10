@@ -876,13 +876,15 @@ int setup_credentials(
                 const ExecParameters *params,
                 const char *unit,
                 uid_t uid,
-                gid_t gid) {
+                gid_t gid,
+                char **ret_path) {
 
         _cleanup_free_ char *p = NULL, *q = NULL;
         int r;
 
         assert(context);
         assert(params);
+        assert(ret_path);
 
         if (!exec_context_has_credentials(context))
                 return 0;
@@ -999,5 +1001,7 @@ int setup_credentials(
          * actually end up mounting anything on it. In that case we'd rather have ENOENT than EACCESS being
          * seen by users when trying access this inode. */
         (void) rmdir(p);
+
+        *ret_path = TAKE_PTR(p);
         return 0;
 }
