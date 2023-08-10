@@ -134,15 +134,15 @@ option('timedated', type : 'boolean',
        description : 'install the systemd-timedated daemon')
 option('timesyncd', type : 'boolean',
        description : 'install the systemd-timesyncd daemon')
-option('remote', type : 'combo', choices : ['auto', 'true', 'false'],
+option('remote', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'support for "journal over the network"')
 option('create-log-dirs', type : 'boolean',
        description : 'create /var/log/journal{,/remote}')
 option('nss-myhostname', type : 'boolean',
        description : 'install nss-myhostname module')
-option('nss-mymachines', type : 'combo', choices : ['auto', 'true', 'false'],
+option('nss-mymachines', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'install nss-mymachines module')
-option('nss-resolve', type : 'combo', choices : ['auto', 'true', 'false'],
+option('nss-resolve', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'install nss-resolve module')
 option('nss-systemd', type : 'boolean',
        description : 'install nss-systemd module')
@@ -168,11 +168,11 @@ option('rfkill', type : 'boolean',
        description : 'support for the rfkill tools')
 option('xdg-autostart', type : 'boolean',
        description : 'install the xdg-autostart-generator and unit')
-option('man', type : 'combo', choices : ['auto', 'true', 'false'],
-       value : 'false',
+option('man', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
+       value : 'disabled',
        description : 'build and install man pages')
-option('html', type : 'combo', choices : ['auto', 'true', 'false'],
-       value : 'false',
+option('html', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
+       value : 'disabled',
        description : 'build and install html pages')
 option('translations', type : 'boolean', value : true,
        description : 'build and install translations')
@@ -381,23 +381,23 @@ option('xenctrl', type : 'feature', deprecated : { 'true' : 'enabled', 'false' :
        description : 'support for Xen kexec')
 option('pam', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'PAM support')
-option('passwdqc', type : 'combo', choices : ['auto', 'true', 'false'],
+option('passwdqc', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'libpasswdqc support')
-option('pwquality', type : 'combo', choices : ['auto', 'true', 'false'],
+option('pwquality', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'libpwquality support')
 option('microhttpd', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'libµhttpd support')
-option('libcryptsetup', type : 'combo', choices : ['auto', 'true', 'false'],
+option('libcryptsetup', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'libcryptsetup support')
-option('libcryptsetup-plugins', type : 'combo', choices : ['auto', 'true', 'false'],
+option('libcryptsetup-plugins', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'libcryptsetup LUKS2 external token handlers support (plugins)')
 option('libcurl', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'libcurl support')
 option('idn', type : 'boolean',
        description : 'use IDN when printing hostnames')
-option('libidn2', type : 'combo', choices : ['auto', 'true', 'false'],
+option('libidn2', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'libidn2 support')
-option('libidn', type : 'combo', choices : ['auto', 'true', 'false'],
+option('libidn', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'libidn support')
 option('libiptc', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'libiptc support')
@@ -476,7 +476,7 @@ option('fuzz-tests', type : 'boolean', value : false,
        description : 'run the fuzzer regression tests by default (with sanitizers)')
 option('install-tests', type : 'boolean', value : false,
        description : 'install test executables')
-option('log-message-verification', type : 'combo', choices : ['auto', 'true', 'false'],
+option('log-message-verification', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'do fake printf() calls to verify format strings')
 
 option('ok-color', type : 'combo',
