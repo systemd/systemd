@@ -127,7 +127,7 @@ bool keymap_is_valid(const char *name) {
 }
 
 int keymap_exists(const char *name) {
-        int r = 0;
+        int r;
 
         if (!keymap_is_valid(name))
                 return -EINVAL;
@@ -143,17 +143,13 @@ int keymap_exists(const char *name) {
                                 &(struct recurse_dir_userdata) {
                                         .keymap_name = name,
                                 });
-                if (r < 0) {
-                        if (r == -ENOENT)
-                                continue;
-                        if (ERRNO_IS_RESOURCE(r))
-                                return r;
-                        log_debug_errno(r, "Failed to read keymap list from %s, ignoring: %m", dir);
-                        continue;
-                }
                 if (r > 0)
-                        break;
+                        return true;
+                if (ERRNO_IS_NEG_RESOURCE(r))
+                        return r;
+                if (r < 0 && r != -ENOENT)
+                        log_debug_errno(r, "Failed to read keymap list from %s, ignoring: %m", dir);
         }
 
-        return r > 0;
+        return false;
 }
