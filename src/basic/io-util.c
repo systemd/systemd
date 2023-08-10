@@ -374,6 +374,43 @@ size_t iovw_size(struct iovec_wrapper *iovw) {
         return n;
 }
 
+int iovw_append(struct iovec_wrapper *target, const struct iovec_wrapper *source) {
+        size_t original_count;
+        int r;
+
+        assert(target);
+
+        /* This duplicates the source and merges it into the target. */
+
+        if (!source || source->count == 0)
+                return 0;
+
+        original_count = target->count;
+
+        FOREACH_ARRAY(iovec, source->iovec, source->count) {
+                void *dup;
+
+                dup = memdup(iovec->iov_base, iovec->iov_len);
+                if (!dup) {
+                        r = -ENOMEM;
+                        goto rollback;
+                }
+
+                r = iovw_consume(target, dup, iovec->iov_len);
+                if (r < 0)
+                        goto rollback;
+        }
+
+        return 0;
+
+rollback:
+        for (size_t i = original_count; i < target->count; i++)
+                free(target->iovec[i].iov_base);
+
+        target->count = original_count;
+        return r;
+}
+
 void iovec_array_free(struct iovec *iov, size_t n) {
         if (!iov)
                 return;
