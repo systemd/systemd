@@ -4976,6 +4976,7 @@ static int exec_child(
                                 *exit_status = EXIT_SUCCESS;
                                 return 0;
                         }
+
                         *exit_status = EXIT_CONFIRM;
                         return log_unit_error_errno(unit, SYNTHETIC_ERRNO(ECANCELED),
                                                     "Execution cancelled by the user");
@@ -5146,14 +5147,18 @@ static int exec_child(
                 r = set_coredump_filter(context->coredump_filter);
                 if (ERRNO_IS_NEG_PRIVILEGE(r))
                         log_unit_debug_errno(unit, r, "Failed to adjust coredump_filter, ignoring: %m");
-                else if (r < 0)
+                else if (r < 0) {
+                        *exit_status = EXIT_LIMITS;
                         return log_unit_error_errno(unit, r, "Failed to adjust coredump_filter: %m");
+                }
         }
 
         if (context->nice_set) {
                 r = setpriority_closest(context->nice);
-                if (r < 0)
+                if (r < 0) {
+                        *exit_status = EXIT_NICE;
                         return log_unit_error_errno(unit, r, "Failed to set up process scheduling priority (nice level): %m");
+                }
         }
 
         if (context->cpu_sched_set) {
@@ -5596,11 +5601,11 @@ static int exec_child(
                                               LOG_UNIT_MESSAGE(unit, "Executable %s missing, skipping: %m",
                                                                command->path),
                                               "EXECUTABLE=%s", command->path);
+                        *exit_status = EXIT_SUCCESS;
                         return 0;
                 }
 
                 *exit_status = EXIT_EXEC;
-
                 return log_unit_struct_errno(unit, LOG_INFO, r,
                                              "MESSAGE_ID=" SD_MESSAGE_SPAWN_FAILED_STR,
                                              LOG_UNIT_INVOCATION_ID(unit),
@@ -6062,7 +6067,7 @@ int exec_spawn(Unit *unit,
                 return log_unit_error_errno(unit, errno, "Failed to fork: %m");
 
         if (pid == 0) {
-                int exit_status = EXIT_SUCCESS;
+                int exit_status;
 
                 r = exec_child(unit,
                                command,
@@ -6080,9 +6085,8 @@ int exec_spawn(Unit *unit,
                                &exit_status);
 
                 if (r < 0) {
-                        const char *status =
-                                exit_status_to_string(exit_status,
-                                                      EXIT_STATUS_LIBC | EXIT_STATUS_SYSTEMD);
+                        const char *status = ASSERT_PTR(
+                                        exit_status_to_string(exit_status, EXIT_STATUS_LIBC | EXIT_STATUS_SYSTEMD));
 
                         log_unit_struct_errno(unit, LOG_ERR, r,
                                               "MESSAGE_ID=" SD_MESSAGE_SPAWN_FAILED_STR,
@@ -6090,7 +6094,8 @@ int exec_spawn(Unit *unit,
                                               LOG_UNIT_MESSAGE(unit, "Failed at step %s spawning %s: %m",
                                                                status, command->path),
                                               "EXECUTABLE=%s", command->path);
-                }
+                } else
+                        assert(exit_status == EXIT_SUCCESS);
 
                 _exit(exit_status);
         }
