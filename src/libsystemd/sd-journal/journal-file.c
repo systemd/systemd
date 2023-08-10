@@ -658,12 +658,10 @@ static int journal_file_verify_header(JournalFile *f) {
                 int r;
 
                 r = sd_id128_get_machine(&machine_id);
-                if (r < 0) {
-                        if (!ERRNO_IS_MACHINE_ID_UNSET(r)) /* handle graceful if machine ID is not initialized yet */
-                                return r;
-
+                if (ERRNO_IS_NEG_MACHINE_ID_UNSET(r)) /* Gracefully handle the machine ID not being initialized yet */
                         machine_id = SD_ID128_NULL;
-                }
+                else if (r < 0)
+                        return r;
 
                 if (!sd_id128_equal(machine_id, f->header->machine_id))
                         return log_debug_errno(SYNTHETIC_ERRNO(EHOSTDOWN),
@@ -2508,13 +2506,12 @@ int journal_file_append_entry(
         }
 
         r = sd_id128_get_machine(&_machine_id);
-        if (r < 0) {
-                if (!ERRNO_IS_MACHINE_ID_UNSET(r))
-                        return r;
-
-                /* If the machine ID is not initialized yet, handle gracefully */
+        if (ERRNO_IS_NEG_MACHINE_ID_UNSET(r))
+                /* Gracefully handle the machine ID not being initialized yet */
                 machine_id = NULL;
-        } else
+        else if (r < 0)
+                return r;
+        else
                 machine_id = &_machine_id;
 
 #if HAVE_GCRYPT
