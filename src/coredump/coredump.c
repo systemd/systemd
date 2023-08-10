@@ -1253,7 +1253,7 @@ static int gather_pid_metadata_from_argv(
         return save_context(context, iovw);
 }
 
-static int gather_pid_metadata(struct iovec_wrapper *iovw, Context *context) {
+static int gather_pid_metadata_from_procfs(struct iovec_wrapper *iovw, Context *context) {
         uid_t owner_uid;
         pid_t pid;
         char *t;
@@ -1395,7 +1395,7 @@ static int process_kernel(int argc, char* argv[]) {
                 return r;
 
         /* Collect the rest of the process metadata retrieved from the runtime */
-        r = gather_pid_metadata(iovw, &context);
+        r = gather_pid_metadata_from_procfs(iovw, &context);
         if (r < 0)
                 return r;
 
@@ -1443,7 +1443,7 @@ static int process_backtrace(int argc, char *argv[]) {
                 goto finish;
 
         /* Collect the rest of the process metadata retrieved from the runtime */
-        r = gather_pid_metadata(iovw, &context);
+        r = gather_pid_metadata_from_procfs(iovw, &context);
         if (r < 0)
                 goto finish;
 
