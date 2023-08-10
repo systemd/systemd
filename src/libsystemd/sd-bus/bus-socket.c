@@ -579,11 +579,10 @@ static int bus_socket_read_auth(sd_bus *b) {
                 } else
                         handle_cmsg = true;
         }
-        if (k < 0) {
-                if (ERRNO_IS_TRANSIENT(k))
-                        return 0;
+        if (ERRNO_IS_NEG_TRANSIENT(k))
+                return 0;
+        if (k < 0)
                 return (int) k;
-        }
         if (k == 0) {
                 if (handle_cmsg)
                         cmsg_close_all(&mh); /* paranoia, we shouldn't have gotten any fds on EOF */
@@ -1298,11 +1297,10 @@ int bus_socket_read_message(sd_bus *bus) {
                 } else
                         handle_cmsg = true;
         }
-        if (k < 0) {
-                if (ERRNO_IS_TRANSIENT(k))
-                        return 0;
+        if (ERRNO_IS_NEG_TRANSIENT(k))
+                return 0;
+        if (k < 0)
                 return (int) k;
-        }
         if (k == 0) {
                 if (handle_cmsg)
                         cmsg_close_all(&mh); /* On EOF we shouldn't have gotten an fd, but let's make sure */
@@ -1361,11 +1359,10 @@ int bus_socket_process_opening(sd_bus *b) {
         assert(b->state == BUS_OPENING);
 
         events = fd_wait_for_event(b->output_fd, POLLOUT, 0);
-        if (events < 0) {
-                if (ERRNO_IS_TRANSIENT(events))
-                        return 0;
+        if (ERRNO_IS_NEG_TRANSIENT(events))
+                return 0;
+        if (events < 0)
                 return events;
-        }
         if (!(events & (POLLOUT|POLLERR|POLLHUP)))
                 return 0;
 
