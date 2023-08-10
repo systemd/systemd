@@ -1235,7 +1235,6 @@ static void sub_mount_drop(SubMount *s, size_t n) {
 
 static int get_sub_mounts(
                 const char *prefix,
-                bool clone_tree,
                 SubMount **ret_mounts,
                 size_t *ret_n_mounts) {
         _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
@@ -1287,10 +1286,7 @@ static int get_sub_mounts(
                         continue;
                 }
 
-                if (clone_tree)
-                        mount_fd = open_tree(AT_FDCWD, path, OPEN_TREE_CLONE | OPEN_TREE_CLOEXEC | AT_RECURSIVE);
-                else
-                        mount_fd = open(path, O_CLOEXEC|O_PATH);
+                mount_fd = open(path, O_CLOEXEC|O_PATH);
                 if (mount_fd < 0) {
                         if (errno == ENOENT) /* The path may be hidden by another over-mount or already unmounted. */
                                 continue;
@@ -1319,66 +1315,6 @@ static int get_sub_mounts(
         return 0;
 }
 
-static int move_sub_mounts(SubMount *mounts, size_t n) {
-        assert(mounts || n == 0);
-
-        for (size_t i = 0; i < n; i++) {
-                if (!mounts[i].path || mounts[i].mount_fd < 0)
-                        continue;
-
-                (void) mkdir_p_label(mounts[i].path, 0755);
-
-                if (move_mount(mounts[i].mount_fd, "", AT_FDCWD, mounts[i].path, MOVE_MOUNT_F_EMPTY_PATH) < 0)
-                        return log_debug_errno(errno, "Failed to move mount_fd to '%s': %m", mounts[i].path);
-        }
-
-        return 0;
-}
-
-int remount_and_move_sub_mounts(
-                const char *what,
-                const char *where,
-                const char *type,
-                unsigned long flags,
-                const char *options) {
-
-        SubMount *mounts = NULL;
-        size_t n = 0;
-        int r;
-
-        CLEANUP_ARRAY(mounts, n, sub_mount_array_free);
-
-        assert(where);
-
-        /* This is useful when creating a new network namespace. Unlike procfs, we need to remount sysfs,
-         * otherwise properties of the network interfaces in the main network namespace are still accessible
-         * through the old sysfs, e.g. /sys/class/net/eth0. All sub-mounts previously mounted on the sysfs
-         * are moved onto the new sysfs mount. */
-
-        r = path_is_mount_point(where, NULL, 0);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to determine if '%s' is a mountpoint: %m", where);
-        if (r == 0)
-                /* Shortcut. Simply mount the requested filesystem. */
-                return mount_nofollow_verbose(LOG_DEBUG, what, where, type, flags, options);
-
-        /* Get the list of sub-mounts and duplicate them. */
-        r = get_sub_mounts(where, /* clone_tree= */ true, &mounts, &n);
-        if (r < 0)
-                return r;
-
-        /* Then, remount the mount and its sub-mounts. */
-        (void) umount_recursive(where, 0);
-
-        /* Remount the target filesystem. */
-        r = mount_nofollow_verbose(LOG_DEBUG, what, where, type, flags, options);
-        if (r < 0)
-                return r;
-
-        /* Finally, move the all sub-mounts on the new target mount point. */
-        return move_sub_mounts(mounts, n);
-}
-
 int bind_mount_submounts(
                 const char *source,
                 const char *target) {
@@ -1395,7 +1331,7 @@ int bind_mount_submounts(
 
         CLEANUP_ARRAY(mounts, n, sub_mount_array_free);
 
-        r = get_sub_mounts(source, /* clone_tree= */ false, &mounts, &n);
+        r = get_sub_mounts(source, &mounts, &n);
         if (r < 0)
                 return r;
 
@@ -1428,10 +1364,6 @@ int bind_mount_submounts(
         }
 
         return ret;
-}
-
-int remount_sysfs(const char *where) {
-        return remount_and_move_sub_mounts("sysfs", where, "sysfs", MS_NOSUID|MS_NOEXEC|MS_NODEV, NULL);
 }
 
 int make_mount_point_inode_from_stat(const struct stat *st, const char *dest, mode_t mode) {
