@@ -428,20 +428,20 @@ static void partition_foreignize(Partition *p) {
         p->verity = VERITY_OFF;
 }
 
-static bool partition_type_exclude(GptPartitionType type) {
+static bool partition_type_exclude(const GptPartitionType *type) {
         if (arg_filter_partitions_type == FILTER_PARTITIONS_NONE)
                 return false;
 
         for (size_t i = 0; i < arg_n_filter_partitions; i++)
-                if (sd_id128_equal(type.uuid, arg_filter_partitions[i].uuid))
+                if (sd_id128_equal(type->uuid, arg_filter_partitions[i].uuid))
                         return arg_filter_partitions_type == FILTER_PARTITIONS_EXCLUDE;
 
         return arg_filter_partitions_type == FILTER_PARTITIONS_INCLUDE;
 }
 
-static bool partition_type_defer(GptPartitionType type) {
+static bool partition_type_defer(const GptPartitionType *type) {
         for (size_t i = 0; i < arg_n_defer_partitions; i++)
-                if (sd_id128_equal(type.uuid, arg_defer_partitions[i].uuid))
+                if (sd_id128_equal(type->uuid, arg_defer_partitions[i].uuid))
                         return true;
 
         return false;
@@ -1658,7 +1658,7 @@ static int partition_read_definition(Partition *p, const char *path, const char 
         if (r < 0)
                 return r;
 
-        if (partition_type_exclude(p->type))
+        if (partition_type_exclude(&p->type))
                 return 0;
 
         if (p->size_min != UINT64_MAX && p->size_max != UINT64_MAX && p->size_min > p->size_max)
@@ -1986,7 +1986,7 @@ static int context_copy_from(Context *context) {
                 assert(start <= UINT64_MAX/secsz);
                 start *= secsz;
 
-                if (partition_type_exclude(type))
+                if (partition_type_exclude(&type))
                         continue;
 
                 np = partition_new();
@@ -3273,7 +3273,7 @@ static int context_wipe_and_discard(Context *context) {
                 if (!p->allocated_to_area)
                         continue;
 
-                if (partition_type_defer(p->type))
+                if (partition_type_defer(&p->type))
                         continue;
 
                 r = context_wipe_partition(context, p);
@@ -4066,7 +4066,7 @@ static int context_copy_blocks(Context *context) {
                 if (PARTITION_EXISTS(p)) /* Never copy over existing partitions */
                         continue;
 
-                if (partition_type_defer(p->type))
+                if (partition_type_defer(&p->type))
                         continue;
 
                 assert(p->new_size != UINT64_MAX);
@@ -4107,14 +4107,14 @@ static int context_copy_blocks(Context *context) {
                 if (r < 0)
                         return r;
 
-                if (p->siblings[VERITY_HASH] && !partition_type_defer(p->siblings[VERITY_HASH]->type)) {
+                if (p->siblings[VERITY_HASH] && !partition_type_defer(&p->siblings[VERITY_HASH]->type)) {
                         r = partition_format_verity_hash(context, p->siblings[VERITY_HASH],
                                                          /* node = */ NULL, partition_target_path(t));
                         if (r < 0)
                                 return r;
                 }
 
-                if (p->siblings[VERITY_SIG] && !partition_type_defer(p->siblings[VERITY_SIG]->type)) {
+                if (p->siblings[VERITY_SIG] && !partition_type_defer(&p->siblings[VERITY_SIG]->type)) {
                         r = partition_format_verity_sig(context, p->siblings[VERITY_SIG]);
                         if (r < 0)
                                 return r;
@@ -4509,7 +4509,7 @@ static int context_mkfs(Context *context) {
                 if (p->copy_blocks_fd >= 0)
                         continue;
 
-                if (partition_type_defer(p->type))
+                if (partition_type_defer(&p->type))
                         continue;
 
                 assert(p->offset != UINT64_MAX);
@@ -4593,14 +4593,14 @@ static int context_mkfs(Context *context) {
                 if (r < 0)
                         return r;
 
-                if (p->siblings[VERITY_HASH] && !partition_type_defer(p->siblings[VERITY_HASH]->type)) {
+                if (p->siblings[VERITY_HASH] && !partition_type_defer(&p->siblings[VERITY_HASH]->type)) {
                         r = partition_format_verity_hash(context, p->siblings[VERITY_HASH],
                                                          /* node = */ NULL, partition_target_path(t));
                         if (r < 0)
                                 return r;
                 }
 
-                if (p->siblings[VERITY_SIG] && !partition_type_defer(p->siblings[VERITY_SIG]->type)) {
+                if (p->siblings[VERITY_SIG] && !partition_type_defer(&p->siblings[VERITY_SIG]->type)) {
                         r = partition_format_verity_sig(context, p->siblings[VERITY_SIG]);
                         if (r < 0)
                                 return r;
@@ -4938,7 +4938,7 @@ static int context_mangle_partitions(Context *context) {
                 if (p->dropped)
                         continue;
 
-                if (partition_type_defer(p->type))
+                if (partition_type_defer(&p->type))
                         continue;
 
                 assert(p->new_size != UINT64_MAX);
@@ -5187,7 +5187,7 @@ static int context_split(Context *context) {
                 if (!p->split_path)
                         continue;
 
-                if (partition_type_defer(p->type))
+                if (partition_type_defer(&p->type))
                         continue;
 
                 fdt = open(p->split_path, O_WRONLY|O_NOCTTY|O_CLOEXEC|O_NOFOLLOW|O_CREAT|O_EXCL, 0666);
