@@ -8,7 +8,7 @@
 typedef struct Link Link;
 
 typedef enum IPv6PrivacyExtensions {
-        /* The values map to the kernel's /proc/sys/net/ipv6/conf/xxx/use_tempaddr values */
+        /* These values map to the kernel's /proc/sys/net/ipv6/conf/xxx/use_tempaddr values. Do not reorder! */
         IPV6_PRIVACY_EXTENSIONS_NO,
         IPV6_PRIVACY_EXTENSIONS_PREFER_PUBLIC,
         IPV6_PRIVACY_EXTENSIONS_YES,    /* aka prefer-temporary */
@@ -18,6 +18,7 @@ typedef enum IPv6PrivacyExtensions {
 } IPv6PrivacyExtensions;
 
 typedef enum IPReversePathFilter {
+        /* These values map to the kernel's  /proc/sys/net/ipv6/conf/xxx/rp_filter values. Do not reorder! */
         IP_REVERSE_PATH_FILTER_NO,
         IP_REVERSE_PATH_FILTER_STRICT,
         IP_REVERSE_PATH_FILTER_LOOSE,
