@@ -248,7 +248,8 @@ static int get_port_specifier(sd_device *dev, bool fallback_to_dev_id, char **re
                 }
 
                 /* Otherwise, use phys_port_name as is. */
-                if (asprintf(&buf, "n%s", phys_port_name) < 0)
+                buf = strjoin("n", phys_port_name);
+                if (!buf)
                         return log_oom_debug();
 
                 *ret = buf;
@@ -947,10 +948,10 @@ static int get_usb_specifier(sd_device *dev, char **ret) {
         if (streq(interf, "0"))
                 interf = NULL;
 
-        if (asprintf(&buf, "u%s%s%s%s%s",
-                     ports,
-                     config ? "c" : "", strempty(config),
-                     interf ? "i" : "", strempty(interf)) < 0)
+        buf = strjoin("u", ports,
+                      config ? "c" : "", strempty(config),
+                      interf ? "i" : "", strempty(interf));
+        if (!buf)
                 return log_oom_debug();
 
         log_device_debug(dev, "USB name identifier: ports=%s config=%s interface=%s %s %s",
