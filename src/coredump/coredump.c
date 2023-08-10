@@ -1473,11 +1473,8 @@ static int process_backtrace(int argc, char *argv[]) {
                 /* The imported iovecs are not supposed to be freed by us so let's store
                  * them at the end of the array so we can skip them while freeing the
                  * rest. */
-                for (size_t i = 0; i < importer.iovw.count; i++) {
-                        struct iovec *iovec = importer.iovw.iovec + i;
-
+                FOREACH_ARRAY(iovec, importer.iovw.iovec, importer.iovw.count)
                         iovw_put(iovw, iovec->iov_base, iovec->iov_len);
-                }
         }
 
         r = sd_journal_sendv(iovw->iovec, iovw->count);
