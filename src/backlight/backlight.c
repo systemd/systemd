@@ -528,7 +528,7 @@ static int run(int argc, char *argv[]) {
                 _cleanup_free_ char *value = NULL;
                 bool clamp;
 
-                if (shall_restore_state() == 0)
+                if (!shall_restore_state())
                         return 0;
 
                 if (validate_device(device) == 0)
