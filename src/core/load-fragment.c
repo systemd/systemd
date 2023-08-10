@@ -28,6 +28,7 @@
 #include "conf-parser.h"
 #include "core-varlink.h"
 #include "cpu-set-util.h"
+#include "credential.h"
 #include "creds-util.h"
 #include "env-util.h"
 #include "errno-list.h"

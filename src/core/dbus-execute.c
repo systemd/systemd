@@ -9,6 +9,7 @@
 #include "cap-list.h"
 #include "capability-util.h"
 #include "cpu-set-util.h"
+#include "credential.h"
 #include "creds-util.h"
 #include "dbus-execute.h"
 #include "dbus-util.h"
