@@ -175,9 +175,9 @@ static bool barrier_write(Barrier *b, uint64_t buf) {
                 return false;
 
         assert(b->me >= 0);
-        do {
+        do
                 len = write(b->me, &buf, sizeof(buf));
-        } while (len < 0 && ERRNO_IS_TRANSIENT(errno));
+        while (len < 0 && ERRNO_IS_TRANSIENT(errno));
 
         if (len != sizeof(buf))
                 goto error;
