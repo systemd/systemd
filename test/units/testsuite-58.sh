@@ -161,11 +161,23 @@ $imgs/zzz1 : start=        2048, size=     1775576, type=933AC7E1-2EB4-4F13-B844
 $imgs/zzz2 : start=     1777624, size=      131072, type=0657FD6D-A4AB-43C4-84E5-0933C84B4F4F, uuid=78C92DB8-3D2B-4823-B0DC-792B78F66F1E, name=\"swap\""
 
     systemd-repart --offline="$OFFLINE" \
+                    --definitions="$defs" \
+                   --empty=create \
+                   --size=50M \
+                   --seed="$seed" \
+                   --include-partitions=root,home \
+                   "$imgs/qqq"
+
+    sfdisk -d "$imgs/qqq" | grep -v -e 'sector-size' -e '^$'
+
+    systemd-repart --offline="$OFFLINE" \
                    --empty=create \
                    --size=1G \
                    --dry-run=no \
                    --seed="$seed" \
-                   --copy-from="$imgs/zzz" \
+                   --definitions "" \
+                   --copy-from="$imgs/qqq" \
+                   --copy-from="$imgs/qqq" \
                    "$imgs/copy"
 
     output=$(sfdisk -d "$imgs/copy" | grep -v -e 'sector-size' -e '^$')
@@ -176,10 +188,14 @@ device: $imgs/copy
 unit: sectors
 first-lba: 2048
 last-lba: 2097118
-$imgs/copy1 : start=        2048, size=     1775576, type=933AC7E1-2EB4-4F13-B844-0E14E2AEF915, uuid=4980595D-D74A-483A-AA9E-9903879A0EE5, name=\"home-first\", attrs=\"GUID:59\"
-$imgs/copy2 : start=     1777624, size=      131072, type=0657FD6D-A4AB-43C4-84E5-0933C84B4F4F, uuid=78C92DB8-3D2B-4823-B0DC-792B78F66F1E, name=\"swap\""
+$imgs/copy1 : start=        2048, size=       33432, type=933AC7E1-2EB4-4F13-B844-0E14E2AEF915, uuid=4980595D-D74A-483A-AA9E-9903879A0EE5, name=\"home-first\", attrs=\"GUID:59\"
+$imgs/copy2 : start=       35480, size=       33440, type=4F68BCE3-E8CD-4DB1-96E7-FBCAF984B709, uuid=60F33797-1D71-4DCB-AA6F-20564F036CD0, name=\"root-x86-64\", attrs=\"GUID:59\"
+$imgs/copy3 : start=       68920, size=       33440, type=4F68BCE3-E8CD-4DB1-96E7-FBCAF984B709, uuid=73A4CCD2-EAF5-44DA-A366-F99188210FDC, name=\"root-x86-64-2\", attrs=\"GUID:59\"
+$imgs/copy4 : start=      102360, size=       33432, type=933AC7E1-2EB4-4F13-B844-0E14E2AEF915, uuid=4980595D-D74A-483A-AA9E-9903879A0EE5, name=\"home-first\", attrs=\"GUID:59\"
+$imgs/copy5 : start=      135792, size=       33440, type=4F68BCE3-E8CD-4DB1-96E7-FBCAF984B709, uuid=60F33797-1D71-4DCB-AA6F-20564F036CD0, name=\"root-x86-64\", attrs=\"GUID:59\"
+$imgs/copy6 : start=      169232, size=       33440, type=4F68BCE3-E8CD-4DB1-96E7-FBCAF984B709, uuid=73A4CCD2-EAF5-44DA-A366-F99188210FDC, name=\"root-x86-64-2\", attrs=\"GUID:59\""
 
-    rm "$imgs/copy" # Save disk space
+    rm "$imgs/qqq" "$imgs/copy" # Save disk space
 
     systemd-repart --offline="$OFFLINE" \
                    --definitions="$defs" \
