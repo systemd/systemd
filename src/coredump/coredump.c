@@ -1421,11 +1421,11 @@ static int process_kernel(int argc, char* argv[]) {
 }
 
 static int process_backtrace(int argc, char *argv[]) {
+        _cleanup_(journal_importer_cleanup) JournalImporter importer = JOURNAL_IMPORTER_INIT(STDIN_FILENO);
+        _cleanup_(iovw_free_freep) struct iovec_wrapper *iovw = NULL;
         Context context = {};
-        struct iovec_wrapper *iovw;
         char *message;
         int r;
-         _cleanup_(journal_importer_cleanup) JournalImporter importer = JOURNAL_IMPORTER_INIT(STDIN_FILENO);
 
         log_debug("Processing backtrace on stdin...");
 
@@ -1440,19 +1440,17 @@ static int process_backtrace(int argc, char *argv[]) {
          * '--backtrace' option */
         r = gather_pid_metadata_from_argv(iovw, &context, argc - 2, argv + 2);
         if (r < 0)
-                goto finish;
+                return r;
 
         /* Collect the rest of the process metadata retrieved from the runtime */
         r = gather_pid_metadata_from_procfs(iovw, &context);
         if (r < 0)
-                goto finish;
+                return r;
 
         for (;;) {
                 r = journal_importer_process_data(&importer);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to parse journal entry on stdin: %m");
-                        goto finish;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse journal entry on stdin: %m");
                 if (r == 1 ||                        /* complete entry */
                     journal_importer_eof(&importer)) /* end of data */
                         break;
@@ -1468,23 +1466,20 @@ static int process_backtrace(int argc, char *argv[]) {
 
                 r = iovw_put_string_field(iovw, "MESSAGE=", message);
                 if (r < 0)
-                        goto finish;
+                        return r;
         } else {
-                /* The imported iovecs are not supposed to be freed by us so let's store
-                 * them at the end of the array so we can skip them while freeing the
-                 * rest. */
-                FOREACH_ARRAY(iovec, importer.iovw.iovec, importer.iovw.count)
-                        iovw_put(iovw, iovec->iov_base, iovec->iov_len);
+                /* The imported iovecs are not supposed to be freed by us so let's copy and merge them at the
+                 * end of the array. */
+                r = iovw_append(iovw, &importer.iovw);
+                if (r < 0)
+                        return r;
         }
 
         r = sd_journal_sendv(iovw->iovec, iovw->count);
         if (r < 0)
-                log_error_errno(r, "Failed to log backtrace: %m");
+                return log_error_errno(r, "Failed to log backtrace: %m");
 
- finish:
-        iovw->count -= importer.iovw.count;
-        iovw = iovw_free_free(iovw);
-        return r;
+        return 0;
 }
 
 static int run(int argc, char *argv[]) {
