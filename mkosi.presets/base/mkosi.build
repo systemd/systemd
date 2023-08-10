@@ -146,7 +146,7 @@ if [ ! -f "$BUILDDIR"/build.ninja ]; then
         -D bootloader=enabled
         -D kernel-install=true
         -D analyze=true
-        -D bpf-framework=true
+        -D bpf-framework=enabled
         -D ukify="$UKIFY"
         -D seccomp=enabled
         -D selinux=auto
