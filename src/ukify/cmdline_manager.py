@@ -295,6 +295,16 @@ CONFIG_ITEMS_ADD = [
 ]
 
 
+CONFIG_ITEMS_RM = [
+    ConfigItem(
+        'addons',
+        nargs = '+',
+        type = pathlib.Path,
+        help = 'path to the addon(s) to remove',
+    ),
+]
+
+
 def create_generic_parser():
     p = argparse.ArgumentParser(
         description='Manage UKI command line addons. Note that this tool is not made to inspect a single addon, for that use the \"ukify inspect\" command',        allow_abbrev=False,
@@ -609,10 +619,21 @@ def add_cmdline(opts):
         addon_str = str(addon)
         if check_addon_has_cmdline(addon_str, opts.ukify):
             shutil.copy(addon_str, destination)
+            print(f'{addon_str} copied into {destination}')
         else:
             print(f'Warning: addon {addon_str} ignored')
             return
 
+
+def rm_cmdline(opts):
+    for addon in opts.addons:
+        addon_str = str(addon)
+        if check_addon_has_cmdline(addon_str, opts.ukify):
+            os.remove(addon_str)
+            print(f'{addon_str} removed')
+        else:
+            print(f'Warning: addon {addon_str} ignored')
+            return
 
 def parse_args():
     parser = create_generic_parser()
@@ -635,6 +656,12 @@ def parse_args():
                      "add source_addon(s) [options...]",
                      CONFIG_ITEMS_ADD,
                      add_cmdline)
+
+    create_subparser(subparsers, "rm",
+                     "Rm the provided cmdline addons (.efi) from a specific UKI or global addons",
+                     "rm source_addon(s) [options...]",
+                     CONFIG_ITEMS_RM,
+                     rm_cmdline)
     return parser.parse_args()
 
 
