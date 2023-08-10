@@ -1507,7 +1507,7 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         switch (m->state) {
 
         case MOUNT_MOUNTING:
-                /* Our mount point has not appeared in mountinfo.  Something went wrong. */
+                /* Our mount point has not appeared in mountinfo. Something went wrong. */
 
                 if (f == MOUNT_SUCCESS) {
                         /* Either /bin/mount has an unexpected definition of success,
@@ -2069,8 +2069,7 @@ static int mount_process_proc_self_mountinfo(Manager *m) {
 
                 if (!mount_is_mounted(mount)) {
 
-                        /* A mount point is not around right now. It
-                         * might be gone, or might never have
+                        /* A mount point is not around right now. It might be gone, or might never have
                          * existed. */
 
                         if (mount->from_proc_self_mountinfo &&
@@ -2123,11 +2122,8 @@ static int mount_process_proc_self_mountinfo(Manager *m) {
                                 break;
 
                         default:
-                                /* Nothing really changed, but let's
-                                 * issue an notification call
-                                 * nonetheless, in case somebody is
-                                 * waiting for this. (e.g. file system
-                                 * ro/rw remounts.) */
+                                /* Nothing really changed, but let's issue an notification call nonetheless,
+                                 * in case somebody is waiting for this. (e.g. file system ro/rw remounts.) */
                                 mount_set_state(mount, mount->state);
                                 break;
                         }
