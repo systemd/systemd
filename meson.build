@@ -1487,22 +1487,12 @@ libgio =     dependency('gio-2.0',
                         required : get_option('glib'))
 conf.set10('HAVE_GLIB', libglib.found() and libgobject.found() and libgio.found())
 
-want_dbus = get_option('dbus')
-if want_dbus != 'false' and not skip_deps
-        libdbus = dependency('dbus-1',
-                             version : '>= 1.3.2',
-                             required : want_dbus == 'true')
-        have = libdbus.found()
-else
-        have = false
-        libdbus = []
-endif
-conf.set10('HAVE_DBUS', have)
+libdbus = dependency('dbus-1',
+                     version : '>= 1.3.2',
+                     required : get_option('dbus'))
+conf.set10('HAVE_DBUS', libdbus.found())
 
-dbusdatadir = datadir / 'dbus-1'
-if conf.get('HAVE_DBUS') == 1
-        dbusdatadir = libdbus.get_variable(pkgconfig: 'datadir', default_value: datadir) / 'dbus-1'
-endif
+dbusdatadir = libdbus.get_variable(pkgconfig: 'datadir', default_value: datadir) / 'dbus-1'
 
 dbuspolicydir = get_option('dbuspolicydir')
 if dbuspolicydir == ''
@@ -1511,18 +1501,12 @@ endif
 
 dbussessionservicedir = get_option('dbussessionservicedir')
 if dbussessionservicedir == ''
-        dbussessionservicedir = dbusdatadir / 'services'
-        if conf.get('HAVE_DBUS') == 1
-                dbussessionservicedir = libdbus.get_variable(pkgconfig: 'session_bus_services_dir', default_value: dbussessionservicedir)
-        endif
+        dbussessionservicedir = libdbus.get_variable(pkgconfig: 'session_bus_services_dir', default_value: dbusdatadir / 'services')
 endif
 
 dbussystemservicedir = get_option('dbussystemservicedir')
 if dbussystemservicedir == ''
-        dbussystemservicedir = dbusdatadir / 'system-services'
-        if conf.get('HAVE_DBUS') == 1
-                dbussystemservicedir = libdbus.get_variable(pkgconfig: 'system_bus_services_dir', default_value: dbussystemservicedir)
-        endif
+        dbussystemservicedir = libdbus.get_variable(pkgconfig: 'system_bus_services_dir', default_value: dbusdatadir / 'system-services')
 endif
 
 dbus_interfaces_dir = get_option('dbus-interfaces-dir')
@@ -1531,10 +1515,7 @@ if dbus_interfaces_dir == '' or dbus_interfaces_dir == 'yes'
                 dbus_interfaces_dir = 'no'
                 warning('Exporting D-Bus interface XML files is disabled during cross build. Pass path or "yes" to force enable.')
         else
-                dbus_interfaces_dir = dbusdatadir / 'interfaces'
-                if conf.get('HAVE_DBUS') == 1
-                        dbus_interfaces_dir = libdbus.get_variable(pkgconfig: 'interfaces_dir', default_value: dbus_interfaces_dir)
-                endif
+                dbus_interfaces_dir = libdbus.get_variable(pkgconfig: 'interfaces_dir', default_value: dbusdatadir / 'interfaces')
         endif
 endif
 

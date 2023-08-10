@@ -146,7 +146,7 @@ if [ ! -f "$BUILDDIR"/build.ninja ]; then
         -D xkbcommon=enabled
         -D pcre2=enabled
         -D glib=enabled
-        -D dbus=true
+        -D dbus=enabled
         -D bootloader=true
         -D kernel-install=true
         -D analyze=true
