@@ -51,4 +51,6 @@ int setup_credentials(
                 const ExecParameters *params,
                 const char *unit,
                 uid_t uid,
-                gid_t gid);
+                gid_t gid,
+                char **ret_path,
+                int *ret_mount_fd);

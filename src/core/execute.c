@@ -7,6 +7,7 @@
 #include <sys/file.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
+#include <sys/mount.h>
 #include <sys/personality.h>
 #include <sys/prctl.h>
 #include <sys/shm.h>
@@ -76,6 +77,7 @@
 #include "missing_fs.h"
 #include "missing_ioprio.h"
 #include "missing_prctl.h"
+#include "missing_syscall.h"
 #include "mkdir-label.h"
 #include "namespace.h"
 #include "parse-util.h"
@@ -1870,6 +1872,7 @@ static int build_environment(
                 dev_t journal_stream_dev,
                 ino_t journal_stream_ino,
                 const char *memory_pressure_path,
+                const char *creds_path,
                 char ***ret) {
 
         _cleanup_strv_free_ char **our_env = NULL;
@@ -2047,11 +2050,7 @@ static int build_environment(
                 our_env[n_env++] = x;
         }
 
-        _cleanup_free_ char *creds_path = NULL;
-        r = exec_context_get_credential_directory(c, p, u->id, &creds_path);
-        if (r < 0)
-                return r;
-        if (r > 0) {
+        if (creds_path) {
                 x = strjoin("CREDENTIALS_DIRECTORY=", creds_path);
                 if (!x)
                         return -ENOMEM;
@@ -3105,12 +3104,14 @@ static int apply_mount_namespace(
                 const ExecParameters *params,
                 ExecRuntime *runtime,
                 const char *memory_pressure_path,
+                const char *creds_path,
+                int creds_fd,
                 char **error_path) {
 
         _cleanup_(verity_settings_done) VeritySettings verity = VERITY_SETTINGS_DEFAULT;
         _cleanup_strv_free_ char **empty_directories = NULL, **symlinks = NULL,
                         **read_write_paths_cleanup = NULL;
-        _cleanup_free_ char *creds_path = NULL, *incoming_dir = NULL, *propagate_dir = NULL,
+        _cleanup_free_ char *incoming_dir = NULL, *propagate_dir = NULL,
                         *extension_dir = NULL, *host_os_release = NULL;
         const char *root_dir = NULL, *root_image = NULL, *tmp_dir = NULL, *var_tmp_dir = NULL;
         char **read_write_paths;
@@ -3211,12 +3212,6 @@ static int apply_mount_namespace(
         if (context->mount_propagation_flag == MS_SHARED)
                 log_unit_debug(u, "shared mount propagation hidden by other fs namespacing unit settings: ignoring");
 
-        if (FLAGS_SET(params->flags, EXEC_WRITE_CREDENTIALS)) {
-                r = exec_context_get_credential_directory(context, params, u->id, &creds_path);
-                if (r < 0)
-                        return r;
-        }
-
         if (params->runtime_scope == RUNTIME_SCOPE_SYSTEM) {
                 propagate_dir = path_join("/run/systemd/propagate/", u->id);
                 if (!propagate_dir)
@@ -3283,6 +3278,7 @@ static int apply_mount_namespace(
                         tmp_dir,
                         var_tmp_dir,
                         creds_path,
+                        creds_fd,
                         context->log_namespace,
                         context->mount_propagation_flag,
                         &verity,
@@ -3936,7 +3932,7 @@ static int exec_child(
         int r, ngids = 0, exec_fd;
         _cleanup_free_ gid_t *supplementary_gids = NULL;
         const char *username = NULL, *groupname = NULL;
-        _cleanup_free_ char *home_buffer = NULL, *memory_pressure_path = NULL;
+        _cleanup_free_ char *home_buffer = NULL, *memory_pressure_path = NULL, *creds_path = NULL;
         const char *home = NULL, *shell = NULL;
         char **final_argv = NULL;
         dev_t journal_stream_dev = 0;
@@ -3967,6 +3963,7 @@ static int exec_child(
         int ngids_after_pam = 0;
         _cleanup_free_ int *fds = NULL;
         _cleanup_strv_free_ char **fdnames = NULL;
+        _cleanup_close_ int creds_fd = -EBADF;
 
         assert(unit);
         assert(command);
@@ -4417,7 +4414,7 @@ static int exec_child(
         }
 
         if (FLAGS_SET(params->flags, EXEC_WRITE_CREDENTIALS)) {
-                r = setup_credentials(context, params, unit->id, uid, gid);
+                r = setup_credentials(context, params, unit->id, uid, gid, &creds_path, &creds_fd);
                 if (r < 0) {
                         *exit_status = EXIT_CREDENTIALS;
                         return log_unit_error_errno(unit, r, "Failed to set up credentials: %m");
@@ -4437,6 +4434,7 @@ static int exec_child(
                         journal_stream_dev,
                         journal_stream_ino,
                         memory_pressure_path,
+                        creds_path,
                         &our_env);
         if (r < 0) {
                 *exit_status = EXIT_MEMORY;
@@ -4632,11 +4630,22 @@ static int exec_child(
         if (needs_mount_namespace) {
                 _cleanup_free_ char *error_path = NULL;
 
-                r = apply_mount_namespace(unit, command->flags, context, params, runtime, memory_pressure_path, &error_path);
+                r = apply_mount_namespace(unit, command->flags, context, params, runtime, memory_pressure_path, creds_path, creds_fd, &error_path);
                 if (r < 0) {
                         *exit_status = EXIT_NAMESPACE;
                         return log_unit_error_errno(unit, r, "Failed to set up mount namespacing%s%s: %m",
                                                     error_path ? ": " : "", strempty(error_path));
+                }
+        }
+
+        if (creds_fd >= 0) {
+                assert(creds_path);
+
+                (void) mkdir_p_label(creds_path, 0755);
+
+                if (move_mount(creds_fd, "", AT_FDCWD, creds_path, MOVE_MOUNT_F_EMPTY_PATH) < 0) {
+                        *exit_status = EXIT_CREDENTIALS;
+                        return log_unit_error_errno(unit, errno, "Failed to mount credentials directory on %s: %m", creds_path);
                 }
         }
 
