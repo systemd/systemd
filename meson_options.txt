@@ -437,7 +437,7 @@ option('pcre2', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : '
        description : 'regexp matching support using pcre2')
 option('glib', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'libglib support (for tests only)')
-option('dbus', type : 'combo', choices : ['auto', 'true', 'false'],
+option('dbus', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'libdbus support (for tests only)')
 
 option('bootloader', type : 'combo', choices : ['auto', 'true', 'false'],
