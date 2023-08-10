@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 # SPDX-License-Identifier: LGPL-2.1-or-later
-# pylint: disable=line-too-long,invalid-name,missing-module-docstring,missing-function-docstring,too-many-statements,broad-except
+# pylint: disable=broad-except
 
 import argparse
 import logging

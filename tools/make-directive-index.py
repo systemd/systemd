@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-import sys
 import collections
 import re
-from xml_helper import xml_parse, xml_print, tree
+import sys
 from copy import deepcopy
+
+from xml_helper import tree, xml_parse, xml_print
 
 COLOPHON = '''\
 This index contains {count} entries in {sections} sections,
@@ -101,7 +102,7 @@ def _extract_directives(directive_groups, formatting, page):
         formatting[name.text] = name
 
 def _make_section(template, name, directives, formatting):
-    varlist = template.find(".//*[@id='{}']".format(name))
+    varlist = template.find(f".//*[@id='{name}']")
     for varname, manpages in sorted(directives.items()):
         entry = tree.SubElement(varlist, 'varlistentry')
         term = tree.SubElement(entry, 'term')
@@ -161,14 +162,14 @@ def make_page(template_path, xml_files):
     for page in xml_files:
         try:
             _extract_directives(directive_groups, formatting, page)
-        except Exception:
-            raise ValueError("failed to process " + page)
+        except Exception as e:
+            raise ValueError("failed to process " + page) from e
 
     return _make_page(template, directive_groups, formatting)
 
 if __name__ == '__main__':
     with open(sys.argv[1], 'wb') as f:
-        template_path = sys.argv[2]
-        xml_files = sys.argv[3:]
-        xml = make_page(template_path, xml_files)
-        f.write(xml_print(xml))
+        _template_path = sys.argv[2]
+        _xml_files = sys.argv[3:]
+        _xml = make_page(_template_path, _xml_files)
+        f.write(xml_print(_xml))
