@@ -36,6 +36,15 @@ fuzz_regression_tests += { 'fuzz-unit-file' : dict }
 
 ############################################################
 
+# TODO: Use native string formatting with meson >= 1.3.0
+if get_option('auto_features').enabled()
+        sanitize_auto_features = 'enabled'
+elif get_option('auto_features').disabled()
+        sanitize_auto_features = 'disabled'
+else
+        sanitize_auto_features = 'auto'
+endif
+
 sanitize_address_undefined = custom_target(
         'sanitize-address-undefined-fuzzers',
         output : 'sanitize-address-undefined-fuzzers',
@@ -43,11 +52,11 @@ sanitize_address_undefined = custom_target(
                    project_source_root,
                    '@OUTPUT@',
                    'fuzzers',
-                   '-Dfuzz-tests=true -Db_lundef=false -Db_sanitize=address,undefined --optimization=@0@ @1@ -Dc_args=@2@ -Dcpp_args=@2@ -Dskip-deps=@3@'.format(
+                   '-Dfuzz-tests=true -Db_lundef=false -Db_sanitize=address,undefined --optimization=@0@ @1@ -Dc_args=@2@ -Dcpp_args=@2@ --auto-features=@3@'.format(
                            get_option('optimization'),
                            get_option('werror') ? '--werror' : '',
                            '-DFUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION',
-                           get_option('skip-deps')
+                           sanitize_auto_features
                    ),
                    ' '.join(cc.cmd_array()),
                    cxx_cmd])
