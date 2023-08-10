@@ -252,10 +252,9 @@ static int radv_recv(sd_event_source *s, int fd, uint32_t revents, void *userdat
         assert(ra->event);
 
         ssize_t buflen = next_datagram_size_fd(fd);
+        if (ERRNO_IS_NEG_TRANSIENT(buflen) || ERRNO_IS_NEG_DISCONNECT(buflen))
+                return 0;
         if (buflen < 0) {
-                if (ERRNO_IS_TRANSIENT(buflen) || ERRNO_IS_DISCONNECT(buflen))
-                        return 0;
-
                 log_radv_errno(ra, buflen, "Failed to determine datagram size to read, ignoring: %m");
                 return 0;
         }
@@ -265,31 +264,27 @@ static int radv_recv(sd_event_source *s, int fd, uint32_t revents, void *userdat
                 return -ENOMEM;
 
         r = icmp6_receive(fd, buf, buflen, &src, &timestamp);
-        if (r < 0) {
-                if (ERRNO_IS_TRANSIENT(r) || ERRNO_IS_DISCONNECT(r))
-                        return 0;
-
+        if (ERRNO_IS_NEG_TRANSIENT(r) || ERRNO_IS_NEG_DISCONNECT(r))
+                return 0;
+        if (r < 0)
                 switch (r) {
                 case -EADDRNOTAVAIL:
                         log_radv(ra, "Received RS from non-link-local address %s. Ignoring",
                                  IN6_ADDR_TO_STRING(&src));
-                        break;
+                        return 0;
 
                 case -EMULTIHOP:
                         log_radv(ra, "Received RS with invalid hop limit. Ignoring.");
-                        break;
+                        return 0;
 
                 case -EPFNOSUPPORT:
                         log_radv(ra, "Received invalid source address from ICMPv6 socket. Ignoring.");
-                        break;
+                        return 0;
 
                 default:
                         log_radv_errno(ra, r, "Unexpected error receiving from ICMPv6 socket, ignoring: %m");
-                        break;
+                        return 0;
                 }
-
-                return 0;
-        }
 
         if ((size_t) buflen < sizeof(struct nd_router_solicit)) {
                 log_radv(ra, "Too short packet received, ignoring");

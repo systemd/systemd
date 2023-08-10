@@ -1848,10 +1848,9 @@ static int client_receive_message_udp(
         assert(s);
 
         buflen = next_datagram_size_fd(fd);
+        if (ERRNO_IS_NEG_TRANSIENT(buflen) || ERRNO_IS_NEG_DISCONNECT(buflen))
+                return 0;
         if (buflen < 0) {
-                if (ERRNO_IS_TRANSIENT(buflen) || ERRNO_IS_DISCONNECT(buflen))
-                        return 0;
-
                 log_dhcp_client_errno(client, buflen, "Failed to determine datagram size to read, ignoring: %m");
                 return 0;
         }
@@ -1941,10 +1940,9 @@ static int client_receive_message_raw(
         assert(s);
 
         buflen = next_datagram_size_fd(fd);
+        if (ERRNO_IS_NEG_TRANSIENT(buflen) || ERRNO_IS_NEG_DISCONNECT(buflen))
+                return 0;
         if (buflen < 0) {
-                if (ERRNO_IS_TRANSIENT(buflen) || ERRNO_IS_DISCONNECT(buflen))
-                        return 0;
-
                 log_dhcp_client_errno(client, buflen, "Failed to determine datagram size to read, ignoring: %m");
                 return 0;
         }
@@ -1956,10 +1954,9 @@ static int client_receive_message_raw(
         iov = IOVEC_MAKE(packet, buflen);
 
         len = recvmsg_safe(fd, &msg, 0);
+        if (ERRNO_IS_NEG_TRANSIENT(len) || ERRNO_IS_NEG_DISCONNECT(len))
+                return 0;
         if (len < 0) {
-                if (ERRNO_IS_TRANSIENT(len) || ERRNO_IS_DISCONNECT(len))
-                        return 0;
-
                 log_dhcp_client_errno(client, len, "Could not receive message from raw socket, ignoring: %m");
                 return 0;
         }
