@@ -140,7 +140,7 @@ static int load_state(Context *c, const struct rfkill_event *event) {
         assert(c->rfkill_fd >= 0);
         assert(event);
 
-        if (shall_restore_state() == 0)
+        if (!shall_restore_state())
                 return 0;
 
         r = determine_state_file(event, &state_file);
