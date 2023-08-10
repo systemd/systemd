@@ -1363,8 +1363,8 @@ static int gather_pid_metadata(struct iovec_wrapper *iovw, Context *context) {
 }
 
 static int process_kernel(int argc, char* argv[]) {
+        _cleanup_(iovw_free_freep) struct iovec_wrapper *iovw = NULL;
         Context context = {};
-        struct iovec_wrapper *iovw;
         int r;
 
         /* When we're invoked by the kernel, stdout/stderr are closed which is dangerous because the fds
@@ -1386,12 +1386,12 @@ static int process_kernel(int argc, char* argv[]) {
         /* Collect all process metadata passed by the kernel through argv[] */
         r = gather_pid_metadata_from_argv(iovw, &context, argc - 1, argv + 1);
         if (r < 0)
-                goto finish;
+                return r;
 
         /* Collect the rest of the process metadata retrieved from the runtime */
         r = gather_pid_metadata(iovw, &context);
         if (r < 0)
-                goto finish;
+                return r;
 
         if (!context.is_journald)
                 /* OK, now we know it's not the journal, hence we can make use of it now. */
@@ -1409,13 +1409,9 @@ static int process_kernel(int argc, char* argv[]) {
         }
 
         if (context.is_journald || context.is_pid1)
-                r = submit_coredump(&context, iovw, STDIN_FILENO);
-        else
-                r = send_iovec(iovw, STDIN_FILENO);
+                return submit_coredump(&context, iovw, STDIN_FILENO);
 
- finish:
-        iovw = iovw_free_free(iovw);
-        return r;
+        return send_iovec(iovw, STDIN_FILENO);
 }
 
 static int process_backtrace(int argc, char *argv[]) {
