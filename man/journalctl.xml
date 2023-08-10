@@ -371,7 +371,8 @@
         sensitive. This can be overridden with the <option>--case-sensitive</option> option, see
         below.</para>
 
-        <para>When used with <option>--lines=</option>, <option>--reverse</option> is implied.</para></listitem>
+        <para>When used with <option>--lines=</option> (not prefixed with <literal>+</literal>),
+        <option>--reverse</option> is implied.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -552,12 +553,13 @@
         <term><option>-n</option></term>
         <term><option>--lines=</option></term>
 
-        <listitem><para>Show the most recent journal events and limit the number of events shown. If
-        <option>--follow</option> is used, this option is implied. The argument is a positive integer or
-        <literal>all</literal> to disable line limiting. The default value is 10 if no argument is
-        given.</para>
+        <listitem><para>Show the most recent journal events and limit the number of events shown. The argument
+        is a positive integer or <literal>all</literal> to disable the limit. Additionally, if the number is
+        prefixed with <literal>+</literal>, the oldest journal events are used instead. The default value is
+        10 if no argument is given.</para>
 
-        <para>When used with <option>--grep=</option>, <option>--reverse</option> is implied.</para></listitem>
+        <para>If <option>--follow</option> is used, this option is implied. When not prefixed with <literal>+</literal>
+        and used with <option>--grep=</option>, <option>--reverse</option> is implied.</para></listitem>
       </varlistentry>
 
       <varlistentry>
