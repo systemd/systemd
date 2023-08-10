@@ -198,10 +198,9 @@ static int lldp_rx_receive_datagram(sd_event_source *s, int fd, uint32_t revents
         assert(fd >= 0);
 
         space = next_datagram_size_fd(fd);
+        if (ERRNO_IS_NEG_TRANSIENT(space) || ERRNO_IS_NEG_DISCONNECT(space))
+                return 0;
         if (space < 0) {
-                if (ERRNO_IS_TRANSIENT(space) || ERRNO_IS_DISCONNECT(space))
-                        return 0;
-
                 log_lldp_rx_errno(lldp_rx, space, "Failed to determine datagram size to read, ignoring: %m");
                 return 0;
         }
