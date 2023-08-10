@@ -88,6 +88,11 @@ Janitorial Clean-ups:
   string_hash_ops_free everywhere, so that destruction is implicit rather than
   explicit. Similar, for other special hashmap/set/ordered_hashmap destructors.
 
+* generators sometimes apply C escaping and somethines specifier escaping to
+  paths and similar strings they write out. Sometimes both. We should clean
+  this up, and should probably always apply both, i.e. introduce
+  unit_file_escape() or so, which applies both.
+
 Deprecations and removals:
 
 * Remove any support for booting without /usr pre-mounted in the initrd entirely.
