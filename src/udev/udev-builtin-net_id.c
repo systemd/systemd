@@ -702,18 +702,14 @@ static int names_platform(sd_device *dev, const char *prefix, bool test) {
         /* Platform devices are named after ACPI table match, and instance id
          * eg. "/sys/devices/platform/HISI00C2:00"
          * The Vendor (3 or 4 char), followed by hexadecimal model number : instance id. */
-        if (p[7] == ':') {
+        if (r == 10 && p[7] == ':') {
                 /* 3 char vendor string */
-                if (r != 10)
-                        return -EINVAL;
                 vendor = strndupa(p, 3);
                 model_str = strndupa(p + 3, 4);
                 instance_str = strndupa(p + 8, 2);
                 validchars = UPPERCASE_LETTERS;
-        } else if (p[8] == ':') {
+        } else if (r == 11 && p[8] == ':') {
                 /* 4 char vendor string */
-                if (r != 11)
-                        return -EINVAL;
                 vendor = strndupa(p, 4);
                 model_str = strndupa(p + 4, 4);
                 instance_str = strndupa(p + 9, 2);
