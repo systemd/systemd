@@ -11,6 +11,7 @@ libcore_sources = files(
         'bpf-socket-bind.c',
         'cgroup.c',
         'core-varlink.c',
+        'credential.c',
         'dbus-automount.c',
         'dbus-cgroup.c',
         'dbus-device.c',

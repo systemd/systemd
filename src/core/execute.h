@@ -176,20 +176,6 @@ typedef enum ExecCleanMask {
         _EXEC_CLEAN_MASK_INVALID = -EINVAL,
 } ExecCleanMask;
 
-/* A credential configured with LoadCredential= */
-typedef struct ExecLoadCredential {
-        char *id, *path;
-        bool encrypted;
-} ExecLoadCredential;
-
-/* A credential configured with SetCredential= */
-typedef struct ExecSetCredential {
-        char *id;
-        bool encrypted;
-        void *data;
-        size_t size;
-} ExecSetCredential;
-
 /* Encodes configuration parameters applied to invoked commands. Does not carry runtime data, but only configuration
  * changes sourced from unit files and suchlike. ExecContext objects are usually embedded into Unit objects, and do not
  * change after being loaded. */
@@ -482,15 +468,12 @@ void exec_context_done(ExecContext *c);
 void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix);
 
 int exec_context_destroy_runtime_directory(const ExecContext *c, const char *runtime_root);
-int exec_context_destroy_credentials(const ExecContext *c, const char *runtime_root, const char *unit);
 int exec_context_destroy_mount_ns_dir(Unit *u);
 
 const char* exec_context_fdname(const ExecContext *c, int fd_index);
 
 bool exec_context_may_touch_console(const ExecContext *c);
 bool exec_context_maintains_privileges(const ExecContext *c);
-bool exec_context_has_encrypted_credentials(ExecContext *c);
-bool exec_context_has_credentials(const ExecContext *context);
 
 int exec_context_get_effective_ioprio(const ExecContext *c);
 bool exec_context_get_effective_mount_apivfs(const ExecContext *c);
@@ -526,20 +509,11 @@ void exec_params_clear(ExecParameters *p);
 
 bool exec_context_get_cpu_affinity_from_numa(const ExecContext *c);
 
-ExecSetCredential *exec_set_credential_free(ExecSetCredential *sc);
-DEFINE_TRIVIAL_CLEANUP_FUNC(ExecSetCredential*, exec_set_credential_free);
-
-ExecLoadCredential *exec_load_credential_free(ExecLoadCredential *lc);
-DEFINE_TRIVIAL_CLEANUP_FUNC(ExecLoadCredential*, exec_load_credential_free);
-
 void exec_directory_done(ExecDirectory *d);
 int exec_directory_add(ExecDirectory *d, const char *path, const char *symlink);
 void exec_directory_sort(ExecDirectory *d);
 
 ExecCleanMask exec_clean_mask_from_string(const char *s);
-
-extern const struct hash_ops exec_set_credential_hash_ops;
-extern const struct hash_ops exec_load_credential_hash_ops;
 
 const char* exec_output_to_string(ExecOutput i) _const_;
 ExecOutput exec_output_from_string(const char *s) _pure_;

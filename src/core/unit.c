@@ -20,6 +20,7 @@
 #include "cgroup-util.h"
 #include "chase.h"
 #include "core-varlink.h"
+#include "credential.h"
 #include "dbus-unit.h"
 #include "dbus.h"
 #include "dropin.h"
