@@ -392,7 +392,7 @@ int proc_cmdline_get_key(const char *key, ProcCmdlineFlags flags, char **ret_val
         return cmdline_get_key(args, key, flags, ret_value);
 }
 
-int proc_cmdline_get_bool(const char *key, ProcCmdlineFlags flags, bool *ret) {
+int proc_cmdline_get_bool_full(const char *key, ProcCmdlineFlags flags, bool skip_missing, bool *ret) {
         _cleanup_free_ char *v = NULL;
         int r;
 
@@ -402,7 +402,9 @@ int proc_cmdline_get_bool(const char *key, ProcCmdlineFlags flags, bool *ret) {
         if (r < 0)
                 return r;
         if (r == 0) { /* key not specified at all */
-                *ret = false;
+                if (!skip_missing) /* else the original value of ret is retained */
+                        *ret = false;
+
                 return 0;
         }
 
