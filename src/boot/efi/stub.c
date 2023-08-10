@@ -147,8 +147,9 @@ static bool use_load_options(
         assert(ret);
 
         /* We only allow custom command lines if we aren't in secure boot or if no cmdline was baked into
-         * the stub image. */
-        if (secure_boot_enabled() && have_cmdline)
+         * the stub image.
+         * We also don't allow it if we are in confidential vms and secureboot is on. */
+        if (secure_boot_enabled() && (have_cmdline || is_confidential_vm()))
                 return false;
 
         /* We also do a superficial check whether first character of passed command line
