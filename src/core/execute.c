@@ -1870,6 +1870,7 @@ static int build_environment(
                 dev_t journal_stream_dev,
                 ino_t journal_stream_ino,
                 const char *memory_pressure_path,
+                const char *creds_path,
                 char ***ret) {
 
         _cleanup_strv_free_ char **our_env = NULL;
@@ -2047,10 +2048,8 @@ static int build_environment(
                 our_env[n_env++] = x;
         }
 
-        if (exec_context_has_credentials(c) &&
-            p->prefix[EXEC_DIRECTORY_RUNTIME] &&
-            FLAGS_SET(p->flags, EXEC_WRITE_CREDENTIALS)) {
-                x = strjoin("CREDENTIALS_DIRECTORY=", p->prefix[EXEC_DIRECTORY_RUNTIME], "/credentials/", u->id);
+        if (creds_path) {
+                x = strjoin("CREDENTIALS_DIRECTORY=", creds_path);
                 if (!x)
                         return -ENOMEM;
 
@@ -3103,12 +3102,13 @@ static int apply_mount_namespace(
                 const ExecParameters *params,
                 ExecRuntime *runtime,
                 const char *memory_pressure_path,
+                const char *creds_path,
                 char **error_path) {
 
         _cleanup_(verity_settings_done) VeritySettings verity = VERITY_SETTINGS_DEFAULT;
         _cleanup_strv_free_ char **empty_directories = NULL, **symlinks = NULL,
                         **read_write_paths_cleanup = NULL;
-        _cleanup_free_ char *creds_path = NULL, *incoming_dir = NULL, *propagate_dir = NULL,
+        _cleanup_free_ char *incoming_dir = NULL, *propagate_dir = NULL,
                         *extension_dir = NULL, *host_os_release = NULL;
         const char *root_dir = NULL, *root_image = NULL, *tmp_dir = NULL, *var_tmp_dir = NULL;
         char **read_write_paths;
@@ -3208,14 +3208,6 @@ static int apply_mount_namespace(
 
         if (context->mount_propagation_flag == MS_SHARED)
                 log_unit_debug(u, "shared mount propagation hidden by other fs namespacing unit settings: ignoring");
-
-        if (exec_context_has_credentials(context) &&
-            params->prefix[EXEC_DIRECTORY_RUNTIME] &&
-            FLAGS_SET(params->flags, EXEC_WRITE_CREDENTIALS)) {
-                creds_path = path_join(params->prefix[EXEC_DIRECTORY_RUNTIME], "credentials", u->id);
-                if (!creds_path)
-                        return -ENOMEM;
-        }
 
         if (params->runtime_scope == RUNTIME_SCOPE_SYSTEM) {
                 propagate_dir = path_join("/run/systemd/propagate/", u->id);
@@ -3936,7 +3928,7 @@ static int exec_child(
         int r, ngids = 0, exec_fd;
         _cleanup_free_ gid_t *supplementary_gids = NULL;
         const char *username = NULL, *groupname = NULL;
-        _cleanup_free_ char *home_buffer = NULL, *memory_pressure_path = NULL;
+        _cleanup_free_ char *home_buffer = NULL, *memory_pressure_path = NULL, *creds_path = NULL;
         const char *home = NULL, *shell = NULL;
         char **final_argv = NULL;
         dev_t journal_stream_dev = 0;
@@ -4417,7 +4409,7 @@ static int exec_child(
         }
 
         if (FLAGS_SET(params->flags, EXEC_WRITE_CREDENTIALS)) {
-                r = setup_credentials(context, params, unit->id, uid, gid);
+                r = setup_credentials(context, params, unit->id, uid, gid, &creds_path);
                 if (r < 0) {
                         *exit_status = EXIT_CREDENTIALS;
                         return log_unit_error_errno(unit, r, "Failed to set up credentials: %m");
@@ -4437,6 +4429,7 @@ static int exec_child(
                         journal_stream_dev,
                         journal_stream_ino,
                         memory_pressure_path,
+                        creds_path,
                         &our_env);
         if (r < 0) {
                 *exit_status = EXIT_MEMORY;
@@ -4632,7 +4625,7 @@ static int exec_child(
         if (needs_mount_namespace) {
                 _cleanup_free_ char *error_path = NULL;
 
-                r = apply_mount_namespace(unit, command->flags, context, params, runtime, memory_pressure_path, &error_path);
+                r = apply_mount_namespace(unit, command->flags, context, params, runtime, memory_pressure_path, creds_path, &error_path);
                 if (r < 0) {
                         *exit_status = EXIT_NAMESPACE;
                         return log_unit_error_errno(unit, r, "Failed to set up mount namespacing%s%s: %m",
