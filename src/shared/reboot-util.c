@@ -110,14 +110,14 @@ int reboot_with_parameter(RebootFlags flags) {
 }
 
 int shall_restore_state(void) {
-        bool ret;
+        bool ret = true;
         int r;
 
-        r = proc_cmdline_get_bool("systemd.restore_state", /* flags = */ 0, &ret);
+        r = proc_cmdline_get_bool_full("systemd.restore_state", /* flags = */ 0, /* skip_missing = */ true, &ret);
         if (r < 0)
                 return r;
 
-        return r > 0 ? ret : true;
+        return ret;
 }
 
 static int xen_kexec_loaded(void) {
