@@ -33,13 +33,13 @@ conf.set_quoted('RELATIVE_SOURCE_PATH', relative_source_path)
 
 conf.set10('BUILD_MODE_DEVELOPER', get_option('mode') == 'developer',
            description : 'tailor build to development or release builds')
-verification = get_option('log-message-verification')
-if verification == 'auto'
-        verification = conf.get('BUILD_MODE_DEVELOPER') == 1
+feature = get_option('log-message-verification')
+if feature.auto()
+        have = conf.get('BUILD_MODE_DEVELOPER') == 1
 else
-        verification = verification == 'true'
+        have = feature.enabled()
 endif
-conf.set10('LOG_MESSAGE_VERIFICATION', verification)
+conf.set10('LOG_MESSAGE_VERIFICATION', have)
 
 want_ossfuzz = get_option('oss-fuzz')
 want_libfuzzer = get_option('llvm-fuzz')
@@ -1119,32 +1119,19 @@ libfdisk = dependency('fdisk',
                       required : get_option('fdisk'))
 conf.set10('HAVE_LIBFDISK', libfdisk.found())
 
-want_passwdqc = get_option('passwdqc')
-want_pwquality = get_option('pwquality')
-if want_passwdqc == 'true' and want_pwquality == 'true'
-        error('passwdqc and pwquality cannot be requested simultaneously')
-endif
-
-if want_pwquality != 'false' and want_passwdqc != 'true' and not skip_deps
-        libpwquality = dependency('pwquality',
-                                  version : '>= 1.4.1',
-                                  required : want_pwquality == 'true')
-        have = libpwquality.found()
-else
-        have = false
-        libpwquality = []
+# This prefers pwquality if both are enabled or auto.
+feature = get_option('pwquality').disable_auto_if(get_option('passwdqc').enabled())
+libpwquality = dependency('pwquality',
+                          version : '>= 1.4.1',
+                          required : feature)
+have = libpwquality.found()
+if not have
+        # libpwquality is used for both features for simplicity
+        libpwquality = dependency('passwdqc',
+                                  required : get_option('passwdqc'))
 endif
 conf.set10('HAVE_PWQUALITY', have)
-
-if not have and want_passwdqc != 'false' and not skip_deps
-        libpasswdqc = dependency('passwdqc',
-                                 required : want_passwdqc == 'true')
-        have = libpasswdqc.found()
-else
-        have = false
-        libpasswdqc = []
-endif
-conf.set10('HAVE_PASSWDQC', have)
+conf.set10('HAVE_PASSWDQC', not have and libpwquality.found())
 
 libseccomp = dependency('libseccomp',
                         version : '>= 2.3.1',
@@ -1225,38 +1212,36 @@ libmicrohttpd = dependency('libmicrohttpd',
                            required : get_option('microhttpd'))
 conf.set10('HAVE_MICROHTTPD', libmicrohttpd.found())
 
-want_libcryptsetup = get_option('libcryptsetup')
-want_libcryptsetup_plugins = get_option('libcryptsetup-plugins')
-
-if want_libcryptsetup_plugins == 'true' and want_libcryptsetup == 'false'
-        error('libcryptsetup-plugins can not be requested without libcryptsetup')
+libcryptsetup = get_option('libcryptsetup')
+libcryptsetup_plugins = get_option('libcryptsetup-plugins')
+if libcryptsetup_plugins.enabled()
+        if libcryptsetup.disabled()
+                error('libcryptsetup-plugins can not be requested without libcryptsetup')
+        endif
+        libcryptsetup = libcryptsetup_plugins
 endif
 
-if want_libcryptsetup != 'false' and not skip_deps
-        libcryptsetup = dependency('libcryptsetup',
-                                   version : want_libcryptsetup_plugins == 'true' ? '>= 2.4.0' : '>= 2.0.1',
-                                   required : want_libcryptsetup == 'true' or want_libcryptsetup_plugins == 'true')
-        have = libcryptsetup.found()
+libcryptsetup = dependency('libcryptsetup',
+                           version : libcryptsetup_plugins.enabled() ? '>= 2.4.0' : '>= 2.0.1',
+                           required : libcryptsetup)
 
-        foreach ident : ['crypt_set_metadata_size',
-                         'crypt_activate_by_signed_key',
-                         'crypt_token_max',
-                         'crypt_reencrypt_init_by_passphrase',
-                         'crypt_reencrypt',
-                         'crypt_set_data_offset']
-                have_ident = have and cc.has_function(
-                        ident,
-                        prefix : '#include <libcryptsetup.h>',
-                        dependencies : libcryptsetup)
-                conf.set10('HAVE_' + ident.to_upper(), have_ident)
-        endforeach
-else
-        have = false
-        libcryptsetup = []
-endif
+have = libcryptsetup.found()
+foreach ident : ['crypt_set_metadata_size',
+                 'crypt_activate_by_signed_key',
+                 'crypt_token_max',
+                 'crypt_reencrypt_init_by_passphrase',
+                 'crypt_reencrypt',
+                 'crypt_set_data_offset']
+        have_ident = have and cc.has_function(
+                ident,
+                prefix : '#include <libcryptsetup.h>',
+                dependencies : libcryptsetup)
+        conf.set10('HAVE_' + ident.to_upper(), have_ident)
+endforeach
 conf.set10('HAVE_LIBCRYPTSETUP', have)
 
-if want_libcryptsetup_plugins != 'false' and not skip_deps
+# TODO: Use has_function(required : libcryptsetup_plugins) with meson >= 1.3.0
+if libcryptsetup_plugins.allowed()
         have = (cc.has_function(
                         'crypt_activate_by_token_pin',
                         prefix : '#include <libcryptsetup.h>',
@@ -1276,30 +1261,17 @@ libcurl = dependency('libcurl',
 conf.set10('HAVE_LIBCURL', libcurl.found())
 conf.set10('CURL_NO_OLDIES', conf.get('BUILD_MODE_DEVELOPER') == 1)
 
-want_libidn = get_option('libidn')
-want_libidn2 = get_option('libidn2')
-if want_libidn == 'true' and want_libidn2 == 'true'
-        error('libidn and libidn2 cannot be requested simultaneously')
-endif
-
-if want_libidn2 != 'false' and want_libidn != 'true' and not skip_deps
-        libidn = dependency('libidn2',
-                            required : want_libidn2 == 'true')
-        have = libidn.found()
-else
-        have = false
-        libidn = []
-endif
-conf.set10('HAVE_LIBIDN2', have)
-if not have and want_libidn != 'false' and not skip_deps
+feature = get_option('libidn2').disable_auto_if(get_option('libidn').enabled())
+libidn = dependency('libidn2',
+                    required : feature)
+have = libidn.found()
+if not have
         # libidn is used for both libidn and libidn2 objects
         libidn = dependency('libidn',
-                            required : want_libidn == 'true')
-        have = libidn.found()
-else
-        have = false
+                            required : get_option('libidn'))
 endif
-conf.set10('HAVE_LIBIDN', have)
+conf.set10('HAVE_LIBIDN', not have and libidn.found())
+conf.set10('HAVE_LIBIDN2', have)
 
 libiptc = dependency('libiptc',
                      required : get_option('libiptc'))
@@ -1574,21 +1546,17 @@ conf.set10('ENABLE_HOMED', have)
 have = have and conf.get('HAVE_PAM') == 1
 conf.set10('ENABLE_PAM_HOME', have)
 
-want_remote = get_option('remote')
-if want_remote != 'false'
-        have_deps = [conf.get('HAVE_MICROHTTPD') == 1,
-                     conf.get('HAVE_LIBCURL') == 1]
-        # sd-j-remote requires µhttpd, and sd-j-upload requires libcurl, so
-        # it's possible to build one without the other. Complain only if
-        # support was explicitly requested. The auxiliary files like sysusers
-        # config should be installed when any of the programs are built.
-        if want_remote == 'true' and not (have_deps[0] and have_deps[1])
-                error('remote support was requested, but dependencies are not available')
-        endif
-        have = have_deps[0] or have_deps[1]
-else
-        have = false
+feature = get_option('remote')
+have_deps = [conf.get('HAVE_MICROHTTPD') == 1,
+             conf.get('HAVE_LIBCURL') == 1]
+# sd-j-remote requires µhttpd, and sd-j-upload requires libcurl, so
+# it's possible to build one without the other. Complain only if
+# support was explicitly requested. The auxiliary files like sysusers
+# config should be installed when any of the programs are built.
+if feature.enabled() and not (have_deps[0] and have_deps[1])
+        error('remote support was requested, but dependencies are not available')
 endif
+have = feature.allowed() and (have_deps[0] or have_deps[1])
 conf.set10('ENABLE_REMOTE', have)
 
 foreach term : ['analyze',
@@ -1643,9 +1611,9 @@ enable_sysusers = conf.get('ENABLE_SYSUSERS') == 1
 foreach tuple : [['nss-mymachines', 'machined'],
                  ['nss-resolve',    'resolve']]
         want = get_option(tuple[0])
-        if want != 'false'
+        if want.allowed()
                 have = get_option(tuple[1])
-                if want == 'true' and not have
+                if want.enabled() and not have
                         error('@0@ is requested but @1@ is disabled'.format(tuple[0], tuple[1]))
                 endif
         else

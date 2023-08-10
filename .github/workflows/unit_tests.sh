@@ -60,7 +60,7 @@ for phase in "${PHASES[@]}"; do
                 export CXX=clang++
                 if [[ "$phase" == RUN_CLANG ]]; then
                     # The docs build is slow and is not affected by compiler/flags, so do it just once
-                    MESON_ARGS+=(-Dman=true)
+                    MESON_ARGS+=(-Dman=enabled)
                 else
                     MESON_ARGS+=(-Dmode=release --optimization=2)
                 fi
