@@ -28,6 +28,7 @@ int read_partition_info(
         const char *label;
         struct fdisk_partition *p;
         uint64_t start, size, flags;
+        unsigned long ssz;
         sd_id128_t ptid, id;
         GptPartitionType type;
         size_t partno;
@@ -54,12 +55,13 @@ int read_partition_info(
         partno = fdisk_partition_get_partno(p);
 
         start = fdisk_partition_get_start(p);
-        assert(start <= UINT64_MAX / 512U);
-        start *= 512U;
+        ssz = fdisk_get_sector_size(c);
+        assert(start <= UINT64_MAX / ssz);
+        start *= ssz;
 
         size = fdisk_partition_get_size(p);
-        assert(size <= UINT64_MAX / 512U);
-        size *= 512U;
+        assert(size <= UINT64_MAX / ssz);
+        size *= ssz;
 
         label = fdisk_partition_get_name(p);
         if (!label)
