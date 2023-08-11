@@ -275,9 +275,17 @@ int copy_bytes_full(
                         /* If we're in a hole (current offset is not a data offset), create a hole of the
                          * same size in the target file. */
                         if (e > c) {
-                                r = create_hole(fdt, e - c);
+                                /* Make sure the hole does not exceed the maximum allowed size */
+                                n = MIN(max_bytes, (size_t) e - c);
+                                r = create_hole(fdt, n);
                                 if (r < 0)
                                         return r;
+
+                                if (max_bytes <= (uint64_t) n)
+                                        break;
+
+                                /* Note how many bytes were transferred as required */
+                                max_bytes -= max_bytes == UINT64_MAX ? 0 : n;
                         }
 
                         c = e; /* Set c to the start of the data segment. */
