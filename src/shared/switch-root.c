@@ -173,6 +173,12 @@ int switch_root(const char *new_root,
         if (r < 0) {
                 log_debug_errno(r, "Pivoting root file system failed, moving mounts instead: %m");
 
+                if (resolved_old_root_after) {
+                        r = mount_nofollow_verbose(LOG_ERR, "/", resolved_old_root_after, NULL, MS_BIND|MS_REC, NULL);
+                        if (r < 0)
+                                return r;
+                }
+
                 /* If we have to use MS_MOVE let's first try to get rid of *all* mounts we can, with the
                  * exception of the path we want to switch to, plus everything leading to it and within
                  * it. This is necessary because unlike pivot_root() just moving the mount to the root via
