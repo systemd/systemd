@@ -4247,6 +4247,41 @@ int unit_get_ip_accounting(
         return r;
 }
 
+static uint64_t unit_get_effective_limit_one(Unit *u, CGroupLimitType type) {
+        CGroupContext *cc;
+
+        assert(u);
+        assert(UNIT_HAS_CGROUP_CONTEXT(u));
+
+        static const size_t members[_CGROUP_LIMIT_TYPE_MAX] = {
+                /* Note: on legacy/hybrid hierarchies memory_max stays CGROUP_LIMIT_MAX unless configured
+                 * explicitly. Effective value of MemoryLimit= (cgroup v1) is not implemented. */
+                [CGROUP_LIMIT_MEMORY_MAX]  = offsetof(CGroupContext, memory_max),
+                [CGROUP_LIMIT_MEMORY_HIGH] = offsetof(CGroupContext, memory_high),
+                [CGROUP_LIMIT_TASKS_MAX]   = offsetof(CGroupContext, tasks_max),
+        };
+
+        cc = unit_get_cgroup_context(u);
+        return *(uint64_t *)((uint8_t *)cc + members[type]);
+}
+
+int unit_get_effective_limit(Unit *u, CGroupLimitType type, uint64_t *ret) {
+        uint64_t infimum;
+
+        assert(u);
+        assert(ret);
+
+        if (!UNIT_HAS_CGROUP_CONTEXT(u))
+                return -EINVAL;
+
+        infimum = unit_get_effective_limit_one(u, type);
+        for (Unit *slice = UNIT_GET_SLICE(u); slice; slice = UNIT_GET_SLICE(slice))
+                infimum = MIN(infimum, unit_get_effective_limit_one(slice, type));
+
+        *ret = infimum;
+        return 0;
+}
+
 static int unit_get_io_accounting_raw(Unit *u, uint64_t ret[static _CGROUP_IO_ACCOUNTING_METRIC_MAX]) {
         static const char *const field_names[_CGROUP_IO_ACCOUNTING_METRIC_MAX] = {
                 [CGROUP_IO_READ_BYTES]       = "rbytes=",
