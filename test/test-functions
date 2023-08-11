@@ -626,7 +626,7 @@ run_qemu() {
         qemu_cmd=(timeout --foreground "$QEMU_TIMEOUT" "$QEMU_BIN")
     fi
 
-    (set -x; "${qemu_cmd[@]}" "${qemu_options[@]}" -append "${kernel_params[*]}")
+    (set -x; "${qemu_cmd[@]}" "${qemu_options[@]}" -append "${kernel_params[*]}" |& tee "${TESTDIR:?}/console.log")
     rc=$?
     if [ "$rc" -eq 124 ] && [ "$QEMU_TIMEOUT" != "infinity" ]; then
         derror "Test timed out after ${QEMU_TIMEOUT}s"
@@ -693,7 +693,7 @@ run_nspawn() {
         nspawn_cmd+=("$SYSTEMD_NSPAWN")
     fi
 
-    (set -x; "${nspawn_cmd[@]}" "${nspawn_options[@]}" "${kernel_params[@]}")
+    (set -x; "${nspawn_cmd[@]}" "${nspawn_options[@]}" "${kernel_params[@]}" |& tee "${TESTDIR:?}/console.log")
     rc=$?
     if [ "$rc" -eq 124 ] && [ "$NSPAWN_TIMEOUT" != "infinity" ]; then
         derror "Test timed out after ${NSPAWN_TIMEOUT}s"
