@@ -436,6 +436,72 @@ TEST_RET(copy_holes) {
         return 0;
 }
 
+TEST_RET(copy_holes_with_gaps) {
+        _cleanup_(unlink_tempfilep) char fn[] = "/var/tmp/test-copy-hole-with-gaps-fd-src-XXXXXX";
+        _cleanup_(unlink_tempfilep) char fn_copy[] = "/var/tmp/test-copy-hole-with-gaps-fd-tgt-XXXXXX";
+        int r, fd, fd_copy;
+        uint64_t i;
+        struct stat stat;
+        off_t blksz;
+        char data[16] = "0123456789ABCDEF";
+
+        fd = mkostemp_safe(fn);
+        assert_se(fd >= 0);
+
+        fd_copy = mkostemp_safe(fn_copy);
+        assert_se(fd_copy >= 0);
+
+        assert_se(fstat(fd, &stat) >= 0);
+        blksz = stat.st_blksize;
+
+        /* Create a file with:
+         *  - hole of 1 block
+         *  - data of 1 block
+         *  - hole of 2 blocks
+         *  - data of 1 block
+         *
+         * Since sparse files are based on blocks and not bytes, we need to make
+         * sure that the holes are aligned to the block size.
+         */
+
+        r = RET_NERRNO(fallocate(fd, FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE, 0, blksz));
+        if (ERRNO_IS_NOT_SUPPORTED(r))
+                return log_tests_skipped("Filesystem doesn't support hole punching");
+        assert_se(r >= 0);
+        assert_se(lseek(fd, blksz, SEEK_CUR) >= 0);
+        for (i = 0; i < blksz / sizeof(data); i++)
+                assert_se(write(fd, data, sizeof(data)) >= 0);
+        assert_se(fallocate(fd, FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE, 2 * blksz, 2 * blksz) >= 0);
+        assert_se(lseek(fd, 2 * blksz, SEEK_CUR) >= 0);
+        for (i = 0; i < blksz / sizeof(data); i++)
+                assert_se(write(fd, data, sizeof(data)) >= 0);
+        assert_se(lseek(fd, 0, SEEK_SET) >= 0);
+        assert_se(fsync(fd) >= 0);
+
+        /* Copy only 3 blocks to make sure the copy does not exceed the desired range */
+        assert_se(copy_bytes(fd, fd_copy, 3 * blksz, COPY_HOLES) >= 0);
+        assert_se(fstat(fd_copy, &stat) >= 0);
+        assert_se(stat.st_size == 3 * blksz);
+
+        /* Copy the file again but this time try to the end of the second hole */
+        assert_se(lseek(fd, 0, SEEK_SET) >= 0);
+        assert_se(lseek(fd_copy, 0, SEEK_SET) >= 0);
+        assert_se(ftruncate(fd_copy, 0) == 0);
+        assert_se(copy_bytes(fd, fd_copy, 4 * blksz, COPY_HOLES) >= 0);
+        assert_se(fstat(fd_copy, &stat) >= 0);
+        assert_se(stat.st_size == 4 * blksz);
+
+        /* Copy everything */
+        assert_se(lseek(fd, 0, SEEK_SET) >= 0);
+        assert_se(lseek(fd_copy, 0, SEEK_SET) >= 0);
+        assert_se(ftruncate(fd_copy, 0) == 0);
+        assert_se(copy_bytes(fd, fd_copy, UINT64_MAX, COPY_HOLES) >= 0);
+        assert_se(fstat(fd_copy, &stat) >= 0);
+        assert_se(stat.st_size == 5 * blksz);
+
+        return 0;
+}
+
 TEST(copy_lock) {
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
         _cleanup_close_ int tfd = -EBADF, fd = -EBADF;
