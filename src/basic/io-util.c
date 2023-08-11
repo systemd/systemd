@@ -382,7 +382,7 @@ int iovw_append(struct iovec_wrapper *target, const struct iovec_wrapper *source
 
         /* This duplicates the source and merges it into the target. */
 
-        if (!source || source->count == 0)
+        if (iovw_isempty(source))
                 return 0;
 
         original_count = target->count;
