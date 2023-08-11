@@ -16,6 +16,8 @@ ConditionCredential=|sysusers.extra
 
 DefaultDependencies=no
 After=systemd-remount-fs.service
+After=systemd-tmpfiles-setup-dev-early.service
+Before=systemd-tmpfiles-setup-dev.service
 Before=sysinit.target systemd-update-done.service
 Conflicts=shutdown.target initrd-switch-root.target
 Before=shutdown.target initrd-switch-root.target

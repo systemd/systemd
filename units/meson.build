@@ -545,6 +545,11 @@ units = [
           'symlinks' : ['timers.target.wants/'],
         },
         {
+          'file' : 'systemd-tmpfiles-setup-dev-early.service',
+          'conditions' : ['ENABLE_TMPFILES'],
+          'symlinks' : ['sysinit.target.wants/'],
+        },
+        {
           'file' : 'systemd-tmpfiles-setup-dev.service',
           'conditions' : ['ENABLE_TMPFILES'],
           'symlinks' : ['sysinit.target.wants/'],
