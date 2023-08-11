@@ -17,37 +17,13 @@ KERNEL_APPEND="foo -- -z bar --- baz $KERNEL_APPEND"
 . "${TEST_BASE_DIR:?}/test-functions"
 
 test_append_files() {
-    # install tests manually so the test is functional even when -Dinstall-tests=false
-    local dst="${1:?}/usr/lib/systemd/tests/testdata/units/"
+    local workspace="${1:?}"
+    local dst
+
+    # Install tests manually so the test is functional even when -Dinstall-tests=false
+    dst="$workspace/usr/lib/systemd/tests/testdata/units/"
     mkdir -p "$dst"
     cp -v "$TEST_UNITS_DIR"/{testsuite-01,end}.service "$TEST_UNITS_DIR/testsuite.target" "$dst"
-}
-
-# Setup a one shot service in initrd that creates a dummy bind mount under /run
-# to check if the mount persists though the initrd transition. The "check" part
-# is in the respective testsuite-01.sh script.
-#
-# See: https://github.com/systemd/systemd/issues/28452
-run_qemu_hook() {
-    local extra="$WORKDIR/initrd.extra"
-
-    mkdir -m 755 "$extra"
-    mkdir -m 755 "$extra/etc" "$extra/etc/systemd" "$extra/etc/systemd/system" "$extra/etc/systemd/system/initrd.target.wants"
-
-    cat >"$extra/etc/systemd/system/initrd-run-mount.service" <<EOF
-[Unit]
-Description=Create a mount in /run that should survive the transition from initrd
-
-[Service]
-Type=oneshot
-RemainAfterExit=yes
-ExecStart=sh -xec "mkdir /run/initrd-mount-source /run/initrd-mount-target; mount -v --bind /run/initrd-mount-source /run/initrd-mount-target"
-EOF
-    ln -svrf "$extra/etc/systemd/system/initrd-run-mount.service" "$extra/etc/systemd/system/initrd.target.wants/initrd-run-mount.service"
-
-    (cd "$extra" && find . | cpio -o -H newc -R root:root > "$extra.cpio")
-
-    INITRD_EXTRA="$extra.cpio"
 }
 
 do_test "$@"
