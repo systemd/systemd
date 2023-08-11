@@ -88,8 +88,7 @@ int writer_write(Writer *w,
         int r;
 
         assert(w);
-        assert(iovw);
-        assert(iovw->count > 0);
+        assert(!iovw_isempty(iovw));
 
         if (journal_file_rotate_suggested(w->journal->file, 0, LOG_DEBUG)) {
                 log_info("%s: Journal header limits reached or header out-of-date, rotating",
