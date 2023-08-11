@@ -43,7 +43,8 @@ struct PartitionInfo {
 
 void partition_info_destroy(PartitionInfo *p);
 
-int read_partition_info(struct fdisk_context *c, struct fdisk_table *t, size_t i, PartitionInfo *ret);
+int read_partition_info(struct fdisk_context *c, struct fdisk_table *t, size_t i, uint64_t sector_size,
+        PartitionInfo *ret);
 
 int find_suitable_partition(const char *device, uint64_t space, sd_id128_t *partition_type, PartitionInfo *ret);
 int patch_partition(const char *device, const PartitionInfo *info, PartitionChange change);
