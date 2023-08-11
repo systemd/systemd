@@ -30,23 +30,22 @@ int switch_root(const char *new_root,
                 const char *old_root_after,   /* path below the new root, where to place the old root after the transition; may be NULL to unmount it */
                 SwitchRootFlags flags) {
 
-        /* Stuff mounted below /run we don't save on soft reboot, as it might have lost its relevance, i.e.
-         * credentials, removable media and such, we rather want that the new boot mounts this fresh.
-         * But on the switch from initrd we do use MS_REC, as it is expected that mounts set up in /run
-         * are maintained. */
-        unsigned long run_mount_flags = MS_BIND|(!FLAGS_SET(flags, SWITCH_ROOT_SKIP_RECURSIVE_RUN) ? MS_REC : 0);
-        struct {
+        /* Stuff mounted below /run/ we don't save on soft reboot, as it might have lost its relevance, i.e.
+         * credentials, removable media and such, we rather want that the new boot mounts this fresh.  But on
+         * the switch from initrd we do use MS_REC, as it is expected that mounts set up in /run/ are
+         * maintained. */
+        static const struct {
                 const char *path;
-                unsigned long mount_flags;
-                bool skip_if_run_is_rec; /* For child mounts of /run, if it's moved recursively no need to handle */
+                unsigned long mount_flags;                 /* Flags to apply if SWITCH_ROOT_RECURSIVE_RUN is unset */
+                unsigned long mount_flags_recursive_run;   /* Flags to apply if SWITCH_ROOT_RECURSIVE_RUN is set (0 if shall be skipped) */
         } transfer_table[] = {
-                { "/dev",                                 MS_BIND|MS_REC,  false }, /* Recursive, because we want to save the original /dev/shm + /dev/pts and similar */
-                { "/sys",                                 MS_BIND|MS_REC,  false }, /* Similar, we want to retain various API VFS, or the cgroupv1 /sys/fs/cgroup/ tree */
-                { "/proc",                                MS_BIND|MS_REC,  false }, /* Similar */
-                { "/run",                                 run_mount_flags, false }, /* Recursive except on soft reboot, see above */
-                { SYSTEM_CREDENTIALS_DIRECTORY,           MS_BIND,         true },  /* Credentials passed into the system should survive */
-                { ENCRYPTED_SYSTEM_CREDENTIALS_DIRECTORY, MS_BIND,         true },  /* Similar */
-                { "/run/host",                            MS_BIND|MS_REC,  true },  /* Host supplied hierarchy should also survive */
+                { "/dev",                                 MS_BIND|MS_REC,  MS_BIND|MS_REC }, /* Recursive, because we want to save the original /dev/shm/ + /dev/pts/ and similar */
+                { "/sys",                                 MS_BIND|MS_REC,  MS_BIND|MS_REC }, /* Similar, we want to retain various API VFS, or the cgroupv1 /sys/fs/cgroup/ tree */
+                { "/proc",                                MS_BIND|MS_REC,  MS_BIND|MS_REC }, /* Similar */
+                { "/run",                                 MS_BIND,         MS_BIND|MS_REC }, /* Recursive except on soft reboot, see above */
+                { SYSTEM_CREDENTIALS_DIRECTORY,           MS_BIND,         0 /* skip! */  }, /* Credentials passed into the system should survive */
+                { ENCRYPTED_SYSTEM_CREDENTIALS_DIRECTORY, MS_BIND,         0 /* skip! */  },  /* Similar */
+                { "/run/host",                            MS_BIND|MS_REC,  0 /* skip! */  },  /* Host supplied hierarchy should also survive */
         };
 
         _cleanup_close_ int old_root_fd = -EBADF, new_root_fd = -EBADF;
@@ -129,8 +128,10 @@ int switch_root(const char *new_root,
 
         FOREACH_ARRAY(transfer, transfer_table, ELEMENTSOF(transfer_table)) {
                 _cleanup_free_ char *chased = NULL;
+                unsigned long mount_flags;
 
-                if (transfer->skip_if_run_is_rec && !FLAGS_SET(flags, SWITCH_ROOT_SKIP_RECURSIVE_RUN))
+                mount_flags = FLAGS_SET(flags, SWITCH_ROOT_RECURSIVE_RUN) ? transfer->mount_flags_recursive_run : transfer->mount_flags;
+                if (mount_flags == 0) /* skip if zero */
                         continue;
 
                 if (access(transfer->path, F_OK) < 0) {
@@ -149,7 +150,7 @@ int switch_root(const char *new_root,
                 if (r > 0) /* If it is already mounted, then do nothing */
                         continue;
 
-                r = mount_nofollow_verbose(LOG_ERR, transfer->path, chased, NULL, transfer->mount_flags, NULL);
+                r = mount_nofollow_verbose(LOG_ERR, transfer->path, chased, NULL, mount_flags, NULL);
                 if (r < 0)
                         return r;
         }
