@@ -13,7 +13,7 @@ Documentation=man:tmpfiles.d(5) man:systemd-tmpfiles(8)
 
 DefaultDependencies=no
 After=local-fs.target systemd-sysusers.service systemd-journald.service
-Before=sysinit.target systemd-udevd.service
+Before=sysinit.target
 Conflicts=shutdown.target initrd-switch-root.target
 Before=shutdown.target initrd-switch-root.target
 RefuseManualStop=yes
