@@ -62,6 +62,7 @@
 #include "resize-fs.h"
 #include "rm-rf.h"
 #include "sort-util.h"
+#include "sparse-endian.h"
 #include "specifier.h"
 #include "stdio-util.h"
 #include "string-table.h"
@@ -5260,6 +5261,144 @@ static int context_split(Context *context) {
         return 0;
 }
 
+static int context_write_eltorito(Context *context) {
+
+        struct iso_volume_descriptor {
+                uint8_t type;
+                char identifier[5];
+                uint8_t version;
+                union {
+                        uint8_t raw[2041];
+                        struct {
+                                char boot_system_identifier[32];
+                                char boot_identifier[32];
+                                le32_t boot_catalog_address;
+                        } _packed_ eltorito_boot_record;
+                } _packed_;
+        } _packed_;
+
+        assert_cc(sizeof(struct iso_volume_descriptor) == 2048);
+
+        union boot_catalog_entry {
+                uint8_t raw[32];
+                struct {
+                        uint8_t header_id;
+                        uint8_t platform_id;
+                        uint8_t reserved[2];
+                        char id[24];
+                        uint16_t checksum;
+                        uint8_t five_five;
+                        uint8_t aa;
+                } _packed_ validation;
+                struct {
+                        uint8_t boot_indicator;
+                        uint8_t boot_media_type;
+                        le16_t load_segment;
+                        uint8_t system_type;
+                        uint8_t reserved0;
+                        le16_t sector_count;
+                        le32_t load_lba;
+                        uint8_t reserved1[20];
+                } _packed_ initial;
+        } _packed_;
+
+        assert_cc(sizeof(union boot_catalog_entry) == 32);
+
+        uint64_t secsz, sector_count;
+        Partition *esp = NULL;
+        int fd, r;
+
+        secsz = fdisk_get_sector_size(context->fdisk_context);
+        if (secsz != 2048) {
+                log_notice("Sector size is not 2048, cannot make image ISO bootable");
+                return 0;
+        }
+
+        LIST_FOREACH(partitions, p, context->partitions)
+                if (p->type.designator == PARTITION_ESP) {
+                        esp = p;
+                        break;
+                }
+
+        /* The sector count field to indicate ESP size in the El Torito boot catalog entry is only 16-bit,
+         * which means it can only handle ESPs up to 134MB in size. Luckily, UEFI specifies that a sector
+         * count of 1 means the ESP consumes the space from the given address to the end of the CD-ROM, so we
+         * can still make the image bootable via ISO if the ESP partition is the last one. */
+
+        sector_count = esp->new_size / secsz;
+        if (sector_count > UINT16_MAX) {
+                if (esp->partitions_next != NULL) {
+                        log_notice("The ESP is not the last partition and is larger than 134MB, cannot make image ISO bootable");
+                        return 0;
+                }
+
+                /* 1 means the ESP extends until the end of the CD-ROM. */
+                sector_count = 1;
+        }
+
+        struct iso_volume_descriptor volumes[3] = {
+                [0] = {
+                        .type = 1, /* Primary Volume Descriptor */
+                        .identifier = "CD001",
+                        .version = 1,
+                },
+                [1] = {
+                        .type = 0, /* Boot Record */
+                        .identifier = "CD001",
+                        .version = 1,
+                        .eltorito_boot_record = {
+                                .boot_system_identifier = "EL TORITO SPECIFICATION",
+                                .boot_catalog_address = htole32(16 + ELEMENTSOF(volumes)),
+                        },
+                },
+                [2] = {
+                        .type = 255, /* Volume Descriptor Set Terminator */
+                        .identifier = "CD001",
+                        .version = 1,
+                }
+        };
+
+        union boot_catalog_entry catalog[2] = {
+                [0].validation = {
+                        .header_id = 1,
+                        .platform_id = 0xEF, /* EFI */
+                        .five_five = 0x55,
+                        .aa = 0xAA,
+                },
+                [1].initial = {
+                        .boot_indicator = 0x88,
+                        .boot_media_type = 0, /* No Emulation */
+                        .sector_count = htole16(sector_count),
+                        .load_lba = htole32(esp->offset / secsz),
+                },
+        };
+
+        char *buf = (char *) &catalog[0];
+
+        /* The sum of all words in the validation entry has to be zero, so calculate the checksum so that's
+         * the case. */
+        for (size_t i = 0; i < sizeof(union boot_catalog_entry); i += 2)
+                catalog[0].validation.checksum -= (int16_t) ((buf[i + 1] << 8) | buf[i]);
+
+        catalog[0].validation.checksum = htole16(catalog[0].validation.checksum);
+
+        assert_se((fd = fdisk_get_devfd(context->fdisk_context)) >= 0);
+
+        if (lseek(fd, 16 * secsz, SEEK_SET) < 0)
+                return log_error_errno(errno, "Failed to skip over ISO system area: %m");
+
+        r = loop_write(fd, volumes, sizeof(volumes), 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write ISO volume descriptors to image: %m");
+
+        r = loop_write(fd, catalog, sizeof(catalog), 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write ISO El Torito boot catalog to image: %m");
+
+        log_debug("Successfully made image ISO bootable");
+        return 0;
+}
+
 static int context_write_partition_table(Context *context) {
         _cleanup_(fdisk_unref_tablep) struct fdisk_table *original_table = NULL;
         int capable, r;
@@ -5315,6 +5454,10 @@ static int context_write_partition_table(Context *context) {
                 return r;
 
         r = context_mangle_partitions(context);
+        if (r < 0)
+                return r;
+
+        r = context_write_eltorito(context);
         if (r < 0)
                 return r;
 
