@@ -127,7 +127,10 @@ jobs:
         cp mkosi.presets/initrd/mkosi.extra/usr/lib/systemd/system/emergency.service.d/poweroff.conf mkosi.presets/system/mkosi.extra/usr/lib/systemd/system/emergency.service.d/poweroff.conf
 
     - name: Generate secure boot key
-      run: mkosi --debug genkey
+      run: |
+        mkosi --debug genkey
+        sudo mkdir /run/verity.d
+        sudo ln -svf "$PWD"/mkosi.crt /run/verity.d/mkosi.crt
 
     - name: Show ${{ matrix.distro }} image summary
       run: mkosi summary

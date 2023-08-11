@@ -667,7 +667,7 @@ static int dissect_image(
                 DissectedImage *m,
                 int fd,
                 const char *devname,
-                const VeritySettings *verity,
+                VeritySettings *verity,
                 const MountOptions *mount_options,
                 const ImagePolicy *policy,
                 DissectImageFlags flags) {
@@ -1057,6 +1057,7 @@ static int dissect_image(
                                 if (!sd_id128_is_null(root_verity_uuid) && !sd_id128_equal(root_verity_uuid, id))
                                         continue;
 
+                                verity->designator = PARTITION_ROOT;
                                 fstype = "DM_verity_hash";
                                 rw = false;
 
@@ -1075,6 +1076,7 @@ static int dissect_image(
                                 if (verity->designator >= 0 && verity->designator != PARTITION_ROOT)
                                         continue;
 
+                                verity->designator = PARTITION_ROOT;
                                 fstype = "verity_hash_signature";
                                 rw = false;
 
@@ -1112,6 +1114,7 @@ static int dissect_image(
                                 if (!sd_id128_is_null(usr_verity_uuid) && !sd_id128_equal(usr_verity_uuid, id))
                                         continue;
 
+                                verity->designator = PARTITION_USR;
                                 fstype = "DM_verity_hash";
                                 rw = false;
 
@@ -1130,6 +1133,7 @@ static int dissect_image(
                                 if (verity->designator >= 0 && verity->designator != PARTITION_USR)
                                         continue;
 
+                                verity->designator = PARTITION_USR;
                                 fstype = "verity_hash_signature";
                                 rw = false;
 
@@ -1552,7 +1556,7 @@ static int dissect_image(
 
 int dissect_image_file(
                 const char *path,
-                const VeritySettings *verity,
+                VeritySettings *verity,
                 const MountOptions *mount_options,
                 const ImagePolicy *image_policy,
                 DissectImageFlags flags,
@@ -1645,7 +1649,7 @@ int dissect_log_error(int log_level, int r, const char *name, const VeritySettin
 
 int dissect_image_file_and_warn(
                 const char *path,
-                const VeritySettings *verity,
+                VeritySettings *verity,
                 const MountOptions *mount_options,
                 const ImagePolicy *image_policy,
                 DissectImageFlags flags,
@@ -3585,7 +3589,7 @@ Architecture dissected_image_architecture(DissectedImage *img) {
 
 int dissect_loop_device(
                 LoopDevice *loop,
-                const VeritySettings *verity,
+                VeritySettings *verity,
                 const MountOptions *mount_options,
                 const ImagePolicy *image_policy,
                 DissectImageFlags flags,
@@ -3619,7 +3623,7 @@ int dissect_loop_device(
 
 int dissect_loop_device_and_warn(
                 LoopDevice *loop,
-                const VeritySettings *verity,
+                VeritySettings *verity,
                 const MountOptions *mount_options,
                 const ImagePolicy *image_policy,
                 DissectImageFlags flags,
