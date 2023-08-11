@@ -50,4 +50,11 @@ systemctl daemon-reload
 # of systemd-analyze blame. See issue #27187.
 systemd-analyze blame
 
+if ! systemd-detect-virt -q --container; then
+    # Copy the prepared shutdown initrd to its intended location. Check the respective
+    # test.sh file for details
+    mkdir -p /run/initramfs
+    cp -r /shutdown-initrd/* /run/initramfs/
+fi
+
 touch /testok

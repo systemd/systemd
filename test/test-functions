@@ -626,7 +626,7 @@ run_qemu() {
         qemu_cmd=(timeout --foreground "$QEMU_TIMEOUT" "$QEMU_BIN")
     fi
 
-    (set -x; "${qemu_cmd[@]}" "${qemu_options[@]}" -append "${kernel_params[*]}")
+    (set -x; "${qemu_cmd[@]}" "${qemu_options[@]}" -append "${kernel_params[*]}" |& tee "${TESTDIR:?}/console.log")
     rc=$?
     if [ "$rc" -eq 124 ] && [ "$QEMU_TIMEOUT" != "infinity" ]; then
         derror "Test timed out after ${QEMU_TIMEOUT}s"
@@ -693,7 +693,7 @@ run_nspawn() {
         nspawn_cmd+=("$SYSTEMD_NSPAWN")
     fi
 
-    (set -x; "${nspawn_cmd[@]}" "${nspawn_options[@]}" "${kernel_params[@]}")
+    (set -x; "${nspawn_cmd[@]}" "${nspawn_options[@]}" "${kernel_params[@]}" |& tee "${TESTDIR:?}/console.log")
     rc=$?
     if [ "$rc" -eq 124 ] && [ "$NSPAWN_TIMEOUT" != "infinity" ]; then
         derror "Test timed out after ${NSPAWN_TIMEOUT}s"
@@ -1768,7 +1768,7 @@ check_result_common() {
 
 check_result_nspawn() {
     local workspace="${1:?}"
-    local ret
+    local ret=0
 
     # Run a test-specific checks if defined by check_result_nspawn_hook()
     if declare -F check_result_nspawn_hook >/dev/null; then
@@ -1778,7 +1778,7 @@ check_result_nspawn() {
         fi
     fi
 
-    check_result_common "${workspace}" && ret=0 || ret=$?
+    check_result_common "${workspace}" || ret=$?
 
     _umount_dir "${initdir:?}"
 
@@ -1787,7 +1787,7 @@ check_result_nspawn() {
 
 # can be overridden in specific test
 check_result_qemu() {
-    local ret
+    local ret=0
     mount_initdir
 
     # Run a test-specific checks if defined by check_result_qemu_hook()
@@ -1798,7 +1798,7 @@ check_result_qemu() {
         fi
     fi
 
-    check_result_common "${initdir:?}" && ret=0 || ret=$?
+    check_result_common "${initdir:?}" || ret=$?
 
     _umount_dir "${initdir:?}"
 
