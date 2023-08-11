@@ -122,7 +122,7 @@ last-lba: 2097118"
 
     tee "$defs/root.conf" <<EOF
 [Partition]
-Type=root
+Type=root-${architecture}
 EOF
 
     ln -s root.conf "$defs/root2.conf"
@@ -1159,7 +1159,7 @@ test_sector() {
 
     tee "$defs/a.conf" <<EOF
 [Partition]
-Type=root
+Type=root-${architecture}
 SizeMaxBytes=15M
 SizeMinBytes=15M
 EOF
