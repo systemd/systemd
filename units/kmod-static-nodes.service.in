@@ -10,7 +10,7 @@
 [Unit]
 Description=Create List of Static Device Nodes
 DefaultDependencies=no
-Before=sysinit.target systemd-tmpfiles-setup-dev.service
+Before=sysinit.target systemd-tmpfiles-setup-dev-early.service
 ConditionCapability=CAP_SYS_MODULE
 ConditionFileNotEmpty=/lib/modules/%v/modules.devname
 
