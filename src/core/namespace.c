@@ -208,25 +208,29 @@ static const MountEntry protect_system_strict_table[] = {
 };
 
 static const char * const mount_mode_table[_MOUNT_MODE_MAX] = {
-        [INACCESSIBLE]         = "inaccessible",
-        [OVERLAY_MOUNT]        = "overlay",
-        [BIND_MOUNT]           = "bind",
-        [BIND_MOUNT_RECURSIVE] = "rbind",
-        [PRIVATE_TMP]          = "private-tmp",
-        [PRIVATE_DEV]          = "private-dev",
-        [BIND_DEV]             = "bind-dev",
-        [EMPTY_DIR]            = "empty",
-        [PRIVATE_SYSFS]        = "private-sysfs",
-        [BIND_SYSFS]           = "bind-sysfs",
-        [PROCFS]               = "procfs",
-        [READONLY]             = "read-only",
-        [READWRITE]            = "read-write",
-        [TMPFS]                = "tmpfs",
-        [MOUNT_IMAGES]         = "mount-images",
-        [READWRITE_IMPLICIT]   = "rw-implicit",
-        [EXEC]                 = "exec",
-        [NOEXEC]               = "noexec",
-        [MQUEUEFS]             = "mqueuefs",
+        [INACCESSIBLE]          = "inaccessible",
+        [OVERLAY_MOUNT]         = "overlay",
+        [MOUNT_IMAGES]          = "mount-images",
+        [BIND_MOUNT]            = "bind",
+        [BIND_MOUNT_RECURSIVE]  = "rbind",
+        [PRIVATE_TMP]           = "private-tmp",
+        [PRIVATE_TMP_READONLY]  = "private-tmp-read-only",
+        [PRIVATE_DEV]           = "private-dev",
+        [BIND_DEV]              = "bind-dev",
+        [EMPTY_DIR]             = "empty",
+        [PRIVATE_SYSFS]         = "private-sysfs",
+        [BIND_SYSFS]            = "bind-sysfs",
+        [PROCFS]                = "procfs",
+        [READONLY]              = "read-only",
+        [READWRITE]             = "read-write",
+        [NOEXEC]                = "noexec",
+        [EXEC]                  = "exec",
+        [TMPFS]                 = "tmpfs",
+        [RUN]                   = "run",
+        [EXTENSION_DIRECTORIES] = "extension-directories",
+        [EXTENSION_IMAGES]      = "extension-images",
+        [MQUEUEFS]              = "mqueuefs",
+        [READWRITE_IMPLICIT]    = "read-write-implicit",
 };
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(mount_mode, MountMode);
@@ -1680,6 +1684,7 @@ static size_t namespace_calculate_mounts(
                 const char* tmp_dir,
                 const char* var_tmp_dir,
                 const char *creds_path,
+                int creds_fd,
                 const char* log_namespace,
                 bool setup_propagate,
                 const char* notify_socket,
@@ -1724,7 +1729,7 @@ static size_t namespace_calculate_mounts(
                 protect_home_cnt + protect_system_cnt +
                 (ns_info->protect_hostname ? 2 : 0) +
                 (namespace_info_mount_apivfs(ns_info) ? ELEMENTSOF(apivfs_table) : 0) +
-                (creds_path ? 2 : 1) +
+                (creds_path && creds_fd < 0 ? 2 : 1) +
                 !!log_namespace +
                 setup_propagate + /* /run/systemd/incoming */
                 !!notify_socket +
@@ -1977,6 +1982,7 @@ int setup_namespace(
                 const char* tmp_dir,
                 const char* var_tmp_dir,
                 const char *creds_path,
+                int creds_fd,
                 const char *log_namespace,
                 unsigned long mount_propagation_flag,
                 VeritySettings *verity,
@@ -2112,6 +2118,7 @@ int setup_namespace(
                         strv_length(hierarchies),
                         tmp_dir, var_tmp_dir,
                         creds_path,
+                        creds_fd,
                         log_namespace,
                         setup_propagate,
                         notify_socket,
@@ -2298,13 +2305,16 @@ int setup_namespace(
                                 .flags = MS_NODEV|MS_STRICTATIME|MS_NOSUID|MS_NOEXEC,
                         };
 
-                        *(m++) = (MountEntry) {
-                                .path_const = creds_path,
-                                .mode = BIND_MOUNT,
-                                .read_only = true,
-                                .source_const = creds_path,
-                                .ignore = true,
-                        };
+                        /* If we have mount fd for credentials directory, then it will be mounted after
+                         * namespace is set up. */
+                        if (creds_fd < 0)
+                                *(m++) = (MountEntry) {
+                                        .path_const = creds_path,
+                                        .mode = BIND_MOUNT,
+                                        .read_only = true,
+                                        .source_const = creds_path,
+                                        .ignore = true,
+                                };
                 } else {
                         /* If our service has no credentials store configured, then make the whole
                          * credentials tree inaccessible wholesale. */
