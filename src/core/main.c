@@ -1406,10 +1406,10 @@ static int setup_os_release(RuntimeScope scope) {
         }
 
         r = mkdir_parents_label(os_release_dst, 0755);
-        if (r < 0 && r != -EEXIST)
+        if (r < 0)
                 return log_debug_errno(r, "Failed to create parent directory of %s, ignoring: %m", os_release_dst);
 
-        r = copy_file(os_release_src, os_release_dst, /* open_flags= */ 0, 0644, COPY_MAC_CREATE);
+        r = copy_file(os_release_src, os_release_dst, /* open_flags= */ 0, 0644, COPY_MAC_CREATE|COPY_TRUNCATE);
         if (r < 0)
                 return log_debug_errno(r, "Failed to create %s, ignoring: %m", os_release_dst);
 
@@ -1818,6 +1818,19 @@ static void filter_args(
         }
 }
 
+static void finish_remaining_processes(ManagerObjective objective) {
+        assert(objective >= 0 && objective < _MANAGER_OBJECTIVE_MAX);
+
+        /* Kill all remaining processes from the initrd, but don't wait for them, so that we can handle the
+         * SIGCHLD for them after deserializing. */
+        if (IN_SET(objective, MANAGER_SWITCH_ROOT, MANAGER_SOFT_REBOOT))
+                broadcast_signal(SIGTERM, /* wait_for_exit= */ false, /* send_sighup= */ true, arg_default_timeout_stop_usec);
+
+        /* On soft reboot really make sure nothing is left */
+        if (objective == MANAGER_SOFT_REBOOT)
+                broadcast_signal(SIGKILL, /* wait_for_exit= */ false, /* send_sighup= */ false, arg_default_timeout_stop_usec);
+}
+
 static int do_reexecute(
                 ManagerObjective objective,
                 int argc,
@@ -1868,13 +1881,7 @@ static int do_reexecute(
         if (saved_rlimit_memlock->rlim_cur != RLIM_INFINITY)
                 (void) setrlimit(RLIMIT_MEMLOCK, saved_rlimit_memlock);
 
-        /* Kill all remaining processes from the initrd, but don't wait for them, so that we can handle the
-         * SIGCHLD for them after deserializing. */
-        if (IN_SET(objective, MANAGER_SWITCH_ROOT, MANAGER_SOFT_REBOOT))
-                broadcast_signal(SIGTERM, /* wait_for_exit= */ false, /* send_sighup= */ true, arg_default_timeout_stop_usec);
-        /* On soft reboot really make sure nothing is left */
-        if (objective == MANAGER_SOFT_REBOOT)
-                broadcast_signal(SIGKILL, /* wait_for_exit= */ false, /* send_sighup= */ false, arg_default_timeout_stop_usec);
+        finish_remaining_processes(objective);
 
         if (!switch_root_dir && objective == MANAGER_SOFT_REBOOT) {
                 /* If no switch root dir is specified, then check if /run/nextroot/ qualifies and use that */
