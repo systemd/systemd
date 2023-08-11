@@ -81,7 +81,7 @@ int switch_root(const char *new_root,
                 /* When the path was not a mount point, then we need to reopen the path, otherwise, it still
                  * points to the underlying directory. */
 
-                fd = open(new_root, O_DIRECTORY|O_CLOEXEC);
+                fd = openat(new_root_fd, ".", O_DIRECTORY|O_CLOEXEC);
                 if (fd < 0)
                         return log_error_errno(errno, "Failed to reopen target directory '%s': %m", new_root);
 
