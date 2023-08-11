@@ -1810,7 +1810,7 @@ static int find_verity_sibling(Context *context, Partition *p, VerityMode mode, 
         return 0;
 }
 
-static int context_open_and_lock_backing_fd(const char *node, int *backing_fd) {
+static int context_open_and_lock_backing_fd(const char *node, int operation, int *backing_fd) {
         _cleanup_close_ int fd = -EBADF;
 
         assert(node);
@@ -1824,7 +1824,7 @@ static int context_open_and_lock_backing_fd(const char *node, int *backing_fd) {
                 return log_error_errno(errno, "Failed to open device '%s': %m", node);
 
         /* Tell udev not to interfere while we are processing the device */
-        if (flock(fd, arg_dry_run ? LOCK_SH : LOCK_EX) < 0)
+        if (flock(fd, operation) < 0)
                 return log_error_errno(errno, "Failed to lock device '%s': %m", node);
 
         log_debug("Device %s opened and locked.", node);
@@ -1913,7 +1913,7 @@ static int context_copy_from(Context *context) {
         if (!arg_copy_from)
                 return 0;
 
-        r = context_open_and_lock_backing_fd(arg_copy_from, &fd);
+        r = context_open_and_lock_backing_fd(arg_copy_from, LOCK_SH, &fd);
         if (r < 0)
                 return r;
 
@@ -2219,7 +2219,8 @@ static int context_load_partition_table(Context *context) {
         else {
                 uint32_t ssz;
 
-                r = context_open_and_lock_backing_fd(context->node, &context->backing_fd);
+                r = context_open_and_lock_backing_fd(context->node, arg_dry_run ? LOCK_SH : LOCK_EX,
+                                                     &context->backing_fd);
                 if (r < 0)
                         return r;
 
@@ -2266,7 +2267,9 @@ static int context_load_partition_table(Context *context) {
 
         if (context->backing_fd < 0) {
                 /* If we have no fd referencing the device yet, make a copy of the fd now, so that we have one */
-                r = context_open_and_lock_backing_fd(FORMAT_PROC_FD_PATH(fdisk_get_devfd(c)), &context->backing_fd);
+                r = context_open_and_lock_backing_fd(FORMAT_PROC_FD_PATH(fdisk_get_devfd(c)),
+                                                     arg_dry_run ? LOCK_SH : LOCK_EX,
+                                                     &context->backing_fd);
                 if (r < 0)
                         return r;
         }
