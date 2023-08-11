@@ -3311,6 +3311,39 @@ int unit_add_two_dependencies(Unit *u, UnitDependency d, UnitDependency e, Unit 
         return r > 0 || s > 0;
 }
 
+int unit_add_dependencies_on_real_shutdown_targets(Unit *u) {
+        int r;
+
+        assert(u);
+
+        if (!u->survive_system_transition)
+                return unit_add_two_dependencies_by_name(
+                                u,
+                                UNIT_BEFORE,
+                                UNIT_CONFLICTS,
+                                SPECIAL_SHUTDOWN_TARGET,
+                                /* add_reference= */ true,
+                                UNIT_DEPENDENCY_DEFAULT);
+
+        FOREACH_STRING(target,
+                       SPECIAL_REBOOT_TARGET,
+                       SPECIAL_KEXEC_TARGET,
+                       SPECIAL_HALT_TARGET,
+                       SPECIAL_POWEROFF_TARGET) {
+                r = unit_add_two_dependencies_by_name(
+                                u,
+                                UNIT_BEFORE,
+                                UNIT_CONFLICTS,
+                                target,
+                                /* add_reference= */ true,
+                                UNIT_DEPENDENCY_DEFAULT);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 static int resolve_template(Unit *u, const char *name, char **buf, const char **ret) {
         int r;
 

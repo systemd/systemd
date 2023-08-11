@@ -918,6 +918,15 @@ static void cgroup_xattr_apply(Unit *u) {
                 else
                         unit_remove_xattr_graceful(u, NULL, xn);
         }
+
+        if (u->survive_system_transition)
+                unit_set_xattr_graceful(u,
+                                        /* cgroup_path= */ NULL,
+                                        "user.survive_system_transition",
+                                        "1",
+                                        /* size= */ 1);
+        else
+                unit_remove_xattr_graceful(u, /* cgroup_path= */ NULL, "user.survive_system_transition");
 }
 
 static int lookup_block_device(const char *p, dev_t *ret) {
