@@ -135,9 +135,10 @@
     <varname>FactoryReset=</varname> boolean is deleted, and the algorithm restarted, thus immediately
     re-creating these partitions anew empty.</para>
 
-    <para>Note that <command>systemd-repart</command> only changes partition tables, it does not create or
-    resize any file systems within these partitions. A separate mechanism should be used for that, for
-    example
+    <para>Note that <command>systemd-repart</command> by default only changes partition tables, it does not
+    create or resize any file systems within these partitions, unless the <varname>Format=</varname>
+    configuration option is specified. Also note that there are also separate mechanisms available for this
+    purpose, for example
     <citerefentry><refentrytitle>systemd-growfs</refentrytitle><manvolnum>8</manvolnum></citerefentry> and
     <command>systemd-makefs</command>.</para>
 
