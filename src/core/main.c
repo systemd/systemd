@@ -1406,10 +1406,10 @@ static int setup_os_release(RuntimeScope scope) {
         }
 
         r = mkdir_parents_label(os_release_dst, 0755);
-        if (r < 0 && r != -EEXIST)
+        if (r < 0)
                 return log_debug_errno(r, "Failed to create parent directory of %s, ignoring: %m", os_release_dst);
 
-        r = copy_file(os_release_src, os_release_dst, /* open_flags= */ 0, 0644, COPY_MAC_CREATE);
+        r = copy_file(os_release_src, os_release_dst, /* open_flags= */ 0, 0644, COPY_MAC_CREATE|COPY_TRUNCATE);
         if (r < 0)
                 return log_debug_errno(r, "Failed to create %s, ignoring: %m", os_release_dst);
 
