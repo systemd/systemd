@@ -2178,14 +2178,11 @@ _public_ int sd_bus_send(sd_bus *bus, sd_bus_message *_m, uint64_t *cookie) {
                 size_t idx = 0;
 
                 r = bus_write_message(bus, m, &idx);
-                if (r < 0) {
-                        if (ERRNO_IS_DISCONNECT(r)) {
-                                bus_enter_closing(bus);
-                                return -ECONNRESET;
-                        }
-
+                if (ERRNO_IS_NEG_DISCONNECT(r)) {
+                        bus_enter_closing(bus);
+                        return -ECONNRESET;
+                } else if (r < 0)
                         return r;
-                }
 
                 if (idx < BUS_MESSAGE_SIZE(m))  {
                         /* Wasn't fully written. So let's remember how
@@ -2506,11 +2503,10 @@ _public_ int sd_bus_call(
                         left = UINT64_MAX;
 
                 r = bus_poll(bus, true, left);
-                if (r < 0) {
-                        if (ERRNO_IS_TRANSIENT(r))
-                                continue;
+                if (ERRNO_IS_NEG_TRANSIENT(r))
+                        continue;
+                if (r < 0)
                         goto fail;
-                }
                 if (r == 0) {
                         r = -ETIMEDOUT;
                         goto fail;
@@ -3284,13 +3280,11 @@ static int bus_process_internal(sd_bus *bus, sd_bus_message **ret) {
                 assert_not_reached();
         }
 
-        if (r < 0) {
-                if (ERRNO_IS_DISCONNECT(r)) {
-                        bus_enter_closing(bus);
-                        r = 1;
-                } else
-                        return r;
-        }
+        if (ERRNO_IS_NEG_DISCONNECT(r)) {
+                bus_enter_closing(bus);
+                r = 1;
+        } else if (r < 0)
+                return r;
 
         if (ret)
                 *ret = NULL;
@@ -3388,7 +3382,7 @@ _public_ int sd_bus_wait(sd_bus *bus, uint64_t timeout_usec) {
                 return 0;
 
         r = bus_poll(bus, false, timeout_usec);
-        if (r < 0 && ERRNO_IS_TRANSIENT(r))
+        if (ERRNO_IS_NEG_TRANSIENT(r))
                 return 1; /* treat EINTR as success, but let's exit, so that the caller will call back into us soon. */
 
         return r;
@@ -3420,25 +3414,20 @@ _public_ int sd_bus_flush(sd_bus *bus) {
 
         for (;;) {
                 r = dispatch_wqueue(bus);
-                if (r < 0) {
-                        if (ERRNO_IS_DISCONNECT(r)) {
-                                bus_enter_closing(bus);
-                                return -ECONNRESET;
-                        }
-
+                if (ERRNO_IS_NEG_DISCONNECT(r)) {
+                        bus_enter_closing(bus);
+                        return -ECONNRESET;
+                } else if (r < 0)
                         return r;
-                }
 
                 if (bus->wqueue_size <= 0)
                         return 0;
 
                 r = bus_poll(bus, false, UINT64_MAX);
-                if (r < 0) {
-                        if (ERRNO_IS_TRANSIENT(r))
-                                continue;
-
+                if (ERRNO_IS_NEG_TRANSIENT(r))
+                        continue;
+                if (r < 0)
                         return r;
-                }
         }
 }
 
