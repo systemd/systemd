@@ -164,7 +164,8 @@ static int resource_load_from_blockdev(Resource *rr) {
         _cleanup_(fdisk_unref_contextp) struct fdisk_context *c = NULL;
         _cleanup_(fdisk_unref_tablep) struct fdisk_table *t = NULL;
         size_t n_partitions;
-        int r;
+        uint32_t sector_size;
+        int r, fd;
 
         assert(rr);
 
@@ -183,13 +184,21 @@ static int resource_load_from_blockdev(Resource *rr) {
         if (r < 0)
                 return log_error_errno(r, "Failed to acquire partition table: %m");
 
+        /* Get disk sector size */
+        fd = fdisk_get_devfd(c);
+        if (fd < 0)
+                return log_error_errno(fd, "Failed to get device fd: %m");
+        r = blockdev_get_sector_size(fd, &sector_size);
+        if (r < 0)
+                return log_error_errno(r, "Failed to probe sector size: %m");
+
         n_partitions = fdisk_table_get_nents(t);
         for (size_t i = 0; i < n_partitions; i++)  {
                 _cleanup_(instance_metadata_destroy) InstanceMetadata extracted_fields = INSTANCE_METADATA_NULL;
                 _cleanup_(partition_info_destroy) PartitionInfo pinfo = PARTITION_INFO_NULL;
                 Instance *instance;
 
-                r = read_partition_info(c, t, i, &pinfo);
+                r = read_partition_info(c, t, i, (uint64_t) sector_size, &pinfo);
                 if (r < 0)
                         return r;
                 if (r == 0) /* not assigned */
