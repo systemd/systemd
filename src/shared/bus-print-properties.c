@@ -162,8 +162,11 @@ static int bus_print_property(const char *name, const char *expected_value, sd_b
 
                         bus_print_property_value(name, expected_value, flags, "[not set]");
 
-                else if ((STR_IN_SET(name, "DefaultMemoryLow", "DefaultMemoryMin", "MemoryLow", "MemoryHigh", "MemoryMax", "MemorySwapMax", "MemoryZSwapMax", "MemoryLimit") && u == CGROUP_LIMIT_MAX) ||
-                         (STR_IN_SET(name, "TasksMax", "DefaultTasksMax") && u == UINT64_MAX) ||
+                else if ((STR_IN_SET(name, "DefaultMemoryLow", "DefaultMemoryMin", "MemoryLow",
+                                           "MemoryHigh", "MemoryMax", "MemoryHighEffective", "MemoryMaxEffective",
+                                           "MemorySwapMax", "MemoryZSwapMax", "MemoryLimit") &&
+                          u == CGROUP_LIMIT_MAX) ||
+                         (STR_IN_SET(name, "TasksMax", "DefaultTasksMax", "TasksMaxEffective") && u == UINT64_MAX) ||
                          (startswith(name, "Limit") && u == UINT64_MAX) ||
                          (startswith(name, "DefaultLimit") && u == UINT64_MAX))
 
