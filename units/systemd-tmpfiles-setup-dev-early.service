@@ -8,7 +8,7 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Create Static Device Nodes in /dev
+Description=Create Static Device Nodes in /dev gracefully
 Documentation=man:tmpfiles.d(5) man:systemd-tmpfiles(8)
 
 DefaultDependencies=no
@@ -20,6 +20,6 @@ Before=shutdown.target initrd-switch-root.target
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=systemd-tmpfiles --prefix=/dev --create --boot
+ExecStart=systemd-tmpfiles --prefix=/dev --create --boot --graceful
 SuccessExitStatus=DATAERR CANTCREAT
 ImportCredential=tmpfiles.*
