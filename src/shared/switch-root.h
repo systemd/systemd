@@ -8,7 +8,6 @@ typedef enum SwitchRootFlags {
                                                      * that it is backed by non-persistent tmpfs/ramfs/… */
         SWITCH_ROOT_DONT_SYNC             = 1 << 1, /* don't call sync() immediately before switching root */
         SWITCH_ROOT_RECURSIVE_RUN         = 1 << 2, /* move /run/ with MS_REC from old to new root */
-        SWITCH_ROOT_SKIP_RECURSIVE_UMOUNT = 1 << 3, /* do not umount recursively on move */
 } SwitchRootFlags;
 
 int switch_root(const char *new_root, const char *old_root_after, SwitchRootFlags flags);
