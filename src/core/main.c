@@ -1891,7 +1891,7 @@ static int do_reexecute(
                 r = switch_root(/* new_root= */ switch_root_dir,
                                 /* old_root_after= */ NULL,
                                 /* flags= */ (objective == MANAGER_SWITCH_ROOT ? SWITCH_ROOT_DESTROY_OLD_ROOT : 0) |
-                                             (objective == MANAGER_SOFT_REBOOT ? SWITCH_ROOT_SKIP_RECURSIVE_RUN : 0));
+                                             (objective == MANAGER_SOFT_REBOOT ? 0 : SWITCH_ROOT_RECURSIVE_RUN));
                 if (r < 0)
                         log_error_errno(r, "Failed to switch root, trying to continue: %m");
         }

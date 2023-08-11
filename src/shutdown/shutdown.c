@@ -174,7 +174,6 @@ static int switch_root_initramfs(void) {
                         /* new_root= */ "/run/initramfs",
                         /* old_root_after= */ "/oldroot",
                         /* flags= */ SWITCH_ROOT_DONT_SYNC |
-                                     SWITCH_ROOT_SKIP_RECURSIVE_RUN |
                                      SWITCH_ROOT_SKIP_RECURSIVE_UMOUNT);
 }
 
