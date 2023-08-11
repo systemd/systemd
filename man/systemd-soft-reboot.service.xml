@@ -119,9 +119,9 @@
     processes running during a soft-reboot operation requires disconnecting the service comprehensively from
     the rest of the OS, i.e. minimizing IPC and reducing sharing of resources with the rest of the OS. A
     possible mechanism to achieve this is the concept of <ulink
-    url="https://systemd.io/PORTABLE_SERVICES">Portable Services</ulink>, but make sure no resource from
-    the host's root filesystem is pinned via <varname>BindPaths=</varname> or similar unit settings,
-    otherwise the old root filesystem will be kept in memory as long as the unit is running.</para>
+    url="https://systemd.io/PORTABLE_SERVICES">Portable Services</ulink>, but make sure no resource from the
+    host's OS filesystems is pinned via <varname>BindPaths=</varname> or similar unit settings, otherwise the
+    old, originating filesystem will remain mounted as long as the unit is running.</para>
   </refsect1>
 
   <refsect1>
