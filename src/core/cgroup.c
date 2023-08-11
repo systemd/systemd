@@ -3989,6 +3989,38 @@ int unit_get_ip_accounting(
         return r;
 }
 
+static uint64_t unit_get_eff_limit_one(Unit *u, CGroupLimitType type) {
+        CGroupContext *cc;
+
+        assert(u);
+        assert(UNIT_HAS_CGROUP_CONTEXT(u));
+
+        static const size_t members[_CGROUP_LIMIT_MAX] = {
+                [CGROUP_LIMIT_MEMORY_MAX]    = offsetof(CGroupContext, memory_max),
+                [CGROUP_LIMIT_MEMORY_HIGH]   = offsetof(CGroupContext, memory_high),
+                [CGROUP_LIMIT_TASKS_MAX]     = offsetof(CGroupContext, tasks_max),
+        };
+
+        cc = unit_get_cgroup_context(u);
+        return *(uint64_t *)((uint8_t *)cc + members[type]);
+}
+
+int unit_get_eff_limit(Unit *u, CGroupLimitType type, uint64_t *ret) {
+        uint64_t min;
+        assert(u);
+
+        if (!UNIT_HAS_CGROUP_CONTEXT(u))
+                return -EINVAL;
+
+        min = unit_get_eff_limit_one(u, type);
+        for (Unit *slice = UNIT_GET_SLICE(u); slice; slice = UNIT_GET_SLICE(slice)) {
+                min = MIN(min, unit_get_eff_limit_one(slice, type));
+        }
+
+        *ret = min;
+        return 0;
+}
+
 static int unit_get_io_accounting_raw(Unit *u, uint64_t ret[static _CGROUP_IO_ACCOUNTING_METRIC_MAX]) {
         static const char *const field_names[_CGROUP_IO_ACCOUNTING_METRIC_MAX] = {
                 [CGROUP_IO_READ_BYTES]       = "rbytes=",
