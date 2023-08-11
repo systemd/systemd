@@ -8,8 +8,14 @@ set -o pipefail
 
 # Tests for issue #28588 and #28653.
 
+assert_in "systemd-tmpfiles-setup-dev-early.service" "$(systemctl show --property After --value systemd-udevd.service)"
+assert_in "systemd-udevd.service" "$(systemctl show --property Before --value systemd-tmpfiles-setup-dev-early.service)"
+
 assert_in "systemd-tmpfiles-setup-dev.service" "$(systemctl show --property After --value systemd-udevd.service)"
 assert_in "systemd-udevd.service" "$(systemctl show --property Before --value systemd-tmpfiles-setup-dev.service)"
+
+assert_in "systemd-sysusers.service" "$(systemctl show --property After --value systemd-udevd.service)"
+assert_in "systemd-udevd.service" "$(systemctl show --property Before --value systemd-sysusers.service)"
 
 if [[ -f /dev/vfio/vfio ]]; then
    assert_in "crw-rw-rw-" "$(stat --format=%A /dev/vfio/vfio)"

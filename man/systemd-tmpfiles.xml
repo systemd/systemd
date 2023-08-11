@@ -19,6 +19,7 @@
   <refnamediv>
     <refname>systemd-tmpfiles</refname>
     <refname>systemd-tmpfiles-setup.service</refname>
+    <refname>systemd-tmpfiles-setup-dev-early.service</refname>
     <refname>systemd-tmpfiles-setup-dev.service</refname>
     <refname>systemd-tmpfiles-clean.service</refname>
     <refname>systemd-tmpfiles-clean.timer</refname>
@@ -35,6 +36,7 @@
 
     <para>System units:
 <literallayout><filename>systemd-tmpfiles-setup.service</filename>
+<filename>systemd-tmpfiles-setup-dev-early.service</filename>
 <filename>systemd-tmpfiles-setup-dev.service</filename>
 <filename>systemd-tmpfiles-clean.service</filename>
 <filename>systemd-tmpfiles-clean.timer</filename></literallayout></para>
@@ -64,6 +66,7 @@
     searched for a matching file and the file found that has the highest priority is executed.</para>
 
     <para>System services (<filename>systemd-tmpfiles-setup.service</filename>,
+    <filename>systemd-tmpfiles-setup-dev-early.service</filename>,
     <filename>systemd-tmpfiles-setup-dev.service</filename>,
     <filename>systemd-tmpfiles-clean.service</filename>) invoke <command>systemd-tmpfiles</command> to create
     system files and to perform system wide cleanup. Those services read administrator-controlled
