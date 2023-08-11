@@ -577,6 +577,24 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>VerityDataBlockSizeBytes=</varname></term>
+
+        <listitem><para>Configures the data block size of the generated verity hash partition. Must be between 512 and
+        4096 bytes and must be a power of 2. Defaults to the sector size if configured explicitly, or the underlying
+        block device sector size, or 4K if systemd-repart is not operating on a block device.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>VerityHashBlockSizeBytes=</varname></term>
+
+        <listitem><para>Configures the hash block size of the generated verity hash partition. Must be between 512 and
+        4096 bytes and must be a power of 2. Defaults to the sector size if configured explicitly, or the underlying
+        block device sector size, or 4K if systemd-repart is not operating on a block device.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>FactoryReset=</varname></term>
 
         <listitem><para>Takes a boolean argument. If specified the partition is marked for removal during a
@@ -831,6 +849,9 @@ VerityMatchKey=root
 Type=root-verity
 Verity=hash
 VerityMatchKey=root
+# Explicitly set the hash and data block size to 4K
+VerityDataBlockSizeBytes=4096
+VerityHashBlockSizeBytes=4096
 </programlisting></para>
     </example>
 

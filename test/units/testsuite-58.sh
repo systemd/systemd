@@ -99,7 +99,7 @@ testcase_basic() {
     imgs="$(mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
     # shellcheck disable=SC2064
     trap "rm -rf '$defs' '$imgs'" RETURN
-    chmod a+rx "$defs"
+    chmod 0755 "$defs"
 
     echo "*** 1. create an empty image ***"
 
@@ -395,7 +395,7 @@ testcase_dropin() {
     imgs="$(mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
     # shellcheck disable=SC2064
     trap "rm -rf '$defs' '$imgs'" RETURN
-    chmod a+rx "$defs"
+    chmod 0755 "$defs"
 
     tee "$defs/root.conf" <<EOF
 [Partition]
@@ -455,7 +455,7 @@ testcase_multiple_definitions() {
     imgs="$(mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
     # shellcheck disable=SC2064
     trap "rm -rf '$defs' '$imgs'" RETURN
-    chmod a+rx "$defs"
+    chmod 0755 "$defs"
 
     mkdir -p "$defs/1"
     tee "$defs/1/root1.conf" <<EOF
@@ -526,7 +526,7 @@ testcase_copy_blocks() {
     imgs="$(mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
     # shellcheck disable=SC2064
     trap "rm -rf '$defs' '$imgs'" RETURN
-    chmod a+rx "$defs"
+    chmod 0755 "$defs"
 
     echo "*** First, create a disk image and verify its in order ***"
 
@@ -610,7 +610,7 @@ testcase_unaligned_partition() {
     imgs="$(mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
     # shellcheck disable=SC2064
     trap "rm -rf '$defs' '$imgs'" RETURN
-    chmod a+rx "$defs"
+    chmod 0755 "$defs"
 
     echo "*** Operate on an image with unaligned partition ***"
 
@@ -647,7 +647,7 @@ testcase_issue_21817() {
     imgs="$(mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
     # shellcheck disable=SC2064
     trap "rm -rf '$defs' '$imgs'" RETURN
-    chmod a+rx "$defs"
+    chmod 0755 "$defs"
 
     echo "*** testcase for #21817 ***"
 
@@ -685,7 +685,7 @@ testcase_issue_24553() {
     imgs="$(mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
     # shellcheck disable=SC2064
     trap "rm -rf '$defs' '$imgs'" RETURN
-    chmod a+rx "$defs"
+    chmod 0755 "$defs"
 
     echo "*** testcase for #24553 ***"
 
@@ -790,7 +790,7 @@ testcase_zero_uuid() {
     imgs="$(mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
     # shellcheck disable=SC2064
     trap "rm -rf '$defs' '$imgs'" RETURN
-    chmod a+rx "$defs"
+    chmod 0755 "$defs"
 
     echo "*** Test image with zero UUID ***"
 
@@ -820,7 +820,7 @@ testcase_verity() {
     imgs="$(mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
     # shellcheck disable=SC2064
     trap "rm -rf '$defs' '$imgs'" RETURN
-    chmod a+rx "$defs"
+    chmod 0755 "$defs"
 
     echo "*** dm-verity ***"
 
@@ -907,6 +907,64 @@ EOF
     systemd-dissect -U "$imgs/mnt"
 }
 
+testcase_verity_explicit_block_size() {
+    local defs imgs loop
+
+    if systemd-detect-virt --quiet --container; then
+        echo "Skipping verity block size tests in container."
+        return
+    fi
+
+    defs="$(mktemp --directory "/tmp/test-repart.defs.XXXXXXXXXX")"
+    imgs="$(mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
+
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs'" RETURN
+    chmod 0755 "$defs"
+
+    echo "*** varying-dm-verity-block-sizes ***"
+
+    tee "$defs/verity-data.conf" <<EOF
+[Partition]
+Type=root-${architecture}
+CopyFiles=${defs}
+Verity=data
+VerityMatchKey=root
+Minimize=guess
+EOF
+
+    tee "$defs/verity-hash.conf" <<EOF
+[Partition]
+Type=root-${architecture}-verity
+Verity=hash
+VerityMatchKey=root
+VerityHashBlockSizeBytes=1024
+VerityDataBlockSizeBytes=4096
+Minimize=yes
+EOF
+
+    systemd-repart --offline="$OFFLINE" \
+                   --definitions="$defs" \
+                   --seed="$seed" \
+                   --dry-run=no \
+                   --empty=create \
+                   --size=auto \
+                   --json=pretty \
+                   "$imgs/verity"
+
+    loop="$(losetup --partscan --show --find "$imgs/verity")"
+
+    # Make sure the loopback device gets cleaned up
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs' ; losetup -d '$loop'" RETURN ERR
+
+    udevadm wait --timeout 60 --settle "${loop:?}"
+
+    # Check that the verity block sizes are as expected
+    veritysetup dump "${loop}p2" | grep 'Data block size:' | grep -q '4096'
+    veritysetup dump "${loop}p2" | grep 'Hash block size:' | grep -q '1024'
+}
+
 testcase_exclude_files() {
     local defs imgs root output
 
@@ -915,7 +973,7 @@ testcase_exclude_files() {
     root="$(mktemp --directory "/var/tmp/test-repart.root.XXXXXXXXXX")"
     # shellcheck disable=SC2064
     trap "rm -rf '$defs' '$imgs' '$root'" RETURN
-    chmod a+rx "$defs"
+    chmod 0755 "$defs"
 
     echo "*** file exclusion ***"
 
@@ -1070,7 +1128,7 @@ testcase_free_area_calculation() {
     imgs="$(mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
     # shellcheck disable=SC2064
     trap "rm -rf '$defs' '$imgs'" RETURN
-    chmod a+rx "$defs"
+    chmod 0755 "$defs"
 
     # https://github.com/systemd/systemd/issues/28225
     echo "*** free area calculation ***"
