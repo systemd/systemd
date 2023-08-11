@@ -93,6 +93,9 @@ struct iovec_wrapper {
 struct iovec_wrapper *iovw_new(void);
 struct iovec_wrapper *iovw_free(struct iovec_wrapper *iovw);
 struct iovec_wrapper *iovw_free_free(struct iovec_wrapper *iovw);
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct iovec_wrapper*, iovw_free_free);
+
 void iovw_free_contents(struct iovec_wrapper *iovw, bool free_vectors);
 
 int iovw_put(struct iovec_wrapper *iovw, void *data, size_t len);
@@ -108,5 +111,6 @@ int iovw_put_string_field(struct iovec_wrapper *iovw, const char *field, const c
 int iovw_put_string_field_free(struct iovec_wrapper *iovw, const char *field, char *value);
 void iovw_rebase(struct iovec_wrapper *iovw, char *old, char *new);
 size_t iovw_size(struct iovec_wrapper *iovw);
+int iovw_append(struct iovec_wrapper *target, const struct iovec_wrapper *source);
 
 void iovec_array_free(struct iovec *iov, size_t n);

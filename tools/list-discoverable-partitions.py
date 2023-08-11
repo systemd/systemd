@@ -5,7 +5,7 @@ import re
 import sys
 import uuid
 
-HEADER = f'''\
+HEADER = '''\
 | Name | Partition Type UUID | Allowed File Systems | Explanation |
 |------|---------------------|----------------------|-------------|
 '''
@@ -149,21 +149,21 @@ def extract(file):
 
         name = line.split()[1]
         if m2 := re.match(r'^(ROOT|USR)_([A-Z0-9]+|X86_64|PPC64_LE|MIPS_LE|MIPS64_LE)(|_VERITY|_VERITY_SIG)\s+SD_ID128_MAKE\((.*)\)', m.group(1)):
-            type, arch, suffix, u = m2.groups()
+            ptype, arch, suffix, u = m2.groups()
             u = uuid.UUID(u.replace(',', ''))
             assert arch in ARCHITECTURES, f'{arch} not in f{ARCHITECTURES}'
-            type = f'{type}{suffix}'
-            assert type in TYPES
+            ptype = f'{type}{suffix}'
+            assert ptype in TYPES
 
-            yield name, type, arch, u
+            yield name, ptype, arch, u
 
         elif m2 := re.match(r'(\w+)\s+SD_ID128_MAKE\((.*)\)', m.group(1)):
-            type, u = m2.groups()
+            ptype, u = m2.groups()
             u = uuid.UUID(u.replace(',', ''))
-            yield name, type, None, u
+            yield name, ptype, None, u
 
         else:
-            raise Exception(f'Failed to match: {m.group(1)}')
+            raise ValueError(f'Failed to match: {m.group(1)}')
 
 def generate(defines):
     prevtype = None
@@ -172,21 +172,21 @@ def generate(defines):
 
     uuids = set()
 
-    for name, type, arch, uuid in defines:
-        tdesc = TYPES[type]
+    for name, ptype, arch, puuid in defines:
+        tdesc = TYPES[ptype]
         adesc = '' if arch is None else f' ({ARCHITECTURES[arch]})'
 
         # Let's make sure that we didn't select&paste the same value twice
-        assert uuid not in uuids
-        uuids.add(uuid)
+        assert puuid not in uuids
+        uuids.add(puuid)
 
-        if type != prevtype:
-            prevtype = type
-            morea, moreb = DESCRIPTIONS[type]
+        if ptype != prevtype:
+            prevtype = ptype
+            morea, moreb = DESCRIPTIONS[ptype]
         else:
             morea = moreb = 'ditto'
 
-        print(f'| _{tdesc}{adesc}_ | `{uuid}` `{name}` | {morea} | {moreb} |')
+        print(f'| _{tdesc}{adesc}_ | `{puuid}` `{name}` | {morea} | {moreb} |')
 
 if __name__ == '__main__':
     known = extract(sys.stdin)

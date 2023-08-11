@@ -17,10 +17,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with systemd; If not, see <https://www.gnu.org/licenses/>.
 
-# pylint: disable=missing-docstring,invalid-name,import-outside-toplevel
-# pylint: disable=consider-using-with,unspecified-encoding,line-too-long
-# pylint: disable=too-many-locals,too-many-statements,too-many-return-statements
-# pylint: disable=too-many-branches,redefined-builtin,fixme
+# pylint: disable=import-outside-toplevel,consider-using-with,disable=redefined-builtin
 
 import argparse
 import os
@@ -117,7 +114,7 @@ def we_are_wanted() -> bool:
         log(f'{KERNEL_INSTALL_LAYOUT=}, quitting.')
         return False
 
-    KERNEL_INSTALL_UKI_GENERATOR = os.getenv('KERNEL_INSTALL_UKI_GENERATOR')
+    KERNEL_INSTALL_UKI_GENERATOR = os.getenv('KERNEL_INSTALL_UKI_GENERATOR') or 'ukify'
 
     if KERNEL_INSTALL_UKI_GENERATOR != 'ukify':
         log(f'{KERNEL_INSTALL_UKI_GENERATOR=}, quitting.')
@@ -175,7 +172,7 @@ def initrd_list(opts) -> list[Path]:
     microcode = sorted(opts.staging_area.glob('microcode/*'))
     initrd = sorted(opts.staging_area.glob('initrd*'))
 
-    #Order taken from 90-loaderentry.install
+    # Order taken from 90-loaderentry.install
     return [*microcode, *opts.initrd, *initrd]
 
 

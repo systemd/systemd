@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-from __future__ import print_function
 import collections
 import glob
+import pprint
 import sys
 from pathlib import Path
-import pprint
+
 from xml_helper import xml_parse
 
+
 def man(page, number):
-    return '{}.{}'.format(page, number)
+    return f'{page}.{number}'
 
 def add_rules(rules, name):
     xml = xml_parse(name)
@@ -60,7 +61,7 @@ MESON_FOOTER = '''\
 # Really, do not edit.
 '''
 
-def make_mesonfile(rules, dist_files):
+def make_mesonfile(rules, _dist_files):
     # reformat rules as
     # grouped = [ [name, section, [alias...], condition], ...]
     #
@@ -77,7 +78,7 @@ def make_mesonfile(rules, dist_files):
               for p, aliases in sorted(grouped.items()) ]
     return '\n'.join((MESON_HEADER, pprint.pformat(lines)[1:-1], MESON_FOOTER))
 
-if __name__ == '__main__':
+def main():
     source_glob = sys.argv[1]
     target = Path(sys.argv[2])
 
@@ -95,3 +96,6 @@ if __name__ == '__main__':
     tmp = target.with_suffix('.tmp')
     tmp.write_text(text)
     tmp.rename(target)
+
+if __name__ == '__main__':
+    main()

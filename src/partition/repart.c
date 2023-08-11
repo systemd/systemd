@@ -156,7 +156,7 @@ static uint64_t arg_sector_size = 0;
 static ImagePolicy *arg_image_policy = NULL;
 static Architecture arg_architecture = _ARCHITECTURE_INVALID;
 static int arg_offline = -1;
-static char *arg_copy_from = NULL;
+static char **arg_copy_from = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
@@ -169,7 +169,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_tpm2_hash_pcr_values, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_public_key, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_filter_partitions, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
-STATIC_DESTRUCTOR_REGISTER(arg_copy_from, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_copy_from, strv_freep);
 
 typedef struct FreeArea FreeArea;
 
@@ -432,20 +432,20 @@ static void partition_foreignize(Partition *p) {
         p->verity = VERITY_OFF;
 }
 
-static bool partition_type_exclude(GptPartitionType type) {
+static bool partition_type_exclude(const GptPartitionType *type) {
         if (arg_filter_partitions_type == FILTER_PARTITIONS_NONE)
                 return false;
 
         for (size_t i = 0; i < arg_n_filter_partitions; i++)
-                if (sd_id128_equal(type.uuid, arg_filter_partitions[i].uuid))
+                if (sd_id128_equal(type->uuid, arg_filter_partitions[i].uuid))
                         return arg_filter_partitions_type == FILTER_PARTITIONS_EXCLUDE;
 
         return arg_filter_partitions_type == FILTER_PARTITIONS_INCLUDE;
 }
 
-static bool partition_type_defer(GptPartitionType type) {
+static bool partition_type_defer(const GptPartitionType *type) {
         for (size_t i = 0; i < arg_n_defer_partitions; i++)
-                if (sd_id128_equal(type.uuid, arg_defer_partitions[i].uuid))
+                if (sd_id128_equal(type->uuid, arg_defer_partitions[i].uuid))
                         return true;
 
         return false;
@@ -1662,7 +1662,7 @@ static int partition_read_definition(Partition *p, const char *path, const char 
         if (r < 0)
                 return r;
 
-        if (partition_type_exclude(p->type))
+        if (partition_type_exclude(&p->type))
                 return 0;
 
         if (p->size_min != UINT64_MAX && p->size_max != UINT64_MAX && p->size_min > p->size_max)
@@ -1814,7 +1814,7 @@ static int find_verity_sibling(Context *context, Partition *p, VerityMode mode, 
         return 0;
 }
 
-static int context_open_and_lock_backing_fd(const char *node, int *backing_fd) {
+static int context_open_and_lock_backing_fd(const char *node, int operation, int *backing_fd) {
         _cleanup_close_ int fd = -EBADF;
 
         assert(node);
@@ -1828,7 +1828,7 @@ static int context_open_and_lock_backing_fd(const char *node, int *backing_fd) {
                 return log_error_errno(errno, "Failed to open device '%s': %m", node);
 
         /* Tell udev not to interfere while we are processing the device */
-        if (flock(fd, arg_dry_run ? LOCK_SH : LOCK_EX) < 0)
+        if (flock(fd, operation) < 0)
                 return log_error_errno(errno, "Failed to lock device '%s': %m", node);
 
         log_debug("Device %s opened and locked.", node);
@@ -1905,7 +1905,7 @@ static int determine_current_padding(
         return 0;
 }
 
-static int context_copy_from(Context *context) {
+static int context_copy_from_one(Context *context, const char *src) {
         _cleanup_close_ int fd = -EBADF;
         _cleanup_(fdisk_unref_contextp) struct fdisk_context *c = NULL;
         _cleanup_(fdisk_unref_tablep) struct fdisk_table *t = NULL;
@@ -1914,16 +1914,15 @@ static int context_copy_from(Context *context) {
         size_t n_partitions;
         int r;
 
-        if (!arg_copy_from)
-                return 0;
+        assert(src);
 
-        r = context_open_and_lock_backing_fd(arg_copy_from, &fd);
+        r = context_open_and_lock_backing_fd(src, LOCK_SH, &fd);
         if (r < 0)
                 return r;
 
         r = fd_verify_regular(fd);
         if (r < 0)
-                return log_error_errno(r, "%s is not a file: %m", arg_copy_from);
+                return log_error_errno(r, "%s is not a file: %m", src);
 
         r = fdisk_new_context_fd(fd, /* read_only = */ true, /* sector_size = */ UINT32_MAX, &c);
         if (r < 0)
@@ -1937,7 +1936,7 @@ static int context_copy_from(Context *context) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Sector size %lu is not a power of two larger than 512? Refusing.", secsz);
 
         if (!fdisk_is_labeltype(c, FDISK_DISKLABEL_GPT))
-                return log_error_errno(SYNTHETIC_ERRNO(EHWPOISON), "Cannot copy from disk %s with no GPT disk label.", arg_copy_from);
+                return log_error_errno(SYNTHETIC_ERRNO(EHWPOISON), "Cannot copy from disk %s with no GPT disk label.", src);
 
         r = fdisk_get_partitions(c, &t);
         if (r < 0)
@@ -1990,7 +1989,7 @@ static int context_copy_from(Context *context) {
                 assert(start <= UINT64_MAX/secsz);
                 start *= secsz;
 
-                if (partition_type_exclude(type))
+                if (partition_type_exclude(&type))
                         continue;
 
                 np = partition_new();
@@ -2003,7 +2002,7 @@ static int context_copy_from(Context *context) {
                 np->size_min = np->size_max = sz;
                 np->new_label = TAKE_PTR(label_copy);
 
-                np->definition_path = strdup(arg_copy_from);
+                np->definition_path = strdup(src);
                 if (!np->definition_path)
                         return log_oom();
 
@@ -2013,13 +2012,13 @@ static int context_copy_from(Context *context) {
 
                 np->padding_min = np->padding_max = padding;
 
-                np->copy_blocks_path = strdup(arg_copy_from);
+                np->copy_blocks_path = strdup(src);
                 if (!np->copy_blocks_path)
                         return log_oom();
 
                 np->copy_blocks_fd = fcntl(fd, F_DUPFD_CLOEXEC, 3);
                 if (np->copy_blocks_fd < 0)
-                        return log_error_errno(r, "Failed to duplicate file descriptor of %s: %m", arg_copy_from);
+                        return log_error_errno(r, "Failed to duplicate file descriptor of %s: %m", src);
 
                 np->copy_blocks_offset = start;
                 np->copy_blocks_size = sz;
@@ -2031,6 +2030,20 @@ static int context_copy_from(Context *context) {
                 LIST_INSERT_AFTER(partitions, context->partitions, last, np);
                 last = TAKE_PTR(np);
                 context->n_partitions++;
+        }
+
+        return 0;
+}
+
+static int context_copy_from(Context *context) {
+        int r;
+
+        assert(context);
+
+        STRV_FOREACH(src, arg_copy_from) {
+                r = context_copy_from_one(context, *src);
+                if (r < 0)
+                        return r;
         }
 
         return 0;
@@ -2223,7 +2236,8 @@ static int context_load_partition_table(Context *context) {
         else {
                 uint32_t ssz;
 
-                r = context_open_and_lock_backing_fd(context->node, &context->backing_fd);
+                r = context_open_and_lock_backing_fd(context->node, arg_dry_run ? LOCK_SH : LOCK_EX,
+                                                     &context->backing_fd);
                 if (r < 0)
                         return r;
 
@@ -2270,7 +2284,9 @@ static int context_load_partition_table(Context *context) {
 
         if (context->backing_fd < 0) {
                 /* If we have no fd referencing the device yet, make a copy of the fd now, so that we have one */
-                r = context_open_and_lock_backing_fd(FORMAT_PROC_FD_PATH(fdisk_get_devfd(c)), &context->backing_fd);
+                r = context_open_and_lock_backing_fd(FORMAT_PROC_FD_PATH(fdisk_get_devfd(c)),
+                                                     arg_dry_run ? LOCK_SH : LOCK_EX,
+                                                     &context->backing_fd);
                 if (r < 0)
                         return r;
         }
@@ -3277,7 +3293,7 @@ static int context_wipe_and_discard(Context *context) {
                 if (!p->allocated_to_area)
                         continue;
 
-                if (partition_type_defer(p->type))
+                if (partition_type_defer(&p->type))
                         continue;
 
                 r = context_wipe_partition(context, p);
@@ -4102,7 +4118,7 @@ static int context_copy_blocks(Context *context) {
                 if (PARTITION_EXISTS(p)) /* Never copy over existing partitions */
                         continue;
 
-                if (partition_type_defer(p->type))
+                if (partition_type_defer(&p->type))
                         continue;
 
                 assert(p->new_size != UINT64_MAX);
@@ -4143,14 +4159,14 @@ static int context_copy_blocks(Context *context) {
                 if (r < 0)
                         return r;
 
-                if (p->siblings[VERITY_HASH] && !partition_type_defer(p->siblings[VERITY_HASH]->type)) {
+                if (p->siblings[VERITY_HASH] && !partition_type_defer(&p->siblings[VERITY_HASH]->type)) {
                         r = partition_format_verity_hash(context, p->siblings[VERITY_HASH],
                                                          /* node = */ NULL, partition_target_path(t));
                         if (r < 0)
                                 return r;
                 }
 
-                if (p->siblings[VERITY_SIG] && !partition_type_defer(p->siblings[VERITY_SIG]->type)) {
+                if (p->siblings[VERITY_SIG] && !partition_type_defer(&p->siblings[VERITY_SIG]->type)) {
                         r = partition_format_verity_sig(context, p->siblings[VERITY_SIG]);
                         if (r < 0)
                                 return r;
@@ -4545,7 +4561,7 @@ static int context_mkfs(Context *context) {
                 if (p->copy_blocks_fd >= 0)
                         continue;
 
-                if (partition_type_defer(p->type))
+                if (partition_type_defer(&p->type))
                         continue;
 
                 assert(p->offset != UINT64_MAX);
@@ -4629,14 +4645,14 @@ static int context_mkfs(Context *context) {
                 if (r < 0)
                         return r;
 
-                if (p->siblings[VERITY_HASH] && !partition_type_defer(p->siblings[VERITY_HASH]->type)) {
+                if (p->siblings[VERITY_HASH] && !partition_type_defer(&p->siblings[VERITY_HASH]->type)) {
                         r = partition_format_verity_hash(context, p->siblings[VERITY_HASH],
                                                          /* node = */ NULL, partition_target_path(t));
                         if (r < 0)
                                 return r;
                 }
 
-                if (p->siblings[VERITY_SIG] && !partition_type_defer(p->siblings[VERITY_SIG]->type)) {
+                if (p->siblings[VERITY_SIG] && !partition_type_defer(&p->siblings[VERITY_SIG]->type)) {
                         r = partition_format_verity_sig(context, p->siblings[VERITY_SIG]);
                         if (r < 0)
                                 return r;
@@ -4974,7 +4990,7 @@ static int context_mangle_partitions(Context *context) {
                 if (p->dropped)
                         continue;
 
-                if (partition_type_defer(p->type))
+                if (partition_type_defer(&p->type))
                         continue;
 
                 assert(p->new_size != UINT64_MAX);
@@ -5223,7 +5239,7 @@ static int context_split(Context *context) {
                 if (!p->split_path)
                         continue;
 
-                if (partition_type_defer(p->type))
+                if (partition_type_defer(&p->type))
                         continue;
 
                 fdt = open(p->split_path, O_WRONLY|O_NOCTTY|O_CLOEXEC|O_NOFOLLOW|O_CREAT|O_EXCL, 0666);
@@ -6192,7 +6208,7 @@ static int help(void) {
                "     --sector-size=SIZE   Set the logical sector size for the image\n"
                "     --architecture=ARCH  Set the generic architecture for the image\n"
                "     --offline=BOOL       Whether to build the image offline\n"
-               "     --copy-from=IMAGE    Copy partitions from the given image\n"
+               "     --copy-from=IMAGE    Copy partitions from the given image(s)\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -6595,11 +6611,18 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
-                case ARG_COPY_FROM:
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_copy_from);
+                case ARG_COPY_FROM: {
+                        _cleanup_free_ char *p = NULL;
+
+                        r = parse_path_argument(optarg, /* suppress_root= */ false, &p);
                         if (r < 0)
                                 return r;
+
+                        if (strv_consume(&arg_copy_from, TAKE_PTR(p)) < 0)
+                                return log_oom();
+
                         break;
+                }
 
                 case '?':
                         return -EINVAL;

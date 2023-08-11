@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-# pylint: disable=missing-docstring,redefined-outer-name,invalid-name
 # pylint: disable=unused-import,import-outside-toplevel,useless-else-on-loop
 # pylint: disable=consider-using-with,wrong-import-position,unspecified-encoding
-# pylint: disable=protected-access
+# pylint: disable=protected-access,redefined-outer-name
 
 import base64
 import json
@@ -144,10 +143,8 @@ def test_apply_config(tmp_path):
     assert ns.phase_path_groups == [['enter-initrd:leave-initrd:sysinit:ready:shutdown:final']]
 
 def test_parse_args_minimal():
-    try:
+    with pytest.raises(ValueError):
         ukify.parse_args([])
-    except ValueError as e:
-        print(f'expected failure: {e}')
 
     opts = ukify.parse_args('arg1 arg2'.split())
     assert opts.linux == pathlib.Path('arg1')

@@ -44,7 +44,7 @@
 #define ONBOARD_16BIT_INDEX_MAX ((1U << 16) - 1)
 
 /* skip intermediate virtio devices */
-static sd_device *skip_virtio(sd_device *dev) {
+static sd_device *device_skip_virtio(sd_device *dev) {
         /* there can only ever be one virtio bus per parent device, so we can
          * safely ignore any virtio buses. see
          * http://lists.linuxfoundation.org/pipermail/virtualization/2015-August/030331.html */
@@ -62,6 +62,75 @@ static sd_device *skip_virtio(sd_device *dev) {
         }
 
         return dev;
+}
+
+static int get_matching_parent(
+                sd_device *dev,
+                char * const *parent_subsystems,
+                bool skip_virtio,
+                sd_device **ret) {
+
+        sd_device *parent;
+        int r;
+
+        assert(dev);
+
+        r = sd_device_get_parent(dev, &parent);
+        if (r < 0)
+                return r;
+
+        if (skip_virtio) {
+                /* skip virtio subsystem if present */
+                parent = device_skip_virtio(parent);
+                if (!parent)
+                        return -ENODEV;
+        }
+
+        if (!strv_isempty(parent_subsystems)) {
+                const char *subsystem;
+
+                /* check if our direct parent is in an expected subsystem. */
+                r = sd_device_get_subsystem(parent, &subsystem);
+                if (r < 0)
+                        return r;
+
+                if (!strv_contains(parent_subsystems, subsystem))
+                        return -ENODEV;
+        }
+
+        if (ret)
+                *ret = parent;
+
+        return 0;
+}
+
+static int get_first_syspath_component(sd_device *dev, const char *prefix, char **ret) {
+        _cleanup_free_ char *buf = NULL;
+        const char *syspath, *p, *q;
+        int r;
+
+        assert(dev);
+        assert(prefix);
+        assert(ret);
+
+        r = sd_device_get_syspath(dev, &syspath);
+        if (r < 0)
+                return r;
+
+        p = path_startswith(syspath, prefix);
+        if (!p)
+                return -EINVAL;
+
+        r = path_find_first_component(&p, /* accept_dot_dot = */ false, &q);
+        if (r < 0)
+                return r;
+
+        buf = strndup(q, r);
+        if (!buf)
+                return -ENOMEM;
+
+        *ret = TAKE_PTR(buf);
+        return r; /* return the length of the string */
 }
 
 static int get_virtfn_info(sd_device *pcidev, sd_device **ret_physfn_pcidev, char **ret_suffix) {
@@ -171,7 +240,7 @@ static int get_port_specifier(sd_device *dev, bool fallback_to_dev_id, char **re
                         if (vf_id >= 0) {
                                 /* For VF representor append 'r<VF_NUM>'. */
                                 if (asprintf(&buf, "r%d", vf_id) < 0)
-                                        return -ENOMEM;
+                                        return log_oom_debug();
 
                                 *ret = buf;
                                 return 1;
@@ -179,8 +248,9 @@ static int get_port_specifier(sd_device *dev, bool fallback_to_dev_id, char **re
                 }
 
                 /* Otherwise, use phys_port_name as is. */
-                if (asprintf(&buf, "n%s", phys_port_name) < 0)
-                        return -ENOMEM;
+                buf = strjoin("n", phys_port_name);
+                if (!buf)
+                        return log_oom_debug();
 
                 *ret = buf;
                 return 1;
@@ -190,11 +260,11 @@ static int get_port_specifier(sd_device *dev, bool fallback_to_dev_id, char **re
          * function. */
         r = get_dev_port(dev, fallback_to_dev_id, &dev_port);
         if (r < 0)
-                return r;
+                return log_device_debug_errno(dev, r, "Failed to get device port index: %m");
         if (r > 0) {
                 assert(dev_port > 0);
                 if (asprintf(&buf, "d%u", dev_port) < 0)
-                        return -ENOMEM;
+                        return log_oom_debug();
 
                 *ret = buf;
                 return 1;
@@ -227,7 +297,7 @@ static int pci_get_onboard_index(sd_device *dev, unsigned *ret) {
                 /* SMBIOS type 41 — Onboard Devices Extended Information */
                 r = device_get_sysattr_unsigned(dev, "index", &idx);
         if (r < 0)
-                return r;
+                return log_device_debug_errno(dev, r, "Could not obtain onboard index: %m");
 
         if (idx == 0 && !naming_scheme_has(NAMING_ZERO_ACPI_INDEX))
                 return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL),
@@ -279,7 +349,7 @@ static int names_pci_onboard_label(sd_device *dev, sd_device *pci_dev, const cha
         /* retrieve on-board label from firmware */
         r = sd_device_get_sysattr_value(pci_dev, "label", &label);
         if (r < 0)
-                return r;
+                return log_device_debug_errno(pci_dev, r, "Failed to get PCI onboard label: %m");
 
         char str[ALTIFNAMSIZ];
         if (snprintf_ok(str, sizeof str, "%s%s",
@@ -433,7 +503,7 @@ static int pci_get_hotplug_slot_from_address(
 
                 path = path_join("slots", de->d_name, "address");
                 if (!path)
-                        return -ENOMEM;
+                        return log_oom_debug();
 
                 if (sd_device_get_sysattr_value(pci, path, &address) < 0)
                         continue;
@@ -528,10 +598,9 @@ static int get_pci_slot_specifiers(
                 return log_device_debug_errno(dev, r, "Failed to get sysname: %m");
 
         r = sscanf(sysname, "%x:%x:%x.%u", &domain, &bus, &slot, &func);
-        log_device_debug(dev, "Parsing slot information from PCI device sysname \"%s\": %s",
-                         sysname, r == 4 ? "success" : "failure");
         if (r != 4)
-                return -EINVAL;
+                return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL),
+                                              "Failed to parse slot information from PCI device sysname.");
 
         if (naming_scheme_has(NAMING_NPAR_ARI) &&
             is_pci_ari_enabled(dev))
@@ -541,14 +610,14 @@ static int get_pci_slot_specifiers(
                 func += slot * 8;
 
         if (domain > 0 && asprintf(&domain_spec, "P%u", domain) < 0)
-                return -ENOMEM;
+                return log_oom_debug();
 
         if (asprintf(&bus_and_slot_spec, "p%us%u", bus, slot) < 0)
-                return -ENOMEM;
+                return log_oom_debug();
 
         if ((func > 0 || is_pci_multifunction(dev) > 0) &&
             asprintf(&func_spec, "f%u", func) < 0)
-                return -ENOMEM;
+                return log_oom_debug();
 
         *ret_domain = TAKE_PTR(domain_spec);
         *ret_bus_and_slot = TAKE_PTR(bus_and_slot_spec);
@@ -603,8 +672,7 @@ static int names_pci_slot(sd_device *dev, sd_device *pci_dev, const char *prefix
 }
 
 static int names_vio(sd_device *dev, const char *prefix, bool test) {
-        const char *syspath, *subsystem, *p, *s;
-        sd_device *parent;
+        _cleanup_free_ char *s = NULL;
         unsigned slotid;
         int r;
 
@@ -614,37 +682,23 @@ static int names_vio(sd_device *dev, const char *prefix, bool test) {
         /* get ibmveth/ibmvnic slot-based names. */
 
         /* check if our direct parent is a VIO device with no other bus in-between */
-        r = sd_device_get_parent(dev, &parent);
-        if (r < 0)
-                return log_device_debug_errno(dev, r, "sd_device_get_parent() failed: %m");
+        if (get_matching_parent(dev, STRV_MAKE("vio"), /* skip_virtio = */ false, NULL) < 0)
+                return 0;
 
-        r = sd_device_get_subsystem(parent, &subsystem);
-        if (r < 0)
-                return log_device_debug_errno(parent, r, "sd_device_get_subsystem() failed: %m");
-        if (!streq(subsystem, "vio"))
-                return -ENOENT;
         log_device_debug(dev, "Parent device is in the vio subsystem.");
 
         /* The devices' $DEVPATH number is tied to (virtual) hardware (slot id
          * selected in the HMC), thus this provides a reliable naming (e.g.
          * "/devices/vio/30000002/net/eth1"); we ignore the bus number, as
          * there should only ever be one bus, and then remove leading zeros. */
-        r = sd_device_get_syspath(dev, &syspath);
+        r = get_first_syspath_component(dev, "/sys/devices/vio/", &s);
         if (r < 0)
-                return log_device_debug_errno(dev, r, "sd_device_get_syspath() failed: %m");
+                return log_device_debug_errno(dev, r, "Failed to get VIO bus ID and slot ID: %m");
 
-        p = path_startswith(syspath, "/sys/devices/vio/");
-        if (!p)
-                return -EINVAL;
-
-        r = path_find_first_component(&p, /* accept_dot_dot = */ false, &s);
-        if (r < 0)
-                return r;
         if (r != 8)
                 return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL),
-                                              "VIO bus ID and slot ID have invalid length: %s", syspath);
+                                              "VIO bus ID and slot ID have invalid length: %s", s);
 
-        s = strndupa(s, 8);
         if (!in_charset(s, HEXDIGITS))
                 return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL),
                                               "VIO bus ID and slot ID contain invalid characters: %s", s);
@@ -652,7 +706,7 @@ static int names_vio(sd_device *dev, const char *prefix, bool test) {
         /* Parse only slot ID (the last 4 hexdigits). */
         r = safe_atou_full(s + 4, 16, &slotid);
         if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to parse VIO slot from syspath \"%s\": %m", syspath);
+                return log_device_debug_errno(dev, r, "Failed to parse VIO slot from '%s': %m", s);
 
         char str[ALTIFNAMSIZ];
         if (snprintf_ok(str, sizeof str, "%sv%u", prefix, slotid))
@@ -663,10 +717,10 @@ static int names_vio(sd_device *dev, const char *prefix, bool test) {
 }
 
 static int names_platform(sd_device *dev, const char *prefix, bool test) {
-        const char *syspath, *subsystem, *p, *validchars;
+        _cleanup_free_ char *p = NULL;
+        const char *validchars;
         char *vendor, *model_str, *instance_str;
         unsigned model, instance;
-        sd_device *parent;
         int r;
 
         assert(dev);
@@ -675,45 +729,26 @@ static int names_platform(sd_device *dev, const char *prefix, bool test) {
         /* get ACPI path names for ARM64 platform devices */
 
         /* check if our direct parent is a platform device with no other bus in-between */
-        r = sd_device_get_parent(dev, &parent);
-        if (r < 0)
-                return log_device_debug_errno(dev, r, "sd_device_get_parent() failed: %m");
+        if (get_matching_parent(dev, STRV_MAKE("platform"), /* skip_virtio = */ false, NULL) < 0)
+                return 0;
 
-        r = sd_device_get_subsystem(parent, &subsystem);
-        if (r < 0)
-                return log_device_debug_errno(parent, r, "sd_device_get_subsystem() failed: %m");
-
-        if (!streq(subsystem, "platform"))
-                 return -ENOENT;
         log_device_debug(dev, "Parent device is in the platform subsystem.");
 
-        r = sd_device_get_syspath(dev, &syspath);
+        r = get_first_syspath_component(dev, "/sys/devices/platform/", &p);
         if (r < 0)
-                return log_device_debug_errno(dev, r, "sd_device_get_syspath() failed: %m");
-
-        syspath = path_startswith(syspath, "/sys/devices/platform/");
-        if (!syspath)
-                return -EINVAL;
-
-        r = path_find_first_component(&syspath, /* accept_dot_dot = */ false, &p);
-        if (r < 0)
-                return r;
+                return log_device_debug_errno(dev, r, "Failed to get platform ID: %m");
 
         /* Platform devices are named after ACPI table match, and instance id
          * eg. "/sys/devices/platform/HISI00C2:00"
          * The Vendor (3 or 4 char), followed by hexadecimal model number : instance id. */
-        if (p[7] == ':') {
+        if (r == 10 && p[7] == ':') {
                 /* 3 char vendor string */
-                if (r != 10)
-                        return -EINVAL;
                 vendor = strndupa(p, 3);
                 model_str = strndupa(p + 3, 4);
                 instance_str = strndupa(p + 8, 2);
                 validchars = UPPERCASE_LETTERS;
-        } else if (p[8] == ':') {
+        } else if (r == 11 && p[8] == ':') {
                 /* 4 char vendor string */
-                if (r != 11)
-                        return -EINVAL;
                 vendor = strndupa(p, 4);
                 model_str = strndupa(p + 4, 4);
                 instance_str = strndupa(p + 9, 2);
@@ -762,24 +797,24 @@ static int names_devicetree(sd_device *dev, const char *prefix, bool test) {
         /* check if our direct parent has an of_node */
         r = sd_device_get_parent(dev, &parent);
         if (r < 0)
-                return r;
+                return log_device_debug_errno(dev, r, "Failed to get parent device: %m");
 
         r = sd_device_new_child(&ofnode_dev, parent, "of_node");
         if (r < 0)
-                return r;
+                return log_device_debug_errno(parent, r, "Failed to get 'of_node' child device: %m");
 
         r = sd_device_get_syspath(ofnode_dev, &ofnode_syspath);
         if (r < 0)
-                return r;
+                return log_device_debug_errno(ofnode_dev, r, "Failed to get syspath: %m");
 
         /* /proc/device-tree should be a symlink to /sys/firmware/devicetree/base. */
         r = sd_device_new_from_path(&devicetree_dev, "/proc/device-tree");
         if (r < 0)
-                return r;
+                return log_debug_errno(r, "Failed to create sd-device object from '/proc/device-tree': %m");
 
         r = sd_device_get_syspath(devicetree_dev, &devicetree_syspath);
         if (r < 0)
-                return r;
+                return log_device_debug_errno(devicetree_dev, r, "Failed to get syspath: %m");
 
         /*
          * Example paths:
@@ -789,7 +824,9 @@ static int names_devicetree(sd_device *dev, const char *prefix, bool test) {
          */
         ofnode_path = path_startswith(ofnode_syspath, devicetree_syspath);
         if (!ofnode_path)
-                return -ENOENT;
+                return log_device_debug_errno(ofnode_dev, SYNTHETIC_ERRNO(EINVAL),
+                                              "The device '%s' is not a child device of '%s': %m",
+                                              ofnode_syspath, devicetree_syspath);
 
         /* Get back our leading / to match the contents of the aliases */
         ofnode_path--;
@@ -797,7 +834,8 @@ static int names_devicetree(sd_device *dev, const char *prefix, bool test) {
 
         r = sd_device_new_child(&aliases_dev, devicetree_dev, "aliases");
         if (r < 0)
-                return r;
+                return log_device_debug_errno(devicetree_dev, r,
+                                              "Failed to get 'aliases' child device: %m");
 
         FOREACH_DEVICE_SYSATTR(aliases_dev, alias) {
                 const char *alias_path, *alias_index, *conflict;
@@ -845,28 +883,13 @@ static int names_pci(sd_device *dev, const char *prefix, bool test) {
         _cleanup_(sd_device_unrefp) sd_device *physfn_pcidev = NULL;
         _cleanup_free_ char *virtfn_suffix = NULL;
         sd_device *parent;
-        const char *subsystem;
-        int r;
 
         assert(dev);
         assert(prefix);
 
-        r = sd_device_get_parent(dev, &parent);
-        if (r < 0)
-                return r;
-
-        /* skip virtio subsystem if present */
-        parent = skip_virtio(parent);
-        if (!parent)
-                return -ENOENT;
-
         /* check if our direct parent is a PCI device with no other bus in-between */
-        r = sd_device_get_subsystem(parent, &subsystem);
-        if (r < 0)
-                return r;
-
-        if (!streq(subsystem, "pci"))
-                return -EINVAL;
+        if (get_matching_parent(dev, STRV_MAKE("pci"), /* skip_virtio = */ true, &parent) < 0)
+                return 0;
 
         /* If this is an SR-IOV virtual device, get base name using physical device and add virtfn suffix. */
         if (naming_scheme_has(NAMING_SR_IOV_V) &&
@@ -925,10 +948,10 @@ static int get_usb_specifier(sd_device *dev, char **ret) {
         if (streq(interf, "0"))
                 interf = NULL;
 
-        if (asprintf(&buf, "u%s%s%s%s%s",
-                     ports,
-                     config ? "c" : "", strempty(config),
-                     interf ? "i" : "", strempty(interf)) < 0)
+        buf = strjoin("u", ports,
+                      config ? "c" : "", strempty(config),
+                      interf ? "i" : "", strempty(interf));
+        if (!buf)
                 return log_oom_debug();
 
         log_device_debug(dev, "USB name identifier: ports=%s config=%s interface=%s %s %s",
@@ -963,7 +986,7 @@ static int names_usb(sd_device *dev, const char *prefix, bool test) {
                 return names_pci_slot(dev, pcidev, prefix, suffix, test);
 
         if (r != -ENOENT || !naming_scheme_has(NAMING_USB_HOST))
-                return r;
+                return log_device_debug_errno(usbdev, r, "Failed to get parent PCI bus: %m");
 
         /* Otherwise, e.g. on-chip asics that have USB ports, use the USB specifier as is. */
         char str[ALTIFNAMSIZ];
@@ -1028,7 +1051,7 @@ static int names_bcma(sd_device *dev, const char *prefix, bool test) {
 
 static int names_ccw(sd_device *dev, const char *prefix, bool test) {
         sd_device *cdev;
-        const char *bus_id, *subsys;
+        const char *bus_id;
         size_t bus_id_start, bus_id_len;
         int r;
 
@@ -1037,23 +1060,9 @@ static int names_ccw(sd_device *dev, const char *prefix, bool test) {
 
         /* get path names for Linux on System z network devices */
 
-        /* Retrieve the associated CCW device */
-        r = sd_device_get_parent(dev, &cdev);
-        if (r < 0)
-                return log_device_debug_errno(dev, r, "sd_device_get_parent() failed: %m");
+        if (get_matching_parent(dev, STRV_MAKE("ccwgroup", "ccw"), /* skip_virtio = */ true, &cdev) < 0)
+                return 0;
 
-        /* skip virtio subsystem if present */
-        cdev = skip_virtio(cdev);
-        if (!cdev)
-                return -ENOENT;
-
-        r = sd_device_get_subsystem(cdev, &subsys);
-        if (r < 0)
-                return log_device_debug_errno(cdev, r, "sd_device_get_subsystem() failed: %m");
-
-        /* Network devices are either single or grouped CCW devices */
-        if (!STR_IN_SET(subsys, "ccwgroup", "ccw"))
-                return -ENOENT;
         log_device_debug(dev, "Device is CCW.");
 
         /* Retrieve bus-ID of the CCW device.  The bus-ID uniquely
@@ -1069,8 +1078,7 @@ static int names_ccw(sd_device *dev, const char *prefix, bool test) {
          */
         bus_id_len = strlen(bus_id);
         if (!IN_SET(bus_id_len, 8, 9))
-                return log_device_debug_errno(cdev, SYNTHETIC_ERRNO(EINVAL),
-                                              "Invalid bus_id: %s", bus_id);
+                return log_device_debug_errno(cdev, SYNTHETIC_ERRNO(EINVAL), "Invalid bus_id: %s", bus_id);
 
         /* Strip leading zeros from the bus id for aesthetic purposes. This
          * keeps the ccw names stable, yet much shorter in general case of
@@ -1189,17 +1197,18 @@ static int names_netdevsim(sd_device *dev, const char *prefix, bool test) {
 
         r = sd_device_get_sysnum(netdevsimdev, &sysnum);
         if (r < 0)
-                return r;
+                return log_device_debug_errno(netdevsimdev, r, "Failed to get device sysnum: %m");
 
         r = safe_atou(sysnum, &addr);
         if (r < 0)
-                return r;
+                return log_device_debug_errno(netdevsimdev, r, "Failed to parse device sysnum: %m");
 
         r = sd_device_get_sysattr_value(dev, "phys_port_name", &phys_port_name);
         if (r < 0)
-                return r;
+                return log_device_debug_errno(dev, r, "Failed to get 'phys_port_name' attribute: %m");
         if (isempty(phys_port_name))
-                return -EOPNOTSUPP;
+                return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                              "The 'phys_port_name' attribute is empty.");
 
         char str[ALTIFNAMSIZ];
         if (snprintf_ok(str, sizeof str, "%si%un%s", prefix, addr, phys_port_name))
@@ -1210,9 +1219,9 @@ static int names_netdevsim(sd_device *dev, const char *prefix, bool test) {
 }
 
 static int names_xen(sd_device *dev, const char *prefix, bool test) {
-        sd_device *parent;
+        _cleanup_free_ char *vif = NULL;
+        const char *p;
         unsigned id;
-        const char *syspath, *subsystem, *p, *p2;
         int r;
 
         assert(dev);
@@ -1224,41 +1233,22 @@ static int names_xen(sd_device *dev, const char *prefix, bool test) {
                 return 0;
 
         /* check if our direct parent is a Xen VIF device with no other bus in-between */
-        r = sd_device_get_parent(dev, &parent);
-        if (r < 0)
-                return r;
-
-        /* Do an exact-match on subsystem "xen". This will miss on "xen-backend" on
-         * purpose as the VIFs on the backend (dom0) have their own naming scheme
-         * which we don't want to affect
-         */
-        r = sd_device_get_subsystem(parent, &subsystem);
-        if (r < 0)
-                return r;
-        if (!streq(subsystem, "xen"))
-                return -ENOENT;
+        if (get_matching_parent(dev, STRV_MAKE("xen"), /* skip_virtio = */ false, NULL) < 0)
+                return 0;
 
         /* Use the vif-n name to extract "n" */
-        r = sd_device_get_syspath(dev, &syspath);
+        r = get_first_syspath_component(dev, "/sys/devices/", &vif);
         if (r < 0)
-                return r;
+                return log_device_debug_errno(dev, r, "Failed to get Xen VIF name: %m");
 
-        p = path_startswith(syspath, "/sys/devices/");
+        p = startswith(vif, "vif-");
         if (!p)
-                return -ENOENT;
-        p = startswith(p, "vif-");
-        if (!p)
-                return -ENOENT;
-        p2 = strchr(p, '/');
-        if (!p2)
-                return -ENOENT;
-        p = strndupa_safe(p, p2 - p);
-        if (!p)
-                return -ENOENT;
+                return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL), "Invalid vif name: %s: %m", vif);
+
         r = safe_atou_full(p, SAFE_ATO_REFUSE_PLUS_MINUS | SAFE_ATO_REFUSE_LEADING_ZERO |
                            SAFE_ATO_REFUSE_LEADING_WHITESPACE | 10, &id);
         if (r < 0)
-                return r;
+                return log_device_debug_errno(dev, r, "Failed to parse vif index from '%s': %m", p);
 
         char str[ALTIFNAMSIZ];
         if (snprintf_ok(str, sizeof str, "%sX%u", prefix, id))
@@ -1335,8 +1325,10 @@ static int builtin_net_id(UdevEvent *event, int argc, char *argv[], bool test) {
 
         /* skip stacked devices, like VLANs, ... */
         r = device_is_stacked(dev);
-        if (r != 0)
-                return r;
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to check if the device is stacked: %m");
+        if (r > 0)
+                return 0;
 
         r = get_ifname_prefix(dev, &prefix);
         if (r < 0) {

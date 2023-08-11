@@ -3456,7 +3456,7 @@ void manager_override_watchdog(Manager *m, WatchdogType t, usec_t timeout) {
         if (m->watchdog_overridden[t] == timeout)
                 return;
 
-        usec = (timeout == USEC_INFINITY) ? m->watchdog[t] : timeout;
+        usec = timeout == USEC_INFINITY ? m->watchdog[t] : timeout;
         if (t == WATCHDOG_RUNTIME)
                 (void) watchdog_setup(usec);
         else if (t == WATCHDOG_PRETIMEOUT)

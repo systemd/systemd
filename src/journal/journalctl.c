@@ -2310,7 +2310,6 @@ static int on_signal(sd_event_source *s, const struct signalfd_siginfo *si, void
 
 static int setup_event(Context *c, int fd, sd_event **ret) {
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
-        struct stat st;
         int r;
 
         assert(arg_follow);
@@ -2329,15 +2328,15 @@ static int setup_event(Context *c, int fd, sd_event **ret) {
         if (r < 0)
                 return log_error_errno(r, "Failed to add io event source for journal: %m");
 
-        if (fstat(STDOUT_FILENO, &st) < 0)
-                return log_error_errno(errno, "Failed to stat stdout: %m");
-
-        if (IN_SET(st.st_mode & S_IFMT, S_IFCHR, S_IFIFO, S_IFSOCK)) {
-                /* Also keeps an eye on STDOUT, and exits as soon as we see a POLLHUP on that, i.e. when it is closed. */
-                r = sd_event_add_io(e, NULL, STDOUT_FILENO, EPOLLHUP|EPOLLERR, NULL, INT_TO_PTR(-ECANCELED));
-                if (r < 0)
-                        return log_error_errno(r, "Failed to add io event source for stdout: %m");
-        }
+        /* Also keeps an eye on STDOUT, and exits as soon as we see a POLLHUP on that, i.e. when it is closed. */
+        r = sd_event_add_io(e, NULL, STDOUT_FILENO, EPOLLHUP|EPOLLERR, NULL, INT_TO_PTR(-ECANCELED));
+        if (r == -EPERM)
+                /* Installing an epoll watch on a regular file doesn't work and fails with EPERM. Which is
+                 * totally OK, handle it gracefully. epoll_ctl() documents EPERM as the error returned when
+                 * the specified fd doesn't support epoll, hence it's safe to check for that. */
+                log_debug_errno(r, "Unable to install EPOLLHUP watch on stderr, not watching for hangups.");
+        else if (r < 0)
+                return log_error_errno(r, "Failed to add io event source for stdout: %m");
 
         if (arg_lines != 0 || arg_since_set) {
                 r = sd_event_add_defer(e, NULL, on_first_event, c);
