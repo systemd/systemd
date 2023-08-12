@@ -339,6 +339,8 @@ const char *ci_environment(void) {
                 return (ans = "github-actions");
         if (getenv("AUTOPKGTEST_ARTIFACTS") || getenv("AUTOPKGTEST_TMP"))
                 return (ans = "autopkgtest");
+        if (getenv("SALSA_CI_IMAGES"))
+                return (ans = "salsa-ci");
 
         FOREACH_STRING(var, "CI", "CONTINOUS_INTEGRATION") {
                 /* Those vars are booleans according to Semaphore and Travis docs:
