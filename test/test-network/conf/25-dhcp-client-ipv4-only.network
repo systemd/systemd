@@ -28,6 +28,7 @@ AllowList=192.168.5.0/24 192.168.6.0/24
 DenyList=192.168.5.0/24
 # just a random label which should exist
 NetLabel=system_u:object_r:root_t:s0
+NFTSet=inet:sd_test:addr4
 
 [Route]
 Destination=192.168.5.0/24

@@ -170,6 +170,8 @@ int netlink_add_match_internal(
 #define NETLINK_DONT_DESTROY(nl) \
         _cleanup_(sd_netlink_unrefp) _unused_ sd_netlink *_dont_destroy_##nl = sd_netlink_ref(nl)
 
+bool nfproto_is_valid(int nfproto);
+
 /* nfnl */
 /* TODO: to be exported later */
 int sd_nfnl_socket_open(sd_netlink **ret);
