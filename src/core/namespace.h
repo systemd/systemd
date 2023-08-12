@@ -122,6 +122,7 @@ int setup_namespace(
                 const char *tmp_dir,
                 const char *var_tmp_dir,
                 const char *creds_path,
+                int creds_fd,
                 const char *log_namespace,
                 unsigned long mount_propagation_flag,
                 VeritySettings *verity,
