@@ -329,7 +329,7 @@ int make_filesystem(
                 char * const *extra_mkfs_args) {
 
         _cleanup_free_ char *mkfs = NULL, *mangled_label = NULL;
-        _cleanup_strv_free_ char **argv = NULL;
+        _cleanup_strv_free_ char **argv = NULL, **env = NULL;
         _cleanup_(rm_rf_physical_and_freep) char *protofile_tmpdir = NULL;
         _cleanup_(unlink_and_freep) char *protofile = NULL;
         char vol_id[CONST_MAX(SD_ID128_UUID_STRING_MAX, 8U + 1U)] = {};
@@ -431,6 +431,15 @@ int make_filesystem(
 
                 if (quiet && strv_extend(&argv, "-q") < 0)
                         return log_oom();
+
+                if (sector_size > 0)
+                        FOREACH_STRING(s, "MKE2FS_DEVICE_SECTSIZE", "MKE2FS_DEVICE_PHYS_SECTSIZE") {
+                                if (strv_extend(&env, s) < 0)
+                                        return log_oom();
+
+                                if (strv_extendf(&env, "%"PRIu64, sector_size) < 0)
+                                        return log_oom();
+                        }
 
         } else if (streq(fstype, "btrfs")) {
                 argv = strv_new(mkfs,
@@ -593,6 +602,12 @@ int make_filesystem(
                 return r;
         if (r == 0) {
                 /* Child */
+
+                STRV_FOREACH_PAIR(k, v, env)
+                        if (setenv(*k, *v, /* replace = */ true) < 0) {
+                                log_error_errno(r, "Failed to set %s=%s environment variable: %m", *k, *v);
+                                _exit(EXIT_FAILURE);
+                        }
 
                 /* mkfs.btrfs refuses to operate on block devices with mounted partitions, even if operating
                  * on unformatted free space, so let's trick it and other mkfs tools into thinking no
