@@ -2041,7 +2041,9 @@ static int build_environment(
                 our_env[n_env++] = x;
         }
 
-        if (exec_context_has_credentials(c) && p->prefix[EXEC_DIRECTORY_RUNTIME]) {
+        if (exec_context_has_credentials(c) &&
+            p->prefix[EXEC_DIRECTORY_RUNTIME] &&
+            FLAGS_SET(p->flags, EXEC_WRITE_CREDENTIALS)) {
                 x = strjoin("CREDENTIALS_DIRECTORY=", p->prefix[EXEC_DIRECTORY_RUNTIME], "/credentials/", u->id);
                 if (!x)
                         return -ENOMEM;
