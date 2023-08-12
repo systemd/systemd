@@ -197,9 +197,9 @@ static int proc_cmdline_parse_strv(char **args, proc_cmdline_parse_t parse_item,
 
         assert(parse_item);
 
-        /* The PROC_CMDLINE_VALUE_OPTIONAL flag doesn't really make sense for proc_cmdline_parse(), let's
-         * make this clear. */
-        assert(!FLAGS_SET(flags, PROC_CMDLINE_VALUE_OPTIONAL));
+        /* The PROC_CMDLINE_VALUE_OPTIONAL and PROC_CMDLINE_TRUE_WHEN_MISSING flags don't really make sense
+         * for proc_cmdline_parse(), let's make this clear. */
+        assert(!(flags & (PROC_CMDLINE_VALUE_OPTIONAL|PROC_CMDLINE_TRUE_WHEN_MISSING)));
 
         STRV_FOREACH(word, args) {
                 char *key, *value;
@@ -351,6 +351,9 @@ int proc_cmdline_get_key(const char *key, ProcCmdlineFlags flags, char **ret_val
          *
          * In all three cases, > 0 is returned if the key is found, 0 if not. */
 
+        /* PROC_CMDLINE_TRUE_WHEN_MISSING doesn't really make sense for proc_cmdline_get_key(). */
+        assert(!FLAGS_SET(flags, PROC_CMDLINE_TRUE_WHEN_MISSING));
+
         if (isempty(key))
                 return -EINVAL;
 
@@ -398,11 +401,11 @@ int proc_cmdline_get_bool(const char *key, ProcCmdlineFlags flags, bool *ret) {
 
         assert(ret);
 
-        r = proc_cmdline_get_key(key, flags | PROC_CMDLINE_VALUE_OPTIONAL, &v);
+        r = proc_cmdline_get_key(key, (flags & ~PROC_CMDLINE_TRUE_WHEN_MISSING) | PROC_CMDLINE_VALUE_OPTIONAL, &v);
         if (r < 0)
                 return r;
         if (r == 0) { /* key not specified at all */
-                *ret = false;
+                *ret = FLAGS_SET(flags, PROC_CMDLINE_TRUE_WHEN_MISSING);
                 return 0;
         }
 
@@ -456,9 +459,9 @@ int proc_cmdline_get_key_many_internal(ProcCmdlineFlags flags, ...) {
         int r, ret = 0;
         va_list ap;
 
-        /* The PROC_CMDLINE_VALUE_OPTIONAL flag doesn't really make sense for proc_cmdline_get_key_many(), let's make
-         * this clear. */
-        assert(!FLAGS_SET(flags, PROC_CMDLINE_VALUE_OPTIONAL));
+        /* The PROC_CMDLINE_VALUE_OPTIONAL and PROC_CMDLINE_TRUE_WHEN_MISSING flags don't really make sense
+         * for proc_cmdline_get_key_many, let's make this clear. */
+        assert(!(flags & (PROC_CMDLINE_VALUE_OPTIONAL|PROC_CMDLINE_TRUE_WHEN_MISSING)));
 
         /* This call may clobber arguments on failure! */
 
