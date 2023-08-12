@@ -189,11 +189,11 @@ unit: sectors
 first-lba: 2048
 last-lba: 2097118
 $imgs/copy1 : start=        2048, size=       33432, type=933AC7E1-2EB4-4F13-B844-0E14E2AEF915, uuid=4980595D-D74A-483A-AA9E-9903879A0EE5, name=\"home-first\", attrs=\"GUID:59\"
-$imgs/copy2 : start=       35480, size=       33440, type=4F68BCE3-E8CD-4DB1-96E7-FBCAF984B709, uuid=60F33797-1D71-4DCB-AA6F-20564F036CD0, name=\"root-x86-64\", attrs=\"GUID:59\"
-$imgs/copy3 : start=       68920, size=       33440, type=4F68BCE3-E8CD-4DB1-96E7-FBCAF984B709, uuid=73A4CCD2-EAF5-44DA-A366-F99188210FDC, name=\"root-x86-64-2\", attrs=\"GUID:59\"
+$imgs/copy2 : start=       35480, size=       33440, type=${root_guid}, uuid=${root_uuid}, name=\"root-${architecture}\", attrs=\"GUID:59\"
+$imgs/copy3 : start=       68920, size=       33440, type=${root_guid}, uuid=${root_uuid2}, name=\"root-${architecture}-2\", attrs=\"GUID:59\"
 $imgs/copy4 : start=      102360, size=       33432, type=933AC7E1-2EB4-4F13-B844-0E14E2AEF915, uuid=4980595D-D74A-483A-AA9E-9903879A0EE5, name=\"home-first\", attrs=\"GUID:59\"
-$imgs/copy5 : start=      135792, size=       33440, type=4F68BCE3-E8CD-4DB1-96E7-FBCAF984B709, uuid=60F33797-1D71-4DCB-AA6F-20564F036CD0, name=\"root-x86-64\", attrs=\"GUID:59\"
-$imgs/copy6 : start=      169232, size=       33440, type=4F68BCE3-E8CD-4DB1-96E7-FBCAF984B709, uuid=73A4CCD2-EAF5-44DA-A366-F99188210FDC, name=\"root-x86-64-2\", attrs=\"GUID:59\""
+$imgs/copy5 : start=      135792, size=       33440, type=${root_guid}, uuid=${root_uuid}, name=\"root-${architecture}\", attrs=\"GUID:59\"
+$imgs/copy6 : start=      169232, size=       33440, type=${root_guid}, uuid=${root_uuid2}, name=\"root-${architecture}-2\", attrs=\"GUID:59\""
 
     rm "$imgs/qqq" "$imgs/copy" # Save disk space
 
