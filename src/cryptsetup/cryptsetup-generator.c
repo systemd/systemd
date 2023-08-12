@@ -216,7 +216,9 @@ static int generate_device_umount(const char *name,
                 "DefaultDependencies=no\n"
                 "After=%s\n\n"
                 "[Service]\n"
-                "ExecStart=-" UMOUNT_PATH " %s\n\n", mount, device_mount);
+                "ExecStart=-" UMOUNT_PATH " %s\n\n",
+                mount,
+                device_mount);
 
         r = fflush_and_check(f);
         if (r < 0)
@@ -272,7 +274,7 @@ static int print_dependencies(FILE *f, const char* device_path, const char* time
                         fprintf(f, "Requires=%1$s\n", unit);
         } else {
                 /* Regular file, add mount dependency */
-                _cleanup_free_ char *escaped_path = specifier_escape(device_path);
+                _cleanup_free_ char *escaped_path = unit_setting_escape_path(device_path);
                 if (!escaped_path)
                         return log_oom();
 
@@ -345,7 +347,7 @@ static int create_disk(
                                        "Device '%s' cannot be both 'tmp' and 'swap'. Ignoring.",
                                        name);
 
-        name_escaped = specifier_escape(name);
+        name_escaped = unit_setting_escape_path(name);
         if (!name_escaped)
                 return log_oom();
 
@@ -361,7 +363,7 @@ static int create_disk(
         if (r < 0)
                 return log_error_errno(r, "Failed to generate unit name: %m");
 
-        u_escaped = specifier_escape(u);
+        u_escaped = unit_setting_escape_path(u);
         if (!u_escaped)
                 return log_oom();
 
@@ -426,8 +428,7 @@ static int create_disk(
                                 "Wants=%s\n"
                                 "Before=%s\n",
                                 umount_unit,
-                                umount_unit
-                        );
+                                umount_unit);
         }
 
         if (headerdev) {
@@ -474,8 +475,7 @@ static int create_disk(
                                 "Wants=%s\n"
                                 "Before=%s\n",
                                 umount_unit,
-                                umount_unit
-                        );
+                                umount_unit);
         }
 
         if (!nofail)
@@ -493,9 +493,7 @@ static int create_disk(
 
         /* Check if a header option was specified */
         if (detached_header > 0 && !headerdev) {
-                r = print_dependencies(f, header_path,
-                        NULL,
-                        /* canfail= */ false); /* header is always necessary */
+                r = print_dependencies(f, header_path, NULL, /* canfail= */ false); /* header is always necessary */
                 if (r < 0)
                         return r;
         }

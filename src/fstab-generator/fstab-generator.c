@@ -430,6 +430,8 @@ static int write_requires_mounts_for(FILE *f, const char *opts) {
         if (r == 0)
                 return 0;
 
+        /* We don't need unit_setting_escape_path here, because the fstab options can't include special
+         * characters anyway. */
         r = specifier_escape_strv(paths, &paths_escaped);
         if (r < 0)
                 return log_error_errno(r, "Failed to escape paths: %m");

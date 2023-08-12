@@ -190,7 +190,7 @@ static int write_fsck_sysroot_service(
                 const char *what,
                 const char *extra_after) {
 
-        _cleanup_free_ char *device = NULL, *escaped = NULL, *escaped2 = NULL;
+        _cleanup_free_ char *device = NULL, *escaped = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         const char *fn;
         int r;
@@ -200,12 +200,8 @@ static int write_fsck_sysroot_service(
          * paths, which doesn't match what we need for the initrd (where the dirs are /sysroot +
          * /sysusr/usr), hence we overwrite those versions here. */
 
-        escaped = specifier_escape(what);
+        escaped = unit_setting_escape_path(what);
         if (!escaped)
-                return log_oom();
-
-        escaped2 = cescape(escaped);
-        if (!escaped2)
                 return log_oom();
 
         fn = strjoina(dir, "/", unit);
@@ -234,15 +230,14 @@ static int write_fsck_sysroot_service(
                 "[Service]\n"
                 "Type=oneshot\n"
                 "RemainAfterExit=yes\n"
-                "ExecStart=" SYSTEMD_FSCK_PATH " %7$s\n"
+                "ExecStart=" SYSTEMD_FSCK_PATH " %2$s\n"
                 "TimeoutSec=infinity\n",
                 program_invocation_short_name,
                 escaped,
                 unit,
                 device,
                 strempty(extra_after),
-                isempty(extra_after) ? "" : " ",
-                escaped2);
+                isempty(extra_after) ? "" : " ");
 
         r = fflush_and_check(f);
         if (r < 0)
@@ -499,7 +494,7 @@ int generator_hook_up_mkswap(
 
         log_debug("Creating %s", unit_file);
 
-        escaped = cescape(node);
+        escaped = unit_setting_escape_path(node);
         if (!escaped)
                 return log_oom();
 
@@ -586,7 +581,7 @@ int generator_hook_up_mkfs(
         else
                 fsck_unit = "systemd-fsck@%i.service";
 
-        escaped = cescape(node);
+        escaped = unit_setting_escape_path(node);
         if (!escaped)
                 return log_oom();
 
@@ -776,16 +771,16 @@ int generator_write_cryptsetup_service_section(
         assert(name);
         assert(what);
 
-        name_escaped = specifier_escape(name);
+        name_escaped = unit_setting_escape_path(name);
         if (!name_escaped)
                 return log_oom();
 
-        what_escaped = specifier_escape(what);
+        what_escaped = unit_setting_escape_path(what);
         if (!what_escaped)
                 return log_oom();
 
         if (key_file) {
-                key_file_escaped = specifier_escape(key_file);
+                key_file_escaped = unit_setting_escape_path(key_file);
                 if (!key_file_escaped)
                         return log_oom();
         }
@@ -852,11 +847,11 @@ int generator_write_veritysetup_service_section(
         assert(data_what);
         assert(hash_what);
 
-        name_escaped = specifier_escape(name);
+        name_escaped = unit_setting_escape_path(name);
         if (!name_escaped)
                 return log_oom();
 
-        data_what_escaped = specifier_escape(data_what);
+        data_what_escaped = unit_setting_escape_path(data_what);
         if (!data_what_escaped)
                 return log_oom();
 
@@ -899,4 +894,14 @@ void log_setup_generator(void) {
 
         log_parse_environment();
         (void) log_open();
+}
+
+char *unit_setting_escape_path(const char *path) {
+        _cleanup_free_ char *escape1 = NULL;
+
+        escape1 = specifier_escape(path);
+        if (!escape1)
+                return NULL;
+
+        return cescape(escape1);
 }

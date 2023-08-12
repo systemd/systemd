@@ -599,7 +599,7 @@ int xdg_autostart_service_generate_unit(
                         return log_oom();
         }
 
-        path_escaped = specifier_escape(service->path);
+        path_escaped = unit_setting_escape_path(service->path);
         if (!path_escaped)
                 return log_oom();
 
@@ -646,7 +646,7 @@ int xdg_autostart_service_generate_unit(
         if (service->working_directory) {
                 _cleanup_free_ char *e_working_directory = NULL;
 
-                e_working_directory = cescape(service->working_directory);
+                e_working_directory = unit_setting_escape_path(service->working_directory);
                 if (!e_working_directory)
                         return log_oom();
 

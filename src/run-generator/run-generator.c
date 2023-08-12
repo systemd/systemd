@@ -90,6 +90,8 @@ static int generate(void) {
         STRV_FOREACH(c, arg_commands) {
                 _cleanup_free_ char *a = NULL;
 
+                /* The kernel cmdline can't contain special characters (we discard them during parsing). So
+                 * unit_setting_escape_path is not necessary. */
                 a = specifier_escape(*c);
                 if (!a)
                         return log_oom();
