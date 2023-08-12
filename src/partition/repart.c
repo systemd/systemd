@@ -96,6 +96,10 @@
 /* LUKS2 volume key size. */
 #define VOLUME_KEY_SIZE (512ULL/8ULL)
 
+/* Use 4K as the default filesystem sector size because as long as the partitions are aligned to 4K, the
+ * filesystems will then also be compatible with sector sizes 512, 1024 and 2048. */
+#define DEFAULT_FILESYSTEM_SECTOR_SIZE 4096ULL
+
 #define APIVFS_TMP_DIRS_NULSTR "proc\0sys\0dev\0tmp\0run\0var/tmp\0"
 
 /* Note: When growing and placing new partitions we always align to 4K sector size. It's how newer hard disks
@@ -280,8 +284,7 @@ typedef struct Context {
         uint64_t start, end, total;
 
         struct fdisk_context *fdisk_context;
-        uint64_t sector_size;
-        uint64_t grain_size;
+        uint64_t sector_size, grain_size, fs_sector_size;
 
         sd_id128_t seed;
 
@@ -2221,7 +2224,7 @@ static int context_load_partition_table(Context *context) {
         sd_id128_t disk_uuid;
         size_t n_partitions;
         unsigned long secsz;
-        uint64_t grainsz;
+        uint64_t grainsz, fs_secsz = DEFAULT_FILESYSTEM_SECTOR_SIZE;
         int r;
 
         assert(context);
@@ -2235,20 +2238,31 @@ static int context_load_partition_table(Context *context) {
         if (!c)
                 return log_oom();
 
-        if (arg_sector_size > 0)
+        if (arg_sector_size > 0) {
                 r = fdisk_save_user_sector_size(c, /* phy= */ 0, arg_sector_size);
-        else {
+                fs_secsz = arg_sector_size;
+        } else {
                 uint32_t ssz;
+                struct stat st;
 
                 r = context_open_and_lock_backing_fd(context->node, arg_dry_run ? LOCK_SH : LOCK_EX,
                                                      &context->backing_fd);
                 if (r < 0)
                         return r;
 
+                if (fstat(context->backing_fd, &st) < 0)
+                        return log_error_errno(r, "Failed to stat %s: %m", context->node);
+
                 /* Auto-detect sector size if not specified. */
                 r = probe_sector_size_prefer_ioctl(context->backing_fd, &ssz);
                 if (r < 0)
                         return log_error_errno(r, "Failed to probe sector size of '%s': %m", context->node);
+
+                /* If we found the sector size and we're operating on a block device, use it as the file
+                 * system sector size as well, as we know its the sector size of the actual block device and
+                 * not just the offset at which we found the GPT header. */
+                if (r > 0 && S_ISBLK(st.st_mode))
+                        fs_secsz = ssz;
 
                 r = fdisk_save_user_sector_size(c, /* phy= */ 0, ssz);
         }
@@ -2276,7 +2290,8 @@ static int context_load_partition_table(Context *context) {
 
                 if (S_ISREG(st.st_mode) && st.st_size == 0) {
                         /* Use the fallback values if we have no better idea */
-                        context->sector_size = arg_sector_size ?: 512;
+                        context->sector_size = fdisk_get_sector_size(c);
+                        context->fs_sector_size = fs_secsz;
                         context->grain_size = 4096;
                         return /* from_scratch = */ true;
                 }
@@ -2554,6 +2569,7 @@ add_initial_free_area:
         context->end = last_lba;
         context->total = nsectors;
         context->sector_size = secsz;
+        context->fs_sector_size = fs_secsz;
         context->grain_size = grainsz;
         context->fdisk_context = TAKE_PTR(c);
 
@@ -3567,7 +3583,7 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
         const char *node = partition_target_path(target);
         struct crypt_params_luks2 luks_params = {
                 .label = strempty(ASSERT_PTR(p)->new_label),
-                .sector_size = ASSERT_PTR(context)->sector_size,
+                .sector_size = ASSERT_PTR(context)->fs_sector_size,
                 .data_device = offline ? node : NULL,
         };
         struct crypt_params_reencrypt reencrypt_params = {
@@ -3608,7 +3624,7 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
 
                 /* Weird cryptsetup requirement which requires the header file to be the size of at least one
                  * sector. */
-                r = ftruncate(fileno(h), context->sector_size);
+                r = ftruncate(fileno(h), luks_params.sector_size);
                 if (r < 0)
                         return log_error_errno(r, "Failed to grow temporary LUKS header file: %m");
         } else {
@@ -3901,8 +3917,8 @@ static int partition_format_verity_hash(
                                 .flags = CRYPT_VERITY_CREATE_HASH,
                                 .hash_name = "sha256",
                                 .hash_type = 1,
-                                .data_block_size = context->sector_size,
-                                .hash_block_size = context->sector_size,
+                                .data_block_size = context->fs_sector_size,
+                                .hash_block_size = context->fs_sector_size,
                                 .salt_size = sizeof(p->verity_salt),
                                 .salt = (const char*)p->verity_salt,
                         });
@@ -4647,8 +4663,8 @@ static int context_mkfs(Context *context) {
                                                p->format);
 
                 r = make_filesystem(partition_target_path(t), p->format, strempty(p->new_label), root,
-                                    p->fs_uuid, arg_discard, /* quiet = */ false, context->sector_size,
-                                    extra_mkfs_options);
+                                    p->fs_uuid, arg_discard, /* quiet = */ false,
+                                    context->fs_sector_size, extra_mkfs_options);
                 if (r < 0)
                         return r;
 
@@ -5998,8 +6014,14 @@ static int context_minimize(Context *context) {
                                                "Failed to determine mkfs command line options for '%s': %m",
                                                p->format);
 
-                r = make_filesystem(d ? d->node : temp, p->format, strempty(p->new_label), root, fs_uuid,
-                                    arg_discard, /* quiet = */ false, context->sector_size, extra_mkfs_options);
+                r = make_filesystem(d ? d->node : temp,
+                                    p->format,
+                                    strempty(p->new_label),
+                                    root,
+                                    fs_uuid,
+                                    arg_discard, /* quiet = */ false,
+                                    context->fs_sector_size,
+                                    extra_mkfs_options);
                 if (r < 0)
                         return r;
 
@@ -6071,8 +6093,15 @@ static int context_minimize(Context *context) {
                                 return log_error_errno(r, "Failed to make loopback device of %s: %m", temp);
                 }
 
-                r = make_filesystem(d ? d->node : temp, p->format, strempty(p->new_label), root, p->fs_uuid,
-                                    arg_discard, /* quiet = */ false, context->sector_size, extra_mkfs_options);
+                r = make_filesystem(d ? d->node : temp,
+                                    p->format,
+                                    strempty(p->new_label),
+                                    root,
+                                    p->fs_uuid,
+                                    arg_discard,
+                                    /* quiet = */ false,
+                                    context->fs_sector_size,
+                                    extra_mkfs_options);
                 if (r < 0)
                         return r;
 
