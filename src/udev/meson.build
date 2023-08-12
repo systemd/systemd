@@ -121,7 +121,6 @@ libudevd_core = static_library(
 udev_dependencies = [
         libacl,
         libblkid,
-        libidn,
         libkmod,
         threads,
 ]
