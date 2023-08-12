@@ -7,6 +7,7 @@
 #include <sys/file.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
+#include <sys/mount.h>
 #include <sys/personality.h>
 #include <sys/prctl.h>
 #include <sys/shm.h>
@@ -72,6 +73,7 @@
 #include "missing_fs.h"
 #include "missing_ioprio.h"
 #include "missing_prctl.h"
+#include "missing_syscall.h"
 #include "mkdir-label.h"
 #include "namespace.h"
 #include "parse-util.h"
@@ -3112,6 +3114,7 @@ static int apply_mount_namespace(
                 ExecRuntime *runtime,
                 const char *memory_pressure_path,
                 const char *creds_path,
+                int creds_fd,
                 char **error_path) {
 
         _cleanup_(verity_settings_done) VeritySettings verity = VERITY_SETTINGS_DEFAULT;
@@ -3287,6 +3290,7 @@ static int apply_mount_namespace(
                         tmp_dir,
                         var_tmp_dir,
                         creds_path,
+                        creds_fd,
                         context->log_namespace,
                         context->mount_propagation_flag,
                         &verity,
@@ -3971,6 +3975,7 @@ static int exec_child(
         int ngids_after_pam = 0;
         _cleanup_free_ int *fds = NULL;
         _cleanup_strv_free_ char **fdnames = NULL;
+        _cleanup_close_ int creds_fd = -EBADF;
 
         assert(unit);
         assert(command);
@@ -4421,7 +4426,7 @@ static int exec_child(
         }
 
         if (FLAGS_SET(params->flags, EXEC_WRITE_CREDENTIALS)) {
-                r = setup_credentials(context, params, unit->id, uid, gid, &creds_path);
+                r = setup_credentials(context, params, unit->id, uid, gid, &creds_path, &creds_fd);
                 if (r < 0) {
                         *exit_status = EXIT_CREDENTIALS;
                         return log_unit_error_errno(unit, r, "Failed to set up credentials: %m");
@@ -4635,11 +4640,24 @@ static int exec_child(
         if (needs_mount_namespace) {
                 _cleanup_free_ char *error_path = NULL;
 
-                r = apply_mount_namespace(unit, command->flags, context, params, runtime, memory_pressure_path, creds_path, &error_path);
+                r = apply_mount_namespace(unit, command->flags, context, params, runtime, memory_pressure_path, creds_path, creds_fd, &error_path);
                 if (r < 0) {
                         *exit_status = EXIT_NAMESPACE;
                         return log_unit_error_errno(unit, r, "Failed to set up mount namespacing%s%s: %m",
                                                     error_path ? ": " : "", strempty(error_path));
+                }
+        }
+
+        if (creds_fd >= 0) {
+                assert(creds_path);
+
+                /* When a mount namespace is not requested, then the target directory may not exist yet.
+                 * Here, we ignore the failure, as if it fails, the subsequent move_mount() will fail. */
+                (void) mkdir_p_label(creds_path, 0755);
+
+                if (move_mount(creds_fd, "", AT_FDCWD, creds_path, MOVE_MOUNT_F_EMPTY_PATH) < 0) {
+                        *exit_status = EXIT_CREDENTIALS;
+                        return log_unit_error_errno(unit, errno, "Failed to mount credentials directory on %s: %m", creds_path);
                 }
         }
 
