@@ -475,6 +475,14 @@ int make_filesystem(
                 if (quiet && strv_extend(&argv, "-q") < 0)
                         return log_oom();
 
+                if (sector_size > 0) {
+                        if (strv_extend(&argv, "-w") < 0)
+                                return log_oom();
+
+                        if (strv_extendf(&argv, "%"PRIu64, sector_size) < 0)
+                                return log_oom();
+                }
+
         } else if (streq(fstype, "xfs")) {
                 const char *j;
 
