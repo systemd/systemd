@@ -195,7 +195,7 @@ static int generate_device_umount(const char *name,
         assert(name);
         assert(ret_umount_unit);
 
-        name_escaped = cescape(name);
+        name_escaped = unit_name_escape(name);
         if (!name_escaped)
                 return -ENOMEM;
 
