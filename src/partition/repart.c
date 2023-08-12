@@ -2235,16 +2235,26 @@ static int context_load_partition_table(Context *context) {
                 r = fdisk_save_user_sector_size(c, /* phy= */ 0, arg_sector_size);
         else {
                 uint32_t ssz;
+                struct stat st;
 
                 r = context_open_and_lock_backing_fd(context->node, arg_dry_run ? LOCK_SH : LOCK_EX,
                                                      &context->backing_fd);
                 if (r < 0)
                         return r;
 
+                if (fstat(context->backing_fd, &st) < 0)
+                        return log_error_errno(r, "Failed to stat %s: %m", context->node);
+
                 /* Auto-detect sector size if not specified. */
                 r = probe_sector_size_prefer_ioctl(context->backing_fd, &ssz);
                 if (r < 0)
                         return log_error_errno(r, "Failed to probe sector size of '%s': %m", context->node);
+
+                /* If we found the sector size and we're operating on a block the size, save it in
+                 * arg_sector_size so we can use it later to check if we're using the actual block device
+                 * sector size or are just using the offset of the GPT partition table as the sector size. */
+                if (r > 0 && S_ISBLK(st.st_mode))
+                        arg_sector_size = ssz;
 
                 r = fdisk_save_user_sector_size(c, /* phy= */ 0, ssz);
         }
@@ -2272,7 +2282,7 @@ static int context_load_partition_table(Context *context) {
 
                 if (S_ISREG(st.st_mode) && st.st_size == 0) {
                         /* Use the fallback values if we have no better idea */
-                        context->sector_size = arg_sector_size ?: 512;
+                        context->sector_size = fdisk_get_sector_size(c);
                         context->grain_size = 4096;
                         return /* from_scratch = */ true;
                 }
@@ -3563,7 +3573,7 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
         const char *node = partition_target_path(target);
         struct crypt_params_luks2 luks_params = {
                 .label = strempty(ASSERT_PTR(p)->new_label),
-                .sector_size = ASSERT_PTR(context)->sector_size,
+                .sector_size = arg_sector_size ? ASSERT_PTR(context)->sector_size : 4096,
                 .data_device = offline ? node : NULL,
         };
         struct crypt_params_reencrypt reencrypt_params = {
@@ -3604,7 +3614,7 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
 
                 /* Weird cryptsetup requirement which requires the header file to be the size of at least one
                  * sector. */
-                r = ftruncate(fileno(h), context->sector_size);
+                r = ftruncate(fileno(h), luks_params.sector_size);
                 if (r < 0)
                         return log_error_errno(r, "Failed to grow temporary LUKS header file: %m");
         } else {
@@ -3929,8 +3939,8 @@ static int partition_format_verity_hash(
                                 .flags = CRYPT_VERITY_CREATE_HASH,
                                 .hash_name = "sha256",
                                 .hash_type = 1,
-                                .data_block_size = context->sector_size,
-                                .hash_block_size = context->sector_size,
+                                .data_block_size = arg_sector_size ? context->sector_size : 4096,
+                                .hash_block_size = arg_sector_size ? context->sector_size : 4096,
                                 .salt_size = sizeof(p->verity_salt),
                                 .salt = (const char*)p->verity_salt,
                         });
@@ -4611,7 +4621,8 @@ static int context_mkfs(Context *context) {
                                                p->format);
 
                 r = make_filesystem(partition_target_path(t), p->format, strempty(p->new_label), root,
-                                    p->fs_uuid, arg_discard, /* quiet = */ false, context->sector_size,
+                                    p->fs_uuid, arg_discard, /* quiet = */ false,
+                                    arg_sector_size ? context->sector_size : 4096,
                                     extra_mkfs_options);
                 if (r < 0)
                         return r;
@@ -5962,8 +5973,14 @@ static int context_minimize(Context *context) {
                                                "Failed to determine mkfs command line options for '%s': %m",
                                                p->format);
 
-                r = make_filesystem(d ? d->node : temp, p->format, strempty(p->new_label), root, fs_uuid,
-                                    arg_discard, /* quiet = */ false, context->sector_size, extra_mkfs_options);
+                r = make_filesystem(d ? d->node : temp,
+                                    p->format,
+                                    strempty(p->new_label),
+                                    root,
+                                    fs_uuid,
+                                    arg_discard, /* quiet = */ false,
+                                    arg_sector_size ? context->sector_size : 4096,
+                                    extra_mkfs_options);
                 if (r < 0)
                         return r;
 
@@ -6035,8 +6052,15 @@ static int context_minimize(Context *context) {
                                 return log_error_errno(r, "Failed to make loopback device of %s: %m", temp);
                 }
 
-                r = make_filesystem(d ? d->node : temp, p->format, strempty(p->new_label), root, p->fs_uuid,
-                                    arg_discard, /* quiet = */ false, context->sector_size, extra_mkfs_options);
+                r = make_filesystem(d ? d->node : temp,
+                                    p->format,
+                                    strempty(p->new_label),
+                                    root,
+                                    p->fs_uuid,
+                                    arg_discard,
+                                    /* quiet = */ false,
+                                    arg_sector_size ? context->sector_size : 4096,
+                                    extra_mkfs_options);
                 if (r < 0)
                         return r;
 
