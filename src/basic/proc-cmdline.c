@@ -197,10 +197,6 @@ static int proc_cmdline_parse_strv(char **args, proc_cmdline_parse_t parse_item,
 
         assert(parse_item);
 
-        /* The PROC_CMDLINE_VALUE_OPTIONAL and PROC_CMDLINE_TRUE_WHEN_MISSING flags don't really make sense
-         * for proc_cmdline_parse(), let's make this clear. */
-        assert(!(flags & (PROC_CMDLINE_VALUE_OPTIONAL|PROC_CMDLINE_TRUE_WHEN_MISSING)));
-
         STRV_FOREACH(word, args) {
                 char *key, *value;
 
@@ -225,6 +221,10 @@ int proc_cmdline_parse(proc_cmdline_parse_t parse_item, void *data, ProcCmdlineF
         int r;
 
         assert(parse_item);
+
+        /* The PROC_CMDLINE_VALUE_OPTIONAL and PROC_CMDLINE_TRUE_WHEN_MISSING flags don't really make sense
+         * for proc_cmdline_parse(), let's make this clear. */
+        assert(!(flags & (PROC_CMDLINE_VALUE_OPTIONAL|PROC_CMDLINE_TRUE_WHEN_MISSING)));
 
         /* We parse the EFI variable first, because later settings have higher priority. */
 
