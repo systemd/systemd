@@ -114,7 +114,7 @@ static int generate_unit_file(SysvStub *s) {
         if (!s->loaded)
                 return 0;
 
-        path_escaped = specifier_escape(s->path);
+        path_escaped = unit_setting_escape_path(s->path);
         if (!path_escaped)
                 return log_oom();
 
@@ -172,7 +172,7 @@ static int generate_unit_file(SysvStub *s) {
         if (s->pid_file) {
                 _cleanup_free_ char *t = NULL;
 
-                t = specifier_escape(s->pid_file);
+                t = unit_setting_escape_path(s->pid_file);
                 if (!t)
                         return log_oom();
 
