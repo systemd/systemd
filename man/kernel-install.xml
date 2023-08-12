@@ -483,6 +483,16 @@
             See the Environment variables section above for details.</para>
           </listitem>
       </varlistentry>
+      <varlistentry>
+        <term>
+          <filename>/etc/kernel/uki.conf</filename>
+        </term>
+          <listitem>
+            <para>Ini-style configuration file for <citerefentry><refentrytitle>ukify</refentrytitle><manvolnum>1</manvolnum></citerefentry> which is only effective when <varname>$KERNEL_INSTALL_LAYOUT</varname> or <varname>layout=</varname> in <filename>install.conf</filename> is set to <option>uki</option> and <varname>$KERNEL_INSTALL_UKI_GENERATOR</varname> or <varname>uki_generator=</varname> in <filename>install.conf</filename> is set to <option>ukify</option>.
+            <varname>$KERNEL_INSTALL_CONF_ROOT</varname> may be used to override the path.
+            </para>
+          </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
@@ -493,6 +503,7 @@
       <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>depmod</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>ukify</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot Loader Specification</ulink>
     </para>
   </refsect1>
