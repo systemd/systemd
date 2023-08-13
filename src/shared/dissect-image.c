@@ -1980,7 +1980,7 @@ static int mount_partition(
                 if (!strextend_with_separator(&options, ",", m->mount_options))
                         return -ENOMEM;
 
-        r = mount_nofollow_verbose(LOG_DEBUG, node, p, fstype, ms_flags, options);
+        r = mount_nofollow_verbose(LOG_DEBUG, m->node, p, fstype, ms_flags, options);
         if (r < 0)
                 return r;
 
