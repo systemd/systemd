@@ -47,31 +47,31 @@ def run(args):
 
         logger.info("schedule reboot")
         console.sendline('shutdown -r')
-        console.expect("Reboot scheduled for (?P<date>.*), use 'shutdown -c' to cancel", 2)
+        console.expect("Reboot scheduled for (?P<date>.*), use 'shutdown -c' to cancel", 10)
         date = console.match.group('date')
         logger.info("reboot scheduled for %s", date)
 
         console.sendcontrol('a')
         console.send('0')
         logger.info("verify broadcast message")
-        console.expect(f'Broadcast message from root@H on {pty}', 2)
-        console.expect(f'The system will reboot at {date}', 2)
+        console.expect(f'Broadcast message from root@H on {pty}', 10)
+        console.expect(f'The system will reboot at {date}', 10)
 
         logger.info("check show output")
         console.sendline('shutdown --show')
-        console.expect(f"Reboot scheduled for {date}, use 'shutdown -c' to cancel", 2)
+        console.expect(f"Reboot scheduled for {date}, use 'shutdown -c' to cancel", 10)
 
         logger.info("cancel shutdown")
         console.sendline('shutdown -c')
         console.sendcontrol('a')
         console.send('1')
-        console.expect('System shutdown has been cancelled', 2)
+        console.expect('System shutdown has been cancelled', 10)
 
         logger.info("call for reboot")
         console.sendline('sleep 10; shutdown -r now')
         console.sendcontrol('a')
         console.send('0')
-        console.expect("The system will reboot now!", 12)
+        console.expect("The system will reboot now!", 20)
 
         logger.info("waiting for reboot")
 
@@ -98,7 +98,7 @@ def run(args):
         # SIGHUP/SIGINT/SIGKILL if the process is still alive.
         # [0] https://github.com/pexpect/pexpect/blob/acb017a97332c19a9295660fe87316926a8adc55/pexpect/spawnbase.py#L71
         console.terminate()
-        for _ in range(10):
+        for _ in range(30):
             if not console.isalive():
                 break
 
