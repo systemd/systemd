@@ -8,7 +8,6 @@
 #include "memory-util.h"
 #include "openssl-util.h"
 #include "pkcs11-util.h"
-#include "random-util.h"
 #include "strv.h"
 
 static int add_pkcs11_encrypted_key(
@@ -158,11 +157,10 @@ static int acquire_pkcs11_certificate(
 }
 
 int identity_add_pkcs11_key_data(JsonVariant **v, const char *uri) {
-        _cleanup_(erase_and_freep) void *decrypted_key = NULL, *encrypted_key = NULL;
+        _cleanup_(erase_and_freep) void *decrypted_key = NULL, *saved_key = NULL;
         _cleanup_(erase_and_freep) char *pin = NULL;
-        size_t decrypted_key_size, encrypted_key_size;
+        size_t decrypted_key_size, saved_key_size;
         _cleanup_(X509_freep) X509 *cert = NULL;
-        EVP_PKEY *pkey;
         int r;
 
         assert(v);
@@ -171,27 +169,9 @@ int identity_add_pkcs11_key_data(JsonVariant **v, const char *uri) {
         if (r < 0)
                 return r;
 
-        pkey = X509_get0_pubkey(cert);
-        if (!pkey)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to extract public key from X.509 certificate.");
-
-        r = rsa_pkey_to_suitable_key_size(pkey, &decrypted_key_size);
+        r = x509_generate_volume_keys(cert, &decrypted_key, &decrypted_key_size, &saved_key, &saved_key_size);
         if (r < 0)
-                return log_error_errno(r, "Failed to extract RSA key size from X509 certificate.");
-
-        log_debug("Generating %zu bytes random key.", decrypted_key_size);
-
-        decrypted_key = malloc(decrypted_key_size);
-        if (!decrypted_key)
-                return log_oom();
-
-        r = crypto_random_bytes(decrypted_key, decrypted_key_size);
-        if (r < 0)
-                return log_error_errno(r, "Failed to generate random key: %m");
-
-        r = rsa_encrypt_bytes(pkey, decrypted_key, decrypted_key_size, &encrypted_key, &encrypted_key_size);
-        if (r < 0)
-                return log_error_errno(r, "Failed to encrypt key: %m");
+                return log_error_errno(r, "Failed to generate volume keys: %m");
 
         /* Add the token URI to the public part of the record. */
         r = add_pkcs11_token_uri(v, uri);
@@ -202,7 +182,7 @@ int identity_add_pkcs11_key_data(JsonVariant **v, const char *uri) {
         r = add_pkcs11_encrypted_key(
                         v,
                         uri,
-                        encrypted_key, encrypted_key_size,
+                        saved_key, saved_key_size,
                         decrypted_key, decrypted_key_size);
         if (r < 0)
                 return r;
