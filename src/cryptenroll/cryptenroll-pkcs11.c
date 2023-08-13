@@ -6,7 +6,6 @@
 #include "memory-util.h"
 #include "openssl-util.h"
 #include "pkcs11-util.h"
-#include "random-util.h"
 
 int enroll_pkcs11(
                 struct crypt_device *cd,
@@ -18,12 +17,11 @@ int enroll_pkcs11(
         _cleanup_(erase_and_freep) char *base64_encoded = NULL;
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
         _cleanup_free_ char *keyslot_as_string = NULL;
-        size_t decrypted_key_size, encrypted_key_size;
-        _cleanup_free_ void *encrypted_key = NULL;
+        size_t decrypted_key_size, saved_key_size;
+        _cleanup_free_ void *saved_key = NULL;
         _cleanup_(X509_freep) X509 *cert = NULL;
         ssize_t base64_encoded_size;
         const char *node;
-        EVP_PKEY *pkey;
         int keyslot, r;
 
         assert_se(cd);
@@ -37,27 +35,9 @@ int enroll_pkcs11(
         if (r < 0)
                 return r;
 
-        pkey = X509_get0_pubkey(cert);
-        if (!pkey)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to extract public key from X.509 certificate.");
-
-        r = rsa_pkey_to_suitable_key_size(pkey, &decrypted_key_size);
+        r = x509_generate_volume_keys(cert, &decrypted_key, &decrypted_key_size, &saved_key, &saved_key_size);
         if (r < 0)
-                return log_error_errno(r, "Failed to determine RSA public key size.");
-
-        log_debug("Generating %zu bytes random key.", decrypted_key_size);
-
-        decrypted_key = malloc(decrypted_key_size);
-        if (!decrypted_key)
-                return log_oom();
-
-        r = crypto_random_bytes(decrypted_key, decrypted_key_size);
-        if (r < 0)
-                return log_error_errno(r, "Failed to generate random key: %m");
-
-        r = rsa_encrypt_bytes(pkey, decrypted_key, decrypted_key_size, &encrypted_key, &encrypted_key_size);
-        if (r < 0)
-                return log_error_errno(r, "Failed to encrypt key: %m");
+                return log_error_errno(r, "Failed to generate volume keys: %m");
 
         /* Let's base64 encode the key to use, for compat with homed (and it's easier to type it in by
          * keyboard, if that might ever end up being necessary.) */
@@ -87,7 +67,7 @@ int enroll_pkcs11(
                                        JSON_BUILD_PAIR("type", JSON_BUILD_CONST_STRING("systemd-pkcs11")),
                                        JSON_BUILD_PAIR("keyslots", JSON_BUILD_ARRAY(JSON_BUILD_STRING(keyslot_as_string))),
                                        JSON_BUILD_PAIR("pkcs11-uri", JSON_BUILD_STRING(uri)),
-                                       JSON_BUILD_PAIR("pkcs11-key", JSON_BUILD_BASE64(encrypted_key, encrypted_key_size))));
+                                       JSON_BUILD_PAIR("pkcs11-key", JSON_BUILD_BASE64(saved_key, saved_key_size))));
         if (r < 0)
                 return log_error_errno(r, "Failed to prepare PKCS#11 JSON token object: %m");
 
