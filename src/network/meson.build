@@ -56,6 +56,7 @@ sources = files(
         'networkd-lldp-tx.c',
         'networkd-manager-bus.c',
         'networkd-manager.c',
+        'networkd-mptcp.c',
         'networkd-ndisc.c',
         'networkd-neighbor.c',
         'networkd-netlabel.c',
