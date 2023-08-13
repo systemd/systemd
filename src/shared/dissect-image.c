@@ -2040,7 +2040,7 @@ static int mount_point_is_available(const char *where, const char *path, bool mi
                 return false;
         if (r < 0)
                 return log_debug_errno(r, "Failed to check directory \"%s\": %m", p);
-        return true;
+        return r > 0;
 }
 
 int dissected_image_mount(
