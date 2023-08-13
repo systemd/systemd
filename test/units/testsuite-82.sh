@@ -50,7 +50,7 @@ elif [ -f /run/testsuite82.touch2 ]; then
     # Test that we really are in the new overlayfs root fs
     read -r x </lower
     test "$x" = "miep"
-    cmp /etc/os-release /run/systemd/propagate/os-release
+    cmp /etc/os-release /run/systemd/propagate/.os-release-stage/os-release
     grep -q MARKER=1 /etc/os-release
 
     # Switch back to the original root, away from the overlayfs
@@ -96,7 +96,7 @@ elif [ -f /run/testsuite82.touch ]; then
     mkdir -p /tmp/nextroot-lower/usr/lib
     grep ID /etc/os-release >/tmp/nextroot-lower/usr/lib/os-release
     echo MARKER=1 >>/tmp/nextroot-lower/usr/lib/os-release
-    cmp /etc/os-release /run/systemd/propagate/os-release
+    cmp /etc/os-release /run/systemd/propagate/.os-release-stage/os-release
     (! grep -q MARKER=1 /etc/os-release)
 
     mount -t overlay nextroot /run/nextroot -o lowerdir=/tmp/nextroot-lower:/,ro

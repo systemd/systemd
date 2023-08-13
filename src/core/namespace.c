@@ -1842,7 +1842,7 @@ static int apply_mounts(
                 const NamespaceInfo *ns_info,
                 MountEntry *mounts,
                 size_t *n_mounts,
-                char **exec_dir_symlinks,
+                char **symlinks,
                 char **error_path) {
 
         _cleanup_fclose_ FILE *proc_self_mountinfo = NULL;
@@ -1910,12 +1910,12 @@ static int apply_mounts(
         }
 
         /* Now that all filesystems have been set up, but before the
-         * read-only switches are flipped, create the exec dirs symlinks.
+         * read-only switches are flipped, create the exec dirs and other symlinks.
          * Note that when /var/lib is not empty/tmpfs, these symlinks will already
          * exist, which means this will be a no-op. */
-        r = create_symlinks_from_tuples(root, exec_dir_symlinks);
+        r = create_symlinks_from_tuples(root, symlinks);
         if (r < 0)
-                return log_debug_errno(r, "Failed to set up ExecDirectories symlinks inside mount namespace: %m");
+                return log_debug_errno(r, "Failed to set up symlinks inside mount namespace: %m");
 
         /* Create a deny list we can pass to bind_mount_recursive() */
         deny_list = new(char*, (*n_mounts)+1);
@@ -2025,7 +2025,7 @@ int setup_namespace(
                 char** exec_paths,
                 char** no_exec_paths,
                 char** empty_directories,
-                char** exec_dir_symlinks,
+                char** symlinks,
                 const BindMount *bind_mounts,
                 size_t n_bind_mounts,
                 const TemporaryFileSystem *temporary_filesystems,
@@ -2047,7 +2047,7 @@ int setup_namespace(
                 const char *incoming_dir,
                 const char *extension_dir,
                 const char *notify_socket,
-                const char *host_os_release,
+                const char *host_os_release_stage,
                 char **error_path) {
 
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
@@ -2175,7 +2175,7 @@ int setup_namespace(
                         log_namespace,
                         setup_propagate,
                         notify_socket,
-                        host_os_release);
+                        host_os_release_stage);
 
         if (n_mounts > 0) {
                 m = mounts = new0(MountEntry, n_mounts);
@@ -2410,10 +2410,10 @@ int setup_namespace(
                                 .read_only = true,
                         };
 
-                if (host_os_release)
+                if (host_os_release_stage)
                         *(m++) = (MountEntry) {
-                                .path_const = "/run/host/os-release",
-                                .source_const = host_os_release,
+                                .path_const = "/run/host/.os-release-stage/",
+                                .source_const = host_os_release_stage,
                                 .mode = BIND_MOUNT,
                                 .read_only = true,
                                 .ignore = true, /* Live copy, don't hard-fail if it goes missing */
@@ -2508,7 +2508,7 @@ int setup_namespace(
                 (void) base_filesystem_create(root, UID_INVALID, GID_INVALID);
 
         /* Now make the magic happen */
-        r = apply_mounts(root, mount_image_policy, extension_image_policy, ns_info, mounts, &n_mounts, exec_dir_symlinks, error_path);
+        r = apply_mounts(root, mount_image_policy, extension_image_policy, ns_info, mounts, &n_mounts, symlinks, error_path);
         if (r < 0)
                 goto finish;
 
