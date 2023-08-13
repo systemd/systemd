@@ -1988,7 +1988,7 @@ int setup_namespace(
                 const char *incoming_dir,
                 const char *extension_dir,
                 const char *notify_socket,
-                const char *host_os_release,
+                const char *host_os_release_stage,
                 char **error_path) {
 
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
@@ -2115,7 +2115,7 @@ int setup_namespace(
                         log_namespace,
                         setup_propagate,
                         notify_socket,
-                        host_os_release);
+                        host_os_release_stage);
 
         if (n_mounts > 0) {
                 m = mounts = new0(MountEntry, n_mounts);
@@ -2350,10 +2350,10 @@ int setup_namespace(
                                 .read_only = true,
                         };
 
-                if (host_os_release)
+                if (host_os_release_stage)
                         *(m++) = (MountEntry) {
-                                .path_const = "/run/host/os-release",
-                                .source_const = host_os_release,
+                                .path_const = "/run/host/.os-release-stage/",
+                                .source_const = host_os_release_stage,
                                 .mode = BIND_MOUNT,
                                 .read_only = true,
                                 .ignore = true, /* Live copy, don't hard-fail if it goes missing */
@@ -2483,6 +2483,19 @@ int setup_namespace(
                 r = mount(NULL, incoming_dir, NULL, MS_SLAVE, NULL);
                 if (r < 0) {
                         log_error_errno(r, "Failed to remount %s with MS_SLAVE: %m", incoming_dir);
+                        goto finish;
+                }
+        }
+
+        /* We make the host's os-release available via a symlink, so that we can copy it atomically
+         * and readers will never get a half-written version. It is unlikely as it's not updated
+         * often, but better safe than sorry. */
+        if (host_os_release_stage) {
+                r = RET_NERRNO(symlink("/run/host/.os-release-stage/os-release", "../os-release"));
+                if (r < 0 && r != -EEXIST) {
+                        log_debug_errno(
+                                r,
+                                "Failed to link /run/host/.os-release-stage/os-release to /run/host/os-release: %m");
                         goto finish;
                 }
         }
