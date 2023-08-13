@@ -19,7 +19,7 @@
 
 bool fstab_enabled_full(int enabled) {
         static int cached = -1;
-        bool val;
+        bool val = true; /* If nothing specified or the check fails, then defaults to true. */
         int r;
 
         /* If 'enabled' is non-negative, then update the cache with it. */
@@ -29,12 +29,11 @@ bool fstab_enabled_full(int enabled) {
         if (cached >= 0)
                 return cached;
 
-        r = proc_cmdline_get_bool("fstab", PROC_CMDLINE_STRIP_RD_PREFIX, &val);
+        r = proc_cmdline_get_bool("fstab", PROC_CMDLINE_STRIP_RD_PREFIX|PROC_CMDLINE_TRUE_WHEN_MISSING, &val);
         if (r < 0)
-                log_debug_errno(r, "Failed to parse kernel command line, ignoring: %m");
+                log_debug_errno(r, "Failed to parse fstab= kernel command line option, ignoring: %m");
 
-        /* If nothing specified, then defaults to true. */
-        return (cached = r > 0 ? val : true);
+        return (cached = val);
 }
 
 int fstab_has_fstype(const char *fstype) {

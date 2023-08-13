@@ -109,15 +109,19 @@ int reboot_with_parameter(RebootFlags flags) {
         return log_full_errno(flags & REBOOT_LOG ? LOG_ERR : LOG_DEBUG, errno, "Failed to reboot: %m");
 }
 
-int shall_restore_state(void) {
-        bool ret;
+bool shall_restore_state(void) {
+        static int cached = -1;
+        bool b = true; /* If nothing specified or the check fails, then defaults to true. */
         int r;
 
-        r = proc_cmdline_get_bool("systemd.restore_state", /* flags = */ 0, &ret);
-        if (r < 0)
-                return r;
+        if (cached >= 0)
+                return cached;
 
-        return r > 0 ? ret : true;
+        r = proc_cmdline_get_bool("systemd.restore_state", PROC_CMDLINE_TRUE_WHEN_MISSING, &b);
+        if (r < 0)
+                log_debug_errno(r, "Failed to parse systemd.restore_state= kernel command line option, ignoring: %m");
+
+        return (cached = b);
 }
 
 static int xen_kexec_loaded(void) {

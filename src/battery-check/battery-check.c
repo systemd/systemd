@@ -88,23 +88,6 @@ static int plymouth_send_message(const char *mode, const char *message) {
         return 0;
 }
 
-static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
-        int r;
-
-        assert(key);
-
-        if (streq(key, "systemd.battery-check")) {
-
-                r = value ? parse_boolean(value) : 1;
-                if (r < 0)
-                        log_warning_errno(r, "Failed to parse %s switch, ignoring: %s", key, value);
-                else
-                        arg_doit = r;
-        }
-
-        return 0;
-}
-
 static int parse_argv(int argc, char * argv[]) {
 
         enum {
@@ -153,9 +136,9 @@ static int run(int argc, char *argv[]) {
 
         log_setup();
 
-        r = proc_cmdline_parse(parse_proc_cmdline_item, NULL, PROC_CMDLINE_STRIP_RD_PREFIX);
+        r = proc_cmdline_get_bool("systemd.battery-check", PROC_CMDLINE_STRIP_RD_PREFIX|PROC_CMDLINE_TRUE_WHEN_MISSING, &arg_doit);
         if (r < 0)
-                log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
+                log_warning_errno(r, "Failed to parse systemd.battery-check= kernel command line option, ignoring: %m");
 
         r = parse_argv(argc, argv);
         if (r <= 0)
