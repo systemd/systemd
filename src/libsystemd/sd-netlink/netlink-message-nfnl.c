@@ -12,7 +12,7 @@
 #include "netlink-types.h"
 #include "netlink-util.h"
 
-static bool nfproto_is_valid(int nfproto) {
+bool nfproto_is_valid(int nfproto) {
         return IN_SET(nfproto,
                       NFPROTO_UNSPEC,
                       NFPROTO_INET,
