@@ -20,13 +20,13 @@ static const char * const firewall_backend_table[_FW_BACKEND_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP_TO_STRING(firewall_backend, FirewallBackend);
 
-static void firewall_backend_probe(FirewallContext *ctx) {
+void fw_backend_probe(FirewallContext *ctx) {
         assert(ctx);
 
         if (ctx->backend != _FW_BACKEND_INVALID)
                 return;
 
-        if (fw_nftables_init(ctx) >= 0)
+        if (fw_nftables_init_tables(ctx) >= 0)
                 ctx->backend = FW_BACKEND_NFTABLES;
         else
 #if HAVE_LIBIPTC
@@ -42,6 +42,7 @@ static void firewall_backend_probe(FirewallContext *ctx) {
 }
 
 int fw_ctx_new(FirewallContext **ret) {
+        int r;
         _cleanup_free_ FirewallContext *ctx = NULL;
 
         ctx = new(FirewallContext, 1);
@@ -52,7 +53,9 @@ int fw_ctx_new(FirewallContext **ret) {
                 .backend = _FW_BACKEND_INVALID,
         };
 
-        firewall_backend_probe(ctx);
+        r = fw_nftables_init(ctx);
+        if (r < 0)
+                return r;
 
         *ret = TAKE_PTR(ctx);
         return 0;
@@ -82,6 +85,8 @@ int fw_add_masquerade(
                 r = fw_ctx_new(ctx);
                 if (r < 0)
                         return r;
+
+                fw_backend_probe(*ctx);
         }
 
         switch ((*ctx)->backend) {
@@ -114,6 +119,8 @@ int fw_add_local_dnat(
                 r = fw_ctx_new(ctx);
                 if (r < 0)
                         return r;
+
+                fw_backend_probe(*ctx);
         }
 
         switch ((*ctx)->backend) {

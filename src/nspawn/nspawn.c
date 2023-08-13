@@ -5840,6 +5840,8 @@ static int run(int argc, char *argv[]) {
                         log_error_errno(r, "Cannot expose configured ports, firewall initialization failed: %m");
                         goto finish;
                 }
+
+                fw_backend_probe(fw_ctx);
                 expose_args.fw_ctx = fw_ctx;
         }
         for (;;) {
