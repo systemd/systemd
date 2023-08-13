@@ -2147,34 +2147,32 @@ int dissected_image_mount(
                 slash_boot_is_available = !r;
         }
 
-        if (m->partitions[PARTITION_ESP].found) {
-                const char *esp_path = NULL;
+        r = mount_point_is_available(where, "/efi", /* missing_ok = */ true);
+        if (r < 0)
+                return r;
+        if (r > 0) {
+                r = mount_partition(PARTITION_ESP, m->partitions + PARTITION_ESP, where, "/efi", uid_shift, uid_range, flags);
+                if (r < 0)
+                        return r;
+        }
 
-                /* Mount the ESP to /boot/ if it exists and is empty and we didn't already mount the XBOOTLDR
-                 * partition into it. Otherwise, use /efi instead, but only if it exists and is empty. */
+        /* From the boot loader specification: If $BOOT and the ESP are the same, then either a bind mount or
+         * a symlink should be established making the partition available under both paths. */
 
-                if (slash_boot_is_available) {
-                        r = mount_point_is_available(where, "/boot", /* missing_ok = */ false);
-                        if (r < 0)
-                                return r;
-                        if (r > 0)
-                                esp_path = "/boot";
-                }
+        if (r > 0 && slash_boot_is_available) {
+                _cleanup_free_ char *src = NULL, *dst = NULL;
 
-                if (!esp_path) {
-                        r = mount_point_is_available(where, "/efi", /* missing_ok = */ true);
-                        if (r < 0)
-                                return r;
-                        if (r > 0)
-                                esp_path = "/efi";
-                }
+                r = chase("/efi", where, CHASE_PREFIX_ROOT, &src, NULL);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to chase /efi: %m");
 
-                if (esp_path) {
-                        /* OK, let's mount the ESP now (possibly creating the dir if missing) */
-                        r = mount_partition(PARTITION_ESP, m->partitions + PARTITION_ESP, where, esp_path, uid_shift, uid_range, flags);
-                        if (r < 0)
-                                return r;
-                }
+                r = chase("/boot", where, CHASE_PREFIX_ROOT, &dst, NULL);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to chase /boot: %m");
+
+                r = mount_nofollow_verbose(LOG_DEBUG, src, dst, NULL, MS_BIND|MS_REC, NULL);
+                if (r < 0)
+                        return r;
         }
 
         return 0;
