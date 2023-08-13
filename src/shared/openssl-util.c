@@ -1,9 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "fd-util.h"
-#include "openssl-util.h"
 #include "alloc-util.h"
+#include "fd-util.h"
 #include "hexdecoct.h"
+#include "openssl-util.h"
+#include "random-util.h"
 
 #if HAVE_OPENSSL
 /* For each error in the the Openssl thread error queue, log the provided message and the Openssl error
@@ -616,6 +617,78 @@ int string_hashsum(
 
 }
 #  endif
+
+static int rsa_pkey_generate_volume_key(
+                EVP_PKEY *pkey,
+                void **ret_decrypted_key,
+                size_t *ret_decrypted_key_size,
+                void **ret_saved_key,
+                size_t *ret_saved_key_size) {
+
+        _cleanup_(erase_and_freep) void *decrypted_key = NULL;
+        _cleanup_free_ void *saved_key = NULL;
+        size_t decrypted_key_size, saved_key_size;
+        int r;
+
+        r = rsa_pkey_to_suitable_key_size(pkey, &decrypted_key_size);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine RSA public key size.");
+
+        log_debug("Generating %zu bytes random key.", decrypted_key_size);
+
+        decrypted_key = malloc(decrypted_key_size);
+        if (!decrypted_key)
+                return log_oom();
+
+        r = crypto_random_bytes(decrypted_key, decrypted_key_size);
+        if (r < 0)
+                return log_error_errno(r, "Failed to generate random key: %m");
+
+        r = rsa_encrypt_bytes(pkey, decrypted_key, decrypted_key_size, &saved_key, &saved_key_size);
+        if (r < 0)
+                return log_error_errno(r, "Failed to encrypt random key: %m");
+
+        *ret_decrypted_key = TAKE_PTR(decrypted_key);
+        *ret_decrypted_key_size = decrypted_key_size;
+        *ret_saved_key = TAKE_PTR(saved_key);
+        *ret_saved_key_size = saved_key_size;
+        return 0;
+}
+
+int x509_generate_volume_key(
+                X509 *cert,
+                void **ret_decrypted_key,
+                size_t *ret_decrypted_key_size,
+                void **ret_saved_key,
+                size_t *ret_saved_key_size) {
+
+        assert(cert);
+        assert(ret_decrypted_key);
+        assert(ret_decrypted_key_size);
+        assert(ret_saved_key);
+        assert(ret_saved_key_size);
+
+        EVP_PKEY *pkey = X509_get0_pubkey(cert);
+        if (!pkey)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to extract public key from X.509 certificate.");
+
+#if OPENSSL_VERSION_MAJOR >= 3
+        int type = EVP_PKEY_get_base_id(pkey);
+#else
+        int type = EVP_PKEY_base_id(pkey);
+#endif
+        switch (type) {
+
+        case EVP_PKEY_RSA:
+                return rsa_pkey_generate_volume_key(pkey, ret_decrypted_key, ret_decrypted_key_size, ret_saved_key, ret_saved_key_size);
+
+        case NID_undef:
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to determine a type of public key");
+
+        default:
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Unsupported public key type: %s", OBJ_nid2sn(type));
+        }
+}
 #endif
 
 int x509_fingerprint(X509 *cert, uint8_t buffer[static SHA256_DIGEST_SIZE]) {
