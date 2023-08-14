@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <linux/if.h>
+#include <net/if.h>
+#include <linux/if.h> /* Must be included after <net/if.h> */
 #include <unistd.h>
 
 #include "sd-network.h"
