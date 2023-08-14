@@ -2764,13 +2764,9 @@ static int get_maximum_partition_size(
         assert(p);
         assert(ret_maximum_partition_size);
 
-        c = fdisk_new_context();
-        if (!c)
-                return log_oom();
-
-        r = fdisk_assign_device(c, FORMAT_PROC_FD_PATH(fd), 0);
+        r = fdisk_new_context_at(fd, /* path= */ NULL, /* read_only= */ true, /* sector_size= */ UINT32_MAX, &c);
         if (r < 0)
-                return log_error_errno(r, "Failed to open device: %m");
+                return log_error_errno(r, "Failed to create fdisk context: %m");
 
         start_lba = fdisk_partition_get_start(p);
         assert(start_lba <= UINT64_MAX/512);
