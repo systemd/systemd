@@ -4253,6 +4253,17 @@ static uint64_t unit_get_effective_limit_one(Unit *u, CGroupLimitType type) {
         assert(u);
         assert(UNIT_HAS_CGROUP_CONTEXT(u));
 
+        if (unit_has_name(u, SPECIAL_ROOT_SLICE))
+                switch (type) {
+                        case CGROUP_LIMIT_MEMORY_MAX:
+                        case CGROUP_LIMIT_MEMORY_HIGH:
+                                return physical_memory();
+                        case CGROUP_LIMIT_TASKS_MAX:
+                                return system_tasks_max();
+                        default:
+                                assert_not_reached();
+                }
+
         cc = unit_get_cgroup_context(u);
         switch (type) {
                 /* Note: on legacy/hybrid hierarchies memory_max stays CGROUP_LIMIT_MAX unless configured
