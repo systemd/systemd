@@ -1920,7 +1920,7 @@ static int context_copy_from_one(Context *context, const char *src) {
         if (r < 0)
                 return log_error_errno(r, "%s is not a file: %m", src);
 
-        r = fdisk_new_context_fd(fd, /* read_only = */ true, /* sector_size = */ UINT32_MAX, &c);
+        r = fdisk_new_context_at(fd, /* path = */ NULL, /* read_only = */ true, /* sector_size = */ UINT32_MAX, &c);
         if (r < 0)
                 return log_error_errno(r, "Failed to create fdisk context: %m");
 
@@ -6888,7 +6888,7 @@ static int resize_pt(int fd, uint64_t sector_size) {
          * possession of the enlarged backing file. For this it suffices to open the device with libfdisk and
          * immediately write it again, with no changes. */
 
-        r = fdisk_new_context_fd(fd, /* read_only= */ false, sector_size, &c);
+        r = fdisk_new_context_at(fd, /* path= */ NULL, /* read_only= */ false, sector_size, &c);
         if (r < 0)
                 return log_error_errno(r, "Failed to open device '%s': %m", FORMAT_PROC_FD_PATH(fd));
 

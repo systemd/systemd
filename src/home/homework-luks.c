@@ -1870,7 +1870,7 @@ static int make_partition_table(
         if (r < 0)
                 return log_error_errno(r, "Failed to initialize partition type: %m");
 
-        r = fdisk_new_context_fd(fd, /* read_only= */ false, sector_size, &c);
+        r = fdisk_new_context_at(fd, /* path= */ NULL, /* read_only= */ false, sector_size, &c);
         if (r < 0)
                 return log_error_errno(r, "Failed to open device: %m");
 
@@ -2698,7 +2698,7 @@ static int prepare_resize_partition(
                 return 0;
         }
 
-        r = fdisk_new_context_fd(fd, /* read_only= */ false, UINT32_MAX, &c);
+        r = fdisk_new_context_at(fd, /* path= */ NULL, /* read_only= */ false, UINT32_MAX, &c);
         if (r < 0)
                 return log_error_errno(r, "Failed to open device: %m");
 
@@ -2855,7 +2855,7 @@ static int apply_resize_partition(
         if ((size_t) n != ssz * 2)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short write while wiping partition table.");
 
-        r = fdisk_new_context_fd(fd, /* read_only= */ false, ssz, &c);
+        r = fdisk_new_context_at(fd, /* path= */ NULL, /* read_only= */ false, ssz, &c);
         if (r < 0)
                 return log_error_errno(r, "Failed to open device: %m");
 
