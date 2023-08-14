@@ -1932,7 +1932,7 @@ static int create_directory_or_subvolume(
                         subvol = false;
                 else {
                         WITH_UMASK((~mode) & 0777)
-                                r = btrfs_subvol_make_fd(pfd, bn);
+                                r = btrfs_subvol_make(pfd, bn);
                 }
         } else
                 r = 0;
