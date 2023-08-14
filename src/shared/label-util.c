@@ -108,7 +108,7 @@ int btrfs_subvol_make_label(const char *path) {
         if (r < 0)
                 return r;
 
-        r = btrfs_subvol_make(path);
+        r = btrfs_subvol_make(AT_FDCWD, path);
         mac_selinux_create_file_clear();
 
         if (r < 0)
