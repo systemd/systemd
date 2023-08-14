@@ -42,36 +42,6 @@
  * device nodes (that reference drivers) rather than fds to normal
  * files or directories. */
 
-static int validate_subvolume_name(const char *name) {
-
-        if (!filename_is_valid(name))
-                return -EINVAL;
-
-        if (strlen(name) > BTRFS_SUBVOL_NAME_MAX)
-                return -E2BIG;
-
-        return 0;
-}
-
-static int extract_subvolume_name(const char *path, char **ret) {
-        _cleanup_free_ char *fn = NULL;
-        int r;
-
-        assert(path);
-        assert(ret);
-
-        r = path_extract_filename(path, &fn);
-        if (r < 0)
-                return r;
-
-        r = validate_subvolume_name(fn);
-        if (r < 0)
-                return r;
-
-        *ret = TAKE_PTR(fn);
-        return 0;
-}
-
 int btrfs_is_subvol_at(int dir_fd, const char *path) {
         struct stat st;
 
@@ -86,71 +56,6 @@ int btrfs_is_subvol_at(int dir_fd, const char *path) {
                 return 0;
 
         return is_fs_type_at(dir_fd, path, BTRFS_SUPER_MAGIC);
-}
-
-int btrfs_subvol_make_fd(int fd, const char *subvolume) {
-        struct btrfs_ioctl_vol_args args = {};
-        _cleanup_close_ int real_fd = -EBADF;
-        int r;
-
-        assert(subvolume);
-
-        r = validate_subvolume_name(subvolume);
-        if (r < 0)
-                return r;
-
-        /* If an O_PATH fd was specified, let's convert here to a proper one, as btrfs ioctl's can't deal
-         * with O_PATH. */
-        fd = fd_reopen_condition(fd, O_RDONLY|O_CLOEXEC|O_DIRECTORY, O_PATH|O_DIRECTORY, &real_fd);
-        if (fd < 0)
-                return fd;
-
-        strncpy(args.name, subvolume, sizeof(args.name)-1);
-
-        return RET_NERRNO(ioctl(fd, BTRFS_IOC_SUBVOL_CREATE, &args));
-}
-
-int btrfs_subvol_make(const char *path) {
-        _cleanup_free_ char *subvolume = NULL;
-        _cleanup_close_ int fd = -EBADF;
-        int r;
-
-        assert(path);
-
-        r = extract_subvolume_name(path, &subvolume);
-        if (r < 0)
-                return r;
-
-        fd = open_parent(path, O_CLOEXEC, 0);
-        if (fd < 0)
-                return fd;
-
-        return btrfs_subvol_make_fd(fd, subvolume);
-}
-
-int btrfs_subvol_make_fallback(const char *path, mode_t mode) {
-        mode_t old, combined;
-        int r;
-
-        assert(path);
-
-        /* Let's work like mkdir(), i.e. take the specified mode, and mask it with the current umask. */
-        old = umask(~mode);
-        combined = old | ~mode;
-        if (combined != ~mode)
-                umask(combined);
-        r = btrfs_subvol_make(path);
-        umask(old);
-
-        if (r >= 0)
-                return 1; /* subvol worked */
-        if (r != -ENOTTY)
-                return r;
-
-        if (mkdir(path, mode) < 0)
-                return -errno;
-
-        return 0; /* plain directory */
 }
 
 int btrfs_subvol_set_read_only_at(int dir_fd, const char *path, bool b) {
@@ -1131,7 +1036,7 @@ int btrfs_subvol_remove_at(int dir_fd, const char *path, BtrfsRemoveFlags flags)
         if (fd < 0)
                 return fd;
 
-        r = validate_subvolume_name(subvolume);
+        r = btrfs_validate_subvolume_name(subvolume);
         if (r < 0)
                 return r;
 
@@ -1551,7 +1456,7 @@ int btrfs_subvol_snapshot_at_full(
         if (new_fd < 0)
                 return new_fd;
 
-        r = validate_subvolume_name(subvolume);
+        r = btrfs_validate_subvolume_name(subvolume);
         if (r < 0)
                 return r;
 
@@ -1565,7 +1470,7 @@ int btrfs_subvol_snapshot_at_full(
                 if (!(flags & BTRFS_SNAPSHOT_FALLBACK_COPY))
                         return -EISDIR;
 
-                r = btrfs_subvol_make_fd(new_fd, subvolume);
+                r = btrfs_subvol_make(new_fd, subvolume);
                 if (r < 0) {
                         if (ERRNO_IS_NOT_SUPPORTED(r) && (flags & BTRFS_SNAPSHOT_FALLBACK_DIRECTORY)) {
                                 /* If the destination doesn't support subvolumes, then use a plain directory, if that's requested. */

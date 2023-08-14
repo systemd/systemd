@@ -131,7 +131,7 @@ int home_create_directory_or_subvolume(UserRecord *h, HomeSetup *setup, UserReco
 
         case USER_SUBVOLUME:
                 WITH_UMASK(0077)
-                        r = btrfs_subvol_make(d);
+                        r = btrfs_subvol_make(AT_FDCWD, d);
 
                 if (r >= 0) {
                         log_info("Subvolume created.");
