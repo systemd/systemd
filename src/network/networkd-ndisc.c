@@ -432,10 +432,10 @@ static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *r
 
 static int ndisc_router_process_onlink_prefix(Link *link, sd_ndisc_router *rt) {
         _cleanup_(route_freep) Route *route = NULL;
+        unsigned prefixlen, preference;
         usec_t timestamp_usec;
         uint32_t lifetime_sec;
         struct in6_addr prefix;
-        unsigned prefixlen;
         int r;
 
         assert(link);
@@ -461,6 +461,11 @@ static int ndisc_router_process_onlink_prefix(Link *link, sd_ndisc_router *rt) {
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to get prefix length: %m");
 
+        /* Prefix Information option does not have preference, hence we use the 'main' preference here */
+        r = sd_ndisc_router_get_preference(rt, &preference);
+        if (r < 0)
+                log_link_warning_errno(link, r, "Failed to get default router preference from RA: %m");
+
         r = route_new(&route);
         if (r < 0)
                 return log_oom();
@@ -468,6 +473,7 @@ static int ndisc_router_process_onlink_prefix(Link *link, sd_ndisc_router *rt) {
         route->family = AF_INET6;
         route->dst.in6 = prefix;
         route->dst_prefixlen = prefixlen;
+        route->pref = preference;
         route->lifetime_usec = sec_to_usec(lifetime_sec, timestamp_usec);
 
         r = ndisc_request_route(TAKE_PTR(route), link, rt);
@@ -1027,6 +1033,69 @@ static int ndisc_drop_outdated(Link *link, usec_t timestamp_usec) {
         return r;
 }
 
+static int ndisc_process_zero_lifetime(Link *link, sd_ndisc_router *rt) {
+        struct in6_addr router;
+        NDiscCaptivePortal *cp;
+        bool updated = false;
+        NDiscDNSSL *dnssl;
+        NDiscRDNSS *rdnss;
+        Address *address;
+        Route *route;
+        int r, k;
+
+        assert(link);
+
+        log_link_debug(link, "Received RA with lifetime = 0, dropping configurations.");
+
+        r = sd_ndisc_router_get_address(rt, &router);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to get gateway address from RA: %m");
+
+        SET_FOREACH(route, link->routes) {
+                if (route->source != NETWORK_CONFIG_SOURCE_NDISC && memcmp(&route->provider.in6, &router, sizeof(route->provider.in6)) != 0)
+                        continue;
+
+                r = route_remove_and_drop(route);
+                if (r < 0)
+                        log_link_warning_errno(link, r, "Failed to remove outdated SLAAC route, ignoring: %m");
+        }
+
+        SET_FOREACH(address, link->addresses) {
+                if (address->source != NETWORK_CONFIG_SOURCE_NDISC && memcmp(&address->provider.in6, &router, sizeof(address->provider.in6)) != 0)
+                        continue;
+
+                k = address_remove_and_drop(address);
+                if (k < 0)
+                        r = log_link_warning_errno(link, k, "Failed to remove outdated SLAAC address, ignoring: %m");
+        }
+
+        SET_FOREACH(rdnss, link->ndisc_rdnss) {
+                if (memcmp(&rdnss->router, &router, sizeof(router)) == 0) {
+                        free(set_remove(link->ndisc_rdnss, rdnss));
+                        updated = true;
+                }
+        }
+
+        SET_FOREACH(dnssl, link->ndisc_dnssl) {
+                if (memcmp(&dnssl->router, &router, sizeof(router)) == 0) {
+                        free(set_remove(link->ndisc_dnssl, dnssl));
+                        updated = true;
+                }
+        }
+
+        SET_FOREACH(cp, link->ndisc_captive_portals) {
+                if (memcmp(&cp->router, &router, sizeof(router)) == 0) {
+                        ndisc_captive_portal_free(set_remove(link->ndisc_captive_portals, cp));
+                        updated = true;
+                }
+        }
+
+        if (updated)
+                link_dirty(link);
+
+        return 0;
+}
+
 static int ndisc_setup_expire(Link *link);
 
 static int ndisc_expire_handler(sd_event_source *s, uint64_t usec, void *userdata) {
@@ -1138,6 +1207,7 @@ static int ndisc_start_dhcp6_client(Link *link, sd_ndisc_router *rt) {
 }
 
 static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
+        uint16_t router_lifetime_sec;
         struct in6_addr router;
         usec_t timestamp_usec;
         int r;
@@ -1173,15 +1243,31 @@ static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
         if (r < 0)
                 return r;
 
+        r = sd_ndisc_router_get_lifetime(rt, &router_lifetime_sec);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to get lifetime of RA message: %m");
+
+        /* https://datatracker.ietf.org/doc/html/rfc4861
+         * Router Lifetime: A Lifetime of 0 indicates that the router is not a default router
+         * and SHOULD NOT appear on the default router list.
+         */
+        if (router_lifetime_sec == 0) {
+                r = ndisc_process_zero_lifetime(link, rt);
+                if (r < 0)
+                        log_link_warning_errno(link, r, "Failed to remove SLAAC route having lifetime = 0, ignoring: %m");
+
+                return 0;
+        }
+
         r = ndisc_drop_outdated(link, timestamp_usec);
         if (r < 0)
                 return r;
 
-        r = ndisc_start_dhcp6_client(link, rt);
-        if (r < 0)
-                return r;
-
         r = ndisc_router_process_default(link, rt);
+        if (r < 0)
+               return r;
+
+        r = ndisc_start_dhcp6_client(link, rt);
         if (r < 0)
                 return r;
 
