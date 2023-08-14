@@ -4257,6 +4257,16 @@ static uint64_t unit_get_effective_limit_one(Unit *u, CGroupLimitType type) {
                 [CGROUP_LIMIT_TASKS_MAX]   = offsetof(CGroupContext, tasks_max),
         };
 
+        /* These callbacks return system global or container's root cgroup attributes */
+        static uint64_t (*const callbacks[_CGROUP_LIMIT_TYPE_MAX])(void) = {
+                [CGROUP_LIMIT_MEMORY_MAX]  = physical_memory,
+                [CGROUP_LIMIT_MEMORY_HIGH] = physical_memory,
+                [CGROUP_LIMIT_TASKS_MAX]   = system_tasks_max,
+        };
+
+        if (unit_has_name(u, SPECIAL_ROOT_SLICE))
+                return callbacks[type]();
+
         cc = unit_get_cgroup_context(u);
         return *(uint64_t *)((uint8_t *)cc + members[type]);
 }
