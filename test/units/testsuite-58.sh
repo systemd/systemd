@@ -907,6 +907,107 @@ EOF
     systemd-dissect -U "$imgs/mnt"
 }
 
+testcase_verity_explicit_size() {
+    local defs imgs output
+
+    defs="$(mktemp --directory "/tmp/test-repart.defs.XXXXXXXXXX")"
+    imgs="$(mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs'" RETURN
+    chmod a+rx "$defs"
+
+    echo "*** dm-verity ***"
+
+    tee "$defs/verity-data.conf" <<EOF
+[Partition]
+Type=root-${architecture}
+CopyFiles=${defs}
+Verity=data
+VerityMatchKey=root
+Minimize=guess
+EOF
+
+    tee "$defs/verity-hash.conf" <<EOF
+[Partition]
+Type=root-${architecture}-verity
+Verity=hash
+VerityMatchKey=root
+Minimize=yes
+[Verity]
+HashBlockSizeBytes=1024
+DataBlockSizeBytes=4096
+EOF
+
+    tee "$defs/verity-sig.conf" <<EOF
+[Partition]
+Type=root-${architecture}-verity-sig
+Verity=signature
+VerityMatchKey=root
+EOF
+
+    # Unfortunately OpenSSL insists on reading some config file, hence provide one with mostly placeholder contents
+    tee >"$defs/verity.openssl.cnf" <<EOF
+[ req ]
+prompt = no
+distinguished_name = req_distinguished_name
+
+[ req_distinguished_name ]
+C = DE
+ST = Test State
+L = Test Locality
+O = Org Name
+OU = Org Unit Name
+CN = Common Name
+emailAddress = test@email.com
+EOF
+
+    openssl req \
+            -config "$defs/verity.openssl.cnf" \
+            -new -x509 \
+            -newkey rsa:1024 \
+            -keyout "$defs/verity.key" \
+            -out "$defs/verity.crt" \
+            -days 365 \
+            -nodes
+
+    mkdir -p /run/verity.d
+    ln -sf "$defs/verity.crt" /run/verity.d/ok.crt
+
+    output=$(systemd-repart --offline="$OFFLINE" \
+                            --definitions="$defs" \
+                            --seed="$seed" \
+                            --dry-run=no \
+                            --empty=create \
+                            --size=auto \
+                            --json=pretty \
+                            --private-key="$defs/verity.key" \
+                            --certificate="$defs/verity.crt" \
+                            "$imgs/verity")
+
+    drh=$(jq -r ".[] | select(.type == \"root-${architecture}\") | .roothash" <<<"$output")
+    hrh=$(jq -r ".[] | select(.type == \"root-${architecture}-verity\") | .roothash" <<<"$output")
+    srh=$(jq -r ".[] | select(.type == \"root-${architecture}-verity-sig\") | .roothash" <<<"$output")
+
+    assert_eq "$drh" "$hrh"
+    assert_eq "$hrh" "$srh"
+
+    # Check that we can dissect, mount and unmount a repart verity image. (and that the image UUID is deterministic)
+
+    if systemd-detect-virt --quiet --container; then
+        echo "Skipping verity test dissect part in container."
+        return
+    fi
+
+    systemd-dissect "$imgs/verity" --root-hash "$drh"
+    systemd-dissect "$imgs/verity" --root-hash "$drh" --json=short | grep -q '"imageUuid":"1d2ce291-7cce-4f7d-bc83-fdb49ad74ebd"'
+    systemd-dissect "$imgs/verity" --root-hash "$drh" -M "$imgs/mnt"
+    systemd-dissect -U "$imgs/mnt"
+
+    # Check that the verity block sizes is as expected
+    veritysetup dump "$imgs/verity" | grep 'Data block size:' | grep -q '4096'
+    veritysetup dump "$imgs/verity" | grep 'Hash block size:' | grep -q '1024'
+}
+
 testcase_exclude_files() {
     local defs imgs root output
 

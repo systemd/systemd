@@ -649,6 +649,27 @@
   </refsect1>
 
   <refsect1>
+    <title>[Verity] Section Options</title>
+
+    <variablelist>
+      <varlistentry>
+        <term><varname>DataBlockSizeBytes=</varname></term>
+
+        <listitem><para>Configures the data block size of the generated verity hash partition. Defaults to the sector
+        size. Must be between 512 and 4096 bytes and must be a power of 2.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>HashBlockSizeBytes=</varname></term>
+
+        <listitem><para>Configures the hash block size of the generated verity hash partition. Defaults to the sector
+        size. Must be between 512 and 4096 bytes and must be a power of 2.</para></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+
+  <refsect1>
     <title>Specifiers</title>
 
     <para>Specifiers may be used in the <varname>Label=</varname>, <varname>CopyBlocks=</varname>,
@@ -816,6 +837,10 @@ VerityMatchKey=root
 Type=root-verity
 Verity=hash
 VerityMatchKey=root
+[Verity]
+# Explicitly set the hash and data block size to 4K. The default for both is the sector size.
+DataBlockSizeBytes=4096
+HashBlockSizeBytes=4096
 </programlisting></para>
     </example>
 
