@@ -225,7 +225,7 @@ static int tar_import_fork_tar(TarImport *i) {
                 (void) rm_rf(d, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME);
 
         if (i->flags & IMPORT_BTRFS_SUBVOL)
-                r = btrfs_subvol_make_fallback(d, 0755);
+                r = btrfs_subvol_make_fallback(AT_FDCWD, d, 0755);
         else
                 r = RET_NERRNO(mkdir(d, 0755));
         if (r == -EEXIST && (i->flags & IMPORT_DIRECT)) /* EEXIST is OK if in direct mode, but not otherwise,
