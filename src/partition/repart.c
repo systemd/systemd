@@ -239,6 +239,7 @@ typedef struct Partition {
         char **exclude_files_source;
         char **exclude_files_target;
         char **make_directories;
+        char **subvolumes;
         EncryptMode encrypt;
         VerityMode verity;
         char *verity_match_key;
@@ -385,6 +386,7 @@ static Partition* partition_free(Partition *p) {
         strv_free(p->exclude_files_source);
         strv_free(p->exclude_files_target);
         strv_free(p->make_directories);
+        strv_free(p->subvolumes);
         free(p->verity_match_key);
 
         free(p->roothash);
@@ -413,6 +415,7 @@ static void partition_foreignize(Partition *p) {
         p->exclude_files_source = strv_free(p->exclude_files_source);
         p->exclude_files_target = strv_free(p->exclude_files_target);
         p->make_directories = strv_free(p->make_directories);
+        p->subvolumes = strv_free(p->subvolumes);
         p->verity_match_key = mfree(p->verity_match_key);
 
         p->priority = 0;
@@ -1499,7 +1502,7 @@ static int config_parse_make_dirs(
                 void *data,
                 void *userdata) {
 
-        Partition *partition = ASSERT_PTR(data);
+        char ***sv = ASSERT_PTR(data);
         const char *p = ASSERT_PTR(rvalue);
         int r;
 
@@ -1527,7 +1530,7 @@ static int config_parse_make_dirs(
                 if (r < 0)
                         continue;
 
-                r = strv_consume(&partition->make_directories, TAKE_PTR(d));
+                r = strv_consume(sv, TAKE_PTR(d));
                 if (r < 0)
                         return log_oom();
         }
@@ -1622,7 +1625,7 @@ static int partition_read_definition(Partition *p, const char *path, const char 
                 { "Partition", "CopyFiles",          config_parse_copy_files,    0, &p->copy_files           },
                 { "Partition", "ExcludeFiles",       config_parse_exclude_files, 0, &p->exclude_files_source },
                 { "Partition", "ExcludeFilesTarget", config_parse_exclude_files, 0, &p->exclude_files_target },
-                { "Partition", "MakeDirectories",    config_parse_make_dirs,     0, p                        },
+                { "Partition", "MakeDirectories",    config_parse_make_dirs,     0, &p->make_directories     },
                 { "Partition", "Encrypt",            config_parse_encrypt,       0, &p->encrypt              },
                 { "Partition", "Verity",             config_parse_verity,        0, &p->verity               },
                 { "Partition", "VerityMatchKey",     config_parse_string,        0, &p->verity_match_key     },
@@ -1632,6 +1635,7 @@ static int partition_read_definition(Partition *p, const char *path, const char 
                 { "Partition", "GrowFileSystem",     config_parse_tristate,      0, &p->growfs               },
                 { "Partition", "SplitName",          config_parse_string,        0, &p->split_name_format    },
                 { "Partition", "Minimize",           config_parse_minimize,      0, &p->minimize             },
+                { "Partition", "Subvolumes",         config_parse_make_dirs,     0, &p->subvolumes           },
                 {}
         };
         int r;
@@ -1744,6 +1748,10 @@ static int partition_read_definition(Partition *p, const char *path, const char 
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
                                   "SizeMinBytes=/SizeMaxBytes= cannot be used with Verity=%s",
                                   verity_mode_to_string(p->verity));
+
+        if (!strv_isempty(p->subvolumes) && arg_offline != 0)
+                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                  "Subvolumes= can only be used with --offline=no");
 
         /* Verity partitions are read only, let's imply the RO flag hence, unless explicitly configured otherwise. */
         if ((IN_SET(p->type.designator,
@@ -4268,6 +4276,66 @@ static int make_copy_files_denylist(
         return 0;
 }
 
+static int add_subvolume_path(const char *path, Set **subvolumes) {
+        _cleanup_free_ struct stat *st = NULL;
+        int r;
+
+        assert(path);
+        assert(subvolumes);
+
+        st = new(struct stat, 1);
+        if (!st)
+                return log_oom();
+
+        r = chase_and_stat(path, arg_root, CHASE_PREFIX_ROOT, NULL, st);
+        if (r == -ENOENT)
+                return 0;
+        if (r < 0)
+                return log_error_errno(r, "Failed to stat source file '%s/%s': %m", strempty(arg_root), path);
+
+        r = set_ensure_put(subvolumes, &inode_hash_ops, st);
+        if (r < 0)
+                return log_oom();
+        if (r > 0)
+                TAKE_PTR(st);
+
+        return 0;
+}
+
+static int make_subvolumes_set(
+                Context *context,
+                const Partition *p,
+                const char *source,
+                const char *target,
+                Set **ret) {
+        _cleanup_set_free_ Set *subvolumes = NULL;
+        int r;
+
+        assert(context);
+        assert(p);
+        assert(target);
+        assert(ret);
+
+        STRV_FOREACH(subvolume, p->subvolumes) {
+                _cleanup_free_ char *path = NULL;
+
+                const char *s = path_startswith(*subvolume, target);
+                if (!s)
+                        continue;
+
+                path = path_join(source, s);
+                if (!path)
+                        return log_oom();
+
+                r = add_subvolume_path(path, &subvolumes);
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = TAKE_PTR(subvolumes);
+        return 0;
+}
+
 static int do_copy_files(Context *context, Partition *p, const char *root) {
         int r;
 
@@ -4301,9 +4369,14 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
 
         STRV_FOREACH_PAIR(source, target, p->copy_files) {
                 _cleanup_hashmap_free_ Hashmap *denylist = NULL;
+                _cleanup_set_free_ Set *subvolumes_by_source_inode = NULL;
                 _cleanup_close_ int sfd = -EBADF, pfd = -EBADF, tfd = -EBADF;
 
                 r = make_copy_files_denylist(context, p, *source, *target, &denylist);
+                if (r < 0)
+                        return r;
+
+                r = make_subvolumes_set(context, p, *source, *target, &subvolumes_by_source_inode);
                 if (r < 0)
                         return r;
 
@@ -4332,7 +4405,7 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to extract directory from '%s': %m", *target);
 
-                                r = mkdir_p_root(root, dn, UID_INVALID, GID_INVALID, 0755, NULL);
+                                r = mkdir_p_root(root, dn, UID_INVALID, GID_INVALID, 0755, p->subvolumes);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to create parent directory '%s': %m", dn);
 
@@ -4345,14 +4418,14 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
                                                 pfd, fn,
                                                 UID_INVALID, GID_INVALID,
                                                 COPY_REFLINK|COPY_HOLES|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS|COPY_ALL_XATTRS|COPY_GRACEFUL_WARN|COPY_TRUNCATE,
-                                                denylist, NULL);
+                                                denylist, subvolumes_by_source_inode);
                         } else
                                 r = copy_tree_at(
                                                 sfd, ".",
                                                 tfd, ".",
                                                 UID_INVALID, GID_INVALID,
                                                 COPY_REFLINK|COPY_HOLES|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS|COPY_ALL_XATTRS|COPY_GRACEFUL_WARN|COPY_TRUNCATE,
-                                                denylist, NULL);
+                                                denylist, subvolumes_by_source_inode);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to copy '%s%s' to '%s%s': %m",
                                                        strempty(arg_root), *source, strempty(root), *target);
@@ -4372,7 +4445,7 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to extract directory from '%s': %m", *target);
 
-                        r = mkdir_p_root(root, dn, UID_INVALID, GID_INVALID, 0755, NULL);
+                        r = mkdir_p_root(root, dn, UID_INVALID, GID_INVALID, 0755, p->subvolumes);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to create parent directory: %m");
 
@@ -4404,8 +4477,7 @@ static int do_make_directories(Partition *p, const char *root) {
         assert(root);
 
         STRV_FOREACH(d, p->make_directories) {
-
-                r = mkdir_p_root(root, *d, UID_INVALID, GID_INVALID, 0755, NULL);
+                r = mkdir_p_root(root, *d, UID_INVALID, GID_INVALID, 0755, p->subvolumes);
                 if (r < 0)
                         return log_error_errno(r, "Failed to create directory '%s' in file system: %m", *d);
         }
