@@ -1080,6 +1080,8 @@ int path_extract_directory(const char *path, char **ret) {
         const char *c, *next = NULL;
         int r;
 
+        assert(path);
+
         /* The inverse of path_extract_filename(), i.e. returns the directory path prefix. Returns:
          *
          * -EINVAL        → if the path is not valid
@@ -1116,7 +1118,9 @@ int path_extract_directory(const char *path, char **ret) {
         if (!path_is_valid(a))
                 return -EINVAL;
 
-        *ret = TAKE_PTR(a);
+        if (ret)
+                *ret = TAKE_PTR(a);
+
         return 0;
 }
 

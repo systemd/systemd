@@ -9,6 +9,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "btrfs.h"
 #include "dirent-util.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -1110,7 +1111,10 @@ int xopenat(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_flags
         }
 
         if (FLAGS_SET(open_flags, O_DIRECTORY|O_CREAT)) {
-                r = RET_NERRNO(mkdirat(dir_fd, path, mode));
+                if (FLAGS_SET(xopen_flags, XO_SUBVOLUME))
+                        r = btrfs_subvol_make_fallback(dir_fd, path, mode);
+                else
+                        r = RET_NERRNO(mkdirat(dir_fd, path, mode));
                 if (r == -EEXIST) {
                         if (FLAGS_SET(open_flags, O_EXCL))
                                 return -EEXIST;
