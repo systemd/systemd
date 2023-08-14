@@ -6326,8 +6326,7 @@ void exec_command_done_array(ExecCommand *c, size_t n) {
 ExecCommand* exec_command_free_list(ExecCommand *c) {
         ExecCommand *i;
 
-        while ((i = c)) {
-                LIST_REMOVE(command, c, i);
+        while ((i = LIST_POP(command, c))) {
                 exec_command_done(i);
                 free(i);
         }

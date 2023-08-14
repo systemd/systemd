@@ -1261,10 +1261,8 @@ static unsigned manager_dispatch_release_resources_queue(Manager *m) {
 
         assert(m);
 
-        while ((u = m->release_resources_queue)) {
+        while ((u = LIST_POP(release_resources_queue, m->release_resources_queue))) {
                 assert(u->in_release_resources_queue);
-
-                LIST_REMOVE(release_resources_queue, m->release_resources_queue, u);
                 u->in_release_resources_queue = false;
 
                 n++;
@@ -1368,12 +1366,11 @@ static unsigned manager_dispatch_gc_unit_queue(Manager *m) {
 
         gc_marker = m->gc_marker;
 
-        while ((u = m->gc_unit_queue)) {
+        while ((u = LIST_POP(gc_queue, m->gc_unit_queue))) {
                 assert(u->in_gc_queue);
 
                 unit_gc_sweep(u, gc_marker);
 
-                LIST_REMOVE(gc_queue, m->gc_unit_queue, u);
                 u->in_gc_queue = false;
 
                 n++;
@@ -1396,10 +1393,8 @@ static unsigned manager_dispatch_gc_job_queue(Manager *m) {
 
         assert(m);
 
-        while ((j = m->gc_job_queue)) {
+        while ((j = LIST_POP(gc_queue, m->gc_job_queue))) {
                 assert(j->in_gc_queue);
-
-                LIST_REMOVE(gc_queue, m->gc_job_queue, j);
                 j->in_gc_queue = false;
 
                 n++;
@@ -1463,11 +1458,10 @@ static unsigned manager_dispatch_stop_when_unneeded_queue(Manager *m) {
 
         assert(m);
 
-        while ((u = m->stop_when_unneeded_queue)) {
+        while ((u = LIST_POP(stop_when_unneeded_queue, m->stop_when_unneeded_queue))) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
 
                 assert(u->in_stop_when_unneeded_queue);
-                LIST_REMOVE(stop_when_unneeded_queue, m->stop_when_unneeded_queue, u);
                 u->in_stop_when_unneeded_queue = false;
 
                 n++;
@@ -1504,12 +1498,11 @@ static unsigned manager_dispatch_start_when_upheld_queue(Manager *m) {
 
         assert(m);
 
-        while ((u = m->start_when_upheld_queue)) {
+        while ((u = LIST_POP(start_when_upheld_queue, m->start_when_upheld_queue))) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 Unit *culprit = NULL;
 
                 assert(u->in_start_when_upheld_queue);
-                LIST_REMOVE(start_when_upheld_queue, m->start_when_upheld_queue, u);
                 u->in_start_when_upheld_queue = false;
 
                 n++;
@@ -1546,12 +1539,11 @@ static unsigned manager_dispatch_stop_when_bound_queue(Manager *m) {
 
         assert(m);
 
-        while ((u = m->stop_when_bound_queue)) {
+        while ((u = LIST_POP(stop_when_bound_queue, m->stop_when_bound_queue))) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 Unit *culprit = NULL;
 
                 assert(u->in_stop_when_bound_queue);
-                LIST_REMOVE(stop_when_bound_queue, m->stop_when_bound_queue, u);
                 u->in_stop_when_bound_queue = false;
 
                 n++;
@@ -2181,13 +2173,12 @@ static int manager_dispatch_target_deps_queue(Manager *m) {
 
         assert(m);
 
-        while ((u = m->target_deps_queue)) {
+        while ((u = LIST_POP(target_deps_queue, m->target_deps_queue))) {
                 _cleanup_free_ Unit **targets = NULL;
                 int n_targets;
 
                 assert(u->in_target_deps_queue);
 
-                LIST_REMOVE(target_deps_queue, u->manager->target_deps_queue, u);
                 u->in_target_deps_queue = false;
 
                 /* Take an "atomic" snapshot of dependencies here, as the call below will likely modify the

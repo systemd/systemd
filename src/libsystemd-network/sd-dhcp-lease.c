@@ -345,13 +345,11 @@ int sd_dhcp_lease_get_vendor_specific(sd_dhcp_lease *lease, const void **data, s
 }
 
 static sd_dhcp_lease *dhcp_lease_free(sd_dhcp_lease *lease) {
+        struct sd_dhcp_raw_option *option;
+
         assert(lease);
 
-        while (lease->private_options) {
-                struct sd_dhcp_raw_option *option = lease->private_options;
-
-                LIST_REMOVE(options, lease->private_options, option);
-
+        while ((option = LIST_POP(options, lease->private_options))) {
                 free(option->data);
                 free(option);
         }
