@@ -245,7 +245,7 @@ static int tar_pull_make_local_copy(TarPull *i) {
                                 BTRFS_SNAPSHOT_FALLBACK_DIRECTORY|
                                 BTRFS_SNAPSHOT_RECURSIVE);
         else
-                r = copy_tree(i->final_path, t, UID_INVALID, GID_INVALID, COPY_REFLINK|COPY_HARDLINKS, NULL);
+                r = copy_tree(i->final_path, t, UID_INVALID, GID_INVALID, COPY_REFLINK|COPY_HARDLINKS, NULL, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to create local image: %m");
 
