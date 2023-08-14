@@ -382,11 +382,16 @@ TEST(close_all_fds) {
 }
 
 TEST(format_proc_fd_path) {
-        assert_se(streq_ptr(FORMAT_PROC_FD_PATH(0), "/proc/self/fd/0"));
-        assert_se(streq_ptr(FORMAT_PROC_FD_PATH(1), "/proc/self/fd/1"));
-        assert_se(streq_ptr(FORMAT_PROC_FD_PATH(2), "/proc/self/fd/2"));
-        assert_se(streq_ptr(FORMAT_PROC_FD_PATH(3), "/proc/self/fd/3"));
-        assert_se(streq_ptr(FORMAT_PROC_FD_PATH(2147483647), "/proc/self/fd/2147483647"));
+        _cleanup_free_ char *expected = NULL;
+
+        for (int i = 0; i < 4; i++) {
+                assert_se(asprintf(&expected, "/proc/" PID_FMT "/fd/%i", getpid_cached(), i) >= 0);
+                assert_se(streq_ptr(FORMAT_PROC_FD_PATH(i), expected));
+                expected = mfree(expected);
+        }
+
+        assert_se(asprintf(&expected, "/proc/" PID_FMT "/fd/2147483647", getpid_cached()) >= 0);
+        assert_se(streq_ptr(FORMAT_PROC_FD_PATH(2147483647), expected));
 }
 
 TEST(fd_reopen) {
