@@ -501,6 +501,18 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>Subvolumes=</varname></term>
+
+        <listitem><para>Takes one or more absolute paths, separated by whitespace, each declaring a directory
+        that should be a subvolume within the new file system. This option may be used more than once to
+        specify multiple directories. Note that this setting does not create the directories themselves, that
+        can be configured with <varname>MakeDirectories=</varname> and <varname>CopyFiles=</varname>.
+
+        <para>Note that this option only takes effect if the target filesystem supports subvolumes, such as
+        <literal>btrfs</literal>.</para>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>Encrypt=</varname></term>
 
         <listitem><para>Takes one of <literal>off</literal>, <literal>key-file</literal>,
