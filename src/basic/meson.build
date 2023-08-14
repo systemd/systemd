@@ -8,6 +8,7 @@ basic_sources = files(
         'argv-util.c',
         'arphrd-util.c',
         'audit-util.c',
+        'btrfs.c',
         'build.c',
         'bus-label.c',
         'cap-list.c',

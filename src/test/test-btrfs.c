@@ -48,7 +48,7 @@ int main(int argc, char *argv[]) {
                 safe_close(fd);
         }
 
-        r = btrfs_subvol_make("/xxxtest");
+        r = btrfs_subvol_make(AT_FDCWD, "/xxxtest");
         if (r < 0)
                 log_error_errno(r, "Failed to make subvolume: %m");
 
@@ -97,33 +97,33 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 log_error_errno(r, "Failed to remove subvolume: %m");
 
-        r = btrfs_subvol_make("/xxxrectest");
+        r = btrfs_subvol_make(AT_FDCWD, "/xxxrectest");
         if (r < 0)
                 log_error_errno(r, "Failed to make subvolume: %m");
 
-        r = btrfs_subvol_make("/xxxrectest/xxxrectest2");
+        r = btrfs_subvol_make(AT_FDCWD, "/xxxrectest/xxxrectest2");
         if (r < 0)
                 log_error_errno(r, "Failed to make subvolume: %m");
 
-        r = btrfs_subvol_make("/xxxrectest/xxxrectest3");
+        r = btrfs_subvol_make(AT_FDCWD, "/xxxrectest/xxxrectest3");
         if (r < 0)
                 log_error_errno(r, "Failed to make subvolume: %m");
 
-        r = btrfs_subvol_make("/xxxrectest/xxxrectest3/sub");
+        r = btrfs_subvol_make(AT_FDCWD, "/xxxrectest/xxxrectest3/sub");
         if (r < 0)
                 log_error_errno(r, "Failed to make subvolume: %m");
 
         if (mkdir("/xxxrectest/dir", 0755) < 0)
                 log_error_errno(errno, "Failed to make directory: %m");
 
-        r = btrfs_subvol_make("/xxxrectest/dir/xxxrectest4");
+        r = btrfs_subvol_make(AT_FDCWD, "/xxxrectest/dir/xxxrectest4");
         if (r < 0)
                 log_error_errno(r, "Failed to make subvolume: %m");
 
         if (mkdir("/xxxrectest/dir/xxxrectest4/dir", 0755) < 0)
                 log_error_errno(errno, "Failed to make directory: %m");
 
-        r = btrfs_subvol_make("/xxxrectest/dir/xxxrectest4/dir/xxxrectest5");
+        r = btrfs_subvol_make(AT_FDCWD, "/xxxrectest/dir/xxxrectest4/dir/xxxrectest5");
         if (r < 0)
                 log_error_errno(r, "Failed to make subvolume: %m");
 
@@ -142,7 +142,7 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 log_error_errno(r, "Failed to recursively remove subvolume: %m");
 
-        r = btrfs_subvol_make("/xxxquotatest");
+        r = btrfs_subvol_make(AT_FDCWD, "/xxxquotatest");
         if (r < 0)
                 log_error_errno(r, "Failed to make subvolume: %m");
 
@@ -150,7 +150,7 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 log_error_errno(r, "Failed to set up auto qgroup: %m");
 
-        r = btrfs_subvol_make("/xxxquotatest/beneath");
+        r = btrfs_subvol_make(AT_FDCWD, "/xxxquotatest/beneath");
         if (r < 0)
                 log_error_errno(r, "Failed to make subvolume: %m");
 

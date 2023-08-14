@@ -7,6 +7,7 @@
 
 #include "sd-id128.h"
 
+#include "btrfs.h"
 #include "copy.h"
 #include "time-util.h"
 
@@ -69,11 +70,6 @@ int btrfs_quota_enable(const char *path, bool b);
 int btrfs_quota_scan_start(int fd);
 int btrfs_quota_scan_wait(int fd);
 int btrfs_quota_scan_ongoing(int fd);
-
-int btrfs_subvol_make(const char *path);
-int btrfs_subvol_make_fd(int fd, const char *subvolume);
-
-int btrfs_subvol_make_fallback(const char *path, mode_t);
 
 int btrfs_subvol_snapshot_at_full(int dir_fdf, const char *from, int dir_fdt, const char *to, BtrfsSnapshotFlags flags, copy_progress_path_t progress_path, copy_progress_bytes_t progress_bytes, void *userdata);
 static inline int btrfs_subvol_snapshot_at(int dir_fdf, const char *from, int dir_fdt, const char *to, BtrfsSnapshotFlags flags) {

@@ -516,7 +516,7 @@ static int tar_pull_job_on_open_disk_tar(PullJob *j) {
                 (void) rm_rf(where, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME);
 
         if (i->flags & PULL_BTRFS_SUBVOL)
-                r = btrfs_subvol_make_fallback(where, 0755);
+                r = btrfs_subvol_make_fallback(AT_FDCWD, where, 0755);
         else
                 r = RET_NERRNO(mkdir(where, 0755));
         if (r == -EEXIST && (i->flags & PULL_DIRECT)) /* EEXIST is OK if in direct mode, but not otherwise,

@@ -2383,7 +2383,7 @@ int home_create_luks(
                 return log_oom();
 
         /* Prefer using a btrfs subvolume if we can, fall back to directory otherwise */
-        r = btrfs_subvol_make_fallback(subdir, 0700);
+        r = btrfs_subvol_make_fallback(AT_FDCWD, subdir, 0700);
         if (r < 0)
                 return log_error_errno(r, "Failed to create user directory in mounted image file: %m");
 
