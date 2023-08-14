@@ -51,8 +51,7 @@ void timer_free_values(Timer *t) {
 
         assert(t);
 
-        while ((v = t->values)) {
-                LIST_REMOVE(value, t->values, v);
+        while ((v = LIST_POP(value, t->values))) {
                 calendar_spec_free(v->calendar_spec);
                 free(v);
         }

@@ -257,8 +257,7 @@ static void context_save_and_clear(Context *c) {
 
         assert(c);
 
-        while ((i = c->write_queue)) {
-                LIST_REMOVE(queue, c->write_queue, i);
+        while ((i = LIST_POP(queue, c->write_queue))) {
                 (void) save_state_write_one(i);
                 write_queue_item_free(i);
         }

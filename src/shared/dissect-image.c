@@ -3689,8 +3689,7 @@ bool dissected_image_verity_sig_ready(const DissectedImage *image, PartitionDesi
 MountOptions* mount_options_free_all(MountOptions *options) {
         MountOptions *m;
 
-        while ((m = options)) {
-                LIST_REMOVE(mount_options, options, m);
+        while ((m = LIST_POP(mount_options, options))) {
                 free(m->options);
                 free(m);
         }

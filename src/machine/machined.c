@@ -254,8 +254,7 @@ static void manager_gc(Manager *m, bool drop_not_started) {
 
         assert(m);
 
-        while ((machine = m->machine_gc_queue)) {
-                LIST_REMOVE(gc_queue, m->machine_gc_queue, machine);
+        while ((machine = LIST_POP(gc_queue, m->machine_gc_queue))) {
                 machine->in_gc_queue = false;
 
                 /* First, if we are not closing yet, initiate stopping */

@@ -907,8 +907,7 @@ static void manager_gc(Manager *m, bool drop_not_started) {
 
         assert(m);
 
-        while ((seat = m->seat_gc_queue)) {
-                LIST_REMOVE(gc_queue, m->seat_gc_queue, seat);
+        while ((seat = LIST_POP(gc_queue, m->seat_gc_queue))) {
                 seat->in_gc_queue = false;
 
                 if (seat_may_gc(seat, drop_not_started)) {
@@ -917,8 +916,7 @@ static void manager_gc(Manager *m, bool drop_not_started) {
                 }
         }
 
-        while ((session = m->session_gc_queue)) {
-                LIST_REMOVE(gc_queue, m->session_gc_queue, session);
+        while ((session = LIST_POP(gc_queue, m->session_gc_queue))) {
                 session->in_gc_queue = false;
 
                 /* First, if we are not closing yet, initiate stopping. */
@@ -934,8 +932,7 @@ static void manager_gc(Manager *m, bool drop_not_started) {
                 }
         }
 
-        while ((user = m->user_gc_queue)) {
-                LIST_REMOVE(gc_queue, m->user_gc_queue, user);
+        while ((user = LIST_POP(gc_queue, m->user_gc_queue))) {
                 user->in_gc_queue = false;
 
                 /* First step: queue stop jobs */
