@@ -8,8 +8,6 @@ set -o pipefail
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
-systemd-analyze log-level debug
-
 # The main service PID should be the parent bash process
 MAINPID="${PPID:?}"
 test "$(systemctl show -P MainPID testsuite-07.service)" -eq "$MAINPID"
@@ -172,5 +170,3 @@ test "$(systemctl show -P Result test-true.scope)" = success
 systemctl start user@4711.service
 runas testuser systemd-run --scope --user --unit test-true.scope /bin/true
 test "$(systemctl show -P Result test-true.scope)" = success
-
-systemd-analyze log-level info
