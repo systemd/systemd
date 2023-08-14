@@ -273,7 +273,7 @@ Architecture gpt_partition_type_uuid_to_arch(sd_id128_t id) {
 int gpt_partition_label_valid(const char *s) {
         _cleanup_free_ char16_t *recoded = NULL;
 
-        recoded = utf8_to_utf16(s, strlen(s));
+        recoded = utf8_to_utf16(s, SIZE_MAX);
         if (!recoded)
                 return -ENOMEM;
 
