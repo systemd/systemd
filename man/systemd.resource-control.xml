@@ -438,7 +438,7 @@ CPUWeight=20   DisableControllers=cpu              /          \
           <literal>memory.max</literal> control group attribute. For details about this control group attribute, see
           <ulink url="https://docs.kernel.org/admin-guide/cgroup-v2.html#memory-interface-files">Memory Interface Files</ulink>.
           The effective configuration is reported as <varname>EffectiveMemoryMax=</varname> (the value is
-          the most stringent limit of the unit and parent slices).</para>
+          the most stringent limit of the unit and parent slices and it is capped by physical memory).</para>
 
           <para>While <varname>StartupMemoryMax=</varname> applies to the startup and shutdown phases of the system,
           <varname>MemoryMax=</varname> applies to normal runtime of the system, and if the former is not set also to
