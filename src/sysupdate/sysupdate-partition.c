@@ -119,13 +119,9 @@ int find_suitable_partition(
         assert(device);
         assert(ret);
 
-        c = fdisk_new_context();
-        if (!c)
-                return log_oom();
-
-        r = fdisk_assign_device(c, device, /* readonly= */ true);
+        r = fdisk_new_context_at(AT_FDCWD, device, /* read_only= */ true, /* sector_size= */ UINT32_MAX, &c);
         if (r < 0)
-                return log_error_errno(r, "Failed to open device '%s': %m", device);
+                return log_error_errno(r, "Failed to create fdisk context from '%s': %m", device);
 
         if (!fdisk_is_labeltype(c, FDISK_DISKLABEL_GPT))
                 return log_error_errno(SYNTHETIC_ERRNO(EHWPOISON), "Disk %s has no GPT disk label, not suitable.", device);
@@ -188,13 +184,9 @@ int patch_partition(
         if (change == 0) /* Nothing to do */
                 return 0;
 
-        c = fdisk_new_context();
-        if (!c)
-                return log_oom();
-
-        r = fdisk_assign_device(c, device, /* readonly= */ false);
+        r = fdisk_new_context_at(AT_FDCWD, device, /* read_only= */ false, /* sector_size= */ UINT32_MAX, &c);
         if (r < 0)
-                return log_error_errno(r, "Failed to open device '%s': %m", device);
+                return log_error_errno(r, "Failed to create fdisk context from '%s': %m", device);
 
         assert_se((fd = fdisk_get_devfd(c)) >= 0);
 
