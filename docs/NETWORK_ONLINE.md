@@ -256,7 +256,7 @@ Before=network-online.target
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=sh -c 'while ! ping -c 1 example.com; do sleep 1; done'
+ExecStart=sh -c 'until ping -c 1 example.com; do sleep 1; done'
 
 [Install]
 WantedBy=network-online.target
