@@ -132,6 +132,8 @@ OpenFile *open_file_free(OpenFile *of) {
 }
 
 void open_file_free_many(OpenFile **head) {
+        assert(head);
+
         LIST_CLEAR(open_files, *head, open_file_free);
 }
 
