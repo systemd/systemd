@@ -730,6 +730,7 @@ static int fd_copy_tree_generic(
                 gid_t override_gid,
                 CopyFlags copy_flags,
                 Hashmap *denylist,
+                Set *subvolumes,
                 HardlinkContext *hardlink_context,
                 const char *display_path,
                 copy_progress_path_t progress_path,
@@ -933,6 +934,7 @@ static int fd_copy_directory(
                 gid_t override_gid,
                 CopyFlags copy_flags,
                 Hashmap *denylist,
+                Set *subvolumes,
                 HardlinkContext *hardlink_context,
                 const char *display_path,
                 copy_progress_path_t progress_path,
@@ -986,7 +988,7 @@ static int fd_copy_directory(
 
         fdt = xopenat_lock(dt, to,
                            O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW|(exists ? 0 : O_CREAT|O_EXCL),
-                           (copy_flags & COPY_MAC_CREATE ? XO_LABEL : 0),
+                           (copy_flags & COPY_MAC_CREATE ? XO_LABEL : 0)|(set_contains(subvolumes, st) ? XO_SUBVOLUME : 0),
                            st->st_mode & 07777,
                            copy_flags & COPY_LOCK_BSD ? LOCK_BSD : LOCK_NONE,
                            LOCK_EX);
@@ -1068,7 +1070,7 @@ static int fd_copy_directory(
 
                 q = fd_copy_tree_generic(dirfd(d), de->d_name, &buf, fdt, de->d_name, original_device,
                                          depth_left-1, override_uid, override_gid, copy_flags & ~COPY_LOCK_BSD,
-                                         denylist, hardlink_context, child_display_path, progress_path,
+                                         denylist, subvolumes, hardlink_context, child_display_path, progress_path,
                                          progress_bytes, userdata);
 
                 if (q == -EINTR) /* Propagate SIGINT/SIGTERM up instantly */
@@ -1145,6 +1147,7 @@ static int fd_copy_tree_generic(
                 gid_t override_gid,
                 CopyFlags copy_flags,
                 Hashmap *denylist,
+                Set *subvolumes,
                 HardlinkContext *hardlink_context,
                 const char *display_path,
                 copy_progress_path_t progress_path,
@@ -1157,8 +1160,8 @@ static int fd_copy_tree_generic(
 
         if (S_ISDIR(st->st_mode))
                 return fd_copy_directory(df, from, st, dt, to, original_device, depth_left-1, override_uid,
-                                         override_gid, copy_flags, denylist, hardlink_context, display_path,
-                                         progress_path, progress_bytes, userdata);
+                                         override_gid, copy_flags, denylist, subvolumes, hardlink_context,
+                                         display_path, progress_path, progress_bytes, userdata);
 
         DenyType t = PTR_TO_INT(hashmap_get(denylist, st));
         if (t == DENY_INODE) {
@@ -1189,6 +1192,7 @@ int copy_tree_at_full(
                 gid_t override_gid,
                 CopyFlags copy_flags,
                 Hashmap *denylist,
+                Set *subvolumes,
                 copy_progress_path_t progress_path,
                 copy_progress_bytes_t progress_bytes,
                 void *userdata) {
@@ -1204,7 +1208,7 @@ int copy_tree_at_full(
                 return -errno;
 
         r = fd_copy_tree_generic(fdf, from, &st, fdt, to, st.st_dev, COPY_DEPTH_MAX, override_uid,
-                                 override_gid, copy_flags, denylist, NULL, NULL, progress_path,
+                                 override_gid, copy_flags, denylist, subvolumes, NULL, NULL, progress_path,
                                  progress_bytes, userdata);
         if (r < 0)
                 return r;
@@ -1273,7 +1277,7 @@ int copy_directory_at_full(
                         COPY_DEPTH_MAX,
                         UID_INVALID, GID_INVALID,
                         copy_flags,
-                        NULL, NULL, NULL,
+                        NULL, NULL, NULL, NULL,
                         progress_path,
                         progress_bytes,
                         userdata);

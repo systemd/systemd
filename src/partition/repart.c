@@ -4345,14 +4345,14 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
                                                 pfd, fn,
                                                 UID_INVALID, GID_INVALID,
                                                 COPY_REFLINK|COPY_HOLES|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS|COPY_ALL_XATTRS|COPY_GRACEFUL_WARN|COPY_TRUNCATE,
-                                                denylist);
+                                                denylist, NULL);
                         } else
                                 r = copy_tree_at(
                                                 sfd, ".",
                                                 tfd, ".",
                                                 UID_INVALID, GID_INVALID,
                                                 COPY_REFLINK|COPY_HOLES|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS|COPY_ALL_XATTRS|COPY_GRACEFUL_WARN|COPY_TRUNCATE,
-                                                denylist);
+                                                denylist, NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to copy '%s%s' to '%s%s': %m",
                                                        strempty(arg_root), *source, strempty(root), *target);
