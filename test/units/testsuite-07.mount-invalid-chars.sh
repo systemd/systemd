@@ -23,7 +23,7 @@ TMP_MOUNTINFO="$(mktemp)"
 
 cp /proc/1/mountinfo "$TMP_MOUNTINFO"
 # Add a mount entry with a "Unicode non-character" in it
-echo -ne '69 1 252:2 / /foo/mountinfo rw,relatime shared:1 - cifs //foo\ufffebar rw,seclabel\n' >>"$TMP_MOUNTINFO"
+LANG="C.UTF-8" printf '69 1 252:2 / /foo/mountinfo rw,relatime shared:1 - cifs //foo\ufffebar rw,seclabel\n' >>"$TMP_MOUNTINFO"
 mount --bind "$TMP_MOUNTINFO" /proc/1/mountinfo
 systemctl daemon-reload
 # On affected versions this would throw an error:
@@ -42,12 +42,12 @@ rm -f "$TMP_MOUNTINFO"
 # a) Unit generated from /etc/fstab
 [[ -e /etc/fstab ]] && cp -f /etc/fstab /tmp/fstab.bak
 
-echo -ne '//localhost/foo\ufffebar  /foo/fstab  cifs defaults 0 0\n' >/etc/fstab
+LANG="C.UTF-8" printf '//localhost/foo\ufffebar  /foo/fstab  cifs defaults 0 0\n' >/etc/fstab
 systemctl daemon-reload
 [[ "$(systemctl show -P UnitFileState foo-fstab.mount)" == bad ]]
 
 # b) Unit generated from /etc/fstab (but the invalid character is in options)
-echo -ne '//localhost/foobar  /foo/fstab/opt  cifs nosuid,a\ufffeb,noexec 0 0\n' >/etc/fstab
+LANG="C.UTF-8" printf '//localhost/foobar  /foo/fstab/opt  cifs nosuid,a\ufffeb,noexec 0 0\n' >/etc/fstab
 systemctl daemon-reload
 [[ "$(systemctl show -P UnitFileState foo-fstab-opt.mount)" == bad ]]
 rm -f /etc/fstab
@@ -57,14 +57,14 @@ systemctl daemon-reload
 
 # c) Mount unit
 mkdir -p /run/systemd/system
-echo -ne '[Mount]\nWhat=//localhost/foo\ufffebar\nWhere=/foo/unit\nType=cifs\nOptions=noexec\n' >/run/systemd/system/foo-unit.mount
+LANG="C.UTF-8" printf '[Mount]\nWhat=//localhost/foo\ufffebar\nWhere=/foo/unit\nType=cifs\nOptions=noexec\n' >/run/systemd/system/foo-unit.mount
 systemctl daemon-reload
 [[ "$(systemctl show -P UnitFileState foo-unit.mount)" == bad ]]
 rm -f /run/systemd/system/foo-unit.mount
 
 # d) Mount unit (but the invalid character is in Options=)
 mkdir -p /run/systemd/system
-echo -ne '[Mount]\nWhat=//localhost/foobar\nWhere=/foo/unit/opt\nType=cifs\nOptions=noexec,a\ufffeb,nosuid\n' >/run/systemd/system/foo-unit-opt.mount
+LANG="C.UTF-8" printf '[Mount]\nWhat=//localhost/foobar\nWhere=/foo/unit/opt\nType=cifs\nOptions=noexec,a\ufffeb,nosuid\n' >/run/systemd/system/foo-unit-opt.mount
 systemctl daemon-reload
 [[ "$(systemctl show -P UnitFileState foo-unit-opt.mount)" == bad ]]
 rm -f /run/systemd/system/foo-unit-opt.mount
