@@ -473,12 +473,7 @@ static void varlink_clear(Varlink *v) {
         v->pushed_fds = mfree(v->pushed_fds);
         v->n_pushed_fds = 0;
 
-        while (v->output_queue) {
-                VarlinkJsonQueueItem *q = v->output_queue;
-
-                LIST_REMOVE(queue, v->output_queue, q);
-                varlink_json_queue_item_free(q);
-        }
+        LIST_CLEAR(queue, v->output_queue, varlink_json_queue_item_free);
         v->output_queue_tail = NULL;
 
         v->event = sd_event_unref(v->event);

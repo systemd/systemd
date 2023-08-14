@@ -99,19 +99,8 @@ static sd_radv *radv_free(sd_radv *ra) {
         if (!ra)
                 return NULL;
 
-        while (ra->prefixes) {
-                sd_radv_prefix *p = ra->prefixes;
-
-                LIST_REMOVE(prefix, ra->prefixes, p);
-                sd_radv_prefix_unref(p);
-        }
-
-        while (ra->route_prefixes) {
-                sd_radv_route_prefix *p = ra->route_prefixes;
-
-                LIST_REMOVE(prefix, ra->route_prefixes, p);
-                sd_radv_route_prefix_unref(p);
-        }
+        LIST_CLEAR(prefix, ra->prefixes, sd_radv_prefix_unref);
+        LIST_CLEAR(prefix, ra->route_prefixes, sd_radv_route_prefix_unref);
 
         free(ra->rdnss);
         free(ra->dnssl);
