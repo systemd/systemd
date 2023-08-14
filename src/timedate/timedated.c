@@ -115,8 +115,6 @@ static UnitStatusInfo *unit_status_info_free(UnitStatusInfo *p) {
 DEFINE_TRIVIAL_CLEANUP_FUNC(UnitStatusInfo*, unit_status_info_free);
 
 static void context_clear(Context *c) {
-        UnitStatusInfo *p;
-
         assert(c);
 
         free(c->zone);
@@ -125,10 +123,7 @@ static void context_clear(Context *c) {
 
         sd_bus_slot_unref(c->slot_job_removed);
 
-        while ((p = c->units)) {
-                LIST_REMOVE(units, c->units, p);
-                unit_status_info_free(p);
-        }
+        LIST_CLEAR(units, c->units, unit_status_info_free);
 }
 
 static int context_add_ntp_service(Context *c, const char *s, const char *source) {
