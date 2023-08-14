@@ -278,7 +278,7 @@ typedef struct UnitStatusInfo {
         LIST_HEAD(ExecStatusInfo, exec_status_info_list);
 } UnitStatusInfo;
 
-static void unit_status_info_free(UnitStatusInfo *info) {
+static void unit_status_info_done(UnitStatusInfo *info) {
         strv_free(info->documentation);
         strv_free(info->dropin_paths);
         strv_free(info->triggered_by);
@@ -2055,7 +2055,7 @@ static int show_one(
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_set_free_ Set *found_properties = NULL;
-        _cleanup_(unit_status_info_free) UnitStatusInfo info = {
+        _cleanup_(unit_status_info_done) UnitStatusInfo info = {
                 .runtime_max_sec = USEC_INFINITY,
                 .memory_current = UINT64_MAX,
                 .memory_high = CGROUP_LIMIT_MAX,
