@@ -22,6 +22,7 @@
 #include "nulstr-util.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "process-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "strv.h"
@@ -599,7 +600,9 @@ int mount_fd(const char *source,
              unsigned long mountflags,
              const void *data) {
 
-        if (mount(source, FORMAT_PROC_FD_PATH(target_fd), filesystemtype, mountflags, data) < 0) {
+        /* This path will end up in /proc/mounts and friends so use /proc/<pid>/fd instead of /proc/self/fd
+         * as /proc/self/fd is process dependent. */
+        if (mount(source, FORMAT_PROC_PID_FD_PATH(getpid_cached(), target_fd), filesystemtype, mountflags, data) < 0) {
                 if (errno != ENOENT)
                         return -errno;
 

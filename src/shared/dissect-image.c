@@ -1904,8 +1904,10 @@ static int mount_partition(
         if (m->mount_node_fd < 0)
                 return 0;
 
-        /* Use decrypted node and matching fstype if available, otherwise use the original device */
-        node = FORMAT_PROC_FD_PATH(m->mount_node_fd);
+        /* Use decrypted node and matching fstype if available, otherwise use the original device. We use
+         * /proc/<pid>/fd here instead of /proc/self/fd as this path will end up in /proc/mounts and
+         * /proc/self is process dependent but /proc/<pid> is not. */
+        node = FORMAT_PROC_PID_FD_PATH(getpid_cached(), m->mount_node_fd);
         fstype = dissected_partition_fstype(m);
 
         if (!fstype)
