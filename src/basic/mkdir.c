@@ -5,6 +5,7 @@
 #include <string.h>
 
 #include "alloc-util.h"
+#include "btrfs.h"
 #include "chase.h"
 #include "fd-util.h"
 #include "format-util.h"
@@ -209,7 +210,7 @@ int mkdir_p_safe(const char *prefix, const char *path, mode_t mode, uid_t uid, g
         return mkdir_p_internal(prefix, path, mode, uid, gid, flags, mkdirat_errno_wrapper);
 }
 
-int mkdir_p_root(const char *root, const char *p, uid_t uid, gid_t gid, mode_t m) {
+int mkdir_p_root(const char *root, const char *p, uid_t uid, gid_t gid, mode_t m, char **subvolumes) {
         _cleanup_free_ char *pp = NULL, *bn = NULL;
         _cleanup_close_ int dfd = -EBADF;
         int r;
@@ -227,7 +228,7 @@ int mkdir_p_root(const char *root, const char *p, uid_t uid, gid_t gid, mode_t m
                 return r;
         else {
                 /* Extracting the parent dir worked, hence we aren't top-level? Recurse up first. */
-                r = mkdir_p_root(root, pp, uid, gid, m);
+                r = mkdir_p_root(root, pp, uid, gid, m, subvolumes);
                 if (r < 0)
                         return r;
 
@@ -242,11 +243,15 @@ int mkdir_p_root(const char *root, const char *p, uid_t uid, gid_t gid, mode_t m
         if (r < 0)
                 return r;
 
-        if (mkdirat(dfd, bn, m) < 0) {
-                if (errno == EEXIST)
+        if (path_strv_contains(subvolumes, p))
+                r = btrfs_subvol_make_fallback(dfd, bn, m);
+        else
+                r = RET_NERRNO(mkdirat(dfd, bn, m));
+        if (r < 0) {
+                if (r == -EEXIST)
                         return 0;
 
-                return -errno;
+                return r;
         }
 
         if (uid_is_valid(uid) || gid_is_valid(gid)) {
