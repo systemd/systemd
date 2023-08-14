@@ -265,7 +265,7 @@ finish:
 int efi_set_variable_string(const char *variable, const char *value) {
         _cleanup_free_ char16_t *u16 = NULL;
 
-        u16 = utf8_to_utf16(value, strlen(value));
+        u16 = utf8_to_utf16(value, SIZE_MAX);
         if (!u16)
                 return -ENOMEM;
 
