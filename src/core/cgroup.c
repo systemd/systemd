@@ -247,11 +247,7 @@ void cgroup_context_remove_bpf_foreign_program(CGroupContext *c, CGroupBPFForeig
 void cgroup_context_remove_socket_bind(CGroupSocketBindItem **head) {
         assert(head);
 
-        while (*head) {
-                CGroupSocketBindItem *h = *head;
-                LIST_REMOVE(socket_bind_items, *head, h);
-                free(h);
-        }
+        LIST_CLEAR(socket_bind_items, *head, free);
 }
 
 void cgroup_context_done(CGroupContext *c) {

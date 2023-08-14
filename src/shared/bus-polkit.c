@@ -204,8 +204,6 @@ typedef struct AsyncPolkitQuery {
 } AsyncPolkitQuery;
 
 static AsyncPolkitQuery *async_polkit_query_free(AsyncPolkitQuery *q) {
-        AsyncPolkitQueryAction *a;
-
         if (!q)
                 return NULL;
 
@@ -220,8 +218,7 @@ static AsyncPolkitQuery *async_polkit_query_free(AsyncPolkitQuery *q) {
 
         sd_event_source_disable_unref(q->defer_event_source);
 
-        while ((a = LIST_POP(authorized, q->authorized_actions)))
-                async_polkit_query_action_free(a);
+        LIST_CLEAR(authorized, q->authorized_actions, async_polkit_query_action_free);
 
         async_polkit_query_action_free(q->denied_action);
         async_polkit_query_action_free(q->error_action);

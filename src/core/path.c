@@ -288,9 +288,8 @@ void path_free_specs(Path *p) {
 
         assert(p);
 
-        while ((s = p->specs)) {
+        while ((s = LIST_POP(spec, p->specs))) {
                 path_spec_unwatch(s);
-                LIST_REMOVE(spec, p->specs, s);
                 path_spec_done(s);
                 free(s);
         }
