@@ -279,24 +279,14 @@ typedef struct UnitStatusInfo {
 } UnitStatusInfo;
 
 static void unit_status_info_free(UnitStatusInfo *info) {
-        ExecStatusInfo *p;
-        UnitCondition *c;
-
         strv_free(info->documentation);
         strv_free(info->dropin_paths);
         strv_free(info->triggered_by);
         strv_free(info->triggers);
         strv_free(info->listen);
 
-        while ((c = info->conditions)) {
-                LIST_REMOVE(conditions, info->conditions, c);
-                unit_condition_free(c);
-        }
-
-        while ((p = info->exec_status_info_list)) {
-                LIST_REMOVE(exec_status_info_list, info->exec_status_info_list, p);
-                exec_status_info_free(p);
-        }
+        LIST_CLEAR(conditions, info->conditions, unit_condition_free);
+        LIST_CLEAR(exec_status_info_list, info->exec_status_info_list, exec_status_info_free);
 }
 
 static void format_active_state(const char *active_state, const char **active_on, const char **active_off) {

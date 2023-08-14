@@ -35,14 +35,9 @@ static void wireguard_resolve_endpoints(NetDev *netdev);
 static int peer_resolve_endpoint(WireguardPeer *peer);
 
 static void wireguard_peer_clear_ipmasks(WireguardPeer *peer) {
-        WireguardIPmask *mask;
-
         assert(peer);
 
-        while ((mask = peer->ipmasks)) {
-                LIST_REMOVE(ipmasks, peer->ipmasks, mask);
-                free(mask);
-        }
+        LIST_CLEAR(ipmasks, peer->ipmasks, free);
 }
 
 static WireguardPeer* wireguard_peer_free(WireguardPeer *peer) {

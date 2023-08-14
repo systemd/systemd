@@ -134,14 +134,9 @@ SocketPort *socket_port_free(SocketPort *p) {
 }
 
 void socket_free_ports(Socket *s) {
-        SocketPort *p;
-
         assert(s);
 
-        while ((p = s->ports)) {
-                LIST_REMOVE(port, s->ports, p);
-                socket_port_free(p);
-        }
+        LIST_CLEAR(port, s->ports, socket_port_free);
 }
 
 static void socket_done(Unit *u) {
