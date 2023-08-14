@@ -896,7 +896,7 @@ static int mount_in_namespace(
         if (is_image)
                 r = verity_dissect_and_mount(chased_src_fd, chased_src_path, mount_tmp, options, image_policy, NULL, NULL, NULL, NULL);
         else
-                r = mount_follow_verbose(LOG_DEBUG, FORMAT_PROC_FD_PATH(chased_src_fd), mount_tmp, NULL, MS_BIND, NULL);
+                r = mount_follow_verbose(LOG_DEBUG, FORMAT_PROC_PID_FD_PATH(getpid_cached(), chased_src_fd), mount_tmp, NULL, MS_BIND, NULL);
         if (r < 0)
                 goto finish;
 
@@ -1092,7 +1092,7 @@ int fd_make_mount_point(int fd) {
         if (r > 0)
                 return 0;
 
-        r = mount_follow_verbose(LOG_DEBUG, FORMAT_PROC_FD_PATH(fd), FORMAT_PROC_FD_PATH(fd), NULL, MS_BIND|MS_REC, NULL);
+        r = mount_follow_verbose(LOG_DEBUG, FORMAT_PROC_PID_FD_PATH(getpid_cached(), fd), FORMAT_PROC_FD_PATH(fd), NULL, MS_BIND|MS_REC, NULL);
         if (r < 0)
                 return r;
 
@@ -1422,7 +1422,7 @@ int bind_mount_submounts(
                         continue;
                 }
 
-                r = mount_follow_verbose(LOG_DEBUG, FORMAT_PROC_FD_PATH(m->mount_fd), t, NULL, MS_BIND|MS_REC, NULL);
+                r = mount_follow_verbose(LOG_DEBUG, FORMAT_PROC_PID_FD_PATH(getpid_cached(), m->mount_fd), t, NULL, MS_BIND|MS_REC, NULL);
                 if (r < 0 && ret == 0)
                         ret = r;
         }
