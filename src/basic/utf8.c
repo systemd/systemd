@@ -389,7 +389,13 @@ char *utf16_to_utf8(const char16_t *s, size_t length /* bytes! */) {
         const uint8_t *f;
         char *r, *t;
 
+        if (length == 0)
+                return new0(char, 1);
+
         assert(s);
+
+        if (length == SIZE_MAX)
+                length = char16_strlen(s);
 
         /* Input length is in bytes, i.e. the shortest possible character takes 2 bytes. Each unicode character may
          * take up to 4 bytes in UTF-8. Let's also account for a trailing NUL byte. */
@@ -463,7 +469,13 @@ char16_t *utf8_to_utf16(const char *s, size_t length) {
         char16_t *n, *p;
         int r;
 
+        if (length == 0)
+                return new0(char16_t, 1);
+
         assert(s);
+
+        if (length == SIZE_MAX)
+                length = strlen(s);
 
         n = new(char16_t, length + 1);
         if (!n)
