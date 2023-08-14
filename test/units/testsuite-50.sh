@@ -17,6 +17,7 @@ cleanup() {(
     umount "${image_dir}/app0"
     umount "${image_dir}/app1"
     umount "${image_dir}/app-nodistro"
+    umount "${image_dir}/service-scoped-test"
     rm -rf "${image_dir}"
 )}
 
@@ -376,11 +377,19 @@ systemd-run -P --property ExtensionImages="/usr/share/app0.raw /usr/share/app1.r
 systemd-run -P --property ExtensionImages="/usr/share/app0.raw /usr/share/app1.raw" --property RootImage="${image}.raw" cat /opt/script1.sh | grep -q -F "extension-release.app2"
 systemd-run -P --property ExtensionImages="/usr/share/app0.raw /usr/share/app1.raw" --property RootImage="${image}.raw" cat /usr/lib/systemd/system/other_file | grep -q -F "MARKER=1"
 systemd-run -P --property ExtensionImages=/usr/share/app-nodistro.raw --property RootImage="${image}.raw" cat /usr/lib/systemd/system/some_file | grep -q -F "MARKER=1"
+systemd-run -P --property ExtensionImages=/etc/service-scoped-test.raw --property RootImage="${image}.raw" cat /etc/systemd/system/some_file | grep -q -F "MARKER_CONFEXT_123"
 # Check that using a symlink to NAME-VERSION.raw works as long as the symlink has the correct name NAME.raw
 mkdir -p /usr/share/symlink-test/
 cp /usr/share/app-nodistro.raw /usr/share/symlink-test/app-nodistro-v1.raw
 ln -fs /usr/share/symlink-test/app-nodistro-v1.raw /usr/share/symlink-test/app-nodistro.raw
 systemd-run -P --property ExtensionImages=/usr/share/symlink-test/app-nodistro.raw --property RootImage="${image}.raw" cat /usr/lib/systemd/system/some_file | grep -q -F "MARKER=1"
+
+# Symlink check again but for confext
+mkdir -p /etc/symlink-test/
+cp /etc/service-scoped-test.raw /etc/symlink-test/service-scoped-test-v1.raw
+ln -fs /etc/symlink-test/service-scoped-test-v1.raw /etc/symlink-test/service-scoped-test.raw
+systemd-run -P --property ExtensionImages=/etc/symlink-test/service-scoped-test.raw --property RootImage="${image}.raw" cat /etc/systemd/system/some_file | grep -q -F "MARKER_CONFEXT_123"
+
 cat >/run/systemd/system/testservice-50e.service <<EOF
 [Service]
 MountAPIVFS=yes
@@ -399,12 +408,13 @@ systemctl start testservice-50e.service
 systemctl is-active testservice-50e.service
 
 # ExtensionDirectories will set up an overlay
-mkdir -p "${image_dir}/app0" "${image_dir}/app1" "${image_dir}/app-nodistro"
+mkdir -p "${image_dir}/app0" "${image_dir}/app1" "${image_dir}/app-nodistro" "${image_dir}/service-scoped-test"
 (! systemd-run -P --property ExtensionDirectories="${image_dir}/nonexistent" --property RootImage="${image}.raw" cat /opt/script0.sh)
 (! systemd-run -P --property ExtensionDirectories="${image_dir}/app0" --property RootImage="${image}.raw" cat /opt/script0.sh)
 systemd-dissect --mount /usr/share/app0.raw "${image_dir}/app0"
 systemd-dissect --mount /usr/share/app1.raw "${image_dir}/app1"
 systemd-dissect --mount /usr/share/app-nodistro.raw "${image_dir}/app-nodistro"
+systemd-dissect --mount /etc/service-scoped-test.raw "${image_dir}/service-scoped-test"
 systemd-run -P --property ExtensionDirectories="${image_dir}/app0" --property RootImage="${image}.raw" cat /opt/script0.sh | grep -q -F "extension-release.app0"
 systemd-run -P --property ExtensionDirectories="${image_dir}/app0" --property RootImage="${image}.raw" cat /usr/lib/systemd/system/some_file | grep -q -F "MARKER=1"
 systemd-run -P --property ExtensionDirectories="${image_dir}/app0 ${image_dir}/app1" --property RootImage="${image}.raw" cat /opt/script0.sh | grep -q -F "extension-release.app0"
@@ -412,6 +422,7 @@ systemd-run -P --property ExtensionDirectories="${image_dir}/app0 ${image_dir}/a
 systemd-run -P --property ExtensionDirectories="${image_dir}/app0 ${image_dir}/app1" --property RootImage="${image}.raw" cat /opt/script1.sh | grep -q -F "extension-release.app2"
 systemd-run -P --property ExtensionDirectories="${image_dir}/app0 ${image_dir}/app1" --property RootImage="${image}.raw" cat /usr/lib/systemd/system/other_file | grep -q -F "MARKER=1"
 systemd-run -P --property ExtensionDirectories="${image_dir}/app-nodistro" --property RootImage="${image}.raw" cat /usr/lib/systemd/system/some_file | grep -q -F "MARKER=1"
+systemd-run -P --property ExtensionDirectories="${image_dir}/service-scoped-test" --property RootImage="${image}.raw" cat /etc/systemd/system/some_file | grep -q -F "MARKER_CONFEXT_123"
 cat >/run/systemd/system/testservice-50f.service <<EOF
 [Service]
 MountAPIVFS=yes

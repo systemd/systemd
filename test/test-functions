@@ -839,6 +839,13 @@ EOF
           echo "ARCHITECTURE=_any" ) >"$initdir/usr/lib/extension-release.d/extension-release.app-nodistro"
         echo MARKER=1 >"$initdir/usr/lib/systemd/system/some_file"
         mksquashfs "$initdir" "$oldinitdir/usr/share/app-nodistro.raw" -noappend
+
+        export initdir="$TESTDIR/service-scoped-test"
+        mkdir -p "$initdir/etc/extension-release.d" "$initdir/etc/systemd/system"
+        ( echo "ID=_any"
+          echo "ARCHITECTURE=_any" ) >"$initdir/etc/extension-release.d/extension-release.service-scoped-test"
+        echo MARKER_CONFEXT_123 >"$initdir/etc/systemd/system/some_file"
+        mksquashfs "$initdir" "$oldinitdir/etc/service-scoped-test.raw" -noappend
     )
 }
 
