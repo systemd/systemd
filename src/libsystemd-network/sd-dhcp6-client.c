@@ -5,8 +5,9 @@
 
 #include <errno.h>
 #include <sys/ioctl.h>
-#include <linux/if_arp.h>
-#include <linux/if_infiniband.h>
+#include <net/if.h>
+#include <linux/if_arp.h> /* Must be included after <net/if.h> */
+#include <linux/if_infiniband.h> /* Must be included after <net/if.h> */
 
 #include "sd-dhcp6-client.h"
 
