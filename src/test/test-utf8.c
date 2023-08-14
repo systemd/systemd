@@ -183,7 +183,7 @@ TEST(utf16_to_utf8) {
         assert_se(b);
 
         free(a);
-        a = utf16_to_utf8(b, char16_strlen(b) * 2);
+        a = utf16_to_utf8(b, SIZE_MAX);
         assert_se(a);
         assert_se(strlen(a) == sizeof(utf8));
         assert_se(memcmp(a, utf8, sizeof(utf8)) == 0);
@@ -218,10 +218,10 @@ TEST(utf8_to_utf16) {
                 _cleanup_free_ char16_t *a = NULL;
                 _cleanup_free_ char *b = NULL;
 
-                a = utf8_to_utf16(p, strlen(p));
+                a = utf8_to_utf16(p, SIZE_MAX);
                 assert_se(a);
 
-                b = utf16_to_utf8(a, char16_strlen(a) * 2);
+                b = utf16_to_utf8(a, SIZE_MAX);
                 assert_se(b);
                 assert_se(streq(p, b));
         }
