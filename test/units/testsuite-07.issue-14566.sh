@@ -13,8 +13,6 @@ if [[ -n "${ASAN_OPTIONS:-}" ]]; then
     exit 0
 fi
 
-systemd-analyze log-level debug
-
 systemctl start issue14566-repro
 sleep 4
 systemctl status issue14566-repro
@@ -28,4 +26,4 @@ sleep 4
 # I personally prefer to see 42.
 ps -p "$leaked_pid" && exit 42
 
-systemd-analyze log-level info
+exit 0
