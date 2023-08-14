@@ -1980,7 +1980,10 @@ static int mount_partition(
                 if (!strextend_with_separator(&options, ",", m->mount_options))
                         return -ENOMEM;
 
-        r = mount_nofollow_verbose(LOG_DEBUG, node, p, fstype, ms_flags, options);
+        /* We use the node path here instead of the file descriptor path because the source of the mount
+         * will appear in various interfaces such as /proc/self/mountinfo and we want to have a descriptive
+         * source device path instead of a non-descriptive /proc/self/fd path. */
+        r = mount_nofollow_verbose(LOG_DEBUG, m->node, p, fstype, ms_flags, options);
         if (r < 0)
                 return r;
 
@@ -2040,7 +2043,7 @@ static int mount_point_is_available(const char *where, const char *path, bool mi
                 return false;
         if (r < 0)
                 return log_debug_errno(r, "Failed to check directory \"%s\": %m", p);
-        return true;
+        return r > 0;
 }
 
 int dissected_image_mount(
