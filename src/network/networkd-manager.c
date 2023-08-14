@@ -3,7 +3,8 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <unistd.h>
-#include <linux/if.h>
+#include <net/if.h>
+#include <linux/if.h> /* Must be included after <net/if.h> */
 #include <linux/fib_rules.h>
 #include <linux/nexthop.h>
 #include <linux/nl80211.h>
