@@ -1866,7 +1866,7 @@ static int copy_files(Context *c, Item *i) {
                          i->uid_set ? i->uid : UID_INVALID,
                          i->gid_set ? i->gid : GID_INVALID,
                          COPY_REFLINK | ((i->append_or_force) ? COPY_MERGE : COPY_MERGE_EMPTY) | COPY_MAC_CREATE | COPY_HARDLINKS,
-                         NULL);
+                         NULL, NULL);
 
         fd = openat(dfd, bn, O_NOFOLLOW|O_CLOEXEC|O_PATH);
         if (fd < 0) {
@@ -1932,7 +1932,7 @@ static int create_directory_or_subvolume(
                         subvol = false;
                 else {
                         WITH_UMASK((~mode) & 0777)
-                                r = btrfs_subvol_make_fd(pfd, bn);
+                                r = btrfs_subvol_make(pfd, bn);
                 }
         } else
                 r = 0;
