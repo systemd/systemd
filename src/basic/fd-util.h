@@ -8,6 +8,7 @@
 #include <sys/socket.h>
 
 #include "macro.h"
+#include "format-util.h"
 #include "stdio-util.h"
 
 /* maximum length of fdname */
@@ -125,6 +126,20 @@ static inline char *format_proc_fd_path(char buf[static PROC_FD_PATH_MAX], int f
 
 #define FORMAT_PROC_FD_PATH(fd) \
         format_proc_fd_path((char[PROC_FD_PATH_MAX]) {}, (fd))
+
+/* The maximum length a buffer for a /proc/self/fd/<fd> path needs */
+#define PROC_PID_FD_PATH_MAX \
+        (STRLEN("/proc//fd/") + DECIMAL_STR_MAX(pid_t) + DECIMAL_STR_MAX(int))
+
+static inline char *format_proc_pid_fd_path(char buf[static PROC_PID_FD_PATH_MAX], pid_t pid, int fd) {
+        assert(buf);
+        assert(fd >= 0);
+        assert_se(snprintf_ok(buf, PROC_PID_FD_PATH_MAX, "/proc/" PID_FMT "/fd/%i", pid, fd));
+        return buf;
+}
+
+#define FORMAT_PROC_PID_FD_PATH(pid, fd) \
+        format_proc_pid_fd_path((char[PROC_PID_FD_PATH_MAX]) {}, (pid), (fd))
 
 const char *accmode_to_string(int flags);
 
