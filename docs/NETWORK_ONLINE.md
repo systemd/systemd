@@ -252,11 +252,11 @@ established), the following simple service could be used:
 DefaultDependencies=no
 After=nss-lookup.target
 Before=network-online.target
-Type=oneshot
-RemainAfterExit=yes
 
 [Service]
-ExecStart=sh -c 'while ! ping -c 1 example.com; do sleep 1; done'
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=sh -c 'until ping -c 1 example.com; do sleep 1; done'
 
 [Install]
 WantedBy=network-online.target

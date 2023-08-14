@@ -8,26 +8,34 @@
 
 #if HAVE_LIBFDISK
 
-int fdisk_new_context_fd(
-                int fd,
+int fdisk_new_context_at(
+                int dir_fd,
+                const char *path,
                 bool read_only,
                 uint32_t sector_size,
                 struct fdisk_context **ret) {
 
         _cleanup_(fdisk_unref_contextp) struct fdisk_context *c = NULL;
+        _cleanup_close_ int fd = -EBADF;
         int r;
 
+        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
         assert(ret);
 
-        if (fd < 0)
-                return -EBADF;
+        if (!isempty(path)) {
+                fd = openat(dir_fd, path, (read_only ? O_RDONLY : O_RDWR)|O_CLOEXEC);
+                if (fd < 0)
+                        return -errno;
+
+                dir_fd = fd;
+        }
 
         c = fdisk_new_context();
         if (!c)
                 return -ENOMEM;
 
         if (sector_size == UINT32_MAX) {
-                r = probe_sector_size_prefer_ioctl(fd, &sector_size);
+                r = probe_sector_size_prefer_ioctl(dir_fd, &sector_size);
                 if (r < 0)
                         return r;
         }
@@ -38,7 +46,7 @@ int fdisk_new_context_fd(
                         return r;
         }
 
-        r = fdisk_assign_device(c, FORMAT_PROC_FD_PATH(fd), read_only);
+        r = fdisk_assign_device(c, FORMAT_PROC_FD_PATH(dir_fd), read_only);
         if (r < 0)
                 return r;
 

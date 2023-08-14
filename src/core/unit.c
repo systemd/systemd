@@ -3291,17 +3291,22 @@ int unit_add_dependency(
 }
 
 int unit_add_two_dependencies(Unit *u, UnitDependency d, UnitDependency e, Unit *other, bool add_reference, UnitDependencyMask mask) {
-        int r, s;
+        int r = 0, s = 0;
 
         assert(u);
+        assert(d >= 0 || e >= 0);
 
-        r = unit_add_dependency(u, d, other, add_reference, mask);
-        if (r < 0)
-                return r;
+        if (d >= 0) {
+                r = unit_add_dependency(u, d, other, add_reference, mask);
+                if (r < 0)
+                        return r;
+        }
 
-        s = unit_add_dependency(u, e, other, add_reference, mask);
-        if (s < 0)
-                return s;
+        if (e >= 0) {
+                s = unit_add_dependency(u, e, other, add_reference, mask);
+                if (s < 0)
+                        return s;
+        }
 
         return r > 0 || s > 0;
 }

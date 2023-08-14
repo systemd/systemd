@@ -168,13 +168,9 @@ static int resource_load_from_blockdev(Resource *rr) {
 
         assert(rr);
 
-        c = fdisk_new_context();
-        if (!c)
-                return log_oom();
-
-        r = fdisk_assign_device(c, rr->path, /* readonly= */ true);
+        r = fdisk_new_context_at(AT_FDCWD, rr->path, /* read_only= */ true, /* sector_size= */ UINT32_MAX, &c);
         if (r < 0)
-                return log_error_errno(r, "Failed to open device '%s': %m", rr->path);
+                return log_error_errno(r, "Failed to create fdisk context from '%s': %m", rr->path);
 
         if (!fdisk_is_labeltype(c, FDISK_DISKLABEL_GPT))
                 return log_error_errno(SYNTHETIC_ERRNO(EHWPOISON), "Disk %s has no GPT disk label, not suitable.", rr->path);
