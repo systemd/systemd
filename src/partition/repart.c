@@ -6114,7 +6114,8 @@ static int context_minimize(Context *context) {
 
                 /* Massage the size a bit because just going by actual data used in the sparse file isn't
                  * fool-proof. */
-                fsz = round_up_size(fsz + (fsz / 2), context->grain_size);
+                uint64_t heuristic = streq(p->format, "xfs") ? fsz : fsz / 2;
+                fsz = round_up_size(fsz + heuristic, context->grain_size);
                 if (minimal_size_by_fs_name(p->format) != UINT64_MAX)
                         fsz = MAX(minimal_size_by_fs_name(p->format), fsz);
 
