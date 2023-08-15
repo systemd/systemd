@@ -1,11 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <uchar.h>
+
 #include "sd-gpt.h"
 #include "sd-id128.h"
 
 #include "architecture.h"
 #include "id128-util.h"
+#include "sparse-endian.h"
 
 /* maximum length of gpt label */
 #define GPT_LABEL_MAX 36
@@ -69,3 +72,31 @@ const char *gpt_partition_type_mountpoint_nulstr(GptPartitionType type);
 bool gpt_partition_type_knows_read_only(GptPartitionType type);
 bool gpt_partition_type_knows_growfs(GptPartitionType type);
 bool gpt_partition_type_knows_no_auto(GptPartitionType type);
+
+typedef struct {
+        uint8_t partition_type_guid[16];
+        uint8_t unique_partition_guid[16];
+        le64_t starting_lba;
+        le64_t ending_lba;
+        le64_t attributes;
+        char16_t partition_name[36];
+} _packed_ GptPartitionEntry;
+
+typedef struct {
+        char signature[8];
+        le32_t revision;
+        le32_t header_size;
+        le32_t crc32;
+        le32_t reserved;
+        le64_t my_lba;
+        le64_t alternate_lba;
+        le64_t first_usable_lba;
+        le64_t last_usable_lba;
+        uint8_t disk_guid[16];
+        le64_t partition_entry_lba;
+        le32_t number_of_partition_entries;
+        le32_t size_of_partition_entry;
+        le32_t partition_entry_array_crc32;
+} _packed_ GptHeader;
+
+bool gpt_header_has_signature(const GptHeader *p);
