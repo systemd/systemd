@@ -555,6 +555,11 @@ static int dhcp6_set_identifier(Link *link, sd_dhcp6_client *client) {
         }
 
         duid = link_get_dhcp6_duid(link);
+
+        if (duid->type == DUID_TYPE_CUSTOM && duid->raw_data_len == 0)
+                return log_link_debug_errno(link, SYNTHETIC_ERRNO(EINVAL),
+                                            "DHCPv6 CLIENT: Missing DUID Raw Data as duid type set to 'custom': %m");
+
         if (duid->type == DUID_TYPE_LLT && duid->raw_data_len == 0)
                 r = sd_dhcp6_client_set_duid_llt(client, duid->llt_time);
         else
