@@ -8,6 +8,8 @@
 #include <sys/socket.h>
 
 #include "macro.h"
+#include "format-util.h"
+#include "process-util.h"
 #include "stdio-util.h"
 
 /* maximum length of fdname */
@@ -112,14 +114,17 @@ static inline int dir_fd_is_root_or_cwd(int dir_fd) {
         return dir_fd == AT_FDCWD ? true : path_is_root_at(dir_fd, NULL);
 }
 
-/* The maximum length a buffer for a /proc/self/fd/<fd> path needs */
+/* The maximum length a buffer for a /proc/<pid>/fd/<fd> path needs. We intentionally don't use /proc/self/fd
+ * as these paths might be read by other programs (for example when mounting file descriptors the source path
+ * ends up in /proc/mounts and related files) for which /proc/self/fd will be interpreted differently than
+ * /proc/<pid>/fd. */
 #define PROC_FD_PATH_MAX \
-        (STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int))
+        (STRLEN("/proc//fd/") + DECIMAL_STR_MAX(pid_t) + DECIMAL_STR_MAX(int))
 
 static inline char *format_proc_fd_path(char buf[static PROC_FD_PATH_MAX], int fd) {
         assert(buf);
         assert(fd >= 0);
-        assert_se(snprintf_ok(buf, PROC_FD_PATH_MAX, "/proc/self/fd/%i", fd));
+        assert_se(snprintf_ok(buf, PROC_FD_PATH_MAX, "/proc/" PID_FMT "/fd/%i", getpid_cached(), fd));
         return buf;
 }
 
