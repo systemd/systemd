@@ -670,8 +670,7 @@ static int vl_method_dump_statistics(Varlink *link, JsonVariant *parameters, Var
         if (r < 0)
                 return r;
 
-        return varlink_replyb(link, JSON_BUILD_OBJECT(
-                                              JSON_BUILD_PAIR("statistics", JSON_BUILD_VARIANT(j))));
+        return varlink_replyb(link, JSON_BUILD_VARIANT(j));
 }
 
 static int vl_method_reset_statistics(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
@@ -684,10 +683,9 @@ static int vl_method_reset_statistics(Varlink *link, JsonVariant *parameters, Va
 
         m = ASSERT_PTR(varlink_server_get_userdata(varlink_get_server(link)));
 
-        dns_manager_reset_satistics(m);
+        dns_manager_reset_statistics(m);
 
-        return varlink_replyb(link, JSON_BUILD_OBJECT(
-                                              JSON_BUILD_PAIR("success", JSON_BUILD_BOOLEAN(true))));
+        return varlink_replyb(link, JSON_BUILD_EMPTY_OBJECT);
 }
 
 static int varlink_monitor_server_init(Manager *m) {

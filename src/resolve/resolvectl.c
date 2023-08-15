@@ -1072,7 +1072,7 @@ static int verb_tlsa(int argc, char **argv, void *userdata) {
 
 static int show_statistics(int argc, char **argv, void *userdata) {
         _cleanup_(table_unrefp) Table *table = NULL;
-        JsonVariant *reply = NULL, *stats = NULL;
+        JsonVariant *reply = NULL;
         _cleanup_(varlink_unrefp) Varlink *vl = NULL;
         int r;
 
@@ -1084,17 +1084,8 @@ static int show_statistics(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to issue DumpStatistics() varlink call: %m");
 
-        stats = json_variant_by_key(reply, "statistics");
-        if (!stats)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                       "DumpStatistics() response is missing 'statistics' key.");
-
-        if (!json_variant_is_object(stats))
-                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                       "DumpStatistics() response 'statistics' field not an object");
-
         if (!FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF))
-                return json_variant_dump(stats, arg_json_format_flags, NULL, NULL);
+                return json_variant_dump(reply, arg_json_format_flags, NULL, NULL);
 
         struct statistics {
                 JsonVariant *transactions;
@@ -1109,7 +1100,7 @@ static int show_statistics(int argc, char **argv, void *userdata) {
                 {},
         };
 
-        r = json_dispatch(stats, statistics_dispatch_table, NULL, JSON_LOG, &statistics);
+        r = json_dispatch(reply, statistics_dispatch_table, NULL, JSON_LOG, &statistics);
         if (r < 0)
                 return r;
 
@@ -1239,7 +1230,7 @@ static int show_statistics(int argc, char **argv, void *userdata) {
 }
 
 static int reset_statistics(int argc, char **argv, void *userdata) {
-        JsonVariant *reply = NULL, *s = NULL;
+        JsonVariant *reply = NULL;
         _cleanup_(varlink_unrefp) Varlink *vl = NULL;
         int r;
 
@@ -1250,11 +1241,6 @@ static int reset_statistics(int argc, char **argv, void *userdata) {
         r = varlink_call(vl, "io.systemd.Resolve.Monitor.ResetStatistics", NULL, &reply, NULL, 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to issue ResetStatistics() varlink call: %m");
-
-        s = json_variant_by_key(reply, "success");
-        if (!s)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                       "ResetStatistics() response is missing 'success' key.");
 
         if (!FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF))
                 return json_variant_dump(reply, arg_json_format_flags, NULL, NULL);
@@ -3014,7 +3000,7 @@ static int dump_server_state(JsonVariant *server) {
                 const char *verified_feature_level;
                 const char *possible_feature_level;
                 const char *dnssec_mode;
-                bool can_do_dnssec;
+                bool dnssec_supported;
                 size_t received_udp_fragment_max;
                 uint64_t n_failed_udp;
                 uint64_t n_failed_tcp;
@@ -3028,21 +3014,21 @@ static int dump_server_state(JsonVariant *server) {
         int r;
 
         static const JsonDispatch dispatch_table[] = {
-                { "server",                     JSON_VARIANT_STRING,    json_dispatch_const_string,  offsetof(struct server_state, server_name),                JSON_MANDATORY },
-                { "type",                       JSON_VARIANT_STRING,    json_dispatch_const_string,  offsetof(struct server_state, type),                       JSON_MANDATORY },
-                { "interface",                  JSON_VARIANT_STRING,    json_dispatch_const_string,  offsetof(struct server_state, ifname),                     0              },
-                { "verifiedFeatureLevel",       JSON_VARIANT_STRING,    json_dispatch_const_string,  offsetof(struct server_state, verified_feature_level),     0              },
-                { "possibleFeatureLevel",       JSON_VARIANT_STRING,    json_dispatch_const_string,  offsetof(struct server_state, possible_feature_level),     0              },
-                { "dnssecMode",                 JSON_VARIANT_STRING,    json_dispatch_const_string,  offsetof(struct server_state, dnssec_mode),                JSON_MANDATORY },
-                { "canDoDNSSEC",                JSON_VARIANT_BOOLEAN,   json_dispatch_boolean,       offsetof(struct server_state, can_do_dnssec),              JSON_MANDATORY },
-                { "maxUDPFragmentSize",         JSON_VARIANT_UNSIGNED,  json_dispatch_uint64,        offsetof(struct server_state, received_udp_fragment_max),  JSON_MANDATORY },
-                { "failedUDPAttempts",          JSON_VARIANT_UNSIGNED,  json_dispatch_uint64,        offsetof(struct server_state, n_failed_udp),               JSON_MANDATORY },
-                { "failedTCPAttempts",          JSON_VARIANT_UNSIGNED,  json_dispatch_uint64,        offsetof(struct server_state, n_failed_tcp),               JSON_MANDATORY },
-                { "seenTruncatedPacket",        JSON_VARIANT_BOOLEAN,   json_dispatch_boolean,       offsetof(struct server_state, packet_truncated),           JSON_MANDATORY },
-                { "seenOPTRRGettingLost",       JSON_VARIANT_BOOLEAN,   json_dispatch_boolean,       offsetof(struct server_state, packet_bad_opt),             JSON_MANDATORY },
-                { "seenRRSIGRRMissing",         JSON_VARIANT_BOOLEAN,   json_dispatch_boolean,       offsetof(struct server_state, packet_rrsig_missing),       JSON_MANDATORY },
-                { "seenInvalidPacket",          JSON_VARIANT_BOOLEAN,   json_dispatch_boolean,       offsetof(struct server_state, packet_invalid),             JSON_MANDATORY },
-                { "serverDroppedDOFlag",        JSON_VARIANT_BOOLEAN,   json_dispatch_boolean,       offsetof(struct server_state, packet_do_off),              JSON_MANDATORY },
+                { "Server",                     JSON_VARIANT_STRING,    json_dispatch_const_string,  offsetof(struct server_state, server_name),                JSON_MANDATORY },
+                { "Type",                       JSON_VARIANT_STRING,    json_dispatch_const_string,  offsetof(struct server_state, type),                       JSON_MANDATORY },
+                { "Interface",                  JSON_VARIANT_STRING,    json_dispatch_const_string,  offsetof(struct server_state, ifname),                     0              },
+                { "VerifiedFeatureLevel",       JSON_VARIANT_STRING,    json_dispatch_const_string,  offsetof(struct server_state, verified_feature_level),     0              },
+                { "PossibleFeatureLevel",       JSON_VARIANT_STRING,    json_dispatch_const_string,  offsetof(struct server_state, possible_feature_level),     0              },
+                { "DNSSECMode",                 JSON_VARIANT_STRING,    json_dispatch_const_string,  offsetof(struct server_state, dnssec_mode),                JSON_MANDATORY },
+                { "DNSSECSupported",            JSON_VARIANT_BOOLEAN,   json_dispatch_boolean,       offsetof(struct server_state, dnssec_supported),           JSON_MANDATORY },
+                { "ReceivedUDPFragmentMax",     JSON_VARIANT_UNSIGNED,  json_dispatch_uint64,        offsetof(struct server_state, received_udp_fragment_max),  JSON_MANDATORY },
+                { "FailedUDPAttempts",          JSON_VARIANT_UNSIGNED,  json_dispatch_uint64,        offsetof(struct server_state, n_failed_udp),               JSON_MANDATORY },
+                { "FailedTCPAttempts",          JSON_VARIANT_UNSIGNED,  json_dispatch_uint64,        offsetof(struct server_state, n_failed_tcp),               JSON_MANDATORY },
+                { "PacketTruncated",            JSON_VARIANT_BOOLEAN,   json_dispatch_boolean,       offsetof(struct server_state, packet_truncated),           JSON_MANDATORY },
+                { "PacketBadOpt",               JSON_VARIANT_BOOLEAN,   json_dispatch_boolean,       offsetof(struct server_state, packet_bad_opt),             JSON_MANDATORY },
+                { "PacketRRSIGMissing",         JSON_VARIANT_BOOLEAN,   json_dispatch_boolean,       offsetof(struct server_state, packet_rrsig_missing),       JSON_MANDATORY },
+                { "PacketInvalid",              JSON_VARIANT_BOOLEAN,   json_dispatch_boolean,       offsetof(struct server_state, packet_invalid),             JSON_MANDATORY },
+                { "PacketDoOff",                JSON_VARIANT_BOOLEAN,   json_dispatch_boolean,       offsetof(struct server_state, packet_do_off),              JSON_MANDATORY },
                 {},
         };
 
@@ -3098,8 +3084,8 @@ static int dump_server_state(JsonVariant *server) {
         r = table_add_many(table,
                            TABLE_FIELD, "DNSSEC Mode",
                            TABLE_STRING, server_state.dnssec_mode,
-                           TABLE_FIELD, "Can do DNSSEC",
-                           TABLE_STRING, yes_no(server_state.can_do_dnssec),
+                           TABLE_FIELD, "DNSSEC Supported",
+                           TABLE_STRING, yes_no(server_state.dnssec_supported),
                            TABLE_FIELD, "Maximum UDP fragment size received",
                            TABLE_UINT64, server_state.received_udp_fragment_max,
                            TABLE_FIELD, "Failed UDP attempts",
