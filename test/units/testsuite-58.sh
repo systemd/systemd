@@ -907,6 +907,65 @@ EOF
     systemd-dissect -U "$imgs/mnt"
 }
 
+testcase_verity_explicit_block_size() {
+    local defs imgs loop
+
+    defs="$(mktemp --directory "/tmp/test-repart.defs.XXXXXXXXXX")"
+    imgs="$(mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
+
+    if systemd-detect-virt --quiet --container; then
+        echo "Skipping verity block size tests in container."
+        return
+    fi
+
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs'" RETURN
+    chmod a+rx "$defs"
+
+    echo "*** varying-dm-verity-block-sizes ***"
+
+    tee "$defs/verity-data.conf" <<EOF
+[Partition]
+Type=root-${architecture}
+CopyFiles=${defs}
+Verity=data
+VerityMatchKey=root
+Minimize=guess
+EOF
+
+    tee "$defs/verity-hash.conf" <<EOF
+[Partition]
+Type=root-${architecture}-verity
+Verity=hash
+VerityMatchKey=root
+Minimize=yes
+[Verity]
+HashBlockSizeBytes=1024
+DataBlockSizeBytes=4096
+EOF
+
+    systemd-repart --offline="$OFFLINE" \
+                    --definitions="$defs" \
+                    --seed="$seed" \
+                    --dry-run=no \
+                    --empty=create \
+                    --size=auto \
+                    --json=pretty \
+                    "$imgs/verity"
+
+    loop="$(losetup --partscan --show --find "$imgs/verity")"
+
+    # Make sure the loopback device gets cleaned up
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs' ; losetup -d '$loop'" RETURN ERR
+
+    udevadm wait --timeout 60 --settle "${loop:?}"
+
+    # Check that the verity block sizes are as expected
+    veritysetup dump "${loop}p2" | grep 'Data block size:' | grep -q '4096'
+    veritysetup dump "${loop}p2" | grep 'Hash block size:' | grep -q '1024'
+}
+
 testcase_exclude_files() {
     local defs imgs root output
 
