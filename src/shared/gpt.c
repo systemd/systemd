@@ -336,3 +336,24 @@ bool gpt_partition_type_knows_no_auto(GptPartitionType type) {
                       PARTITION_XBOOTLDR,
                       PARTITION_SWAP);
 }
+
+bool gpt_header_has_signature(const GptHeader *p) {
+        assert(p);
+
+        if (memcmp(p->signature, (const char[8]) { 'E', 'F', 'I', ' ', 'P', 'A', 'R', 'T' }, 8) != 0)
+                return false;
+
+        if (le32toh(p->revision) != UINT32_C(0x00010000)) /* the only known revision of the spec: 1.0 */
+                return false;
+
+        if (le32toh(p->header_size) < sizeof(GptHeader))
+                return false;
+
+        if (le32toh(p->header_size) > 4096) /* larger than a sector? something is off… */
+                return false;
+
+        if (le64toh(p->my_lba) != 1) /* this sector must claim to be at sector offset 1 */
+                return false;
+
+        return true;
+}
