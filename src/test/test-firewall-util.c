@@ -106,6 +106,8 @@ int main(int argc, char *argv[]) {
         assert_se(fw_ctx_new(&ctx) >= 0);
         assert_se(ctx);
 
+        fw_backend_probe(ctx);
+
         if (ctx->backend == FW_BACKEND_NONE)
                 return EXIT_TEST_SKIP;
 
