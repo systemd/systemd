@@ -1835,7 +1835,7 @@ int dns_manager_dump_statistics_json(Manager *m, JsonVariant **ret) {
                                         ))));
 }
 
-void dns_manager_reset_satistics(Manager *m) {
+void dns_manager_reset_statistics(Manager *m) {
 
         assert(m);
 
