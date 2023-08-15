@@ -142,6 +142,11 @@
               </row>
 
               <row>
+                <entry><constant>bios</constant></entry>
+                <entry>BIOS boot partition</entry>
+              </row>
+
+              <row>
                 <entry><constant>root</constant></entry>
                 <entry>Root file system partition type appropriate for the local architecture (an alias for an architecture root file system partition type listed below, e.g. <constant>root-x86-64</constant>)</entry>
               </row>
