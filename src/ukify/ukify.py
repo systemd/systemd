@@ -508,6 +508,22 @@ def join_initrds(initrds):
     return b''.join(seq)
 
 
+def join_dtbs(dtbs):
+    if not dtbs:
+        return None
+    if len(dtbs) == 1:
+        return dtbs[0]
+
+    seq = []
+    for file in dtbs:
+        dtb = file.read_bytes()
+        n = len(dtb)
+        padding = b'\0' * (round_up(n, 8) - n)  # pad to 64 bit alignment
+        seq += [dtb, padding]
+
+    return b''.join(seq)
+
+
 def pairwise(iterable):
     a, b = itertools.tee(iterable)
     next(b, None)
@@ -753,6 +769,7 @@ def make_uki(opts):
 
     uki = UKI(opts.stub)
     initrd = join_initrds(opts.initrd)
+    dtb = join_dtbs(opts.devicetree)
 
     pcrpkey = opts.pcrpkey
     if pcrpkey is None:
@@ -770,7 +787,7 @@ def make_uki(opts):
         # name,      content,         measure?
         ('.osrel',   opts.os_release, True ),
         ('.cmdline', opts.cmdline,    True ),
-        ('.dtb',     opts.devicetree, True ),
+        ('.dtb',     dtb,             True ),
         ('.uname',   opts.uname,      True ),
         ('.splash',  opts.splash,     True ),
         ('.pcrpkey', pcrpkey,         True ),
@@ -1111,10 +1128,10 @@ class ConfigItem:
         else:
             conv = lambda s:s
 
-        # This is a bit ugly, but --initrd is the only option which is specified
-        # with multiple args on the command line and a space-separated list in the
-        # config file.
-        if self.name == '--initrd':
+        # This is a bit ugly, but --initrd and --devicetree are the only options
+        # which are specified with multiple args on the command line and a
+        # space-separated list in the config file.
+        if self.name == '--initrd' or self.name == '--devicetree':
             value = [conv(v) for v in value.split()]
         else:
             value = conv(value)
@@ -1197,8 +1214,10 @@ CONFIG_ITEMS = [
         '--devicetree',
         metavar = 'PATH',
         type = pathlib.Path,
+        action = 'append',
         help = 'Device Tree file [.dtb section]',
         config_key = 'UKI/DeviceTree',
+        config_push = ConfigItem.config_list_prepend,
     ),
     ConfigItem(
         '--splash',
