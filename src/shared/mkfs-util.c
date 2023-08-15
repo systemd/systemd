@@ -432,14 +432,13 @@ int make_filesystem(
                 if (quiet && strv_extend(&argv, "-q") < 0)
                         return log_oom();
 
-                if (sector_size > 0)
-                        FOREACH_STRING(s, "MKE2FS_DEVICE_SECTSIZE", "MKE2FS_DEVICE_PHYS_SECTSIZE") {
-                                if (strv_extend(&env, s) < 0)
+                if (sector_size > 0) {
+                        if (strv_extend(&env, "MKE2FS_DEVICE_SECTSIZE") < 0)
                                         return log_oom();
 
-                                if (strv_extendf(&env, "%"PRIu64, sector_size) < 0)
-                                        return log_oom();
-                        }
+                        if (strv_extendf(&env, "%"PRIu64, sector_size) < 0)
+                                return log_oom();
+                }
 
         } else if (streq(fstype, "btrfs")) {
                 argv = strv_new(mkfs,
