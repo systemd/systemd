@@ -1756,9 +1756,9 @@ static int partition_read_definition(Partition *p, const char *path, const char 
                                   "SizeMinBytes=/SizeMaxBytes= cannot be used with Verity=%s",
                                   verity_mode_to_string(p->verity));
 
-        if (!strv_isempty(p->subvolumes) && arg_offline != 0)
+        if (!strv_isempty(p->subvolumes) && arg_offline > 0)
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                  "Subvolumes= can only be used with --offline=no");
+                                  "Subvolumes= cannot be used with --offline=yes");
 
         /* Verity partitions are read only, let's imply the RO flag hence, unless explicitly configured otherwise. */
         if ((IN_SET(p->type.designator,
@@ -3494,7 +3494,7 @@ static int partition_target_prepare(
 
         if (arg_offline <= 0) {
                 r = loop_device_make(whole_fd, O_RDWR, p->offset, size, context->sector_size, 0, LOCK_EX, &d);
-                if (r < 0 && (arg_offline == 0 || (r != -ENOENT && !ERRNO_IS_PRIVILEGE(r))))
+                if (r < 0 && (arg_offline == 0 || (r != -ENOENT && !ERRNO_IS_PRIVILEGE(r)) || !strv_isempty(p->subvolumes)))
                         return log_error_errno(r, "Failed to make loopback device of future partition %" PRIu64 ": %m", p->partno);
                 if (r >= 0) {
                         t->loop = TAKE_PTR(d);
@@ -6022,7 +6022,7 @@ static int context_minimize(Context *context) {
 
                         if (arg_offline <= 0) {
                                 r = loop_device_make(fd, O_RDWR, 0, UINT64_MAX, context->sector_size, 0, LOCK_EX, &d);
-                                if (r < 0 && (arg_offline == 0 || (r != -ENOENT && !ERRNO_IS_PRIVILEGE(r))))
+                                if (r < 0 && (arg_offline == 0 || (r != -ENOENT && !ERRNO_IS_PRIVILEGE(r)) || !strv_isempty(p->subvolumes)))
                                         return log_error_errno(r, "Failed to make loopback device of %s: %m", temp);
                         }
 
@@ -6125,7 +6125,7 @@ static int context_minimize(Context *context) {
 
                 if (arg_offline <= 0) {
                         r = loop_device_make(fd, O_RDWR, 0, UINT64_MAX, context->sector_size, 0, LOCK_EX, &d);
-                        if (r < 0 && (arg_offline == 0 || (r != -ENOENT && !ERRNO_IS_PRIVILEGE(r))))
+                        if (r < 0 && (arg_offline == 0 || (r != -ENOENT && !ERRNO_IS_PRIVILEGE(r)) || !strv_isempty(p->subvolumes)))
                                 return log_error_errno(r, "Failed to make loopback device of %s: %m", temp);
                 }
 
