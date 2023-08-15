@@ -185,6 +185,7 @@ const GptPartitionType gpt_partition_type_table[] = {
         { SD_GPT_TMP,                    "tmp",           _ARCHITECTURE_INVALID, .designator = PARTITION_TMP },
         { SD_GPT_USER_HOME,              "user-home",     _ARCHITECTURE_INVALID, .designator = _PARTITION_DESIGNATOR_INVALID },
         { SD_GPT_LINUX_GENERIC,          "linux-generic", _ARCHITECTURE_INVALID, .designator = _PARTITION_DESIGNATOR_INVALID },
+        { SD_GPT_BIOS,                   "bios",          _ARCHITECTURE_INVALID, .designator = _PARTITION_DESIGNATOR_INVALID },
         {}
 };
 

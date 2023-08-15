@@ -161,6 +161,8 @@ _SD_BEGIN_DECLARATIONS;
 #define SD_GPT_USER_HOME_STR               SD_ID128_MAKE_UUID_STR(77,3f,91,ef,66,d4,49,b5,bd,83,d6,83,bf,40,ad,16)
 #define SD_GPT_LINUX_GENERIC               SD_ID128_MAKE(0f,c6,3d,af,84,83,47,72,8e,79,3d,69,d8,47,7d,e4)
 #define SD_GPT_LINUX_GENERIC_STR           SD_ID128_MAKE_UUID_STR(0f,c6,3d,af,84,83,47,72,8e,79,3d,69,d8,47,7d,e4)
+#define SD_GPT_BIOS                        SD_ID128_MAKE(21,68,61,48,64,49,6E,6F,74,4E,65,65,64,45,46,49)
+#define SD_GPT_BIOS_STR                    SD_ID128_MAKE_UUID_STR(21,68,61,48,64,49,6E,6F,74,4E,65,65,64,45,46,49)
 
 /* Maintain same order as above */
 #if defined(__alpha__)
