@@ -2277,8 +2277,8 @@ static int context_load_partition_table(Context *context) {
                 return log_oom();
 
         if (arg_sector_size > 0) {
-                r = fdisk_save_user_sector_size(c, /* phy= */ 0, arg_sector_size);
                 fs_secsz = arg_sector_size;
+                r = fdisk_save_user_sector_size(c, /* phy= */ 0, arg_sector_size);
         } else {
                 uint32_t ssz;
                 struct stat st;
