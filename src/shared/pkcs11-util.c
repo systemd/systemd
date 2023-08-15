@@ -1165,7 +1165,7 @@ static int list_callback(
          * out. (Note that the user can explicitly specify non-hardware tokens if they like, but during
          * enumeration we'll filter those, since software tokens are typically the system certificate store
          * and such, and it's typically not what people want to bind their home directories to.) */
-        if (!FLAGS_SET(token_info->flags, CKF_HW_SLOT|CKF_TOKEN_PRESENT))
+        if (!FLAGS_SET(slot_info->flags, CKF_HW_SLOT|CKF_TOKEN_PRESENT))
                 return -EAGAIN;
 
         token_label = pkcs11_token_label(token_info);
