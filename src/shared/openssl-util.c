@@ -8,8 +8,8 @@
 #include "string-util.h"
 
 #if HAVE_OPENSSL
-/* For each error in the the OpenSSL thread error queue, log the provided message and the OpenSSL error
- * string. If there are no errors in the OpenSSL thread queue, this logs the message with "No openssl
+/* For each error in the OpenSSL thread error queue, log the provided message and the OpenSSL error
+ * string. If there are no errors in the OpenSSL thread queue, this logs the message with "No OpenSSL
  * errors." This logs at level debug. Returns -EIO (or -ENOMEM). */
 #define log_openssl_errors(fmt, ...) _log_openssl_errors(UNIQ, fmt, ##__VA_ARGS__)
 #define _log_openssl_errors(u, fmt, ...)                                \
@@ -524,7 +524,6 @@ int rsa_encrypt_bytes(
 
         *ret_encrypt_key = TAKE_PTR(b);
         *ret_encrypt_key_size = l;
-
         return 0;
 }
 
@@ -990,7 +989,7 @@ int ecc_ecdh(const EVP_PKEY *private_pkey,
         if (EVP_PKEY_derive(ctx, NULL, &shared_secret_size) <= 0)
                 return log_openssl_errors("Failed to get ECC shared secret size");
 
-        _cleanup_free_ void *shared_secret = malloc(shared_secret_size);
+        _cleanup_(erase_and_freep) void *shared_secret = malloc(shared_secret_size);
         if (!shared_secret)
                 return log_oom_debug();
 
@@ -1130,6 +1129,95 @@ int string_hashsum(
 }
 #  endif
 
+static int ecc_pkey_generate_volume_keys(
+                EVP_PKEY *pkey,
+                void **ret_decrypted_key,
+                size_t *ret_decrypted_key_size,
+                void **ret_saved_key,
+                size_t *ret_saved_key_size) {
+
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey_new = NULL;
+        _cleanup_(erase_and_freep) void *decrypted_key = NULL;
+        _cleanup_free_ unsigned char *saved_key = NULL;
+        size_t decrypted_key_size, saved_key_size;
+        int nid = NID_undef;
+        int r;
+
+#if OPENSSL_VERSION_MAJOR >= 3
+        _cleanup_free_ char *curve_name = NULL;
+        size_t len = 0;
+
+        if (EVP_PKEY_get_group_name(pkey, NULL, 0, &len) != 1 || len == 0)
+                return log_openssl_errors("Failed to determine PKEY group name length");
+
+        len++;
+        curve_name = new(char, len);
+        if (!curve_name)
+                return log_oom_debug();
+
+        if (EVP_PKEY_get_group_name(pkey, curve_name, len, &len) != 1)
+                return log_openssl_errors("Failed to get PKEY group name");
+
+        nid = OBJ_sn2nid(curve_name);
+#else
+        EC_KEY *ec_key = EVP_PKEY_get0_EC_KEY(pkey);
+        if (!ec_key)
+                return log_openssl_errors("PKEY doesn't have EC_KEY associated");
+
+        if (EC_KEY_check_key(ec_key) != 1)
+                return log_openssl_errors("EC_KEY associated with PKEY is not valid");
+
+        nid = EC_GROUP_get_curve_name(EC_KEY_get0_group(ec_key));
+#endif
+
+        r = ecc_pkey_new(nid, &pkey_new);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to generate a new EC keypair: %m");
+
+        r = ecc_ecdh(pkey_new, pkey, &decrypted_key, &decrypted_key_size);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to derive shared secret: %m");
+
+#if OPENSSL_VERSION_MAJOR >= 3
+        /* EVP_PKEY_get1_encoded_public_key() always returns uncompressed format of EC points.
+           See https://github.com/openssl/openssl/discussions/22835 */
+        saved_key_size = EVP_PKEY_get1_encoded_public_key(pkey_new, &saved_key);
+        if (saved_key_size == 0)
+                return log_openssl_errors("Failed to convert the generated public key to SEC1 format");
+#else
+        EC_KEY *ec_key_new = EVP_PKEY_get0_EC_KEY(pkey_new);
+        if (!ec_key_new)
+                return log_openssl_errors("The generated key doesn't have associated EC_KEY");
+
+        if (EC_KEY_check_key(ec_key_new) != 1)
+                return log_openssl_errors("EC_KEY associated with the generated key is not valid");
+
+        saved_key_size = EC_POINT_point2oct(EC_KEY_get0_group(ec_key_new),
+                                            EC_KEY_get0_public_key(ec_key_new),
+                                            POINT_CONVERSION_UNCOMPRESSED,
+                                            NULL, 0, NULL);
+        if (saved_key_size == 0)
+                return log_openssl_errors("Failed to determine size of the generated public key");
+
+        saved_key = malloc(saved_key_size);
+        if (!saved_key)
+                return log_oom_debug();
+
+        saved_key_size = EC_POINT_point2oct(EC_KEY_get0_group(ec_key_new),
+                                            EC_KEY_get0_public_key(ec_key_new),
+                                            POINT_CONVERSION_UNCOMPRESSED,
+                                            saved_key, saved_key_size, NULL);
+        if (saved_key_size == 0)
+                return log_openssl_errors("Failed to convert the generated public key to SEC1 format");
+#endif
+
+        *ret_decrypted_key = TAKE_PTR(decrypted_key);
+        *ret_decrypted_key_size = decrypted_key_size;
+        *ret_saved_key = TAKE_PTR(saved_key);
+        *ret_saved_key_size = saved_key_size;
+        return 0;
+}
+
 static int rsa_pkey_generate_volume_keys(
                 EVP_PKEY *pkey,
                 void **ret_decrypted_key,
@@ -1193,6 +1281,9 @@ int x509_generate_volume_keys(
 
         case EVP_PKEY_RSA:
                 return rsa_pkey_generate_volume_keys(pkey, ret_decrypted_key, ret_decrypted_key_size, ret_saved_key, ret_saved_key_size);
+
+        case EVP_PKEY_EC:
+                return ecc_pkey_generate_volume_keys(pkey, ret_decrypted_key, ret_decrypted_key_size, ret_saved_key, ret_saved_key_size);
 
         case NID_undef:
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to determine a type of public key");
