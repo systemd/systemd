@@ -32,6 +32,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "tmpfile-util.h"
 #include "verbs.h"
 
 static PagerFlags arg_pager_flags = 0;
@@ -52,6 +53,39 @@ static char **arg_extension_images = NULL;
 static bool arg_force = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_extension_images, strv_freep);
+
+/* Helper struct for naming simplicity and reusability */
+static const struct {
+        const char *id;
+        const char *version_id;
+        const char *build_id;
+        const char *image_id;
+        const char *image_version;
+        const char *pretty_name;
+        const char *scope;
+        const char *level;
+} image_class_info[_IMAGE_CLASS_MAX] = {
+        [IMAGE_SYSEXT] = {
+                .id = "SYSEXT_ID",
+                .version_id = "SYSEXT_VERSION_ID",
+                .build_id = "SYSEXT_BUILD_ID",
+                .image_id = "SYSEXT_IMAGE_ID",
+                .image_version = "SYSEXT_IMAGE_VERSION",
+                .pretty_name = "SYSEXT_PRETTY_NAME",
+                .scope = "SYSEXT_SCOPE",
+                .level = "SYSEXT_LEVEL",
+        },
+        [IMAGE_CONFEXT] = {
+                .id = "CONFEXT_ID",
+                .version_id = "CONFEXT_VERSION_ID",
+                .build_id = "CONFEXT_BUILD_ID",
+                .image_id = "CONFEXT_IMAGE_ID",
+                .image_version = "CONFEXT_IMAGE_VERSION",
+                .pretty_name = "CONFEXT_PRETTY_NAME",
+                .scope = "CONFEXT_SCOPE",
+                .level = "CONFEXT_LEVEL",
+        }
+};
 
 static bool is_portable_managed(const char *unit) {
         return ENDSWITH_SET(unit, ".service", ".target", ".socket", ".path", ".timer");
@@ -248,7 +282,7 @@ static int maybe_reload(sd_bus **bus) {
 static int get_image_metadata(sd_bus *bus, const char *image, char **matches, sd_bus_message **reply) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        uint64_t flags = arg_force ? PORTABLE_FORCE_SYSEXT : 0;
+        uint64_t flags = arg_force ? PORTABLE_FORCE_EXTENSION : 0;
         const char *method;
         int r;
 
@@ -384,24 +418,40 @@ static int inspect_image(int argc, char *argv[], void *userdata) {
                                 fflush(stdout);
                                 nl = true;
                         } else {
-                                _cleanup_free_ char *pretty_portable = NULL, *pretty_os = NULL, *sysext_level = NULL,
-                                        *sysext_id = NULL, *sysext_version_id = NULL, *sysext_scope = NULL, *portable_prefixes = NULL,
+                                _cleanup_free_ char *pretty_portable = NULL, *pretty_os = NULL, *extension_level = NULL,
+                                        *extension_id = NULL, *extension_version_id = NULL, *extension_scope = NULL, *portable_prefixes = NULL,
                                         *id = NULL, *version_id = NULL, *image_id = NULL, *image_version = NULL, *build_id = NULL;
                                 _cleanup_fclose_ FILE *f = NULL;
+                                _cleanup_(rmdir_and_freep) char *t = NULL;
+                                ImageClass class = IMAGE_SYSEXT;
+                                _cleanup_close_ int fd = -ENOENT;
 
                                 f = fmemopen_unlocked((void*) data, sz, "r");
                                 if (!f)
                                         return log_error_errno(errno, "Failed to open extension-release buffer: %m");
 
+                                r = mkdtemp_malloc("/tmp/portablectl-XXXXXX", &t);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to setup working directory: %m");
+
+                                r = open_extension_release(t, IMAGE_SYSEXT, name, /* relax_extension_release_check= */ false, NULL, &fd);
+                                if (r == -ENOENT) {
+                                        r = open_extension_release(t, IMAGE_CONFEXT, name, /* relax_extension_release_check= */ false, NULL, &fd);
+                                        if (r >= 0)
+                                                class = IMAGE_CONFEXT;
+                                }
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to open extension release from '%s': %m", name);
+
                                 r = parse_env_file(f, name,
-                                                   "SYSEXT_ID", &sysext_id,
-                                                   "SYSEXT_VERSION_ID", &sysext_version_id,
-                                                   "SYSEXT_BUILD_ID", &build_id,
-                                                   "SYSEXT_IMAGE_ID", &image_id,
-                                                   "SYSEXT_IMAGE_VERSION", &image_version,
-                                                   "SYSEXT_PRETTY_NAME", &pretty_os,
-                                                   "SYSEXT_SCOPE", &sysext_scope,
-                                                   "SYSEXT_LEVEL", &sysext_level,
+                                                   image_class_info[class].id, &extension_id,
+                                                   image_class_info[class].version_id, &extension_version_id,
+                                                   image_class_info[class].build_id, &build_id,
+                                                   image_class_info[class].image_id, &image_id,
+                                                   image_class_info[class].image_version, &image_version,
+                                                   image_class_info[class].pretty_name, &pretty_os,
+                                                   image_class_info[class].scope, &extension_scope,
+                                                   image_class_info[class].level, &extension_level,
                                                    "ID", &id,
                                                    "VERSION_ID", &version_id,
                                                    "PORTABLE_PRETTY_NAME", &pretty_portable,
@@ -418,17 +468,17 @@ static int inspect_image(int argc, char *argv[], void *userdata) {
                                        "\tPortable Prefixes:\n\t\t%s\n"
                                        "\tExtension Image:\n\t\t%s%s%s %s%s%s\n",
                                        name,
-                                       strna(sysext_scope),
-                                       strna(sysext_level),
+                                       strna(extension_scope),
+                                       strna(extension_level),
                                        strna(id),
                                        strna(version_id),
                                        strna(pretty_portable),
                                        strna(portable_prefixes),
                                        strempty(pretty_os),
                                        pretty_os ? " (" : "ID: ",
-                                       strna(sysext_id ?: image_id),
+                                       strna(extension_id ?: image_id),
                                        pretty_os ? "" : "Version: ",
-                                       strna(sysext_version_id ?: image_version ?: build_id),
+                                       strna(extension_version_id ?: image_version ?: build_id),
                                        pretty_os ? ")" : "");
                         }
 
@@ -871,7 +921,7 @@ static int attach_reattach_image(int argc, char *argv[], const char *method) {
                 return bus_log_create_error(r);
 
         if (STR_IN_SET(method, "AttachImageWithExtensions", "ReattachImageWithExtensions")) {
-                uint64_t flags = (arg_runtime ? PORTABLE_RUNTIME : 0) | (arg_force ? PORTABLE_FORCE_ATTACH | PORTABLE_FORCE_SYSEXT : 0);
+                uint64_t flags = (arg_runtime ? PORTABLE_RUNTIME : 0) | (arg_force ? PORTABLE_FORCE_ATTACH | PORTABLE_FORCE_EXTENSION : 0);
 
                 r = sd_bus_message_append(m, "st", arg_copy_mode, flags);
         } else
@@ -943,7 +993,7 @@ static int detach_image(int argc, char *argv[], void *userdata) {
         if (streq(method, "DetachImage"))
                 r = sd_bus_message_append(m, "b", arg_runtime);
         else {
-                uint64_t flags = (arg_runtime ? PORTABLE_RUNTIME : 0) | (arg_force ? PORTABLE_FORCE_ATTACH | PORTABLE_FORCE_SYSEXT : 0);
+                uint64_t flags = (arg_runtime ? PORTABLE_RUNTIME : 0) | (arg_force ? PORTABLE_FORCE_ATTACH | PORTABLE_FORCE_EXTENSION : 0);
 
                 r = sd_bus_message_append(m, "t", flags);
         }
