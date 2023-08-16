@@ -88,6 +88,7 @@ int acquire_luks2_key(
                         pubkey_pcr_mask,
                         signature_json,
                         pin,
+                        /* pcrlock_policy= */ NULL,
                         primary_alg,
                         key_data, key_data_size,
                         policy_hash, policy_hash_size,
