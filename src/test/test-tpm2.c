@@ -1043,6 +1043,7 @@ static void check_seal_unseal_for_handle(Tpm2Context *c, TPM2_HANDLE handle) {
                         /* pubkey_pcr_mask= */ 0,
                         /* signature= */ NULL,
                         /* pin= */ NULL,
+                        /* pcrlock_policy= */ NULL,
                         /* primary_alg= */ 0,
                         blob, blob_size,
                         /* policy_hash= */ NULL, /* policy_hash_size= */ 0,

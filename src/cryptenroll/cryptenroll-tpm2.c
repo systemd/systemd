@@ -248,6 +248,7 @@ int enroll_tpm2(struct crypt_device *cd,
                         n_hash_pcr_values,
                         pubkey ? &public : NULL,
                         use_pin,
+                        /* pcrlock_policy= */ NULL,
                         &policy);
         if (r < 0)
                 return r;
@@ -288,6 +289,7 @@ int enroll_tpm2(struct crypt_device *cd,
                                 pubkey_pcr_mask,
                                 signature_json,
                                 pin_str,
+                                /* pcrlock_policy= */ NULL,
                                 /* primary_alg= */ 0,
                                 blob, blob_size,
                                 policy.buffer, policy.size,
