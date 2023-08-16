@@ -3907,6 +3907,7 @@ int tpm2_calculate_sealing_policy(
                 size_t n_pcr_values,
                 const TPM2B_PUBLIC *public,
                 bool use_pin,
+                const Tpm2PCRLockPolicy *pcrlock_policy,
                 TPM2B_DIGEST *digest) {
 
         int r;
@@ -3914,8 +3915,26 @@ int tpm2_calculate_sealing_policy(
         assert(pcr_values || n_pcr_values == 0);
         assert(digest);
 
+        if (public && pcrlock_policy)
+                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Policies with both signed PCR and pcrlock are currently not supported.");
+
         if (public) {
                 r = tpm2_calculate_policy_authorize(public, NULL, digest);
+                if (r < 0)
+                        return r;
+        }
+
+        if (pcrlock_policy) {
+                TPM2B_NV_PUBLIC nv_public;
+
+                r = tpm2_unmarshal_nv_public(
+                                pcrlock_policy->nv_public.iov_base,
+                                pcrlock_policy->nv_public.iov_len,
+                                &nv_public);
+                if (r < 0)
+                        return r;
+
+                r = tpm2_calculate_policy_authorize_nv(&nv_public, digest);
                 if (r < 0)
                         return r;
         }
@@ -3946,6 +3965,7 @@ static int tpm2_build_sealing_policy(
                 uint32_t pubkey_pcr_mask,
                 JsonVariant *signature_json,
                 bool use_pin,
+                const Tpm2PCRLockPolicy *pcrlock_policy,
                 TPM2B_DIGEST **ret_policy_digest) {
 
         int r;
@@ -3964,10 +3984,41 @@ static int tpm2_build_sealing_policy(
                         log_debug("Selected TPM2 PCRs are not initialized on this system.");
         }
 
+        if (pubkey_pcr_mask != 0 && pcrlock_policy)
+                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Policies with both signed PCR and pcrlock are currently not supported.");
+
         if (pubkey_pcr_mask != 0) {
                 TPML_PCR_SELECTION pcr_selection;
                 tpm2_tpml_pcr_selection_from_mask(pubkey_pcr_mask, (TPMI_ALG_HASH)pcr_bank, &pcr_selection);
                 r = tpm2_policy_authorize(c, session, &pcr_selection, public, fp, fp_size, signature_json, NULL);
+                if (r < 0)
+                        return r;
+        }
+
+        if (pcrlock_policy) {
+                _cleanup_(tpm2_handle_freep) Tpm2Handle *nv_handle = NULL;
+
+                r = tpm2_policy_super_pcr(
+                                c,
+                                session,
+                                &pcrlock_policy->prediction,
+                                pcrlock_policy->algorithm);
+                if (r < 0)
+                        return r;
+
+                r = tpm2_deserialize(
+                                c,
+                                pcrlock_policy->nv_handle.iov_base,
+                                pcrlock_policy->nv_handle.iov_len,
+                                &nv_handle);
+                if (r < 0)
+                        return r;
+
+                r = tpm2_policy_authorize_nv(
+                                c,
+                                session,
+                                nv_handle,
+                                NULL);
                 if (r < 0)
                         return r;
         }
@@ -4559,6 +4610,7 @@ int tpm2_unseal(Tpm2Context *c,
                 uint32_t pubkey_pcr_mask,
                 JsonVariant *signature,
                 const char *pin,
+                const Tpm2PCRLockPolicy *pcrlock_policy,
                 uint16_t primary_alg,
                 const void *blob,
                 size_t blob_size,
@@ -4696,6 +4748,7 @@ int tpm2_unseal(Tpm2Context *c,
                                 pubkey_pcr_mask,
                                 signature,
                                 !!pin,
+                                pcrlock_policy,
                                 &policy_digest);
                 if (r < 0)
                         return r;
@@ -5413,6 +5466,534 @@ int tpm2_extend_bytes(
         return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "OpenSSL support is disabled.");
 #endif
 }
+
+void tpm2_pcr_prediction_done(Tpm2PCRPrediction *p) {
+        assert(p);
+
+        for (uint32_t pcr = 0; pcr < TPM2_PCRS_MAX; pcr++)
+                ordered_set_free(p->results[pcr]);
+}
+
+static void tpm2_pcr_prediction_result_hash_func(const Tpm2PCRPredictionResult *banks, struct siphash *state) {
+        assert(banks);
+
+        for (size_t i = 0; i < TPM2_N_HASH_ALGORITHMS; i++)
+                siphash24_compress_safe(banks->hash[i].buffer, banks->hash[i].size, state);
+}
+
+static int tpm2_pcr_prediction_result_compare_func(const Tpm2PCRPredictionResult *a, const Tpm2PCRPredictionResult *b) {
+        int r;
+
+        assert(a);
+        assert(b);
+
+        for (size_t i = 0; i < TPM2_N_HASH_ALGORITHMS; i++) {
+                r = memcmp_nn(a->hash[i].buffer, a->hash[i].size,
+                              b->hash[i].buffer, b->hash[i].size);
+                if (r != 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+                tpm2_pcr_prediction_result_hash_ops,
+                Tpm2PCRPredictionResult,
+                tpm2_pcr_prediction_result_hash_func,
+                tpm2_pcr_prediction_result_compare_func,
+                Tpm2PCRPredictionResult,
+                free);
+
+static Tpm2PCRPredictionResult *find_prediction_result_by_algorithm(OrderedSet *set, Tpm2PCRPredictionResult *result, size_t alg_idx) {
+        Tpm2PCRPredictionResult *f;
+
+        assert(result);
+        assert(alg_idx != SIZE_MAX);
+
+        f = ordered_set_get(set, result); /* Full match? */
+        if (f)
+                return f;
+
+        /* If this doesn't match full, then see if there an entry that at least matches by the relevant
+         * algorithm (we are fine if predictions are "incomplete" in some algorithms) */
+
+        ORDERED_SET_FOREACH(f, set)
+                if (memcmp_nn(result->hash[alg_idx].buffer, result->hash[alg_idx].size,
+                              f->hash[alg_idx].buffer, f->hash[alg_idx].size) == 0)
+                        return f;
+
+        return NULL;
+}
+
+bool tpm2_pcr_prediction_equal(
+                Tpm2PCRPrediction *a,
+                Tpm2PCRPrediction *b,
+                uint16_t algorithm) {
+
+        if (a == b)
+                return true;
+        if (!a || !b)
+                return false;
+
+        if (a->pcrs != b->pcrs)
+                return false;
+
+        size_t alg_idx = tpm2_hash_algorithm_index(algorithm);
+        if (alg_idx == SIZE_MAX)
+                return false;
+
+        for (uint32_t pcr = 0; pcr < TPM2_PCRS_MAX; pcr++) {
+                Tpm2PCRPredictionResult *banks;
+
+                ORDERED_SET_FOREACH(banks, a->results[pcr])
+                        if (!find_prediction_result_by_algorithm(b->results[pcr], banks, alg_idx))
+                                return false;
+
+                ORDERED_SET_FOREACH(banks, b->results[pcr])
+                        if (!find_prediction_result_by_algorithm(a->results[pcr], banks, alg_idx))
+                                return false;
+        }
+
+        return true;
+}
+
+int tpm2_pcr_prediction_to_json(
+                const Tpm2PCRPrediction *prediction,
+                uint16_t algorithm,
+                JsonVariant **ret) {
+
+        _cleanup_(json_variant_unrefp) JsonVariant *aj = NULL;
+        int r;
+
+        assert(prediction);
+        assert(ret);
+
+        size_t alg_index = tpm2_hash_algorithm_index(algorithm);
+        assert(alg_index < TPM2_N_HASH_ALGORITHMS);
+
+        for (uint32_t pcr = 0; pcr < TPM2_PCRS_MAX; pcr++) {
+                _cleanup_(json_variant_unrefp) JsonVariant *vj = NULL;
+                Tpm2PCRPredictionResult *banks;
+
+                if (!FLAGS_SET(prediction->pcrs, UINT32_C(1) << pcr))
+                        continue;
+
+                ORDERED_SET_FOREACH(banks, prediction->results[pcr]) {
+
+                        if (banks->hash[alg_index].size <= 0)
+                                continue;
+
+                        r = json_variant_append_arrayb(
+                                        &vj,
+                                        JSON_BUILD_HEX(banks->hash[alg_index].buffer, banks->hash[alg_index].size));
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to append hash variant to JSON array: %m");
+                }
+
+                if (!vj)
+                        continue;
+
+                r = json_variant_append_arrayb(
+                                &aj,
+                                JSON_BUILD_OBJECT(
+                                                JSON_BUILD_PAIR_INTEGER("pcr", pcr),
+                                                JSON_BUILD_PAIR_VARIANT("values", vj)));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to append PCR variants to JSON array: %m");
+        }
+
+        if (!aj) {
+                r = json_variant_new_array(&aj, NULL, 0);
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = TAKE_PTR(aj);
+        return 0;
+}
+
+int tpm2_pcr_prediction_from_json(
+                Tpm2PCRPrediction *prediction,
+                uint16_t algorithm,
+                JsonVariant *aj) {
+
+        int r;
+
+        assert(prediction);
+
+        size_t alg_index = tpm2_hash_algorithm_index(algorithm);
+        assert(alg_index < TPM2_N_HASH_ALGORITHMS);
+
+        if (!json_variant_is_array(aj))
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "PCR variant array is not an array.");
+
+        JsonVariant *pcr;
+        JSON_VARIANT_ARRAY_FOREACH(pcr, aj) {
+                JsonVariant *nr, *values;
+
+                nr = json_variant_by_key(pcr, "pcr");
+                if (!nr)
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "PCR array entry lacks PCR index field");
+
+                if (!json_variant_is_unsigned(nr) ||
+                    json_variant_unsigned(nr) >= TPM2_PCRS_MAX)
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "PCR array entry PCR index is not an integer in the range 0…23");
+
+                values = json_variant_by_key(pcr, "values");
+                if (!values)
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "PCR array entry lacks values field");
+
+                if (!json_variant_is_array(values))
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "PCR array entry values field is not an array");
+
+                prediction->pcrs |= UINT32_C(1) << json_variant_unsigned(nr);
+
+                JsonVariant *v;
+                JSON_VARIANT_ARRAY_FOREACH(v, values) {
+                        _cleanup_free_ void *buffer = NULL;
+                        size_t size;
+
+                        r = json_variant_unhex(v, &buffer, &size);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to decode PCR policy array hash value");
+
+                        if (size <= 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "PCR policy array hash value is zero.");
+
+                        if (size > sizeof_field(TPM2B_DIGEST, buffer))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "PCR policy array hash value is too large.");
+
+                        _cleanup_free_ Tpm2PCRPredictionResult *banks = new0(Tpm2PCRPredictionResult, 1);
+                        if (!banks)
+                                return log_oom();
+
+                        memcpy(banks->hash[alg_index].buffer, buffer, size);
+                        banks->hash[alg_index].size = size;
+
+                        r = ordered_set_ensure_put(prediction->results + json_variant_unsigned(nr), &tpm2_pcr_prediction_result_hash_ops, banks);
+                        if (r == -EEXIST) /* Let's allow duplicates */
+                                continue;
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to insert result into set: %m");
+
+                        TAKE_PTR(banks);
+                }
+        }
+
+        return 0;
+}
+
+int tpm2_calculate_policy_super_pcr(
+                Tpm2PCRPrediction *prediction,
+                uint16_t algorithm,
+                TPM2B_DIGEST *pcr_policy) {
+
+        int r;
+
+        assert_se(prediction);
+        assert_se(pcr_policy);
+
+        size_t alg_index = tpm2_hash_algorithm_index(algorithm);
+        assert_se(alg_index < TPM2_N_HASH_ALGORITHMS);
+
+        /* Start with a zero policy if not specified otheriwse */
+        TPM2B_DIGEST super_pcr_policy_digest = *pcr_policy;
+
+        /* First we look for all PCRs that have exactly one allowed hash value, and generate a single PolicyPCR policy from them */
+        _cleanup_free_ Tpm2PCRValue *single_values = NULL;
+        size_t n_single_values = 0;
+        for (uint32_t pcr = 0; pcr < TPM2_PCRS_MAX; pcr++) {
+                if (!FLAGS_SET(prediction->pcrs, UINT32_C(1) << pcr))
+                        continue;
+
+                if (ordered_set_size(prediction->results[pcr]) != 1)
+                        continue;
+
+                log_debug("Including PCR %" PRIu32 " in single value PolicyPCR expression", pcr);
+
+                Tpm2PCRPredictionResult *banks = ASSERT_PTR(ordered_set_first(prediction->results[pcr]));
+
+                if (!GREEDY_REALLOC(single_values, n_single_values + 1))
+                        return -ENOMEM;
+
+                single_values[n_single_values++] = TPM2_PCR_VALUE_MAKE(pcr, algorithm, banks->hash[alg_index]);
+        }
+
+        if (n_single_values > 0) {
+                /* Evolve policy based on the expected PCR value for what we found. */
+                r = tpm2_calculate_policy_pcr(
+                                single_values,
+                                n_single_values,
+                                &super_pcr_policy_digest);
+                if (r < 0)
+                        return r;
+        }
+
+        /* Now deal with the PCRs for which we have variants, i.e. more than one allowed values */
+        for (uint32_t pcr = 0; pcr < TPM2_PCRS_MAX; pcr++) {
+                _cleanup_free_ TPM2B_DIGEST *pcr_policy_digest_variants = NULL;
+                size_t n_pcr_policy_digest_variants = 0;
+                Tpm2PCRPredictionResult *banks;
+
+                if (!FLAGS_SET(prediction->pcrs, UINT32_C(1) << pcr))
+                        continue;
+
+                if (ordered_set_size(prediction->results[pcr]) <= 1) /* We only care for PCRs with 2 or more variants in this loop */
+                        continue;
+
+                if (ordered_set_size(prediction->results[pcr]) > 8)
+                        return log_error_errno(SYNTHETIC_ERRNO(E2BIG), "PCR policies with more than 8 alternatives per PCR are currently not supported.");
+
+                ORDERED_SET_FOREACH(banks, prediction->results[pcr]) {
+                        /* Start from the super PCR policy from the previous PCR we looked at so far. */
+                        TPM2B_DIGEST pcr_policy_digest = super_pcr_policy_digest;
+
+                        /* Evolve it based on the expected PCR value for this PCR */
+                        r = tpm2_calculate_policy_pcr(
+                                        &TPM2_PCR_VALUE_MAKE(
+                                                        pcr,
+                                                        algorithm,
+                                                        banks->hash[alg_index]),
+                                        /* n_pcr_values= */ 1,
+                                        &pcr_policy_digest);
+                        if (r < 0)
+                                return r;
+
+                        /* Store away this new variant */
+                        if (!GREEDY_REALLOC(pcr_policy_digest_variants, n_pcr_policy_digest_variants + 1))
+                                return log_oom();
+
+                        pcr_policy_digest_variants[n_pcr_policy_digest_variants++] = pcr_policy_digest;
+
+                        log_debug("Calculated PCR policy variant %zu for PCR %" PRIu32, n_pcr_policy_digest_variants, pcr);
+                }
+
+                assert_se(n_pcr_policy_digest_variants >= 2);
+                assert_se(n_pcr_policy_digest_variants <= 8);
+
+                /* Now combine all our variant into one OR policy */
+                r = tpm2_calculate_policy_or(
+                                pcr_policy_digest_variants,
+                                n_pcr_policy_digest_variants,
+                                &super_pcr_policy_digest);
+                if (r < 0)
+                        return r;
+
+                log_debug("Combined %zu variants in OR policy.", n_pcr_policy_digest_variants);
+        }
+
+        *pcr_policy = super_pcr_policy_digest;
+        return 0;
+}
+
+int tpm2_policy_super_pcr(
+                Tpm2Context *c,
+                const Tpm2Handle *session,
+                const Tpm2PCRPrediction *prediction,
+                uint16_t algorithm) {
+
+        int r;
+
+        assert_se(c);
+        assert_se(session);
+        assert_se(prediction);
+
+        size_t alg_index = tpm2_hash_algorithm_index(algorithm);
+        assert(alg_index < TPM2_N_HASH_ALGORITHMS);
+
+        TPM2B_DIGEST previous_policy_digest = TPM2B_DIGEST_MAKE(NULL, TPM2_SHA256_DIGEST_SIZE);
+
+        uint32_t single_value_pcrs = 0;
+
+        /* Look for all PCRs that have only a singled allowed hash value, and synthesize a single PolicyPCR policy item for them */
+        for (uint32_t pcr = 0; pcr < TPM2_PCRS_MAX; pcr++) {
+                if (!FLAGS_SET(prediction->pcrs, UINT32_C(1) << pcr))
+                        continue;
+
+                if (ordered_set_size(prediction->results[pcr]) != 1)
+                        continue;
+
+                log_debug("Including PCR %" PRIu32 " in single value PolicyPCR expression", pcr);
+
+                single_value_pcrs |= UINT32_C(1) << pcr;
+        }
+
+        if (single_value_pcrs != 0) {
+                TPML_PCR_SELECTION pcr_selection;
+                tpm2_tpml_pcr_selection_from_mask(single_value_pcrs, algorithm, &pcr_selection);
+
+                _cleanup_free_ TPM2B_DIGEST *current_policy_digest = NULL;
+                r = tpm2_policy_pcr(
+                                c,
+                                session,
+                                &pcr_selection,
+                                &current_policy_digest);
+                if (r < 0)
+                        return r;
+
+                previous_policy_digest = *current_policy_digest;
+        }
+
+        for (uint32_t pcr = 0; pcr < TPM2_PCRS_MAX; pcr++) {
+                size_t n_branches;
+
+                if (!FLAGS_SET(prediction->pcrs, UINT32_C(1) << pcr))
+                        continue;
+
+                log_debug("Submitting PCR/OR policy for PCR %" PRIu32, pcr);
+
+                n_branches = ordered_set_size(prediction->results[pcr]);
+                if (n_branches < 1 || n_branches > 8)
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Number of variants per PCR not in range 1…8");
+
+                if (n_branches == 1) /* Single choice PCRs are already covered by the loop above */
+                        continue;
+
+                TPML_PCR_SELECTION pcr_selection;
+                tpm2_tpml_pcr_selection_from_mask(UINT32_C(1) << pcr, algorithm, &pcr_selection);
+
+                _cleanup_free_ TPM2B_DIGEST *current_policy_digest = NULL;
+                r = tpm2_policy_pcr(
+                                c,
+                                session,
+                                &pcr_selection,
+                                &current_policy_digest);
+                if (r < 0)
+                        return r;
+
+                _cleanup_free_ TPM2B_DIGEST *branches = NULL;
+                branches = new0(TPM2B_DIGEST, n_branches);
+                if (!branches)
+                        return log_oom();
+
+                Tpm2PCRPredictionResult *banks;
+                size_t i = 0;
+                ORDERED_SET_FOREACH(banks, prediction->results[pcr]) {
+                        TPM2B_DIGEST pcr_policy_digest = previous_policy_digest;
+
+                        /* Evolve it based on the expected PCR value for this PCR */
+                        r = tpm2_calculate_policy_pcr(
+                                        &TPM2_PCR_VALUE_MAKE(
+                                                        pcr,
+                                                        algorithm,
+                                                        banks->hash[alg_index]),
+                                        /* n_pcr_values= */ 1,
+                                        &pcr_policy_digest);
+                        if (r < 0)
+                                return r;
+
+                        branches[i++] = pcr_policy_digest;
+                }
+
+                assert_se(i == n_branches);
+
+                current_policy_digest = mfree(current_policy_digest);
+                r = tpm2_policy_or(
+                                c,
+                                session,
+                                branches,
+                                n_branches,
+                                &current_policy_digest);
+                if (r < 0)
+                        return r;
+
+                previous_policy_digest = *current_policy_digest;
+        }
+
+        return 0;
+}
+
+void tpm2_pcrlock_policy_done(Tpm2PCRLockPolicy *data) {
+        assert(data);
+
+        data->prediction_json = json_variant_unref(data->prediction_json);
+        tpm2_pcr_prediction_done(&data->prediction);
+        iovec_done(&data->nv_handle);
+        iovec_done(&data->nv_public);
+        iovec_done(&data->srk_handle);
+        iovec_done(&data->pin_public);
+        iovec_done(&data->pin_private);
+}
+
+static int json_dispatch_tpm2_algorithm(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
+        uint16_t *algorithm = ASSERT_PTR(userdata);
+        int r;
+
+        r = tpm2_hash_alg_from_string(json_variant_string(variant));
+        if (r < 0 || tpm2_hash_algorithm_index(r) == SIZE_MAX)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid hash algorithm: %s", json_variant_string(variant));
+
+        *algorithm = r;
+        return 0;
+}
+
+int tpm2_pcrlock_search_file(const char *path, FILE **ret_file, char **ret_path) {
+        static const char search[] =
+                "/run/systemd\0"
+                "/var/lib/systemd\0";
+
+        int r;
+
+        r = search_and_fopen_nulstr(path ?: "pcrlock.json", ret_file ? "re" : NULL, NULL, search, ret_file, ret_path);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to find TPM2 pcrlock policy file '%s': %m", path);
+
+        return 0;
+}
+
+int tpm2_pcrlock_policy_load(
+                const char *path,
+                Tpm2PCRLockPolicy *ret_policy) {
+
+        _cleanup_free_ char *discovered_path = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        int r;
+
+        r = tpm2_pcrlock_search_file(path, &f, &discovered_path);
+        if (r == -ENOENT) {
+                *ret_policy = (Tpm2PCRLockPolicy) {};
+                return 0;
+        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to load TPM2 pcrlock policy file: %m");
+
+        _cleanup_(json_variant_unrefp) JsonVariant *configuration_json = NULL;
+        r = json_parse_file(
+                        f,
+                        discovered_path,
+                        /* flags = */ 0,
+                        &configuration_json,
+                        /* ret_line= */ NULL,
+                        /* ret_column= */ NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse existing pcrlock policy file '%s': %m", discovered_path);
+
+        JsonDispatch policy_dispatch[] = {
+                { "pcrBank",    JSON_VARIANT_STRING,  json_dispatch_tpm2_algorithm, offsetof(Tpm2PCRLockPolicy, algorithm),       JSON_MANDATORY },
+                { "pcrValues",  JSON_VARIANT_ARRAY,   json_dispatch_variant,        offsetof(Tpm2PCRLockPolicy, prediction_json), JSON_MANDATORY },
+                { "nvIndex",    JSON_VARIANT_INTEGER, json_dispatch_uint32,         offsetof(Tpm2PCRLockPolicy, nv_index),        JSON_MANDATORY },
+                { "nvHandle",   JSON_VARIANT_STRING,  json_dispatch_unbase64_iovec, offsetof(Tpm2PCRLockPolicy, nv_handle),       JSON_MANDATORY },
+                { "nvPublic",   JSON_VARIANT_STRING,  json_dispatch_unbase64_iovec, offsetof(Tpm2PCRLockPolicy, nv_public),       JSON_MANDATORY },
+                { "srkHandle",  JSON_VARIANT_STRING,  json_dispatch_unbase64_iovec, offsetof(Tpm2PCRLockPolicy, srk_handle),      JSON_MANDATORY },
+                { "pinPublic",  JSON_VARIANT_STRING,  json_dispatch_unbase64_iovec, offsetof(Tpm2PCRLockPolicy, pin_public),      JSON_MANDATORY },
+                { "pinPrivate", JSON_VARIANT_STRING,  json_dispatch_unbase64_iovec, offsetof(Tpm2PCRLockPolicy, pin_private),     JSON_MANDATORY },
+                {}
+        };
+
+        _cleanup_(tpm2_pcrlock_policy_done) Tpm2PCRLockPolicy policy = {};
+
+        r = json_dispatch(configuration_json, policy_dispatch, /* bad= */ NULL, JSON_LOG, &policy);
+        if (r < 0)
+                return r;
+
+        r = tpm2_pcr_prediction_from_json(&policy.prediction, policy.algorithm, policy.prediction_json);
+        if (r < 0)
+                return r;
+
+        *ret_policy = TAKE_STRUCT(policy);
+        return 1;
+}
 #endif
 
 char *tpm2_pcr_mask_to_string(uint32_t mask) {
@@ -5554,6 +6135,7 @@ int tpm2_make_luks2_json(
                                        JSON_BUILD_PAIR_CONDITION(!!tpm2_asym_alg_to_string(primary_alg), "tpm2-primary-alg", JSON_BUILD_STRING(tpm2_asym_alg_to_string(primary_alg))),
                                        JSON_BUILD_PAIR("tpm2-policy-hash", JSON_BUILD_HEX(policy_hash, policy_hash_size)),
                                        JSON_BUILD_PAIR("tpm2-pin", JSON_BUILD_BOOLEAN(flags & TPM2_FLAGS_USE_PIN)),
+                                       JSON_BUILD_PAIR("tpm2-pcrlock", JSON_BUILD_BOOLEAN(flags & TPM2_FLAGS_USE_PCRLOCK)),
                                        JSON_BUILD_PAIR_CONDITION(pubkey_pcr_mask != 0, "tpm2_pubkey_pcrs", JSON_BUILD_VARIANT(pkmj)),
                                        JSON_BUILD_PAIR_CONDITION(pubkey_pcr_mask != 0, "tpm2_pubkey", JSON_BUILD_BASE64(pubkey, pubkey_size)),
                                        JSON_BUILD_PAIR_CONDITION(salt, "tpm2_salt", JSON_BUILD_BASE64(salt, salt_size)),
@@ -5670,6 +6252,14 @@ int tpm2_parse_luks2_json(
                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "TPM2 PIN policy is not a boolean.");
 
                 SET_FLAG(flags, TPM2_FLAGS_USE_PIN, json_variant_boolean(w));
+        }
+
+        w = json_variant_by_key(v, "tpm2-pcrlock");
+        if (w) {
+                if (!json_variant_is_boolean(w))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "TPM2 pclock policy is not a boolean.");
+
+                SET_FLAG(flags, TPM2_FLAGS_USE_PCRLOCK, json_variant_boolean(w));
         }
 
         w = json_variant_by_key(v, "tpm2_salt");
