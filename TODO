@@ -95,6 +95,9 @@ Janitorial Clean-ups:
 
 Deprecations and removals:
 
+* sd-boot should probably measure its configuration file to PCR 5 at boot, as
+  per TCG PC Client Platform Firmware Profile Spec.
+
 * Remove any support for booting without /usr pre-mounted in the initrd entirely.
   Update INITRD_INTERFACE.md accordingly.
 
