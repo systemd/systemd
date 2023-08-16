@@ -297,6 +297,7 @@ enum {
         PCR_EXTERNAL_CONFIG     = 3,
         PCR_BOOT_LOADER_CODE    = 4,
         PCR_BOOT_LOADER_CONFIG  = 5,
+        PCR_HOST_PLATFORM       = 6,
         PCR_SECURE_BOOT_POLICY  = 7,
         /* The following names for PCRs 9…15 are based on the "Linux TPM PCR Registry"
         (https://uapi-group.org/specifications/specs/linux_tpm_pcr_registry/) */

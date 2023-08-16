@@ -4973,6 +4973,7 @@ static const char* const pcr_index_table[_PCR_INDEX_MAX_DEFINED] = {
         [PCR_EXTERNAL_CONFIG]     = "external-config",
         [PCR_BOOT_LOADER_CODE]    = "boot-loader-code",
         [PCR_BOOT_LOADER_CONFIG]  = "boot-loader-config",
+        [PCR_HOST_PLATFORM]       = "host-platform",
         [PCR_SECURE_BOOT_POLICY]  = "secure-boot-policy",
         [PCR_KERNEL_INITRD]       = "kernel-initrd",
         [PCR_IMA]                 = "ima",
