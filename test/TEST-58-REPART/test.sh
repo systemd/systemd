@@ -17,6 +17,7 @@ test_append_files() {
         instmods erofs
         generate_module_dependencies
         image_install veritysetup
+        image_install mkswap
         image_install -o mksquashfs
         image_install -o mkfs.erofs
     fi
