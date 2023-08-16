@@ -140,3 +140,12 @@ systemctl status "$WORK_DIR/mnt"
 touch "$WORK_DIR/mnt/hello"
 [[ "$(stat -c "%U:%G" "$WORK_DIR/mnt/hello")" == "testuser:testuser" ]]
 systemd-umount LABEL=owner-vfat
+
+# tmpfs
+mkdir -p "$WORK_DIR/mnt/foo/bar"
+systemd-mount --tmpfs "$WORK_DIR/mnt/foo"
+test ! -d "$WORK_DIR/mnt/foo/bar"
+touch "$WORK_DIR/mnt/foo/baz"
+systemd-umount "$WORK_DIR/mnt/foo"
+test -d "$WORK_DIR/mnt/foo/bar"
+test ! -e "$WORK_DIR/mnt/foo/baz"

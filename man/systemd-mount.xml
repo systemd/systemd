@@ -32,6 +32,13 @@
     <cmdsynopsis>
       <command>systemd-mount</command>
       <arg choice="opt" rep="repeat"><replaceable>OPTIONS</replaceable></arg>
+      <arg choice="plain"><option>--tmpfs</option></arg>
+      <arg choice="opt"><replaceable>NAME</replaceable></arg>
+      <arg choice="plain"><replaceable>WHERE</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-mount</command>
+      <arg choice="opt" rep="repeat"><replaceable>OPTIONS</replaceable></arg>
       <arg choice="plain"><option>--list</option></arg>
     </cmdsynopsis>
     <cmdsynopsis>
@@ -63,7 +70,9 @@
     whose name is generated from the file system label. In this mode the block device or image file must
     exist at the time of invocation of the command, so that it may be probed. If the device is found to be a
     removable block device (e.g. a USB stick), an automount point is created instead of a regular mount point
-    (i.e. the <option>--automount=</option> option is implied, see below).</para>
+    (i.e. the <option>--automount=</option> option is implied, see below). If the option <option>--tmpfs</option>
+    is specified, then the argument will be interpreted as the path where the new temporary file system will
+    be mounted on.</para>
 
     <para>If two arguments are specified, the first indicates the mount source (the
     <replaceable>WHAT</replaceable>) and the second indicates the path to mount it on (the
@@ -271,6 +280,16 @@
         <varname>CollectMode=</varname> in
         <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry> for further
         information.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-T</option></term>
+        <term><option>--tmpfs</option></term>
+
+        <listitem>
+          <para>Create and mount a new temporary file system on <replaceable>WHERE</replaceable>, with an
+          optional <replaceable>NAME</replaceable> that defaults to <literal>tmpfs</literal>.</para>
+        </listitem>
       </varlistentry>
 
       <xi:include href="user-system-options.xml" xpointer="user" />
