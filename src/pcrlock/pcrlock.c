@@ -94,23 +94,6 @@ STATIC_DESTRUCTOR_REGISTER(arg_policy_path, freep);
          (UINT32_C(1) << TPM2_PCR_SHIM_POLICY) |             \
          (UINT32_C(1) << TPM2_PCR_SYSTEM_IDENTITY))
 
-/* todo:
- *
- * post-merge priority:
- *    2. make signed PCR work together with pcrlock
- *    3. add kernel-install plugin that automatically creates UKI .pcrlock file when UKI is installed, and removes it when it is removed again
- *    4. automatically install PE measurement of sd-boot on "bootctl install"
- *    5. write generated pcrlock signature files to the ESP as credential, one for each installed OS
- *    6. pick up generated pcrlock signature file in sd-stub, pass it via initrd to OS
- *
- * post-merge:
- *    8. pre-calc sysext + kernel cmdline measurements
- *    9. pre-calc cryptsetup root key measurement
- *    10. maybe make systemd-repart generate .pcrlock for old and new GPT header in /run?
- *    11. Add support for more than 8 branches per PCR OR
- *    12. add "systemd-pcrlock lock-kernel-current" or so which synthesizes .pcrlock policy from currently booted kernel/event log, to close gap for first boot for pre-built images
- */
-
 typedef struct EventLogRecordBank EventLogRecordBank;
 typedef struct EventLogRecord EventLogRecord;
 typedef struct EventLogRegisterBank EventLogRegisterBank;
