@@ -95,7 +95,7 @@ static bool arg_full = true;
 static bool arg_all = false;
 static PagerFlags arg_pager_flags = 0;
 static int arg_lines = ARG_LINES_DEFAULT;
-static int arg_lines_oldest = false;
+static bool arg_lines_oldest = false;
 static bool arg_no_tail = false;
 static bool arg_truncate_newline = false;
 static bool arg_quiet = false;
@@ -631,7 +631,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'n':
-                        r = parse_lines(optarg ?: optind < argc ? argv[optind] : NULL, !optarg);
+                        r = parse_lines(optarg ?: argv[optind], !optarg);
                         if (r < 0)
                                 return r;
                         if (r > 0 && !optarg)
