@@ -40,7 +40,7 @@ static int extract_subvolume_name(const char *path, char **ret) {
 
 int btrfs_subvol_make(int dir_fd, const char *path) {
         struct btrfs_ioctl_vol_args args = {};
-        _cleanup_free_ char *subvolume = NULL;
+        _cleanup_free_ char *subvolume = NULL, *parent = NULL;
         _cleanup_close_ int fd = -EBADF;
         int r;
 
@@ -51,11 +51,18 @@ int btrfs_subvol_make(int dir_fd, const char *path) {
         if (r < 0)
                 return r;
 
-        r = path_extract_directory(path, NULL);
-        if (r >= 0) {
-                fd = open_parent_at(dir_fd, path, O_RDONLY|O_CLOEXEC|O_CLOEXEC, 0);
+        r = path_extract_directory(path, &parent);
+        if (r < 0) {
+                if (r != -EDESTADDRREQ) /* Propagate error, unless only a filename was specified, which is OK */
+                        return r;
+
+                dir_fd = fd_reopen_condition(dir_fd, O_CLOEXEC, O_PATH, &fd); /* drop O_PATH if it is set */
+                if (dir_fd < 0)
+                        return dir_fd;
+        } else {
+                fd = openat(dir_fd, parent, O_DIRECTORY|O_RDONLY|O_CLOEXEC, 0);
                 if (fd < 0)
-                        return fd;
+                        return -errno;
 
                 dir_fd = fd;
         }
@@ -81,7 +88,7 @@ int btrfs_subvol_make_fallback(int dir_fd, const char *path, mode_t mode) {
 
         if (r >= 0)
                 return 1; /* subvol worked */
-        if (r != -ENOTTY)
+        if (!ERRNO_IS_NOT_SUPPORTED(r))
                 return r;
 
         if (mkdirat(dir_fd, path, mode) < 0)

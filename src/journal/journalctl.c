@@ -95,6 +95,7 @@ static bool arg_full = true;
 static bool arg_all = false;
 static PagerFlags arg_pager_flags = 0;
 static int arg_lines = ARG_LINES_DEFAULT;
+static bool arg_lines_oldest = false;
 static bool arg_no_tail = false;
 static bool arg_truncate_newline = false;
 static bool arg_quiet = false;
@@ -298,6 +299,44 @@ static int parse_boot_descriptor(const char *x, sd_id128_t *boot_id, int *offset
         return 1;
 }
 
+static int parse_lines(const char *arg, bool graceful) {
+        const char *l;
+        int n, r;
+
+        assert(arg || graceful);
+
+        if (!arg)
+                goto default_noarg;
+
+        if (streq(arg, "all")) {
+                arg_lines = ARG_LINES_ALL;
+                return 1;
+        }
+
+        l = startswith(arg, "+");
+
+        r = safe_atoi(l ?: arg, &n);
+        if (r < 0 || n < 0) {
+                if (graceful)
+                        goto default_noarg;
+
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse --lines='%s'.", arg);
+        }
+
+        arg_lines = n;
+        arg_lines_oldest = !!l;
+
+        return 1;
+
+default_noarg:
+        arg_lines = 10;
+        return 0;
+}
+
+static bool arg_lines_needs_seek_end(void) {
+        return arg_lines >= 0 && !arg_lines_oldest;
+}
+
 static int help_facilities(void) {
         if (!arg_quiet)
                 puts("Available facilities:");
@@ -358,7 +397,7 @@ static int help(void) {
                "                               json, json-pretty, json-sse, json-seq, cat,\n"
                "                               with-unit)\n"
                "     --output-fields=LIST    Select fields to print in verbose/export/json modes\n"
-               "  -n --lines[=INTEGER]       Number of journal entries to show\n"
+               "  -n --lines[=[+]INTEGER]    Number of journal entries to show\n"
                "  -r --reverse               Show the newest entries first\n"
                "     --show-cursor           Print the cursor after all the entries\n"
                "     --utc                   Express time in Coordinated Universal Time (UTC)\n"
@@ -592,33 +631,11 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'n':
-                        if (optarg) {
-                                if (streq(optarg, "all"))
-                                        arg_lines = ARG_LINES_ALL;
-                                else {
-                                        r = safe_atoi(optarg, &arg_lines);
-                                        if (r < 0 || arg_lines < 0)
-                                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse lines '%s'", optarg);
-                                }
-                        } else {
-                                arg_lines = 10;
-
-                                /* Hmm, no argument? Maybe the next
-                                 * word on the command line is
-                                 * supposed to be the argument? Let's
-                                 * see if there is one, and is
-                                 * parsable. */
-                                if (optind < argc) {
-                                        int n;
-                                        if (streq(argv[optind], "all")) {
-                                                arg_lines = ARG_LINES_ALL;
-                                                optind++;
-                                        } else if (safe_atoi(argv[optind], &n) >= 0 && n >= 0) {
-                                                arg_lines = n;
-                                                optind++;
-                                        }
-                                }
-                        }
+                        r = parse_lines(optarg ?: argv[optind], !optarg);
+                        if (r < 0)
+                                return r;
+                        if (r > 0 && !optarg)
+                                optind++;
 
                         break;
 
@@ -1083,7 +1100,11 @@ static int parse_argv(int argc, char *argv[]) {
 
         if (arg_follow && arg_reverse)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Please specify either --reverse= or --follow=, not both.");
+                                       "Please specify either --reverse or --follow, not both.");
+
+        if (arg_lines >= 0 && arg_lines_oldest && (arg_reverse || arg_follow))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--lines=+N is unsupported when --reverse or --follow is specified.");
 
         if (!IN_SET(arg_action, ACTION_SHOW, ACTION_DUMP_CATALOG, ACTION_LIST_CATALOG) && optind < argc)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -1110,11 +1131,12 @@ static int parse_argv(int argc, char *argv[]) {
                 if (r < 0)
                         return r;
 
-                /* When --grep is used along with --lines, we don't know how many lines we can print.
-                 * So we search backwards and count until enough lines have been printed or we hit the head.
+                /* When --grep is used along with --lines without '+', i.e. when we start from the end of the
+                 * journal, we don't know how many lines we can print. So we search backwards and count until
+                 * enough lines have been printed or we hit the head.
                  * An exception is that --follow might set arg_lines, so let's not imply --reverse
                  * if that is specified. */
-                if (arg_lines >= 0 && !arg_follow)
+                if (arg_lines_needs_seek_end() && !arg_follow)
                         arg_reverse = true;
         }
 
@@ -2667,8 +2689,8 @@ static int run(int argc, char *argv[]) {
                                 arg_lines = 0;
                 }
 
-        } else if (arg_until_set && (arg_reverse || arg_lines >= 0)) {
-                /* If both --until and any of --reverse and --lines is specified, things get
+        } else if (arg_until_set && (arg_reverse || arg_lines_needs_seek_end())) {
+                /* If both --until and any of --reverse and --lines=N is specified, things get
                  * a little tricky. We seek to the place of --until first. If only --reverse or
                  * --reverse and --lines is specified, we search backwards and let the output
                  * counter handle --lines for us. If only --lines is used, we just jump backwards
@@ -2680,7 +2702,7 @@ static int run(int argc, char *argv[]) {
 
                 if (arg_reverse)
                         r = sd_journal_previous(j);
-                else /* arg_lines >= 0 */
+                else /* arg_lines_needs_seek_end */
                         r = sd_journal_previous_skip(j, arg_lines);
 
         } else if (arg_reverse) {
@@ -2690,7 +2712,7 @@ static int run(int argc, char *argv[]) {
 
                 r = sd_journal_previous(j);
 
-        } else if (arg_lines >= 0) {
+        } else if (arg_lines_needs_seek_end()) {
                 r = sd_journal_seek_tail(j);
                 if (r < 0)
                         return log_error_errno(r, "Failed to seek to tail: %m");
