@@ -755,6 +755,7 @@ install_verity_minimal() {
         touch "$initdir/etc/machine-id" "$initdir/etc/resolv.conf"
         touch "$initdir/opt/some_file"
         echo MARKER=1 >>"$initdir/usr/lib/os-release"
+        echo MARKER=1 >>"$initdir/etc/os-release"
         echo "PORTABLE_PREFIXES=app0 minimal minimal-app0" >>"$initdir/usr/lib/os-release"
         cat >"$initdir/usr/lib/systemd/system/minimal-app0.service" <<EOF
 [Service]
@@ -806,6 +807,15 @@ EOF
         chmod +x "$initdir/opt/script0.sh"
         echo MARKER=1 >"$initdir/usr/lib/systemd/system/some_file"
         mksquashfs "$initdir" "$oldinitdir/usr/share/app0.raw" -noappend
+
+        export initdir="$TESTDIR/app00"
+        mkdir -p "$initdir/etc/extension-release.d" "$initdir/etc/systemd/system" "$initdir/opt"
+        grep "^ID=" "$os_release" >"$initdir/etc/extension-release.d/extension-release.app00"
+        echo "${version_id}" >>"$initdir/etc/extension-release.d/extension-release.app00"
+        ( echo "${version_id}"
+          echo "CONFEXT_IMAGE_ID=app" ) >>"$initdir/etc/extension-release.d/extension-release.app00"
+        echo MARKER_1 >"$initdir/etc/systemd/system/some_file"
+        mksquashfs "$initdir" "$oldinitdir/etc/app00.raw" -noappend
 
         export initdir="$TESTDIR/app1"
         mkdir -p "$initdir/usr/lib/extension-release.d" "$initdir/usr/lib/systemd/system" "$initdir/opt"
