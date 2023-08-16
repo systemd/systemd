@@ -203,7 +203,6 @@ struct EventLog {
 
         /* PCRs mask indicating all PCRs touched by unrecognized components */
         uint32_t missing_component_pcrs;
-
 };
 
 static EventLogRecordBank *event_log_record_bank_free(EventLogRecordBank *bank) {
@@ -1514,16 +1513,20 @@ static EventLogComponent *event_log_find_component(EventLog *el, const char *id)
         EventLogComponent k = {
                 .id = (char*) id,
         };
-        EventLogComponent *kk = &k;
+        EventLogComponent *kk = &k, **found;
 
         assert(el);
         assert(id);
 
-        return typesafe_bsearch(
+        found = typesafe_bsearch(
                         &kk,
                         el->components,
                         el->n_components,
                         event_log_component_cmp);
+        if (!found)
+                return NULL;
+
+        return *found;
 }
 
 static int event_log_add_component(EventLog *el, const char *id, EventLogComponent **ret) {
@@ -3099,6 +3102,11 @@ static int verb_lock_gpt(int argc, char *argv[], void *userdata) {
                                        "Disk does not have GPT partition table, refusing.");
 
         p = (const GptHeader*) (h + found);
+
+        if (le32toh(p->header_size) > found)
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "GPT header size over long (%" PRIu32 "), refusing.", le32toh(p->header_size));
+
         start = le64toh(p->partition_entry_lba);
         if (start > UINT64_MAX / found)
                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
@@ -3127,14 +3135,14 @@ static int verb_lock_gpt(int argc, char *argv[], void *userdata) {
         if ((size_t) n != member_bufsz)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short read while reading GPT partition table entries: %m");
 
-        size_t vdata_size = sizeof(GptHeader) + sizeof(uint64_t) + member_size * n_members;
-        _cleanup_free_ void *vdata = malloc(vdata_size);
+        size_t vdata_size = le32toh(p->header_size) + sizeof(le64_t) + member_size * n_members;
+        _cleanup_free_ void *vdata = malloc0(vdata_size);
         if (!vdata)
                 return log_oom();
 
-        uint64_t *n_measured_entries = mempcpy(vdata, p, sizeof(GptHeader));
+        void *n_measured_entries = mempcpy(vdata, p, sizeof(GptHeader)); /* n_measured_entries is a 64bit value */
 
-        void *qq = n_measured_entries + 1;
+        void *qq = (uint8_t*) n_measured_entries + sizeof(le64_t);
 
         for (uint64_t i = 0; i < n_members; i++) {
                 const GptPartitionEntry *entry = (const GptPartitionEntry*) ((const uint8_t*) members + (member_size * i));
@@ -3143,7 +3151,7 @@ static int verb_lock_gpt(int argc, char *argv[], void *userdata) {
                         continue;
 
                 qq = mempcpy(qq, entry, member_size);
-                (*n_measured_entries)++;
+                unaligned_write_le64(n_measured_entries, unaligned_read_le64(n_measured_entries) + 1);
         }
 
         vdata_size = (uint8_t*) qq - (uint8_t*) vdata;
@@ -3813,7 +3821,6 @@ static int pcr_prediction_add_result(
 
         assert(context);
         assert(result);
-        assert(path);
 
         copy = newdup(Tpm2PCRPredictionResult, result, 1);
         if (!copy)
@@ -3825,7 +3832,7 @@ static int pcr_prediction_add_result(
         if (r < 0)
                 return log_error_errno(r, "Failed to insert result into set: %m");
 
-        log_debug("Added prediction result %u for PCR %" PRIu32 " (path: %s)", ordered_set_size(context->results[pcr]), pcr, path);
+        log_debug("Added prediction result %u for PCR %" PRIu32 " (path: %s)", ordered_set_size(context->results[pcr]), pcr, strempty(path));
 
         TAKE_PTR(copy);
         return 0;
@@ -3855,7 +3862,6 @@ static int event_log_component_variant_calculate(
         assert(result);
         assert(component);
         assert(variant);
-        assert(path);
 
         FOREACH_ARRAY(rr, variant->records, variant->n_records) {
                 EventLogRecord *rec = *rr;
@@ -4156,7 +4162,6 @@ static int verb_predict(int argc, char *argv[], void *userdata) {
 
         return event_log_show_predictions(&context, el->primary_algorithm);
 }
-
 
 static int remove_policy_file(const char *path) {
         assert(path);

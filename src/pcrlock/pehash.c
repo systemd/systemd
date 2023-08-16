@@ -175,7 +175,7 @@ int uki_hash(int fd,
         _cleanup_free_ PeHeader *pe_header = NULL;
         int r;
 
-        assert(fd);
+        assert(fd >= 0);
         assert(ret_hashes);
         assert(ret_hash_size);
 
