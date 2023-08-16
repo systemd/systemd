@@ -1618,6 +1618,13 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>HopLimit=</varname></term>
+        <listitem>
+          <para> Configures per route hop limit. See also <varname>IPv6HopLimit=</varname>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>Protocol=</varname></term>
         <listitem>
           <para>The protocol identifier for the route. Takes a number between 0 and 255 or the special
