@@ -22,13 +22,13 @@ typedef struct PortableMetadata {
 #define PORTABLE_METADATA_IS_UNIT(m) (!IN_SET((m)->name[0], 0, '/'))
 
 typedef enum PortableFlags {
-        PORTABLE_RUNTIME        = 1 << 0, /* Public API via DBUS, do not change */
-        PORTABLE_FORCE_ATTACH   = 1 << 1, /* Public API via DBUS, do not change */
-        PORTABLE_FORCE_SYSEXT   = 1 << 2, /* Public API via DBUS, do not change */
-        PORTABLE_PREFER_COPY    = 1 << 3,
-        PORTABLE_PREFER_SYMLINK = 1 << 4,
-        PORTABLE_REATTACH       = 1 << 5,
-        _PORTABLE_MASK_PUBLIC   = PORTABLE_RUNTIME | PORTABLE_FORCE_ATTACH | PORTABLE_FORCE_SYSEXT,
+        PORTABLE_RUNTIME           = 1 << 0, /* Public API via DBUS, do not change */
+        PORTABLE_FORCE_ATTACH      = 1 << 1, /* Public API via DBUS, do not change */
+        PORTABLE_FORCE_EXTENSION   = 1 << 2, /* Public API via DBUS, do not change */
+        PORTABLE_PREFER_COPY       = 1 << 3,
+        PORTABLE_PREFER_SYMLINK    = 1 << 4,
+        PORTABLE_REATTACH          = 1 << 5,
+        _PORTABLE_MASK_PUBLIC   = PORTABLE_RUNTIME | PORTABLE_FORCE_ATTACH | PORTABLE_FORCE_EXTENSION,
         _PORTABLE_TYPE_MAX,
         _PORTABLE_TYPE_INVALID  = -EINVAL,
 } PortableFlags;
