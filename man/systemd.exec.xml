@@ -478,7 +478,8 @@
         mount options.</para>
 
         <para>A read-only OverlayFS will be set up on top of <filename>/usr/</filename> and
-        <filename>/opt/</filename> hierarchies. The order in which the images are listed will determine the
+        <filename>/opt/</filename> hierarchies for sysext images and <filename>/etc/</filename>
+        hierarchy for confext images. The order in which the images are listed will determine the
         order in which the overlay is laid down: images specified first to last will result in overlayfs
         layers bottom to top.</para>
 
@@ -498,7 +499,8 @@
         paths. If the empty string is assigned, the entire list of mount paths defined prior to this is
         reset.</para>
 
-        <para>Each image must carry a <filename>/usr/lib/extension-release.d/extension-release.IMAGE</filename>
+        <para>Each sysext image must carry a <filename>/usr/lib/extension-release.d/extension-release.IMAGE</filename>
+        file while each confext image must carry a <filename>/etc/extension-release.d/extension-release.IMAGE</filename>
         file, with the appropriate metadata which matches <varname>RootImage=</varname>/<varname>RootDirectory=</varname>
         or the host. See:
         <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
@@ -526,7 +528,8 @@
         up. This option expects a whitespace separated list of source directories.</para>
 
         <para>A read-only OverlayFS will be set up on top of <filename>/usr/</filename> and
-        <filename>/opt/</filename> hierarchies. The order in which the directories are listed will determine
+        <filename>/opt/</filename> hierarchies for sysext images and <filename>/etc/</filename>
+        hierarchy for confext images. The order in which the directories are listed will determine
         the order in which the overlay is laid down: directories specified first to last will result in overlayfs
         layers bottom to top.</para>
 
@@ -538,7 +541,8 @@
         paths. If the empty string is assigned, the entire list of mount paths defined prior to this is
         reset.</para>
 
-        <para>Each directory must contain a <filename>/usr/lib/extension-release.d/extension-release.IMAGE</filename>
+        <para>Each sysext directory must contain a <filename>/usr/lib/extension-release.d/extension-release.IMAGE</filename>
+        file while each confext directory must carry a <filename>/etc/extension-release.d/extension-release.IMAGE</filename>
         file, with the appropriate metadata which matches <varname>RootImage=</varname>/<varname>RootDirectory=</varname>
         or the host. See:
         <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
