@@ -33,6 +33,7 @@ systemd-dissect --no-pager /usr/share/minimal_0.raw | grep -q '✓ portable serv
 systemd-dissect --no-pager /usr/share/minimal_1.raw | grep -q '✓ portable service'
 systemd-dissect --no-pager /usr/share/app0.raw | grep -q '✓ sysext for portable service'
 systemd-dissect --no-pager /usr/share/app1.raw | grep -q '✓ sysext for portable service'
+systemd-dissect --no-pager /usr/share/conf0.raw | grep -q '✓ confext for portable service'
 
 export SYSTEMD_LOG_LEVEL=debug
 mkdir -p /run/systemd/system/systemd-portabled.service.d/
@@ -186,6 +187,17 @@ status="$(portablectl is-attached --extension /tmp/app10.raw /usr/share/minimal_
 portablectl inspect --force --cat --extension /tmp/app10.raw /usr/share/minimal_0.raw app0 | grep -q -F "Extension Release: /tmp/app10.raw"
 
 portablectl detach --force --now --runtime --extension /tmp/app10.raw /usr/share/minimal_0.raw app0
+
+# portablectl also accepts confexts
+portablectl "${ARGS[@]}" attach --now --runtime --extension /usr/share/app0.raw --extension /usr/share/conf0.raw /usr/share/minimal_0.raw app0
+
+systemctl is-active app0.service
+status="$(portablectl is-attached --extension /usr/share/app0.raw --extension /usr/share/conf0.raw /usr/share/minimal_0.raw)"
+[[ "${status}" == "running-runtime" ]]
+
+portablectl inspect --force --cat --extension /usr/share/app0.raw --extension /usr/share/conf0.raw /usr/share/minimal_0.raw app0 | grep -q -F "Extension Release: /usr/share/conf0.raw"
+
+portablectl detach --now --runtime --extension /usr/share/app0.raw --extension /usr/share/conf0.raw /usr/share/minimal_0.raw app0
 
 # portablectl also works with directory paths rather than images
 
