@@ -213,6 +213,7 @@ int json_variant_set_field_strv(JsonVariant **v, const char *field, char **l);
 JsonVariant *json_variant_find(JsonVariant *haystack, JsonVariant *needle);
 
 int json_variant_append_array(JsonVariant **v, JsonVariant *element);
+int json_variant_append_arrayb(JsonVariant **v, ...);
 int json_variant_append_array_nodup(JsonVariant **v, JsonVariant *element);
 
 int json_variant_merge(JsonVariant **v, JsonVariant *m);

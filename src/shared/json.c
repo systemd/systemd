@@ -2141,6 +2141,20 @@ int json_variant_append_array(JsonVariant **v, JsonVariant *element) {
         return 0;
 }
 
+int json_variant_append_arrayb(JsonVariant **v, ...) {
+        _cleanup_(json_variant_unrefp) JsonVariant *w = NULL;
+        va_list ap;
+        int r;
+
+        va_start(ap, v);
+        r = json_buildv(&w, ap);
+        va_end(ap);
+        if (r < 0)
+                return r;
+
+        return json_variant_append_array(v, w);
+}
+
 JsonVariant *json_variant_find(JsonVariant *haystack, JsonVariant *needle) {
         JsonVariant *i;
 
