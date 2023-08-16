@@ -117,9 +117,7 @@ static int manager_startup(Manager *m) {
 }
 
 static bool check_idle(void *userdata) {
-        Manager *m = userdata;
-
-        return !m->operations;
+        return false;
 }
 
 static int manager_run(Manager *m) {
