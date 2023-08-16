@@ -70,7 +70,10 @@
     <replaceable>WHERE</replaceable>). In this mode no probing of the source is attempted, and a backing
     device node doesn't have to exist. However, if this mode is combined with <option>--discover</option>,
     device node probing for additional metadata is enabled, and – much like in the single-argument case
-    discussed above – the specified device has to exist at the time of invocation of the command.</para>
+    discussed above – the specified device has to exist at the time of invocation of the command. If
+    <literal>tmpfs</literal> is specified as <replaceable>WHAT</replaceable>, then the property
+    <option>Type=tmpfs</option> will also be implicitly enabled, and a new temporary file system will be
+    mounted on <replaceable>WHERE</replaceable>.</para>
 
     <para>Use the <option>--list</option> command to show a terse table of all local, known block devices with file
     systems that may be mounted with this command.</para>
