@@ -23,9 +23,9 @@ if install_tests
                 'testsuite-63.units',
                 'testsuite-80.units',
         ]
-                install_subdir(subdir,
-                               exclude_files : '.gitattributes',
-                               install_dir : testdata_dir)
+                meson.add_install_script(sh, '-c',
+                                         rsync_r.format(meson.current_source_dir() / subdir,
+                                                        testdata_dir))
         endforeach
 
         install_data(kbd_model_map,
