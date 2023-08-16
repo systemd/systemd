@@ -384,19 +384,34 @@ static int parse_argv(int argc, char *argv[]) {
                         if (!u)
                                 return log_oom();
 
-                        r = chase(u, NULL, 0, &arg_mount_what, NULL);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to make path %s absolute: %m", u);
+                        if (streq(u, "tmpfs")) {
+                                if (!strv_contains(arg_property, "Type=tmpfs") &&
+                                    strv_extend(&arg_property, "Type=tmpfs") < 0)
+                                        return log_oom();
+
+                                arg_mount_what = TAKE_PTR(u);
+                        } else {
+                                r = chase(u, NULL, 0, &arg_mount_what, NULL);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to make path %s absolute: %m", u);
+                        }
                 } else {
                         arg_mount_what = strdup(argv[optind]);
                         if (!arg_mount_what)
                                 return log_oom();
 
-                        path_simplify(arg_mount_what);
+                        if (streq(arg_mount_what, "tmpfs")) {
+                                if (!strv_contains(arg_property, "Type=tmpfs") &&
+                                    strv_extend(&arg_property, "Type=tmpfs") < 0)
+                                        return log_oom();
+                        } else {
+                                path_simplify(arg_mount_what);
 
-                        if (!path_is_absolute(arg_mount_what))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Only absolute path is supported: %s", arg_mount_what);
+                                if (!path_is_absolute(arg_mount_what))
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                               "Only absolute path is supported: %s",
+                                                               arg_mount_what);
+                        }
                 }
 
                 if (argc > optind+1) {
