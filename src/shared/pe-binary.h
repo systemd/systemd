@@ -123,6 +123,14 @@ typedef struct _packed_ _IMAGE_SECTION_HEADER {
         le32_t Characteristics;
 } IMAGE_SECTION_HEADER;
 
+bool pe_header_is_64bit(const PeHeader *h);
+
+#define PE_HEADER_OPTIONAL_FIELD(h, field)                           \
+        (pe_header_is_64bit(h) ? (h)->optional.pe32plus_##field : (h)->optional.pe32_##field)
+
+#define PE_HEADER_OPTIONAL_FIELD_OFFSET(h, field) \
+        (pe_header_is_64bit(h) ? offsetof(PeHeader, optional.pe32plus_##field) : offsetof(PeHeader, optional.pe32_##field))
+
 const IMAGE_DATA_DIRECTORY *pe_header_get_data_directory(const PeHeader *h, size_t i);
 const IMAGE_SECTION_HEADER *pe_header_find_section(const PeHeader *pe_header, const IMAGE_SECTION_HEADER *sections, const char *name);
 

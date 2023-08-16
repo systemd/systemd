@@ -7,7 +7,7 @@
 #include "pe-binary.h"
 #include "string-util.h"
 
-static bool pe_header_is_64bit(const PeHeader *h) {
+bool pe_header_is_64bit(const PeHeader *h) {
         assert(h);
 
         if (le16toh(h->optional.Magic) == UINT16_C(0x010B)) /* PE32 */
@@ -18,12 +18,6 @@ static bool pe_header_is_64bit(const PeHeader *h) {
 
         assert_not_reached();
 }
-
-#define PE_HEADER_OPTIONAL_FIELD(h, field)                           \
-        (pe_header_is_64bit(h) ? (h)->optional.pe32plus_##field : (h)->optional.pe32_##field)
-
-#define PE_HEADER_OPTIONAL_FIELD_OFFSET(h, field) \
-        (pe_header_is_64bit(h) ? offsetof(PeHeader, optional.pe32plus_##field) : offsetof(PeHeader, optional.pe32_##field))
 
 static size_t pe_header_size(const PeHeader *pe_header) {
         assert(pe_header);
