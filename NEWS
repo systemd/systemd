@@ -1923,7 +1923,7 @@ CHANGES WITH 252 🎃:
           *WithExtensions() D-Bus methods: SD_SYSTEMD_PORTABLE_FORCE_ATTACH
           flag now means that the attach/detach checks whether the units are
           already present and running will be skipped. Similarly,
-          SD_SYSTEMD_PORTABLE_FORCE_SYSEXT flag means that the check whether
+          SD_SYSTEMD_PORTABLE_FORCE_EXTENSION flag means that the check whether
           image name matches the name declared inside of the image will be
           skipped. Callers must be sure to do those checks themselves if
           appropriate.
