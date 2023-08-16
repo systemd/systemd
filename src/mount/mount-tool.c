@@ -71,6 +71,7 @@ static uid_t arg_uid = UID_INVALID;
 static gid_t arg_gid = GID_INVALID;
 static bool arg_fsck = true;
 static bool arg_aggressive_gc = false;
+static bool arg_tmpfs = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_mount_what, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_mount_where, freep);
@@ -79,6 +80,34 @@ STATIC_DESTRUCTOR_REGISTER(arg_mount_options, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_description, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_property, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_automount_property, strv_freep);
+
+static int parse_where(const char *input, char **ret_where) {
+        _cleanup_free_ char *where = NULL;
+        int r;
+
+        assert(input);
+        assert(ret_where);
+
+        if (arg_transport == BUS_TRANSPORT_LOCAL) {
+                r = chase(input, NULL, CHASE_NONEXISTENT, &where, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to make path %s absolute: %m", input);
+        } else {
+                where = strdup(input);
+                if (!where)
+                        return log_oom();
+
+                path_simplify(where);
+
+                if (!path_is_absolute(where))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Path must be absolute when operating remotely: %s",
+                                               where);
+        }
+
+        *ret_where = TAKE_PTR(where);
+        return 0;
+}
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
@@ -89,6 +118,7 @@ static int help(void) {
                 return log_oom();
 
         printf("systemd-mount [OPTIONS...] WHAT [WHERE]\n"
+               "systemd-mount [OPTIONS...] --tmpfs [NAME] WHERE\n"
                "systemd-mount [OPTIONS...] --list\n"
                "%s [OPTIONS...] %sWHAT|WHERE...\n\n"
                "Establish a mount or auto-mount point transiently.\n\n"
@@ -118,6 +148,7 @@ static int help(void) {
                "     --list                       List mountable block devices\n"
                "  -u --umount                     Unmount mount points\n"
                "  -G --collect                    Unload unit after it stopped, even when failed\n"
+               "  -T --tmpfs                      Create a new tmpfs on the mount point\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                streq(program_invocation_short_name, "systemd-umount") ? "" : "--umount ",
@@ -177,6 +208,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "umount",             no_argument,       NULL, 'u'                    },
                 { "unmount",            no_argument,       NULL, 'u'                    },
                 { "collect",            no_argument,       NULL, 'G'                    },
+                { "tmpfs",              no_argument,       NULL, 'T'                    },
                 {},
         };
 
@@ -188,7 +220,7 @@ static int parse_argv(int argc, char *argv[]) {
         if (invoked_as(argv, "systemd-umount"))
                 arg_action = ACTION_UMOUNT;
 
-        while ((c = getopt_long(argc, argv, "hqH:M:t:o:p:AuGl", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hqH:M:t:o:p:AuGlT", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -327,6 +359,10 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_aggressive_gc = true;
                         break;
 
+                case 'T':
+                        arg_tmpfs = true;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -361,7 +397,8 @@ static int parse_argv(int argc, char *argv[]) {
                         for (i = optind; i < argc; i++)
                                 if (!path_is_absolute(argv[i]) )
                                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                               "Only absolute path is supported: %s", argv[i]);
+                                                               "Path must be absolute when operating remotely: %s",
+                                                               argv[i]);
                 }
         } else {
                 if (optind >= argc)
@@ -372,50 +409,59 @@ static int parse_argv(int argc, char *argv[]) {
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "At most two arguments required.");
 
-                if (arg_mount_type && !fstype_is_blockdev_backed(arg_mount_type)) {
-                        arg_mount_what = strdup(argv[optind]);
-                        if (!arg_mount_what)
+                if (arg_tmpfs) {
+                        if (argc <= optind+1) {
+                                arg_mount_what = strdup("tmpfs");
+                                if (!arg_mount_what)
+                                        return log_oom();
+
+                                r = parse_where(argv[optind], &arg_mount_where);
+                                if (r < 0)
+                                        return r;
+                        } else {
+                                arg_mount_what = strdup(argv[optind]);
+                                if (!arg_mount_what)
+                                        return log_oom();
+                        }
+
+                        if (!strv_contains(arg_property, "Type=tmpfs") &&
+                            strv_extend(&arg_property, "Type=tmpfs") < 0)
                                 return log_oom();
-
-                } else if (arg_transport == BUS_TRANSPORT_LOCAL) {
-                        _cleanup_free_ char *u = NULL;
-
-                        u = fstab_node_to_udev_node(argv[optind]);
-                        if (!u)
-                                return log_oom();
-
-                        r = chase(u, NULL, 0, &arg_mount_what, NULL);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to make path %s absolute: %m", u);
                 } else {
-                        arg_mount_what = strdup(argv[optind]);
-                        if (!arg_mount_what)
-                                return log_oom();
+                        if (arg_mount_type && !fstype_is_blockdev_backed(arg_mount_type)) {
+                                arg_mount_what = strdup(argv[optind]);
+                                if (!arg_mount_what)
+                                        return log_oom();
 
-                        path_simplify(arg_mount_what);
+                        } else if (arg_transport == BUS_TRANSPORT_LOCAL) {
+                                _cleanup_free_ char *u = NULL;
 
-                        if (!path_is_absolute(arg_mount_what))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Only absolute path is supported: %s", arg_mount_what);
+                                u = fstab_node_to_udev_node(argv[optind]);
+                                if (!u)
+                                        return log_oom();
+
+                                r = chase(u, NULL, 0, &arg_mount_what, NULL);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to make path %s absolute: %m", u);
+                        } else {
+                                arg_mount_what = strdup(argv[optind]);
+                                if (!arg_mount_what)
+                                        return log_oom();
+
+                                path_simplify(arg_mount_what);
+
+                                if (!path_is_absolute(arg_mount_what))
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                               "Path must be absolute when operating remotely: %s",
+                                                               arg_mount_what);
+                        }
                 }
 
                 if (argc > optind+1) {
-                        if (arg_transport == BUS_TRANSPORT_LOCAL) {
-                                r = chase(argv[optind+1], NULL, CHASE_NONEXISTENT, &arg_mount_where, NULL);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to make path %s absolute: %m", argv[optind+1]);
-                        } else {
-                                arg_mount_where = strdup(argv[optind+1]);
-                                if (!arg_mount_where)
-                                        return log_oom();
-
-                                path_simplify(arg_mount_where);
-
-                                if (!path_is_absolute(arg_mount_where))
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                               "Only absolute path is supported: %s", arg_mount_where);
-                        }
-                } else
+                        r = parse_where(argv[optind+1], &arg_mount_where);
+                        if (r < 0)
+                                return r;
+                } else if (!arg_tmpfs)
                         arg_discover = true;
 
                 if (arg_discover && arg_transport != BUS_TRANSPORT_LOCAL)
