@@ -1614,6 +1614,12 @@ static Service *service_get_triggering_service(Service *s) {
         return NULL;
 }
 
+static int service_job_is_restart(Service *s) {
+        assert(s);
+
+        return UNIT(s)->job && UNIT(s)->job->type == JOB_RESTART;
+}
+
 static int service_spawn_internal(
                 const char *caller,
                 Service *s,
@@ -1684,7 +1690,7 @@ static int service_spawn_internal(
         if (r < 0)
                 return r;
 
-        our_env = new0(char*, 13);
+        our_env = new0(char*, 14);
         if (!our_env)
                 return -ENOMEM;
 
@@ -1709,6 +1715,10 @@ static int service_spawn_internal(
 
         if (s->pid_file)
                 if (asprintf(our_env + n_env++, "PIDFILE=%s", s->pid_file) < 0)
+                        return -ENOMEM;
+
+        if (service_job_is_restart(s))
+                if (asprintf(our_env + n_env++, "SERVICE_RESTART=1") < 0)
                         return -ENOMEM;
 
         if (s->socket_fd >= 0) {

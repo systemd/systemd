@@ -32,6 +32,7 @@
 #include "process-util.h"
 #include "procfs-util.h"
 #include "restrict-ifaces.h"
+#include "set.h"
 #include "special.h"
 #include "stdio-util.h"
 #include "string-table.h"
@@ -179,6 +180,270 @@ void cgroup_context_init(CGroupContext *c) {
                 .memory_pressure_watch = _CGROUP_PRESSURE_WATCH_INVALID,
                 .memory_pressure_threshold_usec = USEC_INFINITY,
         };
+}
+
+int cgroup_context_copy(const CGroupContext *src, CGroupContext *dst) {
+        struct in_addr_prefix *i;
+        char *iface;
+        int r;
+
+        assert(src);
+        assert(dst);
+
+        dst->cpu_accounting = src->cpu_accounting;
+        dst->io_accounting = src->io_accounting;
+        dst->blockio_accounting = src->blockio_accounting;
+        dst->memory_accounting = src->memory_accounting;
+        dst->tasks_accounting = src->tasks_accounting;
+        dst->ip_accounting = src->ip_accounting;
+
+        dst->memory_oom_group = dst->memory_oom_group;
+
+        dst->delegate = src->delegate;
+        dst->delegate_controllers = src->delegate_controllers;
+        dst->disable_controllers = src->disable_controllers;
+        dst->delegate_subgroup = src->delegate_subgroup;
+
+        dst->cpu_weight = src->cpu_weight;
+        dst->startup_cpu_weight = src->startup_cpu_weight;
+        dst->cpu_quota_per_sec_usec = src->cpu_quota_per_sec_usec;
+        dst->cpu_quota_period_usec = src->cpu_quota_period_usec;
+
+        dst->cpuset_cpus = src->cpuset_cpus;
+        dst->startup_cpuset_cpus = src->startup_cpuset_cpus;
+        dst->cpuset_mems = src->cpuset_mems;
+        dst->startup_cpuset_mems = src->startup_cpuset_mems;
+
+        dst->io_weight = src->io_weight;
+        dst->startup_io_weight = src->startup_io_weight;
+
+        LIST_FOREACH(device_weights, w, src->io_device_weights) {
+                _cleanup_free_ CGroupIODeviceWeight *n = NULL;
+
+                n = new0(CGroupIODeviceWeight, 1);
+                if (!n)
+                        return -ENOMEM;
+
+                n->path = strdup(w->path);
+                if (!n->path)
+                        return -ENOMEM;
+                n->weight = w->weight;
+
+                LIST_PREPEND(device_weights, dst->io_device_weights, TAKE_PTR(n));
+        }
+
+        LIST_FOREACH(device_limits, l, src->io_device_limits) {
+                _cleanup_free_ CGroupIODeviceLimit *n = NULL;
+
+                n = new0(CGroupIODeviceLimit, 1);
+                if (!n)
+                        return -ENOMEM;
+
+                n->path = strdup(l->path);
+                if (!n->path)
+                        return -ENOMEM;
+
+                memcpy(n->limits, l->limits, sizeof(l->limits));
+
+                LIST_PREPEND(device_limits, dst->io_device_limits, TAKE_PTR(n));
+        }
+
+        LIST_FOREACH(device_latencies, l, src->io_device_latencies) {
+                _cleanup_free_ CGroupIODeviceLatency *n = NULL;
+
+                n = new0(CGroupIODeviceLatency, 1);
+                if (!n)
+                        return -ENOMEM;
+
+                n->path = strdup(l->path);
+                if (!n->path)
+                        return -ENOMEM;
+
+                n->target_usec = l->target_usec;
+
+                LIST_PREPEND(device_latencies, dst->io_device_latencies, TAKE_PTR(n));
+        }
+
+        dst->default_memory_min = src->default_memory_min;
+        dst->default_memory_low = src->default_memory_low;
+        dst->default_startup_memory_low = src->default_startup_memory_low;
+        dst->memory_min = src->memory_min;
+        dst->memory_low = src->memory_low;
+        dst->startup_memory_low = src->startup_memory_low;
+        dst->memory_high = src->memory_high;
+        dst->startup_memory_high = src->startup_memory_high;
+        dst->memory_max = src->memory_max;
+        dst->startup_memory_max = src->startup_memory_max;
+        dst->memory_swap_max = src->memory_swap_max;
+        dst->startup_memory_swap_max = src->startup_memory_swap_max;
+        dst->memory_zswap_max = src->memory_zswap_max;
+        dst->startup_memory_zswap_max = src->startup_memory_zswap_max;
+
+        dst->default_memory_min_set = src->default_memory_min_set;
+        dst->default_memory_low_set = src->default_memory_low_set;
+        dst->default_startup_memory_low_set = src->default_startup_memory_low_set;
+        dst->memory_min_set = src->memory_min_set;
+        dst->memory_low_set = src->memory_low_set;
+        dst->startup_memory_low_set = src->startup_memory_low_set;
+        dst->startup_memory_high_set = src->startup_memory_high_set;
+        dst->startup_memory_max_set = src->startup_memory_max_set;
+        dst->startup_memory_swap_max_set = src->startup_memory_swap_max_set;
+        dst->startup_memory_zswap_max_set = src->startup_memory_zswap_max_set;
+
+        SET_FOREACH(i, src->ip_address_allow) {
+                r = in_addr_prefix_add(&dst->ip_address_allow, i);
+                if (r < 0)
+                        return -ENOMEM;
+        }
+
+        SET_FOREACH(i, src->ip_address_deny) {
+                r = in_addr_prefix_add(&dst->ip_address_deny, i);
+                if (r < 0)
+                        return -ENOMEM;
+        }
+
+        dst->ip_address_allow_reduced = src->ip_address_allow_reduced;
+        dst->ip_address_deny_reduced = src->ip_address_deny_reduced;
+
+        if (!strv_isempty(src->ip_filters_ingress)) {
+                dst->ip_filters_ingress = strv_copy(src->ip_filters_ingress);
+                if (!dst->ip_filters_ingress)
+                        return -ENOMEM;
+        }
+
+        if (!strv_isempty(src->ip_filters_egress)) {
+                dst->ip_filters_egress = strv_copy(src->ip_filters_egress);
+                if (!dst->ip_filters_egress)
+                        return -ENOMEM;
+        }
+
+        LIST_FOREACH(programs, l, src->bpf_foreign_programs) {
+                _cleanup_free_ CGroupBPFForeignProgram *n = NULL;
+
+                n = new0(CGroupBPFForeignProgram, 1);
+                if (!n)
+                        return -ENOMEM;
+
+                n->bpffs_path = strdup(l->bpffs_path);
+                if (!n->bpffs_path)
+                        return -ENOMEM;
+
+                n->attach_type = l->attach_type;
+
+                LIST_PREPEND(programs, dst->bpf_foreign_programs, TAKE_PTR(n));
+        }
+
+        SET_FOREACH(iface, src->restrict_network_interfaces) {
+                r = set_put_strdup(&dst->restrict_network_interfaces, iface);
+                if (r < 0)
+                        return -ENOMEM;
+        }
+        dst->restrict_network_interfaces_is_allow_list = src->restrict_network_interfaces_is_allow_list;
+
+        dst->cpu_shares = src->cpu_shares;
+        dst->startup_cpu_shares = src->startup_cpu_shares;
+
+        dst->blockio_weight = src->blockio_weight;
+        dst->startup_blockio_weight = src->startup_blockio_weight;
+
+        LIST_FOREACH(device_weights, l, src->blockio_device_weights) {
+                _cleanup_free_ CGroupBlockIODeviceWeight *n = NULL;
+
+                n = new0(CGroupBlockIODeviceWeight, 1);
+                if (!n)
+                        return -ENOMEM;
+
+                n->path = strdup(l->path);
+                if (!n->path)
+                        return -ENOMEM;
+
+                n->weight = l->weight;
+
+                LIST_PREPEND(device_weights, dst->blockio_device_weights, TAKE_PTR(n));
+        }
+
+        LIST_FOREACH(device_bandwidths, l, src->blockio_device_bandwidths) {
+                _cleanup_free_ CGroupBlockIODeviceBandwidth *n = NULL;
+
+                n = new0(CGroupBlockIODeviceBandwidth, 1);
+                if (!n)
+                        return -ENOMEM;
+
+                n->path = strdup(l->path);
+                if (!n->path)
+                        return -ENOMEM;
+
+                n->rbps = l->rbps;
+                n->wbps = l->wbps;
+
+                LIST_PREPEND(device_bandwidths, dst->blockio_device_bandwidths, TAKE_PTR(n));
+        }
+
+        dst->memory_limit = src->memory_limit;
+
+        dst->device_policy = src->device_policy;
+        LIST_FOREACH(device_allow, l, src->device_allow) {
+                _cleanup_free_ CGroupDeviceAllow *n = NULL;
+
+                n = new0(CGroupDeviceAllow, 1);
+                if (!n)
+                        return -ENOMEM;
+
+                n->path = strdup(l->path);
+                if (!n->path)
+                        return -ENOMEM;
+
+                n->r = l->r;
+                n->w = l->w;
+                n->m = l->m;
+
+                LIST_PREPEND(device_allow, dst->device_allow, TAKE_PTR(n));
+        }
+
+        LIST_FOREACH(socket_bind_items, l, src->socket_bind_allow) {
+                _cleanup_free_ CGroupSocketBindItem *n = NULL;
+
+                n = new0(CGroupSocketBindItem, 1);
+                if (!n)
+                        return -ENOMEM;
+
+                n->address_family = l->address_family;
+                n->ip_protocol    = l->ip_protocol;
+                n->nr_ports       = l->nr_ports;
+                n->port_min       = l->port_min;
+
+                LIST_PREPEND(socket_bind_items, dst->socket_bind_allow, TAKE_PTR(n));
+        }
+
+        LIST_FOREACH(socket_bind_items, l, src->socket_bind_deny) {
+                _cleanup_free_ CGroupSocketBindItem *n = NULL;
+
+                n = new0(CGroupSocketBindItem, 1);
+                if (!n)
+                        return -ENOMEM;
+
+                n->address_family = l->address_family;
+                n->ip_protocol    = l->ip_protocol;
+                n->nr_ports       = l->nr_ports;
+                n->port_min       = l->port_min;
+
+                LIST_PREPEND(socket_bind_items, dst->socket_bind_deny, TAKE_PTR(n));
+        }
+
+        dst->tasks_max = (TasksMax) {
+                .value = src->tasks_max.value,
+                .scale = src->tasks_max.scale,
+        };
+
+        dst->moom_swap = src->moom_swap;
+        dst->moom_mem_pressure = src->moom_mem_pressure;
+        dst->moom_mem_pressure_limit = src->moom_mem_pressure_limit;
+        dst->moom_preference = src->moom_preference;
+
+        dst->memory_pressure_watch = src->memory_pressure_watch;
+        dst->memory_pressure_threshold_usec = src->memory_pressure_threshold_usec;
+
+        return 0;
 }
 
 void cgroup_context_free_device_allow(CGroupContext *c, CGroupDeviceAllow *a) {
