@@ -5841,14 +5841,14 @@ int tpm2_policy_super_pcr(
                 if (!FLAGS_SET(prediction->pcrs, UINT32_C(1) << pcr))
                         continue;
 
-                log_debug("Submitting PCR/OR policy for PCR %" PRIu32, pcr);
-
                 n_branches = ordered_set_size(prediction->results[pcr]);
                 if (n_branches < 1 || n_branches > 8)
                         return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Number of variants per PCR not in range 1…8");
 
                 if (n_branches == 1) /* Single choice PCRs are already covered by the loop above */
                         continue;
+
+                log_debug("Submitting PCR/OR policy for PCR %" PRIu32, pcr);
 
                 TPML_PCR_SELECTION pcr_selection;
                 tpm2_tpml_pcr_selection_from_mask(UINT32_C(1) << pcr, algorithm, &pcr_selection);
@@ -5935,7 +5935,10 @@ int tpm2_pcrlock_search_file(const char *path, FILE **ret_file, char **ret_path)
 
         int r;
 
-        r = search_and_fopen_nulstr(path ?: "pcrlock.json", ret_file ? "re" : NULL, NULL, search, ret_file, ret_path);
+        if (!path)
+                path = "pcrlock.json";
+
+        r = search_and_fopen_nulstr(path, ret_file ? "re" : NULL, NULL, search, ret_file, ret_path);
         if (r < 0)
                 return log_debug_errno(r, "Failed to find TPM2 pcrlock policy file '%s': %m", path);
 
