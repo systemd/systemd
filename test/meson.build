@@ -23,9 +23,18 @@ if install_tests
                 'testsuite-63.units',
                 'testsuite-80.units',
         ]
-                install_subdir(subdir,
-                               exclude_files : '.gitattributes',
-                               install_dir : testdata_dir)
+                # install_subdir() does not handle symlinks correctly which causes a very ugly warning when
+                # installing, so if rsync is available we use that instead. See
+                # https://github.com/mesonbuild/meson/issues/9233.
+                if rsync.found()
+                        rsync_r = rsync.full_path() + ' -rlpt --exclude .gitattributes -- "@0@" "${DESTDIR:-}@1@"'
+                        meson.add_install_script(sh, '-c',
+                                                 rsync_r.format(meson.current_source_dir() / subdir, testdata_dir))
+                else
+                        install_subdir(subdir,
+                                       exclude_files : '.gitattributes',
+                                       install_dir : testdata_dir)
+                endif
         endforeach
 
         install_data(kbd_model_map,
