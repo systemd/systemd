@@ -1734,8 +1734,24 @@ static int partition_read_definition(Partition *p, const char *path, const char 
                                   "Format=swap and CopyFiles= cannot be combined, refusing.");
 
         if (!p->format && (!strv_isempty(p->copy_files) || !strv_isempty(p->make_directories) || (p->encrypt != ENCRYPT_OFF && !(p->copy_blocks_path || p->copy_blocks_auto)))) {
-                /* Pick "vfat" as file system for esp and xbootldr partitions, otherwise default to "ext4". */
-                p->format = strdup(IN_SET(p->type.designator, PARTITION_ESP, PARTITION_XBOOTLDR) ? "vfat" : "ext4");
+                const char *format;
+
+                /* Pick "vfat" as file system for esp and xbootldr partitions and swap for swap partitions,
+                 * otherwise default to "ext4". */
+                switch (p->type.designator) {
+                case PARTITION_ESP:
+                case PARTITION_XBOOTLDR:
+                        format = "vfat";
+                        break;
+                case PARTITION_SWAP:
+                        format = "swap";
+                        break;
+                default:
+                        format = "ext4";
+                        break;
+                }
+
+                p->format = strdup(format);
                 if (!p->format)
                         return log_oom();
         }
