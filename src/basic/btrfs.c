@@ -88,7 +88,7 @@ int btrfs_subvol_make_fallback(int dir_fd, const char *path, mode_t mode) {
 
         if (r >= 0)
                 return 1; /* subvol worked */
-        if (r != -ENOTTY)
+        if (!ERRNO_IS_NOT_SUPPORTED(r))
                 return r;
 
         if (mkdirat(dir_fd, path, mode) < 0)
