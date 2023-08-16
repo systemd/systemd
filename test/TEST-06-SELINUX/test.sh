@@ -48,7 +48,7 @@ test_append_files() {
     image_install -o /usr/libexec/selinux/hll/pp # Fedora/RHEL/...
     image_install -o /usr/lib/selinux/hll/pp     # Debian/Ubuntu/...
 
-    if ! chroot "$workspace" make -C /systemd-test-module -f /usr/share/selinux/devel/Makefile clean load systemd_test.pp QUIET=n; then
+    if ! chroot "$workspace" make -C /systemd-test-module -f /usr/share/selinux/devel/Makefile clean systemd_test.pp QUIET=n; then
         dfatal "Failed to build the systemd test module"
         exit 1
     fi
