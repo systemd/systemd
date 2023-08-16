@@ -95,6 +95,7 @@ int ndisc_router_parse(sd_ndisc *nd, sd_ndisc_router *rt) {
         rt->hop_limit = a->nd_ra_curhoplimit;
         rt->flags = a->nd_ra_flags_reserved; /* the first 8 bits */
         rt->lifetime = be16toh(a->nd_ra_router_lifetime);
+        rt->icmp6_ratelimit_msec = be32toh(a->nd_ra_retransmit);
 
         rt->preference = (rt->flags >> 3) & 3;
         if (!IN_SET(rt->preference, SD_NDISC_PREFERENCE_LOW, SD_NDISC_PREFERENCE_HIGH))
@@ -218,6 +219,14 @@ int sd_ndisc_router_get_hop_limit(sd_ndisc_router *rt, uint8_t *ret) {
         assert_return(ret, -EINVAL);
 
         *ret = rt->hop_limit;
+        return 0;
+}
+
+int sd_ndisc_router_get_icmp6_ratelimit(sd_ndisc_router *rt, uint32_t *ret) {
+        assert_return(rt, -EINVAL);
+        assert_return(ret, -EINVAL);
+
+        *ret = rt->icmp6_ratelimit_msec;
         return 0;
 }
 
