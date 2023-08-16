@@ -58,6 +58,12 @@ int btrfs_subvol_make(int dir_fd, const char *path) {
                         return fd;
 
                 dir_fd = fd;
+        } else {
+                /* If an O_PATH fd was specified, let's convert here to a proper one, as btrfs ioctl's can't
+                 * deal with O_PATH. */
+                dir_fd = fd_reopen_condition(dir_fd, O_RDONLY|O_CLOEXEC|O_DIRECTORY, O_PATH|O_DIRECTORY, &fd);
+                if (dir_fd < 0)
+                        return dir_fd;
         }
 
         strncpy(args.name, subvolume, sizeof(args.name)-1);
