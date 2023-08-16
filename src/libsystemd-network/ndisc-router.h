@@ -27,6 +27,7 @@ struct sd_ndisc_router {
 
         uint8_t hop_limit;
         uint32_t mtu;
+        uint32_t icmp6_ratelimit_msec;
 };
 
 static inline void* NDISC_ROUTER_RAW(const sd_ndisc_router *rt) {
