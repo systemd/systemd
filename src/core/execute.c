@@ -4958,6 +4958,7 @@ static int exec_child(
                                 *exit_status = EXIT_SUCCESS;
                                 return 0;
                         }
+
                         *exit_status = EXIT_CONFIRM;
                         return log_unit_error_errno(unit, SYNTHETIC_ERRNO(ECANCELED),
                                                     "Execution cancelled by the user");
@@ -5112,33 +5113,34 @@ static int exec_child(
         }
 
         if (context->oom_score_adjust_set) {
-                /* When we can't make this change due to EPERM, then let's silently skip over it. User namespaces
-                 * prohibit write access to this file, and we shouldn't trip up over that. */
+                /* When we can't make this change due to EPERM, then let's silently skip over it. User
+                 * namespaces prohibit write access to this file, and we shouldn't trip up over that. */
                 r = set_oom_score_adjust(context->oom_score_adjust);
-                if (r < 0) {
-                        if (ERRNO_IS_PRIVILEGE(r))
-                                log_unit_debug_errno(unit, r, "Failed to adjust OOM setting, assuming containerized execution, ignoring: %m");
-                        else {
-                                *exit_status = EXIT_OOM_ADJUST;
-                                return log_unit_error_errno(unit, r, "Failed to adjust OOM setting: %m");
-                        }
+                if (ERRNO_IS_NEG_PRIVILEGE(r))
+                        log_unit_debug_errno(unit, r,
+                                             "Failed to adjust OOM setting, assuming containerized execution, ignoring: %m");
+                else if (r < 0) {
+                        *exit_status = EXIT_OOM_ADJUST;
+                        return log_unit_error_errno(unit, r, "Failed to adjust OOM setting: %m");
                 }
         }
 
         if (context->coredump_filter_set) {
                 r = set_coredump_filter(context->coredump_filter);
-                if (r < 0) {
-                        if (ERRNO_IS_PRIVILEGE(r))
-                                log_unit_debug_errno(unit, r, "Failed to adjust coredump_filter, ignoring: %m");
-                        else
-                                return log_unit_error_errno(unit, r, "Failed to adjust coredump_filter: %m");
+                if (ERRNO_IS_NEG_PRIVILEGE(r))
+                        log_unit_debug_errno(unit, r, "Failed to adjust coredump_filter, ignoring: %m");
+                else if (r < 0) {
+                        *exit_status = EXIT_LIMITS;
+                        return log_unit_error_errno(unit, r, "Failed to adjust coredump_filter: %m");
                 }
         }
 
         if (context->nice_set) {
                 r = setpriority_closest(context->nice);
-                if (r < 0)
+                if (r < 0) {
+                        *exit_status = EXIT_NICE;
                         return log_unit_error_errno(unit, r, "Failed to set up process scheduling priority (nice level): %m");
+                }
         }
 
         if (context->cpu_sched_set) {
@@ -5180,13 +5182,11 @@ static int exec_child(
 
         if (mpol_is_valid(numa_policy_get_type(&context->numa_policy))) {
                 r = apply_numa_policy(&context->numa_policy);
-                if (r < 0) {
-                        if (ERRNO_IS_NOT_SUPPORTED(r))
-                                log_unit_debug_errno(unit, r, "NUMA support not available, ignoring.");
-                        else {
-                                *exit_status = EXIT_NUMA_POLICY;
-                                return log_unit_error_errno(unit, r, "Failed to set NUMA memory policy: %m");
-                        }
+                if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                        log_unit_debug_errno(unit, r, "NUMA support not available, ignoring.");
+                else if (r < 0) {
+                        *exit_status = EXIT_NUMA_POLICY;
+                        return log_unit_error_errno(unit, r, "Failed to set NUMA memory policy: %m");
                 }
         }
 
@@ -5468,14 +5468,12 @@ static int exec_child(
                  * namespace without the ability to set up "lo". Hence gracefully skip things then. */
                 if (ns_type_supported(NAMESPACE_NET) && have_effective_cap(CAP_NET_ADMIN) > 0) {
                         r = setup_shareable_ns(runtime->shared->netns_storage_socket, CLONE_NEWNET);
-                        if (r < 0) {
-                                if (ERRNO_IS_PRIVILEGE(r))
-                                        log_unit_notice_errno(unit, r,
-                                                               "PrivateNetwork=yes is configured, but network namespace setup not permitted, proceeding without: %m");
-                                else {
-                                        *exit_status = EXIT_NETWORK;
-                                        return log_unit_error_errno(unit, r, "Failed to set up network namespacing: %m");
-                                }
+                        if (ERRNO_IS_NEG_PRIVILEGE(r))
+                                log_unit_notice_errno(unit, r,
+                                                      "PrivateNetwork=yes is configured, but network namespace setup not permitted, proceeding without: %m");
+                        else if (r < 0) {
+                                *exit_status = EXIT_NETWORK;
+                                return log_unit_error_errno(unit, r, "Failed to set up network namespacing: %m");
                         }
                 } else if (context->network_namespace_path) {
                         *exit_status = EXIT_NETWORK;
@@ -5585,11 +5583,11 @@ static int exec_child(
                                               LOG_UNIT_MESSAGE(unit, "Executable %s missing, skipping: %m",
                                                                command->path),
                                               "EXECUTABLE=%s", command->path);
+                        *exit_status = EXIT_SUCCESS;
                         return 0;
                 }
 
                 *exit_status = EXIT_EXEC;
-
                 return log_unit_struct_errno(unit, LOG_INFO, r,
                                              "MESSAGE_ID=" SD_MESSAGE_SPAWN_FAILED_STR,
                                              LOG_UNIT_INVOCATION_ID(unit),
@@ -6051,7 +6049,7 @@ int exec_spawn(Unit *unit,
                 return log_unit_error_errno(unit, errno, "Failed to fork: %m");
 
         if (pid == 0) {
-                int exit_status = EXIT_SUCCESS;
+                int exit_status;
 
                 r = exec_child(unit,
                                command,
@@ -6069,9 +6067,8 @@ int exec_spawn(Unit *unit,
                                &exit_status);
 
                 if (r < 0) {
-                        const char *status =
-                                exit_status_to_string(exit_status,
-                                                      EXIT_STATUS_LIBC | EXIT_STATUS_SYSTEMD);
+                        const char *status = ASSERT_PTR(
+                                        exit_status_to_string(exit_status, EXIT_STATUS_LIBC | EXIT_STATUS_SYSTEMD));
 
                         log_unit_struct_errno(unit, LOG_ERR, r,
                                               "MESSAGE_ID=" SD_MESSAGE_SPAWN_FAILED_STR,
@@ -6079,7 +6076,8 @@ int exec_spawn(Unit *unit,
                                               LOG_UNIT_MESSAGE(unit, "Failed at step %s spawning %s: %m",
                                                                status, command->path),
                                               "EXECUTABLE=%s", command->path);
-                }
+                } else
+                        assert(exit_status == EXIT_SUCCESS);
 
                 _exit(exit_status);
         }
