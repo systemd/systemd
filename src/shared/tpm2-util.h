@@ -268,6 +268,8 @@ int tpm2_deserialize(Tpm2Context *c, const void *serialized, size_t serialized_s
                 UNIQ_T(STRUCT, uniq);                                   \
         })
 
+#define TPM2B_DIGEST_NULL ((TPM2B_DIGEST) {})
+
 /* Check if the size will fit in the TPM2B struct buffer. Returns 0 if the size will fit, otherwise this logs
  * a debug message and returns < 0. */
 #define TPM2B_AUTH_CHECK_SIZE(s) TPM2B_BUF_SIZE_STRUCT_CHECK_SIZE(s, TPM2B_AUTH, buffer)
