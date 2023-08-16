@@ -1729,11 +1729,20 @@ static int partition_read_definition(Partition *p, const char *path, const char 
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
                                   "Format=swap and CopyFiles= cannot be combined, refusing.");
 
-        if (!p->format && (!strv_isempty(p->copy_files) || !strv_isempty(p->make_directories) || (p->encrypt != ENCRYPT_OFF && !(p->copy_blocks_path || p->copy_blocks_auto)))) {
-                /* Pick "vfat" as file system for esp and xbootldr partitions, otherwise default to "ext4". */
-                p->format = strdup(IN_SET(p->type.designator, PARTITION_ESP, PARTITION_XBOOTLDR) ? "vfat" : "ext4");
-                if (!p->format)
-                        return log_oom();
+        if (!p->format) {
+                const char *format = NULL;
+
+                if (!strv_isempty(p->copy_files) || !strv_isempty(p->make_directories) || (p->encrypt != ENCRYPT_OFF && !(p->copy_blocks_path || p->copy_blocks_auto)))
+                        /* Pick "vfat" as file system for esp and xbootldr partitions, otherwise default to "ext4". */
+                        format = IN_SET(p->type.designator, PARTITION_ESP, PARTITION_XBOOTLDR) ? "vfat" : "ext4";
+                else if (p->type.designator == PARTITION_SWAP)
+                        format = "swap";
+
+                if (format) {
+                        p->format = strdup(format);
+                        if (!p->format)
+                                return log_oom();
+                }
         }
 
         if (p->minimize != MINIMIZE_OFF && !p->format && p->verity != VERITY_HASH)
