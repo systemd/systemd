@@ -23,6 +23,7 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
+#include "sysctl-util.h"
 
 #define NDISC_DNSSL_MAX 64U
 #define NDISC_RDNSS_MAX 64U
@@ -272,6 +273,7 @@ static int ndisc_request_address(Address *in, Link *link, sd_ndisc_router *rt) {
 
 static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
         usec_t lifetime_usec, timestamp_usec;
+        uint32_t icmp6_ratelimit = 0;
         struct in6_addr gateway;
         uint16_t lifetime_sec;
         unsigned preference;
@@ -350,6 +352,20 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
                 r = ndisc_request_route(TAKE_PTR(route), link, rt);
                 if (r < 0)
                         return log_link_warning_errno(link, r, "Could not request gateway: %m");
+        }
+
+        r = sd_ndisc_router_get_icmp6_ratelimit(rt, &icmp6_ratelimit);
+        if (r < 0)
+                log_link_debug(link, "Failed to get default router preference from RA: %m");
+
+        if (icmp6_ratelimit > 0 && link->network->ipv6_accept_ra_use_icmp6_ratelimit) {
+                char buf[DECIMAL_STR_MAX(unsigned)];
+
+                xsprintf(buf, "%u", icmp6_ratelimit);
+
+                r = sysctl_write("net/ipv6/icmp/ratelimit", buf);
+                if (r < 0)
+                        log_link_warning_errno(link, r, "Could not configure icmp6 rate limit: %m");
         }
 
         return 0;
