@@ -139,6 +139,13 @@
           </varlistentry>
 
           <varlistentry>
+            <term><option>custom</option></term>
+            <listitem><para>If <literal>DUIDType=custom</literal>, then the <literal>DUIDRawData=</literal> value will
+            used be as custom identifier. If <literal>DUIDType=custom</literal> is specified then the
+            <literal>DUIDRawData=</literal> key is mandatory. Note it applies only on DHCPv6 clients.</para></listitem>
+          </varlistentry>
+
+          <varlistentry>
             <term><option>uuid</option></term>
             <listitem><para>If <literal>DUIDType=uuid</literal>, and <varname>DUIDRawData=</varname> is not set,
             then the product UUID is used as a DUID value. If a system does not have valid product UUID, then
