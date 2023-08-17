@@ -48,11 +48,11 @@ TEST(path) {
         assert_se(!path_equal_ptr(NULL, "/a"));
 }
 
-static void test_path_simplify_one(const char *in, const char *out) {
+static void test_path_simplify_one(const char *in, const char *out, PathSimplifyFlags flags) {
         char *p;
 
         p = strdupa_safe(in);
-        path_simplify(p);
+        path_simplify_full(p, flags);
         log_debug("/* test_path_simplify(%s) → %s (expected: %s) */", in, p, out);
         assert_se(streq(p, out));
 }
@@ -61,34 +61,37 @@ TEST(path_simplify) {
         _cleanup_free_ char *hoge = NULL, *hoge_out = NULL;
         char foo[NAME_MAX * 2];
 
-        test_path_simplify_one("", "");
-        test_path_simplify_one("aaa/bbb////ccc", "aaa/bbb/ccc");
-        test_path_simplify_one("//aaa/.////ccc", "/aaa/ccc");
-        test_path_simplify_one("///", "/");
-        test_path_simplify_one("///.//", "/");
-        test_path_simplify_one("///.//.///", "/");
-        test_path_simplify_one("////.././///../.", "/../..");
-        test_path_simplify_one(".", ".");
-        test_path_simplify_one("./", ".");
-        test_path_simplify_one(".///.//./.", ".");
-        test_path_simplify_one(".///.//././/", ".");
+        test_path_simplify_one("", "", 0);
+        test_path_simplify_one("aaa/bbb////ccc", "aaa/bbb/ccc", 0);
+        test_path_simplify_one("//aaa/.////ccc", "/aaa/ccc", 0);
+        test_path_simplify_one("///", "/", 0);
+        test_path_simplify_one("///", "/", PATH_SIMPLIFY_KEEP_TRAILING_SLASH);
+        test_path_simplify_one("///.//", "/", 0);
+        test_path_simplify_one("///.//.///", "/", 0);
+        test_path_simplify_one("////.././///../.", "/../..", 0);
+        test_path_simplify_one(".", ".", 0);
+        test_path_simplify_one("./", ".", 0);
+        test_path_simplify_one("./", "./", PATH_SIMPLIFY_KEEP_TRAILING_SLASH);
+        test_path_simplify_one(".///.//./.", ".", 0);
+        test_path_simplify_one(".///.//././/", ".", 0);
         test_path_simplify_one("//./aaa///.//./.bbb/..///c.//d.dd///..eeee/.",
-                               "/aaa/.bbb/../c./d.dd/..eeee");
+                               "/aaa/.bbb/../c./d.dd/..eeee", 0);
         test_path_simplify_one("//./aaa///.//./.bbb/..///c.//d.dd///..eeee/..",
-                               "/aaa/.bbb/../c./d.dd/..eeee/..");
+                               "/aaa/.bbb/../c./d.dd/..eeee/..", 0);
         test_path_simplify_one(".//./aaa///.//./.bbb/..///c.//d.dd///..eeee/..",
-                               "aaa/.bbb/../c./d.dd/..eeee/..");
+                               "aaa/.bbb/../c./d.dd/..eeee/..", 0);
         test_path_simplify_one("..//./aaa///.//./.bbb/..///c.//d.dd///..eeee/..",
-                               "../aaa/.bbb/../c./d.dd/..eeee/..");
+                               "../aaa/.bbb/../c./d.dd/..eeee/..", 0);
+        test_path_simplify_one("abc///", "abc/", PATH_SIMPLIFY_KEEP_TRAILING_SLASH);
 
         memset(foo, 'a', sizeof(foo) -1);
         char_array_0(foo);
 
-        test_path_simplify_one(foo, foo);
+        test_path_simplify_one(foo, foo, 0);
 
         hoge = strjoin("/", foo);
         assert_se(hoge);
-        test_path_simplify_one(hoge, hoge);
+        test_path_simplify_one(hoge, hoge, 0);
         hoge = mfree(hoge);
 
         hoge = strjoin("a////.//././//./b///././/./c/////././//./", foo, "//.//////d/e/.//f/");
@@ -97,7 +100,7 @@ TEST(path_simplify) {
         hoge_out = strjoin("a/b/c/", foo, "//.//////d/e/.//f/");
         assert_se(hoge_out);
 
-        test_path_simplify_one(hoge, hoge_out);
+        test_path_simplify_one(hoge, hoge_out, 0);
 }
 
 static void test_path_compare_one(const char *a, const char *b, int expected) {

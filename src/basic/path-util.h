@@ -86,7 +86,14 @@ char* path_extend_internal(char **x, ...);
 #define path_extend(x, ...) path_extend_internal(x, __VA_ARGS__, POINTER_MAX)
 #define path_join(...) path_extend_internal(NULL, __VA_ARGS__, POINTER_MAX)
 
-char* path_simplify(char *path);
+typedef enum PathSimplifyFlags {
+        PATH_SIMPLIFY_KEEP_TRAILING_SLASH = 1 << 0,
+} PathSimplifyFlags;
+
+char *path_simplify_full(char *path, PathSimplifyFlags flags);
+static inline char* path_simplify(char *path) {
+        return path_simplify_full(path, 0);
+}
 
 static inline bool path_equal_ptr(const char *a, const char *b) {
         return !!a == !!b && (!a || path_equal(a, b));

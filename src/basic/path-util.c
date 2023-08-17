@@ -344,8 +344,8 @@ char **path_strv_resolve_uniq(char **l, const char *root) {
         return strv_uniq(l);
 }
 
-char *path_simplify(char *path) {
-        bool add_slash = false;
+char *path_simplify_full(char *path, PathSimplifyFlags flags) {
+        bool add_slash = false, keep_trailing_slash;
         char *f = ASSERT_PTR(path);
         int r;
 
@@ -358,6 +358,8 @@ char *path_simplify(char *path) {
 
         if (isempty(path))
                 return path;
+
+        keep_trailing_slash = FLAGS_SET(flags, PATH_SIMPLIFY_KEEP_TRAILING_SLASH) && endswith(path, "/");
 
         if (path_is_absolute(path))
                 f++;
@@ -387,6 +389,9 @@ char *path_simplify(char *path) {
         /* Special rule, if we stripped everything, we need a "." for the current directory. */
         if (f == path)
                 *f++ = '.';
+
+        if (*(f-1) != '/' && keep_trailing_slash)
+                *f++ = '/';
 
         *f = '\0';
         return path;
