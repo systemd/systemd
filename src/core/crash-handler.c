@@ -10,6 +10,7 @@
 #include "process-util.h"
 #include "raw-clone.h"
 #include "rlimit-util.h"
+#include "sd-messages.h"
 #include "signal-util.h"
 #include "terminal-util.h"
 #include "virt.h"
@@ -19,7 +20,7 @@ _noreturn_ void freeze_or_exit_or_reboot(void) {
         /* If we are running in a container, let's prefer exiting, after all we can propagate an exit code to
          * the container manager, and thus inform it that something went wrong. */
         if (detect_container() > 0) {
-                log_emergency("Exiting PID 1...");
+                log_emergency(SD_MESSAGE_CRASH_EXIT_STR, "Exiting PID 1...");
                 _exit(EXIT_EXCEPTION);
         }
 
@@ -29,10 +30,10 @@ _noreturn_ void freeze_or_exit_or_reboot(void) {
 
                 log_notice("Rebooting now...");
                 (void) reboot(RB_AUTOBOOT);
-                log_emergency_errno(errno, "Failed to reboot: %m");
+                log_emergency_errno(errno, SD_MESSAGE_CRASH_FAILED_STR, "Failed to reboot: %m");
         }
 
-        log_emergency("Freezing execution.");
+        log_emergency(SD_MESSAGE_CRASH_FREEZE_STR, "Freezing execution.");
         sync();
         freeze();
 }
@@ -51,7 +52,7 @@ _noreturn_ static void crash(int sig, siginfo_t *siginfo, void *context) {
                 /* Pass this on immediately, if this is not PID 1 */
                 propagate_signal(sig, siginfo);
         else if (!arg_dump_core)
-                log_emergency("Caught <%s>, not dumping core.", signal_to_string(sig));
+                log_emergency(SD_MESSAGE_CRASH_NO_COREDUMP_STR, "Caught <%s>, not dumping core.", signal_to_string(sig));
         else {
                 sa = (struct sigaction) {
                         .sa_handler = nop_signal_handler,
