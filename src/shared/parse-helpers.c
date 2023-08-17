@@ -17,7 +17,7 @@ int path_simplify_and_warn(
                 unsigned line,
                 const char *lvalue) {
 
-        bool fatal = flag & PATH_CHECK_FATAL;
+        bool fatal = flag & PATH_CHECK_FATAL, keep_trailing_slash = flag & PATH_KEEP_TRAILING_SLASH;
 
         assert(!FLAGS_SET(flag, PATH_CHECK_ABSOLUTE | PATH_CHECK_RELATIVE));
 
@@ -40,7 +40,16 @@ int path_simplify_and_warn(
                                           lvalue, fatal ? "" : ", ignoring", path);
         }
 
+        if (keep_trailing_slash)
+                keep_trailing_slash = endswith(path, "/");
+
         path_simplify(path);
+
+        if (keep_trailing_slash) {
+                char *f = path + strlen(path);
+                *f++ = '/';
+                *f++ = '\0';
+        }
 
         if (!path_is_valid(path))
                 return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL),
