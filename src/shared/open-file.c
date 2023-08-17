@@ -132,12 +132,9 @@ OpenFile *open_file_free(OpenFile *of) {
 }
 
 void open_file_free_many(OpenFile **head) {
-        OpenFile *of;
+        assert(head);
 
-        while ((of = *head)) {
-                LIST_REMOVE(open_files, *head, of);
-                of = open_file_free(of);
-        }
+        LIST_CLEAR(open_files, *head, open_file_free);
 }
 
 static const char * const open_file_flags_table[_OPENFILE_MAX] = {
