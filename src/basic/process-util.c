@@ -45,6 +45,7 @@
 #include "process-util.h"
 #include "raw-clone.h"
 #include "rlimit-util.h"
+#include "sd-messages.h"
 #include "signal-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
@@ -1049,7 +1050,7 @@ void valgrind_summary_hack(void) {
                 pid_t pid;
                 pid = raw_clone(SIGCHLD);
                 if (pid < 0)
-                        log_emergency_errno(errno, "Failed to fork off valgrind helper: %m");
+                        log_emergency_errno(errno, SD_MESSAGE_VALGRIND_HELPER_FORK_STR, "Failed to fork off valgrind helper: %m");
                 else if (pid == 0)
                         exit(EXIT_SUCCESS);
                 else {
