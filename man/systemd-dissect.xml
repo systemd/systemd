@@ -235,7 +235,8 @@
         use <option>--read-only</option> to switch to read-only operation. The invoked process will have the
         <varname>$SYSTEMD_DISSECT_ROOT</varname> environment variable set, containing the absolute path name
         of the temporary mount point, i.e. the same directory that is set as the current working
-        directory.</para></listitem>
+        directory. It will also have the <varname>$SYSTEMD_DISSECT_DEVICE</varname> environment variable set,
+        containing the absolute path name of the loop device the image was attached to.</para></listitem>
       </varlistentry>
 
       <varlistentry>
