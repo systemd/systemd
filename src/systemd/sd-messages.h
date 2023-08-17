@@ -82,6 +82,34 @@ _SD_BEGIN_DECLARATIONS;
 #define SD_MESSAGE_FACTORY_RESET                      SD_ID128_MAKE(c1,4a,af,76,ec,28,4a,5f,a1,f1,05,f8,8d,fb,06,1c)
 #define SD_MESSAGE_FACTORY_RESET_STR                  SD_ID128_MAKE_STR(c1,4a,af,76,ec,28,4a,5f,a1,f1,05,f8,8d,fb,06,1c)
 
+#define SD_MESSAGE_CRASH_EXIT                        SD_ID128_MAKE(d9,ec,5e,95,e4,b6,46,aa,ae,a2,fd,05,21,4e,db,da)
+#define SD_MESSAGE_CRASH_EXIT_STR                    SD_ID128_MAKE_STR(d9,ec,5e,95,e4,b6,46,aa,ae,a2,fd,05,21,4e,db,da)
+#define SD_MESSAGE_CRASH_FAILED                      SD_ID128_MAKE(3e,d0,16,3e,86,8a,44,17,ab,8b,9e,21,04,07,a9,6c)
+#define SD_MESSAGE_CRASH_FAILED_STR                  SD_ID128_MAKE_STR(3e,d0,16,3e,86,8a,44,17,ab,8b,9e,21,04,07,a9,6c)
+#define SD_MESSAGE_CRASH_FREEZE                      SD_ID128_MAKE(64,5c,73,55,37,63,4a,e0,a3,2b,15,a7,c6,cb,a7,d4)
+#define SD_MESSAGE_CRASH_FREEZE_STR                  SD_ID128_MAKE_STR(64,5c,73,55,37,63,4a,e0,a3,2b,15,a7,c6,cb,a7,d4)
+
+#define SD_MESSAGE_CRASH_NO_COREDUMP                  SD_ID128_MAKE(5a,dd,b3,a0,6a,73,4d,33,96,b7,94,bf,98,fb,2d,01)
+#define SD_MESSAGE_CRASH_NO_COREDUMP_STR              SD_ID128_MAKE_STR(5a,dd,b3,a0,6a,73,4d,33,96,b7,94,bf,98,fb,2d,01)
+#define SD_MESSAGE_CRASH_NO_FORK                      SD_ID128_MAKE(5c,9e,98,de,4a,b9,4c,6a,9d,04,d0,ad,79,3b,d9,03)
+#define SD_MESSAGE_CRASH_NO_FORK_STR                  SD_ID128_MAKE_STR(5c,9e,98,de,4a,b9,4c,6a,9d,04,d0,ad,79,3b,d9,03)
+#define SD_MESSAGE_CRASH_UNKNOWN_SIGNAL               SD_ID128_MAKE(5e,6f,1f,5e,4d,b6,4a,0e,ae,e3,36,82,49,d2,0b,94)
+#define SD_MESSAGE_CRASH_UNKNOWN_SIGNAL_STR           SD_ID128_MAKE_STR(5e,6f,1f,5e,4d,b6,4a,0e,ae,e3,36,82,49,d2,0b,94)
+#define SD_MESSAGE_CRASH_SYSTEMD_SIGNAL               SD_ID128_MAKE(83,f8,4b,35,ee,26,4f,74,a3,89,6a,97,17,af,34,cb)
+#define SD_MESSAGE_CRASH_SYSTEMD_SIGNAL_STR           SD_ID128_MAKE_STR(83,f8,4b,35,ee,26,4f,74,a3,89,6a,97,17,af,34,cb)
+#define SD_MESSAGE_CRASH_PROCESS_SIGNAL               SD_ID128_MAKE(3a,73,a9,8b,af,5b,4b,19,99,29,e3,22,6c,0b,e7,83)
+#define SD_MESSAGE_CRASH_PROCESS_SIGNAL_STR           SD_ID128_MAKE_STR(3a,73,a9,8b,af,5b,4b,19,99,29,e3,22,6c,0b,e7,83)
+#define SD_MESSAGE_CRASH_WAITPID_FAILED               SD_ID128_MAKE(2e,d1,8d,4f,78,ca,47,f0,a9,bc,25,27,1c,26,ad,b4)
+#define SD_MESSAGE_CRASH_WAITPID_FAILED_STR           SD_ID128_MAKE_STR(2e,d1,8d,4f,78,ca,47,f0,a9,bc,25,27,1c,26,ad,b4)
+#define SD_MESSAGE_CRASH_COREDUMP_FAILED              SD_ID128_MAKE(56,b1,cd,96,f2,42,46,c5,b6,07,66,6f,da,95,23,56)
+#define SD_MESSAGE_CRASH_COREDUMP_FAILED_STR          SD_ID128_MAKE_STR(56,b1,cd,96,f2,42,46,c5,b6,07,66,6f,da,95,23,56)
+#define SD_MESSAGE_CRASH_COREDUMP_PID                 SD_ID128_MAKE(4a,c7,56,6d,4d,75,48,f4,98,1f,62,9a,28,f0,f8,29)
+#define SD_MESSAGE_CRASH_COREDUMP_PID_STR             SD_ID128_MAKE_STR(4a,c7,56,6d,4d,75,48,f4,98,1f,62,9a,28,f0,f8,29)
+#define SD_MESSAGE_CRASH_SHELL_FORK_FAILED            SD_ID128_MAKE(38,e8,b1,e0,39,ad,46,92,91,b1,8b,44,c5,53,a5,b7)
+#define SD_MESSAGE_CRASH_SHELL_FORK_FAILED_STR        SD_ID128_MAKE_STR(38,e8,b1,e0,39,ad,46,92,91,b1,8b,44,c5,53,a5,b7)
+#define SD_MESSAGE_CRASH_EXECLE_FAILED                SD_ID128_MAKE(87,27,29,b4,7d,be,47,3e,b7,68,cc,ec,d4,77,be,da)
+#define SD_MESSAGE_CRASH_EXECLE_FAILED_STR                SD_ID128_MAKE_STR(87,27,29,b4,7d,be,47,3e,b7,68,cc,ec,d4,77,be,da)
+
 /* The messages below are actually about jobs, not really about units, the macros are misleadingly named.
  * Moreover SD_MESSAGE_UNIT_FAILED is not actually about a failing unit but about a failed start job. A job
  * either finishes with SD_MESSAGE_UNIT_STARTED or with SD_MESSAGE_UNIT_FAILED hence. */
