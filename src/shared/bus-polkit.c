@@ -204,8 +204,6 @@ typedef struct AsyncPolkitQuery {
 } AsyncPolkitQuery;
 
 static AsyncPolkitQuery *async_polkit_query_free(AsyncPolkitQuery *q) {
-        AsyncPolkitQueryAction *a;
-
         if (!q)
                 return NULL;
 
@@ -220,8 +218,7 @@ static AsyncPolkitQuery *async_polkit_query_free(AsyncPolkitQuery *q) {
 
         sd_event_source_disable_unref(q->defer_event_source);
 
-        while ((a = LIST_POP(authorized, q->authorized_actions)))
-                async_polkit_query_action_free(a);
+        LIST_CLEAR(authorized, q->authorized_actions, async_polkit_query_action_free);
 
         async_polkit_query_action_free(q->denied_action);
         async_polkit_query_action_free(q->error_action);
@@ -266,15 +263,18 @@ static int async_polkit_read_reply(sd_bus_message *reply, AsyncPolkitQuery *q) {
 
                 e = sd_bus_message_get_error(reply);
 
-                /* Save error from polkit reply, so it can be returned when the same authorization is
-                 * attempted for second time */
-                if (!bus_error_is_unknown_service(e)) {
+                if (bus_error_is_unknown_service(e))
+                        /* Treat no PK available as access denied */
+                        q->denied_action = TAKE_PTR(a);
+                else {
+                        /* Save error from polkit reply, so it can be returned when the same authorization
+                         * is attempted for second time */
                         q->error_action = TAKE_PTR(a);
-                        return sd_bus_error_copy(&q->error, e);
+                        r = sd_bus_error_copy(&q->error, e);
+                        if (r == -ENOMEM)
+                                return r;
                 }
 
-                /* Treat no PK available as access denied */
-                q->denied_action = TAKE_PTR(a);
                 return 0;
         }
 
@@ -288,7 +288,7 @@ static int async_polkit_read_reply(sd_bus_message *reply, AsyncPolkitQuery *q) {
                 LIST_PREPEND(authorized, q->authorized_actions, TAKE_PTR(a));
         else if (challenge) {
                 q->error_action = TAKE_PTR(a);
-                return sd_bus_error_set(&q->error, SD_BUS_ERROR_INTERACTIVE_AUTHORIZATION_REQUIRED, "Interactive authentication required.");
+                sd_bus_error_set_const(&q->error, SD_BUS_ERROR_INTERACTIVE_AUTHORIZATION_REQUIRED, "Interactive authentication required.");
         } else
                 q->denied_action = TAKE_PTR(a);
 

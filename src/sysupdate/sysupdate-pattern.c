@@ -36,10 +36,7 @@ struct PatternElement {
 };
 
 static PatternElement *pattern_element_free_all(PatternElement *e) {
-        PatternElement *p;
-
-        while ((p = LIST_POP(elements, e)))
-                free(p);
+        LIST_CLEAR(elements, e, free);
 
         return NULL;
 }

@@ -73,12 +73,7 @@ int expose_port_parse(ExposePort **l, const char *s) {
 }
 
 void expose_port_free_all(ExposePort *p) {
-
-        while (p) {
-                ExposePort *q = p;
-                LIST_REMOVE(ports, p, q);
-                free(q);
-        }
+        LIST_CLEAR(ports, p, free);
 }
 
 int expose_port_flush(FirewallContext **fw_ctx, ExposePort* l, int af, union in_addr_union *exposed) {
