@@ -40,7 +40,7 @@ int path_simplify_and_warn(
                                           lvalue, fatal ? "" : ", ignoring", path);
         }
 
-        path_simplify(path);
+        path_simplify_full(path, flag & PATH_KEEP_TRAILING_SLASH ? PATH_SIMPLIFY_KEEP_TRAILING_SLASH : 0);
 
         if (!path_is_valid(path))
                 return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL),
