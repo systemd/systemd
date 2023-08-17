@@ -43,7 +43,16 @@
     <variablelist>
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
+
+     <varlistentry>
+        <term><option>-c</option></term>
+        <term><option>--continuous</option></term>
+
+        <listitem><para> Used to make systemd-bsod wait continuously for changes in the
+         journal's status if doesn't find any emergency messages on initial attempt.</para></listitem>
+     </varlistentry>
     </variablelist>
+
   </refsect1>
 
   <refsect1>
