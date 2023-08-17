@@ -1473,7 +1473,7 @@ static int config_parse_exclude_files(
                 return 0;
         }
 
-        r = path_simplify_and_warn(resolved, PATH_CHECK_ABSOLUTE, unit, filename, line, lvalue);
+        r = path_simplify_and_warn(resolved, PATH_CHECK_ABSOLUTE|PATH_KEEP_TRAILING_SLASH, unit, filename, line, lvalue);
         if (r < 0)
                 return 0;
 
