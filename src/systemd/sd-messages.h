@@ -82,6 +82,13 @@ _SD_BEGIN_DECLARATIONS;
 #define SD_MESSAGE_FACTORY_RESET                      SD_ID128_MAKE(c1,4a,af,76,ec,28,4a,5f,a1,f1,05,f8,8d,fb,06,1c)
 #define SD_MESSAGE_FACTORY_RESET_STR                  SD_ID128_MAKE_STR(c1,4a,af,76,ec,28,4a,5f,a1,f1,05,f8,8d,fb,06,1c)
 
+#define SD_MESSAGE_REBOOT_EXIT                        SD_ID128_MAKE(d9,ec,5e,95,e4,b6,46,aa,ae,a2,fd,05,21,4e,db,da)
+#define SD_MESSAGE_REBOOT_EXIT_STR                    SD_ID128_MAKE_STR(d9,ec,5e,95,e4,b6,46,aa,ae,a2,fd,05,21,4e,db,da)
+#define SD_MESSAGE_REBOOT_FAILED                      SD_ID128_MAKE(3e,d0,16,3e,86,8a,44,17,ab,8b,9e,21,04,07,a9,6c)
+#define SD_MESSAGE_REBOOT_FAILED_STR                  SD_ID128_MAKE_STR(3e,d0,16,3e,86,8a,44,17,ab,8b,9e,21,04,07,a9,6c)
+#define SD_MESSAGE_REBOOT_FREEZE                      SD_ID128_MAKE(64,5c,73,55,37,63,4a,e0,a3,2b,15,a7,c6,cb,a7,d4)
+#define SD_MESSAGE_REBOOT_FREEZE_STR                  SD_ID128_MAKE_STR(64,5c,73,55,37,63,4a,e0,a3,2b,15,a7,c6,cb,a7,d4)
+
 /* The messages below are actually about jobs, not really about units, the macros are misleadingly named.
  * Moreover SD_MESSAGE_UNIT_FAILED is not actually about a failing unit but about a failed start job. A job
  * either finishes with SD_MESSAGE_UNIT_STARTED or with SD_MESSAGE_UNIT_FAILED hence. */
