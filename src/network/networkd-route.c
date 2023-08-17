@@ -1247,6 +1247,12 @@ static int route_configure(const Route *route, uint32_t lifetime_sec, Link *link
                         return r;
         }
 
+        if (route->tcp_rto_usec > 0) {
+                r = sd_netlink_message_append_u32(m, RTAX_RTO_MIN, route->tcp_rto_usec / USEC_PER_MSEC);
+                if (r < 0)
+                        return r;
+        }
+
         r = sd_netlink_message_close_container(m);
         if (r < 0)
                 return r;
@@ -2747,6 +2753,58 @@ int config_parse_route_mtu(
         r = config_parse_mtu(unit, filename, line, section, section_line, lvalue, ltype, rvalue, &n->mtu, userdata);
         if (r < 0)
                 return r;
+
+        TAKE_PTR(n);
+        return 0;
+}
+
+int config_parse_route_tcp_rto(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Network *network = userdata;
+        _cleanup_(route_free_or_set_invalidp) Route *n = NULL;
+        usec_t usec;
+        int r;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = route_new_static(network, filename, section_line, &n);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to allocate route, ignoring assignment: %m");
+                return 0;
+        }
+
+        r = parse_sec(rvalue, &usec);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse route TCP retransmission time out (RTO) sec '%s', ignoring: %m", rvalue);
+                return 0;
+        }
+
+        if (usec != USEC_INFINITY &&
+            DIV_ROUND_UP(usec, USEC_PER_SEC) > UINT32_MAX) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Route TCP retransmission time out (RTO) = must be in the range 0...%"PRIu32"ms, ignoring: %s", UINT32_MAX, rvalue);
+                return 0;
+        }
+
+        n->tcp_rto_usec = usec;
 
         TAKE_PTR(n);
         return 0;
