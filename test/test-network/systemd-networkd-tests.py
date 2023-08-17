@@ -3175,6 +3175,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         print(output)
         self.assertIn('149.10.124.66 proto static', output)
         self.assertIn('congctl dctcp', output)
+        self.assertIn('rto_min 300s', output)
 
     @expectedFailureIfModuleIsNotAvailable('vrf')
     def test_route_vrf(self):
