@@ -15,7 +15,7 @@ TEST_NO_NSPAWN=1
 # - some selinux policy is installed. To keep this generic just check for the
 #   existence of a directory below /etc/selinux/, indicating a SELinux policy is
 #   installed
-# otherwise t bail out early instead of failing
+# otherwise bail out early instead of failing
 test -f /usr/share/selinux/devel/include/system/systemd.if && find /etc/selinux -mindepth 1 -maxdepth 1 -not -empty -type d | grep -q . || exit 0
 
 # shellcheck source=test/test-functions
