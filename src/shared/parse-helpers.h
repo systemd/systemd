@@ -4,9 +4,10 @@
 #include <stdint.h>
 
 enum {
-        PATH_CHECK_FATAL    = 1 << 0,  /* If not set, then error message is appended with 'ignoring'. */
-        PATH_CHECK_ABSOLUTE = 1 << 1,
-        PATH_CHECK_RELATIVE = 1 << 2,
+        PATH_CHECK_FATAL    =      1 << 0,  /* If not set, then error message is appended with 'ignoring'. */
+        PATH_CHECK_ABSOLUTE =      1 << 1,
+        PATH_CHECK_RELATIVE =      1 << 2,
+        PATH_KEEP_TRAILING_SLASH = 1 << 3,
 };
 
 int path_simplify_and_warn(
