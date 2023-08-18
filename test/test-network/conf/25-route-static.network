@@ -45,6 +45,10 @@ Destination=192.168.1.3
 TCPAdvertisedMaximumSegmentSize=30
 
 [Route]
+Destination=192.168.1.4
+HopLimit=122
+
+[Route]
 Type=blackhole
 Destination=202.54.1.2
 
