@@ -3,6 +3,8 @@
 #include <linux/nexthop.h>
 
 #include "dhcp-server-internal.h"
+#include "dhcp6-protocol.h"
+#include "dhcp6-lease-internal.h"
 #include "dns-domain.h"
 #include "ip-protocol-list.h"
 #include "netif-util.h"
@@ -1023,6 +1025,30 @@ static int dhcp_server_append_json(Link *link, JsonVariant **v) {
         return json_append_one(v, "DHCPServer", w);
 }
 
+static int dhcp6_lease_append_json(sd_dhcp6_lease *dhcp6_lease, JsonVariant **v) {
+        _cleanup_(json_variant_unrefp) JsonVariant *w = NULL;
+        usec_t lifetime_t1 = 0, lifetime_t2 = 0;
+        int r;
+
+        assert(v);
+        if (!dhcp6_lease) {
+                *v = NULL;
+                return 0;
+        }
+
+        r = dhcp6_lease_get_lifetime(dhcp6_lease, &lifetime_t1, &lifetime_t2, /*ret_valid= */ NULL);
+        if (r < 0)
+                return r;
+
+        r = json_build(&w, JSON_BUILD_OBJECT(
+                                JSON_BUILD_PAIR_FINITE_USEC("T1", lifetime_t1),
+                                JSON_BUILD_PAIR_FINITE_USEC("T2", lifetime_t2)));
+        if (r < 0)
+                return r;
+
+        return json_append_one(v, "DHCPv6lease", w);
+}
+
 int link_build_json(Link *link, JsonVariant **ret) {
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
         _cleanup_free_ char *type = NULL, *flags = NULL;
@@ -1135,6 +1161,10 @@ int link_build_json(Link *link, JsonVariant **ret) {
                 return r;
 
         r = dhcp_server_append_json(link, &v);
+        if (r < 0)
+                return r;
+
+        r = dhcp6_lease_append_json(link->dhcp6_lease, &v);
         if (r < 0)
                 return r;
 
