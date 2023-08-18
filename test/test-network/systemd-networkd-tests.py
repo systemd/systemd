@@ -2946,6 +2946,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertIn('192.168.1.1 proto static scope link initcwnd 20', output)
         self.assertIn('192.168.1.2 proto static scope link initrwnd 30', output)
         self.assertIn('192.168.1.3 proto static scope link advmss 30', output)
+        self.assertIn('192.168.1.4 proto static scope link hoplimit 122', output)
         self.assertIn('multicast 149.10.123.4 proto static', output)
 
         print('### ip -4 route show dev dummy98 default')
