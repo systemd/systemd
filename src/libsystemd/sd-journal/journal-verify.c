@@ -818,9 +818,9 @@ int journal_file_verify(
         Object *o;
         uint64_t p = 0, last_epoch = 0, last_tag_realtime = 0, last_sealed_realtime = 0;
 
-        uint64_t entry_seqnum = 0, entry_monotonic = 0, entry_realtime = 0;
+        uint64_t entry_seqnum = 0, entry_monotonic = 0, entry_realtime = 0, min_entry_realtime = 0, max_entry_realtime = 0;
         sd_id128_t entry_boot_id = {};  /* Unnecessary initialization to appease gcc */
-        bool entry_seqnum_set = false, entry_monotonic_set = false, entry_realtime_set = false, found_main_entry_array = false;
+        bool entry_seqnum_set = false, entry_monotonic_set = false, entry_realtime_set = false, min_entry_realtime_set = false, found_main_entry_array = false;
         uint64_t n_objects = 0, n_entries = 0, n_data = 0, n_fields = 0, n_data_hash_tables = 0, n_field_hash_tables = 0, n_entry_arrays = 0, n_tags = 0;
         usec_t last_usec = 0;
         _cleanup_close_ int data_fd = -EBADF, entry_fd = -EBADF, entry_array_fd = -EBADF;
@@ -1070,6 +1070,13 @@ int journal_file_verify(
                         entry_realtime = le64toh(o->entry.realtime);
                         entry_realtime_set = true;
 
+                        if (max_entry_realtime < le64toh(o->entry.realtime))
+                                max_entry_realtime = le64toh(o->entry.realtime);
+                        if (!min_entry_realtime_set || min_entry_realtime > le64toh(o->entry.realtime)) {
+                                min_entry_realtime = le64toh(o->entry.realtime);
+                                min_entry_realtime_set = true;
+                        }
+
                         n_entries++;
                         break;
 
@@ -1148,6 +1155,23 @@ int journal_file_verify(
                                         r = -EBADMSG;
                                         goto fail;
                                 }
+                                if (max_entry_realtime >= rt + f->fss_interval_usec) {
+                                        error(p,
+                                              "entry realtime timestamp too late with respect to tag (%"PRIu64" < %"PRIu64")",
+                                              max_entry_realtime,
+                                              rt + f->fss_interval_usec);
+                                        r = -EBADMSG;
+                                        goto fail;
+                                }
+                                if (min_entry_realtime_set && min_entry_realtime < rt) {
+                                        error(p,
+                                              "entry realtime timestamp too early with respect to tag out of synchronization (%"PRIu64" >= %"PRIu64")",
+                                              min_entry_realtime,
+                                              rt);
+                                        r = -EBADMSG;
+                                        goto fail;
+                                }
+                                min_entry_realtime_set = false;
 
                                 /* OK, now we know the epoch. So let's now set
                                  * it, and calculate the HMAC for everything
