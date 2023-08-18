@@ -3034,9 +3034,6 @@ int unit_file_get_default(
                                   &info, NULL, NULL);
         if (r < 0)
                 return r;
-        r = install_info_may_process(info, &lp, NULL, 0);
-        if (r < 0)
-                return r;
 
         n = strdup(info->name);
         if (!n)
