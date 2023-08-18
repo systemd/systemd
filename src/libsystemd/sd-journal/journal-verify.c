@@ -1124,7 +1124,7 @@ int journal_file_verify(
                                 goto fail;
                         }
 
-                        if (le64toh(o->tag.epoch) < last_epoch) {
+                        if (le64toh(o->tag.epoch) != last_epoch && le64toh(o->tag.epoch) != last_epoch + 1) {
                                 error(p,
                                       "Epoch sequence out of synchronization (%"PRIu64" < %"PRIu64")",
                                       le64toh(o->tag.epoch),
