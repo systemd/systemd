@@ -312,7 +312,7 @@ static int create_veritytab_device(
                 const char *source) {
 
         _cleanup_free_ char *n = NULL, *dd = NULL, *du = NULL, *hd = NULL, *hu = NULL, *e = NULL,
-                            *du_escaped = NULL, *hu_escaped = NULL, *name_escaped = NULL;
+                            *du_escaped = NULL, *hu_escaped = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         const char *dmname;
         bool noauto, nofail, netdev, need_loop = false;
@@ -328,10 +328,6 @@ static int create_veritytab_device(
         noauto = fstab_test_yes_no_option(options, "noauto\0" "auto\0");
         nofail = fstab_test_yes_no_option(options, "nofail\0" "fail\0");
         netdev = fstab_test_option(options, "_netdev\0");
-
-        name_escaped = specifier_escape(name);
-        if (!name_escaped)
-                return log_oom();
 
         e = unit_name_escape(name);
         if (!e)
@@ -349,11 +345,11 @@ static int create_veritytab_device(
         if (r < 0)
                 return log_error_errno(r, "Failed to generate unit name: %m");
 
-        du_escaped = specifier_escape(du);
+        du_escaped = unit_setting_escape_path(du);
         if (!du_escaped)
                 return log_oom();
 
-        hu_escaped = specifier_escape(hu);
+        hu_escaped = unit_setting_escape_path(hu);
         if (!hu_escaped)
                 return log_oom();
 

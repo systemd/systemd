@@ -218,7 +218,7 @@ static int process_resume(void) {
         if (r < 0)
                 log_warning_errno(r, "Failed to write device timeout drop-in, ignoring: %m");
 
-        device_escaped = cescape(arg_resume_device);
+        device_escaped = unit_setting_escape_path(arg_resume_device);
         if (!device_escaped)
                 return log_oom();
 

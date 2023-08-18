@@ -42,7 +42,7 @@ static int create_disk(
         assert(name);
         assert(device);
 
-        name_escaped = specifier_escape(name);
+        name_escaped = unit_setting_escape_path(name);
         if (!name_escaped)
                 return log_oom();
 
@@ -66,7 +66,7 @@ static int create_disk(
                 if (!path_is_absolute(key_file))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "key file not absolute file path %s", key_file);
 
-                key_file_escaped = specifier_escape(key_file);
+                key_file_escaped = unit_setting_escape_path(key_file);
                 if (!key_file_escaped)
                         return log_oom();
         }

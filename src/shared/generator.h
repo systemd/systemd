@@ -90,6 +90,8 @@ int generator_enable_remount_fs_service(const char *dir);
 
 void log_setup_generator(void);
 
+char *unit_setting_escape_path(const char *path);
+
 /* Similar to DEFINE_MAIN_FUNCTION, but initializes logging and assigns positional arguments. */
 #define DEFINE_MAIN_GENERATOR_FUNCTION(impl)                            \
         _DEFINE_MAIN_FUNCTION(                                          \
