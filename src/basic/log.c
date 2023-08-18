@@ -404,6 +404,10 @@ void log_set_facility(int facility) {
         log_facility = facility;
 }
 
+int log_get_facility(void) {
+        return log_facility;
+}
+
 static int write_to_console(
                 int level,
                 int error,
@@ -1445,54 +1449,6 @@ static const char *const log_target_table[_LOG_TARGET_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(log_target, LogTarget);
 
-void log_task_chain(pid_t pid, const char *special_action_string) {
-        pid_t ppid;
-        uid_t uid;
-
-        const int log_facility_saved = log_facility;
-        const LogTarget log_target_saved = log_get_target();
-        log_set_facility(LOG_AUTHPRIV);
-        log_set_target(LOG_TARGET_SYSLOG);
-        log_open();
-
-        if(pid_is_valid(pid)) {
-                log_notice("System action %s was requested, task chain is printed below:", special_action_string);
-                log_notice("%10s %10s %-64s", "PID", "UID", "CMDLINE");
-
-                do {
-                        _cleanup_free_ char *cmdline = NULL;
-                        if(pid == 1)
-                                ppid = 0;
-                        else if(get_process_ppid(pid, &ppid) < 0) {
-                                        log_error("Could not obtain PPID information for process "PID_FMT".", pid);
-                                        return;
-                        }
-
-                        if(get_process_uid(pid, &uid) < 0) {
-                                log_error("Could not obtain UID information for process "PID_FMT".", pid);
-                                return;
-                        }
-
-                        if(get_process_cmdline(pid, (size_t)64, 0, &cmdline) < 0) {
-                                log_error("Could not obtain command line information for process "PID_FMT".", pid);
-                                return;
-                        }
-
-                        log_notice("%10"PID_PRI" %10"PRIu32" %-64s%-3s", pid, uid, cmdline, 
-                                   strlen(cmdline) > 64 ? "(+)" : "");
-
-                        pid = ppid;
-                } while (ppid > 0);
-
-        } else
-                log_notice("PID "PID_FMT" was invalid.", pid);
-
-        log_close();
-        log_set_facility(log_facility_saved);
-        log_set_target(log_target_saved);
-        log_setup();
-}
-
 void log_received_signal(int level, const struct signalfd_siginfo *si) {
         assert(si);
 
@@ -1506,8 +1462,6 @@ void log_received_signal(int level, const struct signalfd_siginfo *si) {
                          signal_to_string(si->ssi_signo),
                          si->ssi_pid, strna(p));
 
-                if(si->ssi_signo == SIGINT)
-                        log_task_chain(si->ssi_pid, "reboot");
         } else
                 log_full(level,
                          "Received SIG%s.",

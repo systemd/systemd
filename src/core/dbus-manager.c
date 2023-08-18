@@ -28,6 +28,7 @@
 #include "format-util.h"
 #include "install.h"
 #include "log.h"
+#include "log-task-chain.h"
 #include "manager-dump.h"
 #include "os-util.h"
 #include "parse-util.h"
@@ -1730,6 +1731,9 @@ static int method_reboot(sd_bus_message *message, void *userdata, sd_bus_error *
                 return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED,
                                          "Reboot is only supported for system managers.");
 
+        log_caller(message, m, "Rebooting");
+        log_task_chain_msg(message, "reboot");
+
         m->objective = MANAGER_REBOOT;
 
         return sd_bus_reply_method_return(message, NULL);
@@ -1788,6 +1792,9 @@ static int method_poweroff(sd_bus_message *message, void *userdata, sd_bus_error
                 return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED,
                                          "Powering off is only supported for system managers.");
 
+        log_caller(message, m, "Powering off");
+        log_task_chain_msg(message, "poweroff");
+
         m->objective = MANAGER_POWEROFF;
 
         return sd_bus_reply_method_return(message, NULL);
@@ -1807,6 +1814,9 @@ static int method_halt(sd_bus_message *message, void *userdata, sd_bus_error *er
                 return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED,
                                          "Halt is only supported for system managers.");
 
+        log_caller(message, m, "Halting");
+        log_task_chain_msg(message, "halt");
+
         m->objective = MANAGER_HALT;
 
         return sd_bus_reply_method_return(message, NULL);
@@ -1825,6 +1835,9 @@ static int method_kexec(sd_bus_message *message, void *userdata, sd_bus_error *e
         if (!MANAGER_IS_SYSTEM(m))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED,
                                          "KExec is only supported for system managers.");
+
+        log_caller(message, m, "Running kexec");
+        log_task_chain_msg(message, "kexec");
 
         m->objective = MANAGER_KEXEC;
 

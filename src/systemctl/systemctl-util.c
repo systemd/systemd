@@ -955,23 +955,3 @@ int halt_now(enum action a) {
                 assert_not_reached();
         }
 }
-
-void system_action_string(const enum action special_action, const char **ret) {
-        static const char *human_readable_special_actions[_ACTION_MAX] = {
-                [ACTION_HALT]                   = "halt",
-                [ACTION_POWEROFF]               = "power off",
-                [ACTION_REBOOT]                 = "reboot",
-                [ACTION_KEXEC]                  = "reboot with kexec",
-                [ACTION_SOFT_REBOOT]            = "soft reboot",
-                [ACTION_EXIT]                   = "exit",
-                [ACTION_SUSPEND]                = "suspend",
-                [ACTION_HIBERNATE]              = "hibernate",
-                [ACTION_HYBRID_SLEEP]           = "hybrid sleep",
-                [ACTION_SUSPEND_THEN_HIBERNATE] = "suspend followed by hibernate"
-        };
-
-        if(special_action > ACTION_SYSTEMCTL && special_action <= ACTION_SUSPEND_THEN_HIBERNATE)
-                *ret = human_readable_special_actions[special_action];
-        else
-                *ret = "(unexpected action)";
-}

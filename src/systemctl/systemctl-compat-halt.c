@@ -151,11 +151,7 @@ int halt_parse_argv(int argc, char *argv[]) {
 }
 
 int halt_main(void) {
-        const char *special_action_string = NULL;
         int r;
-
-        system_action_string(arg_action, &special_action_string);
-        log_task_chain(getppid(), special_action_string);
 
         if (arg_force == 0) {
                 /* always try logind first */

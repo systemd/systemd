@@ -124,7 +124,6 @@ int verb_start_special(int argc, char *argv[], void *userdata) {
         bool termination_action; /* An action that terminates the manager, can be performed also by
                                   * signal. */
         enum action a;
-        const char *special_action_string = NULL;
         int r;
 
         assert(argv);
@@ -181,9 +180,6 @@ int verb_start_special(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return r;
         }
-
-        system_action_string(a, &special_action_string);
-        log_task_chain(getppid(), special_action_string);
 
         termination_action = IN_SET(a,
                                     ACTION_HALT,

@@ -57,5 +57,3 @@ int mangle_names(const char *operation, char **original_names, char ***ret_mangl
 UnitFileFlags unit_file_flags_from_args(void);
 
 int halt_now(enum action a);
-
-void system_action_string(const enum action act, const char **ret);
