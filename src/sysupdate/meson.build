@@ -8,7 +8,19 @@ systemd_sysupdate_sources = files(
         'sysupdate-resource.c',
         'sysupdate-transfer.c',
         'sysupdate-update-set.c',
+        'sysupdate-update-set-flags.c',
+        'sysupdate-util.c',
         'sysupdate.c',
+)
+
+systemd_sysupdated_sources = files(
+        'sysupdated.c',
+)
+
+systemd_updatectl_sources = files(
+        'sysupdate-update-set-flags.c',
+        'sysupdate-util.c',
+        'updatectl.c',
 )
 
 executables += [
@@ -28,4 +40,26 @@ executables += [
                         threads,
                 ],
         },
+        libexec_template + {
+                'name' : 'systemd-sysupdated',
+                'dbus' : true,
+                'conditions' : ['ENABLE_SYSUPDATE'],
+                'sources' : systemd_sysupdated_sources,
+                'dependencies' : threads,
+        },
+        executable_template + {
+                'name' : 'updatectl',
+                'public' : true,
+                'sources' : systemd_updatectl_sources,
+                'conditions' : ['ENABLE_SYSUPDATE'],
+        },
 ]
+
+if conf.get('ENABLE_SYSUPDATE') == 1
+        install_data('org.freedesktop.sysupdate1.conf',
+                     install_dir : dbuspolicydir)
+        install_data('org.freedesktop.sysupdate1.service',
+                     install_dir : dbussystemservicedir)
+        install_data('org.freedesktop.sysupdate1.policy',
+                     install_dir : polkitpolicydir)
+endif
