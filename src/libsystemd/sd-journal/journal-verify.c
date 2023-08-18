@@ -816,7 +816,7 @@ int journal_file_verify(
                 bool show_progress) {
         int r;
         Object *o;
-        uint64_t p = 0, last_epoch = 0, last_tag_realtime = 0, last_sealed_realtime = 0;
+        uint64_t p = 0, last_epoch = 0, last_tag_realtime = 0;
 
         uint64_t entry_seqnum = 0, entry_monotonic = 0, entry_realtime = 0;
         usec_t min_entry_realtime = USEC_INFINITY, max_entry_realtime = 0;
@@ -924,6 +924,10 @@ int journal_file_verify(
                         r = -EBADMSG;
                         goto fail;
                 }
+
+        if (!JOURNAL_HEADER_SEALED_CONTINUOUS(f->header))
+                warning(p,
+                        "This log file was sealed with an old journald version where the sequence of seals might not be continuous. We cannot guarantee completeness.");
 
         /* First iteration: we go through all objects, verify the
          * superficial structure, headers, hashes. */
@@ -1128,13 +1132,25 @@ int journal_file_verify(
                                 goto fail;
                         }
 
-                        if (le64toh(o->tag.epoch) < last_epoch) {
-                                error(p,
-                                      "Epoch sequence out of synchronization (%"PRIu64" < %"PRIu64")",
-                                      le64toh(o->tag.epoch),
-                                      last_epoch);
-                                r = -EBADMSG;
-                                goto fail;
+                        if (JOURNAL_HEADER_SEALED_CONTINUOUS(f->header)) {
+                                if (!(n_tags == 0 || (n_tags == 1 && le64toh(o->tag.epoch) == last_epoch)
+                                      || le64toh(o->tag.epoch) == last_epoch + 1)) {
+                                        error(p,
+                                              "Epoch sequence not continuous (%"PRIu64" vs %"PRIu64")",
+                                              le64toh(o->tag.epoch),
+                                              last_epoch);
+                                        r = -EBADMSG;
+                                        goto fail;
+                                }
+                        } else {
+                                if (le64toh(o->tag.epoch) < last_epoch) {
+                                        error(p,
+                                              "Epoch sequence out of synchronization (%"PRIu64" < %"PRIu64")",
+                                              le64toh(o->tag.epoch),
+                                              last_epoch);
+                                        r = -EBADMSG;
+                                        goto fail;
+                                }
                         }
 
 #if HAVE_GCRYPT
@@ -1216,7 +1232,6 @@ int journal_file_verify(
 
                                 f->hmac_running = false;
                                 last_tag_realtime = rt;
-                                last_sealed_realtime = entry_realtime;
                         }
 
                         last_tag = p + ALIGN64(le64toh(o->object.size));
@@ -1389,8 +1404,10 @@ int journal_file_verify(
 
         if (first_contained)
                 *first_contained = le64toh(f->header->head_entry_realtime);
+#if HAVE_GCRYPT
         if (last_validated)
-                *last_validated = last_sealed_realtime;
+                *last_validated = last_tag_realtime + f->fss_interval_usec;
+#endif
         if (last_contained)
                 *last_contained = le64toh(f->header->tail_entry_realtime);
 
