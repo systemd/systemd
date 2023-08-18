@@ -272,11 +272,11 @@ int tpm2_parse_luks2_json(JsonVariant *v, int *ret_keyslot, uint32_t *ret_hash_p
 
 int tpm2_hash_alg_to_size(uint16_t alg);
 
-const char *tpm2_hash_alg_to_string(uint16_t alg);
-int tpm2_hash_alg_from_string(const char *alg);
+const char *tpm2_hash_alg_to_string(uint16_t alg) _const_;
+int tpm2_hash_alg_from_string(const char *alg) _pure_;
 
-const char *tpm2_asym_alg_to_string(uint16_t alg);
-int tpm2_asym_alg_from_string(const char *alg);
+const char *tpm2_asym_alg_to_string(uint16_t alg) _const_;
+int tpm2_asym_alg_from_string(const char *alg) _pure_;
 
 char *tpm2_pcr_mask_to_string(uint32_t mask);
 
@@ -308,6 +308,7 @@ enum {
         PCR_EXTERNAL_CONFIG     = 3,
         PCR_BOOT_LOADER_CODE    = 4,
         PCR_BOOT_LOADER_CONFIG  = 5,
+        PCR_HOST_PLATFORM       = 6,
         PCR_SECURE_BOOT_POLICY  = 7,
         /* The following names for PCRs 9…15 are based on the "Linux TPM PCR Registry"
         (https://uapi-group.org/specifications/specs/linux_tpm_pcr_registry/) */

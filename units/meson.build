@@ -61,6 +61,11 @@ units = [
           'symlinks' : ['initrd.target.wants/'],
         },
         {
+          'file' : 'systemd-bsod.service.in',
+          'conditions' : ['HAVE_QRENCODE','ENABLE_INITRD'],
+          'symlinks' : ['initrd.target.wants/'],
+        },
+        {
           'file' : 'initrd-cleanup.service',
           'conditions' : ['ENABLE_INITRD'],
         },
