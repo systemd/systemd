@@ -192,10 +192,12 @@ enum {
 enum {
         HEADER_COMPATIBLE_SEALED             = 1 << 0,
         HEADER_COMPATIBLE_TAIL_ENTRY_BOOT_ID = 1 << 1, /* if set, the last_entry_boot_id field in the header is exclusively refreshed when an entry is appended */
-        HEADER_COMPATIBLE_ANY                = HEADER_COMPATIBLE_SEALED|
-                                               HEADER_COMPATIBLE_TAIL_ENTRY_BOOT_ID,
+        HEADER_COMPATIBLE_SEALED_CONTINUOUS  = 1 << 2,
+        HEADER_COMPATIBLE_ANY                = HEADER_COMPATIBLE_SEALED |
+                                               HEADER_COMPATIBLE_TAIL_ENTRY_BOOT_ID |
+                                               HEADER_COMPATIBLE_SEALED_CONTINUOUS,
 
-        HEADER_COMPATIBLE_SUPPORTED          = (HAVE_GCRYPT ? HEADER_COMPATIBLE_SEALED : 0) |
+        HEADER_COMPATIBLE_SUPPORTED          = (HAVE_GCRYPT ? HEADER_COMPATIBLE_SEALED | HEADER_COMPATIBLE_SEALED_CONTINUOUS : 0) |
                                                HEADER_COMPATIBLE_TAIL_ENTRY_BOOT_ID,
 };
 

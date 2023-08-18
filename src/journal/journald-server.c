@@ -677,6 +677,7 @@ static int server_archive_offline_user_journals(Server *s) {
 
                 TAKE_FD(fd); /* Donated to journal_file_open() */
 
+                journal_file_write_final_tag(f);
                 r = journal_file_archive(f, NULL);
                 if (r < 0)
                         log_debug_errno(r, "Failed to archive journal file '%s', ignoring: %m", full);

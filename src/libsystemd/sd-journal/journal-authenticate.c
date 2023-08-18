@@ -45,8 +45,11 @@ int journal_file_append_tag(JournalFile *f) {
         if (!JOURNAL_HEADER_SEALED(f->header))
                 return 0;
 
-        if (!f->hmac_running)
-                return 0;
+        if (!f->hmac_running) {
+                r = journal_file_hmac_start(f);
+                if (r < 0)
+                        return r;
+        }
 
         assert(f->hmac);
 
@@ -166,6 +169,11 @@ int journal_file_fsprg_evolve(JournalFile *f, uint64_t realtime) {
 
                 FSPRG_Evolve(f->fsprg_state);
                 epoch = FSPRG_GetEpoch(f->fsprg_state);
+                if (epoch < goal) {
+                        r = journal_file_append_tag(f);
+                        if (r < 0)
+                                return r;
+                }
         }
 }
 
