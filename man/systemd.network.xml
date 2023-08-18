@@ -3061,6 +3061,15 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>RetransmitNeighborSolicitationSec=</varname></term>
+
+        <listitem><para>Takes a timespan. Configures the time between retransmitted Neighbor Solicitation messages.
+        Used by address resolution and the Neighbor Unreachability Detection algorithm (see Sections 7.2 and 7.3 of RFC 4861).
+        An unsigned integer ranges 0 to 4294967294. Defaults to 0 seconds.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>RouterPreference=</varname></term>
 
         <listitem><para>Configures IPv6 router preference if
