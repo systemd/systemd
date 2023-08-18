@@ -2532,6 +2532,67 @@ int config_parse_route_type(
         return 0;
 }
 
+int config_parse_route_hop_limit(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_(route_free_or_set_invalidp) Route *n = NULL;
+        Network *network = userdata;
+        uint32_t k;
+        int r;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = route_new_static(network, filename, section_line, &n);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to allocate route, ignoring assignment: %m");
+                return 0;
+        }
+
+        if (isempty(rvalue)) {
+                n->hop_limit = 0;
+                TAKE_PTR(n);
+                return 0;
+        }
+
+        r = safe_atou32(rvalue, &k);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Could not parse route hop limit %s \"%s\", ignoring assignment: %m", lvalue, rvalue);
+                return 0;
+        }
+        if (k > 255) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Specified route hop limit %s \"%s\" is too large, ignoring assignment: %m", lvalue, rvalue);
+                return 0;
+        }
+        if (k == 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Invalid route hop limit %s \"%s\", ignoring assignment: %m", lvalue, rvalue);
+                return 0;
+        }
+
+        n->hop_limit = k;
+
+        TAKE_PTR(n);
+        return 0;
+}
+
 int config_parse_tcp_congestion(
                 const char *unit,
                 const char *filename,
