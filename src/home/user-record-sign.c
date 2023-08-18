@@ -3,9 +3,10 @@
 #include <openssl/pem.h>
 
 #include "fd-util.h"
-#include "memstream-util.h"
-#include "user-record-sign.h"
 #include "fileio.h"
+#include "memstream-util.h"
+#include "openssl-util.h"
+#include "user-record-sign.h"
 
 static int user_record_signable_json(UserRecord *ur, char **ret) {
         _cleanup_(user_record_unrefp) UserRecord *reduced = NULL;
@@ -27,8 +28,6 @@ static int user_record_signable_json(UserRecord *ur, char **ret) {
 
         return json_variant_format(j, 0, ret);
 }
-
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(EVP_MD_CTX*, EVP_MD_CTX_free, NULL);
 
 int user_record_sign(UserRecord *ur, EVP_PKEY *private_key, UserRecord **ret) {
         _cleanup_(memstream_done) MemStream m = {};
