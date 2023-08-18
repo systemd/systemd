@@ -1720,6 +1720,15 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>TCPRetransmissionTimeOutSec=</varname></term>
+        <listitem>
+          <para>Specifies the TCP Retransmission Time Out for the route. Takes time values in seconds.
+            This value specifies the timeout of an alive TCP connection, when RTO retransmissions remain unacknowledged.
+            When unset, the kernel's default will be used.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>MultiPathRoute=<replaceable>address</replaceable>[@<replaceable>name</replaceable>] [<replaceable>weight</replaceable>]</varname></term>
         <listitem>
           <para>Configures multipath route. Multipath routing is the technique of using multiple
