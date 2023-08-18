@@ -95,6 +95,14 @@ Janitorial Clean-ups:
 
 Deprecations and removals:
 
+* homed: add a basic form of of secrets management to homed, that stores
+  secrets in $HOME somewhere, is protected by the accounts own authentication
+  mechanisms. Should implement something PKCS#11-like that can be used to
+  implement emulated FIDO2 in unpriv userspace on top (which should happen
+  outside of homed), emulated PKCS11, and libsecrets support. Operate with a
+  2nd key derived from volume key of the user, with which to wrap all
+  keys. maintain keys in kernel keyring if possible.
+
 * Remove any support for booting without /usr pre-mounted in the initrd entirely.
   Update INITRD_INTERFACE.md accordingly.
 
