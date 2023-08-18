@@ -2397,7 +2397,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           formatting of the journal entries that are shown. For the
           available choices, see
           <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
-          Defaults to <literal>short</literal>.</para>
+          Defaults to <literal>short</literal> unless <varname>$SYSTEMD_JOURNAL_OUTPUT_MODE</varname>
+          environment variable is specified.</para>
         </listitem>
       </varlistentry>
 
@@ -2638,6 +2639,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
       <xi:include href="common-variables.xml" xpointer="log-time"/>
       <xi:include href="common-variables.xml" xpointer="log-location"/>
       <xi:include href="common-variables.xml" xpointer="log-target"/>
+      <xi:include href="common-variables.xml" xpointer="output-mode"/>
       <xi:include href="common-variables.xml" xpointer="pager"/>
       <xi:include href="common-variables.xml" xpointer="less"/>
       <xi:include href="common-variables.xml" xpointer="lesscharset"/>

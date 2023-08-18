@@ -89,6 +89,15 @@
       </para></listitem>
     </varlistentry>
 
+    <varlistentry id='output-mode'>
+      <term><varname>$SYSTEMD_JOURNAL_OUTPUT_MODE</varname></term>
+
+      <listitem><para>Specifies the default journal output mode. Possible modes can be obtained by
+      <command>journalctl --output=help</command>. See
+      <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      for more details.</para></listitem>
+    </varlistentry>
+
     <varlistentry id='pager'>
       <term><varname>$SYSTEMD_PAGER</varname></term>
 
