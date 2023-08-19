@@ -13,6 +13,7 @@
 #include "network-internal.h"
 #include "networkd-address.h"
 #include "networkd-dhcp-prefix-delegation.h"
+#include "networkd-dhcp4-bus.h"
 #include "networkd-dhcp4.h"
 #include "networkd-ipv4acd.h"
 #include "networkd-link.h"
@@ -1455,6 +1456,10 @@ static int dhcp4_configure(Link *link) {
         r = sd_dhcp_client_set_callback(link->dhcp_client, dhcp4_handler, link);
         if (r < 0)
                 return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to set callback: %m");
+
+        r = sd_dhcp_client_set_state_callback(link->dhcp_client, dhcp_client_callback_bus, link);
+        if (r < 0)
+                return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to set state change callback: %m");
 
         r = sd_dhcp_client_set_request_broadcast(link->dhcp_client, link_needs_dhcp_broadcast(link));
         if (r < 0)
