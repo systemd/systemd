@@ -4654,28 +4654,34 @@ int tpm2_parse_luks2_json(
 }
 
 int tpm2_hash_alg_to_size(uint16_t alg) {
-        if (alg == TPM2_ALG_SHA1)
+        switch (alg) {
+        case TPM2_ALG_SHA1:
                 return 20;
-        if (alg == TPM2_ALG_SHA256)
+        case TPM2_ALG_SHA256:
                 return 32;
-        if (alg == TPM2_ALG_SHA384)
+        case TPM2_ALG_SHA384:
                 return 48;
-        if (alg == TPM2_ALG_SHA512)
+        case TPM2_ALG_SHA512:
                 return 64;
-        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown hash algorithm id 0x%" PRIx16, alg);
+        default:
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown hash algorithm id 0x%" PRIx16, alg);
+        }
 }
 
 const char *tpm2_hash_alg_to_string(uint16_t alg) {
-        if (alg == TPM2_ALG_SHA1)
+        switch (alg) {
+        case TPM2_ALG_SHA1:
                 return "sha1";
-        if (alg == TPM2_ALG_SHA256)
+        case TPM2_ALG_SHA256:
                 return "sha256";
-        if (alg == TPM2_ALG_SHA384)
+        case TPM2_ALG_SHA384:
                 return "sha384";
-        if (alg == TPM2_ALG_SHA512)
+        case TPM2_ALG_SHA512:
                 return "sha512";
-        log_debug("Unknown hash algorithm id 0x%" PRIx16, alg);
-        return NULL;
+        default:
+                log_debug("Unknown hash algorithm id 0x%" PRIx16, alg);
+                return NULL;
+        }
 }
 
 int tpm2_hash_alg_from_string(const char *alg) {
@@ -4691,12 +4697,15 @@ int tpm2_hash_alg_from_string(const char *alg) {
 }
 
 const char *tpm2_asym_alg_to_string(uint16_t alg) {
-        if (alg == TPM2_ALG_ECC)
+        switch (alg) {
+        case TPM2_ALG_ECC:
                 return "ecc";
-        if (alg == TPM2_ALG_RSA)
+        case TPM2_ALG_RSA:
                 return "rsa";
-        log_debug("Unknown asymmetric algorithm id 0x%" PRIx16, alg);
-        return NULL;
+        default:
+                log_debug("Unknown asymmetric algorithm id 0x%" PRIx16, alg);
+                return NULL;
+        }
 }
 
 int tpm2_asym_alg_from_string(const char *alg) {
