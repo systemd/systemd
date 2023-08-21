@@ -1538,7 +1538,7 @@ bool TPM2_PCR_VALUE_VALID(const Tpm2PCRValue *pcr_value) {
                 if (r < 0)
                         return false;
 
-                if ((int) pcr_value->value.size != r) {
+                if (pcr_value->value.size != (size_t) r) {
                         log_debug("PCR hash 0x%" PRIx16 " expected size %d does not match actual size %" PRIu16 ".",
                                   pcr_value->hash, r, pcr_value->value.size);
                         return false;
