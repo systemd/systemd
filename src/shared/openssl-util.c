@@ -403,7 +403,7 @@ int ecc_pkey_to_curve_x_y(
         if (!EVP_PKEY_get_utf8_string_param(pkey, OSSL_PKEY_PARAM_GROUP_NAME, NULL, 0, &name_size))
                 return log_openssl_errors("Failed to get ECC group name size");
 
-        _cleanup_free_ char *name = malloc(name_size + 1);
+        _cleanup_free_ char *name = new(char, name_size + 1);
         if (!name)
                 return log_oom_debug();
 
