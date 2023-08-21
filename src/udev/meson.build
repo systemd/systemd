@@ -251,9 +251,9 @@ meson.add_install_script(sh, '-c', ln_s.format(bindir / 'udevadm',
 
 if install_sysconfdir_samples
         install_data('udev.conf',
-                     install_dir : sysconfdir / 'udev')
+                     install_dir : configfiledir / 'udev')
         install_data('iocost/iocost.conf',
-                     install_dir : sysconfdir / 'udev')
+                     install_dir : configfiledir / 'udev')
 endif
 
 udev_pc = custom_target(
