@@ -63,7 +63,9 @@
           <term><constant>-EINVAL</constant></term>
 
           <listitem><para>The <parameter>message</parameter> parameter is
-          <constant>NULL</constant>.</para></listitem>
+          <constant>NULL</constant>.</para>
+
+          <para>Added in version 245.</para></listitem>
         </varlistentry>
 
       </variablelist>

@@ -169,13 +169,17 @@
         <varlistentry>
           <term><constant>-EOPNOTSUPP</constant></term>
 
-          <listitem><para>Unknown identifier <parameter>type</parameter>.</para></listitem>
+          <listitem><para>Unknown identifier <parameter>type</parameter>.</para>
+
+          <para>Added in version 246.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-EINVAL</constant></term>
 
-          <listitem><para>Output argument is <constant>NULL</constant>.</para></listitem>
+          <listitem><para>Output argument is <constant>NULL</constant>.</para>
+
+          <para>Added in version 246.</para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -183,13 +187,17 @@
 
           <listitem><para>Query failed because of an undefined environment variable (e.g. for
           <constant>SD_PATH_USER_RUNTIME</constant> when <varname>$XDG_RUNTIME_DIR</varname> is not
-          defined).</para></listitem>
+          defined).</para>
+
+          <para>Added in version 246.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-ENOMEM</constant></term>
 
-          <listitem><para>Memory allocation failed.</para></listitem>
+          <listitem><para>Memory allocation failed.</para>
+
+          <para>Added in version 246.</para></listitem>
         </varlistentry>
       </variablelist>
     </refsect2>

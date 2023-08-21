@@ -85,6 +85,8 @@
           if it exists – or to a time derived from the source tree at build time. This mechanism is used to
           ensure that the system clock remains somewhat reasonably initialized and roughly monotonic across
           reboots, in case no battery-buffered local RTC is available.</para>
+
+          <para>Added in version 235.</para>
         </listitem>
       </varlistentry>
 
@@ -93,7 +95,9 @@
 
         <listitem><para>The modification time ("mtime") of this file is used for advancing the system clock
         in case <filename>/var/lib/systemd/timesync/clock</filename> does not exist yet, see
-        above.</para></listitem>
+        above.</para>
+
+        <para>Added in version 254.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -103,6 +107,8 @@
           <para>A file that is touched on each successful synchronization, to assist
           <filename>systemd-time-wait-sync</filename> and other applications to detecting synchronization
           with accurate reference clocks.</para>
+
+          <para>Added in version 239.</para>
         </listitem>
 
       </varlistentry>

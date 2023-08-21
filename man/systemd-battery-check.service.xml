@@ -77,6 +77,8 @@
           existence, and the service <filename>systemd-battery-check.service</filename> will succeed. This
           may be useful when the command wrongly detects and reports battery capacity percentage or AC power
           existence, or when you want to boot the system forcibly.</para>
+
+        <para>Added in version 254.</para>
         </listitem>
       </varlistentry>
     </variablelist>

@@ -51,6 +51,8 @@
 
         <listitem>
           <para>The presence of this file indicates to this service that the system clock has been synchronized.</para>
+
+        <para>Added in version 239.</para>
         </listitem>
 
       </varlistentry>

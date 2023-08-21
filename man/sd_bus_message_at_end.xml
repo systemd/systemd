@@ -60,13 +60,17 @@
           <term><constant>-EINVAL</constant></term>
 
           <listitem><para>The <parameter>m</parameter> parameter is <constant>NULL</constant>.
-          </para></listitem>
+          </para>
+
+          <para>Added in version 246.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-EPERM</constant></term>
 
-          <listitem><para>The message is not sealed.</para></listitem>
+          <listitem><para>The message is not sealed.</para>
+
+          <para>Added in version 246.</para></listitem>
         </varlistentry>
       </variablelist>
     </refsect2>

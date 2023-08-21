@@ -118,6 +118,8 @@
             <term><literal>:=</literal></term>
             <listitem>
               <para>Assign a value to a key finally; disallow any later changes.</para>
+
+            <para>Added in version 247.</para>
             </listitem>
           </varlistentry>
         </variablelist>
@@ -285,6 +287,8 @@
                     <para>System's confidential virtualization technology. See
                     <citerefentry><refentrytitle>systemd-detect-virt</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                     for possible values.</para>
+
+                    <para>Added in version 254.</para>
                   </listitem>
                 </varlistentry>
               </variablelist>
@@ -681,6 +685,8 @@
                     <para>Example for debugging uevent processing for network interfaces:
                     <programlisting># /etc/udev/rules.d/00-debug-net.rules
 SUBSYSTEM=="net", OPTIONS="log_level=debug"</programlisting></para>
+
+                    <para>Added in version 248.</para>
                   </listitem>
                 </varlistentry>
               </variablelist>

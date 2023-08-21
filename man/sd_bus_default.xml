@@ -306,7 +306,9 @@
 
           <listitem><para>The requested bus type is not available because of invalid environment (for example
           the user session bus is not available because <varname>$XDG_RUNTIME_DIR</varname> is not set).
-          </para></listitem>
+          </para>
+
+          <para>Added in version 247.</para></listitem>
         </varlistentry>
 
         <varlistentry>
