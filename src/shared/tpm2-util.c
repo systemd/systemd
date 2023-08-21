@@ -4802,33 +4802,33 @@ int tpm2_parse_pcr_argument(const char *arg, Tpm2PCRValue **ret_pcr_values, size
  * including application of the default hash algorithm. Then the two arrays are combined, the default hash
  * algorithm check applied again (in case either the previous or current array had no default hash
  * algorithm), and then the resulting array is sorted and rechecked for validity. */
-int tpm2_parse_pcr_argument_append(const char *arg, Tpm2PCRValue **ret_pcr_values, size_t *ret_n_pcr_values) {
+int tpm2_parse_pcr_argument_append(const char *arg, Tpm2PCRValue **pcr_values, size_t *n_pcr_values) {
 #if HAVE_TPM2
         int r;
 
         assert(arg);
-        assert(ret_pcr_values);
-        assert(ret_n_pcr_values);
+        assert(pcr_values);
+        assert(n_pcr_values);
 
-        _cleanup_free_ Tpm2PCRValue *pcr_values = NULL;
-        size_t n_pcr_values;
-        r = tpm2_parse_pcr_argument(arg, &pcr_values, &n_pcr_values);
+        _cleanup_free_ Tpm2PCRValue *more_pcr_values = NULL;
+        size_t n_more_pcr_values;
+        r = tpm2_parse_pcr_argument(arg, &more_pcr_values, &n_more_pcr_values);
         if (r < 0)
                 return r;
 
         /* If we got previous values, append them. */
-        if (*ret_pcr_values && !GREEDY_REALLOC_APPEND(pcr_values, n_pcr_values, *ret_pcr_values, *ret_n_pcr_values))
+        if (*pcr_values && !GREEDY_REALLOC_APPEND(more_pcr_values, n_more_pcr_values, *pcr_values, *n_pcr_values))
                 return log_oom();
 
-        tpm2_pcr_values_apply_default_hash_alg(pcr_values, n_pcr_values);
+        tpm2_pcr_values_apply_default_hash_alg(more_pcr_values, n_more_pcr_values);
 
-        tpm2_sort_pcr_values(pcr_values, n_pcr_values);
+        tpm2_sort_pcr_values(more_pcr_values, n_more_pcr_values);
 
-        if (!tpm2_pcr_values_valid(pcr_values, n_pcr_values))
+        if (!tpm2_pcr_values_valid(more_pcr_values, n_more_pcr_values))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Parsed PCR values are not valid.");
 
-        SWAP_TWO(*ret_pcr_values, pcr_values);
-        *ret_n_pcr_values = n_pcr_values;
+        SWAP_TWO(*pcr_values, more_pcr_values);
+        *n_pcr_values = n_more_pcr_values;
 
         return 0;
 #else
