@@ -49,7 +49,9 @@
         <term><command>dump</command></term>
 
         <listitem><para>Show the current state of the cgroups and system contexts stored by
-        <command>systemd-oomd</command>.</para></listitem>
+        <command>systemd-oomd</command>.</para>
+
+        <para>Added in version 247.</para></listitem>
       </varlistentry>
 
     </variablelist>

@@ -79,6 +79,8 @@
         <term><option>--unit</option></term>
 
         <listitem><para>Show cgroup subtrees for the specified units.</para>
+
+        <para>Added in version 233.</para>
         </listitem>
       </varlistentry>
 
@@ -86,6 +88,8 @@
         <term><option>--user-unit</option></term>
 
         <listitem><para>Show cgroup subtrees for the specified user units.</para>
+
+        <para>Added in version 233.</para>
         </listitem>
       </varlistentry>
 

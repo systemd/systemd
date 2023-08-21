@@ -96,6 +96,8 @@
           <listitem><para>The binary hardware database file could not be located. See
           <citerefentry><refentrytitle>systemd-hwdb</refentrytitle><manvolnum>8</manvolnum></citerefentry>
           for more information.</para>
+
+          <para>Added in version 246.</para>
           </listitem>
         </varlistentry>
 
@@ -103,13 +105,17 @@
           <term><constant>-EINVAL</constant></term>
 
           <listitem><para>The located binary hardware database file is in an incompatible format.
-          </para></listitem>
+          </para>
+
+          <para>Added in version 246.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-ENOMEM</constant></term>
 
-          <listitem><para>Memory allocation failed.</para></listitem>
+          <listitem><para>Memory allocation failed.</para>
+
+          <para>Added in version 246.</para></listitem>
         </varlistentry>
       </variablelist>
     </refsect2>

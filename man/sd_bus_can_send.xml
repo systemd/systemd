@@ -59,6 +59,8 @@
           <term><constant>-ENOPKG</constant></term>
 
           <listitem><para>The bus object <parameter>bus</parameter> could not be resolved.</para>
+
+          <para>Added in version 246.</para>
           </listitem>
         </varlistentry>
 
@@ -66,14 +68,18 @@
           <term><constant>-ENOTCONN</constant></term>
 
           <listitem><para>The input parameter <parameter>bus</parameter> is
-          <constant>NULL</constant> or the bus is not connected.</para></listitem>
+          <constant>NULL</constant> or the bus is not connected.</para>
+
+          <para>Added in version 246.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-ECHILD</constant></term>
 
           <listitem><para>The bus object <parameter>bus</parameter> was created in a different
-          process.</para></listitem>
+          process.</para>
+
+          <para>Added in version 246.</para></listitem>
         </varlistentry>
       </variablelist>
     </refsect2>

@@ -61,6 +61,8 @@
         <listitem>
           <para>— translated into
           <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry> files.</para>
+
+          <para>Added in version 245.</para>
         </listitem>
       </varlistentry>
 
@@ -81,6 +83,8 @@
         <listitem>
           <para>— translated into
           <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry> files.</para>
+
+          <para>Added in version 245.</para>
         </listitem>
       </varlistentry>
 

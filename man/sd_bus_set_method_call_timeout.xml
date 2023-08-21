@@ -74,13 +74,17 @@
           <term><constant>-EINVAL</constant></term>
 
           <listitem><para>The parameters <parameter>bus</parameter> or <parameter>ret</parameter>
-          are <constant>NULL</constant>.</para></listitem>
+          are <constant>NULL</constant>.</para>
+
+          <para>Added in version 246.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-ENOPKG</constant></term>
 
           <listitem><para>Bus object <parameter>bus</parameter> could not be resolved.</para>
+
+          <para>Added in version 246.</para>
           </listitem>
         </varlistentry>
       </variablelist>

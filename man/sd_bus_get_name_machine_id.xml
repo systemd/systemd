@@ -60,25 +60,33 @@
         <varlistentry>
           <term><constant>-EINVAL</constant></term>
 
-          <listitem><para>An argument is invalid.</para></listitem>
+          <listitem><para>An argument is invalid.</para>
+
+          <para>Added in version 246.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-ENOPKG</constant></term>
 
-          <listitem><para>The bus cannot be resolved.</para></listitem>
+          <listitem><para>The bus cannot be resolved.</para>
+
+          <para>Added in version 246.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-ECHILD</constant></term>
 
-          <listitem><para>The bus was created in a different process, library or module instance.</para></listitem>
+          <listitem><para>The bus was created in a different process, library or module instance.</para>
+
+          <para>Added in version 246.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-ENOMEM</constant></term>
 
-          <listitem><para>Memory allocation failed.</para></listitem>
+          <listitem><para>Memory allocation failed.</para>
+
+          <para>Added in version 246.</para></listitem>
         </varlistentry>
       </variablelist>
     </refsect2>

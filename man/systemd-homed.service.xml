@@ -62,14 +62,18 @@
         <term><filename>/var/lib/systemd/home/local.private</filename></term>
 
         <listitem><para>The private key of the public/private key pair used for local records. Currently,
-        only a single such key may be installed.</para></listitem>
+        only a single such key may be installed.</para>
+
+        <para>Added in version 246.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><filename>/var/lib/systemd/home/local.public</filename></term>
 
         <listitem><para>The public key of the public/private key pair used for local records. Currently,
-        only a single such key may be installed.</para></listitem>
+        only a single such key may be installed.</para>
+
+        <para>Added in version 246.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -77,7 +81,9 @@
 
         <listitem><para>Additional public keys. Any users whose user records are signed with any of these keys
         are permitted to log in locally. An arbitrary number of keys may be installed this
-        way.</para></listitem>
+        way.</para>
+
+        <para>Added in version 246.</para></listitem>
       </varlistentry>
     </variablelist>
 
