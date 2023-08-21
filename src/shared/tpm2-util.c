@@ -1763,7 +1763,7 @@ char *tpm2_pcr_value_to_string(const Tpm2PCRValue *pcr_value) {
         if (asprintf(&index, "%u", pcr_value->index) < 0)
                 return NULL;
 
-        const char *hash = tpm2_hash_alg_to_string(pcr_value->hash);
+        const char *hash = pcr_value->hash > 0 ? tpm2_hash_alg_to_string(pcr_value->hash) : NULL;
 
         if (hash && pcr_value->value.size > 0) {
                 value = hexmem(pcr_value->value.buffer, pcr_value->value.size);
