@@ -403,9 +403,9 @@
         specifies that PCR registers 4, 1, and 5 should be used.</para>
         <para>Example: <option>--tpm2-pcrs=7:sha256</option> specifies that PCR register 7 from the SHA256
         bank should be used.</para>
-        <para>Example: <option>--tpm2-pcrs=4:sha1=0x3A3F780F11A4B49969FCAA80CD6E3957C33B2275</option>
+        <para>Example: <option>--tpm2-pcrs=4:sha1=3a3f780f11a4b49969fcaa80cd6e3957c33b2275</option>
         specifies that PCR register 4 from the SHA1 bank should be used, and a hash digest value of
-        0x3A3F780F11A4B49969FCAA80CD6E3957C33B2275 will be used instead of reading the current PCR
+        3a3f780f11a4b49969fcaa80cd6e3957c33b2275 will be used instead of reading the current PCR
         value.</para>
         </listitem>
       </varlistentry>
