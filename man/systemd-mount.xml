@@ -289,6 +289,9 @@
         <listitem>
           <para>Create and mount a new temporary file system on <replaceable>WHERE</replaceable>, with an
           optional <replaceable>NAME</replaceable> that defaults to <literal>tmpfs</literal>.</para>
+
+          <para>The file system is mounted with the top-level directory mode determined by the umask setting
+          of the caller. This is different from the kernel default of <literal>rwxrwxrwxt</literal>.</para>
         </listitem>
       </varlistentry>
 
