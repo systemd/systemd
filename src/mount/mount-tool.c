@@ -206,7 +206,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "bind-device",        no_argument,       NULL, ARG_BIND_DEVICE        },
                 { "list",               no_argument,       NULL, ARG_LIST               },
                 { "umount",             no_argument,       NULL, 'u'                    },
-                { "unmount",            no_argument,       NULL, 'u'                    },
+                { "unmount",            no_argument,       NULL, 'u'                    }, /* Compat spelling */
                 { "collect",            no_argument,       NULL, 'G'                    },
                 { "tmpfs",              no_argument,       NULL, 'T'                    },
                 {},
@@ -407,7 +407,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 if (argc > optind+2)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "At most two arguments required.");
+                                               "More than two arguments are not allowed.");
 
                 if (arg_tmpfs) {
                         if (argc <= optind+1) {
