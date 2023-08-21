@@ -27,3 +27,5 @@ assert_cc((S_IFMT & 0777) == 0);
 
 #define BLOCK_WITH_UMASK(mask) \
         _unused_ _cleanup_umask_ mode_t _saved_umask_ = umask(mask);
+
+int current_umask(mode_t *ret);
