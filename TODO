@@ -949,8 +949,6 @@ Features:
   appropriate qemu cmdline. That way qemu payloads could talk sd_notify()
   directly to host service manager.
 
-* sd-boot: add menu item for shutdown? or hotkey?
-
 * sd-device has an API to create an sd_device object from a device id, but has
   no api to query the device id
 
