@@ -7,9 +7,6 @@
 #include <fcntl.h>
 #include <linux/fs.h>
 #include <linux/oom.h>
-#if HAVE_SECCOMP
-#include <seccomp.h>
-#endif
 #include <sched.h>
 #include <sys/resource.h>
 
@@ -56,9 +53,7 @@
 #include "pcre2-util.h"
 #include "percent-util.h"
 #include "process-util.h"
-#if HAVE_SECCOMP
 #include "seccomp-util.h"
-#endif
 #include "securebits-util.h"
 #include "selinux-util.h"
 #include "signal-util.h"

@@ -2,8 +2,8 @@
 #pragma once
 
 #if HAVE_SECCOMP
-
 #include <seccomp.h>
+#endif
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -12,6 +12,8 @@
 #include "parse-util.h"
 #include "set.h"
 #include "string-util.h"
+
+#if HAVE_SECCOMP
 
 const char* seccomp_arch_to_string(uint32_t c);
 int seccomp_arch_from_string(const char *n, uint32_t *ret);
@@ -143,6 +145,18 @@ int parse_syscall_archs(char **l, Set **ret_archs);
 
 uint32_t scmp_act_kill_process(void);
 
+int parse_syscall_and_errno(const char *in, char **name, int *error);
+
+int seccomp_suppress_sync(void);
+
+#else
+
+static inline bool is_seccomp_available(void) {
+        return false;
+}
+
+#endif
+
 /* This is a special value to be used where syscall filters otherwise expect errno numbers, will be
    replaced with real seccomp action. */
 enum {
@@ -164,15 +178,3 @@ static inline const char *seccomp_errno_or_action_to_string(int num) {
                 return "kill";
         return errno_to_name(num);
 }
-
-int parse_syscall_and_errno(const char *in, char **name, int *error);
-
-int seccomp_suppress_sync(void);
-
-#else
-
-static inline bool is_seccomp_available(void) {
-        return false;
-}
-
-#endif

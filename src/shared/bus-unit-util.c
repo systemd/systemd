@@ -37,9 +37,7 @@
 #include "percent-util.h"
 #include "process-util.h"
 #include "rlimit-util.h"
-#if HAVE_SECCOMP
 #include "seccomp-util.h"
-#endif
 #include "securebits-util.h"
 #include "signal-util.h"
 #include "socket-util.h"
@@ -117,9 +115,6 @@ DEFINE_BUS_APPEND_PARSE("i", ioprio_class_from_string);
 DEFINE_BUS_APPEND_PARSE("i", ip_tos_from_string);
 DEFINE_BUS_APPEND_PARSE("i", log_facility_unshifted_from_string);
 DEFINE_BUS_APPEND_PARSE("i", log_level_from_string);
-#if !HAVE_SECCOMP
-static inline int seccomp_parse_errno_or_action(const char *eq) { return -EINVAL; }
-#endif
 DEFINE_BUS_APPEND_PARSE("i", seccomp_parse_errno_or_action);
 DEFINE_BUS_APPEND_PARSE("i", sched_policy_from_string);
 DEFINE_BUS_APPEND_PARSE("i", secure_bits_from_string);
