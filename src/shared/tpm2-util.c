@@ -3617,7 +3617,7 @@ int tpm2_tpm2b_public_from_openssl_pkey(const EVP_PKEY *pkey, TPM2B_PUBLIC *ret)
                 size_t x_size, y_size;
                 r = ecc_pkey_to_curve_x_y(pkey, &curve_id, &x, &x_size, &y, &y_size);
                 if (r < 0)
-                        return log_error_errno(r, "Could not get ECC key curve/x/y: %m");
+                        return log_debug_errno(r, "Could not get ECC key curve/x/y: %m");
 
                 TPM2_ECC_CURVE curve;
                 r = tpm2_ecc_curve_from_openssl_curve_id(curve_id, &curve);
@@ -3630,13 +3630,13 @@ int tpm2_tpm2b_public_from_openssl_pkey(const EVP_PKEY *pkey, TPM2B_PUBLIC *ret)
 
                 r = TPM2B_ECC_PARAMETER_CHECK_SIZE(x_size);
                 if (r < 0)
-                        return log_error_errno(r, "ECC key x size %zu too large.", x_size);
+                        return log_debug_errno(r, "ECC key x size %zu too large.", x_size);
 
                 public.unique.ecc.x = TPM2B_ECC_PARAMETER_MAKE(x, x_size);
 
                 r = TPM2B_ECC_PARAMETER_CHECK_SIZE(y_size);
                 if (r < 0)
-                        return log_error_errno(r, "ECC key y size %zu too large.", y_size);
+                        return log_debug_errno(r, "ECC key y size %zu too large.", y_size);
 
                 public.unique.ecc.y = TPM2B_ECC_PARAMETER_MAKE(y, y_size);
 
@@ -3649,17 +3649,17 @@ int tpm2_tpm2b_public_from_openssl_pkey(const EVP_PKEY *pkey, TPM2B_PUBLIC *ret)
                 size_t n_size, e_size;
                 r = rsa_pkey_to_n_e(pkey, &n, &n_size, &e, &e_size);
                 if (r < 0)
-                        return log_error_errno(r, "Could not get RSA key n/e: %m");
+                        return log_debug_errno(r, "Could not get RSA key n/e: %m");
 
                 r = TPM2B_PUBLIC_KEY_RSA_CHECK_SIZE(n_size);
                 if (r < 0)
-                        return log_error_errno(r, "RSA key n size %zu too large.", n_size);
+                        return log_debug_errno(r, "RSA key n size %zu too large.", n_size);
 
                 public.unique.rsa = TPM2B_PUBLIC_KEY_RSA_MAKE(n, n_size);
                 public.parameters.rsaDetail.keyBits = n_size * 8;
 
                 if (sizeof(uint32_t) < e_size)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "RSA key e size %zu too large.", e_size);
 
                 uint32_t exponent = 0;
