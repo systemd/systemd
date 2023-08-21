@@ -95,6 +95,7 @@ basic_sources = files(
         'tmpfile-util.c',
         'uid-alloc-range.c',
         'uid-range.c',
+        'umask-util.c',
         'unit-def.c',
         'unit-file.c',
         'unit-name.c',
