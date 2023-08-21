@@ -105,7 +105,7 @@ foreach tuple : in_files
                 output: file,
                 command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
                 install : tuple[1],
-                install_dir : pkgsysconfdir)
+                install_dir : pkgconfigfiledir)
 endforeach
 
 if conf.get('ENABLE_REMOTE') == 1 and conf.get('HAVE_MICROHTTPD') == 1
