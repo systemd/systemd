@@ -1521,7 +1521,7 @@ size_t tpm2_tpml_pcr_selection_weight(const TPML_PCR_SELECTION *l) {
         return weight;
 }
 
-bool TPM2_PCR_VALUE_VALID(const Tpm2PCRValue *pcr_value) {
+bool tpm2_pcr_value_valid(const Tpm2PCRValue *pcr_value) {
         int r;
 
         assert(pcr_value);
@@ -1552,13 +1552,13 @@ bool TPM2_PCR_VALUE_VALID(const Tpm2PCRValue *pcr_value) {
  * 1) all entries must be sorted in ascending order (e.g. using tpm2_sort_pcr_values())
  * 2) all entries must be unique, i.e. there cannot be 2 entries with the same hash and index
  */
-bool TPM2_PCR_VALUES_VALID(const Tpm2PCRValue *pcr_values, size_t n_pcr_values) {
+bool tpm2_pcr_values_valid(const Tpm2PCRValue *pcr_values, size_t n_pcr_values) {
         assert(pcr_values || n_pcr_values == 0);
 
         for (size_t i = 0; i < n_pcr_values; i++) {
                 const Tpm2PCRValue *v = &pcr_values[i];
 
-                if (!TPM2_PCR_VALUE_VALID(v))
+                if (!tpm2_pcr_value_valid(v))
                         return false;
 
                 if (i == 0)
@@ -1633,7 +1633,7 @@ int tpm2_pcr_values_to_mask(const Tpm2PCRValue *pcr_values, size_t n_pcr_values,
         assert(pcr_values || n_pcr_values == 0);
         assert(ret_mask);
 
-        if (!TPM2_PCR_VALUES_VALID(pcr_values, n_pcr_values))
+        if (!tpm2_pcr_values_valid(pcr_values, n_pcr_values))
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid PCR values.");
 
         for (size_t i = 0; i < n_pcr_values; i++)
@@ -1658,7 +1658,7 @@ int tpm2_tpml_pcr_selection_from_pcr_values(
 
         assert(pcr_values || n_pcr_values == 0);
 
-        if (!TPM2_PCR_VALUES_VALID(pcr_values, n_pcr_values))
+        if (!tpm2_pcr_values_valid(pcr_values, n_pcr_values))
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "PCR values are not valid.");
 
         for (size_t i = 0; i < n_pcr_values; i++) {
@@ -2315,7 +2315,7 @@ int tpm2_pcr_read(
 
         tpm2_sort_pcr_values(pcr_values, n_pcr_values);
 
-        if (!TPM2_PCR_VALUES_VALID(pcr_values, n_pcr_values))
+        if (!tpm2_pcr_values_valid(pcr_values, n_pcr_values))
                 return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "PCR values read from TPM are not valid.");
 
         *ret_pcr_values = TAKE_PTR(pcr_values);
@@ -4793,7 +4793,7 @@ int tpm2_parse_pcr_argument(const char *arg, Tpm2PCRValue **ret_pcr_values, size
 
         tpm2_sort_pcr_values(pcr_values, n_pcr_values);
 
-        if (!TPM2_PCR_VALUES_VALID(pcr_values, n_pcr_values))
+        if (!tpm2_pcr_values_valid(pcr_values, n_pcr_values))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Parsed PCR values are not valid.");
 
         *ret_pcr_values = TAKE_PTR(pcr_values);
@@ -4835,7 +4835,7 @@ int tpm2_parse_pcr_argument_append(const char *arg, Tpm2PCRValue **ret_pcr_value
 
         tpm2_sort_pcr_values(pcr_values, n_pcr_values);
 
-        if (!TPM2_PCR_VALUES_VALID(pcr_values, n_pcr_values))
+        if (!tpm2_pcr_values_valid(pcr_values, n_pcr_values))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Parsed PCR values are not valid.");
 
         SWAP_TWO(*ret_pcr_values, pcr_values);
