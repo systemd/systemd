@@ -37,9 +37,7 @@
 #include "percent-util.h"
 #include "process-util.h"
 #include "rlimit-util.h"
-#if HAVE_SECCOMP
 #include "seccomp-util.h"
-#endif
 #include "securebits-util.h"
 #include "signal-util.h"
 #include "socket-util.h"

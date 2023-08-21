@@ -26,10 +26,6 @@
 #include <selinux/selinux.h>
 #endif
 
-#if HAVE_SECCOMP
-#include <seccomp.h>
-#endif
-
 #if HAVE_APPARMOR
 #include <sys/apparmor.h>
 #endif
@@ -93,9 +89,7 @@
 #include "recurse-dir.h"
 #include "rlimit-util.h"
 #include "rm-rf.h"
-#if HAVE_SECCOMP
 #include "seccomp-util.h"
-#endif
 #include "securebits-util.h"
 #include "selinux-util.h"
 #include "signal-util.h"

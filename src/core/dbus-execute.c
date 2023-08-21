@@ -2,11 +2,6 @@
 
 #include <sys/mount.h>
 #include <sys/prctl.h>
-
-#if HAVE_SECCOMP
-#include <seccomp.h>
-#endif
-
 #include "af-list.h"
 #include "alloc-util.h"
 #include "bus-get-properties.h"
@@ -37,9 +32,7 @@
 #include "pcre2-util.h"
 #include "process-util.h"
 #include "rlimit-util.h"
-#if HAVE_SECCOMP
 #include "seccomp-util.h"
-#endif
 #include "securebits-util.h"
 #include "specifier.h"
 #include "stat-util.h"

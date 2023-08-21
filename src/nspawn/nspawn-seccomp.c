@@ -6,16 +6,10 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 
-#if HAVE_SECCOMP
-#include <seccomp.h>
-#endif
-
 #include "alloc-util.h"
 #include "log.h"
 #include "nspawn-seccomp.h"
-#if HAVE_SECCOMP
 #include "seccomp-util.h"
-#endif
 #include "string-util.h"
 #include "strv.h"
 
