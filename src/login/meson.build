@@ -124,7 +124,7 @@ custom_target(
         output : 'logind.conf',
         command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
         install : enable_logind and install_sysconfdir_samples and pkgsysconfdir != 'no',
-        install_dir : pkgsysconfdir)
+        install_dir : pkgconfigfiledir)
 
 custom_target(
         'systemd-user',
