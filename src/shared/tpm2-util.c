@@ -1730,23 +1730,23 @@ int tpm2_pcr_value_from_string(const char *arg, Tpm2PCRValue *ret_pcr_value) {
                 if (r < 0)
                         return log_error_errno(r, "Invalid pcr hash algorithm '%s': %m", hash);
                 pcr_value.hash = (TPMI_ALG_HASH) r;
-        }
 
-        if (!isempty(p)) {
-                /* Remove leading 0x if present */
-                p = startswith_no_case(p, "0x") ?: p;
+                if (!isempty(p)) {
+                        /* Remove leading 0x if present */
+                        p = startswith_no_case(p, "0x") ?: p;
 
-                _cleanup_free_ void *buf = NULL;
-                size_t buf_size = 0;
-                r = unhexmem(p, SIZE_MAX, &buf, &buf_size);
-                if (r < 0)
-                        return log_error_errno(r, "Invalid pcr hash value '%s': %m", p);
+                        _cleanup_free_ void *buf = NULL;
+                        size_t buf_size = 0;
+                        r = unhexmem(p, SIZE_MAX, &buf, &buf_size);
+                        if (r < 0)
+                                return log_error_errno(r, "Invalid pcr hash value '%s': %m", p);
 
-                r = TPM2B_DIGEST_CHECK_SIZE(buf_size);
-                if (r < 0)
-                        return log_error_errno(r, "PCR hash value size %zu too large.", buf_size);
+                        r = TPM2B_DIGEST_CHECK_SIZE(buf_size);
+                        if (r < 0)
+                                return log_error_errno(r, "PCR hash value size %zu too large.", buf_size);
 
-                pcr_value.value = TPM2B_DIGEST_MAKE(buf, buf_size);
+                        pcr_value.value = TPM2B_DIGEST_MAKE(buf, buf_size);
+                }
         }
 
         *ret_pcr_value = pcr_value;
