@@ -1771,7 +1771,7 @@ char *tpm2_pcr_value_to_string(const Tpm2PCRValue *pcr_value) {
                         return NULL;
         }
 
-        return strjoin(index, hash ? ":" : "", hash ?: "", value ? "=" : "", value ?: "");
+        return strjoin(index, hash ? ":" : "", strempty(hash), value ? "=" : "", strempty(value));
 }
 
 /* Parse a string argument into an array of Tpm2PCRValue objects.
