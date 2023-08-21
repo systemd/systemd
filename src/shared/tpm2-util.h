@@ -76,11 +76,11 @@ typedef struct {
 } Tpm2PCRValue;
 
 #define TPM2_PCR_VALUE_MAKE(i, h, v) (Tpm2PCRValue) { .index = (i), .hash = (h), .value = ((TPM2B_DIGEST) v), }
-bool TPM2_PCR_VALUE_VALID(const Tpm2PCRValue *pcr_value);
+bool tpm2_pcr_value_valid(const Tpm2PCRValue *pcr_value);
 int tpm2_pcr_value_from_string(const char *arg, Tpm2PCRValue *ret_pcr_value);
 char *tpm2_pcr_value_to_string(const Tpm2PCRValue *pcr_value);
 
-bool TPM2_PCR_VALUES_VALID(const Tpm2PCRValue *pcr_values, size_t n_pcr_values);
+bool tpm2_pcr_values_valid(const Tpm2PCRValue *pcr_values, size_t n_pcr_values);
 void tpm2_sort_pcr_values(Tpm2PCRValue *pcr_values, size_t n_pcr_values);
 int tpm2_pcr_values_from_mask(uint32_t mask, TPMI_ALG_HASH hash, Tpm2PCRValue **ret_pcr_values, size_t *ret_n_pcr_values);
 int tpm2_pcr_values_to_mask(const Tpm2PCRValue *pcr_values, size_t n_pcr_values, TPMI_ALG_HASH hash, uint32_t *ret_mask);
