@@ -139,7 +139,7 @@ modprobedir = prefixdir / 'lib/modprobe.d'
 # Our own paths
 pkgdatadir = datadir / 'systemd'
 environmentdir = prefixdir / 'lib/environment.d'
-pkgsysconfdir = sysconfdir / 'systemd'
+pkgsysconfdir = get_option('pkgsysconfigdir') != '' ? get_option('pkgsysconfigdir') : sysconfigdir / 'systemd'
 userunitdir = prefixdir / 'lib/systemd/user'
 userpresetdir = prefixdir / 'lib/systemd/user-preset'
 tmpfilesdir = prefixdir / 'lib/tmpfiles.d'

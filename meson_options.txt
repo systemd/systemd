@@ -195,6 +195,8 @@ option('pkgconfigdatadir', type : 'string', value : '',
        description : 'directory for arch-independent pkg-config files')
 option('pkgconfiglibdir', type : 'string', value : '',
        description : 'directory for standard pkg-config files')
+option('pkgsysconfigdir', type : 'string', value : '',
+       description : 'directory for configuration files')
 option('xinitrcdir', type : 'string', value : '',
        description : 'directory for xinitrc files')
 option('rpmmacrosdir', type : 'string', value : 'lib/rpm/macros.d',
