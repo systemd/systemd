@@ -11,11 +11,11 @@
 #define SET_IF(field, condition, value, fallback)  \
         field = (condition) ? (value) : (fallback)
 
-static inline const char* utf8_only(const char *s) {
+static const char* utf8_only(const char *s) {
         return s && utf8_is_valid(s) ? s : NULL;
 }
 
-static inline int strv_extend_strv_utf8_only(char ***dst, char **src, bool filter_duplicates) {
+static int strv_extend_strv_utf8_only(char ***dst, char **src, bool filter_duplicates) {
         _cleanup_free_ char **t = NULL;
         size_t l, j = 0;
 

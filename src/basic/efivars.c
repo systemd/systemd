@@ -415,7 +415,7 @@ int systemd_efi_options_variable(char **ret) {
         return r;
 }
 
-static inline int compare_stat_mtime(const struct stat *a, const struct stat *b) {
+static int compare_stat_mtime(const struct stat *a, const struct stat *b) {
         return CMP(timespec_load(&a->st_mtim), timespec_load(&b->st_mtim));
 }
 

@@ -1099,7 +1099,7 @@ static void config_entry_free(ConfigEntry *entry) {
         free(entry);
 }
 
-static inline void config_entry_freep(ConfigEntry **entry) {
+static void config_entry_freep(ConfigEntry **entry) {
         config_entry_free(*entry);
 }
 

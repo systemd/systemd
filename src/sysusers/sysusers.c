@@ -47,7 +47,7 @@ typedef enum ItemType {
         ADD_RANGE =  'r',
 } ItemType;
 
-static inline const char* item_type_to_string(ItemType t) {
+static const char* item_type_to_string(ItemType t) {
         switch (t) {
         case ADD_USER:
                 return "user";

@@ -452,7 +452,7 @@ static int lldp_rx_start_timer(sd_lldp_rx *lldp_rx, sd_lldp_neighbor *neighbor) 
                                 lldp_rx->event_priority, "lldp-rx-timer", true);
 }
 
-static inline int neighbor_compare_func(sd_lldp_neighbor * const *a, sd_lldp_neighbor * const *b) {
+static int neighbor_compare_func(sd_lldp_neighbor * const *a, sd_lldp_neighbor * const *b) {
         assert(a);
         assert(b);
         assert(*a);
