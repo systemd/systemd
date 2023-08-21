@@ -75,7 +75,13 @@ typedef struct {
         TPM2B_DIGEST value;
 } Tpm2PCRValue;
 
-#define TPM2_PCR_VALUE_MAKE(i, h, v) (Tpm2PCRValue) { .index = (i), .hash = (h), .value = ((TPM2B_DIGEST) v), }
+#define TPM2_PCR_VALUE_MAKE(i, h, v)                                    \
+        (Tpm2PCRValue) {                                                \
+                .index = (i),                                           \
+                .hash = (h),                                            \
+                .value = ((TPM2B_DIGEST) v),                            \
+        }
+
 bool tpm2_pcr_value_valid(const Tpm2PCRValue *pcr_value);
 int tpm2_pcr_value_from_string(const char *arg, Tpm2PCRValue *ret_pcr_value);
 char *tpm2_pcr_value_to_string(const Tpm2PCRValue *pcr_value);
