@@ -881,7 +881,7 @@ static bool menu_run(
                 case KEYPRESS(0, 0, 'H'):
                 case KEYPRESS(0, 0, '?'):
                         /* This must stay below 80 characters! Q/v/Ctrl+l/f deliberately not advertised. */
-                        status = xstrdup16(u"(d)efault (t/T)timeout (e)dit (r/R)resolution (p)rint (h)elp");
+                        status = xstrdup16(u"(d)efault (t/T)imeout (e)dit (r/R)esolution (p)rint (O)ff re(B)oot (h)elp");
                         break;
 
                 case KEYPRESS(0, 0, 'Q'):
@@ -1006,6 +1006,14 @@ static bool menu_run(
                                 status = xstrdup16(u"Press Enter to reboot into firmware interface.");
                         } else
                                 status = xstrdup16(u"Reboot into firmware interface not supported.");
+                        break;
+
+                case KEYPRESS(0, 0, 'O'): /* Only uppercase, so that it can't be hit so easily fat-fingered, but still works safely over serial */
+                        RT->ResetSystem(EfiResetShutdown, EFI_SUCCESS, 0, NULL);
+                        break;
+
+                case KEYPRESS(0, 0, 'B'): /* ditto */
+                        RT->ResetSystem(EfiResetCold, EFI_SUCCESS, 0, NULL);
                         break;
 
                 default:
