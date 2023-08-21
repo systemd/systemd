@@ -1759,10 +1759,8 @@ int tpm2_pcr_value_from_string(const char *arg, Tpm2PCRValue *ret_pcr_value) {
  * string. This does not check for validity. */
 char *tpm2_pcr_value_to_string(const Tpm2PCRValue *pcr_value) {
         _cleanup_free_ char *index = NULL, *value = NULL;
-        int r;
 
-        r = asprintf(&index, "%u", pcr_value->index);
-        if (r < 0)
+        if (asprintf(&index, "%u", pcr_value->index) < 0)
                 return NULL;
 
         const char *hash = tpm2_hash_alg_to_string(pcr_value->hash);
