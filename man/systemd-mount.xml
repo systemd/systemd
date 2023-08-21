@@ -287,8 +287,17 @@
         <term><option>--tmpfs</option></term>
 
         <listitem>
-          <para>Create and mount a new temporary file system on <replaceable>WHERE</replaceable>, with an
-          optional <replaceable>NAME</replaceable> that defaults to <literal>tmpfs</literal>.</para>
+          <para>Create and mount a new <constant>tmpfs</constant> file system on
+          <replaceable>WHERE</replaceable>, with an optional <replaceable>NAME</replaceable> that defaults to
+          <literal>tmpfs</literal>.</para>
+
+          <para>The file system is mounted with the top-level directory mode determined by the
+          <citerefentry><refentrytitle>umask</refentrytitle><manvolnum>2</manvolnum></citerefentry> setting
+          of the caller, i.e. <constant>rwxrwxrwx</constant> masked by the umask of the caller. This matches
+          what
+          <citerefentry project='man-pages'><refentrytitle>mkdir</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+          does, but is different from the kernel default of <literal>rwxrwxrwxt</literal>, i.e. a
+          world-writable directory with the sticky bit set.</para>
         </listitem>
       </varlistentry>
 
