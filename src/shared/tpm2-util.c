@@ -1590,6 +1590,28 @@ bool tpm2_pcr_values_valid(const Tpm2PCRValue *pcr_values, size_t n_pcr_values) 
         return true;
 }
 
+/* Returns true if any of the provided PCR values has an actual hash value included, false otherwise. */
+bool tpm2_pcr_values_has_any_values(const Tpm2PCRValue *pcr_values, size_t n_pcr_values) {
+        assert(pcr_values || n_pcr_values == 0);
+
+        FOREACH_ARRAY(v, pcr_values, n_pcr_values)
+                if (v->value.size > 0)
+                        return true;
+
+        return false;
+}
+
+/* Returns true if all of the provided PCR values has an actual hash value included, false otherwise. */
+bool tpm2_pcr_values_has_all_values(const Tpm2PCRValue *pcr_values, size_t n_pcr_values) {
+        assert(pcr_values || n_pcr_values == 0);
+
+        FOREACH_ARRAY(v, pcr_values, n_pcr_values)
+                if (v->value.size == 0)
+                        return false;
+
+        return true;
+}
+
 static int cmp_pcr_values(const Tpm2PCRValue *a, const Tpm2PCRValue *b) {
         assert(a);
         assert(b);
