@@ -35,6 +35,7 @@
 #include "stat-util.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "umask-util.h"
 #include "unit-def.h"
 #include "unit-name.h"
 #include "user-util.h"
@@ -506,7 +507,6 @@ static int transient_unit_set_properties(sd_bus_message *m, UnitType t, char **p
 }
 
 static int transient_mount_set_properties(sd_bus_message *m) {
-        _cleanup_free_ char *options = NULL;
         int r;
 
         assert(m);
@@ -527,20 +527,43 @@ static int transient_mount_set_properties(sd_bus_message *m) {
                         return r;
         }
 
+        _cleanup_free_ char *options = NULL;
+
         /* Prepend uid=…,gid=… if arg_uid is set */
         if (arg_uid != UID_INVALID) {
-                r = asprintf(&options,
-                             "uid=" UID_FMT ",gid=" GID_FMT "%s%s",
-                             arg_uid, arg_gid,
-                             arg_mount_options ? "," : "", strempty(arg_mount_options));
+                r = strextendf_with_separator(&options, ",",
+                                              "uid="UID_FMT",gid="GID_FMT, arg_uid, arg_gid);
                 if (r < 0)
-                        return -ENOMEM;
+                        return r;
         }
 
-        if (options || arg_mount_options) {
-                log_debug("Using mount options: %s", options ?: arg_mount_options);
+        /* Override the default for tmpfs mounts. The kernel sets the sticky bit on the root directory by
+         * default. This makes sense for the case when the user does 'mount -t tmpfs tmpfs /tmp', but less so
+         * for other directories.
+         *
+         * Let's also set some reasonable limits. We use the current umask, to match what a command to create
+         * directory would use, e.g. mkdir. */
+        if (arg_tmpfs) {
+                mode_t mask;
 
-                r = sd_bus_message_append(m, "(sv)", "Options", "s", options ?: arg_mount_options);
+                r = get_process_umask(0, &mask);
+                if (r < 0)
+                        return r;
+
+                assert((mask & ~0777) == 0);
+                r = strextendf_with_separator(&options, ",",
+                                              "mode=0%o,nodev,nosuid%s", 0777 & ~mask, NESTED_TMPFS_LIMITS);
+                if (r < 0)
+                        return r;
+        }
+
+        if (arg_mount_options)
+                if (!strextend_with_separator(&options, ",", arg_mount_options))
+                        return r;
+
+        if (options) {
+                log_debug("Using mount options: %s", options);
+                r = sd_bus_message_append(m, "(sv)", "Options", "s", options);
                 if (r < 0)
                         return r;
         } else
