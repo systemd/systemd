@@ -119,12 +119,12 @@ typedef struct PeSectionHeader {
         uint32_t Characteristics;
 } _packed_ PeSectionHeader;
 
-static inline bool verify_dos(const DosFileHeader *dos) {
+static bool verify_dos(const DosFileHeader *dos) {
         assert(dos);
         return memcmp(dos->Magic, DOS_FILE_MAGIC, STRLEN(DOS_FILE_MAGIC)) == 0;
 }
 
-static inline bool verify_pe(const PeFileHeader *pe, bool allow_compatibility) {
+static bool verify_pe(const PeFileHeader *pe, bool allow_compatibility) {
         assert(pe);
         return memcmp(pe->Magic, PE_FILE_MAGIC, STRLEN(PE_FILE_MAGIC)) == 0 &&
                (pe->FileHeader.Machine == TARGET_MACHINE_TYPE ||
@@ -134,7 +134,7 @@ static inline bool verify_pe(const PeFileHeader *pe, bool allow_compatibility) {
                IN_SET(pe->OptionalHeader.Magic, OPTHDR32_MAGIC, OPTHDR64_MAGIC);
 }
 
-static inline size_t section_table_offset(const DosFileHeader *dos, const PeFileHeader *pe) {
+static size_t section_table_offset(const DosFileHeader *dos, const PeFileHeader *pe) {
         assert(dos);
         assert(pe);
         return dos->ExeHeader + offsetof(PeFileHeader, OptionalHeader) + pe->FileHeader.SizeOfOptionalHeader;

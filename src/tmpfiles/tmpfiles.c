@@ -241,7 +241,7 @@ static void context_done(Context *c) {
 }
 
 /* Different kinds of errors that mean that information is not available in the environment. */
-static inline bool ERRNO_IS_NOINFO(int r) {
+static bool ERRNO_IS_NOINFO(int r) {
         return IN_SET(abs(r),
                       EUNATCH,    /* os-release or machine-id missing */
                       ENOMEDIUM,  /* machine-id or another file empty */
@@ -537,7 +537,7 @@ static DIR* opendir_nomod(const char *path) {
         return xopendirat_nomod(AT_FDCWD, path);
 }
 
-static inline nsec_t load_statx_timestamp_nsec(const struct statx_timestamp *ts) {
+static nsec_t load_statx_timestamp_nsec(const struct statx_timestamp *ts) {
         assert(ts);
 
         if (ts->tv_sec < 0)
