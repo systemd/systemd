@@ -8,12 +8,12 @@
 #include "macro.h"
 
 static inline void umaskp(mode_t *u) {
-        umask(*u & 0777);
+        umask(*u);
 }
 
 #define _cleanup_umask_ _cleanup_(umaskp)
 
-/* We make use of the fact here that the umask() concept is using only the lower 9 bits of mode_t, although
+/* We make use of the fact here that the umask() syscall uses only the lower 9 bits of mode_t, although
  * mode_t has space for the file type in the bits further up. We simply OR in the file type mask S_IFMT to
  * distinguish the first and the second iteration of the WITH_UMASK() loop, so that we can run the first one,
  * and exit on the second. */
