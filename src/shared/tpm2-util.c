@@ -3507,36 +3507,42 @@ static int tpm2_build_sealing_policy(
 }
 
 #if HAVE_OPENSSL
-static int tpm2_ecc_curve_from_openssl_curve_id(int curve_id, TPM2_ECC_CURVE *ret) {
+static const struct {
+        TPM2_ECC_CURVE tpm2_ecc_curve_id;
+        int openssl_ecc_curve_id;
+} TPM2_OPENSSL_ECC_CURVE_TABLE[] = {
+        { TPM2_ECC_NIST_P192, NID_X9_62_prime192v1, },
+        { TPM2_ECC_NIST_P224, NID_secp224r1, },
+        { TPM2_ECC_NIST_P256, NID_X9_62_prime256v1, },
+        { TPM2_ECC_NIST_P384, NID_secp384r1, },
+        { TPM2_ECC_NIST_P521, NID_secp521r1, },
+        { TPM2_ECC_SM2_P256,  NID_sm2, },
+};
+
+static int tpm2_ecc_curve_from_openssl_curve_id(int openssl_ecc_curve_id, TPM2_ECC_CURVE *ret) {
         assert(ret);
 
-        switch (curve_id) {
-        case NID_X9_62_prime192v1: *ret = TPM2_ECC_NIST_P192; return 0;
-        case NID_secp224r1:        *ret = TPM2_ECC_NIST_P192; return 0;
-        case NID_X9_62_prime256v1: *ret = TPM2_ECC_NIST_P256; return 0;
-        case NID_secp384r1:        *ret = TPM2_ECC_NIST_P384; return 0;
-        case NID_secp521r1:        *ret = TPM2_ECC_NIST_P521; return 0;
-        case NID_sm2:              *ret = TPM2_ECC_SM2_P256;  return 0;
-        }
+        FOREACH_ARRAY(t, TPM2_OPENSSL_ECC_CURVE_TABLE, ELEMENTSOF(TPM2_OPENSSL_ECC_CURVE_TABLE))
+                if (t->openssl_ecc_curve_id == openssl_ecc_curve_id) {
+                        *ret = t->tpm2_ecc_curve_id;
+                        return 0;
+                }
 
         return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                               "Openssl ECC curve id %d not supported.", curve_id);
+                               "Openssl ECC curve id %d not supported.", openssl_ecc_curve_id);
 }
 
-static int tpm2_ecc_curve_to_openssl_curve_id(TPM2_ECC_CURVE curve, int *ret) {
+static int tpm2_ecc_curve_to_openssl_curve_id(TPM2_ECC_CURVE tpm2_ecc_curve_id, int *ret) {
         assert(ret);
 
-        switch (curve) {
-        case TPM2_ECC_NIST_P192: *ret = NID_X9_62_prime192v1; return 0;
-        case TPM2_ECC_NIST_P224: *ret = NID_secp224r1;        return 0;
-        case TPM2_ECC_NIST_P256: *ret = NID_X9_62_prime256v1; return 0;
-        case TPM2_ECC_NIST_P384: *ret = NID_secp384r1;        return 0;
-        case TPM2_ECC_NIST_P521: *ret = NID_secp521r1;        return 0;
-        case TPM2_ECC_SM2_P256:  *ret = NID_sm2;              return 0;
-        }
+        FOREACH_ARRAY(t, TPM2_OPENSSL_ECC_CURVE_TABLE, ELEMENTSOF(TPM2_OPENSSL_ECC_CURVE_TABLE))
+                if (t->tpm2_ecc_curve_id == tpm2_ecc_curve_id) {
+                        *ret = t->openssl_ecc_curve_id;
+                        return 0;
+                }
 
         return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                               "TPM2 ECC curve %u not supported.", curve);
+                               "TPM2 ECC curve %u not supported.", tpm2_ecc_curve_id);
 }
 
 #define TPM2_RSA_DEFAULT_EXPONENT UINT32_C(0x10001)
