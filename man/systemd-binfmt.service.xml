@@ -46,7 +46,9 @@
         <term><option>--unregister</option></term>
         <listitem><para>If passed, instead of registering configured binary formats in the kernel, the
         reverse operation is executed: all currently registered binary formats are unregistered from the
-        kernel.</para></listitem>
+        kernel.</para>
+
+        <para>Added in version 246.</para></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="cat-config" />

@@ -125,6 +125,8 @@
           and the pager that is invoked is <command>less</command>,
           <keycombo><keycap>Ctrl</keycap><keycap>C</keycap></keycombo> will be ignored by the
           executable, and needs to be handled by the pager.</para>
+
+          <para>Added in version 248.</para>
         </varlistentry>
 
         <varlistentry>
@@ -134,6 +136,8 @@
           strings to the terminal. It is set by default to allow command output to remain visible in the
           terminal even after the pager exits. Nevertheless, this prevents some pager functionality from
           working, in particular paged output cannot be scrolled with the mouse.</para>
+
+          <para>Added in version 248.</para>
         </varlistentry>
       </variablelist>
 

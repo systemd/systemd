@@ -116,7 +116,9 @@
               <term><varname>extended</varname></term>
 
               <listitem><para>Show <filename>*.conf</filename> files
-              in drop-in directories for units.</para></listitem>
+              in drop-in directories for units.</para>
+
+              <para>Added in version 205.</para></listitem>
             </varlistentry>
 
             <varlistentry>

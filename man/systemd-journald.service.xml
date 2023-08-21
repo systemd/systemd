@@ -190,7 +190,9 @@ systemd-tmpfiles --create --prefix /var/log/journal</programlisting>
         <command>journalctl --flush</command> command to request flushing of the journal files, and wait for
         the operation to complete. See
         <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
-        details.</para></listitem>
+        details.</para>
+
+        <para>Added in version 186.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -198,7 +200,9 @@ systemd-tmpfiles --create --prefix /var/log/journal</programlisting>
 
         <listitem><para>Request immediate rotation of the journal files. Use the <command>journalctl
         --rotate</command> command to request journal file rotation, and wait for the operation to
-        complete.</para></listitem>
+        complete.</para>
+
+        <para>Added in version 186.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -206,7 +210,9 @@ systemd-tmpfiles --create --prefix /var/log/journal</programlisting>
 
         <listitem><para>Request that all unwritten log data is written to disk. Use the <command>journalctl
         --sync</command> command to trigger journal synchronization, and wait for the operation to
-        complete.</para></listitem>
+        complete.</para>
+
+        <para>Added in version 228.</para></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
@@ -281,7 +287,9 @@ systemd-tmpfiles --create --prefix /var/log/journal</programlisting>
 
         <listitem><para>Configure <command>systemd-journald</command> behavior. See
         <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-        </para></listitem>
+        </para>
+
+        <para>Added in version 206.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -319,7 +327,9 @@ systemd-tmpfiles --create --prefix /var/log/journal</programlisting>
         archived journal files to limit disk use. See <varname>SystemMaxUse=</varname>
         and related settings in
         <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-        </para></listitem>
+        </para>
+
+        <para>Added in version 206.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -334,7 +344,9 @@ systemd-tmpfiles --create --prefix /var/log/journal</programlisting>
         <command>systemd-journald</command> can listen for audit events using <citerefentry
         project='man-pages'><refentrytitle>netlink</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
         depending on whether <literal>systemd-journald-audit.socket</literal> is enabled or
-        not.</para></listitem>
+        not.</para>
+
+        <para>Added in version 228.</para></listitem>
       </varlistentry>
     </variablelist>
 

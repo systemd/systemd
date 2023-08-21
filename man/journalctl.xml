@@ -434,7 +434,9 @@
             <term><option>--truncate-newline</option></term>
 
             <listitem><para>Truncate each log message at the first newline character on output, so that only the
-            first line of each message is displayed.</para></listitem>
+            first line of each message is displayed.</para>
+
+            <para>Added in version 254.</para></listitem>
           </varlistentry>
 
           <varlistentry>
@@ -453,7 +455,9 @@
             <term><option>short-delta</option></term>
             <listitem><para>as for <option>short-monotonic</option> but includes the time difference
             to the previous entry.
-            Maybe unreliable time differences are marked by a <literal>*</literal>.</para></listitem>
+            Maybe unreliable time differences are marked by a <literal>*</literal>.</para>
+
+            <para>Added in version 252.</para></listitem>
           </varlistentry>
 
           <varlistentry>
