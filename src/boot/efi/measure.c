@@ -55,6 +55,12 @@ static EFI_STATUS tpm2_measure_to_pcr_and_event_log(
         assert(tcg);
         assert(description);
 
+        /* NB: We currently record everything as EV_IPL. Which sucks, because it makes it hard to
+         * recognize from the event log which of the events are ours. Measurement logs are kinda API hence
+         * this is hard to change for existing, established events. But for future additions, let's use
+         * EV_EVENT_TAG instead, with a tag of our choosing that makes clear what precisely we are measuring
+         * here. */
+
         desc_len = strsize16(description);
         tcg_event = xmalloc(offsetof(EFI_TCG2_EVENT, Event) + desc_len);
         memset(tcg_event, 0, offsetof(EFI_TCG2_EVENT, Event) + desc_len);
