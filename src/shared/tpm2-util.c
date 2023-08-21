@@ -1524,7 +1524,8 @@ size_t tpm2_tpml_pcr_selection_weight(const TPML_PCR_SELECTION *l) {
 bool tpm2_pcr_value_valid(const Tpm2PCRValue *pcr_value) {
         int r;
 
-        assert(pcr_value);
+        if (!pcr_value)
+                return false;
 
         if (!TPM2_PCR_INDEX_VALID(pcr_value->index)) {
                 log_debug("PCR index %u invalid.", pcr_value->index);
@@ -1551,9 +1552,12 @@ bool tpm2_pcr_value_valid(const Tpm2PCRValue *pcr_value) {
  *
  * 1) all entries must be sorted in ascending order (e.g. using tpm2_sort_pcr_values())
  * 2) all entries must be unique, i.e. there cannot be 2 entries with the same hash and index
+ *
+ * Returns true if all entries are valid (or if no entries are provided), false otherwise.
  */
 bool tpm2_pcr_values_valid(const Tpm2PCRValue *pcr_values, size_t n_pcr_values) {
-        assert(pcr_values || n_pcr_values == 0);
+        if (!pcr_values && n_pcr_values > 0)
+                return false;
 
         for (size_t i = 0; i < n_pcr_values; i++) {
                 const Tpm2PCRValue *v = &pcr_values[i];
