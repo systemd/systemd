@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2023-07-14 10:32+0100\n"
-"PO-Revision-Date: 2023-08-08 17:21+0000\n"
+"PO-Revision-Date: 2023-08-21 17:21+0000\n"
 "Last-Translator: Jan Kuparinen <copper_fin@hotmail.com>\n"
 "Language-Team: Finnish <https://translate.fedoraproject.org/projects/systemd/"
 "master/fi/>\n"
@@ -60,7 +60,7 @@ msgstr "Todennus vaaditaan, jotta järjestelmätila voidaan ladata uudelleen."
 
 #: src/core/org.freedesktop.systemd1.policy.in:74
 msgid "Dump the systemd state without rate limits"
-msgstr ""
+msgstr "Dumppaa systemd-tila ilman nopeusrajoituksia"
 
 #: src/core/org.freedesktop.systemd1.policy.in:75
 msgid "Authentication is required to dump the systemd state without rate limits."
@@ -119,6 +119,8 @@ msgstr "Todennus vaaditaan käyttäjän kotialueen salasanan vaihtamiseksi."
 #, c-format
 msgid "Home of user %s is currently absent, please plug in the necessary storage device or backing file system."
 msgstr ""
+"Käyttäjän %s kotihakemisto ei ole tällä hetkellä saatavissa, liitä "
+"tarvittava tallennuslaite tai taustatiedostojärjestelmä."
 
 #: src/home/pam_systemd_home.c:292
 #, c-format
@@ -134,133 +136,149 @@ msgstr "Salasana: "
 #: src/home/pam_systemd_home.c:306
 #, c-format
 msgid "Password incorrect or not sufficient for authentication of user %s."
-msgstr ""
+msgstr "Salasana on virheellinen tai ei riitä käyttäjän %s todentamiseen."
 
 #: src/home/pam_systemd_home.c:307
 msgid "Sorry, try again: "
-msgstr ""
+msgstr "Yritä uudelleen: "
 
 #: src/home/pam_systemd_home.c:329
 msgid "Recovery key: "
-msgstr ""
+msgstr "Palautusavain: "
 
 #: src/home/pam_systemd_home.c:331
 #, c-format
 msgid "Password/recovery key incorrect or not sufficient for authentication of user %s."
 msgstr ""
+"Salasana/palautusavain on virheellinen tai se ei riitä käyttäjän %s "
+"todentamiseen."
 
 #: src/home/pam_systemd_home.c:332
 msgid "Sorry, reenter recovery key: "
-msgstr ""
+msgstr "Anna palautusavain uudelleen: "
 
 #: src/home/pam_systemd_home.c:352
 #, c-format
 msgid "Security token of user %s not inserted."
-msgstr ""
+msgstr "Käyttäjän %s suojaustunnusta ei ole laitettu sisään."
 
 #: src/home/pam_systemd_home.c:353 src/home/pam_systemd_home.c:356
 msgid "Try again with password: "
-msgstr ""
+msgstr "Yritä uudelleen salasanalla: "
 
 #: src/home/pam_systemd_home.c:355
 #, c-format
 msgid "Password incorrect or not sufficient, and configured security token of user %s not inserted."
 msgstr ""
+"Salasana on virheellinen tai riittämätön, eikä käyttäjän %s määritettyä "
+"suojaustunnusta ei ole laitettu sisään."
 
 #: src/home/pam_systemd_home.c:376
 msgid "Security token PIN: "
-msgstr ""
+msgstr "Turvatunnuksen PIN-koodi: "
 
 #: src/home/pam_systemd_home.c:393
 #, c-format
 msgid "Please authenticate physically on security token of user %s."
-msgstr ""
+msgstr "Todenna fyysisesti käyttäjän %s suojaustunnuksella."
 
 #: src/home/pam_systemd_home.c:404
 #, c-format
 msgid "Please confirm presence on security token of user %s."
-msgstr ""
+msgstr "Vahvista käyttäjän %s suojaustunnuksen olemassaolo."
 
 #: src/home/pam_systemd_home.c:415
 #, c-format
 msgid "Please verify user on security token of user %s."
-msgstr ""
+msgstr "Vahvista käyttäjä käyttäjän %s suojaustunnuksella."
 
 #: src/home/pam_systemd_home.c:424
 msgid "Security token PIN is locked, please unlock it first. (Hint: Removal and re-insertion might suffice.)"
 msgstr ""
+"Turvatunnuksen PIN-koodi on lukittu, avaa se ensin. (Vihje: Poistaminen ja "
+"uudelleen asettaminen saattaa riittää.)"
 
 #: src/home/pam_systemd_home.c:432
 #, c-format
 msgid "Security token PIN incorrect for user %s."
-msgstr ""
+msgstr "Suojaustunnuksen PIN-koodi virheellinen käyttäjälle %s."
 
 #: src/home/pam_systemd_home.c:433 src/home/pam_systemd_home.c:452
 #: src/home/pam_systemd_home.c:471
 msgid "Sorry, retry security token PIN: "
-msgstr ""
+msgstr "Yritä uudelleen suojaustunnuksen PIN-koodi: "
 
 #: src/home/pam_systemd_home.c:451
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
 msgstr ""
+"Käyttäjän %s suojaustunnuksen PIN-koodi on virheellinen (vain muutama yritys "
+"jäljellä!)"
 
 #: src/home/pam_systemd_home.c:470
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
 msgstr ""
+"Käyttäjän %s suojaustunnuksen PIN-koodi on virheellinen (vain yksi yritys "
+"jäljellä!)"
 
 #: src/home/pam_systemd_home.c:616
 #, c-format
 msgid "Home of user %s is currently not active, please log in locally first."
 msgstr ""
+"Käyttäjän %s kotihakemisto ei ole tällä hetkellä aktiivinen, kirjaudu ensin "
+"paikallisesti sisään."
 
 #: src/home/pam_systemd_home.c:618
 #, c-format
 msgid "Home of user %s is currently locked, please unlock locally first."
 msgstr ""
+"Käyttäjän %s kotihakemisto on tällä hetkellä lukittu, avaa lukitus ensin "
+"paikallisesti."
 
 #: src/home/pam_systemd_home.c:645
 #, c-format
 msgid "Too many unsuccessful login attempts for user %s, refusing."
 msgstr ""
+"Liian monta epäonnistunutta kirjautumisyritystä käyttäjälle %s, "
+"kieltäydytään."
 
 #: src/home/pam_systemd_home.c:868
 msgid "User record is blocked, prohibiting access."
-msgstr ""
+msgstr "Käyttäjätietue on estetty, mikä estää pääsyn."
 
 #: src/home/pam_systemd_home.c:872
 msgid "User record is not valid yet, prohibiting access."
-msgstr ""
+msgstr "Käyttäjätietue ei ole vielä voimassa, mikä estää pääsyn."
 
 #: src/home/pam_systemd_home.c:876
 msgid "User record is not valid anymore, prohibiting access."
-msgstr ""
+msgstr "Käyttäjätietue ei ole enää voimassa, mikä estää pääsyn."
 
 #: src/home/pam_systemd_home.c:881 src/home/pam_systemd_home.c:932
 msgid "User record not valid, prohibiting access."
-msgstr ""
+msgstr "Käyttäjätietue ei ole voimassa, mikä estää pääsyn."
 
 #: src/home/pam_systemd_home.c:893
 #, c-format
 msgid "Too many logins, try again in %s."
-msgstr ""
+msgstr "Liian monta kirjautumista, yritä uudelleen ajassa %s."
 
 #: src/home/pam_systemd_home.c:904
 msgid "Password change required."
-msgstr ""
+msgstr "Salasanan vaihto vaaditaan."
 
 #: src/home/pam_systemd_home.c:908
 msgid "Password expired, change required."
-msgstr ""
+msgstr "Salasana vanhentunut, vaaditaan vaihto."
 
 #: src/home/pam_systemd_home.c:914
 msgid "Password is expired, but can't change, refusing login."
-msgstr ""
+msgstr "Salasana on vanhentunut, mutta ei voi vaihtaa, estetään kirjautuminen."
 
 #: src/home/pam_systemd_home.c:918
 msgid "Password will expire soon, please change."
-msgstr ""
+msgstr "Salasana vanhenee pian, vaihda se."
 
 #: src/hostname/org.freedesktop.hostname1.policy:20
 msgid "Set hostname"
