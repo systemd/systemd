@@ -18,5 +18,5 @@ executables += [
 
 if install_sysconfdir_samples
         install_data('sleep.conf',
-                     install_dir : pkgsysconfdir)
+                     install_dir : pkgconfigfiledir)
 endif

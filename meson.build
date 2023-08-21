@@ -175,6 +175,12 @@ repartdefinitionsdir = libexecdir / 'repart/definitions'
 ntpservicelistdir = prefixdir / 'lib/systemd/ntp-units.d'
 credstoredir = prefixdir / 'lib/credstore'
 
+configfiledir = get_option('configfiledir')
+if configfiledir == ''
+        configfiledir= sysconfdir
+endif
+pkgconfigfiledir = configfiledir / 'systemd'
+
 docdir = get_option('docdir')
 if docdir == ''
         docdir = datadir / 'doc/systemd'
