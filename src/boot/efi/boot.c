@@ -918,17 +918,21 @@ static bool menu_run(
                 case KEYPRESS(0, 0, 'e'):
                 case KEYPRESS(0, 0, 'E'):
                         /* only the options of configured entries can be edited */
-                        if (!config->editor || !IN_SET(config->entries[idx_highlight]->type,
-                            LOADER_EFI, LOADER_LINUX, LOADER_UNIFIED_LINUX))
+                        if (!config->editor ||
+                            !IN_SET(config->entries[idx_highlight]->type, LOADER_EFI, LOADER_LINUX, LOADER_UNIFIED_LINUX)) {
+                                status = xstrdup16(u"Entry does not support editing the command line.");
                                 break;
+                        }
 
                         /* Unified kernels that are signed as a whole will not accept command line options
                          * when secure boot is enabled unless there is none embedded in the image. Do not try
                          * to pretend we can edit it to only have it be ignored. */
                         if (config->entries[idx_highlight]->type == LOADER_UNIFIED_LINUX &&
                             secure_boot_enabled() &&
-                            config->entries[idx_highlight]->options)
+                            config->entries[idx_highlight]->options) {
+                                status = xstrdup16(u"Entry not editable in SecureBoot mode.");
                                 break;
+                        }
 
                         /* The edit line may end up on the last line of the screen. And even though we're
                          * not telling the firmware to advance the line, it still does in this one case,
