@@ -265,11 +265,11 @@ DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(varlink_state, VarlinkState);
 
 static int varlink_format_queue(Varlink *v);
 
-static inline const char *varlink_description(Varlink *v) {
+static const char *varlink_description(Varlink *v) {
         return (v ? v->description : NULL) ?: "varlink";
 }
 
-static inline const char *varlink_server_description(VarlinkServer *s) {
+static const char *varlink_server_description(VarlinkServer *s) {
         return (s ? s->description : NULL) ?: "varlink";
 }
 

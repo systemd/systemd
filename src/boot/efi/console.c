@@ -10,7 +10,7 @@
 #define VERTICAL_MAX_OK 1080
 #define VIEWPORT_RATIO 10
 
-static inline void event_closep(EFI_EVENT *event) {
+static void event_closep(EFI_EVENT *event) {
         if (!*event)
                 return;
 
