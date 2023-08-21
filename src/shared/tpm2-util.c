@@ -3554,7 +3554,8 @@ int tpm2_tpm2b_public_to_openssl_pkey(const TPM2B_PUBLIC *public, EVP_PKEY **ret
         assert(ret);
 
         const TPMT_PUBLIC *p = &public->publicArea;
-        if (p->type == TPM2_ALG_ECC) {
+        switch (p->type) {
+        case TPM2_ALG_ECC: {
                 int curve_id;
                 r = tpm2_ecc_curve_to_openssl_curve_id(p->parameters.eccDetail.curveID, &curve_id);
                 if (r < 0)
@@ -3569,8 +3570,7 @@ int tpm2_tpm2b_public_to_openssl_pkey(const TPM2B_PUBLIC *public, EVP_PKEY **ret
                                 point->y.size,
                                 ret);
         }
-
-        if (p->type == TPM2_ALG_RSA) {
+        case TPM2_ALG_RSA: {
                 /* TPM specification Part 2 ("Structures") section for TPMS_RSA_PARAMS states "An exponent of
                  * zero indicates that the exponent is the default of 2^16 + 1". */
                 uint32_t exponent = htobe32(p->parameters.rsaDetail.exponent ?: TPM2_RSA_DEFAULT_EXPONENT);
@@ -3581,9 +3581,10 @@ int tpm2_tpm2b_public_to_openssl_pkey(const TPM2B_PUBLIC *public, EVP_PKEY **ret
                                 sizeof(exponent),
                                 ret);
         }
-
-        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                               "TPM2 asymmetric algorithm 0x%" PRIx16 " not supported.", p->type);
+        default:
+                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "TPM2 asymmetric algorithm 0x%" PRIx16 " not supported.", p->type);
+        }
 }
 
 int tpm2_tpm2b_public_from_openssl_pkey(const EVP_PKEY *pkey, TPM2B_PUBLIC *ret) {
@@ -3607,7 +3608,8 @@ int tpm2_tpm2b_public_from_openssl_pkey(const EVP_PKEY *pkey, TPM2B_PUBLIC *ret)
         key_id = EVP_PKEY_id(pkey);
 #endif
 
-        if (key_id == EVP_PKEY_EC) {
+        switch (key_id) {
+        case EVP_PKEY_EC: {
                 public.type = TPM2_ALG_ECC;
 
                 int curve_id;
@@ -3637,7 +3639,10 @@ int tpm2_tpm2b_public_from_openssl_pkey(const EVP_PKEY *pkey, TPM2B_PUBLIC *ret)
                         return log_error_errno(r, "ECC key y size %zu too large.", y_size);
 
                 public.unique.ecc.y = TPM2B_ECC_PARAMETER_MAKE(y, y_size);
-        } else if (key_id == EVP_PKEY_RSA) {
+
+                break;
+        }
+        case EVP_PKEY_RSA: {
                 public.type = TPM2_ALG_RSA;
 
                 _cleanup_free_ void *n = NULL, *e = NULL;
@@ -3663,9 +3668,13 @@ int tpm2_tpm2b_public_from_openssl_pkey(const EVP_PKEY *pkey, TPM2B_PUBLIC *ret)
                 if (exponent == TPM2_RSA_DEFAULT_EXPONENT)
                         exponent = 0;
                 public.parameters.rsaDetail.exponent = exponent;
-        } else
+
+                break;
+        }
+        default:
                 return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                        "EVP_PKEY type %d not supported.", key_id);
+        }
 
         *ret = (TPM2B_PUBLIC) {
                 .size = sizeof(public),
