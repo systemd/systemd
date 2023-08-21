@@ -23,9 +23,7 @@
 #include "path-util.h"
 #include "process-util.h"
 #include "rm-rf.h"
-#if HAVE_SECCOMP
 #include "seccomp-util.h"
-#endif
 #include "service.h"
 #include "signal-util.h"
 #include "static-destruct.h"
