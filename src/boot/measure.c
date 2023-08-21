@@ -43,7 +43,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_public_key, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_phase, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_append, freep);
 
-static inline void free_sections(char*(*sections)[_UNIFIED_SECTION_MAX]) {
+static void free_sections(char*(*sections)[_UNIFIED_SECTION_MAX]) {
         for (UnifiedSection c = 0; c < _UNIFIED_SECTION_MAX; c++)
                 free((*sections)[c]);
 }

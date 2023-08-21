@@ -2437,7 +2437,7 @@ static int verity_can_reuse(
         return 0;
 }
 
-static inline char* dm_deferred_remove_clean(char *name) {
+static char* dm_deferred_remove_clean(char *name) {
         if (!name)
                 return NULL;
 

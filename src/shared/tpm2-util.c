@@ -136,7 +136,7 @@ int dlopen_tpm2(void) {
                         DLSYM_ARG(Tss2_MU_TPMT_PUBLIC_Marshal));
 }
 
-static inline void Esys_Freep(void *p) {
+static void Esys_Freep(void *p) {
         if (*(void**) p)
                 sym_Esys_Free(*(void**) p);
 }
@@ -466,14 +466,14 @@ bool tpm2_test_parms(Tpm2Context *c, TPMI_ALG_PUBLIC alg, const TPMU_PUBLIC_PARM
         return rc == TSS2_RC_SUCCESS;
 }
 
-static inline bool tpm2_supports_tpmt_public(Tpm2Context *c, const TPMT_PUBLIC *public) {
+static bool tpm2_supports_tpmt_public(Tpm2Context *c, const TPMT_PUBLIC *public) {
         assert(c);
         assert(public);
 
         return tpm2_test_parms(c, public->type, &public->parameters);
 }
 
-static inline bool tpm2_supports_tpmt_sym_def_object(Tpm2Context *c, const TPMT_SYM_DEF_OBJECT *parameters) {
+static bool tpm2_supports_tpmt_sym_def_object(Tpm2Context *c, const TPMT_SYM_DEF_OBJECT *parameters) {
         assert(c);
         assert(parameters);
 
@@ -484,7 +484,7 @@ static inline bool tpm2_supports_tpmt_sym_def_object(Tpm2Context *c, const TPMT_
         return tpm2_test_parms(c, TPM2_ALG_SYMCIPHER, &parms);
 }
 
-static inline bool tpm2_supports_tpmt_sym_def(Tpm2Context *c, const TPMT_SYM_DEF *parameters) {
+static bool tpm2_supports_tpmt_sym_def(Tpm2Context *c, const TPMT_SYM_DEF *parameters) {
         assert(c);
         assert(parameters);
 

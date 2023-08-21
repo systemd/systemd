@@ -663,7 +663,7 @@ TEST(json_append) {
         assert_se(json_variant_equal(v, w));
 }
 
-static inline void json_array_append_with_source_one(bool source) {
+static void json_array_append_with_source_one(bool source) {
         _cleanup_(json_variant_unrefp) JsonVariant *a, *b;
 
         /* Parse two sources, each with a different name and line/column numbers */

@@ -33,7 +33,7 @@ int bus_property_get_triggered_unit(
 BUS_DEFINE_SET_TRANSIENT(mode_t, "u", uint32_t, mode_t, "%04o");
 BUS_DEFINE_SET_TRANSIENT(unsigned, "u", uint32_t, unsigned, "%" PRIu32);
 
-static inline bool valid_user_group_name_or_id_relaxed(const char *u) {
+static bool valid_user_group_name_or_id_relaxed(const char *u) {
         return valid_user_group_name(u, VALID_USER_ALLOW_NUMERIC|VALID_USER_RELAX);
 }
 

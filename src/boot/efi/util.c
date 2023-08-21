@@ -564,13 +564,13 @@ __attribute__((noinline)) void notify_debugger(const char *identity, volatile bo
 }
 
 #if defined(__i386__) || defined(__x86_64__)
-static inline uint8_t inb(uint16_t port) {
+static uint8_t inb(uint16_t port) {
         uint8_t value;
         asm volatile("inb %1, %0" : "=a"(value) : "Nd"(port));
         return value;
 }
 
-static inline void outb(uint16_t port, uint8_t value) {
+static void outb(uint16_t port, uint8_t value) {
         asm volatile("outb %0, %1" : : "a"(value), "Nd"(port));
 }
 

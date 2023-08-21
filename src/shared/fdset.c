@@ -24,7 +24,7 @@ FDSet *fdset_new(void) {
         return MAKE_FDSET(set_new(NULL));
 }
 
-static inline void fdset_shallow_freep(FDSet **s) {
+static void fdset_shallow_freep(FDSet **s) {
         /* Destroys the set, but does not free the fds inside, like fdset_free()! */
         set_free(MAKE_SET(*ASSERT_PTR(s)));
 }
