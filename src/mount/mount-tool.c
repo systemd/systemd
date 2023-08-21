@@ -391,15 +391,12 @@ static int parse_argv(int argc, char *argv[]) {
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "At least one argument required.");
 
-                if (arg_transport != BUS_TRANSPORT_LOCAL) {
-                        int i;
-
-                        for (i = optind; i < argc; i++)
-                                if (!path_is_absolute(argv[i]) )
+                if (arg_transport != BUS_TRANSPORT_LOCAL)
+                        for (int i = optind; i < argc; i++)
+                                if (!path_is_absolute(argv[i]))
                                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                                "Path must be absolute when operating remotely: %s",
                                                                argv[i]);
-                }
         } else {
                 if (optind >= argc)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -1028,10 +1025,10 @@ static int action_umount(
                 int argc,
                 char **argv) {
 
-        int i, r, r2 = 0;
+        int r, r2 = 0;
 
         if (arg_transport != BUS_TRANSPORT_LOCAL) {
-                for (i = optind; i < argc; i++) {
+                for (int i = optind; i < argc; i++) {
                         _cleanup_free_ char *p = NULL;
 
                         p = strdup(argv[i]);
@@ -1047,7 +1044,7 @@ static int action_umount(
                 return r2;
         }
 
-        for (i = optind; i < argc; i++) {
+        for (int i = optind; i < argc; i++) {
                 _cleanup_free_ char *u = NULL, *p = NULL;
                 struct stat st;
 
@@ -1411,7 +1408,6 @@ enum {
 static int list_devices(void) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         _cleanup_(table_unrefp) Table *table = NULL;
-        unsigned c;
         int r;
 
         r = sd_device_enumerator_new(&e);
@@ -1440,7 +1436,7 @@ static int list_devices(void) {
         table_set_header(table, arg_legend);
 
         FOREACH_DEVICE(e, d) {
-                for (c = 0; c < _COLUMN_MAX; c++) {
+                for (unsigned c = 0; c < _COLUMN_MAX; c++) {
                         const char *x = NULL;
 
                         switch (c) {
