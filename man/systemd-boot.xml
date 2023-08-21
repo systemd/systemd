@@ -192,6 +192,16 @@
         may also be reached with <keycap>F2</keycap>, <keycap>F10</keycap>, <keycap>Del</keycap> and
         <keycap>Esc</keycap>.</para></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><keycombo><keycap>Shift</keycap><keycap>o</keycap></keycombo></term>
+        <listitem><para>Power off the system.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><keycombo><keycap>Shift</keycap><keycap>b</keycap></keycombo></term>
+        <listitem><para>Reboot the system.</para></listitem>
+      </varlistentry>
     </variablelist>
 
     <para>The following keys may be pressed during bootup or in the boot menu to directly boot a specific
