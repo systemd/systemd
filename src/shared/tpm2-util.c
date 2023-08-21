@@ -3663,7 +3663,7 @@ int tpm2_tpm2b_public_from_openssl_pkey(const EVP_PKEY *pkey, TPM2B_PUBLIC *ret)
                                                "RSA key e size %zu too large.", e_size);
 
                 uint32_t exponent = 0;
-                memcpy((void*) &exponent, e, e_size);
+                memcpy(&exponent, e, e_size);
                 exponent = be32toh(exponent) >> (32 - e_size * 8);
                 if (exponent == TPM2_RSA_DEFAULT_EXPONENT)
                         exponent = 0;
