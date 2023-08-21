@@ -163,7 +163,7 @@ int enroll_tpm2(struct crypt_device *cd,
         assert(cd);
         assert(volume_key);
         assert(volume_key_size > 0);
-        assert(TPM2_PCR_VALUES_VALID(hash_pcr_values, n_hash_pcr_values));
+        assert(tpm2_pcr_values_valid(hash_pcr_values, n_hash_pcr_values));
         assert(TPM2_PCR_MASK_VALID(pubkey_pcr_mask));
 
         assert_se(node = crypt_get_device_name(cd));
