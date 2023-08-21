@@ -174,13 +174,17 @@
         <varlistentry>
           <term><constant>-EINVAL</constant></term>
 
-          <listitem><para>A specified parameter is invalid.</para></listitem>
+          <listitem><para>A specified parameter is invalid.</para>
+
+          <para>Added in version 251.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-ENOENT</constant></term>
 
-          <listitem><para>The requested field is not present in the device record.</para></listitem>
+          <listitem><para>The requested field is not present in the device record.</para>
+
+          <para>Added in version 251.</para></listitem>
         </varlistentry>
 
       </variablelist>

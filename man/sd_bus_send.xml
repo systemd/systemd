@@ -104,47 +104,61 @@
           <term><constant>-EINVAL</constant></term>
 
           <listitem><para>The input parameter <parameter>m</parameter> is <constant>NULL</constant>.
-          </para></listitem>
+          </para>
+
+          <para>Added in version 246.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-EOPNOTSUPP</constant></term>
 
           <listitem><para>The bus connection does not support sending file descriptors.
-          </para></listitem>
+          </para>
+
+          <para>Added in version 246.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-ECHILD</constant></term>
 
           <listitem><para>The bus connection was allocated in a parent process and is being reused in a child
-          process after <function>fork()</function>.</para></listitem>
+          process after <function>fork()</function>.</para>
+
+          <para>Added in version 246.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-ENOBUFS</constant></term>
 
-          <listitem><para>The bus connection's write queue is full.</para></listitem>
+          <listitem><para>The bus connection's write queue is full.</para>
+
+          <para>Added in version 246.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-ENOTCONN</constant></term>
 
           <listitem><para>The input parameter <parameter>bus</parameter> is
-          <constant>NULL</constant> or the bus is not connected.</para></listitem>
+          <constant>NULL</constant> or the bus is not connected.</para>
+
+          <para>Added in version 246.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-ECONNRESET</constant></term>
 
           <listitem><para>The bus connection was closed while waiting for the response.
-          </para></listitem>
+          </para>
+
+          <para>Added in version 246.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-ENOMEM</constant></term>
 
-          <listitem><para>Memory allocation failed.</para></listitem>
+          <listitem><para>Memory allocation failed.</para>
+
+          <para>Added in version 246.</para></listitem>
         </varlistentry>
       </variablelist>
     </refsect2>

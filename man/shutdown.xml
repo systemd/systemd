@@ -122,7 +122,9 @@
         <term><option>--show</option></term>
 
         <listitem><para>Show a pending shutdown action and time if
-        there is any.</para></listitem>
+        there is any.</para>
+
+        <para>Added in version 250.</para></listitem>
       </varlistentry>
 
     </variablelist>

@@ -91,26 +91,34 @@
           <term><constant>-EINVAL</constant></term>
 
           <listitem><para>The message <parameter>m</parameter> or an output parameter is
-          <constant>NULL</constant>.</para></listitem>
+          <constant>NULL</constant>.</para>
+
+          <para>Added in version 246.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-ENOTCONN</constant></term>
 
-          <listitem><para>The bus of <parameter>m</parameter> is not connected.</para></listitem>
+          <listitem><para>The bus of <parameter>m</parameter> is not connected.</para>
+
+          <para>Added in version 246.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-ECHILD</constant></term>
 
           <listitem><para>The bus of <parameter>m</parameter> was created in a different process, library or module instance.
-          </para></listitem>
+          </para>
+
+          <para>Added in version 246.</para></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-EPERM</constant></term>
 
-          <listitem><para>The message <parameter>m</parameter> is not sealed.</para></listitem>
+          <listitem><para>The message <parameter>m</parameter> is not sealed.</para>
+
+          <para>Added in version 246.</para></listitem>
         </varlistentry>
       </variablelist>
     </refsect2>
