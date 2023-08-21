@@ -1618,6 +1618,13 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>HopLimit=</varname></term>
+        <listitem>
+          <para> Configures per route hop limit. See also <varname>IPv6HopLimit=</varname>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>Protocol=</varname></term>
         <listitem>
           <para>The protocol identifier for the route. Takes a number between 0 and 255 or the special
@@ -2642,6 +2649,14 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         <listitem>
           <para>Takes a boolean. When true, the hop limit received in the Router Advertisement will be set to routes
           configured based on the advertisement. See also <varname>IPv6HopLimit=</varname>. Defaults to true.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>UseICMP6RateLimit=</varname></term>
+        <listitem>
+          <para>Takes a boolean. When true, the ICMP6 rate limit received in the Router Advertisement will be set to ICMP6
+          rate limit based on the advertisement. Defaults to true.</para>
         </listitem>
       </varlistentry>
 
