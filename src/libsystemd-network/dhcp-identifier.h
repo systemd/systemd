@@ -19,6 +19,7 @@ typedef enum DUIDType {
         DUID_TYPE_UUID      = 4,
         _DUID_TYPE_MAX,
         _DUID_TYPE_INVALID  = -EINVAL,
+        _DUID_TYPE_FORCE_U16 = UINT16_MAX,
 } DUIDType;
 
 /* RFC 3315 section 9.1:

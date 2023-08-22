@@ -1154,9 +1154,17 @@ int config_parse_duid_type(
 
         type = duid_type_from_string(type_string);
         if (type < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, type,
-                           "Failed to parse DUID type '%s', ignoring.", type_string);
-                return 0;
+                uint16_t t;
+
+                r = safe_atou16(type_string, &t);
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Failed to parse DUID type '%s', ignoring.", type_string);
+                        return 0;
+                }
+
+                type = t;
+                assert(type == t); /* Check if type can store uint16_t. */
         }
 
         if (!isempty(p)) {

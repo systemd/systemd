@@ -127,7 +127,7 @@
         <ulink url="https://tools.ietf.org/html/rfc3315#section-9">RFC 3315</ulink>
         for a description of all the options.</para>
 
-        <para>The following values are understood:
+        <para>This takes an integer in the range 0…65535, or one of the following string values:
         <variablelist>
           <varlistentry>
             <term><option>vendor</option></term>
