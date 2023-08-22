@@ -57,13 +57,23 @@ struct duid {
 } _packed_;
 
 int dhcp_validate_duid_len(DUIDType duid_type, size_t duid_len, bool strict);
-int dhcp_identifier_set_duid_en(bool test_mode, struct duid *ret_duid, size_t *ret_len);
-int dhcp_identifier_set_duid(
-                DUIDType duid_type,
+int dhcp_identifier_set_duid_llt(
                 const struct hw_addr_data *hw_addr,
                 uint16_t arp_type,
-                usec_t llt_time,
-                bool test_mode,
+                usec_t t,
+                struct duid *ret_duid,
+                size_t *ret_len);
+int dhcp_identifier_set_duid_ll(
+                const struct hw_addr_data *hw_addr,
+                uint16_t arp_type,
+                struct duid *ret_duid,
+                size_t *ret_len);
+int dhcp_identifier_set_duid_en(bool test_mode, struct duid *ret_duid, size_t *ret_len);
+int dhcp_identifier_set_duid_uuid(struct duid *ret_duid, size_t *ret_len);
+int dhcp_identifier_set_duid_raw(
+                DUIDType duid_type,
+                const uint8_t *buf,
+                size_t buf_len,
                 struct duid *ret_duid,
                 size_t *ret_len);
 int dhcp_identifier_set_iaid(
