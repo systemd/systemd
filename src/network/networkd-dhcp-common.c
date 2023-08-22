@@ -1243,7 +1243,7 @@ int config_parse_duid_rawdata(
                 void *data,
                 void *userdata) {
 
-        uint8_t raw_data[MAX_DUID_LEN];
+        uint8_t raw_data[MAX_DUID_DATA_LEN];
         unsigned count = 0;
         bool force = ltype;
         DUID *duid = ASSERT_PTR(data);
@@ -1271,7 +1271,7 @@ int config_parse_duid_rawdata(
                 if (r == 0)
                         break;
 
-                if (count >= MAX_DUID_LEN) {
+                if (count >= MAX_DUID_DATA_LEN) {
                         log_syntax(unit, LOG_WARNING, filename, line, 0, "Max DUID length exceeded, ignoring assignment: %s.", rvalue);
                         return 0;
                 }

@@ -157,7 +157,7 @@ int dhcp_identifier_set_duid_raw(
         if (duid_type < 0 || duid_type > UINT16_MAX)
                 return -EINVAL;
 
-        if (buf_len > MAX_DUID_LEN)
+        if (buf_len > MAX_DUID_DATA_LEN)
                 return -EINVAL;
 
         unaligned_write_be16(&ret_duid->type, duid_type);
