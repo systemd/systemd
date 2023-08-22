@@ -223,7 +223,7 @@ static int need_reload(void) {
 }
 
 static int daemon_reload(void) {
-        sd_bus *bus;
+         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
         r = bus_connect_system_systemd(&bus);
