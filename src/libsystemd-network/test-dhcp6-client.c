@@ -428,7 +428,7 @@ TEST(client_parse_message_issue_22099) {
 
         assert_se(sd_dhcp6_client_new(&client) >= 0);
         assert_se(sd_dhcp6_client_set_iaid(client, 0xcc59117b) >= 0);
-        assert_se(sd_dhcp6_client_set_duid(client, 2, duid, sizeof(duid)) >= 0);
+        assert_se(sd_dhcp6_client_set_duid_raw(client, 2, duid, sizeof(duid)) >= 0);
 
         assert_se(dhcp6_lease_new_from_message(client, (const DHCP6Message*) msg, sizeof(msg), NULL, NULL, &lease) >= 0);
 }
@@ -472,7 +472,7 @@ TEST(client_parse_message_issue_24002) {
 
         assert_se(sd_dhcp6_client_new(&client) >= 0);
         assert_se(sd_dhcp6_client_set_iaid(client, 0xaabbccdd) >= 0);
-        assert_se(sd_dhcp6_client_set_duid(client, 2, duid, sizeof(duid)) >= 0);
+        assert_se(sd_dhcp6_client_set_duid_raw(client, 2, duid, sizeof(duid)) >= 0);
 
         assert_se(dhcp6_lease_new_from_message(client, (const DHCP6Message*) msg, sizeof(msg), NULL, NULL, &lease) >= 0);
 }
