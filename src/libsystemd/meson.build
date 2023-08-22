@@ -92,6 +92,7 @@ libsystemd_sources = files(
         'sd-device/device-private.c',
         'sd-device/device-util.c',
         'sd-device/sd-device.c',
+        'sd-gpt/sd-gpt.c',
         'sd-hwdb/sd-hwdb.c',
         'sd-netlink/netlink-genl.c',
         'sd-netlink/netlink-message-nfnl.c',

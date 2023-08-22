@@ -27,7 +27,9 @@ SUBSYSTEM=="block", ENV{DM_UUID}=="CRYPT-*", ENV{ID_PART_TABLE_TYPE}=="", ENV{ID
 # Explicitly set SYSTEMD_READY=1 for DM devices that don't have it set yet, so that we always have something to import above
 SUBSYSTEM=="block", ENV{DM_UUID}=="?*", ENV{SYSTEMD_READY}=="", ENV{SYSTEMD_READY}="1"
 
-# add symlink to GPT root disk
+# Add a stable symlink for the disk that we're booting from
+SUBSYSTEM=="block", ENV{ID_BOOT_DISK}=="1", SYMLINK+="boot-disk"
+# Symlinks used by gpt-auto-generator
 SUBSYSTEM=="block", ENV{ID_PART_GPT_AUTO_ROOT}=="1", ENV{ID_FS_TYPE}!="crypto_LUKS", SYMLINK+="gpt-auto-root"
 SUBSYSTEM=="block", ENV{ID_PART_GPT_AUTO_ROOT}=="1", ENV{ID_FS_TYPE}=="crypto_LUKS", SYMLINK+="gpt-auto-root-luks"
 SUBSYSTEM=="block", ENV{DM_UUID}=="CRYPT-*", ENV{DM_NAME}=="root", SYMLINK+="gpt-auto-root"

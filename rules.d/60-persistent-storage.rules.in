@@ -161,6 +161,17 @@ ENV{ID_PART_ENTRY_SCHEME}=="gpt", ENV{ID_PART_ENTRY_NAME}=="?*", SYMLINK+="disk/
 # the right device, to access specific disks in a race-free fashion)
 ENV{DISKSEQ}=="?*", ENV{ID_IGNORE_DISKSEQ}!="1", SYMLINK+="disk/by-diskseq/$env{DISKSEQ}$env{.PART_SUFFIX}"
 
+# by-parttype links (Discoverable Partitions Spec)
+ENV{ID_PART_ENTRY_SCHEME}=="gpt", ENV{ID_BOOT_DISK}=="1", ENV{ID_FS_USAGE}=="filesystem|other|crypto", GOTO="persistent_storage_by_parttype_start"
+GOTO="persistent_storage_by_parttype_end"
+LABEL="persistent_storage_by_parttype_start"
+ENV{ID_PART_ENTRY_NAME}=="?*", ENV{.PART_NAME}="$env{ID_PART_ENTRY_NAME}"
+ENV{.PART_NAME}=="", ENV{ID_FS_LABEL_ENC}=="?*", ENV{.PART_NAME}="$env{ID_FS_LABEL_ENC}"
+ENV{.PART_NAME}=="", ENV{ID_PART_ENTRY_UUID}=="?*", ENV{.PART_NAME}="$env{ID_PART_ENTRY_UUID}"
+ENV{.PART_NAME}=="", GOTO="persistent_storage_by_parttype_end"
+ENV{ID_PART_ENTRY_TYPE}=="?*", SYMLINK+="disk/by-parttype/$env{ID_PART_ENTRY_TYPE}/$env{.PART_NAME}"
+LABEL="persistent_storage_by_parttype_end"
+
 # Create symlinks that allow referencing loopback devices by their backing file's inode number
 ENV{ID_LOOP_BACKING_DEVICE}!="", ENV{ID_LOOP_BACKING_INODE}!="", SYMLINK+="disk/by-loop-inode/$env{ID_LOOP_BACKING_DEVICE}-$env{ID_LOOP_BACKING_INODE}$env{.PART_SUFFIX}"
 

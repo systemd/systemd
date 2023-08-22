@@ -77,7 +77,6 @@ shared_sources = files(
         'fstab-util.c',
         'generator.c',
         'geneve-util.c',
-        'gpt.c',
         'group-record.c',
         'hostname-setup.c',
         'hwdb-util.c',

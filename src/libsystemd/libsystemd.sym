@@ -828,3 +828,7 @@ global:
         sd_journal_step_one;
         sd_session_get_leader;
 } LIBSYSTEMD_253;
+
+LIBSYSTEMD_255 {
+        sd_gpt_uuid_from_name;
+} LIBSYSTEMD_254;
