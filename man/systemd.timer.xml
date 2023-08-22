@@ -218,7 +218,9 @@
         the system was continuously sleeping the timer will only result in a single service activation. If
         <varname>WakeSystem=</varname> (see below) is enabled a calendar time event elapsing while the system
         is suspended will cause the system to wake up (under the condition the system's hardware supports
-        time-triggered wake-up functionality).</para></listitem>
+        time-triggered wake-up functionality).</para>
+
+        <xi:include href="version-info.xml" xpointer="v197"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -252,7 +254,9 @@
         wake-ups. It should not be confused with <varname>RandomizedDelaySec=</varname> (see below) which
         adds a random value to the time the timer shall elapse next and whose purpose is the opposite: to
         stretch elapsing of timer events over a longer period to reduce workload spikes. For further details
-        and explanations and how both settings play together, see below.</para></listitem>
+        and explanations and how both settings play together, see below.</para>
+
+        <xi:include href="version-info.xml" xpointer="v209"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -278,7 +282,9 @@
         <varname>RandomizedDelaySec=</varname> to 0, thus encouraging coalescing of timer events. In order to
         optimally stretch timer events over a certain range of time, set
         <varname>AccuracySec=1us</varname> and <varname>RandomizedDelaySec=</varname> to some higher value.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v229"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -292,7 +298,9 @@
         other similarly configured timers.</para>
 
         <para>This setting has no effect if <varname>RandomizedDelaySec=</varname> is set to 0. Defaults to
-        <option>false</option>.</para></listitem>
+        <option>false</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v247"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -303,7 +311,9 @@
         when the system clock (<constant>CLOCK_REALTIME</constant>) jumps relative to the monotonic clock
         (<constant>CLOCK_MONOTONIC</constant>), or when the local system timezone is modified. These options
         can be used alone or in combination with other timer expressions (see above) within the same timer
-        unit. These options default to <option>false</option>.</para></listitem>
+        unit. These options default to <option>false</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v242"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -334,7 +344,9 @@
         file maintained by this option from disk. In particular, use this command before uninstalling a timer
         unit. See
         <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
-        details.</para></listitem>
+        details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v212"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -356,7 +368,9 @@
         (<constant>CLOCK_MONOTONIC</constant>), if true a different monotonic clock is used that continues
         advancing during system suspend (<constant>CLOCK_BOOTTIME</constant>), see
         <citerefentry><refentrytitle>clock_getres</refentrytitle><manvolnum>2</manvolnum></citerefentry> for
-        details.</para></listitem>
+        details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v212"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -370,7 +384,9 @@
         <varname>RemainAfterElapse=</varname> is on, starting the timer a second time has no effect. However,
         if <varname>RemainAfterElapse=</varname> is off and the timer unit was already unloaded, it can be
         started again, and thus the service can be triggered multiple times. Defaults to
-        <option>true</option>.</para></listitem>
+        <option>true</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v229"/></listitem>
       </varlistentry>
     </variablelist>
 

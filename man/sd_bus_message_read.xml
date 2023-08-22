@@ -185,7 +185,9 @@
           <term><constant>-EBUSY</constant></term>
 
           <listitem><para>When reading from a container, this error will be returned if unread elements
-          are left in the container.</para></listitem>
+          are left in the container.</para>
+
+          <xi:include href="version-info.xml" xpointer="v251"/></listitem>
         </varlistentry>
       </variablelist>
     </refsect2>

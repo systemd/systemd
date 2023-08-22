@@ -69,7 +69,9 @@
         <listitem><para>
         Allow the use of discard (TRIM) requests for the device.
         This option is available since the Linux kernel version 5.7.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -83,7 +85,9 @@
         <ulink url="https://docs.kernel.org/admin-guide/device-mapper/dm-integrity.html">the dm-integrity documentation</ulink>.
         Note that without a journal, if there is a crash, it is possible that the integrity tags and data will not match. If used, the journal-*
         options below will have no effect if passed.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -92,7 +96,9 @@
         <listitem><para>
         Journal watermark in percent. When the journal percentage exceeds this watermark, the journal flush will be started.  Setting a value of
         "0%" uses default value.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -101,7 +107,9 @@
         <listitem><para>
         Commit time in milliseconds. When this time passes (and no explicit flush operation was issued), the journal is written.  Setting a value of
         zero uses default value.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -111,7 +119,9 @@
         Specify a separate block device that contains existing data. The second field specified in the
         integritytab for block device then will contain calculated integrity tags and journal for data-device,
         but not the end user data.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -119,7 +129,9 @@
 
         <listitem><para>
         The algorithm used for integrity checking.  The default is crc32c. Must match option used during format.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
     </variablelist>
 

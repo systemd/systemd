@@ -803,59 +803,83 @@ node /org/freedesktop/resolve1/link/_1 {
 
     <variablelist>
       <varlistentry><term><constant>org.freedesktop.resolve1.NoNameServers</constant></term>
-      <listitem><para>No suitable DNS servers were found to resolve a request.</para></listitem>
+      <listitem><para>No suitable DNS servers were found to resolve a request.</para>
+
+      <xi:include href="version-info.xml" xpointer="v246"/></listitem>
       </varlistentry>
 
       <varlistentry><term><constant>org.freedesktop.resolve1.InvalidReply</constant></term>
-      <listitem><para>A response from the selected DNS server was not understood.</para></listitem>
+      <listitem><para>A response from the selected DNS server was not understood.</para>
+
+      <xi:include href="version-info.xml" xpointer="v246"/></listitem>
       </varlistentry>
 
       <varlistentry><term><constant>org.freedesktop.resolve1.NoSuchRR</constant></term>
       <listitem><para>The requested name exists, but there is no resource record of the requested type for
-      it. (This is the DNS NODATA case).</para></listitem></varlistentry>
+      it. (This is the DNS NODATA case).</para>
+
+      <xi:include href="version-info.xml" xpointer="v246"/></listitem></varlistentry>
 
       <varlistentry><term><constant>org.freedesktop.resolve1.CNameLoop</constant></term>
-      <listitem><para>The look-up failed because a CNAME or DNAME loop was detected.</para></listitem>
+      <listitem><para>The look-up failed because a CNAME or DNAME loop was detected.</para>
+
+      <xi:include href="version-info.xml" xpointer="v246"/></listitem>
       </varlistentry>
 
       <varlistentry><term><constant>org.freedesktop.resolve1.Aborted</constant></term>
       <listitem><para>The look-up was aborted because the selected protocol became unavailable while the
-      operation was ongoing.</para></listitem>
+      operation was ongoing.</para>
+
+      <xi:include href="version-info.xml" xpointer="v246"/></listitem>
       </varlistentry>
 
       <varlistentry><term><constant>org.freedesktop.resolve1.NoSuchService</constant></term>
       <listitem><para>A service look-up was successful, but the <constant class="dns">SRV</constant> record
-      reported that the service is not available.</para></listitem></varlistentry>
+      reported that the service is not available.</para>
+
+      <xi:include href="version-info.xml" xpointer="v246"/></listitem></varlistentry>
 
       <varlistentry><term><constant>org.freedesktop.resolve1.DnssecFailed</constant></term>
-      <listitem><para>The acquired response did not pass DNSSEC validation.</para></listitem>
+      <listitem><para>The acquired response did not pass DNSSEC validation.</para>
+
+      <xi:include href="version-info.xml" xpointer="v246"/></listitem>
       </varlistentry>
 
       <varlistentry><term><constant>org.freedesktop.resolve1.NoTrustAnchor</constant></term>
       <listitem><para>No chain of trust could be established for the response to a configured DNSSEC trust
-      anchor.</para></listitem>
+      anchor.</para>
+
+      <xi:include href="version-info.xml" xpointer="v246"/></listitem>
       </varlistentry>
 
       <varlistentry><term><constant>org.freedesktop.resolve1.ResourceRecordTypeUnsupported</constant></term>
       <listitem><para>The requested resource record type is not supported on the selected DNS servers. This
       error is generated for example when an RRSIG record is requested from a DNS server that does not
-      support DNSSEC.</para></listitem>
+      support DNSSEC.</para>
+
+      <xi:include href="version-info.xml" xpointer="v246"/></listitem>
 
       </varlistentry>
 
       <varlistentry><term><constant>org.freedesktop.resolve1.NoSuchLink</constant></term>
       <listitem><para>No network interface with the specified network interface index exists.
-      </para></listitem></varlistentry>
+      </para>
+
+      <xi:include href="version-info.xml" xpointer="v246"/></listitem></varlistentry>
 
       <varlistentry><term><constant>org.freedesktop.resolve1.LinkBusy</constant></term>
       <listitem><para>The requested configuration change could not be made because
       <citerefentry><refentrytitle>systemd-networkd</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-      already took possession of the interface and supplied configuration data for it.</para></listitem>
+      already took possession of the interface and supplied configuration data for it.</para>
+
+      <xi:include href="version-info.xml" xpointer="v246"/></listitem>
       </varlistentry>
 
       <varlistentry><term><constant>org.freedesktop.resolve1.NetworkDown</constant></term>
       <listitem><para>The requested look-up failed because the system is currently not connected to any
-      suitable network.</para></listitem></varlistentry>
+      suitable network.</para>
+
+      <xi:include href="version-info.xml" xpointer="v246"/></listitem></varlistentry>
 
       <varlistentry><term><constant>org.freedesktop.resolve1.DnsError.NXDOMAIN</constant></term>
       <term><constant>org.freedesktop.resolve1.DnsError.REFUSED</constant></term>
@@ -863,7 +887,9 @@ node /org/freedesktop/resolve1/link/_1 {
       <listitem><para>The look-up failed with a DNS return code reporting a failure. The error names used as
       suffixes here are defined in by IANA in
       <ulink url="https://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml#dns-parameters-6">DNS RCODEs</ulink>.
-      </para></listitem>
+      </para>
+
+      <xi:include href="version-info.xml" xpointer="v246"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>

@@ -116,7 +116,9 @@
         <option>--iterations=</option> is exhausted or until killed.
         This mode could be useful for sending output from
         <command>systemd-cgtop</command> to other programs or to a
-        file.</para></listitem>
+        file.</para>
+
+        <xi:include href="version-info.xml" xpointer="v188"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -125,7 +127,9 @@
 
         <listitem><para>Format byte counts (as in memory usage and I/O metrics) and CPU time
         with raw numeric values rather than human-readable
-        numbers.</para></listitem>
+        numbers.</para>
+
+        <xi:include href="version-info.xml" xpointer="v221"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -135,7 +139,9 @@
         <listitem><para>Controls whether the CPU usage is shown as
         percentage or time. By default, the CPU usage is shown as
         percentage. This setting may also be toggled at runtime by
-        pressing the <keycap>%</keycap> key.</para></listitem>
+        pressing the <keycap>%</keycap> key.</para>
+
+        <xi:include href="version-info.xml" xpointer="v226"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -149,7 +155,9 @@
         threads it consists of. This setting may also be toggled at
         runtime by pressing the <keycap>P</keycap> key. This option
         may not be combined with
-        <option>-k</option>.</para></listitem>
+        <option>-k</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v227"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -163,7 +171,9 @@
         regardless how many threads it consists of. This setting may
         also be toggled at runtime by pressing the <keycap>k</keycap>
         key. This option may not be combined with
-        <option>-P</option>.</para></listitem>
+        <option>-P</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v226"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -180,7 +190,9 @@
         only applies to process counting, i.e. when the
         <option>-P</option> or <option>-k</option> options are
         used. It has not effect if all tasks are counted, in which
-        case the counting is always recursive.</para></listitem>
+        case the counting is always recursive.</para>
+
+        <xi:include href="version-info.xml" xpointer="v226"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -189,13 +201,17 @@
 
         <listitem><para>Perform only this many iterations. A value of
         0 indicates that the program should run
-        indefinitely.</para></listitem>
+        indefinitely.</para>
+
+        <xi:include href="version-info.xml" xpointer="v188"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>-1</option></term>
 
-        <listitem><para>A shortcut for <option>--iterations=1</option>.</para></listitem>
+        <listitem><para>A shortcut for <option>--iterations=1</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v238"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -228,7 +244,9 @@
         <listitem><para>Limit control groups shown to the part
         corresponding to the container
         <replaceable>MACHINE</replaceable>.
-        This option may not be used when a control group path is specified.</para></listitem>
+        This option may not be used when a control group path is specified.</para>
+
+        <xi:include href="version-info.xml" xpointer="v227"/></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="help" />
@@ -253,7 +271,9 @@
       <varlistentry>
         <term><keycap function="space"/></term>
 
-        <listitem><para>Immediately refresh output.</para></listitem>
+        <listitem><para>Immediately refresh output.</para>
+
+        <xi:include href="version-info.xml" xpointer="v226"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -281,7 +301,9 @@
 
         <listitem><para>Toggle between showing CPU time as time or
         percentage. This setting may also be controlled using the
-        <option>--cpu=</option> command line switch.</para></listitem>
+        <option>--cpu=</option> command line switch.</para>
+
+        <xi:include href="version-info.xml" xpointer="v201"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -300,7 +322,9 @@
         <listitem><para>Toggle between counting all tasks, or only
         userspace processes. This setting may also be controlled using
         the <option>-P</option> command line switch (see
-        above).</para></listitem>
+        above).</para>
+
+        <xi:include href="version-info.xml" xpointer="v227"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -309,7 +333,9 @@
         <listitem><para>Toggle between counting all tasks, or only
         userspace processes and kernel threads. This setting may also
         be controlled using the <option>-k</option> command line
-        switch (see above).</para></listitem>
+        switch (see above).</para>
+
+        <xi:include href="version-info.xml" xpointer="v226"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -322,7 +348,9 @@
         not available if all tasks are counted, it is only available
         if processes are counted, as enabled with the
         <keycap>P</keycap> or <keycap>k</keycap>
-        keys.</para></listitem>
+        keys.</para>
+
+        <xi:include href="version-info.xml" xpointer="v226"/></listitem>
       </varlistentry>
 
     </variablelist>

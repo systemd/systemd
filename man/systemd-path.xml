@@ -54,7 +54,9 @@
       <varlistentry>
         <term><option>--suffix=</option></term>
 
-        <listitem><para>Printed paths are suffixed by the specified string.</para></listitem>
+        <listitem><para>Printed paths are suffixed by the specified string.</para>
+
+        <xi:include href="version-info.xml" xpointer="v215"/></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="help" />
