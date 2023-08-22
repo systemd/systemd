@@ -35,17 +35,17 @@ struct duid {
                         /* DUID_TYPE_LLT */
                         be16_t htype;
                         be32_t time;
-                        uint8_t haddr[0];
+                        uint8_t haddr[];
                 } _packed_ llt;
                 struct {
                         /* DUID_TYPE_EN */
                         be32_t pen;
-                        uint8_t id[8];
+                        uint8_t id[];
                 } _packed_ en;
                 struct {
                         /* DUID_TYPE_LL */
                         be16_t htype;
-                        uint8_t haddr[0];
+                        uint8_t haddr[];
                 } _packed_ ll;
                 struct {
                         /* DUID_TYPE_UUID */
