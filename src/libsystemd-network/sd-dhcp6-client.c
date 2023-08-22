@@ -212,14 +212,10 @@ static int dhcp6_client_set_duid_internal(
                         log_dhcp6_client(client, "Using DUID of type %i of incorrect length, proceeding.", duid_type);
                 }
 
-                if (duid_type == DUID_TYPE_CUSTOM) {
-                        memcpy(&client->duid, duid, duid_len);
-                        client->duid_len = duid_len;
-                } else {
-                        client->duid.type = htobe16(duid_type);
-                        memcpy(&client->duid.raw.data, duid, duid_len);
-                        client->duid_len = sizeof(client->duid.type) + duid_len;
-                }
+                client->duid.type = htobe16(duid_type);
+                memcpy(&client->duid.raw.data, duid, duid_len);
+                client->duid_len = sizeof(client->duid.type) + duid_len;
+
         } else {
                 r = dhcp_identifier_set_duid(duid_type, &client->hw_addr, client->arp_type, llt_time,
                                              client->test_mode, &client->duid, &client->duid_len);

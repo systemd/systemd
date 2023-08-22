@@ -1106,11 +1106,10 @@ static const char * const dhcp_option_data_type_table[_DHCP_OPTION_DATA_MAX] = {
 DEFINE_STRING_TABLE_LOOKUP(dhcp_option_data_type, DHCPOptionDataType);
 
 static const char* const duid_type_table[_DUID_TYPE_MAX] = {
-        [DUID_TYPE_LLT]    = "link-layer-time",
-        [DUID_TYPE_EN]     = "vendor",
-        [DUID_TYPE_LL]     = "link-layer",
-        [DUID_TYPE_UUID]   = "uuid",
-        [DUID_TYPE_CUSTOM] = "custom",
+        [DUID_TYPE_LLT]  = "link-layer-time",
+        [DUID_TYPE_EN]   = "vendor",
+        [DUID_TYPE_LL]   = "link-layer",
+        [DUID_TYPE_UUID] = "uuid",
 };
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(duid_type, DUIDType);
 
