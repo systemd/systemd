@@ -3099,6 +3099,14 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>HopLimit=</varname></term>
+        <listitem>
+          <para>Configures hop limit. Takes an integer in the range 0…255. See also
+          <varname>IPv6HopLimit=</varname>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>UplinkInterface=</varname></term>
         <listitem><para>Specifies the name or the index of the uplink interface, or one of the special
         values <literal>:none</literal> and <literal>:auto</literal>. When emitting DNS servers or
