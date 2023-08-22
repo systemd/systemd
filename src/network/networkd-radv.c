@@ -480,6 +480,10 @@ static int radv_configure(Link *link) {
         if (r < 0)
                 return r;
 
+        r = sd_radv_set_hop_limit(link->radv, link->network->router_hop_limit);
+        if (r < 0)
+                return r;
+
         if (link->network->router_lifetime_usec > 0) {
                 r = sd_radv_set_preference(link->radv, link->network->router_preference);
                 if (r < 0)
@@ -1335,5 +1339,38 @@ int config_parse_router_preference(
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Invalid router preference, ignoring assignment: %s", rvalue);
 
+        return 0;
+}
+
+int config_parse_router_hop_limit(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Network *network = ASSERT_PTR(userdata);
+        uint32_t k;
+        int r;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+
+        r = safe_atou32(rvalue, &k);
+        if (r < 0 || k > 255) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse %s=, ignoring assignment: %s",
+                           lvalue, rvalue);
+                return 0;
+        }
+
+        network->router_hop_limit = k;
         return 0;
 }
