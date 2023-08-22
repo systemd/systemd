@@ -1083,6 +1083,7 @@ manpages = [
   '8',
   ['systemd-tmpfiles-clean.service',
    'systemd-tmpfiles-clean.timer',
+   'systemd-tmpfiles-setup-dev-early.service',
    'systemd-tmpfiles-setup-dev.service',
    'systemd-tmpfiles-setup.service'],
   ''],
