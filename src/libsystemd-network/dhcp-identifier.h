@@ -40,7 +40,7 @@ struct duid {
                 struct {
                         /* DUID_TYPE_EN */
                         be32_t pen;
-                        uint8_t id[8];
+                        uint8_t id[0];
                 } _packed_ en;
                 struct {
                         /* DUID_TYPE_LL */
