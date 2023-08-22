@@ -337,6 +337,9 @@ _SD_BEGIN_DECLARATIONS;
 #define SD_GPT_FLAG_NO_AUTO   (UINT64_C(1) << 63)
 #define SD_GPT_FLAG_GROWFS    (UINT64_C(1) << 59)
 
+/* Funtion to convert a GPT partition type name to a UUID */
+int sd_gpt_uuid_from_name(const char *name, sd_id128_t *ret);
+
 _SD_END_DECLARATIONS;
 
 #endif

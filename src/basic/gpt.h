@@ -5,7 +5,6 @@
 #include "sd-id128.h"
 
 #include "architecture.h"
-#include "id128-util.h"
 
 /* maximum length of gpt label */
 #define GPT_LABEL_MAX 36

@@ -34,6 +34,7 @@ basic_sources = files(
         'fs-util.c',
         'glob-util.c',
         'glyph-util.c',
+        'gpt.c',
         'gunicode.c',
         'hash-funcs.c',
         'hashmap.c',
