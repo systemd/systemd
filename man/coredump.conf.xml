@@ -72,7 +72,9 @@
         to disk first. Thus, unless <varname>ProcessSizeMax=</varname> is set to 0 (see below), the core will
         be written to <filename>/var/lib/systemd/coredump/</filename> either way (under a temporary filename,
         or even in an unlinked file), <varname>Storage=</varname> thus only controls whether to leave it
-        there even after it was processed.</para></listitem>
+        there even after it was processed.</para>
+
+        <xi:include href="version-info.xml" xpointer="v215"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -81,6 +83,8 @@
         <listitem><para>Controls compression for external
         storage. Takes a boolean argument, which defaults to
         <literal>yes</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v215"/>
         </listitem>
       </varlistentry>
 
@@ -94,6 +98,8 @@
 
         <para>Setting <varname>Storage=none</varname> and <varname>ProcessSizeMax=0</varname>
         disables all coredump handling except for a log entry.</para>
+
+        <xi:include href="version-info.xml" xpointer="v215"/>
         </listitem>
       </varlistentry>
 
@@ -108,7 +114,9 @@
         lowered relative to the default, but not increased. Unit suffixes are allowed just as in
         <option>ProcessSizeMax=</option>.</para>
 
-        <para><varname>ExternalSizeMax=infinity</varname> sets the core size to unlimited.</para></listitem>
+        <para><varname>ExternalSizeMax=infinity</varname> sets the core size to unlimited.</para>
+
+        <xi:include href="version-info.xml" xpointer="v215"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -128,7 +136,9 @@
         core dumps are processed. Note that old core dumps are also
         removed based on time via
         <citerefentry><refentrytitle>systemd-tmpfiles</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
-        Set either value to 0 to turn off size-based cleanup.</para></listitem>
+        Set either value to 0 to turn off size-based cleanup.</para>
+
+        <xi:include href="version-info.xml" xpointer="v215"/></listitem>
       </varlistentry>
     </variablelist>
 

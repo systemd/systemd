@@ -78,7 +78,9 @@
         <listitem><para>After acquiring the name successfully, permit other peers to take over the name when they try
         to acquire it with the <constant>SD_BUS_NAME_REPLACE_EXISTING</constant> flag set. If
         <constant>SD_BUS_NAME_ALLOW_REPLACEMENT</constant> is not set on the original request, such a request by other
-        peers will be denied.</para></listitem>
+        peers will be denied.</para>
+
+        <xi:include href="version-info.xml" xpointer="v209"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -86,13 +88,17 @@
 
         <listitem><para>Take over the name if it was already acquired by another peer, and that other peer
         has permitted takeover by setting <constant>SD_BUS_NAME_ALLOW_REPLACEMENT</constant> while acquiring
-        it.</para></listitem>
+        it.</para>
+
+        <xi:include href="version-info.xml" xpointer="v209"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><constant>SD_BUS_NAME_QUEUE</constant></term>
 
-        <listitem><para>Queue the acquisition of the name when the name is already taken.</para></listitem>
+        <listitem><para>Queue the acquisition of the name when the name is already taken.</para>
+
+        <xi:include href="version-info.xml" xpointer="v209"/></listitem>
       </varlistentry>
     </variablelist>
 

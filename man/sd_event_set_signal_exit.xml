@@ -72,13 +72,17 @@
         <varlistentry>
           <term><constant>-ECHILD</constant></term>
 
-          <listitem><para>The event loop has been created in a different process, library or module instance.</para></listitem>
+          <listitem><para>The event loop has been created in a different process, library or module instance.</para>
+
+          <xi:include href="version-info.xml" xpointer="v252"/></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-EINVAL</constant></term>
 
-          <listitem><para>The passed event loop object was invalid.</para></listitem>
+          <listitem><para>The passed event loop object was invalid.</para>
+
+          <xi:include href="version-info.xml" xpointer="v252"/></listitem>
         </varlistentry>
 
       </variablelist>

@@ -106,7 +106,9 @@
         <term><varname>vconsole.keymap_toggle=</varname></term>
 
         <listitem><para>Overrides <varname>KEYMAP=</varname> and <varname>KEYMAP_TOGGLE=</varname>.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v232"/></listitem>
       </varlistentry>
       <varlistentry>
 
@@ -115,7 +117,9 @@
         <term><varname>vconsole.font_unimap=</varname></term>
 
         <listitem><para>Overrides <varname>FONT=</varname>, <varname>FONT_MAP=</varname>, and
-        <varname>FONT_UNIMAP=</varname>.</para></listitem>
+        <varname>FONT_UNIMAP=</varname>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v232"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>

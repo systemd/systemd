@@ -109,7 +109,9 @@
         because one channel is used for both. When the default priority
         differs, two channels are used, and so stdout messages will not
         be strictly ordered with respect to stderr messages - though
-        they will tend to be approximately ordered.</para></listitem>
+        they will tend to be approximately ordered.</para>
+
+        <xi:include href="version-info.xml" xpointer="v241"/></listitem>
       </varlistentry>
 
       <varlistentry>

@@ -99,7 +99,9 @@
         character from the range [a-zA-Z0-9], <literal>_</literal> and
         <literal>-</literal>. They are suitable for use as file names. Seat names may or
         may not be stable and may be reused if a seat becomes available again.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v235"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -124,6 +126,8 @@
         a user name (a string). A multi-session system allows multiple user sessions on
         the same seat at the same time. A multi-seat system allows multiple independent
         seats that can be individually and simultaneously used by different users.</para>
+
+        <xi:include href="version-info.xml" xpointer="v235"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -160,7 +164,9 @@
         as well, in which case all (current and future) devices plugged into it will also
         be assigned to the same seat (unless they are explicitly assigned to another
         seat).
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v235"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -171,7 +177,9 @@
         seat hence consists of an arbitrary number of devices marked with the
         <literal>seat</literal> tag, but (at least) one of these devices needs to be
         tagged with <literal>master-of-seat</literal> before the seat is actually
-        considered to be around.</para></listitem>
+        considered to be around.</para>
+
+        <xi:include href="version-info.xml" xpointer="v235"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -187,7 +195,9 @@
         need to enumerate all devices and check the <varname>ID_SEAT</varname> property
         manually. Again, if a device is assigned to seat0 this is visible on the device in
         two ways: with a property <varname>ID_SEAT=seat0</varname> and with no property
-        <varname>ID_SEAT</varname> set for it at all.</para></listitem>
+        <varname>ID_SEAT</varname> set for it at all.</para>
+
+        <xi:include href="version-info.xml" xpointer="v235"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -197,6 +207,8 @@
         generates a new and independent seat, which is named after the path of the
         device. This is set for specialized USB hubs like the Pluggable devices, which when
         plugged in should create a hotplug seat without further configuration.</para>
+
+        <xi:include href="version-info.xml" xpointer="v235"/>
         </listitem>
       </varlistentry>
 
@@ -207,7 +219,9 @@
         device this is a good choice to name the seat after. It is created from the path
         of the device. This is useful in UIs for configuring seats: as soon as you create
         a new seat from a graphics device, read this property and prefix it with
-        <literal>seat-</literal> and use it as name for the seat.</para></listitem>
+        <literal>seat-</literal> and use it as name for the seat.</para>
+
+        <xi:include href="version-info.xml" xpointer="v235"/></listitem>
       </varlistentry>
     </variablelist>
 

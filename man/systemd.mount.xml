@@ -207,7 +207,9 @@
 
         <para>Note that this option always applies to the created mount unit
         only regardless whether <option>x-systemd.automount</option> has been
-        specified.</para></listitem>
+        specified.</para>
+
+        <xi:include href="version-info.xml" xpointer="v220"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -230,7 +232,9 @@
 
         <para>Note that these options always apply to the created mount unit
         only regardless whether <option>x-systemd.automount</option> has been
-        specified.</para></listitem>
+        specified.</para>
+
+        <xi:include href="version-info.xml" xpointer="v233"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -245,7 +249,9 @@
         <filename>local-fs.target</filename>, are not automatically
         created. See <varname>WantedBy=</varname> and <varname>RequiredBy=</varname> in
         <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        for details.</para></listitem>
+        for details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -257,7 +263,9 @@
         an absolute path. This option may be specified more than once.
         See <varname>RequiresMountsFor=</varname> in
         <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        for details.</para></listitem>
+        for details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v220"/></listitem>
        </varlistentry>
 
       <varlistentry>
@@ -270,7 +278,9 @@
         as the default dependency in this case is <varname>Requires=</varname>.
         This option is already implied by entries in <filename>/etc/fstab</filename>
         or by mount units.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v233"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -288,7 +298,9 @@
         <listitem><para>Configures the idle timeout of the
         automount unit. See <varname>TimeoutIdleSec=</varname> in
         <citerefentry><refentrytitle>systemd.automount</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        for details.</para></listitem>
+        for details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v220"/></listitem>
       </varlistentry>
 
       <varlistentry id='device-timeout'>
@@ -325,6 +337,8 @@
 
         <para>See <varname>TimeoutSec=</varname> below for
         details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v233"/>
         </listitem>
       </varlistentry>
 
@@ -347,6 +361,8 @@
         <para><citerefentry project='man-pages'><refentrytitle>wipefs</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         may be used to remove any signatures from a block device to force
         <option>x-systemd.makefs</option> to reinitialize the device.</para>
+
+        <xi:include href="version-info.xml" xpointer="v236"/>
         </listitem>
       </varlistentry>
 
@@ -363,7 +379,9 @@
 
         <para>Note that this option can only be used in
         <filename>/etc/fstab</filename>, and will be ignored when part of the
-        <varname>Options=</varname> setting in a unit file.</para></listitem>
+        <varname>Options=</varname> setting in a unit file.</para>
+
+        <xi:include href="version-info.xml" xpointer="v236"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -377,7 +395,9 @@
         <para>Note that this option can only be used in <filename>/etc/fstab</filename>, and will be ignored
         when part of the <varname>Options=</varname> setting in a unit file. It is also implied for the root
         and <filename>/usr/</filename> partitions discovered by
-        <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para></listitem>
+        <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v253"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -388,6 +408,8 @@
         This option disables that behaviour, and causes the mount to fail
         immediately instead. This option is translated into the
         <varname>ReadWriteOnly=</varname> setting in a unit file.</para>
+
+        <xi:include href="version-info.xml" xpointer="v246"/>
         </listitem>
       </varlistentry>
 
@@ -404,6 +426,8 @@
         <filename>local-fs-pre.target</filename> and <filename>local-fs.target</filename>.
         They also pull in <filename>network-online.target</filename> and are ordered after
         it and <filename>network.target</filename>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v235"/>
         </listitem>
       </varlistentry>
 
@@ -524,7 +548,9 @@
         corresponds with
         <citerefentry project='man-pages'><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry>'s
         <parameter>-s</parameter> switch. Defaults to
-        off.</para></listitem>
+        off.</para>
+
+        <xi:include href="version-info.xml" xpointer="v215"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -537,7 +563,9 @@
         This corresponds with
         <citerefentry project='man-pages'><refentrytitle>umount</refentrytitle><manvolnum>8</manvolnum></citerefentry>'s
         <parameter>-l</parameter> switch. Defaults to
-        off.</para></listitem>
+        off.</para>
+
+        <xi:include href="version-info.xml" xpointer="v232"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -550,7 +578,9 @@
         not succeed. This corresponds with
         <citerefentry project='man-pages'><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry>'s
         <parameter>-w</parameter> switch. Defaults to
-        off.</para></listitem>
+        off.</para>
+
+        <xi:include href="version-info.xml" xpointer="v246"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -561,7 +591,9 @@
         This corresponds with
         <citerefentry project='man-pages'><refentrytitle>umount</refentrytitle><manvolnum>8</manvolnum></citerefentry>'s
         <parameter>-f</parameter> switch. Defaults to
-        off.</para></listitem>
+        off.</para>
+
+        <xi:include href="version-info.xml" xpointer="v232"/></listitem>
       </varlistentry>
 
       <varlistentry>

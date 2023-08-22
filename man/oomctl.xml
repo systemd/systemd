@@ -49,7 +49,9 @@
         <term><command>dump</command></term>
 
         <listitem><para>Show the current state of the cgroups and system contexts stored by
-        <command>systemd-oomd</command>.</para></listitem>
+        <command>systemd-oomd</command>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v247"/></listitem>
       </varlistentry>
 
     </variablelist>

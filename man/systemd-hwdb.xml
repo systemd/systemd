@@ -40,6 +40,8 @@
         <term><option>--usr</option></term>
         <listitem>
           <para>Generate in /usr/lib/udev instead of /etc/udev.</para>
+
+        <xi:include href="version-info.xml" xpointer="v219"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -47,6 +49,8 @@
         <term><option>--root=<replaceable>PATH</replaceable></option></term>
         <listitem>
           <para>Alternate root path in the filesystem.</para>
+
+        <xi:include href="version-info.xml" xpointer="v219"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -54,6 +58,8 @@
         <term><option>--strict</option></term>
         <listitem>
           <para>When updating, return non-zero exit value on any parsing error.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/>
         </listitem>
       </varlistentry>
 

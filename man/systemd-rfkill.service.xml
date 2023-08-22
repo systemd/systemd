@@ -51,7 +51,9 @@
         <listitem><para>Takes a boolean argument. Defaults to
         <literal>1</literal>. If <literal>0</literal>, does not
         restore the rfkill settings on boot. However, settings will
-        still be stored on shutdown. </para></listitem>
+        still be stored on shutdown. </para>
+
+        <xi:include href="version-info.xml" xpointer="v227"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>

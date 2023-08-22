@@ -89,7 +89,9 @@
         <literal>getty</literal> is always available. Defaults to 6
         (in other words, there will always be a
         <literal>getty</literal> available on Alt-F6.). When set to 0,
-        VT reservation is disabled.</para></listitem>
+        VT reservation is disabled.</para>
+
+        <xi:include href="version-info.xml" xpointer="v190"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -160,6 +162,8 @@
         idle inhibitor lock is active, and subsequently, the time
         configured with <varname>IdleActionSec=</varname> (see below)
         has expired.</para>
+
+        <xi:include href="version-info.xml" xpointer="v198"/>
         </listitem>
       </varlistentry>
 
@@ -168,7 +172,9 @@
 
         <listitem><para>Configures the delay after which the action
         configured in <varname>IdleAction=</varname> (see above) is
-        taken after the system is idle.</para></listitem>
+        taken after the system is idle.</para>
+
+        <xi:include href="version-info.xml" xpointer="v198"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -189,7 +195,9 @@
         service is terminated immediately when the last session of the user has ended. If this option is configured to
         non-zero rapid logout/login cycles are sped up, as the user's service manager is not constantly restarted. If
         set to <literal>infinity</literal> the per-user service for a user is never terminated again after first login,
-        and continues to run until system shutdown. Defaults to 10s.</para></listitem>
+        and continues to run until system shutdown. Defaults to 10s.</para>
+
+        <xi:include href="version-info.xml" xpointer="v240"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -287,7 +295,9 @@
         kernel fully probed all hotplugged devices. This is safe, as
         long as you do not care for systemd to account for devices
         that have been plugged or unplugged while the system was off.
-        Defaults to 30s.</para></listitem>
+        Defaults to 30s.</para>
+
+        <xi:include href="version-info.xml" xpointer="v220"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -302,7 +312,9 @@
         limit relative to the amount of physical RAM. Defaults to 10%.
         Note that this size is a safety limit only. As each runtime
         directory is a tmpfs file system, it will only consume as much
-        memory as is needed.</para></listitem>
+        memory as is needed.</para>
+
+        <xi:include href="version-info.xml" xpointer="v211"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -315,14 +327,18 @@
         Defaults to <varname>RuntimeDirectorySize=</varname> divided
         by 4096. Note that this size is a safety limit only.
         As each runtime directory is a tmpfs file system, it will
-        only consume as much memory as is needed.</para></listitem>
+        only consume as much memory as is needed.</para>
+
+        <xi:include href="version-info.xml" xpointer="v246"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>InhibitorsMax=</varname></term>
 
         <listitem><para>Controls the maximum number of concurrent inhibitors to permit. Defaults to 8192
-        (8K).</para></listitem>
+        (8K).</para>
+
+        <xi:include href="version-info.xml" xpointer="v230"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -331,7 +347,9 @@
         <listitem><para>Controls the maximum number of concurrent user sessions to manage. Defaults to 8192
         (8K). Depending on how the <filename>pam_systemd.so</filename> module is included in the PAM stack
         configuration, further login sessions will either be refused, or permitted but not tracked by
-        <filename>systemd-logind</filename>.</para></listitem>
+        <filename>systemd-logind</filename>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v230"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -341,7 +359,9 @@
         user fully logs out. Takes a boolean argument. If enabled, the user may not consume IPC resources after the
         last of the user's sessions terminated. This covers System V semaphores, shared memory and message queues, as
         well as POSIX shared memory and message queues. Note that IPC objects of the root user and other system users
-        are excluded from the effect of this setting. Defaults to <literal>yes</literal>.</para></listitem>
+        are excluded from the effect of this setting. Defaults to <literal>yes</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v212"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -353,7 +373,9 @@
         (<filename>systemd-logind</filename> is not checking the idle state of sessions). For details about the syntax
         of time spans, see
         <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v252"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>

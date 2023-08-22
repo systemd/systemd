@@ -102,33 +102,43 @@
               <listitem><para>
                 Each field must be one byte.
                 E.g. <literal>12:34:56:78:90:ab</literal> or <literal>AA:BB:CC:DD:EE:FF</literal>.
-              </para></listitem>
+              </para>
+
+                <xi:include href="version-info.xml" xpointer="v250"/></listitem>
             </varlistentry>
             <varlistentry>
               <term><option>hyphen-delimited hexadecimal</option></term>
               <listitem><para>
                 Each field must be one byte.
                 E.g. <literal>12-34-56-78-90-ab</literal> or <literal>AA-BB-CC-DD-EE-FF</literal>.
-              </para></listitem>
+              </para>
+
+                <xi:include href="version-info.xml" xpointer="v250"/></listitem>
             </varlistentry>
             <varlistentry>
               <term><option>dot-delimited hexadecimal</option></term>
               <listitem><para>
                 Each field must be two bytes.
                 E.g. <literal>1234.5678.90ab</literal> or <literal>AABB.CCDD.EEFF</literal>.
-              </para></listitem>
+              </para>
+
+                <xi:include href="version-info.xml" xpointer="v250"/></listitem>
             </varlistentry>
             <varlistentry>
               <term><option>IPv4 address format</option></term>
               <listitem><para>
                 E.g. <literal>127.0.0.1</literal> or <literal>192.168.0.1</literal>.
-              </para></listitem>
+              </para>
+
+                <xi:include href="version-info.xml" xpointer="v250"/></listitem>
             </varlistentry>
             <varlistentry>
               <term><option>IPv6 address format</option></term>
               <listitem><para>
                 E.g. <literal>2001:0db8:85a3::8a2e:0370:7334</literal> or <literal>::1</literal>.
-              </para></listitem>
+              </para>
+
+                <xi:include href="version-info.xml" xpointer="v250"/></listitem>
             </varlistentry>
           </variablelist>
 
@@ -149,6 +159,8 @@
           appear more than once, in which case the lists are merged. If the empty string is assigned to
           this option, the list of hardware addresses defined prior to this is reset. Defaults to
           unset.</para>
+
+          <xi:include href="version-info.xml" xpointer="v245"/>
         </listitem>
       </varlistentry>
 
@@ -194,6 +206,8 @@
           <literal>veth</literal>. Valid kinds are given by netlink's <literal>IFLA_INFO_KIND</literal>
           attribute, so this is not comprehensive.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v251"/>
         </listitem>
       </varlistentry>
 
@@ -210,6 +224,8 @@
           <programlisting>Property=ID_MODEL_ID=9999 "ID_VENDOR_FROM_DATABASE=vendor name" "KEY=with \"quotation\""</programlisting>
           then, the .link file matches only when an interface has all the above three properties.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v243"/>
         </listitem>
       </varlistentry>
 
@@ -220,6 +236,8 @@
           udev property "INTERFACE". This cannot be used to match on names that have already been changed
           from userspace. Caution is advised when matching on kernel-assigned names, as they are known to be
           unstable between reboots.</para>
+
+          <xi:include href="version-info.xml" xpointer="v218"/>
         </listitem>
       </varlistentry>
 
@@ -267,6 +285,8 @@
           details. When prefixed with an exclamation mark (<literal>!</literal>), the result is negated.
           If an empty string is assigned, the previously assigned value is cleared.
           </para>
+
+        <xi:include href="version-info.xml" xpointer="v237"/>
         </listitem>
       </varlistentry>
 
@@ -279,6 +299,8 @@
           prefixed with an exclamation mark (<literal>!</literal>), the result is negated.  If an empty
           string is assigned, the previously assigned value is cleared.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v252"/>
         </listitem>
       </varlistentry>
 
@@ -303,6 +325,8 @@
           for details. When prefixed with an exclamation mark (<literal>!</literal>), the result is negated.
           If an empty string is assigned, the previously assigned value is cleared.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v249"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -366,6 +390,8 @@
               <listitem>
                 <para>Keeps the MAC address assigned by the kernel. Or use the MAC address specified in
                 <varname>MACAddress=</varname>.</para>
+
+                <xi:include href="version-info.xml" xpointer="v227"/>
               </listitem>
             </varlistentry>
           </variablelist>
@@ -379,6 +405,8 @@
           <para>The interface MAC address to use. For this setting to take effect,
           <varname>MACAddressPolicy=</varname> must either be unset, empty, or <literal>none</literal>.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v215"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -400,6 +428,8 @@
                 <para>If the kernel claims that the name it has set
                 for a device is predictable, then no renaming is
                 performed.</para>
+
+                <xi:include href="version-info.xml" xpointer="v216"/>
               </listitem>
             </varlistentry>
             <varlistentry>
@@ -456,6 +486,8 @@
               <listitem>
                 <para>If the device already had a name given by userspace (as part of creation of the device
                 or a rename), keep it.</para>
+
+                <xi:include href="version-info.xml" xpointer="v241"/>
               </listitem>
             </varlistentry>
           </variablelist>
@@ -496,6 +528,8 @@
           <literal>slot</literal>, <literal>path</literal>, and <literal>mac</literal>. If the
           kernel does not support the alternative names, then this setting will be ignored.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v245"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -511,6 +545,8 @@
           alternative names referring to the same interface. Alternative names may have a maximum length of
           127 characters, in contrast to the 15 allowed for the primary interface name, but otherwise are
           subject to the same naming constraints.</para>
+
+          <xi:include href="version-info.xml" xpointer="v245"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -518,6 +554,8 @@
         <listitem>
           <para>Specifies the device's number of transmit queues. An integer in the range 1…4096.
           When unset, the kernel's default will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v248"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -525,6 +563,8 @@
         <listitem>
           <para>Specifies the device's number of receive queues. An integer in the range 1…4096.
           When unset, the kernel's default will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v248"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -532,6 +572,8 @@
         <listitem>
           <para>Specifies the transmit queue length of the device in number of packets. An unsigned integer
           in the range 0…4294967294. When unset, the kernel's default will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v248"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -568,6 +610,8 @@
           <para>Note that if autonegotiation is enabled, speed and duplex settings are
           read-only. If autonegotiation is disabled, speed and duplex settings are writable
           if the driver supports multiple link modes.</para>
+
+          <xi:include href="version-info.xml" xpointer="v233"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -588,24 +632,32 @@
               <term><option>unicast</option></term>
               <listitem>
                 <para>Wake on unicast messages.</para>
+
+              <xi:include href="version-info.xml" xpointer="v235"/>
               </listitem>
             </varlistentry>
             <varlistentry>
               <term><option>multicast</option></term>
               <listitem>
                 <para>Wake on multicast messages.</para>
+
+              <xi:include href="version-info.xml" xpointer="v235"/>
               </listitem>
             </varlistentry>
             <varlistentry>
               <term><option>broadcast</option></term>
               <listitem>
                 <para>Wake on broadcast messages.</para>
+
+              <xi:include href="version-info.xml" xpointer="v235"/>
               </listitem>
             </varlistentry>
             <varlistentry>
               <term><option>arp</option></term>
               <listitem>
                 <para>Wake on ARP.</para>
+
+              <xi:include href="version-info.xml" xpointer="v235"/>
               </listitem>
             </varlistentry>
             <varlistentry>
@@ -629,6 +681,8 @@
                 for details. The password in the credential, must be 6 bytes in hex format with each
                 byte separated by a colon (<literal>:</literal>) like an Ethernet MAC address, e.g.,
                 <literal>aa:bb:cc:dd:ee:ff</literal>.</para>
+
+                <xi:include href="version-info.xml" xpointer="v235"/>
               </listitem>
             </varlistentry>
           </variablelist>
@@ -649,6 +703,8 @@
           by a colon (<literal>:</literal>) like an Ethernet MAC address, e.g.,
           <literal>aa:bb:cc:dd:ee:ff</literal>. This implies <varname>WakeOnLan=secureon</varname>.
           Defaults to unset, and the current value will not be changed.</para>
+
+          <xi:include href="version-info.xml" xpointer="v250"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -662,6 +718,8 @@
               <term><option>tp</option></term>
               <listitem>
                 <para>An Ethernet interface using Twisted-Pair cable as the medium.</para>
+
+              <xi:include href="version-info.xml" xpointer="v234"/>
               </listitem>
             </varlistentry>
             <varlistentry>
@@ -669,27 +727,37 @@
               <listitem>
                 <para>Attachment Unit Interface (AUI). Normally used with hubs.
                 </para>
+
+                <xi:include href="version-info.xml" xpointer="v234"/>
               </listitem>
             </varlistentry>
             <varlistentry>
               <term><option>bnc</option></term>
               <listitem>
                 <para>An Ethernet interface using BNC connectors and co-axial cable.</para>
+
+              <xi:include href="version-info.xml" xpointer="v234"/>
               </listitem>
             </varlistentry>
             <varlistentry>
               <term><option>mii</option></term>
               <listitem>
                 <para>An Ethernet interface using a Media Independent Interface (MII).</para>
+
+              <xi:include href="version-info.xml" xpointer="v234"/>
               </listitem>
             </varlistentry>
             <varlistentry>
               <term><option>fibre</option></term>
               <listitem>
                 <para>An Ethernet interface using Optical Fibre as the medium.</para>
+
+              <xi:include href="version-info.xml" xpointer="v234"/>
               </listitem>
             </varlistentry>
           </variablelist>
+
+            <xi:include href="version-info.xml" xpointer="v234"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -718,6 +786,8 @@
           This option may be specified more than once, in which case all specified speeds and modes are advertised.
           If the empty string is assigned to this option, the list is reset, and all prior assignments have no effect.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v240"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -725,6 +795,8 @@
         <listitem>
           <para>Takes a boolean. If set to true, hardware offload for checksumming of ingress
           network packets is enabled. When unset, the kernel's default will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v245"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -732,6 +804,8 @@
         <listitem>
           <para>Takes a boolean. If set to true, hardware offload for checksumming of egress
           network packets is enabled. When unset, the kernel's default will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v245"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -739,6 +813,8 @@
         <listitem>
           <para>Takes a boolean. If set to true, TCP Segmentation Offload (TSO) is enabled.
           When unset, the kernel's default will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v232"/>
         </listitem>
       </varlistentry>
        <varlistentry>
@@ -746,6 +822,8 @@
         <listitem>
           <para>Takes a boolean. If set to true, TCP6 Segmentation Offload (tx-tcp6-segmentation) is enabled.
           When unset, the kernel's default will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v235"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -753,6 +831,8 @@
         <listitem>
           <para>Takes a boolean. If set to true, Generic Segmentation Offload (GSO) is enabled.
           When unset, the kernel's default will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v232"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -760,6 +840,8 @@
         <listitem>
           <para>Takes a boolean. If set to true, Generic Receive Offload (GRO) is enabled.
           When unset, the kernel's default will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v232"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -767,6 +849,8 @@
         <listitem>
           <para>Takes a boolean. If set to true, hardware accelerated Generic Receive Offload (GRO) is
           enabled. When unset, the kernel's default will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v250"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -774,6 +858,8 @@
         <listitem>
           <para>Takes a boolean. If set to true, Large Receive Offload (LRO) is enabled.
           When unset, the kernel's default will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v232"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -781,6 +867,8 @@
         <listitem>
           <para>Takes a boolean. If set to true, receive VLAN CTAG hardware acceleration is enabled.
           When unset, the kernel's default will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v250"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -788,6 +876,8 @@
         <listitem>
           <para>Takes a boolean. If set to true, transmit VLAN CTAG hardware acceleration is enabled.
           When unset, the kernel's default will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v250"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -795,6 +885,8 @@
         <listitem>
           <para>Takes a boolean. If set to true, receive filtering on VLAN CTAGs is enabled.
           When unset, the kernel's default will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v250"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -802,6 +894,8 @@
         <listitem>
           <para>Takes a boolean. If set to true, transmit VLAN STAG hardware acceleration is enabled.
           When unset, the kernel's default will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v250"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -809,6 +903,8 @@
         <listitem>
           <para>Takes a boolean. If set to true, receive N-tuple filters and actions are enabled.
           When unset, the kernel's default will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v250"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -842,6 +938,8 @@
           <para>Takes a boolean. When set, enables receive flow control, also known as the ethernet
           receive PAUSE message (generate and send ethernet PAUSE frames). When unset, the kernel's
           default will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -850,6 +948,8 @@
           <para>Takes a boolean. When set, enables transmit flow control, also known as the ethernet
           transmit PAUSE message (respond to received ethernet PAUSE frames). When unset, the kernel's
           default will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -858,6 +958,8 @@
           <para>Takes a boolean. When set, auto negotiation enables the interface to exchange state
           advertisements with the connected peer so that the two devices can agree on the ethernet
           PAUSE configuration. When unset, the kernel's default will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -867,6 +969,8 @@
           device should accept. The usual suffixes K, M, G are supported and are
           understood to the base of 1024. An unsigned integer in the range 1…65536.
           Defaults to unset.</para>
+
+          <xi:include href="version-info.xml" xpointer="v248"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -874,6 +978,8 @@
         <listitem>
           <para>Specifies the maximum number of Generic Segment Offload (GSO) segments the device should
           accept. An unsigned integer in the range 1…65535. Defaults to unset.</para>
+
+          <xi:include href="version-info.xml" xpointer="v248"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -882,6 +988,8 @@
         <listitem>
           <para>Boolean properties that, when set, enable/disable adaptive Rx/Tx coalescing if the hardware
           supports it. When unset, the kernel's default will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v250"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -900,6 +1008,8 @@
           packet rate drops below the low packet rate threshold or exceeds the high packet rate threshold
           respectively if adaptive Rx/Tx coalescing is enabled. When unset, the kernel's defaults will be
           used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v250"/>
         </listitem>
       </varlistentry>
         <varlistentry>
@@ -918,6 +1028,8 @@
           effect when the packet rate drops below the low packet rate threshold or exceeds the high packet
           rate threshold respectively if adaptive Rx/Tx coalescing is enabled. When unset, the kernel's
           defaults will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v250"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -928,6 +1040,8 @@
           threshold respectively and are used to determine when the corresponding coalescing settings for low
           and high packet rates come into effect if adaptive Rx/Tx coalescing is enabled. If unset, the
           kernel's defaults will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v250"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -937,6 +1051,8 @@
           property cannot be zero. This lowest time granularity supported by this property is seconds.
           Partial seconds will be rounded up before being passed to the kernel. If unset, the kernel's
           default will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v250"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -945,6 +1061,8 @@
           <para>How long to delay driver in-memory statistics block updates. If the driver does not have an
           in-memory statistic block, this property is ignored. This property cannot be zero. If unset, the
           kernel's default will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v250"/>
         </listitem>
       </varlistentry>
 
@@ -960,6 +1078,8 @@
           <literal>crossover</literal>, the MDI crossover (MDI-X) mode will be used. When
           <literal>auto</literal>, the MDI status is automatically detected. Defaults to unset, and the
           kernel's default will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v251"/>
         </listitem>
       </varlistentry>
 
@@ -969,6 +1089,8 @@
           <para>Specifies the number of SR-IOV virtual functions. Takes an integer in the range
           0…2147483647. Defaults to unset, and automatically determined from the values specified in
           the <varname>VirtualFunction=</varname> settings in the [SR-IOV] sections.</para>
+
+          <xi:include href="version-info.xml" xpointer="v251"/>
         </listitem>
       </varlistentry>
 
@@ -990,6 +1112,8 @@
           <para>Specifies a Virtual Function (VF), lightweight PCIe function designed solely to move
           data in and out. Takes an integer in the range 0…2147483646. This option is compulsory.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v251"/>
         </listitem>
       </varlistentry>
 
@@ -997,6 +1121,8 @@
         <term><varname>VLANId=</varname></term>
         <listitem>
           <para>Specifies VLAN ID of the virtual function. Takes an integer in the range 1…4095.</para>
+
+        <xi:include href="version-info.xml" xpointer="v251"/>
         </listitem>
       </varlistentry>
 
@@ -1005,6 +1131,8 @@
         <listitem>
           <para>Specifies quality of service of the virtual function. Takes an integer in the range
           1…4294967294.</para>
+
+          <xi:include href="version-info.xml" xpointer="v251"/>
         </listitem>
       </varlistentry>
 
@@ -1013,6 +1141,8 @@
         <listitem>
           <para>Specifies VLAN protocol of the virtual function. Takes <literal>802.1Q</literal> or
           <literal>802.1ad</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v251"/>
         </listitem>
       </varlistentry>
 
@@ -1021,6 +1151,8 @@
         <listitem>
           <para>Takes a boolean. Controls the MAC spoof checking. When unset, the kernel's default will
           be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v251"/>
         </listitem>
       </varlistentry>
 
@@ -1031,6 +1163,8 @@
           configuration of the virtual function (VF). The VF RSS information like RSS hash key may be
           considered sensitive on some devices where this information is shared between VF and the
           physical function (PF). When unset, the kernel's default will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v251"/>
         </listitem>
       </varlistentry>
 
@@ -1040,6 +1174,8 @@
           <para>Takes a boolean. Allows one to set trust mode of the virtual function (VF). When set,
           VF users can set a specific feature which may impact security and/or performance. When unset,
           the kernel's default will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v251"/>
         </listitem>
       </varlistentry>
 
@@ -1052,6 +1188,8 @@
           communicate with other VFs on this host even if the PF link state is down,
           <literal>no</literal> causes the hardware to drop any packets sent by the VF. When unset,
           the kernel's default will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v251"/>
         </listitem>
       </varlistentry>
 
@@ -1059,6 +1197,8 @@
         <term><varname>MACAddress=</varname></term>
         <listitem>
           <para>Specifies the MAC address for the virtual function.</para>
+
+        <xi:include href="version-info.xml" xpointer="v251"/>
         </listitem>
       </varlistentry>
     </variablelist>

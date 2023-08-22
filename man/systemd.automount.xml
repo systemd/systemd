@@ -149,7 +149,9 @@
         mountpoint. This takes a comma-separated list of options. This setting
         is optional. Note that the usual specifier expansion is applied to this
         setting, literal percent characters should hence be written as
-        <literal class='specifiers'>%%</literal>.</para></listitem>
+        <literal class='specifiers'>%%</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -167,7 +169,9 @@
         idle for the specified time, systemd will attempt to unmount. Takes a
         unit-less value in seconds, or a time span value such as "5min 20s".
         Pass 0 to disable the timeout logic. The timeout is disabled by
-        default.</para></listitem>
+        default.</para>
+
+        <xi:include href="version-info.xml" xpointer="v220"/></listitem>
       </varlistentry>
     </variablelist>
 

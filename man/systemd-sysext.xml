@@ -215,7 +215,9 @@
 
         <listitem><para>When invoked without any command verb, or when <option>status</option> is specified
         the current merge status is shown, separately (for both <filename>/usr/</filename> and
-        <filename>/opt/</filename> of sysext and for <filename>/etc/</filename> of confext).</para></listitem>
+        <filename>/opt/</filename> of sysext and for <filename>/etc/</filename> of confext).</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -224,7 +226,9 @@
         <filename>/usr/</filename> and <filename>/opt/</filename>, by overmounting these hierarchies with an
         <literal>overlayfs</literal> file system combining the underlying hierarchies with those included in
         the extension images. This command will fail if the hierarchies are already merged. For confext, the merge
-        happens into the <filename>/etc/</filename> directory instead.</para></listitem>
+        happens into the <filename>/etc/</filename> directory instead.</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -232,7 +236,9 @@
         <listitem><para>Unmerges all currently installed system extension images from
         <filename>/usr/</filename> and <filename>/opt/</filename> for sysext and <filename>/etc/</filename>,
         for confext, by unmounting the <literal>overlayfs</literal> file systems created by <option>merge</option>
-        prior.</para></listitem>
+        prior.</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -245,13 +251,17 @@
         without establishing any new <literal>overlayfs</literal> instance.
         Note that currently there's a brief moment where neither the old nor the new <literal>overlayfs</literal>
         file system is mounted. This implies that all resources supplied by a system extension will briefly
-        disappear — even if it exists continuously during the refresh operation.</para></listitem>
+        disappear — even if it exists continuously during the refresh operation.</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>list</option></term>
 
-        <listitem><para>A brief list of installed extension images is shown.</para></listitem>
+        <listitem><para>A brief list of installed extension images is shown.</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="help" />
@@ -269,7 +279,9 @@
         <listitem><para>Operate relative to the specified root directory, i.e. establish the
         <literal>overlayfs</literal> mount not on the top-level host <filename>/usr/</filename> and
         <filename>/opt/</filename> hierarchies for sysext or <filename>/etc/</filename> for confext,
-        but below some specified root directory.</para></listitem>
+        but below some specified root directory.</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -278,7 +290,9 @@
         <listitem><para>When merging system extensions into <filename>/usr/</filename> and
         <filename>/opt/</filename> for sysext and <filename>/etc/</filename> for confext,
         ignore version incompatibilities, i.e. force merging regardless of
-        whether the version information included in the images matches the host or not.</para></listitem>
+        whether the version information included in the images matches the host or not.</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -293,7 +307,9 @@
         <literal>root=verity+signed+encrypted+unprotected+absent</literal>. When run in the initrd and
         operating on a system extension image stored in the <filename>/.extra/sysext/</filename> directory a
         slightly stricter policy is used by default: <literal>root=signed+absent:usr=signed+absent</literal>,
-        see above for details.</para></listitem>
+        see above for details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -301,7 +317,9 @@
 
         <listitem><para>When merging configuration extensions into <filename>/etc/</filename> the
         <literal>MS_NOEXEC</literal> mount flag is used by default. This option can be used to disable
-        it.</para></listitem>
+        it.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -312,6 +330,8 @@
           <command>unmerge</command> or <command>refresh</command>, do not reload daemon
           after executing the changes even if an extension that is applied requires a reload via the
           <varname>EXTENSION_RELOAD_MANAGER=</varname> set to 1.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/>
         </listitem>
       </varlistentry>
 

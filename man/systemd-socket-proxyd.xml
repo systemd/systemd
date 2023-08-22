@@ -65,14 +65,18 @@
         <term><option>-c</option></term>
 
         <listitem><para>Sets the maximum number of simultaneous connections, defaults to 256.
-        If the limit of concurrent connections is reached further connections will be refused.</para></listitem>
+        If the limit of concurrent connections is reached further connections will be refused.</para>
+
+        <xi:include href="version-info.xml" xpointer="v233"/></listitem>
       </varlistentry>
       <varlistentry>
         <term><option>--exit-idle-time=</option></term>
 
         <listitem><para>Sets the time before exiting when there are no connections, defaults to
         <constant>infinity</constant>. Takes a unit-less value in seconds, or a time span value such
-        as <literal>5min 20s</literal>.</para></listitem>
+        as <literal>5min 20s</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v246"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>

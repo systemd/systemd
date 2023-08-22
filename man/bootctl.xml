@@ -67,7 +67,9 @@
         <para>Hint: use <command>systemctl reboot --firmware-setup</command> to reboot into firmware setup
         once. See
         <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-        for details.</para></listitem>
+        for details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
@@ -100,14 +102,18 @@
 
         <listitem><para>Removes a boot loader entry including the files it refers to. Takes a single boot
         loader entry ID string or a glob pattern as argument. Referenced files such as kernel or initrd are
-        only removed if no other entry refers to them.</para></listitem>
+        only removed if no other entry refers to them.</para>
+
+        <xi:include href="version-info.xml" xpointer="v253"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>cleanup</option></term>
 
         <listitem><para>Removes files from the ESP and XBOOTLDR partitions that belong to the entry token but
-        are not referenced in any boot loader entries.</para></listitem>
+        are not referenced in any boot loader entries.</para>
+
+        <xi:include href="version-info.xml" xpointer="v253"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
@@ -244,13 +250,17 @@
 
         <listitem><para>Takes a kernel image as argument. Checks what kind of kernel the image is. Returns
         one of <literal>uki</literal>, <literal>pe</literal>, and <literal>unknown</literal>.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v253"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>kernel-inspect</option> <replaceable>kernel</replaceable></term>
 
-        <listitem><para>Takes a kernel image as argument. Prints details about the image.</para></listitem>
+        <listitem><para>Takes a kernel image as argument. Prints details about the image.</para>
+
+        <xi:include href="version-info.xml" xpointer="v253"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
@@ -268,7 +278,9 @@
         <listitem><para>Takes a directory path as an argument. All
         paths will be prefixed with the given alternate
         <replaceable>root</replaceable> path, including config search
-        paths. </para></listitem>
+        paths. </para>
+
+        <xi:include href="version-info.xml" xpointer="v252"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -281,7 +293,9 @@
         table, following the <ulink url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">Discoverable Partitions
         Specification</ulink>. For further information on supported disk images, see
         <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
-        switch of the same name.</para></listitem>
+        switch of the same name.</para>
+
+        <xi:include href="version-info.xml" xpointer="v252"/></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="image-policy-open" />
@@ -293,7 +307,9 @@
         (the default), <literal>image</literal> or <literal>host</literal>. With <literal>auto</literal>
         binaries will be picked from the specified directory or image, and if not found they will be picked
         from the host. With <literal>image</literal> or <literal>host</literal> no fallback search will be
-        performed if the binaries are not found in the selected source.</para></listitem>
+        performed if the binaries are not found in the selected source.</para>
+
+        <xi:include href="version-info.xml" xpointer="v252"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -335,12 +351,16 @@
         (e.g. <filename>/dev/nvme0n1</filename>). If the root file system is <literal>tmpfs</literal> (or a
         similar in-memory file system), the block device backing <filename>/usr/</filename> is returned if
         applicable. If the root file system is a network file system (e.g. NFS, CIFS) the operation will
-        fail.</para></listitem>
+        fail.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>--no-variables</option></term>
-        <listitem><para>Do not touch the firmware's boot loader list stored in EFI variables.</para></listitem>
+        <listitem><para>Do not touch the firmware's boot loader list stored in EFI variables.</para>
+
+        <xi:include href="version-info.xml" xpointer="v220"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -348,7 +368,9 @@
         <listitem><para>Ignore failure when the EFI System Partition cannot be found, when EFI variables
         cannot be written, or a different or newer boot loader is already installed. Currently only applies
         to <command>is-installed</command>, <command>update</command>, and <command>random-seed</command>
-        verbs.</para></listitem>
+        verbs.</para>
+
+        <xi:include href="version-info.xml" xpointer="v244"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -356,7 +378,9 @@
         <term><option>--quiet</option></term>
 
         <listitem><para>Suppress printing of the results of various commands and also the hints about ESP
-        being unavailable.</para></listitem>
+        being unavailable.</para>
+
+        <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -368,7 +392,9 @@
         entry token, as specified with <option>--entry-token=</option> parameter described below, and is
         placed immediately below the <varname>$BOOT</varname> root directory (i.e. beneath the file system
         returned by the <option>--print-boot-path</option> option, see above). Defaults to
-        <literal>no</literal>.</para></listitem>
+        <literal>no</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -413,12 +439,16 @@
         on the same medium, and they can update their boot loader entries independently. When using another
         identifier (such as the OS ID or the OS image ID), parallel installations of the same OS would try to
         use the same entry name. To support parallel installations, the installer must use a different entry
-        token when adding a second installation.</para></listitem>
+        token when adding a second installation.</para>
+
+        <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>--all-architectures</option></term>
-        <listitem><para>Install binaries for all supported EFI architectures (this implies <option>--no-variables</option>).</para></listitem>
+        <listitem><para>Install binaries for all supported EFI architectures (this implies <option>--no-variables</option>).</para>
+
+        <xi:include href="version-info.xml" xpointer="v252"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -431,7 +461,9 @@
         found on the various disks installed in the system. Specifically distributions should not use this flag
         to install a branded entry in the boot option list. However in situations with multiple disks, each with
         their own ESP partition, it can be beneficial to make it easier to identify the bootloader being used in
-        the firmware's boot option menu.</para></listitem>
+        the firmware's boot option menu.</para>
+
+        <xi:include href="version-info.xml" xpointer="v252"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -439,7 +471,9 @@
         <listitem><para>Dry run for <option>--unlink</option> and <option>--cleanup</option>.</para>
 
         <para>In dry run mode, the unlink and cleanup operations only print the files that would get deleted
-        without actually deleting them.</para></listitem>
+        without actually deleting them.</para>
+
+        <xi:include href="version-info.xml" xpointer="v253"/></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="no-pager"/>

@@ -116,7 +116,9 @@
               <term><varname>extended</varname></term>
 
               <listitem><para>Show <filename>*.conf</filename> files
-              in drop-in directories for units.</para></listitem>
+              in drop-in directories for units.</para>
+
+              <xi:include href="version-info.xml" xpointer="v205"/></listitem>
             </varlistentry>
 
             <varlistentry>

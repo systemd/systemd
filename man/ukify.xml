@@ -163,7 +163,9 @@
           <listitem><para>Load configuration from the given config file. In general, settings specified in
           the config file have lower precedence than the settings specified via options. In cases where the
           commandline option does not fully override the config file setting are explicitly mentioned in the
-          descriptions of individual options.</para></listitem>
+          descriptions of individual options.</para>
+
+          <xi:include href="version-info.xml" xpointer="v254"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -193,6 +195,8 @@
 
           <para>Note that the name is used as-is, and if the section name should start with a dot, it must be
           included in <replaceable>NAME</replaceable>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v255"/>
           </listitem>
         </varlistentry>
 
@@ -217,19 +221,25 @@
           <term><option>--summary</option></term>
 
           <listitem><para>Print a summary of loaded config and exit. This is useful to check how the options
-          form the configuration file and the commandline are combined.</para></listitem>
+          form the configuration file and the commandline are combined.</para>
+
+          <xi:include href="version-info.xml" xpointer="v254"/></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><option>--all</option></term>
 
-          <listitem><para>Print all sections (with <command>inspect</command> verb).</para></listitem>
+          <listitem><para>Print all sections (with <command>inspect</command> verb).</para>
+
+          <xi:include href="version-info.xml" xpointer="v255"/></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><option>--json</option></term>
 
-          <listitem><para>Generate JSON output (with <command>inspect</command> verb).</para></listitem>
+          <listitem><para>Generate JSON output (with <command>inspect</command> verb).</para>
+
+          <xi:include href="version-info.xml" xpointer="v255"/></listitem>
         </varlistentry>
 
         <xi:include href="standard-options.xml" xpointer="help" />
@@ -245,7 +255,9 @@
           <term><varname>Linux=<replaceable>LINUX</replaceable></varname></term>
           <term><option>--linux=<replaceable>LINUX</replaceable></option></term>
 
-          <listitem><para>A path to the kernel binary.</para></listitem>
+          <listitem><para>A path to the kernel binary.</para>
+
+          <xi:include href="version-info.xml" xpointer="v254"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -254,7 +266,9 @@
 
           <listitem><para>Zero or more initrd paths. In the configuration file, items are separated by
           whitespace. The initrds are combined in the order of specification, with the initrds specified in
-          the config file first.</para></listitem>
+          the config file first.</para>
+
+          <xi:include href="version-info.xml" xpointer="v254"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -331,7 +345,9 @@
 
           <listitem><para>Whether to use <literal>sbsign</literal> or <literal>pesign</literal>.
           Depending on this choice, different parameters are required in order to sign an image.
-          Defaults to <literal>sbsign</literal>.</para></listitem>
+          Defaults to <literal>sbsign</literal>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v254"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -360,7 +376,9 @@
 
           <listitem><para>A path to a nss certificate database directory to use for signing of the resulting binary.
           Takes effect when <varname>SecureBootSigningTool=pesign</varname>/<option>--signtool=pesign</option> is used.
-          Defaults to <filename>/etc/pki/pesign</filename>.</para></listitem>
+          Defaults to <filename>/etc/pki/pesign</filename>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v254"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -368,7 +386,9 @@
           <term><option>--secureboot-certificate-name=<replaceable>SB_CERTNAME</replaceable></option></term>
 
           <listitem><para>The name of the nss certificate database entry to use for signing of the resulting binary.
-          This option is required by <varname>SecureBootSigningTool=pesign</varname>/<option>--signtool=pesign</option>.</para></listitem>
+          This option is required by <varname>SecureBootSigningTool=pesign</varname>/<option>--signtool=pesign</option>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v254"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -376,7 +396,9 @@
           <term><option>--secureboot-certificate-validity=<replaceable>DAYS</replaceable></option></term>
 
           <listitem><para>Period of validity (in days) for a certificate created by
-          <command>genkey</command>. Defaults to 3650, i.e. 10 years.</para></listitem>
+          <command>genkey</command>. Defaults to 3650, i.e. 10 years.</para>
+
+          <xi:include href="version-info.xml" xpointer="v254"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -413,7 +435,9 @@
           <literal>uki,1,UKI,uki,1,https://www.freedesktop.org/software/systemd/man/systemd-stub.html</literal>
           will be used, to ensure it is always possible to revoke UKIs and addons. For more information on
           SBAT see <ulink url="https://github.com/rhboot/shim/blob/main/SBAT.md">Shim's documentation.</ulink>
-          </para></listitem>
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v254"/></listitem>
         </varlistentry>
       </variablelist>
     </refsect2>

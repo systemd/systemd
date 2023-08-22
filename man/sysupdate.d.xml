@@ -440,7 +440,9 @@
 
         <listitem><para>Specifies the minimum version to require for this transfer to take place. If the
         source or target patterns in this transfer definition match files older than this version they will
-        be considered obsolete, and never be considered for the update operation.</para></listitem>
+        be considered obsolete, and never be considered for the update operation.</para>
+
+        <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -454,7 +456,9 @@
         <para>Like many of the settings in these configuration files this setting supports specifier
         expansion. It's particularly useful to set this setting to one of the <literal>%A</literal>,
         <literal>%B</literal> or <literal>%w</literal> specifiers to automatically refer to the current OS
-        version of the running system. See below for details on supported specifiers.</para></listitem>
+        version of the running system. See below for details on supported specifiers.</para>
+
+        <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -476,7 +480,9 @@
 
         <para>This option only has an effect if the source resource type is selected as
         <constant>url-file</constant> or <constant>url-tar</constant>, as integrity and authentication
-        checking is only available for transfers from remote sources.</para></listitem>
+        checking is only available for transfers from remote sources.</para>
+
+        <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
 
     </variablelist>
@@ -498,7 +504,9 @@
         mandatory.</para>
 
         <para>Note that only certain combinations of source and target resource types are supported, see
-        above.</para></listitem>
+        above.</para>
+
+        <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
     </variablelist>
 
@@ -516,7 +524,9 @@
         downloaded.</para>
 
         <para>For all other source resource types this must be a local path in the file system, referring to
-        a local directory to find the versions of this resource in.</para></listitem>
+        a local directory to find the versions of this resource in.</para>
+
+        <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -527,7 +537,9 @@
 
         <para>This option is mandatory. Any pattern listed must contain at least the <literal>@v</literal>
         wildcard, so that a version identifier may be extracted from the filename. All other wildcards are
-        optional.</para></listitem>
+        optional.</para>
+
+        <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
@@ -547,7 +559,9 @@
         mandatory.</para>
 
         <para>Note that only certain combinations of source and target resource types are supported, see
-        above.</para></listitem>
+        above.</para>
+
+        <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -566,7 +580,9 @@
         <varname>Type=</varname> is set to <constant>partition</constant>. Partitions must exist already, and
         a special partition label <literal>_empty</literal> is used to indicate empty partitions. To
         automatically generate suitable partitions on first boot, use a tool such as
-        <citerefentry><refentrytitle>systemd-repart</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para></listitem>
+        <citerefentry><refentrytitle>systemd-repart</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -583,7 +599,9 @@
 
         <para>The values <constant>esp</constant>, <constant>xbootldr</constant>, and
         <constant>boot</constant> are only supported when <varname>Type=</varname> is set to
-        <constant>regular-file</constant> or <constant>directory</constant>.</para></listitem>
+        <constant>regular-file</constant> or <constant>directory</constant>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -599,7 +617,9 @@
 
         <para>This pattern is both used for matching existing installed versions and for determining the name
         of new versions to install. If multiple patterns are specified, the first specified is used for
-        naming newly installed versions.</para></listitem>
+        naming newly installed versions.</para>
+
+        <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -610,7 +630,9 @@
         partitions are ignored. If not specified, the GPT partition type <constant>linux-generic</constant>
         is used. Accepts either a literal type UUID or a symbolic type identifier. For a list of supported
         type identifiers, see the <varname>Type=</varname> setting in
-        <citerefentry><refentrytitle>repart.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para></listitem>
+        <citerefentry><refentrytitle>repart.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -632,7 +654,9 @@
         Partitions Specification</ulink> for details about these flags.</para>
 
         <para>Note that these settings are not used for matching, they only have effect on newly written
-        partitions in case a transfer takes place.</para></listitem>
+        partitions in case a transfer takes place.</para>
+
+        <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -648,7 +672,9 @@
         whole. Finally, if the target <varname>Type=</varname> is selected as <constant>directory</constant>,
         the "immutable" file attribute is set, see <citerefentry
         project='man-pages'><refentrytitle>chattr</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
-        details.</para></listitem>
+        details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -660,7 +686,9 @@
         (i.e. <literal>@t</literal>), the value from the pattern is used.</para>
 
         <para>Note that this setting is not used for matching, it only has an effect on newly written
-        files when a transfer takes place.</para></listitem>
+        files when a transfer takes place.</para>
+
+        <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -671,7 +699,9 @@
         done and left for this file. These settings are useful for managing kernel images, following the
         scheme defined in <ulink url="https://systemd.io/AUTOMATIC_BOOT_ASSESSMENT">Automatic Boot
         Assessment</ulink>, and only have an effect if the target pattern includes the <literal>@d</literal>
-        or <literal>@l</literal> wildcards.</para></listitem>
+        or <literal>@l</literal> wildcards.</para>
+
+        <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -695,7 +725,9 @@
         of concurrent versions to keep is additionally restricted by the number of partition slots of the
         right type in the partition table. I.e. if there are only 2 partition slots for the selected
         partition type, setting this value larger than 2 is without effect, since no more than 2 concurrent
-        versions could be stored in the image anyway.</para></listitem>
+        versions could be stored in the image anyway.</para>
+
+        <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -705,7 +737,9 @@
         initiating an update, all left-over, incomplete updates from a previous attempt are removed from the
         target directory. This only has an effect if the target resource <varname>Type=</varname> is selected
         as <constant>regular-file</constant>, <constant>directory</constant> or
-        <constant>subvolume</constant>.</para></listitem>
+        <constant>subvolume</constant>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -716,7 +750,9 @@
         is useful in to provide a stable name always pointing to the newest version of the resource. This is
         only supported if the target resource <varname>Type=</varname> is selected as
         <constant>regular-file</constant>, <constant>directory</constant> or
-        <constant>subvolume</constant>.</para></listitem>
+        <constant>subvolume</constant>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
 
     </variablelist>

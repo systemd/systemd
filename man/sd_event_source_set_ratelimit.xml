@@ -125,27 +125,35 @@
 
           <listitem><para><parameter>source</parameter> is not a valid pointer to an
           <structname>sd_event_source</structname> object.
-          </para></listitem>
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v248"/></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-ECHILD</constant></term>
 
-          <listitem><para>The event loop has been created in a different process, library or module instance.</para></listitem>
+          <listitem><para>The event loop has been created in a different process, library or module instance.</para>
+
+          <xi:include href="version-info.xml" xpointer="v248"/></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-EDOM</constant></term>
 
           <listitem><para>It was attempted to use the rate limiting feature on an event source type that does
-          not support rate limiting.</para></listitem>
+          not support rate limiting.</para>
+
+          <xi:include href="version-info.xml" xpointer="v248"/></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-ENOEXEC</constant></term>
 
           <listitem><para><function>sd_event_source_get_ratelimit()</function> was called on an event source
-          that doesn't have rate limiting configured.</para></listitem>
+          that doesn't have rate limiting configured.</para>
+
+          <xi:include href="version-info.xml" xpointer="v248"/></listitem>
         </varlistentry>
 
       </variablelist>

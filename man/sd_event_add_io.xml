@@ -285,7 +285,9 @@
           project='man-pages'><refentrytitle>epoll</refentrytitle><manvolnum>7</manvolnum></citerefentry>
           API, for example because it is a regular file or directory. See <citerefentry
           project='man-pages'><refentrytitle>epoll_ctl</refentrytitle><manvolnum>2</manvolnum></citerefentry>
-          for details.</para></listitem>
+          for details.</para>
+
+          <xi:include href="version-info.xml" xpointer="v255"/></listitem>
         </varlistentry>
       </variablelist>
     </refsect2>

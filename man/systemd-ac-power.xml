@@ -47,7 +47,9 @@
         <term><option>-v</option></term>
         <term><option>--verbose</option></term>
 
-        <listitem><para>Show result as text instead of just returning success or failure.</para></listitem>
+        <listitem><para>Show result as text instead of just returning success or failure.</para>
+
+        <xi:include href="version-info.xml" xpointer="v253"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -55,7 +57,9 @@
 
         <listitem><para>Instead of showing AC power state, show low battery state. In this case will return
         zero if all batteries are currently discharging and below 5% of maximum charge. Returns non-zero
-        otherwise.</para></listitem>
+        otherwise.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="help" />

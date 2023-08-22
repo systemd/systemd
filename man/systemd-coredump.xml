@@ -187,12 +187,16 @@ COREDUMP_FILENAME=/var/lib/systemd/coredump/core.Web….552351.….zst
         <para>When the crashed process was part of a container (or in a process or user namespace in
         general), those are the values as seen <emphasis>outside</emphasis>, in the namespace where
         <filename>systemd-coredump</filename> is running.</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/>
         </listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>COREDUMP_TIMESTAMP=</varname></term>
         <listitem><para>The time of the crash as reported by the kernel (in μs since the epoch).</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/>
         </listitem>
       </varlistentry>
 
@@ -200,7 +204,9 @@ COREDUMP_FILENAME=/var/lib/systemd/coredump/core.Web….552351.….zst
         <term><varname>COREDUMP_RLIMIT=</varname></term>
         <listitem><para>The core file size soft resource limit, see
         <citerefentry project='man-pages'><refentrytitle>getrlimit</refentrytitle><manvolnum>2</manvolnum></citerefentry>.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -210,6 +216,8 @@ COREDUMP_FILENAME=/var/lib/systemd/coredump/core.Web….552351.….zst
 
         <para>When the crashed process was in container, those are the units names
         <emphasis>outside</emphasis>, in the main system manager.</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/>
         </listitem>
       </varlistentry>
 
@@ -222,6 +230,8 @@ COREDUMP_FILENAME=/var/lib/systemd/coredump/core.Web….552351.….zst
 
         <para>When the crashed process was in a container, this is the full path, as seen outside of the
         container.</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/>
         </listitem>
       </varlistentry>
 
@@ -234,6 +244,8 @@ COREDUMP_FILENAME=/var/lib/systemd/coredump/core.Web….552351.….zst
 
         <para>When the crashed process was in container, those are the values <emphasis>outside</emphasis>,
         in the main system.</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/>
         </listitem>
       </varlistentry>
 
@@ -249,6 +261,8 @@ COREDUMP_FILENAME=/var/lib/systemd/coredump/core.Web….552351.….zst
         the prefix; all systemd tools accept signal names both with and without the prefix.
         </para></footnote>) and numerical value. (Both are included because signal numbers vary by
         architecture.)</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/>
         </listitem>
       </varlistentry>
 
@@ -260,6 +274,8 @@ COREDUMP_FILENAME=/var/lib/systemd/coredump/core.Web….552351.….zst
 
         <para>When the crashed process is in a container, those paths are relative to the root of the
         container's mount namespace.</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/>
         </listitem>
       </varlistentry>
 
@@ -281,7 +297,9 @@ flags:   ...
         <para>The first line contains the file descriptor number <replaceable>fd</replaceable> and the path,
         while subsequent lines show the contents of
         <filename>/proc/<replaceable>pid</replaceable>/fdinfo/<replaceable>fd</replaceable></filename>.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -291,7 +309,9 @@ flags:   ...
         symlink.</para>
 
         <para>When the crashed process is in a container, that path is relative to the root of the
-        container's mount namespace.</para></listitem>
+        container's mount namespace.</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -315,7 +335,9 @@ flags:   ...
 
         <para>See
         <citerefentry project='man-pages'><refentrytitle>proc</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        for more information.</para></listitem>
+        for more information.</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -324,6 +346,8 @@ flags:   ...
         <listitem><para>The system hostname.</para>
 
         <para>When the crashed process was in container, this is the container hostname.</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/>
         </listitem>
       </varlistentry>
 
@@ -331,13 +355,17 @@ flags:   ...
         <term><varname>COREDUMP_CONTAINER_CMDLINE=</varname></term>
 
         <listitem><para>For processes running in a container, the commandline of the process spawning the
-        container (the first parent process with a different mount namespace).</para></listitem>
+        container (the first parent process with a different mount namespace).</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>COREDUMP=</varname></term>
 
         <listitem><para>When the core is stored in the journal, the core image itself.</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/>
         </listitem>
       </varlistentry>
 
@@ -345,6 +373,8 @@ flags:   ...
         <term><varname>COREDUMP_FILENAME=</varname></term>
 
         <listitem><para>When the core is stored externally, the path to the core file.</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/>
         </listitem>
       </varlistentry>
 
@@ -353,7 +383,9 @@ flags:   ...
 
         <listitem><para>Set to <literal>1</literal> when the saved coredump was truncated. (A partial core
         image may still be processed by some tools, though obviously not all information is available.)
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -367,6 +399,8 @@ flags:   ...
         JSON-formatted content of all modules will be appended as a single JSON object, each with
         the module name as the key. For more information about this metadata format and content, see
         <ulink url="https://systemd.io/COREDUMP_PACKAGE_METADATA/">the coredump metadata spec</ulink>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v249"/>
         </listitem>
       </varlistentry>
 
@@ -375,7 +409,9 @@ flags:   ...
 
         <listitem><para>The message generated by <command>systemd-coredump</command> that includes the
         backtrace if it was successfully generated. When <command>systemd-coredump</command> is invoked with
-        <option>--backtrace</option>, this field is provided by the caller.</para></listitem>
+        <option>--backtrace</option>, this field is provided by the caller.</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/></listitem>
       </varlistentry>
     </variablelist>
 
@@ -404,7 +440,9 @@ flags:   ...
         <varname>COREDUMP_SIGNAL=</varname>, <varname>COREDUMP_TIMESTAMP=</varname>,
         <varname>COREDUMP_RLIMIT=</varname>, <varname>COREDUMP_HOSTNAME=</varname>,
         <varname>COREDUMP_COMM=</varname>, and <varname>COREDUMP_EXE=</varname>, described above.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/></listitem>
       </varlistentry>
     </variablelist>
 

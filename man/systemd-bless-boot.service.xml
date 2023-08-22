@@ -65,7 +65,9 @@
         <option>good</option> command below, and "bad" conversely after the <option>bad</option> command was
         invoked. The string <literal>clean</literal> is returned when boot counting is currently not in effect.</para>
 
-        <para>This command is implied if no command argument is specified.</para></listitem>
+        <para>This command is implied if no command argument is specified.</para>
+
+        <xi:include href="version-info.xml" xpointer="v240"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -74,7 +76,9 @@
         <listitem><para>When invoked, the current boot loader entry file or unified kernel image file will be marked as
         "good", executing the file rename operation described above. This command is intended to be invoked at the end
         of a successful boot. The <filename>systemd-bless-boot.service</filename> unit invokes this
-        command.</para></listitem>
+        command.</para>
+
+        <xi:include href="version-info.xml" xpointer="v240"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -84,7 +88,9 @@
         file name is set to zero, marking the boot loader entry or kernel image as "bad", so that the boot loader won't
         consider it anymore on future boots (at least as long as there are other entries available that are not marked
         "bad" yet). This command is normally not executed, but can be used to instantly put an end to the boot counting
-        logic if a problem is detected and persistently mark the boot entry as bad.</para></listitem>
+        logic if a problem is detected and persistently mark the boot entry as bad.</para>
+
+        <xi:include href="version-info.xml" xpointer="v240"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -92,7 +98,9 @@
 
         <listitem><para>This command undoes any marking of the current boot loader entry file or unified kernel image
         file as good or bad. This is implemented by renaming the boot loader entry file or unified kernel image file
-        back to the path encoded in the <varname>LoaderBootCountPath</varname> EFI variable.</para></listitem>
+        back to the path encoded in the <varname>LoaderBootCountPath</varname> EFI variable.</para>
+
+        <xi:include href="version-info.xml" xpointer="v240"/></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="help" />

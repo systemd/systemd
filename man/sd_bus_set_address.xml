@@ -134,13 +134,17 @@
           <term><constant>-EINVAL</constant></term>
 
           <listitem><para>The input parameters <parameter>bus</parameter> or <parameter>address</parameter> are <constant>NULL</constant>.
-          </para></listitem>
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-ENOPKG</constant></term>
 
           <listitem><para>The bus object <parameter>bus</parameter> could not be resolved.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/>
           </listitem>
         </varlistentry>
 
@@ -149,6 +153,8 @@
 
           <listitem><para>The input parameter <parameter>bus</parameter> is in a wrong state
           (<function>sd_bus_set_address()</function> may only be called once on a newly-created bus object).</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/>
           </listitem>
         </varlistentry>
 
@@ -157,6 +163,8 @@
 
           <listitem><para>The bus object <parameter>bus</parameter> was created in a different
           process.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/>
           </listitem>
         </varlistentry>
 
@@ -164,6 +172,8 @@
           <term><constant>-ENODATA</constant></term>
 
           <listitem><para>The bus object <parameter>bus</parameter> has no address configured.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/>
           </listitem>
         </varlistentry>
       </variablelist>

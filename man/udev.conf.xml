@@ -46,6 +46,8 @@
           syslog priorities or their textual representations:
           <option>err</option>, <option>info</option> and
           <option>debug</option>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v240"/>
         </listitem>
       </varlistentry>
 
@@ -57,6 +59,8 @@
           specified, the maximum is determined based on the system resources.</para>
 
           <para>This is the same as the <option>--children-max=</option> option.</para>
+
+          <xi:include href="version-info.xml" xpointer="v240"/>
         </listitem>
       </varlistentry>
 
@@ -71,6 +75,8 @@
           modules.</para>
 
           <para>This is the same as the <option>--exec-delay=</option> option.</para>
+
+          <xi:include href="version-info.xml" xpointer="v240"/>
         </listitem>
       </varlistentry>
 
@@ -82,6 +88,8 @@
           this time, the event will be terminated. The default is 180 seconds.</para>
 
           <para>This is the same as the <option>--event-timeout=</option> option.</para>
+
+          <xi:include href="version-info.xml" xpointer="v240"/>
         </listitem>
       </varlistentry>
 
@@ -96,6 +104,8 @@
           root.</para>
 
           <para>This is the same as the <option>--resolve-names=</option> option.</para>
+
+          <xi:include href="version-info.xml" xpointer="v240"/>
         </listitem>
       </varlistentry>
 
@@ -106,6 +116,8 @@
           <para>Specifies a signal that <filename>systemd-udevd</filename> will send on worker
           timeouts. Note that both workers and spawned processes will be killed using this
           signal. Defaults to <option>SIGKILL</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v246"/>
         </listitem>
       </varlistentry>
     </variablelist>

@@ -92,7 +92,9 @@
         <listitem><para>When <option>-</option> is given as a
         positional argument, events will be read from standard input.
         Other positional arguments will be treated as filenames
-        to open and read from.</para></listitem>
+        to open and read from.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -105,7 +107,9 @@
         root of a remote
         <citerefentry><refentrytitle>systemd-journal-gatewayd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         instance, e.g. http://some.host:19531/ or
-        https://some.host:19531/.</para></listitem>
+        https://some.host:19531/.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -119,6 +123,8 @@
         <programlisting>--getter='curl "-HAccept: application/vnd.fdo.journal" https://some.host:19531/'</programlisting>
 
         <programlisting>--getter='wget --header="Accept: application/vnd.fdo.journal" -O- https://some.host:19531/'</programlisting>
+
+        <xi:include href="version-info.xml" xpointer="v239"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -136,6 +142,8 @@
         <command>systemd-journal-remote</command> will listen on this
         socket for connections. Each connection is expected to be a
         stream of journal events.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/>
         </listitem>
       </varlistentry>
 
@@ -156,6 +164,8 @@
         <option>--listen-https=</option>. Currently, only POST requests
         to <filename>/upload</filename> with <literal>Content-Type:
         application/vnd.fdo.journal</literal> are supported.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/>
         </listitem>
       </varlistentry>
 
@@ -174,6 +184,8 @@
         above. In the latter case, an HTTP or HTTPS server will be
         spawned using this descriptor and connections must be made
         over the HTTP protocol.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/>
         </listitem>
       </varlistentry>
 
@@ -183,7 +195,9 @@
         <listitem><para>Takes a path to a SSL secret key file in PEM format. Defaults to
         <filename>&CERTIFICATE_ROOT;/private/journal-remote.pem</filename>. This option can be used with
         <option>--listen-https=</option>. If the path refers to an <constant>AF_UNIX</constant> stream socket
-        in the file system a connection is made to it and the key read from it.</para></listitem>
+        in the file system a connection is made to it and the key read from it.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -192,7 +206,9 @@
         <listitem><para> Takes a path to a SSL certificate file in PEM format. Defaults to
         <filename>&CERTIFICATE_ROOT;/certs/journal-remote.pem</filename>. This option can be used with
         <option>--listen-https=</option>. If the path refers to an <constant>AF_UNIX</constant> stream socket
-        in the file system a connection is made to it and the certificate read from it.</para></listitem>
+        in the file system a connection is made to it and the certificate read from it.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -202,7 +218,9 @@
         <option>all</option> is set, then certificate checking will be disabled. Defaults to
         <filename>&CERTIFICATE_ROOT;/ca/trusted.pem</filename>. This option can be used with
         <option>--listen-https=</option>. If the path refers to an <constant>AF_UNIX</constant> stream socket
-        in the file system a connection is made to it and the certificate read from it.</para></listitem>
+        in the file system a connection is made to it and the certificate read from it.</para>
+
+ <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -212,7 +230,9 @@
           Takes a comma separated list of gnutls logging categories.
           This option can be used with <option>--listen-http=</option> or
           <option>--listen-https=</option>.
-        </para></listitem>
+        </para>
+
+          <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
     </variablelist>
@@ -284,7 +304,9 @@
         <para>In the case that "active" sources are given by the positional
         arguments or <option>--getter=</option> option, the output file name must
         always be given explicitly and only <constant>none</constant>
-        is allowed.</para></listitem>
+        is allowed.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -292,7 +314,9 @@
 
         <listitem><para>If this is set to <literal>yes</literal> then compress
         the data in the journal using XZ. The default is <literal>yes</literal>.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -300,7 +324,9 @@
 
         <listitem><para>If this is set to <literal>yes</literal> then
         periodically sign the data in the journal using Forward Secure Sealing.
-        The default is <literal>no</literal>.</para></listitem>
+        The default is <literal>no</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="help" />

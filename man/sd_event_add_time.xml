@@ -291,7 +291,9 @@
           <term><constant>-EOVERFLOW</constant></term>
 
           <listitem><para>The passed relative time is outside of the allowed range for time values (i.e. the
-          specified value added to the current time is outside the 64 bit unsigned integer range).</para></listitem>
+          specified value added to the current time is outside the 64 bit unsigned integer range).</para>
+
+          <xi:include href="version-info.xml" xpointer="v247"/></listitem>
         </varlistentry>
       </variablelist>
     </refsect2>

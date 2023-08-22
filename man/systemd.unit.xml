@@ -750,6 +750,8 @@
         <para>When <varname>Upholds=b.service</varname> is used on <filename>a.service</filename>, this
         dependency will show as <varname>UpheldBy=a.service</varname> in the property listing of
         <filename>b.service</filename>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v249"/>
         </listitem>
       </varlistentry>
 
@@ -829,7 +831,9 @@
         <term><varname>OnSuccess=</varname></term>
 
         <listitem><para>A space-separated list of one or more units that are activated when this unit enters
-        the <literal>inactive</literal> state.</para></listitem>
+        the <literal>inactive</literal> state.</para>
+
+        <xi:include href="version-info.xml" xpointer="v249"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -849,7 +853,9 @@
         <listitem><para>A space-separated list of one or more units to which stop requests from this unit
         shall be propagated to, or units from which stop requests shall be propagated to this unit,
         respectively. Issuing a stop request on a unit will automatically also enqueue stop requests on all
-        units that are linked to it using these two settings.</para></listitem>
+        units that are linked to it using these two settings.</para>
+
+        <xi:include href="version-info.xml" xpointer="v249"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -993,6 +999,8 @@
         not necessary. Note that if this mode is used unit results (such as exit codes, exit signals, consumed
         resources, …) are flushed out immediately after the unit completed, except for what is stored in the logging
         subsystem. Defaults to <option>inactive</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v236"/>
         </listitem>
       </varlistentry>
 
@@ -1031,7 +1039,9 @@
         <varname>FailureActionExitStatus=</varname>/<varname>SuccessActionExitStatus=</varname>, see below.
         <option>soft-reboot</option> will trigger a userspace reboot operation.
         <option>soft-reboot-force</option> does that too, but does not go through the shutdown transaction
-        beforehand.</para></listitem>
+        beforehand.</para>
+
+        <xi:include href="version-info.xml" xpointer="v236"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1043,7 +1053,9 @@
         <varname>FailureAction=</varname>/<varname>SuccessAction=</varname> are set to <option>exit</option> or
         <option>exit-force</option> and the action is triggered. By default the exit status of the main process of the
         triggering unit (if this applies) is propagated. Takes a value in the range 0…255 or the empty string to
-        request default behaviour.</para></listitem>
+        request default behaviour.</para>
+
+        <xi:include href="version-info.xml" xpointer="v240"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1082,7 +1094,9 @@
 
         <para><varname>JobTimeoutRebootArgument=</varname> configures an optional reboot string to pass to
         the <citerefentry><refentrytitle>reboot</refentrytitle><manvolnum>2</manvolnum></citerefentry> system
-        call.</para></listitem>
+        call.</para>
+
+        <xi:include href="version-info.xml" xpointer="v240"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1122,7 +1136,9 @@
         referenced continuously has no effect.</para>
 
         <para>This setting does not apply to slice, target, device, and scope units, since they are unit
-        types whose activation may either never fail, or may succeed only a single time.</para></listitem>
+        types whose activation may either never fail, or may succeed only a single time.</para>
+
+        <xi:include href="version-info.xml" xpointer="v236"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1132,7 +1148,9 @@
         <varname>StartLimitIntervalSec=</varname> and <varname>StartLimitBurst=</varname> is hit. Takes the same
         values as the <varname>FailureAction=</varname>/<varname>SuccessAction=</varname> settings. If
         <option>none</option> is set, hitting the rate limit will trigger no action except that
-        the start will not be permitted. Defaults to <option>none</option>.</para></listitem>
+        the start will not be permitted. Defaults to <option>none</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v229"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1140,7 +1158,9 @@
         <listitem><para>Configure the optional argument for the
         <citerefentry><refentrytitle>reboot</refentrytitle><manvolnum>2</manvolnum></citerefentry> system call if
         <varname>StartLimitAction=</varname> or <varname>FailureAction=</varname> is a reboot action. This
-        works just like the optional argument to <command>systemctl reboot</command> command.</para></listitem>
+        works just like the optional argument to <command>systemctl reboot</command> command.</para>
+
+        <xi:include href="version-info.xml" xpointer="v229"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1272,7 +1292,9 @@
             <replaceable>value</replaceable> is the expected value of the SMBIOS field value (possibly
             containing shell style globs in case <literal>$=</literal>/<literal>!$=</literal> is used).
             </para></listitem>
-          </itemizedlist></listitem>
+          </itemizedlist>
+
+            <xi:include href="version-info.xml" xpointer="v249"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -1315,6 +1337,8 @@
           for a full list of known virtualization technologies and their identifiers. If multiple
           virtualization technologies are nested, only the innermost is considered. The test may be negated
           by prepending an exclamation mark.</para>
+
+          <xi:include href="version-info.xml" xpointer="v244"/>
           </listitem>
         </varlistentry>
 
@@ -1328,6 +1352,8 @@
           a machine ID formatted as string (see
           <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
           The test may be negated by prepending an exclamation mark.</para>
+
+          <xi:include href="version-info.xml" xpointer="v244"/>
           </listitem>
         </varlistentry>
 
@@ -1343,6 +1369,8 @@
           communicated to userspace via <filename>/proc/cmdline</filename>, except when the service manager
           is invoked as payload of a container manager, in which case the command line of <filename>PID
           1</filename> is used instead (i.e. <filename>/proc/1/cmdline</filename>).</para>
+
+          <xi:include href="version-info.xml" xpointer="v244"/>
           </listitem>
         </varlistentry>
 
@@ -1363,6 +1391,8 @@
           fixes from newer upstream kernels into older versions provided by distributions. Hence, this check
           is inherently unportable and should not be used for units which may be used on different
           distributions.</para>
+
+          <xi:include href="version-info.xml" xpointer="v244"/>
           </listitem>
         </varlistentry>
 
@@ -1376,7 +1406,9 @@
           services based on system credentials passed in. If used in services for the per-user service
           manager this may be used to conditionalize services based on credentials passed into the
           <filename>unit@.service</filename> service instance belonging to the user. The argument must be a
-          valid credential name.</para></listitem>
+          valid credential name.</para>
+
+          <xi:include href="version-info.xml" xpointer="v252"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -1394,6 +1426,8 @@
           <varname>EnvironmentFile=</varname>, as described above. This is particularly useful when the
           service manager runs inside a containerized environment or as per-user service manager, in order to
           check for variables passed in by the enclosing container manager or PAM.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/>
           </listitem>
         </varlistentry>
 
@@ -1406,6 +1440,8 @@
           <literal>ima</literal>, <literal>smack</literal>, <literal>audit</literal>,
           <literal>uefi-secureboot</literal>, <literal>tpm2</literal> and <literal>cvm</literal>.
           The test may be negated by prepending an exclamation mark.</para>
+
+          <xi:include href="version-info.xml" xpointer="v244"/>
           </listitem>
         </varlistentry>
 
@@ -1418,6 +1454,8 @@
           <citerefentry project='man-pages'><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
           for details). Pass a capability name such as <literal>CAP_MKNOD</literal>, possibly prefixed with
           an exclamation mark to negate the check.</para>
+
+          <xi:include href="version-info.xml" xpointer="v244"/>
           </listitem>
         </varlistentry>
 
@@ -1430,6 +1468,8 @@
           source, or if no AC connectors are known. Conversely, if set to <literal>false</literal>, the
           condition will hold only if there is at least one AC connector known and all AC connectors are
           disconnected from a power source.</para>
+
+          <xi:include href="version-info.xml" xpointer="v244"/>
           </listitem>
         </varlistentry>
 
@@ -1466,7 +1506,9 @@
           packaging scheme, packages will do any required update steps as part of the installation or
           upgrade, to make package contents immediately usable. <varname>ConditionNeedsUpdate=</varname>
           should be used with other update mechanisms where such an immediate update does not
-          happen.</para></listitem>
+          happen.</para>
+
+          <xi:include href="version-info.xml" xpointer="v244"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -1490,6 +1532,8 @@
           <para>If the <varname>systemd.condition-first-boot=</varname> option is specified on the kernel
           command line (taking a boolean), it will override the result of this condition check, taking
           precedence over <filename>/etc/machine-id</filename> existence checks.</para>
+
+          <xi:include href="version-info.xml" xpointer="v244"/>
           </listitem>
         </varlistentry>
 
@@ -1501,6 +1545,8 @@
           <varname>ConditionPathExists=</varname> is prefixed with an exclamation mark
           (<literal>!</literal>), the test is negated, and the unit is only started if the path does not
           exist.</para>
+
+          <xi:include href="version-info.xml" xpointer="v244"/>
           </listitem>
         </varlistentry>
 
@@ -1510,6 +1556,8 @@
           <listitem><para><varname>ConditionPathExistsGlob=</varname> is similar to
           <varname>ConditionPathExists=</varname>, but checks for the existence of at least one file or
           directory matching the specified globbing pattern.</para>
+
+          <xi:include href="version-info.xml" xpointer="v244"/>
           </listitem>
         </varlistentry>
 
@@ -1519,6 +1567,8 @@
           <listitem><para><varname>ConditionPathIsDirectory=</varname> is similar to
           <varname>ConditionPathExists=</varname> but verifies that a certain path exists and is a
           directory.</para>
+
+          <xi:include href="version-info.xml" xpointer="v244"/>
           </listitem>
         </varlistentry>
 
@@ -1528,6 +1578,8 @@
           <listitem><para><varname>ConditionPathIsSymbolicLink=</varname> is similar to
           <varname>ConditionPathExists=</varname> but verifies that a certain path exists and is a symbolic
           link.</para>
+
+          <xi:include href="version-info.xml" xpointer="v244"/>
           </listitem>
         </varlistentry>
 
@@ -1537,6 +1589,8 @@
           <listitem><para><varname>ConditionPathIsMountPoint=</varname> is similar to
           <varname>ConditionPathExists=</varname> but verifies that a certain path exists and is a mount
           point.</para>
+
+          <xi:include href="version-info.xml" xpointer="v244"/>
           </listitem>
         </varlistentry>
 
@@ -1546,6 +1600,8 @@
           <listitem><para><varname>ConditionPathIsReadWrite=</varname> is similar to
           <varname>ConditionPathExists=</varname> but verifies that the underlying file system is readable
           and writable (i.e. not mounted read-only).</para>
+
+          <xi:include href="version-info.xml" xpointer="v244"/>
           </listitem>
         </varlistentry>
 
@@ -1558,6 +1614,8 @@
           per-directory encryption, and only detects block level encryption. Moreover, if the specified path
           resides on a file system on top of a loopback block device, only encryption above the loopback device is
           detected. It is not detected whether the file system backing the loopback block device is encrypted.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/>
           </listitem>
         </varlistentry>
 
@@ -1567,6 +1625,8 @@
           <listitem><para><varname>ConditionDirectoryNotEmpty=</varname> is similar to
           <varname>ConditionPathExists=</varname> but verifies that a certain path exists and is a non-empty
           directory.</para>
+
+          <xi:include href="version-info.xml" xpointer="v244"/>
           </listitem>
         </varlistentry>
 
@@ -1576,6 +1636,8 @@
           <listitem><para><varname>ConditionFileNotEmpty=</varname> is similar to
           <varname>ConditionPathExists=</varname> but verifies that a certain path exists and refers to a
           regular file with a non-zero size.</para>
+
+          <xi:include href="version-info.xml" xpointer="v244"/>
           </listitem>
         </varlistentry>
 
@@ -1585,6 +1647,8 @@
           <listitem><para><varname>ConditionFileIsExecutable=</varname> is similar to
           <varname>ConditionPathExists=</varname> but verifies that a certain path exists, is a regular file,
           and marked executable.</para>
+
+          <xi:include href="version-info.xml" xpointer="v244"/>
           </listitem>
         </varlistentry>
 
@@ -1597,6 +1661,8 @@
           <literal>@system</literal> can be used to check if the user id is within the system user
           range. This option is not useful for system services, as the system manager exclusively runs as the
           root user, and thus the test result is constant.</para>
+
+          <xi:include href="version-info.xml" xpointer="v244"/>
           </listitem>
         </varlistentry>
 
@@ -1607,6 +1673,8 @@
           but verifies that the service manager's real or effective group, or any of its auxiliary groups,
           match the specified group or GID. This setting does not support the special value
           <literal>@system</literal>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v244"/>
           </listitem>
         </varlistentry>
 
@@ -1630,6 +1698,8 @@
           hierarchy are used. Note that legacy or hybrid hierarchies have been deprecated. See
           <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
           more information.</para>
+
+          <xi:include href="version-info.xml" xpointer="v244"/>
           </listitem>
         </varlistentry>
 
@@ -1643,6 +1713,8 @@
           <literal>&gt;</literal>. On bare-metal systems compares the amount of physical memory in the system
           with the specified size, adhering to the specified comparison operator. In containers compares the
           amount of memory assigned to the container instead.</para>
+
+          <xi:include href="version-info.xml" xpointer="v244"/>
           </listitem>
         </varlistentry>
 
@@ -1658,7 +1730,9 @@
           physical systems the number of CPUs in the affinity mask of the service manager usually matches the
           number of physical CPUs, but in special and virtual environments might differ. In particular, in
           containers the affinity mask usually matches the number of CPUs assigned to the container and not
-          the physically available ones.</para></listitem>
+          the physically available ones.</para>
+
+          <xi:include href="version-info.xml" xpointer="v244"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -1720,6 +1794,8 @@
           <literal>lahf_lm</literal>,
           <literal>abm</literal>,
           <literal>constant_tsc</literal>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v248"/>
           </listitem>
         </varlistentry>
 
@@ -1735,6 +1811,8 @@
           <literal>&lt;&gt;</literal>, <literal>&gt;=</literal>, <literal>&gt;</literal>), and shell-style
           wildcard comparisons (<literal>*</literal>, <literal>?</literal>, <literal>[]</literal>) are
           supported with the <literal>$=</literal> (match) and <literal>!$=</literal> (non-match).</para>
+
+          <xi:include href="version-info.xml" xpointer="v249"/>
           </listitem>
         </varlistentry>
 
@@ -1758,6 +1836,8 @@
           <para>Optionally, the threshold value can be prefixed with the slice unit under which the pressure will be checked,
           followed by a <literal>:</literal>. If the slice unit is not specified, the overall system pressure will be measured,
           instead of a particular cgroup's.</para>
+
+          <xi:include href="version-info.xml" xpointer="v250"/>
           </listitem>
         </varlistentry>
 
@@ -2015,7 +2095,9 @@
         which instance the unit shall be enabled if the template is
         enabled without any explicitly set instance. This option has
         no effect in non-template unit files. The specified string
-        must be usable as instance identifier.</para></listitem>
+        must be usable as instance identifier.</para>
+
+        <xi:include href="version-info.xml" xpointer="v215"/></listitem>
       </varlistentry>
     </variablelist>
 

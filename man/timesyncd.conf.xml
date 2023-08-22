@@ -52,7 +52,9 @@
         <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
         <command>systemd-timesyncd</command> will contact all configured system or per-interface servers in
         turn, until one responds. When the empty string is assigned, the list of NTP servers is reset, and
-        all prior assignments will have no effect. This setting defaults to an empty list.</para></listitem>
+        all prior assignments will have no effect. This setting defaults to an empty list.</para>
+
+        <xi:include href="version-info.xml" xpointer="v216"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -63,7 +65,9 @@
         take precedence over this setting, as do any servers set via <varname>NTP=</varname> above. This
         setting is hence only relevant if no other NTP server information is known. When the empty string is
         assigned, the list of NTP servers is reset, and all prior assignments will have no effect. If this
-        option is not given, a compiled-in list of NTP servers is used.</para></listitem>
+        option is not given, a compiled-in list of NTP servers is used.</para>
+
+        <xi:include href="version-info.xml" xpointer="v216"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -75,7 +79,9 @@
 
         <para>Takes a time span value. The default unit is seconds, but other units may be specified, see
         <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-        Defaults to 5 seconds.</para></listitem>
+        Defaults to 5 seconds.</para>
+
+        <xi:include href="version-info.xml" xpointer="v236"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -90,7 +96,9 @@
         <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
         <varname>PollIntervalMinSec=</varname> defaults to 32 seconds and must not be smaller than
         16 seconds. <varname>PollIntervalMaxSec=</varname> defaults to 34 min 8 s (2048 seconds) and must be
-        larger than <varname>PollIntervalMinSec=</varname>.</para></listitem>
+        larger than <varname>PollIntervalMinSec=</varname>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v236"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -100,7 +108,9 @@
 
         <para>Takes a time span value. The default unit is seconds, but other units may be specified, see
         <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-        Defaults to 30 seconds and must not be smaller than 1 second.</para></listitem>
+        Defaults to 30 seconds and must not be smaller than 1 second.</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -112,7 +122,9 @@
 
         <para>Takes a time interval value. The default unit is seconds, but other units may be specified, see
         <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-        Defaults to 60 seconds.</para></listitem>
+        Defaults to 60 seconds.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
 
     </variablelist>

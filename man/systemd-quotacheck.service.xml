@@ -53,7 +53,9 @@
         file system quota checker deems them necessary.
         <literal>force</literal> unconditionally results in full file
         system quota checks. <literal>skip</literal> skips any file
-        system quota checks.</para></listitem>
+        system quota checks.</para>
+
+        <xi:include href="version-info.xml" xpointer="v186"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>

@@ -64,7 +64,9 @@
         <listitem><para>This is the default command if none is specified. This queries the local system's
         TPM2 PCR 11+12+13 values and displays them. The data is written in a similar format as the
         <command>calculate</command> command below, and may be used to quickly compare expectation with
-        reality.</para></listitem>
+        reality.</para>
+
+        <xi:include href="version-info.xml" xpointer="v252"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -76,6 +78,8 @@
         <option>--splash=</option>, <option>--dtb=</option>, <option>--sbat=</option>,
         <option>--pcrpkey=</option> see below. Only <option>--linux=</option> is mandatory. (Alternatively,
         specify <option>--current</option> to use the current values of PCR register 11 instead.)</para>
+
+        <xi:include href="version-info.xml" xpointer="v252"/>
         </listitem>
       </varlistentry>
 
@@ -95,7 +99,9 @@
         provided.</para>
 
         <para>Note that a TPM2 device must be available for this signing to take place, even though the
-        result is not tied to any TPM2 device or its state.</para></listitem>
+        result is not tied to any TPM2 device or its state.</para>
+
+        <xi:include href="version-info.xml" xpointer="v252"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
@@ -128,7 +134,9 @@
         <listitem><para>When used with the <command>calculate</command> or <command>sign</command> verb,
         takes the PCR 11 values currently in effect for the system (which should typically reflect the hashes
         of the currently booted kernel). This can be used in place of <option>--linux=</option> and the other
-        switches listed above.</para></listitem>
+        switches listed above.</para>
+
+        <xi:include href="version-info.xml" xpointer="v252"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -138,7 +146,9 @@
         <command>calculate</command> or <command>sign</command> is invoked –, or the banks to show in the
         <command>status</command> output. May be used more then once to specify multiple banks. If not
         specified, defaults to the four banks <literal>sha1</literal>, <literal>sha256</literal>,
-        <literal>sha384</literal>, <literal>sha512</literal>.</para></listitem>
+        <literal>sha384</literal>, <literal>sha512</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v252"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -156,7 +166,9 @@
         same PEM key should be supplied in both cases.</para>
 
         <para>If the <option>--public-key=</option> is not specified but <option>--private-key=</option> is
-        specified the public key is automatically derived from the private key.</para></listitem>
+        specified the public key is automatically derived from the private key.</para>
+
+        <xi:include href="version-info.xml" xpointer="v252"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -166,7 +178,9 @@
         chip (e.g. <filename>/dev/tpmrm0</filename>). Alternatively the special value <literal>auto</literal>
         may be specified, in order to automatically determine the device node of a suitable TPM2 device (of
         which there must be exactly one). The special value <literal>list</literal> may be used to enumerate
-        all suitable TPM2 devices currently discovered.</para></listitem>
+        all suitable TPM2 devices currently discovered.</para>
+
+        <xi:include href="version-info.xml" xpointer="v252"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -189,7 +203,9 @@
         parts of the boot process.</para>
 
         <para>For further details about PCR boot phases, see
-        <citerefentry><refentrytitle>systemd-pcrphase.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para></listitem>
+        <citerefentry><refentrytitle>systemd-pcrphase.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v252"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -202,7 +218,9 @@
         resulting object is written to standard output. Use this to generate a single JSON object consisting
         from signatures made with a number of signing keys (for example, to have one key per boot phase). The
         command will suppress duplicates: if a specific signature is already included in a JSON signature
-        object it is not added a second time.</para></listitem>
+        object it is not added a second time.</para>
+
+        <xi:include href="version-info.xml" xpointer="v253"/></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="json" />

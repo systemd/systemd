@@ -50,7 +50,9 @@
         names. By default, shows both unique and well-known names, but
         this may be changed with the <option>--unique</option> and
         <option>--acquired</option> switches. This is the default
-        operation if no command is specified.</para></listitem>
+        operation if no command is specified.</para>
+
+        <xi:include href="version-info.xml" xpointer="v209"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -60,7 +62,9 @@
         bus service (if one is specified by its unique or well-known
         name), a process (if one is specified by its numeric PID), or
         the owner of the bus (if no parameter is
-        specified).</para></listitem>
+        specified).</para>
+
+        <xi:include href="version-info.xml" xpointer="v218"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -71,7 +75,9 @@
         to or from this peer, identified by its well-known or unique
         name. Otherwise, show all messages on the bus. Use
         <keycombo><keycap>Ctrl</keycap><keycap>C</keycap></keycombo>
-        to terminate the dump.</para></listitem>
+        to terminate the dump.</para>
+
+        <xi:include href="version-info.xml" xpointer="v218"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -84,7 +90,9 @@
         Make sure to redirect standard output to a file or pipe. Tools like
         <citerefentry project='die-net'><refentrytitle>wireshark</refentrytitle><manvolnum>1</manvolnum></citerefentry>
         may be used to dissect and view the resulting
-        files.</para></listitem>
+        files.</para>
+
+        <xi:include href="version-info.xml" xpointer="v218"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -94,7 +102,9 @@
         services. If <replaceable>SERVICE</replaceable> is specified,
         show object tree of the specified services only. Otherwise,
         show all object trees of all services on the bus that acquired
-        at least one well-known name.</para></listitem>
+        at least one well-known name.</para>
+
+        <xi:include href="version-info.xml" xpointer="v218"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -104,7 +114,9 @@
         signals of the specified object (identified by its path) on
         the specified service. If the interface argument is passed, the
         output is limited to members of the specified
-        interface.</para></listitem>
+        interface.</para>
+
+        <xi:include href="version-info.xml" xpointer="v219"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -116,7 +128,9 @@
         string is required, followed by the arguments, individually
         formatted as strings. For details on the formatting used, see
         below. To suppress output of the returned data, use the
-        <option>--quiet</option> option.</para></listitem>
+        <option>--quiet</option> option.</para>
+
+        <xi:include href="version-info.xml" xpointer="v218"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -125,7 +139,9 @@
         <listitem><para>Emit a signal. Takes an object path, interface name and method name. If parameters
         shall be passed, a signature string is required, followed by the arguments, individually formatted as
         strings. For details on the formatting used, see below. To specify the destination of the signal,
-        use the <option>--destination=</option> option.</para></listitem>
+        use the <option>--destination=</option> option.</para>
+
+        <xi:include href="version-info.xml" xpointer="v242"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -137,7 +153,9 @@
         specified at once, in which case their values will be shown one
         after the other, separated by newlines. The output is, by
         default, in terse format. Use <option>--verbose</option> for a
-        more elaborate output format.</para></listitem>
+        more elaborate output format.</para>
+
+        <xi:include href="version-info.xml" xpointer="v218"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -146,13 +164,17 @@
         <listitem><para>Set the current value of an object
         property. Takes a service name, object path, interface name,
         property name, property signature, followed by a list of
-        parameters formatted as strings.</para></listitem>
+        parameters formatted as strings.</para>
+
+        <xi:include href="version-info.xml" xpointer="v218"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><command>help</command></term>
 
-        <listitem><para>Show command syntax help.</para></listitem>
+        <listitem><para>Show command syntax help.</para>
+
+        <xi:include href="version-info.xml" xpointer="v209"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
@@ -170,7 +192,9 @@
           <replaceable>ADDRESS</replaceable> instead of using suitable
           defaults for either the system or user bus (see
           <option>--system</option> and <option>--user</option>
-          options).</para></listitem>
+          options).</para>
+
+          <xi:include href="version-info.xml" xpointer="v209"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -180,7 +204,9 @@
           column containing the names of containers they belong to.
           See
           <citerefentry><refentrytitle>systemd-machined.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
-          </para></listitem>
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v209"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -189,14 +215,18 @@
           <listitem><para>When showing the list of peers, show only
           "unique" names (of the form
           <literal>:<replaceable>number</replaceable>.<replaceable>number</replaceable></literal>).
-          </para></listitem>
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v209"/></listitem>
       </varlistentry>
 
       <varlistentry>
           <term><option>--acquired</option></term>
 
           <listitem><para>The opposite of <option>--unique</option> —
-          only "well-known" names will be shown.</para></listitem>
+          only "well-known" names will be shown.</para>
+
+          <xi:include href="version-info.xml" xpointer="v209"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -205,6 +235,8 @@
           <listitem><para>When showing the list of peers, show only
           peers which have actually not been activated yet, but may be
           started automatically if accessed.</para>
+
+          <xi:include href="version-info.xml" xpointer="v209"/>
           </listitem>
       </varlistentry>
 
@@ -215,7 +247,9 @@
           subset matching <replaceable>MATCH</replaceable>.
           See
           <citerefentry><refentrytitle>sd_bus_add_match</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
-          </para></listitem>
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v209"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -225,6 +259,8 @@
           <para>When used with the <command>capture</command> command,
           specifies the maximum bus message size to capture
           ("snaplen"). Defaults to 4096 bytes.</para>
+
+        <xi:include href="version-info.xml" xpointer="v218"/>
         </listitem>
       </varlistentry>
 
@@ -234,6 +270,8 @@
         <listitem>
           <para>When used with the <command>tree</command> command, shows a
           flat list of object paths instead of a tree.</para>
+
+        <xi:include href="version-info.xml" xpointer="v218"/>
         </listitem>
       </varlistentry>
 
@@ -257,6 +295,8 @@
           <para>When used with the <command>call</command> or
           <command>get-property</command> command, shows output in a
           more verbose format.</para>
+
+        <xi:include href="version-info.xml" xpointer="v218"/>
         </listitem>
       </varlistentry>
 
@@ -267,6 +307,8 @@
           <para>When used with the <command>introspect</command> call, dump the XML description received from
           the D-Bus <constant>org.freedesktop.DBus.Introspectable.Introspect</constant> call instead of the
           normal output.</para>
+
+        <xi:include href="version-info.xml" xpointer="v243"/>
         </listitem>
       </varlistentry>
 
@@ -279,6 +321,8 @@
           redundant whitespace or line breaks) or <literal>pretty</literal> (for a pretty version of the same, with
           indentation and line breaks). Note that transformation from D-Bus marshalling to JSON is done in a loss-less
           way, which means type information is embedded into the JSON object tree.</para>
+
+        <xi:include href="version-info.xml" xpointer="v240"/>
         </listitem>
       </varlistentry>
 
@@ -289,6 +333,8 @@
           <para>Equivalent to <option>--json=pretty</option> when invoked interactively from a terminal. Otherwise
           equivalent to <option>--json=short</option>, in particular when the output is piped to some other
           program.</para>
+
+        <xi:include href="version-info.xml" xpointer="v240"/>
         </listitem>
       </varlistentry>
 
@@ -307,6 +353,8 @@
           code. To only suppress output of the reply message payload,
           use <option>--quiet</option> above. Defaults to
           <literal>yes</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v218"/>
         </listitem>
       </varlistentry>
 
@@ -319,6 +367,8 @@
           called service, should it not be running yet but is
           configured to be auto-started. Defaults to
           <literal>yes</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v218"/>
         </listitem>
       </varlistentry>
 
@@ -331,6 +381,8 @@
           authorization while executing the operation, if the security
           policy is configured for this. Defaults to
           <literal>yes</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v218"/>
         </listitem>
       </varlistentry>
 
@@ -347,6 +399,8 @@
           tool does not wait for any reply message then. When not
           specified or when set to 0, the default of
           <literal>25s</literal> is assumed.</para>
+
+        <xi:include href="version-info.xml" xpointer="v218"/>
         </listitem>
       </varlistentry>
 
@@ -361,6 +415,8 @@
           shown is possibly inconsistent, as the data read from
           <filename>/proc/</filename> might be more recent than the rest of
           the credential information. Defaults to <literal>yes</literal>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v218"/>
         </listitem>
       </varlistentry>
 
@@ -371,6 +427,8 @@
           <para>Controls whether to wait for the specified <constant>AF_UNIX</constant> bus socket to appear in the
           file system before connecting to it. Defaults to off. When enabled, the tool will watch the file system until
           the socket is created and then connect to it.</para>
+
+        <xi:include href="version-info.xml" xpointer="v237"/>
         </listitem>
       </varlistentry>
 
@@ -380,6 +438,8 @@
         <listitem>
           <para>Takes a service name. When used with the <command>emit</command> command, a signal is
           emitted to the specified service.</para>
+
+        <xi:include href="version-info.xml" xpointer="v242"/>
         </listitem>
       </varlistentry>
 
@@ -394,6 +454,8 @@
 
         <listitem>
           <para>Do not ellipsize the output in <command>list</command> command.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/>
         </listitem>
       </varlistentry>
 

@@ -64,7 +64,9 @@
         <listitem><para>Takes a directory path as an argument. All
         paths will be prefixed with the given alternate
         <replaceable>root</replaceable> path, including config search
-        paths. </para></listitem>
+        paths. </para>
+
+        <xi:include href="version-info.xml" xpointer="v215"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -77,7 +79,9 @@
         <ulink url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">Discoverable Partitions
         Specification</ulink>. For further information on supported disk images, see
         <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
-        switch of the same name.</para></listitem>
+        switch of the same name.</para>
+
+        <xi:include href="version-info.xml" xpointer="v247"/></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="image-policy-open" />
@@ -113,19 +117,25 @@
           would be written using a macro with "radvd" and a file containing the
           configuration line as arguments.</para>
         </example>
+
+          <xi:include href="version-info.xml" xpointer="v238"/>
         </listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>--dry-run</option></term>
         <listitem><para>Process the configuration and figure out what entries would be created, but don't
-        actually write anything.</para></listitem>
+        actually write anything.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>--inline</option></term>
         <listitem><para>Treat each positional argument as a separate configuration
-        line instead of a file name.</para></listitem>
+        line instead of a file name.</para>
+
+        <xi:include href="version-info.xml" xpointer="v238"/></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="cat-config" />
@@ -151,7 +161,9 @@
         the default root password to use via a unit file drop-in or from a container manager passing in this
         credential. Note that setting this credential has no effect if the specified user account already
         exists. This credential is hence primarily useful in first boot scenarios or systems that are fully
-        stateless and come up with an empty <filename>/etc/</filename> on every boot.</para></listitem>
+        stateless and come up with an empty <filename>/etc/</filename> on every boot.</para>
+
+        <xi:include href="version-info.xml" xpointer="v249"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -162,13 +174,17 @@
         account. If both the hashed and the plaintext credential are specified for the same user the
         former takes precedence. It's generally recommended to specify the hashed version; however in test
         environments with weaker requirements on security it might be easier to pass passwords in plaintext
-        instead.</para></listitem>
+        instead.</para>
+
+        <xi:include href="version-info.xml" xpointer="v249"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>passwd.shell.<replaceable>user</replaceable></varname></term>
 
-        <listitem><para>Specifies the shell binary to use for the specified account when creating it.</para></listitem>
+        <listitem><para>Specifies the shell binary to use for the specified account when creating it.</para>
+
+        <xi:include href="version-info.xml" xpointer="v249"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -177,7 +193,9 @@
         <listitem><para>The contents of this credential may contain additional lines to operate on. The
         credential contents should follow the same format as any other <filename>sysusers.d/</filename>
         drop-in. If this credential is passed it is processed after all of the drop-in files read from the
-        file system.</para></listitem>
+        file system.</para>
+
+        <xi:include href="version-info.xml" xpointer="v252"/></listitem>
       </varlistentry>
     </variablelist>
 

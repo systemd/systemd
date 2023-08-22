@@ -141,7 +141,9 @@
 
           <listitem><para>Returned by <function>sd_id128_get_machine()</function> and
           <function>sd_id128_get_machine_app_specific()</function> when <filename>/etc/machine-id</filename>
-          is missing.</para></listitem>
+          is missing.</para>
+
+          <xi:include href="version-info.xml" xpointer="v242"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -150,7 +152,9 @@
           <listitem><para>Returned by <function>sd_id128_get_machine()</function> and
           <function>sd_id128_get_machine_app_specific()</function> when <filename>/etc/machine-id</filename>
           is empty or all zeros. Also returned by <function>sd_id128_get_invocation()</function> when the
-          invocation ID is all zeros.</para></listitem>
+          invocation ID is all zeros.</para>
+
+          <xi:include href="version-info.xml" xpointer="v242"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -158,7 +162,9 @@
 
           <listitem><para>Returned by <function>sd_id128_get_machine()</function> and
           <function>sd_id128_get_machine_app_specific()</function> when the content of
-          <filename>/etc/machine-id</filename> is <literal>uninitialized</literal>.</para></listitem>
+          <filename>/etc/machine-id</filename> is <literal>uninitialized</literal>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v253"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -166,28 +172,36 @@
 
           <listitem><para>Returned by <function>sd_id128_get_boot()</function> and
           <function>sd_id128_get_boot_app_specific()</function> when <filename>/proc/</filename> is not
-          mounted.</para></listitem>
+          mounted.</para>
+
+          <xi:include href="version-info.xml" xpointer="v253"/></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-ENXIO</constant></term>
 
           <listitem><para>Returned by <function>sd_id128_get_invocation()</function> if no invocation ID is
-          set.</para></listitem>
+          set.</para>
+
+          <xi:include href="version-info.xml" xpointer="v242"/></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-EUCLEAN</constant></term>
 
           <listitem><para>Returned by any of the functions described here when the configured value has
-          invalid format.</para></listitem>
+          invalid format.</para>
+
+          <xi:include href="version-info.xml" xpointer="v253"/></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-EPERM</constant></term>
 
           <listitem><para>Requested information could not be retrieved because of insufficient permissions.
-          </para></listitem>
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v242"/></listitem>
         </varlistentry>
       </variablelist>
     </refsect2>

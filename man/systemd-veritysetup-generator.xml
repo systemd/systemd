@@ -55,7 +55,9 @@
         <listitem><para>Takes a boolean argument. Defaults to <literal>yes</literal>. If
         <literal>no</literal>, disables the generator entirely. <varname>rd.systemd.verity=</varname> is
         honored only by the initrd while <varname>systemd.verity=</varname> is honored by both the host
-        system and the initrd.</para></listitem>
+        system and the initrd.</para>
+
+        <xi:include href="version-info.xml" xpointer="v233"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -69,6 +71,8 @@
         partition device is looked for under a GPT partition UUID derived from the last 128-bit of the root hash. Hence
         it is usually sufficient to specify the root hash to boot from a verity protected root file system, as
         device paths are automatically determined from it — as long as the partition table is properly set up.</para>
+
+        <xi:include href="version-info.xml" xpointer="v233"/>
         </listitem>
       </varlistentry>
 
@@ -79,7 +83,9 @@
         <listitem><para>These two settings take block device paths as arguments and may be used to explicitly
         configure the data partition and hash partition to use for setting up the verity protection for the root file
         system. If not specified, these paths are automatically derived from the <varname>roothash=</varname> argument
-        (see above).</para></listitem>
+        (see above).</para>
+
+        <xi:include href="version-info.xml" xpointer="v233"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -99,7 +105,9 @@
         <option>fec-offset=<replaceable>BYTES</replaceable></option>, <option>fec-roots=<replaceable>NUM</replaceable></option> and
         <option>root-hash-signature=<replaceable>PATH</replaceable>|base64:<replaceable>HEX</replaceable></option>. See
         <citerefentry project='die-net'><refentrytitle>veritysetup</refentrytitle><manvolnum>8</manvolnum></citerefentry> for more
-        details.</para></listitem>
+        details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -109,7 +117,9 @@
         <term><varname>systemd.verity_usr_options=</varname></term>
 
         <listitem><para>Equivalent to their counterparts for the root file system as described above, but
-        apply to the <filename>/usr/</filename> file system instead.</para></listitem>
+        apply to the <filename>/usr/</filename> file system instead.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>

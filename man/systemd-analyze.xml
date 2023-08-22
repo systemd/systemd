@@ -938,21 +938,27 @@ NR NAME                SHA256
         <term><option>--system</option></term>
 
         <listitem><para>Operates on the system systemd instance. This
-        is the implied default.</para></listitem>
+        is the implied default.</para>
+
+        <xi:include href="version-info.xml" xpointer="v209"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>--user</option></term>
 
         <listitem><para>Operates on the user systemd
-        instance.</para></listitem>
+        instance.</para>
+
+        <xi:include href="version-info.xml" xpointer="v186"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>--global</option></term>
 
         <listitem><para>Operates on the system-wide configuration for
-        user systemd instance.</para></listitem>
+        user systemd instance.</para>
+
+        <xi:include href="version-info.xml" xpointer="v238"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -969,7 +975,9 @@ NR NAME                SHA256
         <varname>Requisite=</varname>,
         <varname>Wants=</varname> and <varname>Conflicts=</varname>
         are shown. If neither is passed, this shows dependencies of
-        all these types.</para></listitem>
+        all these types.</para>
+
+        <xi:include href="version-info.xml" xpointer="v198"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -993,7 +1001,9 @@ NR NAME                SHA256
         relation. In other words, patterns specified with those two
         options will trim the list of edges matched by the positional
         arguments, if any are given, and fully determine the list of
-        edges shown otherwise.</para></listitem>
+        edges shown otherwise.</para>
+
+        <xi:include href="version-info.xml" xpointer="v201"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1005,7 +1015,9 @@ NR NAME                SHA256
         earlier, than the latest unit in the same level. The unit of
         <replaceable>timespan</replaceable> is seconds unless
         specified with a different unit, e.g.
-        "50ms".</para></listitem>
+        "50ms".</para>
+
+        <xi:include href="version-info.xml" xpointer="v203"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1013,7 +1025,9 @@ NR NAME                SHA256
 
         <listitem><para>Do not invoke
         <citerefentry project='man-pages'><refentrytitle>man</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-        to verify the existence of man pages listed in <varname>Documentation=</varname>.</para></listitem>
+        to verify the existence of man pages listed in <varname>Documentation=</varname>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v235"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1022,7 +1036,9 @@ NR NAME                SHA256
         <listitem><para>Invoke unit generators, see
         <citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
         Some generators require root privileges. Under a normal user, running with
-        generators enabled will generally result in some warnings.</para></listitem>
+        generators enabled will generally result in some warnings.</para>
+
+        <xi:include href="version-info.xml" xpointer="v235"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1036,21 +1052,27 @@ NR NAME                SHA256
         unit. With <command>one</command>, return a non-zero process exit status when warnings arise during
         verification of either the specified unit or its immediate dependencies. If this option is not
         specified, zero is returned as the exit status regardless whether warnings arise during verification
-        or not.</para></listitem>
+        or not.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>--root=<replaceable>PATH</replaceable></option></term>
 
         <listitem><para>With <command>cat-files</command> and <command>verify</command>,
-        operate on files underneath the specified root path <replaceable>PATH</replaceable>.</para></listitem>
+        operate on files underneath the specified root path <replaceable>PATH</replaceable>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>--image=<replaceable>PATH</replaceable></option></term>
 
         <listitem><para>With <command>cat-files</command> and <command>verify</command>,
-        operate on files inside the specified image path <replaceable>PATH</replaceable>.</para></listitem>
+        operate on files inside the specified image path <replaceable>PATH</replaceable>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="image-policy-open" />
@@ -1064,7 +1086,9 @@ NR NAME                SHA256
         This means that <option>--offline=</option> can be used with <option>--root=</option> and
         <option>--image=</option> as well. If a unit's overall exposure level is above that set by
         <option>--threshold=</option> (default value is 100), <option>--offline=</option> will return
-        an error.</para></listitem>
+        an error.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1073,7 +1097,9 @@ NR NAME                SHA256
         <listitem><para>With <command>security</command> <option>--offline=</option>, takes into
         consideration the specified portable profile when assessing unit settings.
         The profile can be passed by name, in which case the well-known system locations will
-        be searched, or it can be the full path to a specific drop-in file.</para></listitem>
+        be searched, or it can be the full path to a specific drop-in file.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1083,7 +1109,9 @@ NR NAME                SHA256
         to compare the overall exposure level with, for the specified unit files. If a unit's
         overall exposure level, is greater than that set by the user, <command>security</command>
         will return an error. <option>--threshold=</option> can be used with <option>--offline=</option>
-        as well and its default value is 100.</para></listitem>
+        as well and its default value is 100.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1345,7 +1373,9 @@ NR NAME                SHA256
           </tgroup>
         </table>
 
-        <para>See example "JSON Policy" below.</para></listitem>
+        <para>See example "JSON Policy" below.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1371,21 +1401,27 @@ NR NAME                SHA256
         from when it was initially started, <varname>deactivated</varname> which is the time after startup
         that the service was deactivated, <varname>deactivating</varname> which is the time after startup
         that the service was initially told to deactivate.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>--iterations=<replaceable>NUMBER</replaceable></option></term>
 
         <listitem><para>When used with the <command>calendar</command> command, show the specified number of
-        iterations the specified calendar expression will elapse next. Defaults to 1.</para></listitem>
+        iterations the specified calendar expression will elapse next. Defaults to 1.</para>
+
+        <xi:include href="version-info.xml" xpointer="v242"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>--base-time=<replaceable>TIMESTAMP</replaceable></option></term>
 
         <listitem><para>When used with the <command>calendar</command> command, show next iterations relative
-        to the specified point in time. If not specified defaults to the current time.</para></listitem>
+        to the specified point in time. If not specified defaults to the current time.</para>
+
+        <xi:include href="version-info.xml" xpointer="v244"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1399,14 +1435,18 @@ NR NAME                SHA256
         compiled in set of unit load paths; see
         <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>. All
         units files present in the directory containing the specified unit will be used in preference to the
-        other paths.</para></listitem>
+        other paths.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>--table</option></term>
 
         <listitem><para>When used with the <command>plot</command> command, the raw time data is output in a table.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v253"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1414,7 +1454,9 @@ NR NAME                SHA256
 
         <listitem><para>When used with the <command>plot</command> command in combination with either
         <option>--table</option> or <option>--json=</option>, no legends or hints are included in the output.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v253"/></listitem>
       </varlistentry>
 
       <xi:include href="user-system-options.xml" xpointer="host" />
@@ -1423,7 +1465,9 @@ NR NAME                SHA256
       <varlistentry>
         <term><option>--quiet</option></term>
 
-        <listitem><para>Suppress hints and other non-essential output.</para></listitem>
+        <listitem><para>Suppress hints and other non-essential output.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="help" />

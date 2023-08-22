@@ -140,7 +140,9 @@
         <listitem><para>Turns off any status output by the tool
         itself. When this switch is used, the only output from nspawn
         will be the console output of the container OS
-        itself.</para></listitem>
+        itself.</para>
+
+        <xi:include href="version-info.xml" xpointer="v209"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -191,7 +193,9 @@
 
         <para>If disabled, no <filename>.nspawn</filename> file is read
         and no settings except the ones on the command line are in
-        effect.</para></listitem>
+        effect.</para>
+
+        <xi:include href="version-info.xml" xpointer="v226"/></listitem>
       </varlistentry>
 
     </variablelist>
@@ -318,7 +322,9 @@
         policy is enforced when operating on the disk image specified via <option>--image=</option>, see
         above. If not specified defaults to
         <literal>root=verity+signed+encrypted+unprotected+absent:usr=verity+signed+encrypted+unprotected+absent:home=encrypted+unprotected+absent:srv=encrypted+unprotected+absent:esp=unprotected+absent:xbootldr=unprotected+absent:tmp=encrypted+unprotected+absent:var=encrypted+unprotected+absent</literal>,
-        i.e. all recognized file systems in the image are used, but not the swap partition.</para></listitem>
+        i.e. all recognized file systems in the image are used, but not the swap partition.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -327,7 +333,9 @@
         <listitem><para>Takes the path to an OCI runtime bundle to invoke, as specified in the <ulink
         url="https://github.com/opencontainers/runtime-spec/blob/master/spec.md">OCI Runtime Specification</ulink>. In
         this case no <filename>.nspawn</filename> file is loaded, and the root directory and various settings are read
-        from the OCI runtime JSON data (but data passed on the command line takes precedence).</para></listitem>
+        from the OCI runtime JSON data (but data passed on the command line takes precedence).</para>
+
+        <xi:include href="version-info.xml" xpointer="v242"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -429,7 +437,9 @@
         <listitem><para>Takes a PKCS7 signature of the <option>--root-hash=</option> option.
         The semantics are the same as for the <varname>RootHashSignature=</varname> option, see
         <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v246"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -440,7 +450,9 @@
         The integrity data must be matched by the root hash. If this option is not specified, but a file with the
         <filename>.verity</filename> suffix is found next to the image file, bearing otherwise the same name (except if
         the image has the <filename>.raw</filename> suffix, in which case the verity data file must not have it in its name),
-        the verity data is read from it and automatically used.</para></listitem>
+        the verity data is read from it and automatically used.</para>
+
+        <xi:include href="version-info.xml" xpointer="v246"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -545,7 +557,9 @@
         may be used to override the default variables or to set additional variables. It may be used more
         than once to set multiple variables. When <literal>=</literal> and <replaceable>VALUE</replaceable>
         are omitted, the value of the variable with the same name in the program environment will be used.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -597,7 +611,9 @@
         container runtime performance – as long as these guarantees are not required or desirable, for
         example because any data written by the container is of temporary, redundant nature, or just an
         intermediary artifact that will be further processed and finalized by a later step in a
-        pipeline. Defaults to false.</para></listitem>
+        pipeline. Defaults to false.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
     </variablelist>
 
@@ -806,7 +822,9 @@
 
         <para>The <option>--private-users-ownership=auto</option> option is implied if
         <option>--private-users=pick</option> is used. This option has no effect if user namespacing is not
-        used.</para></listitem>
+        used.</para>
+
+        <xi:include href="version-info.xml" xpointer="v249"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1121,7 +1139,9 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
 
         <para>If the special value of <literal>help</literal> is
         passed, the program will print known capability names and
-        exit.</para></listitem>
+        exit.</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1467,7 +1487,9 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
         not detect existing accounts in other databases.</para>
 
         <para>This operation is only supported in combination with
-        <option>--private-users=</option>/<option>-U</option>.</para></listitem>
+        <option>--private-users=</option>/<option>-U</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v249"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1477,7 +1499,9 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
         (which must exist in the container) with a file node of the same type that is empty and has the most
         restrictive access mode supported. This is an effective way to mask files, directories and other file system
         objects from the container payload. This option may be used more than once in case all specified paths are
-        masked.</para></listitem>
+        masked.</para>
+
+        <xi:include href="version-info.xml" xpointer="v242"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1582,14 +1606,18 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
         passed file descriptor refers to a TTY of some form, APIs such as <constant>TIOCSTI</constant> may be
         used to synthesize input that might be used for escaping the container. Hence <option>pipe</option>
         mode should only be used if the payload is sufficiently trusted or when the standard
-        input/output/error output file descriptors are known safe, for example pipes.</para></listitem>
+        input/output/error output file descriptors are known safe, for example pipes.</para>
+
+        <xi:include href="version-info.xml" xpointer="v242"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>--pipe</option></term>
         <term><option>-P</option></term>
 
-        <listitem><para>Equivalent to <option>--console=pipe</option>.</para></listitem>
+        <listitem><para>Equivalent to <option>--console=pipe</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v242"/></listitem>
       </varlistentry>
     </variablelist>
 
@@ -1641,6 +1669,8 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
           container payload will recognize this as a first boot, and will invoke
           <filename>systemd-firstboot.service</filename>, which then reads the two passed credentials to
           configure the system's initial locale and root password.</para>
+
+          <xi:include href="version-info.xml" xpointer="v247"/>
           </listitem>
         </varlistentry>
       </variablelist>

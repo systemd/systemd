@@ -74,13 +74,17 @@
           <term><constant>-EINVAL</constant></term>
 
           <listitem><para>The parameters <parameter>bus</parameter> or <parameter>ret</parameter>
-          are <constant>NULL</constant>.</para></listitem>
+          are <constant>NULL</constant>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-ENOPKG</constant></term>
 
           <listitem><para>Bus object <parameter>bus</parameter> could not be resolved.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/>
           </listitem>
         </varlistentry>
       </variablelist>

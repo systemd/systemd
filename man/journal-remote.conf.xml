@@ -56,32 +56,42 @@
         <term><varname>Seal=</varname></term>
 
         <listitem><para>Periodically sign the data in the journal using Forward Secure Sealing.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v229"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>SplitMode=</varname></term>
 
         <listitem><para>One of <literal>host</literal> or <literal>none</literal>.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v220"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>ServerKeyFile=</varname></term>
 
-        <listitem><para>SSL key in PEM format.</para></listitem>
+        <listitem><para>SSL key in PEM format.</para>
+
+        <xi:include href="version-info.xml" xpointer="v220"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>ServerCertificateFile=</varname></term>
 
-        <listitem><para>SSL certificate in PEM format.</para></listitem>
+        <listitem><para>SSL certificate in PEM format.</para>
+
+        <xi:include href="version-info.xml" xpointer="v220"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>TrustedCertificateFile=</varname></term>
 
-        <listitem><para>SSL CA certificate.</para></listitem>
+        <listitem><para>SSL CA certificate.</para>
+
+        <xi:include href="version-info.xml" xpointer="v220"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -108,7 +118,9 @@
         this limit is reached; active files will stay around. This
         means that, in effect, there might still be more journal files
         around in total than this limit after a vacuuming operation is
-        complete.</para></listitem>
+        complete.</para>
+
+        <xi:include href="version-info.xml" xpointer="v253"/></listitem>
       </varlistentry>
 
     </variablelist>

@@ -72,33 +72,43 @@
         <varlistentry>
           <term><constant>-EINVAL</constant></term>
 
-          <listitem><para>An invalid bus object was passed.</para></listitem>
+          <listitem><para>An invalid bus object was passed.</para>
+
+          <xi:include href="version-info.xml" xpointer="v248"/></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-ECHILD</constant></term>
 
           <listitem><para>The bus connection was allocated in a parent process and is being reused
-          in a child process after <function>fork()</function>.</para></listitem>
+          in a child process after <function>fork()</function>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v248"/></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-EBADF</constant></term>
 
           <listitem><para>An invalid file descriptor was passed to
-          <function>sd_bus_set_fd()</function>.</para></listitem>
+          <function>sd_bus_set_fd()</function>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v248"/></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-ENOPKG</constant></term>
 
-          <listitem><para>The bus cannot be resolved.</para></listitem>
+          <listitem><para>The bus cannot be resolved.</para>
+
+          <xi:include href="version-info.xml" xpointer="v248"/></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-EPERM</constant></term>
 
-          <listitem><para>The bus connection has already been started.</para></listitem>
+          <listitem><para>The bus connection has already been started.</para>
+
+          <xi:include href="version-info.xml" xpointer="v248"/></listitem>
         </varlistentry>
       </variablelist>
     </refsect2>

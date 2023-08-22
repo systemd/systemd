@@ -100,7 +100,9 @@
         services, see
         <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         for details). For details about the semantics of this option see
-        <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para></listitem>
+        <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v253"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -109,7 +111,9 @@
         <listitem><para>Inform the invoking service manager about the beginning of the shutdown phase of the
         service. This is equivalent to <command>systemd-notify STOPPING=1</command>. For details about the
         semantics of this option see
-        <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para></listitem>
+        <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v253"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -139,7 +143,9 @@
         <listitem><para>Set the user ID to send the notification from. Takes a UNIX user name or numeric UID. When
         specified the notification message will be sent with the specified UID as sender, in place of the user the
         command was invoked as. This option requires sufficient privileges in order to be able manipulate the user
-        identity of the process.</para></listitem>
+        identity of the process.</para>
+
+        <xi:include href="version-info.xml" xpointer="v237"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -174,7 +180,9 @@
         is only recommended when <command>systemd-notify</command> is spawned by the service manager, or when
         the invoking process is directly spawned by the service manager and has enough privileges to allow
         <command>systemd-notify</command> to send the notification on its behalf. Sending notifications with
-        this option set is prone to race conditions in all other cases.</para></listitem>
+        this option set is prone to race conditions in all other cases.</para>
+
+        <xi:include href="version-info.xml" xpointer="v246"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -188,7 +196,9 @@
 
         <para>Note that many shells interpret <literal>;</literal> as their own separator for command lines,
         hence when <command>systemd-notify</command> is invoked from a shell the semicolon must usually be
-        escaped as <literal>\;</literal>.</para></listitem>
+        escaped as <literal>\;</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -202,7 +212,9 @@
         notification message.</para>
 
         <para>To use this functionality from a <command>bash</command> shell, use an expression like the following:</para>
-        <programlisting>systemd-notify --fd=4 --fd=5 4&lt;/some/file 5&lt;/some/other/file</programlisting></listitem>
+        <programlisting>systemd-notify --fd=4 --fd=5 4&lt;/some/file 5&lt;/some/other/file</programlisting>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -211,7 +223,9 @@
         <listitem><para>Set a name to assign to the file descriptors passed via <option>--fd=</option> (see
         above). This controls the <literal>FDNAME=</literal> field. This setting may only be specified once,
         and applies to all file descriptors passed. Invoke this tool multiple times in case multiple file
-        descriptors with different file descriptor names shall be submitted.</para></listitem>
+        descriptors with different file descriptor names shall be submitted.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="help" />

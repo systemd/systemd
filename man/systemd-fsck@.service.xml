@@ -84,7 +84,9 @@
         system checker deems them necessary. <literal>force</literal>
         unconditionally results in full file system checks.
         <literal>skip</literal> skips any file system
-        checks.</para></listitem>
+        checks.</para>
+
+        <xi:include href="version-info.xml" xpointer="v186"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -96,7 +98,9 @@
         and will automatically repair problems that can be safely
         fixed. <literal>yes</literal> will answer yes to all
         questions by fsck and <literal>no</literal> will answer no to
-        all questions. </para></listitem>
+        all questions. </para>
+
+        <xi:include href="version-info.xml" xpointer="v213"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>

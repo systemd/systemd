@@ -104,6 +104,8 @@
                 </tbody>
               </tgroup>
             </table>
+
+              <xi:include href="version-info.xml" xpointer="v236"/>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -112,12 +114,16 @@
             <para>A type of the network service as defined in the section 4.1.2 of <ulink
             url="https://tools.ietf.org/html/rfc6763">RFC 6763</ulink>, e.g. <literal>_http._tcp</literal>.
             </para>
+
+          <xi:include href="version-info.xml" xpointer="v236"/>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>Port=</varname></term>
           <listitem>
             <para>An IP port number of the network service.</para>
+
+          <xi:include href="version-info.xml" xpointer="v236"/>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -125,6 +131,8 @@
           <listitem>
             <para>A priority number set in <constant class='dns'>SRV</constant> resource records corresponding
             to the network service.</para>
+
+          <xi:include href="version-info.xml" xpointer="v236"/>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -132,6 +140,8 @@
           <listitem>
             <para>A weight number set in <constant class='dns'>SRV</constant> resource records corresponding
             to the network service.</para>
+
+          <xi:include href="version-info.xml" xpointer="v236"/>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -146,6 +156,8 @@
             case multiple TXT resource records will be created for the service. If the empty string is assigned to
             this option, the list is reset and all prior assignments will have no effect.
             </para>
+
+            <xi:include href="version-info.xml" xpointer="v236"/>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -161,6 +173,8 @@
             case multiple TXT resource records will be created for the service. If the empty string is assigned to
             this option, the list is reset and all prior assignments will have no effect.
             </para>
+
+            <xi:include href="version-info.xml" xpointer="v236"/>
           </listitem>
         </varlistentry>
       </variablelist>

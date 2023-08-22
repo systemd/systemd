@@ -84,7 +84,9 @@
         <citerefentry project='man-pages'><refentrytitle>locale</refentrytitle><manvolnum>7</manvolnum></citerefentry>
         for details on the available settings and their meanings. Use
         <command>list-locales</command> for a list of available
-        locales (see below). </para></listitem>
+        locales (see below). </para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -158,7 +160,9 @@
         <term><option>--no-ask-password</option></term>
 
         <listitem><para>Do not query the user for authentication for
-        privileged operations.</para></listitem>
+        privileged operations.</para>
+
+        <xi:include href="version-info.xml" xpointer="v195"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -168,7 +172,9 @@
         <command>set-x11-keymap</command> is invoked and this option
         is passed, then the keymap will not be converted from the
         console to X11, or X11 to console,
-        respectively.</para></listitem>
+        respectively.</para>
+
+        <xi:include href="version-info.xml" xpointer="v195"/></listitem>
       </varlistentry>
 
       <xi:include href="user-system-options.xml" xpointer="host" />

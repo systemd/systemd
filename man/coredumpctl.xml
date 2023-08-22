@@ -58,12 +58,16 @@
           <varlistentry>
             <term>TIME</term>
             <listitem><para>The timestamp of the crash, as reported by the kernel.</para>
+
+            <xi:include href="version-info.xml" xpointer="v233"/>
             </listitem>
           </varlistentry>
 
           <varlistentry>
             <term>PID</term>
             <listitem><para>The identifier of the process that crashed.</para>
+
+            <xi:include href="version-info.xml" xpointer="v233"/>
             </listitem>
           </varlistentry>
 
@@ -71,13 +75,17 @@
             <term>UID</term>
             <term>GID</term>
             <listitem><para>The user and group identifiers of the process that crashed.</para>
+
+            <xi:include href="version-info.xml" xpointer="v233"/>
             </listitem>
           </varlistentry>
 
           <varlistentry>
             <term>SIGNAL</term>
             <listitem><para>The signal that caused the process to crash, when applicable.
-            </para></listitem>
+            </para>
+
+            <xi:include href="version-info.xml" xpointer="v233"/></listitem>
           </varlistentry>
 
           <varlistentry>
@@ -93,13 +101,17 @@
             stored in its entirety, <literal>error</literal> means that the core file
             cannot be accessed, most likely because of insufficient permissions, and
             <literal>missing</literal> means that the core was stored in a file, but
-            this file has since been removed.</para></listitem>
+            this file has since been removed.</para>
+
+            <xi:include href="version-info.xml" xpointer="v233"/></listitem>
           </varlistentry>
 
           <varlistentry>
             <term>EXE</term>
             <listitem><para>The full path to the executable. For backtraces of scripts
-            this is the name of the interpreter.</para></listitem>
+            this is the name of the interpreter.</para>
+
+            <xi:include href="version-info.xml" xpointer="v233"/></listitem>
           </varlistentry>
         </variablelist>
 
@@ -138,7 +150,9 @@
         will be used. This may be changed using the <option>--debugger=</option>
         option or the <varname>$SYSTEMD_DEBUGGER</varname> environment
         variable. Use the <option>--debugger-arguments=</option> option to pass extra
-        command line arguments to the debugger.</para></listitem>
+        command line arguments to the debugger.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
     </variablelist>
@@ -162,28 +176,36 @@
         <term><option>-1</option></term>
 
         <listitem><para>Show information of the most recent core dump only, instead of listing all known core
-        dumps. Equivalent to <option>--reverse -n 1</option>.</para></listitem>
+        dumps. Equivalent to <option>--reverse -n 1</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v215"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>-n</option> <replaceable>INT</replaceable></term>
 
         <listitem><para>Show at most the specified number of entries. The specified parameter must be an
-        integer greater or equal to 1.</para></listitem>
+        integer greater or equal to 1.</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>-S</option></term>
         <term><option>--since</option></term>
 
-        <listitem><para>Only print entries which are since the specified date.</para></listitem>
+        <listitem><para>Only print entries which are since the specified date.</para>
+
+        <xi:include href="version-info.xml" xpointer="v233"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>-U</option></term>
         <term><option>--until</option></term>
 
-        <listitem><para>Only print entries which are until the specified date.</para></listitem>
+        <listitem><para>Only print entries which are until the specified date.</para>
+
+        <xi:include href="version-info.xml" xpointer="v233"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -191,7 +213,9 @@
         <term><option>--reverse</option></term>
 
         <listitem><para>Reverse output so that the newest entries are displayed first.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v233"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -200,7 +224,9 @@
 
         <listitem><para>Print all possible data values the specified
         field takes in matching core dump entries of the
-        journal.</para></listitem>
+        journal.</para>
+
+        <xi:include href="version-info.xml" xpointer="v225"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -217,7 +243,9 @@
         <listitem><para>Use the given debugger for the <command>debug</command>
         command. If not given and <varname>$SYSTEMD_DEBUGGER</varname> is unset, then
         <citerefentry project='man-pages'><refentrytitle>gdb</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-        will be used. </para></listitem>
+        will be used. </para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -226,7 +254,9 @@
 
         <listitem><para>Pass the given <replaceable>ARGS</replaceable> as extra command line arguments
         to the debugger. Quote as appropriate when <replaceable>ARGS</replaceable> contain whitespace.
-        (See Examples.)</para></listitem>
+        (See Examples.)</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -237,7 +267,9 @@
         files matching <replaceable>GLOB</replaceable> instead of the
         default runtime and system journal paths. May be specified
         multiple times, in which case files will be suitably
-        interleaved.</para></listitem>
+        interleaved.</para>
+
+        <xi:include href="version-info.xml" xpointer="v246"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -245,14 +277,18 @@
         <term><option>--directory=</option><replaceable>DIR</replaceable></term>
 
         <listitem><para>Use the journal files in the specified <option>DIR</option>.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v225"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>--root=<replaceable>ROOT</replaceable></option></term>
 
         <listitem><para>Use root directory <option>ROOT</option> when searching for coredumps.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v252"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -265,7 +301,9 @@
         table, following the <ulink url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">Discoverable Partitions
         Specification</ulink>. For further information on supported disk images, see
         <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
-        switch of the same name.</para></listitem>
+        switch of the same name.</para>
+
+        <xi:include href="version-info.xml" xpointer="v252"/></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="image-policy-open" />
@@ -276,14 +314,18 @@
 
         <listitem><para>Suppresses informational messages about lack
         of access to journal files and possible in-flight coredumps.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v233"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>--all</option></term>
 
         <listitem><para>Look at all available journal files in <filename>/var/log/journal/</filename>
-        (excluding journal namespaces) instead of only local ones.</para></listitem>
+        (excluding journal namespaces) instead of only local ones.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
@@ -299,7 +341,9 @@
 
         <listitem><para>Process ID of the
         process that dumped
-        core. An integer.</para></listitem>
+        core. An integer.</para>
+
+        <xi:include href="version-info.xml" xpointer="v215"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -307,7 +351,9 @@
 
         <listitem><para>Name of the executable (matches
         <option>COREDUMP_COMM=</option>). Must not contain slashes.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v215"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -315,7 +361,9 @@
 
         <listitem><para>Path to the executable (matches
         <option>COREDUMP_EXE=</option>). Must contain at least one
-        slash. </para></listitem>
+        slash. </para>
+
+        <xi:include href="version-info.xml" xpointer="v215"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -324,7 +372,9 @@
         <listitem><para>General journalctl match filter, must contain an equals
         sign (<literal>=</literal>). See
         <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v215"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
@@ -344,7 +394,9 @@
       <varlistentry>
         <term><varname>$SYSTEMD_DEBUGGER</varname></term>
         <listitem><para>Use the given debugger for the <command>debug</command>
-        command. See the <option>--debugger=</option> option.</para></listitem>
+        command. See the <option>--debugger=</option> option.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>

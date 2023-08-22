@@ -306,7 +306,9 @@
 
           <listitem><para>The requested bus type is not available because of invalid environment (for example
           the user session bus is not available because <varname>$XDG_RUNTIME_DIR</varname> is not set).
-          </para></listitem>
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v247"/></listitem>
         </varlistentry>
 
         <varlistentry>

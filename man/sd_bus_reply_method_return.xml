@@ -78,6 +78,8 @@
           <para>Message <parameter>call</parameter> is not attached to a bus.</para>
 
           <para>Message <parameter>m</parameter> is not a method reply message.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/>
           </listitem>
         </varlistentry>
 
@@ -85,20 +87,26 @@
           <term><constant>-EPERM</constant></term>
 
           <listitem><para>Message <parameter>call</parameter> has been sealed.
-          </para></listitem>
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-ENOTCONN</constant></term>
 
           <listitem><para>The bus to which message <parameter>call</parameter> is attached is not
-          connected.</para></listitem>
+          connected.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-ENOMEM</constant></term>
 
-          <listitem><para>Memory allocation failed.</para></listitem>
+          <listitem><para>Memory allocation failed.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
         </varlistentry>
       </variablelist>
 

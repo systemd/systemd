@@ -101,7 +101,9 @@
         about the specific version, including the individual files that need to be transferred to acquire the
         version.</para>
 
-        <para>If no command is explicitly specified this command is implied.</para></listitem>
+        <para>If no command is explicitly specified this command is implied.</para>
+
+        <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -110,7 +112,9 @@
         <listitem><para>Checks if there's a new version available. This internally enumerates downloadable and
         installed versions and returns exit status 0 if there's a new version to update to, non-zero
         otherwise. If there is a new version to update to, its version identifier is written to standard
-        output.</para></listitem>
+        output.</para>
+
+        <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -124,7 +128,9 @@
         least one new version can be installed, as configured via <varname>InstanceMax=</varname> in
         <citerefentry><refentrytitle>sysupdate.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>, or
         via the available partition slots of the right type. This implicit operation can also be invoked
-        explicitly via the <command>vacuum</command> command described below.</para></listitem>
+        explicitly via the <command>vacuum</command> command described below.</para>
+
+        <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -134,7 +140,9 @@
         <varname>InstanceMax=</varname> in
         <citerefentry><refentrytitle>sysupdate.d</refentrytitle><manvolnum>5</manvolnum></citerefentry> are
         met again. Normally, it should not be necessary to invoke this command explicitly, since it is
-        implicitly invoked whenever a new update is initiated.</para></listitem>
+        implicitly invoked whenever a new update is initiated.</para>
+
+        <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -144,7 +152,9 @@
         running. Returns zero if so, non-zero otherwise. This compares the newest installed version's
         identifier with the OS image version as reported by the <varname>IMAGE_VERSION=</varname> field in
         <filename>/etc/os-release</filename>. If the former is newer than the latter, an update was
-        apparently completed but not activated (i.e. rebooted into) yet.</para></listitem>
+        apparently completed but not activated (i.e. rebooted into) yet.</para>
+
+        <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -154,7 +164,9 @@
         newer version of the OS has been installed than the one currently running. This operation can be done
         implicitly together with the <command>update</command> command, after a completed update via the
         <option>--reboot</option> switch, see below. This command will execute no operation (and return
-        success) if no update has been installed, and thus the system was not rebooted.</para></listitem>
+        success) if no update has been installed, and thus the system was not rebooted.</para>
+
+        <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -163,7 +175,9 @@
         <listitem><para>Lists components that can be updated. This enumerates the
         <filename>/etc/sysupdate.*.d/</filename>, <filename>/run/sysupdate.*.d/</filename> and
         <filename>/usr/lib/sysupdate.*.d/</filename> directories that contain transfer files. This command is
-        useful to list possible parameters for <option>--component=</option> (see below).</para></listitem>
+        useful to list possible parameters for <option>--component=</option> (see below).</para>
+
+        <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="help" />
@@ -201,7 +215,9 @@
         updated together in a synchronous fashion. Simply define multiple transfer files within the same
         <filename>sysupdate.d/</filename> directory for these cases.</para>
 
-        <para>This option may not be combined with <option>--definitions=</option>.</para></listitem>
+        <para>This option may not be combined with <option>--definitions=</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -211,14 +227,18 @@
         are read from this directory instead of <filename>/usr/lib/sysupdate.d/*.conf</filename>,
         <filename>/etc/sysupdate.d/*.conf</filename>, and <filename>/run/sysupdate.d/*.conf</filename>.</para>
 
-        <para>This option may not be combined with <option>--component=</option>.</para></listitem>
+        <para>This option may not be combined with <option>--component=</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>--root=</option></term>
 
         <listitem><para>Takes a path to a directory to use as root file system when searching for
-        <filename>sysupdate.d/*.conf</filename> files.</para></listitem>
+        <filename>sysupdate.d/*.conf</filename> files.</para>
+
+        <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -226,7 +246,9 @@
 
         <listitem><para>Takes a path to a disk image file or device to mount and use in a similar fashion to
         <option>--root=</option>, see above. If this is used and partition resources are updated this is done
-        inside the specified disk image.</para></listitem>
+        inside the specified disk image.</para>
+
+        <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="image-policy-open" />
@@ -239,7 +261,9 @@
         keep at any time. This option may also be configured inside the transfer files, via the
         <varname>InstancesMax=</varname> setting, see
         <citerefentry><refentrytitle>sysupdate.d</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
-        details.</para></listitem>
+        details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -248,21 +272,27 @@
         <listitem><para>Takes a boolean argument, defaults to yes. This may be used to specify whether the
         newly updated resource versions shall be synchronized to disk when appropriate (i.e. after the
         download is complete, before it is finalized, and again after finalization). This should not be
-        turned off, except to improve runtime performance in testing environments.</para></listitem>
+        turned off, except to improve runtime performance in testing environments.</para>
+
+        <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>--verify=</option></term>
 
         <listitem><para>Takes a boolean argument, defaults to yes. Controls whether to cryptographically
-        verify downloads. Do not turn this off, except in testing environments.</para></listitem>
+        verify downloads. Do not turn this off, except in testing environments.</para>
+
+        <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>--reboot</option></term>
 
         <listitem><para>When used in combination with the <command>update</command> command and a new version is
-        installed, automatically reboots the system immediately afterwards.</para></listitem>
+        installed, automatically reboots the system immediately afterwards.</para>
+
+        <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="no-pager" />

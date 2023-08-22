@@ -58,7 +58,9 @@
         attached to the devices. If a device does not have the specified solution, the first one
         listed in <varname>IOCOST_SOLUTIONS</varname> is used instead.</para>
 
-        <para>E.g. <literal>TargetSolution=isolated-bandwidth</literal>.</para></listitem>
+        <para>E.g. <literal>TargetSolution=isolated-bandwidth</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>

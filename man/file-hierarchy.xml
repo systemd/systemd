@@ -51,7 +51,9 @@
         <listitem><para>The file system root. Usually writable, but
         this is not required. Possibly a temporary file system
         (<literal>tmpfs</literal>). Not shared with other hosts
-        (unless read-only). </para></listitem>
+        (unless read-only). </para>
+
+        <xi:include href="version-info.xml" xpointer="v215"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -64,7 +66,9 @@
         should be considered read-only, except when a new kernel or
         boot loader is installed. This directory only exists on
         systems that run on physical or emulated hardware that
-        requires boot loaders.</para></listitem>
+        requires boot loaders.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -73,7 +77,9 @@
         Partition (ESP), the latter is mounted here. Tools that need to operate on the EFI system partition should look
         for it at this mount point first, and fall back to <filename>/boot/</filename> — if the former doesn't qualify
         (for example if it is not a mount point or does not have the correct file system type
-        <constant>MSDOS_SUPER_MAGIC</constant>).</para></listitem>
+        <constant>MSDOS_SUPER_MAGIC</constant>).</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -84,7 +90,9 @@
         applications should not make assumptions about this directory
         being fully populated or populated at all, and should fall
         back to defaults if configuration is
-        missing.</para></listitem>
+        missing.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -101,7 +109,9 @@
         Applications should generally not reference this directory
         directly, but via the per-user <varname>$HOME</varname>
         environment variable, or via the home directory field of the
-        user database.</para></listitem>
+        user database.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -110,7 +120,9 @@
         user's home directory is located outside of
         <filename>/home/</filename> in order to make sure the root user
         may log in even without <filename>/home/</filename> being
-        available and mounted.</para></listitem>
+        available and mounted.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -120,7 +132,9 @@
         this directory is organized internally. Generally writable,
         and possibly shared among systems. This directory might become
         available or writable only very late during
-        boot.</para></listitem>
+        boot.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -143,6 +157,8 @@
         project='man-pages'><refentrytitle>mkdtemp</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
         and similar calls. For more details, see <ulink url="https://systemd.io/TEMPORARY_DIRECTORIES">Using
         /tmp/ and /var/tmp/ Safely</ulink>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/>
         </listitem>
       </varlistentry>
 
@@ -157,7 +173,9 @@
         <term><filename>/run/</filename></term>
         <listitem><para>A <literal>tmpfs</literal> file system for system packages to place runtime data,
         socket files, and similar. This directory is flushed on boot, and generally writable for privileged
-        programs only. Always writable.</para></listitem>
+        programs only. Always writable.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -165,7 +183,9 @@
         <listitem><para>Runtime system logs. System components may
         place private logs in this directory. Always writable, even
         when <filename>/var/log/</filename> might not be accessible
-        yet.</para></listitem>
+        yet.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -178,7 +198,9 @@
         <varname>$XDG_RUNTIME_DIR</varname> environment variable, as
         documented in the <ulink
         url="https://standards.freedesktop.org/basedir-spec/basedir-spec-latest.html">XDG
-        Base Directory Specification</ulink>.</para></listitem>
+        Base Directory Specification</ulink>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
@@ -194,7 +216,9 @@
         Usually read-only, but this is not required. Possibly shared
         between multiple hosts. This directory should not be modified
         by the administrator, except when installing or removing
-        vendor-supplied packages.</para></listitem>
+        vendor-supplied packages.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -204,13 +228,17 @@
         It is recommended not to place binaries in this directory that
         are not useful for invocation from a shell (such as daemon
         binaries); these should be placed in a subdirectory of
-        <filename>/usr/lib/</filename> instead.</para></listitem>
+        <filename>/usr/lib/</filename> instead.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><filename>/usr/include/</filename></term>
         <listitem><para>C and C++ API header files of system
-        libraries.</para></listitem>
+        libraries.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -222,7 +250,9 @@
         from a shell. Such binaries may be for any architecture
         supported by the system. Do not place public libraries in this
         directory, use <varname>$libdir</varname> (see below),
-        instead.</para></listitem>
+        instead.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -239,7 +269,9 @@
         architecture-dependent, too. To query
         <varname>$libdir</varname> for the primary architecture of the
         system, invoke:
-        <programlisting># systemd-path system-library-arch</programlisting></para></listitem>
+        <programlisting># systemd-path system-library-arch</programlisting></para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
 
       </varlistentry>
 
@@ -249,13 +281,17 @@
         such as documentation, man pages, time zone information, fonts
         and other resources. Usually, the precise location and format
         of files stored below this directory is subject to
-        specifications that ensure interoperability.</para></listitem>
+        specifications that ensure interoperability.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><filename>/usr/share/doc/</filename></term>
         <listitem><para>Documentation for the operating system or
-        system packages.</para></listitem>
+        system packages.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -266,7 +302,9 @@
         be placed in <filename>/etc/</filename>. This is useful to
         compare the local configuration of a system with vendor
         defaults and to populate the local configuration with
-        defaults.</para></listitem>
+        defaults.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -275,7 +313,9 @@
         <listitem><para>Similar to
         <filename>/usr/share/factory/etc/</filename>, but for vendor
         versions of files in the variable, persistent data directory
-        <filename>/var/</filename>.</para></listitem>
+        <filename>/var/</filename>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
 
       </varlistentry>
     </variablelist>
@@ -293,7 +333,9 @@
         system might start up without this directory being populated. Persistency is recommended, but
         optional, to support ephemeral systems. This directory might become available or writable only very
         late during boot. Components that are required to operate during early boot hence shall not
-        unconditionally rely on this directory.</para></listitem>
+        unconditionally rely on this directory.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -302,13 +344,17 @@
         components may place non-essential data in this directory.
         Flushing this directory should have no effect on operation of
         programs, except for increased runtimes necessary to rebuild
-        these caches.</para></listitem>
+        these caches.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><filename>/var/lib/</filename></term>
         <listitem><para>Persistent system data. System components may
-        place private data in this directory.</para></listitem>
+        place private data in this directory.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -319,13 +365,17 @@
         <citerefentry project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>
         and
         <citerefentry><refentrytitle>sd_journal_print</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-        calls.</para></listitem>
+        calls.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><filename>/var/spool/</filename></term>
         <listitem><para>Persistent system spool data, such as printer
-        or mail queues.</para></listitem>
+        or mail queues.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -347,6 +397,8 @@
         project='man-pages'><refentrytitle>mkdtemp</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
         and similar calls should be used. For further details about this directory, see <ulink
         url="https://systemd.io/TEMPORARY_DIRECTORIES">Using /tmp/ and /var/tmp/ Safely</ulink>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/>
         </listitem>
       </varlistentry>
 
@@ -367,7 +419,9 @@
         <citerefentry><refentrytitle>systemd-udevd</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
         and should not be written to by other components. A number of
         special purpose virtual file systems might be mounted below
-        this directory.</para></listitem>
+        this directory.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -385,7 +439,9 @@
         programs) or <varname>$XDG_RUNTIME_DIR</varname> (for user
         programs) instead of POSIX shared memory segments, since these
         directories are not world-writable and hence not vulnerable to
-        security-sensitive name clashes.</para></listitem>
+        security-sensitive name clashes.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -396,7 +452,9 @@
         where normal files may be stored. For details, see
         <citerefentry project='man-pages'><refentrytitle>proc</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
         A number of special purpose virtual file systems might be
-        mounted below this directory.</para></listitem>
+        mounted below this directory.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -406,7 +464,9 @@
         configure the settings in this API file tree is via
         <citerefentry><refentrytitle>sysctl.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         files. In sandboxed/containerized setups, this directory is
-        generally mounted read-only.</para></listitem>
+        generally mounted read-only.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -417,7 +477,9 @@
         where normal files may be stored. In sandboxed/containerized
         setups, this directory is generally mounted read-only. A number
         of special purpose virtual file systems might be mounted below
-        this directory.</para></listitem>
+        this directory.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -437,7 +499,9 @@
         cgroup2 will not have resource controllers attached. In
         sandboxed/containerized setups, this directory may either not exist or
         may include a subset of functionality.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
@@ -454,7 +518,9 @@
         <listitem><para>These compatibility symlinks point to
         <filename>/usr/bin/</filename>, ensuring that scripts and
         binaries referencing these legacy paths correctly find their
-        binaries.</para></listitem>
+        binaries.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -463,7 +529,9 @@
         <listitem><para>This compatibility symlink points to
         <filename>/usr/lib/</filename>, ensuring that programs
         referencing this legacy path correctly find their
-        resources.</para></listitem>
+        resources.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -474,7 +542,9 @@
         binaries referencing this legacy path correctly find their
         dynamic loader. This symlink only exists on architectures
         whose ABI places the dynamic loader in this
-        path.</para></listitem>
+        path.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -483,7 +553,9 @@
         <listitem><para>This compatibility symlink points to
         <filename>/run/</filename>, ensuring that programs referencing
         this legacy path correctly find their runtime
-        data.</para></listitem>
+        data.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
     </variablelist>
@@ -509,7 +581,9 @@
         directory. Flushing this directory should have no effect on operation of programs, except for
         increased runtimes necessary to rebuild these caches. If an application finds
         <varname>$XDG_CACHE_HOME</varname> set, it should use the directory specified in it instead of this
-        directory.</para></listitem>
+        directory.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -518,7 +592,9 @@
         <listitem><para>Application configuration. When a new user is created, this directory will be empty
         or not exist at all. Applications should fall back to defaults should their configuration in this
         directory be missing. If an application finds <varname>$XDG_CONFIG_HOME</varname> set, it should use
-        the directory specified in it instead of this directory.</para></listitem>
+        the directory specified in it instead of this directory.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -529,14 +605,18 @@
         shell; these should be placed in a subdirectory of <filename>~/.local/lib/</filename> instead. Care
         should be taken when placing architecture-dependent binaries in this place, which might be
         problematic if the home directory is shared between multiple hosts with different
-        architectures.</para></listitem>
+        architectures.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><filename>~/.local/lib/</filename></term>
 
         <listitem><para>Static, private vendor data that is compatible with all
-        architectures.</para></listitem>
+        architectures.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -544,7 +624,9 @@
 
         <listitem><para>Location for placing public dynamic libraries. The architecture identifier to use is
         defined on <ulink url="https://wiki.debian.org/Multiarch/Tuples">Multiarch Architecture Specifiers
-        (Tuples)</ulink> list.</para></listitem>
+        (Tuples)</ulink> list.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -553,7 +635,9 @@
         <listitem><para>Resources shared between multiple packages, such as fonts or artwork. Usually, the
         precise location and format of files stored below this directory is subject to specifications that
         ensure interoperability. If an application finds <varname>$XDG_DATA_HOME</varname> set, it should use
-        the directory specified in it instead of this directory.</para></listitem>
+        the directory specified in it instead of this directory.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -562,7 +646,9 @@
         <listitem><para>Application state. When a new user is created, this directory will be empty or not
         exist at all. Applications should fall back to defaults should their state in this directory be
         missing. If an application finds <varname>$XDG_STATE_HOME</varname> set, it should use the directory
-        specified in it instead of this directory.</para></listitem>
+        specified in it instead of this directory.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
 
     </variablelist>

@@ -53,25 +53,33 @@
         of <option>--url=</option> option in
         <citerefentry><refentrytitle>systemd-journal-upload</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         for the description of possible values. There is no default value, so either this
-        option or the command-line option must be always present to make an upload.</para></listitem>
+        option or the command-line option must be always present to make an upload.</para>
+
+        <xi:include href="version-info.xml" xpointer="v232"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>ServerKeyFile=</varname></term>
 
-        <listitem><para>SSL key in PEM format.</para></listitem>
+        <listitem><para>SSL key in PEM format.</para>
+
+        <xi:include href="version-info.xml" xpointer="v232"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>ServerCertificateFile=</varname></term>
 
-        <listitem><para>SSL CA certificate in PEM format.</para></listitem>
+        <listitem><para>SSL CA certificate in PEM format.</para>
+
+        <xi:include href="version-info.xml" xpointer="v232"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>TrustedCertificateFile=</varname></term>
 
-        <listitem><para>SSL CA certificate.</para></listitem>
+        <listitem><para>SSL CA certificate.</para>
+
+        <xi:include href="version-info.xml" xpointer="v232"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -82,7 +90,9 @@
         not reachable over the network for the configured time, <command>systemd-journal-upload</command>
         exits. Takes a value in seconds (or in other time units if suffixed with "ms", "min", "h", etc).
         For details, see <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v249"/></listitem>
       </varlistentry>
 
     </variablelist>
