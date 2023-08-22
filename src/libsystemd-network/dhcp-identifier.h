@@ -17,7 +17,6 @@ typedef enum DUIDType {
         DUID_TYPE_EN        = 2,
         DUID_TYPE_LL        = 3,
         DUID_TYPE_UUID      = 4,
-        DUID_TYPE_CUSTOM    = 5,
         _DUID_TYPE_MAX,
         _DUID_TYPE_INVALID  = -EINVAL,
 } DUIDType;
