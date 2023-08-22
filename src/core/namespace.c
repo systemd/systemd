@@ -1070,11 +1070,7 @@ static int mount_bind_dev(const MountEntry *m) {
         if (r > 0) /* make this a NOP if /dev is already a mount point */
                 return 0;
 
-        r = mount_nofollow_verbose(LOG_DEBUG, "/dev", mount_entry_path(m), NULL, MS_BIND|MS_REC, NULL);
-        if (r < 0)
-                return r;
-
-        return 1;
+        return mount_nofollow_verbose(LOG_DEBUG, "/dev", mount_entry_path(m), NULL, MS_BIND|MS_REC, NULL);
 }
 
 static int mount_bind_sysfs(const MountEntry *m) {
@@ -1091,11 +1087,7 @@ static int mount_bind_sysfs(const MountEntry *m) {
                 return 0;
 
         /* Bind mount the host's version so that we get all child mounts of it, too. */
-        r = mount_nofollow_verbose(LOG_DEBUG, "/sys", mount_entry_path(m), NULL, MS_BIND|MS_REC, NULL);
-        if (r < 0)
-                return r;
-
-        return 1;
+        return mount_nofollow_verbose(LOG_DEBUG, "/sys", mount_entry_path(m), NULL, MS_BIND|MS_REC, NULL);
 }
 
 static int mount_private_sysfs(const MountEntry *m) {
@@ -1232,7 +1224,7 @@ static int mount_tmpfs(const MountEntry *m) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to fix label of '%s' as '%s': %m", entry_path, inner_path);
 
-        return 1;
+        return 0;
 }
 
 static int mount_run(const MountEntry *m) {
@@ -1330,7 +1322,7 @@ static int mount_image(
         if (r < 0)
                 return log_debug_errno(r, "Failed to mount image %s on %s: %m", mount_entry_source(m), mount_entry_path(m));
 
-        return 1;
+        return 0;
 }
 
 static int mount_overlay(const MountEntry *m) {
@@ -1346,10 +1338,8 @@ static int mount_overlay(const MountEntry *m) {
         r = mount_nofollow_verbose(LOG_DEBUG, "overlay", mount_entry_path(m), "overlay", MS_RDONLY, options);
         if (r == -ENOENT && m->ignore)
                 return 0;
-        if (r < 0)
-                return r;
 
-        return 1;
+        return r;
 }
 
 static int follow_symlink(
