@@ -7,7 +7,7 @@
   Copyright © 2014 Jason St. John
 -->
 
-<refentry id="udev">
+<refentry id="udev" xmlns:xi="http://www.w3.org/2001/XInclude">
   <refentryinfo>
     <title>udev</title>
     <productname>systemd</productname>
