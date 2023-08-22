@@ -39,7 +39,7 @@ static int help(void) {
                "   -h --help            Show this help\n"
                "      --version         Show package version\n"
                "   -c --continuous      Make systemd-bsod wait continuously\n"
-               "for changes in the journal\n"
+               "                        for changes in the journal\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -77,9 +77,9 @@ static int acquire_first_emergency_log_message(char **ret) {
 
         r = sd_journal_seek_head(j);
         if (r < 0)
-                return log_error_errno(r, "Failed to seek to start of jornal: %m");
+                return log_error_errno(r, "Failed to seek to start of journal: %m");
 
-        for(;;) {
+        for (;;) {
                 r = sd_journal_next(j);
                 if (r < 0)
                         return log_error_errno(r, "Failed to read next journal entry: %m");
@@ -92,11 +92,9 @@ static int acquire_first_emergency_log_message(char **ret) {
                         return 0;
                 }
 
-                r = sd_journal_wait(j, (uint64_t) -1);
+                r = sd_journal_wait(j, UINT64_MAX);
                 if (r < 0)
                         return log_error_errno(r, "Failed to wait for changes: %m");
-
-                continue;
         }
 
         r = sd_journal_get_data(j, "MESSAGE", &d, &l);
@@ -223,9 +221,9 @@ static int parse_argv(int argc, char * argv[]) {
         };
 
         static const struct option options[] = {
-                { "help",    no_argument, NULL, 'h'         },
-                { "version", no_argument, NULL, ARG_VERSION },
-                { "continuous",    no_argument, NULL, 'c'   },
+                { "help",       no_argument, NULL, 'h'         },
+                { "version",    no_argument, NULL, ARG_VERSION },
+                { "continuous", no_argument, NULL, 'c'         },
                 {}
         };
 
@@ -254,6 +252,7 @@ static int parse_argv(int argc, char * argv[]) {
                 default:
                         assert_not_reached();
                 }
+
         if (optind < argc)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "%s takes no argument.",

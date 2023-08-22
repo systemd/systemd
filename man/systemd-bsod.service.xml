@@ -3,7 +3,7 @@
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
-<refentry id="systemd-bsod" conditional='HAVE_QRENCODE' xmlns:xi="http://www.w3.org/2001/XInclude">
+<refentry id="systemd-bsod.service" conditional='HAVE_QRENCODE' xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>systemd-bsod</title>
@@ -11,16 +11,18 @@
   </refentryinfo>
 
   <refmeta>
-    <refentrytitle>systemd-bsod</refentrytitle>
+    <refentrytitle>systemd-bsod.service</refentrytitle>
     <manvolnum>8</manvolnum>
   </refmeta>
 
   <refnamediv>
+    <refname>systemd-bsod.service</refname>
     <refname>systemd-bsod</refname>
-    <refpurpose>Displays boot-time emergency log message full-screen.</refpurpose>
+    <refpurpose>Displays boot-time emergency log message in full screen.</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
+    <para><filename>systemd-bsod.service</filename></para>
     <cmdsynopsis>
       <command>systemd-bsod</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
@@ -30,27 +32,27 @@
   <refsect1>
     <title>Description</title>
 
-    <para><command>systemd-bsod</command> is used to display a blue screen which contains a message relating to
-        a boot failure, including a QR code which users can scan with their phones to get helpful information
-        about the cause of their boot failure.</para>
+    <para><filename>systemd-bsod.service</filename> is used to display a blue screen which contains a message
+    relating to a boot failure, including a QR code which can be scanned to get helpful information about the
+    failure.</para>
   </refsect1>
 
   <refsect1>
     <title>Options</title>
 
-    <para>The following options are understood:</para>
+    <para>The following options are understood by <command>systemd-bsod</command>:</para>
 
     <variablelist>
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
 
-     <varlistentry>
+      <varlistentry>
         <term><option>-c</option></term>
         <term><option>--continuous</option></term>
 
-        <listitem><para> Used to make systemd-bsod wait continuously for changes in the
-         journal's status if doesn't find any emergency messages on initial attempt.</para></listitem>
-     </varlistentry>
+        <listitem><para>When specified, <command>systemd-bsod</command> waits continuously for changes in the
+        journal if it doesn't find any emergency messages on the initial attempt.</para></listitem>
+      </varlistentry>
     </variablelist>
 
   </refsect1>

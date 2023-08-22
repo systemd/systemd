@@ -62,7 +62,7 @@ units = [
         },
         {
           'file' : 'systemd-bsod.service.in',
-          'conditions' : ['HAVE_QRENCODE','ENABLE_INITRD'],
+          'conditions' : ['HAVE_QRENCODE', 'ENABLE_INITRD'],
           'symlinks' : ['initrd.target.wants/'],
         },
         {
