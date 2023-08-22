@@ -2573,17 +2573,17 @@ int config_parse_route_hop_limit(
         r = safe_atou32(rvalue, &k);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Could not parse route hop limit %s \"%s\", ignoring assignment: %m", lvalue, rvalue);
+                           "Could not parse per route hop limit, ignoring assignment: %s", rvalue);
                 return 0;
         }
         if (k > 255) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Specified route hop limit %s \"%s\" is too large, ignoring assignment: %m", lvalue, rvalue);
+                           "Specified per route hop limit \"%s\" is too large, ignoring assignment: %m", rvalue);
                 return 0;
         }
         if (k == 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Invalid route hop limit %s \"%s\", ignoring assignment: %m", lvalue, rvalue);
+                           "Invalid per route hop limit \"%s\", ignoring assignment: %m", rvalue);
                 return 0;
         }
 
