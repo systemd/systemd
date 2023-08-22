@@ -74,6 +74,7 @@ RADVPrefixDelegation radv_prefix_delegation_from_string(const char *s) _pure_;
 
 CONFIG_PARSER_PROTOTYPE(config_parse_router_prefix_delegation);
 CONFIG_PARSER_PROTOTYPE(config_parse_router_lifetime);
+CONFIG_PARSER_PROTOTYPE(config_parse_router_retransmit);
 CONFIG_PARSER_PROTOTYPE(config_parse_router_preference);
 CONFIG_PARSER_PROTOTYPE(config_parse_prefix);
 CONFIG_PARSER_PROTOTYPE(config_parse_prefix_boolean);

@@ -3076,6 +3076,15 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>RetransmitNeighborSolicitationSec=</varname></term>
+
+        <listitem><para>Takes a timespan. Configures the minimum time that the client should use between retransmitted
+        Neighbor Solicitation message that is sent in the Router Advertisement message. Takes a timespan
+        with the default unit of seconds. An integer in the range 0…4294967294. Defaults to 0 seconds.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>RouterPreference=</varname></term>
 
         <listitem><para>Configures IPv6 router preference if
