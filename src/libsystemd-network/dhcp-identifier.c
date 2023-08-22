@@ -15,11 +15,10 @@
 #define USEC_2000       ((usec_t) 946684800000000) /* 2000-01-01 00:00:00 UTC */
 
 static const char * const duid_type_table[_DUID_TYPE_MAX] = {
-        [DUID_TYPE_LLT]    = "DUID-LLT",
-        [DUID_TYPE_EN]     = "DUID-EN/Vendor",
-        [DUID_TYPE_LL]     = "DUID-LL",
-        [DUID_TYPE_UUID]   = "UUID",
-        [DUID_TYPE_CUSTOM] = "Custom",
+        [DUID_TYPE_LLT]  = "DUID-LLT",
+        [DUID_TYPE_EN]   = "DUID-EN/Vendor",
+        [DUID_TYPE_LL]   = "DUID-LL",
+        [DUID_TYPE_UUID] = "UUID",
 };
 
 DEFINE_STRING_TABLE_LOOKUP_TO_STRING(duid_type, DUIDType);
