@@ -196,7 +196,7 @@ Route.GatewayOnlink,                         config_parse_route_boolean,        
 Route.IPv6Preference,                        config_parse_ipv6_route_preference,                       0,                             0
 Route.Protocol,                              config_parse_route_protocol,                              0,                             0
 Route.Type,                                  config_parse_route_type,                                  0,                             0
-Route.TCPRetransmissionTimeOutSec,           config_parse_route_tcp_rto,                               0,                             0
+Route.TCPRetransmissionTimeoutSec,           config_parse_route_tcp_rto,                               0,                             0
 Route.HopLimit,                              config_parse_route_hop_limit,                             0,                             0
 Route.InitialCongestionWindow,               config_parse_route_tcp_window,                            0,                             0
 Route.InitialAdvertisedReceiveWindow,        config_parse_route_tcp_window,                            0,                             0
