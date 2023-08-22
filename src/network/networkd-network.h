@@ -228,6 +228,7 @@ struct Network {
         usec_t router_lifetime_usec;
         uint8_t router_preference;
         usec_t router_retransmit_usec;
+        uint8_t router_hop_limit;
         bool router_managed;
         bool router_other_information;
         bool router_emit_dns;

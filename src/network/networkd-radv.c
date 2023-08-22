@@ -480,6 +480,10 @@ static int radv_configure(Link *link) {
         if (r < 0)
                 return r;
 
+        r = sd_radv_set_hop_limit(link->radv, link->network->router_hop_limit);
+        if (r < 0)
+                return r;
+
         if (link->network->router_lifetime_usec > 0) {
                 r = sd_radv_set_preference(link->radv, link->network->router_preference);
                 if (r < 0)
