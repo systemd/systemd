@@ -31,3 +31,11 @@ void *xbsearch_r(const void *key, const void *base, size_t nmemb, size_t size,
 int cmp_int(const int *a, const int *b) {
         return CMP(*a, *b);
 }
+
+int cmp_uint16(const uint16_t *a, const uint16_t *b) {
+        return CMP(*a, *b);
+}
+
+int cmp_uint32(const uint32_t *a, const uint32_t *b) {
+        return CMP(*a, *b);
+}

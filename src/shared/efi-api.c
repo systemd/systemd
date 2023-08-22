@@ -189,32 +189,6 @@ static ssize_t utf16_size(const uint16_t *s, size_t buf_len_bytes) {
         return -EINVAL; /* The terminator was not found */
 }
 
-struct guid {
-        uint32_t u1;
-        uint16_t u2;
-        uint16_t u3;
-        uint8_t u4[8];
-} _packed_;
-
-static void efi_guid_to_id128(const void *guid, sd_id128_t *id128) {
-        uint32_t u1;
-        uint16_t u2, u3;
-        const struct guid *uuid = guid;
-
-        memcpy(&u1, &uuid->u1, sizeof(uint32_t));
-        id128->bytes[0] = (u1 >> 24) & 0xff;
-        id128->bytes[1] = (u1 >> 16) & 0xff;
-        id128->bytes[2] = (u1 >> 8) & 0xff;
-        id128->bytes[3] = u1 & 0xff;
-        memcpy(&u2, &uuid->u2, sizeof(uint16_t));
-        id128->bytes[4] = (u2 >> 8) & 0xff;
-        id128->bytes[5] = u2 & 0xff;
-        memcpy(&u3, &uuid->u3, sizeof(uint16_t));
-        id128->bytes[6] = (u3 >> 8) & 0xff;
-        id128->bytes[7] = u3 & 0xff;
-        memcpy(&id128->bytes[8], uuid->u4, sizeof(uuid->u4));
-}
-
 int efi_get_boot_option(
                 uint16_t id,
                 char **ret_title,
@@ -290,7 +264,7 @@ int efi_get_boot_option(
                                         continue;
 
                                 if (ret_part_uuid)
-                                        efi_guid_to_id128(dpath->drive.signature, &p_uuid);
+                                        p_uuid = efi_guid_to_id128(dpath->drive.signature);
                                 continue;
                         }
 
@@ -324,16 +298,6 @@ static void to_utf16(uint16_t *dest, const char *src) {
         for (i = 0; src[i] != '\0'; i++)
                 dest[i] = src[i];
         dest[i] = '\0';
-}
-
-static void id128_to_efi_guid(sd_id128_t id, void *guid) {
-        struct guid uuid = {
-                .u1 = id.bytes[0] << 24 | id.bytes[1] << 16 | id.bytes[2] << 8 | id.bytes[3],
-                .u2 = id.bytes[4] << 8 | id.bytes[5],
-                .u3 = id.bytes[6] << 8 | id.bytes[7],
-        };
-        memcpy(uuid.u4, id.bytes+8, sizeof(uuid.u4));
-        memcpy(guid, &uuid, sizeof(uuid));
 }
 
 static uint16_t *tilt_slashes(uint16_t *s) {
@@ -388,7 +352,7 @@ int efi_add_boot_option(
         memcpy(&devicep->drive.part_nr, &part, sizeof(uint32_t));
         memcpy(&devicep->drive.part_start, &pstart, sizeof(uint64_t));
         memcpy(&devicep->drive.part_size, &psize, sizeof(uint64_t));
-        id128_to_efi_guid(part_uuid, devicep->drive.signature);
+        efi_id128_to_guid(part_uuid, devicep->drive.signature);
         devicep->drive.mbr_type = MBR_TYPE_EFI_PARTITION_TABLE_HEADER;
         devicep->drive.signature_type = SIGNATURE_TYPE_GUID;
         size += devicep->length;
@@ -472,10 +436,6 @@ static int boot_id_hex(const char s[static 4]) {
         return id;
 }
 
-static int cmp_uint16(const uint16_t *a, const uint16_t *b) {
-        return CMP(*a, *b);
-}
-
 int efi_get_boot_options(uint16_t **ret_options) {
         _cleanup_closedir_ DIR *dir = NULL;
         _cleanup_free_ uint16_t *list = NULL;
@@ -555,3 +515,44 @@ bool efi_has_tpm2(void) {
 }
 
 #endif
+
+struct guid {
+        uint32_t u1;
+        uint16_t u2;
+        uint16_t u3;
+        uint8_t u4[8];
+} _packed_;
+
+sd_id128_t efi_guid_to_id128(const void *guid) {
+        const struct guid *uuid = ASSERT_PTR(guid);
+        sd_id128_t id128;
+        uint16_t u2, u3;
+        uint32_t u1;
+
+        memcpy(&u1, &uuid->u1, sizeof(uint32_t));
+        id128.bytes[0] = (u1 >> 24) & 0xff;
+        id128.bytes[1] = (u1 >> 16) & 0xff;
+        id128.bytes[2] = (u1 >> 8) & 0xff;
+        id128.bytes[3] = u1 & 0xff;
+        memcpy(&u2, &uuid->u2, sizeof(uint16_t));
+        id128.bytes[4] = (u2 >> 8) & 0xff;
+        id128.bytes[5] = u2 & 0xff;
+        memcpy(&u3, &uuid->u3, sizeof(uint16_t));
+        id128.bytes[6] = (u3 >> 8) & 0xff;
+        id128.bytes[7] = u3 & 0xff;
+        memcpy(&id128.bytes[8], uuid->u4, sizeof(uuid->u4));
+
+        return id128;
+}
+
+void efi_id128_to_guid(sd_id128_t id, void *guid) {
+        assert(guid);
+
+        struct guid uuid = {
+                .u1 = id.bytes[0] << 24 | id.bytes[1] << 16 | id.bytes[2] << 8 | id.bytes[3],
+                .u2 = id.bytes[4] << 8 | id.bytes[5],
+                .u3 = id.bytes[6] << 8 | id.bytes[7],
+        };
+        memcpy(uuid.u4, id.bytes+8, sizeof(uuid.u4));
+        memcpy(guid, &uuid, sizeof(uuid));
+}
