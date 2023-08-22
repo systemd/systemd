@@ -3,7 +3,7 @@
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
-<refentry id="smbios-type-11">
+<refentry id="smbios-type-11" xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>smbios-type-11</title>
