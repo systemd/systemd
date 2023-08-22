@@ -74,6 +74,7 @@ executables += [
         },
         libexec_template + {
                 'name' : 'systemd-bsod',
+                'public' : true,
                 'conditions' : ['HAVE_QRENCODE'],
                 'sources' : files('bsod.c'),
                 'link_with' : libshared,
