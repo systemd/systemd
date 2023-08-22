@@ -3,7 +3,8 @@
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
-<refentry id="systemd-resolved.service" conditional='ENABLE_RESOLVE'>
+<refentry id="systemd-resolved.service" conditional='ENABLE_RESOLVE'
+          xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>systemd-resolved.service</title>

@@ -6,7 +6,7 @@
 ]>
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
-<refentry id="systemd.nspawn">
+<refentry id="systemd.nspawn" xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>systemd.nspawn</title>
