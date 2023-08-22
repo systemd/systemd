@@ -4,7 +4,7 @@
 #include "networkd-address-pool.h"
 #include "networkd-address.h"
 #include "networkd-manager.h"
-#include "set.h"
+#include "networkd-queue.h"
 #include "string-util.h"
 
 #define RANDOM_PREFIX_TRIAL_MAX  1024
@@ -107,6 +107,7 @@ static bool address_pool_prefix_is_taken(
         Address *a;
         Link *l;
         Network *n;
+        Request *req;
 
         assert(p);
         assert(u);
@@ -122,6 +123,15 @@ static bool address_pool_prefix_is_taken(
                 ORDERED_HASHMAP_FOREACH(a, n->addresses_by_section)
                         if (address_intersect(a, p->family, u, prefixlen))
                                 return true;
+
+        /* Also check queued addresses. */
+        ORDERED_SET_FOREACH(req, p->manager->request_queue) {
+                if (req->type != REQUEST_TYPE_ADDRESS)
+                        continue;
+
+                if (address_intersect(req->userdata, p->family, u, prefixlen))
+                        return true;
+        }
 
         return false;
 }
