@@ -98,7 +98,9 @@
         option). See <citerefentry><refentrytitle>kill</refentrytitle><manvolnum>2</manvolnum></citerefentry>
         for more information.</para>
 
-        <para>Defaults to <option>control-group</option>.</para></listitem>
+        <para>Defaults to <option>control-group</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v187"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -111,6 +113,8 @@
 
         <para>Note that, right after sending the signal specified in this setting, systemd will always send
         <constant>SIGCONT</constant>, to ensure that even suspended tasks can be terminated cleanly.</para>
+
+        <xi:include href="version-info.xml" xpointer="v187"/>
         </listitem>
       </varlistentry>
 
@@ -119,6 +123,8 @@
         <listitem><para>Specifies which signal to use when restarting a service. The same as
         <varname>KillSignal=</varname> described above, with the exception that this setting is used in a
         restart job. Not set by default, and the value of <varname>KillSignal=</varname> is used.</para>
+
+        <xi:include href="version-info.xml" xpointer="v244"/>
         </listitem>
       </varlistentry>
 
@@ -130,7 +136,9 @@
         <varname>KillSignal=</varname>. This is useful to indicate to
         shells and shell-like programs that their connection has been
         severed. Takes a boolean value. Defaults to "no".
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v207"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -144,7 +152,9 @@
         or <constant>mixed</constant> service will not restart if
         processes from prior services exist within the control group.
         Takes a boolean value. Defaults to "yes".
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v187"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -160,7 +170,9 @@
         and setting <varname>FinalKillSignal=</varname> to either
         <constant>SIGQUIT</constant> or <constant>SIGABRT</constant>.
         Defaults to <constant>SIGKILL</constant>.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v240"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -168,7 +180,9 @@
         <listitem><para>Specifies which signal to use to terminate the
         service when the watchdog timeout expires (enabled through
         <varname>WatchdogSec=</varname>). Defaults to <constant>SIGABRT</constant>.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v240"/></listitem>
       </varlistentry>
 
     </variablelist>

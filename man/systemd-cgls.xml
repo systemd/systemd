@@ -79,6 +79,8 @@
         <term><option>--unit</option></term>
 
         <listitem><para>Show cgroup subtrees for the specified units.</para>
+
+        <xi:include href="version-info.xml" xpointer="v233"/>
         </listitem>
       </varlistentry>
 
@@ -86,6 +88,8 @@
         <term><option>--user-unit</option></term>
 
         <listitem><para>Show cgroup subtrees for the specified user units.</para>
+
+        <xi:include href="version-info.xml" xpointer="v233"/>
         </listitem>
       </varlistentry>
 

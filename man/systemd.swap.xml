@@ -128,6 +128,8 @@
         be activated automatically during boot, unless it is pulled in
         by some other unit. The <option>auto</option> option has the
         opposite meaning and is the default.</para>
+
+        <xi:include href="version-info.xml" xpointer="v218"/>
         </listitem>
       </varlistentry>
 
@@ -159,7 +161,9 @@
         and the discussion of
         <citerefentry project='man-pages'><refentrytitle>wipefs</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         in <citerefentry><refentrytitle>systemd.mount</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v240"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
@@ -214,7 +218,9 @@
         options among other functionality, if the swap backing device supports the discard or trim operation. (See
         <citerefentry project='man-pages'><refentrytitle>swapon</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         for more information.) Note that the usual specifier expansion is applied to this setting, literal percent
-        characters should hence be written as <literal>%%</literal>.</para></listitem>
+        characters should hence be written as <literal>%%</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v217"/></listitem>
       </varlistentry>
 
       <varlistentry>

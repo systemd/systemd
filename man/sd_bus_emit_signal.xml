@@ -214,25 +214,33 @@
 
           <listitem><para>One of the required parameters is <constant>NULL</constant> or invalid. A
           reserved D-Bus interface was passed as the <replaceable>interface</replaceable> parameter.
-          </para></listitem>
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-ENOPKG</constant></term>
 
-          <listitem><para>The bus cannot be resolved.</para></listitem>
+          <listitem><para>The bus cannot be resolved.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-ECHILD</constant></term>
 
-          <listitem><para>The bus was created in a different process, library or module instance.</para></listitem>
+          <listitem><para>The bus was created in a different process, library or module instance.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-ENOMEM</constant></term>
 
-          <listitem><para>Memory allocation failed.</para></listitem>
+          <listitem><para>Memory allocation failed.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -243,7 +251,9 @@
           <function>sd_bus_emit_object_added()</function> or
           <function>sd_bus_emit_object_removed()</function> was called on an object without an
           object manager registered on its own object path or one of its parent object paths.
-          </para></listitem>
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
         </varlistentry>
       </variablelist>
 

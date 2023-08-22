@@ -57,7 +57,9 @@
         to <literal>luks</literal>. Otherwise defaults to <literal>subvolume</literal> if
         <filename>/home/</filename> is on a btrfs file system, and <literal>directory</literal>
         otherwise. Note that the storage selected on the <command>homectl</command> command line always takes
-        precedence.</para></listitem>
+        precedence.</para>
+
+        <xi:include href="version-info.xml" xpointer="v246"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -67,7 +69,9 @@
         <literal>ext4</literal> or <literal>xfs</literal>. If not specified defaults to
         <literal>btrfs</literal>. This setting has no effect if a different storage mechanism is used. The
         file system type selected on the <command>homectl</command> command line always takes
-        precedence.</para></listitem>
+        precedence.</para>
+
+        <xi:include href="version-info.xml" xpointer="v246"/></listitem>
       </varlistentry>
 
     </variablelist>

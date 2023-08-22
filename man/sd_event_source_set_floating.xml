@@ -83,13 +83,17 @@
           <term><constant>-EINVAL</constant></term>
 
           <listitem><para><parameter>source</parameter> is not a valid pointer to an
-          <structname>sd_event_source</structname> object.</para></listitem>
+          <structname>sd_event_source</structname> object.</para>
+
+          <xi:include href="version-info.xml" xpointer="v244"/></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-ECHILD</constant></term>
 
-          <listitem><para>The event loop has been created in a different process, library or module instance.</para></listitem>
+          <listitem><para>The event loop has been created in a different process, library or module instance.</para>
+
+          <xi:include href="version-info.xml" xpointer="v244"/></listitem>
 
         </varlistentry>
 

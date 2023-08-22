@@ -68,6 +68,8 @@
         <literal>classic</literal> and <literal>table</literal> show only the most important fields. Various
         modes also do not show password hashes. Use <literal>json</literal> to view all fields, including
         any authentication fields.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/>
         </listitem>
       </varlistentry>
 
@@ -78,7 +80,9 @@
         precise display mode. Takes one of <literal>pretty</literal> or <literal>short</literal>. If
         <literal>pretty</literal>, human-friendly whitespace and newlines are inserted in the output to make
         the JSON data more readable. If <literal>short</literal>, all superfluous whitespace is
-        suppressed.</para></listitem>
+        suppressed.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -87,7 +91,9 @@
 
         <listitem><para>Controls which services to query for users/groups. Takes a list of one or more
         service names, separated by <literal>:</literal>. See below for a list of well-known service
-        names. If not specified all available services are queried at once.</para></listitem>
+        names. If not specified all available services are queried at once.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -96,7 +102,9 @@
         <listitem><para>Controls whether to include classic glibc/NSS user/group lookups in the output. If
         <option>--with-nss=no</option> is used any attempts to resolve or enumerate users/groups provided
         only via glibc NSS is suppressed. If <option>--with-nss=yes</option> is specified such users/groups
-        are included in the output (which is the default).</para></listitem>
+        are included in the output (which is the default).</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -106,7 +114,9 @@
         via the <ulink url="https://systemd.io/USER_GROUP_API">User/Group Record Lookup API via
         Varlink</ulink>. If <option>--with-varlink=no</option> is used any attempts to resolve or enumerate
         users/groups provided only via Varlink are suppressed. If <option>--with-varlink=yes</option> is
-        specified such users/groups are included in the output (which is the default).</para></listitem>
+        specified such users/groups are included in the output (which is the default).</para>
+
+        <xi:include href="version-info.xml" xpointer="v249"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -117,7 +127,9 @@
         <filename>/run/host/userdb/</filename>, <filename>/usr/lib/userdb/</filename>. If
         <option>--with-dropin=no</option> is used these records are suppressed. If
         <option>--with-dropin=yes</option> is specified such users/groups are included in the output (which
-        is the default).</para></listitem>
+        is the default).</para>
+
+        <xi:include href="version-info.xml" xpointer="v249"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -126,7 +138,9 @@
         <listitem><para>Controls whether to synthesize records for the root and nobody users/groups if they
         aren't defined otherwise. By default (or <literal>yes</literal>) such records are implicitly
         synthesized if otherwise missing since they have special significance to the OS. When
-        <literal>no</literal> this synthesizing is turned off.</para></listitem>
+        <literal>no</literal> this synthesizing is turned off.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -135,7 +149,9 @@
         <listitem><para>This option is short for <option>--with-nss=no</option>
         <option>--synthesize=no</option>. Use this option to show only records that are natively defined as
         JSON user or group records, with all NSS/glibc compatibility and all implicit synthesis turned
-        off.</para></listitem>
+        off.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -143,7 +159,9 @@
 
         <listitem><para>Controls whether to do lookups via the multiplexer service (if specified as true, the
         default) or do lookups in the client (if specified as false). Using the multiplexer service is
-        typically preferable, since it runs in a locked down sandbox.</para></listitem>
+        typically preferable, since it runs in a locked down sandbox.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -151,7 +169,9 @@
 
         <listitem><para>When used with the <command>ssh-authorized-keys</command> command, this will allow
         passing an additional command line after the user name that is chain executed after the lookup
-        completed. This allows chaining multiple tools that show SSH authorized keys.</para></listitem>
+        completed. This allows chaining multiple tools that show SSH authorized keys.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="no-pager" />
@@ -172,14 +192,18 @@
         <term><command>user</command> <optional><replaceable>USER</replaceable>…</optional></term>
 
         <listitem><para>List all known users records or show details of one or more specified user
-        records. Use <option>--output=</option> to tweak output mode.</para></listitem>
+        records. Use <option>--output=</option> to tweak output mode.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><command>group</command> <optional><replaceable>GROUP</replaceable>…</optional></term>
 
         <listitem><para>List all known group records or show details of one or more specified group
-        records. Use <option>--output=</option> to tweak output mode.</para></listitem>
+        records. Use <option>--output=</option> to tweak output mode.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -187,7 +211,9 @@
 
         <listitem><para>List users that are members of the specified groups. If no groups are specified list
         all user/group memberships defined. Use <option>--output=</option> to tweak output
-        mode.</para></listitem>
+        mode.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -196,21 +222,27 @@
         <listitem><para>List groups that the specified users are members of. If no users are specified list
         all user/group memberships defined (in this case <command>groups-of-user</command> and
         <command>users-in-group</command> are equivalent). Use <option>--output=</option> to tweak output
-        mode.</para></listitem>
+        mode.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><command>services</command></term>
 
         <listitem><para>List all services currently providing user/group definitions to the system. See below
-        for a list of well-known services providing user information.</para></listitem>
+        for a list of well-known services providing user information.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><command>ssh-authorized-keys</command></term>
 
         <listitem><para>Show SSH authorized keys for this account. This command is intended to be used to
-        allow the SSH daemon to pick up authorized keys from user records, see below.</para></listitem>
+        allow the SSH daemon to pick up authorized keys from user records, see below.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
@@ -230,7 +262,9 @@
         makes all users (and their groups) synthesized through the <varname>DynamicUser=</varname> setting in
         service unit files available to the system (see
         <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
-        details about this setting).</para></listitem>
+        details about this setting).</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -239,7 +273,9 @@
         <listitem><para>This service is provided by
         <citerefentry><refentrytitle>systemd-homed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         and makes all users (and their groups) belonging to home directories managed by that service
-        available to the system.</para></listitem>
+        available to the system.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -248,7 +284,9 @@
         <listitem><para>This service is provided by
         <citerefentry><refentrytitle>systemd-machined.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         and synthesizes records for all users/groups used by a container that employs user
-        namespacing.</para></listitem>
+        namespacing.</para>
+
+        <xi:include href="version-info.xml" xpointer="v246"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -261,7 +299,9 @@
         can ask a single service for lookups instead of asking all running services in parallel.
         <command>userdbctl</command> uses this service preferably, too, unless <option>--with-nss=</option>
         or <option>--service=</option> are used, in which case finer control over the services to talk to is
-        required.</para></listitem>
+        required.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -276,7 +316,9 @@
         automatically synthesize classic NSS/glibc user/group records from all JSON user/group records
         provided to the system, thus using both APIs is mostly equivalent and provides access to the same
         data, however the NSS/glibc APIs necessarily expose a more reduced set of fields
-        only.</para></listitem>
+        only.</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -286,7 +328,9 @@
         <citerefentry><refentrytitle>systemd-userdbd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         and picks up JSON user/group records from <filename>/etc/userdb/</filename>,
         <filename>/run/userdb/</filename>, <filename>/run/host/userdb/</filename>,
-        <filename>/usr/lib/userdb/</filename>.</para></listitem>
+        <filename>/usr/lib/userdb/</filename>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v249"/></listitem>
       </varlistentry>
 
     </variablelist>
