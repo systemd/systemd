@@ -963,6 +963,7 @@ static bool menu_run(
 
                 case KEYPRESS(EFI_CONTROL_PRESSED, 0, 'l'):
                 case KEYPRESS(EFI_CONTROL_PRESSED, 0, CHAR_CTRL('l')):
+                case 'L': /* only uppercase, do not conflict with lower-case 'l' which picks first Linux entry */
                         clear = true;
                         break;
 
