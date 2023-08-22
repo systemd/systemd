@@ -861,6 +861,7 @@ int encrypt_credential_and_warn(
                         return r;
 
                 r = tpm2_seal(tpm2_context,
+                              /* handle_index= */ 0,
                               &tpm2_policy,
                               /* pin= */ NULL,
                               &tpm2_key, &tpm2_key_size,

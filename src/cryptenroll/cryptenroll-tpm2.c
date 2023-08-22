@@ -133,6 +133,8 @@ int enroll_tpm2(struct crypt_device *cd,
                 const void *volume_key,
                 size_t volume_key_size,
                 const char *device,
+                uint32_t handle_index,
+                const char *external_key,
                 Tpm2PCRValue *hash_pcr_values,
                 size_t n_hash_pcr_values,
                 const char *pubkey_path,
@@ -163,7 +165,7 @@ int enroll_tpm2(struct crypt_device *cd,
         assert(cd);
         assert(volume_key);
         assert(volume_key_size > 0);
-        assert(TPM2_PCR_VALUES_VALID(hash_pcr_values, n_hash_pcr_values));
+        assert(tpm2_pcr_values_valid(hash_pcr_values, n_hash_pcr_values));
         assert(TPM2_PCR_MASK_VALID(pubkey_pcr_mask));
 
         assert_se(node = crypt_get_device_name(cd));
@@ -206,21 +208,28 @@ int enroll_tpm2(struct crypt_device *cd,
                         return log_debug_errno(r, "Failed to read TPM PCR signature: %m");
         }
 
+        bool any_pcr_value_specified = tpm2_pcr_values_has_any_values(hash_pcr_values, n_hash_pcr_values);
+
         _cleanup_(tpm2_context_unrefp) Tpm2Context *tpm2_context = NULL;
-        r = tpm2_context_new(device, &tpm2_context);
-        if (r < 0)
-                return r;
+        TPM2B_PUBLIC external_public = {};
+        if (external_key) {
+                r = tpm2_unmarshal_from_file("External TPM public key", &external_public, external_key, /* ret_size= */ NULL);
+                if (r < 0)
+                        return r;
 
-        bool pcr_value_specified = false;
-        for (size_t i = 0; i < n_hash_pcr_values; i++)
-                if (hash_pcr_values[i].value.size > 0) {
-                        pcr_value_specified = true;
-                        break;
+                if (!tpm2_pcr_values_has_all_values(hash_pcr_values, n_hash_pcr_values))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Must provide all PCR values when using external TPM.");
+        } else {
+                r = tpm2_context_new(device, &tpm2_context);
+                if (r < 0)
+                        return r;
+
+                if (!tpm2_pcr_values_has_all_values(hash_pcr_values, n_hash_pcr_values)) {
+                        r = tpm2_pcr_read_missing_values(tpm2_context, hash_pcr_values, n_hash_pcr_values);
+                        if (r < 0)
+                                return r;
                 }
-
-        r = tpm2_pcr_read_missing_values(tpm2_context, hash_pcr_values, n_hash_pcr_values);
-        if (r < 0)
-                return r;
+        }
 
         uint16_t hash_pcr_bank = 0;
         uint32_t hash_pcr_mask = 0;
@@ -256,14 +265,26 @@ int enroll_tpm2(struct crypt_device *cd,
         if (r < 0)
                 return r;
 
-        r = tpm2_seal(tpm2_context,
-                      &policy,
-                      pin_str,
-                      &secret, &secret_size,
-                      &blob, &blob_size,
-                      /* ret_primary_alg= */ NULL,
-                      &srk_buf,
-                      &srk_buf_size);
+        if (external_key)
+                r = tpm2_calculate_seal(
+                                handle_index,
+                                &external_public,
+                                /* attributes= */ NULL,
+                                /* secret= */ NULL, /* secret_size= */ 0,
+                                &policy,
+                                pin_str,
+                                &secret, &secret_size,
+                                &blob, &blob_size,
+                                &srk_buf, &srk_buf_size);
+        else
+                r = tpm2_seal(tpm2_context,
+                              handle_index,
+                              &policy,
+                              pin_str,
+                              &secret, &secret_size,
+                              &blob, &blob_size,
+                              /* ret_primary_alg= */ NULL,
+                              &srk_buf, &srk_buf_size);
         if (r < 0)
                 return r;
 
@@ -278,8 +299,8 @@ int enroll_tpm2(struct crypt_device *cd,
                 return r; /* return existing keyslot, so that wiping won't kill it */
         }
 
-        /* Quick verification that everything is in order, we are not in a hurry after all. */
-        if ((!pubkey || signature_json) && !pcr_value_specified) {
+        /* If possible, verify the sealed data object. */
+        if ((!pubkey || signature_json) && !any_pcr_value_specified && !external_key) {
                 _cleanup_(erase_and_freep) void *secret2 = NULL;
                 size_t secret2_size;
 
