@@ -114,9 +114,9 @@ int dhcp_identifier_set_duid_en(bool test_mode, struct duid *ret_duid, size_t *r
         /* a bit of snake-oil perhaps, but no need to expose the machine-id
          * directly; duid->en.id might not be aligned, so we need to copy */
         hash = htole64(siphash24(&machine_id, sizeof(machine_id), HASH_KEY.bytes));
-        memcpy(ret_duid->en.id, &hash, sizeof(ret_duid->en.id));
+        memcpy(ret_duid->en.id, &hash, sizeof(hash));
 
-        *ret_len = offsetof(struct duid, en.id) + sizeof(ret_duid->en.id);
+        *ret_len = offsetof(struct duid, en.id) + sizeof(hash);
 
         if (test_mode)
                 assert_se(memcmp(ret_duid, (const uint8_t[]) { 0x00, 0x02, 0x00, 0x00, 0xab, 0x11, 0x61, 0x77, 0x40, 0xde, 0x13, 0x42, 0xc3, 0xa2 }, *ret_len) == 0);
