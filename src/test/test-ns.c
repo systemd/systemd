@@ -96,6 +96,7 @@ int main(int argc, char *argv[]) {
                             tmp_dir,
                             var_tmp_dir,
                             NULL,
+                            -EBADF,
                             NULL,
                             0,
                             NULL,
