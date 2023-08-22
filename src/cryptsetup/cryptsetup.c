@@ -862,7 +862,7 @@ static int measure_volume_key(
         if (!s)
                 return log_oom();
 
-        r = tpm2_extend_bytes(c, l ?: arg_tpm2_measure_banks, arg_tpm2_measure_pcr, s, SIZE_MAX, volume_key, volume_key_size);
+        r = tpm2_extend_bytes(c, l ?: arg_tpm2_measure_banks, arg_tpm2_measure_pcr, s, SIZE_MAX, volume_key, volume_key_size, TPM2_EVENT_VOLUME_KEY, s);
         if (r < 0)
                 return r;
 
