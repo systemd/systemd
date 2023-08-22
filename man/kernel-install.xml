@@ -129,6 +129,8 @@
 
             <para>If <varname>$KERNEL_INSTALL_LAYOUT</varname> is not "uki", this plugin does nothing.</para></listitem>
           </itemizedlist>
+
+            <xi:include href="version-info.xml" xpointer="v241"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -156,6 +158,8 @@
             <listitem><para><filename>90-uki-copy.install</filename> removes the file
             <filename>$BOOT/EFI/Linux/<replaceable>ENTRY-TOKEN</replaceable>-<replaceable>KERNEL-VERSION</replaceable>.efi</filename>.</para></listitem>
           </itemizedlist>
+
+            <xi:include href="version-info.xml" xpointer="v203"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -164,6 +168,8 @@
           <para>Shows the various paths and parameters configured or auto-detected. In particular shows the
           values of the various <varname>$KERNEL_INSTALL_*</varname> environment variables listed
           below.</para>
+
+          <xi:include href="version-info.xml" xpointer="v254"/>
         </listitem>
       </varlistentry>
 
@@ -199,6 +205,8 @@
           the entry token, and is placed immediately below the boot root directory. When
           <literal>auto</literal>, the directory is created or removed only when the install layout is
           <literal>bls</literal>. Defaults to <literal>auto</literal>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v254"/>
         </listitem>
       </varlistentry>
 
@@ -241,6 +249,8 @@
           installations of the same OS would try to use the same entry name. To support parallel
           installations, the installer must use a different entry token when adding a second installation.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v254"/>
         </listitem>
       </varlistentry>
 
@@ -249,6 +259,8 @@
         <term><option>--verbose</option></term>
         <listitem>
           <para>Output additional information about operations being performed.</para>
+
+        <xi:include href="version-info.xml" xpointer="v242"/>
         </listitem>
       </varlistentry>
 
@@ -324,6 +336,8 @@
             unified kernel images under <filename>$BOOT/EFI/Linux</filename> as
             <filename>$BOOT/EFI/Linux/<replaceable>ENTRY-TOKEN</replaceable>-<replaceable>KERNEL-VERSION</replaceable>[+<replaceable>TRIES</replaceable>].efi</filename>.</para>
             <para>Implemented by <filename>90-uki-copy.install</filename>.</para>
+
+            <xi:include href="version-info.xml" xpointer="v253"/>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -341,6 +355,8 @@
             <filename>$BOOT/<replaceable>ENTRY-TOKEN</replaceable></filename> exists, or
             <option>other</option> otherwise.</para>
             <para>Leaving layout blank has the same effect. This is the default.</para>
+
+            <xi:include href="version-info.xml" xpointer="v254"/>
           </listitem>
         </varlistentry>
       </variablelist>
@@ -395,6 +411,8 @@
         </term>
           <listitem>
             <para>Drop-in files which are executed by kernel-install.</para>
+
+          <xi:include href="version-info.xml" xpointer="v198"/>
           </listitem>
       </varlistentry>
       <varlistentry>
@@ -409,6 +427,8 @@
             does not exist, <filename>/usr/lib/kernel/cmdline</filename> is used. If that also does not
             exist, <filename>/proc/cmdline</filename> is used. <varname>$KERNEL_INSTALL_CONF_ROOT</varname>
             may be used to override the path.</para>
+
+          <xi:include href="version-info.xml" xpointer="v250"/>
           </listitem>
       </varlistentry>
       <varlistentry>
@@ -426,6 +446,8 @@
             <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>
             which implement boot attempt counting with a counter embedded in the entry file name.
             <varname>$KERNEL_INSTALL_CONF_ROOT</varname> may be used to override the path.</para>
+
+          <xi:include href="version-info.xml" xpointer="v240"/>
           </listitem>
       </varlistentry>
       <varlistentry>
@@ -437,6 +459,8 @@
             naming Boot Loader Specification entries, see <varname>$KERNEL_INSTALL_ENTRY_TOKEN</varname>
             above for details. <varname>$KERNEL_INSTALL_CONF_ROOT</varname> may be used to override the
             path.</para>
+
+            <xi:include href="version-info.xml" xpointer="v251"/>
           </listitem>
       </varlistentry>
       <varlistentry>
@@ -446,6 +470,8 @@
           <listitem>
             <para>The content of this file specifies the machine identification
             <replaceable>MACHINE-ID</replaceable>.</para>
+
+            <xi:include href="version-info.xml" xpointer="v198"/>
           </listitem>
       </varlistentry>
       <varlistentry>
@@ -457,6 +483,8 @@
             <para>Read by <filename>90-loaderentry.install</filename>.
             If available, <varname>PRETTY_NAME=</varname> is read from these files and used as the title of the boot menu entry.
             Otherwise, <literal>Linux <replaceable>KERNEL-VERSION</replaceable></literal> will be used.</para>
+
+        <xi:include href="version-info.xml" xpointer="v215"/>
           </listitem>
       </varlistentry>
       <varlistentry>
@@ -481,6 +509,8 @@
             <varname>initrd_generator=</varname>,
             <varname>uki_generator=</varname>.
             See the Environment variables section above for details.</para>
+
+            <xi:include href="version-info.xml" xpointer="v250"/>
           </listitem>
       </varlistentry>
       <varlistentry>
@@ -491,6 +521,8 @@
             <para>Ini-style configuration file for <citerefentry><refentrytitle>ukify</refentrytitle><manvolnum>1</manvolnum></citerefentry> which is only effective when <varname>$KERNEL_INSTALL_LAYOUT</varname> or <varname>layout=</varname> in <filename>install.conf</filename> is set to <option>uki</option> and <varname>$KERNEL_INSTALL_UKI_GENERATOR</varname> or <varname>uki_generator=</varname> in <filename>install.conf</filename> is set to <option>ukify</option>.
             <varname>$KERNEL_INSTALL_CONF_ROOT</varname> may be used to override the path.
             </para>
+
+          <xi:include href="version-info.xml" xpointer="v255"/>
           </listitem>
       </varlistentry>
     </variablelist>

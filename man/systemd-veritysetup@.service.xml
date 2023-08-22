@@ -63,7 +63,9 @@
         <replaceable>hashdevice</replaceable>. See
         <ulink url="https://docs.kernel.org/admin-guide/device-mapper/verity.html">
           Kernel dm-verity</ulink> documentation for details.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -73,7 +75,9 @@
         </term>
 
         <listitem><para>Detach (destroy) the block device
-        <replaceable>volume</replaceable>.</para></listitem>
+        <replaceable>volume</replaceable>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -81,7 +85,9 @@
           <option>help</option>
         </term>
 
-        <listitem><para>Print short information about command syntax.</para></listitem>
+        <listitem><para>Print short information about command syntax.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>

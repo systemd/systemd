@@ -52,6 +52,8 @@
 
         <listitem>
           <para>The presence of this file indicates to this service that the system clock has been synchronized.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/>
         </listitem>
 
       </varlistentry>

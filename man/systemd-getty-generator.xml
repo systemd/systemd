@@ -66,7 +66,9 @@
 
         <listitem><para>this options take an optional boolean argument, and default to yes.
         The generator is enabled by default, and a false value may be used to disable it.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
@@ -80,7 +82,9 @@
 
         <listitem><para>This variable takes an optional boolean argument, and default to yes.
         The generator is enabled by default, and a false value may be used to disable it.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
@@ -97,7 +101,9 @@
         TTYs. The two credentials should contain a newline-separated list of TTY names to spawn instances of
         <filename>serial-getty@.service</filename> (in case of <varname>getty.ttys.serial</varname>) and
         <filename>container-getty@.service</filename> (in case of <varname>getty.ttys.container</varname>)
-        on.</para></listitem>
+        on.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>

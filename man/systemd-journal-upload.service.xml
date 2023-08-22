@@ -71,7 +71,9 @@
         hostname. <constant>https</constant> is the default.
         The port number may be specified after a colon (<literal>:</literal>),
         otherwise <constant>19532</constant> will be used by default.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -85,7 +87,9 @@
         for
         <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>. If
         neither is specified, all accessible entries are uploaded.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -95,7 +99,9 @@
         <listitem><para>Upload entries interleaved from all available
         journals, including other machines. This has the same meaning
         as <option>--merge</option> option for
-        <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para></listitem>
+        <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -106,7 +112,9 @@
         <replaceable>NAMESPACE</replaceable> instead of the default namespace. This has the same meaning as
         <option>--namespace=</option> option for
         <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -119,7 +127,9 @@
         and system journal paths. This has the same meaning as
         <option>--directory=</option> option for
         <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -132,7 +142,9 @@
         which case files will be suitably interleaved. This has the same meaning as
         <option>--file=</option> option for
         <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -141,7 +153,9 @@
         <listitem><para>Upload entries from the location in the
         journal specified by the passed cursor. This has the same
         meaning as <option>--cursor=</option> option for
-        <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para></listitem>
+        <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -152,7 +166,9 @@
         the this cursor.  This has the same meaning as
         <option>--after-cursor=</option> option for
         <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -164,7 +180,9 @@
         (<filename>/var/lib/systemd/journal-upload/state</filename> by default).
         After an entry is successfully uploaded, update this file
         with the cursor of that entry.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -172,7 +190,9 @@
 
         <listitem><para>
           If set to yes, then <command>systemd-journal-upload</command> waits for input.
-        </para></listitem>
+        </para>
+
+          <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -183,7 +203,9 @@
           If <option>-</option> is set, then client certificate authentication checking
           will be disabled.
           Defaults to <filename>&CERTIFICATE_ROOT;/private/journal-upload.pem</filename>.
-        </para></listitem>
+        </para>
+
+          <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -194,7 +216,9 @@
           If <option>-</option> is set, then client certificate authentication checking
           will be disabled.
           Defaults to <filename>&CERTIFICATE_ROOT;/certs/journal-upload.pem</filename>.
-        </para></listitem>
+        </para>
+
+          <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -204,7 +228,9 @@
           Takes a path to a SSL CA certificate file in PEM format, or <option>-</option>/<option>all</option>.
           If <option>-</option>/<option>all</option> is set, then certificate checking will be disabled.
           Defaults to <filename>&CERTIFICATE_ROOT;/ca/trusted.pem</filename>.
-        </para></listitem>
+        </para>
+
+          <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="help" />

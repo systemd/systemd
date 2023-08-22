@@ -1257,6 +1257,8 @@ DeviceAllow=/dev/loop-control
           has been started. Since no processes should live in inner nodes of the control group tree it's
           almost always necessary to run the main ("supervising") process of a unit that has delegation
           turned on in a subgroup.</para>
+
+          <xi:include href="version-info.xml" xpointer="v254"/>
         </listitem>
       </varlistentry>
 
@@ -1404,7 +1406,9 @@ DeviceAllow=/dev/loop-control
         to watch for and handle memory pressure events.</para>
 
         <para>If not explicit set, defaults to the <varname>DefaultMemoryPressureWatch=</varname> setting in
-        <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para></listitem>
+        <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1418,7 +1422,9 @@ DeviceAllow=/dev/loop-control
         (which in turn defaults to 200ms). The specified value expects a time unit such as
         <literal>ms</literal> or <literal>μs</literal>, see
         <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
-        details on the permitted syntax.</para></listitem>
+        details on the permitted syntax.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
     </variablelist>
     </refsect2>
@@ -1444,7 +1450,9 @@ DeviceAllow=/dev/loop-control
           <varname>BlockIOReadBandwidth=<replaceable>device</replaceable>
           <replaceable>bytes</replaceable></varname>,
           <varname>BlockIOWriteBandwidth=<replaceable>device</replaceable> <replaceable>bytes</replaceable></varname>.
-          Please switch to the unified cgroup hierarchy.</para></listitem>
+          Please switch to the unified cgroup hierarchy.</para>
+
+ <xi:include href="version-info.xml" xpointer="v252"/></listitem>
         </varlistentry>
       </variablelist>
   </refsect1>

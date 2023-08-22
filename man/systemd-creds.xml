@@ -65,7 +65,9 @@
         <literal>secure</literal> (in case the credential is backed by unswappable memory,
         i.e. <literal>ramfs</literal>), <literal>weak</literal> (in case it is backed by any other type of
         memory), or <literal>insecure</literal> (if having any access mode that is not 0400, i.e. if readable
-        by anyone but the owner).</para></listitem>
+        by anyone but the owner).</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -76,7 +78,9 @@
         output.</para>
 
         <para>When combined with <option>--json=</option> or <option>--transcode=</option> the output is
-        transcoded in simple ways before outputting.</para></listitem>
+        transcoded in simple ways before outputting.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -88,7 +92,9 @@
         credentials with <command>encrypt</command> or <command>decrypt</command>, and is only accessible to
         the root user. Note that there's typically no need to invoke this command explicitly as it is
         implicitly called when <command>encrypt</command> is invoked, and credential host key encryption
-        selected.</para></listitem>
+        selected.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -141,6 +147,8 @@
 
         <para>The credential data is encrypted using AES256-GCM, i.e. providing both confidentiality and
         integrity, keyed by a SHA256 hash of one or both of the secret keys described above.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/>
         </listitem>
       </varlistentry>
 
@@ -164,7 +172,9 @@
 
         <para>Decrypting credentials requires access to the original TPM2 chip and/or credentials host key,
         see above. Information about which keys are required is embedded in the encrypted credential data,
-        and thus decryption is entirely automatic.</para></listitem>
+        and thus decryption is entirely automatic.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -178,7 +188,9 @@
         exits with non-zero exit status. It also shows four lines indicating separately whether firmware,
         drivers, the system and the kernel discovered/support/use TPM2.</para>
 
-        <para>Combine with <option>--quiet</option> to suppress the output.</para></listitem>
+        <para>Combine with <option>--quiet</option> to suppress the output.</para>
+
+        <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="help" />
@@ -197,7 +209,9 @@
         <listitem><para>When specified with the <command>list</command> and <command>cat</command> commands
         operates on the credentials passed to system as a whole instead of on those passed to the current
         execution context. This is useful in container environments where credentials may be passed in from
-        the container manager.</para></listitem>
+        the container manager.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -209,7 +223,9 @@
         to encode/decode the credential data with Base64 or as series of hexadecimal values.</para>
 
         <para>Note that this has no effect on the <command>encrypt</command> command, as encrypted
-        credentials are unconditionally encoded in Base64.</para></listitem>
+        credentials are unconditionally encoded in Base64.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -219,7 +235,9 @@
         whether to add a trailing newline character to the end of the output if it doesn't end in one,
         anyway. Takes one of <literal>auto</literal>, <literal>yes</literal> or <literal>no</literal>. The
         default mode of <literal>auto</literal> will suffix the output with a single newline character only
-        when writing credential data to a TTY.</para></listitem>
+        when writing credential data to a TTY.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -229,7 +247,9 @@
         <listitem><para>When specified with <command>encrypt</command> controls whether to show the encrypted
         credential as <varname>SetCredentialEncrypted=</varname> setting that may be pasted directly into a
         unit file. Has effect only when used together with <option>--name=</option> and <literal>-</literal>
-        as the output file.</para></listitem>
+        as the output file.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -250,7 +270,9 @@
 
         <para>Embedding the credential name in the encrypted credential is done in order to protect against
         reuse of credentials for purposes they weren't originally intended for, under the assumption the
-        credential name is chosen carefully to encode its intended purpose.</para></listitem>
+        credential name is chosen carefully to encode its intended purpose.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -263,7 +285,9 @@
 
         <para>When specified with the <command>decrypt</command> command controls the timestamp to use to
         validate the "not-after" timestamp that was configured with <option>--not-after=</option> during
-        encryption. If not specified defaults to the current system time.</para></listitem>
+        encryption. If not specified defaults to the current system time.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -274,7 +298,9 @@
         credential. During decryption the timestamp is checked against the current system clock, and if the
         timestamp is in the past the decryption will fail. By default no such timestamp is set. Takes a
         timestamp specification in the format described in
-        <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para></listitem>
+        <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -310,7 +336,9 @@
         <option>--with-key=auto-initrd</option> mode, to disable binding against the host secret.</para>
 
         <para>This switch has no effect on the <command>decrypt</command> command, as information on which
-        key to use for decryption is included in the encrypted credential already.</para></listitem>
+        key to use for decryption is included in the encrypted credential already.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -320,7 +348,9 @@
         chip (e.g. <filename>/dev/tpmrm0</filename>). Alternatively the special value <literal>auto</literal>
         may be specified, in order to automatically determine the device node of a suitable TPM2 device (of
         which there must be exactly one). The special value <literal>list</literal> may be used to enumerate
-        all suitable TPM2 devices currently discovered.</para></listitem>
+        all suitable TPM2 devices currently discovered.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -330,7 +360,9 @@
         key to. Takes a <literal>+</literal> separated list of numeric PCR indexes in the range 0…23. If not
         used, defaults to PCR 7 only. If an empty string is specified, binds the encryption key to no PCRs at
         all. For details about the PCRs available, see the documentation of the switch of the same name for
-        <citerefentry><refentrytitle>systemd-cryptenroll</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para></listitem>
+        <citerefentry><refentrytitle>systemd-cryptenroll</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -351,7 +383,9 @@
         <option>--tpm2-public-key-pcrs=</option>: the former binds decryption to the current, specific PCR
         values; the latter binds decryption to any set of PCR values for which a signature by the specified
         public key can be provided. The latter is hence more useful in scenarios where software updates shall
-        be possible without losing access to all previously encrypted secrets.</para></listitem>
+        be possible without losing access to all previously encrypted secrets.</para>
+
+        <xi:include href="version-info.xml" xpointer="v252"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -364,7 +398,9 @@
         with a signed PCR policy is attempted to be decrypted, a suitable signature file
         <filename>tpm2-pcr-signature.json</filename> is searched for in <filename>/etc/systemd/</filename>,
         <filename>/run/systemd/</filename>, <filename>/usr/lib/systemd/</filename> (in this order) and
-        used.</para></listitem>
+        used.</para>
+
+        <xi:include href="version-info.xml" xpointer="v252"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -372,7 +408,9 @@
         <term><option>-q</option></term>
 
         <listitem><para>When used with <command>has-tpm2</command> suppresses the output, and only returns an
-        exit status indicating support for TPM2.</para></listitem>
+        exit status indicating support for TPM2.</para>
+
+        <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="no-pager" />

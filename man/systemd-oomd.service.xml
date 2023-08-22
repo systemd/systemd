@@ -111,7 +111,9 @@
         <term><option>--dry-run</option></term>
 
         <listitem><para>Do a dry run of <command>systemd-oomd</command>: when a kill is triggered, print it
-        to the log instead of killing the cgroup.</para></listitem>
+        to the log instead of killing the cgroup.</para>
+
+        <xi:include href="version-info.xml" xpointer="v253"/></listitem>
       </varlistentry>
     </variablelist>
 

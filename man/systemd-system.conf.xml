@@ -93,7 +93,9 @@
         <literal>reboot-immediate</literal>, <literal>poweroff-immediate</literal>
         or disabled with <literal>none</literal>. Defaults to
         <literal>reboot-force</literal>.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v232"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -106,7 +108,9 @@
         merged. If the empty string is assigned, the mask is reset, all assignments prior to this will have
         no effect. Individual services may override the CPU affinity for their processes with the
         <varname>CPUAffinity=</varname> setting in unit files, see
-        <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para></listitem>
+        <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v198"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -115,7 +119,9 @@
         <listitem><para>Configures the NUMA memory policy for the service manager and the default NUMA memory policy
         for all forked off processes. Individual services may override the default policy with the
         <varname>NUMAPolicy=</varname> setting in unit files, see
-        <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para></listitem>
+        <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v243"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -125,7 +131,9 @@
         <option>default</option> and <option>local</option> NUMA policies don't require explicit NUMA node mask and
         value of the option can be empty. Similarly to <varname>NUMAPolicy=</varname>, value can be overridden
         by individual services in unit files, see
-        <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para></listitem>
+        <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v243"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -201,7 +209,9 @@
         must be smaller than the timeout value for <varname>RuntimeWatchdogSec=</varname>.
         This setting has no effect if a hardware watchdog is not available or the
         hardware watchdog does not support a pre-timeout and will be ignored by the
-        kernel if the setting is greater than the actual watchdog timeout.</para></listitem>
+        kernel if the setting is greater than the actual watchdog timeout.</para>
+
+        <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -218,7 +228,9 @@
         in use. If the <filename>pretimeout_available_governors</filename> sysfs file is empty,
         the governor might be built as a kernel module and might need to be manually loaded
         (e.g. <varname>pretimeout_noop.ko</varname>), or the watchdog device might not support
-        pre-timeouts.</para></listitem>
+        pre-timeouts.</para>
+
+        <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -227,7 +239,9 @@
         <listitem><para>Configure the hardware watchdog device that the
         runtime and shutdown watchdog timers will open and use. Defaults
         to <filename>/dev/watchdog0</filename>. This setting has no
-        effect if a hardware watchdog is not available.</para></listitem>
+        effect if a hardware watchdog is not available.</para>
+
+        <xi:include href="version-info.xml" xpointer="v236"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -249,7 +263,9 @@
         using the <varname>CapabilityBoundingSet=</varname> directive
         for units, but note that capabilities dropped for PID 1 cannot
         be regained in individual units, they are lost for
-        good.</para></listitem>
+        good.</para>
+
+        <xi:include href="version-info.xml" xpointer="v198"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -264,7 +280,9 @@
         function properly with this option enabled. Individual units
         cannot disable this option.
         Also see <ulink url="https://docs.kernel.org/userspace-api/no_new_privs.html">No New Privileges Flag</ulink>.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -292,7 +310,9 @@
         prohibit execution of any non-native binaries. When a binary
         executes a system call of an architecture that is not listed
         in this setting, it will be immediately terminated with the
-        SIGSYS signal.</para></listitem>
+        SIGSYS signal.</para>
+
+        <xi:include href="version-info.xml" xpointer="v209"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -310,7 +330,9 @@
         for more information. Note that in contrast to most other time
         span definitions this parameter takes an integer value in
         nano-seconds if no unit is specified. The usual time units are
-        understood too.</para></listitem>
+        understood too.</para>
+
+        <xi:include href="version-info.xml" xpointer="v198"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -326,7 +348,9 @@
 
         <para>See
         <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
-        details about unit names and <varname>Description=</varname>.</para></listitem>
+        details about unit names and <varname>Description=</varname>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v243"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -340,7 +364,9 @@
         units override the global default for the specific unit.
         Defaults to 1min. Note that the accuracy of timer units is
         also affected by the configured timer slack for PID 1, see
-        <varname>TimerSlackNSec=</varname> above.</para></listitem>
+        <varname>TimerSlackNSec=</varname> above.</para>
+
+        <xi:include href="version-info.xml" xpointer="v212"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -374,7 +400,9 @@
         <citerefentry><refentrytitle>systemd.mount</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>crypttab</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
         Defaults to &DEFAULT_TIMEOUT; in the system manager and &DEFAULT_USER_TIMEOUT; in the user manager.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v252"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -410,7 +438,9 @@
         Sets three variables
         <literal>VAR1</literal>,
         <literal>VAR2</literal>,
-        <literal>VAR3</literal>.</para></listitem>
+        <literal>VAR3</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v205"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -428,6 +458,8 @@
 
         <para>Simple <literal>%</literal>-specifier expansion is supported, see below for a list of supported
         specifiers.</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/>
         </listitem>
       </varlistentry>
 
@@ -463,7 +495,9 @@
         and root cgroup <varname>pids.max</varname>.
         Kernel has a default value for <varname>kernel.pid_max=</varname> and an algorithm of counting in case of more than 32 cores.
         For example, with the default <varname>kernel.pid_max=</varname>, <varname>DefaultTasksMax=</varname> defaults to 4915,
-        but might be greater in other systems or smaller in OS containers.</para></listitem>
+        but might be greater in other systems or smaller in OS containers.</para>
+
+        <xi:include href="version-info.xml" xpointer="v228"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -509,6 +543,8 @@
         <para>Note that the service manager internally in PID 1 bumps <varname>RLIMIT_NOFILE</varname> and
         <varname>RLIMIT_MEMLOCK</varname> to higher values, however the limit is reverted to the mentioned
         defaults for all child processes forked off.</para>
+
+        <xi:include href="version-info.xml" xpointer="v198"/>
       </listitem>
       </varlistentry>
 
@@ -520,7 +556,9 @@
         <varname>OOMPolicy=</varname> setting. See
         <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         for details. Note that this default is not used for services that have <varname>Delegate=</varname>
-        turned on.</para></listitem>
+        turned on.</para>
+
+        <xi:include href="version-info.xml" xpointer="v243"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -534,7 +572,9 @@
         pick a global default for the per-unit <varname>OOMScoreAdjust=</varname> setting. See
         <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
         details. Note that this setting has no effect on the OOM score adjustment value of the service
-        manager process itself, it retains the original value set during its invocation.</para></listitem>
+        manager process itself, it retains the original value set during its invocation.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -546,7 +586,9 @@
         for the details.</para>
 
         <para>If the value is <literal>/</literal>, only labels specified with <varname>SmackProcessLabel=</varname>
-        are assigned and the compile-time default is ignored.</para></listitem>
+        are assigned and the compile-time default is ignored.</para>
+
+        <xi:include href="version-info.xml" xpointer="v252"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -556,7 +598,9 @@
         <listitem><para>Rate limiting for daemon-reload requests. Default to unset, and any number of daemon-reload
         operations can be requested at any time. <varname>ReloadLimitIntervalSec=</varname> takes a value in seconds
         to configure the rate limit window, and <varname>ReloadLimitBurst=</varname> takes a positive integer to
-        configure the maximum allowed number of reloads within the configured time window.</para></listitem>
+        configure the maximum allowed number of reloads within the configured time window.</para>
+
+        <xi:include href="version-info.xml" xpointer="v253"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -568,7 +612,9 @@
         settings. See
         <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         for details. Defaults to <literal>auto</literal> and <literal>200ms</literal>, respectively. This
-        also sets the memory pressure monitoring threshold for the service manager itself.</para></listitem>
+        also sets the memory pressure monitoring threshold for the service manager itself.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
@@ -649,7 +695,9 @@
         <varlistentry>
           <term>systemd 252</term>
           <listitem><para>Option <varname>DefaultBlockIOAccounting=</varname> was deprecated. Please switch
-          to the unified cgroup hierarchy.</para></listitem>
+          to the unified cgroup hierarchy.</para>
+
+          <xi:include href="version-info.xml" xpointer="v252"/></listitem>
         </varlistentry>
       </variablelist>
   </refsect1>
