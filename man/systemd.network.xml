@@ -1728,11 +1728,11 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
       </varlistentry>
 
       <varlistentry>
-        <term><varname>TCPRetransmissionTimeOutSec=</varname></term>
+        <term><varname>TCPRetransmissionTimeoutSec=</varname></term>
         <listitem>
-          <para>Specifies the TCP Retransmission Time Out for the route. Takes time values in seconds.
-            This value specifies the timeout of an alive TCP connection, when RTO retransmissions remain unacknowledged.
-            When unset, the kernel's default will be used.</para>
+          <para>Specifies the TCP Retransmission Timeout (RTO) for the route. Takes time values in seconds.
+          This value specifies the timeout of an alive TCP connection, when retransmissions remain
+          unacknowledged. When unset, the kernel's default will be used.</para>
         </listitem>
       </varlistentry>
 

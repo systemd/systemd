@@ -10,9 +10,9 @@ Address=149.10.124.58/28
 [Route]
 Destination=2001:1234:5:8fff:ff:ff:ff:ff/128
 TCPCongestionControlAlgorithm=dctcp
-TCPRetransmissionTimeOutSec=300s
+TCPRetransmissionTimeoutSec=300s
 
 [Route]
 Destination=149.10.124.66
 TCPCongestionControlAlgorithm=dctcp
-TCPRetransmissionTimeOutSec=300s
+TCPRetransmissionTimeoutSec=300s
