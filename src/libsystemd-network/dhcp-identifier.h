@@ -25,6 +25,7 @@ typedef enum DUIDType {
  *      A DUID can be no more than 128 octets long (not including the type code).
  */
 #define MAX_DUID_LEN 128
+#define MAX_DUID_DATA_LEN (MAX_DUID_LEN - sizeof(be16_t))
 
 /* https://tools.ietf.org/html/rfc3315#section-9.1 */
 struct duid {
@@ -51,7 +52,7 @@ struct duid {
                         sd_id128_t uuid;
                 } _packed_ uuid;
                 struct {
-                        uint8_t data[MAX_DUID_LEN];
+                        uint8_t data[MAX_DUID_DATA_LEN];
                 } _packed_ raw;
         };
 } _packed_;
