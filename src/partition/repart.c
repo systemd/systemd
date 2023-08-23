@@ -2712,7 +2712,7 @@ static int context_dump_partitions(Context *context) {
         _cleanup_(table_unrefp) Table *t = NULL;
         uint64_t sum_padding = 0, sum_size = 0;
         int r;
-        const size_t roothash_col = 13, dropin_files_col = 14, split_path_col = 15;
+        const size_t roothash_col = 14, dropin_files_col = 15, split_path_col = 16;
         bool has_roothash = false, has_dropin_files = false, has_split_path = false;
 
         if ((arg_json_format_flags & JSON_FORMAT_OFF) && context->n_partitions == 0) {
@@ -2723,6 +2723,7 @@ static int context_dump_partitions(Context *context) {
         t = table_new("type",
                       "label",
                       "uuid",
+                      "partno",
                       "file",
                       "node",
                       "offset",
@@ -2742,12 +2743,12 @@ static int context_dump_partitions(Context *context) {
         if (!DEBUG_LOGGING) {
                 if (arg_json_format_flags & JSON_FORMAT_OFF)
                         (void) table_set_display(t, (size_t) 0, (size_t) 1, (size_t) 2, (size_t) 3, (size_t) 4,
-                                                    (size_t) 8, (size_t) 11, roothash_col, dropin_files_col,
+                                                    (size_t) 8, (size_t) 9, (size_t) 12, roothash_col, dropin_files_col,
                                                     split_path_col);
                 else
                         (void) table_set_display(t, (size_t) 0, (size_t) 1, (size_t) 2, (size_t) 3, (size_t) 4,
-                                                    (size_t) 5, (size_t) 6, (size_t) 7, (size_t) 9, (size_t) 10,
-                                                    (size_t) 12, roothash_col, dropin_files_col,
+                                                    (size_t) 5, (size_t) 6, (size_t) 7, (size_t) 8, (size_t) 10,
+                                                    (size_t) 11, (size_t) 13, roothash_col, dropin_files_col,
                                                     split_path_col);
         }
 
@@ -2801,6 +2802,7 @@ static int context_dump_partitions(Context *context) {
                                 TABLE_STRING, gpt_partition_type_uuid_to_string_harder(p->type.uuid, uuid_buffer),
                                 TABLE_STRING, empty_to_null(label) ?: "-", TABLE_SET_COLOR, empty_to_null(label) ? NULL : ansi_grey(),
                                 TABLE_UUID, p->new_uuid_is_set ? p->new_uuid : p->current_uuid,
+                                TABLE_UINT64, p->partno,
                                 TABLE_PATH_BASENAME, p->definition_path, TABLE_SET_COLOR, p->definition_path ? NULL : ansi_grey(),
                                 TABLE_STRING, partname ?: "-", TABLE_SET_COLOR, partname ? NULL : ansi_highlight(),
                                 TABLE_UINT64, p->offset,
@@ -2830,6 +2832,7 @@ static int context_dump_partitions(Context *context) {
 
                 r = table_add_many(
                                 t,
+                                TABLE_EMPTY,
                                 TABLE_EMPTY,
                                 TABLE_EMPTY,
                                 TABLE_EMPTY,
