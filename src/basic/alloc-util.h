@@ -242,4 +242,17 @@ static inline size_t malloc_sizeof_safe(void **xp) {
                 (char*) memdupa_suffix0(_t, strnlen(_t, (n)));          \
         })
 
+/* Free every element of the array. */
+static inline void free_many(void **p, size_t n) {
+        assert(p || n == 0);
+
+        FOREACH_ARRAY(i, p, n)
+                *i = mfree(*i);
+}
+
+/* Typesafe wrapper for char** rather than void**. Unfortunately C won't implicitly cast this. */
+static inline void free_many_charp(char **c, size_t n) {
+        free_many((void**) c, n);
+}
+
 #include "memory-util.h"

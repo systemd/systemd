@@ -212,9 +212,7 @@ int strv_extend_strv(char ***a, char * const *b, bool filter_duplicates) {
         return (int) i;
 
 rollback:
-        for (size_t j = 0; j < i; j++)
-                free(t[p + j]);
-
+        free_many_charp(t + p, i);
         t[p] = NULL;
         return -ENOMEM;
 }

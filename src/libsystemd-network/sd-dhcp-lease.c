@@ -1159,8 +1159,7 @@ static char **private_options_free(char **options) {
         if (!options)
                 return NULL;
 
-        for (unsigned i = 0; i < SD_DHCP_OPTION_PRIVATE_LAST - SD_DHCP_OPTION_PRIVATE_BASE + 1; i++)
-                free(options[i]);
+        free_many_charp(options, SD_DHCP_OPTION_PRIVATE_LAST - SD_DHCP_OPTION_PRIVATE_BASE + 1);
 
         return mfree(options);
 }

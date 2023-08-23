@@ -1350,9 +1350,7 @@ fail:
         p->n_auxiliary_fds = 0;
 
 clear:
-        for (size_t i = 0; i < n; ++i)
-                free(ent[i]);
-
+        free_many((void**) ent, n);
         return r;
 }
 

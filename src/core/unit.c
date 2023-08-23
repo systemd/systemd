@@ -2546,8 +2546,7 @@ static int unit_log_resources(Unit *u) {
         r = 0;
 
 finish:
-        for (size_t i = 0; i < n_message_parts; i++)
-                free(message_parts[i]);
+        free_many_charp(message_parts, n_message_parts);
 
         for (size_t i = 0; i < n_iovec; i++)
                 free(iovec[i].iov_base);
