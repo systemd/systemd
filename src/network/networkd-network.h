@@ -358,6 +358,7 @@ struct Network {
         Hashmap *address_labels_by_section;
         Hashmap *prefixes_by_section;
         Hashmap *route_prefixes_by_section;
+        Hashmap *pref64_prefixes_by_section;
         Hashmap *rules_by_section;
         Hashmap *dhcp_static_leases_by_section;
         Hashmap *qdiscs_by_section;
