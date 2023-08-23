@@ -9,12 +9,14 @@
 #include "id128-print.h"
 #include "main-func.h"
 #include "pretty-print.h"
+#include "sd-gpt.h"
 #include "strv.h"
 #include "format-table.h"
 #include "terminal-util.h"
 #include "verbs.h"
 
 static Id128PrettyPrintMode arg_mode = ID128_PRINT_ID128;
+static bool arg_machine = false;
 static sd_id128_t arg_app = {};
 
 static int verb_new(int argc, char **argv, void *userdata) {
@@ -105,7 +107,22 @@ static int verb_show(int argc, char **argv, void *userdata) {
         int r;
 
         argv = strv_skip(argv, 1);
-        if (strv_isempty(argv))
+        if (arg_machine) {
+                GptPartitionType type;
+
+                if (strv_length(argv) != 1)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Must specify exactly one NAME when passing in --machine.");
+
+                r = gpt_partition_type_from_string(argv[0], &type);
+                if (r < 0)
+                        return r;
+
+                if (arg_mode == ID128_PRINT_ID128)
+                        puts(SD_ID128_TO_STRING(type.uuid));
+                else
+                        puts(SD_ID128_TO_UUID_STRING(type.uuid));
+        } else if (strv_isempty(argv))
                 for (const GptPartitionType *e = gpt_partition_type_table; e->name; e++) {
                         r = show_one(&table, e->name, e->uuid, e == gpt_partition_type_table);
                         if (r < 0)
@@ -169,6 +186,7 @@ static int help(void) {
                "  -p --pretty             Generate samples of program code\n"
                "  -a --app-specific=ID    Generate app-specific IDs\n"
                "  -u --uuid               Output in UUID format\n"
+               "  -m --machine            Just output a UUID, in machine-readable format\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -193,6 +211,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "pretty",       no_argument,       NULL, 'p'              },
                 { "app-specific", required_argument, NULL, 'a'              },
                 { "uuid",         no_argument,       NULL, 'u'              },
+                { "machine",      no_argument,       NULL, 'm',             },
                 {},
         };
 
@@ -201,7 +220,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hpa:u", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hpa:um", options, NULL)) >= 0)
                 switch (c) {
 
                 case 'h':
@@ -222,6 +241,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'u':
                         arg_mode = ID128_PRINT_UUID;
+                        break;
+
+                case 'm':
+                        arg_machine = true;
                         break;
 
                 case '?':

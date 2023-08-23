@@ -118,6 +118,15 @@
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
     </variablelist>
+
+    <varlistentry>
+      <term><option>-m</option></term>
+      <term><option>--machine</option></term>
+
+      <listitem><para>When paired with the <command>show</command> command, prints the ID in a machine-readable
+      format. This is useful for shell scripts, where you might want to put the UUID of a partition type into
+      an environment variable.</para></listitem>
+    </varlistentry>
   </refsect1>
 
   <refsect1>
