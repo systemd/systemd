@@ -12,7 +12,7 @@
 #include "netlink-types.h"
 #include "netlink-util.h"
 
-static bool nfproto_is_valid(int nfproto) {
+bool nfproto_is_valid(int nfproto) {
         return IN_SET(nfproto,
                       NFPROTO_UNSPEC,
                       NFPROTO_INET,
@@ -20,8 +20,7 @@ static bool nfproto_is_valid(int nfproto) {
                       NFPROTO_ARP,
                       NFPROTO_NETDEV,
                       NFPROTO_BRIDGE,
-                      NFPROTO_IPV6,
-                      NFPROTO_DECNET);
+                      NFPROTO_IPV6);
 }
 
 int sd_nfnl_message_new(sd_netlink *nfnl, sd_netlink_message **ret, int nfproto, uint16_t subsys, uint16_t msg_type, uint16_t flags) {
