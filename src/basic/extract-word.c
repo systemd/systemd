@@ -272,11 +272,7 @@ int extract_many_words(const char **p, const char *separators, unsigned flags, .
 
                 r = extract_first_word(p, &l[c], separators, flags);
                 if (r < 0) {
-                        int j;
-
-                        for (j = 0; j < c; j++)
-                                free(l[j]);
-
+                        free_many_charp(l, c);
                         return r;
                 }
 

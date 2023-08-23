@@ -1915,9 +1915,7 @@ int cg_get_keyed_attribute_full(
         r = -ENXIO;
 
 fail:
-        for (i = 0; i < n; i++)
-                free(v[i]);
-
+        free_many_charp(v, n);
         return r;
 
 done:
