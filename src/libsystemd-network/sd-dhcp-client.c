@@ -753,7 +753,7 @@ static int client_initialize(sd_dhcp_client *client) {
 
         client->attempt = 0;
 
-        client->state = DHCP_STATE_INIT;
+        client->state = DHCP_STATE_STOPPED;
         client->xid = 0;
 
         client->lease = sd_dhcp_lease_unref(client->lease);
@@ -1434,7 +1434,7 @@ static int client_start_delayed(sd_dhcp_client *client) {
         assert_return(client->ifindex > 0, -EINVAL);
         assert_return(client->fd < 0, -EBUSY);
         assert_return(client->xid == 0, -EINVAL);
-        assert_return(IN_SET(client->state, DHCP_STATE_INIT, DHCP_STATE_INIT_REBOOT), -EBUSY);
+        assert_return(IN_SET(client->state, DHCP_STATE_STOPPED, DHCP_STATE_INIT_REBOOT), -EBUSY);
 
         client->xid = random_u32();
 
@@ -1448,8 +1448,10 @@ static int client_start_delayed(sd_dhcp_client *client) {
         }
         client->fd = r;
 
-        if (IN_SET(client->state, DHCP_STATE_INIT, DHCP_STATE_INIT_REBOOT))
-                client->start_time = now(CLOCK_BOOTTIME);
+        client->start_time = now(CLOCK_BOOTTIME);
+
+        if (client->state == DHCP_STATE_STOPPED)
+                client->state = DHCP_STATE_INIT;
 
         return client_initialize_events(client, client_receive_message_raw);
 }
@@ -2061,7 +2063,7 @@ int sd_dhcp_client_is_running(sd_dhcp_client *client) {
         if (!client)
                 return 0;
 
-        return !IN_SET(client->state, DHCP_STATE_INIT, DHCP_STATE_STOPPED);
+        return client->state != DHCP_STATE_STOPPED;
 }
 
 int sd_dhcp_client_start(sd_dhcp_client *client) {
@@ -2263,7 +2265,7 @@ int sd_dhcp_client_new(sd_dhcp_client **ret, int anonymize) {
 
         *client = (sd_dhcp_client) {
                 .n_ref = 1,
-                .state = DHCP_STATE_INIT,
+                .state = DHCP_STATE_STOPPED,
                 .ifindex = -1,
                 .fd = -EBADF,
                 .mtu = DHCP_MIN_PACKET_SIZE,
