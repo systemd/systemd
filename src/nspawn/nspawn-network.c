@@ -774,19 +774,21 @@ static int network_iface_pair_parse(const char* iftype, char ***l, const char *p
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "%s, interface name not valid: %s", iftype, a);
 
-                if (isempty(interface)) {
-                        if (ifprefix)
-                                b = strjoin(ifprefix, a);
-                        else
-                                b = strdup(a);
-                } else
+                /* Here, we only check the validity of the specified second name. If it is not specified,
+                 * the copied or prefixed name should be already valid, except for its length. If it is too
+                 * long, then it will be shortened later. */
+                if (!isempty(interface)) {
+                        if (!ifname_valid(interface))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "%s, interface name not valid: %s", iftype, interface);
+
                         b = strdup(interface);
+                } else if (ifprefix)
+                        b = strjoin(ifprefix, a);
+                else
+                        b = strdup(a);
                 if (!b)
                         return log_oom();
-
-                if (!ifname_valid(b))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "%s, interface name not valid: %s", iftype, b);
 
                 r = strv_consume_pair(l, TAKE_PTR(a), TAKE_PTR(b));
                 if (r < 0)
