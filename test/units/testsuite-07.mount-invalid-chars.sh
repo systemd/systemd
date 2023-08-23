@@ -52,7 +52,7 @@ systemctl daemon-reload
 [[ "$(systemctl show -P UnitFileState foo-fstab-opt.mount)" == bad ]]
 rm -f /etc/fstab
 
-[[ -e /tmp/fstab.bak ]] && mv -f /tmp/fstab /etc/fstab
+[[ -e /tmp/fstab.bak ]] && mv -f /tmp/fstab.bak /etc/fstab
 systemctl daemon-reload
 
 # c) Mount unit
