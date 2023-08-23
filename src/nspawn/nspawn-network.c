@@ -755,6 +755,7 @@ static int network_iface_pair_parse(const char* iftype, char ***l, const char *p
 
         for (;;) {
                 _cleanup_free_ char *word = NULL, *a = NULL, *b = NULL;
+                bool may_shorten = false;
                 const char *interface;
 
                 r = extract_first_word(&p, &word, NULL, 0);
@@ -775,14 +776,18 @@ static int network_iface_pair_parse(const char* iftype, char ***l, const char *p
                                                "%s, interface name not valid: %s", iftype, a);
 
                 if (isempty(interface)) {
-                        if (ifprefix)
+                        if (ifprefix) {
+                                may_shorten = true;
                                 b = strjoin(ifprefix, a);
-                        else
+                        } else
                                 b = strdup(a);
                 } else
                         b = strdup(interface);
                 if (!b)
                         return log_oom();
+
+                if (may_shorten)
+                        shorten_ifname(b);
 
                 if (!ifname_valid(b))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
