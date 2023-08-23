@@ -179,6 +179,7 @@ static int radv_send(sd_radv *ra, const struct in6_addr *dst, usec_t lifetime_us
 
         adv.nd_ra_type = ND_ROUTER_ADVERT;
         adv.nd_ra_curhoplimit = ra->hop_limit;
+        adv.nd_ra_retransmit = htobe32(ra->retransmit_msec);
         adv.nd_ra_flags_reserved = ra->flags;
         assert_cc(RADV_MAX_ROUTER_LIFETIME_USEC <= UINT16_MAX * USEC_PER_SEC);
         adv.nd_ra_router_lifetime = htobe16(DIV_ROUND_UP(lifetime_usec, USEC_PER_SEC));
@@ -490,6 +491,17 @@ int sd_radv_set_hop_limit(sd_radv *ra, uint8_t hop_limit) {
                 return -EBUSY;
 
         ra->hop_limit = hop_limit;
+
+        return 0;
+}
+
+int sd_radv_set_retransmit(sd_radv *ra, uint32_t retransmit_msec) {
+        assert_return(ra, -EINVAL);
+
+        if (ra->state != RADV_STATE_IDLE)
+                return -EBUSY;
+
+        ra->retransmit_msec = retransmit_msec;
 
         return 0;
 }

@@ -486,6 +486,12 @@ static int radv_configure(Link *link) {
                         return r;
         }
 
+        if (link->network->router_retransmit_usec > 0) {
+                r = sd_radv_set_retransmit(link->radv, DIV_ROUND_UP(link->network->router_retransmit_usec, USEC_PER_MSEC));
+                if (r < 0)
+                        return r;
+        }
+
         HASHMAP_FOREACH(p, link->network->prefixes_by_section) {
                 r = radv_set_prefix(link, p);
                 if (r < 0 && r != -EEXIST)
@@ -1302,6 +1308,49 @@ int config_parse_router_lifetime(
         }
 
         *lifetime = usec;
+        return 0;
+}
+
+int config_parse_router_retransmit(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        usec_t usec, *router_retransmit_usec = ASSERT_PTR(data);
+        int r;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                *router_retransmit_usec = 0;
+                return 0;
+        }
+
+        r = parse_sec(rvalue, &usec);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse %s=, ignoring assignment: %s", lvalue, rvalue);
+                return 0;
+        }
+
+        if (usec != USEC_INFINITY &&
+            DIV_ROUND_UP(usec, USEC_PER_MSEC) > UINT32_MAX) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Invalid %s= must be in the range 0...%"PRIu32"Sec, ignoring: %s", lvalue, UINT32_MAX, rvalue);
+                return 0;
+        }
+
+        *router_retransmit_usec = usec;
         return 0;
 }
 

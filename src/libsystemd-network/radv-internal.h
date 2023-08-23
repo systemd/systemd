@@ -87,6 +87,7 @@ struct sd_radv {
         uint8_t hop_limit;
         uint8_t flags;
         uint32_t mtu;
+        uint32_t retransmit_msec;
         usec_t lifetime_usec; /* timespan */
 
         int fd;
