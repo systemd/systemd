@@ -388,6 +388,29 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--tpm2-handle-index=</option><replaceable>INDEX</replaceable></term>
+
+        <listitem><para>This specifies the TPM handle index of the parent key to use for sealing. The default
+        is the Storage Root Key (SRK) index <literal>0x81000001</literal>. This can be used with a local TPM
+        or with <option>--tpm2-external-key=</option>. This should not be changed unless you know what you are
+        doing.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--tpm2-external-key=</option><replaceable>PATH</replaceable></term>
+
+        <listitem><para>Enroll an external TPM2 security chip. Expects a path referring to the TPM2 public
+        key in TPM2B_PUBLIC format. This cannot be used with <option>--tpm2-device=</option>, and this does
+        not use any TPM for the enrollment. However, once successfully enrolled, the TPM that provided the
+        public key will be able to unlock the LUKS2 volume just as if it was directly enrolled.</para>
+
+        <para>One method to get the TPM2B_PUBLIC formatted key from a TPM is to use the tpm2_readpublic
+        command from the tpm2-tools project:</para>
+
+        <programlisting>tpm2_readpublic -c 0x81000001 -o srk.pub</programlisting></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--tpm2-pcrs=</option><arg rep="repeat">PCR</arg></term>
 
         <listitem><para>Configures the TPM2 PCRs (Platform Configuration Registers) to bind to when
@@ -403,9 +426,9 @@
         specifies that PCR registers 4, 1, and 5 should be used.</para>
         <para>Example: <option>--tpm2-pcrs=7:sha256</option> specifies that PCR register 7 from the SHA256
         bank should be used.</para>
-        <para>Example: <option>--tpm2-pcrs=4:sha1=0x3A3F780F11A4B49969FCAA80CD6E3957C33B2275</option>
+        <para>Example: <option>--tpm2-pcrs=4:sha1=3a3f780f11a4b49969fcaa80cd6e3957c33b2275</option>
         specifies that PCR register 4 from the SHA1 bank should be used, and a hash digest value of
-        0x3A3F780F11A4B49969FCAA80CD6E3957C33B2275 will be used instead of reading the current PCR
+        3a3f780f11a4b49969fcaa80cd6e3957c33b2275 will be used instead of reading the current PCR
         value.</para>
         </listitem>
       </varlistentry>
