@@ -3077,6 +3077,15 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>RetransmitSec=</varname></term>
+
+        <listitem><para>Takes a timespan. Configures the retransmit time, used by clients to retransmit Neighbor
+        Solicitation messages on address resolution and the Neighbor Unreachability Detection algorithm.
+        An integer the default unit of seconds, in the range 0…4294967295 msec. Defaults to 0.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>RouterPreference=</varname></term>
 
         <listitem><para>Configures IPv6 router preference if
