@@ -33,6 +33,7 @@ _SD_BEGIN_DECLARATIONS;
 typedef struct sd_radv sd_radv;
 typedef struct sd_radv_prefix sd_radv_prefix;
 typedef struct sd_radv_route_prefix sd_radv_route_prefix;
+typedef struct sd_radv_pref64_prefix sd_radv_pref64_prefix;
 
 /* Router Advertisement */
 int sd_radv_new(sd_radv **ret);
@@ -60,6 +61,7 @@ int sd_radv_set_other_information(sd_radv *ra, int other);
 int sd_radv_set_preference(sd_radv *ra, unsigned preference);
 int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p);
 int sd_radv_add_route_prefix(sd_radv *ra, sd_radv_route_prefix *p);
+int sd_radv_add_pref64_prefix(sd_radv *ra, sd_radv_pref64_prefix *p);
 void sd_radv_remove_prefix(sd_radv *ra, const struct in6_addr *prefix, unsigned char prefixlen);
 int sd_radv_set_rdnss(sd_radv *ra, uint32_t lifetime,
                       const struct in6_addr *dns, size_t n_dns);
@@ -87,9 +89,16 @@ sd_radv_route_prefix *sd_radv_route_prefix_unref(sd_radv_route_prefix *ra);
 int sd_radv_route_prefix_set_prefix(sd_radv_route_prefix *p, const struct in6_addr *in6_addr, unsigned char prefixlen);
 int sd_radv_route_prefix_set_lifetime(sd_radv_route_prefix *p, uint64_t lifetime_usec, uint64_t valid_until);
 
+int sd_radv_pref64_prefix_new(sd_radv_pref64_prefix **ret);
+int sd_radv_pref64_prefix_set_prefix(sd_radv_pref64_prefix *p, const struct in6_addr *prefix,
+                                     uint8_t prefixlen, uint64_t lifetime_usec);
+sd_radv_pref64_prefix *sd_radv_pref64_prefix_ref(sd_radv_pref64_prefix *ra);
+sd_radv_pref64_prefix *sd_radv_pref64_prefix_unref(sd_radv_pref64_prefix *ra);
+
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_radv, sd_radv_unref);
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_radv_prefix, sd_radv_prefix_unref);
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_radv_route_prefix, sd_radv_route_prefix_unref);
+_SD_DEFINE_POINTER_CLEANUP_FUNC(sd_radv_pref64_prefix, sd_radv_pref64_prefix_unref);
 
 _SD_END_DECLARATIONS;
 
