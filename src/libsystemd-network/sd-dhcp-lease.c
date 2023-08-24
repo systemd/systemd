@@ -220,6 +220,17 @@ int sd_dhcp_lease_get_captive_portal(sd_dhcp_lease *lease, const char **ret) {
         return 0;
 }
 
+int sd_dhcp_lease_get_ipv6_only_preferred_sec(sd_dhcp_lease *lease, uint32_t *ret) {
+        assert_return(lease, -EINVAL);
+
+        if (lease->ipv6_only_preferred == 0)
+                return -ENODATA;
+
+       if (ret)
+               *ret = DIV_ROUND_UP(lease->ipv6_only_preferred, USEC_PER_SEC);
+        return 0;
+}
+
 int sd_dhcp_lease_get_router(sd_dhcp_lease *lease, const struct in_addr **addr) {
         assert_return(lease, -EINVAL);
         assert_return(addr, -EINVAL);
@@ -797,6 +808,16 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void
                 r = lease_parse_captive_portal(option, len, &lease->captive_portal);
                 if (r < 0)
                         log_debug_errno(r, "Failed to parse captive portal, ignoring: %m");
+                break;
+
+        case SD_DHCP_OPTION_IPV6_ONLY_PREFERRED:
+                r = lease_parse_u32_seconds(option, len, &lease->ipv6_only_preferred);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to parse IPv6 only preferred, ignoring: %m");
+
+                if (lease->ipv6_only_preferred < MIN_V6ONLY_WAIT_USEC)
+                        lease->ipv6_only_preferred = MIN_V6ONLY_WAIT_USEC;
+
                 break;
 
         case SD_DHCP_OPTION_STATIC_ROUTE:

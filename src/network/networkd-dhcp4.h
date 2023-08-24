@@ -16,6 +16,7 @@ typedef enum DHCPClientIdentifier {
 void network_adjust_dhcp4(Network *network);
 int dhcp4_update_mac(Link *link);
 int dhcp4_start(Link *link);
+int dhcp4_start_delayed(Link *link, uint32_t delay);
 int dhcp4_lease_lost(Link *link);
 int dhcp4_check_ready(Link *link);
 
