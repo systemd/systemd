@@ -226,6 +226,12 @@ static int service_set_main_pidref(Service *s, PidRef *pidref) {
 void service_release_socket_fd(Service *s) {
         assert(s);
 
+        if (UNIT_ISSET(s->current_gen_service)) {
+                log_unit_debug(UNIT(s), "Releasing fd on %s", UNIT_DEREF(s->current_gen_service)->id);
+                service_release_socket_fd(SERVICE(UNIT_DEREF(s->current_gen_service)));
+                return;
+        }
+
         if (s->socket_fd < 0 && !UNIT_ISSET(s->accept_socket) && !s->socket_peer)
                 return;
 
@@ -271,6 +277,7 @@ void service_set_current_generation(Service *s, Service *cs) {
          */
         if (prev_gen)
                 unit_add_dependency(prev_gen, UNIT_RAW_STOP_PROPAGATED_FROM, UNIT(s), true, UNIT_DEPENDENCY_IMPLICIT);
+        // XXX transfer socket_fd between generations?
 }
 
 static void service_stop_watchdog(Service *s) {
@@ -1489,11 +1496,17 @@ static int service_collect_fds(
 
                 rn_socket_fds = 1;
         } else {
-                Unit *u;
+                Unit *u, *u_trigee;
+                Service *h_service;
+
+                u_trigee = UNIT(s);
+                if (service_rtemplate_handle(s, &h_service) > 0) {
+                        u_trigee = UNIT(h_service);
+                        log_unit_debug(UNIT(s), "collecting fds from %s", u_trigee->id);
+                }
 
                 /* Pass all our configured sockets for singleton services */
-
-                UNIT_FOREACH_DEPENDENCY(u, UNIT(s), UNIT_ATOM_TRIGGERED_BY) {
+                UNIT_FOREACH_DEPENDENCY(u, u_trigee, UNIT_ATOM_TRIGGERED_BY) {
                         _cleanup_free_ int *cfds = NULL;
                         Socket *sock;
                         int cn_fds;
@@ -1532,6 +1545,7 @@ static int service_collect_fds(
                 }
         }
 
+        // XXX use handle service's fd_store
         if (s->n_fd_store > 0) {
                 size_t n_fds;
                 char **nl;
@@ -1578,6 +1592,7 @@ static int service_allocate_exec_fd_event_source(
 
         _cleanup_(sd_event_source_unrefp) sd_event_source *source = NULL;
         int r;
+        // XXX use handle service's fd_store
 
         assert(s);
         assert(fd >= 0);
@@ -1589,6 +1604,7 @@ static int service_allocate_exec_fd_event_source(
 
         /* This is a bit lower priority than SIGCHLD, as that carries a lot more interesting failure information */
 
+        // XXX use handle service's fd_store
         r = sd_event_source_set_priority(source, SD_EVENT_PRIORITY_NORMAL-3);
         if (r < 0)
                 return log_unit_error_errno(UNIT(s), r, "Failed to adjust priority of exec_fd event source: %m");
@@ -4900,6 +4916,13 @@ int service_set_socket_fd(
 
         /* This is called by the socket code when instantiating a new service for a stream socket and the socket needs
          * to be configured. We take ownership of the passed fd on success. */
+
+        /* Rtemplate handle service does nothing, pass to current generation */
+        if (UNIT_ISSET(s->current_gen_service)) {
+                log_unit_debug(UNIT(s), "Setting fd on %s", UNIT_DEREF(s->current_gen_service)->id);
+                return service_set_socket_fd(SERVICE(UNIT_DEREF(s->current_gen_service)),
+                                             fd, sock, peer, selinux_context_net);
+        }
 
         if (UNIT(s)->load_state != UNIT_LOADED)
                 return -EINVAL;
