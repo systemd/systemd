@@ -9,6 +9,8 @@
 #include "bus-message-util.h"
 #include "bus-polkit.h"
 #include "networkd-dhcp-server-bus.h"
+#include "networkd-dhcp4-bus.h"
+#include "networkd-dhcp6-bus.h"
 #include "networkd-json.h"
 #include "networkd-link-bus.h"
 #include "networkd-link.h"
@@ -413,5 +415,6 @@ const BusObjectImplementation manager_object = {
         "/org/freedesktop/network1",
         "org.freedesktop.network1.Manager",
         .vtables = BUS_VTABLES(manager_vtable),
-        .children = BUS_IMPLEMENTATIONS(&dhcp_server_object, &link_object, &network_object),
+        .children = BUS_IMPLEMENTATIONS(&dhcp_server_object, &dhcp_client_object,
+                                        &dhcp6_client_object, &link_object, &network_object),
 };
