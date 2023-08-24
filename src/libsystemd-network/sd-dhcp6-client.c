@@ -61,6 +61,19 @@ int sd_dhcp6_client_set_callback(
         return 0;
 }
 
+int sd_dhcp6_client_set_state_callback(
+                sd_dhcp6_client *client,
+                sd_dhcp6_client_callback_t cb,
+                void *userdata) {
+
+        assert_return(client, -EINVAL);
+
+        client->state_callback = cb;
+        client->state_userdata = userdata;
+
+        return 0;
+}
+
 int sd_dhcp6_client_set_ifindex(sd_dhcp6_client *client, int ifindex) {
         assert_return(client, -EINVAL);
         assert_return(!sd_dhcp6_client_is_running(client), -EBUSY);
@@ -567,6 +580,15 @@ static void client_set_state(sd_dhcp6_client *client, DHCP6State state) {
                          dhcp6_state_to_string(client->state), dhcp6_state_to_string(state));
 
         client->state = state;
+
+        if (client->state_callback)
+                client->state_callback(client, state, client->state_userdata);
+}
+
+int sd_dhcp6_client_get_state(sd_dhcp6_client *client) {
+        assert_return(client, -EINVAL);
+
+        return client->state;
 }
 
 static void client_notify(sd_dhcp6_client *client, int event) {

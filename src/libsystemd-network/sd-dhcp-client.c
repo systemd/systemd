@@ -119,6 +119,8 @@ struct sd_dhcp_client {
         sd_event_source *timeout_expire;
         sd_dhcp_client_callback_t callback;
         void *userdata;
+        sd_dhcp_client_callback_t state_callback;
+        void *state_userdata;
         sd_dhcp_lease *lease;
         usec_t start_delay;
         int ip_service_type;
@@ -239,6 +241,25 @@ int sd_dhcp_client_id_to_string(const void *data, size_t len, char **ret) {
 
         *ret = TAKE_PTR(t);
         return 0;
+}
+
+int sd_dhcp_client_set_state_callback(
+                sd_dhcp_client *client,
+                sd_dhcp_client_callback_t cb,
+                void *userdata) {
+
+        assert_return(client, -EINVAL);
+
+        client->state_callback = cb;
+        client->state_userdata = userdata;
+
+        return 0;
+}
+
+int sd_dhcp_client_get_state(sd_dhcp_client *client) {
+        assert_return(client, -EINVAL);
+
+        return client->state;
 }
 
 int sd_dhcp_client_set_callback(
@@ -755,6 +776,9 @@ static void client_set_state(sd_dhcp_client *client, DHCPState state) {
                         dhcp_state_to_string(client->state), dhcp_state_to_string(state));
 
         client->state = state;
+
+        if (client->state_callback)
+                client->state_callback(client, state, client->state_userdata);
 }
 
 static int client_notify(sd_dhcp_client *client, int event) {

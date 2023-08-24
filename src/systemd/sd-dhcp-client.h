@@ -244,6 +244,10 @@ int sd_dhcp_client_set_callback(
                 sd_dhcp_client *client,
                 sd_dhcp_client_callback_t cb,
                 void *userdata);
+int sd_dhcp_client_set_state_callback(
+                sd_dhcp_client *client,
+                sd_dhcp_client_callback_t cb,
+                void *userdata);
 
 int sd_dhcp_client_set_request_option(
                 sd_dhcp_client *client,
@@ -334,6 +338,7 @@ int sd_dhcp_client_set_socket_priority(
 int sd_dhcp_client_set_fallback_lease_lifetime(
                 sd_dhcp_client *client,
                 uint32_t fallback_lease_lifetime);
+int sd_dhcp_client_get_state(sd_dhcp_client *client);
 
 int sd_dhcp_client_add_option(sd_dhcp_client *client, sd_dhcp_option *v);
 int sd_dhcp_client_add_vendor_option(sd_dhcp_client *client, sd_dhcp_option *v);
