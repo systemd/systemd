@@ -8,6 +8,7 @@
 #include <sys/types.h>
 
 #include "alloc-util.h"
+#include "chase.h"
 #include "conf-files.h"
 #include "conf-parser.h"
 #include "constants.h"
@@ -575,7 +576,23 @@ int config_parse_config_file(
         if (r < 0)
                 return r;
 
-        const char *sysconf_file = strjoina(PKGSYSCONFDIR, "/", conf_file);
+        _cleanup_free_ char *sysconf_file = NULL;
+        _cleanup_free_ char *dropin_path = NULL;
+
+        r = chase(strjoina(PKGSYSCONFDIR, "/", conf_file), NULL, 0, &sysconf_file, NULL);
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH(p, dropins) {
+                r = chase(*p, NULL, 0, &dropin_path, NULL);
+                if (r < 0)
+                        return r;
+
+                if (path_equal(dropin_path, sysconf_file)) {
+                        sysconf_file = mfree(sysconf_file);
+                        break;
+                }
+        }
 
         return config_parse_many_files(STRV_MAKE_CONST(sysconf_file), dropins,
                                        sections, lookup, table, flags, userdata, NULL);
