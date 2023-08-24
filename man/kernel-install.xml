@@ -413,6 +413,23 @@
       </varlistentry>
       <varlistentry>
         <term>
+          <filename>/usr/lib/kernel/devicetree</filename>
+          <filename>/etc/kernel/devicetree</filename>
+        </term>
+          <listitem>
+            <para>Read by <filename>90-loaderentry.install</filename>. The content of the file
+            <filename>/etc/kernel/devicetree</filename> specifies the device tree blob to install with the
+            kernel and use at boot. The name of the device tree blob is specified relative to where the
+            kernel package installs them and are taken from the same package as the kernel being
+            installed. Eg. <literal>broadcom/bcm2711-rpi-4-b.dtb</literal> installs the device tree
+            blob for the Raspberry Pi 4 Model B. If <filename>/etc/kernel/devicetree</filename> does not
+            exist, <filename>/usr/lib/kernel/cmdline</filename> is used. If that also does not exist, no
+            device tree blob is installed. <varname>$KERNEL_INSTALL_CONF_ROOT</varname> may be used to
+            override the path.</para>
+          </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>
           <filename>/etc/kernel/tries</filename>
         </term>
           <listitem>
