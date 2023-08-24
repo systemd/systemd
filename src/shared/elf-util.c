@@ -403,7 +403,7 @@ static int parse_package_metadata(const char *name, JsonVariant *id_json, Elf *e
                         /* If we have a build-id, merge it in the same JSON object so that it appears all
                          * nicely together in the logs/metadata. */
                         if (id_json) {
-                                r = json_variant_merge(&v, id_json);
+                                r = json_variant_merge_object(&v, id_json);
                                 if (r < 0)
                                         return log_error_errno(r, "json_variant_merge of package meta with buildId failed: %m");
                         }
@@ -419,7 +419,7 @@ static int parse_package_metadata(const char *name, JsonVariant *id_json, Elf *e
                         if (r < 0)
                                 return log_error_errno(r, "Failed to build JSON object: %m");
 
-                        r = json_variant_merge(c->package_metadata, w);
+                        r = json_variant_merge_object(c->package_metadata, w);
                         if (r < 0)
                                 return log_error_errno(r, "json_variant_merge of package meta with buildId failed: %m");
 
@@ -712,7 +712,7 @@ static int parse_elf(int fd, const char *executable, char **ret, JsonVariant **r
                 if (r < 0)
                         return log_warning_errno(r, "Failed to build JSON object: %m");
 
-                r = json_variant_merge(&elf_metadata, json_architecture);
+                r = json_variant_merge_object(&elf_metadata, json_architecture);
                 if (r < 0)
                         return log_warning_errno(r, "Failed to merge JSON objects: %m");
 
@@ -722,7 +722,7 @@ static int parse_elf(int fd, const char *executable, char **ret, JsonVariant **r
 #endif
 
         /* We always at least have the ELF type, so merge that (and possibly the arch). */
-        r = json_variant_merge(&elf_metadata, package_metadata);
+        r = json_variant_merge_object(&elf_metadata, package_metadata);
         if (r < 0)
                 return log_warning_errno(r, "Failed to merge JSON objects: %m");
 

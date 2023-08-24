@@ -353,7 +353,7 @@ int user_record_add_binding(
                 /* Merge the new entry with an old one, if that exists */
                 be = json_variant_ref(json_variant_by_key(binding, SD_ID128_TO_STRING(mid)));
                 if (be) {
-                        r = json_variant_merge(&be, new_binding_entry);
+                        r = json_variant_merge_object(&be, new_binding_entry);
                         if (r < 0)
                                 return r;
 
