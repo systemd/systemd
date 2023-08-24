@@ -7,6 +7,7 @@
 
 #include "alloc-util.h"
 #include "dhcp-client-internal.h"
+#include "event-util.h"
 #include "hostname-setup.h"
 #include "hostname-util.h"
 #include "parse-util.h"
@@ -1256,8 +1257,27 @@ static int dhcp4_handler(sd_dhcp_client *client, int event, void *userdata) {
                         }
                         if (r > 0)
                                 return -ENOMSG;
-                        break;
 
+                        /* IPv6-Only Preferred Option for DHCPv4 */
+                        if (link->network->dhcp_use_ipv6_only_preferred) {
+                                sd_dhcp_lease *lease;
+                                uint32_t delay;
+
+                                r = sd_dhcp_client_get_lease(client, &lease);
+                                if (r < 0)
+                                        return log_link_error_errno(link, r, "Failed to get DHCP lease: %m");
+
+                                r = sd_dhcp_lease_get_ipv6_only_preferred(lease, &delay);
+                                if (r >= 0) {
+                                        r = dhcp4_start_delayed(link, delay);
+                                        if (r < 0)
+                                                return log_link_error_errno(link, r, "Failed to start DHCP client: %m");
+
+                                        return -ENOMSG;
+                                }
+                        }
+
+                        break;
                 case SD_DHCP_CLIENT_EVENT_TRANSIENT_FAILURE:
                         if (link->ipv4ll && !sd_ipv4ll_is_running(link->ipv4ll)) {
                                 log_link_debug(link, "Problems acquiring DHCP lease, acquiring IPv4 link-local address");
@@ -1518,6 +1538,12 @@ static int dhcp4_configure(Link *link) {
                                 return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to set request flag for 6rd: %m");
                 }
 
+                if (link->network->dhcp_use_ipv6_only_preferred) {
+                        r = sd_dhcp_client_set_request_option(link->dhcp_client, SD_DHCP_OPTION_IPV6_ONLY_PREFERRED);
+                        if (r < 0)
+                                return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to set request flag for IPv6 only preferred: %m");
+                }
+
                 SET_FOREACH(request_options, link->network->dhcp_request_options) {
                         uint32_t option = PTR_TO_UINT32(request_options);
 
@@ -1614,6 +1640,7 @@ int dhcp4_update_mac(Link *link) {
 
         restart = sd_dhcp_client_is_running(link->dhcp_client);
 
+        link->dhcp4_client_request_delay = sd_event_source_disable_unref(link->dhcp4_client_request_delay);
         r = sd_dhcp_client_stop(link->dhcp_client);
         if (r < 0)
                 return r;
@@ -1634,6 +1661,47 @@ int dhcp4_update_mac(Link *link) {
                 if (r < 0)
                         return r;
         }
+
+        return 0;
+}
+
+static int dhcp4_ipv4_only_preferred_expire_handler(sd_event_source *s, uint64_t usec, void *userdata) {
+        Link *link = ASSERT_PTR(userdata);
+        usec_t now_usec;
+
+        assert(link->manager);
+
+        assert_se(sd_event_now(link->manager->event, CLOCK_BOOTTIME, &now_usec) >= 0);
+
+        (void) dhcp4_start(link);
+
+        return 0;
+}
+
+int dhcp4_start_delayed(Link *link, uint32_t delay) {
+        usec_t time_now;
+        int r;
+
+        assert(link);
+
+        if (!link->dhcp_client)
+                return 0;
+
+        r = sd_event_now(link->manager->event, CLOCK_BOOTTIME, &time_now);
+        if (r < 0)
+                return 0;;
+
+        log_link_debug(link, "DHCPv4 client received IPv6-Only Preferred Option. Delaying request for %u seconds", delay);
+
+        r = sd_dhcp_client_stop(link->dhcp_client);
+        if (r < 0)
+                return r;
+
+        r = event_reset_time(link->manager->event, &link->dhcp4_client_request_delay, CLOCK_BOOTTIME,
+                             usec_add(time_now, delay * USEC_PER_SEC), 0, dhcp4_ipv4_only_preferred_expire_handler,
+                             link, 0, "dhcp4-ipv6-only-preferred-expiration", true);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to update expiration timer for DHCP4 IPv6-Only Preferred: %m");
 
         return 0;
 }
