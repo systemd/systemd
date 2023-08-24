@@ -129,6 +129,7 @@ typedef struct Link {
         unsigned dhcp4_messages;
         bool dhcp4_configured:1;
         char *dhcp4_6rd_tunnel_name;
+        sd_event_source *dhcp4_client_request_delay;
 
         Hashmap *ipv4acd_by_address;
 
