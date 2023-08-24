@@ -4019,7 +4019,7 @@ static int manager_run_generators(Manager *m) {
                 _exit(r >= 0 ? EXIT_SUCCESS : EXIT_FAILURE);
         }
         if (r < 0) {
-                if (!ERRNO_IS_PRIVILEGE(r)) {
+                if (!ERRNO_IS_PRIVILEGE(r) && r != -EINVAL) {
                         log_error_errno(r, "Failed to fork off sandboxing environment for executing generators: %m");
                         goto finish;
                 }
