@@ -2335,6 +2335,15 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>AllowIPv6OnlyMode=</varname></term>
+        <listitem>
+          <para>When true, the DHCPv4 configuration will be delayed by the timespan provided by the DHCP server
+          and skip to configure dynamic IPv4 network connectivity if IPv6 connectivity is provided within the timespan.
+          See <ulink url="https://tools.ietf.org/html/rfc8925">RFC 8925</ulink>. Defaults to false.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>UseMTU=</varname></term>
         <listitem>
           <para>When true, the interface maximum transmission unit from the DHCP server will be used on
@@ -3519,6 +3528,14 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         </listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>IPv6OnlyPreferredSec=</varname></term>
+
+        <listitem><para>Takes a timespan. Controls the <ulink url="https://tools.ietf.org/html/rfc8925">RFC 8925</ulink>
+        IPv6-Only Preferred option. Specifies the DHCPv4 option to indicate that a host supports an IPv6-only mode and is willing
+        to forgo obtaining an IPv4 address if the network provides IPv6 connectivity. An integer the default unit of seconds,
+        in the range 300…4294967295 seconds.</para></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 

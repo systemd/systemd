@@ -259,6 +259,7 @@ DHCPv4.FallbackLeaseLifetimeSec,             config_parse_dhcp_fallback_lease_li
 DHCPv4.Use6RD,                               config_parse_bool,                                        0,                             offsetof(Network, dhcp_use_6rd)
 DHCPv4.NetLabel,                             config_parse_string,                                      CONFIG_PARSE_STRING_SAFE,      offsetof(Network, dhcp_netlabel)
 DHCPv4.NFTSet,                               config_parse_nft_set,                                     0,                             offsetof(Network, dhcp_nft_set_context)
+DHCPv4.AllowIPv6OnlyMode,                    config_parse_bool,                                        0,                             offsetof(Network, dhcp_allow_ipv6_only_mode)
 DHCPv6.UseAddress,                           config_parse_bool,                                        0,                             offsetof(Network, dhcp6_use_address)
 DHCPv6.UseDelegatedPrefix,                   config_parse_bool,                                        0,                             offsetof(Network, dhcp6_use_pd_prefix)
 DHCPv6.UseDNS,                               config_parse_dhcp_use_dns,                                AF_INET6,                      0
@@ -311,6 +312,7 @@ DHCPServer.RelayAgentCircuitId,              config_parse_dhcp_server_relay_agen
 DHCPServer.RelayAgentRemoteId,               config_parse_dhcp_server_relay_agent_suboption,           0,                             offsetof(Network, dhcp_server_relay_agent_remote_id)
 DHCPServer.MaxLeaseTimeSec,                  config_parse_sec,                                         0,                             offsetof(Network, dhcp_server_max_lease_time_usec)
 DHCPServer.DefaultLeaseTimeSec,              config_parse_sec,                                         0,                             offsetof(Network, dhcp_server_default_lease_time_usec)
+DHCPServer.IPv6OnlyPreferredSec,             config_parse_dhcp_server_ipv6_only_preferred,             0,                             offsetof(Network, dhcp_server_ipv6_only_preferred_sec_usec)
 DHCPServer.EmitDNS,                          config_parse_bool,                                        0,                             offsetof(Network, dhcp_server_emit[SD_DHCP_LEASE_DNS].emit)
 DHCPServer.DNS,                              config_parse_dhcp_server_emit,                            0,                             offsetof(Network, dhcp_server_emit[SD_DHCP_LEASE_DNS])
 DHCPServer.EmitNTP,                          config_parse_bool,                                        0,                             offsetof(Network, dhcp_server_emit[SD_DHCP_LEASE_NTP].emit)

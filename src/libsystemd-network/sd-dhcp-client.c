@@ -116,6 +116,7 @@ struct sd_dhcp_client {
         sd_event_source *timeout_t1;
         sd_event_source *timeout_t2;
         sd_event_source *timeout_expire;
+        sd_event_source *timeout_ipv6_only_preferred;
         sd_dhcp_client_callback_t callback;
         void *userdata;
         sd_dhcp_lease *lease;
@@ -750,6 +751,7 @@ static int client_initialize(sd_dhcp_client *client) {
         (void) event_source_disable(client->timeout_t1);
         (void) event_source_disable(client->timeout_t2);
         (void) event_source_disable(client->timeout_expire);
+        (void) event_source_disable(client->timeout_ipv6_only_preferred);
 
         client->attempt = 0;
 
@@ -1355,6 +1357,13 @@ error:
         /* Errors were dealt with when stopping the client, don't spill
            errors into the event loop handler */
         return 0;
+}
+
+static int client_timeout_ipv4_only_preferred(sd_event_source *s, uint64_t usec, void *userdata) {
+        sd_dhcp_client *client = ASSERT_PTR(userdata);
+        DHCP_CLIENT_DONT_DESTROY(client);
+
+        return sd_dhcp_client_start(client);
 }
 
 static int client_initialize_io_events(
@@ -2181,6 +2190,28 @@ int sd_dhcp_client_stop(sd_dhcp_client *client) {
         return 0;
 }
 
+int sd_dhcp_client_initialize_timeout_ipv6_only_preferred(sd_dhcp_client *client, uint32_t delay) {
+        uint64_t usec = 0;
+        int r;
+
+        assert(client);
+        assert(client->event);
+
+        assert_se(sd_event_now(client->event, CLOCK_BOOTTIME, &usec) >= 0);
+        usec += delay * USEC_PER_SEC;
+
+        r = event_reset_time(client->event, &client->timeout_ipv6_only_preferred,
+                             CLOCK_BOOTTIME,
+                             usec, 0,
+                             client_timeout_ipv4_only_preferred, client,
+                             client->event_priority, "dhcp4-ipv6-only-preferred-expiration", true);
+        if (r < 0)
+                client_stop(client, r);
+
+        return 0;
+
+}
+
 int sd_dhcp_client_attach_event(sd_dhcp_client *client, sd_event *event, int64_t priority) {
         int r;
 
@@ -2234,6 +2265,7 @@ static sd_dhcp_client *dhcp_client_free(sd_dhcp_client *client) {
         client->timeout_t1 = sd_event_source_unref(client->timeout_t1);
         client->timeout_t2 = sd_event_source_unref(client->timeout_t2);
         client->timeout_expire = sd_event_source_unref(client->timeout_expire);
+        client->timeout_ipv6_only_preferred = sd_event_source_unref(client->timeout_ipv6_only_preferred);
 
         sd_dhcp_client_detach_event(client);
 

@@ -649,6 +649,19 @@ static int server_send_offer_or_ack(
                         return r;
         }
 
+        /* rfc8925: 3.3. DHCPv4 Server Behavior - The server MUST NOT include the IPv6-Only Preferred option
+         * in the DHCPOFFER or DHCPACK message if the option was not present in the Parameter Request List sent by the client.*/
+        if (req->ipv6_only_preferred && server->ipv6_only_preferred_sec > 0) {
+                be32_t ipv6_only_preferred_sec = htobe32(server->ipv6_only_preferred_sec);
+
+                r = dhcp_option_append(
+                                &packet->dhcp, req->max_optlen, &offset, 0,
+                                SD_DHCP_OPTION_IPV6_ONLY_PREFERRED,
+                                4, &ipv6_only_preferred_sec);
+                if (r < 0)
+                        return r;
+        }
+
         ORDERED_SET_FOREACH(j, server->extra_options) {
                 r = dhcp_option_append(&packet->dhcp, req->max_optlen, &offset, 0,
                                        j->option, j->length, j->data);
@@ -728,6 +741,26 @@ static int server_send_forcerenew(
                                     sizeof(DHCPMessage) + optoffset);
 }
 
+static int parse_parameter_request_list(DHCPRequest *req, const uint8_t *option, uint8_t len) {
+        const uint8_t *requests;
+
+        assert(req);
+        assert(option);
+
+        requests = option;
+        for (size_t i = 0; i < len; i++) {
+                uint8_t code = requests[i];
+
+                switch (code) {
+                case SD_DHCP_OPTION_IPV6_ONLY_PREFERRED:
+                        req->ipv6_only_preferred = true;
+                        break;
+                }
+        }
+
+        return 0;
+}
+
 static int parse_request(uint8_t code, uint8_t len, const void *option, void *userdata) {
         DHCPRequest *req = ASSERT_PTR(userdata);
         int r;
@@ -778,6 +811,13 @@ static int parse_request(uint8_t code, uint8_t len, const void *option, void *us
                         return 0;
                 }
 
+                break;
+         case SD_DHCP_OPTION_PARAMETER_REQUEST_LIST:
+                 r = parse_parameter_request_list(req, option, len);
+                 if (r < 0) {
+                         log_debug_errno(r, "Failed to parse parameter request list, ignoring: %m");
+                         return 0;
+                 }
                 break;
         }
 
@@ -1504,6 +1544,19 @@ int sd_dhcp_server_set_default_lease_time(sd_dhcp_server *server, uint32_t t) {
                 return 0;
 
         server->default_lease_time = t;
+        return 1;
+}
+
+int sd_dhcp_server_set_ipv6_only_preferred_sec(sd_dhcp_server *server, uint32_t t){
+        assert_return(server, -EINVAL);
+
+        if (t < MIN_V6ONLY_WAIT_USEC / USEC_PER_SEC)
+                 return -EINVAL;
+
+        if (t == server->ipv6_only_preferred_sec)
+                return 0;
+
+        server->ipv6_only_preferred_sec = t;
         return 1;
 }
 

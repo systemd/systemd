@@ -7,6 +7,7 @@
 
 #include "alloc-util.h"
 #include "dhcp-client-internal.h"
+#include "event-util.h"
 #include "hostname-setup.h"
 #include "hostname-util.h"
 #include "parse-util.h"
@@ -1158,6 +1159,42 @@ static int dhcp_server_is_filtered(Link *link, sd_dhcp_client *client) {
         return false;
 }
 
+static int dhcp_offer_contains_ipv6_only_preferred_option(Link *link, sd_dhcp_client *client) {
+        sd_dhcp_lease *lease;
+        uint32_t delay;
+        int r;
+
+        assert(link);
+        assert(link->network);
+        assert(client);
+
+        r = sd_dhcp_client_get_lease(client, &lease);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Failed to get DHCP lease: %m");
+
+        r = sd_dhcp_lease_get_ipv6_only_preferred_sec(lease, &delay);
+        if (r < 0) {
+                if (r != -ENODATA)
+                        log_link_debug(link, "Failed to get DHCP IPv6-Only Preferred Option from lease.");
+
+                return false;
+        }
+
+        /* rfc8925: 3.2. DHCPv4 Client Behavior - If the client includes the IPv6-Only Preferred option code
+         * in the Parameter Request List and the DHCPOFFER message from the server contains a valid IPv6-Only
+         * Preferred option, the client SHOULD NOT request the IPv4 address provided in the DHCPOFFER. */
+        r = sd_dhcp_client_stop(link->dhcp_client);
+        if (r < 0)
+                return r;
+
+        r = sd_dhcp_client_initialize_timeout_ipv6_only_preferred(link->dhcp_client, delay);
+        if (r < 0)
+                return r;
+
+        log_link_debug(link, "DHCPv4 lease contains IPv6-Only Preferred Option, ignoring offer and delaying request for %u seconds.", delay);
+        return true;
+}
+
 static int dhcp4_handler(sd_dhcp_client *client, int event, void *userdata) {
         Link *link = ASSERT_PTR(userdata);
         int r;
@@ -1256,8 +1293,12 @@ static int dhcp4_handler(sd_dhcp_client *client, int event, void *userdata) {
                         }
                         if (r > 0)
                                 return -ENOMSG;
-                        break;
 
+                        /* IPv6-Only Preferred Option for DHCPv4 */
+                        if (link->network->dhcp_allow_ipv6_only_mode && dhcp_offer_contains_ipv6_only_preferred_option(link, client))
+                                return -ENOMSG;
+
+                        break;
                 case SD_DHCP_CLIENT_EVENT_TRANSIENT_FAILURE:
                         if (link->ipv4ll && !sd_ipv4ll_is_running(link->ipv4ll)) {
                                 log_link_debug(link, "Problems acquiring DHCP lease, acquiring IPv4 link-local address");
@@ -1538,6 +1579,12 @@ static int dhcp4_configure(Link *link) {
                         r = sd_dhcp_client_set_request_option(link->dhcp_client, SD_DHCP_OPTION_6RD);
                         if (r < 0)
                                 return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to set request flag for 6rd: %m");
+                }
+
+                if (link->network->dhcp_allow_ipv6_only_mode) {
+                        r = sd_dhcp_client_set_request_option(link->dhcp_client, SD_DHCP_OPTION_IPV6_ONLY_PREFERRED);
+                        if (r < 0)
+                                return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to set request flag for IPv6 only preferred: %m");
                 }
 
                 SET_FOREACH(request_options, link->network->dhcp_request_options) {
