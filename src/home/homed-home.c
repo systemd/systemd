@@ -2562,7 +2562,7 @@ int home_augment_status(
         if (r < 0)
                 return r;
 
-        r = json_variant_merge(&m, status);
+        r = json_variant_merge_object(&m, status);
         if (r < 0)
                 return r;
 
