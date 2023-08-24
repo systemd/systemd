@@ -45,7 +45,7 @@ int exec_context_get_credential_directory(
 
 int unit_add_default_credential_dependencies(Unit *u, const ExecContext *c);
 
-int exec_context_destroy_credentials(const ExecContext *c, const char *runtime_root, const char *unit);
+int exec_context_destroy_credentials(Unit *u);
 int exec_setup_credentials(
                 const ExecContext *context,
                 const ExecParameters *params,
