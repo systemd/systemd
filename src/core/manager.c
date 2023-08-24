@@ -4019,13 +4019,20 @@ static int manager_run_generators(Manager *m) {
                 _exit(r >= 0 ? EXIT_SUCCESS : EXIT_FAILURE);
         }
         if (r < 0) {
-                if (!ERRNO_IS_PRIVILEGE(r)) {
+                if (!ERRNO_IS_PRIVILEGE(r) && r != -EINVAL) {
                         log_error_errno(r, "Failed to fork off sandboxing environment for executing generators: %m");
                         goto finish;
                 }
 
                 /* Failed to fork with new mount namespace? Maybe, running in a container environment with
-                 * seccomp or without capability. */
+                 * seccomp or without capability.
+                 *
+                 * We also allow -EINVAL to allow running without CLONE_NEWNS.
+                 *
+                 * Also, when running on non-native userland architecture via systemd-nspawn and
+                 * qemu-user-static QEMU-emulator, clone() with CLONE_NEWNS fails with EINVAL, see
+                 * https://github.com/systemd/systemd/issues/28901.
+                 */
                 log_debug_errno(r,
                                 "Failed to fork off sandboxing environment for executing generators. "
                                 "Falling back to execute generators without sandboxing: %m");
