@@ -127,7 +127,7 @@
         <ulink url="https://tools.ietf.org/html/rfc3315#section-9">RFC 3315</ulink>
         for a description of all the options.</para>
 
-        <para>The following values are understood:
+        <para>This takes an integer in the range 0…65535, or one of the following string values:
         <variablelist>
           <varlistentry>
             <term><option>vendor</option></term>
@@ -136,13 +136,6 @@
             <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
             This is the default if <varname>DUIDType=</varname> is not specified.
             </para></listitem>
-          </varlistentry>
-
-          <varlistentry>
-            <term><option>custom</option></term>
-            <listitem><para>If <literal>DUIDType=custom</literal>, then the <literal>DUIDRawData=</literal> value will
-            used be as custom identifier. If <literal>DUIDType=custom</literal> is specified then the
-            <literal>DUIDRawData=</literal> key is mandatory. Note it applies only on DHCPv6 clients.</para></listitem>
           </varlistentry>
 
           <varlistentry>

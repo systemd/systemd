@@ -257,18 +257,30 @@ int sd_dhcp_client_set_client_id(
                 uint8_t type,
                 const uint8_t *data,
                 size_t data_len);
-__extension__ int sd_dhcp_client_set_iaid_duid(
-                sd_dhcp_client *client,
-                bool iaid_set,
-                uint32_t iaid,
-                uint16_t duid_type,
-                const void *duid,
-                size_t duid_len);
 __extension__ int sd_dhcp_client_set_iaid_duid_llt(
                 sd_dhcp_client *client,
                 bool iaid_set,
                 uint32_t iaid,
                 uint64_t llt_time);
+__extension__ int sd_dhcp_client_set_iaid_duid_ll(
+                sd_dhcp_client *client,
+                bool iaid_set,
+                uint32_t iaid);
+__extension__ int sd_dhcp_client_set_iaid_duid_en(
+                sd_dhcp_client *client,
+                bool iaid_set,
+                uint32_t iaid);
+__extension__ int sd_dhcp_client_set_iaid_duid_uuid(
+                sd_dhcp_client *client,
+                bool iaid_set,
+                uint32_t iaid);
+__extension__ int sd_dhcp_client_set_iaid_duid_raw(
+                sd_dhcp_client *client,
+                bool iaid_set,
+                uint32_t iaid,
+                uint16_t duid_type,
+                const uint8_t *duid,
+                size_t duid_len);
 int sd_dhcp_client_get_client_id(
                 sd_dhcp_client *client,
                 uint8_t *ret_type,
