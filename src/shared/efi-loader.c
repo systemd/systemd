@@ -7,7 +7,7 @@
 #include "path-util.h"
 #include "stat-util.h"
 #include "strv.h"
-#include "tpm-pcr.h"
+#include "tpm2-pcr.h"
 #include "utf8.h"
 
 #if ENABLE_EFI

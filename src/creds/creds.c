@@ -22,7 +22,7 @@
 #include "stat-util.h"
 #include "string-table.h"
 #include "terminal-util.h"
-#include "tpm-pcr.h"
+#include "tpm2-pcr.h"
 #include "tpm2-util.h"
 #include "verbs.h"
 

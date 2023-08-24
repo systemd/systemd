@@ -27,7 +27,7 @@
 #include "string-table.h"
 #include "strv.h"
 #include "terminal-util.h"
-#include "tpm-pcr.h"
+#include "tpm2-pcr.h"
 
 static EnrollType arg_enroll_type = _ENROLL_TYPE_INVALID;
 static char *arg_unlock_keyfile = NULL;

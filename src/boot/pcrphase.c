@@ -18,7 +18,7 @@
 #include "openssl-util.h"
 #include "parse-argument.h"
 #include "pretty-print.h"
-#include "tpm-pcr.h"
+#include "tpm2-pcr.h"
 #include "tpm2-util.h"
 
 static bool arg_graceful = false;

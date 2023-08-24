@@ -5,7 +5,7 @@
 #include "macro-fundamental.h"
 #include "measure.h"
 #include "proto/tcg.h"
-#include "tpm-pcr.h"
+#include "tpm2-pcr.h"
 #include "util.h"
 
 static EFI_STATUS tpm1_measure_to_pcr_and_event_log(

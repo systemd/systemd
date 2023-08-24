@@ -9,7 +9,7 @@
 #include "macro.h"
 #include "openssl-util.h"
 #include "sha256.h"
-#include "tpm-pcr.h"
+#include "tpm2-pcr.h"
 
 typedef enum TPM2Flags {
         TPM2_FLAGS_USE_PIN = 1 << 0,
@@ -324,7 +324,7 @@ int tpm2_util_pbkdf2_hmac_sha256(const void *pass,
                     uint8_t res[static SHA256_DIGEST_SIZE]);
 
 enum {
-        /* Additional defines for the PCR index naming enum from "fundamental/tpm-pcr.h" */
+        /* Additional defines for the PCR index naming enum from "fundamental/tpm2-pcr.h" */
         _TPM2_PCR_INDEX_MAX_DEFINED = TPM2_PCRS_MAX,
         _TPM2_PCR_INDEX_INVALID     = -EINVAL,
 };
