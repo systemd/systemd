@@ -2013,6 +2013,14 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>UseIPv6OnlyPreferred=</varname></term>
+        <listitem>
+          <para>When true, the DHCPv4 configuration will be delayed by timer provided by the DHCP server.
+          See <ulink url="https://tools.ietf.org/html/rfc8925">RFC 8925</ulink>. Default to false.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>UseMTU=</varname></term>
         <listitem>
           <para>When true, the interface maximum transmission unit from the DHCP server will be used on
@@ -3019,6 +3027,14 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         </listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>IPv6OnlyPreferredSec=</varname></term>
+
+        <listitem><para>Takes a timespan. Controls the <ulink url="https://tools.ietf.org/html/rfc8925">RFC 8925</ulink>
+        V6ONLY_WAIT timer. Specifies the DHCPv4 option to indicate that a host supports an IPv6-only mode and is willing
+        to forgo obtaining an IPv4 address if the network provides IPv6 connectivity. An integer the default unit of seconds,
+        in the range 300…4294967295.</para></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
