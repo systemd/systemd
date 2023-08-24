@@ -427,7 +427,6 @@ static void vl_method_resolve_address_complete(DnsQuery *query) {
         question = dns_query_question_for_protocol(q, q->answer_protocol);
 
         DNS_ANSWER_FOREACH_IFINDEX(rr, ifindex, q->answer) {
-                _cleanup_(json_variant_unrefp) JsonVariant *entry = NULL;
                 _cleanup_free_ char *normalized = NULL;
 
                 r = dns_question_matches_rr(question, rr, NULL);
@@ -440,14 +439,11 @@ static void vl_method_resolve_address_complete(DnsQuery *query) {
                 if (r < 0)
                         goto finish;
 
-                r = json_build(&entry,
-                               JSON_BUILD_OBJECT(
-                                               JSON_BUILD_PAIR_CONDITION(ifindex > 0, "ifindex", JSON_BUILD_INTEGER(ifindex)),
-                                               JSON_BUILD_PAIR("name", JSON_BUILD_STRING(normalized))));
-                if (r < 0)
-                        goto finish;
-
-                r = json_variant_append_array(&array, entry);
+                r = json_variant_append_arrayb(
+                                &array,
+                                JSON_BUILD_OBJECT(
+                                                JSON_BUILD_PAIR_CONDITION(ifindex > 0, "ifindex", JSON_BUILD_INTEGER(ifindex)),
+                                                JSON_BUILD_PAIR("name", JSON_BUILD_STRING(normalized))));
                 if (r < 0)
                         goto finish;
         }

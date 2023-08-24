@@ -204,6 +204,7 @@ int json_variant_dump(JsonVariant *v, JsonFormatFlags flags, FILE *f, const char
 int json_variant_filter(JsonVariant **v, char **to_remove);
 
 int json_variant_set_field(JsonVariant **v, const char *field, JsonVariant *value);
+int json_variant_set_fieldb(JsonVariant **v, const char *field, ...);
 int json_variant_set_field_string(JsonVariant **v, const char *field, const char *value);
 int json_variant_set_field_integer(JsonVariant **v, const char *field, int64_t value);
 int json_variant_set_field_unsigned(JsonVariant **v, const char *field, uint64_t value);
@@ -213,9 +214,11 @@ int json_variant_set_field_strv(JsonVariant **v, const char *field, char **l);
 JsonVariant *json_variant_find(JsonVariant *haystack, JsonVariant *needle);
 
 int json_variant_append_array(JsonVariant **v, JsonVariant *element);
+int json_variant_append_arrayb(JsonVariant **v, ...);
 int json_variant_append_array_nodup(JsonVariant **v, JsonVariant *element);
 
-int json_variant_merge(JsonVariant **v, JsonVariant *m);
+int json_variant_merge_object(JsonVariant **v, JsonVariant *m);
+int json_variant_merge_objectb(JsonVariant **v, ...);
 
 int json_variant_strv(JsonVariant *v, char ***ret);
 
@@ -349,9 +352,6 @@ enum {
 
 int json_build(JsonVariant **ret, ...);
 int json_buildv(JsonVariant **ret, va_list ap);
- /* These two functions below are equivalent to json_build() (or json_buildv()) and json_variant_merge(). */
-int json_append(JsonVariant **v, ...);
-int json_appendv(JsonVariant **v, va_list ap);
 
 /* A bitmask of flags used by the dispatch logic. Note that this is a combined bit mask, that is generated from the bit
  * mask originally passed into json_dispatch(), the individual bitmask associated with the static JsonDispatch callout
