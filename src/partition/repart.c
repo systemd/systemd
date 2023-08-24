@@ -3799,6 +3799,7 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                         return r;
 
                 r = tpm2_seal(tpm2_context,
+                              /* handle_index= */ 0,
                               &policy,
                               /* pin= */ NULL,
                               &secret, &secret_size,
