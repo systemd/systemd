@@ -18,7 +18,7 @@
 #include "pretty-print.h"
 #include "sha256.h"
 #include "terminal-util.h"
-#include "tpm-pcr.h"
+#include "tpm2-pcr.h"
 #include "tpm2-util.h"
 #include "uki.h"
 #include "verbs.h"

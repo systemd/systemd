@@ -13,7 +13,7 @@
 #include "secure-boot.h"
 #include "shim.h"
 #include "splash.h"
-#include "tpm-pcr.h"
+#include "tpm2-pcr.h"
 #include "uki.h"
 #include "util.h"
 #include "version.h"
