@@ -800,20 +800,27 @@ int tpm2_index_to_handle(
         return 1;
 }
 
-/* Copy an object in the TPM at a transient location to a persistent location.
+/* Copy an object in the TPM at a transient handle to a persistent handle.
  *
- * The provided transient handle must exist in the TPM in the transient range. The persistent location may be
- * 0 or any location in the persistent range. If 0, this will try each handle in the persistent range, in
- * ascending order, until an available one is found. If non-zero, only the requested persistent location will
+ * The provided transient handle must exist in the TPM in the transient range. The persistent handle may be 0
+ * or any handle in the persistent range. If 0, this will try each handle in the persistent range, in
+ * ascending order, until an available one is found. If non-zero, only the requested persistent handle will
  * be used.
  *
+ * Note that the persistent handle parameter is an handle index (i.e. number), while the transient handle is
+ * a Tpm2Handle object. The returned persistent handle will be a Tpm2Handle object that is located in the TPM
+ * at the requested persistent handle index (or the first available if none was requested).
+ *
  * Returns 1 if the object was successfully persisted, or 0 if there is already a key at the requested
- * location(s), or < 0 on error. The persistent handle is only provided when returning 1. */
+ * handle, or < 0 on error. Theoretically, this would also return 0 if no specific persistent handle is
+ * requiested but all persistent handles are used, but it is extremely unlikely the TPM has enough internal
+ * memory to store the entire persistent range, in which case an error will be returned if the TPM is out of
+ * memory for persistent storage. The persistent handle is only provided when returning 1. */
 static int tpm2_persist_handle(
                 Tpm2Context *c,
                 const Tpm2Handle *transient_handle,
                 const Tpm2Handle *session,
-                TPMI_DH_PERSISTENT persistent_location,
+                TPMI_DH_PERSISTENT persistent_handle_index,
                 Tpm2Handle **ret_persistent_handle) {
 
         /* We don't use TPM2_PERSISTENT_FIRST and TPM2_PERSISTENT_LAST here due to:
@@ -825,13 +832,13 @@ static int tpm2_persist_handle(
         assert(c);
         assert(transient_handle);
 
-        /* If persistent location specified, only try that. */
-        if (persistent_location != 0) {
-                if (TPM2_HANDLE_TYPE(persistent_location) != TPM2_HT_PERSISTENT)
+        /* If persistent handle index specified, only try that. */
+        if (persistent_handle_index != 0) {
+                if (TPM2_HANDLE_TYPE(persistent_handle_index) != TPM2_HT_PERSISTENT)
                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Handle not in persistent range: 0x%x", persistent_location);
+                                               "Handle not in persistent range: 0x%x", persistent_handle_index);
 
-                first = last = persistent_location;
+                first = last = persistent_handle_index;
         }
 
         for (TPMI_DH_PERSISTENT requested = first; requested <= last; requested++) {
