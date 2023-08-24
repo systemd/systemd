@@ -50,19 +50,6 @@ enum {
 #define DHCP6_REB_TIMEOUT                       (10 * USEC_PER_SEC)
 #define DHCP6_REB_MAX_RT                        (600 * USEC_PER_SEC)
 
-typedef enum DHCP6State {
-        DHCP6_STATE_STOPPED,
-        DHCP6_STATE_INFORMATION_REQUEST,
-        DHCP6_STATE_SOLICITATION,
-        DHCP6_STATE_REQUEST,
-        DHCP6_STATE_BOUND,
-        DHCP6_STATE_RENEW,
-        DHCP6_STATE_REBIND,
-        DHCP6_STATE_STOPPING,
-        _DHCP6_STATE_MAX,
-        _DHCP6_STATE_INVALID = -EINVAL,
-} DHCP6State;
-
 /* https://www.iana.org/assignments/dhcpv6-parameters/dhcpv6-parameters.xhtml#dhcpv6-parameters-1 */
 typedef enum DHCP6MessageType {
         DHCP6_MESSAGE_SOLICIT                   = 1,  /* RFC 8415 */
@@ -150,7 +137,6 @@ typedef enum DHCP6FQDNFlag {
         DHCP6_FQDN_FLAG_N = 1 << 2,
 } DHCP6FQDNFlag;
 
-const char *dhcp6_state_to_string(DHCP6State s) _const_;
 const char *dhcp6_message_type_to_string(DHCP6MessageType s) _const_;
 DHCP6MessageType dhcp6_message_type_from_string(const char *s) _pure_;
 const char *dhcp6_message_status_to_string(DHCP6Status s) _const_;
