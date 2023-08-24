@@ -230,6 +230,17 @@ static int radv_send(sd_radv *ra, const struct in6_addr *dst, usec_t lifetime_us
         if (ra->dnssl)
                 iov[msg.msg_iovlen++] = IOVEC_MAKE(ra->dnssl, ra->dnssl->length * 8);
 
+        if (FLAGS_SET(ra->flags, ND_RA_FLAG_HOME_AGENT)) {
+                ra->home_agent.nd_opt_home_agent_info_type = ND_OPT_HOME_AGENT_INFO;
+                ra->home_agent.nd_opt_home_agent_info_len = 1;
+
+                /* 0 means to place the current Router Lifetime value */
+                if (ra->home_agent.nd_opt_home_agent_info_lifetime == 0)
+                        ra->home_agent.nd_opt_home_agent_info_lifetime = adv.nd_ra_router_lifetime;
+
+                iov[msg.msg_iovlen++] = IOVEC_MAKE(&ra->home_agent, sizeof(ra->home_agent));
+        }
+
         if (sendmsg(ra->fd, &msg, 0) < 0)
                 return -errno;
 
@@ -565,6 +576,42 @@ int sd_radv_set_preference(sd_radv *ra, unsigned preference) {
                 return -EINVAL;
 
         ra->flags = (ra->flags & ~(0x3 << 3)) | (preference << 3);
+
+        return 0;
+}
+
+int sd_radv_set_home_agent_information(sd_radv *ra, int home_agent) {
+        assert_return(ra, -EINVAL);
+
+        if (ra->state != RADV_STATE_IDLE)
+                return -EBUSY;
+
+        SET_FLAG(ra->flags, ND_RA_FLAG_HOME_AGENT, home_agent);
+
+        return 0;
+}
+
+int sd_radv_set_home_agent_preference(sd_radv *ra, uint16_t preference) {
+        assert_return(ra, -EINVAL);
+
+        if (ra->state != RADV_STATE_IDLE)
+                return -EBUSY;
+
+        ra->home_agent.nd_opt_home_agent_info_preference = htobe16(preference);
+
+        return 0;
+}
+
+int sd_radv_set_home_agent_lifetime(sd_radv *ra, uint16_t lifetime) {
+        assert_return(ra, -EINVAL);
+
+        if (lifetime * USEC_PER_SEC > RADV_MAX_HOME_AGENT_LIFETIME_USEC)
+                return -EINVAL;
+
+        if (ra->state != RADV_STATE_IDLE)
+                return -EBUSY;
+
+        ra->home_agent.nd_opt_home_agent_info_lifetime = htobe16(lifetime);
 
         return 0;
 }
