@@ -480,6 +480,7 @@ int bus_verify_polkit_async(
         assert(call);
         assert(action);
         assert(registry);
+        assert(ret_error);
 
         r = check_good_user(call, good_user);
         if (r != 0)
