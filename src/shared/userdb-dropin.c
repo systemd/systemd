@@ -64,7 +64,7 @@ static int load_user(
                 else if (r < 0)
                         return r;
                 else {
-                        r = json_variant_merge(&v, privileged_v);
+                        r = json_variant_merge_object(&v, privileged_v);
                         if (r < 0)
                                 return r;
 
@@ -208,7 +208,7 @@ static int load_group(
                 else if (r < 0)
                         return r;
                 else {
-                        r = json_variant_merge(&v, privileged_v);
+                        r = json_variant_merge_object(&v, privileged_v);
                         if (r < 0)
                                 return r;
 

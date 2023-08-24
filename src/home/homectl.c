@@ -903,7 +903,7 @@ static int apply_identity_changes(JsonVariant **_v) {
         if (r < 0)
                 return log_error_errno(r, "Failed to filter identity: %m");
 
-        r = json_variant_merge(&v, arg_identity_extra);
+        r = json_variant_merge_object(&v, arg_identity_extra);
         if (r < 0)
                 return log_error_errno(r, "Failed to merge identities: %m");
 
@@ -948,7 +948,7 @@ static int apply_identity_changes(JsonVariant **_v) {
                                 if (!json_variant_equal(u, mmid))
                                         continue;
 
-                                r = json_variant_merge(&add, z);
+                                r = json_variant_merge_object(&add, z);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to merge perMachine entry: %m");
 
@@ -959,7 +959,7 @@ static int apply_identity_changes(JsonVariant **_v) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to filter perMachine: %m");
 
-                        r = json_variant_merge(&add, arg_identity_extra_this_machine);
+                        r = json_variant_merge_object(&add, arg_identity_extra_this_machine);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to merge in perMachine fields: %m");
 
@@ -972,7 +972,7 @@ static int apply_identity_changes(JsonVariant **_v) {
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to filter resource limits: %m");
 
-                                r = json_variant_merge(&rlv, arg_identity_extra_rlimits);
+                                r = json_variant_merge_object(&rlv, arg_identity_extra_rlimits);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to set resource limits: %m");
 
@@ -1033,7 +1033,7 @@ static int apply_identity_changes(JsonVariant **_v) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to filter identity (privileged part): %m");
 
-                r = json_variant_merge(&privileged, arg_identity_extra_privileged);
+                r = json_variant_merge_object(&privileged, arg_identity_extra_privileged);
                 if (r < 0)
                         return log_error_errno(r, "Failed to merge identities (privileged part): %m");
 
