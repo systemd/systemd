@@ -60,7 +60,7 @@ for phase in "${PHASES[@]}"; do
                 export CXX=clang++
                 if [[ "$phase" == RUN_CLANG ]]; then
                     # The docs build is slow and is not affected by compiler/flags, so do it just once
-                    MESON_ARGS+=(-Dman=true)
+                    MESON_ARGS+=(-Dman=enabled)
                 else
                     MESON_ARGS+=(-Dmode=release --optimization=2)
                 fi
@@ -87,7 +87,7 @@ for phase in "${PHASES[@]}"; do
                 MESON_ARGS+=(-Db_lundef=false -Dfuzz-tests=true)
 
                 if [[ "$phase" == "RUN_CLANG_ASAN_UBSAN_NO_DEPS" ]]; then
-                    MESON_ARGS+=(-Dskip-deps=true)
+                    MESON_ARGS+=(--auto-features=disabled)
                 fi
             fi
             MESON_ARGS+=(--fatal-meson-warnings)
