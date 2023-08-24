@@ -574,7 +574,7 @@ static int server_send_offer_or_ack(
 
         _cleanup_free_ DHCPPacket *packet = NULL;
         sd_dhcp_option *j;
-        be32_t lease_time;
+        be32_t lease_time, ipv6_only_preferred_time;
         size_t offset;
         int r;
 
@@ -645,6 +645,16 @@ static int server_send_offer_or_ack(
                                 &packet->dhcp, req->max_optlen, &offset, 0,
                                 SD_DHCP_OPTION_TZDB_TIMEZONE,
                                 strlen(server->timezone), server->timezone);
+                if (r < 0)
+                        return r;
+        }
+
+        ipv6_only_preferred_time = htobe32(server->ipv6_only_preferred_time);
+        if (server->ipv6_only_preferred_time > 0) {
+                r = dhcp_option_append(
+                                &packet->dhcp, req->max_optlen, &offset, 0,
+                                SD_DHCP_OPTION_IPV6_ONLY_PREFERRED,
+                                4, &ipv6_only_preferred_time);
                 if (r < 0)
                         return r;
         }
@@ -1504,6 +1514,16 @@ int sd_dhcp_server_set_default_lease_time(sd_dhcp_server *server, uint32_t t) {
                 return 0;
 
         server->default_lease_time = t;
+        return 1;
+}
+
+int sd_dhcp_server_set_ipv6_only_preferred_time(sd_dhcp_server *server, uint32_t t) {
+        assert_return(server, -EINVAL);
+
+        if (t == server->ipv6_only_preferred_time)
+                return 0;
+
+        server->ipv6_only_preferred_time = t;
         return 1;
 }
 
