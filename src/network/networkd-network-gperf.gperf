@@ -379,6 +379,9 @@ IPv6SendRA.EmitDomains,                      config_parse_bool,                 
 IPv6SendRA.Domains,                          config_parse_radv_search_domains,                         0,                             0
 IPv6SendRA.DNSLifetimeSec,                   config_parse_sec,                                         0,                             offsetof(Network, router_dns_lifetime_usec)
 IPv6SendRA.UplinkInterface,                  config_parse_uplink,                                      0,                             0
+IPv6SendRA.HomeAgent,                        config_parse_bool,                                        0,                             offsetof(Network, router_home_agent_information)
+IPv6SendRA.MobileAgentLifetimeSec,           config_parse_router_home_agent_lifetime,                  0,                             offsetof(Network, home_agent_lifetime_usec)
+IPv6SendRA.HomeAgentPreference,              config_parse_uint16,                                      0,                             offsetof(Network, router_home_agent_preference)
 IPv6Prefix.Prefix,                           config_parse_prefix,                                      0,                             0
 IPv6Prefix.OnLink,                           config_parse_prefix_boolean,                              0,                             0
 IPv6Prefix.AddressAutoconfiguration,         config_parse_prefix_boolean,                              0,                             0
