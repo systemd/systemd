@@ -656,6 +656,15 @@ int sd_dhcp_client_set_fallback_lease_lifetime(sd_dhcp_client *client, uint32_t 
         return 0;
 }
 
+static void client_set_state(sd_dhcp_client *client, DHCPState state) {
+        assert(client);
+
+        if (client->state == state)
+                return;
+
+        client->state = state;
+}
+
 static int client_notify(sd_dhcp_client *client, int event) {
         assert(client);
 
@@ -679,7 +688,7 @@ static int client_initialize(sd_dhcp_client *client) {
 
         client->attempt = 0;
 
-        client->state = DHCP_STATE_INIT;
+        client_set_state(client, DHCP_STATE_INIT);
         client->xid = 0;
 
         client->lease = sd_dhcp_lease_unref(client->lease);
@@ -1252,7 +1261,7 @@ static int client_timeout_resend(
         case DHCP_STATE_INIT:
                 r = client_send_discover(client);
                 if (r >= 0) {
-                        client->state = DHCP_STATE_SELECTING;
+                        client_set_state(client, DHCP_STATE_SELECTING);
                         client->attempt = 0;
                 } else if (client->attempt >= client->max_attempts)
                         goto error;
@@ -1275,7 +1284,7 @@ static int client_timeout_resend(
                          goto error;
 
                 if (client->state == DHCP_STATE_INIT_REBOOT)
-                        client->state = DHCP_STATE_REBOOTING;
+                        client_set_state(client, DHCP_STATE_REBOOTING);
 
                 client->request_sent = time_now;
                 break;
@@ -1422,7 +1431,7 @@ static int client_timeout_t2(sd_event_source *s, uint64_t usec, void *userdata) 
         client->receive_message = sd_event_source_disable_unref(client->receive_message);
         client->fd = safe_close(client->fd);
 
-        client->state = DHCP_STATE_REBINDING;
+        client_set_state(client, DHCP_STATE_REBINDING);
         client->attempt = 0;
 
         r = dhcp_network_bind_raw_socket(client->ifindex, &client->link, client->xid,
@@ -1443,9 +1452,9 @@ static int client_timeout_t1(sd_event_source *s, uint64_t usec, void *userdata) 
         DHCP_CLIENT_DONT_DESTROY(client);
 
         if (client->lease)
-                client->state = DHCP_STATE_RENEWING;
+                client_set_state(client, DHCP_STATE_RENEWING);
         else if (client->state != DHCP_STATE_INIT)
-                client->state = DHCP_STATE_INIT_REBOOT;
+                client_set_state(client, DHCP_STATE_INIT_REBOOT);
         client->attempt = 0;
 
         return client_initialize_time_events(client);
@@ -1725,7 +1734,7 @@ static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message, i
                 if (r < 0)
                         goto error;
 
-                client->state = DHCP_STATE_REQUESTING;
+                client_set_state(client, DHCP_STATE_REQUESTING);
                 client->attempt = 0;
 
                 r = event_reset_time(client->event, &client->timeout_resend,
@@ -1774,7 +1783,7 @@ static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message, i
                 client->receive_message = sd_event_source_disable_unref(client->receive_message);
                 client->fd = safe_close(client->fd);
 
-                client->state = DHCP_STATE_BOUND;
+                client_set_state(client, DHCP_STATE_BOUND);
                 client->attempt = 0;
 
                 client->last_addr = client->lease->address;
@@ -1990,7 +1999,7 @@ int sd_dhcp_client_send_renew(sd_dhcp_client *client) {
 
         client->start_delay = 0;
         client->attempt = 1;
-        client->state = DHCP_STATE_RENEWING;
+        client_set_state(client, DHCP_STATE_RENEWING);
 
         return client_initialize_time_events(client);
 }
@@ -2019,7 +2028,7 @@ int sd_dhcp_client_start(sd_dhcp_client *client) {
            the client MAY issue a DHCPREQUEST to try to reclaim the current
            address. */
         if (client->last_addr && !client->anonymize)
-                client->state = DHCP_STATE_INIT_REBOOT;
+                client_set_state(client, DHCP_STATE_INIT_REBOOT);
 
         r = client_start(client);
         if (r >= 0)
@@ -2112,7 +2121,7 @@ int sd_dhcp_client_stop(sd_dhcp_client *client) {
         DHCP_CLIENT_DONT_DESTROY(client);
 
         client_stop(client, SD_DHCP_CLIENT_EVENT_STOP);
-        client->state = DHCP_STATE_STOPPED;
+        client_set_state(client, DHCP_STATE_STOPPED);
 
         return 0;
 }
