@@ -1428,7 +1428,8 @@ int show_boot_entries(const BootConfig *config, JsonFormatFlags json_format) {
                                         return log_oom();
                         }
 
-                        r = json_append(&v, JSON_BUILD_OBJECT(
+                        r = json_variant_merge_objectb(
+                                        &v, JSON_BUILD_OBJECT(
                                                        JSON_BUILD_PAIR("type", JSON_BUILD_STRING(boot_entry_type_json_to_string(e->type))),
                                                        JSON_BUILD_PAIR_CONDITION(e->id, "id", JSON_BUILD_STRING(e->id)),
                                                        JSON_BUILD_PAIR_CONDITION(e->path, "path", JSON_BUILD_STRING(e->path)),
@@ -1451,7 +1452,8 @@ int show_boot_entries(const BootConfig *config, JsonFormatFlags json_format) {
                         /* Sanitizers (only memory sanitizer?) do not like function call with too many
                          * arguments and trigger false positive warnings. Let's not add too many json objects
                          * at once. */
-                        r = json_append(&v, JSON_BUILD_OBJECT(
+                        r = json_variant_merge_objectb(
+                                        &v, JSON_BUILD_OBJECT(
                                                        JSON_BUILD_PAIR("isReported", JSON_BUILD_BOOLEAN(e->reported_by_loader)),
                                                        JSON_BUILD_PAIR_CONDITION(e->tries_left != UINT_MAX, "triesLeft", JSON_BUILD_UNSIGNED(e->tries_left)),
                                                        JSON_BUILD_PAIR_CONDITION(e->tries_done != UINT_MAX, "triesDone", JSON_BUILD_UNSIGNED(e->tries_done)),
