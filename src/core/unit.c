@@ -5501,6 +5501,11 @@ int unit_set_exec_params(Unit *u, ExecParameters *p) {
         p->unit_id = strdup(u->id);
         if (!p->unit_id)
                 return -ENOMEM;
+        if (u->instance.generation) {
+                p->generation = strdup(u->instance.generation);
+                if (!p->generation)
+                        return -ENOMEM;
+        }
 
         return 0;
 }
