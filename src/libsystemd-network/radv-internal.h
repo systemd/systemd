@@ -5,6 +5,8 @@
   Copyright © 2017 Intel Corporation. All rights reserved.
 ***/
 
+#include <netinet/icmp6.h>
+
 #include "sd-radv.h"
 
 #include "list.h"
@@ -65,6 +67,9 @@
 /* Pref64 option type (RFC8781, section 4) */
 #define RADV_OPT_PREF64                           38
 
+/*  nd home-agent-lifetime (0-65520) */
+#define RADV_MAX_HOME_AGENT_LIFETIME_USEC (65520 * USEC_PER_SEC)
+
 enum RAdvState {
         RADV_STATE_IDLE                      = 0,
         RADV_STATE_ADVERTISING               = 1,
@@ -112,6 +117,9 @@ struct sd_radv {
         size_t n_rdnss;
         struct sd_radv_opt_dns *rdnss;
         struct sd_radv_opt_dns *dnssl;
+
+        /* Mobile IPv6 extension: Home Agent Info.  */
+        struct nd_opt_home_agent_info home_agent;
 };
 
 #define radv_prefix_opt__contents {             \

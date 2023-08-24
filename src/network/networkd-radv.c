@@ -600,6 +600,18 @@ static int radv_configure(Link *link) {
         if (r < 0)
                 return log_link_debug_errno(link, r, "Could not set RA Domains: %m");
 
+        r = sd_radv_set_home_agent_information(link->radv, link->network->router_home_agent_information);
+        if (r < 0)
+                return r;
+
+        r = sd_radv_set_home_agent_preference(link->radv, link->network->router_home_agent_preference);
+        if (r < 0)
+                return r;
+
+        r = sd_radv_set_home_agent_lifetime(link->radv, DIV_ROUND_UP(link->network->home_agent_lifetime_usec, USEC_PER_SEC));
+        if (r < 0)
+                return r;
+
         return 0;
 }
 
@@ -1573,5 +1585,48 @@ int config_parse_router_preference(
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Invalid router preference, ignoring assignment: %s", rvalue);
 
+        return 0;
+}
+
+int config_parse_router_home_agent_lifetime(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        usec_t usec, *home_agent_lifetime_usec = ASSERT_PTR(data);
+        int r;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                *home_agent_lifetime_usec = 0;
+                return 0;
+        }
+
+        r = parse_sec(rvalue, &usec);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse %s=, ignoring assignment: %s", lvalue, rvalue);
+                return 0;
+        }
+
+        if (usec == USEC_INFINITY ||
+            DIV_ROUND_UP(usec, USEC_PER_SEC) > 65520) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Invalid %s= must be in the range 0...65520 Sec, ignoring: %s", lvalue, rvalue);
+                return 0;
+        }
+
+        *home_agent_lifetime_usec = usec;
         return 0;
 }
