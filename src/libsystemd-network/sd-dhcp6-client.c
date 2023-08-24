@@ -26,11 +26,25 @@
 #include "random-util.h"
 #include "socket-util.h"
 #include "sort-util.h"
+#include "string-table.h"
 #include "strv.h"
 #include "web-util.h"
 
 #define DHCP6_CLIENT_DONT_DESTROY(client) \
         _cleanup_(sd_dhcp6_client_unrefp) _unused_ sd_dhcp6_client *_dont_destroy_##client = sd_dhcp6_client_ref(client)
+
+static const char * const dhcp6_state_table[_DHCP6_STATE_MAX] = {
+        [DHCP6_STATE_STOPPED]             = "stopped",
+        [DHCP6_STATE_INFORMATION_REQUEST] = "information-request",
+        [DHCP6_STATE_SOLICITATION]        = "solicitation",
+        [DHCP6_STATE_REQUEST]             = "request",
+        [DHCP6_STATE_BOUND]               = "bound",
+        [DHCP6_STATE_RENEW]               = "renew",
+        [DHCP6_STATE_REBIND]              = "rebind",
+        [DHCP6_STATE_STOPPING]            = "stopping",
+};
+
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(dhcp6_state, DHCP6State);
 
 static int client_start_transaction(sd_dhcp6_client *client, DHCP6State state);
 

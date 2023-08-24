@@ -222,6 +222,21 @@ enum {
         SD_DHCP_RELAY_AGENT_REMOTE_ID              = 2
 };
 
+enum DHCPState {
+        DHCP_STATE_INIT                         = 0,
+        DHCP_STATE_SELECTING                    = 1,
+        DHCP_STATE_INIT_REBOOT                  = 2,
+        DHCP_STATE_REBOOTING                    = 3,
+        DHCP_STATE_REQUESTING                   = 4,
+        DHCP_STATE_BOUND                        = 5,
+        DHCP_STATE_RENEWING                     = 6,
+        DHCP_STATE_REBINDING                    = 7,
+        DHCP_STATE_STOPPED                      = 8,
+        _DHCP_STATE_MAX                         = 9
+};
+
+typedef enum DHCPState DHCPState;
+
 typedef struct sd_dhcp_client sd_dhcp_client;
 
 typedef int (*sd_dhcp_client_callback_t)(sd_dhcp_client *client, int event, void *userdata);
@@ -346,6 +361,8 @@ int sd_dhcp_client_attach_event(
 int sd_dhcp_client_detach_event(sd_dhcp_client *client);
 sd_event *sd_dhcp_client_get_event(sd_dhcp_client *client);
 int sd_dhcp_client_attach_device(sd_dhcp_client *client, sd_device *dev);
+
+const char *dhcp_state_to_string(DHCPState s);
 
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_dhcp_client, sd_dhcp_client_unref);
 
