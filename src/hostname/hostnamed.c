@@ -1318,7 +1318,7 @@ static int method_describe(sd_bus_message *m, void *userdata, sd_bus_error *erro
                         false,
                         UID_INVALID,
                         &c->polkit_registry,
-                        NULL);
+                        error);
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
