@@ -12,6 +12,7 @@
 #include "label-util.h"
 #include "mkdir-label.h"
 #include "mount-util.h"
+#include "mount.h"
 #include "mountpoint-util.h"
 #include "process-util.h"
 #include "random-util.h"
@@ -138,19 +139,21 @@ int unit_add_default_credential_dependencies(Unit *u, const ExecContext *c) {
         return unit_add_dependency_by_name(u, UNIT_AFTER, m, /* add_reference= */ true, UNIT_DEPENDENCY_FILE);
 }
 
-int exec_context_destroy_credentials(const ExecContext *c, const char *runtime_prefix, const char *unit) {
+int exec_context_destroy_credentials(Unit *u) {
         _cleanup_free_ char *p = NULL;
         int r;
 
-        assert(c);
+        assert(u);
 
-        r = get_credential_directory(runtime_prefix, unit, &p);
+        r = get_credential_directory(u->manager->prefix[EXEC_DIRECTORY_RUNTIME], u->id, &p);
         if (r <= 0)
                 return r;
 
         /* This is either a tmpfs/ramfs of its own, or a plain directory. Either way, let's first try to
          * unmount it, and afterwards remove the mount point */
-        (void) umount2(p, MNT_DETACH|UMOUNT_NOFOLLOW);
+        if (umount2(p, MNT_DETACH|UMOUNT_NOFOLLOW) >= 0)
+                (void) mount_set_dirty_by_path(u->manager, p);
+
         (void) rm_rf(p, REMOVE_ROOT|REMOVE_CHMOD);
 
         return 0;
