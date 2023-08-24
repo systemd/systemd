@@ -26,7 +26,7 @@ static int json_append_one(JsonVariant **v, const char *name, JsonVariant *w) {
         assert(v);
         assert(name);
 
-        return json_append(v, JSON_BUILD_OBJECT(JSON_BUILD_PAIR_VARIANT_NON_NULL(name, w)));
+        return json_variant_merge_objectb(v, JSON_BUILD_OBJECT(JSON_BUILD_PAIR_VARIANT_NON_NULL(name, w)));
 }
 
 static int address_build_json(Address *address, JsonVariant **ret) {
@@ -379,7 +379,8 @@ static int network_append_json(Network *network, JsonVariant **v) {
         if (!network)
                 return 0;
 
-        return json_append(v, JSON_BUILD_OBJECT(
+        return json_variant_merge_objectb(
+                        v, JSON_BUILD_OBJECT(
                                 JSON_BUILD_PAIR_STRING("NetworkFile", network->filename),
                                 JSON_BUILD_PAIR_STRV("NetworkFileDropins", network->dropins),
                                 JSON_BUILD_PAIR_BOOLEAN("RequiredForOnline", network->required_for_online),
@@ -418,7 +419,9 @@ static int device_append_json(sd_device *device, JsonVariant **v) {
         if (sd_device_get_property_value(device, "ID_MODEL_FROM_DATABASE", &model) < 0)
                 (void) sd_device_get_property_value(device, "ID_MODEL", &model);
 
-        return json_append(v, JSON_BUILD_OBJECT(
+        return json_variant_merge_objectb(
+                        v,
+                        JSON_BUILD_OBJECT(
                                 JSON_BUILD_PAIR_STRING_NON_EMPTY("LinkFile", link),
                                 JSON_BUILD_PAIR_STRV_NON_EMPTY("LinkFileDropins", link_dropins),
                                 JSON_BUILD_PAIR_STRING_NON_EMPTY("Path", path),
@@ -915,7 +918,7 @@ static int captive_portal_append_json(Link *link, JsonVariant **v) {
         if (r <= 0)
                 return r;
 
-        return json_append(v, JSON_BUILD_OBJECT(JSON_BUILD_PAIR_STRING("CaptivePortal", captive_portal)));
+        return json_variant_merge_objectb(v, JSON_BUILD_OBJECT(JSON_BUILD_PAIR_STRING("CaptivePortal", captive_portal)));
 }
 
 static int dhcp_server_offered_leases_append_json(Link *link, JsonVariant **v) {
