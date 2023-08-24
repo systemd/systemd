@@ -2708,7 +2708,7 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
                 case ARG_RLIMIT: {
-                        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *jcur = NULL, *jmax = NULL;
+                        _cleanup_(json_variant_unrefp) JsonVariant *jcur = NULL, *jmax = NULL;
                         _cleanup_free_ char *field = NULL, *t = NULL;
                         const char *eq;
                         struct rlimit rl;
@@ -2764,18 +2764,15 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to allocate maximum integer: %m");
 
-                        r = json_build(&v,
-                                       JSON_BUILD_OBJECT(
-                                                       JSON_BUILD_PAIR("cur", JSON_BUILD_VARIANT(jcur)),
-                                                       JSON_BUILD_PAIR("max", JSON_BUILD_VARIANT(jmax))));
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to build resource limit: %m");
-
                         t = strjoin("RLIMIT_", rlimit_to_string(l));
                         if (!t)
                                 return log_oom();
 
-                        r = json_variant_set_field(&arg_identity_extra_rlimits, t, v);
+                        r = json_variant_set_fieldb(
+                                        &arg_identity_extra_rlimits, t,
+                                        JSON_BUILD_OBJECT(
+                                                        JSON_BUILD_PAIR("cur", JSON_BUILD_VARIANT(jcur)),
+                                                        JSON_BUILD_PAIR("max", JSON_BUILD_VARIANT(jmax))));
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set %s field: %m", rlimit_to_string(l));
 
