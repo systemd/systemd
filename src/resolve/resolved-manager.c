@@ -1134,7 +1134,7 @@ int manager_monitor_send(
                 return log_error_errno(r, "Failed to convert question to JSON: %m");
 
         DNS_ANSWER_FOREACH_ITEM(rri, answer) {
-                _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *w = NULL;
+                _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
 
                 r = dns_resource_record_to_json(rri->rr, &v);
                 if (r < 0)
@@ -1144,14 +1144,12 @@ int manager_monitor_send(
                 if (r < 0)
                         return log_error_errno(r, "Failed to generate RR wire format: %m");
 
-                r = json_build(&w, JSON_BUILD_OBJECT(
-                                               JSON_BUILD_PAIR_CONDITION(v, "rr", JSON_BUILD_VARIANT(v)),
-                                               JSON_BUILD_PAIR("raw", JSON_BUILD_BASE64(rri->rr->wire_format, rri->rr->wire_format_size)),
-                                               JSON_BUILD_PAIR_CONDITION(rri->ifindex > 0, "ifindex", JSON_BUILD_INTEGER(rri->ifindex))));
-                if (r < 0)
-                        return log_error_errno(r, "Failed to make answer RR object: %m");
-
-                r = json_variant_append_array(&janswer, w);
+                r = json_variant_append_arrayb(
+                                &janswer,
+                                JSON_BUILD_OBJECT(
+                                                JSON_BUILD_PAIR_CONDITION(v, "rr", JSON_BUILD_VARIANT(v)),
+                                                JSON_BUILD_PAIR("raw", JSON_BUILD_BASE64(rri->rr->wire_format, rri->rr->wire_format_size)),
+                                                JSON_BUILD_PAIR_CONDITION(rri->ifindex > 0, "ifindex", JSON_BUILD_INTEGER(rri->ifindex))));
                 if (r < 0)
                         return log_debug_errno(r, "Failed to append notification entry to array: %m");
         }
