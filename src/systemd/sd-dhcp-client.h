@@ -223,15 +223,15 @@ enum {
 };
 
 enum DHCPState {
-        DHCP_STATE_INIT                         = 0,
-        DHCP_STATE_SELECTING                    = 1,
-        DHCP_STATE_INIT_REBOOT                  = 2,
-        DHCP_STATE_REBOOTING                    = 3,
-        DHCP_STATE_REQUESTING                   = 4,
-        DHCP_STATE_BOUND                        = 5,
-        DHCP_STATE_RENEWING                     = 6,
-        DHCP_STATE_REBINDING                    = 7,
-        DHCP_STATE_STOPPED                      = 8,
+        DHCP_STATE_STOPPED                      = 0,
+        DHCP_STATE_INIT                         = 1,
+        DHCP_STATE_SELECTING                    = 2,
+        DHCP_STATE_INIT_REBOOT                  = 3,
+        DHCP_STATE_REBOOTING                    = 4,
+        DHCP_STATE_REQUESTING                   = 5,
+        DHCP_STATE_BOUND                        = 6,
+        DHCP_STATE_RENEWING                     = 7,
+        DHCP_STATE_REBINDING                    = 8,
         _DHCP_STATE_MAX                         = 9
 };
 
