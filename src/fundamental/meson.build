@@ -7,5 +7,5 @@ fundamental_sources = files(
         'efivars-fundamental.c',
         'sha256.c',
         'string-util-fundamental.c',
-        'tpm-pcr.c',
+        'uki.c',
 )
