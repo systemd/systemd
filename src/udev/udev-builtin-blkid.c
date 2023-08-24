@@ -122,20 +122,19 @@ static void print_property(sd_device *dev, bool test, const char *name, const ch
         }
 }
 
-static int find_gpt_root(sd_device *dev, blkid_probe pr, bool test) {
+static int check_is_boot_disk(sd_device *dev, blkid_probe pr, bool test) {
 
-#if defined(SD_GPT_ROOT_NATIVE) && ENABLE_EFI
-
+#if ENABLE_EFI
         _cleanup_free_ char *root_label = NULL;
-        bool found_esp_or_xbootldr = false;
         sd_id128_t root_id = SD_ID128_NULL;
+        bool is_boot_disk = false;
         int r;
 
         assert(pr);
 
-        /* Iterate through the partitions on this disk, and see if the UEFI ESP or XBOOTLDR partition we
-         * booted from is on it. If so, find the first root disk, and add a property indicating its partition
-         * UUID. */
+        /* Check to see if the given device is the disk we've booted from. If so, add a property marking
+         * it as such. Also, if we find a root partition on this disk, add a property indicating its partition
+         * UUID so that gpt-auto-generator can pick it up. */
 
         errno = 0;
         blkid_partlist pl = blkid_probe_get_partitions(pr);
@@ -176,8 +175,8 @@ static int find_gpt_root(sd_device *dev, blkid_probe pr, bool test) {
                                 return r;
 
                         if (sd_id128_equal(id, esp_or_xbootldr))
-                                found_esp_or_xbootldr = true;
-
+                                is_boot_disk = true;
+#if defined(SD_GPT_ROOT_NATIVE)
                 } else if (sd_id128_equal(type, SD_GPT_ROOT_NATIVE)) {
                         unsigned long long flags;
 
@@ -195,13 +194,18 @@ static int find_gpt_root(sd_device *dev, blkid_probe pr, bool test) {
                                 if (r < 0)
                                         return r;
                         }
+#endif
                 }
         }
 
-        /* We found the ESP/XBOOTLDR on this disk, and also found a root partition, nice! Let's export its
-         * UUID */
-        if (found_esp_or_xbootldr && !sd_id128_is_null(root_id))
-                udev_builtin_add_property(dev, test, "ID_PART_GPT_AUTO_ROOT_UUID", SD_ID128_TO_UUID_STRING(root_id));
+        if (is_boot_disk) {
+                udev_builtin_add_property(dev, test, "ID_BOOT_DISK", "1");
+
+                /* If we've found a root partition on the boot disk, export its UUID for
+                 * gpt-auto-generator to automount. */
+                if (!sd_id128_is_null(root_id))
+                        udev_builtin_add_property(dev, test, "ID_PART_GPT_AUTO_ROOT_UUID", SD_ID128_TO_UUID_STRING(root_id));
+        }
 #endif
 
         return 0;
@@ -435,7 +439,7 @@ static int builtin_blkid(UdevEvent *event, int argc, char *argv[], bool test) {
         }
 
         if (is_gpt)
-                find_gpt_root(dev, pr, test);
+                check_is_boot_disk(dev, pr, test);
 
         r = read_loopback_backing_inode(
                         dev,

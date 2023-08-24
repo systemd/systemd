@@ -95,7 +95,16 @@
         system as root file system of the OS. This is useful in combination with
         <varname>mount.usr=</varname> (see below) in order to combine a volatile root file system with a
         separate, immutable <filename>/usr/</filename> file system. Also see
-        <varname>systemd.volatile=</varname> below.</para></listitem>
+        <varname>systemd.volatile=</varname> below.</para>
+
+        <para>Use <literal>ddi</literal> to mount all the discoverable partitions from the boot disk, according to
+        the <ulink url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">Discoverable
+        Partitions Specification (DPS)</ulink>, such that the system can boot. The boot disk is the disk containing
+        the EFI System Partition (ESP) that the bootloader read from. This requires bootloader support:
+        see the <ulink url="https://systemd.io/BOOT_LOADER_INTERFACE">Boot Loader Interface</ulink> for
+        details. This option is similar in spirit to <literal>gpt-auto</literal>, but it mounts all the partitions
+        immediately in the initrd. This allows it to handle various corner cases for images that fully implement the
+        DPS, but it also prevents the user from overriding the DPS mounts from <filename>/etc/fstab</filename>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -103,7 +112,13 @@
 
         <listitem><para>Takes the root filesystem type that will be
         passed to the mount command. <varname>rootfstype=</varname> is
-        honored by the initrd.</para></listitem>
+        honored by the initrd.</para>
+
+        <para>Note that it is possible to implement custom root mounting logic via a mount helper program.
+        For example, the functionality of <literal>root=ddi</literal>, as described above, is implemented
+        via the <citerefentry><refentrytitle>mount.ddi</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        helper. Thus, you can set <literal>rootfstype=ddi</literal> to emulate this functionality for some
+        other block device specified via <varnmae>root=</varname>.</para></listitem>
       </varlistentry>
 
       <varlistentry>

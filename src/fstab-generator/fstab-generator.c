@@ -1104,6 +1104,19 @@ static int add_sysroot_mount(void) {
                 fstype = arg_root_fstype ?: "tmpfs"; /* tmpfs, unless overridden */
 
                 default_rw = true; /* writable, unless overridden */;
+        } else if (streq(arg_root_what, "ddi")) {
+                /* For root=ddi, mount the boot device using the mount.ddi helper */
+
+                if (arg_root_fstype && !streq(arg_root_fstype, "ddi"))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Only rootfstype=ddi is permitted with root=ddi");
+
+                what = strdup("/dev/boot-disk");
+                if (!what)
+                        return log_oom();
+
+                fstype = "ddi";
+                default_rw = true;
         } else {
 
                 what = fstab_node_to_udev_node(arg_root_what);
