@@ -18,7 +18,7 @@
 #include "openssl-util.h"
 #include "parse-argument.h"
 #include "pretty-print.h"
-#include "tpm-pcr.h"
+#include "tpm2-pcr.h"
 #include "tpm2-util.h"
 
 static bool arg_graceful = false;
@@ -290,7 +290,7 @@ static int run(int argc, char *argv[]) {
                                 return log_error_errno(r, "Failed to get file system identifier string for '%s': %m", arg_file_system);
                 }
 
-                target_pcr_nr = TPM_PCR_INDEX_VOLUME_KEY; /* → PCR 15 */
+                target_pcr_nr = TPM2_PCR_SYSTEM_IDENTITY; /* → PCR 15 */
 
         } else if (arg_machine_id) {
                 sd_id128_t mid;
@@ -306,7 +306,7 @@ static int run(int argc, char *argv[]) {
                 if (!word)
                         return log_oom();
 
-                target_pcr_nr = TPM_PCR_INDEX_VOLUME_KEY; /* → PCR 15 */
+                target_pcr_nr = TPM2_PCR_SYSTEM_IDENTITY; /* → PCR 15 */
 
         } else {
                 if (optind+1 != argc)
@@ -322,7 +322,7 @@ static int run(int argc, char *argv[]) {
                 if (isempty(word))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "String to measure cannot be empty, refusing.");
 
-                target_pcr_nr = TPM_PCR_INDEX_KERNEL_IMAGE; /* → PCR 11 */
+                target_pcr_nr = TPM2_PCR_KERNEL_BOOT; /* → PCR 11 */
         }
 
         if (arg_graceful && tpm2_support() != TPM2_SUPPORT_FULL) {
@@ -337,7 +337,7 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
         if (r == 0) {
-                log_info("Kernel stub did not measure kernel image into PCR %u, skipping userspace measurement, too.", TPM_PCR_INDEX_KERNEL_IMAGE);
+                log_info("Kernel stub did not measure kernel image into PCR %i, skipping userspace measurement, too.", TPM2_PCR_KERNEL_BOOT);
                 return EXIT_SUCCESS;
         }
 

@@ -27,7 +27,7 @@
 #include "string-table.h"
 #include "strv.h"
 #include "terminal-util.h"
-#include "tpm-pcr.h"
+#include "tpm2-pcr.h"
 
 static EnrollType arg_enroll_type = _ENROLL_TYPE_INVALID;
 static char *arg_unlock_keyfile = NULL;
@@ -482,7 +482,7 @@ static int parse_argv(int argc, char *argv[]) {
                 return r;
 
         if (arg_tpm2_public_key_pcr_mask_use_default && arg_tpm2_public_key)
-                arg_tpm2_public_key_pcr_mask = INDEX_TO_MASK(uint32_t, TPM_PCR_INDEX_KERNEL_IMAGE);
+                arg_tpm2_public_key_pcr_mask = INDEX_TO_MASK(uint32_t, TPM2_PCR_KERNEL_BOOT);
 
         if (arg_tpm2_hash_pcr_values_use_default && !GREEDY_REALLOC_APPEND(
                         arg_tpm2_hash_pcr_values,
