@@ -39,8 +39,8 @@ bool exec_context_has_credentials(const ExecContext *c);
 
 int unit_add_default_credential_dependencies(Unit *u, const ExecContext *c);
 
-int exec_context_destroy_credentials(const ExecContext *c, const char *runtime_root, const char *unit);
-int setup_credentials(
+int exec_context_destroy_credentials(const ExecContext *c, Unit *u);
+int exec_setup_credentials(
                 const ExecContext *context,
                 const ExecParameters *params,
                 const char *unit,
