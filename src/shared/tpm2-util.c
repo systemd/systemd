@@ -1737,7 +1737,7 @@ int tpm2_pcr_value_from_string(const char *arg, Tpm2PCRValue *ret_pcr_value) {
         if (r < 1)
                 return log_error_errno(r, "Could not parse pcr value '%s': %m", p);
 
-        r = pcr_index_from_string(index);
+        r = tpm2_pcr_index_from_string(index);
         if (r < 0)
                 return log_error_errno(r, "Invalid pcr index '%s': %m", index);
         pcr_value.index = (unsigned) r;
@@ -5036,25 +5036,25 @@ int tpm2_util_pbkdf2_hmac_sha256(const void *pass,
         return 0;
 }
 
-static const char* const pcr_index_table[_PCR_INDEX_MAX_DEFINED] = {
-        [PCR_PLATFORM_CODE]       = "platform-code",
-        [PCR_PLATFORM_CONFIG]     = "platform-config",
-        [PCR_EXTERNAL_CODE]       = "external-code",
-        [PCR_EXTERNAL_CONFIG]     = "external-config",
-        [PCR_BOOT_LOADER_CODE]    = "boot-loader-code",
-        [PCR_BOOT_LOADER_CONFIG]  = "boot-loader-config",
-        [PCR_HOST_PLATFORM]       = "host-platform",
-        [PCR_SECURE_BOOT_POLICY]  = "secure-boot-policy",
-        [PCR_KERNEL_INITRD]       = "kernel-initrd",
-        [PCR_IMA]                 = "ima",
-        [PCR_KERNEL_BOOT]         = "kernel-boot",
-        [PCR_KERNEL_CONFIG]       = "kernel-config",
-        [PCR_SYSEXTS]             = "sysexts",
-        [PCR_SHIM_POLICY]         = "shim-policy",
-        [PCR_SYSTEM_IDENTITY]     = "system-identity",
-        [PCR_DEBUG]               = "debug",
-        [PCR_APPLICATION_SUPPORT] = "application-support",
+static const char* const tpm2_pcr_index_table[_TPM2_PCR_INDEX_MAX_DEFINED] = {
+        [TPM2_PCR_PLATFORM_CODE]       = "platform-code",
+        [TPM2_PCR_PLATFORM_CONFIG]     = "platform-config",
+        [TPM2_PCR_EXTERNAL_CODE]       = "external-code",
+        [TPM2_PCR_EXTERNAL_CONFIG]     = "external-config",
+        [TPM2_PCR_BOOT_LOADER_CODE]    = "boot-loader-code",
+        [TPM2_PCR_BOOT_LOADER_CONFIG]  = "boot-loader-config",
+        [TPM2_PCR_HOST_PLATFORM]       = "host-platform",
+        [TPM2_PCR_SECURE_BOOT_POLICY]  = "secure-boot-policy",
+        [TPM2_PCR_KERNEL_INITRD]       = "kernel-initrd",
+        [TPM2_PCR_IMA]                 = "ima",
+        [TPM2_PCR_KERNEL_BOOT]         = "kernel-boot",
+        [TPM2_PCR_KERNEL_CONFIG]       = "kernel-config",
+        [TPM2_PCR_SYSEXTS]             = "sysexts",
+        [TPM2_PCR_SHIM_POLICY]         = "shim-policy",
+        [TPM2_PCR_SYSTEM_IDENTITY]     = "system-identity",
+        [TPM2_PCR_DEBUG]               = "debug",
+        [TPM2_PCR_APPLICATION_SUPPORT] = "application-support",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_FROM_STRING_WITH_FALLBACK(pcr_index, int, TPM2_PCRS_MAX - 1);
-DEFINE_STRING_TABLE_LOOKUP_TO_STRING(pcr_index, int);
+DEFINE_STRING_TABLE_LOOKUP_FROM_STRING_WITH_FALLBACK(tpm2_pcr_index, int, TPM2_PCRS_MAX - 1);
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(tpm2_pcr_index, int);
