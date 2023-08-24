@@ -87,6 +87,11 @@ sd_radv_route_prefix *sd_radv_route_prefix_unref(sd_radv_route_prefix *ra);
 int sd_radv_route_prefix_set_prefix(sd_radv_route_prefix *p, const struct in6_addr *in6_addr, unsigned char prefixlen);
 int sd_radv_route_prefix_set_lifetime(sd_radv_route_prefix *p, uint64_t lifetime_usec, uint64_t valid_until);
 
+/* Mobile IPv6 extension: Home Agent Info. */
+int sd_radv_set_home_agent_information(sd_radv *ra, int home_agent);
+int sd_radv_set_home_agent_preference(sd_radv *ra, uint16_t preference);
+int sd_radv_set_home_agent_lifetime(sd_radv *ra, uint16_t lifetime);
+
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_radv, sd_radv_unref);
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_radv_prefix, sd_radv_prefix_unref);
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_radv_route_prefix, sd_radv_route_prefix_unref);
