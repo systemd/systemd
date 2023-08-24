@@ -34,7 +34,7 @@ static int parse_timeout(const char *arg1, char16_t **ret_timeout, size_t *ret_t
 
         xsprintf(utf8, USEC_FMT, MIN(timeout / USEC_PER_SEC, UINT32_MAX));
 
-        encoded = utf8_to_utf16(utf8, strlen(utf8));
+        encoded = utf8_to_utf16(utf8, SIZE_MAX);
         if (!encoded)
                 return log_oom();
 
@@ -69,7 +69,7 @@ static int parse_loader_entry_target_arg(const char *arg1, char16_t **ret_target
         } else if (arg1[0] == '@' && !streq(arg1, "@saved"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unsupported special entry identifier: %s", arg1);
         else {
-                encoded = utf8_to_utf16(arg1, strlen(arg1));
+                encoded = utf8_to_utf16(arg1, SIZE_MAX);
                 if (!encoded)
                         return log_oom();
 
