@@ -1958,6 +1958,20 @@ int json_variant_set_field(JsonVariant **v, const char *field, JsonVariant *valu
         return 1;
 }
 
+int json_variant_set_fieldb(JsonVariant **v, const char *field, ...) {
+        _cleanup_(json_variant_unrefp) JsonVariant *w = NULL;
+        va_list ap;
+        int r;
+
+        va_start(ap, field);
+        r = json_buildv(&w, ap);
+        va_end(ap);
+        if (r < 0)
+                return r;
+
+        return json_variant_set_field(v, field, w);
+}
+
 int json_variant_set_field_string(JsonVariant **v, const char *field, const char *value) {
         _cleanup_(json_variant_unrefp) JsonVariant *m = NULL;
         int r;
