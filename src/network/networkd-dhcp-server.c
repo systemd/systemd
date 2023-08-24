@@ -413,6 +413,13 @@ static int dhcp4_server_configure(Link *link) {
                         return log_link_error_errno(link, r, "Failed to set default lease time for DHCPv4 server instance: %m");
         }
 
+        if (link->network->dhcp_server_ipv6_only_preferred_time_usec > 0) {
+                r = sd_dhcp_server_set_ipv6_only_preferred_time(link->dhcp_server,
+                                                          DIV_ROUND_UP(link->network->dhcp_server_ipv6_only_preferred_time_usec, USEC_PER_SEC));
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Failed to set IPv6 only preferred time for DHCPv4 server instance: %m");
+        }
+
         r = sd_dhcp_server_set_boot_server_address(link->dhcp_server, &link->network->dhcp_server_boot_server_address);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to set boot server address for DHCPv4 server instance: %m");
