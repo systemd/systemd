@@ -156,6 +156,7 @@ static void link_free_engines(Link *link) {
         link->dhcp_client = sd_dhcp_client_unref(link->dhcp_client);
         link->dhcp_lease = sd_dhcp_lease_unref(link->dhcp_lease);
         link->dhcp4_6rd_tunnel_name = mfree(link->dhcp4_6rd_tunnel_name);
+        link->dhcp4_client_request_delay = sd_event_source_disable_unref(link->dhcp4_client_request_delay);
 
         link->lldp_rx = sd_lldp_rx_unref(link->lldp_rx);
         link->lldp_tx = sd_lldp_tx_unref(link->lldp_tx);
