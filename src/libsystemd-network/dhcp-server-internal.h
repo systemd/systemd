@@ -81,7 +81,7 @@ struct sd_dhcp_server {
         Hashmap *static_leases_by_client_id;
         Hashmap *static_leases_by_address;
 
-        uint32_t max_lease_time, default_lease_time;
+        uint32_t max_lease_time, default_lease_time, ipv6_only_preferred_time;
 
         sd_dhcp_server_callback_t callback;
         void *callback_userdata;
