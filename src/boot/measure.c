@@ -20,6 +20,7 @@
 #include "terminal-util.h"
 #include "tpm-pcr.h"
 #include "tpm2-util.h"
+#include "uki.h"
 #include "verbs.h"
 
 /* Tool for pre-calculating expected TPM PCR values based on measured resources. This is intended to be used

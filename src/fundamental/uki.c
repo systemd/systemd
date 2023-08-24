@@ -2,7 +2,7 @@
 
 #include <stddef.h>
 
-#include "tpm-pcr.h"
+#include "uki.h"
 
 const char* const unified_sections[_UNIFIED_SECTION_MAX + 1] = {
         [UNIFIED_SECTION_LINUX]   = ".linux",

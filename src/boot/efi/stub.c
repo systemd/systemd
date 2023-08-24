@@ -14,6 +14,7 @@
 #include "shim.h"
 #include "splash.h"
 #include "tpm-pcr.h"
+#include "uki.h"
 #include "util.h"
 #include "version.h"
 #include "vmm.h"
