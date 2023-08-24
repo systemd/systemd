@@ -40,7 +40,7 @@
 #include "random-util.h"
 #include "string-table.h"
 #include "strv.h"
-#include "tpm-pcr.h"
+#include "tpm2-pcr.h"
 #include "tpm2-util.h"
 
 /* internal helper */
