@@ -1124,13 +1124,27 @@ int journal_file_verify(
                                 goto fail;
                         }
 
-                        if (le64toh(o->tag.epoch) < last_epoch) {
-                                error(p,
-                                      "Epoch sequence out of synchronization (%"PRIu64" < %"PRIu64")",
-                                      le64toh(o->tag.epoch),
-                                      last_epoch);
-                                r = -EBADMSG;
-                                goto fail;
+                        if (le64toh(o->tag.epoch) != last_epoch && le64toh(o->tag.epoch) != last_epoch + 1) {
+                                if (JOURNAL_HEADER_SEALED_CONTINOUS(f->header)) {
+                                        error(p,
+                                              "Epoch sequence not continous (%"PRIu64" vs. %"PRIu64")",
+                                              le64toh(o->tag.epoch),
+                                              last_epoch);
+                                        r = -EBADMSG;
+                                        goto fail;
+                                } else if (le64toh(o->tag.epoch) < last_epoch) {
+                                        error(p,
+                                              "Epoch sequence out of synchronization (%"PRIu64" < %"PRIu64")",
+                                              le64toh(o->tag.epoch),
+                                              last_epoch);
+                                        r = -EBADMSG;
+                                        goto fail;
+                                } else {
+                                        warning(p,
+                                              "This log file was sealed with an old journald version and the sequence of seals is sequence not continous. We cannot guarantee completeness. (%"PRIu64" vs.  %"PRIu64")",
+                                              le64toh(o->tag.epoch),
+                                              last_epoch);
+                                }
                         }
 
 #if HAVE_GCRYPT
