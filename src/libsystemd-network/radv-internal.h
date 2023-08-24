@@ -5,6 +5,8 @@
   Copyright © 2017 Intel Corporation. All rights reserved.
 ***/
 
+#include <netinet/icmp6.h>
+
 #include "sd-radv.h"
 
 #include "list.h"
@@ -65,6 +67,11 @@
 /* Pref64 option type (RFC8781, section 4) */
 #define RADV_OPT_PREF64                           38
 
+/* rfc6275 7.4 Neighbor Discovery Home Agent Lifetime.
+ * The default value is the same as the Router Lifetime
+ * The maximum value corresponds to 18.2 hours. value of 0 MUST NOT be used.*/
+#define RADV_MAX_HOME_AGENT_LIFETIME_USEC (65535 * USEC_PER_SEC)
+
 enum RAdvState {
         RADV_STATE_IDLE                      = 0,
         RADV_STATE_ADVERTISING               = 1,
@@ -112,6 +119,9 @@ struct sd_radv {
         size_t n_rdnss;
         struct sd_radv_opt_dns *rdnss;
         struct sd_radv_opt_dns *dnssl;
+
+        /* Mobile IPv6 extension: Home Agent Info.  */
+        struct nd_opt_home_agent_info home_agent;
 };
 
 #define radv_prefix_opt__contents {             \
