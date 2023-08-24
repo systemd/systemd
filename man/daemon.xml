@@ -553,7 +553,7 @@
       unit installation path during source
       configuration:</para>
 
-      <programlisting>PKG_PROG_PKG_CONFIG
+      <programlisting>PKG_PROG_PKG_CONFIG()
 AC_ARG_WITH([systemdsystemunitdir],
      [AS_HELP_STRING([--with-systemdsystemunitdir=DIR], [Directory for systemd service files])],,
      [with_systemdsystemunitdir=auto])
