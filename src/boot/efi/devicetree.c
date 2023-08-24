@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <endian.h>
+
 #include "devicetree.h"
 #include "proto/dt-fixup.h"
 #include "util.h"
@@ -104,6 +106,65 @@ EFI_STATUS devicetree_install(struct devicetree_state *state, EFI_FILE *root_dir
                         MAKE_GUID_PTR(EFI_DTB_TABLE), PHYSICAL_ADDRESS_TO_POINTER(state->addr));
 }
 
+static char* devicetree_get_compatible(const void *dtb) {
+        const struct fdt_header *dt_header = dtb;
+        uint32_t *cursor = (uint32_t *) ((char *)dt_header + be32toh(dt_header->off_dt_struct));
+        char *string_block = (char *) ((char *)dt_header + be32toh(dt_header->off_dt_strings));
+        uint32_t len;
+
+        if (be32toh(dt_header->magic) != 0xd00dfeed)
+                return NULL;
+
+        while (true) {
+                switch (be32toh(*cursor++)) {
+                case FDT_BEGIN_NODE:
+                        if (*cursor++ != 0)
+                                return NULL;
+                        break;
+                case FDT_NOP:
+                        break;
+                case FDT_PROP:
+                        len = be32toh(*cursor++);
+
+                        if (strcmp8(string_block + be32toh(*cursor++), "compatible") == 0)
+                                return (char *)cursor;
+
+                        cursor += (len + 3) / 4;
+                        break;
+                default:
+                        return NULL;
+
+                }
+        }
+}
+
+static EFI_STATUS devicetree_match(const void **dtb_buffer, size_t *dtb_length, const void *fw_dtb) {
+        const char *cursor = *dtb_buffer;
+        size_t len = *dtb_length;
+        char *fw_compat = devicetree_get_compatible(fw_dtb);
+
+        while (len > 0) {
+                struct fdt_header *dt_header = (struct fdt_header *)cursor;
+                size_t size = be32toh(dt_header->totalsize);
+
+                if (size > len)
+                        return EFI_INVALID_PARAMETER;
+
+                char *compat = devicetree_get_compatible(cursor);
+
+                if (strcmp8(compat, fw_compat) == 0) {
+                        *dtb_buffer = cursor;
+                        *dtb_length = size;
+                        return EFI_SUCCESS;
+                }
+
+                cursor += ALIGN8(size);
+                len -= ALIGN8(size);
+        }
+
+        return EFI_NOT_FOUND;
+}
+
 EFI_STATUS devicetree_install_from_memory(
                 struct devicetree_state *state, const void *dtb_buffer, size_t dtb_length) {
 
@@ -115,6 +176,12 @@ EFI_STATUS devicetree_install_from_memory(
         state->orig = find_configuration_table(MAKE_GUID_PTR(EFI_DTB_TABLE));
         if (!state->orig)
                 return EFI_UNSUPPORTED;
+
+        /* Try to match with the firmware-provided DT. If a match is
+         * not found copy the entire .dtb section */
+        err = devicetree_match(&dtb_buffer, &dtb_length, state->orig);
+        if (err != EFI_SUCCESS)
+                log_error_status(err, "No matching device tree found in UKI.");
 
         err = devicetree_allocate(state, dtb_length);
         if (err != EFI_SUCCESS)
