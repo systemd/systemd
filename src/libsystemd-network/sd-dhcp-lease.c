@@ -32,6 +32,11 @@
 #include "tmpfile-util.h"
 #include "unaligned.h"
 
+/* rfc8925 - IPv6-Only Preferred Option for DHCPv4 3.4.
+ * MIN_V6ONLY_WAIT: The lower boundary for V6ONLY_WAIT. Value: 300 seconds
+ */
+#define MIN_V6ONLY_WAIT (300 * USEC_PER_SEC)
+
 int sd_dhcp_lease_get_address(sd_dhcp_lease *lease, struct in_addr *addr) {
         assert_return(lease, -EINVAL);
         assert_return(addr, -EINVAL);
@@ -176,6 +181,17 @@ int sd_dhcp_lease_get_captive_portal(sd_dhcp_lease *lease, const char **ret) {
                 return -ENODATA;
 
         *ret = lease->captive_portal;
+        return 0;
+}
+
+int sd_dhcp_lease_get_ipv6_only_preferred(sd_dhcp_lease *lease, uint32_t *ret) {
+        assert_return(lease, -EINVAL);
+        assert_return(ret, -EINVAL);
+
+        if (!lease->ipv6_only_preferred_sec)
+                return -ENODATA;
+
+        *ret = lease->ipv6_only_preferred_sec;
         return 0;
 }
 
@@ -734,6 +750,13 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void
                 if (r < 0)
                         log_debug_errno(r, "Failed to parse captive portal, ignoring: %m");
                 break;
+
+        case SD_DHCP_OPTION_IPV6_ONLY_PREFERRED:
+                r = lease_parse_u32(option, len, &lease->ipv6_only_preferred_sec, DIV_ROUND_UP(MIN_V6ONLY_WAIT, USEC_PER_SEC));
+                if (r < 0)
+                        log_debug_errno(r, "Failed to parse IPv6 only preferred, ignoring: %m");
+                break;
+
 
         case SD_DHCP_OPTION_STATIC_ROUTE:
                 r = lease_parse_static_routes(lease, option, len);
