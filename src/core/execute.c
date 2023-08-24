@@ -50,12 +50,12 @@
 #include "chown-recursive.h"
 #include "constants.h"
 #include "cpu-set-util.h"
-#include "credential.h"
 #include "data-fd-util.h"
 #include "env-file.h"
 #include "env-util.h"
 #include "errno-list.h"
 #include "escape.h"
+#include "exec-credential.h"
 #include "execute.h"
 #include "exit-status.h"
 #include "fd-util.h"
@@ -4426,7 +4426,7 @@ static int exec_child(
         }
 
         if (FLAGS_SET(params->flags, EXEC_WRITE_CREDENTIALS)) {
-                r = setup_credentials(context, params, unit->id, uid, gid, &creds_path, &creds_fd);
+                r = exec_setup_credentials(context, params, unit->id, uid, gid, &creds_path, &creds_fd);
                 if (r < 0) {
                         *exit_status = EXIT_CREDENTIALS;
                         return log_unit_error_errno(unit, r, "Failed to set up credentials: %m");

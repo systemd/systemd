@@ -3,8 +3,8 @@
 #include <sys/mount.h>
 
 #include "acl-util.h"
-#include "credential.h"
 #include "creds-util.h"
+#include "exec-credential.h"
 #include "execute.h"
 #include "fileio.h"
 #include "glob-util.h"
@@ -901,7 +901,7 @@ static int setup_credentials_internal(
         return 0;
 }
 
-int setup_credentials(
+int exec_setup_credentials(
                 const ExecContext *context,
                 const ExecParameters *params,
                 const char *unit,
