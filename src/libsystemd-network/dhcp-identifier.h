@@ -17,15 +17,16 @@ typedef enum DUIDType {
         DUID_TYPE_EN        = 2,
         DUID_TYPE_LL        = 3,
         DUID_TYPE_UUID      = 4,
-        DUID_TYPE_CUSTOM    = 5,
         _DUID_TYPE_MAX,
         _DUID_TYPE_INVALID  = -EINVAL,
+        _DUID_TYPE_FORCE_U16 = UINT16_MAX,
 } DUIDType;
 
 /* RFC 3315 section 9.1:
  *      A DUID can be no more than 128 octets long (not including the type code).
  */
 #define MAX_DUID_LEN 128
+#define MAX_DUID_DATA_LEN (MAX_DUID_LEN - sizeof(be16_t))
 
 /* https://tools.ietf.org/html/rfc3315#section-9.1 */
 struct duid {
@@ -35,36 +36,46 @@ struct duid {
                         /* DUID_TYPE_LLT */
                         be16_t htype;
                         be32_t time;
-                        uint8_t haddr[0];
+                        uint8_t haddr[];
                 } _packed_ llt;
                 struct {
                         /* DUID_TYPE_EN */
                         be32_t pen;
-                        uint8_t id[8];
+                        uint8_t id[];
                 } _packed_ en;
                 struct {
                         /* DUID_TYPE_LL */
                         be16_t htype;
-                        uint8_t haddr[0];
+                        uint8_t haddr[];
                 } _packed_ ll;
                 struct {
                         /* DUID_TYPE_UUID */
                         sd_id128_t uuid;
                 } _packed_ uuid;
                 struct {
-                        uint8_t data[MAX_DUID_LEN];
+                        uint8_t data[MAX_DUID_DATA_LEN];
                 } _packed_ raw;
         };
 } _packed_;
 
 int dhcp_validate_duid_len(DUIDType duid_type, size_t duid_len, bool strict);
-int dhcp_identifier_set_duid_en(bool test_mode, struct duid *ret_duid, size_t *ret_len);
-int dhcp_identifier_set_duid(
-                DUIDType duid_type,
+int dhcp_identifier_set_duid_llt(
                 const struct hw_addr_data *hw_addr,
                 uint16_t arp_type,
-                usec_t llt_time,
-                bool test_mode,
+                usec_t t,
+                struct duid *ret_duid,
+                size_t *ret_len);
+int dhcp_identifier_set_duid_ll(
+                const struct hw_addr_data *hw_addr,
+                uint16_t arp_type,
+                struct duid *ret_duid,
+                size_t *ret_len);
+int dhcp_identifier_set_duid_en(bool test_mode, struct duid *ret_duid, size_t *ret_len);
+int dhcp_identifier_set_duid_uuid(struct duid *ret_duid, size_t *ret_len);
+int dhcp_identifier_set_duid_raw(
+                DUIDType duid_type,
+                const uint8_t *buf,
+                size_t buf_len,
                 struct duid *ret_duid,
                 size_t *ret_len);
 int dhcp_identifier_set_iaid(

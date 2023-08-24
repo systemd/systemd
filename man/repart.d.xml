@@ -83,8 +83,9 @@
         <constant>ppc64-le</constant>, <constant>riscv32</constant>, <constant>riscv64</constant>,
         <constant>s390</constant>, <constant>s390x</constant>, <constant>tilegx</constant>,
         <constant>x86</constant> (32-bit, aka i386) and <constant>x86-64</constant> (64-bit, aka amd64).
+        </para>
 
-        The supported identifiers are:</para>
+        <para>The supported identifiers are:</para>
 
         <table>
           <title>GPT partition type identifiers</title>
@@ -767,7 +768,8 @@
     <example>
       <title>Grow the root partition to the full disk size at first boot</title>
 
-      <para>With the following file the root partition is automatically grown to the full disk if possible during boot.</para>
+      <para>With the following file the root partition is automatically grown to the full disk if possible
+      during boot.</para>
 
       <para><programlisting># /usr/lib/repart.d/50-root.conf
 [Partition]
@@ -831,10 +833,11 @@ SizeMaxBytes=64M
     </example>
 
      <example>
-      <title>Create a data and verity partition from a OS tree</title>
+      <title>Create a data partition and corresponding verity partitions from a OS tree</title>
 
-      <para>Assuming we have an OS tree at /var/tmp/os-tree that we want to package in a root partition
-      together with a matching verity partition, we can do so as follows:</para>
+      <para>Assuming we have an OS tree at <filename index='false'>/var/tmp/os-tree</filename> that we want
+      to package in a root partition together with matching verity partitions, we can do so as follows:
+      </para>
 
       <para><programlisting># 50-root.conf
 [Partition]
@@ -842,6 +845,7 @@ Type=root
 CopyFiles=/var/tmp/os-tree
 Verity=data
 VerityMatchKey=root
+Minimize=guess
 </programlisting></para>
 
       <para><programlisting># 60-root-verity.conf
@@ -852,6 +856,14 @@ VerityMatchKey=root
 # Explicitly set the hash and data block size to 4K
 VerityDataBlockSizeBytes=4096
 VerityHashBlockSizeBytes=4096
+Minimize=best
+</programlisting></para>
+
+<para><programlisting># 70-root-verity-sig.conf
+[Partition]
+Type=root-verity-sig
+Verity=signature
+VerityMatchKey=root
 </programlisting></para>
     </example>
 

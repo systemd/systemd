@@ -8,13 +8,13 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Displays emergency message full screen.
-Documentation=man:systemd-bsod(8)
+Description=Displays emergency message in full screen.
+Documentation=man:systemd-bsod.service(8)
 ConditionVirtualization=no
 DefaultDependencies=no
-Conflicts=shutdown.target
-Before=shutdown.target
 After=systemd-battery-check.service
+Before=shutdown.target
+Conflicts=shutdown.target
 
 [Service]
 RemainAfterExit=yes

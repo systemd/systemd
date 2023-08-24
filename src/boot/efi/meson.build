@@ -3,49 +3,48 @@
 efi_config_h_dir = meson.current_build_dir()
 efi_addon = ''
 
-if efi_arch != ''
-        libefitest = static_library(
-                'efitest',
-                files(
-                        'bcd.c',
-                        'efi-string.c',
-                ),
-                build_by_default : false,
-                include_directories : [
-                        basic_includes,
-                        include_directories('.'),
-                ],
-                dependencies : userspace)
+libefitest = static_library(
+        'efitest',
+        files(
+                'bcd.c',
+                'efi-string.c',
+        ),
+        build_by_default : false,
+        include_directories : [
+                basic_includes,
+                include_directories('.'),
+        ],
+        dependencies : userspace)
 
-        efitest_base = {
-                'link_with' : [
-                        libefitest,
-                        libshared,
-                ],
-        }
-        efi_test_template = test_template + efitest_base
-        efi_fuzz_template = fuzz_template + efitest_base
+efitest_base = {
+        'link_with' : [
+                libefitest,
+                libshared,
+        ],
+}
+efi_test_template = test_template + efitest_base
+efi_fuzz_template = fuzz_template + efitest_base
 
-        executables += [
-                efi_test_template + {
-                        'sources' : files('test-bcd.c'),
-                        'dependencies' : libzstd,
-                        'conditions' : ['HAVE_ZSTD'],
-                },
-                efi_test_template + {
-                        'sources' : files('test-efi-string.c'),
-                },
-                efi_fuzz_template + {
-                        'sources' : files('fuzz-bcd.c'),
-                },
-                efi_fuzz_template + {
-                        'sources' : files('fuzz-efi-string.c'),
-                },
-                efi_fuzz_template + {
-                        'sources' : files('fuzz-efi-printf.c'),
-                },
-        ]
-endif
+executables += [
+        efi_test_template + {
+                'sources' : files('test-bcd.c'),
+                'dependencies' : libzstd,
+                'conditions' : ['ENABLE_BOOTLOADER', 'HAVE_ZSTD'],
+        },
+        efi_test_template + {
+                'sources' : files('test-efi-string.c'),
+                'conditions' : ['ENABLE_BOOTLOADER'],
+        },
+        efi_fuzz_template + {
+                'sources' : files('fuzz-bcd.c'),
+        },
+        efi_fuzz_template + {
+                'sources' : files('fuzz-efi-string.c'),
+        },
+        efi_fuzz_template + {
+                'sources' : files('fuzz-efi-printf.c'),
+        },
+]
 
 if conf.get('ENABLE_BOOTLOADER') != 1
         subdir_done()

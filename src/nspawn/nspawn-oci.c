@@ -1,9 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <linux/oom.h>
-#if HAVE_SECCOMP
-#include <seccomp.h>
-#endif
 
 #include "bus-util.h"
 #include "cap-list.h"
@@ -19,9 +16,7 @@
 #include "nspawn-oci.h"
 #include "path-util.h"
 #include "rlimit-util.h"
-#if HAVE_SECCOMP
 #include "seccomp-util.h"
-#endif
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"

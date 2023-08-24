@@ -284,3 +284,5 @@ char *startswith_strv(const char *string, char **strv);
 bool version_is_valid(const char *s);
 
 bool version_is_valid_versionspec(const char *s);
+
+ssize_t strlevenshtein(const char *x, const char *y);

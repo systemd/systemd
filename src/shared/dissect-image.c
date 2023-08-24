@@ -111,27 +111,10 @@ int dissect_fstype_ok(const char *fstype) {
 
 int probe_sector_size(int fd, uint32_t *ret) {
 
-        struct gpt_header {
-                char signature[8];
-                le32_t revision;
-                le32_t header_size;
-                le32_t crc32;
-                le32_t reserved;
-                le64_t my_lba;
-                le64_t alternate_lba;
-                le64_t first_usable_lba;
-                le64_t last_usable_lba;
-                sd_id128_t disk_guid;
-                le64_t partition_entry_lba;
-                le32_t number_of_partition_entries;
-                le32_t size_of_partition_entry;
-                le32_t partition_entry_array_crc32;
-        } _packed_;
-
         /* Disk images might be for 512B or for 4096 sector sizes, let's try to auto-detect that by searching
          * for the GPT headers at the relevant byte offsets */
 
-        assert_cc(sizeof(struct gpt_header) == 92);
+        assert_cc(sizeof(GptHeader) == 92);
 
         /* We expect a sector size in the range 512…4096. The GPT header is located in the second
          * sector. Hence it could be at byte 512 at the earliest, and at byte 4096 at the latest. And we must
@@ -151,24 +134,12 @@ int probe_sector_size(int fd, uint32_t *ret) {
 
         /* Let's see if we find the GPT partition header with various expected sector sizes */
         for (uint32_t sz = 512; sz <= 4096; sz <<= 1) {
-                struct gpt_header *p;
+                const GptHeader *p;
 
                 assert(sizeof(sectors) >= sz * 2);
-                p = (struct gpt_header*) (sectors + sz);
+                p = (const GptHeader*) (sectors + sz);
 
-                if (memcmp(p->signature, (const char[8]) { 'E', 'F', 'I', ' ', 'P', 'A', 'R', 'T' }, 8) != 0)
-                        continue;
-
-                if (le32toh(p->revision) != UINT32_C(0x00010000)) /* the only known revision of the spec: 1.0 */
-                        continue;
-
-                if (le32toh(p->header_size) < sizeof(struct gpt_header))
-                        continue;
-
-                if (le32toh(p->header_size) > 4096) /* larger than a sector? something is off… */
-                        continue;
-
-                if (le64toh(p->my_lba) != 1) /* this sector must claim to be at sector offset 1 */
+                if (!gpt_header_has_signature(p))
                         continue;
 
                 if (found != 0)
@@ -2437,7 +2408,7 @@ static int verity_can_reuse(
         return 0;
 }
 
-static inline char* dm_deferred_remove_clean(char *name) {
+static char* dm_deferred_remove_clean(char *name) {
         if (!name)
                 return NULL;
 

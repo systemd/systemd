@@ -265,26 +265,36 @@ char16_t *xstr8_to_path(const char *str8) {
         return path;
 }
 
-void mangle_stub_cmdline(char16_t *cmdline) {
-        char16_t *p = cmdline;
+static bool shall_be_whitespace(char16_t c) {
+        return c <= 0x20U || c == 0x7FU; /* All control characters + space */
+}
+
+char16_t* mangle_stub_cmdline(char16_t *cmdline) {
+        char16_t *p, *q, *e;
 
         if (!cmdline)
-                return;
+                return cmdline;
 
-        for (; *cmdline != '\0'; cmdline++)
-                /* Convert ASCII control characters to spaces. */
-                if (*cmdline <= 0x1F)
-                        *cmdline = ' ';
+        p = q = cmdline;
 
-        /* chomp the trailing whitespaces */
-        while (cmdline != p) {
-                --cmdline;
+        /* Skip initial whitespace */
+        while (shall_be_whitespace(*p))
+                p++;
 
-                if (*cmdline != ' ')
-                        break;
+        /* Turn inner control characters into proper spaces */
+        for (e = p; *p != 0; p++) {
+                if (shall_be_whitespace(*p)) {
+                        *(q++) = ' ';
+                        continue;
+                }
 
-                *cmdline = '\0';
+                *(q++) = *p;
+                e = q; /* remember last non-whitespace char */
         }
+
+        /* Chop off trailing whitespace */
+        *e = 0;
+        return cmdline;
 }
 
 EFI_STATUS chunked_read(EFI_FILE *file, size_t *size, void *buf) {
@@ -564,13 +574,13 @@ __attribute__((noinline)) void notify_debugger(const char *identity, volatile bo
 }
 
 #if defined(__i386__) || defined(__x86_64__)
-static inline uint8_t inb(uint16_t port) {
+static uint8_t inb(uint16_t port) {
         uint8_t value;
         asm volatile("inb %1, %0" : "=a"(value) : "Nd"(port));
         return value;
 }
 
-static inline void outb(uint16_t port, uint8_t value) {
+static void outb(uint16_t port, uint8_t value) {
         asm volatile("outb %0, %1" : : "a"(value), "Nd"(port));
 }
 

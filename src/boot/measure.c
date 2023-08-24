@@ -43,7 +43,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_public_key, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_phase, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_append, freep);
 
-static inline void free_sections(char*(*sections)[_UNIFIED_SECTION_MAX]) {
+static void free_sections(char*(*sections)[_UNIFIED_SECTION_MAX]) {
         for (UnifiedSection c = 0; c < _UNIFIED_SECTION_MAX; c++)
                 free((*sections)[c]);
 }
@@ -693,21 +693,16 @@ static int verb_calculate(int argc, char *argv[], void *userdata) {
 
                                 printf("%" PRIu32 ":%s=%s\n", TPM_PCR_INDEX_KERNEL_IMAGE, pcr_states[i].bank, hd);
                         } else {
-                                _cleanup_(json_variant_unrefp) JsonVariant *bv = NULL, *array = NULL;
+                                _cleanup_(json_variant_unrefp) JsonVariant *array = NULL;
 
                                 array = json_variant_ref(json_variant_by_key(w, pcr_states[i].bank));
 
-                                r = json_build(&bv,
-                                               JSON_BUILD_OBJECT(
-                                                               JSON_BUILD_PAIR_CONDITION(!isempty(*phase), "phase", JSON_BUILD_STRING(*phase)),
-                                                               JSON_BUILD_PAIR("pcr", JSON_BUILD_INTEGER(TPM_PCR_INDEX_KERNEL_IMAGE)),
-                                                               JSON_BUILD_PAIR("hash", JSON_BUILD_HEX(pcr_states[i].value, pcr_states[i].value_size))
-                                               )
-                                );
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to build JSON object: %m");
-
-                                r = json_variant_append_array(&array, bv);
+                                r = json_variant_append_arrayb(
+                                                &array,
+                                                JSON_BUILD_OBJECT(
+                                                                JSON_BUILD_PAIR_CONDITION(!isempty(*phase), "phase", JSON_BUILD_STRING(*phase)),
+                                                                JSON_BUILD_PAIR("pcr", JSON_BUILD_INTEGER(TPM_PCR_INDEX_KERNEL_IMAGE)),
+                                                                JSON_BUILD_PAIR("hash", JSON_BUILD_HEX(pcr_states[i].value, pcr_states[i].value_size))));
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to append JSON object to array: %m");
 

@@ -196,7 +196,7 @@ Route.GatewayOnlink,                         config_parse_route_boolean,        
 Route.IPv6Preference,                        config_parse_ipv6_route_preference,                       0,                             0
 Route.Protocol,                              config_parse_route_protocol,                              0,                             0
 Route.Type,                                  config_parse_route_type,                                  0,                             0
-Route.TCPRetransmissionTimeOutSec,           config_parse_route_tcp_rto,                               0,                             0
+Route.TCPRetransmissionTimeoutSec,           config_parse_route_tcp_rto,                               0,                             0
 Route.HopLimit,                              config_parse_route_hop_limit,                             0,                             0
 Route.InitialCongestionWindow,               config_parse_route_tcp_window,                            0,                             0
 Route.InitialAdvertisedReceiveWindow,        config_parse_route_tcp_window,                            0,                             0
@@ -368,9 +368,11 @@ DHCPPrefixDelegation.Token,                  config_parse_address_generation_typ
 DHCPPrefixDelegation.RouteMetric,            config_parse_uint32,                                      0,                             offsetof(Network, dhcp_pd_route_metric)
 DHCPPrefixDelegation.NetLabel,               config_parse_string,                                      CONFIG_PARSE_STRING_SAFE,      offsetof(Network, dhcp_pd_netlabel)
 IPv6SendRA.RouterLifetimeSec,                config_parse_router_lifetime,                             0,                             offsetof(Network, router_lifetime_usec)
+IPv6SendRA.RetransmitSec,                    config_parse_router_retransmit,                           0,                             offsetof(Network, router_retransmit_usec)
 IPv6SendRA.Managed,                          config_parse_bool,                                        0,                             offsetof(Network, router_managed)
 IPv6SendRA.OtherInformation,                 config_parse_bool,                                        0,                             offsetof(Network, router_other_information)
 IPv6SendRA.RouterPreference,                 config_parse_router_preference,                           0,                             0
+IPv6SendRA.HopLimit,                         config_parse_uint8,                                       0,                             offsetof(Network, router_hop_limit)
 IPv6SendRA.EmitDNS,                          config_parse_bool,                                        0,                             offsetof(Network, router_emit_dns)
 IPv6SendRA.DNS,                              config_parse_radv_dns,                                    0,                             0
 IPv6SendRA.EmitDomains,                      config_parse_bool,                                        0,                             offsetof(Network, router_emit_domains)

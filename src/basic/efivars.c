@@ -265,7 +265,7 @@ finish:
 int efi_set_variable_string(const char *variable, const char *value) {
         _cleanup_free_ char16_t *u16 = NULL;
 
-        u16 = utf8_to_utf16(value, strlen(value));
+        u16 = utf8_to_utf16(value, SIZE_MAX);
         if (!u16)
                 return -ENOMEM;
 
@@ -415,7 +415,7 @@ int systemd_efi_options_variable(char **ret) {
         return r;
 }
 
-static inline int compare_stat_mtime(const struct stat *a, const struct stat *b) {
+static int compare_stat_mtime(const struct stat *a, const struct stat *b) {
         return CMP(timespec_load(&a->st_mtim), timespec_load(&b->st_mtim));
 }
 

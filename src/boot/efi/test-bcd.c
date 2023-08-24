@@ -152,7 +152,7 @@ TEST(argv_bcds) {
 
                 char16_t *title = get_bcd_title(bcd, len);
                 if (title) {
-                        _cleanup_free_ char *title_utf8 = utf16_to_utf8(title, char16_strlen(title) * 2);
+                        _cleanup_free_ char *title_utf8 = utf16_to_utf8(title, SIZE_MAX);
                         log_info("%s: \"%s\"", saved_argv[i], title_utf8);
                 } else
                         log_info("%s: Bad BCD", saved_argv[i]);

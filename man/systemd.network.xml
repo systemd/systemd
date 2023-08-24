@@ -1620,7 +1620,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
       <varlistentry>
         <term><varname>HopLimit=</varname></term>
         <listitem>
-          <para> Configures per route hop limit. See also <varname>IPv6HopLimit=</varname>.</para>
+          <para>Configures per route hop limit. Takes an integer in the range 1…255. See also
+          <varname>IPv6HopLimit=</varname>.</para>
         </listitem>
       </varlistentry>
 
@@ -1727,11 +1728,11 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
       </varlistentry>
 
       <varlistentry>
-        <term><varname>TCPRetransmissionTimeOutSec=</varname></term>
+        <term><varname>TCPRetransmissionTimeoutSec=</varname></term>
         <listitem>
-          <para>Specifies the TCP Retransmission Time Out for the route. Takes time values in seconds.
-            This value specifies the timeout of an alive TCP connection, when RTO retransmissions remain unacknowledged.
-            When unset, the kernel's default will be used.</para>
+          <para>Specifies the TCP Retransmission Timeout (RTO) for the route. Takes time values in seconds.
+          This value specifies the timeout of an alive TCP connection, when retransmissions remain
+          unacknowledged. When unset, the kernel's default will be used.</para>
         </listitem>
       </varlistentry>
 
@@ -3076,6 +3077,15 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>RetransmitSec=</varname></term>
+
+        <listitem><para>Takes a timespan. Configures the retransmit time, used by clients to retransmit Neighbor
+        Solicitation messages on address resolution and the Neighbor Unreachability Detection algorithm.
+        An integer the default unit of seconds, in the range 0…4294967295 msec. Defaults to 0.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>RouterPreference=</varname></term>
 
         <listitem><para>Configures IPv6 router preference if
@@ -3086,6 +3096,14 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         <literal>medium</literal> just to make configuration easier. See
         <ulink url="https://tools.ietf.org/html/rfc4191">RFC 4191</ulink>
         for details. Defaults to <literal>medium</literal>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>HopLimit=</varname></term>
+        <listitem>
+          <para>Configures hop limit. Takes an integer in the range 0…255. See also
+          <varname>IPv6HopLimit=</varname>.</para>
+        </listitem>
       </varlistentry>
 
       <varlistentry>

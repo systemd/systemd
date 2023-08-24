@@ -11,5 +11,5 @@ Gateway=_ipv6ra
 Destination=2001:1234:5:9fff:ff:ff:ff:ff/128
 
 [DHCPv6]
-DUIDType=custom
+DUIDType=0x42
 DUIDRawData=00:00:ab:11:f9:2a:c2:77:29:f9:5c:00

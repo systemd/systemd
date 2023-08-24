@@ -8,9 +8,6 @@
 #include <sys/prctl.h>
 #include <sys/utsname.h>
 #include <unistd.h>
-#if HAVE_SECCOMP
-#include <seccomp.h>
-#endif
 #if HAVE_VALGRIND_VALGRIND_H
 #  include <valgrind/valgrind.h>
 #endif
@@ -82,9 +79,7 @@
 #include "psi-util.h"
 #include "random-util.h"
 #include "rlimit-util.h"
-#if HAVE_SECCOMP
 #include "seccomp-util.h"
-#endif
 #include "selinux-setup.h"
 #include "selinux-util.h"
 #include "signal-util.h"

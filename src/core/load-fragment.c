@@ -7,9 +7,6 @@
 #include <fcntl.h>
 #include <linux/fs.h>
 #include <linux/oom.h>
-#if HAVE_SECCOMP
-#include <seccomp.h>
-#endif
 #include <sched.h>
 #include <sys/resource.h>
 
@@ -31,6 +28,7 @@
 #include "conf-parser.h"
 #include "core-varlink.h"
 #include "cpu-set-util.h"
+#include "credential.h"
 #include "creds-util.h"
 #include "env-util.h"
 #include "errno-list.h"
@@ -56,9 +54,7 @@
 #include "pcre2-util.h"
 #include "percent-util.h"
 #include "process-util.h"
-#if HAVE_SECCOMP
 #include "seccomp-util.h"
-#endif
 #include "securebits-util.h"
 #include "selinux-util.h"
 #include "signal-util.h"

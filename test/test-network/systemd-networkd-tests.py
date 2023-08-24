@@ -5034,20 +5034,10 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertRegex(output, r'inet6 2600::[0-9a-f:]*/128 scope global dynamic noprefixroute')
         self.assertNotIn('192.168.5', output)
 
-        # checking semi-static route
-        output = check_output('ip -6 route list dev veth99 2001:1234:5:9fff:ff:ff:ff:ff')
-        print(output)
-        self.assertRegex(output, 'via fe80::1034:56ff:fe78:9abd')
-
-        # Confirm that ipv6 token is not set in the kernel
-        output = check_output('ip token show dev veth99')
-        print(output)
-        self.assertRegex(output, 'token :: dev veth99')
-
         print('## dnsmasq log')
         output = read_dnsmasq_log_file()
         print(output)
-        self.assertIn('DHCPSOLICIT(veth-peer) 00:00:ab:11:f9:2a:c2:77:29:f9:5c:00', output)
+        self.assertIn('DHCPSOLICIT(veth-peer) 00:42:00:00:ab:11:f9:2a:c2:77:29:f9:5c:00', output)
         self.assertNotIn('DHCPADVERTISE(veth-peer)', output)
         self.assertNotIn('DHCPREQUEST(veth-peer)', output)
         self.assertIn('DHCPREPLY(veth-peer)', output)

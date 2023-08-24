@@ -903,7 +903,7 @@ static int apply_identity_changes(JsonVariant **_v) {
         if (r < 0)
                 return log_error_errno(r, "Failed to filter identity: %m");
 
-        r = json_variant_merge(&v, arg_identity_extra);
+        r = json_variant_merge_object(&v, arg_identity_extra);
         if (r < 0)
                 return log_error_errno(r, "Failed to merge identities: %m");
 
@@ -948,7 +948,7 @@ static int apply_identity_changes(JsonVariant **_v) {
                                 if (!json_variant_equal(u, mmid))
                                         continue;
 
-                                r = json_variant_merge(&add, z);
+                                r = json_variant_merge_object(&add, z);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to merge perMachine entry: %m");
 
@@ -959,7 +959,7 @@ static int apply_identity_changes(JsonVariant **_v) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to filter perMachine: %m");
 
-                        r = json_variant_merge(&add, arg_identity_extra_this_machine);
+                        r = json_variant_merge_object(&add, arg_identity_extra_this_machine);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to merge in perMachine fields: %m");
 
@@ -972,7 +972,7 @@ static int apply_identity_changes(JsonVariant **_v) {
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to filter resource limits: %m");
 
-                                r = json_variant_merge(&rlv, arg_identity_extra_rlimits);
+                                r = json_variant_merge_object(&rlv, arg_identity_extra_rlimits);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to set resource limits: %m");
 
@@ -1033,7 +1033,7 @@ static int apply_identity_changes(JsonVariant **_v) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to filter identity (privileged part): %m");
 
-                r = json_variant_merge(&privileged, arg_identity_extra_privileged);
+                r = json_variant_merge_object(&privileged, arg_identity_extra_privileged);
                 if (r < 0)
                         return log_error_errno(r, "Failed to merge identities (privileged part): %m");
 
@@ -2708,7 +2708,7 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
                 case ARG_RLIMIT: {
-                        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *jcur = NULL, *jmax = NULL;
+                        _cleanup_(json_variant_unrefp) JsonVariant *jcur = NULL, *jmax = NULL;
                         _cleanup_free_ char *field = NULL, *t = NULL;
                         const char *eq;
                         struct rlimit rl;
@@ -2764,18 +2764,15 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to allocate maximum integer: %m");
 
-                        r = json_build(&v,
-                                       JSON_BUILD_OBJECT(
-                                                       JSON_BUILD_PAIR("cur", JSON_BUILD_VARIANT(jcur)),
-                                                       JSON_BUILD_PAIR("max", JSON_BUILD_VARIANT(jmax))));
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to build resource limit: %m");
-
                         t = strjoin("RLIMIT_", rlimit_to_string(l));
                         if (!t)
                                 return log_oom();
 
-                        r = json_variant_set_field(&arg_identity_extra_rlimits, t, v);
+                        r = json_variant_set_fieldb(
+                                        &arg_identity_extra_rlimits, t,
+                                        JSON_BUILD_OBJECT(
+                                                        JSON_BUILD_PAIR("cur", JSON_BUILD_VARIANT(jcur)),
+                                                        JSON_BUILD_PAIR("max", JSON_BUILD_VARIANT(jmax))));
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set %s field: %m", rlimit_to_string(l));
 

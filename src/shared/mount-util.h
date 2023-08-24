@@ -124,14 +124,6 @@ int make_userns(uid_t uid_shift, uid_t uid_range, uid_t owner, RemountIdmapping 
 int remount_idmap_fd(const char *p, int userns_fd);
 int remount_idmap(const char *p, uid_t uid_shift, uid_t uid_range, uid_t owner, RemountIdmapping idmapping);
 
-int remount_and_move_sub_mounts(
-                const char *what,
-                const char *where,
-                const char *type,
-                unsigned long flags,
-                const char *options);
-int remount_sysfs(const char *where);
-
 int bind_mount_submounts(
                 const char *source,
                 const char *target);

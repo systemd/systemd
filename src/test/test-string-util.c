@@ -1292,4 +1292,28 @@ TEST(strextendn) {
         x = mfree(x);
 }
 
+TEST(strlevenshtein) {
+        assert_se(strlevenshtein(NULL, NULL) == 0);
+        assert_se(strlevenshtein("", "") == 0);
+        assert_se(strlevenshtein("", NULL) == 0);
+        assert_se(strlevenshtein(NULL, "") == 0);
+
+        assert_se(strlevenshtein("a", "a") == 0);
+        assert_se(strlevenshtein("a", "b") == 1);
+        assert_se(strlevenshtein("b", "a") == 1);
+        assert_se(strlevenshtein("a", "") == 1);
+        assert_se(strlevenshtein("", "a") == 1);
+
+        assert_se(strlevenshtein("xxx", "xxx") == 0);
+        assert_se(strlevenshtein("xxx", "yyy") == 3);
+        assert_se(strlevenshtein("yyy", "xxx") == 3);
+        assert_se(strlevenshtein("xx", "xxx") == 1);
+        assert_se(strlevenshtein("xxx", "xx") == 1);
+        assert_se(strlevenshtein("x", "xxx") == 2);
+        assert_se(strlevenshtein("xxx", "x") == 2);
+
+        assert_se(strlevenshtein("sitting", "kitten") == 3);
+        assert_se(strlevenshtein("sunday", "saturday") == 3);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);

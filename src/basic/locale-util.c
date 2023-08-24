@@ -340,11 +340,7 @@ out:
 }
 
 void locale_variables_free(char *l[_VARIABLE_LC_MAX]) {
-        if (!l)
-                return;
-
-        for (LocaleVariable i = 0; i < _VARIABLE_LC_MAX; i++)
-                l[i] = mfree(l[i]);
+        free_many_charp(l, _VARIABLE_LC_MAX);
 }
 
 void locale_variables_simplify(char *l[_VARIABLE_LC_MAX]) {

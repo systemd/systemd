@@ -33,13 +33,13 @@ conf.set_quoted('RELATIVE_SOURCE_PATH', relative_source_path)
 
 conf.set10('BUILD_MODE_DEVELOPER', get_option('mode') == 'developer',
            description : 'tailor build to development or release builds')
-verification = get_option('log-message-verification')
-if verification == 'auto'
-        verification = conf.get('BUILD_MODE_DEVELOPER') == 1
+feature = get_option('log-message-verification')
+if feature.auto()
+        have = conf.get('BUILD_MODE_DEVELOPER') == 1
 else
-        verification = verification == 'true'
+        have = feature.enabled()
 endif
-conf.set10('LOG_MESSAGE_VERIFICATION', verification)
+conf.set10('LOG_MESSAGE_VERIFICATION', have)
 
 want_ossfuzz = get_option('oss-fuzz')
 want_libfuzzer = get_option('llvm-fuzz')
@@ -47,7 +47,6 @@ if want_ossfuzz and want_libfuzzer
         error('only one of oss-fuzz or llvm-fuzz can be specified')
 endif
 
-skip_deps = want_ossfuzz or get_option('skip-deps')
 fuzzer_build = want_ossfuzz or want_libfuzzer
 
 # If we're building *not* for actual fuzzing, allow input samples of any size
@@ -1027,23 +1026,14 @@ foreach ident : [
         conf.set10('HAVE_' + ident[0].to_upper(), have)
 endforeach
 
-want_bpf_framework = get_option('bpf-framework')
+bpf_framework = get_option('bpf-framework')
 bpf_compiler = get_option('bpf-compiler')
-bpf_framework_required = want_bpf_framework == 'true'
-
-libbpf_version_requirement = '>= 0.1.0'
-if bpf_compiler == 'gcc'
-        libbpf_version_requirement = '>= 1.0.0'
-endif
-libbpf = dependency('libbpf', required : bpf_framework_required, version : libbpf_version_requirement)
+libbpf = dependency('libbpf',
+                    required : bpf_framework,
+                    version : bpf_compiler == 'gcc' ? '>= 1.0.0' : '>= 0.1.0')
 conf.set10('HAVE_LIBBPF', libbpf.found())
 
-bpftool_strip_version_requirement = '>= 5.13.0'
-if bpf_compiler == 'gcc'
-        bpftool_strip_version_requirement = '>= 7.0.0'
-endif
-
-if want_bpf_framework == 'false' or not libbpf.found() or skip_deps
+if not libbpf.found()
         conf.set10('BPF_FRAMEWORK', false)
 else
         clang_found = false
@@ -1056,7 +1046,9 @@ else
                 # Support 'versioned' clang/llvm-strip binaries, as seen on Debian/Ubuntu
                 # (like clang-10/llvm-strip-10)
                 if meson.is_cross_build() or cc.get_id() != 'clang' or cc.cmd_array()[0].contains('afl-clang') or cc.cmd_array()[0].contains('hfuzz-clang')
-                        r = find_program('clang', required : bpf_framework_required, version : '>= 10.0.0')
+                        r = find_program('clang',
+                                         required : bpf_framework,
+                                         version : '>= 10.0.0')
                         clang_found = r.found()
                         if clang_found
                                 clang = r.full_path()
@@ -1082,11 +1074,10 @@ else
                 # Debian installs this in /usr/sbin/ which is not in $PATH.
                 # We check for 'bpftool' first, honouring $PATH, and in /usr/sbin/ for Debian.
                 # We use 'bpftool gen object' subcommand for bpftool strip, it was added by d80b2fcbe0a023619e0fc73112f2a02c2662f6ab (v5.13).
-                bpftool_strip_required = bpf_framework_required and bpf_compiler == 'gcc'
                 bpftool = find_program('bpftool',
                                        '/usr/sbin/bpftool',
-                                       required : bpftool_strip_required,
-                                       version : bpftool_strip_version_requirement)
+                                       required : bpf_framework.enabled() and bpf_compiler == 'gcc',
+                                       version : bpf_compiler == 'gcc' ? '>= 7.0.0' : '>= 5.13.0')
 
                 if bpftool.found()
                         bpftool_strip = true
@@ -1095,7 +1086,7 @@ else
                         # We require the 'bpftool gen skeleton' subcommand, it was added by 985ead416df39d6fe8e89580cc1db6aa273e0175 (v5.6).
                         bpftool = find_program('bpftool',
                                                '/usr/sbin/bpftool',
-                                               required : bpf_framework_required,
+                                               required : bpf_framework,
                                                version : '>= 5.6.0')
                 endif
 
@@ -1107,7 +1098,9 @@ else
                         else
                                 llvm_strip_bin = 'llvm-strip'
                         endif
-                        llvm_strip = find_program(llvm_strip_bin, required : bpf_framework_required, version : '>= 10.0.0')
+                        llvm_strip = find_program(llvm_strip_bin,
+                                                  required : bpf_framework,
+                                                  version : '>= 10.0.0')
                         deps_found = llvm_strip.found()
                 endif
         endif
@@ -1119,80 +1112,40 @@ endif
 libmount = dependency('mount',
                       version : fuzzer_build ? '>= 0' : '>= 2.30')
 
-want_libfdisk = get_option('fdisk')
-if want_libfdisk != 'false' and not skip_deps
-        libfdisk = dependency('fdisk',
-                              version : '>= 2.32',
-                              required : want_libfdisk == 'true')
-        have = libfdisk.found()
-else
-        have = false
-        libfdisk = []
-endif
-conf.set10('HAVE_LIBFDISK', have)
+libfdisk = dependency('fdisk',
+                      version : '>= 2.32',
+                      disabler : true,
+                      required : get_option('fdisk'))
+conf.set10('HAVE_LIBFDISK', libfdisk.found())
 
-want_passwdqc = get_option('passwdqc')
-want_pwquality = get_option('pwquality')
-if want_passwdqc == 'true' and want_pwquality == 'true'
-        error('passwdqc and pwquality cannot be requested simultaneously')
-endif
-
-if want_pwquality != 'false' and want_passwdqc != 'true' and not skip_deps
-        libpwquality = dependency('pwquality',
-                                  version : '>= 1.4.1',
-                                  required : want_pwquality == 'true')
-        have = libpwquality.found()
-else
-        have = false
-        libpwquality = []
+# This prefers pwquality if both are enabled or auto.
+feature = get_option('pwquality').disable_auto_if(get_option('passwdqc').enabled())
+libpwquality = dependency('pwquality',
+                          version : '>= 1.4.1',
+                          required : feature)
+have = libpwquality.found()
+if not have
+        # libpwquality is used for both features for simplicity
+        libpwquality = dependency('passwdqc',
+                                  required : get_option('passwdqc'))
 endif
 conf.set10('HAVE_PWQUALITY', have)
+conf.set10('HAVE_PASSWDQC', not have and libpwquality.found())
 
-if not have and want_passwdqc != 'false' and not skip_deps
-        libpasswdqc = dependency('passwdqc',
-                                 required : want_passwdqc == 'true')
-        have = libpasswdqc.found()
-else
-        have = false
-        libpasswdqc = []
-endif
-conf.set10('HAVE_PASSWDQC', have)
+libseccomp = dependency('libseccomp',
+                        version : '>= 2.3.1',
+                        required : get_option('seccomp'))
+conf.set10('HAVE_SECCOMP', libseccomp.found())
 
-want_seccomp = get_option('seccomp')
-if want_seccomp != 'false' and not skip_deps
-        libseccomp = dependency('libseccomp',
-                                version : '>= 2.3.1',
-                                required : want_seccomp == 'true')
-        have = libseccomp.found()
-else
-        have = false
-        libseccomp = []
-endif
-conf.set10('HAVE_SECCOMP', have)
+libselinux = dependency('libselinux',
+                        version : '>= 2.1.9',
+                        required : get_option('selinux'))
+conf.set10('HAVE_SELINUX', libselinux.found())
 
-want_selinux = get_option('selinux')
-if want_selinux != 'false' and not skip_deps
-        libselinux = dependency('libselinux',
-                                version : '>= 2.1.9',
-                                required : want_selinux == 'true')
-        have = libselinux.found()
-else
-        have = false
-        libselinux = []
-endif
-conf.set10('HAVE_SELINUX', have)
-
-want_apparmor = get_option('apparmor')
-if want_apparmor != 'false' and not skip_deps
-        libapparmor = dependency('libapparmor',
-                                 version : '>= 2.13',
-                                 required : want_apparmor == 'true')
-        have = libapparmor.found()
-else
-        have = false
-        libapparmor = []
-endif
-conf.set10('HAVE_APPARMOR', have)
+libapparmor = dependency('libapparmor',
+                         version : '>= 2.13',
+                         required : get_option('apparmor'))
+conf.set10('HAVE_APPARMOR', libapparmor.found())
 
 have = get_option('smack') and get_option('smack-run-label') != ''
 conf.set10('HAVE_SMACK_RUN_LABEL', have)
@@ -1205,141 +1158,89 @@ if have
         conf.set_quoted('SMACK_DEFAULT_PROCESS_LABEL', get_option('smack-default-process-label'))
 endif
 
-want_polkit = get_option('polkit')
-install_polkit = false
-install_polkit_pkla = false
-if want_polkit != 'false' and not skip_deps
-        install_polkit = true
-
-        libpolkit = dependency('polkit-gobject-1',
-                               required : false)
-        if libpolkit.found() and libpolkit.version().version_compare('< 0.106')
-                message('Old polkit detected, will install pkla files')
-                install_polkit_pkla = true
-        endif
+feature = get_option('polkit')
+libpolkit = dependency('polkit-gobject-1',
+                       required : feature.disabled() ? feature : false)
+install_polkit = feature.allowed()
+install_polkit_pkla = libpolkit.found() and libpolkit.version().version_compare('< 0.106')
+if install_polkit_pkla
+        message('Old polkit detected, will install pkla files')
 endif
 conf.set10('ENABLE_POLKIT', install_polkit)
 
-want_acl = get_option('acl')
-if want_acl != 'false' and not skip_deps
-        libacl = dependency('libacl', required : want_acl == 'true')
-        have = libacl.found()
-else
-        have = false
-        libacl = []
+libacl = dependency('libacl',
+                    required : get_option('acl'))
+conf.set10('HAVE_ACL', libacl.found())
+
+libaudit = dependency('audit',
+                      required : get_option('audit'))
+conf.set10('HAVE_AUDIT', libaudit.found())
+
+libblkid = dependency('blkid',
+                      required : get_option('blkid'))
+conf.set10('HAVE_BLKID', libblkid.found())
+conf.set10('HAVE_BLKID_PROBE_SET_HINT',
+           libblkid.found() and cc.has_function('blkid_probe_set_hint', dependencies : libblkid))
+
+libkmod = dependency('libkmod',
+                     version : '>= 15',
+                     required : get_option('kmod'))
+conf.set10('HAVE_KMOD', libkmod.found())
+
+libxenctrl = dependency('xencontrol',
+                        version : '>= 4.9',
+                        required : get_option('xenctrl'))
+conf.set10('HAVE_XENCTRL', libxenctrl.found())
+
+feature = get_option('pam')
+libpam = dependency('pam',
+                    required : feature.disabled() ? feature : false)
+if not libpam.found()
+        # Debian older than bookworm and Ubuntu older than 22.10 do not provide the .pc file.
+        libpam = cc.find_library('pam', required : feature)
 endif
-conf.set10('HAVE_ACL', have)
-
-want_audit = get_option('audit')
-if want_audit != 'false' and not skip_deps
-        libaudit = dependency('audit', required : want_audit == 'true')
-        have = libaudit.found()
-else
-        have = false
-        libaudit = []
+libpam_misc = dependency('pam_misc',
+                         required : feature.disabled() ? feature : false)
+if not libpam_misc.found()
+        libpam_misc = cc.find_library('pam_misc', required : feature)
 endif
-conf.set10('HAVE_AUDIT', have)
+conf.set10('HAVE_PAM', libpam.found() and libpam_misc.found())
 
-want_blkid = get_option('blkid')
-if want_blkid != 'false' and not skip_deps
-        libblkid = dependency('blkid', required : want_blkid == 'true')
-        have = libblkid.found()
+libmicrohttpd = dependency('libmicrohttpd',
+                           version : '>= 0.9.33',
+                           required : get_option('microhttpd'))
+conf.set10('HAVE_MICROHTTPD', libmicrohttpd.found())
 
-        conf.set10('HAVE_BLKID_PROBE_SET_HINT',
-                   have and cc.has_function('blkid_probe_set_hint', dependencies : libblkid))
-else
-        have = false
-        libblkid = []
-endif
-conf.set10('HAVE_BLKID', have)
-
-want_kmod = get_option('kmod')
-if want_kmod != 'false' and not skip_deps
-        libkmod = dependency('libkmod',
-                             version : '>= 15',
-                             required : want_kmod == 'true')
-        have = libkmod.found()
-else
-        have = false
-        libkmod = []
-endif
-conf.set10('HAVE_KMOD', have)
-
-want_xenctrl = get_option('xenctrl')
-if want_xenctrl != 'false' and not skip_deps
-        libxenctrl = dependency('xencontrol',
-                                version : '>= 4.9',
-                                required : want_xenctrl == 'true')
-        have = libxenctrl.found()
-else
-        have = false
-        libxenctrl = []
-endif
-conf.set10('HAVE_XENCTRL', have)
-
-want_pam = get_option('pam')
-if want_pam != 'false' and not skip_deps
-        libpam = dependency('pam', required : false)
-        if not libpam.found()
-                # Debian older than bookworm and Ubuntu older than 22.10 do not provide the .pc file.
-                libpam = cc.find_library('pam', required : want_pam == 'true')
+libcryptsetup = get_option('libcryptsetup')
+libcryptsetup_plugins = get_option('libcryptsetup-plugins')
+if libcryptsetup_plugins.enabled()
+        if libcryptsetup.disabled()
+                error('libcryptsetup-plugins can not be requested without libcryptsetup')
         endif
-        libpam_misc = dependency('pam_misc', required : false)
-        if not libpam_misc.found()
-                libpam_misc = cc.find_library('pam_misc', required : want_pam == 'true')
-        endif
-        have = libpam.found() and libpam_misc.found()
-else
-        have = false
-        libpam = []
-        libpam_misc = []
-endif
-conf.set10('HAVE_PAM', have)
-
-want_microhttpd = get_option('microhttpd')
-if want_microhttpd != 'false' and not skip_deps
-        libmicrohttpd = dependency('libmicrohttpd',
-                                   version : '>= 0.9.33',
-                                   required : want_microhttpd == 'true')
-        have = libmicrohttpd.found()
-else
-        have = false
-        libmicrohttpd = []
-endif
-conf.set10('HAVE_MICROHTTPD', have)
-
-want_libcryptsetup = get_option('libcryptsetup')
-want_libcryptsetup_plugins = get_option('libcryptsetup-plugins')
-
-if want_libcryptsetup_plugins == 'true' and want_libcryptsetup == 'false'
-        error('libcryptsetup-plugins can not be requested without libcryptsetup')
+        libcryptsetup = libcryptsetup_plugins
 endif
 
-if want_libcryptsetup != 'false' and not skip_deps
-        libcryptsetup = dependency('libcryptsetup',
-                                   version : want_libcryptsetup_plugins == 'true' ? '>= 2.4.0' : '>= 2.0.1',
-                                   required : want_libcryptsetup == 'true' or want_libcryptsetup_plugins == 'true')
-        have = libcryptsetup.found()
+libcryptsetup = dependency('libcryptsetup',
+                           version : libcryptsetup_plugins.enabled() ? '>= 2.4.0' : '>= 2.0.1',
+                           required : libcryptsetup)
 
-        foreach ident : ['crypt_set_metadata_size',
-                         'crypt_activate_by_signed_key',
-                         'crypt_token_max',
-                         'crypt_reencrypt_init_by_passphrase',
-                         'crypt_reencrypt',
-                         'crypt_set_data_offset']
-                have_ident = have and cc.has_function(
-                        ident,
-                        prefix : '#include <libcryptsetup.h>',
-                        dependencies : libcryptsetup)
-                conf.set10('HAVE_' + ident.to_upper(), have_ident)
-        endforeach
-else
-        have = false
-        libcryptsetup = []
-endif
+have = libcryptsetup.found()
+foreach ident : ['crypt_set_metadata_size',
+                 'crypt_activate_by_signed_key',
+                 'crypt_token_max',
+                 'crypt_reencrypt_init_by_passphrase',
+                 'crypt_reencrypt',
+                 'crypt_set_data_offset']
+        have_ident = have and cc.has_function(
+                ident,
+                prefix : '#include <libcryptsetup.h>',
+                dependencies : libcryptsetup)
+        conf.set10('HAVE_' + ident.to_upper(), have_ident)
+endforeach
 conf.set10('HAVE_LIBCRYPTSETUP', have)
 
-if want_libcryptsetup_plugins != 'false' and not skip_deps
+# TODO: Use has_function(required : libcryptsetup_plugins) with meson >= 1.3.0
+if libcryptsetup_plugins.allowed()
         have = (cc.has_function(
                         'crypt_activate_by_token_pin',
                         prefix : '#include <libcryptsetup.h>',
@@ -1353,79 +1254,44 @@ else
 endif
 conf.set10('HAVE_LIBCRYPTSETUP_PLUGINS', have)
 
-want_libcurl = get_option('libcurl')
-if want_libcurl != 'false' and not skip_deps
-        libcurl = dependency('libcurl',
-                             version : '>= 7.32.0',
-                             required : want_libcurl == 'true')
-        have = libcurl.found()
-else
-        have = false
-        libcurl = []
-endif
-conf.set10('HAVE_LIBCURL', have)
+libcurl = dependency('libcurl',
+                     version : '>= 7.32.0',
+                     required : get_option('libcurl'))
+conf.set10('HAVE_LIBCURL', libcurl.found())
 conf.set10('CURL_NO_OLDIES', conf.get('BUILD_MODE_DEVELOPER') == 1)
 
-want_libidn = get_option('libidn')
-want_libidn2 = get_option('libidn2')
-if want_libidn == 'true' and want_libidn2 == 'true'
-        error('libidn and libidn2 cannot be requested simultaneously')
-endif
-
-if want_libidn2 != 'false' and want_libidn != 'true' and not skip_deps
-        libidn = dependency('libidn2',
-                            required : want_libidn2 == 'true')
-        have = libidn.found()
-else
-        have = false
-        libidn = []
-endif
-conf.set10('HAVE_LIBIDN2', have)
-if not have and want_libidn != 'false' and not skip_deps
+feature = get_option('libidn2').disable_auto_if(get_option('libidn').enabled())
+libidn = dependency('libidn2',
+                    required : feature)
+have = libidn.found()
+if not have
         # libidn is used for both libidn and libidn2 objects
         libidn = dependency('libidn',
-                            required : want_libidn == 'true')
-        have = libidn.found()
-else
-        have = false
+                            required : get_option('libidn'))
 endif
-conf.set10('HAVE_LIBIDN', have)
+conf.set10('HAVE_LIBIDN', not have and libidn.found())
+conf.set10('HAVE_LIBIDN2', have)
 
-want_libiptc = get_option('libiptc')
-if want_libiptc != 'false' and not skip_deps
-        libiptc = dependency('libiptc',
-                             required : want_libiptc == 'true')
-        have = libiptc.found()
-else
-        have = false
-        libiptc = []
-endif
-conf.set10('HAVE_LIBIPTC', have)
+libiptc = dependency('libiptc',
+                     required : get_option('libiptc'))
+conf.set10('HAVE_LIBIPTC', libiptc.found())
 
-want_qrencode = get_option('qrencode')
-if want_qrencode != 'false' and not skip_deps
-        libqrencode = dependency('libqrencode',
-                                 version : '>= 3',
-                                 required : want_qrencode == 'true')
-        have = libqrencode.found()
-else
-        have = false
-        libqrencode = []
-endif
-conf.set10('HAVE_QRENCODE', have)
+libqrencode = dependency('libqrencode',
+                         version : '>= 3',
+                         required : get_option('qrencode'))
+conf.set10('HAVE_QRENCODE', libqrencode.found())
 
-want_gcrypt = get_option('gcrypt')
-if want_gcrypt != 'false' and not skip_deps
-        libgcrypt = dependency('libgcrypt', required : want_gcrypt == 'true')
-        libgpg_error = dependency('gpg-error', required : false)
-        if not libgpg_error.found()
-                # CentOS 8 does not provide the .pc file.
-                libgpg_error = cc.find_library('gpg-error', required : want_gcrypt == 'true')
-        endif
-        have = libgcrypt.found() and libgpg_error.found()
-else
-        have = false
+feature = get_option('gcrypt')
+libgcrypt = dependency('libgcrypt',
+                       required : feature)
+libgpg_error = dependency('gpg-error',
+                          required : feature.disabled() ? feature : false)
+if not libgpg_error.found()
+        # CentOS 8 does not provide the .pc file.
+        libgpg_error = cc.find_library('gpg-error', required : feature)
 endif
+
+have = libgcrypt.found() and libgpg_error.found()
 if not have
         # link to neither of the libs if one is not found
         libgcrypt = []
@@ -1433,231 +1299,115 @@ if not have
 endif
 conf.set10('HAVE_GCRYPT', have)
 
-want_gnutls = get_option('gnutls')
-if want_gnutls != 'false' and not skip_deps
-        libgnutls = dependency('gnutls',
-                               version : '>= 3.1.4',
-                               required : want_gnutls == 'true')
-        have = libgnutls.found()
-else
-        have = false
-        libgnutls = []
+libgnutls = dependency('gnutls',
+                       version : '>= 3.1.4',
+                       required : get_option('gnutls'))
+conf.set10('HAVE_GNUTLS', libgnutls.found())
+
+libopenssl = dependency('openssl',
+                        version : '>= 1.1.0',
+                        required : get_option('openssl'))
+conf.set10('HAVE_OPENSSL', libopenssl.found())
+
+libp11kit = dependency('p11-kit-1',
+                       version : '>= 0.23.3',
+                       required : get_option('p11kit'))
+conf.set10('HAVE_P11KIT', libp11kit.found())
+libp11kit_cflags = libp11kit.partial_dependency(includes: true, compile_args: true)
+
+feature = get_option('libfido2').require(
+        conf.get('HAVE_OPENSSL') == 1,
+        error_message : 'openssl required')
+libfido2 = dependency('libfido2',
+                      required : feature)
+conf.set10('HAVE_LIBFIDO2', libfido2.found())
+
+tpm2 = dependency('tss2-esys tss2-rc tss2-mu tss2-tcti-device',
+                  required : get_option('tpm2'))
+conf.set10('HAVE_TPM2', tpm2.found())
+conf.set10('HAVE_TSS2_ESYS3', tpm2.found() and tpm2.version().version_compare('>= 3.0.0'))
+
+libdw = dependency('libdw',
+                   required : get_option('elfutils'))
+conf.set10('HAVE_ELFUTILS', libdw.found())
+# New in elfutils 0.177
+conf.set10('HAVE_DWELF_ELF_E_MACHINE_STRING',
+           libdw.found() and cc.has_function('dwelf_elf_e_machine_string', dependencies : libdw))
+
+libz = dependency('zlib',
+                  required : get_option('zlib'))
+conf.set10('HAVE_ZLIB', libz.found())
+
+feature = get_option('bzip2')
+libbzip2 = dependency('bzip2',
+                      required : feature.disabled() ? feature : false)
+if not libbzip2.found()
+        # Debian and Ubuntu do not provide the .pc file.
+        libbzip2 = cc.find_library('bz2', required : feature)
 endif
-conf.set10('HAVE_GNUTLS', have)
+conf.set10('HAVE_BZIP2', libbzip2.found())
 
-want_openssl = get_option('openssl')
-if want_openssl != 'false' and not skip_deps
-        libopenssl = dependency('openssl',
-                                version : '>= 1.1.0',
-                                required : want_openssl == 'true')
-        have = libopenssl.found()
-else
-        have = false
-        libopenssl = []
-endif
-conf.set10('HAVE_OPENSSL', have)
+libxz = dependency('liblzma',
+                   required : get_option('xz'))
+conf.set10('HAVE_XZ', libxz.found())
 
-want_p11kit = get_option('p11kit')
-if want_p11kit != 'false' and not skip_deps
-        libp11kit = dependency('p11-kit-1',
-                               version : '>= 0.23.3',
-                               required : want_p11kit == 'true')
-        have = libp11kit.found()
-        libp11kit_cflags = libp11kit.partial_dependency(includes: true, compile_args: true)
-else
-        have = false
-        libp11kit_cflags = []
-        libp11kit = []
-endif
-conf.set10('HAVE_P11KIT', have)
+liblz4 = dependency('liblz4',
+                    version : '>= 1.3.0',
+                    required : get_option('lz4'))
+conf.set10('HAVE_LZ4', liblz4.found())
 
-want_libfido2 = get_option('libfido2')
-if want_libfido2 != 'false' and not skip_deps
-        if conf.get('HAVE_OPENSSL') == 1
-                libfido2 = dependency('libfido2',
-                                      required : want_libfido2 == 'true')
-                have = libfido2.found()
-        elif want_libfido2 == 'true'
-                error('libfido2=true requires openssl')
-        else
-                have = false
-                libfido2 = []
-        endif
-else
-        have = false
-        libfido2 = []
-endif
-conf.set10('HAVE_LIBFIDO2', have)
+libzstd = dependency('libzstd',
+                     version : '>= 1.4.0',
+                     required : get_option('zstd'))
+conf.set10('HAVE_ZSTD', libzstd.found())
 
-want_tpm2 = get_option('tpm2')
-if want_tpm2 != 'false' and not skip_deps
-        tpm2 = dependency('tss2-esys tss2-rc tss2-mu tss2-tcti-device',
-                          required : want_tpm2 == 'true')
-        have = tpm2.found()
-        have_esys3 = tpm2.version().version_compare('>= 3.0.0')
-else
-        have = false
-        have_esys3 = false
-        tpm2 = []
-endif
-conf.set10('HAVE_TPM2', have)
-conf.set10('HAVE_TSS2_ESYS3', have_esys3)
-
-want_elfutils = get_option('elfutils')
-if want_elfutils != 'false' and not skip_deps
-        libdw = dependency('libdw',
-                           required : want_elfutils == 'true')
-        have = libdw.found()
-
-        # New in elfutils 0.177
-        conf.set10('HAVE_DWELF_ELF_E_MACHINE_STRING',
-                   have and cc.has_function('dwelf_elf_e_machine_string', dependencies : libdw))
-else
-        have = false
-        libdw = []
-endif
-conf.set10('HAVE_ELFUTILS', have)
-
-want_zlib = get_option('zlib')
-if want_zlib != 'false' and not skip_deps
-        libz = dependency('zlib',
-                          required : want_zlib == 'true')
-        have = libz.found()
-else
-        have = false
-        libz = []
-endif
-conf.set10('HAVE_ZLIB', have)
-
-want_bzip2 = get_option('bzip2')
-if want_bzip2 != 'false' and not skip_deps
-        libbzip2 = dependency('bzip2', required : false)
-        if not libbzip2.found()
-                # Debian and Ubuntu do not provide the .pc file.
-                libbzip2 = cc.find_library('bz2', required : want_bzip2 == 'true')
-        endif
-        have = libbzip2.found()
-else
-        have = false
-        libbzip2 = []
-endif
-conf.set10('HAVE_BZIP2', have)
-
-want_xz = get_option('xz')
-if want_xz != 'false' and not skip_deps
-        libxz = dependency('liblzma',
-                           required : want_xz == 'true')
-        have_xz = libxz.found()
-else
-        have_xz = false
-        libxz = []
-endif
-conf.set10('HAVE_XZ', have_xz)
-
-want_lz4 = get_option('lz4')
-if want_lz4 != 'false' and not skip_deps
-        liblz4 = dependency('liblz4',
-                            version : '>= 1.3.0',
-                            required : want_lz4 == 'true')
-        have_lz4 = liblz4.found()
-else
-        have_lz4 = false
-        liblz4 = []
-endif
-conf.set10('HAVE_LZ4', have_lz4)
-
-want_zstd = get_option('zstd')
-if want_zstd != 'false' and not skip_deps
-        libzstd = dependency('libzstd',
-                             required : want_zstd == 'true',
-                             version : '>= 1.4.0')
-        have_zstd = libzstd.found()
-else
-        have_zstd = false
-        libzstd = []
-endif
-conf.set10('HAVE_ZSTD', have_zstd)
-
-conf.set10('HAVE_COMPRESSION', have_xz or have_lz4 or have_zstd)
+conf.set10('HAVE_COMPRESSION', libxz.found() or liblz4.found() or libzstd.found())
 
 compression = get_option('default-compression')
 if compression == 'auto'
-        if have_zstd
+        if libzstd.found()
                 compression = 'zstd'
-        elif have_lz4
+        elif liblz4.found()
                 compression = 'lz4'
-        elif have_xz
+        elif libxz.found()
                 compression = 'xz'
         else
                 compression = 'none'
         endif
-elif compression == 'zstd' and not have_zstd
+elif compression == 'zstd' and not libzstd.found()
         error('default-compression=zstd requires zstd')
-elif compression == 'lz4' and not have_lz4
+elif compression == 'lz4' and not liblz4.found()
         error('default-compression=lz4 requires lz4')
-elif compression == 'xz' and not have_xz
+elif compression == 'xz' and not libxz.found()
         error('default-compression=xz requires xz')
 endif
 conf.set('DEFAULT_COMPRESSION', 'COMPRESSION_@0@'.format(compression.to_upper()))
 
-want_xkbcommon = get_option('xkbcommon')
-if want_xkbcommon != 'false' and not skip_deps
-        libxkbcommon = dependency('xkbcommon',
-                                  version : '>= 0.3.0',
-                                  required : want_xkbcommon == 'true')
-        have = libxkbcommon.found()
-else
-        have = false
-        libxkbcommon = []
-endif
-conf.set10('HAVE_XKBCOMMON', have)
+libxkbcommon = dependency('xkbcommon',
+                          version : '>= 0.3.0',
+                          required : get_option('xkbcommon'))
+conf.set10('HAVE_XKBCOMMON', libxkbcommon.found())
 
-want_pcre2 = get_option('pcre2')
-if want_pcre2 != 'false' and not skip_deps
-        libpcre2 = dependency('libpcre2-8',
-                              required : want_pcre2 == 'true')
-        have = libpcre2.found()
-else
-        have = false
-        libpcre2 = []
-endif
-conf.set10('HAVE_PCRE2', have)
+libpcre2 = dependency('libpcre2-8',
+                      required : get_option('pcre2'))
+conf.set10('HAVE_PCRE2', libpcre2.found())
 
-want_glib = get_option('glib')
-if want_glib != 'false' and not skip_deps
-        libglib =    dependency('glib-2.0',
-                                version : '>= 2.22.0',
-                                required : want_glib == 'true')
-        libgobject = dependency('gobject-2.0',
-                                version : '>= 2.22.0',
-                                required : want_glib == 'true')
-        libgio =     dependency('gio-2.0',
-                                required : want_glib == 'true')
-        have = libglib.found() and libgobject.found() and libgio.found()
-else
-        have = false
-        libglib = []
-        libgobject = []
-        libgio = []
-endif
-conf.set10('HAVE_GLIB', have)
+libglib =    dependency('glib-2.0',
+                        version : '>= 2.22.0',
+                        required : get_option('glib'))
+libgobject = dependency('gobject-2.0',
+                        version : '>= 2.22.0',
+                        required : get_option('glib'))
+libgio =     dependency('gio-2.0',
+                        required : get_option('glib'))
+conf.set10('HAVE_GLIB', libglib.found() and libgobject.found() and libgio.found())
 
-want_dbus = get_option('dbus')
-if want_dbus != 'false' and not skip_deps
-        libdbus = dependency('dbus-1',
-                             version : '>= 1.3.2',
-                             required : want_dbus == 'true')
-        have = libdbus.found()
-else
-        have = false
-        libdbus = []
-endif
-conf.set10('HAVE_DBUS', have)
+libdbus = dependency('dbus-1',
+                     version : '>= 1.3.2',
+                     required : get_option('dbus'))
+conf.set10('HAVE_DBUS', libdbus.found())
 
-dbusdatadir = datadir / 'dbus-1'
-if conf.get('HAVE_DBUS') == 1
-        dbusdatadir = libdbus.get_variable(pkgconfig: 'datadir', default_value: datadir) / 'dbus-1'
-endif
+dbusdatadir = libdbus.get_variable(pkgconfig: 'datadir', default_value: datadir) / 'dbus-1'
 
 dbuspolicydir = get_option('dbuspolicydir')
 if dbuspolicydir == ''
@@ -1666,18 +1416,12 @@ endif
 
 dbussessionservicedir = get_option('dbussessionservicedir')
 if dbussessionservicedir == ''
-        dbussessionservicedir = dbusdatadir / 'services'
-        if conf.get('HAVE_DBUS') == 1
-                dbussessionservicedir = libdbus.get_variable(pkgconfig: 'session_bus_services_dir', default_value: dbussessionservicedir)
-        endif
+        dbussessionservicedir = libdbus.get_variable(pkgconfig: 'session_bus_services_dir', default_value: dbusdatadir / 'services')
 endif
 
 dbussystemservicedir = get_option('dbussystemservicedir')
 if dbussystemservicedir == ''
-        dbussystemservicedir = dbusdatadir / 'system-services'
-        if conf.get('HAVE_DBUS') == 1
-                dbussystemservicedir = libdbus.get_variable(pkgconfig: 'system_bus_services_dir', default_value: dbussystemservicedir)
-        endif
+        dbussystemservicedir = libdbus.get_variable(pkgconfig: 'system_bus_services_dir', default_value: dbusdatadir / 'system-services')
 endif
 
 dbus_interfaces_dir = get_option('dbus-interfaces-dir')
@@ -1686,10 +1430,7 @@ if dbus_interfaces_dir == '' or dbus_interfaces_dir == 'yes'
                 dbus_interfaces_dir = 'no'
                 warning('Exporting D-Bus interface XML files is disabled during cross build. Pass path or "yes" to force enable.')
         else
-                dbus_interfaces_dir = dbusdatadir / 'interfaces'
-                if conf.get('HAVE_DBUS') == 1
-                        dbus_interfaces_dir = libdbus.get_variable(pkgconfig: 'interfaces_dir', default_value: dbus_interfaces_dir)
-                endif
+                dbus_interfaces_dir = libdbus.get_variable(pkgconfig: 'interfaces_dir', default_value: dbusdatadir / 'interfaces')
         endif
 endif
 
@@ -1742,9 +1483,6 @@ conf.set10('DNS_OVER_TLS_USE_GNUTLS', have_gnutls)
 conf.set10('DNS_OVER_TLS_USE_OPENSSL', have_openssl)
 
 default_dns_over_tls = get_option('default-dns-over-tls')
-if skip_deps
-        default_dns_over_tls = 'no'
-endif
 if default_dns_over_tls != 'no' and conf.get('ENABLE_DNS_OVER_TLS') == 0
         message('default-dns-over-tls cannot be enabled or set to opportunistic when DNS-over-TLS support is disabled. Setting default-dns-over-tls to no.')
         default_dns_over_tls = 'no'
@@ -1763,21 +1501,12 @@ conf.set('DEFAULT_LLMNR_MODE',
          'RESOLVE_SUPPORT_' + default_llmnr.to_upper())
 conf.set_quoted('DEFAULT_LLMNR_MODE_STR', default_llmnr)
 
-want_repart = get_option('repart')
-if want_repart != 'false'
-        have = conf.get('HAVE_LIBFDISK') == 1
-        if want_repart == 'true' and not have
-                error('repart support was requested, but dependencies are not available')
-        endif
-else
-        have = false
-endif
+have = get_option('repart').require(
+        conf.get('HAVE_LIBFDISK') == 1,
+        error_message : 'fdisk required').allowed()
 conf.set10('ENABLE_REPART', have)
 
 default_dnssec = get_option('default-dnssec')
-if skip_deps
-        default_dnssec = 'no'
-endif
 if default_dnssec != 'no' and conf.get('HAVE_OPENSSL_OR_GCRYPT') == 0
         message('default-dnssec cannot be set to yes or allow-downgrade openssl and gcrypt are disabled. Setting default-dnssec to no.')
         default_dnssec = 'no'
@@ -1786,63 +1515,41 @@ conf.set('DEFAULT_DNSSEC_MODE',
          'DNSSEC_' + default_dnssec.underscorify().to_upper())
 conf.set_quoted('DEFAULT_DNSSEC_MODE_STR', default_dnssec)
 
-want_sysupdate = get_option('sysupdate')
-if want_sysupdate != 'false'
-        have = (conf.get('HAVE_OPENSSL') == 1 and
-                conf.get('HAVE_LIBFDISK') == 1)
-        if want_sysupdate == 'true' and not have
-                error('sysupdate support was requested, but dependencies are not available')
-        endif
-else
-        have = false
-endif
+have = get_option('sysupdate').require(
+        conf.get('HAVE_OPENSSL') == 1 and
+        conf.get('HAVE_LIBFDISK') == 1,
+        error_message : 'fdisk and openssl required').allowed()
 conf.set10('ENABLE_SYSUPDATE', have)
 
-want_importd = get_option('importd')
-if want_importd != 'false'
-        have = (conf.get('HAVE_LIBCURL') == 1 and
-                conf.get('HAVE_OPENSSL_OR_GCRYPT') == 1 and
-                conf.get('HAVE_ZLIB') == 1 and
-                conf.get('HAVE_XZ') == 1)
-        if want_importd == 'true' and not have
-                error('importd support was requested, but dependencies are not available')
-        endif
-else
-        have = false
-endif
+have = get_option('importd').require(
+        conf.get('HAVE_LIBCURL') == 1 and
+        conf.get('HAVE_OPENSSL_OR_GCRYPT') == 1 and
+        conf.get('HAVE_ZLIB') == 1 and
+        conf.get('HAVE_XZ') == 1,
+        error_message : 'curl, openssl/grypt, zlib and xz required').allowed()
 conf.set10('ENABLE_IMPORTD', have)
 
-want_homed = get_option('homed')
-if want_homed != 'false'
-        have = (conf.get('HAVE_OPENSSL') == 1 and
-                conf.get('HAVE_LIBFDISK') == 1 and
-                conf.get('HAVE_LIBCRYPTSETUP') == 1)
-        if want_homed == 'true' and not have
-                error('homed support was requested, but dependencies are not available')
-        endif
-else
-        have = false
-endif
+have = get_option('homed').require(
+        conf.get('HAVE_OPENSSL') == 1 and
+        conf.get('HAVE_LIBFDISK') == 1 and
+        conf.get('HAVE_LIBCRYPTSETUP') == 1,
+        error_message : 'openssl, fdisk and libcryptsetup required').allowed()
 conf.set10('ENABLE_HOMED', have)
 
 have = have and conf.get('HAVE_PAM') == 1
 conf.set10('ENABLE_PAM_HOME', have)
 
-want_remote = get_option('remote')
-if want_remote != 'false'
-        have_deps = [conf.get('HAVE_MICROHTTPD') == 1,
-                     conf.get('HAVE_LIBCURL') == 1]
-        # sd-j-remote requires µhttpd, and sd-j-upload requires libcurl, so
-        # it's possible to build one without the other. Complain only if
-        # support was explicitly requested. The auxiliary files like sysusers
-        # config should be installed when any of the programs are built.
-        if want_remote == 'true' and not (have_deps[0] and have_deps[1])
-                error('remote support was requested, but dependencies are not available')
-        endif
-        have = have_deps[0] or have_deps[1]
-else
-        have = false
+feature = get_option('remote')
+have_deps = [conf.get('HAVE_MICROHTTPD') == 1,
+             conf.get('HAVE_LIBCURL') == 1]
+# sd-j-remote requires µhttpd, and sd-j-upload requires libcurl, so
+# it's possible to build one without the other. Complain only if
+# support was explicitly requested. The auxiliary files like sysusers
+# config should be installed when any of the programs are built.
+if feature.enabled() and not (have_deps[0] and have_deps[1])
+        error('remote support was requested, but dependencies are not available')
 endif
+have = feature.allowed() and (have_deps[0] or have_deps[1])
 conf.set10('ENABLE_REMOTE', have)
 
 foreach term : ['analyze',
@@ -1897,9 +1604,9 @@ enable_sysusers = conf.get('ENABLE_SYSUSERS') == 1
 foreach tuple : [['nss-mymachines', 'machined'],
                  ['nss-resolve',    'resolve']]
         want = get_option(tuple[0])
-        if want != 'false'
+        if want.allowed()
                 have = get_option(tuple[1])
-                if want == 'true' and not have
+                if want.enabled() and not have
                         error('@0@ is requested but @1@ is disabled'.format(tuple[0], tuple[1]))
                 endif
         else
@@ -2055,18 +1762,19 @@ efi_arch = {
         'x86'         : 'ia32',
 }.get(host_machine.cpu_family(), '')
 
-if get_option('bootloader') != 'false' and efi_arch != ''
-        conf.set_quoted('EFI_MACHINE_TYPE_NAME', efi_arch)
-elif get_option('bootloader') == 'false' and efi_arch != ''
-        # Ensure that if the option is explicitly set to false, then no EFI code is built, including tests
-        efi_arch = ''
-elif get_option('bootloader') == 'true' and efi_arch == ''
-        error('EFI not supported for this arch.')
-endif
+pyelftools = pymod.find_installation('python3',
+                                     required : get_option('bootloader'),
+                                     modules : ['elftools'])
+
+have = get_option('bootloader').require(
+        pyelftools.found() and get_option('efi') and efi_arch != '',
+        error_message : 'unsupported EFI arch or EFI support is disabled').allowed()
+conf.set10('ENABLE_BOOTLOADER', have)
+conf.set_quoted('EFI_MACHINE_TYPE_NAME', have ? efi_arch : '')
 
 efi_arch_alt = ''
 efi_cpu_family_alt = ''
-if efi_arch == 'x64' and cc.links('''
+if have and efi_arch == 'x64' and cc.links('''
                 #include <limits.h>
                 int main(int argc, char *argv[]) {
                         return __builtin_popcount(argc - CHAR_MAX);
@@ -2075,26 +1783,9 @@ if efi_arch == 'x64' and cc.links('''
         efi_cpu_family_alt = 'x86'
 endif
 
-have_pyelftools = pymod.find_installation('python3', required : false, modules : ['elftools']).found()
-if get_option('bootloader') == 'true' and not have_pyelftools
-        error('EFI bootloader support requires pyelftools.')
-endif
-
-conf.set10(
-        'ENABLE_BOOTLOADER',
-        get_option('efi') and
-        get_option('bootloader') in ['auto', 'true'] and
-        efi_arch != '' and
-        have_pyelftools,
-)
-
-if get_option('ukify') == 'auto'
-    want_ukify = python_39  and conf.get('ENABLE_BOOTLOADER') == 1
-elif get_option('ukify') == 'true' and (not python_39 or conf.get('ENABLE_BOOTLOADER') != 1)
-    error('ukify requires Python >= 3.9 and -Dbootloader=true')
-else
-    want_ukify = get_option('ukify') == 'true'
-endif
+want_ukify = get_option('ukify').require(
+        python_39 and conf.get('ENABLE_BOOTLOADER') == 1,
+        error_message : 'Python >= 3.9 and -Dbootloader=true required').allowed()
 conf.set10('ENABLE_UKIFY', want_ukify)
 
 ############################################################
@@ -2707,7 +2398,7 @@ foreach dict : modules
         if is_nss
                 # We cannot use shared_module because it does not support version suffix.
                 # Unfortunately shared_library insists on creating the symlink…
-                meson.add_install_script('sh', '-c', 'rm $DESTDIR@0@/lib@1@.so'.format(libdir, name),
+                meson.add_install_script(sh, '-c', 'rm $DESTDIR@0@/lib@1@.so'.format(libdir, name),
                                          install_tag : 'nss')
         endif
 

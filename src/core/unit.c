@@ -20,6 +20,7 @@
 #include "cgroup-util.h"
 #include "chase.h"
 #include "core-varlink.h"
+#include "credential.h"
 #include "dbus-unit.h"
 #include "dbus.h"
 #include "dropin.h"
@@ -207,7 +208,7 @@ static void unit_init(Unit *u) {
                         /* User manager might have its umask redefined by PAM or UMask=. In this
                          * case let the units it manages inherit this value by default. They can
                          * still tune this value through their own unit file */
-                        (void) get_process_umask(getpid_cached(), &ec->umask);
+                        (void) get_process_umask(0, &ec->umask);
                 }
         }
 
@@ -1375,30 +1376,15 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
                 r = unit_add_two_dependencies_by_name(u, UNIT_AFTER, UNIT_REQUIRES, varlink_socket_unit, true, UNIT_DEPENDENCY_FILE);
                 if (r < 0)
                         return r;
-        } else
+        } else {
                 r = unit_add_dependency_by_name(u, UNIT_AFTER, SPECIAL_JOURNALD_SOCKET, true, UNIT_DEPENDENCY_FILE);
-        if (r < 0)
-                return r;
-
-        if (exec_context_has_credentials(c) && u->manager->prefix[EXEC_DIRECTORY_RUNTIME]) {
-                _cleanup_free_ char *p = NULL, *m = NULL;
-
-                /* Let's make sure the credentials directory of this service is unmounted *after* the service
-                 * itself shuts down. This only matters if mount namespacing is not used for the service, and
-                 * hence the credentials mount appears on the host. */
-
-                p = path_join(u->manager->prefix[EXEC_DIRECTORY_RUNTIME], "credentials", u->id);
-                if (!p)
-                        return -ENOMEM;
-
-                r = unit_name_from_path(p, ".mount", &m);
-                if (r < 0)
-                        return r;
-
-                r = unit_add_dependency_by_name(u, UNIT_AFTER, m, /* add_reference= */ true, UNIT_DEPENDENCY_FILE);
                 if (r < 0)
                         return r;
         }
+
+        r = unit_add_default_credential_dependencies(u, c);
+        if (r < 0)
+                return r;
 
         return 0;
 }
@@ -2560,8 +2546,7 @@ static int unit_log_resources(Unit *u) {
         r = 0;
 
 finish:
-        for (size_t i = 0; i < n_message_parts; i++)
-                free(message_parts[i]);
+        free_many_charp(message_parts, n_message_parts);
 
         for (size_t i = 0; i < n_iovec; i++)
                 free(iovec[i].iov_base);

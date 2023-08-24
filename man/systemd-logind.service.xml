@@ -43,26 +43,26 @@
       used.</para></listitem>
 
       <listitem><para>Providing <ulink
-      url="https://www.freedesktop.org/wiki/Software/polkit">polkit</ulink>-based
-      access for users for operations such as system shutdown or sleep</para>
+      url="https://www.freedesktop.org/wiki/Software/polkit">polkit</ulink>-based access for users for
+      operations such as system shutdown or sleep</para>
       </listitem>
 
-      <listitem><para>Implementing a shutdown/sleep inhibition logic
-      for applications</para></listitem>
+      <listitem><para>Implementing a shutdown/sleep inhibition logic for applications</para></listitem>
 
-      <listitem><para>Handling of power/sleep hardware
-      keys</para></listitem>
+      <listitem><para>Handling of power/sleep hardware keys</para></listitem>
 
       <listitem><para>Multi-seat management</para></listitem>
 
       <listitem><para>Session switch management</para></listitem>
 
-      <listitem><para>Device access management for
-      users</para></listitem>
+      <listitem><para>Device access management for users</para></listitem>
 
-      <listitem><para>Automatic spawning of text logins (gettys) on
-      virtual console activation and user runtime directory
-      management</para></listitem>
+      <listitem><para>Automatic spawning of text logins (gettys) on virtual console activation and user
+      runtime directory management</para></listitem>
+
+      <listitem><para>Scheduled shutdown</para></listitem>
+
+      <listitem><para>Sending "wall" messages</para></listitem>
     </itemizedlist>
 
     <para>User sessions are registered with logind via the

@@ -1248,7 +1248,7 @@ static int route_configure(const Route *route, uint32_t lifetime_sec, Link *link
         }
 
         if (route->tcp_rto_usec > 0) {
-                r = sd_netlink_message_append_u32(m, RTAX_RTO_MIN, route->tcp_rto_usec / USEC_PER_MSEC);
+                r = sd_netlink_message_append_u32(m, RTAX_RTO_MIN, DIV_ROUND_UP(route->tcp_rto_usec, USEC_PER_MSEC));
                 if (r < 0)
                         return r;
         }
@@ -2573,17 +2573,17 @@ int config_parse_route_hop_limit(
         r = safe_atou32(rvalue, &k);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Could not parse route hop limit %s \"%s\", ignoring assignment: %m", lvalue, rvalue);
+                           "Could not parse per route hop limit, ignoring assignment: %s", rvalue);
                 return 0;
         }
         if (k > 255) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Specified route hop limit %s \"%s\" is too large, ignoring assignment: %m", lvalue, rvalue);
+                           "Specified per route hop limit \"%s\" is too large, ignoring assignment: %m", rvalue);
                 return 0;
         }
         if (k == 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Invalid route hop limit %s \"%s\", ignoring assignment: %m", lvalue, rvalue);
+                           "Invalid per route hop limit \"%s\", ignoring assignment: %m", rvalue);
                 return 0;
         }
 
@@ -2854,14 +2854,14 @@ int config_parse_route_tcp_rto(
         r = parse_sec(rvalue, &usec);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse route TCP retransmission time out (RTO) sec '%s', ignoring: %m", rvalue);
+                           "Failed to parse route TCP retransmission timeout (RTO), ignoring assignment: %s", rvalue);
                 return 0;
         }
 
-        if (usec != USEC_INFINITY &&
-            DIV_ROUND_UP(usec, USEC_PER_SEC) > UINT32_MAX) {
+        if (IN_SET(usec, 0, USEC_INFINITY) ||
+            DIV_ROUND_UP(usec, USEC_PER_MSEC) > UINT32_MAX) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Route TCP retransmission time out (RTO) = must be in the range 0...%"PRIu32"ms, ignoring: %s", UINT32_MAX, rvalue);
+                           "Route TCP retransmission timeout (RTO) must be in the range 0…%"PRIu32"ms, ignoring assignment: %s", UINT32_MAX, rvalue);
                 return 0;
         }
 

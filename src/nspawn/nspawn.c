@@ -96,9 +96,7 @@
 #include "resolve-util.h"
 #include "rlimit-util.h"
 #include "rm-rf.h"
-#if HAVE_SECCOMP
 #include "seccomp-util.h"
-#endif
 #include "selinux-util.h"
 #include "signal-util.h"
 #include "socket-util.h"

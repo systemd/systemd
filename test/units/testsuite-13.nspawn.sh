@@ -341,7 +341,7 @@ testcase_nspawn_settings() {
     rm -f "/etc/systemd/nspawn/$container.nspawn"
     mkdir -p "$root/tmp" "$root"/opt/{tmp,inaccessible,also-inaccessible}
 
-    for dev in sd-host-only sd-shared{1,2} sd-macvlan{1,2} sd-ipvlan{1,2}; do
+    for dev in sd-host-only sd-shared{1,2} sd-macvlan{1,2} sd-macvlanloong sd-ipvlan{1,2} sd-ipvlanlooong; do
         ip link add "$dev" type dummy
     done
     udevadm settle
@@ -395,8 +395,8 @@ VirtualEthernet=yes
 VirtualEthernetExtra=my-fancy-veth1
 VirtualEthernetExtra=fancy-veth2:my-fancy-veth2
 Interface=sd-shared1 sd-shared2:sd-shared2
-MACVLAN=sd-macvlan1 sd-macvlan2:my-macvlan2
-IPVLAN=sd-ipvlan1 sd-ipvlan2:my-ipvlan2
+MACVLAN=sd-macvlan1 sd-macvlan2:my-macvlan2 sd-macvlanloong
+IPVLAN=sd-ipvlan1 sd-ipvlan2:my-ipvlan2 sd-ipvlanlooong
 Zone=sd-zone0
 Port=80
 Port=81:8181

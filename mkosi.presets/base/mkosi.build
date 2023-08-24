@@ -51,9 +51,9 @@ if [ ! -f "$BUILDDIR"/build.ninja ]; then
     sysvinit_path=$(realpath /etc/init.d)
 
     if [ "$ID" = "centos" ] && [ "$VERSION" = "8" ]; then
-        UKIFY=false
+        UKIFY="disabled"
     else
-        UKIFY=true
+        UKIFY="enabled"
     fi
 
     # On Debian 'loadkeys us' fails
@@ -65,7 +65,7 @@ if [ ! -f "$BUILDDIR"/build.ninja ]; then
 
     CONFIGURE_OPTS=(
         -D sysvinit-path="$sysvinit_path"
-        -D man=false
+        -D man=disabled
         -D translations=false
         -D version-tag="${VERSION_TAG}"
         -D mode=developer
@@ -83,8 +83,8 @@ if [ ! -f "$BUILDDIR"/build.ninja ]; then
         -D tpm=true
         -D environment-d=true
         -D binfmt=true
-        -D repart=true
-        -D sysupdate=true
+        -D repart=enabled
+        -D sysupdate=enabled
         -D coredump=true
         -D pstore=true
         -D oomd=true
@@ -95,14 +95,14 @@ if [ ! -f "$BUILDDIR"/build.ninja ]; then
         -D portabled=true
         -D sysext=true
         -D userdb=true
-        -D homed=true
+        -D homed=enabled
         -D networkd=true
         -D timedated=true
         -D timesyncd=true
-        -D remote=true
+        -D remote=enabled
         -D nss-myhostname=true
-        -D nss-mymachines=true
-        -D nss-resolve=true
+        -D nss-mymachines=enabled
+        -D nss-resolve=enabled
         -D nss-systemd=true
         -D firstboot=true
         -D randomseed=true
@@ -111,44 +111,44 @@ if [ ! -f "$BUILDDIR"/build.ninja ]; then
         -D quotacheck=true
         -D sysusers=true
         -D tmpfiles=true
-        -D importd=true
+        -D importd=enabled
         -D hwdb=true
         -D rfkill=true
         -D xdg-autostart=true
         -D translations=true
-        -D polkit=true
-        -D acl=true
-        -D audit=true
-        -D blkid=true
-        -D fdisk=true
-        -D kmod=true
-        -D pam=true
-        -D pwquality=true
-        -D microhttpd=true
-        -D libcryptsetup=true
-        -D libcurl=true
+        -D polkit=enabled
+        -D acl=enabled
+        -D audit=enabled
+        -D blkid=enabled
+        -D fdisk=enabled
+        -D kmod=enabled
+        -D pam=enabled
+        -D pwquality=enabled
+        -D microhttpd=enabled
+        -D libcryptsetup=enabled
+        -D libcurl=enabled
         -D idn=true
-        -D libidn2=true
-        -D qrencode=true
-        -D gcrypt=true
-        -D gnutls=true
-        -D openssl=true
+        -D libidn2=enabled
+        -D qrencode=enabled
+        -D gcrypt=enabled
+        -D gnutls=enabled
+        -D openssl=enabled
         -D cryptolib=openssl
-        -D p11kit=true
-        -D libfido2=true
-        -D tpm2=true
-        -D elfutils=true
-        -D zstd=true
-        -D xkbcommon=true
-        -D pcre2=true
-        -D glib=true
-        -D dbus=true
-        -D bootloader=true
+        -D p11kit=enabled
+        -D libfido2=enabled
+        -D tpm2=enabled
+        -D elfutils=enabled
+        -D zstd=enabled
+        -D xkbcommon=enabled
+        -D pcre2=enabled
+        -D glib=enabled
+        -D dbus=enabled
+        -D bootloader=enabled
         -D kernel-install=true
         -D analyze=true
-        -D bpf-framework=true
+        -D bpf-framework=enabled
         -D ukify="$UKIFY"
-        -D seccomp=true
+        -D seccomp=enabled
         -D selinux=auto
         -D apparmor=auto
         -D smack=true
