@@ -559,7 +559,7 @@ static int transient_mount_set_properties(sd_bus_message *m) {
 
         if (arg_mount_options)
                 if (!strextend_with_separator(&options, ",", arg_mount_options))
-                        return r;
+                        return -ENOMEM;
 
         if (options) {
                 log_debug("Using mount options: %s", options);
