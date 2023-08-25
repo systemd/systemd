@@ -55,6 +55,7 @@ struct sd_dhcp_lease {
         size_t n_classless_routes;
 
         uint16_t mtu; /* 0 if unset */
+        uint32_t ipv6_only_preferred_sec;
 
         char *domainname;
         char **search_domains;
