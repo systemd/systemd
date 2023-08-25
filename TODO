@@ -274,11 +274,6 @@ Features:
   idea, and specifically works around the fact the autofs ignores busy by mount
   namespaces)
 
-* refuse using the switch-root operation without /etc/initrd-release. Now
-  that we have a concept of userspace reboot, we can clearly say: switch-root
-  is for transitioning from initrd to host (or initrd to next initrd), while
-  userspace reboot is for switching host to next version of the host.
-
 * mount most file systems with a restrictive uidmap. e.g. mount /usr/ with a
   uidmap that blocks out anything outside 0…1000 (i.e. system users) and similar.
 
