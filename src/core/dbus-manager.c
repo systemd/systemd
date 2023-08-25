@@ -1873,17 +1873,35 @@ static int method_switch_root(sd_bus_message *message, void *userdata, sd_bus_er
         }
 
         /* Safety check */
-        if (isempty(init)) {
-                r = path_is_os_tree(root);
-                if (r < 0)
-                        return sd_bus_error_set_errnof(error, r,
-                                                       "Failed to determine whether root path '%s' contains an OS tree: %m",
-                                                       root);
-                if (r == 0)
+        r = path_is_os_tree(root);
+        if (r < 0)
+                return sd_bus_error_set_errnof(error, r,
+                                               "Failed to determine whether root path '%s' contains an OS tree: %m",
+                                               root);
+        if (r == 0)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                         "Specified switch root path '%s' does not seem to be an OS tree. os-release file is missing.",
+                                         root);
+
+        if (!in_initrd()) {
+                _cleanup_free_ char *initrd_release = NULL;
+
+                initrd_release = path_join(root, "etc/initrd-release");
+                if (!initrd_release)
+                        return -ENOMEM;
+
+                r = RET_NERRNO(access(initrd_release, F_OK));
+                if (r == -ENOENT)
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                                 "Specified switch root path '%s' does not seem to be an OS tree. os-release file is missing.",
+                                                 "Neither the current root nor switch root path '%s' is an initrd. Refusing."
                                                  root);
-        } else {
+                if (r < 0)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                 "Failed to check if switch root path '%s' is an initrd: %m",
+                                                 root);
+        }
+
+        if (!isempty(init)) {
                 if (!path_is_valid(init))
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
                                                  "Path to init binary '%s' is not a valid path.", init);
