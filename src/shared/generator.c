@@ -740,6 +740,12 @@ int generator_hook_up_quotacheck(
         if (r < 0)
                 return r;
 
+        if (target) {
+                r = generator_add_ordering(dir, target, "After", quotacheck_unit, instance);
+                if (r < 0)
+                        return r;
+        }
+
         return generator_add_symlink_full(dir, where_unit, "wants", quotacheck_unit_path, instance);
 }
 
