@@ -1428,13 +1428,10 @@ int safe_fork_full(
                 log_set_open_when_needed(false);
         }
 
-        if (flags & FORK_RLIMIT_NOFILE_SAFE) {
-                r = rlimit_nofile_safe();
-                if (r < 0) {
-                        log_full_errno(prio, r, "Failed to lower RLIMIT_NOFILE's soft limit to 1K: %m");
-                        _exit(EXIT_FAILURE);
-                }
-        }
+        if (flags & FORK_RLIMIT_NOFILE_SAFE)
+                /* This may fail with -EPERM. See issue #28965. Note, the function internally logs failure in
+                 * debug level. So it is not necessary to log the failure here. */
+                (void) rlimit_nofile_safe();
 
         if (!FLAGS_SET(flags, FORK_KEEP_NOTIFY_SOCKET)) {
                 r = RET_NERRNO(unsetenv("NOTIFY_SOCKET"));
