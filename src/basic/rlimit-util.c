@@ -395,7 +395,11 @@ int rlimit_nofile_safe(void) {
         if (rl.rlim_cur <= FD_SETSIZE)
                 return 0;
 
-        rl.rlim_cur = FD_SETSIZE;
+        /* So we might have inherited a hard limit that's larger than the kernel's maximum limit as stored in
+         * /proc/sys/fs/nr_open. If we pass this hard limit unmodified to setrlimit(), we'll get EPERM. To
+         * make sure that doesn't happen, let's limit our hard limit to the value from nr_open. */
+        rl.rlim_max = MIN(rl.rlim_max, (rlim_t) read_nr_open());
+        rl.rlim_cur = MIN((rlim_t) FD_SETSIZE, rl.rlim_max);
         if (setrlimit(RLIMIT_NOFILE, &rl) < 0)
                 return log_debug_errno(errno, "Failed to lower RLIMIT_NOFILE's soft limit to " RLIM_FMT ": %m", rl.rlim_cur);
 
