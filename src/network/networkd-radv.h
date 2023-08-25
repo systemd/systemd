@@ -85,3 +85,4 @@ CONFIG_PARSER_PROTOTYPE(config_parse_radv_dns);
 CONFIG_PARSER_PROTOTYPE(config_parse_radv_search_domains);
 CONFIG_PARSER_PROTOTYPE(config_parse_route_prefix);
 CONFIG_PARSER_PROTOTYPE(config_parse_route_prefix_lifetime);
+CONFIG_PARSER_PROTOTYPE(config_parse_router_home_agent_lifetime);
