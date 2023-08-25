@@ -94,6 +94,25 @@ static int get_credential_directory(
         return 1;
 }
 
+int exec_context_get_credential_directory(
+                const ExecContext *context,
+                const ExecParameters *params,
+                const char *unit,
+                char **ret) {
+
+        assert(context);
+        assert(params);
+        assert(unit);
+        assert(ret);
+
+        if (!exec_context_has_credentials(context)) {
+                *ret = NULL;
+                return 0;
+        }
+
+        return get_credential_directory(params->prefix[EXEC_DIRECTORY_RUNTIME], unit, ret);
+}
+
 int unit_add_default_credential_dependencies(Unit *u, const ExecContext *c) {
         _cleanup_free_ char *p = NULL, *m = NULL;
         int r;

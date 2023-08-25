@@ -2041,8 +2041,12 @@ static int build_environment(
                 our_env[n_env++] = x;
         }
 
-        if (exec_context_has_credentials(c) && p->prefix[EXEC_DIRECTORY_RUNTIME]) {
-                x = strjoin("CREDENTIALS_DIRECTORY=", p->prefix[EXEC_DIRECTORY_RUNTIME], "/credentials/", u->id);
+        _cleanup_free_ char *creds_dir = NULL;
+        r = exec_context_get_credential_directory(c, p, u->id, &creds_dir);
+        if (r < 0)
+                return r;
+        if (r > 0) {
+                x = strjoin("CREDENTIALS_DIRECTORY=", creds_dir);
                 if (!x)
                         return -ENOMEM;
 
@@ -3217,12 +3221,10 @@ static int apply_mount_namespace(
         if (context->mount_propagation_flag == MS_SHARED)
                 log_unit_debug(u, "shared mount propagation hidden by other fs namespacing unit settings: ignoring");
 
-        if (exec_context_has_credentials(context) &&
-            params->prefix[EXEC_DIRECTORY_RUNTIME] &&
-            FLAGS_SET(params->flags, EXEC_WRITE_CREDENTIALS)) {
-                creds_path = path_join(params->prefix[EXEC_DIRECTORY_RUNTIME], "credentials", u->id);
-                if (!creds_path)
-                        return -ENOMEM;
+        if (FLAGS_SET(params->flags, EXEC_WRITE_CREDENTIALS)) {
+                r = exec_context_get_credential_directory(context, params, u->id, &creds_path);
+                if (r < 0)
+                        return r;
         }
 
         if (params->runtime_scope == RUNTIME_SCOPE_SYSTEM) {
