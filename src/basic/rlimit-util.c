@@ -401,7 +401,8 @@ int rlimit_nofile_safe(void) {
         if (rl.rlim_cur <= FD_SETSIZE)
                 return 0;
 
-        rl.rlim_cur = FD_SETSIZE;
+        rl.rlim_max = read_nr_open();
+        rl.rlim_cur = MIN(FD_SETSIZE, rl.rlim_max);
         if (setrlimit(RLIMIT_NOFILE, &rl) < 0)
                 return log_debug_errno(errno, "Failed to lower RLIMIT_NOFILE's soft limit to " RLIM_FMT ": %m", rl.rlim_cur);
 
