@@ -81,4 +81,7 @@ SUBSYSTEM=="misc", KERNEL=="rfkill", TAG+="systemd", ENV{SYSTEMD_WANTS}+="system
 SUBSYSTEM=="module", KERNEL=="fuse", TAG+="systemd", ENV{SYSTEMD_WANTS}+="sys-fs-fuse-connections.mount"
 SUBSYSTEM=="module", KERNEL=="configfs", TAG+="systemd", ENV{SYSTEMD_WANTS}+="sys-kernel-config.mount"
 
+# Xen device nodes
+SUBSYSTEM=="misc", ENV{DEVNAME}=="/dev/xen/*", TAG+="systemd"
+
 LABEL="systemd_end"
