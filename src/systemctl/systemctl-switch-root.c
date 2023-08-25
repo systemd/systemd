@@ -5,6 +5,7 @@
 #include "bus-locator.h"
 #include "chase.h"
 #include "fd-util.h"
+#include "initrd-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "proc-cmdline.h"
@@ -56,6 +57,9 @@ int verb_switch_root(int argc, char *argv[], void *userdata) {
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot switch to current root directory: %s", root);
         } else
                 root = "/sysroot";
+
+        if (!in_initrd())
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Not in initrd, refusing switch root operation.");
 
         if (argc >= 3)
                 init = argv[2];
