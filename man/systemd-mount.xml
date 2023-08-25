@@ -70,9 +70,9 @@
     whose name is generated from the file system label. In this mode the block device or image file must
     exist at the time of invocation of the command, so that it may be probed. If the device is found to be a
     removable block device (e.g. a USB stick), an automount point is created instead of a regular mount point
-    (i.e. the <option>--automount=</option> option is implied, see below). If the option <option>--tmpfs</option>
-    is specified, then the argument will be interpreted as the path where the new temporary file system will
-    be mounted on.</para>
+    (i.e. the <option>--automount=</option> option is implied, see below). If the option
+    <option>--tmpfs</option> is specified, then the argument is interpreted as the path where the new
+    temporary file system shall be mounted.</para>
 
     <para>If two arguments are specified, the first indicates the mount source (the
     <replaceable>WHAT</replaceable>) and the second indicates the path to mount it on (the
@@ -287,8 +287,17 @@
         <term><option>--tmpfs</option></term>
 
         <listitem>
-          <para>Create and mount a new temporary file system on <replaceable>WHERE</replaceable>, with an
-          optional <replaceable>NAME</replaceable> that defaults to <literal>tmpfs</literal>.</para>
+          <para>Create and mount a new <constant>tmpfs</constant> file system on
+          <replaceable>WHERE</replaceable>, with an optional <replaceable>NAME</replaceable> that defaults to
+          <literal>tmpfs</literal>.</para>
+
+          <para>The file system is mounted with the top-level directory mode determined by the
+          <citerefentry><refentrytitle>umask</refentrytitle><manvolnum>2</manvolnum></citerefentry> setting
+          of the caller, i.e. <constant>rwxrwxrwx</constant> masked by the umask of the caller. This matches
+          what
+          <citerefentry project='man-pages'><refentrytitle>mkdir</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+          does, but is different from the kernel default of <literal>rwxrwxrwxt</literal>, i.e. a
+          world-writable directory with the sticky bit set.</para>
         </listitem>
       </varlistentry>
 
