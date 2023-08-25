@@ -349,7 +349,12 @@ static int list_seats(int argc, char *argv[], void *userdata) {
         return show_table(table, "seats");
 }
 
-static int show_unit_cgroup(sd_bus *bus, const char *interface, const char *unit, pid_t leader) {
+static int show_unit_cgroup(
+                sd_bus *bus,
+                const char *unit,
+                pid_t leader,
+                const char *prefix) {
+
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *cgroup = NULL;
         unsigned c;
@@ -357,6 +362,7 @@ static int show_unit_cgroup(sd_bus *bus, const char *interface, const char *unit
 
         assert(bus);
         assert(unit);
+        assert(prefix);
 
         r = show_cgroup_get_unit_path_and_warn(bus, unit, &cgroup);
         if (r < 0)
@@ -369,7 +375,7 @@ static int show_unit_cgroup(sd_bus *bus, const char *interface, const char *unit
         if (c > 18)
                 c -= 18;
 
-        r = unit_show_processes(bus, unit, cgroup, "\t", c, get_output_flags(), &error);
+        r = unit_show_processes(bus, unit, cgroup, prefix, c, get_output_flags(), &error);
         if (r == -EBADR) {
                 if (arg_transport == BUS_TRANSPORT_REMOTE)
                         return 0;
@@ -379,7 +385,7 @@ static int show_unit_cgroup(sd_bus *bus, const char *interface, const char *unit
                 if (cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, cgroup) != 0 && leader <= 0)
                         return 0;
 
-                show_cgroup_and_extra(SYSTEMD_CGROUP_CONTROLLER, cgroup, "\t", c, &leader, leader > 0, get_output_flags());
+                show_cgroup_and_extra(SYSTEMD_CGROUP_CONTROLLER, cgroup, prefix, c, &leader, leader > 0, get_output_flags());
         } else if (r < 0)
                 return log_error_errno(r, "Failed to dump process list: %s", bus_error_message(&error, r));
 
@@ -498,17 +504,6 @@ static int print_session_status_info(sd_bus *bus, const char *path) {
         table = table_new_vertical();
         if (!table)
                 return log_oom();
-
-        r = table_add_cell_stringf(table, &cell, "%s - %s (" UID_FMT ")", i.id, i.name, i.uid);
-        if (r < 0)
-                return table_log_add_error(r);
-
-        (void) table_set_color(table, cell, ansi_highlight());
-        (void) table_set_align_percent(table, cell, 0);
-
-        r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
-        if (r < 0)
-                return table_log_add_error(r);
 
         if (dual_timestamp_is_set(&i.timestamp)) {
                 r = table_add_many(table,
@@ -675,12 +670,15 @@ static int print_session_status_info(sd_bus *bus, const char *path) {
                         return table_log_add_error(r);
         }
 
+        /* We don't use the table to show the header, in order to make the width of the column stable. */
+        printf("%s%s - %s (" UID_FMT ")%s\n", ansi_highlight(), i.id, i.name, i.uid, ansi_normal());
+
         r = table_print(table, NULL);
         if (r < 0)
                 return table_log_print_error(r);
 
         if (i.scope) {
-                show_unit_cgroup(bus, "org.freedesktop.systemd1.Scope", i.scope, i.leader);
+                show_unit_cgroup(bus, i.scope, i.leader, /* prefix = */ "         "); /* STRLEN("Display: ") */
 
                 if (arg_transport == BUS_TRANSPORT_LOCAL)
                         show_journal_by_unit(
@@ -730,17 +728,6 @@ static int print_user_status_info(sd_bus *bus, const char *path) {
         table = table_new_vertical();
         if (!table)
                 return log_oom();
-
-        r = table_add_cell_stringf(table, &cell, "%s (" UID_FMT ")", i.name, i.uid);
-        if (r < 0)
-                return table_log_add_error(r);
-
-        (void) table_set_color(table, cell, ansi_highlight());
-        (void) table_set_align_percent(table, cell, 0);
-
-        r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
-        if (r < 0)
-                return table_log_add_error(r);
 
         if (dual_timestamp_is_set(&i.timestamp)) {
                 r = table_add_many(table,
@@ -800,12 +787,14 @@ static int print_user_status_info(sd_bus *bus, const char *path) {
                         return table_log_add_error(r);
         }
 
+        printf("%s%s (" UID_FMT ")%s\n", ansi_highlight(), i.name, i.uid, ansi_normal());
+
         r = table_print(table, NULL);
         if (r < 0)
                 return table_log_print_error(r);
 
         if (i.slice) {
-                show_unit_cgroup(bus, "org.freedesktop.systemd1.Slice", i.slice, 0);
+                show_unit_cgroup(bus, i.slice, /* leader = */ 0, /* prefix = */ "          "); /* STRLEN("Sessions: ") */
 
                 if (arg_transport == BUS_TRANSPORT_LOCAL)
                         show_journal_by_unit(
@@ -849,14 +838,6 @@ static int print_seat_status_info(sd_bus *bus, const char *path) {
         if (!table)
                 return log_oom();
 
-        r = table_add_many(table,
-                           TABLE_STRING, i.id,
-                           TABLE_SET_COLOR, ansi_highlight(),
-                           TABLE_SET_ALIGN_PERCENT, 0,
-                           TABLE_EMPTY);
-        if (r < 0)
-                return table_log_add_error(r);
-
         if (!strv_isempty(i.sessions)) {
                 _cleanup_strv_free_ char **sessions = TAKE_PTR(i.sessions);
 
@@ -882,6 +863,8 @@ static int print_seat_status_info(sd_bus *bus, const char *path) {
                         return table_log_add_error(r);
         }
 
+        printf("%s%s%s\n", ansi_highlight(), i.id, ansi_normal());
+
         r = table_print(table, NULL);
         if (r < 0)
                 return table_log_print_error(r);
@@ -891,7 +874,7 @@ static int print_seat_status_info(sd_bus *bus, const char *path) {
                 if (c > 21)
                         c -= 21;
 
-                show_sysfs(i.id, "\t", c, get_output_flags());
+                show_sysfs(i.id, "         ", c, get_output_flags()); /* STRLEN("Sessions:") */
         }
 
         return 0;
