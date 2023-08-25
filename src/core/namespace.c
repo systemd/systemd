@@ -74,8 +74,7 @@ typedef enum MountMode {
         EXTENSION_DIRECTORIES, /* Bind-mounted outside the root directory, and used by subsequent mounts */
         EXTENSION_IMAGES, /* Mounted outside the root directory, and used by subsequent mounts */
         MQUEUEFS,
-        READWRITE_IMPLICIT, /* Should have the 2nd lowest priority. */
-        MKDIR,              /* Should have the lowest priority. */
+        READWRITE_IMPLICIT, /* Should have the lowest priority. */
         _MOUNT_MODE_MAX,
 } MountMode;
 
@@ -232,7 +231,6 @@ static const char * const mount_mode_table[_MOUNT_MODE_MAX] = {
         [EXTENSION_IMAGES]      = "extension-images",
         [MQUEUEFS]              = "mqueuefs",
         [READWRITE_IMPLICIT]    = "read-write-implicit",
-        [MKDIR]                 = "mkdir",
 };
 
 /* Helper struct for naming simplicity and reusability */
@@ -1549,12 +1547,6 @@ static int apply_one_mount(
         case OVERLAY_MOUNT:
                 return mount_overlay(m);
 
-        case MKDIR:
-                r = mkdir_p_label(mount_entry_path(m), 0755);
-                if (r < 0)
-                        return r;
-                return 1;
-
         default:
                 assert_not_reached();
         }
@@ -2021,7 +2013,6 @@ int setup_namespace(
                 const char* tmp_dir,
                 const char* var_tmp_dir,
                 const char *creds_path,
-                int creds_fd,
                 const char *log_namespace,
                 unsigned long mount_propagation_flag,
                 VeritySettings *verity,
@@ -2344,22 +2335,13 @@ int setup_namespace(
                                 .flags = MS_NODEV|MS_STRICTATIME|MS_NOSUID|MS_NOEXEC,
                         };
 
-                        /* If we have mount fd for credentials directory, then it will be mounted after
-                         * namespace is set up. So, here we only create the mount point. */
-
-                        if (creds_fd < 0)
-                                *(m++) = (MountEntry) {
-                                        .path_const = creds_path,
-                                        .mode = BIND_MOUNT,
-                                        .read_only = true,
-                                        .source_const = creds_path,
-                                        .ignore = true,
-                                };
-                        else
-                                *(m++) = (MountEntry) {
-                                        .path_const = creds_path,
-                                        .mode = MKDIR,
-                                };
+                        *(m++) = (MountEntry) {
+                                .path_const = creds_path,
+                                .mode = BIND_MOUNT,
+                                .read_only = true,
+                                .source_const = creds_path,
+                                .ignore = true,
+                        };
                 } else {
                         /* If our service has no credentials store configured, then make the whole
                          * credentials tree inaccessible wholesale. */

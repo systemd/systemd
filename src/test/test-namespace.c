@@ -194,7 +194,6 @@ TEST(protect_kernel_logs) {
                                     NULL,
                                     NULL,
                                     NULL,
-                                    -EBADF,
                                     NULL,
                                     0,
                                     NULL,

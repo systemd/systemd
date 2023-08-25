@@ -10,7 +10,6 @@
 #include "glob-util.h"
 #include "io-util.h"
 #include "label-util.h"
-#include "missing_syscall.h"
 #include "mkdir-label.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
@@ -18,7 +17,6 @@
 #include "random-util.h"
 #include "recurse-dir.h"
 #include "rm-rf.h"
-#include "socket-util.h"
 #include "tmpfile-util.h"
 
 ExecSetCredential *exec_set_credential_free(ExecSetCredential *sc) {
@@ -732,8 +730,7 @@ static int setup_credentials_internal(
                 bool reuse_workspace,     /* Whether to reuse any existing workspace mount if it already is a mount */
                 bool must_mount,          /* Whether to require that we mount something, it's not OK to use the plain directory fall back */
                 uid_t uid,
-                gid_t gid,
-                int *ret_mount_fd) {
+                gid_t gid) {
 
         int r, workspace_mounted; /* negative if we don't know yet whether we have/can mount something; true
                                    * if we mounted something; false if we definitely can't mount anything */
@@ -851,27 +848,6 @@ static int setup_credentials_internal(
                         if (r < 0)
                                 return r;
 
-                        if (ret_mount_fd) {
-                                _cleanup_close_ int mount_fd = -EBADF;
-
-                                r = mount_fd = RET_NERRNO(open_tree(AT_FDCWD, workspace, OPEN_TREE_CLONE | OPEN_TREE_CLOEXEC));
-                                if (r >= 0) {
-                                        /* The workspace is already cloned in the above, and not necessary
-                                         * anymore. Even though the workspace is unmounted when the short-lived
-                                         * child process exits, let's explicitly unmount it here for safety. */
-                                        r = umount_verbose(LOG_DEBUG, workspace, MNT_DETACH|UMOUNT_NOFOLLOW);
-                                        if (r < 0)
-                                                return r;
-
-                                        *ret_mount_fd = TAKE_FD(mount_fd);
-                                        return 0;
-                                }
-
-                                /* Old kernel? Unprivileged? */
-                                if (!ERRNO_IS_NOT_SUPPORTED(r) && !ERRNO_IS_PRIVILEGE(r))
-                                        return r;
-                        }
-
                         /* And mount it to the final place, read-only */
                         r = mount_nofollow_verbose(LOG_DEBUG, workspace, final, NULL, MS_MOVE, NULL);
                 } else
@@ -892,8 +868,6 @@ static int setup_credentials_internal(
                         return -errno;
         }
 
-        if (ret_mount_fd)
-                *ret_mount_fd = -EBADF;
         return 0;
 }
 
@@ -902,25 +876,16 @@ int setup_credentials(
                 const ExecParameters *params,
                 const char *unit,
                 uid_t uid,
-                gid_t gid,
-                char **ret_path,
-                int *ret_mount_fd) {
+                gid_t gid) {
 
-        _cleanup_close_pair_ int socket_pair[2] = PIPE_EBADF;
         _cleanup_free_ char *p = NULL, *q = NULL;
-        _cleanup_close_ int mount_fd = -EBADF;
         int r;
 
         assert(context);
         assert(params);
-        assert(ret_path);
-        assert(ret_mount_fd);
 
-        if (!exec_context_has_credentials(context)) {
-                *ret_path = NULL;
-                *ret_mount_fd = -EBADF;
+        if (!exec_context_has_credentials(context))
                 return 0;
-        }
 
         if (!params->prefix[EXEC_DIRECTORY_RUNTIME])
                 return -EINVAL;
@@ -943,12 +908,7 @@ int setup_credentials(
         if (r < 0 && r != -EEXIST)
                 return r;
 
-        if (socketpair(AF_UNIX, SOCK_DGRAM | SOCK_CLOEXEC, 0, socket_pair) < 0)
-                return -errno;
-
-        r = safe_fork_full("(sd-mkdcreds)",
-                           NULL, &socket_pair[1], 1,
-                           FORK_DEATHSIG|FORK_CLOSE_ALL_FDS|FORK_WAIT|FORK_NEW_MOUNTNS|FORK_REOPEN_LOG, NULL);
+        r = safe_fork("(sd-mkdcreds)", FORK_DEATHSIG|FORK_WAIT|FORK_NEW_MOUNTNS, NULL);
         if (r < 0) {
                 _cleanup_free_ char *t = NULL, *u = NULL;
 
@@ -984,15 +944,14 @@ int setup_credentials(
                                 true,    /* reuse the workspace if it is already a mount */
                                 false,   /* it's OK to fall back to a plain directory if we can't mount anything */
                                 uid,
-                                gid,
-                                NULL);
+                                gid);
 
                 (void) rmdir(u); /* remove the workspace again if we can. */
 
                 if (r < 0)
                         return r;
 
-        } else if (r == 0) { /* child */
+        } else if (r == 0) {
 
                 /* We managed to set up a mount namespace, and are now in a child. That's great. In this case
                  * we can use the same directory for all cases, after turning off propagation. Question
@@ -1011,8 +970,6 @@ int setup_credentials(
                  * given that we do this in a privately namespaced short-lived single-threaded process that
                  * no one else sees this should be OK to do. */
 
-                _cleanup_close_ int fd = -EBADF;
-
                 /* Turn off propagation from our namespace to host */
                 r = mount_nofollow_verbose(LOG_DEBUG, NULL, "/dev", NULL, MS_SLAVE|MS_REC, NULL);
                 if (r < 0)
@@ -1027,14 +984,7 @@ int setup_credentials(
                                 false,       /* do not reuse /dev/shm if it is already a mount, under no circumstances */
                                 true,        /* insist that something is mounted, do not allow fallback to plain directory */
                                 uid,
-                                gid,
-                                &fd);
-                if (r < 0)
-                        goto child_fail;
-
-                r = send_one_fd_iov(socket_pair[1], fd,
-                                    &IOVEC_MAKE((int[]) { fd >= 0 }, sizeof(int)), 1,
-                                    MSG_DONTWAIT);
+                                gid);
                 if (r < 0)
                         goto child_fail;
 
@@ -1042,17 +992,6 @@ int setup_credentials(
 
         child_fail:
                 _exit(EXIT_FAILURE);
-
-        } else { /* parent */
-
-                int ret;
-                struct iovec iov = IOVEC_MAKE(&ret, sizeof(int));
-
-                r = receive_one_fd_iov(socket_pair[0], &iov, 1, MSG_DONTWAIT, &mount_fd);
-                if (r < 0)
-                        return r;
-                if (ret > 0 && mount_fd < 0)
-                        return -EIO;
         }
 
         /* If the credentials dir is empty and not a mount point, then there's no point in having it. Let's
@@ -1060,8 +999,5 @@ int setup_credentials(
          * actually end up mounting anything on it. In that case we'd rather have ENOENT than EACCESS being
          * seen by users when trying access this inode. */
         (void) rmdir(p);
-
-        *ret_path = TAKE_PTR(p);
-        *ret_mount_fd = TAKE_FD(mount_fd);
         return 0;
 }
