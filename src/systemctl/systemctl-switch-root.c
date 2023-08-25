@@ -4,6 +4,8 @@
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "chase.h"
+#include "fd-util.h"
+#include "initrd-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "proc-cmdline.h"
@@ -51,10 +53,28 @@ int verb_switch_root(int argc, char *argv[], void *userdata) {
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid root path: %s", root);
                 if (!path_is_absolute(root))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Root path is not absolute: %s", root);
-                if (path_equal(root, "/"))
+                if (path_is_root(root))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot switch to current root directory: %s", root);
         } else
                 root = "/sysroot";
+
+        if (!in_initrd()) {
+                _cleanup_free_ char *initrd_release = NULL;
+
+                initrd_release = path_join(root, "etc/initrd-release");
+                if (!initrd_release)
+                        return -ENOMEM;
+
+                r = RET_NERRNO(access(initrd_release, F_OK));
+                if (r == -ENOENT)
+                        return log_error_errno(r,
+                                               "Neither the current root nor switch root path '%s' is an initrd. Refusing.",
+                                               root);
+                if (r < 0)
+                        return log_error_errno(r,
+                                               "Failed to check if switch root path '%s' is an initrd: %m",
+                                               root);
+        }
 
         if (argc >= 3)
                 init = argv[2];
