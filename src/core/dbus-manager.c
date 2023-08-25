@@ -1867,7 +1867,7 @@ static int method_switch_root(sd_bus_message *message, void *userdata, sd_bus_er
                 if (!path_is_absolute(root))
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
                                                  "New root path '%s' is not absolute.", root);
-                if (path_equal(root, "/"))
+                if (path_is_root(root))
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
                                                  "New root directory cannot be the old root directory.");
         }
