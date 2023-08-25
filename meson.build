@@ -1808,28 +1808,30 @@ xml_helper_py = find_program('tools/xml_helper.py')
 ############################################################
 
 version_tag = get_option('version-tag')
-if version_tag == ''
-        # Check that we have either .git/ (a normal clone) or a .git file (a work-tree) and that we don't
-        # get confused if a tarball is extracted in a higher-level git repository.
-        if git.found() and fs.exists(project_source_root / '.git')
-                # Apparently git describe has a bug where it always considers the work-tree dirty when
-                # invoked with --git-dir (even though 'git status' is happy). Work around this issue by
-                # cd-ing to the source directory.
-                version_tag = run_command(
-                        sh, '-c',
-                        'cd "$MESON_SOURCE_ROOT"; git describe --abbrev=7 --dirty=^ 2>/dev/null | sed "s/^v//; s/-rc/~rc/"',
-                        check : true,
-                ).stdout().strip()
-        else
-                version_tag = meson.project_version()
-        endif
+# Check that we have either .git/ (a normal clone) or a .git file (a work-tree) and that we don't
+# get confused if a tarball is extracted in a higher-level git repository.
+if version_tag == '' and git.found() and fs.exists(project_source_root / '.git')
+        version_h = vcs_tag(
+                input : 'src/version/version.h.in',
+                output : 'version.h',
+                # If the working tree has no tags (CI builds), the first git-describe will fail
+                # and we fall back to project_version-commitid instead.
+                # TODO: Use 'sh' variable with meson >= 0.63.0
+                command: ['sh',
+                          '-euc',
+                          '''git -C "$1" describe --abbrev=7 --dirty=^ 2>/dev/null ||
+                                echo "$2-$(git -C "$1" describe --always --abbrev=7)" |
+                                sed 's/^v//; s/-rc/~rc/' ''',
+                          '_',
+                          project_source_root,
+                          meson.project_version()])
+else
+        vcs_data = configuration_data()
+        vcs_data.set('VCS_TAG', version_tag == '' ? meson.project_version() : version_tag)
+        version_h = configure_file(configuration : vcs_data,
+                                   input : 'src/version/version.h.in',
+                                   output : 'version.h')
 endif
-
-vcs_data = configuration_data()
-vcs_data.set('VCS_TAG', version_tag)
-version_h = configure_file(configuration : vcs_data,
-                           input : 'src/version/version.h.in',
-                           output : 'version.h')
 
 versiondep = declare_dependency(
         sources : version_h,
