@@ -10,6 +10,7 @@
 #include "hostname-util.h"
 #include "networkd-address.h"
 #include "networkd-dhcp-prefix-delegation.h"
+#include "networkd-dhcp6-bus.h"
 #include "networkd-dhcp6.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
@@ -698,6 +699,10 @@ static int dhcp6_configure(Link *link) {
         r = sd_dhcp6_client_set_callback(client, dhcp6_handler, link);
         if (r < 0)
                 return log_link_debug_errno(link, r, "DHCPv6 CLIENT: Failed to set callback: %m");
+
+        r = sd_dhcp6_client_set_state_callback(client, dhcp6_client_callback_bus, link);
+        if (r < 0)
+                return log_link_debug_errno(link, r, "DHCPv6 CLIENT: Failed to set state change callback: %m");
 
         r = sd_dhcp6_client_set_prefix_delegation(client, link->network->dhcp6_use_pd_prefix);
         if (r < 0)
