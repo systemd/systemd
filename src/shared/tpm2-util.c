@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sys/file.h>
+
 #include "alloc-util.h"
 #include "constants.h"
 #include "cryptsetup-util.h"
@@ -14,10 +16,12 @@
 #include "hexdecoct.h"
 #include "hmac.h"
 #include "initrd-util.h"
+#include "io-util.h"
 #include "lock-util.h"
 #include "log.h"
 #include "logarithm.h"
 #include "memory-util.h"
+#include "mkdir.h"
 #include "nulstr-util.h"
 #include "parse-util.h"
 #include "random-util.h"
@@ -25,6 +29,7 @@
 #include "sort-util.h"
 #include "stat-util.h"
 #include "string-table.h"
+#include "sync-util.h"
 #include "time-util.h"
 #include "tpm2-util.h"
 #include "virt.h"
@@ -1722,7 +1727,7 @@ int tpm2_pcr_value_from_string(const char *arg, Tpm2PCRValue *ret_pcr_value) {
         if (r < 1)
                 return log_error_errno(r, "Could not parse pcr value '%s': %m", p);
 
-        r = pcr_index_from_string(index);
+        r = tpm2_pcr_index_from_string(index);
         if (r < 0)
                 return log_error_errno(r, "Invalid pcr index '%s': %m", index);
         pcr_value.index = (unsigned) r;
@@ -4267,6 +4272,161 @@ int tpm2_find_device_auto(
 }
 
 #if HAVE_TPM2
+static const char* tpm2_userspace_event_type_table[_TPM2_USERSPACE_EVENT_TYPE_MAX] = {
+        [TPM2_EVENT_PHASE] = "phase",
+        [TPM2_EVENT_FILESYSTEM] = "filesystem",
+        [TPM2_EVENT_VOLUME_KEY] = "volume-key",
+        [TPM2_EVENT_MACHINE_ID] = "machine-id",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(tpm2_userspace_event_type, Tpm2UserspaceEventType);
+
+const char *tpm2_userspace_log_path(void) {
+        return secure_getenv("SYSTEMD_MEASURE_LOG_USERSPACE") ?: "/run/tpm-measure/log.json";
+}
+
+const char *tpm2_firmware_log_path(void) {
+        return secure_getenv("SYSTEMD_MEASURE_LOG_FIRMWARE") ?: "/sys/kernel/security/tpm0/binary_bios_measurements";
+}
+
+static int tpm2_userspace_log_open(void) {
+        _cleanup_close_ int fd = -EBADF;
+        struct stat st;
+        const char *e;
+
+        e = tpm2_userspace_log_path();
+        (void) mkdir_parents(e, 0755);
+
+        /* We use access mode 0600 here (even though the measurements should not strictly be confidential),
+         * because we use BSD file locking on it, and if anyone but root can access the file they can also
+         * lock it, which we want to avoid. */
+        fd = open(e, O_CREAT|O_WRONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, 0600);
+        if (fd < 0)
+                return log_warning_errno(errno, "Failed to open TPM log file '%s' for writing, ignoring: %m", e);
+
+        if (flock(fd, LOCK_EX) < 0)
+                return log_warning_errno(errno, "Failed to lock TPM log file '%s', ignoring: %m", e);
+
+        if (fstat(fd, &st) < 0)
+                return log_warning_errno(errno, "Failed to fstat TPM log file '%s', ignoring: %m", e);
+
+        /* We set the sticky bit when we are about to append to the log file. We'll unsert it afterwards
+         * again. If we manage to take a lock on a file that has it set we know we didn't write it fully and
+         * it is corrupted. Ideally we'd like to use xattrs for this, but unfortunately tmpfs doesn't know
+         * xattrs. */
+        if (st.st_mode & S_ISVTX)
+                return log_warning_errno(errno, "TPM log file '%s' aborted, ignoring.", e);
+
+        if (fchmod(fd, 0600 | S_ISVTX) < 0)
+                return log_warning_errno(errno, "Failed to chmod() TPM log file '%s', ignoring: %m", e);
+
+        return TAKE_FD(fd);
+}
+
+static int tpm2_userspace_log(
+                int fd,
+                unsigned pcr_index,
+                const TPML_DIGEST_VALUES *values,
+                Tpm2UserspaceEventType event_type,
+                const char *description) {
+
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *array = NULL;
+        _cleanup_free_ char *f = NULL;
+        sd_id128_t boot_id;
+        int r;
+
+        assert(values);
+        assert(values->count > 0);
+
+        /* We maintain a local PCR measurement log. This implements a subset of the TCG Canonical Event Log
+         * Format – the JSON flavour –
+         * (https://trustedcomputinggroup.org/resource/canonical-event-log-format/), but departs in certain
+         * ways from it, specifically:
+         *
+         * - We don't write out a recnum. It's a bit too vaguely defined, and apparently per PCR, which means
+         *   we'd have to read through the whole logs (include firmware logs) before knowing what the next
+         *   value is we should use. Hence we simply don't write this out as append-time, and expect a
+         *   consumer add it in if it uses the data instead.
+         *
+         * - We write this out in RFC 7464 application/json-seq rather than as a JSON array. Writing this as
+         *   JSON array would mean that for each appending we'd have to read the whole log file fully into
+         *   memory before writing it out again. We prefer a strictly append-only write pattern however. (RFC
+         *   7464 is what jq --seq eats)
+         *
+         * - We include a "systemd" sub-object with our own informational data.
+         *
+         * - We set no "content_type", because we simply don't know what to set it to.
+         *
+         * It should be possible to convert this format in a relatively straight-forward way into the official
+         * TCG Canonical Event Log Format on read, by simply adding in a few more fields that can be
+         * determined from the full dataset.
+         */
+
+        if (fd < 0) /* Apparently tpm2_local_log_open() failed earlier, let's not complain again */
+                return 0;
+
+        for (size_t i = 0; i < values->count; i++) {
+                _cleanup_(json_variant_unrefp) JsonVariant *w = NULL;
+                const EVP_MD *implementation;
+                const char *a;
+
+                assert_se(a = tpm2_hash_alg_to_string(values->digests[i].hashAlg));
+                assert_se(implementation = EVP_get_digestbyname(a));
+
+                r = json_build(&w, JSON_BUILD_OBJECT(
+                                               JSON_BUILD_PAIR_STRING("hashAlg", a),
+                                               JSON_BUILD_PAIR("digest", JSON_BUILD_HEX(&values->digests[i].digest, EVP_MD_size(implementation)))));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to build digest object JSON: %m");
+
+                r = json_variant_append_array(&array, w);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to append digest object to JSON array: %m");
+        }
+
+        assert(array);
+
+        r = sd_id128_get_boot(&boot_id);
+        if (r < 0)
+                return log_error_errno(r, "Failed to acquire boot ID: %m");
+
+        r = json_build(&v, JSON_BUILD_OBJECT(
+                                       JSON_BUILD_PAIR("pcr", JSON_BUILD_UNSIGNED(pcr_index)),
+                                       JSON_BUILD_PAIR("digests", JSON_BUILD_VARIANT(array)),
+                                       JSON_BUILD_PAIR("content_type", JSON_BUILD_STRING("systemd")),
+                                       JSON_BUILD_PAIR("content", JSON_BUILD_OBJECT(
+                                                                       JSON_BUILD_PAIR_CONDITION(description, "string", JSON_BUILD_STRING(description)),
+                                                                       JSON_BUILD_PAIR("bootId", JSON_BUILD_ID128(boot_id)),
+                                                                       JSON_BUILD_PAIR("timestamp", JSON_BUILD_UNSIGNED(now(CLOCK_BOOTTIME))),
+                                                                       JSON_BUILD_PAIR_CONDITION(event_type >= 0, "eventType", JSON_BUILD_STRING(tpm2_userspace_event_type_to_string(event_type)))))));
+        if (r < 0)
+                return log_error_errno(r, "Failed to build log record JSON: %m");
+
+        r = json_variant_format(v, JSON_FORMAT_SEQ, &f);
+        if (r < 0)
+                return log_error_errno(r, "Failed to format JSON: %m");
+
+        if (lseek(fd, 0, SEEK_END) == (off_t) -1)
+                return log_error_errno(errno, "Failed to seek to end of JSON log: %m");
+
+        r = loop_write(fd, f, SIZE_MAX, /* do_poll= */ false);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write JSON data to log: %m");
+
+        if (fsync(fd) < 0)
+                return log_error_errno(errno, "Failed to sync JSON data: %m");
+
+        /* Unset S_ISVTX again */
+        if (fchmod(fd, 0600) < 0)
+                return log_warning_errno(errno, "Failed to chmod() TPM log file, ignoring: %m");
+
+        r = fsync_full(fd);
+        if (r < 0)
+                return log_error_errno(r, "Failed to sync JSON log: %m");
+
+        return 1;
+}
+
 int tpm2_extend_bytes(
                 Tpm2Context *c,
                 char **banks,
@@ -4274,9 +4434,12 @@ int tpm2_extend_bytes(
                 const void *data,
                 size_t data_size,
                 const void *secret,
-                size_t secret_size) {
+                size_t secret_size,
+                Tpm2UserspaceEventType event_type,
+                const char *description) {
 
 #if HAVE_OPENSSL
+        _cleanup_close_ int log_fd = -EBADF;
         TPML_DIGEST_VALUES values = {};
         TSS2_RC rc;
 
@@ -4328,6 +4491,10 @@ int tpm2_extend_bytes(
                 values.count++;
         }
 
+        /* Open + lock the log file *before* we start measuring, so that noone else can come between our log
+         * and our measurement and change either */
+        log_fd = tpm2_userspace_log_open();
+
         rc = sym_Esys_PCR_Extend(
                         c->esys_context,
                         ESYS_TR_PCR0 + pcr_index,
@@ -4341,6 +4508,9 @@ int tpm2_extend_bytes(
                                 "Failed to measure into PCR %u: %s",
                                 pcr_index,
                                 sym_Tss2_RC_Decode(rc));
+
+        /* Now, write what we just extended to the log, too. */
+        (void) tpm2_userspace_log(log_fd, pcr_index, &values, event_type, description);
 
         return 0;
 #else /* HAVE_OPENSSL */
@@ -5001,25 +5171,25 @@ int tpm2_util_pbkdf2_hmac_sha256(const void *pass,
         return 0;
 }
 
-static const char* const pcr_index_table[_PCR_INDEX_MAX_DEFINED] = {
-        [PCR_PLATFORM_CODE]       = "platform-code",
-        [PCR_PLATFORM_CONFIG]     = "platform-config",
-        [PCR_EXTERNAL_CODE]       = "external-code",
-        [PCR_EXTERNAL_CONFIG]     = "external-config",
-        [PCR_BOOT_LOADER_CODE]    = "boot-loader-code",
-        [PCR_BOOT_LOADER_CONFIG]  = "boot-loader-config",
-        [PCR_HOST_PLATFORM]       = "host-platform",
-        [PCR_SECURE_BOOT_POLICY]  = "secure-boot-policy",
-        [PCR_KERNEL_INITRD]       = "kernel-initrd",
-        [PCR_IMA]                 = "ima",
-        [PCR_KERNEL_BOOT]         = "kernel-boot",
-        [PCR_KERNEL_CONFIG]       = "kernel-config",
-        [PCR_SYSEXTS]             = "sysexts",
-        [PCR_SHIM_POLICY]         = "shim-policy",
-        [PCR_SYSTEM_IDENTITY]     = "system-identity",
-        [PCR_DEBUG]               = "debug",
-        [PCR_APPLICATION_SUPPORT] = "application-support",
+static const char* const tpm2_pcr_index_table[_TPM2_PCR_INDEX_MAX_DEFINED] = {
+        [TPM2_PCR_PLATFORM_CODE]       = "platform-code",
+        [TPM2_PCR_PLATFORM_CONFIG]     = "platform-config",
+        [TPM2_PCR_EXTERNAL_CODE]       = "external-code",
+        [TPM2_PCR_EXTERNAL_CONFIG]     = "external-config",
+        [TPM2_PCR_BOOT_LOADER_CODE]    = "boot-loader-code",
+        [TPM2_PCR_BOOT_LOADER_CONFIG]  = "boot-loader-config",
+        [TPM2_PCR_HOST_PLATFORM]       = "host-platform",
+        [TPM2_PCR_SECURE_BOOT_POLICY]  = "secure-boot-policy",
+        [TPM2_PCR_KERNEL_INITRD]       = "kernel-initrd",
+        [TPM2_PCR_IMA]                 = "ima",
+        [TPM2_PCR_KERNEL_BOOT]         = "kernel-boot",
+        [TPM2_PCR_KERNEL_CONFIG]       = "kernel-config",
+        [TPM2_PCR_SYSEXTS]             = "sysexts",
+        [TPM2_PCR_SHIM_POLICY]         = "shim-policy",
+        [TPM2_PCR_SYSTEM_IDENTITY]     = "system-identity",
+        [TPM2_PCR_DEBUG]               = "debug",
+        [TPM2_PCR_APPLICATION_SUPPORT] = "application-support",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_FROM_STRING_WITH_FALLBACK(pcr_index, int, TPM2_PCRS_MAX - 1);
-DEFINE_STRING_TABLE_LOOKUP_TO_STRING(pcr_index, int);
+DEFINE_STRING_TABLE_LOOKUP_FROM_STRING_WITH_FALLBACK(tpm2_pcr_index, int, TPM2_PCRS_MAX - 1);
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(tpm2_pcr_index, int);
