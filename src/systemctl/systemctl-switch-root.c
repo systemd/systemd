@@ -4,6 +4,7 @@
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "chase.h"
+#include "fd-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "proc-cmdline.h"
@@ -51,7 +52,7 @@ int verb_switch_root(int argc, char *argv[], void *userdata) {
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid root path: %s", root);
                 if (!path_is_absolute(root))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Root path is not absolute: %s", root);
-                if (path_equal(root, "/"))
+                if (path_is_root(root))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot switch to current root directory: %s", root);
         } else
                 root = "/sysroot";
