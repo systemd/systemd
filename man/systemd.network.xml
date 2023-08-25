@@ -3153,6 +3153,28 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         3600 seconds (one hour).</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>HomeAgent=</varname></term>
+
+        <listitem><para>Takes a boolean. Specifies that IPv6 router advertisements which indicates to hosts that
+        the router acts as a Home Agent and includes a Home Agent Option. Defaults to false.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>MobileAgentLifetimeSec=</varname></term>
+
+        <listitem><para>Takes a timespan. Specifies the lifetime of the Home Agent. An integer the default unit of seconds,
+        in the range 0...65520. Defaults to 0 seconds means, to place the current Router Lifetime value.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>HomeAgentPreference=</varname></term>
+
+        <listitem><para>Configures IPv6 Home Agent preference. Takes an integer in the range 0...65535.
+        Defaults to 0.</para></listitem>
+      </varlistentry>
+
     </variablelist>
     </refsect1>
 
