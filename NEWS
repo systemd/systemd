@@ -33,6 +33,10 @@ CHANGES WITH 255 in spe:
           by default when combined with --scope, will be changed in a future
           release to be enabled by default.
 
+        * "systemctl switch-root" is now restricted to initrd transtions only.
+          Transitions between real systems should be done with "systemctl soft-reboot"
+          instead.
+
         Device Management:
 
         * udev will now create symlinks to loopback block devices in the
