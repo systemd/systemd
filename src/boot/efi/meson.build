@@ -92,9 +92,11 @@ elif get_option('sbat-distro') != ''
 
         pkgver = get_option('sbat-distro-version')
         if pkgver == ''
-                pkgver = version_tag
+                # This is determined during build, not configuration, so we can't display it yet.
+                efi_conf.set('SBAT_DISTRO_VERSION', 'GIT_VERSION')
+        else
+                efi_conf.set_quoted('SBAT_DISTRO_VERSION', pkgver)
         endif
-        efi_conf.set_quoted('SBAT_DISTRO_VERSION', pkgver)
 endif
 
 summary({'UEFI architectures' : efi_arch + (efi_arch_alt == '' ? '' : ', ' + efi_arch_alt)},
