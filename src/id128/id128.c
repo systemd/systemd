@@ -233,7 +233,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'a':
-                        r = sd_id128_from_string(optarg, &arg_app);
+                        r = id128_from_string_not_null(optarg, &arg_app);
+                        if (r == -ENXIO)
+                                return log_error_errno(r, "Application ID cannot be all zeros.");
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse \"%s\" as application-ID: %m", optarg);
                         break;
