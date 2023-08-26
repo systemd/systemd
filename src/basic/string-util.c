@@ -1021,6 +1021,7 @@ char *strrep(const char *s, unsigned n) {
         size_t l;
 
         assert(s);
+        assert(n > 0);
 
         l = strlen(s);
         p = r = malloc(l * n + 1);
