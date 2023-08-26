@@ -17,6 +17,7 @@
 
   <refnamediv>
     <refname>sd_id128_get_machine</refname>
+    <refname>sd_id128_get_app_specific</refname>
     <refname>sd_id128_get_machine_app_specific</refname>
     <refname>sd_id128_get_boot</refname>
     <refname>sd_id128_get_boot_app_specific</refname>
@@ -30,6 +31,13 @@
 
       <funcprototype>
         <funcdef>int <function>sd_id128_get_machine</function></funcdef>
+        <paramdef>sd_id128_t *<parameter>ret</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_id128_get_app_specific</function></funcdef>
+        <paramdef>sd_id128_t <parameter>base</parameter></paramdef>
+        <paramdef>sd_id128_t <parameter>app_id</parameter></paramdef>
         <paramdef>sd_id128_t *<parameter>ret</parameter></paramdef>
       </funcprototype>
 
@@ -69,16 +77,25 @@
     ID from this machine ID, in an irreversible (cryptographically secure) way. To make this easy
     <function>sd_id128_get_machine_app_specific()</function> is provided, see below.</para>
 
+    <para><function>sd_id128_get_app_specific()</function> returns a machine ID that is a combination of the
+    <parameter>base</parameter> and <parameter>app_id</parameter> parameters. Internally, this function
+    calculates HMAC-SHA256 of the <parameter>app_id</parameter> parameter keyed by the
+    <parameter>base</parameter> parameter, and truncates this result to fit in
+    <structname>sd_id128_t</structname> and turns it into a valid Variant 1 Version 4 UUID, in accordance
+    with <ulink url="https://tools.ietf.org/html/rfc4122">RFC 4122</ulink>. Neither of the two input
+    parameters can be calculated from the output parameter <parameter>ret</parameter>.</para>
+
     <para><function>sd_id128_get_machine_app_specific()</function> is similar to
-    <function>sd_id128_get_machine()</function>, but retrieves a machine ID that is specific to the application that is
-    identified by the indicated application ID. It is recommended to use this function instead of
-    <function>sd_id128_get_machine()</function> when passing an ID to untrusted environments, in order to make sure
-    that the original machine ID may not be determined externally. This way, the ID used by the application remains
-    stable on a given machine, but cannot be easily correlated with IDs used in other applications on the same
-    machine. The application-specific ID should be generated via a tool like <command>systemd-id128 new</command>,
-    and may be compiled into the application. This function will return the same application-specific ID for each
-    combination of machine ID and application ID. Internally, this function calculates HMAC-SHA256 of the application
-    ID, keyed by the machine ID.</para>
+    <function>sd_id128_get_machine()</function>, but retrieves a machine ID that is specific to the
+    application that is identified by the indicated application ID. It is recommended to use this function
+    instead of <function>sd_id128_get_machine()</function> when passing an ID to untrusted environments, in
+    order to make sure that the original machine ID may not be determined externally. This way, the ID used
+    by the application remains stable on a given machine, but cannot be easily correlated with IDs used in
+    other applications on the same machine. The application-specific ID should be generated via a tool like
+    <command>systemd-id128 new</command>, and may be compiled into the application. This function will return
+    the same application-specific ID for each combination of machine ID and application ID. Internally, this
+    function calls <function>sd_id128_get_app_specific()</function> with the result from
+    <function>sd_id128_get_machine()</function> and the <parameter>app_id</parameter> parameter.</para>
 
     <para><function>sd_id128_get_boot()</function> returns the boot ID of the executing kernel. This reads and parses
     the <filename>/proc/sys/kernel/random/boot_id</filename> file exposed by the kernel. It is randomly generated early
@@ -89,9 +106,9 @@
     derive an application specific ID using <function>sd_id128_get_boot_app_specific()</function>, see below.</para>
 
     <para><function>sd_id128_get_boot_app_specific()</function> is analogous to
-    <function>sd_id128_get_machine_app_specific()</function> but returns an ID that changes between boots. Some
-    machines may be used for a long time without rebooting, hence the boot ID may remain constant for a long time, and
-    has properties similar to the machine ID during that time.</para>
+    <function>sd_id128_get_machine_app_specific()</function>, but returns an ID that changes between
+    boots. Some machines may be used for a long time without rebooting, hence the boot ID may remain constant
+    for a long time, and has properties similar to the machine ID during that time.</para>
 
     <para><function>sd_id128_get_invocation()</function> returns the invocation ID of the currently executed
     service. In its current implementation, this tries to read and parse the following:
