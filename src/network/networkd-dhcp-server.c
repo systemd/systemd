@@ -24,6 +24,11 @@
 #include "string-util.h"
 #include "strv.h"
 
+/* rfc8925 - IPv6-Only Preferred Option for DHCPv4 3.4.
+ * MIN_V6ONLY_WAIT: The lower boundary for V6ONLY_WAIT. Value: 300 seconds
+ */
+#define MIN_V6ONLY_WAIT_USEC (300 * USEC_PER_SEC)
+
 static bool link_dhcp4_server_enabled(Link *link) {
         assert(link);
 
@@ -413,6 +418,13 @@ static int dhcp4_server_configure(Link *link) {
                         return log_link_error_errno(link, r, "Failed to set default lease time for DHCPv4 server instance: %m");
         }
 
+        if (link->network->dhcp_server_ipv6_only_preferred_time_usec > 0) {
+                r = sd_dhcp_server_set_ipv6_only_preferred_time(link->dhcp_server,
+                                                          DIV_ROUND_UP(link->network->dhcp_server_ipv6_only_preferred_time_usec, USEC_PER_SEC));
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Failed to set IPv6 only preferred time for DHCPv4 server instance: %m");
+        }
+
         r = sd_dhcp_server_set_boot_server_address(link->dhcp_server, &link->network->dhcp_server_boot_server_address);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to set boot server address for DHCPv4 server instance: %m");
@@ -733,5 +745,47 @@ int config_parse_dhcp_server_address(
 
         network->dhcp_server_address = a.in;
         network->dhcp_server_address_prefixlen = prefixlen;
+        return 0;
+}
+
+int config_parse_dhcp_server_ipv6_only_preferred(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Network *network = ASSERT_PTR(userdata);
+        usec_t usec;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                network->dhcp_server_ipv6_only_preferred_time_usec = 0;
+                return 0;
+        }
+
+        r = parse_sec(rvalue, &usec);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "DHCP server %s= is invalid, ignoring assignment: %s", lvalue, rvalue);
+                return 0;
+        }
+
+        if (usec == USEC_INFINITY || DIV_ROUND_UP(usec, USEC_PER_SEC) > UINT32_MAX || MIN_V6ONLY_WAIT_USEC < 300) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "DHCP server %s= is invalid, ignoring assignment: %s", lvalue, rvalue);
+                return 0;
+        }
+
+        network->dhcp_server_ipv6_only_preferred_time_usec = usec;
         return 0;
 }
