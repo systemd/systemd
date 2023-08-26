@@ -21,6 +21,8 @@ typedef enum Id128Flag {
         ID128_REFUSE_NULL   = 1 << 3, /* Refuse all zero ID with -ENOMEDIUM. */
 } Id128Flag;
 
+int id128_from_string_nonzero(const char *s, sd_id128_t *ret);
+
 int id128_read_fd(int fd, Id128Flag f, sd_id128_t *ret);
 int id128_read_at(int dir_fd, const char *path, Id128Flag f, sd_id128_t *ret);
 static inline int id128_read(const char *path, Id128Flag f, sd_id128_t *ret) {

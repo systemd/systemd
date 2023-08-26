@@ -20,6 +20,7 @@
 #define ID128_WALDI SD_ID128_MAKE(01, 02, 03, 04, 05, 06, 07, 08, 09, 0a, 0b, 0c, 0d, 0e, 0f, 10)
 #define STR_WALDI "0102030405060708090a0b0c0d0e0f10"
 #define UUID_WALDI "01020304-0506-0708-090a-0b0c0d0e0f10"
+#define STR_NULL "00000000000000000000000000000000"
 
 TEST(id128) {
         sd_id128_t id, id2;
@@ -74,6 +75,13 @@ TEST(id128) {
         assert_se(sd_id128_from_string("01020304-0506-0708-090a-0b0c0d0e0f10-", &id) < 0);
         assert_se(sd_id128_from_string("01020304-0506-0708-090a0b0c0d0e0f10", &id) < 0);
         assert_se(sd_id128_from_string("010203040506-0708-090a-0b0c0d0e0f10", &id) < 0);
+
+        assert_se(id128_from_string_nonzero(STR_WALDI, &id) == 0);
+        assert_se(id128_from_string_nonzero(STR_NULL, &id) == -ENXIO);
+        assert_se(id128_from_string_nonzero("01020304-0506-0708-090a-0b0c0d0e0f101", &id) < 0);
+        assert_se(id128_from_string_nonzero("01020304-0506-0708-090a-0b0c0d0e0f10-", &id) < 0);
+        assert_se(id128_from_string_nonzero("01020304-0506-0708-090a0b0c0d0e0f10", &id) < 0);
+        assert_se(id128_from_string_nonzero("010203040506-0708-090a-0b0c0d0e0f10", &id) < 0);
 
         assert_se(id128_is_valid(STR_WALDI));
         assert_se(id128_is_valid(UUID_WALDI));
