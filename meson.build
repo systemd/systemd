@@ -1830,11 +1830,6 @@ version_h = vcs_tag(
                   version_tag == '' ? meson.project_version() : version_tag,
                  ])
 
-versiondep = declare_dependency(
-        sources : version_h,
-        include_directories : include_directories('.'),
-)
-
 shared_lib_tag = get_option('shared-lib-tag')
 if shared_lib_tag == ''
         shared_lib_tag = meson.project_version()
@@ -1859,7 +1854,6 @@ jinja2_cmdline = [meson_render_jinja2, config_h, version_h]
 userspace = declare_dependency(
         compile_args : userspace_c_args,
         link_args : userspace_c_ld_args,
-        dependencies : versiondep,
 )
 
 man_page_depends = []
@@ -1884,6 +1878,8 @@ dbus_programs = []
 
 # A list of boot stubs. Required for testing of ukify.
 boot_stubs = []
+
+build_dir_include = include_directories('.')
 
 basic_includes = include_directories(
         'src/basic',
