@@ -118,7 +118,11 @@ configure_file(
 
 ############################################################
 
-efi_includes = [fundamental_include, include_directories('.')]
+efi_includes = [
+        build_dir_include,
+        fundamental_include,
+        include_directories('.'),
+]
 
 efi_c_args = [
         '-DSD_BOOT=1',
@@ -302,7 +306,6 @@ foreach archspec : efi_archspecs
                 libefi_sources,
                 include_directories : efi_includes,
                 c_args : archspec['c_args'],
-                dependencies : versiondep,
                 gnu_symbol_visibility : 'hidden',
                 override_options : efi_override_options,
                 pic : true)
@@ -313,7 +316,6 @@ foreach archspec : efi_archspecs
                 'link_args' : archspec['link_args'],
                 'link_with' : libefi,
                 'link_depends' : elf2efi_lds,
-                'dependencies' : versiondep,
                 'gnu_symbol_visibility' : 'hidden',
                 'override_options' : efi_override_options,
                 'pie' : true,
