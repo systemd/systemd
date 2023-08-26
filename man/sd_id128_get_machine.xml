@@ -198,7 +198,10 @@
           <term><constant>-ENXIO</constant></term>
 
           <listitem><para>Returned by <function>sd_id128_get_invocation()</function> if no invocation ID is
-          set.</para>
+          set. Also returned by <function>sd_id128_get_app_specific()</function>,
+          <function>sd_id128_get_machine_app_specific()</function>, and
+          <function>sd_id128_get_boot_app_specific()</function> when the <parameter>app_id</parameter>
+          parameter is all zeros.</para>
 
           <xi:include href="version-info.xml" xpointer="v242"/></listitem>
         </varlistentry>

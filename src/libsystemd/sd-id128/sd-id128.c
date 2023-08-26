@@ -346,6 +346,7 @@ _public_ int sd_id128_get_app_specific(sd_id128_t base, sd_id128_t app_id, sd_id
         } buf;
 
         assert_return(ret, -EINVAL);
+        assert_return(!sd_id128_is_null(app_id), -ENXIO);
 
         hmac_sha256(&base, sizeof(base), &app_id, sizeof(app_id), buf.hmac);
 
