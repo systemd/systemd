@@ -2438,11 +2438,8 @@ static int context_load_partition_table(Context *context) {
         if (r < 0)
                 return log_error_errno(r, "Failed to get current GPT disk label UUID: %m");
 
-        r = sd_id128_from_string(disk_uuid_string, &disk_uuid);
-        if (r < 0)
-                return log_error_errno(r, "Failed to parse current GPT disk label UUID: %m");
-
-        if (sd_id128_is_null(disk_uuid)) {
+        r = id128_from_string_nonzero(disk_uuid_string, &disk_uuid);
+        if (r == -ENXIO) {
                 r = derive_uuid(context->seed, "disk-uuid", &disk_uuid);
                 if (r < 0)
                         return log_error_errno(r, "Failed to acquire disk GPT uuid: %m");
@@ -2450,7 +2447,8 @@ static int context_load_partition_table(Context *context) {
                 r = fdisk_set_disklabel_id(c);
                 if (r < 0)
                         return log_error_errno(r, "Failed to set GPT disk label: %m");
-        }
+        } else if (r < 0)
+                return log_error_errno(r, "Failed to parse current GPT disk label UUID: %m");
 
         r = fdisk_get_partitions(c, &t);
         if (r < 0)
