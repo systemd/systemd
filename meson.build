@@ -1811,32 +1811,24 @@ version_tag = get_option('version-tag')
 # Check that we have either .git/ (a normal clone) or a .git file (a work-tree) and that we don't
 # get confused if a tarball is extracted in a higher-level git repository.
 if version_tag == '' and git.found() and fs.exists(project_source_root / '.git')
-        version_h = vcs_tag(
-                input : 'src/version/version.h.in',
-                output : 'version.h',
-                # If the working tree has no tags (CI builds), the first git-describe will fail
-                # and we fall back to project_version-commitid instead.
-                # TODO: Use 'sh' variable with meson >= 0.63.0
-                command: ['sh',
-                          '-euc',
-                          '''git -C "$1" describe --abbrev=7 --dirty=^ 2>/dev/null ||
-                                echo "$2-$(git -C "$1" describe --always --abbrev=7)" |
-                                sed 's/^v//; s/-rc/~rc/' ''',
-                          '_',
-                          project_source_root,
-                          meson.project_version()])
+        # If the working tree has no tags (CI builds), the first git-describe will fail
+        # and we fall back to project_version-commitid instead.
+        version_cmd = '''git -C "$1" describe --abbrev=7 --dirty=^ 2>/dev/null ||
+                         echo "$2-$(git -C "$1" describe --always --abbrev=7)" |
+                         sed 's/^v//; s/-rc/~rc/' '''
 else
-        vcs_data = configuration_data()
-        vcs_data.set('VCS_TAG', version_tag == '' ? meson.project_version() : version_tag)
-        version_h = configure_file(configuration : vcs_data,
-                                   input : 'src/version/version.h.in',
-                                   output : 'version.h')
+        version_cmd = '''echo "$2" '''
 endif
 
-versiondep = declare_dependency(
-        sources : version_h,
-        include_directories : include_directories('.'),
-)
+version_h = vcs_tag(
+        input : 'src/version/version.h.in',
+        output : 'version.h',
+        # TODO: Use 'sh' variable with meson >= 0.63.0
+        command: ['sh', '-euc', version_cmd,
+                  '_',
+                  project_source_root,
+                  version_tag == '' ? meson.project_version() : version_tag,
+                 ])
 
 shared_lib_tag = get_option('shared-lib-tag')
 if shared_lib_tag == ''
@@ -1862,7 +1854,6 @@ jinja2_cmdline = [meson_render_jinja2, config_h, version_h]
 userspace = declare_dependency(
         compile_args : userspace_c_args,
         link_args : userspace_c_ld_args,
-        dependencies : versiondep,
 )
 
 man_page_depends = []
@@ -1887,6 +1878,8 @@ dbus_programs = []
 
 # A list of boot stubs. Required for testing of ukify.
 boot_stubs = []
+
+build_dir_include = include_directories('.')
 
 basic_includes = include_directories(
         'src/basic',
