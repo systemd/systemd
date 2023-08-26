@@ -44,6 +44,13 @@
       <arg choice="opt" rep="repeat">OPTIONS</arg>
       <arg choice="plain">invocation-id</arg>
     </cmdsynopsis>
+
+    <cmdsynopsis>
+      <command>systemd-id128</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">show</arg>
+      <arg choice="opt" rep="repeat">NAME|UUID</arg>
+    </cmdsynopsis>
   </refsynopsisdiv>
 
   <refsect1>
@@ -76,9 +83,10 @@
 
     <para>With <command>show</command>, well-known IDs are printed (for now, only GPT partition type UUIDs),
     along with brief identifier strings. When no arguments are specified, all known IDs are shown. When
-    arguments are specified, they must be the identifiers or ID values of one or more known IDs, which are
-    then printed. Combine with <option>--uuid</option> to list the IDs in UUID style, i.e. the way GPT
-    partition type UUIDs are usually shown.</para>
+    arguments are specified, they may be the identifiers or ID values of one or more known IDs, which are
+    then printed with their name, or arbitrary IDs, which are then printed with a placeholder name. Combine
+    with <option>--uuid</option> to list the IDs in UUID style, i.e. the way GPT partition type UUIDs are
+    usually shown.</para>
   </refsect1>
 
   <refsect1>
@@ -137,7 +145,26 @@
   <refsect1>
     <title>Exit status</title>
 
-    <para>On success, 0 is returned, a non-zero failure code otherwise.</para>
+    <para>On success 0 is returned, and a non-zero failure code otherwise.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <example>
+      <title>Show a well-known UUID</title>
+      <programlisting>
+$ systemd-id128 show -P user-home
+773f91ef66d449b5bd83d683bf40ad16
+
+$ systemd-id128 show -Pu user-home
+773f91ef-66d4-49b5-bd83-d683bf40ad16
+
+$ systemd-id128 show 773f91ef-66d4-49b5-bd83-d683bf40ad16
+NAME      ID
+user-home 773f91ef66d449b5bd83d683bf40ad16
+      </programlisting>
+    </example>
   </refsect1>
 
   <refsect1>
