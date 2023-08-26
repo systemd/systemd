@@ -395,6 +395,7 @@ sensor:modalias:acpi:KIOX000A*:dmi:bvnAmericanMegatrendsInternational,LLC.:bvrJP
 
 # T11 / Juno Tablet 2
 sensor:modalias:acpi:NSA2513*:dmi:*:svnDigitek:*
+sensor:modalias:acpi:NSA2513*:dmi:*:svnDefaultstring:*
  ACCEL_MOUNT_MATRIX=0, -1, 0; 1, 0, 0; 0, 0, 1
 
 #########################################
