@@ -1200,6 +1200,86 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
           </para>
         </listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>NFTSet=</varname><replaceable>source</replaceable>:<replaceable>family</replaceable>:<replaceable>table</replaceable>:<replaceable>set</replaceable></term>
+        <listitem>
+          <para>This setting provides a method for integrating network configuration into firewall rules with
+          <ulink url="https://netfilter.org/projects/nftables/index.html">NFT</ulink> sets. The benefit of
+          using the setting is that static network configuration (or dynamically obtained network addresses,
+          see similar directives in other sections) can be used in firewall rules with the indirection of NFT
+          set types. For example, access could be granted for hosts in the local subnetwork only. Firewall
+          rules using IP address of an interface are also instantly updated when the network configuration
+          changes, for example via DHCP.</para>
+
+          <para>This option expects a whitespace separated list of NFT set definitions. Each definition
+          consists of a colon-separated tuple of source type (one of <literal>address</literal>,
+          <literal>prefix</literal> or <literal>ifindex</literal>), NFT address family (one of
+          <literal>arp</literal>, <literal>bridge</literal>, <literal>inet</literal>, <literal>ip</literal>,
+          <literal>ip6</literal>, or <literal>netdev</literal>), table name and set name. The names of tables
+          and sets must conform to lexical restrictions of NFT table names. The type of the element used in
+          the NFT filter must match the type implied by the directive (<literal>address</literal>,
+          <literal>prefix</literal> or <literal>ifindex</literal>) and address type (IPv4 or IPv6) as shown
+          in the table below.</para>
+
+          <table>
+            <title>Defined <varname>source type</varname> values</title>
+            <tgroup cols='3'>
+              <colspec colname='source type'/>
+              <colspec colname='description'/>
+              <colspec colname='NFT type name'/>
+              <thead>
+                <row>
+                  <entry>Source type</entry>
+                  <entry>Description</entry>
+                  <entry>Corresponding NFT type name</entry>
+                </row>
+              </thead>
+
+              <tbody>
+                <row>
+                  <entry><literal>address</literal></entry>
+                  <entry>host IP address</entry>
+                  <entry><literal>ipv4_addr</literal> or <literal>ipv6_addr</literal></entry>
+                </row>
+                <row>
+                  <entry><literal>prefix</literal></entry>
+                  <entry>network prefix</entry>
+                  <entry><literal>ipv4_addr</literal> or <literal>ipv6_addr</literal>, with <literal>flags interval</literal></entry>
+                </row>
+                <row>
+                  <entry><literal>ifindex</literal></entry>
+                  <entry>interface index</entry>
+                  <entry><literal>iface_index</literal></entry>
+                </row>
+              </tbody>
+            </tgroup>
+          </table>
+
+          <para>When an interface is configured with IP addresses, the addresses, subnetwork masks or
+          interface index will be appended to the NFT sets. The information will be removed when the
+          interface is deconfigured. <command>systemd-networkd</command> only inserts elements to (or removes
+          from) the sets, so the related NFT rules, tables and sets must be prepared elsewhere in
+          advance. Failures to manage the sets will be ignored.</para>
+
+          <para>Example:
+          <programlisting>[Address]
+NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
+          Corresponding NFT rules:
+          <programlisting>table netdev filter {
+        set eth_ipv4_prefix {
+                type ipv4_addr
+                flags interval
+        }
+        chain eth_ingress {
+                type filter hook ingress device "eth0" priority filter; policy drop;
+                ip daddr != @eth_ipv4_prefix drop
+                accept
+        }
+}</programlisting>
+          </para>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
@@ -2231,6 +2311,17 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
           addresses. See <varname>NetLabel=</varname> in [Address] section for more details.</para>
         </listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>NFTSet=</varname></term>
+        <listitem>
+          <para>This applies the NFT set for the network configuration received with DHCP, like
+          <varname>NFTSet=</varname> in [Address] section applies it to static configuration. See
+          <varname>NFTSet=</varname> in [Address] section for more details. For <literal>address</literal> or
+          <literal>prefix</literal> source types, the type of the element used in the NFT filter must be
+          <literal>ipv4_addr</literal>.</para>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
@@ -2372,6 +2463,17 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
         </listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>NFTSet=</varname></term>
+        <listitem>
+          <para>This applies the NFT set for the network configuration received with DHCP, like
+          <varname>NFTSet=</varname> in [Address] section applies it to static configuration. See
+          <varname>NFTSet=</varname> in [Address] section for more details. For <literal>address</literal>
+          or <literal>prefix</literal> source types, the type of the element used in the NFT filter must be
+          <literal>ipv6_addr</literal>.</para>
+        </listitem>
+      </varlistentry>
+
       <!-- How to communicate with the server -->
 
       <varlistentry>
@@ -2475,6 +2577,17 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
           <para>This applies the NetLabel for the addresses received with DHCP, like
           <varname>NetLabel=</varname> in [Address] section applies it to statically configured
           addresses. See <varname>NetLabel=</varname> in [Address] section for more details.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>NFTSet=</varname></term>
+        <listitem>
+          <para>This applies the NFT set for the network configuration received with DHCP, like
+          <varname>NFTSet=</varname> in [Address] section applies it to static configuration. See
+          <varname>NFTSet=</varname> in [Address] section for more details. For <literal>address</literal> or
+          <literal>prefix</literal> source types, the type of the element used in the NFT filter must be
+          <literal>ipv6_addr</literal>.</para>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -2781,6 +2894,17 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           <para>This applies the NetLabel for the addresses received with RA, like
           <varname>NetLabel=</varname> in [Address] section applies it to statically configured
           addresses. See <varname>NetLabel=</varname> in [Address] section for more details.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>NFTSet=</varname></term>
+        <listitem>
+          <para>This applies the NFT set for the network configuration received with RA, like
+          <varname>NFTSet=</varname> in [Address] section applies it to static configuration. See
+          <varname>NFTSet=</varname> in [Address] section for more details. For <literal>address</literal> or
+          <literal>prefix</literal> source types, the type of the element used in the NFT filter must be
+          <literal>ipv6_addr</literal>.</para>
         </listitem>
       </varlistentry>
     </variablelist>
