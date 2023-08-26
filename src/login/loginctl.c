@@ -113,32 +113,6 @@ static OutputFlags get_output_flags(void) {
                 colors_enabled() * OUTPUT_COLOR;
 }
 
-static int get_session_path(sd_bus *bus, const char *session_id, sd_bus_error *error, char **path) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        char *ans;
-        int r;
-
-        assert(bus);
-        assert(session_id);
-        assert(error);
-        assert(path);
-
-        r = bus_call_method(bus, bus_login_mgr, "GetSession", error, &reply, "s", session_id);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_message_read(reply, "o", &ans);
-        if (r < 0)
-                return r;
-
-        ans = strdup(ans);
-        if (!ans)
-                return -ENOMEM;
-
-        *path = ans;
-        return 0;
-}
-
 static int show_table(Table *table, const char *word) {
         int r;
 
@@ -375,14 +349,20 @@ static int list_seats(int argc, char *argv[], void *userdata) {
         return show_table(table, "seats");
 }
 
-static int show_unit_cgroup(sd_bus *bus, const char *interface, const char *unit, pid_t leader) {
-        _cleanup_free_ char *cgroup = NULL;
+static int show_unit_cgroup(
+                sd_bus *bus,
+                const char *unit,
+                pid_t leader,
+                const char *prefix) {
+
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_free_ char *cgroup = NULL;
         unsigned c;
         int r;
 
         assert(bus);
         assert(unit);
+        assert(prefix);
 
         r = show_cgroup_get_unit_path_and_warn(bus, unit, &cgroup);
         if (r < 0)
@@ -394,12 +374,9 @@ static int show_unit_cgroup(sd_bus *bus, const char *interface, const char *unit
         c = columns();
         if (c > 18)
                 c -= 18;
-        else
-                c = 0;
 
-        r = unit_show_processes(bus, unit, cgroup, "\t\t  ", c, get_output_flags(), &error);
+        r = unit_show_processes(bus, unit, cgroup, prefix, c, get_output_flags(), &error);
         if (r == -EBADR) {
-
                 if (arg_transport == BUS_TRANSPORT_REMOTE)
                         return 0;
 
@@ -408,7 +385,7 @@ static int show_unit_cgroup(sd_bus *bus, const char *interface, const char *unit
                 if (cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, cgroup) != 0 && leader <= 0)
                         return 0;
 
-                show_cgroup_and_extra(SYSTEMD_CGROUP_CONTROLLER, cgroup, "\t\t  ", c, &leader, leader > 0, get_output_flags());
+                show_cgroup_and_extra(SYSTEMD_CGROUP_CONTROLLER, cgroup, prefix, c, &leader, leader > 0, get_output_flags());
         } else if (r < 0)
                 return log_error_errno(r, "Failed to dump process list: %s", bus_error_message(&error, r));
 
@@ -467,7 +444,25 @@ static int prop_map_sessions_strv(sd_bus *bus, const char *member, sd_bus_messag
         return sd_bus_message_exit_container(m);
 }
 
-static int print_session_status_info(sd_bus *bus, const char *path, bool *new_line) {
+static int mark_session(char **sessions, const char *target_session) {
+        assert(sessions);
+        assert(target_session);
+
+        STRV_FOREACH(i, sessions)
+                if (streq(*i, target_session)) {
+                        _cleanup_free_ char *marked = NULL;
+
+                        marked = strjoin("*", target_session);
+                        if (!marked)
+                                return log_oom();
+
+                        return free_and_replace(*i, marked);
+                }
+
+        return 0;
+}
+
+static int print_session_status_info(sd_bus *bus, const char *path) {
 
         static const struct bus_properties_map map[] = {
                 { "Id",                     "s",    NULL,                     offsetof(SessionStatusInfo,  id)                            },
@@ -497,102 +492,193 @@ static int print_session_status_info(sd_bus *bus, const char *path, bool *new_li
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_(table_unrefp) Table *table = NULL;
         SessionStatusInfo i = {};
+        TableCell *cell;
         int r;
 
         r = bus_map_all_properties(bus, "org.freedesktop.login1", path, map, BUS_MAP_BOOLEAN_AS_BOOL, &error, &m, &i);
         if (r < 0)
                 return log_error_errno(r, "Could not get properties: %s", bus_error_message(&error, r));
 
-        if (*new_line)
-                printf("\n");
+        table = table_new_vertical();
+        if (!table)
+                return log_oom();
 
-        *new_line = true;
+        if (dual_timestamp_is_set(&i.timestamp)) {
+                r = table_add_many(table,
+                                   TABLE_FIELD, "Since",
+                                   TABLE_SET_ALIGN_PERCENT, 100);
+                if (r < 0)
+                        return table_log_add_error(r);
 
-        printf("%s - ", strna(i.id));
+                r = table_add_cell_stringf(table, &cell, "%s; %s",
+                                           FORMAT_TIMESTAMP(i.timestamp.realtime),
+                                           FORMAT_TIMESTAMP_RELATIVE_MONOTONIC(i.timestamp.monotonic));
+                if (r < 0)
+                        return table_log_add_error(r);
 
-        if (i.name)
-                printf("%s (" UID_FMT ")\n", i.name, i.uid);
-        else
-                printf(UID_FMT "\n", i.uid);
+                (void) table_set_align_percent(table, cell, 0);
+        }
 
-        if (dual_timestamp_is_set(&i.timestamp))
-                printf("\t   Since: %s; %s\n",
-                       FORMAT_TIMESTAMP(i.timestamp.realtime),
-                       FORMAT_TIMESTAMP_RELATIVE_MONOTONIC(i.timestamp.monotonic));
+        r = table_add_many(table,
+                           TABLE_FIELD, "State",
+                           TABLE_SET_ALIGN_PERCENT, 100,
+                           TABLE_STRING, i.state,
+                           TABLE_SET_ALIGN_PERCENT, 0);
+        if (r < 0)
+                return table_log_add_error(r);
 
         if (i.leader > 0) {
-                _cleanup_free_ char *t = NULL;
+                _cleanup_free_ char *name = NULL;
 
-                printf("\t  Leader: " PID_FMT, i.leader);
+                (void) get_process_comm(i.leader, &name);
 
-                (void) get_process_comm(i.leader, &t);
-                if (t)
-                        printf(" (%s)", t);
+                r = table_add_many(table,
+                                   TABLE_FIELD, "Leader",
+                                   TABLE_SET_ALIGN_PERCENT, 100);
+                if (r < 0)
+                        return table_log_add_error(r);
 
-                printf("\n");
+                r = table_add_cell_stringf(table, &cell, PID_FMT "%s%s%s",
+                                           i.leader,
+                                           !isempty(name) ? " (" : "",
+                                           strempty(name),
+                                           !isempty(name) ? ")" : "");
+                if (r < 0)
+                        return table_log_add_error(r);
+
+                (void) table_set_align_percent(table, cell, 0);
         }
 
-        if (!isempty(i.seat)) {
-                printf("\t    Seat: %s", i.seat);
+        r = table_add_many(table,
+                           TABLE_FIELD, "Seat",
+                           TABLE_SET_ALIGN_PERCENT, 100);
+        if (r < 0)
+                return table_log_add_error(r);
 
-                if (i.vtnr > 0)
-                        printf("; vc%u", i.vtnr);
+        if (i.vtnr > 0)
+                r = table_add_cell_stringf(table, &cell, "%s; vc%u", i.seat, i.vtnr);
+        else
+                r = table_add_cell(table, &cell, TABLE_STRING, i.seat);
+        if (r < 0)
+                return table_log_add_error(r);
 
-                printf("\n");
-        }
+        (void) table_set_align_percent(table, cell, 0);
 
         if (i.tty)
-                printf("\t     TTY: %s\n", i.tty);
+                r = table_add_many(table,
+                                   TABLE_FIELD, "TTY",
+                                   TABLE_SET_ALIGN_PERCENT, 100,
+                                   TABLE_STRING, i.tty,
+                                   TABLE_SET_ALIGN_PERCENT, 0);
         else if (i.display)
-                printf("\t Display: %s\n", i.display);
+                r = table_add_many(table,
+                                   TABLE_FIELD, "Display",
+                                   TABLE_SET_ALIGN_PERCENT, 100,
+                                   TABLE_STRING, i.display,
+                                   TABLE_SET_ALIGN_PERCENT, 0);
+        else
+                r = 0;
+        if (r < 0)
+                return table_log_add_error(r);
+
+        r = table_add_many(table,
+                           TABLE_FIELD, "Remote",
+                           TABLE_SET_ALIGN_PERCENT, 100);
+        if (r < 0)
+                return table_log_add_error(r);
 
         if (i.remote_host && i.remote_user)
-                printf("\t  Remote: %s@%s\n", i.remote_user, i.remote_host);
+                r = table_add_cell_stringf(table, &cell, "%s@%s", i.remote_user, i.remote_host);
         else if (i.remote_host)
-                printf("\t  Remote: %s\n", i.remote_host);
+                r = table_add_cell(table, &cell, TABLE_STRING, i.remote_host);
         else if (i.remote_user)
-                printf("\t  Remote: user %s\n", i.remote_user);
-        else if (i.remote)
-                printf("\t  Remote: Yes\n");
+                r = table_add_cell_stringf(table, &cell, "user %s", i.remote_user);
+        else
+                r = table_add_cell(table, &cell, TABLE_BOOLEAN, &i.remote);
+        if (r < 0)
+                return table_log_add_error(r);
+
+        (void) table_set_align_percent(table, cell, 0);
 
         if (i.service) {
-                printf("\t Service: %s", i.service);
+                r = table_add_many(table,
+                                   TABLE_FIELD, "Service",
+                                   TABLE_SET_ALIGN_PERCENT, 100,
+                                   TABLE_STRING, i.service,
+                                   TABLE_SET_ALIGN_PERCENT, 0);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
 
-                if (i.type)
-                        printf("; type %s", i.type);
+        if (i.type) {
+                r = table_add_many(table,
+                                   TABLE_FIELD, "Type",
+                                   TABLE_SET_ALIGN_PERCENT, 100,
+                                   TABLE_STRING, i.type,
+                                   TABLE_SET_ALIGN_PERCENT, 0);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
 
-                if (i.class)
-                        printf("; class %s", i.class);
+        if (i.class) {
+                r = table_add_many(table,
+                                   TABLE_FIELD, "Class",
+                                   TABLE_SET_ALIGN_PERCENT, 100,
+                                   TABLE_STRING, i.class,
+                                   TABLE_SET_ALIGN_PERCENT, 0);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
 
-                printf("\n");
-        } else if (i.type) {
-                printf("\t    Type: %s", i.type);
+        if (!isempty(i.desktop)) {
+                r = table_add_many(table,
+                                   TABLE_FIELD, "Desktop",
+                                   TABLE_SET_ALIGN_PERCENT, 100,
+                                   TABLE_STRING, i.desktop,
+                                   TABLE_SET_ALIGN_PERCENT, 0);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
 
-                if (i.class)
-                        printf("; class %s", i.class);
-
-                printf("\n");
-        } else if (i.class)
-                printf("\t   Class: %s\n", i.class);
-
-        if (!isempty(i.desktop))
-                printf("\t Desktop: %s\n", i.desktop);
-
-        if (i.state)
-                printf("\t   State: %s\n", i.state);
+        r = table_add_many(table,
+                           TABLE_FIELD, "Idle",
+                           TABLE_SET_ALIGN_PERCENT, 100);
+        if (r < 0)
+                return table_log_add_error(r);
 
         if (i.idle_hint && dual_timestamp_is_set(&i.idle_hint_timestamp))
-                printf("\t    Idle: %s since %s (%s)\n",
-                       yes_no(i.idle_hint),
-                       FORMAT_TIMESTAMP(i.idle_hint_timestamp.realtime),
-                       FORMAT_TIMESTAMP_RELATIVE_MONOTONIC(i.idle_hint_timestamp.monotonic));
+                r = table_add_cell_stringf(table, &cell, "%s since %s (%s)",
+                                           yes_no(i.idle_hint),
+                                           FORMAT_TIMESTAMP(i.idle_hint_timestamp.realtime),
+                                           FORMAT_TIMESTAMP_RELATIVE_MONOTONIC(i.idle_hint_timestamp.monotonic));
         else
-                printf("\t    Idle: %s\n", yes_no(i.idle_hint));
+                r = table_add_cell(table, &cell, TABLE_BOOLEAN, &i.idle_hint);
+        if (r < 0)
+                return table_log_add_error(r);
+
+        (void) table_set_align_percent(table, cell, 0);
 
         if (i.scope) {
-                printf("\t    Unit: %s\n", i.scope);
-                show_unit_cgroup(bus, "org.freedesktop.systemd1.Scope", i.scope, i.leader);
+                r = table_add_many(table,
+                                   TABLE_FIELD, "Unit",
+                                   TABLE_SET_ALIGN_PERCENT, 100,
+                                   TABLE_STRING, i.scope,
+                                   TABLE_SET_ALIGN_PERCENT, 0);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        /* We don't use the table to show the header, in order to make the width of the column stable. */
+        printf("%s%s - %s (" UID_FMT ")%s\n", ansi_highlight(), i.id, i.name, i.uid, ansi_normal());
+
+        r = table_print(table, NULL);
+        if (r < 0)
+                return table_log_print_error(r);
+
+        if (i.scope) {
+                show_unit_cgroup(bus, i.scope, i.leader, /* prefix = */ strrepa(" ", STRLEN("Display: ")));
 
                 if (arg_transport == BUS_TRANSPORT_LOCAL)
                         show_journal_by_unit(
@@ -613,7 +699,7 @@ static int print_session_status_info(sd_bus *bus, const char *path, bool *new_li
         return 0;
 }
 
-static int print_user_status_info(sd_bus *bus, const char *path, bool *new_line) {
+static int print_user_status_info(sd_bus *bus, const char *path) {
 
         static const struct bus_properties_map map[] = {
                 { "Name",               "s",     NULL,                     offsetof(UserStatusInfo, name)                },
@@ -631,66 +717,105 @@ static int print_user_status_info(sd_bus *bus, const char *path, bool *new_line)
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_(user_status_info_done) UserStatusInfo i = {};
+        _cleanup_(table_unrefp) Table *table = NULL;
+        TableCell *cell;
         int r;
 
         r = bus_map_all_properties(bus, "org.freedesktop.login1", path, map, BUS_MAP_BOOLEAN_AS_BOOL, &error, &m, &i);
         if (r < 0)
                 return log_error_errno(r, "Could not get properties: %s", bus_error_message(&error, r));
 
-        if (*new_line)
-                printf("\n");
+        table = table_new_vertical();
+        if (!table)
+                return log_oom();
 
-        *new_line = true;
+        if (dual_timestamp_is_set(&i.timestamp)) {
+                r = table_add_many(table,
+                                   TABLE_FIELD, "Since",
+                                   TABLE_SET_ALIGN_PERCENT, 100);
+                if (r < 0)
+                        return table_log_add_error(r);
 
-        if (i.name)
-                printf("%s (%"PRIu32")\n", i.name, i.uid);
-        else
-                printf("%"PRIu32"\n", i.uid);
+                r = table_add_cell_stringf(table, &cell, "%s; %s",
+                                           FORMAT_TIMESTAMP(i.timestamp.realtime),
+                                           FORMAT_TIMESTAMP_RELATIVE_MONOTONIC(i.timestamp.monotonic));
+                if (r < 0)
+                        return table_log_add_error(r);
 
-        if (dual_timestamp_is_set(&i.timestamp))
-                printf("\t   Since: %s; %s\n",
-                       FORMAT_TIMESTAMP(i.timestamp.realtime),
-                       FORMAT_TIMESTAMP_RELATIVE_MONOTONIC(i.timestamp.monotonic));
-
-        if (!isempty(i.state))
-                printf("\t   State: %s\n", i.state);
-
-        if (!strv_isempty(i.sessions)) {
-                printf("\tSessions:");
-
-                STRV_FOREACH(l, i.sessions)
-                        printf(" %s%s",
-                               streq_ptr(*l, i.display) ? "*" : "",
-                               *l);
-
-                printf("\n");
+                (void) table_set_align_percent(table, cell, 0);
         }
 
-        printf("\t  Linger: %s\n", yes_no(i.linger));
+        r = table_add_many(table,
+                           TABLE_FIELD, "State",
+                           TABLE_SET_ALIGN_PERCENT, 100,
+                           TABLE_STRING, i.state,
+                           TABLE_SET_ALIGN_PERCENT, 0);
+        if (r < 0)
+                return table_log_add_error(r);
+
+        if (!strv_isempty(i.sessions)) {
+                _cleanup_strv_free_ char **sessions = TAKE_PTR(i.sessions);
+
+                r = mark_session(sessions, i.display);
+                if (r < 0)
+                        return r;
+
+                r = table_add_many(table,
+                                   TABLE_FIELD, "Sessions",
+                                   TABLE_SET_ALIGN_PERCENT, 100,
+                                   TABLE_STRV_WRAPPED, sessions,
+                                   TABLE_SET_ALIGN_PERCENT, 0);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        r = table_add_many(table,
+                           TABLE_FIELD, "Linger",
+                           TABLE_SET_ALIGN_PERCENT, 100,
+                           TABLE_BOOLEAN, i.linger,
+                           TABLE_SET_ALIGN_PERCENT, 0);
+        if (r < 0)
+                return table_log_add_error(r);
 
         if (i.slice) {
-                printf("\t    Unit: %s\n", i.slice);
-                show_unit_cgroup(bus, "org.freedesktop.systemd1.Slice", i.slice, 0);
+                r = table_add_many(table,
+                                   TABLE_FIELD, "Unit",
+                                   TABLE_SET_ALIGN_PERCENT, 100,
+                                   TABLE_STRING, i.slice,
+                                   TABLE_SET_ALIGN_PERCENT, 0);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
 
-                show_journal_by_unit(
-                                stdout,
-                                i.slice,
-                                NULL,
-                                arg_output,
-                                0,
-                                i.timestamp.monotonic,
-                                arg_lines,
-                                0,
-                                get_output_flags() | OUTPUT_BEGIN_NEWLINE,
-                                SD_JOURNAL_LOCAL_ONLY,
-                                true,
-                                NULL);
+        printf("%s%s (" UID_FMT ")%s\n", ansi_highlight(), i.name, i.uid, ansi_normal());
+
+        r = table_print(table, NULL);
+        if (r < 0)
+                return table_log_print_error(r);
+
+        if (i.slice) {
+                show_unit_cgroup(bus, i.slice, /* leader = */ 0, /* prefix = */ strrepa(" ", STRLEN("Sessions: "));
+
+                if (arg_transport == BUS_TRANSPORT_LOCAL)
+                        show_journal_by_unit(
+                                        stdout,
+                                        i.slice,
+                                        NULL,
+                                        arg_output,
+                                        0,
+                                        i.timestamp.monotonic,
+                                        arg_lines,
+                                        0,
+                                        get_output_flags() | OUTPUT_BEGIN_NEWLINE,
+                                        SD_JOURNAL_LOCAL_ONLY,
+                                        true,
+                                        NULL);
         }
 
         return 0;
 }
 
-static int print_seat_status_info(sd_bus *bus, const char *path, bool *new_line) {
+static int print_seat_status_info(sd_bus *bus, const char *path) {
 
         static const struct bus_properties_map map[] = {
                 { "Id",            "s",     NULL,                     offsetof(SeatStatusInfo, id)             },
@@ -702,44 +827,54 @@ static int print_seat_status_info(sd_bus *bus, const char *path, bool *new_line)
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_(seat_status_info_done) SeatStatusInfo i = {};
+        _cleanup_(table_unrefp) Table *table = NULL;
         int r;
 
         r = bus_map_all_properties(bus, "org.freedesktop.login1", path, map, 0, &error, &m, &i);
         if (r < 0)
                 return log_error_errno(r, "Could not get properties: %s", bus_error_message(&error, r));
 
-        if (*new_line)
-                printf("\n");
-
-        *new_line = true;
-
-        printf("%s\n", strna(i.id));
+        table = table_new_vertical();
+        if (!table)
+                return log_oom();
 
         if (!strv_isempty(i.sessions)) {
-                printf("\tSessions:");
+                _cleanup_strv_free_ char **sessions = TAKE_PTR(i.sessions);
 
-                STRV_FOREACH(l, i.sessions) {
-                        if (streq_ptr(*l, i.active_session))
-                                printf(" *%s", *l);
-                        else
-                                printf(" %s", *l);
-                }
+                r = mark_session(sessions, i.active_session);
+                if (r < 0)
+                        return r;
 
-                printf("\n");
+                r = table_add_many(table,
+                                   TABLE_FIELD, "Sessions",
+                                   TABLE_SET_ALIGN_PERCENT, 100,
+                                   TABLE_STRV_WRAPPED, sessions,
+                                   TABLE_SET_ALIGN_PERCENT, 0);
+                if (r < 0)
+                        return table_log_add_error(r);
         }
 
         if (arg_transport == BUS_TRANSPORT_LOCAL) {
-                unsigned c;
+                r = table_add_many(table,
+                                   TABLE_FIELD, "Devices",
+                                   TABLE_SET_ALIGN_PERCENT, 100,
+                                   TABLE_EMPTY);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
 
-                c = columns();
+        printf("%s%s%s\n", ansi_highlight(), i.id, ansi_normal());
+
+        r = table_print(table, NULL);
+        if (r < 0)
+                return table_log_print_error(r);
+
+        if (arg_transport == BUS_TRANSPORT_LOCAL) {
+                unsigned c = columns();
                 if (c > 21)
                         c -= 21;
-                else
-                        c = 0;
 
-                printf("\t Devices:\n");
-
-                show_sysfs(i.id, "\t\t  ", c, get_output_flags());
+                show_sysfs(i.id, strrepa(" ", STRLEN("Sessions:")), c, get_output_flags());
         }
 
         return 0;
@@ -825,17 +960,11 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
         return 0;
 }
 
-static int show_properties(sd_bus *bus, const char *path, bool *new_line) {
+static int show_properties(sd_bus *bus, const char *path) {
         int r;
 
         assert(bus);
         assert(path);
-        assert(new_line);
-
-        if (*new_line)
-                printf("\n");
-
-        *new_line = true;
 
         r = bus_print_all_properties(
                         bus,
@@ -851,12 +980,46 @@ static int show_properties(sd_bus *bus, const char *path, bool *new_line) {
         return 0;
 }
 
-static int show_session(int argc, char *argv[], void *userdata) {
-        bool properties, new_line = false;
-        sd_bus *bus = ASSERT_PTR(userdata);
-        int r;
+static int get_bus_path_by_id(
+                sd_bus *bus,
+                const char *type,
+                const char *method,
+                const char *id,
+                char **ret) {
+
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_free_ char *path = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_free_ char *p = NULL;
+        const char *path;
+        int r;
+
+        assert(bus);
+        assert(type);
+        assert(STR_IN_SET(type, "session", "seat"));
+        assert(method);
+        assert(id);
+        assert(ret);
+
+        r = bus_call_method(bus, bus_login_mgr, method, &error, &reply, "s", id);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get path for %s '%s': %s", type, id, bus_error_message(&error, r));
+
+        r = sd_bus_message_read(reply, "o", &path);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        p = strdup(path);
+        if (!p)
+                return log_oom();
+
+        *ret = TAKE_PTR(p);
+        return 0;
+}
+
+static int show_session(int argc, char *argv[], void *userdata) {
+        sd_bus *bus = ASSERT_PTR(userdata);
+        bool properties;
+        int r;
 
         assert(argv);
 
@@ -867,21 +1030,25 @@ static int show_session(int argc, char *argv[], void *userdata) {
         if (argc <= 1) {
                 /* If no argument is specified inspect the manager itself */
                 if (properties)
-                        return show_properties(bus, "/org/freedesktop/login1", &new_line);
+                        return show_properties(bus, "/org/freedesktop/login1");
 
-                return print_session_status_info(bus, "/org/freedesktop/login1/session/auto", &new_line);
+                return print_session_status_info(bus, "/org/freedesktop/login1/session/auto");
         }
 
-        for (int i = 1; i < argc; i++) {
-                r = get_session_path(bus, argv[i], &error, &path);
+        for (int i = 1, first = true; i < argc; i++, first = false) {
+                _cleanup_free_ char *path = NULL;
+
+                r = get_bus_path_by_id(bus, "session", "GetSession", argv[i], &path);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to get session path: %s", bus_error_message(&error, r));
+                        return r;
+
+                if (!first)
+                        putchar('\n');
 
                 if (properties)
-                        r = show_properties(bus, path, &new_line);
+                        r = show_properties(bus, path);
                 else
-                        r = print_session_status_info(bus, path, &new_line);
-
+                        r = print_session_status_info(bus, path);
                 if (r < 0)
                         return r;
         }
@@ -890,8 +1057,8 @@ static int show_session(int argc, char *argv[], void *userdata) {
 }
 
 static int show_user(int argc, char *argv[], void *userdata) {
-        bool properties, new_line = false;
         sd_bus *bus = ASSERT_PTR(userdata);
+        bool properties;
         int r;
 
         assert(argv);
@@ -903,15 +1070,15 @@ static int show_user(int argc, char *argv[], void *userdata) {
         if (argc <= 1) {
                 /* If no argument is specified inspect the manager itself */
                 if (properties)
-                        return show_properties(bus, "/org/freedesktop/login1", &new_line);
+                        return show_properties(bus, "/org/freedesktop/login1");
 
-                return print_user_status_info(bus, "/org/freedesktop/login1/user/self", &new_line);
+                return print_user_status_info(bus, "/org/freedesktop/login1/user/self");
         }
 
-        for (int i = 1; i < argc; i++) {
+        for (int i = 1, first = true; i < argc; i++, first = false) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message * reply = NULL;
-                const char *path = NULL;
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+                const char *path;
                 uid_t uid;
 
                 r = get_user_creds((const char**) (argv+i), &uid, NULL, NULL, NULL, 0);
@@ -926,11 +1093,13 @@ static int show_user(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return bus_log_parse_error(r);
 
-                if (properties)
-                        r = show_properties(bus, path, &new_line);
-                else
-                        r = print_user_status_info(bus, path, &new_line);
+                if (!first)
+                        putchar('\n');
 
+                if (properties)
+                        r = show_properties(bus, path);
+                else
+                        r = print_user_status_info(bus, path);
                 if (r < 0)
                         return r;
         }
@@ -939,8 +1108,8 @@ static int show_user(int argc, char *argv[], void *userdata) {
 }
 
 static int show_seat(int argc, char *argv[], void *userdata) {
-        bool properties, new_line = false;
         sd_bus *bus = ASSERT_PTR(userdata);
+        bool properties;
         int r;
 
         assert(argv);
@@ -952,29 +1121,25 @@ static int show_seat(int argc, char *argv[], void *userdata) {
         if (argc <= 1) {
                 /* If no argument is specified inspect the manager itself */
                 if (properties)
-                        return show_properties(bus, "/org/freedesktop/login1", &new_line);
+                        return show_properties(bus, "/org/freedesktop/login1");
 
-                return print_seat_status_info(bus, "/org/freedesktop/login1/seat/auto", &new_line);
+                return print_seat_status_info(bus, "/org/freedesktop/login1/seat/auto");
         }
 
-        for (int i = 1; i < argc; i++) {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message * reply = NULL;
-                const char *path = NULL;
+        for (int i = 1, first = true; i < argc; i++, first = false) {
+                _cleanup_free_ char *path = NULL;
 
-                r = bus_call_method(bus, bus_login_mgr, "GetSeat", &error, &reply, "s", argv[i]);
+                r = get_bus_path_by_id(bus, "seat", "GetSeat", argv[i], &path);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to get seat: %s", bus_error_message(&error, r));
+                        return r;
 
-                r = sd_bus_message_read(reply, "o", &path);
-                if (r < 0)
-                        return bus_log_parse_error(r);
+                if (!first)
+                        putchar('\n');
 
                 if (properties)
-                        r = show_properties(bus, path, &new_line);
+                        r = show_properties(bus, path);
                 else
-                        r = print_seat_status_info(bus, path, &new_line);
-
+                        r = print_seat_status_info(bus, path);
                 if (r < 0)
                         return r;
         }
