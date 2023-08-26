@@ -192,6 +192,10 @@ TEST(id128) {
                 assert_se(sd_id128_get_machine_app_specific(SD_ID128_MAKE(51,df,0b,4b,c3,b0,4c,97,80,e2,99,b9,8c,a3,73,b8), &id2) >= 0);
                 assert_se(!sd_id128_equal(id, id2));
         }
+
+        /* Check return values */
+        assert_se(sd_id128_get_app_specific(SD_ID128_ALLF, SD_ID128_NULL, &id) == -ENXIO);
+        assert_se(sd_id128_get_app_specific(SD_ID128_NULL, SD_ID128_ALLF, &id) == 0);
 }
 
 TEST(sd_id128_get_invocation) {
