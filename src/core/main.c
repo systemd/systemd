@@ -242,20 +242,6 @@ static int console_setup(void) {
         return 0;
 }
 
-static int set_machine_id(const char *m) {
-        sd_id128_t t;
-        assert(m);
-
-        if (sd_id128_from_string(m, &t) < 0)
-                return -EINVAL;
-
-        if (sd_id128_is_null(t))
-                return -EINVAL;
-
-        arg_machine_id = t;
-        return 0;
-}
-
 static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
         int r;
 
@@ -392,7 +378,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
-                r = set_machine_id(value);
+                r = id128_from_string_not_null(value, &arg_machine_id);
                 if (r < 0)
                         log_warning_errno(r, "MachineID '%s' is not valid, ignoring: %m", value);
 
@@ -1045,7 +1031,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_MACHINE_ID:
-                        r = set_machine_id(optarg);
+                        r = id128_from_string_not_null(optarg, &arg_machine_id);
                         if (r < 0)
                                 return log_error_errno(r, "MachineID '%s' is not valid: %m", optarg);
                         break;
