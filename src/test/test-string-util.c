@@ -260,6 +260,8 @@ TEST(strextend_with_separator) {
 
 TEST(strrep) {
         _cleanup_free_ char *one = NULL, *three = NULL, *zero = NULL;
+        char *onea, *threea;
+
         one = strrep("waldo", 1);
         three = strrep("waldo", 3);
         zero = strrep("waldo", 0);
@@ -267,6 +269,12 @@ TEST(strrep) {
         assert_se(streq(one, "waldo"));
         assert_se(streq(three, "waldowaldowaldo"));
         assert_se(streq(zero, ""));
+
+        onea = strrepa("waldo", 1);
+        threea = strrepa("waldo", 3);
+
+        assert_se(streq(onea, "waldo"));
+        assert_se(streq(threea, "waldowaldowaldo"));
 }
 
 TEST(string_has_cc) {
