@@ -339,17 +339,18 @@ _public_ int sd_id128_randomize(sd_id128_t *ret) {
 }
 
 static int get_app_specific(sd_id128_t base, sd_id128_t app_id, sd_id128_t *ret) {
-        uint8_t hmac[SHA256_DIGEST_SIZE];
-        sd_id128_t result;
+        assert_cc(sizeof(sd_id128_t) < SHA256_DIGEST_SIZE); /* Check that we don't need to pad with zeros. */
+        union {
+                uint8_t hmac[SHA256_DIGEST_SIZE];
+                sd_id128_t result;
+        } buf;
 
         assert(ret);
 
-        hmac_sha256(&base, sizeof(base), &app_id, sizeof(app_id), hmac);
+        hmac_sha256(&base, sizeof(base), &app_id, sizeof(app_id), buf.hmac);
 
         /* Take only the first half. */
-        memcpy(&result, hmac, MIN(sizeof(hmac), sizeof(result)));
-
-        *ret = id128_make_v4_uuid(result);
+        *ret = id128_make_v4_uuid(buf.result);
         return 0;
 }
 
