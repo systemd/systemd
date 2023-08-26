@@ -16,6 +16,7 @@
 
 static Id128PrettyPrintMode arg_mode = ID128_PRINT_ID128;
 static sd_id128_t arg_app = {};
+static bool arg_value = false;
 
 static int verb_new(int argc, char **argv, void *userdata) {
         return id128_print_new(arg_mode);
@@ -85,7 +86,10 @@ static int show_one(Table **table, const char *name, sd_id128_t uuid, bool first
                         puts("");
                 return 0;
 
-        } else {
+        } else if (arg_value)
+                return id128_pretty_print(uuid, arg_mode);
+
+        else {
                 if (!*table) {
                         *table = table_new("name", "id");
                         if (!*table)
@@ -191,6 +195,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "help",         no_argument,       NULL, 'h'              },
                 { "version",      no_argument,       NULL, ARG_VERSION      },
                 { "pretty",       no_argument,       NULL, 'p'              },
+                { "value",        no_argument,       NULL, 'P'              },
                 { "app-specific", required_argument, NULL, 'a'              },
                 { "uuid",         no_argument,       NULL, 'u'              },
                 {},
@@ -201,7 +206,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hpa:u", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hpa:uP", options, NULL)) >= 0)
                 switch (c) {
 
                 case 'h':
@@ -212,6 +217,13 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'p':
                         arg_mode = ID128_PRINT_PRETTY;
+                        arg_value = false;
+                        break;
+
+                case 'P':
+                        arg_value = true;
+                        if (arg_mode == ID128_PRINT_PRETTY)
+                                arg_mode = ID128_PRINT_ID128;
                         break;
 
                 case 'a':
