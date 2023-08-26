@@ -370,16 +370,11 @@ int config_parse_address_generation_type(
                 }
 
                 if (comma) {
-                        r = sd_id128_from_string(comma + 1, &secret_key);
+                        r = id128_from_string_nonzero(comma + 1, &secret_key);
                         if (r < 0) {
                                 log_syntax(unit, LOG_WARNING, filename, line, r,
-                                           "Failed to parse secret key in %s=, ignoring assignment: %s",
-                                           lvalue, rvalue);
-                                return 0;
-                        }
-                        if (sd_id128_is_null(secret_key)) {
-                                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                                           "Secret key in %s= cannot be null, ignoring assignment: %s",
+                                           r == -ENXIO ? "Secret key in %s= cannot be null, ignoring assignment: %s"
+                                                       : "Failed to parse secret key in %s=, ignoring assignment: %s",
                                            lvalue, rvalue);
                                 return 0;
                         }
