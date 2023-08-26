@@ -166,7 +166,7 @@ static int help(void) {
                "  machine-id              Print the ID of current machine\n"
                "  boot-id                 Print the ID of current boot\n"
                "  invocation-id           Print the ID of current invocation\n"
-               "  show [NAME]             Print one or more well-known GPT partition type IDs\n"
+               "  show [NAME|UUID]        Print one or more UUIDs\n"
                "  help                    Show this help\n"
                "\nOptions:\n"
                "  -h --help               Show this help\n"
