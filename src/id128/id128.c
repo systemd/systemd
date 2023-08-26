@@ -68,7 +68,15 @@ static int verb_invocation_id(int argc, char **argv, void *userdata) {
 }
 
 static int show_one(Table **table, const char *name, sd_id128_t uuid, bool first) {
+        sd_id128_t u;
         int r;
+
+        assert(table);
+
+        if (sd_id128_is_null(arg_app))
+                u = uuid;
+        else
+                assert_se(sd_id128_get_app_specific(uuid, arg_app, &u) == 0);
 
         if (arg_mode == ID128_PRINT_PRETTY) {
                 _cleanup_free_ char *id = NULL;
@@ -79,7 +87,7 @@ static int show_one(Table **table, const char *name, sd_id128_t uuid, bool first
 
                 ascii_strupper(id);
 
-                r = id128_pretty_print_sample(id, uuid);
+                r = id128_pretty_print_sample(id, u);
                 if (r < 0)
                         return r;
                 if (!first)
@@ -87,7 +95,7 @@ static int show_one(Table **table, const char *name, sd_id128_t uuid, bool first
                 return 0;
 
         } else if (arg_value)
-                return id128_pretty_print(uuid, arg_mode);
+                return id128_pretty_print(u, arg_mode);
 
         else {
                 if (!*table) {
@@ -100,7 +108,7 @@ static int show_one(Table **table, const char *name, sd_id128_t uuid, bool first
                 return table_add_many(*table,
                                       TABLE_STRING, name,
                                       arg_mode == ID128_PRINT_ID128 ? TABLE_ID128 : TABLE_UUID,
-                                      uuid);
+                                      u);
         }
 }
 
