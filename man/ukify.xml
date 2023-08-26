@@ -524,7 +524,7 @@ Initrd=early_cpio
 Cmdline=quiet rw rhgb
 
 SecureBootPrivateKey=sb.key
-SecureBootCerificate=sb.cert
+SecureBootCertificate=sb.cert
 SignKernel=yes
 PCRBanks=sha384,sha512
 
