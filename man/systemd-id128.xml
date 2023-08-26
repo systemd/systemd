@@ -97,6 +97,14 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>-P</option></term>
+        <term><option>--value</option></term>
+
+        <listitem><para>Only print the value. May be combined with
+        <option>-u</option>/<option>--uuid</option>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>-a <replaceable>app-id</replaceable></option></term>
         <term><option>--app-specific=<replaceable>app-id</replaceable></option></term>
 
