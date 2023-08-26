@@ -1586,9 +1586,7 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
                 else if (d->type == TABLE_TIMESTAMP_DATE)
                         ret = format_timestamp_style(p, FORMAT_TIMESTAMP_MAX, d->timestamp, TIMESTAMP_DATE);
                 else if (d->type == TABLE_TIMESTAMP_RELATIVE_MONOTONIC)
-                        ret = format_timestamp_relative_full(p, FORMAT_TIMESTAMP_RELATIVE_MAX,
-                                                             d->timestamp, CLOCK_MONOTONIC,
-                                                             /* implicit_left = */ false);
+                        ret = format_timestamp_relative_monotonic(p, FORMAT_TIMESTAMP_RELATIVE_MAX, d->timestamp);
                 else
                         ret = format_timestamp_relative_full(p, FORMAT_TIMESTAMP_RELATIVE_MAX,
                                                              d->timestamp, CLOCK_REALTIME,
