@@ -404,6 +404,10 @@ void log_set_facility(int facility) {
         log_facility = facility;
 }
 
+int log_get_facility(void) {
+        return log_facility;
+}
+
 static int write_to_console(
                 int level,
                 int error,
@@ -1457,6 +1461,7 @@ void log_received_signal(int level, const struct signalfd_siginfo *si) {
                          "Received SIG%s from PID %"PRIu32" (%s).",
                          signal_to_string(si->ssi_signo),
                          si->ssi_pid, strna(p));
+
         } else
                 log_full(level,
                          "Received SIG%s.",

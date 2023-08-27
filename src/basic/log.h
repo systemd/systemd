@@ -61,6 +61,7 @@ int log_set_max_level_from_string(const char *e);
 int log_get_max_level(void) _pure_;
 
 void log_set_facility(int facility);
+int log_get_facility(void) _pure_;
 
 void log_show_color(bool b);
 bool log_get_show_color(void) _pure_;
