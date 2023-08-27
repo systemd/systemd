@@ -42,7 +42,8 @@ static void timer_init(Unit *u) {
 
         t->next_elapse_monotonic_or_boottime = USEC_INFINITY;
         t->next_elapse_realtime = USEC_INFINITY;
-        t->accuracy_usec = u->manager->default_timer_accuracy_usec;
+        if (u->manager)
+                t->accuracy_usec = u->manager->default_timer_accuracy_usec;
         t->remain_after_elapse = true;
 }
 

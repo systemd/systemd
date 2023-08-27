@@ -172,10 +172,13 @@ static void mount_init(Unit *u) {
         assert(u);
         assert(u->load_state == UNIT_STUB);
 
-        m->timeout_usec = u->manager->default_timeout_start_usec;
+        if (u->manager) {
+                m->timeout_usec = u->manager->default_timeout_start_usec;
 
-        m->exec_context.std_output = u->manager->default_std_output;
-        m->exec_context.std_error = u->manager->default_std_error;
+                m->exec_context.std_output = u->manager->default_std_output;
+                m->exec_context.std_error = u->manager->default_std_error;
+                m->exec_context.runtime_scope = MANAGER_IS_SYSTEM(u->manager) ? RUNTIME_SCOPE_SYSTEM : RUNTIME_SCOPE_USER;
+        }
 
         m->directory_mode = 0755;
 
@@ -912,11 +915,13 @@ static void mount_dump(Unit *u, FILE *f, const char *prefix) {
 static int mount_spawn(Mount *m, ExecCommand *c, pid_t *ret_pid) {
 
         _cleanup_(exec_params_clear) ExecParameters exec_params = {
-                .flags     = EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_APPLY_TTY_STDIN,
-                .stdin_fd  = -EBADF,
-                .stdout_fd = -EBADF,
-                .stderr_fd = -EBADF,
-                .exec_fd   = -EBADF,
+                .flags            = EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_APPLY_TTY_STDIN,
+                .stdin_fd         = -EBADF,
+                .stdout_fd        = -EBADF,
+                .stderr_fd        = -EBADF,
+                .exec_fd          = -EBADF,
+                .bpf_outer_map_fd = -EBADF,
+                .user_lookup_fd   = -EBADF,
         };
         pid_t pid;
         int r;

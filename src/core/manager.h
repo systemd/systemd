@@ -136,6 +136,7 @@ typedef enum ManagerTestRunFlags {
         MANAGER_TEST_RUN_ENV_GENERATORS      = 1 << 2,  /* also run env generators  */
         MANAGER_TEST_RUN_GENERATORS          = 1 << 3,  /* also run unit generators */
         MANAGER_TEST_RUN_IGNORE_DEPENDENCIES = 1 << 4,  /* run while ignoring dependencies */
+        MANAGER_TEST_DONT_OPEN_EXECUTOR      = 1 << 5,  /* avoid trying to load sd-executor */
         MANAGER_TEST_FULL = MANAGER_TEST_RUN_BASIC | MANAGER_TEST_RUN_ENV_GENERATORS | MANAGER_TEST_RUN_GENERATORS,
 } ManagerTestRunFlags;
 
@@ -438,12 +439,6 @@ struct Manager {
         RateLimit ctrl_alt_del_ratelimit;
         EmergencyAction cad_burst_action;
 
-        const char *unit_log_field;
-        const char *unit_log_format_string;
-
-        const char *invocation_log_field;
-        const char *invocation_log_format_string;
-
         int first_boot; /* tri-state */
 
         /* Prefixes of e.g. RuntimeDirectory= */
@@ -474,6 +469,12 @@ struct Manager {
         RateLimit dump_ratelimit;
 
         sd_event_source *memory_pressure_event_source;
+
+        /* Pin the systemd-executor binary, so that it never changes until re-exec, ensuring we don't have
+         * serialization/deserialization compatibility issues during upgrades. */
+        int executor_fd;
+        char *executor_path;
+        int executors_pool_socket[2];
 };
 
 static inline usec_t manager_default_timeout_abort_usec(Manager *m) {
@@ -608,6 +609,11 @@ void manager_set_watchdog(Manager *m, WatchdogType t, usec_t timeout);
 void manager_override_watchdog(Manager *m, WatchdogType t, usec_t timeout);
 int manager_set_watchdog_pretimeout_governor(Manager *m, const char *governor);
 int manager_override_watchdog_pretimeout_governor(Manager *m, const char *governor);
+
+bool manager_journal_is_running(Manager *m);
+
+int manager_spawn_workers(Manager *m);
+int manager_kill_workers(Manager *m);
 
 const char* oom_policy_to_string(OOMPolicy i) _const_;
 OOMPolicy oom_policy_from_string(const char *s) _pure_;
