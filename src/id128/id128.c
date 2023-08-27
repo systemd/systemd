@@ -91,23 +91,22 @@ static int show_one(Table **table, const char *name, sd_id128_t uuid, bool first
                 if (!first)
                         puts("");
                 return 0;
+        }
 
-        } else if (arg_value)
+        if (arg_value)
                 return id128_pretty_print(u, arg_mode);
 
-        else {
-                if (!*table) {
-                        *table = table_new("name", "id");
-                        if (!*table)
-                                return log_oom();
-                        table_set_width(*table, 0);
-                }
-
-                return table_add_many(*table,
-                                      TABLE_STRING, name,
-                                      arg_mode == ID128_PRINT_ID128 ? TABLE_ID128 : TABLE_UUID,
-                                      u);
+        if (!*table) {
+                *table = table_new("name", "id");
+                if (!*table)
+                        return log_oom();
+                table_set_width(*table, 0);
         }
+
+        return table_add_many(*table,
+                              TABLE_STRING, name,
+                              arg_mode == ID128_PRINT_ID128 ? TABLE_ID128 : TABLE_UUID,
+                              u);
 }
 
 static int verb_show(int argc, char **argv, void *userdata) {
