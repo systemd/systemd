@@ -248,7 +248,8 @@
         <term><varname>rd.systemd.gpt_auto</varname></term>
 
         <listitem><para>Those options take an optional boolean argument, and default to yes.
-        The generator is enabled by default, and a negative value may be used to disable it.
+        The generator is enabled by default, and a false value may be used to disable it
+        (e.g. <literal>systemd.gpt_auto=0</literal>).
         </para></listitem>
       </varlistentry>
 
