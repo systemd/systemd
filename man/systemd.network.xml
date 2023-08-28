@@ -2686,6 +2686,15 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>UsePREF64=</varname></term>
+        <listitem>
+          <para>When true, the UsePREF64 prefixes received in the Router Advertisement will be recorded
+          and made available to client programs and displayed in the networkctl status output per-link.
+          Defaults to false.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>UseAutonomousPrefix=</varname></term>
         <listitem>
           <para>When true (the default), the autonomous prefix received in the Router Advertisement will be used and take
