@@ -102,6 +102,7 @@ static sd_radv *radv_free(sd_radv *ra) {
 
         LIST_CLEAR(prefix, ra->prefixes, sd_radv_prefix_unref);
         LIST_CLEAR(prefix, ra->route_prefixes, sd_radv_route_prefix_unref);
+        LIST_CLEAR(prefix, ra->pref64_prefixes, sd_radv_pref64_prefix_unref);
 
         free(ra->rdnss);
         free(ra->dnssl);
