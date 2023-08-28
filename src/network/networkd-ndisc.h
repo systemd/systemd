@@ -39,6 +39,15 @@ typedef struct NDiscCaptivePortal {
         char *captive_portal;
 } NDiscCaptivePortal;
 
+typedef struct NDiscPREF64 {
+        struct in6_addr router;
+        /* This is an absolute point in time, and NOT a timespan/duration.
+         * Must be specified with CLOCK_BOOTTIME. */
+        usec_t lifetime_usec;
+        uint8_t prefix_len;
+        struct in6_addr prefix;
+} NDiscPREF64;
+
 static inline char* NDISC_DNSSL_DOMAIN(const NDiscDNSSL *n) {
         return ((char*) n) + ALIGN(sizeof(NDiscDNSSL));
 }
