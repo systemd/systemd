@@ -34,7 +34,7 @@ except (KeyError, ValueError):
     VERBOSE = False
 
 # Override location of ukify and the boot stub for testing and debugging.
-UKIFY = os.getenv('KERNEL_INSTALL_UKIFY', '/usr/lib/systemd/ukify')
+UKIFY = os.getenv('KERNEL_INSTALL_UKIFY', 'ukify')
 BOOT_STUB = os.getenv('KERNEL_INSTALL_BOOT_STUB')
 
 
