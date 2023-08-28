@@ -1788,3 +1788,25 @@ size_t log_context_num_contexts(void) {
 size_t log_context_num_fields(void) {
         return _log_context_num_fields;
 }
+
+int log_emergency (const char *id, const char *message) {
+        char log_message[STRLEN("MESSAGE=") + strlen(message) + 1];
+        char message_id[STRLEN("MESSAGE_ID=") + strlen(id) + 1];
+
+        xsprintf(log_message, "MESSAGE=%s", message);
+        xsprintf(message_id, "MESSAGE_ID=%s", id);
+        return log_struct(LOG_EMERG,
+                          log_message,
+                          message_id);
+}
+
+int log_emergency_errno (int error, const char *id, const char *message) {
+        char log_message[STRLEN("MESSAGE=") + strlen(message) + 1];
+        char message_id[STRLEN("MESSAGE_ID=") + strlen(id) + 1];
+
+        xsprintf(log_message, "MESSAGE=%s", message);
+        xsprintf(message_id, "MESSAGE_ID=%s", id);
+        return log_struct_errno(LOG_EMERG, error,
+                          log_message,
+                          message_id);
+}

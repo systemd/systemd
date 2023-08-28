@@ -17,6 +17,7 @@
 #include "parse-util.h"
 #include "pretty-print.h"
 #include "proc-cmdline.h"
+#include "sd-messages.h"
 #include "socket-util.h"
 #include "terminal-util.h"
 #include "time-util.h"
@@ -156,8 +157,9 @@ static int run(int argc, char *argv[]) {
         }
         if (r == 0)
                 return 0;
-
-        log_emergency("%s " BATTERY_LOW_MESSAGE, special_glyph(SPECIAL_GLYPH_LOW_BATTERY));
+        _cleanup_free_ char* message = NULL;
+        asprintf(&message, "%s " BATTERY_LOW_MESSAGE, special_glyph(SPECIAL_GLYPH_LOW_BATTERY));
+        log_emergency(SD_MESSAGE_BATTERY_LOW_WARNING_STR, message);
 
         fd = open_terminal("/dev/console", O_WRONLY|O_NOCTTY|O_CLOEXEC);
         if (fd < 0)
@@ -178,7 +180,7 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_warning_errno(r, "Failed to check battery status, assuming not charged yet, powering off: %m");
         if (r > 0) {
-                log_emergency("Battery level critically low, powering off.");
+                log_emergency(SD_MESSAGE_BATTERY_LOW_POWEROFF_STR, "Battery level critically low, powering off.");
                 return r;
         }
 
