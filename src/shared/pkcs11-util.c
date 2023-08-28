@@ -706,6 +706,215 @@ int pkcs11_token_find_private_key(
         return 0;
 }
 
+// Returns an object with the given class and the same CKA_ID and/or CKA_LABEL as prototype
+int pkcs11_token_find_related_object(
+                CK_FUNCTION_LIST *m,
+                CK_SESSION_HANDLE session,
+                CK_OBJECT_HANDLE prototype,
+                CK_OBJECT_CLASS class,
+                CK_OBJECT_HANDLE *ret_object ) {
+
+        _cleanup_free_ void *label_buffer = NULL;
+        _cleanup_free_ void *id_buffer = NULL;
+        CK_ATTRIBUTE attributes[] = {
+                { CKA_LABEL, NULL_PTR, 0 },
+                { CKA_ID,    NULL_PTR, 0 }
+        };
+        CK_OBJECT_CLASS search_class = class;
+        CK_ATTRIBUTE search_attributes[1 + ELEMENTSOF(attributes)] = {
+                { CKA_CLASS, &search_class, sizeof(search_class) }
+        };
+        int n = 1;
+        CK_ULONG n_objects;
+        CK_OBJECT_HANDLE objects[2];
+        CK_RV rv;
+
+        rv = m->C_GetAttributeValue(session, prototype, attributes, ELEMENTSOF(attributes));
+        if (rv != CKR_OK && rv != CKR_ATTRIBUTE_TYPE_INVALID)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to retrieve length of attributes: %s", sym_p11_kit_strerror(rv));
+
+        if (attributes[0].ulValueLen != CK_UNAVAILABLE_INFORMATION) {
+                label_buffer = malloc(attributes[0].ulValueLen);
+                if (!label_buffer)
+                        log_oom();
+
+                attributes[0].pValue = label_buffer;
+                rv = m->C_GetAttributeValue(session, prototype, &attributes[0], 1);
+                if (rv != CKR_OK)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                "Failed to retrieve CKA_LABEL: %s", sym_p11_kit_strerror(rv));
+
+                search_attributes[n++] = attributes[0];
+        }
+
+        if (attributes[1].ulValueLen != CK_UNAVAILABLE_INFORMATION) {
+                id_buffer = malloc(attributes[1].ulValueLen);
+                if (!id_buffer)
+                        log_oom();
+
+                attributes[1].pValue = id_buffer;
+                rv = m->C_GetAttributeValue(session, prototype, &attributes[1], 1);
+                if (rv != CKR_OK)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                "Failed to retrieve CKA_ID: %s", sym_p11_kit_strerror(rv));
+
+                search_attributes[n++] = attributes[1];
+        }
+
+        // We need at least CKA_ID or CKA_LABEL
+        if (n == 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                        "The prototype does not have CKA_ID and CKA_LABEL");
+
+        rv = m->C_FindObjectsInit(session, search_attributes, n);
+        if (rv != CKR_OK)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                        "Failed to initialize object find call: %s", sym_p11_kit_strerror(rv));
+
+        rv = m->C_FindObjects(session, objects, 2, &n_objects);
+        if (rv != CKR_OK)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                        "Failed to find objects: %s", sym_p11_kit_strerror(rv));
+
+        rv = m->C_FindObjectsFinal(session);
+        if (rv != CKR_OK)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                        "Failed to finalize object find call: %s", sym_p11_kit_strerror(rv));
+
+         if (n_objects == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
+                        "Can't find a related object with given criteria");
+
+         if (n_objects > 1)
+                log_warning("Found multiple objects with the same CKA_CLASS, CKA_LABEL and CKA_ID");
+
+        *ret_object = objects[0];
+        return 0;
+}
+
+#if HAVE_OPENSSL
+static int ecc_convert_to_compressed(
+                CK_FUNCTION_LIST *m,
+                CK_SESSION_HANDLE session,
+                CK_OBJECT_HANDLE object,
+                const unsigned char *uncompressed_point,
+                size_t uncompressed_point_size,
+                unsigned char **ret_compressed_point,
+                size_t *ret_compressed_point_size) {
+
+        _cleanup_free_ void *ec_params_buffer = NULL;
+        _cleanup_free_ unsigned char *compressed_point = NULL;
+        size_t compressed_point_size;
+        CK_ATTRIBUTE ec_params_attr = { CKA_EC_PARAMS, NULL_PTR, 0 };
+        CK_OBJECT_HANDLE public_key;
+        CK_RV rv;
+        int r;
+
+        rv = m->C_GetAttributeValue(session, object, &ec_params_attr, 1);
+        if (rv != CKR_OK && rv != CKR_ATTRIBUTE_TYPE_INVALID)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                        "Failed to retrieve length of CKA_EC_PARAMS: %s", sym_p11_kit_strerror(rv));
+
+        if (ec_params_attr.ulValueLen != CK_UNAVAILABLE_INFORMATION) {
+                ec_params_buffer = malloc(ec_params_attr.ulValueLen);
+                if (!ec_params_buffer)
+                        log_oom();
+
+                ec_params_attr.pValue = ec_params_buffer;
+                rv = m->C_GetAttributeValue(session, object, &ec_params_attr, 1);
+                if (rv != CKR_OK)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                "Failed to retrieve CKA_EC_PARAMS from a private key: %s", sym_p11_kit_strerror(rv));
+        } else {
+                r = pkcs11_token_find_related_object(m, session, object, CKO_PUBLIC_KEY, &public_key);
+                if (r < 0)
+                        return r;
+
+                ec_params_attr.ulValueLen = 0;
+                rv = m->C_GetAttributeValue(session, public_key, &ec_params_attr, 1);
+                if (rv != CKR_OK && rv != CKR_ATTRIBUTE_TYPE_INVALID)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                "Failed to retrieve length of CKA_EC_PARAMS: %s", sym_p11_kit_strerror(rv));
+
+                if (ec_params_attr.ulValueLen == CK_UNAVAILABLE_INFORMATION)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                "The public key does not have CKA_EC_PARAMS");
+
+                ec_params_buffer = malloc(ec_params_attr.ulValueLen);
+                if (!ec_params_buffer)
+                        log_oom();
+
+                ec_params_attr.pValue = ec_params_buffer;
+                rv = m->C_GetAttributeValue(session, public_key, &ec_params_attr, 1);
+                if (rv != CKR_OK)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                "Failed to retrieve CKA_EC_PARAMS from a public key: %s", sym_p11_kit_strerror(rv));
+        }
+
+#if OPENSSL_VERSION_MAJOR >= 3
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = NULL;
+
+        pkey = d2i_KeyParams(EVP_PKEY_EC, NULL, ec_params_attr.pValue, ec_params_attr.ulValueLen);
+        if (!pkey)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unable to decode CKA_EC_PARAMS");
+
+        r = EVP_PKEY_set1_encoded_public_key(pkey, uncompressed_point, uncompressed_point_size);
+        if (r != 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unable to decode an uncompressed EC point");
+
+        r = EVP_PKEY_set_utf8_string_param(pkey,
+                                           OSSL_PKEY_PARAM_EC_POINT_CONVERSION_FORMAT,
+                                           OSSL_PKEY_EC_POINT_CONVERSION_FORMAT_COMPRESSED);
+        if (r != 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                       "Failed to set PKEY parameter \""
+                                       OSSL_PKEY_PARAM_EC_POINT_CONVERSION_FORMAT "\" to \""
+                                       OSSL_PKEY_EC_POINT_CONVERSION_FORMAT_COMPRESSED "\"");
+
+        compressed_point_size = EVP_PKEY_get1_encoded_public_key(pkey, &compressed_point);
+
+        if (compressed_point_size == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to convert a EC point to compressed format");
+#else
+        _cleanup_(EC_GROUP_freep) EC_GROUP *group = NULL;
+        _cleanup_(EC_POINT_freep) EC_POINT *point = NULL;
+        _cleanup_(BN_CTX_freep)   BN_CTX   *bnctx = NULL;
+
+        group = d2i_ECPKParameters(NULL, ec_params_attr.pValue, ec_params_attr.ulValueLen);
+        if (!group)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unable to decode CKA_EC_PARAMS");
+
+        point = EC_POINT_new(group);
+        if (!point)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOMEM), "Unable to allocate a EC_POINT");
+
+        bnctx = BN_CTX_new();
+        if (!bnctx)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOMEM), "Unable to allocate a BN_CTX");
+
+        r = EC_POINT_oct2point(group, point, uncompressed_point, uncompressed_point_size, bnctx);
+        if (r != 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unable to decode an uncompressed EC point");
+
+        compressed_point_size = EC_POINT_point2oct(group, point, POINT_CONVERSION_COMPRESSED, NULL, 0, bnctx);
+        if (compressed_point_size == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to determine size of a compressed EC point");
+
+        compressed_point = new(unsigned char, compressed_point_size);
+        if (!compressed_point)
+                return log_oom();
+
+        compressed_point_size = EC_POINT_point2oct(group, point, POINT_CONVERSION_COMPRESSED, compressed_point, compressed_point_size, bnctx);
+        if (compressed_point_size == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to convert a EC point to compressed format");
+#endif
+
+        *ret_compressed_point = TAKE_PTR(compressed_point);
+        *ret_compressed_point_size = compressed_point_size;
+        return 0;
+}
+#endif
+
 /* Since EC keys doesn't support encryption directly, we use ECDH protocol to derive shared secret here.
  * We use PKCS#11 C_DeriveKey function to derive a shared secret with a private key stored in the token and
  * a public key saved on enrollment. */
@@ -718,6 +927,7 @@ static int pkcs11_token_decrypt_data_ecc(
                 void **ret_decrypted_data,
                 size_t *ret_decrypted_data_size) {
 
+        _cleanup_free_ void *compressed_point = NULL;
         static const CK_BBOOL yes = CK_TRUE, no = CK_FALSE;
         static const CK_OBJECT_CLASS shared_secret_class = CKO_SECRET_KEY;
         static const CK_KEY_TYPE     shared_secret_type = CKK_GENERIC_SECRET;
@@ -740,6 +950,8 @@ static int pkcs11_token_decrypt_data_ecc(
                 .pParameter = &params,
                 .ulParameterLen = sizeof(CK_ECDH1_DERIVE_PARAMS)
         };
+        CK_SESSION_INFO session_info;
+        CK_MECHANISM_INFO mechanism_info;
         CK_ATTRIBUTE shared_secret_attr = {
                 .type = CKA_VALUE
         };
@@ -751,6 +963,34 @@ static int pkcs11_token_decrypt_data_ecc(
         assert(encrypted_data_size > 0);
         assert(ret_decrypted_data);
         assert(ret_decrypted_data_size);
+
+        rv = m->C_GetSessionInfo(session, &session_info);
+        if (rv != CKR_OK)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                        "Failed to get information about the PKCS#11 session: %s", sym_p11_kit_strerror(rv));
+
+        rv = m->C_GetMechanismInfo(session_info.slotID, CKM_ECDH1_DERIVE, &mechanism_info);
+        if (rv != CKR_OK)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                        "Failed to get information about CKM_ECDH1_DERIVE: %s", sym_p11_kit_strerror(rv));
+
+        if (!(mechanism_info.flags & CKF_EC_UNCOMPRESS)) {
+                if (mechanism_info.flags & CKF_EC_COMPRESS) {
+#if HAVE_OPENSSL
+                        log_debug("CKM_ECDH1_DERIVE accepts compressed EC points only. Trying to convert.");
+                        int r = ecc_convert_to_compressed(m, session, object, encrypted_data, encrypted_data_size, &params.pPublicData, &params.ulPublicDataLen);
+                        if (r < 0)
+                                return r;
+
+                        compressed_point = params.pPublicData;
+#else
+                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                "CKM_ECDH1_DERIVE does not support uncompressed format of EC points");
+#endif
+                } else {
+                        log_debug("Both CKF_EC_UNCOMPRESS and CKF_EC_COMPRESS are false for CKM_ECDH1_DERIVE. Ignoring.");
+                }
+        }
 
         rv = m->C_DeriveKey(session, &mechanism, object, (CK_ATTRIBUTE*) shared_secret_template, ELEMENTSOF(shared_secret_template), &shared_secret_handle);
         if (rv != CKR_OK)
