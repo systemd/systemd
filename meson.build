@@ -1854,6 +1854,7 @@ jinja2_cmdline = [meson_render_jinja2, config_h, version_h]
 userspace = declare_dependency(
         compile_args : userspace_c_args,
         link_args : userspace_c_ld_args,
+        sources : version_h,
 )
 
 man_page_depends = []
