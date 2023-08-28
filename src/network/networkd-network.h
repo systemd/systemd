@@ -333,6 +333,7 @@ struct Network {
         bool ipv6_accept_ra_use_icmp6_ratelimit;
         bool ipv6_accept_ra_quickack;
         bool ipv6_accept_ra_use_captive_portal;
+        bool ipv6_accept_ra_use_pref64;
         bool active_slave;
         bool primary_slave;
         DHCPUseDomains ipv6_accept_ra_use_domains;
