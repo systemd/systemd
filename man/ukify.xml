@@ -22,7 +22,7 @@
 
   <refsynopsisdiv>
     <cmdsynopsis>
-      <command>/usr/lib/systemd/ukify</command>
+      <command>ukify</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
       <arg choice="plain">build</arg>
     </cmdsynopsis>
@@ -43,9 +43,6 @@
 
   <refsect1>
     <title>Description</title>
-
-    <para>Note: this command is experimental for now. While it is intended to become a regular component of
-    systemd, it might still change in behaviour and interface.</para>
 
     <para><command>ukify</command> is a tool whose primary purpose is to combine components (usually a
     kernel, an initrd, and a UEFI boot stub) to create a
@@ -493,7 +490,7 @@
     <example>
       <title>All the bells and whistles</title>
 
-      <programlisting>$ /usr/lib/systemd/ukify build \
+      <programlisting>$ ukify build \
       --linux=/lib/modules/6.0.9-300.fc37.x86_64/vmlinuz \
       --initrd=early_cpio \
       --initrd=/some/path/initramfs-6.0.9-300.fc37.x86_64.img \
@@ -552,7 +549,7 @@ Phases=enter-initrd:leave-initrd
        enter-initrd:leave-initrd:sysinit
        enter-initrd:leave-initrd:sysinit:ready
 
-$ /usr/lib/systemd/ukify -c ukify.conf build \
+$ ukify -c ukify.conf build \
         --linux=/lib/modules/6.0.9-300.fc37.x86_64/vmlinuz \
         --initrd=/some/path/initramfs-6.0.9-300.fc37.x86_64.img
       </programlisting>
@@ -588,7 +585,7 @@ $ /usr/lib/systemd/ukify -c ukify.conf build \
 <xi:include href="uki.conf.example" parse="text" />EOF</programlisting>
 
       <para>Next, we can generate the certificate and keys:</para>
-      <programlisting># /usr/lib/systemd/ukify genkey --config=/etc/kernel/uki.conf
+      <programlisting># ukify genkey --config=/etc/kernel/uki.conf
 Writing SecureBoot private key to /etc/kernel/secure-boot.key.pem
 Writing SecureBoot certificate to /etc/kernel/secure-boot.cert.pem
 Writing private key for PCR signing to /etc/kernel/pcr-initrd.key.pem
@@ -601,7 +598,7 @@ Writing public key for PCR signing to /etc/kernel/pcr-system.pub.pem
       to <filename>/etc/kernel/</filename>.)</para>
 
       <para>Subsequent invocations of using the config file
-      (<command>/usr/lib/systemd/ukify build --config=/etc/kernel/uki.conf</command>)
+      (<command>ukify build --config=/etc/kernel/uki.conf</command>)
       will use this certificate and key files. Note that the
       <citerefentry><refentrytitle>kernel-install</refentrytitle><manvolnum>8</manvolnum></citerefentry>
       plugin <filename>60-ukify.install</filename> uses <filename>/etc/kernel/uki.conf</filename>
