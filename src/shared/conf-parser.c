@@ -19,6 +19,7 @@
 #include "fileio.h"
 #include "fs-util.h"
 #include "hostname-util.h"
+#include "id128-util.h"
 #include "in-addr-util.h"
 #include "log.h"
 #include "macro.h"
@@ -944,25 +945,19 @@ int config_parse_id128(
                 void *data,
                 void *userdata) {
 
-        sd_id128_t t, *result = data;
+        sd_id128_t *result = data;
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
 
-        r = sd_id128_from_string(rvalue, &t);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse 128-bit ID/UUID, ignoring: %s", rvalue);
-                return 0;
-        }
-
-        if (sd_id128_is_null(t)) {
+        r = id128_from_string_not_null(rvalue, result);
+        if (r == -ENXIO)
                 log_syntax(unit, LOG_WARNING, filename, line, 0, "128-bit ID/UUID is all 0, ignoring: %s", rvalue);
-                return 0;
-        }
+        else if (r < 0)
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse 128-bit ID/UUID, ignoring: %s", rvalue);
 
-        *result = t;
         return 0;
 }
 

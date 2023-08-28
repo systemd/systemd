@@ -338,18 +338,20 @@ _public_ int sd_id128_randomize(sd_id128_t *ret) {
         return 0;
 }
 
-static int get_app_specific(sd_id128_t base, sd_id128_t app_id, sd_id128_t *ret) {
-        uint8_t hmac[SHA256_DIGEST_SIZE];
-        sd_id128_t result;
+_public_ int sd_id128_get_app_specific(sd_id128_t base, sd_id128_t app_id, sd_id128_t *ret) {
+        assert_cc(sizeof(sd_id128_t) < SHA256_DIGEST_SIZE); /* Check that we don't need to pad with zeros. */
+        union {
+                uint8_t hmac[SHA256_DIGEST_SIZE];
+                sd_id128_t result;
+        } buf;
 
-        assert(ret);
+        assert_return(ret, -EINVAL);
+        assert_return(!sd_id128_is_null(app_id), -ENXIO);
 
-        hmac_sha256(&base, sizeof(base), &app_id, sizeof(app_id), hmac);
+        hmac_sha256(&base, sizeof(base), &app_id, sizeof(app_id), buf.hmac);
 
         /* Take only the first half. */
-        memcpy(&result, hmac, MIN(sizeof(hmac), sizeof(result)));
-
-        *ret = id128_make_v4_uuid(result);
+        *ret = id128_make_v4_uuid(buf.result);
         return 0;
 }
 
@@ -363,7 +365,7 @@ _public_ int sd_id128_get_machine_app_specific(sd_id128_t app_id, sd_id128_t *re
         if (r < 0)
                 return r;
 
-        return get_app_specific(id, app_id, ret);
+        return sd_id128_get_app_specific(id, app_id, ret);
 }
 
 _public_ int sd_id128_get_boot_app_specific(sd_id128_t app_id, sd_id128_t *ret) {
@@ -376,5 +378,5 @@ _public_ int sd_id128_get_boot_app_specific(sd_id128_t app_id, sd_id128_t *ret) 
         if (r < 0)
                 return r;
 
-        return get_app_specific(id, app_id, ret);
+        return sd_id128_get_app_specific(id, app_id, ret);
 }
