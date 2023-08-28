@@ -1413,7 +1413,10 @@ def apply_config(namespace, filename=None):
     # Do not make keys lowercase
     cp.optionxform = lambda option: option
 
-    cp.read(filename)
+    # The API is not great.
+    read = cp.read(filename)
+    if not read:
+        raise IOError(f'Failed to read {filename}')
 
     for section_name, section in cp.items():
         idx = section_name.find(':')
