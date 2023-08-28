@@ -244,7 +244,6 @@ int log_emergency_level(void);
 #define log_notice(...)    log_full(LOG_NOTICE,  __VA_ARGS__)
 #define log_warning(...)   log_full(LOG_WARNING, __VA_ARGS__)
 #define log_error(...)     log_full(LOG_ERR,     __VA_ARGS__)
-#define log_emergency(...) log_full(log_emergency_level(), __VA_ARGS__)
 
 /* Logging triggered by an errno-like error */
 #define log_debug_errno(error, ...)     log_full_errno(LOG_DEBUG,   error, __VA_ARGS__)
@@ -252,7 +251,6 @@ int log_emergency_level(void);
 #define log_notice_errno(error, ...)    log_full_errno(LOG_NOTICE,  error, __VA_ARGS__)
 #define log_warning_errno(error, ...)   log_full_errno(LOG_WARNING, error, __VA_ARGS__)
 #define log_error_errno(error, ...)     log_full_errno(LOG_ERR,     error, __VA_ARGS__)
-#define log_emergency_errno(error, ...) log_full_errno(log_emergency_level(), error, __VA_ARGS__)
 
 /* This logs at the specified level the first time it is called, and then
  * logs at debug. If the specified level is debug, this logs only the first
@@ -535,3 +533,15 @@ size_t log_context_num_fields(void);
 
 #define LOG_CONTEXT_CONSUME_IOV(input_iovec, n_input_iovec) \
         _LOG_CONTEXT_CONSUME_IOV(input_iovec, n_input_iovec, UNIQ_T(c, UNIQ))
+
+static inline int log_emergency (const char *id, const char *message) {
+        return log_struct(LOG_EMERGENCY,
+                                LOG_MESSAGE(message),
+                                "MESSAGE_ID=" id);
+}
+
+static inline int log_emergency_errno (int error, const char *id, const char *message) {
+        return log_struct_errno(LOG_EMERGENCY, error,
+                                LOG_MESSAGE(message),
+                                "MESSAGE_ID=" id);
+}
