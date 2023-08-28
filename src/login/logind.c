@@ -438,6 +438,8 @@ static int manager_attach_fds(Manager *m) {
         /* Upon restart, PID1 will send us back all fds of session devices that we previously opened. Each
          * file descriptor is associated with a given session. The session ids are passed through FDNAMES. */
 
+        assert(m);
+
         n = sd_listen_fds_with_names(true, &fdnames);
         if (n < 0)
                 return log_warning_errno(n, "Failed to acquire passed fd list: %m");
@@ -668,7 +670,7 @@ static int manager_connect_bus(Manager *m) {
 }
 
 static int manager_vt_switch(sd_event_source *src, const struct signalfd_siginfo *si, void *data) {
-        Manager *m = data;
+        Manager *m = ASSERT_PTR(data);
         Session *active;
 
         /*
