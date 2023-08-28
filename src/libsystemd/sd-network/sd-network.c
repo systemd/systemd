@@ -270,6 +270,10 @@ int sd_network_link_get_route_domains(int ifindex, char ***ret) {
         return network_link_get_strv(ifindex, "ROUTE_DOMAINS", ret);
 }
 
+int sd_network_link_get_pref64(int ifindex, char ***ret) {
+        return network_link_get_strv(ifindex, "PREF64", ret);
+}
+
 int sd_network_link_get_dns_default_route(int ifindex) {
         return network_link_get_boolean(ifindex, "DNS_DEFAULT_ROUTE");
 }
