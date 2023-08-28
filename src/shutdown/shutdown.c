@@ -39,6 +39,7 @@
 #include "process-util.h"
 #include "reboot-util.h"
 #include "rlimit-util.h"
+#include "sd-messages.h"
 #include "signal-util.h"
 #include "string-util.h"
 #include "switch-root.h"
@@ -654,6 +655,6 @@ int main(int argc, char *argv[]) {
         r = log_error_errno(errno, "Failed to invoke reboot(): %m");
 
   error:
-        log_emergency_errno(r, "Critical error while doing system shutdown: %m");
+        log_emergency_errno(r, SD_MESSAGE_SHUTDOWN_ERROR_STR, "Critical error while doing system shutdown: %m");
         freeze();
 }
