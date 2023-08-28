@@ -65,6 +65,9 @@ EFI_ARCH_MAP = {
 }
 EFI_ARCHES: list[str] = sum(EFI_ARCH_MAP.values(), [])
 
+# Default and the first configuration file to read, will not complain if it does not exist.
+DEFAULT_CONFIG_FILE = '/etc/systemd/ukify.conf'
+
 def guess_efi_arch():
     arch = os.uname().machine
 
@@ -1395,9 +1398,12 @@ CONFIGFILE_ITEMS = { item.config_key:item
 def apply_config(namespace, filename=None):
     if filename is None:
         filename = namespace.config
-    if filename is None:
+        # If config file is specified, check if it exists
+        if filename is not None and not os.path.isfile(filename):
+            raise FileNotFoundError(f'Specified config file "{filename}" does not exist')
+    # Do nothing if neither default nor user config file is present
+    if filename is None and not os.path.exists(DEFAULT_CONFIG_FILE):
         return
-
     # Fill in ._groups based on --pcr-public-key=, --pcr-private-key=, and --phases=.
     assert '_groups' not in namespace
     n_pcr_priv = len(namespace.pcr_private_keys or ())
@@ -1412,8 +1418,11 @@ def apply_config(namespace, filename=None):
         strict=False)
     # Do not make keys lowercase
     cp.optionxform = lambda option: option
-
-    cp.read(filename)
+    # If a config file is specified, try to read it after the default config file
+    if filename is not None:
+        cp.read((DEFAULT_CONFIG_FILE, filename))
+    else:
+        cp.read(DEFAULT_CONFIG_FILE)
 
     for section_name, section in cp.items():
         idx = section_name.find(':')
