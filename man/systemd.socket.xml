@@ -309,7 +309,9 @@
         activated service has to have the
         <varname>USBFunctionDescriptors=</varname> and
         <varname>USBFunctionStrings=</varname> options set.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v227"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -318,6 +320,8 @@
         or <option>sctp</option>. The socket will use the UDP-Lite
         (<constant>IPPROTO_UDPLITE</constant>) or SCTP
         (<constant>IPPROTO_SCTP</constant>) protocol, respectively.</para>
+
+        <xi:include href="version-info.xml" xpointer="v229"/>
         </listitem>
       </varlistentry>
 
@@ -371,7 +375,9 @@
         sockets and FIFO nodes in the file system are owned by the specified user and group. If unset (the
         default), the nodes are owned by the root user/group (if run in system context) or the invoking
         user/group (if run in user context).  If only a user is specified but no group, then the group is
-        derived from the user's default group.</para></listitem>
+        derived from the user's default group.</para>
+
+        <xi:include href="version-info.xml" xpointer="v214"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -431,7 +437,9 @@
         <listitem><para>Takes a boolean argument. May only be used in
         conjunction with <varname>ListenSpecial=</varname>. If true,
         the specified special file is opened in read-write mode, if
-        false, in read-only mode. Defaults to false.</para></listitem>
+        false, in read-only mode. Defaults to false.</para>
+
+        <xi:include href="version-info.xml" xpointer="v227"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -443,7 +451,9 @@
         socket's buffers won't be cleared, permitting the service to handle any
         pending connections after restart, which is the usually expected behaviour.
         Defaults to <option>no</option>.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v247"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -463,6 +473,8 @@
         <listitem><para>The maximum number of connections for a service per source IP address.
         This is very similar to the <varname>MaxConnections=</varname> directive
         above. Disabled by default.</para>
+
+        <xi:include href="version-info.xml" xpointer="v232"/>
         </listitem>
       </varlistentry>
 
@@ -486,7 +498,9 @@
         and the <ulink
         url="http://www.tldp.org/HOWTO/html_single/TCP-Keepalive-HOWTO/">TCP
         Keepalive HOWTO</ulink> for details.)
-        Default value is 7200 seconds (2 hours).</para></listitem>
+        Default value is 7200 seconds (2 hours).</para>
+
+        <xi:include href="version-info.xml" xpointer="v216"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -496,7 +510,9 @@
         <constant>TCP_KEEPINTVL</constant> socket option (see <citerefentry
         project='man-pages'><refentrytitle>socket</refentrytitle><manvolnum>7</manvolnum></citerefentry> and
         the <ulink url="http://www.tldp.org/HOWTO/html_single/TCP-Keepalive-HOWTO/">TCP Keepalive
-        HOWTO</ulink> for details.) Default value is 75 seconds.</para></listitem>
+        HOWTO</ulink> for details.) Default value is 75 seconds.</para>
+
+        <xi:include href="version-info.xml" xpointer="v216"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -509,7 +525,9 @@
         and the <ulink
         url="http://www.tldp.org/HOWTO/html_single/TCP-Keepalive-HOWTO/">TCP
         Keepalive HOWTO</ulink> for details.) Default value is
-        9.</para></listitem>
+        9.</para>
+
+        <xi:include href="version-info.xml" xpointer="v216"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -519,7 +537,9 @@
         messages, and sending them all at once. This controls the
         TCP_NODELAY socket option (see
         <citerefentry project='die-net'><refentrytitle>tcp</refentrytitle><manvolnum>7</manvolnum></citerefentry>).
-        Defaults to <option>false</option>.</para></listitem>
+        Defaults to <option>false</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v216"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -557,6 +577,8 @@
         third packet in the "three-way handshake").</para>
 
         <para>Disabled by default.</para>
+
+        <xi:include href="version-info.xml" xpointer="v216"/>
         </listitem>
       </varlistentry>
 
@@ -607,7 +629,9 @@
         <citerefentry><refentrytitle>bind</refentrytitle><manvolnum>2</manvolnum></citerefentry>s to this TCP
         or UDP port. This controls the <constant>SO_REUSEPORT</constant> socket option. See <citerefentry
         project='man-pages'><refentrytitle>socket</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
-        details.</para></listitem>
+        details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v206"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -622,7 +646,9 @@
         incoming or outgoing connections of the socket, respectively.
         See <ulink
         url="https://docs.kernel.org/admin-guide/LSM/Smack.html">Smack</ulink>
-        for details.</para></listitem>
+        for details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v196"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -641,7 +667,9 @@
          services triggered by exactly one socket unit. Also note
          that this option is useful only when MLS/MCS SELinux policy
          is deployed. Defaults to
-         <literal>false</literal>. </para></listitem>
+         <literal>false</literal>. </para>
+
+         <xi:include href="version-info.xml" xpointer="v217"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -709,7 +737,9 @@
         <constant>PACKET_AUXDATA</constant> socket options, which enable reception of additional per-packet
         metadata as ancillary message, on <constant>AF_INET</constant>, <constant>AF_INET6</constant>,
         <constant>AF_UNIX</constant> and <constant>AF_PACKET</constant> sockets.  Defaults to
-        <option>false</option>.</para></listitem>
+        <option>false</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v246"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -718,7 +748,9 @@
         <literal>usec</literal>, <literal>μs</literal>) or <literal>ns</literal> (alias:
         <literal>nsec</literal>). This controls the <constant>SO_TIMESTAMP</constant> or
         <constant>SO_TIMESTAMPNS</constant> socket options, and enables whether ingress network traffic shall
-        carry timestamping metadata. Defaults to <option>off</option>.</para></listitem>
+        carry timestamping metadata. Defaults to <option>off</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v247"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -796,7 +828,9 @@
         <varname>Symlinks=</varname>. Normally, it should not be necessary to use this option, and is not
         recommended as services might continue to run after the socket unit has been terminated and it should
         still be possible to communicate with them via their file system node. Defaults to
-        off.</para></listitem>
+        off.</para>
+
+        <xi:include href="version-info.xml" xpointer="v214"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -807,7 +841,9 @@
         this option to manage one or more symlinked alias names for a socket, binding their lifecycle together. Note
         that if creation of a symlink fails this is not considered fatal for the socket unit, and the socket unit may
         still start. If an empty string is assigned, the list of paths is reset. Defaults to an empty
-        list.</para></listitem>
+        list.</para>
+
+        <xi:include href="version-info.xml" xpointer="v214"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -823,7 +859,9 @@
         be at most 255 characters in length. If this setting is not
         used, the file descriptor name defaults to the name of the
         socket unit, including its <filename>.socket</filename>
-        suffix.</para></listitem>
+        suffix.</para>
+
+        <xi:include href="version-info.xml" xpointer="v227"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -840,7 +878,9 @@
         <varname>Accept=yes</varname> sockets (thus by default permitting 200 activations per 2s), and 20 otherwise (20
         activations per 2s). Set either to 0 to disable any form of trigger rate limiting. If the limit is hit, the
         socket unit is placed into a failure mode, and will not be connectible anymore until restarted. Note that this
-        limit is enforced before the service activation is enqueued.</para></listitem>
+        limit is enforced before the service activation is enqueued.</para>
+
+        <xi:include href="version-info.xml" xpointer="v230"/></listitem>
       </varlistentry>
 
     </variablelist>

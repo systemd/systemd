@@ -172,7 +172,9 @@
         the implied default. Controls whether <filename>systemd-repart</filename> executes the requested
         re-partition operations or whether it should only show what it would do. Unless
         <option>--dry-run=no</option> is specified <filename>systemd-repart</filename> will not actually
-        touch the device's partition table.</para></listitem>
+        touch the device's partition table.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -191,7 +193,9 @@
         <literal>force</literal> no existing partitions will be taken into account or survive the
         operation. Hence: use with care, this is a great way to lose all your data. If
         <literal>create</literal> a new loopback file is create under the path passed via the device node
-        parameter, of the size indicated with <option>--size=</option>, see below.</para></listitem>
+        parameter, of the size indicated with <option>--size=</option>, see below.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -202,7 +206,9 @@
         command on the space taken up by any added partitions or on the space in between them. Usually, it's
         a good idea to issue this request since it tells the underlying hardware that the covered blocks
         shall be considered empty, improving performance. If operating on a regular file instead of a block
-        device node, a sparse file is generated.</para></listitem>
+        device node, a sparse file is generated.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -227,7 +233,9 @@
         <para>Also note that the automatic size determination does not take files or directories specified
         with <option>CopyFiles=</option> into account: operation might fail if the specified files or
         directories require more disk space then the configured per-partition minimal size
-        limit.</para></listitem>
+        limit.</para>
+
+        <xi:include href="version-info.xml" xpointer="v246"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -240,7 +248,9 @@
         your data. Note that partition files need to explicitly turn <varname>FactoryReset=</varname> on, as
         the option defaults to off. If no partitions are marked for factory reset this switch has no
         effect. Note that there are two other methods to request factory reset operation: via the kernel
-        command line and via an EFI variable, see above.</para></listitem>
+        command line and via an EFI variable, see above.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -250,7 +260,9 @@
         if any existing partitions are marked with <varname>FactoryReset=</varname>. If there are the tool
         will exit with exit status zero, otherwise non-zero. This switch may be used to quickly determine
         whether the running system supports a factory reset mechanism built on
-        <command>systemd-repart</command>.</para></listitem>
+        <command>systemd-repart</command>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -262,14 +274,18 @@
         default when invoked on the regular system this defaults to the host's root file system
         <filename>/</filename>. If invoked from the initrd this defaults to <filename>/sysroot/</filename>,
         so that the tool operates on the configuration and machine ID stored in the root file system later
-        transitioned into itself.</para></listitem>
+        transitioned into itself.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>--image=</option></term>
 
         <listitem><para>Takes a path to a disk image file or device to mount and use in a similar fashion to
-        <option>--root=</option>, see above.</para></listitem>
+        <option>--root=</option>, see above.</para>
+
+        <xi:include href="version-info.xml" xpointer="v249"/></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="image-policy-open" />
@@ -283,7 +299,9 @@
         (or more precisely, the root directory configured via <option>--root=</option>) and use it as seed
         instead, falling back to a randomized seed otherwise. Use <option>--seed=random</option> to force a
         randomized seed. Explicitly specifying the seed may be used to generated strictly reproducible
-        partition tables.</para></listitem>
+        partition tables.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -291,7 +309,9 @@
 
         <listitem><para>Takes a boolean argument. If this switch is not specified, it defaults to on when
         called from an interactive terminal and off otherwise. Controls whether to show a user friendly table
-        and graphic illustrating the changes applied.</para></listitem>
+        and graphic illustrating the changes applied.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -302,7 +322,9 @@
         <filename>/etc/repart.d/*.conf</filename>,
         <filename>/run/repart.d/*.conf</filename>.</para>
 
-        <para>This parameter can be specified multiple times.</para></listitem>
+        <para>This parameter can be specified multiple times.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -314,7 +336,9 @@
         file system. In the latter case a connection is made to it and the key read from it. If this switch
         is not specified the empty key (i.e. zero length key) is used. This behaviour is useful for setting
         up encrypted partitions during early first boot that receive their user-supplied password only in a
-        later setup step.</para></listitem>
+        later setup step.</para>
+
+        <xi:include href="version-info.xml" xpointer="v247"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -322,7 +346,9 @@
 
         <listitem><para>Takes a file system path. Configures the signing key to use when creating verity
         signature partitions with the <varname>Verity=signature</varname> setting in partition files.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v252"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -330,7 +356,9 @@
 
         <listitem><para>Takes a file system path. Configures the PEM encoded X.509 certificate to use when
         creating verity signature partitions with the <varname>Verity=signature</varname> setting in
-        partition files.</para></listitem>
+        partition files.</para>
+
+        <xi:include href="version-info.xml" xpointer="v252"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -341,7 +369,9 @@
         the <varname>Encrypt=tpm2</varname> option. These options take the same parameters as the identically
         named options to
         <citerefentry><refentrytitle>systemd-cryptenroll</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-        and have the same effect on partitions where TPM2 enrollment is requested.</para></listitem>
+        and have the same effect on partitions where TPM2 enrollment is requested.</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -350,7 +380,9 @@
 
         <listitem><para>Configures a TPM2 signed PCR policy to bind encryption to. See
         <citerefentry><refentrytitle>systemd-cryptenroll</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-        for details on these two options.</para></listitem>
+        for details on these two options.</para>
+
+        <xi:include href="version-info.xml" xpointer="v252"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -365,7 +397,9 @@
 
         <para>Note that <option>--split</option> is independent from <option>--dry-run</option>. Even if
         <option>--dry-run</option> is enabled, split artifacts will still be generated from an existing image
-        if <option>--split</option> is enabled.</para></listitem>
+        if <option>--split</option> is enabled.</para>
+
+        <xi:include href="version-info.xml" xpointer="v252"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -378,7 +412,9 @@
         are excluded. Both options take a comma separated list of GPT partition type UUIDs or identifiers
         (see <varname>Type=</varname> in
         <citerefentry><refentrytitle>repart.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v253"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -389,7 +425,9 @@
         calculating the sizes and offsets of other partitions, but aren't actually written to the disk image.
         The net effect of this option is that if you run <command>systemd-repart</command> again without this
         option, the missing partitions will be added as if they had not been deferred the first time
-        <command>systemd-repart</command> was executed.</para></listitem>
+        <command>systemd-repart</command> was executed.</para>
+
+        <xi:include href="version-info.xml" xpointer="v253"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -398,7 +436,9 @@
         <listitem><para>This option allows configuring the sector size of the image produced by
         <command>systemd-repart</command>. It takes a value that is a power of <literal>2</literal> between
         <literal>512</literal> and <literal>4096</literal>. This option is useful when building images for
-        disks that use a different sector size as the disk on which the image is produced.</para></listitem>
+        disks that use a different sector size as the disk on which the image is produced.</para>
+
+        <xi:include href="version-info.xml" xpointer="v253"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -426,7 +466,9 @@
         <literal>s390x</literal>,
         <literal>tilegx</literal>,
         <literal>x86</literal> or
-        <literal>x86-64</literal>.</para></listitem>
+        <literal>x86-64</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -438,7 +480,9 @@
         are not available. If disabled, the image is always built using loop devices. If
         <literal>auto</literal>, <command>systemd-repart</command> will build the image online if possible
         and fall back to building the image offline if loop devices are not available or cannot be accessed
-        due to missing permissions.</para></listitem>
+        due to missing permissions.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -451,7 +495,9 @@
         but might have a different partition number and might be located at a different offset in the
         destination partition table. These definitions can be combined with partition definitions read from
         regular partition definition files. The synthesized definitions take precedence over the definitions
-        read from partition definition files.</para></listitem>
+        read from partition definition files.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="help" />

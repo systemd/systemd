@@ -199,7 +199,9 @@
         a positive integer value and specifies the number of permitted activations per time interval, and
         defaults to 200. Set either to 0 to disable any form of trigger rate limiting. If the limit is hit,
         the unit is placed into a failure mode, and will not watch the paths anymore until restarted. Note
-        that this limit is enforced before the service activation is enqueued.</para></listitem>
+        that this limit is enforced before the service activation is enqueued.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
     </variablelist>
 

@@ -95,7 +95,9 @@
         <replaceable>root</replaceable> path, including config search
         paths. This is useful to operate on a system image mounted to
         the specified directory instead of the host system itself.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v216"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -107,7 +109,9 @@
         <ulink url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">Discoverable Partitions
         Specification</ulink>. For further information on supported disk images, see
         <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
-        switch of the same name.</para></listitem>
+        switch of the same name.</para>
+
+        <xi:include href="version-info.xml" xpointer="v246"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -119,7 +123,9 @@
         settings. The argument should be a valid locale identifier,
         such as <literal>de_DE.UTF-8</literal>. This controls the
         <citerefentry project='man-pages'><refentrytitle>locale.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        configuration file.</para></listitem>
+        configuration file.</para>
+
+        <xi:include href="version-info.xml" xpointer="v216"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -128,7 +134,9 @@
         <listitem><para>Sets the system keyboard layout. The argument should be a valid keyboard map,
         such as <literal>de-latin1</literal>. This controls the <literal>KEYMAP</literal> entry in the
         <citerefentry project='man-pages'><refentrytitle>vconsole.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        configuration file.</para></listitem>
+        configuration file.</para>
+
+        <xi:include href="version-info.xml" xpointer="v236"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -138,7 +146,9 @@
         be a valid time zone identifier, such as
         <literal>Europe/Berlin</literal>. This controls the
         <citerefentry><refentrytitle>localtime</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        symlink.</para></listitem>
+        symlink.</para>
+
+        <xi:include href="version-info.xml" xpointer="v216"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -147,7 +157,9 @@
         <listitem><para>Sets the system hostname. The argument should
         be a hostname, compatible with DNS. This controls the
         <citerefentry><refentrytitle>hostname</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        configuration file.</para></listitem>
+        configuration file.</para>
+
+        <xi:include href="version-info.xml" xpointer="v216"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -161,14 +173,18 @@
         <option>--image=</option>. On a running system, <filename>machine-id</filename> is written by the
         manager with help from
         <citerefentry><refentrytitle>systemd-machine-id-commit.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v216"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>--machine-id=<replaceable>ID</replaceable></option></term>
 
         <listitem><para>Set the system's machine ID to the specified value. The same restrictions apply
-        as to <option>--setup-machine-id</option>.</para></listitem>
+        as to <option>--setup-machine-id</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v216"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -194,7 +210,9 @@
 
         <listitem><para>Sets the shell of the system's root user. This creates/modifies the
         <citerefentry project='die-net'><refentrytitle>passwd</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        file.</para></listitem>
+        file.</para>
+
+        <xi:include href="version-info.xml" xpointer="v246"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -203,7 +221,9 @@
         <listitem><para>Sets the system's kernel command line. This controls the
         <filename>/etc/kernel/cmdline</filename> file which is used by
         <citerefentry><refentrytitle>kernel-install</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v246"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -231,6 +251,8 @@
         <option>--prompt-hostname</option>,
         <option>--prompt-root-password</option>,
         <option>--prompt-root-shell</option> in combination.</para>
+
+        <xi:include href="version-info.xml" xpointer="v216"/>
         </listitem>
       </varlistentry>
 
@@ -256,6 +278,8 @@
         <option>--copy-timezone</option>,
         <option>--copy-root-password</option>,
         <option>--copy-root-shell</option> in combination.</para>
+
+        <xi:include href="version-info.xml" xpointer="v216"/>
         </listitem>
       </varlistentry>
 
@@ -266,7 +290,9 @@
         <filename>systemd-firstboot</filename> doesn't modify or replace existing files. Note that when
         configuring the root account, even with this option, <filename>systemd-firstboot</filename> only
         modifies the entry of the <literal>root</literal> user, leaving other entries in
-        <filename>/etc/passwd</filename> and <filename>/etc/shadow</filename> intact.</para></listitem>
+        <filename>/etc/passwd</filename> and <filename>/etc/shadow</filename> intact.</para>
+
+        <xi:include href="version-info.xml" xpointer="v246"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -276,7 +302,9 @@
         <command>systemd-firstboot</command> are removed. Note that the files are removed regardless of
         whether they'll be configured with a new value or not. This operation ensures that the next boot of
         the image will be considered a first boot, and <command>systemd-firstboot</command> will prompt again
-        to configure each of the removed files.</para></listitem>
+        to configure each of the removed files.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -284,7 +312,9 @@
 
         <listitem><para>Removes the password of the system's root user, enabling login as root without a
         password unless the root account is locked. Note that this is extremely insecure and hence this
-        option should not be used lightly.</para></listitem>
+        option should not be used lightly.</para>
+
+        <xi:include href="version-info.xml" xpointer="v246"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -292,7 +322,9 @@
 
         <listitem><para>Takes a boolean argument. By default when prompting the user for configuration
         options a brief welcome text is shown before the first question is asked. Pass false to this option
-        to turn off the welcome text.</para></listitem>
+        to turn off the welcome text.</para>
+
+        <xi:include href="version-info.xml" xpointer="v246"/></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="help" />
@@ -316,7 +348,9 @@
         <listitem><para>A hashed or plaintext version of the root password to use, in place of prompting the
         user. These credentials are equivalent to the same ones defined for the
         <citerefentry><refentrytitle>systemd-sysusers.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-        service.</para></listitem>
+        service.</para>
+
+        <xi:include href="version-info.xml" xpointer="v249"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -325,7 +359,9 @@
         <listitem><para>Specifies the shell binary to use for the specified account.
         Equivalent to the credential of the same name defined for the
         <citerefentry><refentrytitle>systemd-sysusers.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-        service.</para></listitem>
+        service.</para>
+
+        <xi:include href="version-info.xml" xpointer="v249"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -333,7 +369,9 @@
         <term><varname>firstboot.locale-messages</varname></term>
 
         <listitem><para>These credentials specify the locale settings to set during first boot, in place of
-        prompting the user.</para></listitem>
+        prompting the user.</para>
+
+        <xi:include href="version-info.xml" xpointer="v249"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -348,14 +386,18 @@
         <filename>/etc/vconsole.conf</filename> on first boot (if not already configured), and then read from
         there by <command>systemd-vconsole-setup</command>, while <varname>vconsole.keymap</varname> is read
         on every boot, and is not persisted to disk (but any configuration in
-        <filename>vconsole.conf</filename> will take precedence if present).</para></listitem>
+        <filename>vconsole.conf</filename> will take precedence if present).</para>
+
+        <xi:include href="version-info.xml" xpointer="v249"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>firstboot.timezone</varname></term>
 
         <listitem><para>This credential specifies the system timezone setting to set during first boot, in
-        place of prompting the user.</para></listitem>
+        place of prompting the user.</para>
+
+        <xi:include href="version-info.xml" xpointer="v249"/></listitem>
       </varlistentry>
     </variablelist>
 
@@ -387,7 +429,9 @@
 
         <listitem><para>Takes a boolean argument, defaults to on. If off, <filename>systemd-firstboot.service</filename>
         won't interactively query the user for basic settings at first boot, even if those settings are not
-        initialized yet.</para></listitem>
+        initialized yet.</para>
+
+        <xi:include href="version-info.xml" xpointer="v233"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>

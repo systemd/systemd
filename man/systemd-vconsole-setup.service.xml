@@ -3,7 +3,8 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
-<refentry id="systemd-vconsole-setup.service" conditional='ENABLE_VCONSOLE'>
+<refentry id="systemd-vconsole-setup.service" conditional='ENABLE_VCONSOLE'
+          xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>systemd-vconsole-setup.service</title>
@@ -75,7 +76,9 @@
         <filename>/etc/vconsole.conf</filename> on first boot (if not already configured), and then read from
         there by <command>systemd-vconsole-setup</command>, while <varname>vconsole.keymap</varname> is read
         on every boot, and is not persisted to disk (but any configuration in
-        <filename>vconsole.conf</filename> will take precedence if present).</para></listitem>
+        <filename>vconsole.conf</filename> will take precedence if present).</para>
+
+        <xi:include href="version-info.xml" xpointer="v253"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -85,7 +88,9 @@
 
         <listitem><para>The console font settings to apply. The matching options in
         <filename>vconsole.conf</filename> and on the kernel command line take precedence over these
-        credentials.</para></listitem>
+        credentials.</para>
+
+        <xi:include href="version-info.xml" xpointer="v253"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>

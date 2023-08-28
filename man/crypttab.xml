@@ -348,6 +348,8 @@
         default is to queue these requests and process them asynchronously.</para>
 
         <para>This requires kernel 5.9 or newer.</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -357,6 +359,8 @@
         default is to queue these requests and process them asynchronously.</para>
 
         <para>This requires kernel 5.9 or newer.</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/>
         </listitem>
       </varlistentry>
 
@@ -498,6 +502,8 @@
         <option>veracrypt-pim=</option> is not checked against these bounds.
         <ulink url="https://www.veracrypt.fr/en/Personal%20Iterations%20Multiplier%20%28PIM%29.html">See
         documentation</ulink> for more information.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/>
         </listitem>
       </varlistentry>
 
@@ -536,7 +542,9 @@
         <term><option>headless=</option></term>
 
         <listitem><para>Takes a boolean argument, defaults to false. If true, never query interactively
-        for the password/PIN. Useful for headless systems.</para></listitem>
+        for the password/PIN. Useful for headless systems.</para>
+
+        <xi:include href="version-info.xml" xpointer="v249"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -559,7 +567,9 @@
         (<literal>*</literal>) is echoed for each character typed. Regardless of
         which mode is chosen, if the user hits the tabulator key (<literal>↹</literal>)
         at any time, or the backspace key (<literal>⌫</literal>) before any other
-        data has been entered, then echo is turned off.</para></listitem>
+        data has been entered, then echo is turned off.</para>
+
+        <xi:include href="version-info.xml" xpointer="v249"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -628,7 +638,9 @@
 
         <para>Note that many security tokens that implement FIDO2 also implement PKCS#11, suitable for
         unlocking volumes via the <option>pkcs11-uri=</option> option described above. Typically the newer,
-        simpler FIDO2 standard is preferable.</para></listitem>
+        simpler FIDO2 standard is preferable.</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -640,7 +652,9 @@
         must be of LUKS2 type, and the CID is read from the LUKS2 JSON token header. Use
         <citerefentry><refentrytitle>systemd-cryptenroll</refentrytitle><manvolnum>1</manvolnum></citerefentry>
         for enrolling a FIDO2 token in the LUKS2 header compatible with this automatic
-        mode.</para></listitem>
+        mode.</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -649,7 +663,9 @@
         <listitem><para>Takes a string, configuring the FIDO2 Relying Party (rp) for the FIDO2 unlock
         operation. If not specified <literal>io.systemd.cryptsetup</literal> is used, except if the LUKS2
         JSON token header contains a different value. It should normally not be necessary to override
-        this.</para></listitem>
+        this.</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -680,7 +696,9 @@
         used to unlock the volume. When the randomized key is encrypted the current values of the selected
         PCRs (see below) are included in the operation, so that different PCR state results in different
         encrypted keys and the decrypted key can only be recovered if the same PCR state is
-        reproduced.</para></listitem>
+        reproduced.</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -692,7 +710,9 @@
         <command>systemd-cryptenroll</command> writes it there. If not used (and no metadata in the LUKS2
         JSON token header defines it), defaults to a list of a single entry: PCR 7. Assign an empty string to
         encode a policy that binds the key to no PCRs, making the key accessible to local programs regardless
-        of the current PCR state.</para></listitem>
+        of the current PCR state.</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -700,7 +720,9 @@
 
         <listitem><para>Takes a boolean argument, defaults to <literal>false</literal>. Controls whether
         TPM2 volume unlocking is bound to a PIN in addition to PCRs. Similarly, this option is only useful
-        when TPM2 enrollment metadata is not available.</para></listitem>
+        when TPM2 enrollment metadata is not available.</para>
+
+        <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -715,7 +737,9 @@
         unlock a LUKS2 volume with a signed TPM2 PCR enrollment a suitable signature file
         <filename>tpm2-pcr-signature.json</filename> is searched for in <filename>/etc/systemd/</filename>,
         <filename>/run/systemd/</filename>, <filename>/usr/lib/systemd/</filename> (in this
-        order).</para></listitem>
+        order).</para>
+
+        <xi:include href="version-info.xml" xpointer="v252"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -727,7 +751,9 @@
         the specified PCR. The volume key is measured along with the activated volume name and its UUID. This
         functionality is particularly useful for the encrypted volume backing the root file system, as it
         then allows later TPM objects to be securely bound to the root file system and hence the specific
-        installation.</para></listitem>
+        installation.</para>
+
+        <xi:include href="version-info.xml" xpointer="v253"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -737,7 +763,9 @@
         <option>tpm2-measure-pcr=</option> above. Multiple banks may be specified, separated by a colon
         character. If not specified automatically determines available and used banks. Expects a message
         digest name (e.g. <literal>sha1</literal>, <literal>sha256</literal>, …) as argument, to identify the
-        bank.</para></listitem>
+        bank.</para>
+
+        <xi:include href="version-info.xml" xpointer="v253"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -749,7 +777,9 @@
         for supported formats). Defaults to 30s. Once the specified timeout elapsed authentication via
         password is attempted. Note that this timeout applies to waiting for the security device to show up —
         it does not apply to the PIN prompt for the device (should one be needed) or similar. Pass 0 to turn
-        off the time-out and wait forever.</para></listitem>
+        off the time-out and wait forever.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
 
       <varlistentry>

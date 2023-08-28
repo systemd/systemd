@@ -131,50 +131,68 @@
         <term><keycap>PageDown</keycap></term>
         <term><keycap>Home</keycap></term>
         <term><keycap>End</keycap></term>
-        <listitem><para>Navigate up/down in the entry list</para></listitem>
+        <listitem><para>Navigate up/down in the entry list</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><keycap>↵</keycap> (Enter)</term>
         <term><keycap>→</keycap> (Right)</term>
-        <listitem><para>Boot selected entry</para></listitem>
+        <listitem><para>Boot selected entry</para>
+
+        <xi:include href="version-info.xml" xpointer="v246"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><keycap>d</keycap></term>
-        <listitem><para>Make selected entry the default</para></listitem>
+        <listitem><para>Make selected entry the default</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><keycap>e</keycap></term>
-        <listitem><para>Edit the kernel command line for selected entry</para></listitem>
+        <listitem><para>Edit the kernel command line for selected entry</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><keycap>+</keycap></term>
         <term><keycap>t</keycap></term>
-        <listitem><para>Increase the timeout before default entry is booted</para></listitem>
+        <listitem><para>Increase the timeout before default entry is booted</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><keycap>-</keycap></term>
         <term><keycap>T</keycap></term>
-        <listitem><para>Decrease the timeout</para></listitem>
+        <listitem><para>Decrease the timeout</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><keycap>r</keycap></term>
-        <listitem><para>Change screen resolution, skipping any unsupported modes.</para></listitem>
+        <listitem><para>Change screen resolution, skipping any unsupported modes.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><keycap>R</keycap></term>
-        <listitem><para>Reset screen resolution to firmware or configuration file default.</para></listitem>
+        <listitem><para>Reset screen resolution to firmware or configuration file default.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><keycap>p</keycap></term>
-        <listitem><para>Print status</para></listitem>
+        <listitem><para>Print status</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -190,17 +208,23 @@
 
         <para>For compatibility with the keybindings of several firmware implementations this operation
         may also be reached with <keycap>F2</keycap>, <keycap>F10</keycap>, <keycap>Del</keycap> and
-        <keycap>Esc</keycap>.</para></listitem>
+        <keycap>Esc</keycap>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><keycombo><keycap>Shift</keycap><keycap>o</keycap></keycombo></term>
-        <listitem><para>Power off the system.</para></listitem>
+        <listitem><para>Power off the system.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><keycombo><keycap>Shift</keycap><keycap>b</keycap></keycombo></term>
-        <listitem><para>Reboot the system.</para></listitem>
+        <listitem><para>Reboot the system.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
       </varlistentry>
     </variablelist>
 
@@ -210,22 +234,30 @@
     <variablelist>
       <varlistentry>
         <term><keycap>l</keycap></term>
-        <listitem><para>Linux</para></listitem>
+        <listitem><para>Linux</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><keycap>w</keycap></term>
-        <listitem><para>Windows</para></listitem>
+        <listitem><para>Windows</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><keycap>a</keycap></term>
-        <listitem><para>macOS</para></listitem>
+        <listitem><para>macOS</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><keycap>s</keycap></term>
-        <listitem><para>EFI shell</para></listitem>
+        <listitem><para>EFI shell</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -238,7 +270,9 @@
         <term><keycap>7</keycap></term>
         <term><keycap>8</keycap></term>
         <term><keycap>9</keycap></term>
-        <listitem><para>Boot entry number 1 … 9</para></listitem>
+        <listitem><para>Boot entry number 1 … 9</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
     </variablelist>
 
@@ -262,7 +296,9 @@
         <term><keycap>→</keycap> (Right)</term>
         <term><keycap>Home</keycap></term>
         <term><keycap>End</keycap></term>
-        <listitem><para>Navigate left/right</para></listitem>
+        <listitem><para>Navigate left/right</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -273,13 +309,17 @@
 
       <varlistentry>
         <term><keycombo><keycap>Ctrl</keycap><keycap>k</keycap></keycombo></term>
-        <listitem><para>Clear the command line forwards</para></listitem>
+        <listitem><para>Clear the command line forwards</para>
+
+        <xi:include href="version-info.xml" xpointer="v240"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><keycombo><keycap>Ctrl</keycap><keycap>w</keycap></keycombo></term>
         <term><keycombo><keycap>Alt</keycap><keycap>Backspace</keycap></keycombo></term>
-        <listitem><para>Delete word backwards</para></listitem>
+        <listitem><para>Delete word backwards</para>
+
+        <xi:include href="version-info.xml" xpointer="v240"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -290,7 +330,9 @@
 
       <varlistentry>
         <term><keycap>↵</keycap> (Enter)</term>
-        <listitem><para>Boot entry with the edited command line</para></listitem>
+        <listitem><para>Boot entry with the edited command line</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
     </variablelist>
 
@@ -351,7 +393,9 @@
         encoded. Set by the boot
         loader. <citerefentry><refentrytitle>systemd-bless-boot.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         uses this information to mark a boot as successful as determined by the successful activation of the
-        <filename>boot-complete.target</filename> target unit.</para></listitem>
+        <filename>boot-complete.target</filename> target unit.</para>
+
+        <xi:include href="version-info.xml" xpointer="v240"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -361,7 +405,9 @@
         is maintained persistently, while <varname>LoaderConfigTimeoutOneShot</varname> is a one-time override which is
         read once (in which case it takes precedence over <varname>LoaderConfigTimeout</varname>) and then
         removed. <varname>LoaderConfigTimeout</varname> may be manipulated with the
-        <keycap>t</keycap>/<keycap>T</keycap> keys, see above.</para></listitem>
+        <keycap>t</keycap>/<keycap>T</keycap> keys, see above.</para>
+
+        <xi:include href="version-info.xml" xpointer="v240"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -371,14 +417,18 @@
         the boot
         loader. <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         uses this information to automatically find the disk booted from, in order to discover various other partitions
-        on the same disk automatically.</para></listitem>
+        on the same disk automatically.</para>
+
+        <xi:include href="version-info.xml" xpointer="v240"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>LoaderEntries</varname></term>
 
         <listitem><para>A list of the identifiers of all discovered boot loader entries. Set by the boot
-        loader.</para></listitem>
+        loader.</para>
+
+        <xi:include href="version-info.xml" xpointer="v240"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -391,14 +441,18 @@
         boots. <citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
         <option>set-default</option> and <option>set-oneshot</option> commands make use of these variables. The boot
         loader modifies <varname>LoaderEntryDefault</varname> on request, when the <keycap>d</keycap> key is used, see
-        above.</para></listitem>
+        above.</para>
+
+        <xi:include href="version-info.xml" xpointer="v240"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>LoaderEntrySelected</varname></term>
 
         <listitem><para>The identifier of the boot loader entry currently being booted. Set by the boot
-        loader.</para></listitem>
+        loader.</para>
+
+        <xi:include href="version-info.xml" xpointer="v240"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -406,7 +460,9 @@
 
         <listitem><para>A set of flags indicating the features the boot loader supports. Set by the boot loader. Use
         <citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> to view this
-        data.</para></listitem>
+        data.</para>
+
+        <xi:include href="version-info.xml" xpointer="v240"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -415,7 +471,9 @@
 
         <listitem><para>Brief firmware information. Set by the boot loader. Use
         <citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> to view this
-        data.</para></listitem>
+        data.</para>
+
+        <xi:include href="version-info.xml" xpointer="v240"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -424,7 +482,9 @@
         <listitem><para>The path of executable of the boot loader used for the current boot, relative to the EFI System
         Partition's root directory. Set by the boot loader. Use
         <citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> to view this
-        data.</para></listitem>
+        data.</para>
+
+        <xi:include href="version-info.xml" xpointer="v240"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -432,7 +492,9 @@
 
         <listitem><para>Brief information about the boot loader. Set by the boot loader. Use
         <citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> to view this
-        data.</para></listitem>
+        data.</para>
+
+        <xi:include href="version-info.xml" xpointer="v240"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -442,7 +504,9 @@
 
         <listitem><para>Information about the time spent in various parts of the boot loader. Set by the boot
         loader. Use <citerefentry><refentrytitle>systemd-analyze</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-        to view this data. </para></listitem>
+        to view this data. </para>
+
+        <xi:include href="version-info.xml" xpointer="v240"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -450,7 +514,9 @@
 
         <listitem><para>A binary random data field, that is used for generating the random seed to pass to
         the OS (see above). Note that this random data is generally only generated once, during OS
-        installation, and is then never updated again.</para></listitem>
+        installation, and is then never updated again.</para>
+
+        <xi:include href="version-info.xml" xpointer="v243"/></listitem>
       </varlistentry>
     </variablelist>
 

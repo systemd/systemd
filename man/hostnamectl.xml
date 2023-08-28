@@ -84,7 +84,9 @@
         <para>The static and transient hostnames must each be either a single DNS label (a string composed of
         7-bit ASCII lower-case characters and no spaces or dots, limited to the format allowed for DNS domain
         name labels), or a sequence of such labels separated by single dots that forms a valid DNS FQDN. The
-        hostname must be at most 64 characters, which is a Linux limitation (DNS allows longer names).</para></listitem>
+        hostname must be at most 64 characters, which is a Linux limitation (DNS allows longer names).</para>
+
+        <xi:include href="version-info.xml" xpointer="v249"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -96,7 +98,9 @@
         graphical applications to visualize this host. The icon name
         should follow the <ulink
         url="https://standards.freedesktop.org/icon-naming-spec/icon-naming-spec-latest.html">Icon
-        Naming Specification</ulink>.</para></listitem>
+        Naming Specification</ulink>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v249"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -119,6 +123,8 @@
         <literal>vm</literal> and
         <literal>container</literal> for virtualized systems that lack
         an immediate physical chassis.</para>
+
+        <xi:include href="version-info.xml" xpointer="v249"/>
         </listitem>
       </varlistentry>
 
@@ -135,6 +141,8 @@
         <literal>staging</literal>,
         <literal>production</literal>.
         </para>
+
+        <xi:include href="version-info.xml" xpointer="v249"/>
         </listitem>
       </varlistentry>
 
@@ -149,6 +157,8 @@
         location of the system, if it is known and applicable. This
         may be as generic as <literal>Berlin, Germany</literal> or as
         specific as <literal>Left Rack, 2nd Shelf</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v249"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -164,7 +174,9 @@
         <term><option>--no-ask-password</option></term>
 
         <listitem><para>Do not query the user for authentication for
-        privileged operations.</para></listitem>
+        privileged operations.</para>
+
+        <xi:include href="version-info.xml" xpointer="v195"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -176,7 +188,9 @@
         switches is specified, <command>hostnamectl</command> will print out just this selected hostname.</para>
 
         <para>If used with <command>hostname</command>, only the selected hostnames will be updated. When more
-        than one of these switches are specified, all the specified hostnames will be updated. </para></listitem>
+        than one of these switches are specified, all the specified hostnames will be updated. </para>
+
+        <xi:include href="version-info.xml" xpointer="v195"/></listitem>
       </varlistentry>
 
       <xi:include href="user-system-options.xml" xpointer="host" />

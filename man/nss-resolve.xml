@@ -3,7 +3,8 @@
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
-<refentry id="nss-resolve" conditional='ENABLE_NSS_RESOLVE'>
+<refentry id="nss-resolve" conditional='ENABLE_NSS_RESOLVE'
+          xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>nss-resolve</title>
@@ -73,7 +74,9 @@
 
         <listitem><para>Takes a boolean argument. When false, cryptographic validation of resource records
         via DNSSEC will be disabled. This may be useful for testing, or when system time is known to be
-        unreliable.</para></listitem>
+        unreliable.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
     </variablelist>
 
@@ -85,7 +88,9 @@
         name, will not be returned. See section SYNTHETIC RECORDS in
         <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         for more information. This may be useful to query the "public" resource records, independent of the
-        configuration of the local machine.</para></listitem>
+        configuration of the local machine.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
     </variablelist>
 
@@ -96,7 +101,9 @@
         <listitem><para>Takes a boolean argument. When false, the cache of previously queried records will
         not be used by
         <citerefentry><refentrytitle>systemd-resolved</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
     </variablelist>
 
@@ -105,7 +112,9 @@
         <term><varname>$SYSTEMD_NSS_RESOLVE_ZONE</varname></term>
 
         <listitem><para>Takes a boolean argument. When false, answers using locally registered public
-        LLMNR/mDNS resource records will not be returned.</para></listitem>
+        LLMNR/mDNS resource records will not be returned.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
     </variablelist>
 
@@ -114,7 +123,9 @@
         <term><varname>$SYSTEMD_NSS_RESOLVE_TRUST_ANCHOR</varname></term>
 
         <listitem><para>Takes a boolean argument. When false, answers using locally configured trust anchors
-        will not be used.</para></listitem>
+        will not be used.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
     </variablelist>
 
@@ -125,7 +136,9 @@
         <listitem><para>Takes a boolean argument. When false, answers will be returned without using the
         network, i.e. either from local sources or the cache in
         <citerefentry><refentrytitle>systemd-resolved</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
