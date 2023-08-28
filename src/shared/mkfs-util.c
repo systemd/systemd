@@ -104,9 +104,11 @@ static int mangle_fat_label(const char *s, char **ret) {
 static int do_mcopy(const char *node, const char *root) {
         _cleanup_free_ char *mcopy = NULL;
         _cleanup_strv_free_ char **argv = NULL;
+        _cleanup_strv_free_ char **envp = NULL;
         _cleanup_close_ int rfd = -EBADF;
         _cleanup_free_ DirectoryEntries *de = NULL;
         int r;
+        const char *source_date_epoch;
 
         assert(node);
         assert(root);
@@ -121,6 +123,14 @@ static int do_mcopy(const char *node, const char *root) {
         if (r < 0)
                 return log_error_errno(r, "Failed to determine whether mcopy binary exists: %m");
 
+        /* Avoid failures caused by mismatch in expectations between mkfs.vfat and mcopy by disabling
+        * the stricter mcopy checks using MTOOLS_SKIP_CHECK. */
+        source_date_epoch = strv_find_prefix(environ, "SOURCE_DATE_EPOCH=");
+        if (source_date_epoch) {
+                envp = strv_new(source_date_epoch, "MTOOLS_SKIP_CHECK=1");
+        } else {
+                envp = strv_new("MTOOLS_SKIP_CHECK=1");
+        }
         argv = strv_new(mcopy, "-s", "-p", "-Q", "-m", "-i", node);
         if (!argv)
                 return log_oom();
@@ -159,9 +169,8 @@ static int do_mcopy(const char *node, const char *root) {
         if (r < 0)
                 return r;
         if (r == 0) {
-                /* Avoid failures caused by mismatch in expectations between mkfs.vfat and mcopy by disabling
-                 * the stricter mcopy checks using MTOOLS_SKIP_CHECK. */
-                execve(mcopy, argv, STRV_MAKE("MTOOLS_SKIP_CHECK=1"));
+
+                execve(mcopy, argv, envp);
 
                 log_error_errno(errno, "Failed to execute mcopy: %m");
 
