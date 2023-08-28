@@ -16,6 +16,7 @@
 
 static Id128PrettyPrintMode arg_mode = ID128_PRINT_ID128;
 static sd_id128_t arg_app = {};
+static bool arg_value = false;
 
 static int verb_new(int argc, char **argv, void *userdata) {
         return id128_print_new(arg_mode);
@@ -67,7 +68,15 @@ static int verb_invocation_id(int argc, char **argv, void *userdata) {
 }
 
 static int show_one(Table **table, const char *name, sd_id128_t uuid, bool first) {
+        sd_id128_t u;
         int r;
+
+        assert(table);
+
+        if (sd_id128_is_null(arg_app))
+                u = uuid;
+        else
+                assert_se(sd_id128_get_app_specific(uuid, arg_app, &u) == 0);
 
         if (arg_mode == ID128_PRINT_PRETTY) {
                 _cleanup_free_ char *id = NULL;
@@ -78,26 +87,28 @@ static int show_one(Table **table, const char *name, sd_id128_t uuid, bool first
 
                 ascii_strupper(id);
 
-                r = id128_pretty_print_sample(id, uuid);
+                r = id128_pretty_print_sample(id, u);
                 if (r < 0)
                         return r;
                 if (!first)
                         puts("");
                 return 0;
-
-        } else {
-                if (!*table) {
-                        *table = table_new("name", "id");
-                        if (!*table)
-                                return log_oom();
-                        table_set_width(*table, 0);
-                }
-
-                return table_add_many(*table,
-                                      TABLE_STRING, name,
-                                      arg_mode == ID128_PRINT_ID128 ? TABLE_ID128 : TABLE_UUID,
-                                      uuid);
         }
+
+        if (arg_value)
+                return id128_pretty_print(u, arg_mode);
+
+        if (!*table) {
+                *table = table_new("name", "id");
+                if (!*table)
+                        return log_oom();
+                table_set_width(*table, 0);
+        }
+
+        return table_add_many(*table,
+                              TABLE_STRING, name,
+                              arg_mode == ID128_PRINT_ID128 ? TABLE_ID128 : TABLE_UUID,
+                              u);
 }
 
 static int verb_show(int argc, char **argv, void *userdata) {
@@ -162,7 +173,7 @@ static int help(void) {
                "  machine-id              Print the ID of current machine\n"
                "  boot-id                 Print the ID of current boot\n"
                "  invocation-id           Print the ID of current invocation\n"
-               "  show [NAME]             Print one or more well-known GPT partition type IDs\n"
+               "  show [NAME|UUID]        Print one or more UUIDs\n"
                "  help                    Show this help\n"
                "\nOptions:\n"
                "  -h --help               Show this help\n"
@@ -191,6 +202,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "help",         no_argument,       NULL, 'h'              },
                 { "version",      no_argument,       NULL, ARG_VERSION      },
                 { "pretty",       no_argument,       NULL, 'p'              },
+                { "value",        no_argument,       NULL, 'P'              },
                 { "app-specific", required_argument, NULL, 'a'              },
                 { "uuid",         no_argument,       NULL, 'u'              },
                 {},
@@ -201,7 +213,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hpa:u", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hpa:uP", options, NULL)) >= 0)
                 switch (c) {
 
                 case 'h':
@@ -212,10 +224,19 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'p':
                         arg_mode = ID128_PRINT_PRETTY;
+                        arg_value = false;
+                        break;
+
+                case 'P':
+                        arg_value = true;
+                        if (arg_mode == ID128_PRINT_PRETTY)
+                                arg_mode = ID128_PRINT_ID128;
                         break;
 
                 case 'a':
-                        r = sd_id128_from_string(optarg, &arg_app);
+                        r = id128_from_string_not_null(optarg, &arg_app);
+                        if (r == -ENXIO)
+                                return log_error_errno(r, "Application ID cannot be all zeros.");
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse \"%s\" as application-ID: %m", optarg);
                         break;
