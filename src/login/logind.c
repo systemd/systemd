@@ -704,6 +704,7 @@ static int manager_vt_switch(sd_event_source *src, const struct signalfd_siginfo
          */
 
         assert(m->seat0);
+
         seat_read_active_vt(m->seat0);
 
         active = m->seat0->active;
@@ -719,17 +720,16 @@ static int manager_vt_switch(sd_event_source *src, const struct signalfd_siginfo
 
                 log_warning("Received VT_PROCESS signal without a registered session, restoring VT.");
 
-                /* At this point we only have the kernel mapping for referring to the
-                 * current VT. */
+                /* At this point we only have the kernel mapping for referring to the current VT. */
                 fd = open_terminal("/dev/tty0", O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
                 if (fd < 0) {
-                        log_warning_errno(fd, "Failed to open, ignoring: %m");
+                        log_warning_errno(fd, "Failed to open current VT, ignoring: %m");
                         return 0;
                 }
 
-                r = vt_release(fd, true);
+                r = vt_release(fd, /* restore = */ true);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to release VT, ignoring: %m");
+                        log_warning_errno(r, "Failed to release current VT, ignoring: %m");
 
                 return 0;
         }
