@@ -921,6 +921,31 @@ static int captive_portal_append_json(Link *link, JsonVariant **v) {
         return json_variant_merge_objectb(v, JSON_BUILD_OBJECT(JSON_BUILD_PAIR_STRING("CaptivePortal", captive_portal)));
 }
 
+static int pref64_append_json(Link *link, JsonVariant **v) {
+        _cleanup_(json_variant_unrefp) JsonVariant *array = NULL;
+        NDiscPREF64 *i;
+        int r;
+
+        assert(link);
+        assert(v);
+
+        if (!link->network || !link->network->ipv6_accept_ra_use_pref64)
+                return 0;
+
+        SET_FOREACH(i, link->ndisc_pref64) {
+                r = json_build(&array, JSON_BUILD_OBJECT(
+                                               JSON_BUILD_PAIR_IN6_ADDR_NON_NULL("Prefix", &i->prefix),
+                                               JSON_BUILD_PAIR_UNSIGNED("PrefixLength", i->prefix_len),
+                                               JSON_BUILD_PAIR_FINITE_USEC("Lifetime", i->lifetime_usec),
+                                               JSON_BUILD_PAIR_STRING("ConfigSource", network_config_source_to_string(NETWORK_CONFIG_SOURCE_NDISC)),
+                                               JSON_BUILD_PAIR_IN6_ADDR_NON_NULL("ConfigProvider", &i->router)));
+                if (r < 0)
+                        return r;
+        }
+
+        return json_append_one(v, "PREF64", array);
+}
+
 static int dhcp_server_offered_leases_append_json(Link *link, JsonVariant **v) {
         _cleanup_(json_variant_unrefp) JsonVariant *array = NULL;
         DHCPLease *lease;
@@ -1142,6 +1167,10 @@ int link_build_json(Link *link, JsonVariant **ret) {
                 return r;
 
         r = captive_portal_append_json(link, &v);
+        if (r < 0)
+                return r;
+
+        r = pref64_append_json(link, &v);
         if (r < 0)
                 return r;
 
