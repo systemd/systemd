@@ -304,6 +304,7 @@ foreach archspec : efi_archspecs
                 'efi' + archspec['arch'],
                 fundamental_sources,
                 libefi_sources,
+                version_h,
                 include_directories : efi_includes,
                 c_args : archspec['c_args'],
                 gnu_symbol_visibility : 'hidden',
@@ -323,19 +324,19 @@ foreach archspec : efi_archspecs
 
         efi_elf_binaries += executable(
                 'systemd-boot' + archspec['arch'],
-                sources : systemd_boot_sources,
+                sources : [systemd_boot_sources, version_h],
                 name_suffix : 'elf',
                 kwargs : kwargs)
 
         efi_elf_binaries += executable(
                 'linux' + archspec['arch'],
-                sources : stub_sources,
+                sources : [stub_sources, version_h],
                 name_suffix : 'elf.stub',
                 kwargs : kwargs)
 
         efi_elf_binaries += executable(
                 'addon' + archspec['arch'],
-                sources : addon_sources,
+                sources : [addon_sources, version_h],
                 name_suffix : 'elf.stub',
                 kwargs : kwargs)
 endforeach
