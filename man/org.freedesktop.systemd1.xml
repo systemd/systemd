@@ -277,6 +277,9 @@ node /org/freedesktop/systemd1 {
       GetDynamicUsers(out a(us) users);
       DumpUnitFileDescriptorStore(in  s name,
                                   out a(suuutuusu) entries);
+      StartAuxiliaryScope(in  s name,
+                          in  ah pidfds,
+                          out o job);
     signals:
       UnitNew(s id,
               o unit);
@@ -992,6 +995,8 @@ node /org/freedesktop/systemd1 {
 
     <variablelist class="dbus-method" generated="True" extra-ref="DumpUnitFileDescriptorStore()"/>
 
+    <variablelist class="dbus-method" generated="True" extra-ref="StartAuxiliaryScope()"/>
+
     <variablelist class="dbus-signal" generated="True" extra-ref="UnitNew"/>
 
     <variablelist class="dbus-signal" generated="True" extra-ref="UnitRemoved"/>
@@ -1564,6 +1569,12 @@ node /org/freedesktop/systemd1 {
       file descriptors currently in the file descriptor store of the specified unit. This call is equivalent
       to <function>DumpFileDescriptorStore()</function> on the
       <interfacename>org.freedesktop.systemd1.Service</interfacename>. For further details, see below.</para>
+
+      <para><function>StartAuxiliaryScope()</function> creates a new scope unit from a service where calling
+      process resides. Set of processes that will be migrated to newly created scope is passed as an array
+      of PID file descriptors. This is useful for creating auxiliary scopes that should contain worker
+      processes and their lifecycle shouldn't be bound to a lifecycle of the service, e.g. they should
+      continue running after the restart of the service.</para>
     </refsect2>
 
     <refsect2>
