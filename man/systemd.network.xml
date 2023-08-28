@@ -3002,6 +3002,17 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>UsePREF64=</varname></term>
+        <listitem>
+          <para>When true, the IPv6 PREF64 (or NAT64) prefixes received in the Router Advertisement will be recorded
+          and made available to client programs and displayed in the <command>networkctl</command> status output per-link.
+          See <ulink url="https://tools.ietf.org/html/rfc8781">RFC 8781</ulink>. Defaults to false.</para>
+
+          <xi:include href="version-info.xml" xpointer="v255"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>UseAutonomousPrefix=</varname></term>
         <listitem>
           <para>When true (the default), the autonomous prefix received in the Router Advertisement will be used and take
