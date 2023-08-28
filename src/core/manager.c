@@ -1347,8 +1347,9 @@ static void unit_gc_sweep(Unit *u, unsigned gc_marker) {
 
         assert(u);
 
+        /* Processed in this round? */
         if (IN_SET(u->gc_marker - gc_marker,
-                   GC_OFFSET_GOOD, GC_OFFSET_BAD, GC_OFFSET_UNSURE, GC_OFFSET_IN_PATH))
+                   GC_OFFSET_GOOD, GC_OFFSET_BAD, GC_OFFSET_IN_PATH))
                 return;
 
         if (u->in_cleanup_queue)
