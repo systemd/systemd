@@ -659,7 +659,9 @@ run_nspawn() {
         ${TEST_MATCH_TESTCASE:+"systemd.setenv=TEST_MATCH_TESTCASE=$TEST_MATCH_TESTCASE"}
     )
 
-    if ! get_bool "$INTERACTIVE_DEBUG"; then
+    if get_bool "$INTERACTIVE_DEBUG"; then
+        nspawn_options+=("--console=interactive")
+    else
         kernel_params+=("systemd.wants=end.service")
     fi
 
