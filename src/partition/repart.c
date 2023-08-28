@@ -68,9 +68,9 @@
 #include "string-util.h"
 #include "strv.h"
 #include "sync-util.h"
-#include "tmpfile-util.h"
 #include "terminal-util.h"
-#include "tpm-pcr.h"
+#include "tmpfile-util.h"
+#include "tpm2-pcr.h"
 #include "tpm2-util.h"
 #include "user-util.h"
 #include "utf8.h"
@@ -6837,7 +6837,7 @@ static int parse_argv(int argc, char *argv[]) {
                                        "A path to a loopback file must be specified when --split is used.");
 
         if (arg_tpm2_public_key_pcr_mask_use_default && arg_tpm2_public_key)
-                arg_tpm2_public_key_pcr_mask = INDEX_TO_MASK(uint32_t, TPM_PCR_INDEX_KERNEL_IMAGE);
+                arg_tpm2_public_key_pcr_mask = INDEX_TO_MASK(uint32_t, TPM2_PCR_KERNEL_BOOT);
 
         if (arg_tpm2_hash_pcr_values_use_default && !GREEDY_REALLOC_APPEND(
                         arg_tpm2_hash_pcr_values,

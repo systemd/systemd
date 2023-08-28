@@ -9,6 +9,7 @@
 #include "macro.h"
 #include "openssl-util.h"
 #include "sha256.h"
+#include "tpm2-pcr.h"
 
 typedef enum TPM2Flags {
         TPM2_FLAGS_USE_PIN = 1 << 0,
@@ -18,6 +19,7 @@ typedef enum TPM2Flags {
  * TPM2 on a Client PC must have at least 24 PCRs. This hardcodes our expectation of 24. */
 #define TPM2_PCRS_MAX 24U
 #define TPM2_PCRS_MASK ((UINT32_C(1) << TPM2_PCRS_MAX) - 1)
+
 static inline bool TPM2_PCR_INDEX_VALID(unsigned pcr) {
         return pcr < TPM2_PCRS_MAX;
 }
@@ -306,34 +308,6 @@ typedef enum Tpm2Support {
         TPM2_SUPPORT_FULL      = TPM2_SUPPORT_FIRMWARE|TPM2_SUPPORT_DRIVER|TPM2_SUPPORT_SYSTEM|TPM2_SUPPORT_SUBSYSTEM|TPM2_SUPPORT_LIBRARIES,
 } Tpm2Support;
 
-enum {
-        /* The following names for PCRs 0…7 are based on the names in the "TCG PC Client Specific Platform
-         * Firmware Profile Specification"
-         * (https://trustedcomputinggroup.org/resource/pc-client-specific-platform-firmware-profile-specification/) */
-        PCR_PLATFORM_CODE       = 0,
-        PCR_PLATFORM_CONFIG     = 1,
-        PCR_EXTERNAL_CODE       = 2,
-        PCR_EXTERNAL_CONFIG     = 3,
-        PCR_BOOT_LOADER_CODE    = 4,
-        PCR_BOOT_LOADER_CONFIG  = 5,
-        PCR_HOST_PLATFORM       = 6,
-        PCR_SECURE_BOOT_POLICY  = 7,
-        /* The following names for PCRs 9…15 are based on the "Linux TPM PCR Registry"
-        (https://uapi-group.org/specifications/specs/linux_tpm_pcr_registry/) */
-        PCR_KERNEL_INITRD       = 9,
-        PCR_IMA                 = 10,
-        PCR_KERNEL_BOOT         = 11,
-        PCR_KERNEL_CONFIG       = 12,
-        PCR_SYSEXTS             = 13,
-        PCR_SHIM_POLICY         = 14,
-        PCR_SYSTEM_IDENTITY     = 15,
-        /* As per "TCG PC Client Specific Platform Firmware Profile Specification" again, see above */
-        PCR_DEBUG               = 16,
-        PCR_APPLICATION_SUPPORT = 23,
-        _PCR_INDEX_MAX_DEFINED  = TPM2_PCRS_MAX,
-        _PCR_INDEX_INVALID      = -EINVAL,
-};
-
 Tpm2Support tpm2_support(void);
 
 int tpm2_parse_pcr_argument(const char *arg, Tpm2PCRValue **ret_pcr_values, size_t *ret_n_pcr_values);
@@ -349,5 +323,11 @@ int tpm2_util_pbkdf2_hmac_sha256(const void *pass,
                     size_t saltlen,
                     uint8_t res[static SHA256_DIGEST_SIZE]);
 
-int pcr_index_from_string(const char *s) _pure_;
-const char *pcr_index_to_string(int pcr) _const_;
+enum {
+        /* Additional defines for the PCR index naming enum from "fundamental/tpm2-pcr.h" */
+        _TPM2_PCR_INDEX_MAX_DEFINED = TPM2_PCRS_MAX,
+        _TPM2_PCR_INDEX_INVALID     = -EINVAL,
+};
+
+int tpm2_pcr_index_from_string(const char *s) _pure_;
+const char *tpm2_pcr_index_to_string(int pcr) _const_;
