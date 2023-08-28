@@ -1637,27 +1637,35 @@ node /org/freedesktop/systemd1 {
           For more information on this issue consult
           <ulink url="https://www.freedesktop.org/wiki/Software/systemd/TheCaseForTheUsrMerge">
             The Case for the /usr Merge
-          </ulink>.</para></listitem>
+          </ulink>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v252"/></listitem>
 
         </varlistentry>
 
         <varlistentry>
           <term><literal>cgroups-missing</literal></term>
 
-          <listitem><para>Support for cgroups is unavailable.</para></listitem>
+          <listitem><para>Support for cgroups is unavailable.</para>
+
+          <xi:include href="version-info.xml" xpointer="v252"/></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><literal>cgroupsv1</literal></term>
 
-          <listitem><para>The system is using the old cgroup hierarchy.</para></listitem>
+          <listitem><para>The system is using the old cgroup hierarchy.</para>
+
+          <xi:include href="version-info.xml" xpointer="v252"/></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><literal>local-hwclock</literal></term>
 
           <listitem><para>The local hardware clock (RTC) is configured to be in local time rather than
-          UTC.</para></listitem>
+          UTC.</para>
+
+          <xi:include href="version-info.xml" xpointer="v252"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -1666,28 +1674,36 @@ node /org/freedesktop/systemd1 {
           <listitem><para>The system is running past the end of support declared by the vendor. See the
           description of <varname>SUPPORT_END=</varname> in
           <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-          </para></listitem>
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v252"/></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><literal>old-kernel</literal></term>
 
           <listitem><para>The system is running a kernel version that is older than the minimum supported by
-          this version of systemd.</para></listitem>
+          this version of systemd.</para>
+
+          <xi:include href="version-info.xml" xpointer="v252"/></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><literal>var-run-bad</literal></term>
 
           <listitem><para><filename>/run/</filename> does not exist or <filename>/var/run</filename> is not a
-          symlink to <filename>/run/</filename>.</para></listitem>
+          symlink to <filename>/run/</filename>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v252"/></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><literal>overflowuid-not-65534</literal></term>
           <term><literal>overflowgid-not-65534</literal></term>
 
-          <listitem><para>The kernel overflow UID or GID have a value other than 65534.</para></listitem>
+          <listitem><para>The kernel overflow UID or GID have a value other than 65534.</para>
+
+          <xi:include href="version-info.xml" xpointer="v252"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -1695,7 +1711,9 @@ node /org/freedesktop/systemd1 {
           <term><literal>short-gid-range</literal></term>
 
           <listitem><para>The UID or GID range assigned to the running systemd instance covers less than
-          0…65534.</para></listitem>
+          0…65534.</para>
+
+          <xi:include href="version-info.xml" xpointer="v252"/></listitem>
         </varlistentry>
 
         <!-- mtab-not-symlink was removed in b492ce8a22d4527c1372b2d3fbd580627d70c917 -->

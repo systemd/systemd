@@ -6,7 +6,7 @@
 ]>
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
-<refentry id="systemd.nspawn">
+<refentry id="systemd.nspawn" xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>systemd.nspawn</title>
@@ -94,7 +94,9 @@
         <filename>init</filename> process. This setting corresponds to the <option>--boot</option> switch on the
         <command>systemd-nspawn</command> command line. This option may not be combined with
         <varname>ProcessTwo=yes</varname>. This option is specified by default in the
-        <filename>systemd-nspawn@.service</filename> template unit.</para></listitem>
+        <filename>systemd-nspawn@.service</filename> template unit.</para>
+
+        <xi:include href="version-info.xml" xpointer="v226"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -104,7 +106,9 @@
         a temporary snapshot of its file system that is removed immediately when the container terminates.
         This is equivalent to the <option>--ephemeral</option> command line switch. See
         <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry> for details
-        about the specific options supported.</para></listitem>
+        about the specific options supported.</para>
+
+        <xi:include href="version-info.xml" xpointer="v240"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -113,7 +117,9 @@
         <listitem><para>Takes a boolean argument, which defaults to off. If enabled, the specified program is run as
         PID 2. A stub init process is run as PID 1. This setting corresponds to the <option>--as-pid2</option> switch
         on the <command>systemd-nspawn</command> command line. This option may not be combined with
-        <varname>Boot=yes</varname>.</para></listitem>
+        <varname>Boot=yes</varname>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v229"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -127,7 +133,9 @@
 
         <para>Note: <option>Boot=no</option>, <option>Parameters=a b "c c"</option> is the same as
         <command>systemd-nspawn a b "c c"</command>, and <option>Boot=yes</option>, <option>Parameters=b 'c c'</option>
-        is the same as <command>systemd-nspawn --boot b 'c c'</command>.</para></listitem>
+        is the same as <command>systemd-nspawn --boot b 'c c'</command>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v226"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -139,7 +147,9 @@
         main process invoked in the container. This setting may be
         used multiple times to set multiple environment variables. It
         corresponds to the <option>--setenv=</option> command line
-        switch.</para></listitem>
+        switch.</para>
+
+        <xi:include href="version-info.xml" xpointer="v226"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -149,7 +159,9 @@
         name to invoke the main process of the container as. This user
         must be known in the container's user database. This
         corresponds to the <option>--user=</option> command line
-        switch.</para></listitem>
+        switch.</para>
+
+        <xi:include href="version-info.xml" xpointer="v226"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -157,7 +169,9 @@
 
         <listitem><para>Selects the working directory for the process invoked in the container. Expects an absolute
         path in the container's file system namespace. This corresponds to the <option>--chdir=</option> command line
-        switch.</para></listitem>
+        switch.</para>
+
+        <xi:include href="version-info.xml" xpointer="v229"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -166,7 +180,9 @@
         <listitem><para>Selects a directory to pivot to <filename>/</filename> inside the container when starting up.
         Takes a single path, or a pair of two paths separated by a colon. Both paths must be absolute, and are resolved
         in the container's file system namespace. This corresponds to the <option>--pivot-root=</option> command line
-        switch.</para></listitem>
+        switch.</para>
+
+        <xi:include href="version-info.xml" xpointer="v233"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -193,7 +209,9 @@
         capabilities are retained (or dropped).</para>
         <para>These settings change the bounding set of capabilities which
         also limits the ambient capabilities as given with the
-        <varname>AmbientCapability=</varname>.</para></listitem>
+        <varname>AmbientCapability=</varname>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v226"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -217,7 +235,9 @@
         </para>
 
         <para>Note that <varname>AmbientCapability=</varname> is a privileged
-        setting (see above).</para></listitem>
+        setting (see above).</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -228,6 +248,8 @@
         <option>--no-new-privileges=</option> command line switch. See
         <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
         details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/>
         </listitem>
       </varlistentry>
 
@@ -240,7 +262,9 @@
         Defaults to SIGRTMIN+3 if <option>Boot=</option> is used
         (on systemd-compatible init systems SIGRTMIN+3 triggers an
         orderly shutdown). For a list of valid signals, see
-        <citerefentry project='man-pages'><refentrytitle>signal</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para></listitem>
+        <citerefentry project='man-pages'><refentrytitle>signal</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v230"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -248,7 +272,9 @@
 
         <listitem><para>Configures the kernel personality for the
         container. This is equivalent to the
-        <option>--personality=</option> switch.</para></listitem>
+        <option>--personality=</option> switch.</para>
+
+        <xi:include href="version-info.xml" xpointer="v226"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -257,7 +283,9 @@
         <listitem><para>Configures the 128-bit machine ID (UUID) to pass to
         the container. This is equivalent to the
         <option>--uuid=</option> command line switch. This option is
-        privileged (see above). </para></listitem>
+        privileged (see above). </para>
+
+        <xi:include href="version-info.xml" xpointer="v226"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -266,7 +294,9 @@
         <listitem><para>Configures support for usernamespacing. This is equivalent to the
         <option>--private-users=</option> command line switch, and takes the same options. This option is privileged
         (see above). This option is the default if the <filename>systemd-nspawn@.service</filename> template unit file
-        is used.</para></listitem>
+        is used.</para>
+
+        <xi:include href="version-info.xml" xpointer="v230"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -275,7 +305,9 @@
         <listitem><para>Configures support for notifications from the container's init process.  This is equivalent to
         the <option>--notify-ready=</option> command line switch, and takes the same parameters. See
         <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry> for details
-        about the specific options supported.</para></listitem>
+        about the specific options supported.</para>
+
+        <xi:include href="version-info.xml" xpointer="v231"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -284,7 +316,9 @@
         <listitem><para>Configures the system call filter applied to containers. This is equivalent to the
         <option>--system-call-filter=</option> command line switch, and takes the same list parameter. See
         <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
-        details.</para></listitem>
+        details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v235"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -308,7 +342,9 @@
         <listitem><para>Configures various types of resource limits applied to containers. This is equivalent to the
         <option>--rlimit=</option> command line switch, and takes the same arguments. See
         <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
-        details.</para></listitem>
+        details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -317,7 +353,9 @@
         <listitem><para>Configures the OOM score adjustment value. This is equivalent to the
         <option>--oom-score-adjust=</option> command line switch, and takes the same argument. See
         <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
-        details.</para></listitem>
+        details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -326,7 +364,9 @@
         <listitem><para>Configures the CPU affinity. This is equivalent to the <option>--cpu-affinity=</option> command
         line switch, and takes the same argument. See
         <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
-        details.</para></listitem>
+        details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -335,7 +375,9 @@
         <listitem><para>Configures the kernel hostname set for the container. This is equivalent to the
         <option>--hostname=</option> command line switch, and takes the same argument. See
         <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
-        details.</para></listitem>
+        details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -344,7 +386,9 @@
         <listitem><para>Configures how <filename>/etc/resolv.conf</filename> in the container shall be handled. This is
         equivalent to the <option>--resolv-conf=</option> command line switch, and takes the same argument. See
         <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
-        details.</para></listitem>
+        details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -353,7 +397,9 @@
         <listitem><para>Configures how <filename>/etc/localtime</filename> in the container shall be handled. This is
         equivalent to the <option>--timezone=</option> command line switch, and takes the same argument. See
         <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
-        details.</para></listitem>
+        details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -362,7 +408,9 @@
         <listitem><para>Configures how to link host and container journal setups. This is equivalent to the
         <option>--link-journal=</option> command line switch, and takes the same parameter. See
         <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
-        details.</para></listitem>
+        details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -372,7 +420,9 @@
         is equivalent to the <option>--suppress-sync=</option> command line switch, and takes the same
         parameter. See
         <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-        for details.</para></listitem>
+        for details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
 
     </variablelist>
@@ -394,7 +444,9 @@
         specified, the container will be run with a read-only file
         system. This setting corresponds to the
         <option>--read-only</option> command line
-        switch.</para></listitem>
+        switch.</para>
+
+        <xi:include href="version-info.xml" xpointer="v226"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -406,7 +458,9 @@
         option is equivalent to <option>--volatile=</option>, see
         <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>
         for details about the specific options
-        supported.</para></listitem>
+        supported.</para>
+
+        <xi:include href="version-info.xml" xpointer="v226"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -422,7 +476,9 @@
         <option>--bind-ro=</option>, see
         <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>
         for details about the specific options supported. This setting
-        is privileged (see above).</para></listitem>
+        is privileged (see above).</para>
+
+        <xi:include href="version-info.xml" xpointer="v226"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -432,7 +488,9 @@
         command line switch <option>--bind-user=</option>, see
         <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>
         for details about the specific options supported. This setting is privileged (see
-        above).</para></listitem>
+        above).</para>
+
+        <xi:include href="version-info.xml" xpointer="v249"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -446,7 +504,9 @@
         <option>--tmpfs=</option>, see
         <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>
         for details about the specific options supported. This setting
-        is privileged (see above).</para></listitem>
+        is privileged (see above).</para>
+
+        <xi:include href="version-info.xml" xpointer="v226"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -457,7 +517,9 @@
         may be used multiple times to mask multiple files or directories. This option is equivalent to the command line
         switch <option>--inaccessible=</option>, see
         <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry> for details
-        about the specific options supported. This setting is privileged (see above).</para></listitem>
+        about the specific options supported. This setting is privileged (see above).</para>
+
+        <xi:include href="version-info.xml" xpointer="v242"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -468,7 +530,9 @@
         multiple times to configure multiple overlay mounts. This option is equivalent to the command line switches
         <option>--overlay=</option> and <option>--overlay-ro=</option>, see
         <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry> for details
-        about the specific options supported. This setting is privileged (see above).</para></listitem>
+        about the specific options supported. This setting is privileged (see above).</para>
+
+        <xi:include href="version-info.xml" xpointer="v233"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -477,7 +541,9 @@
         <listitem><para>Configures whether the ownership of the files and directories in the container tree
         shall be adjusted to the UID/GID range used, if necessary and user namespacing is enabled. This is
         equivalent to the <option>--private-users-ownership=</option> command line switch. This option is
-        privileged (see above).</para></listitem>
+        privileged (see above).</para>
+
+        <xi:include href="version-info.xml" xpointer="v249"/></listitem>
       </varlistentry>
 
     </variablelist>
@@ -500,7 +566,9 @@
         and not share network interfaces and configuration with the
         host. This setting corresponds to the
         <option>--private-network</option> command line
-        switch.</para></listitem>
+        switch.</para>
+
+        <xi:include href="version-info.xml" xpointer="v226"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -510,7 +578,9 @@
         (<literal>veth</literal>) between host and the container. This setting implies
         <varname>Private=yes</varname>. This setting corresponds to the <option>--network-veth</option> command line
         switch. This option is privileged (see above). This option is the default if the
-        <filename>systemd-nspawn@.service</filename> template unit file is used.</para></listitem>
+        <filename>systemd-nspawn@.service</filename> template unit file is used.</para>
+
+        <xi:include href="version-info.xml" xpointer="v226"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -525,7 +595,9 @@
         independent of <varname>VirtualEthernet=</varname>. Note that this option is unrelated to the
         <varname>Bridge=</varname> setting below, and thus any connections created this way are not
         automatically added to any bridge device on the host side. This option is privileged (see
-        above).</para></listitem>
+        above).</para>
+
+        <xi:include href="version-info.xml" xpointer="v228"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -538,7 +610,9 @@
         This option corresponds to the
         <option>--network-interface=</option> command line switch and
         implies <varname>Private=yes</varname>. This option is
-        privileged (see above).</para></listitem>
+        privileged (see above).</para>
+
+        <xi:include href="version-info.xml" xpointer="v226"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -553,7 +627,9 @@
         <option>--network-macvlan=</option> and
         <option>--network-ipvlan=</option> command line switches and
         imply <varname>Private=yes</varname>. These options are
-        privileged (see above).</para></listitem>
+        privileged (see above).</para>
+
+        <xi:include href="version-info.xml" xpointer="v226"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -565,7 +641,9 @@
         host side of the created virtual Ethernet link is connected to
         the specified bridge interface. This option corresponds to the
         <option>--network-bridge=</option> command line switch. This
-        option is privileged (see above).</para></listitem>
+        option is privileged (see above).</para>
+
+        <xi:include href="version-info.xml" xpointer="v226"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -575,7 +653,9 @@
         <varname>Private=yes</varname> and has the effect that the host side of the created virtual Ethernet link is
         connected to an automatically managed bridge interface named after the passed argument, prefixed with
         <literal>vz-</literal>. This option corresponds to the <option>--network-zone=</option> command line
-        switch. This option is privileged (see above).</para></listitem>
+        switch. This option is privileged (see above).</para>
+
+        <xi:include href="version-info.xml" xpointer="v230"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -586,7 +666,9 @@
         <option>--port=</option> command line switch, see
         <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>
         for the precise syntax of the argument this option takes. This
-        option is privileged (see above).</para></listitem>
+        option is privileged (see above).</para>
+
+        <xi:include href="version-info.xml" xpointer="v226"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>

@@ -3,7 +3,8 @@
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
-<refentry id="systemd-homed.service" conditional='ENABLE_HOMED'>
+<refentry id="systemd-homed.service" conditional='ENABLE_HOMED'
+          xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>systemd-homed.service</title>
@@ -62,14 +63,18 @@
         <term><filename>/var/lib/systemd/home/local.private</filename></term>
 
         <listitem><para>The private key of the public/private key pair used for local records. Currently,
-        only a single such key may be installed.</para></listitem>
+        only a single such key may be installed.</para>
+
+        <xi:include href="version-info.xml" xpointer="v246"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><filename>/var/lib/systemd/home/local.public</filename></term>
 
         <listitem><para>The public key of the public/private key pair used for local records. Currently,
-        only a single such key may be installed.</para></listitem>
+        only a single such key may be installed.</para>
+
+        <xi:include href="version-info.xml" xpointer="v246"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -77,7 +82,9 @@
 
         <listitem><para>Additional public keys. Any users whose user records are signed with any of these keys
         are permitted to log in locally. An arbitrary number of keys may be installed this
-        way.</para></listitem>
+        way.</para>
+
+        <xi:include href="version-info.xml" xpointer="v246"/></listitem>
       </varlistentry>
     </variablelist>
 

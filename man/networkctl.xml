@@ -73,30 +73,40 @@
                 <term>missing</term>
                 <listitem>
                     <para>the device is missing</para>
+
+                <xi:include href="version-info.xml" xpointer="v245"/>
                 </listitem>
               </varlistentry>
               <varlistentry>
                 <term>off</term>
                 <listitem>
                   <para>the device is powered down</para>
+
+                <xi:include href="version-info.xml" xpointer="v240"/>
                 </listitem>
               </varlistentry>
               <varlistentry>
                 <term>no-carrier</term>
                 <listitem>
                   <para>the device is powered up, but it does not yet have a carrier</para>
+
+                <xi:include href="version-info.xml" xpointer="v240"/>
                 </listitem>
               </varlistentry>
               <varlistentry>
                 <term>dormant</term>
                 <listitem>
                   <para>the device has a carrier, but is not yet ready for normal traffic</para>
+
+                <xi:include href="version-info.xml" xpointer="v240"/>
                 </listitem>
               </varlistentry>
               <varlistentry>
                 <term>degraded-carrier</term>
                 <listitem>
                   <para>one of the bonding or bridge slave network interfaces is in off, no-carrier, or dormant state, and the master interface has no address.</para>
+
+                <xi:include href="version-info.xml" xpointer="v242"/>
                 </listitem>
               </varlistentry>
               <varlistentry>
@@ -104,6 +114,8 @@
                 <listitem>
                   <para>the link has a carrier, or for bond or bridge master, all bonding or bridge slave
                   network interfaces are enslaved to the master</para>
+
+                  <xi:include href="version-info.xml" xpointer="v240"/>
                 </listitem>
               </varlistentry>
               <varlistentry>
@@ -112,12 +124,16 @@
                   <para>the link has carrier and addresses valid on the local link configured. For bond or
                   bridge master this means that not all slave network interfaces have carrier but at least
                   one does.</para>
+
+                  <xi:include href="version-info.xml" xpointer="v240"/>
                 </listitem>
               </varlistentry>
               <varlistentry>
                 <term>enslaved</term>
                 <listitem>
                   <para>the link has carrier and is enslaved to bond or bridge master network interface</para>
+
+                <xi:include href="version-info.xml" xpointer="v242"/>
                 </listitem>
               </varlistentry>
               <varlistentry>
@@ -125,6 +141,8 @@
                 <listitem>
                   <para>the link has carrier and routable address configured. For bond or bridge master it is
                   not necessary for all slave network interfaces to have carrier, but at least one must.</para>
+
+                  <xi:include href="version-info.xml" xpointer="v240"/>
                 </listitem>
               </varlistentry>
             </variablelist>
@@ -136,46 +154,62 @@
                 <term>pending</term>
                 <listitem>
                   <para>udev is still processing the link, we don't yet know if we will manage it</para>
+
+                <xi:include href="version-info.xml" xpointer="v240"/>
                 </listitem>
               </varlistentry>
               <varlistentry>
                 <term>initialized</term>
                 <listitem>
                   <para>udev has processed the link, but we don't yet know if we will manage it</para>
+
+                <xi:include href="version-info.xml" xpointer="v251"/>
                 </listitem>
               </varlistentry>
               <varlistentry>
                 <term>configuring</term>
                 <listitem>
                   <para>in the process of retrieving configuration or configuring the link</para>
+
+                <xi:include href="version-info.xml" xpointer="v240"/>
                 </listitem>
               </varlistentry>
               <varlistentry>
                 <term>configured</term>
                 <listitem>
                   <para>link configured successfully</para>
+
+                <xi:include href="version-info.xml" xpointer="v240"/>
                 </listitem>
               </varlistentry>
               <varlistentry>
                 <term>unmanaged</term>
                 <listitem>
                   <para>networkd is not handling the link</para>
+
+                <xi:include href="version-info.xml" xpointer="v240"/>
                 </listitem>
               </varlistentry>
               <varlistentry>
                 <term>failed</term>
                 <listitem>
                   <para>networkd failed to manage the link</para>
+
+                <xi:include href="version-info.xml" xpointer="v240"/>
                 </listitem>
               </varlistentry>
               <varlistentry>
                 <term>linger</term>
                 <listitem>
                   <para>the link is gone, but has not yet been dropped by networkd</para>
+
+                <xi:include href="version-info.xml" xpointer="v240"/>
                 </listitem>
               </varlistentry>
             </variablelist>
         </para>
+
+            <xi:include href="version-info.xml" xpointer="v242"/>
         </listitem>
       </varlistentry>
 
@@ -213,28 +247,38 @@
               <term>unknown</term>
               <listitem>
                 <para>all links have unknown online status (i.e. there are no required links)</para>
+
+              <xi:include href="version-info.xml" xpointer="v249"/>
               </listitem>
             </varlistentry>
             <varlistentry>
               <term>offline</term>
               <listitem>
                 <para>all required links are offline</para>
+
+              <xi:include href="version-info.xml" xpointer="v249"/>
               </listitem>
             </varlistentry>
             <varlistentry>
               <term>partial</term>
               <listitem>
                 <para>some, but not all, required links are online</para>
+
+              <xi:include href="version-info.xml" xpointer="v249"/>
               </listitem>
             </varlistentry>
             <varlistentry>
               <term>online</term>
               <listitem>
                 <para>all required links are online</para>
+
+              <xi:include href="version-info.xml" xpointer="v249"/>
               </listitem>
             </varlistentry>
           </variablelist>
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v242"/>
         </listitem>
 
       </varlistentry>
@@ -263,6 +307,8 @@ t - Telephone; d - DOCSIS cable device; a - Station; c - Customer VLAN;
 s - Service VLAN, m - Two-port MAC Relay (TPMR)
 
 1 neighbors listed.</programlisting></para>
+
+          <xi:include href="version-info.xml" xpointer="v242"/>
         </listitem>
       </varlistentry>
 
@@ -289,6 +335,8 @@ s - Service VLAN, m - Two-port MAC Relay (TPMR)
 ::ffff:0.0.0.0/96                             4
         ::/96                                 3
        ::1/128                                0</programlisting></para>
+
+        <xi:include href="version-info.xml" xpointer="v234"/>
         </listitem>
       </varlistentry>
 
@@ -297,7 +345,9 @@ s - Service VLAN, m - Two-port MAC Relay (TPMR)
           <command>delete</command>
           <replaceable>DEVICE…</replaceable>
         </term>
-        <listitem><para>Deletes virtual netdevs. Takes interface name or index number.</para></listitem>
+        <listitem><para>Deletes virtual netdevs. Takes interface name or index number.</para>
+
+        <xi:include href="version-info.xml" xpointer="v247"/></listitem>
       </varlistentry>
 
        <varlistentry>
@@ -305,7 +355,9 @@ s - Service VLAN, m - Two-port MAC Relay (TPMR)
           <command>up</command>
           <replaceable>DEVICE…</replaceable>
         </term>
-        <listitem><para>Bring devices up. Takes interface name or index number.</para></listitem>
+        <listitem><para>Bring devices up. Takes interface name or index number.</para>
+
+        <xi:include href="version-info.xml" xpointer="v247"/></listitem>
       </varlistentry>
 
        <varlistentry>
@@ -313,7 +365,9 @@ s - Service VLAN, m - Two-port MAC Relay (TPMR)
           <command>down</command>
           <replaceable>DEVICE…</replaceable>
         </term>
-        <listitem><para>Bring devices down. Takes interface name or index number.</para></listitem>
+        <listitem><para>Bring devices down. Takes interface name or index number.</para>
+
+        <xi:include href="version-info.xml" xpointer="v247"/></listitem>
       </varlistentry>
 
        <varlistentry>
@@ -322,7 +376,9 @@ s - Service VLAN, m - Two-port MAC Relay (TPMR)
           <replaceable>DEVICE…</replaceable>
         </term>
         <listitem><para>Renew dynamic configurations e.g. addresses received from DHCP server.
-        Takes interface name or index number.</para></listitem>
+        Takes interface name or index number.</para>
+
+        <xi:include href="version-info.xml" xpointer="v247"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -331,7 +387,9 @@ s - Service VLAN, m - Two-port MAC Relay (TPMR)
           <replaceable>DEVICE…</replaceable>
         </term>
         <listitem><para>Send a FORCERENEW message to all connected clients, triggering DHCP reconfiguration.
-        Takes interface name or index number.</para></listitem>
+        Takes interface name or index number.</para>
+
+        <xi:include href="version-info.xml" xpointer="v247"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -342,7 +400,9 @@ s - Service VLAN, m - Two-port MAC Relay (TPMR)
         <listitem><para>Reconfigure network interfaces. Takes interface name or index number. Note that
         this does not reload <filename>.netdev</filename> or <filename>.network</filename>
         corresponding to the specified interface. So, if you edit config files, it is necessary to call
-        <command>networkctl reload</command> first to apply new settings.</para></listitem>
+        <command>networkctl reload</command> first to apply new settings.</para>
+
+        <xi:include href="version-info.xml" xpointer="v247"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -354,7 +414,9 @@ s - Service VLAN, m - Two-port MAC Relay (TPMR)
         Note that even if an existing <filename>.netdev</filename> is modified or removed,
         <command>systemd-networkd</command> does not update or remove the netdev.
         If a new, modified or removed <filename>.network</filename> file is found, then all interfaces
-        which match the file are reconfigured.</para></listitem>
+        which match the file are reconfigured.</para>
+
+        <xi:include href="version-info.xml" xpointer="v244"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -378,7 +440,9 @@ s - Service VLAN, m - Two-port MAC Relay (TPMR)
         Note that the changed link settings are not automatically applied after reloading.
         To achieve that, trigger uevents for the corresponding interface. Refer to
         <citerefentry><refentrytitle>systemd.link</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        for more information.</para></listitem>
+        for more information.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -387,7 +451,9 @@ s - Service VLAN, m - Two-port MAC Relay (TPMR)
           <replaceable>FILE</replaceable>|<replaceable>@DEVICE</replaceable>…
         </term>
         <listitem><para>Show network configuration files. This command honors
-        the <literal>@</literal> prefix in the same way as <command>edit</command>.</para></listitem>
+        the <literal>@</literal> prefix in the same way as <command>edit</command>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
@@ -406,6 +472,8 @@ s - Service VLAN, m - Two-port MAC Relay (TPMR)
 
         <listitem>
           <para>Show all links with <command>status</command>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v219"/>
         </listitem>
       </varlistentry>
 
@@ -417,6 +485,8 @@ s - Service VLAN, m - Two-port MAC Relay (TPMR)
 
         <listitem>
           <para>Show link statistics with <command>status</command>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v243"/>
         </listitem>
       </varlistentry>
 
@@ -426,6 +496,8 @@ s - Service VLAN, m - Two-port MAC Relay (TPMR)
 
         <listitem>
           <para>Do not ellipsize the output.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/>
         </listitem>
       </varlistentry>
 
@@ -436,6 +508,8 @@ s - Service VLAN, m - Two-port MAC Relay (TPMR)
         <listitem>
           <para>When used with <command>status</command>, controls the number of journal lines to show,
           counting from the most recent ones. Takes a positive integer argument. Defaults to 10.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/>
         </listitem>
       </varlistentry>
 
@@ -446,6 +520,8 @@ s - Service VLAN, m - Two-port MAC Relay (TPMR)
         <listitem>
           <para>When used with <command>edit</command>, edit the drop-in file <replaceable>NAME</replaceable>
           instead of the main configuration file.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/>
         </listitem>
       </varlistentry>
 
@@ -455,6 +531,8 @@ s - Service VLAN, m - Two-port MAC Relay (TPMR)
         <listitem>
           <para>When used with <command>edit</command>, <command>systemd-networkd</command>
           or <command>systemd-udevd</command> will not be reloaded after the editing finishes.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/>
         </listitem>
       </varlistentry>
 

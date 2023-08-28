@@ -3,7 +3,8 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
-<refentry id="systemd-hibernate-resume-generator" conditional='ENABLE_HIBERNATE'>
+<refentry id="systemd-hibernate-resume-generator" conditional='ENABLE_HIBERNATE'
+          xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>systemd-hibernate-resume-generator</title>
@@ -53,28 +54,36 @@
         <filename index="false">/dev/disk/by-foo/bar</filename> and
         <citerefentry project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>-style
         specifiers like <literal>FOO=bar</literal> are
-        supported.</para></listitem>
+        supported.</para>
+
+        <xi:include href="version-info.xml" xpointer="v217"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>resume_offset=</varname></term>
 
         <listitem><para>Takes the page offset of the swap space from the resume device.
-        Defaults to <literal>0</literal>.</para></listitem>
+        Defaults to <literal>0</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>resumeflags=</varname></term>
 
         <listitem><para>Takes the resume device mount options to
-        use. Defaults <varname>rootflags=</varname> if not specified.</para></listitem>
+        use. Defaults <varname>rootflags=</varname> if not specified.</para>
+
+        <xi:include href="version-info.xml" xpointer="v243"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>noresume</varname></term>
 
         <listitem><para>Do not try to resume from hibernation. If this parameter is
-        present, <varname>resume=</varname> is ignored.</para></listitem>
+        present, <varname>resume=</varname> is ignored.</para>
+
+        <xi:include href="version-info.xml" xpointer="v240"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>

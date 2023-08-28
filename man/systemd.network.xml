@@ -110,6 +110,8 @@
           <literal>mesh-point</literal>, <literal>p2p-client</literal>, <literal>p2p-go</literal>,
           <literal>p2p-device</literal>, <literal>ocb</literal>, and <literal>nan</literal>. If the
           list is prefixed with a "!", the test is inverted. </para>
+
+          <xi:include href="version-info.xml" xpointer="v244"/>
         </listitem>
       </varlistentry>
 
@@ -118,6 +120,8 @@
         <listitem>
           <para>A whitespace-separated list of shell-style globs matching the SSID of the currently
           connected wireless LAN. If the list is prefixed with a "!", the test is inverted.</para>
+
+          <xi:include href="version-info.xml" xpointer="v244"/>
         </listitem>
       </varlistentry>
 
@@ -128,6 +132,8 @@
           LAN. Use full colon-, hyphen- or dot-delimited hexadecimal. See the example in
           <varname>MACAddress=</varname>. This option may appear more than once, in which case the
           lists are merged. If the empty string is assigned to this option, the list is reset.</para>
+
+          <xi:include href="version-info.xml" xpointer="v244"/>
         </listitem>
       </varlistentry>
 
@@ -161,6 +167,8 @@
           G, are supported and are understood to the base of 1024.</para>
           <para>Note that if IPv6 is enabled on the interface, and the MTU is chosen below 1280 (the
           minimum MTU for IPv6) it will automatically be increased to this value.</para>
+
+          <xi:include href="version-info.xml" xpointer="v218"/>
         </listitem>
       </varlistentry>
 
@@ -173,6 +181,8 @@
           interfaces atop a single lower-level physical interface, which will then only serve as a
           link/"bridge" device aggregating traffic to the same physical link and not participate in
           the network otherwise. Defaults to unset.</para>
+
+          <xi:include href="version-info.xml" xpointer="v232"/>
         </listitem>
       </varlistentry>
 
@@ -181,6 +191,8 @@
         <listitem>
           <para>Takes a boolean. If set to true, the multicast flag on the device is enabled. Defaults
           to unset.</para>
+
+          <xi:include href="version-info.xml" xpointer="v239"/>
         </listitem>
       </varlistentry>
 
@@ -189,6 +201,8 @@
         <listitem>
           <para>Takes a boolean. If set to true, the driver retrieves all multicast packets from the
           network. This happens when multicast routing is enabled. Defaults to unset.</para>
+
+          <xi:include href="version-info.xml" xpointer="v239"/>
         </listitem>
       </varlistentry>
 
@@ -200,6 +214,8 @@
           <para>If this is set to false for the underlying link of a <literal>passthru</literal> mode
           MACVLAN/MACVTAP, the virtual interface will be created with the <literal>nopromisc</literal>
           flag set.</para>
+
+          <xi:include href="version-info.xml" xpointer="v248"/>
         </listitem>
       </varlistentry>
 
@@ -211,6 +227,8 @@
           <literal>no</literal>.</para>
           <para>This is useful for preventing later matching network files from interfering with
           certain interfaces that are fully controlled by other applications.</para>
+
+          <xi:include href="version-info.xml" xpointer="v233"/>
         </listitem>
       </varlistentry>
 
@@ -221,6 +239,8 @@
           interfaces are added to a numbered group, operations on all the interfaces from that group
           can be performed at once. Takes an unsigned integer in the range 0…2147483647. Defaults to
           unset.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/>
         </listitem>
       </varlistentry>
 
@@ -250,6 +270,8 @@
           assigned by DHCP or the cable is not plugged in, the link will simply remain offline and be
           skipped automatically by <command>systemd-networkd-wait-online</command> if
           <literal>RequiredForOnline=no</literal>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v236"/>
         </listitem>
       </varlistentry>
 
@@ -263,6 +285,8 @@
           <literal>any</literal>. Note that this option has no effect if
           <literal>RequiredForOnline=no</literal>, or if <literal>RequiredForOnline=</literal>
           specifies a minimum operational state below <literal>degraded</literal>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v249"/>
         </listitem>
       </varlistentry>
 
@@ -301,6 +325,8 @@
           depends on both the administrative state as well as the network device's physical connection.
           However, to avoid reconfiguration failures, when using <literal>always-up</literal>,
           <varname>IgnoreCarrierLoss=</varname> is forced to true.</para>
+
+          <xi:include href="version-info.xml" xpointer="v248"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -348,6 +374,8 @@
           <para>Takes a boolean. If set to <literal>yes</literal>, DHCPv4 server will be started.
           Defaults to <literal>no</literal>. Further settings for the DHCP server may be set in the
           [DHCPServer] section described below.</para>
+
+        <xi:include href="version-info.xml" xpointer="v215"/>
         </listitem>
       </varlistentry>
 
@@ -366,6 +394,8 @@
           <varname>Bridge=</varname> is set or when the specified
           <varname>MACVLAN=</varname>/<varname>MACVTAP=</varname> has <varname>Mode=passthru</varname>,
           or <option>ipv6</option> otherwise.</para>
+
+          <xi:include href="version-info.xml" xpointer="v219"/>
         </listitem>
       </varlistentry>
 
@@ -382,6 +412,8 @@
           <varname>LinkLocalAddressing=</varname> is <literal>yes</literal> or <literal>ipv6</literal>,
           setting <varname>IPv6LinkLocalAddressGenerationMode=none</varname>
           disables to configure an IPv6 link-local address.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/>
         </listitem>
       </varlistentry>
 
@@ -396,6 +428,8 @@
           <varname>IPv6LinkLocalAddressGenerationMode=</varname>,
           then a stable secret address will be generated from the local machine ID and the interface
           name.</para>
+
+          <xi:include href="version-info.xml" xpointer="v249"/>
         </listitem>
       </varlistentry>
 
@@ -407,6 +441,8 @@
           169.254.255.0/24. This setting may be useful if the device should always have the same address
           as long as there is no address conflict. When unset, a random address will be automatically
           selected. Defaults to unset.</para>
+
+          <xi:include href="version-info.xml" xpointer="v252"/>
         </listitem>
       </varlistentry>
 
@@ -415,6 +451,8 @@
         <listitem>
           <para>Takes a boolean. If set to true, sets up the route needed for non-IPv4LL hosts to
           communicate with IPv4LL-only hosts. Defaults to false.</para>
+
+          <xi:include href="version-info.xml" xpointer="v216"/>
         </listitem>
       </varlistentry>
 
@@ -439,6 +477,8 @@ Table=1234</programlisting></para>
           <programlisting>[Route]
 Gateway=::
 Table=1234</programlisting></para>
+
+          <xi:include href="version-info.xml" xpointer="v243"/>
         </listitem>
       </varlistentry>
 
@@ -451,6 +491,8 @@ Table=1234</programlisting></para>
           registration and announcement. Defaults to true. This setting is read by
           <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
           </para>
+
+        <xi:include href="version-info.xml" xpointer="v216"/>
         </listitem>
       </varlistentry>
 
@@ -463,6 +505,8 @@ Table=1234</programlisting></para>
           registration and announcement. Defaults to false. This setting is read by
           <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
           </para>
+
+        <xi:include href="version-info.xml" xpointer="v229"/>
         </listitem>
       </varlistentry>
 
@@ -479,6 +523,8 @@ Table=1234</programlisting></para>
           be used. This setting is read by
           <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
           </para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/>
         </listitem>
       </varlistentry>
 
@@ -495,6 +541,8 @@ Table=1234</programlisting></para>
           used. This setting is read by
           <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
           </para>
+
+        <xi:include href="version-info.xml" xpointer="v229"/>
         </listitem>
       </varlistentry>
 
@@ -509,6 +557,8 @@ Table=1234</programlisting></para>
           read by
           <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v229"/>
         </listitem>
       </varlistentry>
 
@@ -527,6 +577,8 @@ Table=1234</programlisting></para>
           to query the collected neighbor data. LLDP is only available on Ethernet links. See
           <varname>EmitLLDP=</varname> below for enabling LLDP packet emission from the local system.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v219"/>
         </listitem>
       </varlistentry>
 
@@ -555,6 +607,8 @@ Table=1234</programlisting></para>
           Note that configuring this setting to true is equivalent to
           <literal>nearest-bridge</literal>, the recommended and most restricted level of propagation.
           See <varname>LLDP=</varname> above for an option to enable LLDP reception.</para>
+
+          <xi:include href="version-info.xml" xpointer="v230"/>
         </listitem>
       </varlistentry>
 
@@ -567,6 +621,8 @@ Table=1234</programlisting></para>
 
           <para>This forces <varname>ActivationPolicy=</varname> to be set to <literal>bound</literal>.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v220"/>
         </listitem>
       </varlistentry>
 
@@ -652,6 +708,8 @@ Table=1234</programlisting></para>
           <citerefentry project='man-pages'><refentrytitle>resolv.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
           Domain name routing has no equivalent in the traditional glibc API, which has no concept of
           domain name servers limited to a specific link.</para>
+
+          <xi:include href="version-info.xml" xpointer="v216"/>
         </listitem>
       </varlistentry>
 
@@ -665,6 +723,8 @@ Table=1234</programlisting></para>
           this link. If not specified defaults to an automatic mode: queries not matching any link's
           configured domains will be routed to this link if it has no routing-only domains configured.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v240"/>
         </listitem>
       </varlistentry>
 
@@ -675,6 +735,8 @@ Table=1234</programlisting></para>
           specified more than once. This setting is read by
           <citerefentry><refentrytitle>systemd-timesyncd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v216"/>
         </listitem>
       </varlistentry>
 
@@ -697,6 +759,8 @@ Table=1234</programlisting></para>
 
           <para>To allow IP packet forwarding only between specific network interfaces use a firewall.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v219"/>
         </listitem>
       </varlistentry>
 
@@ -711,6 +775,8 @@ Table=1234</programlisting></para>
           <literal>yes</literal>.</para>
           <para>Note. Any positive boolean values such as <literal>yes</literal> or
           <literal>true</literal> are now deprecated. Please use one of the values in the above.</para>
+
+          <xi:include href="version-info.xml" xpointer="v219"/>
         </listitem>
       </varlistentry>
 
@@ -728,6 +794,8 @@ Table=1234</programlisting></para>
           the value specified in the same setting in
           <citerefentry><refentrytitle>networkd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
           which defaults to <literal>no</literal>, will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v222"/>
         </listitem>
       </varlistentry>
 
@@ -756,6 +824,8 @@ Table=1234</programlisting></para>
           <command>systemd-networkd</command> needs to know all details supplied in the advertisements,
           and these are not available from the kernel if the kernel's own implementation is used.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v231"/>
         </listitem>
       </varlistentry>
 
@@ -764,6 +834,8 @@ Table=1234</programlisting></para>
         <listitem>
           <para>Configures the amount of IPv6 Duplicate Address Detection (DAD) probes to send. When
           unset, the kernel's default will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v228"/>
         </listitem>
       </varlistentry>
 
@@ -773,6 +845,8 @@ Table=1234</programlisting></para>
           <para>Configures IPv6 Hop Limit. For each router that forwards the packet, the hop limit is
           decremented by 1. When the hop limit field reaches zero, the packet is discarded. When unset,
           the kernel's default will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v228"/>
         </listitem>
       </varlistentry>
 
@@ -789,6 +863,8 @@ Table=1234</programlisting></para>
           only if the source address is not reachable via any interface on that router.
           See <ulink url="https://tools.ietf.org/html/rfc1027">RFC 3704</ulink>.
           When unset, the kernel's default will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v255"/>
         </listitem>
       </varlistentry>
 
@@ -798,6 +874,8 @@ Table=1234</programlisting></para>
           <para>Takes a boolean. Accept packets with local source addresses. In combination with
           suitable routing, this can be used to direct packets between two local interfaces over the
           wire and have them accepted properly. When unset, the kernel's default will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/>
         </listitem>
       </varlistentry>
 
@@ -807,6 +885,8 @@ Table=1234</programlisting></para>
           <para>Takes a boolean. When true, the kernel does not consider loopback addresses as martian
           source or destination while routing. This enables the use of 127.0.0.0/8 for local routing
           purposes. When unset, the kernel's default will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v248"/>
         </listitem>
       </varlistentry>
 
@@ -818,6 +898,8 @@ Table=1234</programlisting></para>
           identity, the router accepts responsibility for routing packets to the "real" destination.
           See <ulink url="https://tools.ietf.org/html/rfc1027">RFC 1027</ulink>. When unset, the
           kernel's default will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v233"/>
         </listitem>
       </varlistentry>
 
@@ -833,6 +915,8 @@ Table=1234</programlisting></para>
           also be shown by <command>ip -6 neighbour show proxy</command>. systemd-networkd will control
           the per-interface `proxy_ndp` switch for each configured interface depending on this option.
           When unset, the kernel's default will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v234"/>
         </listitem>
       </varlistentry>
 
@@ -845,6 +929,8 @@ Table=1234</programlisting></para>
           This setting implies <varname>IPv6ProxyNDP=yes</varname> but has no effect if
           <varname>IPv6ProxyNDP=</varname> has been set to false. When unset, the kernel's default will
           be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v233"/>
         </listitem>
       </varlistentry>
 
@@ -858,6 +944,8 @@ Table=1234</programlisting></para>
           distributed. See <varname>DCHPPrefixDelegation=</varname> setting and the [IPv6SendRA],
           [IPv6Prefix], [IPv6RoutePrefix], and [DHCPPrefixDelegation] sections for more configuration
           options.</para>
+
+          <xi:include href="version-info.xml" xpointer="v247"/>
         </listitem>
       </varlistentry>
 
@@ -869,6 +957,8 @@ Table=1234</programlisting></para>
           be assigned, and the prefixes will be announced through IPv6 Router Advertisement if
           <varname>IPv6SendRA=</varname> is enabled. This behaviour can be configured in the
           [DHCPPrefixDelegation] section. Defaults to disabled.</para>
+
+          <xi:include href="version-info.xml" xpointer="v250"/>
         </listitem>
       </varlistentry>
 
@@ -877,6 +967,8 @@ Table=1234</programlisting></para>
         <listitem>
           <para>Configures IPv6 maximum transmission unit (MTU). An integer greater than or equal to
           1280 bytes. When unset, the kernel's default will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v239"/>
         </listitem>
       </varlistentry>
 
@@ -889,6 +981,8 @@ Table=1234</programlisting></para>
           useful when a netdev with a master interface is created by another program, e.g.
           <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
           Defaults to false.</para>
+
+          <xi:include href="version-info.xml" xpointer="v250"/>
         </listitem>
       </varlistentry>
 
@@ -930,6 +1024,8 @@ Table=1234</programlisting></para>
           <para>Takes a boolean. Specifies the new active slave. The <literal>ActiveSlave=</literal>
           option is only valid for following modes: <literal>active-backup</literal>,
           <literal>balance-alb</literal>, and <literal>balance-tlb</literal>. Defaults to false.</para>
+
+        <xi:include href="version-info.xml" xpointer="v235"/>
         </listitem>
       </varlistentry>
 
@@ -942,6 +1038,8 @@ Table=1234</programlisting></para>
           when one slave has higher throughput than another. The <literal>PrimarySlave=</literal>
           option is only valid for following modes: <literal>active-backup</literal>,
           <literal>balance-alb</literal>, and <literal>balance-tlb</literal>. Defaults to false.</para>
+
+          <xi:include href="version-info.xml" xpointer="v235"/>
         </listitem>
       </varlistentry>
 
@@ -951,6 +1049,8 @@ Table=1234</programlisting></para>
           <para>Takes a boolean. Allows networkd to configure a specific link even if it has no
           carrier. Defaults to false. If enabled, and the <varname>IgnoreCarrierLoss=</varname> setting
           is not explicitly set, then it is enabled as well.</para>
+
+          <xi:include href="version-info.xml" xpointer="v235"/>
         </listitem>
       </varlistentry>
 
@@ -987,6 +1087,8 @@ Table=1234</programlisting></para>
           <varname>ConfigureWithoutCarrier=</varname>. When <varname>ActivationPolicy=</varname> is set
           to <literal>always-up</literal>, this is forced to <literal>yes</literal>, and ignored any
           user specified values.</para>
+
+          <xi:include href="version-info.xml" xpointer="v242"/>
         </listitem>
       </varlistentry>
 
@@ -1006,6 +1108,8 @@ Table=1234</programlisting></para>
           <literal>dhcp-on-stop</literal> when <command>systemd-networkd</command> is running in
           initrd, <literal>yes</literal> when the root filesystem is a network filesystem, and
           <literal>no</literal> otherwise.</para>
+
+        <xi:include href="version-info.xml" xpointer="v243"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -1023,6 +1127,8 @@ Table=1234</programlisting></para>
         <listitem>
           <para>As in the [Network] section. This setting is mandatory. Each [Address] section can
           contain one <varname>Address=</varname> setting.</para>
+
+          <xi:include href="version-info.xml" xpointer="v215"/>
         </listitem>
       </varlistentry>
 
@@ -1031,6 +1137,8 @@ Table=1234</programlisting></para>
         <listitem>
           <para>The peer address in a point-to-point connection. Accepts the same format as the
           <varname>Address=</varname> setting.</para>
+
+          <xi:include href="version-info.xml" xpointer="v216"/>
         </listitem>
       </varlistentry>
 
@@ -1063,6 +1171,8 @@ Table=1234</programlisting></para>
           requested. A setting of <option>PreferredLifetime=0</option> is useful for addresses which
           are added to be used only by a specific application, which is then configured to use them
           explicitly.</para>
+
+          <xi:include href="version-info.xml" xpointer="v230"/>
         </listitem>
       </varlistentry>
 
@@ -1074,6 +1184,8 @@ Table=1234</programlisting></para>
           will not traverse a gateway) or <literal>host</literal> (only valid within the device itself,
           e.g. 127.0.0.1) or an integer in the range 0…255. Defaults to <literal>global</literal>.
           </para>
+
+        <xi:include href="version-info.xml" xpointer="v235"/>
         </listitem>
       </varlistentry>
 
@@ -1093,6 +1205,8 @@ Table=1234</programlisting></para>
           <para>Takes a boolean. Designates this address the "home address" as defined in
           <ulink url="https://tools.ietf.org/html/rfc6275">RFC 6275</ulink>. Supported only on IPv6.
           Defaults to false.</para>
+
+          <xi:include href="version-info.xml" xpointer="v232"/>
         </listitem>
       </varlistentry>
 
@@ -1106,6 +1220,8 @@ Table=1234</programlisting></para>
           <ulink url="https://tools.ietf.org/html/rfc4862">RFC 4862</ulink>. Defaults to
           <literal>ipv4</literal> for IPv4 link-local addresses, <literal>ipv6</literal> for IPv6
           addresses, and <literal>none</literal> otherwise.</para>
+
+        <xi:include href="version-info.xml" xpointer="v232"/>
         </listitem>
       </varlistentry>
 
@@ -1119,6 +1235,8 @@ Table=1234</programlisting></para>
           needs to have a prefix length of 64. This flag allows using privacy extensions in a manually
           configured network, just like if stateless auto-configuration was active. Defaults to false.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v232"/>
         </listitem>
       </varlistentry>
 
@@ -1127,6 +1245,8 @@ Table=1234</programlisting></para>
         <listitem>
           <para>Takes a boolean. When true, the prefix route for the address is automatically added.
           Defaults to true.</para>
+
+          <xi:include href="version-info.xml" xpointer="v245"/>
         </listitem>
       </varlistentry>
 
@@ -1142,6 +1262,8 @@ Table=1234</programlisting></para>
           with option <literal>autojoin</literal> we can get similar functionality for openvswitch (OVS)
           vxlan interfaces as well as other tunneling mechanisms that need to receive multicast traffic.
           Defaults to <literal>no</literal>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v232"/>
         </listitem>
       </varlistentry>
 
@@ -1198,6 +1320,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
           to only allow <literal>my_server_t</literal> (and nothing else) to receive data from local subnet
           10.0.0.0/8 of interface <literal>eth0</literal>.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v252"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -1216,6 +1340,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
         <term><varname>Address=</varname></term>
         <listitem>
           <para>The IP address of the neighbor.</para>
+
+        <xi:include href="version-info.xml" xpointer="v240"/>
         </listitem>
       </varlistentry>
 
@@ -1223,6 +1349,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
         <term><varname>LinkLayerAddress=</varname></term>
         <listitem>
           <para>The link layer address (MAC address or IP address) of the neighbor.</para>
+
+        <xi:include href="version-info.xml" xpointer="v243"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -1242,6 +1370,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
         <listitem>
           <para>The label for the prefix, an unsigned integer in the range 0…4294967294. 0xffffffff is
           reserved. This setting is mandatory.</para>
+
+          <xi:include href="version-info.xml" xpointer="v234"/>
         </listitem>
       </varlistentry>
 
@@ -1250,6 +1380,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
         <listitem>
           <para>IPv6 prefix is an address with a prefix length, separated by a slash
           <literal>/</literal> character. This setting is mandatory. </para>
+
+          <xi:include href="version-info.xml" xpointer="v234"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -1275,6 +1407,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
             and <ulink url="https://en.wikipedia.org/wiki/Differentiated_services">Differentiated services</ulink>
             for more details.
           </para>
+
+            <xi:include href="version-info.xml" xpointer="v235"/>
         </listitem>
       </varlistentry>
 
@@ -1283,6 +1417,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
         <listitem>
           <para>Specifies the source address prefix to match. Possibly followed by a slash and the
           prefix length.</para>
+
+          <xi:include href="version-info.xml" xpointer="v235"/>
         </listitem>
       </varlistentry>
 
@@ -1291,6 +1427,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
         <listitem>
           <para>Specifies the destination address prefix to match. Possibly followed by a slash and the
           prefix length.</para>
+
+          <xi:include href="version-info.xml" xpointer="v235"/>
         </listitem>
       </varlistentry>
 
@@ -1300,6 +1438,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
           <para>Specifies the iptables firewall mark value to match (a number in the range
           1…4294967295). Optionally, the firewall mask (also a number between 1…4294967295) can be
           suffixed with a slash (<literal>/</literal>), e.g., <literal>7/255</literal>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v235"/>
         </listitem>
       </varlistentry>
 
@@ -1311,6 +1451,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
           <literal>local</literal>, and names defined in <varname>RouteTable=</varname> in
           <citerefentry><refentrytitle>networkd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
           or a number between 1 and 4294967295. Defaults to <literal>main</literal>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v235"/>
         </listitem>
       </varlistentry>
 
@@ -1320,6 +1462,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
           <para>Specifies the priority of this rule. <varname>Priority=</varname> is an integer in the
           range 0…4294967295. Higher number means lower priority, and rules get processed in order of
           increasing number. Defaults to unset, and the kernel will pick a value dynamically.</para>
+
+        <xi:include href="version-info.xml" xpointer="v235"/>
         </listitem>
       </varlistentry>
 
@@ -1328,6 +1472,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
         <listitem>
           <para>Specifies incoming device to match. If the interface is loopback, the rule only matches
           packets originating from this host.</para>
+
+          <xi:include href="version-info.xml" xpointer="v236"/>
         </listitem>
       </varlistentry>
 
@@ -1336,6 +1482,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
         <listitem>
           <para>Specifies the outgoing device to match. The outgoing interface is only available for
           packets originating from local sockets that are bound to a device.</para>
+
+          <xi:include href="version-info.xml" xpointer="v236"/>
         </listitem>
       </varlistentry>
 
@@ -1345,6 +1493,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
           <para>Specifies the source IP port or IP port range match in forwarding information base
           (FIB) rules. A port range is specified by the lower and upper port separated by a dash.
           Defaults to unset.</para>
+
+          <xi:include href="version-info.xml" xpointer="v240"/>
         </listitem>
       </varlistentry>
 
@@ -1354,6 +1504,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
           <para>Specifies the destination IP port or IP port range match in forwarding information base
           (FIB) rules. A port range is specified by the lower and upper port separated by a dash.
           Defaults to unset.</para>
+
+          <xi:include href="version-info.xml" xpointer="v240"/>
         </listitem>
       </varlistentry>
 
@@ -1365,6 +1517,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
           <literal>sctp</literal>, or IP protocol number such as <literal>6</literal> for
           <literal>tcp</literal> or <literal>17</literal> for <literal>udp</literal>. Defaults to unset.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v240"/>
         </listitem>
       </varlistentry>
 
@@ -1372,6 +1526,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
         <term><varname>InvertRule=</varname></term>
         <listitem>
           <para>A boolean. Specifies whether the rule is to be inverted. Defaults to false.</para>
+
+        <xi:include href="version-info.xml" xpointer="v240"/>
         </listitem>
       </varlistentry>
 
@@ -1383,6 +1539,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
           specified in <varname>To=</varname> or <varname>From=</varname>. If neither
           <varname>To=</varname> nor <varname>From=</varname> are specified, then defaults to
           <literal>ipv4</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v243"/>
         </listitem>
       </varlistentry>
 
@@ -1391,6 +1549,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
         <listitem>
           <para>Takes a username, a user ID, or a range of user IDs separated by a dash. Defaults to
           unset.</para>
+
+          <xi:include href="version-info.xml" xpointer="v245"/>
         </listitem>
       </varlistentry>
 
@@ -1400,6 +1560,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
           <para>Takes a number <replaceable>N</replaceable> in the range 0…128 and rejects routing
           decisions that have a prefix length of <replaceable>N</replaceable> or less. Defaults to
           unset.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/>
         </listitem>
       </varlistentry>
 
@@ -1409,6 +1571,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
           <para>Takes an integer in the range 0…2147483647 and rejects routing decisions that have
           an interface with the same group id. It has the same meaning as
           <option>suppress_ifgroup</option> in <command>ip rule</command>. Defaults to unset.</para>
+
+          <xi:include href="version-info.xml" xpointer="v250"/>
         </listitem>
       </varlistentry>
 
@@ -1418,6 +1582,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
           <para>Specifies Routing Policy Database (RPDB) rule type. Takes one of
           <literal>blackhole</literal>, <literal>unreachable</literal> or <literal>prohibit</literal>.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v248"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -1436,6 +1602,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
         <listitem>
           <para>The id of the next hop. Takes an integer in the range 1…4294967295. If unspecified,
           then automatically chosen by kernel.</para>
+
+          <xi:include href="version-info.xml" xpointer="v244"/>
         </listitem>
       </varlistentry>
 
@@ -1443,6 +1611,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
         <term><varname>Gateway=</varname></term>
         <listitem>
           <para>As in the [Network] section.</para>
+
+        <xi:include href="version-info.xml" xpointer="v244"/>
         </listitem>
       </varlistentry>
 
@@ -1453,6 +1623,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
           By default, the family is determined by the address specified in
           <varname>Gateway=</varname>. If <varname>Gateway=</varname> is not specified, then defaults
           to <literal>ipv4</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/>
         </listitem>
       </varlistentry>
 
@@ -1463,6 +1635,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
           reachable directly by the current machine (i.e., attached to the local network), so that we
           can insert the nexthop in the kernel table without it being complained about. Defaults to
           <literal>no</literal>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v248"/>
         </listitem>
       </varlistentry>
 
@@ -1472,6 +1646,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
           <para>Takes a boolean. If enabled, packets to the corresponding routes are discarded
           silently, and <varname>Gateway=</varname> cannot be specified. Defaults to
           <literal>no</literal>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v248"/>
         </listitem>
       </varlistentry>
 
@@ -1486,6 +1662,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
           <varname>Family=</varname>, <varname>Blackhole=</varname>. This setting can be specified
           multiple times. If an empty string is assigned, then the all previous assignments are
           cleared. Defaults to unset.</para>
+
+          <xi:include href="version-info.xml" xpointer="v249"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -1504,6 +1682,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
           <para>Takes the gateway address or the special values <literal>_dhcp4</literal> and
           <literal>_ipv6ra</literal>. If <literal>_dhcp4</literal> or <literal>_ipv6ra</literal> is
           set, then the gateway address provided by DHCPv4 or IPv6 RA is used.</para>
+
+        <xi:include href="version-info.xml" xpointer="v215"/>
         </listitem>
       </varlistentry>
 
@@ -1514,6 +1694,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
           reachable directly by the current machine (i.e., attached to the local network), so that we
           can insert the route in the kernel table without it being complained about. Defaults to
           <literal>no</literal>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v242"/>
         </listitem>
       </varlistentry>
 
@@ -1530,6 +1712,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
         <listitem>
           <para>The source prefix of the route. Possibly followed by a slash and the prefix length. If
           omitted, a full-length host route is assumed.</para>
+
+          <xi:include href="version-info.xml" xpointer="v218"/>
         </listitem>
       </varlistentry>
 
@@ -1538,6 +1722,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
         <listitem>
           <para>The metric of the route. Takes an unsigned integer in the range 0…4294967295. Defaults
           to unset, and the kernel's default will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v216"/>
         </listitem>
       </varlistentry>
 
@@ -1549,6 +1735,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
           messages. Which can be one of <literal>low</literal> the route has a lowest priority,
           <literal>medium</literal> the route has a default priority or <literal>high</literal> the
           route has a highest priority.</para>
+
+          <xi:include href="version-info.xml" xpointer="v234"/>
         </listitem>
       </varlistentry>
 
@@ -1589,6 +1777,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
           <varname>Type=</varname> is <literal>broadcast</literal>, <literal>multicast</literal>,
           <literal>anycast</literal>, or <literal>unicast</literal>. In other cases,
           defaults to <literal>global</literal>. The value is not used for IPv6.</para>
+
+          <xi:include href="version-info.xml" xpointer="v219"/>
         </listitem>
       </varlistentry>
 
@@ -1599,6 +1789,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
           in
           <citerefentry project='man-pages'><refentrytitle>inet_pton</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v227"/>
         </listitem>
       </varlistentry>
 
@@ -1614,6 +1806,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
           <varname>Type=</varname> is <literal>local</literal>, <literal>broadcast</literal>,
           <literal>anycast</literal>, or <literal>nat</literal>, then <literal>local</literal> is used.
           In other cases, defaults to <literal>main</literal>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v244"/>
         </listitem>
       </varlistentry>
 
@@ -1622,6 +1816,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
         <listitem>
           <para>Configures per route hop limit. Takes an integer in the range 1…255. See also
           <varname>IPv6HopLimit=</varname>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v255"/>
         </listitem>
       </varlistentry>
 
@@ -1632,6 +1828,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
           values <literal>kernel</literal>, <literal>boot</literal>, <literal>static</literal>,
           <literal>ra</literal> and <literal>dhcp</literal>. Defaults to <literal>static</literal>.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v234"/>
         </listitem>
       </varlistentry>
 
@@ -1663,6 +1861,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
           without waiting for acknowledgement. Takes a number between 1 and 1023. Note that 100 is
           considered an extremely large value for this option. When unset, the kernel's default
           (typically 10) will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v237"/>
         </listitem>
       </varlistentry>
 
@@ -1674,6 +1874,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
           that amount of data before waiting for an acknowledgment and window update from the
           receiving host. Takes a number between 1 and 1023. Note that 100 is considered an extremely
           large value for this option. When unset, the kernel's default will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v237"/>
         </listitem>
       </varlistentry>
 
@@ -1682,6 +1884,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
         <listitem>
           <para>Takes a boolean. When true, the TCP quick ACK mode for the route is enabled. When unset,
           the kernel's default will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v237"/>
         </listitem>
       </varlistentry>
 
@@ -1690,6 +1894,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
         <listitem>
           <para>Takes a boolean. When true enables TCP fastopen without a cookie on a per-route basis.
           When unset, the kernel's default will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v243"/>
         </listitem>
       </varlistentry>
 
@@ -1698,6 +1904,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
         <listitem>
           <para>Takes a boolean. When true enables TTL propagation at Label Switched Path (LSP) egress.
           When unset, the kernel's default will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v243"/>
         </listitem>
       </varlistentry>
 
@@ -1706,6 +1914,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
         <listitem>
           <para>The maximum transmission unit in bytes to set for the route. The usual suffixes K, M,
           G, are supported and are understood to the base of 1024.</para>
+
+          <xi:include href="version-info.xml" xpointer="v239"/>
         </listitem>
       </varlistentry>
 
@@ -1715,6 +1925,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
           <para>Specifies the Path MSS (in bytes) hints given on TCP layer. The usual suffixes K, M, G,
           are supported and are understood to the base of 1024. An unsigned integer in the range
           1…4294967294. When unset, the kernel's default will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v248"/>
         </listitem>
       </varlistentry>
 
@@ -1724,6 +1936,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
           <para>Specifies the TCP congestion control algorithm for the route. Takes a name of the algorithm,
           e.g. <literal>bbr</literal>, <literal>dctcp</literal>, or <literal>vegas</literal>. When unset,
           the kernel's default will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v252"/>
         </listitem>
       </varlistentry>
 
@@ -1733,6 +1947,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
           <para>Specifies the TCP Retransmission Timeout (RTO) for the route. Takes time values in seconds.
           This value specifies the timeout of an alive TCP connection, when retransmissions remain
           unacknowledged. When unset, the kernel's default will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v255"/>
         </listitem>
       </varlistentry>
 
@@ -1744,6 +1960,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
           interface name or index separated with <literal>@</literal>, and a weight in 1..256 for this
           multipath route separated with whitespace. This setting can be specified multiple times. If
           an empty string is assigned, then the all previous assignments are cleared.</para>
+
+          <xi:include href="version-info.xml" xpointer="v245"/>
         </listitem>
       </varlistentry>
 
@@ -1752,6 +1970,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
         <listitem>
           <para>Specifies the nexthop id. Takes an unsigned integer in the range 1…4294967295. If set,
           the corresponding [NextHop] section must be configured. Defaults to unset.</para>
+
+          <xi:include href="version-info.xml" xpointer="v248"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -1800,6 +2020,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
           to advertise device specifications, including the intended communication patterns for their
           device when it connects to the network. The network can then use this to author a
           context-specific access policy, so the device functions only within those parameters.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/>
         </listitem>
       </varlistentry>
 
@@ -1888,6 +2110,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
         <listitem>
           <para>Sets request options to be sent to the server in the DHCPv4 request options list. A
           whitespace-separated list of integers in the range 1…254. Defaults to unset.</para>
+
+          <xi:include href="version-info.xml" xpointer="v244"/>
         </listitem>
       </varlistentry>
 
@@ -1904,6 +2128,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
           <ulink url="https://en.wikipedia.org/wiki/Escape_sequences_in_C#Table_of_escape_sequences">C-style
           escapes</ulink>. This setting can be specified multiple times. If an empty string is
           specified, then all options specified earlier are cleared. Defaults to unset.</para>
+
+          <xi:include href="version-info.xml" xpointer="v244"/>
         </listitem>
       </varlistentry>
 
@@ -1920,6 +2146,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
           <ulink url="https://en.wikipedia.org/wiki/Escape_sequences_in_C#Table_of_escape_sequences">C-style
           escapes</ulink>. This setting can be specified multiple times. If an empty string is specified,
           then all options specified earlier are cleared. Defaults to unset.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/>
         </listitem>
       </varlistentry>
 
@@ -1945,6 +2173,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
           file to set the 802.1Q VLAN ethernet tagged header priority, see
           <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
           </para>
+
+        <xi:include href="version-info.xml" xpointer="v253"/>
         </listitem>
       </varlistentry>
 
@@ -1955,6 +2185,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
         <listitem>
           <para>Specifies the label for the IPv4 address received from the DHCP server. The label must
           be a 7-bit ASCII string with a length of 1…15 characters. Defaults to unset.</para>
+
+          <xi:include href="version-info.xml" xpointer="v250"/>
         </listitem>
       </varlistentry>
 
@@ -1976,6 +2208,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
           <para>When true, the routes to the DNS servers received from the DHCP server will be
           configured. When <varname>UseDNS=</varname> is disabled, this setting is ignored. Defaults to
           true.</para>
+
+          <xi:include href="version-info.xml" xpointer="v243"/>
         </listitem>
       </varlistentry>
 
@@ -1993,6 +2227,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
           <para>When true, the routes to the NTP servers received from the DHCP server will be
           configured. When <varname>UseNTP=</varname> is disabled, this setting is ignored. Defaults to
           true.</para>
+
+          <xi:include href="version-info.xml" xpointer="v249"/>
         </listitem>
       </varlistentry>
 
@@ -2001,6 +2237,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
         <listitem>
           <para>When true (the default), the SIP servers received from the DHCP server will be collected
           and made available to client programs.</para>
+
+          <xi:include href="version-info.xml" xpointer="v244"/>
         </listitem>
       </varlistentry>
 
@@ -2009,6 +2247,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
         <listitem>
           <para>When true (the default), the captive portal advertised by the DHCP server will be recorded
           and made available to client programs and displayed in the networkctl status output per-link.</para>
+
+          <xi:include href="version-info.xml" xpointer="v254"/>
         </listitem>
       </varlistentry>
 
@@ -2095,6 +2335,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
         <listitem>
           <para>Specifies the MTU for the DHCP routes. Please see the [Route] section for further
           details.</para>
+
+          <xi:include href="version-info.xml" xpointer="v245"/>
         </listitem>
       </varlistentry>
 
@@ -2103,6 +2345,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
         <listitem>
           <para>Takes a boolean. When true, the TCP quick ACK mode is enabled for the routes configured by
           the acquired DHCPv4 lease. When unset, the kernel's default will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v253"/>
         </listitem>
       </varlistentry>
 
@@ -2110,6 +2354,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
         <term><varname>InitialCongestionWindow=</varname></term>
         <listitem>
           <para>As in the [Route] section.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/>
         </listitem>
       </varlistentry>
 
@@ -2117,6 +2363,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
         <term><varname>InitialAdvertisedReceiveWindow=</varname></term>
         <listitem>
           <para>As in the [Route] section.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/>
         </listitem>
       </varlistentry>
 
@@ -2126,6 +2374,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
           <para>When true, the gateway will be requested from the DHCP server and added to the routing
           table with a metric of 1024, and a scope of <option>link</option>. When unset, the value
           specified with <varname>UseRoutes=</varname> is used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/>
         </listitem>
       </varlistentry>
 
@@ -2143,6 +2393,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
           <varname>DHCPPrefixDelegation=</varname> in the [Network] section, the [DHCPPrefixDelegation]
           section, and <ulink url="https://tools.ietf.org/html/rfc5969">RFC 5969</ulink>. Defaults to
           false.</para>
+
+          <xi:include href="version-info.xml" xpointer="v250"/>
         </listitem>
       </varlistentry>
 
@@ -2152,6 +2404,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
           <para>Allows one to set DHCPv4 lease lifetime when DHCPv4 server does not send the lease
           lifetime. Takes one of <literal>forever</literal> or <literal>infinity</literal>. If
           specified, the acquired address never expires. Defaults to unset.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/>
         </listitem>
       </varlistentry>
 
@@ -2175,6 +2429,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
           time between retries is increased exponentially, up to approximately one per minute, so the
           network will not be overloaded even if this number is high. The default is suitable in most
           circumstances.</para>
+
+          <xi:include href="version-info.xml" xpointer="v243"/>
         </listitem>
       </varlistentry>
 
@@ -2192,6 +2448,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
           prefix length after <literal>/</literal>. DHCP offers from servers in the list are rejected.
           Note that if <varname>AllowList=</varname> is configured then <varname>DenyList=</varname> is
           ignored.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/>
         </listitem>
       </varlistentry>
 
@@ -2201,6 +2459,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
           <para>A whitespace-separated list of IPv4 addresses. Each address can optionally take a
           prefix length after <literal>/</literal>. DHCP offers from servers in the list are accepted.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/>
         </listitem>
       </varlistentry>
 
@@ -2209,6 +2469,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
         <listitem>
           <para>When true, the DHCPv4 client sends a DHCP release packet when it stops. Defaults to
           true.</para>
+
+          <xi:include href="version-info.xml" xpointer="v243"/>
         </listitem>
       </varlistentry>
 
@@ -2220,6 +2482,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
           the DHCPv4 client rejects the address by sending a <constant>DHCPDECLINE</constant> packet to
           the DHCP server, and tries to obtain an IP address again. See
           <ulink url="https://tools.ietf.org/html/rfc5227">RFC 5227</ulink>. Defaults to false.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/>
         </listitem>
       </varlistentry>
 
@@ -2229,6 +2493,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
           <para>This applies the NetLabel for the addresses received with DHCP, like
           <varname>NetLabel=</varname> in [Address] section applies it to statically configured
           addresses. See <varname>NetLabel=</varname> in [Address] section for more details.</para>
+
+          <xi:include href="version-info.xml" xpointer="v252"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -2261,6 +2527,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
         <listitem>
           <para>As in the [DHCPv4] section, however because DHCPv6 uses 16-bit fields to store option
           numbers, the option number is an integer in the range 1…65536.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/>
         </listitem>
       </varlistentry>
 
@@ -2278,6 +2546,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
           <ulink url="https://en.wikipedia.org/wiki/Escape_sequences_in_C#Table_of_escape_sequences">C-style
           escapes</ulink>. This setting can be specified multiple times. If an empty string is
           specified, then all options specified earlier are cleared. Defaults to unset.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/>
         </listitem>
       </varlistentry>
 
@@ -2293,6 +2563,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
           escapes</ulink>. This setting can be specified multiple times. If an empty string is
           specified, then all options specified earlier are cleared. Takes a whitespace-separated list
           of strings. Note that currently <constant>NUL</constant> bytes are not allowed.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/>
         </listitem>
       </varlistentry>
 
@@ -2303,6 +2575,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
           hardware on which the client is running. The information contained in the data area of this
           option is contained in one or more opaque fields that identify details of the hardware
           configuration. Takes a whitespace-separated list of strings.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/>
         </listitem>
       </varlistentry>
 
@@ -2313,6 +2587,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
           <varname>Address=</varname> in the [Network] section. The DHCPv6 client will include a prefix
           hint in the DHCPv6 solicitation sent to the server. The prefix length must be in the range
           1…128. Defaults to unset.</para>
+
+          <xi:include href="version-info.xml" xpointer="v244"/>
         </listitem>
       </varlistentry>
 
@@ -2326,6 +2602,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
           provides faster client configuration. See
           <ulink url="https://tools.ietf.org/html/rfc3315#section-17.2.1">RFC 3315</ulink> for details.
           Defaults to true, and the two-message exchange will be used if the server support it.</para>
+
+          <xi:include href="version-info.xml" xpointer="v252"/>
         </listitem>
       </varlistentry>
 
@@ -2336,6 +2614,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
         <listitem>
           <para>When true (the default), the IP addresses provided by the DHCPv6 server will be
           assigned.</para>
+
+          <xi:include href="version-info.xml" xpointer="v248"/>
         </listitem>
       </varlistentry>
 
@@ -2344,6 +2624,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
         <listitem>
           <para>When true (the default), the captive portal advertised by the DHCPv6 server will be recorded
           and made available to client programs and displayed in the networkctl status output per-link.</para>
+
+          <xi:include href="version-info.xml" xpointer="v254"/>
         </listitem>
       </varlistentry>
 
@@ -2357,6 +2639,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
           settings in the [DHCPPrefixDelegation] section, and
           <ulink url="https://www.rfc-editor.org/rfc/rfc8415.html#section-6.3">RFC 8415</ulink>.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v250"/>
         </listitem>
       </varlistentry>
 
@@ -2386,6 +2670,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
           section. Otherwise, defaults to <literal>no</literal>, and the DHCPv6 client will be started
           when an RA is received. See also the <varname>DHCPv6Client=</varname> setting in the
           [IPv6AcceptRA] section.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -2408,6 +2694,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
           <varname>WithoutRA=solicit</varname> is implied if the setting is not explicitly specified.
           When <literal>:auto</literal>, the first link which acquired prefixes to be delegated from
           the DHCPv6 or DHCPv4 server is selected. Defaults to <literal>:auto</literal>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v250"/>
         </listitem>
       </varlistentry>
 
@@ -2475,6 +2763,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
           <para>This applies the NetLabel for the addresses received with DHCP, like
           <varname>NetLabel=</varname> in [Address] section applies it to statically configured
           addresses. See <varname>NetLabel=</varname> in [Address] section for more details.</para>
+
+          <xi:include href="version-info.xml" xpointer="v252"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -2500,6 +2790,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
                   The EUI-64 algorithm will be used to generate an address for that prefix. Only
                   supported by Ethernet or InfiniBand interfaces.
                 </para>
+
+                <xi:include href="version-info.xml" xpointer="v250"/>
               </listitem>
             </varlistentry>
             <varlistentry>
@@ -2518,6 +2810,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
                   for that prefix. If an IPv6 address without mode is specified, then
                   <literal>static</literal> mode is assumed.
                 </para>
+
+                  <xi:include href="version-info.xml" xpointer="v250"/>
               </listitem>
             </varlistentry>
             <varlistentry>
@@ -2551,6 +2845,8 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
                   will be changed, even if the prefix received in the RA message has not been
                   changed.
                 </para>
+
+                  <xi:include href="version-info.xml" xpointer="v250"/>
               </listitem>
             </varlistentry>
           </variablelist>
@@ -2570,6 +2866,8 @@ Token=::1a:2b:3c:4d
 Token=static:::1a:2b:3c:4d
 Token=prefixstable
 Token=prefixstable:2002:da8:1::</programlisting></para>
+
+          <xi:include href="version-info.xml" xpointer="v250"/>
         </listitem>
       </varlistentry>
 
@@ -2614,6 +2912,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
 
           <para>When used in combination with <varname>VRF=</varname>, the VRF's routing table is
           used when this parameter is not specified.</para>
+
+          <xi:include href="version-info.xml" xpointer="v232"/>
         </listitem>
       </varlistentry>
 
@@ -2626,6 +2926,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           preference, and the last is for low preference
           (<literal><replaceable>high</replaceable>:<replaceable>medium</replaceable>:<replaceable>low</replaceable></literal>).
           Defaults to <literal>512:1024:2048</literal>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v249"/>
         </listitem>
       </varlistentry>
 
@@ -2634,6 +2936,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         <listitem>
           <para>Takes a boolean. When true, the TCP quick ACK mode is enabled for the routes configured by
           the received RAs. When unset, the kernel's default will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v253"/>
         </listitem>
       </varlistentry>
 
@@ -2642,6 +2946,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         <listitem>
           <para>Takes a boolean. When true, the MTU received in the Router Advertisement will be
           used. Defaults to true.</para>
+
+          <xi:include href="version-info.xml" xpointer="v250"/>
         </listitem>
       </varlistentry>
 
@@ -2650,6 +2956,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         <listitem>
           <para>Takes a boolean. When true, the hop limit received in the Router Advertisement will be set to routes
           configured based on the advertisement. See also <varname>IPv6HopLimit=</varname>. Defaults to true.</para>
+
+          <xi:include href="version-info.xml" xpointer="v255"/>
         </listitem>
       </varlistentry>
 
@@ -2658,6 +2966,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         <listitem>
           <para>Takes a boolean. When true, the ICMP6 rate limit received in the Router Advertisement will be set to ICMP6
           rate limit based on the advertisement. Defaults to true.</para>
+
+          <xi:include href="version-info.xml" xpointer="v255"/>
         </listitem>
       </varlistentry>
 
@@ -2666,6 +2976,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         <listitem>
           <para>When true (the default), the router address will be configured as the default gateway.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v250"/>
         </listitem>
       </varlistentry>
 
@@ -2674,6 +2986,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         <listitem>
           <para>When true (the default), the routes corresponding to the route prefixes received in
           the Router Advertisement will be configured.</para>
+
+          <xi:include href="version-info.xml" xpointer="v250"/>
         </listitem>
       </varlistentry>
 
@@ -2682,6 +2996,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         <listitem>
           <para>When true (the default), the captive portal received in the Router Advertisement will be recorded
           and made available to client programs and displayed in the networkctl status output per-link.</para>
+
+          <xi:include href="version-info.xml" xpointer="v254"/>
         </listitem>
       </varlistentry>
 
@@ -2690,6 +3006,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         <listitem>
           <para>When true (the default), the autonomous prefix received in the Router Advertisement will be used and take
           precedence over any statically configured ones.</para>
+
+          <xi:include href="version-info.xml" xpointer="v242"/>
         </listitem>
       </varlistentry>
 
@@ -2698,6 +3016,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         <listitem>
           <para>When true (the default), the onlink prefix received in the Router Advertisement will be
           used and takes precedence over any statically configured ones.</para>
+
+          <xi:include href="version-info.xml" xpointer="v242"/>
         </listitem>
       </varlistentry>
 
@@ -2707,6 +3027,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           <para>A whitespace-separated list of IPv6 router addresses. Each address can optionally
           take a prefix length after <literal>/</literal>. Any information advertised by the listed
           router is ignored.</para>
+
+          <xi:include href="version-info.xml" xpointer="v248"/>
         </listitem>
       </varlistentry>
 
@@ -2717,6 +3039,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           take a prefix length after <literal>/</literal>. Only information advertised by the listed
           router is accepted. Note that if <varname>RouterAllowList=</varname> is configured then
           <varname>RouterDenyList=</varname> is ignored.</para>
+
+          <xi:include href="version-info.xml" xpointer="v248"/>
         </listitem>
       </varlistentry>
 
@@ -2726,6 +3050,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           <para>A whitespace-separated list of IPv6 prefixes. Each prefix can optionally take its
           prefix length after <literal>/</literal>. IPv6 prefixes supplied via router advertisements
           in the list are ignored.</para>
+
+          <xi:include href="version-info.xml" xpointer="v248"/>
         </listitem>
       </varlistentry>
 
@@ -2736,6 +3062,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           prefix length after <literal>/</literal>. IPv6 prefixes supplied via router advertisements
           in the list are allowed. Note that if <varname>PrefixAllowList=</varname> is configured
           then <varname>PrefixDenyList=</varname> is ignored.</para>
+
+          <xi:include href="version-info.xml" xpointer="v248"/>
         </listitem>
       </varlistentry>
 
@@ -2745,6 +3073,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           <para>A whitespace-separated list of IPv6 route prefixes. Each prefix can optionally take
           its prefix length after <literal>/</literal>. IPv6 route prefixes supplied via router
           advertisements in the list are ignored.</para>
+
+          <xi:include href="version-info.xml" xpointer="v248"/>
         </listitem>
       </varlistentry>
 
@@ -2755,6 +3085,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           its prefix length after <literal>/</literal>. IPv6 route prefixes supplied via router
           advertisements in the list are allowed. Note that if <varname>RouteAllowList=</varname> is
           configured then <varname>RouteDenyList=</varname> is ignored.</para>
+
+          <xi:include href="version-info.xml" xpointer="v248"/>
         </listitem>
       </varlistentry>
 
@@ -2772,6 +3104,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           <varname>WithoutRA=</varname> in the [DHCPv6] section is enabled, or
           <varname>UplinkInterface=:self</varname> in the [DHCPPrefixDelegation] section is
           specified. Defaults to true.</para>
+
+        <xi:include href="version-info.xml" xpointer="v246"/>
         </listitem>
       </varlistentry>
 
@@ -2781,6 +3115,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           <para>This applies the NetLabel for the addresses received with RA, like
           <varname>NetLabel=</varname> in [Address] section applies it to statically configured
           addresses. See <varname>NetLabel=</varname> in [Address] section for more details.</para>
+
+          <xi:include href="version-info.xml" xpointer="v252"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -2798,7 +3134,9 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         <listitem><para>Specifies server address for the DHCP server. Takes an IPv4 address with prefix
         length, for example 192.168.0.1/24. This setting may be useful when the link on
         which the DHCP server is running has multiple static addresses. When unset, one of static addresses
-        in the link will be automatically selected. Defaults to unset.</para></listitem>
+        in the link will be automatically selected. Defaults to unset.</para>
+
+        <xi:include href="version-info.xml" xpointer="v249"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -2815,7 +3153,9 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         the first address after the subnet address and takes up the rest of
         the subnet, excluding the broadcast address. If the pool includes
         the server address (the default), this is reserved and not handed
-        out to clients.</para></listitem>
+        out to clients.</para>
+
+        <xi:include href="version-info.xml" xpointer="v226"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -2833,7 +3173,9 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         if the configuration data in DHCP leases changes frequently
         and clients shall learn the new settings with shorter
         latencies. Longer lease times reduce the generated DHCP
-        network traffic.</para></listitem>
+        network traffic.</para>
+
+        <xi:include href="version-info.xml" xpointer="v226"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -2843,7 +3185,9 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         servers is enabled but no servers are specified, the servers configured in the uplink interface
         will be emitted. When <literal>:auto</literal>, the link which has a default gateway with the
         highest priority will be automatically selected. When <literal>:none</literal>, no uplink
-        interface will be selected. Defaults to <literal>:auto</literal>.</para></listitem>
+        interface will be selected. Defaults to <literal>:auto</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v249"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -2868,7 +3212,9 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         <varname>MaxLeaseTimeSec=</varname> described above.</para>
 
         <para>This setting can be specified multiple times. If an empty string is specified, then all
-        DNS servers specified earlier are cleared.</para></listitem>
+        DNS servers specified earlier are cleared.</para>
+
+        <xi:include href="version-info.xml" xpointer="v226"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -2914,7 +3260,9 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         <literal>UTC</literal>) to pass to clients. If no explicit
         timezone is set, the system timezone of the local host is
         propagated, as determined by the
-        <filename>/etc/localtime</filename> symlink.</para></listitem>
+        <filename>/etc/localtime</filename> symlink.</para>
+
+        <xi:include href="version-info.xml" xpointer="v226"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -2925,6 +3273,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           address is sent in the <option>siaddr</option> field of the DHCP message header. See <ulink
           url="https://www.rfc-editor.org/rfc/rfc2131.html">RFC 2131</ulink> for more details. Defaults to
           unset.</para>
+
+          <xi:include href="version-info.xml" xpointer="v251"/>
         </listitem>
       </varlistentry>
 
@@ -2939,6 +3289,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
 
           <para>Note that typically setting one of <varname>BootServerName=</varname> or
           <varname>BootServerAddress=</varname> is sufficient, but both can be set too, if desired.</para>
+
+          <xi:include href="version-info.xml" xpointer="v251"/>
         </listitem>
       </varlistentry>
 
@@ -2950,6 +3302,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           sent in the DHCP option 67 ("Bootfile name"). See <ulink
           url="https://www.rfc-editor.org/rfc/rfc2132.html">RFC 2132</ulink> for more details. Defaults to
           unset.</para>
+
+          <xi:include href="version-info.xml" xpointer="v251"/>
         </listitem>
       </varlistentry>
 
@@ -2964,6 +3318,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           <ulink url="https://en.wikipedia.org/wiki/Escape_sequences_in_C#Table_of_escape_sequences">C-style
           escapes</ulink>. This setting can be specified multiple times. If an empty string is specified,
           then all options specified earlier are cleared. Defaults to unset.</para>
+
+          <xi:include href="version-info.xml" xpointer="v244"/>
         </listitem>
       </varlistentry>
 
@@ -2978,6 +3334,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           <ulink url="https://en.wikipedia.org/wiki/Escape_sequences_in_C#Table_of_escape_sequences">C-style
           escapes</ulink>. This setting can be specified multiple times. If an empty string is specified,
           then all options specified earlier are cleared. Defaults to unset.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -2987,6 +3345,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           to its network interface and all socket communication will be restricted to this interface.
           Defaults to <literal>yes</literal>, except if <varname>RelayTarget=</varname> is used (see below),
           in which case it defaults to <literal>no</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v249"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -2996,6 +3356,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           <citerefentry project='man-pages'><refentrytitle>inet_pton</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
           Turns this DHCP server into a DHCP relay agent. See <ulink url="https://tools.ietf.org/html/rfc1542">RFC 1542</ulink>.
           The address is the address of DHCP server or another relay agent to forward DHCP messages to and from.</para>
+
+          <xi:include href="version-info.xml" xpointer="v249"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -3006,6 +3368,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           where <literal><replaceable>value</replaceable></literal> should be replaced with the value of the suboption.
           Defaults to unset (means no Agent Circuit ID suboption is generated).
           Ignored if <varname>RelayTarget=</varname> is not specified.</para>
+
+          <xi:include href="version-info.xml" xpointer="v249"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -3016,6 +3380,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           where <literal><replaceable>value</replaceable></literal> should be replaced with the value of the suboption.
           Defaults to unset (means no Agent Remote ID suboption is generated).
           Ignored if <varname>RelayTarget=</varname> is not specified.</para>
+
+          <xi:include href="version-info.xml" xpointer="v249"/>
         </listitem>
       </varlistentry>
 
@@ -3039,7 +3405,9 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         <term><varname>Address=</varname></term>
 
         <listitem><para>The IPv4 address that should be assigned to the device that was matched with
-        <varname>MACAddress=</varname>. This key is mandatory.</para></listitem>
+        <varname>MACAddress=</varname>. This key is mandatory.</para>
+
+        <xi:include href="version-info.xml" xpointer="v249"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
@@ -3115,7 +3483,9 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         setting in the [DHCPPrefixDelegation] section will be used if
         <varname>DHCPPrefixDelegation=</varname> is enabled, otherwise the link which has a default
         gateway with the highest priority will be automatically selected. When <literal>:none</literal>,
-        no uplink interface will be selected. Defaults to <literal>:auto</literal>.</para></listitem>
+        no uplink interface will be selected. Defaults to <literal>:auto</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -3172,7 +3542,9 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         autoconfigured with this prefix and whether the prefix can be used for
         onlink determination. Both settings default to <literal>true</literal>
         in order to ease configuration.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v235"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -3182,7 +3554,9 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         IPv6 addresses, the setting is configured as an IPv6 prefix and its prefix length, separated by a
         <literal>/</literal> character. Use multiple [IPv6Prefix] sections to configure multiple IPv6
         prefixes since prefix lifetimes, address autoconfiguration and onlink status may differ from one
-        prefix to another.</para></listitem>
+        prefix to another.</para>
+
+        <xi:include href="version-info.xml" xpointer="v235"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -3191,13 +3565,17 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
 
         <listitem><para>Preferred and valid lifetimes for the prefix measured in seconds.
         <varname>PreferredLifetimeSec=</varname> defaults to 1800 seconds (30 minutes) and
-        <varname>ValidLifetimeSec=</varname> defaults to 3600 seconds (one hour).</para></listitem>
+        <varname>ValidLifetimeSec=</varname> defaults to 3600 seconds (one hour).</para>
+
+        <xi:include href="version-info.xml" xpointer="v235"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>Assign=</varname></term>
         <listitem><para>Takes a boolean. When true, adds an address from the prefix. Default to false.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v246"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -3207,6 +3585,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           prefix. This accepts the same syntax as <varname>Token=</varname> in the [IPv6AcceptRA]
           section. If <varname>Assign=</varname> is set to false, then this setting will be ignored.
           Defaults to unset, which means the EUI-64 algorithm will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v250"/>
         </listitem>
       </varlistentry>
 
@@ -3216,6 +3596,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           <para>The metric of the prefix route. Takes an unsigned integer in the range 0…4294967295.
           When unset or set to 0, the kernel's default value is used. This setting is ignored when
           <varname>Assign=</varname> is false.</para>
+
+          <xi:include href="version-info.xml" xpointer="v249"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -3236,14 +3618,18 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         <listitem><para>The IPv6 route that is to be distributed to hosts. Similarly to configuring static
         IPv6 routes, the setting is configured as an IPv6 prefix routes and its prefix route length,
         separated by a <literal>/</literal> character. Use multiple [IPv6RoutePrefix] sections to configure
-        multiple IPv6 prefix routes.</para></listitem>
+        multiple IPv6 prefix routes.</para>
+
+        <xi:include href="version-info.xml" xpointer="v244"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>LifetimeSec=</varname></term>
 
         <listitem><para>Lifetime for the route prefix measured in seconds.
-        <varname>LifetimeSec=</varname> defaults to 3600 seconds (one hour).</para></listitem>
+        <varname>LifetimeSec=</varname> defaults to 3600 seconds (one hour).</para>
+
+        <xi:include href="version-info.xml" xpointer="v244"/></listitem>
       </varlistentry>
 
     </variablelist>
@@ -3285,6 +3671,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
             traffic for which an FDB entry is missing and the destination
             is unknown through this port. When unset, the kernel's default will be used.
             </para>
+
+            <xi:include href="version-info.xml" xpointer="v223"/>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -3294,6 +3682,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
             traffic for which an MDB entry is missing and the destination
             is unknown through this port. When unset, the kernel's default will be used.
             </para>
+
+            <xi:include href="version-info.xml" xpointer="v242"/>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -3303,6 +3693,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
             the bridge. Which means unicast copies are only delivered to hosts which are interested in it.
             When unset, the kernel's default will be used.
             </para>
+
+            <xi:include href="version-info.xml" xpointer="v240"/>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -3311,6 +3703,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
             <para>Takes a boolean. Configures whether ARP and ND neighbor suppression is enabled for
             this port. When unset, the kernel's default will be used.
             </para>
+
+            <xi:include href="version-info.xml" xpointer="v242"/>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -3319,6 +3713,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
             <para>Takes a boolean. Configures whether MAC address learning is enabled for
             this port. When unset, the kernel's default will be used.
             </para>
+
+            <xi:include href="version-info.xml" xpointer="v242"/>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -3327,6 +3723,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
             <para>Takes a boolean. Configures whether traffic may be sent back out of the port on which it
             was received. When this flag is false, then the bridge will not forward traffic back out of the
             receiving port. When unset, the kernel's default will be used.</para>
+
+            <xi:include href="version-info.xml" xpointer="v223"/>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -3336,6 +3734,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
             isolated ports can only communicate with non-isolated ports. When set to true, this port can only
             communicate with other ports whose Isolated setting is false.  When set to false, this port
             can communicate with any other ports. When unset, the kernel's default will be used.</para>
+
+            <xi:include href="version-info.xml" xpointer="v251"/>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -3343,6 +3743,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           <listitem>
             <para>Takes a boolean. Configures whether STP Bridge Protocol Data Units will be
             processed by the bridge port. When unset, the kernel's default will be used.</para>
+
+            <xi:include href="version-info.xml" xpointer="v223"/>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -3351,6 +3753,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
             <para>Takes a boolean. This flag allows the bridge to immediately stop multicast
             traffic on a port that receives an IGMP Leave message. It is only used with
             IGMP snooping if enabled on the bridge. When unset, the kernel's default will be used.</para>
+
+            <xi:include href="version-info.xml" xpointer="v223"/>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -3359,6 +3763,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
             <para>Takes a boolean. Configures whether a given port is allowed to
             become a root port. Only used when STP is enabled on the bridge.
             When unset, the kernel's default will be used.</para>
+
+            <xi:include href="version-info.xml" xpointer="v223"/>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -3366,6 +3772,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           <listitem>
             <para>Takes a boolean. Configures whether proxy ARP to be enabled on this port.
             When unset, the kernel's default will be used.</para>
+
+            <xi:include href="version-info.xml" xpointer="v243"/>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -3374,6 +3782,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
             <para>Takes a boolean. Configures whether proxy ARP to be enabled on this port
             which meets extended requirements by IEEE 802.11 and Hotspot 2.0 specifications.
             When unset, the kernel's default will be used.</para>
+
+            <xi:include href="version-info.xml" xpointer="v243"/>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -3385,6 +3795,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
             the presence of routers, <literal>permanent</literal> to permanently enable multicast traffic
             forwarding on this port, or <literal>temporary</literal> to enable multicast routers temporarily
             on this port, not depending on incoming queries. When unset, the kernel's default will be used.</para>
+
+            <xi:include href="version-info.xml" xpointer="v243"/>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -3395,6 +3807,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
             is used to decide which link to use. Faster interfaces
             should have lower costs. It is an integer value between 1 and
             65535.</para>
+
+            <xi:include href="version-info.xml" xpointer="v218"/>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -3405,6 +3819,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
             to decide which link to use. Lower value means higher priority.
             It is an integer value between 0 to 63. Networkd does not set any
             default, meaning the kernel default value of 32 is used.</para>
+
+            <xi:include href="version-info.xml" xpointer="v234"/>
           </listitem>
         </varlistentry>
       </variablelist>
@@ -3425,6 +3841,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           <term><varname>Destination=</varname></term>
           <listitem>
             <para>Takes an IP address of the destination VXLAN tunnel endpoint.</para>
+
+          <xi:include href="version-info.xml" xpointer="v243"/>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -3433,6 +3851,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
             <para>The VLAN ID for the new static MAC table entry. If
             omitted, no VLAN ID information is appended to the new static MAC
             table entry.</para>
+
+            <xi:include href="version-info.xml" xpointer="v219"/>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -3441,6 +3861,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
             <para>The VXLAN Network Identifier (or VXLAN Segment ID) to use to connect to
             the remote VXLAN tunnel endpoint. Takes a number in the range 1…16777215.
             Defaults to unset.</para>
+
+            <xi:include href="version-info.xml" xpointer="v243"/>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -3454,6 +3876,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
             means the address is associated with master devices fdb. <literal>router</literal> means
             the destination address is associated with a router. Note that it's valid if the referenced
             device is a VXLAN type device and has route shortcircuit enabled. Defaults to <literal>self</literal>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v243"/>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -3461,6 +3885,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           <listitem>
             <para>Specifies the name or index of the outgoing interface for the VXLAN device driver to
             reach the remote VXLAN tunnel endpoint. Defaults to unset.</para>
+
+            <xi:include href="version-info.xml" xpointer="v249"/>
           </listitem>
         </varlistentry>
       </variablelist>
@@ -3475,6 +3901,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           <term><varname>MulticastGroupAddress=</varname></term>
           <listitem>
             <para>Specifies the IPv4 or IPv6 multicast group address to add. This setting is mandatory.</para>
+
+          <xi:include href="version-info.xml" xpointer="v247"/>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -3500,6 +3928,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
 
             <para>The MUD URLs received via LLDP packets are saved and can be read using the
             <function>sd_lldp_neighbor_get_mud_url()</function> function.</para>
+
+            <xi:include href="version-info.xml" xpointer="v246"/>
           </listitem>
         </varlistentry>
       </variablelist>
@@ -3515,6 +3945,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           <listitem>
             <para>The bitrate of CAN device in bits per second. The usual SI prefixes (K, M) with the base of 1000 can
             be used here. Takes a number in the range 1…4294967295.</para>
+
+            <xi:include href="version-info.xml" xpointer="v239"/>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -3523,6 +3955,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
             <para>Optional sample point in percent with one decimal (e.g. <literal>75%</literal>,
             <literal>87.5%</literal>) or permille (e.g. <literal>875‰</literal>). This will be ignored when
             <varname>BitRate=</varname> is unspecified.</para>
+
+          <xi:include href="version-info.xml" xpointer="v239"/>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -3542,6 +3976,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
             integer in the range 0…4294967295. These settings except for
             <varname>SyncJumpWidth=</varname> will be ignored when <varname>BitRate=</varname> is
             specified.</para>
+
+            <xi:include href="version-info.xml" xpointer="v250"/>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -3550,6 +3986,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           <listitem>
             <para>The bitrate and sample point for the data phase, if CAN-FD is used. These settings are
             analogous to the <varname>BitRate=</varname> and <varname>SamplePoint=</varname> keys.</para>
+
+            <xi:include href="version-info.xml" xpointer="v246"/>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -3562,6 +4000,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
             <para>Specifies the time quanta, propagation segment, phase buffer segment 1 and 2, and the
             synchronization jump width for the data phase, if CAN-FD is used. These settings are
             analogous to the <varname>TimeQuantaNSec=</varname> or related settings.</para>
+
+            <xi:include href="version-info.xml" xpointer="v250"/>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -3571,6 +4011,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
             Note, that a bitrate and optional sample point should also be set for the CAN-FD data phase using
             the <varname>DataBitRate=</varname> and <varname>DataSamplePoint=</varname> keys, or
             <varname>DataTimeQuanta=</varname> and related settings.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -3578,6 +4020,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           <listitem>
             <para>Takes a boolean. When <literal>yes</literal>, non-ISO CAN-FD mode is enabled for the
             interface. When unset, the kernel's default will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -3588,6 +4032,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
             be specified using decimals (e.g. <literal>0.1s</literal>) or a <literal>ms</literal> or
             <literal>us</literal> postfix. Using <literal>infinity</literal> or <literal>0</literal> will turn the
             automatic restart off. By default automatic restart is disabled.</para>
+
+            <xi:include href="version-info.xml" xpointer="v239"/>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -3597,6 +4043,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
             <literal>yes</literal>, the termination resistor is set to 120 ohm. When
             <literal>no</literal> or <literal>0</literal> is set, the termination resistor is disabled.
             When unset, the kernel's default will be used.</para>
+
+            <xi:include href="version-info.xml" xpointer="v246"/>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -3604,6 +4052,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           <listitem>
             <para>Takes a boolean. When <literal>yes</literal>, three samples (instead of one) are used to determine
             the value of a received bit by majority rule. When unset, the kernel's default will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v242"/>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -3614,6 +4064,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
             unable to send recessive bit, bus overload, active error announcement, error occurred on
             transmission). When unset, the kernel's default will be used. Note: in case of a CAN bus with a
             single CAN device, sending a CAN frame may result in a huge number of CAN bus errors.</para>
+
+          <xi:include href="version-info.xml" xpointer="v248"/>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -3624,6 +4076,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
             bit. Listen-only mode is important to debug CAN networks without interfering with the
             communication or acknowledge the CAN frame. When unset, the kernel's default will be used.
             </para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -3633,6 +4087,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
             loopback mode is enabled, the interface treats messages transmitted by itself as received
             messages. The loopback mode is important to debug CAN networks. When unset, the kernel's
             default will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v250"/>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -3640,6 +4096,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           <listitem>
             <para>Takes a boolean. When <literal>yes</literal>, one-shot mode is enabled. When unset,
             the kernel's default will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v250"/>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -3647,6 +4105,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           <listitem>
             <para>Takes a boolean. When <literal>yes</literal>, the interface will ignore missing CAN
             ACKs. When unset, the kernel's default will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v250"/>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -3654,6 +4114,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           <listitem>
             <para>Takes a boolean. When <literal>yes</literal>, the interface will handle the 4bit data
             length code (DLC). When unset, the kernel's default will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v250"/>
           </listitem>
         </varlistentry>
       </variablelist>
@@ -3701,6 +4163,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         <listitem>
           <para>Specifies the fixed amount of delay to be added to all packets going out of the
           interface. Defaults to unset.</para>
+
+          <xi:include href="version-info.xml" xpointer="v245"/>
         </listitem>
       </varlistentry>
 
@@ -3709,6 +4173,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         <listitem>
           <para>Specifies the chosen delay to be added to the packets outgoing to the network
           interface. Defaults to unset.</para>
+
+          <xi:include href="version-info.xml" xpointer="v245"/>
         </listitem>
       </varlistentry>
 
@@ -3717,6 +4183,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         <listitem>
           <para>Specifies the maximum number of packets the qdisc may hold queued at a time.
           An unsigned integer in the range 0…4294967294. Defaults to 1000.</para>
+
+          <xi:include href="version-info.xml" xpointer="v245"/>
         </listitem>
       </varlistentry>
 
@@ -3725,6 +4193,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         <listitem>
           <para>Specifies an independent loss probability to be added to the packets outgoing from the
           network interface. Takes a percentage value, suffixed with "%". Defaults to unset.</para>
+
+          <xi:include href="version-info.xml" xpointer="v245"/>
         </listitem>
       </varlistentry>
 
@@ -3733,6 +4203,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         <listitem>
           <para>Specifies that the chosen percent of packets is duplicated before queuing them.
           Takes a percentage value, suffixed with "%". Defaults to unset.</para>
+
+          <xi:include href="version-info.xml" xpointer="v245"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -3752,6 +4224,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         <listitem>
           <para>Specifies the latency parameter, which specifies the maximum amount of time a
           packet can sit in the Token Bucket Filter (TBF). Defaults to unset.</para>
+
+          <xi:include href="version-info.xml" xpointer="v245"/>
         </listitem>
       </varlistentry>
 
@@ -3761,6 +4235,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           <para>Takes the number of bytes that can be queued waiting for tokens to become available.
           When the size is suffixed with K, M, or G, it is parsed as Kilobytes, Megabytes, or Gigabytes,
           respectively, to the base of 1024. Defaults to unset.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/>
         </listitem>
       </varlistentry>
 
@@ -3771,6 +4247,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           can be available for instantaneous transfer. When the size is suffixed with K, M, or G, it is
           parsed as Kilobytes, Megabytes, or Gigabytes, respectively, to the base of 1024. Defaults to
           unset.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/>
         </listitem>
       </varlistentry>
 
@@ -3780,6 +4258,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           <para>Specifies the device specific bandwidth. When suffixed with K, M, or G, the specified
           bandwidth is parsed as Kilobits, Megabits, or Gigabits, respectively, to the base of 1000.
           Defaults to unset.</para>
+
+          <xi:include href="version-info.xml" xpointer="v245"/>
         </listitem>
       </varlistentry>
 
@@ -3789,6 +4269,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           <para>The Minimum Packet Unit (MPU) determines the minimal token usage (specified in bytes)
           for a packet. When suffixed with K, M, or G, the specified size is parsed as Kilobytes,
           Megabytes, or Gigabytes, respectively, to the base of 1024. Defaults to zero.</para>
+
+          <xi:include href="version-info.xml" xpointer="v245"/>
         </listitem>
       </varlistentry>
 
@@ -3798,6 +4280,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           <para>Takes the maximum depletion rate of the bucket. When suffixed with K, M, or G, the
           specified size is parsed as Kilobits, Megabits, or Gigabits, respectively, to the base of
           1000. Defaults to unset.</para>
+
+          <xi:include href="version-info.xml" xpointer="v245"/>
         </listitem>
       </varlistentry>
 
@@ -3807,6 +4291,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           <para>Specifies the size of the peakrate bucket. When suffixed with K, M, or G, the specified
           size is parsed as Kilobytes, Megabytes, or Gigabytes, respectively, to the base of 1024.
           Defaults to unset.</para>
+
+          <xi:include href="version-info.xml" xpointer="v245"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -3827,6 +4313,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           <para>Specifies the hard limit on the queue size in number of packets. When this limit is reached,
           incoming packets are dropped. An unsigned integer in the range 1…4294967294. Defaults to unset and
           kernel's default is used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -3847,6 +4335,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           <para>Specifies the hard limit on the queue size in number of packets. When this limit is reached,
           incoming packets are dropped. An unsigned integer ranges 1 to 4294967294. Defaults to unset and
           kernel's default is used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v247"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -3867,6 +4357,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           <para>Specifies the hard limit on the queue size in number of packets. When this limit is reached,
           incoming packets are dropped. An unsigned integer in the range 0…4294967294. Defaults to unset and
           kernel's default is used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -3885,6 +4377,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         <term><varname>PerturbPeriodSec=</varname></term>
         <listitem>
           <para>Specifies the interval in seconds for queue algorithm perturbation. Defaults to unset.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -3907,6 +4401,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           reached, incoming packets are dropped. When suffixed with K, M, or G, the specified size is parsed
           as Kilobytes, Megabytes, or Gigabytes, respectively, to the base of 1024. Defaults to unset and
           kernel default is used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -3928,6 +4424,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           overflow in case the kernel is unable to dequeue packets as quickly as it receives them. When this
           limit is reached, incoming packets are dropped. An unsigned integer in the range
           0…4294967294. Defaults to unset and kernel's default is used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -3945,7 +4443,9 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
       <varlistentry>
         <term><varname>PacketLimit=</varname></term>
         <listitem>
-          <para>As in [PFIFO] section.</para></listitem>
+          <para>As in [PFIFO] section.</para>
+
+        <xi:include href="version-info.xml" xpointer="v246"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
@@ -3976,6 +4476,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           <para>Specifies the shaper bandwidth. When suffixed with K, M, or G, the specified size is
           parsed as Kilobits, Megabits, or Gigabits, respectively, to the base of 1000. Defaults to
           unset and kernel's default is used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/>
         </listitem>
       </varlistentry>
 
@@ -3986,6 +4488,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           at this qdisc. This is most likely to be useful with cellular links, which tend to change
           quality randomly. If this setting is enabled, the <varname>Bandwidth=</varname> setting is
           used as an initial estimate. Defaults to unset, and the kernel's default is used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v250"/>
         </listitem>
       </varlistentry>
 
@@ -3995,6 +4499,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           <para>Specifies that bytes to be addeded to the size of each packet. Bytes may be negative.
           Takes an integer in the range -64…256. Defaults to unset and kernel's default is used.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/>
         </listitem>
       </varlistentry>
 
@@ -4003,6 +4509,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         <listitem>
           <para>Rounds each packet (including overhead) up to the specified bytes. Takes an integer in
           the range 1…256. Defaults to unset and kernel's default is used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v250"/>
         </listitem>
       </varlistentry>
 
@@ -4015,6 +4523,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           ATM cell framing, which is normally found on ADSL links. When <literal>ptm</literal>, enables
           the compensation for PTM encoding, which is normally found on VDSL2 links and uses a 64b/65b
           encoding scheme. Defaults to unset and the kernel's default is used.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/>
         </listitem>
       </varlistentry>
 
@@ -4024,6 +4534,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           <para>Takes a boolean value. When true, the packet size reported by the Linux kernel will be
           used, instead of the underlying IP packet size. Defaults to unset, and the kernel's default
           is used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v250"/>
         </listitem>
       </varlistentry>
 
@@ -4040,7 +4552,9 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
               <term><option>none</option></term>
               <listitem><para>
                 The flow isolation is disabled, and all traffic passes through a single queue.
-              </para></listitem>
+              </para>
+
+              <xi:include href="version-info.xml" xpointer="v250"/></listitem>
             </varlistentry>
             <varlistentry>
               <term><option>src-host</option></term>
@@ -4048,7 +4562,9 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
                 Flows are defined only by source address. Equivalent to the <literal>srchost</literal>
                 option for <command>tc qdisc</command> command. See also
                 <citerefentry project='man-pages'><refentrytitle>tc-cake</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
-              </para></listitem>
+              </para>
+
+                <xi:include href="version-info.xml" xpointer="v250"/></listitem>
             </varlistentry>
             <varlistentry>
               <term><option>dst-host</option></term>
@@ -4056,7 +4572,9 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
                 Flows are defined only by destination address. Equivalent to the
                 <literal>dsthost</literal> option for <command>tc qdisc</command> command. See also
                 <citerefentry project='man-pages'><refentrytitle>tc-cake</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
-              </para></listitem>
+              </para>
+
+                <xi:include href="version-info.xml" xpointer="v250"/></listitem>
             </varlistentry>
             <varlistentry>
               <term><option>hosts</option></term>
@@ -4064,7 +4582,9 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
                 Flows are defined by source-destination host pairs. Equivalent to the same option for
                 <command>tc qdisc</command> command. See also
                 <citerefentry project='man-pages'><refentrytitle>tc-cake</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
-              </para></listitem>
+              </para>
+
+                <xi:include href="version-info.xml" xpointer="v250"/></listitem>
             </varlistentry>
             <varlistentry>
               <term><option>flows</option></term>
@@ -4073,7 +4593,9 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
                 transport protocol, source port and destination port. Equivalent to the same option for
                 <command>tc qdisc</command> command. See also
                 <citerefentry project='man-pages'><refentrytitle>tc-cake</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
-              </para></listitem>
+              </para>
+
+                <xi:include href="version-info.xml" xpointer="v250"/></listitem>
             </varlistentry>
             <varlistentry>
               <term><option>dual-src-host</option></term>
@@ -4083,7 +4605,9 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
                 to the <literal>dual-srchost</literal> option for <command>tc qdisc</command> command.
                 See also
                 <citerefentry project='man-pages'><refentrytitle>tc-cake</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
-              </para></listitem>
+              </para>
+
+                <xi:include href="version-info.xml" xpointer="v250"/></listitem>
             </varlistentry>
             <varlistentry>
               <term><option>dual-dst-host</option></term>
@@ -4093,7 +4617,9 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
                 Equivalent to the <literal>dual-dsthost</literal> option for
                 <command>tc qdisc</command> command. See also
                 <citerefentry project='man-pages'><refentrytitle>tc-cake</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
-              </para></listitem>
+              </para>
+
+                <xi:include href="version-info.xml" xpointer="v250"/></listitem>
             </varlistentry>
             <varlistentry>
               <term><option>triple</option></term>
@@ -4103,11 +4629,15 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
                 Equivalent to the <literal>triple-isolate</literal> option for
                 <command>tc qdisc</command> command. See also
                 <citerefentry project='man-pages'><refentrytitle>tc-cake</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
-              </para></listitem>
+              </para>
+
+                <xi:include href="version-info.xml" xpointer="v250"/></listitem>
             </varlistentry>
           </variablelist>
 
           <para>Defaults to unset and the kernel's default is used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v250"/>
         </listitem>
       </varlistentry>
 
@@ -4120,6 +4650,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           <varname>FlowIsolationMode=</varname> is <literal>none</literal> or <literal>flows</literal>,
           or if NAT is performed on a different host. Defaults to unset, and the kernel's default is
           used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v250"/>
         </listitem>
       </varlistentry>
 
@@ -4135,7 +4667,9 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
               <term><option>besteffort</option></term>
               <listitem><para>
                 Disables priority queueing by placing all traffic in one tin.
-              </para></listitem>
+              </para>
+
+              <xi:include href="version-info.xml" xpointer="v250"/></listitem>
             </varlistentry>
             <varlistentry>
               <term><option>precedence</option></term>
@@ -4143,7 +4677,9 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
                 Enables priority queueing based on the legacy interpretation of TOS
                 <literal>Precedence</literal> field. Use of this preset on the modern Internet is
                 firmly discouraged.
-              </para></listitem>
+              </para>
+
+                <xi:include href="version-info.xml" xpointer="v250"/></listitem>
             </varlistentry>
             <varlistentry>
               <term><option>diffserv8</option></term>
@@ -4152,7 +4688,9 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
                 (<literal>DiffServ</literal>) field with eight tins: Background Traffic, High
                 Throughput, Best Effort, Video Streaming, Low Latency Transactions, Interactive Shell,
                 Minimum Latency, and Network Control.
-              </para></listitem>
+              </para>
+
+                <xi:include href="version-info.xml" xpointer="v250"/></listitem>
             </varlistentry>
             <varlistentry>
               <term><option>diffserv4</option></term>
@@ -4160,7 +4698,9 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
                 Enables priority queueing based on the Differentiated Service
                 (<literal>DiffServ</literal>) field with four tins: Background Traffic, Best Effort,
                 Streaming Media, and Latency Sensitive.
-              </para></listitem>
+              </para>
+
+                <xi:include href="version-info.xml" xpointer="v250"/></listitem>
             </varlistentry>
             <varlistentry>
               <term><option>diffserv3</option></term>
@@ -4168,11 +4708,15 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
                 Enables priority queueing based on the Differentiated Service
                 (<literal>DiffServ</literal>) field with three tins: Background Traffic, Best Effort,
                 and Latency Sensitive.
-              </para></listitem>
+              </para>
+
+                <xi:include href="version-info.xml" xpointer="v250"/></listitem>
             </varlistentry>
           </variablelist>
 
           <para>Defaults to unset, and the kernel's default is used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v250"/>
         </listitem>
       </varlistentry>
 
@@ -4182,6 +4726,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           <para>Takes an integer in the range 1…4294967295. When specified, firewall-mark-based
           overriding of CAKE's tin selection is enabled. Defaults to unset, and the kernel's default is
           used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v250"/>
         </listitem>
       </varlistentry>
 
@@ -4190,6 +4736,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         <listitem>
           <para>Takes a boolean value. When true, CAKE clears the DSCP fields, except for ECN bits, of
           any packet passing through CAKE. Defaults to unset, and the kernel's default is used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v250"/>
         </listitem>
       </varlistentry>
 
@@ -4199,6 +4747,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           <para>Takes a boolean value. When true, CAKE will split General Segmentation Offload (GSO)
           super-packets into their on-the-wire components and dequeue them individually. Defaults to
           unset, and the kernel's default is used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v250"/>
         </listitem>
       </varlistentry>
 
@@ -4209,6 +4759,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           extremely high-performance 10GigE+ networks like datacentre, 1ms for non-WiFi LAN connections,
           100ms for typical internet connections. Defaults to unset, and the kernel's default will be used.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v253"/>
         </listitem>
       </varlistentry>
 
@@ -4220,6 +4772,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           keep at least two redundant ACKs in the queue, while in <literal>aggressive</literal> mode, it will
           filter down to a single ACK. This may improve download throughput on links with very asymmetrical
           rate limits. Defaults to unset, and the kernel's default will be used.</para>
+
+        <xi:include href="version-info.xml" xpointer="v253"/>
         </listitem>
       </varlistentry>
 
@@ -4241,6 +4795,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           <para>Specifies the hard limit on the queue size in number of packets. When this limit is reached,
           incoming packets are dropped. An unsigned integer in the range 0…4294967294. Defaults to unset and
           kernel's default is used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v245"/>
         </listitem>
       </varlistentry>
 
@@ -4249,6 +4805,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         <listitem>
           <para>Takes a timespan. Specifies the acceptable minimum standing/persistent queue delay.
           Defaults to unset and kernel's default is used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v245"/>
         </listitem>
       </varlistentry>
 
@@ -4257,6 +4815,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         <listitem>
           <para>Takes a timespan. This is used to ensure that the measured minimum delay does not
           become too stale. Defaults to unset and kernel's default is used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v245"/>
         </listitem>
       </varlistentry>
 
@@ -4265,6 +4825,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         <listitem>
           <para>Takes a boolean. This can be used to mark packets instead of dropping them. Defaults to
           unset and kernel's default is used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v245"/>
         </listitem>
       </varlistentry>
 
@@ -4273,6 +4835,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         <listitem>
           <para>Takes a timespan. This sets a threshold above which all packets are marked with ECN
           Congestion Experienced (CE). Defaults to unset and kernel's default is used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v245"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -4305,6 +4869,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           to the next class. When suffixed with K, M, or G, the specified size is parsed as Kilobytes,
           Megabytes, or Gigabytes, respectively, to the base of 1024. Defaults to the MTU of the
           interface.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/>
         </listitem>
       </varlistentry>
 
@@ -4326,6 +4892,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           <para>Specifies the number of bands. An unsigned integer in the range 1…16. This value has to be at
           least large enough to cover the strict bands specified through the <varname>StrictBands=</varname>
           and bandwidth-sharing bands specified in <varname>QuantumBytes=</varname>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/>
         </listitem>
       </varlistentry>
 
@@ -4334,6 +4902,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         <listitem>
           <para>Specifies the number of bands that should be created in strict mode. An unsigned integer in
           the range 1…16.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/>
         </listitem>
       </varlistentry>
 
@@ -4344,6 +4914,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           suffixed with K, M, or G, the specified size is parsed as Kilobytes, Megabytes, or Gigabytes,
           respectively, to the base of 1024. This setting can be specified multiple times. If an empty
           string is assigned, then the all previous assignments are cleared.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/>
         </listitem>
       </varlistentry>
 
@@ -4356,6 +4928,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           there are fewer, the default band that traffic with one of the unmentioned priorities goes to is
           the last one. Each band number must be in the range 0…255. This setting can be specified multiple
           times. If an empty string is assigned, then the all previous assignments are cleared.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -4375,6 +4949,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         <listitem>
           <para>Specifies the number of virtual queues. Takes an integer in the range 1…16. Defaults to unset
           and kernel's default is used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/>
         </listitem>
       </varlistentry>
 
@@ -4383,6 +4959,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         <listitem>
           <para>Specifies the number of default virtual queue. This must be less than <varname>VirtualQueue=</varname>.
           Defaults to unset and kernel's default is used.</para>
+
+        <xi:include href="version-info.xml" xpointer="v246"/>
         </listitem>
       </varlistentry>
 
@@ -4391,6 +4969,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         <listitem>
           <para>Takes a boolean. It turns on the RIO-like buffering scheme. Defaults to
           unset and kernel's default is used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -4410,6 +4990,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         <listitem>
           <para>Specifies the hard limit on the real queue size. When this limit is reached, incoming packets are
           dropped. Defaults to unset and kernel's default is used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v245"/>
         </listitem>
       </varlistentry>
 
@@ -4419,6 +5001,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           <para>Specifies the limit on the total number of bytes that can be queued in this FQ-CoDel instance.
           When suffixed with K, M, or G, the specified size is parsed as Kilobytes, Megabytes, or Gigabytes,
           respectively, to the base of 1024. Defaults to unset and kernel's default is used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/>
         </listitem>
       </varlistentry>
 
@@ -4427,6 +5011,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         <listitem>
           <para>Specifies the number of flows into which the incoming packets are classified.
           Defaults to unset and kernel's default is used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v245"/>
         </listitem>
       </varlistentry>
 
@@ -4435,6 +5021,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         <listitem>
           <para>Takes a timespan. Specifies the acceptable minimum standing/persistent queue delay.
           Defaults to unset and kernel's default is used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v245"/>
         </listitem>
       </varlistentry>
 
@@ -4443,6 +5031,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         <listitem>
           <para>Takes a timespan. This is used to ensure that the measured minimum delay does not
           become too stale. Defaults to unset and kernel's default is used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v245"/>
         </listitem>
       </varlistentry>
 
@@ -4452,6 +5042,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           <para>Specifies the number of bytes used as the "deficit" in the fair queuing algorithm timespan.
           When suffixed with K, M, or G, the specified size is parsed as Kilobytes, Megabytes, or Gigabytes,
           respectively, to the base of 1024. Defaults to unset and kernel's default is used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/>
         </listitem>
       </varlistentry>
 
@@ -4460,6 +5052,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         <listitem>
           <para>Takes a boolean. This can be used to mark packets instead of dropping them. Defaults to
           unset and kernel's default is used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v245"/>
         </listitem>
       </varlistentry>
 
@@ -4468,6 +5062,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         <listitem>
           <para>Takes a timespan. This sets a threshold above which all packets are marked with ECN
           Congestion Experienced (CE). Defaults to unset and kernel's default is used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v245"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -4487,6 +5083,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         <listitem>
           <para>Specifies the hard limit on the real queue size. When this limit is reached, incoming packets are
           dropped. Defaults to unset and kernel's default is used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v245"/>
         </listitem>
       </varlistentry>
 
@@ -4495,6 +5093,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         <listitem>
           <para>Specifies the hard limit on the maximum number of packets queued per flow. Defaults to
           unset and kernel's default is used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v245"/>
         </listitem>
       </varlistentry>
 
@@ -4505,6 +5105,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           to dequeue at once. When suffixed with K, M, or G, the specified size is parsed as Kilobytes,
           Megabytes, or Gigabytes, respectively, to the base of 1024. Defaults to unset and kernel's
           default is used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/>
         </listitem>
       </varlistentry>
 
@@ -4515,6 +5117,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           allowed to dequeue initially. When suffixed with K, M, or G, the specified size is parsed as
           Kilobytes, Megabytes, or Gigabytes, respectively, to the base of 1024. Defaults to unset and
           kernel's default is used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/>
         </listitem>
       </varlistentry>
 
@@ -4524,6 +5128,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           <para>Specifies the maximum sending rate of a flow. When suffixed with K, M, or G, the
           specified size is parsed as Kilobits, Megabits, or Gigabits, respectively, to the base of
           1000. Defaults to unset and kernel's default is used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v245"/>
         </listitem>
       </varlistentry>
 
@@ -4532,6 +5138,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         <listitem>
           <para>Specifies the size of the hash table used for flow lookups. Defaults to unset and
           kernel's default is used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v245"/>
         </listitem>
       </varlistentry>
 
@@ -4541,6 +5149,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           <para>Takes an unsigned integer. For packets not owned by a socket, fq is able to mask a part
           of hash and reduce number of buckets associated with the traffic. Defaults to unset and
           kernel's default is used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v245"/>
         </listitem>
       </varlistentry>
 
@@ -4549,6 +5159,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         <listitem>
           <para>Takes a boolean, and enables or disables flow pacing. Defaults to unset and kernel's
           default is used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v245"/>
         </listitem>
       </varlistentry>
 
@@ -4557,6 +5169,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         <listitem>
           <para>Takes a timespan. This sets a threshold above which all packets are marked with ECN
           Congestion Experienced (CE). Defaults to unset and kernel's default is used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v245"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -4578,6 +5192,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           Note that when teql is used, currently, the module <constant>sch_teql</constant> with
           <constant>max_equalizers=N+1</constant> option must be loaded before
           <command>systemd-networkd</command> is started.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -4597,6 +5213,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         <listitem>
           <para>Takes the minor id in hexadecimal of the default class. Unclassified traffic gets sent
           to the class. Defaults to unset.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/>
         </listitem>
       </varlistentry>
 
@@ -4605,6 +5223,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         <listitem>
           <para>Takes an unsigned integer. The DRR quantums are calculated by dividing the value
           configured in <varname>Rate=</varname> by <varname>RateToQuantum=</varname>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -4624,6 +5244,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         <listitem>
           <para>Specifies the priority of the class. In the round-robin process, classes with the lowest
           priority field are tried for packets first.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/>
         </listitem>
       </varlistentry>
 
@@ -4633,6 +5255,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           <para>Specifies how many bytes to serve from leaf at once. When suffixed with K, M, or G, the
           specified size is parsed as Kilobytes, Megabytes, or Gigabytes, respectively, to the base of
           1024.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/>
         </listitem>
       </varlistentry>
 
@@ -4641,6 +5265,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         <listitem>
           <para>Specifies the maximum packet size we create. When suffixed with K, M, or G, the specified
           size is parsed as Kilobytes, Megabytes, or Gigabytes, respectively, to the base of 1024.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/>
         </listitem>
       </varlistentry>
 
@@ -4650,6 +5276,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           <para>Takes an unsigned integer which specifies per-packet size overhead used in rate
           computations. When suffixed with K, M, or G, the specified size is parsed as Kilobytes,
           Megabytes, or Gigabytes, respectively, to the base of 1024.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/>
         </listitem>
       </varlistentry>
 
@@ -4659,6 +5287,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           <para>Specifies the maximum rate this class and all its children are guaranteed. When suffixed
           with K, M, or G, the specified size is parsed as Kilobits, Megabits, or Gigabits, respectively,
           to the base of 1000. This setting is mandatory.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/>
         </listitem>
       </varlistentry>
 
@@ -4669,6 +5299,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           When suffixed with K, M, or G, the specified size is parsed as Kilobits, Megabits, or Gigabits,
           respectively, to the base of 1000. When unset, the value specified with <varname>Rate=</varname>
           is used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/>
         </listitem>
       </varlistentry>
 
@@ -4678,6 +5310,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           <para>Specifies the maximum bytes burst which can be accumulated during idle period. When suffixed
           with K, M, or G, the specified size is parsed as Kilobytes, Megabytes, or Gigabytes, respectively,
           to the base of 1024.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/>
         </listitem>
       </varlistentry>
 
@@ -4687,6 +5321,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           <para>Specifies the maximum bytes burst for ceil which can be accumulated during idle period.
           When suffixed with K, M, or G, the specified size is parsed as Kilobytes, Megabytes, or Gigabytes,
           respectively, to the base of 1024.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -4707,6 +5343,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           <para>Specifies the hard limit on the queue size in number of packets. When this limit is reached,
           incoming packets are dropped. An unsigned integer in the range 0…4294967294. Defaults to unset and
           kernel's default is used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -4737,6 +5375,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         <listitem>
           <para>Specifies the weight of the class. Takes an integer in the range 1…1023. Defaults to
           unset in which case the kernel default is used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/>
         </listitem>
       </varlistentry>
 
@@ -4746,6 +5386,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           <para>Specifies the maximum packet size in bytes for the class. When suffixed with K, M, or G, the
           specified size is parsed as Kilobytes, Megabytes, or Gigabytes, respectively, to the base of
           1024. When unset, the kernel default is used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -4772,6 +5414,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
             <para>The VLAN ID specified here will be used to untag frames on egress. Configuring
             <varname>EgressUntagged=</varname> implicates the use of <varname>VLAN=</varname> above and will enable the
             VLAN ID for ingress as well. This can be either a single ID or a range M-N.</para>
+
+            <xi:include href="version-info.xml" xpointer="v231"/>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -4780,6 +5424,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
             <para>The Port VLAN ID specified here is assigned to all untagged frames at ingress.
             <varname>PVID=</varname> can be used only once. Configuring <varname>PVID=</varname> implicates the use of
             <varname>VLAN=</varname> above and will enable the VLAN ID for ingress as well.</para>
+
+            <xi:include href="version-info.xml" xpointer="v231"/>
           </listitem>
         </varlistentry>
       </variablelist>

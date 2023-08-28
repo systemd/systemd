@@ -3,7 +3,7 @@
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
-<refentry id="machine-info">
+<refentry id="machine-info" xmlns:xi="http://www.w3.org/2001/XInclude">
   <refentryinfo>
     <title>machine-info</title>
     <productname>systemd</productname>
@@ -104,7 +104,9 @@
 
         <para>Note that most systems allow detection of the chassis type automatically (based on firmware
         information or suchlike). This setting should only be used to override a misdetection or to manually
-        configure the chassis type where automatic detection is not available.</para></listitem>
+        configure the chassis type where automatic detection is not available.</para>
+
+        <xi:include href="version-info.xml" xpointer="v197"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -116,7 +118,9 @@
         <literal>integration</literal>,
         <literal>staging</literal>,
         <literal>production</literal>.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v216"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -126,7 +130,9 @@
         and known. Takes a human-friendly, free-form string. This may
         be as generic as <literal>Berlin, Germany</literal> or as
         specific as <literal>Left Rack, 2nd Shelf</literal>.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v216"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -134,7 +140,9 @@
 
         <listitem><para>Specifies the hardware vendor. If unspecified, the hardware vendor set in DMI or
         <citerefentry><refentrytitle>hwdb</refentrytitle><manvolnum>7</manvolnum></citerefentry> will be
-        used.</para></listitem>
+        used.</para>
+
+        <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -142,7 +150,9 @@
 
         <listitem><para>Specifies the hardware model. If unspecified, the hardware model set in DMI or
         <citerefentry><refentrytitle>hwdb</refentrytitle><manvolnum>7</manvolnum></citerefentry> will be
-        used.</para></listitem>
+        used.</para>
+
+        <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>

@@ -7,7 +7,7 @@
   Copyright © 2014 Jason St. John
 -->
 
-<refentry id="udev">
+<refentry id="udev" xmlns:xi="http://www.w3.org/2001/XInclude">
   <refentryinfo>
     <title>udev</title>
     <productname>systemd</productname>
@@ -118,6 +118,8 @@
             <term><literal>:=</literal></term>
             <listitem>
               <para>Assign a value to a key finally; disallow any later changes.</para>
+
+            <xi:include href="version-info.xml" xpointer="v247"/>
             </listitem>
           </varlistentry>
         </variablelist>
@@ -285,6 +287,8 @@
                     <para>System's confidential virtualization technology. See
                     <citerefentry><refentrytitle>systemd-detect-virt</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                     for possible values.</para>
+
+                    <xi:include href="version-info.xml" xpointer="v254"/>
                   </listitem>
                 </varlistentry>
               </variablelist>
@@ -681,6 +685,8 @@
                     <para>Example for debugging uevent processing for network interfaces:
                     <programlisting># /etc/udev/rules.d/00-debug-net.rules
 SUBSYSTEM=="net", OPTIONS="log_level=debug"</programlisting></para>
+
+                    <xi:include href="version-info.xml" xpointer="v248"/>
                   </listitem>
                 </varlistentry>
               </variablelist>
