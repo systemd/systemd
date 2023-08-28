@@ -44,9 +44,6 @@
   <refsect1>
     <title>Description</title>
 
-    <para>Note: this command is experimental for now. While it is intended to become a regular component of
-    systemd, it might still change in behaviour and interface.</para>
-
     <para><command>ukify</command> is a tool whose primary purpose is to combine components (usually a
     kernel, an initrd, and a UEFI boot stub) to create a
     <ulink url="https://uapi-group.org/specifications/specs/unified_kernel_image/">Unified Kernel Image (UKI)</ulink>
