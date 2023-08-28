@@ -1290,20 +1290,25 @@ int session_kill(Session *s, KillWho who, int signo) {
         return manager_kill_unit(s->manager, s->scope, who, signo, NULL);
 }
 
-static int session_open_vt(Session *s) {
+static int session_open_vt(Session *s, bool reopen) {
+        _cleanup_close_ int fd = -EBADF;
         char path[sizeof("/dev/tty") + DECIMAL_STR_MAX(s->vtnr)];
+
+        assert(s);
 
         if (s->vtnr < 1)
                 return -ENODEV;
 
-        if (s->vtfd >= 0)
+        if (!reopen && s->vtfd >= 0)
                 return s->vtfd;
 
         sprintf(path, "/dev/tty%u", s->vtnr);
-        s->vtfd = open_terminal(path, O_RDWR | O_CLOEXEC | O_NONBLOCK | O_NOCTTY);
-        if (s->vtfd < 0)
-                return log_error_errno(s->vtfd, "cannot open VT %s of session %s: %m", path, s->id);
 
+        fd = open_terminal(path, O_RDWR | O_CLOEXEC | O_NONBLOCK | O_NOCTTY);
+        if (fd < 0)
+                return log_error_errno(fd, "Cannot open VT %s of session %s: %m", path, s->id);
+
+        close_and_replace(s->vtfd, fd);
         return s->vtfd;
 }
 
@@ -1311,10 +1316,12 @@ static int session_prepare_vt(Session *s) {
         int vt, r;
         struct vt_mode mode = {};
 
+        assert(s);
+
         if (s->vtnr < 1)
                 return 0;
 
-        vt = session_open_vt(s);
+        vt = session_open_vt(s, /* reopen = */ false);
         if (vt < 0)
                 return vt;
 
@@ -1366,28 +1373,24 @@ error:
 static void session_restore_vt(Session *s) {
         int r;
 
+        assert(s);
+
         if (s->vtfd < 0)
                 return;
 
         r = vt_restore(s->vtfd);
         if (r == -EIO) {
-                int vt, old_fd;
-
                 /* It might happen if the controlling process exited before or while we were
                  * restoring the VT as it would leave the old file-descriptor in a hung-up
                  * state. In this case let's retry with a fresh handle to the virtual terminal. */
 
                 /* We do a little dance to avoid having the terminal be available
                  * for reuse before we've cleaned it up. */
-                old_fd = TAKE_FD(s->vtfd);
 
-                vt = session_open_vt(s);
-                safe_close(old_fd);
-
-                if (vt >= 0)
-                        r = vt_restore(vt);
+                int fd = session_open_vt(s, /* reopen = */ true);
+                if (fd >= 0)
+                        r = vt_restore(fd);
         }
-
         if (r < 0)
                 log_warning_errno(r, "Failed to restore VT, ignoring: %m");
 
@@ -1414,23 +1417,13 @@ void session_leave_vt(Session *s) {
                 return;
 
         session_device_pause_all(s);
-        r = vt_release(s->vtfd, false);
+        r = vt_release(s->vtfd, /* restore = */ false);
         if (r == -EIO) {
-                int vt, old_fd;
+                /* Handle the same VT hung-up case as in session_restore_vt */
 
-                /* It might happen if the controlling process exited before or while we were
-                 * restoring the VT as it would leave the old file-descriptor in a hung-up
-                 * state. In this case let's retry with a fresh handle to the virtual terminal. */
-
-                /* We do a little dance to avoid having the terminal be available
-                 * for reuse before we've cleaned it up. */
-                old_fd = TAKE_FD(s->vtfd);
-
-                vt = session_open_vt(s);
-                safe_close(old_fd);
-
-                if (vt >= 0)
-                        r = vt_release(vt, false);
+                int fd = session_open_vt(s, /* reopen = */ true);
+                if (fd >= 0)
+                        r = vt_restore(fd);
         }
         if (r < 0)
                 log_debug_errno(r, "Cannot release VT of session %s: %m", s->id);
@@ -1443,6 +1436,8 @@ bool session_is_controller(Session *s, const char *sender) {
 static void session_release_controller(Session *s, bool notify) {
         _unused_ _cleanup_free_ char *name = NULL;
         SessionDevice *sd;
+
+        assert(s);
 
         if (!s->controller)
                 return;
