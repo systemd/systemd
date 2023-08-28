@@ -43,6 +43,13 @@
 static Manager* manager_free(Manager *m);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
 
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(device_hash_ops, char, string_hash_func, string_compare_func, Device, device_free);
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(seat_hash_ops, char, string_hash_func, string_compare_func, Seat, seat_free);
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(session_hash_ops, char, string_hash_func, string_compare_func, Session, session_free);
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(user_hash_ops, void, trivial_hash_func, trivial_compare_func, User, user_free);
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(inhibitor_hash_ops, char, string_hash_func, string_compare_func, Inhibitor, inhibitor_free);
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(button_hash_ops, char, string_hash_func, string_compare_func, Button, button_free);
+
 static int manager_new(Manager **ret) {
         _cleanup_(manager_freep) Manager *m = NULL;
         int r;
@@ -60,13 +67,13 @@ static int manager_new(Manager **ret) {
                 .idle_action_not_before_usec = now(CLOCK_MONOTONIC),
         };
 
-        m->devices = hashmap_new(&string_hash_ops);
-        m->seats = hashmap_new(&string_hash_ops);
-        m->sessions = hashmap_new(&string_hash_ops);
+        m->devices = hashmap_new(&device_hash_ops);
+        m->seats = hashmap_new(&seat_hash_ops);
+        m->sessions = hashmap_new(&session_hash_ops);
         m->sessions_by_leader = hashmap_new(NULL);
-        m->users = hashmap_new(NULL);
-        m->inhibitors = hashmap_new(&string_hash_ops);
-        m->buttons = hashmap_new(&string_hash_ops);
+        m->users = hashmap_new(&user_hash_ops);
+        m->inhibitors = hashmap_new(&inhibitor_hash_ops);
+        m->buttons = hashmap_new(&button_hash_ops);
 
         m->user_units = hashmap_new(&string_hash_ops);
         m->session_units = hashmap_new(&string_hash_ops);
@@ -103,33 +110,8 @@ static int manager_new(Manager **ret) {
 }
 
 static Manager* manager_free(Manager *m) {
-        Session *session;
-        User *u;
-        Device *d;
-        Seat *s;
-        Inhibitor *i;
-        Button *b;
-
         if (!m)
                 return NULL;
-
-        while ((session = hashmap_first(m->sessions)))
-                session_free(session);
-
-        while ((u = hashmap_first(m->users)))
-                user_free(u);
-
-        while ((d = hashmap_first(m->devices)))
-                device_free(d);
-
-        while ((s = hashmap_first(m->seats)))
-                seat_free(s);
-
-        while ((i = hashmap_first(m->inhibitors)))
-                inhibitor_free(i);
-
-        while ((b = hashmap_first(m->buttons)))
-                button_free(b);
 
         hashmap_free(m->devices);
         hashmap_free(m->seats);
