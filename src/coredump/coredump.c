@@ -21,6 +21,7 @@
 #include "compress.h"
 #include "conf-parser.h"
 #include "copy.h"
+#include "coredump-ratelimit.h"
 #include "coredump-util.h"
 #include "coredump-vacuum.h"
 #include "dirent-util.h"
@@ -102,6 +103,8 @@ enum {
          * environment. */
 
         META_COMM = _META_ARGV_MAX,
+        _META_BOOTID_ARGV_MAX,
+        META_BOOTID = _META_BOOTID_ARGV_MAX,
         _META_MANDATORY_MAX,
 
         /* The rest are similar to the previous ones except that we won't fail if one of
@@ -123,6 +126,7 @@ static const char * const meta_field_names[_META_MAX] = {
         [META_ARGV_HOSTNAME]  = "COREDUMP_HOSTNAME=",
         [META_COMM]           = "COREDUMP_COMM=",
         [META_EXE]            = "COREDUMP_EXE=",
+        [META_BOOTID]         = "_BOOT_ID=",
         [META_UNIT]           = "COREDUMP_UNIT=",
         [META_PROC_AUXV]      = "COREDUMP_PROC_AUXV=",
 };
@@ -160,15 +164,22 @@ static uint64_t arg_journal_size_max = JOURNAL_SIZE_MAX;
 static uint64_t arg_keep_free = UINT64_MAX;
 static uint64_t arg_max_use = UINT64_MAX;
 
+static usec_t arg_rate_limit_interval = DEFAULT_COREDUMP_RATE_LIMIT_INTERVAL;
+static unsigned arg_rate_limit_burst = DEFAULT_COREDUMP_RATE_LIMIT_BURST;
+static unsigned arg_max_coredumps_per_boot = DEFAULT_MAX_COREDUMPS_PER_BOOT;
+
 static int parse_config(void) {
         static const ConfigTableItem items[] = {
-                { "Coredump", "Storage",          config_parse_coredump_storage,     0, &arg_storage           },
-                { "Coredump", "Compress",         config_parse_bool,                 0, &arg_compress          },
-                { "Coredump", "ProcessSizeMax",   config_parse_iec_uint64,           0, &arg_process_size_max  },
-                { "Coredump", "ExternalSizeMax",  config_parse_iec_uint64_infinity,  0, &arg_external_size_max },
-                { "Coredump", "JournalSizeMax",   config_parse_iec_size,             0, &arg_journal_size_max  },
-                { "Coredump", "KeepFree",         config_parse_iec_uint64,           0, &arg_keep_free         },
-                { "Coredump", "MaxUse",           config_parse_iec_uint64,           0, &arg_max_use           },
+                { "Coredump", "Storage",              config_parse_coredump_storage,    0, &arg_storage                },
+                { "Coredump", "Compress",             config_parse_bool,                0, &arg_compress               },
+                { "Coredump", "ProcessSizeMax",       config_parse_iec_uint64,          0, &arg_process_size_max       },
+                { "Coredump", "ExternalSizeMax",      config_parse_iec_uint64_infinity, 0, &arg_external_size_max      },
+                { "Coredump", "JournalSizeMax",       config_parse_iec_size,            0, &arg_journal_size_max       },
+                { "Coredump", "KeepFree",             config_parse_iec_uint64,          0, &arg_keep_free              },
+                { "Coredump", "MaxUse",               config_parse_iec_uint64,          0, &arg_max_use                },
+                { "Coredump", "RateLimitIntervalSec", config_parse_sec,                 0, &arg_rate_limit_interval    },
+                { "Coredump", "RateLimitBurst",       config_parse_unsigned,            0, &arg_rate_limit_burst       },
+                { "Coredump", "MaxCoredumpsPerBoot",  config_parse_unsigned,            0, &arg_max_coredumps_per_boot },
                 {}
         };
 
@@ -239,6 +250,7 @@ static int fix_xattr(int fd, const Context *context) {
                 [META_ARGV_HOSTNAME]  = "user.coredump.hostname",
                 [META_COMM]           = "user.coredump.comm",
                 [META_EXE]            = "user.coredump.exe",
+                [META_BOOTID]         = "user.coredump.bootid",
         };
 
         int r = 0;
@@ -310,9 +322,7 @@ static int maybe_remove_external_coredump(const char *filename, uint64_t size) {
 }
 
 static int make_filename(const Context *context, char **ret) {
-        _cleanup_free_ char *c = NULL, *u = NULL, *p = NULL, *t = NULL;
-        sd_id128_t boot = {};
-        int r;
+        _cleanup_free_ char *c = NULL, *u = NULL, *p = NULL, *t = NULL, *b = NULL;
 
         assert(context);
 
@@ -324,9 +334,9 @@ static int make_filename(const Context *context, char **ret) {
         if (!u)
                 return -ENOMEM;
 
-        r = sd_id128_get_boot(&boot);
-        if (r < 0)
-                return r;
+        b = filename_escape(context->meta[META_BOOTID]);
+        if (!b)
+                return -ENOMEM;
 
         p = filename_escape(context->meta[META_ARGV_PID]);
         if (!p)
@@ -336,13 +346,7 @@ static int make_filename(const Context *context, char **ret) {
         if (!t)
                 return -ENOMEM;
 
-        if (asprintf(ret,
-                     "/var/lib/systemd/coredump/core.%s.%s." SD_ID128_FORMAT_STR ".%s.%s",
-                     c,
-                     u,
-                     SD_ID128_FORMAT_VAL(boot),
-                     p,
-                     t) < 0)
+        if (asprintf(ret, "/var/lib/systemd/coredump/core.%s.%s.%s.%s.%s", c, u, b, p, t) < 0)
                 return -ENOMEM;
 
         return 0;
@@ -1372,6 +1376,7 @@ static int process_kernel(int argc, char* argv[]) {
         _cleanup_(iovw_free_freep) struct iovec_wrapper *iovw = NULL;
         Context context = {};
         int r;
+        char *executable_path;
 
         /* When we're invoked by the kernel, stdout/stderr are closed which is dangerous because the fds
          * could get reallocated. To avoid hard to debug issues, let's instead bind stdout/stderr to
@@ -1416,6 +1421,17 @@ static int process_kernel(int argc, char* argv[]) {
 
         if (context.is_journald || context.is_pid1)
                 return submit_coredump(&context, iovw, STDIN_FILENO);
+
+        executable_path = (char *)context.meta[META_EXE];
+
+        /* Per service coredump rate limit */
+        r = coredump_ratelimit(
+                        executable_path, arg_rate_limit_interval, arg_rate_limit_burst, arg_max_coredumps_per_boot);
+        if (r > 0) {
+                log_notice("Rate limit for executable %s has been reached, coredump is suppressed.", executable_path);
+                r = 0;
+                return r;
+        }
 
         return send_iovec(iovw, STDIN_FILENO);
 }
