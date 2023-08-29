@@ -3094,7 +3094,12 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
         <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
         output, unless the <option>--namespace=</option> option is used.</para>
 
-        <xi:include href="system-only.xml" xpointer="singular"/></listitem>
+        <xi:include href="system-or-user-ns.xml" xpointer="singular"/>
+
+        <para>For services running in per-user instances of the service manager, note that it is also
+        required to manually start a system <literal>systemd-journald@<replaceable>NS</replaceable>.service</literal>
+        unit, as it is not possible to have an implicit dependency from a user unit to a system unit.
+        </para></listitem>
       </varlistentry>
 
       <varlistentry>

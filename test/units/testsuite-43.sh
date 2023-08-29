@@ -133,6 +133,21 @@ if unshare --mount --user --map-root-user mount -t overlay overlay /tmp/c -o low
         grep PORTABLE_PREFIXES=app1 /usr/lib/extension-release.d/extension-release.app2
 fi
 
+# systemd-journald@foo cannot be started automatically by a user unit,
+# so start a transient system unit to keep it active
+systemd-run --unit=foo-holder -p LogNamespace=foo sleep infinity
+for ((i = 0; i < 60; i++)); do
+    ! systemctl --quiet is-active systemd-journald@foo.socket || break
+    sleep .5
+done
+
+runas testuser systemd-run --wait --user --unit=test-log-namespace \
+    -p PrivateUsers=yes -p LogNamespace=foo \
+    echo MARKER=2
+journalctl --namespace=foo | grep -q -F "MARKER=2"
+
+systemctl stop foo-holder.service
+
 systemd-analyze log-level info
 
 touch /testok
