@@ -20,6 +20,7 @@
 #define ID128_WALDI SD_ID128_MAKE(01, 02, 03, 04, 05, 06, 07, 08, 09, 0a, 0b, 0c, 0d, 0e, 0f, 10)
 #define STR_WALDI "0102030405060708090a0b0c0d0e0f10"
 #define UUID_WALDI "01020304-0506-0708-090a-0b0c0d0e0f10"
+#define STR_NULL "00000000000000000000000000000000"
 
 TEST(id128) {
         sd_id128_t id, id2;
@@ -74,6 +75,13 @@ TEST(id128) {
         assert_se(sd_id128_from_string("01020304-0506-0708-090a-0b0c0d0e0f10-", &id) < 0);
         assert_se(sd_id128_from_string("01020304-0506-0708-090a0b0c0d0e0f10", &id) < 0);
         assert_se(sd_id128_from_string("010203040506-0708-090a-0b0c0d0e0f10", &id) < 0);
+
+        assert_se(id128_from_string_nonzero(STR_WALDI, &id) == 0);
+        assert_se(id128_from_string_nonzero(STR_NULL, &id) == -ENXIO);
+        assert_se(id128_from_string_nonzero("01020304-0506-0708-090a-0b0c0d0e0f101", &id) < 0);
+        assert_se(id128_from_string_nonzero("01020304-0506-0708-090a-0b0c0d0e0f10-", &id) < 0);
+        assert_se(id128_from_string_nonzero("01020304-0506-0708-090a0b0c0d0e0f10", &id) < 0);
+        assert_se(id128_from_string_nonzero("010203040506-0708-090a-0b0c0d0e0f10", &id) < 0);
 
         assert_se(id128_is_valid(STR_WALDI));
         assert_se(id128_is_valid(UUID_WALDI));
@@ -172,6 +180,11 @@ TEST(id128) {
         assert_se(lseek(fd, 0, SEEK_SET) == 0);
         assert_se(id128_read_fd(fd, ID128_FORMAT_ANY, NULL) == -EUCLEAN);
 
+        /* build/systemd-id128 -a f03daaeb1c334b43a732172944bf772e show 51df0b4bc3b04c9780e299b98ca373b8 */
+        assert_se(sd_id128_get_app_specific(SD_ID128_MAKE(51,df,0b,4b,c3,b0,4c,97,80,e2,99,b9,8c,a3,73,b8),
+                                            SD_ID128_MAKE(f0,3d,aa,eb,1c,33,4b,43,a7,32,17,29,44,bf,77,2e), &id) >= 0);
+        assert_se(sd_id128_equal(id, SD_ID128_MAKE(1d,ee,59,54,e7,5c,4d,6f,b9,6c,c6,c0,4c,a1,8a,86)));
+
         if (sd_booted() > 0 && sd_id128_get_machine(NULL) >= 0) {
                 assert_se(sd_id128_get_machine_app_specific(SD_ID128_MAKE(f0,3d,aa,eb,1c,33,4b,43,a7,32,17,29,44,bf,77,2e), &id) >= 0);
                 assert_se(sd_id128_get_machine_app_specific(SD_ID128_MAKE(f0,3d,aa,eb,1c,33,4b,43,a7,32,17,29,44,bf,77,2e), &id2) >= 0);
@@ -179,6 +192,10 @@ TEST(id128) {
                 assert_se(sd_id128_get_machine_app_specific(SD_ID128_MAKE(51,df,0b,4b,c3,b0,4c,97,80,e2,99,b9,8c,a3,73,b8), &id2) >= 0);
                 assert_se(!sd_id128_equal(id, id2));
         }
+
+        /* Check return values */
+        assert_se(sd_id128_get_app_specific(SD_ID128_ALLF, SD_ID128_NULL, &id) == -ENXIO);
+        assert_se(sd_id128_get_app_specific(SD_ID128_NULL, SD_ID128_ALLF, &id) == 0);
 }
 
 TEST(sd_id128_get_invocation) {
