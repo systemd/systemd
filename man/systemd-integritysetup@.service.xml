@@ -3,7 +3,8 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
-<refentry id="systemd-integritysetup@.service" conditional='HAVE_LIBCRYPTSETUP'>
+<refentry id="systemd-integritysetup@.service" conditional='HAVE_LIBCRYPTSETUP'
+          xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>systemd-integritysetup@.service</title>
@@ -62,7 +63,9 @@
         and
         <ulink url="https://docs.kernel.org/admin-guide/device-mapper/dm-integrity.html">
           Kernel dm-integrity</ulink> documentation for details.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -72,7 +75,9 @@
         </term>
 
         <listitem><para>Detach (destroy) the block device
-        <replaceable>volume</replaceable>.</para></listitem>
+        <replaceable>volume</replaceable>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -80,7 +85,9 @@
           <option>help</option>
         </term>
 
-        <listitem><para>Print short information about command syntax.</para></listitem>
+        <listitem><para>Print short information about command syntax.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>

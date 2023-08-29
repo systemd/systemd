@@ -302,7 +302,9 @@
         <varlistentry>
           <term><constant>-EOPNOTSUPP</constant></term>
 
-          <listitem><para>A pidfd was requested but the kernel does not support this concept.</para></listitem>
+          <listitem><para>A pidfd was requested but the kernel does not support this concept.</para>
+
+          <xi:include href="version-info.xml" xpointer="v245"/></listitem>
         </varlistentry>
 
       </variablelist>

@@ -3,7 +3,8 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
-<refentry id="systemd-rfkill.service" conditional='ENABLE_RFKILL'>
+<refentry id="systemd-rfkill.service" conditional='ENABLE_RFKILL'
+          xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>systemd-rfkill.service</title>
@@ -50,7 +51,9 @@
         <listitem><para>Takes a boolean argument. Defaults to
         <literal>1</literal>. If <literal>0</literal>, does not
         restore the rfkill settings on boot. However, settings will
-        still be stored on shutdown. </para></listitem>
+        still be stored on shutdown. </para>
+
+        <xi:include href="version-info.xml" xpointer="v227"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>

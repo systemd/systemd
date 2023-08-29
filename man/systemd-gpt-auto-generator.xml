@@ -3,7 +3,8 @@
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
-<refentry id="systemd-gpt-auto-generator" conditional='HAVE_BLKID'>
+<refentry id="systemd-gpt-auto-generator" conditional='HAVE_BLKID'
+          xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>systemd-gpt-auto-generator</title>
@@ -250,7 +251,9 @@
         <listitem><para>Those options take an optional boolean argument, and default to yes.
         The generator is enabled by default, and a false value may be used to disable it
         (e.g. <literal>systemd.gpt_auto=0</literal>).
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v242"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -260,7 +263,9 @@
         <listitem><para>Takes an image dissection policy string as argument (as per
         <citerefentry><refentrytitle>systemd.image-policy</refentrytitle><manvolnum>7</manvolnum></citerefentry>),
         and allows enforcing a policy on dissection and use of the automatically discovered GPT partition
-        table entries.</para></listitem>
+        table entries.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -286,7 +291,9 @@
         <para>Note that unlike most kernel command line options these settings do not override configuration
         in the file system, and the file system may be remounted later. See
         <citerefentry><refentrytitle>systemd-remount-fs.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v242"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -294,7 +301,9 @@
 
         <listitem><para>Takes a boolean argument or enables the option if specified without an argument.
         If disabled, automatic discovery of swap partition(s) based on GPT partition type is disabled.
-        Defaults to enabled.</para></listitem>
+        Defaults to enabled.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>

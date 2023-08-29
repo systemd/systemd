@@ -3,7 +3,8 @@
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
-<refentry id="systemd-time-wait-sync.service" conditional='ENABLE_TIMESYNCD'>
+<refentry id="systemd-time-wait-sync.service" conditional='ENABLE_TIMESYNCD'
+          xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>systemd-time-wait-sync.service</title>
@@ -51,6 +52,8 @@
 
         <listitem>
           <para>The presence of this file indicates to this service that the system clock has been synchronized.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/>
         </listitem>
 
       </varlistentry>

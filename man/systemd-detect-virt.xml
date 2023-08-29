@@ -244,7 +244,9 @@
         environment. In this mode, no output is written, but the return
         value indicates whether the process was invoked in a
         <function>chroot()</function>
-        environment or not.</para></listitem>
+        environment or not.</para>
+
+        <xi:include href="version-info.xml" xpointer="v228"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -254,7 +256,9 @@
         output is written, but the return value indicates whether the process was invoked
         inside of a user namespace or not. See
         <citerefentry project='man-pages'><refentrytitle>user_namespaces</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-        for more information.</para></listitem>
+        for more information.</para>
+
+        <xi:include href="version-info.xml" xpointer="v232"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -264,7 +268,9 @@
         The result of this detection may be used to disable features that should
         not be used in confidential VMs. It must not be used to release security
         sensitive information. The latter must only be released after attestation
-        of the confidential environment.</para></listitem>
+        of the confidential environment.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -278,13 +284,17 @@
       <varlistentry>
         <term><option>--list</option></term>
 
-        <listitem><para>Output all currently known and detectable container and VM environments.</para></listitem>
+        <listitem><para>Output all currently known and detectable container and VM environments.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>--list-cvm</option></term>
 
-        <listitem><para>Output all currently known and detectable confidential virtualization technologies.</para></listitem>
+        <listitem><para>Output all currently known and detectable confidential virtualization technologies.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="help" />

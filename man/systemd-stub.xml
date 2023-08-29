@@ -296,7 +296,9 @@
         <listitem><para>Contains the partition UUID of the EFI System Partition the EFI image was run
         from. <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         uses this information to automatically find the disk booted from, in order to discover various other
-        partitions on the same disk automatically.</para></listitem>
+        partitions on the same disk automatically.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -305,7 +307,9 @@
 
         <listitem><para>Brief firmware information. Use
         <citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> to view this
-        data.</para></listitem>
+        data.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -314,7 +318,9 @@
         <listitem><para>The path of EFI executable, relative to the EFI System Partition's root
         directory. Use
         <citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> to view
-        this data.</para></listitem>
+        this data.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -322,7 +328,9 @@
 
         <listitem><para>Brief stub information. Use
         <citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> to view
-        this data.</para></listitem>
+        this data.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -331,7 +339,9 @@
         <listitem><para>The PCR register index the kernel image, initrd image, boot splash, devicetree
         database, and the embedded command line are measured into, formatted as decimal ASCII string (e.g.
         <literal>11</literal>). This variable is set if a measurement was successfully completed, and remains
-        unset otherwise.</para></listitem>
+        unset otherwise.</para>
+
+        <xi:include href="version-info.xml" xpointer="v252"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -339,7 +349,9 @@
 
         <listitem><para>The PCR register index the kernel command line and credentials are measured into,
         formatted as decimal ASCII string (e.g. <literal>12</literal>). This variable is set if a measurement
-        was successfully completed, and remains unset otherwise.</para></listitem>
+        was successfully completed, and remains unset otherwise.</para>
+
+        <xi:include href="version-info.xml" xpointer="v252"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -348,7 +360,9 @@
         <listitem><para>The PCR register index the systemd extensions for the initrd, which are picked up
         from the file system the kernel image is located on. Formatted as decimal ASCII string (e.g.
         <literal>13</literal>). This variable is set if a measurement was successfully completed, and remains
-        unset otherwise.</para></listitem>
+        unset otherwise.</para>
+
+        <xi:include href="version-info.xml" xpointer="v252"/></listitem>
       </varlistentry>
     </variablelist>
 
@@ -367,7 +381,9 @@
       <varlistentry>
         <term><filename>/</filename></term>
 
-        <listitem><para>The main initrd from the <literal>.initrd</literal> PE section of the unified kernel image.</para></listitem>
+        <listitem><para>The main initrd from the <literal>.initrd</literal> PE section of the unified kernel image.</para>
+
+        <xi:include href="version-info.xml" xpointer="v252"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -375,7 +391,9 @@
         <listitem><para>Credential files (suffix <literal>.cred</literal>) that are placed next to the
         unified kernel image (as described above) are copied into the
         <filename>/.extra/credentials/</filename> directory in the initrd execution
-        environment.</para></listitem>
+        environment.</para>
+
+        <xi:include href="version-info.xml" xpointer="v252"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -383,14 +401,18 @@
         <listitem><para>Similar, credential files in the <filename>/loader/credentials/</filename> directory
         in the file system the unified kernel image is placed in are copied into the
         <filename>/.extra/global_credentials/</filename> directory in the initrd execution
-        environment.</para></listitem>
+        environment.</para>
+
+        <xi:include href="version-info.xml" xpointer="v252"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><filename>/.extra/sysext/*.raw</filename></term>
         <listitem><para>System extension image files (suffix <literal>.raw</literal>) that are placed next to
         the unified kernel image (as described above) are copied into the
-        <filename>/.extra/sysext/</filename> directory in the initrd execution environment.</para></listitem>
+        <filename>/.extra/sysext/</filename> directory in the initrd execution environment.</para>
+
+        <xi:include href="version-info.xml" xpointer="v252"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -398,14 +420,18 @@
         <listitem><para>The TPM2 PCR signature JSON object included in the <literal>.pcrsig</literal> PE
         section of the unified kernel image is copied into the
         <filename>/.extra/tpm2-pcr-signature.json</filename> file in the initrd execution
-        environment.</para></listitem>
+        environment.</para>
+
+        <xi:include href="version-info.xml" xpointer="v252"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><filename>/.extra/tpm2-pcr-pkey.pem</filename></term>
         <listitem><para>The PEM public key included in the <literal>.pcrpkey</literal> PE section of the
         unified kernel image is copied into the <filename>/.extra/tpm2-pcr-public-key.pem</filename> file in
-        the initrd execution environment.</para></listitem>
+        the initrd execution environment.</para>
+
+        <xi:include href="version-info.xml" xpointer="v252"/></listitem>
       </varlistentry>
     </variablelist>
 
@@ -429,7 +455,9 @@
       <varlistentry>
         <term><varname>io.systemd.stub.kernel-cmdline-extra</varname></term>
         <listitem><para>If set, the value of this string is added to the list of kernel command line
-        arguments that are measured in PCR12 and passed to the kernel.</para></listitem>
+        arguments that are measured in PCR12 and passed to the kernel.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>

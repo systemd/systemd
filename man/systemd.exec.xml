@@ -100,7 +100,9 @@
         <varname>PassEnvironment=</varname>. Assigning an empty string removes previous assignments
         and setting <varname>ExecSearchPath=</varname> to a value multiple times will append
         to the previous setting.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -209,7 +211,9 @@
         <constant>esp</constant>, <constant>xbootldr</constant>, <constant>tmp</constant>,
         <constant>var</constant>.</para>
 
-        <xi:include href="system-only.xml" xpointer="singular"/></listitem>
+        <xi:include href="system-only.xml" xpointer="singular"/>
+
+        <xi:include href="version-info.xml" xpointer="v247"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -229,7 +233,9 @@
         snapshot to make the ephemeral copy. For root images, a filesystem with support for reflinks should
         be used to ensure an efficient ephemeral copy.</para>
 
-        <xi:include href="system-only.xml" xpointer="singular"/></listitem>
+        <xi:include href="system-only.xml" xpointer="singular"/>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -254,7 +260,9 @@
         image. There's currently no option to configure the root hash for the <filename>/usr/</filename> file
         system via the unit file directly.</para>
 
-        <xi:include href="system-only.xml" xpointer="singular"/></listitem>
+        <xi:include href="system-only.xml" xpointer="singular"/>
+
+        <xi:include href="version-info.xml" xpointer="v246"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -275,7 +283,9 @@
         configure the root hash signature for the <filename>/usr/</filename> via the unit file
         directly.</para>
 
-        <xi:include href="system-only.xml" xpointer="singular"/></listitem>
+        <xi:include href="system-only.xml" xpointer="singular"/>
+
+        <xi:include href="version-info.xml" xpointer="v246"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -293,7 +303,9 @@
         root file system and matching Verity data in the same image, implementing the <ulink
         url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">Discoverable Partitions Specification</ulink>.</para>
 
-        <xi:include href="system-only.xml" xpointer="singular"/></listitem>
+        <xi:include href="system-only.xml" xpointer="singular"/>
+
+        <xi:include href="version-info.xml" xpointer="v246"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -317,7 +329,9 @@
         <para>The default policy for <varname>ExtensionImagePolicy=</varname> is:</para>
 
         <programlisting>root=verity+signed+encrypted+unprotected+absent: \
-        usr=verity+signed+encrypted+unprotected+absent</programlisting></listitem>
+        usr=verity+signed+encrypted+unprotected+absent</programlisting>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -367,7 +381,9 @@
         setting remains without effect, and the unit's processes will be able to access and see other process
         as if the option was not used.</para>
 
-        <xi:include href="system-only.xml" xpointer="singular"/></listitem>
+        <xi:include href="system-only.xml" xpointer="singular"/>
+
+        <xi:include href="version-info.xml" xpointer="v247"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -388,7 +404,9 @@
         disables mount propagation to the host mount table, and it implies
         <varname>MountAPIVFS=</varname>. Also, like <varname>ProtectProc=</varname> this setting is gracefully
         disabled if the used kernel does not support the <literal>subset=</literal> mount option of
-        <literal>procfs</literal>.</para></listitem>
+        <literal>procfs</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v247"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -465,7 +483,9 @@
         <varname>PrivateDevices=</varname> below, as it may change the setting of
         <varname>DevicePolicy=</varname>.</para>
 
-        <xi:include href="system-only.xml" xpointer="singular"/></listitem>
+        <xi:include href="system-only.xml" xpointer="singular"/>
+
+        <xi:include href="version-info.xml" xpointer="v247"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -517,7 +537,9 @@
         <varname>PrivateDevices=</varname> below, as it may change the setting of
         <varname>DevicePolicy=</varname>.</para>
 
-        <xi:include href="system-only.xml" xpointer="singular"/></listitem>
+        <xi:include href="system-only.xml" xpointer="singular"/>
+
+        <xi:include href="version-info.xml" xpointer="v248"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -550,7 +572,9 @@
         <para>Note that usage from user units requires overlayfs support in unprivileged user namespaces,
         which was first introduced in kernel v5.11.</para>
 
-        <xi:include href="system-or-user-ns.xml" xpointer="singular"/></listitem>
+        <xi:include href="system-or-user-ns.xml" xpointer="singular"/>
+
+        <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
@@ -1100,6 +1124,8 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
 
           <programlisting>CoredumpFilter=default private-dax shared-dax</programlisting>
         </example>
+
+          <xi:include href="version-info.xml" xpointer="v246"/>
         </listitem>
       </varlistentry>
 
@@ -1250,7 +1276,9 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         <citerefentry><refentrytitle>set_mempolicy</refentrytitle><manvolnum>2</manvolnum></citerefentry>. For overall
         overview of NUMA support in Linux see,
         <citerefentry project='man-pages'><refentrytitle>numa</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v243"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1260,7 +1288,9 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         Takes a list of NUMA nodes and has the same syntax as a list of CPUs for <varname>CPUAffinity=</varname>
         option or special "all" value which will include all available NUMA nodes in the mask. Note that the list
         of NUMA nodes is not required for <option>default</option> and <option>local</option>
-        policies and for <option>preferred</option> policy we expect a single NUMA node.</para></listitem>
+        policies and for <option>preferred</option> policy we expect a single NUMA node.</para>
+
+        <xi:include href="version-info.xml" xpointer="v243"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1538,7 +1568,9 @@ StateDirectory=aaa/bbb ccc</programlisting>
         <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
         details. Takes the usual time values and defaults to <constant>infinity</constant>, i.e. by default
         no timeout is applied. If a timeout is configured the clean operation will be aborted forcibly when
-        the timeout is reached, potentially leaving resources on disk.</para></listitem>
+        the timeout is reached, potentially leaving resources on disk.</para>
+
+        <xi:include href="version-info.xml" xpointer="v244"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1636,7 +1668,9 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         then the invoked processes by the unit cannot see any files or directories under <filename>/var/</filename> except for
         <filename>/var/lib/systemd</filename> or its contents.</para>
 
-        <xi:include href="system-or-user-ns.xml" xpointer="singular"/></listitem>
+        <xi:include href="system-or-user-ns.xml" xpointer="singular"/>
+
+        <xi:include href="version-info.xml" xpointer="v238"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1759,7 +1793,9 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         <para>When this option is used on a socket unit any sockets bound on behalf of this unit will be
         bound within the specified network namespace.</para>
 
-        <xi:include href="system-or-user-ns.xml" xpointer="singular"/></listitem>
+        <xi:include href="system-or-user-ns.xml" xpointer="singular"/>
+
+        <xi:include href="version-info.xml" xpointer="v242"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1790,7 +1826,9 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         not available), and the unit should be written in a way that does not solely rely on this setting for
         security.</para>
 
-        <xi:include href="system-or-user-ns.xml" xpointer="singular"/></listitem>
+        <xi:include href="system-or-user-ns.xml" xpointer="singular"/>
+
+        <xi:include href="version-info.xml" xpointer="v248"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1806,7 +1844,9 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         <varname>IPCNamespacePath=</varname> configured, as otherwise the network namespace of those
         units is reused.</para>
 
-        <xi:include href="system-or-user-ns.xml" xpointer="singular"/></listitem>
+        <xi:include href="system-or-user-ns.xml" xpointer="singular"/>
+
+        <xi:include href="version-info.xml" xpointer="v248"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1822,6 +1862,8 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         <para>Note that this functionality might not be available, for example if KSM is disabled in the
         kernel, or the kernel doesn't support controlling KSM at the process level through
         <function>prctl()</function>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/>
         </listitem>
       </varlistentry>
 
@@ -1876,7 +1918,9 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         capability (e.g. services for which <varname>User=</varname> is set),
         <varname>NoNewPrivileges=yes</varname> is implied.</para>
 
-        <xi:include href="system-or-user-ns.xml" xpointer="singular"/></listitem>
+        <xi:include href="system-or-user-ns.xml" xpointer="singular"/>
+
+        <xi:include href="version-info.xml" xpointer="v242"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1898,7 +1942,9 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         <para>It is recommended to turn this on for most services that do not need modify the clock or check
         its state.</para>
 
-        <xi:include href="system-or-user-ns.xml" xpointer="singular"/></listitem>
+        <xi:include href="system-or-user-ns.xml" xpointer="singular"/>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1962,7 +2008,9 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         capability (e.g. services for which <varname>User=</varname> is set),
         <varname>NoNewPrivileges=yes</varname> is implied.</para>
 
-        <xi:include href="system-or-user-ns.xml" xpointer="singular"/></listitem>
+        <xi:include href="system-or-user-ns.xml" xpointer="singular"/>
+
+        <xi:include href="version-info.xml" xpointer="v244"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -2106,7 +2154,9 @@ RestrictFileSystems=ext4</programlisting>
         not enabled in the underlying kernel or if not using the unified control group hierarchy). In that case this setting
         has no effect.</para>
 
-        <xi:include href="cgroup-sandboxing.xml" xpointer="singular"/></listitem>
+        <xi:include href="cgroup-sandboxing.xml" xpointer="singular"/>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -2221,7 +2271,9 @@ RestrictNamespaces=~cgroup net</programlisting>
         programs that actually require them. Note that this restricts marking of any type of file system
         object with these bits, including both regular files and directories (where the SGID is a different
         meaning than for files, see documentation). This option is implied if <varname>DynamicUser=</varname>
-        is enabled. Defaults to off.</para></listitem>
+        is enabled. Defaults to off.</para>
+
+        <xi:include href="version-info.xml" xpointer="v242"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -2270,7 +2322,9 @@ RestrictNamespaces=~cgroup net</programlisting>
         option. Hence it is primarily useful to explicitly request this behaviour if none of the other settings are
         used.</para>
 
-        <xi:include href="system-or-user-ns.xml" xpointer="singular"/></listitem>
+        <xi:include href="system-or-user-ns.xml" xpointer="singular"/>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -2592,7 +2646,9 @@ SystemCallErrorNumber=EPERM</programlisting>
         Mode 2 interfaces of the kernel ('seccomp filtering') and is useful for auditing or setting up a
         minimal sandboxing environment. This option may be specified more than once, in which case the filter
         masks are merged. If the empty string is assigned, the filter is reset, all prior assignments will
-        have no effect. This does not affect commands prefixed with <literal>+</literal>.</para></listitem>
+        have no effect. This does not affect commands prefixed with <literal>+</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v247"/></listitem>
       </varlistentry>
 
     </variablelist>
@@ -2972,7 +3028,9 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
                   dSB1cApOZXZlciBnb25uYSBsZXQgeW91IGRvd24KTmV2ZXIgZ29ubmEgcnVuIGFyb3VuZCBhbmQg \
                   ZGVzZXJ0IHlvdQpOZXZlciBnb25uYSBtYWtlIHlvdSBjcnkKTmV2ZXIgZ29ubmEgc2F5IGdvb2Ri \
                   eWUKTmV2ZXIgZ29ubmEgdGVsbCBhIGxpZSBhbmQgaHVydCB5b3UK
-…</programlisting></listitem>
+…</programlisting>
+
+        <xi:include href="version-info.xml" xpointer="v236"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -2995,7 +3053,9 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
         subsystem. For example, <varname>MaxLevelStore=</varname> configured in
         <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry> might
         prohibit messages of higher log levels to be stored on disk, even though the per-unit
-        <varname>LogLevelMax=</varname> permitted it to be processed.</para></listitem>
+        <varname>LogLevelMax=</varname> permitted it to be processed.</para>
+
+        <xi:include href="version-info.xml" xpointer="v236"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -3011,7 +3071,9 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
         The usual specifiers are expanded in all assignments (see below). Note that this setting is not only
         useful for attaching additional metadata to log records of a unit, but given that all fields and
         values are indexed may also be used to implement cross-unit log record matching. Assign an empty
-        string to reset the list.</para></listitem>
+        string to reset the list.</para>
+
+        <xi:include href="version-info.xml" xpointer="v236"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -3034,7 +3096,9 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
         <varname>StandardOutput=file:…</varname> or a similar setting, the rate limiting will not be applied
         to messages written that way (but it will be enforced for messages generated via
         <citerefentry project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-        and similar functions).</para></listitem>
+        and similar functions).</para>
+
+        <xi:include href="version-info.xml" xpointer="v240"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -3062,7 +3126,9 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry> about the
         unit are not taken into account. Filtered log messages won't be forwarded to traditional syslog daemons,
         the kernel log buffer (kmsg), the systemd console, or sent as wall messages to all logged-in
-        users.</para></listitem>
+        users.</para>
+
+        <xi:include href="version-info.xml" xpointer="v253"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -3094,7 +3160,9 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
         <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
         output, unless the <option>--namespace=</option> option is used.</para>
 
-        <xi:include href="system-only.xml" xpointer="singular"/></listitem>
+        <xi:include href="system-only.xml" xpointer="singular"/>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -3183,7 +3251,9 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
         <term><varname>TTYColumns=</varname></term>
 
         <listitem><para>Configure the size of the TTY specified with <varname>TTYPath=</varname>. If unset or
-        set to the empty string, the kernel default is used.</para></listitem>
+        set to the empty string, the kernel default is used.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -3347,7 +3417,9 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
 
         <para>When multiple credentials of the same name are found, credentials found by
         <varname>LoadCredential=</varname> and <varname>LoadCredentialEncrypted=</varname> take priority over
-        credentials found by <varname>ImportCredential=</varname>.</para></listitem>
+        credentials found by <varname>ImportCredential=</varname>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -3613,7 +3685,9 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
           whether the process is directly invoked by the service manager or indirectly as a child of
           another process by comparing this value with the current PID (similarly to the scheme used in
           <citerefentry><refentrytitle>sd_listen_fds</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-          with <varname>$LISTEN_PID</varname> and <varname>$LISTEN_FDS</varname>).</para></listitem>
+          with <varname>$LISTEN_PID</varname> and <varname>$LISTEN_FDS</varname>).</para>
+
+          <xi:include href="version-info.xml" xpointer="v248"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -3865,7 +3939,9 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
           <emphasis>not</emphasis> be passed. Consider using a template handler unit for that case instead:
           <literal>OnFailure=<replaceable>handler</replaceable>@%n.service</literal> for non-templated units,
           or <literal>OnFailure=<replaceable>handler</replaceable>@%p-%i.service</literal> for templated
-          units.</para></listitem>
+          units.</para>
+
+          <xi:include href="version-info.xml" xpointer="v251"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -3885,7 +3961,9 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
 
           <listitem><para>If this is a unit started via per-connection socket activation (i.e. via a socket
           unit with <varname>Accept=yes</varname>), these environment variables contain the IP address and
-          port number of the remote peer of the socket connection.</para></listitem>
+          port number of the remote peer of the socket connection.</para>
+
+          <xi:include href="version-info.xml" xpointer="v254"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -3900,7 +3978,9 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
           another will be coalesced and only one will be reported, with no guarantee as to which one it will be.
           Because of this, in most cases this variable will be primarily informational, i.e. useful for debugging
           purposes, is lossy, and should not be relied upon to propagate a comprehensive reason for activation.
-          </para></listitem>
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v252"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -3910,7 +3990,9 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
           <listitem><para>If memory pressure monitoring is enabled for this service unit, the path to watch
           and the data to write into it. See <ulink url="https://systemd.io/MEMORY_PRESSURE">Memory Pressure
           Handling</ulink> for details about these variables and the service protocol data they
-          convey.</para></listitem>
+          convey.</para>
+
+          <xi:include href="version-info.xml" xpointer="v254"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -3923,7 +4005,9 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
           per the setting. Applications may check this environment variable before sending file descriptors
           to the service manager via <function>sd_pid_notify_with_fds()</function> (see
           <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry> for
-          details).</para></listitem>
+          details).</para>
+
+          <xi:include href="version-info.xml" xpointer="v254"/></listitem>
         </varlistentry>
 
       </variablelist>

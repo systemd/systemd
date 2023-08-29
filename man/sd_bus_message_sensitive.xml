@@ -63,7 +63,9 @@
           <term><constant>-EINVAL</constant></term>
 
           <listitem><para>The <parameter>message</parameter> parameter is
-          <constant>NULL</constant>.</para></listitem>
+          <constant>NULL</constant>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v245"/></listitem>
         </varlistentry>
 
       </variablelist>

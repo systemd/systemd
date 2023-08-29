@@ -146,7 +146,9 @@
         <term><filename>/run/utmp</filename></term>
 
         <listitem><para>The utmp database <command>runlevel</command> reads the previous and current runlevel
-        from.</para></listitem>
+        from.</para>
+
+        <xi:include href="version-info.xml" xpointer="v237"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>

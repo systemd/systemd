@@ -112,7 +112,9 @@
 
         <listitem><para>Configures a maximum time for the scope to run. If this is used and the scope has been
         active for longer than the specified time it is terminated and put into a failure state. Pass
-        <literal>infinity</literal> (the default) to configure no runtime limit.</para></listitem>
+        <literal>infinity</literal> (the default) to configure no runtime limit.</para>
+
+        <xi:include href="version-info.xml" xpointer="v244"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -121,7 +123,9 @@
         <listitem><para>This option modifies <varname>RuntimeMaxSec=</varname> by increasing the maximum runtime by an
         evenly distributed duration between 0 and the specified value (in seconds). If <varname>RuntimeMaxSec=</varname> is
         unspecified, then this feature will be disabled.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
     </variablelist>
 

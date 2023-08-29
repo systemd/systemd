@@ -91,7 +91,9 @@
         <term><option>-p</option></term>
         <term><option>--pretty</option></term>
 
-        <listitem><para>Generate output as programming language snippets.</para></listitem>
+        <listitem><para>Generate output as programming language snippets.</para>
+
+        <xi:include href="version-info.xml" xpointer="v240"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -102,6 +104,8 @@
         application identifier <replaceable>app-id</replaceable> and the machine identifier will be
         printed. The <replaceable>app-id</replaceable> argument must be a valid sd-id128 string
         identifying the application.</para>
+
+        <xi:include href="version-info.xml" xpointer="v240"/>
         </listitem>
       </varlistentry>
 
@@ -112,7 +116,9 @@
         <listitem><para>Generate output as a UUID formatted in the "canonical representation", with five
         groups of digits separated by hyphens. See the
         <ulink url="https://en.wikipedia.org/wiki/Universally_unique_identifier#Format">wikipedia</ulink>
-        for more discussion.</para></listitem>
+        for more discussion.</para>
+
+        <xi:include href="version-info.xml" xpointer="v244"/></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="help" />

@@ -124,6 +124,8 @@ binfmt_misc /proc/sys/fs/binfmt_misc yes     0            proc-sys-fs-binfmt_mis
             </para>
 
             <para>Also see <option>--show-types</option>, <option>--all</option>, and <option>--state=</option>.</para>
+
+            <xi:include href="version-info.xml" xpointer="v252"/>
           </listitem>
         </varlistentry>
 
@@ -144,6 +146,8 @@ PATH                           CONDITION         UNIT                           
             </para>
 
             <para>Also see <option>--show-types</option>, <option>--all</option>, and <option>--state=</option>.</para>
+
+            <xi:include href="version-info.xml" xpointer="v254"/>
           </listitem>
         </varlistentry>
 
@@ -631,7 +635,9 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           current unit process exists. Note that the namespace mentioned here, where the bind mount will be
           added to, is the one where the main service process runs. Other processes (those exececuted by
           <option>ExecReload=</option>, <option>ExecStartPre=</option>, etc.) run in distinct namespaces.
-          </para></listitem>
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v248"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -664,7 +670,9 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           <para>Example:
           <programlisting>systemctl mount-image foo.service /tmp/img.raw /var/lib/image root:ro,nosuid</programlisting>
           <programlisting>systemctl mount-image --mkdir bar.service /tmp/img.raw /var/lib/baz/img</programlisting>
-          </para></listitem>
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v248"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -688,7 +696,9 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           <citerefentry><refentrytitle>org.freedesktop.LogControl1</refentrytitle><manvolnum>5</manvolnum></citerefentry>
           interface. (<filename>systemctl</filename> will use the generic D-Bus protocol to access the
           <interfacename>org.freedesktop.LogControl1.LogLevel</interfacename> interface for the D-Bus name
-          <replaceable>destination</replaceable>.)</para></listitem>
+          <replaceable>destination</replaceable>.)</para>
+
+          <xi:include href="version-info.xml" xpointer="v247"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -720,7 +730,9 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           <citerefentry><refentrytitle>org.freedesktop.LogControl1</refentrytitle><manvolnum>5</manvolnum></citerefentry>
           interface. (<filename>systemctl</filename> will use the generic D-Bus protocol to access the
           <interfacename>org.freedesktop.LogControl1.LogLevel</interfacename> interface for the D-Bus name
-          <replaceable>destination</replaceable>.)</para></listitem>
+          <replaceable>destination</replaceable>.)</para>
+
+          <xi:include href="version-info.xml" xpointer="v247"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -746,7 +758,9 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
 
           <listitem><para>Returns the units the processes referenced by the given PIDs belong to (one per
           line). If no PID is specified returns the unit the <command>systemctl</command> command is invoked
-          in.</para></listitem>
+          in.</para>
+
+          <xi:include href="version-info.xml" xpointer="v254"/></listitem>
         </varlistentry>
 
       </variablelist>
@@ -767,6 +781,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
 
             <para>Unlike <command>list-units</command> this command will list template units in addition to
             explicitly instantiated units.</para>
+
+            <xi:include href="version-info.xml" xpointer="v233"/>
           </listitem>
         </varlistentry>
 
@@ -861,6 +877,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
 
             <para>This command honors <option>--system</option>, <option>--user</option>, <option>--runtime</option>,
             <option>--global</option> and <option>--no-warn</option> in a similar way as <command>enable</command>.</para>
+
+            <xi:include href="version-info.xml" xpointer="v238"/>
           </listitem>
         </varlistentry>
 
@@ -872,6 +890,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             <command>disable</command> and <command>enable</command> and is useful to reset the symlinks a unit file is
             enabled with to the defaults configured in its [Install] section. This command expects
             a unit name only, it does not accept paths to unit files.</para>
+
+            <xi:include href="version-info.xml" xpointer="v238"/>
           </listitem>
         </varlistentry>
 
@@ -895,6 +915,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             <para>For more information on the preset policy format, see
             <citerefentry><refentrytitle>systemd.preset</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
             </para>
+
+            <xi:include href="version-info.xml" xpointer="v238"/>
           </listitem>
         </varlistentry>
 
@@ -908,6 +930,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             <para>Use <option>--preset-mode=</option> to control
             whether units shall be enabled and disabled, or only
             enabled, or only disabled.</para>
+
+            <xi:include href="version-info.xml" xpointer="v215"/>
           </listitem>
         </varlistentry>
 
@@ -1005,6 +1029,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
               </tgroup>
             </table>
 
+              <xi:include href="version-info.xml" xpointer="v238"/>
+
           </listitem>
         </varlistentry>
 
@@ -1030,6 +1056,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             placed precisely in the two aforementioned directories). Similar restrictions apply for
             <option>--user</option> mode, in which case the directories are below the user's home directory
             however.</para>
+
+            <xi:include href="version-info.xml" xpointer="v238"/>
           </listitem>
         </varlistentry>
 
@@ -1040,6 +1068,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             <para>Unmask one or more unit files, as specified on the command line. This will undo the effect of
             <command>mask</command>. This command expects valid unit names only, it does not accept unit file
             paths.</para>
+
+            <xi:include href="version-info.xml" xpointer="v238"/>
           </listitem>
         </varlistentry>
 
@@ -1054,6 +1084,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             file system where the linked unit files are located must be accessible when systemd is started
             (e.g. anything underneath <filename>/home/</filename> or <filename>/var/</filename> is not allowed, unless
             those directories are located on the root file system).</para>
+
+            <xi:include href="version-info.xml" xpointer="v233"/>
           </listitem>
         </varlistentry>
 
@@ -1076,6 +1108,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             <para>Effectively, this command may be used to undo all changes made with <command>systemctl
             edit</command>, <command>systemctl set-property</command> and <command>systemctl mask</command> and puts
             the original unit file with its settings back in effect.</para>
+
+            <xi:include href="version-info.xml" xpointer="v238"/>
           </listitem>
         </varlistentry>
 
@@ -1094,6 +1128,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             <option>--user</option>, <option>--runtime</option> and
             <option>--global</option> in a way similar to
             <command>enable</command>.</para>
+
+            <xi:include href="version-info.xml" xpointer="v238"/>
 
           </listitem>
         </varlistentry>
@@ -1138,6 +1174,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             and that you cannot temporarily edit units which are in
             <filename>/etc/</filename>, since they take precedence over
             <filename>/run/</filename>.</para>
+
+            <xi:include href="version-info.xml" xpointer="v238"/>
           </listitem>
         </varlistentry>
 
@@ -1158,6 +1196,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             <para>Set the default target to boot into. This sets
             (symlinks) the <filename>default.target</filename> alias
             to the given target unit.</para>
+
+            <xi:include href="version-info.xml" xpointer="v238"/>
           </listitem>
         </varlistentry>
 
@@ -1177,6 +1217,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             <replaceable>PATTERN</replaceable>s are specified, only
             containers matching one of them are shown.
             </para>
+
+            <xi:include href="version-info.xml" xpointer="v233"/>
           </listitem>
         </varlistentry>
       </variablelist>
@@ -1197,6 +1239,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             <para>When combined with <option>--after</option> or <option>--before</option> the list is augmented with
             information on which other job each job is waiting for, and which other jobs are waiting for it, see
             above.</para>
+
+            <xi:include href="version-info.xml" xpointer="v233"/>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -1206,6 +1250,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             <para>Cancel one or more jobs specified on the command line
             by their numeric job IDs. If no job ID is specified, cancel
             all pending jobs.</para>
+
+            <xi:include href="version-info.xml" xpointer="v233"/>
           </listitem>
         </varlistentry>
       </variablelist>
@@ -1258,6 +1304,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             <para>Set one or more systemd manager environment variables, as specified on the command
             line. This command will fail if variable names and values do not conform to the rules listed
             above.</para>
+
+            <xi:include href="version-info.xml" xpointer="v233"/>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -1269,6 +1317,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             removed regardless of its value. If a variable and a value
             are specified, the variable is only removed if it has the
             specified value.</para>
+
+            <xi:include href="version-info.xml" xpointer="v233"/>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -1290,6 +1340,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             arguments) is deprecated. A shell will set dozens of variables which only make sense locally and
             are only meant for processes which are descendants of the shell. Such variables in the global
             environment block are confusing to other processes.</para>
+
+            <xi:include href="version-info.xml" xpointer="v233"/>
           </listitem>
         </varlistentry>
       </variablelist>
@@ -1339,7 +1391,9 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           current log level of the manager to <replaceable>LEVEL</replaceable> (accepts the same values as
           <option>--log-level=</option> described in
           <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>).
-          </para></listitem>
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v244"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -1350,7 +1404,9 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           current log target of the manager to <replaceable>TARGET</replaceable> (accepts the same values as
           <option>--log-target=</option>, described in
           <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>).
-          </para></listitem>
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v244"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -1361,7 +1417,9 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           service runtime watchdogs (<option>WatchdogSec=</option>) and emergency actions (e.g.
           <option>OnFailure=</option> or <option>StartLimitAction=</option>); see
           <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-          The hardware watchdog is not affected by this setting.</para></listitem>
+          The hardware watchdog is not affected by this setting.</para>
+
+          <xi:include href="version-info.xml" xpointer="v244"/></listitem>
         </varlistentry>
       </variablelist>
     </refsect2>
@@ -1463,6 +1521,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
                 </tbody>
               </tgroup>
             </table>
+
+              <xi:include href="version-info.xml" xpointer="v215"/>
           </listitem>
         </varlistentry>
 
@@ -1548,6 +1608,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
 
             <para>This command honors <option>--force</option> and <option>--when=</option> in a similar way
             as <command>halt</command>.</para>
+
+            <xi:include href="version-info.xml" xpointer="v246"/>
           </listitem>
         </varlistentry>
 
@@ -1594,6 +1656,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             <para>This operation only reboots userspace, leaving the kernel running. See
             <citerefentry><refentrytitle>systemd-soft-reboot.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
             for details.</para>
+
+            <xi:include href="version-info.xml" xpointer="v254"/>
           </listitem>
         </varlistentry>
 
@@ -1608,6 +1672,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
 
             <para>The service manager will exit with the specified exit code, if
             <replaceable>EXIT_CODE</replaceable> is passed.</para>
+
+            <xi:include href="version-info.xml" xpointer="v227"/>
           </listitem>
         </varlistentry>
 
@@ -1626,6 +1692,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             omitted, equal to the empty string or identical to the path to the systemd binary, the state of
             the initrd's system manager process is passed to the main system manager, which allows later
             introspection of the state of the services involved in the initrd boot phase.</para>
+
+            <xi:include href="version-info.xml" xpointer="v209"/>
           </listitem>
         </varlistentry>
 
@@ -1667,6 +1735,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             This will trigger activation of the special target unit <filename>suspend-then-hibernate.target</filename>.
             This command is asynchronous, and will return after the hybrid sleep operation is successfully enqueued.
             It will not wait for the sleep/wake-up or hibernate/thaw cycle to complete.</para>
+
+          <xi:include href="version-info.xml" xpointer="v240"/>
           </listitem>
         </varlistentry>
       </variablelist>
@@ -1754,6 +1824,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
 
           <para>As a special case, if one of the arguments is <option>help</option>, a list of allowed values
           will be printed and the program will exit.</para>
+
+          <xi:include href="version-info.xml" xpointer="v206"/>
         </listitem>
       </varlistentry>
 
@@ -1798,6 +1870,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           value of the property without the property name or <literal>=</literal>. Note that using
           <option>-P</option> once will also affect all properties listed with
           <option>-p</option>/<option>--property=</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v246"/>
         </listitem>
       </varlistentry>
 
@@ -1832,6 +1906,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           containers. Units of local containers will be prefixed with
           the container name, separated by a single colon character
           (<literal>:</literal>).</para>
+
+          <xi:include href="version-info.xml" xpointer="v212"/>
         </listitem>
       </varlistentry>
 
@@ -1846,6 +1922,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           <varname>PartOf=</varname>, <varname>BoundBy=</varname>,
           instead of <varname>Wants=</varname> and similar.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v203"/>
         </listitem>
       </varlistentry>
 
@@ -1888,6 +1966,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           <para>When passed to the <command>list-jobs</command> command, for each printed job show which other jobs it
           is waiting for. May be combined with <option>--after</option> to show both the jobs waiting for each job as
           well as all jobs each job is waiting for.</para>
+
+          <xi:include href="version-info.xml" xpointer="v212"/>
         </listitem>
       </varlistentry>
 
@@ -1904,6 +1984,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           <option>--after</option>, <option>--before</option>
           may be used to change what types of dependencies
           are shown.</para>
+
+          <xi:include href="version-info.xml" xpointer="v245"/>
         </listitem>
       </varlistentry>
 
@@ -1928,6 +2010,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         <listitem>
           <para>When printing properties with <command>show</command>, only print the value, and skip the
           property name and <literal>=</literal>. Also see option <option>-P</option> above.</para>
+
+        <xi:include href="version-info.xml" xpointer="v230"/>
         </listitem>
       </varlistentry>
 
@@ -1936,6 +2020,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
 
         <listitem>
           <para>When showing sockets, show the type of the socket.</para>
+
+        <xi:include href="version-info.xml" xpointer="v202"/>
         </listitem>
       </varlistentry>
 
@@ -2007,6 +2093,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         <command>systemctl start</command>. In this mode, dependencies of
         the specified unit will receive restart propagation, as if a restart
         job had been enqueued for the unit.</para>
+
+        <xi:include href="version-info.xml" xpointer="v209"/>
         </listitem>
       </varlistentry>
 
@@ -2021,6 +2109,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           immediately part of the transaction requested. It is possible that service start-up program code
           run as effect of the enqueued jobs might request further jobs to be pulled in. This means that
           completion of the listed jobs might ultimately entail more jobs than the listed ones.</para>
+
+        <xi:include href="version-info.xml" xpointer="v242"/>
         </listitem>
       </varlistentry>
 
@@ -2032,6 +2122,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           <para>When used with the <command>kill</command> command,
           if no units were killed, the operation results in an error.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v227"/>
         </listitem>
       </varlistentry>
 
@@ -2054,6 +2146,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           attempted. If locks are present, the operation may require additional privileges.</para>
 
           <para>Option <option>--force</option> provides another way to override inhibitors.</para>
+
+          <xi:include href="version-info.xml" xpointer="v248"/>
         </listitem>
       </varlistentry>
 
@@ -2075,6 +2169,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           <command>hybrid-sleep</command>, <command>suspend-then-hibernate</command>,
           <command>default</command>, <command>rescue</command>,
           <command>emergency</command>, and <command>exit</command>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v236"/>
         </listitem>
       </varlistentry>
 
@@ -2111,6 +2207,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             </listitem>
           </itemizedlist>
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v253"/>
         </listitem>
       </varlistentry>
 
@@ -2139,6 +2237,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
 
           <para>When used with <command>is-system-running</command>, wait
           until the boot process is completed before returning.</para>
+
+          <xi:include href="version-info.xml" xpointer="v232"/>
         </listitem>
       </varlistentry>
 
@@ -2151,6 +2251,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         <listitem>
           <para>List units in failed state. This is equivalent to
           <option>--state=failed</option>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v233"/>
         </listitem>
       </varlistentry>
 
@@ -2225,6 +2327,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           defined (which are the invocations of <filename>&MOUNT_PATH;</filename> and
           <filename>&UMOUNT_PATH;</filename>), but no main process is defined. If omitted, defaults to
           <option>all</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v252"/>
         </listitem>
       </varlistentry>
 
@@ -2244,7 +2348,9 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
 
         <para>If this option is used the signal will only be enqueued on the control or main process of the
         unit, never on other processes belonging to the unit, i.e. <option>--kill-whom=all</option> will only
-        affect main and control processes but no other processes.</para></listitem>
+        affect main and control processes but no other processes.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="signal" />
@@ -2265,6 +2371,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           <constant>fdstore</constant> resource type is only useful if the
           <varname>FileDescriptorStorePreserve=</varname> option is enabled, since the file descriptor store
           is otherwise cleaned automatically when the unit is stopped.</para>
+
+        <xi:include href="version-info.xml" xpointer="v243"/>
         </listitem>
       </varlistentry>
 
@@ -2299,6 +2407,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           <para>When used with <command>halt</command>, <command>poweroff</command> or <command>reboot</command>, set a
           short message explaining the reason for the operation. The message will be logged together with the default
           shutdown message.</para>
+
+        <xi:include href="version-info.xml" xpointer="v225"/>
         </listitem>
       </varlistentry>
 
@@ -2311,6 +2421,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           <command>mask</command>, the units will also be stopped. The start
           or stop operation is only carried out when the respective enable or
           disable operation has been successful.</para>
+
+        <xi:include href="version-info.xml" xpointer="v220"/>
         </listitem>
       </varlistentry>
 
@@ -2338,7 +2450,9 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         table, following the <ulink url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">Discoverable Partitions
         Specification</ulink>. For further information on supported disk images, see
         <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
-        switch of the same name.</para></listitem>
+        switch of the same name.</para>
+
+        <xi:include href="version-info.xml" xpointer="v252"/></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="image-policy-open" />
@@ -2374,6 +2488,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           commands, controls whether units shall be disabled and
           enabled according to the preset rules, or only enabled, or
           only disabled.</para>
+
+        <xi:include href="version-info.xml" xpointer="v215"/>
         </listitem>
       </varlistentry>
 
@@ -2408,6 +2524,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           <para>When used with the <command>reboot</command> command, indicate to the system's firmware to
           reboot into the firmware setup interface. Note that this functionality is not available on all
           systems.</para>
+
+        <xi:include href="version-info.xml" xpointer="v220"/>
         </listitem>
       </varlistentry>
 
@@ -2419,6 +2537,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           show the boot loader menu on the following boot. Takes a time value as parameter — indicating the
           menu timeout. Pass zero in order to disable the menu timeout. Note that not all boot loaders
           support this functionality.</para>
+
+        <xi:include href="version-info.xml" xpointer="v251"/>
         </listitem>
       </varlistentry>
 
@@ -2430,6 +2550,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           boot into a specific boot loader entry on the following boot. Takes a boot loader entry identifier
           as argument, or <literal>help</literal> in order to list available entries. Note that not all boot
           loaders support this functionality.</para>
+
+        <xi:include href="version-info.xml" xpointer="v251"/>
         </listitem>
       </varlistentry>
 
@@ -2440,6 +2562,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           <para>This switch is used with <command>reboot</command>. The value is architecture and firmware specific. As an example, <literal>recovery</literal>
             might be used to trigger system recovery, and <literal>fota</literal> might be used to trigger a
             <quote>firmware over the air</quote> update.</para>
+
+        <xi:include href="version-info.xml" xpointer="v246"/>
         </listitem>
       </varlistentry>
 
@@ -2451,6 +2575,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           <command>list-units</command> or <command>list-machines</command>,
           the output is printed as a list instead of a tree, and the bullet
           circles are omitted.</para>
+
+        <xi:include href="version-info.xml" xpointer="v203"/>
         </listitem>
       </varlistentry>
 
@@ -2464,14 +2590,18 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           <variablelist>
             <varlistentry>
               <term><option>pretty</option> (this is the default)</term>
-              <listitem><para><literal>Day YYYY-MM-DD HH:MM:SS TZ</literal></para></listitem>
+              <listitem><para><literal>Day YYYY-MM-DD HH:MM:SS TZ</literal></para>
+
+              <xi:include href="version-info.xml" xpointer="v248"/></listitem>
             </varlistentry>
           </variablelist>
 
           <variablelist>
             <varlistentry>
               <term><option>unix</option></term>
-              <listitem><para><literal>@seconds-since-the-epoch</literal></para></listitem>
+              <listitem><para><literal>@seconds-since-the-epoch</literal></para>
+
+              <xi:include href="version-info.xml" xpointer="v251"/></listitem>
             </varlistentry>
           </variablelist>
 
@@ -2486,7 +2616,9 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           <variablelist>
             <varlistentry>
               <term><option>utc</option></term>
-              <listitem><para><literal>Day YYYY-MM-DD HH:MM:SS UTC</literal></para></listitem>
+              <listitem><para><literal>Day YYYY-MM-DD HH:MM:SS UTC</literal></para>
+
+              <xi:include href="version-info.xml" xpointer="v248"/></listitem>
             </varlistentry>
           </variablelist>
 
@@ -2497,6 +2629,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
               <listitem><para><literal>Day YYYY-MM-DD HH:MM:SS.UUUUUU UTC</literal></para></listitem>
             </varlistentry>
           </variablelist>
+
+            <xi:include href="version-info.xml" xpointer="v247"/>
         </listitem>
       </varlistentry>
 
@@ -2506,7 +2640,9 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         <listitem><para>When used with <command>bind</command>, creates the destination file or directory before
         applying the bind mount. Note that even though the name of this option suggests that it is suitable only for
         directories, this option also creates the destination file node to mount over if the object to mount is not
-        a directory, but a regular file, device node, socket or FIFO.</para></listitem>
+        a directory, but a regular file, device node, socket or FIFO.</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -2518,13 +2654,17 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         will be queued. Those properties can be set using <command>set-property Markers=…</command>.</para>
 
         <para>Unless <option>--no-block</option> is used, <command>systemctl</command> will wait for the
-        queued jobs to finish.</para></listitem>
+        queued jobs to finish.</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>--read-only</option></term>
 
-        <listitem><para>When used with <command>bind</command>, creates a read-only bind mount.</para></listitem>
+        <listitem><para>When used with <command>bind</command>, creates a read-only bind mount.</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -2533,6 +2673,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         <listitem>
           <para>When used with <command>edit</command>, use the given drop-in file name instead of
           <filename>override.conf</filename>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v253"/>
         </listitem>
       </varlistentry>
 
@@ -2546,6 +2688,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           project='man-pages'><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>
           section "PARSING TIMESTAMPS". Specially, if <literal>show</literal> is given, the currently scheduled
           action will be shown, which can be canceled by passing an empty string or <literal>cancel</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/>
         </listitem>
       </varlistentry>
 
@@ -2631,7 +2775,9 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         <citerefentry project='die-net'><refentrytitle>nano</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
         <citerefentry project='die-net'><refentrytitle>vim</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
         <citerefentry project='die-net'><refentrytitle>vi</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v218"/></listitem>
       </varlistentry>
       <xi:include href="common-variables.xml" xpointer="log-level"/>
       <xi:include href="common-variables.xml" xpointer="log-color"/>

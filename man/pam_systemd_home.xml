@@ -3,7 +3,8 @@
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
-<refentry id="pam_systemd_home" conditional='ENABLE_PAM_HOME'>
+<refentry id="pam_systemd_home" conditional='ENABLE_PAM_HOME'
+          xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>pam_systemd_home</title>
@@ -82,14 +83,18 @@
         <para>This setting may also be controlled via the <varname>$SYSTEMD_HOME_SUSPEND</varname>
         environment variable (see below), which <command>pam_systemd_home</command> reads during initialization and sets
         for sessions. If both the environment variable is set and the module parameter specified the latter
-        takes precedence.</para></listitem>
+        takes precedence.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>debug</varname><optional>=</optional></term>
 
         <listitem><para>Takes an optional boolean argument. If yes or without the argument, the module will log
-        debugging information as it operates.</para></listitem>
+        debugging information as it operates.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
@@ -117,7 +122,9 @@
       <varlistentry>
         <term><varname>$SYSTEMD_HOME=1</varname></term>
 
-        <listitem><para>Indicates that the user's home directory is managed by <filename>systemd-homed.service</filename>.</para></listitem>
+        <listitem><para>Indicates that the user's home directory is managed by <filename>systemd-homed.service</filename>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -126,7 +133,9 @@
         <listitem><para>Indicates whether the session has been registered with the suspend mechanism enabled
         or disabled (see above). The variable's value is either <literal>0</literal> or
         <literal>1</literal>. Note that the module both reads the variable when initializing, and sets it for
-        sessions.</para></listitem>
+        sessions.</para>
+
+        <xi:include href="version-info.xml" xpointer="v246"/></listitem>
       </varlistentry>
 
     </variablelist>
