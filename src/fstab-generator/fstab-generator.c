@@ -1117,6 +1117,9 @@ static int add_sysroot_mount(void) {
 
                 fstype = "ddi";
                 default_rw = true;
+
+                // TODO: load image policy, and put it in here
+                // TODO: don't mount /usr from the DDI when usrhash= is specified
         } else {
 
                 what = fstab_node_to_udev_node(arg_root_what);

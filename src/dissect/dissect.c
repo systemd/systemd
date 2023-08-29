@@ -737,6 +737,8 @@ static int parse_argv_as_mount_helper(int argc, char *argv[]) {
                 else
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Unknown mount option '%s'.", word);
+
+                // TODO: Image policy
         }
 
         if (fake)
