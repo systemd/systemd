@@ -9,9 +9,18 @@ set -o pipefail
 systemd-id128 --help
 systemd-id128 help
 systemd-id128 show
-systemd-id128 show --pretty | tail -n10
+systemd-id128 show --pretty | tail
+systemd-id128 show --value | tail
 systemd-id128 show 4f68bce3e8cd4db196e7fbcaf984b709 # root-x86-64
 systemd-id128 show --pretty 4f68bce3e8cd4db196e7fbcaf984b709
+systemd-id128 show root-x86-64
+systemd-id128 show --pretty root-x86-64
+[[ "$(systemd-id128 show 4f68bce3e8cd4db196e7fbcaf984b709)" = "$(systemd-id128 show root-x86-64)" ]]
+[[ "$(systemd-id128 show 4f68bce3-e8cd-4db1-96e7-fbcaf984b709)" = "$(systemd-id128 show root-x86-64)" ]]
+
+systemd-id128 show root-x86-64 --app-specific=4f68bce3e8cd4db196e7fbcaf984b709
+systemd-id128 show --pretty root-x86-64 --app-specific=4f68bce3e8cd4db196e7fbcaf984b709
+[[ "$(systemd-id128 show root-x86-64 --app-specific=4f68bce3e8cd4db196e7fbcaf984b709 -P)" = "8ee5535e7cb14c249e1d28b8dfbb939c" ]]
 
 [[ "$(systemd-id128 new | wc -c)" -eq 33 ]]
 systemd-id128 new -p

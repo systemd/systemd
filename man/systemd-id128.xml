@@ -44,6 +44,13 @@
       <arg choice="opt" rep="repeat">OPTIONS</arg>
       <arg choice="plain">invocation-id</arg>
     </cmdsynopsis>
+
+    <cmdsynopsis>
+      <command>systemd-id128</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">show</arg>
+      <arg choice="opt" rep="repeat">NAME|UUID</arg>
+    </cmdsynopsis>
   </refsynopsisdiv>
 
   <refsect1>
@@ -63,12 +70,6 @@
     <para>With <command>boot-id</command>, the identifier of the current boot will be
     printed.</para>
 
-    <para>Both <command>machine-id</command> and <command>boot-id</command> may be combined
-    with the <option>--app-specific=<replaceable>app-id</replaceable></option> switch to
-    generate application-specific IDs. See
-    <citerefentry><refentrytitle>sd_id128_get_machine</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-    for the discussion when this is useful.</para>
-
     <para>With <command>invocation-id</command>, the identifier of the current service invocation
     will be printed. This is available in systemd services. See
     <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
@@ -76,9 +77,16 @@
 
     <para>With <command>show</command>, well-known IDs are printed (for now, only GPT partition type UUIDs),
     along with brief identifier strings. When no arguments are specified, all known IDs are shown. When
-    arguments are specified, they must be the identifiers or ID values of one or more known IDs, which are
-    then printed. Combine with <option>--uuid</option> to list the IDs in UUID style, i.e. the way GPT
-    partition type UUIDs are usually shown.</para>
+    arguments are specified, they may be the identifiers or ID values of one or more known IDs, which are
+    then printed with their name, or arbitrary IDs, which are then printed with a placeholder name. Combine
+    with <option>--uuid</option> to list the IDs in UUID style, i.e. the way GPT partition type UUIDs are
+    usually shown.</para>
+
+    <para><command>machine-id</command>, <command>boot-id</command>, and <command>show</command> may be
+    combined with the <option>--app-specific=<replaceable>app-id</replaceable></option> switch to generate
+    application-specific IDs. See
+    <citerefentry><refentrytitle>sd_id128_get_machine</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    for the discussion when this is useful.</para>
   </refsect1>
 
   <refsect1>
@@ -95,13 +103,25 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>-P</option></term>
+        <term><option>--value</option></term>
+
+        <listitem><para>Only print the value. May be combined with
+        <option>-u</option>/<option>--uuid</option>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>-a <replaceable>app-id</replaceable></option></term>
         <term><option>--app-specific=<replaceable>app-id</replaceable></option></term>
 
-        <listitem><para>With this option, an identifier that is the result of hashing the
-        application identifier <replaceable>app-id</replaceable> and the machine identifier will be
-        printed. The <replaceable>app-id</replaceable> argument must be a valid sd-id128 string
-        identifying the application.</para>
+        <listitem><para>With this option, identifiers will be printed that are the result of hashing the
+        application identifier <replaceable>app-id</replaceable> and another ID. The
+        <replaceable>app-id</replaceable> argument must be a valid sd-id128 string identifying the
+        application. When used with <command>machine-id</command>, the other ID will be the machine ID as
+        described in
+        <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>, when
+        used with <command>boot-id</command>, the other ID will be the boot ID, and when used with
+        <command>show</command>, the other ID or IDs should be specified via the positional arguments.</para>
         </listitem>
       </varlistentry>
 
@@ -123,7 +143,49 @@
   <refsect1>
     <title>Exit status</title>
 
-    <para>On success, 0 is returned, a non-zero failure code otherwise.</para>
+    <para>On success 0 is returned, and a non-zero failure code otherwise.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <example>
+      <title>Show a well-known UUID</title>
+      <programlisting>
+$ systemd-id128 show -P user-home
+773f91ef66d449b5bd83d683bf40ad16
+
+$ systemd-id128 show -Pu user-home
+773f91ef-66d4-49b5-bd83-d683bf40ad16
+
+$ systemd-id128 show 773f91ef-66d4-49b5-bd83-d683bf40ad16
+NAME      ID
+user-home 773f91ef66d449b5bd83d683bf40ad16
+      </programlisting>
+    </example>
+
+    <example>
+      <title>Generate an application-specific UUID</title>
+
+      <programlisting>
+$ systemd-id128 machine-id -u
+3a9d668b-4db7-4939-8a4a-5e78a03bffb7
+
+$ systemd-id128 new -u
+1fb8f24b-02df-458d-9659-cc8ace68e28a
+
+$ systemd-id128 --app=1fb8f24b-02df-458d-9659-cc8ace68e28a
+47b82cb1-5339-43da-b2a6-1c350aef1bd1
+
+$ systemd-id128 -Pu show 3a9d668b-4db7-4939-8a4a-5e78a03bffb7 --app=1fb8f24b-02df-458d-9659-cc8ace68e28a
+47b82cb1-5339-43da-b2a6-1c350aef1bd1
+      </programlisting>
+
+      <para>On a given machine with the ID 3a9d668b-4db7-4939-8a4a-5e78a03bffb7, for the application
+      1fb8f24b-02df-458d-9659-cc8ace68e28a, we generate an application-specific machine ID. If we want to
+      later recreate the same calculation on a different machine, we need to specify both IDs explicitly.
+      </para>
+    </example>
   </refsect1>
 
   <refsect1>
