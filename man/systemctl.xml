@@ -21,6 +21,7 @@
 
   <refnamediv>
     <refname>systemctl</refname>
+    <refname>userctl</refname>
     <refpurpose>Control the systemd system and service manager</refpurpose>
   </refnamediv>
 
@@ -42,6 +43,10 @@
     <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     for an introduction into the basic concepts and functionality this
     tool manages.</para>
+
+    <para><command>userctl</command> may be used to introspect and control the state of the user instance of
+    <literal>systemd</literal>. It is equivalent to <command>systemctl</command> <option>--user</option>.
+    </para>
   </refsect1>
 
   <refsect1>
