@@ -315,6 +315,8 @@ Features:
   aforementioned journald subscription varlink service, to enable
   activation-by-message id and similar.
 
+* .service with invalid Sockets= starts successfully.
+
 * landlock: lock down RuntimeDirectory= via landlock, so that services lose
   ability to write anywehere else below /run/. Similar for
   StateDirectory=. Benefit would be clear delegation via unit files: services
