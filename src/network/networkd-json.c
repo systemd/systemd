@@ -5,10 +5,12 @@
 #include "dhcp-server-internal.h"
 #include "dhcp6-lease-internal.h"
 #include "dns-domain.h"
+#include "hexdecoct.h"
 #include "ip-protocol-list.h"
 #include "netif-util.h"
 #include "networkd-address.h"
 #include "networkd-dhcp-common.h"
+#include "network-internal.h"
 #include "networkd-json.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
@@ -1014,6 +1016,39 @@ static int dhcp_server_append_json(Link *link, JsonVariant **v) {
         return json_append_one(v, "DHCPServer", w);
 }
 
+static int dhcp6_client_private_options_append_json(Link *link, JsonVariant **v) {
+        _cleanup_(json_variant_unrefp) JsonVariant *array = NULL;
+        _cleanup_free_ char *hex_buf = NULL;
+        int r;
+
+        assert(link);
+        assert(v);
+
+        if (!link->dhcp6_lease)
+                return 0;
+
+        LIST_FOREACH(options, option, link->dhcp6_lease->private_options) {
+                _cleanup_(json_variant_unrefp) JsonVariant *e = NULL;
+                char key[STRLEN("Option_000")+1];
+
+                xsprintf(key, "OPTION_%" PRIu8, option->tag);
+                hex_buf = hexmem(option->data, option->length);
+                if (!hex_buf)
+                        return -ENOMEM;
+
+                r = json_build(&e,
+                               JSON_BUILD_OBJECT(
+                                               JSON_BUILD_PAIR_STRING(key, hex_buf)));
+                if (r < 0)
+                        return 0;
+
+                r = json_variant_append_array(&array, e);
+                if (r < 0)
+                        return 0;
+        }
+        return json_append_one(v, "PrivateOptions", array);
+}
+
 static int dhcp6_client_lease_append_json(Link *link, JsonVariant **v) {
         _cleanup_(json_variant_unrefp) JsonVariant *w = NULL;
         int r;
@@ -1044,6 +1079,10 @@ static int dhcp6_client_append_json(Link *link, JsonVariant **v) {
                 return 0;
 
         r = dhcp6_client_lease_append_json(link, &w);
+        if (r < 0)
+                return r;
+
+        r = dhcp6_client_private_options_append_json(link, &w);
         if (r < 0)
                 return r;
 
