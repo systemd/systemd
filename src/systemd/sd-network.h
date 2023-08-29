@@ -182,6 +182,9 @@ int sd_network_link_get_route_domains(int ifindex, char ***ret);
 /* Get whether this link shall be used as 'default route' for DNS queries */
 int sd_network_link_get_dns_default_route(int ifindex);
 
+/* Get the PREF64 prefixes for a given link */
+int sd_network_link_get_pref64(int ifindex, char ***ret);
+
 /* Get the carrier interface indexes to which current link is bound to. */
 int sd_network_link_get_carrier_bound_to(int ifindex, int **ret);
 

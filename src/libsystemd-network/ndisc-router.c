@@ -18,6 +18,35 @@
 
 DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_ndisc_router, sd_ndisc_router, mfree);
 
+int pref64_plc_to_prefix_length(uint8_t plc, uint8_t *ret) {
+        int r = 0;
+
+        switch (plc) {
+        case NDISC_PREF64_PLC_32:
+                *ret = 32;
+                break;
+        case NDISC_PREF64_PLC_40:
+                *ret = 40;
+                break;
+        case NDISC_PREF64_PLC_48:
+                *ret = 48;
+                break;
+        case NDISC_PREF64_PLC_56:
+                *ret = 56;
+                break;
+        case NDISC_PREF64_PLC_64:
+                *ret = 64;
+                break;
+        case NDISC_PREF64_PLC_96:
+                *ret = 96;
+                break;
+        default:
+                r = -EINVAL;
+        }
+
+        return r;
+}
+
 sd_ndisc_router *ndisc_router_new(size_t raw_size) {
         sd_ndisc_router *rt;
 
@@ -205,6 +234,24 @@ int ndisc_router_parse(sd_ndisc *nd, sd_ndisc_router *rt) {
                                                        "DNSSL option has invalid size.");
 
                         break;
+                case SD_NDISC_OPTION_PREF64: {
+                        struct nd_opt_prefix64_info *pref64 = (struct nd_opt_prefix64_info *) p;
+                        uint8_t prefix_length_code, prefix_len;
+                        uint16_t lifetime_prefix_len;
+
+                        lifetime_prefix_len = be16toh(pref64->lifetime_and_plc);
+                        prefix_length_code = lifetime_prefix_len & NDISC_PREF64_PLC_MASK;
+
+                        if (pref64_plc_to_prefix_length(prefix_length_code, &prefix_len) < 0)
+                                log_ndisc_errno(nd, SYNTHETIC_ERRNO(EBADMSG),
+                                                "PREF64 prefix has invalid prefix length.");
+
+                        if ((lifetime_prefix_len & NDISC_PREF64_SCALED_LIFETIME_MASK) > NDISC_MAX_PREF64_LIFETIME)
+                                log_ndisc_errno(nd, SYNTHETIC_ERRNO(EBADMSG),
+                                                "PREF64 prefix has invalid lifetime.");
+                }
+                        break;
+
                 }
 
                 p += length, left -= length;
@@ -764,5 +811,102 @@ int sd_ndisc_router_captive_portal_get_uri(sd_ndisc_router *rt, const char **ret
         *ret_uri = nd_opt_captive_portal + 2;
         *ret_size = size;
 
+        return 0;
+}
+
+static int get_pref64_prefix_info(sd_ndisc_router *rt, struct nd_opt_prefix64_info **ret) {
+        uint8_t prefix_length_code, prefix_len;
+        uint16_t lifetime_prefix_len, lifetime;
+        struct nd_opt_prefix64_info *ri;
+        size_t length;
+        int r;
+
+        assert(rt);
+        assert(ret);
+
+        r = sd_ndisc_router_option_is_type(rt, SD_NDISC_OPTION_PREF64);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -EMEDIUMTYPE;
+
+        length = NDISC_ROUTER_OPTION_LENGTH(rt);
+        if (length != sizeof(struct nd_opt_prefix64_info))
+                return -EBADMSG;
+
+        ri = (struct nd_opt_prefix64_info*) ((uint8_t*) NDISC_ROUTER_RAW(rt) + rt->rindex);
+        lifetime_prefix_len = be16toh(ri->lifetime_and_plc);
+        prefix_length_code = lifetime_prefix_len & NDISC_PREF64_PLC_MASK;
+
+        if (pref64_plc_to_prefix_length(prefix_length_code, &prefix_len) < 0)
+                return -EBADMSG;
+
+        lifetime = lifetime_prefix_len & NDISC_PREF64_SCALED_LIFETIME_MASK;
+        if (lifetime > NDISC_MAX_PREF64_LIFETIME)
+                return -EBADMSG;
+
+        *ret = ri;
+        return 0;
+}
+
+int sd_ndisc_router_prefix64_get_prefix(sd_ndisc_router *rt, struct in6_addr *ret_addr) {
+        struct nd_opt_prefix64_info *pi;
+        int r;
+
+        assert_return(rt, -EINVAL);
+        assert_return(ret_addr, -EINVAL);
+
+        r = get_pref64_prefix_info(rt, &pi);
+        if (r < 0)
+                return r;
+
+        memset(ret_addr, 0, sizeof(struct in6_addr));
+        memcpy(ret_addr, pi->prefix, sizeof(pi->prefix));
+        return 0;
+}
+
+int sd_ndisc_router_prefix64_get_prefixlen(sd_ndisc_router *rt, unsigned *ret) {
+        uint8_t prefix_length_code, prefix_len;
+        struct nd_opt_prefix64_info *pi;
+        uint16_t lifetime_prefix_len;
+        int r;
+
+        assert_return(rt, -EINVAL);
+        assert_return(ret, -EINVAL);
+
+        r = get_pref64_prefix_info(rt, &pi);
+        if (r < 0)
+              return r;
+
+        lifetime_prefix_len = be16toh(pi->lifetime_and_plc);
+        prefix_length_code = lifetime_prefix_len & NDISC_PREF64_PLC_MASK;
+
+        if (pref64_plc_to_prefix_length(prefix_length_code, &prefix_len) < 0)
+                return -EBADMSG;
+
+        *ret = prefix_len;
+        return 0;
+}
+
+int sd_ndisc_router_prefix64_get_lifetime(sd_ndisc_router *rt, uint16_t *ret) {
+        uint8_t prefix_length_code, prefix_len;
+        struct nd_opt_prefix64_info *pi;
+        uint16_t lifetime_prefix_len;
+        int r;
+
+        assert_return(rt, -EINVAL);
+        assert_return(ret, -EINVAL);
+
+        r = get_pref64_prefix_info(rt, &pi);
+        if (r < 0)
+                return r;
+
+        lifetime_prefix_len = be16toh(pi->lifetime_and_plc);
+        prefix_length_code = lifetime_prefix_len & NDISC_PREF64_PLC_MASK;
+
+        if (pref64_plc_to_prefix_length(prefix_length_code, &prefix_len) < 0)
+                return -EBADMSG;
+
+        *ret = lifetime_prefix_len & NDISC_PREF64_SCALED_LIFETIME_MASK;
         return 0;
 }

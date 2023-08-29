@@ -47,3 +47,5 @@ static inline size_t NDISC_ROUTER_OPTION_LENGTH(const sd_ndisc_router *rt) {
 
 sd_ndisc_router *ndisc_router_new(size_t raw_size);
 int ndisc_router_parse(sd_ndisc *nd, sd_ndisc_router *rt);
+
+int pref64_plc_to_prefix_length(uint8_t plc, uint8_t *ret);

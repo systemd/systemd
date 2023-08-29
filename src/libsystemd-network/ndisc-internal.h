@@ -14,6 +14,24 @@
 #define NDISC_MAX_ROUTER_SOLICITATION_INTERVAL (3600U * USEC_PER_SEC)
 #define NDISC_MAX_ROUTER_SOLICITATIONS 3U
 
+/* RFC 8781: PREF64 (NAT64 prefix) */
+#define NDISC_PREF64_SCALED_LIFETIME_MASK      0xfff8
+#define NDISC_PREF64_PLC_MASK                  0x0007
+#define NDISC_MAX_PREF64_LIFETIME              65528
+#define NDISC_PREF64_PLC_32                    5
+#define NDISC_PREF64_PLC_40                    4
+#define NDISC_PREF64_PLC_48                    3
+#define NDISC_PREF64_PLC_56                    2
+#define NDISC_PREF64_PLC_64                    1
+#define NDISC_PREF64_PLC_96                    0
+
+struct nd_opt_prefix64_info {
+        uint8_t type;
+        uint8_t length;
+        uint16_t lifetime_and_plc;
+        uint8_t prefix[12];
+} __attribute__((__packed__));
+
 struct sd_ndisc {
         unsigned n_ref;
 
