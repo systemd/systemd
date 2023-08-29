@@ -86,7 +86,7 @@
     combined with the <option>--app-specific=<replaceable>app-id</replaceable></option> switch to generate
     application-specific IDs. See
     <citerefentry><refentrytitle>sd_id128_get_machine</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-    for the discussion when this is useful.</para>
+    for the discussion when this is useful. This functionality was added in version 255.</para>
   </refsect1>
 
   <refsect1>
@@ -110,6 +110,8 @@
 
         <listitem><para>Only print the value. May be combined with
         <option>-u</option>/<option>--uuid</option>.</para></listitem>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>
 
       <varlistentry>
