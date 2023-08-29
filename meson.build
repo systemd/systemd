@@ -2417,9 +2417,13 @@ ukify = custom_target(
         command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
         install : want_ukify,
         install_mode : 'rwxr-xr-x',
-        install_dir : libexecdir)
+        install_dir : bindir)
 if want_ukify
         public_programs += ukify
+
+        meson.add_install_script(sh, '-c',
+                                 ln_s.format(bindir / 'ukify',
+                                             libexecdir / 'ukify'))
 endif
 
 ############################################################
