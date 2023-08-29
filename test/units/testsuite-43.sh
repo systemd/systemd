@@ -11,7 +11,7 @@ systemd-analyze log-level debug
 runas testuser systemd-run --wait --user --unit=test-private-users \
     -p PrivateUsers=yes -P echo hello
 
-runas testuser systemctl --user log-level debug
+runas testuser userctl log-level debug
 
 runas testuser systemd-run --wait --user --unit=test-private-tmp-innerfile \
     -p PrivateTmp=yes \
