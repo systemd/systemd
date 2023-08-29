@@ -473,6 +473,38 @@ int sd_dhcp6_lease_get_captive_portal(sd_dhcp6_lease *lease, const char **ret) {
         return 0;
 }
 
+int dhcp6_lease_insert_private_option(sd_dhcp6_lease *lease, uint8_t tag, const void *data, uint8_t len) {
+        struct sd_dhcp6_raw_option *option, *before = NULL;
+
+        assert(lease);
+
+        LIST_FOREACH(options, cur, lease->private_options) {
+                if (tag < cur->tag) {
+                        before = cur;
+                        break;
+                }
+                if (tag == cur->tag) {
+                        log_debug("Ignoring duplicate option, tagged %i.", tag);
+                        return 0;
+                }
+        }
+
+        option = new(struct sd_dhcp6_raw_option, 1);
+        if (!option)
+                return -ENOMEM;
+
+        option->tag = tag;
+        option->length = len;
+        option->data = memdup(data, len);
+        if (!option->data) {
+                free(option);
+                return -ENOMEM;
+        }
+
+        LIST_INSERT_BEFORE(options, lease->private_options, before, option);
+        return 0;
+}
+
 static int dhcp6_lease_parse_message(
                 sd_dhcp6_client *client,
                 sd_dhcp6_lease *lease,
@@ -657,6 +689,13 @@ static int dhcp6_lease_parse_message(
                                                               "Received information refresh time option with an invalid length (%zu).", optlen);
 
                         irt = unaligned_read_be32(optval) * USEC_PER_SEC;
+                        break;
+
+                case SD_DHCP6_OPTION_PRIVATE_BASE ... SD_DHCP6_OPTION_PRIVATE_LAST:
+                        r = dhcp6_lease_insert_private_option(lease, optcode, optval, optlen);
+                        if (r < 0)
+                                log_dhcp6_client_errno(client, r, "Failed to parse private option, ignoring: %m");
+
                         break;
                 }
         }
