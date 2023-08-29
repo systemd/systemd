@@ -3,6 +3,7 @@
 systemd_coredump_sources = files(
         'coredump.c',
         'coredump-vacuum.c',
+        'coredump-ratelimit.c',
 )
 
 common_link_with = [

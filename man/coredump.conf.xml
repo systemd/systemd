@@ -130,6 +130,26 @@
         <citerefentry><refentrytitle>systemd-tmpfiles</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
         Set either value to 0 to turn off size-based cleanup.</para></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>RateLimitIntervalSec=</varname></term>
+        <term><varname>RateLimitBurst=</varname></term>
+        <term><varname>MaxCoredumpsPerBoot=</varname></term>
+        <listitem><para>Configures the rate limiting that is applied to
+        core dumps generated per service. Whenever a service crashes, the number of
+        core dump files present in the core dump path belonging to that service which
+        are generated within the interval time would be compared against the burst
+        value and per boot. If the burst value is reached, the core dump will not
+        be processed further for generation. Additionally, if the maximum number of
+        core dumps generated per service per boot is reached, the core dump will not
+        be processed further for generation. This rate limiting is applied per
+        service so that multiple services crashing together would not interfere with each
+        other's rate limits. Core dump generation rate limit is disabled by default.
+        <option>RateLimitIntervalSec=</option> may be specified in the following units:
+        <literal>s</literal>, <literal>min</literal>, <literal>h</literal>,
+        <literal>ms</literal>, <literal>us</literal>.</para>
+        </listitem>
+      </varlistentry>
     </variablelist>
 
     <para>The defaults for all values are listed as comments in the
