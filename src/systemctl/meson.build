@@ -73,6 +73,8 @@ executables += [
         },
 ]
 
+meson.add_install_script(sh, '-c', ln_s.format(bindir / 'systemctl', bindir / 'userctl'))
+
 foreach alias : (['halt', 'poweroff', 'reboot', 'shutdown'] +
                  (conf.get('HAVE_SYSV_COMPAT') == 1 ? ['runlevel', 'telinit'] : []))
         install_emptydir(sbindir)

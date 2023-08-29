@@ -534,6 +534,9 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
+        if (invoked_as(argv, "userctl"))
+                arg_runtime_scope = RUNTIME_SCOPE_USER;
+
         /* We default to allowing interactive authorization only in systemctl (not in the legacy commands) */
         arg_ask_password = true;
 
