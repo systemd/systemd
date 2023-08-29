@@ -1138,6 +1138,8 @@ static int parse_argv(int argc, char *argv[]) {
                         r = parse_path_argument(optarg, false, &arg_root);
                         if (r < 0)
                                 return r;
+                        /* If --root= is provided, do not reload the service manager */
+                        arg_no_reload = true;
                         break;
 
                 case ARG_JSON:
