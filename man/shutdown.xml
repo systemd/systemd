@@ -122,7 +122,9 @@
         <term><option>--show</option></term>
 
         <listitem><para>Show a pending shutdown action and time if
-        there is any.</para></listitem>
+        there is any.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
 
     </variablelist>

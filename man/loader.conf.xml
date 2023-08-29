@@ -117,7 +117,9 @@
         <citerefentry project='man-pages'><refentrytitle>glob</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
         but do not support all features. In particular, set negation and named character classes are not
         supported. The matching is done case-insensitively on the entry ID (as shown by <command>bootctl
-        list</command>).</para></listitem>
+        list</command>).</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -132,6 +134,8 @@
         is shown and the default entry will be booted immediately. The menu can be shown
         by pressing and holding a key before systemd-boot is launched. Setting this to
         <literal>menu-force</literal> disables the timeout while always showing the menu.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/>
         </listitem>
       </varlistentry>
 
@@ -147,6 +151,8 @@
             <term>0</term>
             <listitem>
               <para>Standard UEFI 80x25 mode</para>
+
+            <xi:include href="version-info.xml" xpointer="v239"/>
             </listitem>
           </varlistentry>
 
@@ -154,6 +160,8 @@
             <term>1</term>
             <listitem>
               <para>80x50 mode, not supported by all devices</para>
+
+            <xi:include href="version-info.xml" xpointer="v239"/>
             </listitem>
           </varlistentry>
 
@@ -162,6 +170,8 @@
             <listitem>
               <para>the first non-standard mode provided by the device
               firmware, if any</para>
+
+              <xi:include href="version-info.xml" xpointer="v239"/>
             </listitem>
           </varlistentry>
 
@@ -169,6 +179,8 @@
             <term>auto</term>
             <listitem>
               <para>Pick a suitable mode automatically using heuristics</para>
+
+            <xi:include href="version-info.xml" xpointer="v239"/>
             </listitem>
           </varlistentry>
 
@@ -176,6 +188,8 @@
             <term>max</term>
             <listitem>
               <para>Pick the highest-numbered available mode</para>
+
+            <xi:include href="version-info.xml" xpointer="v239"/>
             </listitem>
           </varlistentry>
 
@@ -183,9 +197,13 @@
             <term>keep</term>
             <listitem>
               <para>Keep the mode selected by firmware (the default)</para>
+
+            <xi:include href="version-info.xml" xpointer="v239"/>
             </listitem>
           </varlistentry>
         </variablelist>
+
+          <xi:include href="version-info.xml" xpointer="v239"/>
 
         </listitem>
       </varlistentry>
@@ -195,7 +213,9 @@
 
         <listitem><para>Takes a boolean argument. Enable (the default) or disable the
         editor. The editor should be disabled if the machine can be accessed by
-        unauthorized persons.</para></listitem>
+        unauthorized persons.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -204,7 +224,9 @@
         <listitem><para>Takes a boolean argument. Enable (the default) or disable
         entries for other boot entries found on the boot partition. In particular,
         this may be useful when loader entries are created to show replacement
-        descriptions for those entries.</para></listitem>
+        descriptions for those entries.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -212,14 +234,18 @@
 
         <listitem><para>A boolean controlling the presence of the "Reboot into firmware" entry
         (enabled by default). If this is disabled, the firmware interface may still be reached
-        by using the <keycap>f</keycap> key.</para></listitem>
+        by using the <keycap>f</keycap> key.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term>beep</term>
 
         <listitem><para>Takes a boolean argument. If timeout enabled beep every second, otherwise beep n times when n-th entry in boot menu is selected (default disabled).
-        Currently, only x86 is supported, where it uses the PC speaker.</para></listitem>
+        Currently, only x86 is supported, where it uses the PC speaker.</para>
+
+        <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -231,26 +257,34 @@
         <variablelist>
           <varlistentry>
             <term><option>off</option></term>
-            <listitem><para>No action is taken.</para></listitem>
+            <listitem><para>No action is taken.</para>
+
+            <xi:include href="version-info.xml" xpointer="v253"/></listitem>
           </varlistentry>
 
           <varlistentry>
             <term><option>manual</option></term>
             <listitem><para>Boot entries for found secure boot keys are created that allow manual
-            enrollment.</para></listitem>
+            enrollment.</para>
+
+            <xi:include href="version-info.xml" xpointer="v253"/></listitem>
           </varlistentry>
 
           <varlistentry>
             <term><option>if-safe</option></term>
             <listitem><para>Same behavior as <option>manual</option>, but will try to automatically
             enroll the key <literal>auto</literal> if it is considered to be safe. Currently, this is only
-            the case if the system is running inside a virtual machine.</para></listitem>
+            the case if the system is running inside a virtual machine.</para>
+
+            <xi:include href="version-info.xml" xpointer="v253"/></listitem>
           </varlistentry>
 
           <varlistentry>
             <term><option>force</option></term>
             <listitem><para>Always enroll the <literal>auto</literal> key if found. Note that a warning
-            message with a timeout will still be shown if this operation is unknown to be safe.</para></listitem>
+            message with a timeout will still be shown if this operation is unknown to be safe.</para>
+
+            <xi:include href="version-info.xml" xpointer="v253"/></listitem>
           </varlistentry>
         </variablelist>
         </para>
@@ -307,7 +341,9 @@ sbvarsign --attr ${attr} --key KEK.key --cert KEK.crt --output db.auth db db.esl
         keys being loaded, some files necessary for the system to function properly still won't be. This
         is especially the case with Option ROMs (e.g. for storage controllers or graphics cards). See
         <ulink url="https://github.com/Foxboron/sbctl/wiki/FAQ#option-rom">Secure Boot and Option ROMs</ulink>
-        for more details.</para></listitem>
+        for more details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v252"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -332,7 +368,9 @@ sbvarsign --attr ${attr} --key KEK.key --cert KEK.crt --output db.auth db db.esl
         When Secure Boot is enabled, changing this to PCRs <literal>0,2,7,11</literal> should be safe.
         The TPM key protector needs to be removed and then added back for the PCRs on an already
         encrypted drive to change. If PCR 4 is not measured, this setting can be disabled to speed
-        up booting into Windows.</para></listitem>
+        up booting into Windows.</para>
+
+        <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>

@@ -67,7 +67,9 @@
         <para>If an international domain name is specified, it is automatically translated according to IDNA
         rules when resolved via classic DNS — but not for look-ups via MulticastDNS or LLMNR. If
         <option>--type=</option>/<option>--class=</option> is used IDNA translation is turned off and domain
-        names are processed as specified.</para></listitem>
+        names are processed as specified.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -85,7 +87,9 @@
         in. In this case no <constant class='dns'>TXT</constant> resource record is requested. Finally, if
         only one parameter is specified, it is assumed to be a domain name, that is already prefixed with an
         <constant class='dns'>SRV</constant> type, and an <constant class='dns'>SRV</constant> lookup is done
-        (no <constant class='dns'>TXT</constant>).</para></listitem>
+        (no <constant class='dns'>TXT</constant>).</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -94,7 +98,9 @@
         <listitem><para>Query PGP keys stored as <constant class='dns'>OPENPGPKEY</constant> resource records,
         see <ulink url="https://tools.ietf.org/html/rfc7929">RFC 7929</ulink>. Specified e-mail addresses
         are converted to the corresponding DNS domain name, and any <constant class='dns'>OPENPGPKEY</constant>
-        keys are printed.</para></listitem>
+        keys are printed.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -108,28 +114,36 @@
         (<literal>_<replaceable>port</replaceable>._<replaceable>family</replaceable>.<replaceable>domain</replaceable></literal>).
         The port number may be specified after a colon (<literal>:</literal>), otherwise
         <constant>443</constant> will be used by default. The family may be specified as the first argument,
-        otherwise <constant>tcp</constant> will be used.</para></listitem>
+        otherwise <constant>tcp</constant> will be used.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><command>status</command> [<replaceable>LINK</replaceable>…]</term>
 
         <listitem><para>Shows the global and per-link DNS settings currently in effect. If no command is specified,
-        this is the implied default.</para></listitem>
+        this is the implied default.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><command>statistics</command></term>
 
         <listitem><para>Shows general resolver statistics, including information whether DNSSEC is
-        enabled and available, as well as resolution and validation statistics.</para></listitem>
+        enabled and available, as well as resolution and validation statistics.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><command>reset-statistics</command></term>
 
         <listitem><para>Resets the statistics counters shown in <command>statistics</command> to zero.
-        This operation requires root privileges.</para></listitem>
+        This operation requires root privileges.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -137,7 +151,9 @@
 
         <listitem><para>Flushes all DNS resource record caches the service maintains locally. This is mostly
         equivalent to sending the <constant>SIGUSR2</constant> to the <command>systemd-resolved</command>
-        service.</para></listitem>
+        service.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -146,7 +162,9 @@
         <listitem><para>Flushes all feature level information the resolver learnt about specific servers, and ensures
         that the server feature probing logic is started from the beginning with the next look-up request. This is
         mostly equivalent to sending the <constant>SIGRTMIN+1</constant> to the <command>systemd-resolved</command>
-        service.</para></listitem>
+        service.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -196,7 +214,9 @@
         <command>domain</command>, <command>default-route</command>, <command>llmnr</command>,
         <command>mdns</command>, <command>dnssec</command>, <command>dnsovertls</command>,
         <command>nta</command>. Note that when a network interface disappears all configuration is lost
-        automatically, an explicit reverting is not necessary in that case.</para></listitem>
+        automatically, an explicit reverting is not necessary in that case.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -209,21 +229,27 @@
         lookups may be answered from the local cache, or might result in multiple DNS transactions (for
         example to validate DNSSEC information). If CNAME/CNAME redirection chains are followed, a separate
         query will be displayed for each element of the chain. Use <option>--json=</option> to enable JSON
-        output.</para></listitem>
+        output.</para>
+
+        <xi:include href="version-info.xml" xpointer="v252"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><command>show-cache</command></term>
 
         <listitem><para>Show current cache content, per scope. Use <option>--json=</option> to enable JSON
-        output.</para></listitem>
+        output.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><command>show-server-state</command></term>
 
         <listitem><para>Show detailed server state information, per DNS Server. Use <option>--json=</option>
-        to enable JSON output.</para></listitem>
+        to enable JSON output.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
       </varlistentry>
 
       <xi:include href="systemctl.xml" xpointer="log-level" />
@@ -240,6 +266,8 @@
         <listitem><para>By default, when resolving a hostname, both IPv4 and IPv6
         addresses are acquired. By specifying <option>-4</option> only IPv4 addresses are requested, by specifying
         <option>-6</option> only IPv6 addresses are requested.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/>
         </listitem>
       </varlistentry>
 
@@ -250,7 +278,9 @@
         <listitem><para>Specifies the network interface to execute the query on. This may either be specified as numeric
         interface index or as network interface string (e.g. <literal>en0</literal>). Note that this option has no
         effect if system-wide DNS configuration (as configured in <filename>/etc/resolv.conf</filename> or
-        <filename>/etc/systemd/resolved.conf</filename>) in place of per-link configuration is used.</para></listitem>
+        <filename>/etc/systemd/resolved.conf</filename>) in place of per-link configuration is used.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -270,7 +300,9 @@
         the service to resolve the operation with the specified protocol, as that might require a suitable network
         interface and configuration.
         The special value <literal>help</literal> may be used to list known values.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -292,7 +324,9 @@
         i.e. specified domain names need to be fully qualified domain names. Moreover, IDNA internal domain
         name translation is turned off as well, i.e. international domain names should be specified in
         <literal>xn--…</literal> notation, unless look-up in MulticastDNS/LLMNR is desired, in which case
-        UTF-8 characters should be used.</para></listitem>
+        UTF-8 characters should be used.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -300,7 +334,9 @@
 
         <listitem><para>Takes a boolean parameter. If true (the default), when doing a service lookup with
         <option>--service</option> the hostnames contained in the <constant class='dns'>SRV</constant>
-        resource records are resolved as well.</para></listitem>
+        resource records are resolved as well.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -308,7 +344,9 @@
 
         <listitem><para>Takes a boolean parameter. If true (the default), when doing a DNS-SD service lookup
         with <option>--service</option> the <constant class='dns'>TXT</constant> service metadata record is
-        resolved as well.</para></listitem>
+        resolved as well.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -317,7 +355,9 @@
         <listitem><para>Takes a boolean parameter. If true (the default), DNS <constant
         class='dns'>CNAME</constant> or <constant class='dns'>DNAME</constant> redirections are
         followed. Otherwise, if a CNAME or DNAME record is encountered while resolving, an error is
-        returned.</para></listitem>
+        returned.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -329,7 +369,9 @@
         is disabled for the specific query, regardless of whether it is enabled for the network or in the
         service. Note that setting this option to true does not force DNSSEC validation on systems/networks
         where DNSSEC is turned off. This option is only suitable to turn off such validation where otherwise
-        enabled, not enable validation where otherwise disabled.</para></listitem>
+        enabled, not enable validation where otherwise disabled.</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -342,7 +384,9 @@
         <filename>/etc/hosts</filename>. If false these domains are not resolved locally, and either fail (in
         case of <literal>localhost</literal>, <literal>_gateway</literal> or <literal>_outbound</literal> and
         suchlike) or go to the network via regular DNS/mDNS/LLMNR lookups (in case of
-        <filename>/etc/hosts</filename> entries).</para></listitem>
+        <filename>/etc/hosts</filename> entries).</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -350,7 +394,9 @@
 
         <listitem><para>Takes a boolean parameter; used in conjunction with <command>query</command>. If true
         (the default), lookups use the local DNS resource record cache. If false, lookups are routed to the
-        network instead, regardless if already available in the local cache.</para></listitem>
+        network instead, regardless if already available in the local cache.</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -359,7 +405,9 @@
         <listitem><para>Takes a boolean parameter; used in conjunction with <command>query</command>. If true
         (the default), lookups are answered from locally registered LLMNR or mDNS resource records, if
         defined. If false, locally registered LLMNR/mDNS records are not considered for the lookup
-        request.</para></listitem>
+        request.</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -367,7 +415,9 @@
 
         <listitem><para>Takes a boolean parameter; used in conjunction with <command>query</command>. If true
         (the default), lookups for DS and DNSKEY are answered from the local DNSSEC trust anchors if
-        possible. If false, the local trust store is not considered for the lookup request.</para></listitem>
+        possible. If false, the local trust store is not considered for the lookup request.</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -377,7 +427,9 @@
         (the default), lookups are answered via DNS, LLMNR or mDNS network requests if they cannot be
         synthesized locally, or be answered from the local cache, zone or trust anchors (see above). If false,
         the request is not answered from the network and will thus fail if none of the indicated sources can
-        answer them.</para></listitem>
+        answer them.</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -387,7 +439,9 @@
         hostnames will be searched in the domains configured in the search domain list, if it is
         non-empty. Otherwise, the search domain logic is disabled. Note that this option has no effect if
         <option>--type=</option> is used (see above), in which case the search domain logic is
-        unconditionally turned off.</para></listitem>
+        unconditionally turned off.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -397,14 +451,18 @@
         <literal>payload</literal>, the payload of the packet is exported. If the argument is
         <literal>packet</literal>, the whole packet is dumped in wire format, prefixed by
         length specified as a little-endian 64-bit number. This format allows multiple packets
-        to be dumped and unambiguously parsed.</para></listitem>
+        to be dumped and unambiguously parsed.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>--legend=</option><replaceable>BOOL</replaceable></term>
 
         <listitem><para>Takes a boolean parameter. If true (the default), column headers and meta information about the
-        query response are shown. Otherwise, this output is suppressed.</para></listitem>
+        query response are shown. Otherwise, this output is suppressed.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -412,7 +470,9 @@
 
         <listitem><para>Takes a boolean parameter; used in conjunction with <command>query</command>. If true
         (the default), lookups are answered with stale data (expired resource records) if
-        possible. If false, the stale data is not considered for the lookup request.</para></listitem>
+        possible. If false, the stale data is not considered for the lookup request.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="json" />
@@ -420,7 +480,9 @@
       <varlistentry>
         <term><option>-j</option></term>
 
-        <listitem><para>Short for <option>--json=auto</option></para></listitem>
+        <listitem><para>Short for <option>--json=auto</option></para>
+
+        <xi:include href="version-info.xml" xpointer="v252"/></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="no-pager" />
@@ -461,20 +523,26 @@
         DNS configuration data from its standard input. Relevant fields are <literal>nameserver</literal> and
         <literal>domain</literal>/<literal>search</literal>. This command is mostly identical to invoking
         <command>resolvectl</command> with a combination of <option>dns</option> and <option>domain</option>
-        commands.</para></listitem>
+        commands.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>-d</option></term>
         <listitem><para>Unregisters per-interface DNS configuration data with <command>systemd-resolved</command>. This
-        command is mostly identical to invoking <command>resolvectl revert</command>.</para></listitem>
+        command is mostly identical to invoking <command>resolvectl revert</command>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>-f</option></term>
 
         <listitem><para>When specified <option>-a</option> and <option>-d</option> will not complain about missing
-        network interfaces and will silently execute no operation in that case.</para></listitem>
+        network interfaces and will silently execute no operation in that case.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -483,14 +551,18 @@
         <listitem><para>This switch for "exclusive" operation is supported only partially. It is mapped to an
         additional configured search domain of <literal>~.</literal> — i.e. ensures that DNS traffic is preferably
         routed to the DNS servers on this interface, unless there are other, more specific domains configured on other
-        interfaces.</para></listitem>
+        interfaces.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>-m</option></term>
         <term><option>-p</option></term>
 
-        <listitem><para>These switches are not supported and are silently ignored.</para></listitem>
+        <listitem><para>These switches are not supported and are silently ignored.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -506,7 +578,9 @@
         <term><option>--disable-updates</option></term>
         <term><option>--are-updates-enabled</option></term>
 
-        <listitem><para>These switches are not supported and the command will fail if used.</para></listitem>
+        <listitem><para>These switches are not supported and the command will fail if used.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
     </variablelist>

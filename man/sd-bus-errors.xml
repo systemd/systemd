@@ -123,135 +123,193 @@
          <listitem><para>A generic error indication. See the error
          message for further details. This error name should be
          avoided, in favor of a more expressive error
-         name.</para></listitem>
+         name.</para>
+
+         <xi:include href="version-info.xml" xpointer="v223"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><constant>SD_BUS_ERROR_NO_MEMORY</constant></term>
         <listitem><para>A memory allocation failed, and the requested
-        operation could not be completed.</para></listitem>
+        operation could not be completed.</para>
+
+        <xi:include href="version-info.xml" xpointer="v223"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><constant>SD_BUS_ERROR_SERVICE_UNKNOWN</constant></term>
         <listitem><para>The contacted bus service is unknown and
-        cannot be activated.</para></listitem>
+        cannot be activated.</para>
+
+        <xi:include href="version-info.xml" xpointer="v223"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><constant>SD_BUS_ERROR_NAME_HAS_NO_OWNER</constant></term>
         <listitem><para>The specified bus service name currently has
-        no owner.</para></listitem>
+        no owner.</para>
+
+        <xi:include href="version-info.xml" xpointer="v223"/></listitem>
       </varlistentry>
       <varlistentry>
         <term><constant>SD_BUS_ERROR_NO_REPLY</constant></term>
         <listitem><para>A message did not receive a reply. This error
-        is usually generated after a timeout.</para></listitem>
+        is usually generated after a timeout.</para>
+
+        <xi:include href="version-info.xml" xpointer="v223"/></listitem>
       </varlistentry>
       <varlistentry>
         <term><constant>SD_BUS_ERROR_IO_ERROR</constant></term>
         <listitem><para>Generic input/output error, for example when
-        accessing a socket or other I/O context.</para></listitem>
+        accessing a socket or other I/O context.</para>
+
+        <xi:include href="version-info.xml" xpointer="v223"/></listitem>
       </varlistentry>
       <varlistentry>
         <term><constant>SD_BUS_ERROR_BAD_ADDRESS</constant></term>
         <listitem><para>The specified D-Bus bus address string is
-        malformed.</para></listitem>
+        malformed.</para>
+
+        <xi:include href="version-info.xml" xpointer="v223"/></listitem>
       </varlistentry>
       <varlistentry>
         <term><constant>SD_BUS_ERROR_NOT_SUPPORTED</constant></term>
         <listitem><para>The requested operation is not supported on
-        the local system.</para></listitem>
+        the local system.</para>
+
+        <xi:include href="version-info.xml" xpointer="v223"/></listitem>
       </varlistentry>
       <varlistentry>
         <term><constant>SD_BUS_ERROR_LIMITS_EXCEEDED</constant></term>
         <listitem><para>Some limited resource has been
-        exhausted.</para></listitem>
+        exhausted.</para>
+
+        <xi:include href="version-info.xml" xpointer="v223"/></listitem>
       </varlistentry>
       <varlistentry>
         <term><constant>SD_BUS_ERROR_ACCESS_DENIED</constant></term>
-        <listitem><para>Access to a resource has been denied due to security restrictions.</para></listitem>
+        <listitem><para>Access to a resource has been denied due to security restrictions.</para>
+
+        <xi:include href="version-info.xml" xpointer="v223"/></listitem>
       </varlistentry>
       <varlistentry>
         <term><constant>SD_BUS_ERROR_AUTH_FAILED</constant></term>
-        <listitem><para>Authentication did not complete successfully.</para></listitem>
+        <listitem><para>Authentication did not complete successfully.</para>
+
+        <xi:include href="version-info.xml" xpointer="v223"/></listitem>
       </varlistentry>
       <varlistentry>
         <term><constant>SD_BUS_ERROR_NO_SERVER</constant></term>
-        <listitem><para>Unable to connect to the specified server.</para></listitem>
+        <listitem><para>Unable to connect to the specified server.</para>
+
+        <xi:include href="version-info.xml" xpointer="v223"/></listitem>
       </varlistentry>
       <varlistentry>
         <term><constant>SD_BUS_ERROR_TIMEOUT</constant></term>
         <listitem><para>An operation timed out. Note that method calls
         which timeout generate a
-        <constant>SD_BUS_ERROR_NO_REPLY</constant>.</para></listitem>
+        <constant>SD_BUS_ERROR_NO_REPLY</constant>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v223"/></listitem>
       </varlistentry>
       <varlistentry>
         <term><constant>SD_BUS_ERROR_NO_NETWORK</constant></term>
-        <listitem><para>No network available to execute requested network operation on.</para></listitem>
+        <listitem><para>No network available to execute requested network operation on.</para>
+
+        <xi:include href="version-info.xml" xpointer="v223"/></listitem>
       </varlistentry>
       <varlistentry>
         <term><constant>SD_BUS_ERROR_ADDRESS_IN_USE</constant></term>
-        <listitem><para>The specified network address is already being listened on.</para></listitem>
+        <listitem><para>The specified network address is already being listened on.</para>
+
+        <xi:include href="version-info.xml" xpointer="v223"/></listitem>
       </varlistentry>
       <varlistentry>
         <term><constant>SD_BUS_ERROR_DISCONNECTED</constant></term>
-        <listitem><para>The connection has been terminated.</para></listitem>
+        <listitem><para>The connection has been terminated.</para>
+
+        <xi:include href="version-info.xml" xpointer="v223"/></listitem>
       </varlistentry>
       <varlistentry>
         <term><constant>SD_BUS_ERROR_INVALID_ARGS</constant></term>
-        <listitem><para>One or more invalid arguments have been passed.</para></listitem>
+        <listitem><para>One or more invalid arguments have been passed.</para>
+
+        <xi:include href="version-info.xml" xpointer="v223"/></listitem>
       </varlistentry>
       <varlistentry>
         <term><constant>SD_BUS_ERROR_FILE_NOT_FOUND</constant></term>
-        <listitem><para>The requested file could not be found.</para></listitem>
+        <listitem><para>The requested file could not be found.</para>
+
+        <xi:include href="version-info.xml" xpointer="v223"/></listitem>
       </varlistentry>
       <varlistentry>
         <term><constant>SD_BUS_ERROR_FILE_EXISTS</constant></term>
-        <listitem><para>The requested file already exists.</para></listitem>
+        <listitem><para>The requested file already exists.</para>
+
+        <xi:include href="version-info.xml" xpointer="v223"/></listitem>
       </varlistentry>
       <varlistentry>
         <term><constant>SD_BUS_ERROR_UNKNOWN_METHOD</constant></term>
-        <listitem><para>The requested method does not exist in the selected interface.</para></listitem>
+        <listitem><para>The requested method does not exist in the selected interface.</para>
+
+        <xi:include href="version-info.xml" xpointer="v223"/></listitem>
       </varlistentry>
       <varlistentry>
         <term><constant>SD_BUS_ERROR_UNKNOWN_OBJECT</constant></term>
-        <listitem><para>The requested object does not exist in the selected service.</para></listitem>
+        <listitem><para>The requested object does not exist in the selected service.</para>
+
+        <xi:include href="version-info.xml" xpointer="v223"/></listitem>
       </varlistentry>
       <varlistentry>
         <term><constant>SD_BUS_ERROR_UNKNOWN_INTERFACE</constant></term>
-        <listitem><para>The requested interface does not exist on the selected object.</para></listitem>
+        <listitem><para>The requested interface does not exist on the selected object.</para>
+
+        <xi:include href="version-info.xml" xpointer="v223"/></listitem>
       </varlistentry>
       <varlistentry>
         <term><constant>SD_BUS_ERROR_UNKNOWN_PROPERTY</constant></term>
-        <listitem><para>The requested property does not exist in the selected interface.</para></listitem>
+        <listitem><para>The requested property does not exist in the selected interface.</para>
+
+        <xi:include href="version-info.xml" xpointer="v223"/></listitem>
       </varlistentry>
       <varlistentry>
         <term><constant>SD_BUS_ERROR_PROPERTY_READ_ONLY</constant></term>
-        <listitem><para>A write operation was requested on a read-only property.</para></listitem>
+        <listitem><para>A write operation was requested on a read-only property.</para>
+
+        <xi:include href="version-info.xml" xpointer="v223"/></listitem>
       </varlistentry>
       <varlistentry>
         <term><constant>SD_BUS_ERROR_UNIX_PROCESS_ID_UNKNOWN</constant></term>
-        <listitem><para>The requested PID is not known.</para></listitem>
+        <listitem><para>The requested PID is not known.</para>
+
+        <xi:include href="version-info.xml" xpointer="v223"/></listitem>
       </varlistentry>
       <varlistentry>
         <term><constant>SD_BUS_ERROR_INVALID_SIGNATURE</constant></term>
         <listitem><para>The specified message signature is not
         valid.</para>
+
+        <xi:include href="version-info.xml" xpointer="v223"/>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><constant>SD_BUS_ERROR_INCONSISTENT_MESSAGE</constant></term>
         <listitem><para>The passed message does not validate
-        correctly.</para></listitem>
+        correctly.</para>
+
+        <xi:include href="version-info.xml" xpointer="v223"/></listitem>
       </varlistentry>
       <varlistentry>
         <term><constant>SD_BUS_ERROR_MATCH_RULE_NOT_FOUND</constant></term>
-        <listitem><para>The specified match rule does not exist.</para></listitem>
+        <listitem><para>The specified match rule does not exist.</para>
+
+        <xi:include href="version-info.xml" xpointer="v223"/></listitem>
       </varlistentry>
       <varlistentry>
         <term><constant>SD_BUS_ERROR_MATCH_RULE_INVALID</constant></term>
-        <listitem><para>The specified match rule is invalid.</para></listitem>
+        <listitem><para>The specified match rule is invalid.</para>
+
+        <xi:include href="version-info.xml" xpointer="v223"/></listitem>
       </varlistentry>
       <varlistentry>
         <term><constant>SD_BUS_ERROR_INTERACTIVE_AUTHORIZATION_REQUIRED</constant></term>
@@ -262,7 +320,9 @@
         authorization, when interactive authorization was not enabled
         with the
         <citerefentry><refentrytitle>sd_bus_message_set_allow_interactive_authorization</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-        for the method call message.</para></listitem>
+        for the method call message.</para>
+
+        <xi:include href="version-info.xml" xpointer="v223"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>

@@ -68,7 +68,9 @@
         This command is intended to be used whenever computer-parsable output is required.
         Use <option>status</option> if you are looking for formatted human-readable output.</para>
         <para>By default, empty properties are suppressed. Use <option>--all</option> to show those too.
-        To select specific properties to show, use <option>--property=</option>.</para></listitem>
+        To select specific properties to show, use <option>--property=</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -146,7 +148,9 @@
 
           <listitem><para>Show current status of
           <citerefentry><refentrytitle>systemd-timesyncd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
-          If <option>--monitor</option> is specified, then this will monitor the status updates.</para></listitem>
+          If <option>--monitor</option> is specified, then this will monitor the status updates.</para>
+
+          <xi:include href="version-info.xml" xpointer="v239"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -156,21 +160,27 @@
           This command is intended to be used whenever computer-parsable output is required.
           Use <option>timesync-status</option> if you are looking for formatted human-readable output.</para>
           <para>By default, empty properties are suppressed. Use <option>--all</option> to show those too.
-          To select specific properties to show, use <option>--property=</option>.</para></listitem>
+          To select specific properties to show, use <option>--property=</option>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v239"/></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><command>ntp-servers <replaceable>INTERFACE</replaceable> <replaceable>SERVER</replaceable>…</command></term>
 
           <listitem><para>Set the interface specific NTP servers. This command can be used only when the
-          interface is managed by <command>systemd-networkd</command>.</para></listitem>
+          interface is managed by <command>systemd-networkd</command>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v243"/></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><command>revert <replaceable>INTERFACE</replaceable></command></term>
 
           <listitem><para>Revert the interface specific NTP servers. This command can be used only when
-          the interface is managed by <command>systemd-networkd</command>.</para></listitem>
+          the interface is managed by <command>systemd-networkd</command>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v243"/></listitem>
         </varlistentry>
       </variablelist>
 
@@ -188,7 +198,9 @@
         <term><option>--no-ask-password</option></term>
 
         <listitem><para>Do not query the user for authentication for
-        privileged operations.</para></listitem>
+        privileged operations.</para>
+
+        <xi:include href="version-info.xml" xpointer="v195"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -198,7 +210,9 @@
         and this option is passed, the system clock is synchronized
         from the RTC again, taking the new setting into account.
         Otherwise, the RTC is synchronized from the system
-        clock.</para></listitem>
+        clock.</para>
+
+        <xi:include href="version-info.xml" xpointer="v195"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -208,7 +222,9 @@
         <command>timedatectl</command> monitors the status of
         <citerefentry><refentrytitle>systemd-timesyncd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         and updates the outputs. Use <keycombo><keycap>Ctrl</keycap><keycap>C</keycap></keycombo> to terminate the
-        monitoring.</para></listitem>
+        monitoring.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -228,7 +244,9 @@
         <citerefentry><refentrytitle>systemd-timesyncd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
         limit display to certain properties as specified as argument. If not specified, all set properties are shown.
         The argument should be a property name, such as <literal>ServerName</literal>. If specified more than once,
-        all properties with the specified names are shown.</para></listitem>
+        all properties with the specified names are shown.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -236,7 +254,9 @@
 
         <listitem>
           <para>When printing properties with <command>show-timesync</command>, only print the value, and skip the
-          property name and <literal>=</literal>.</para></listitem>
+          property name and <literal>=</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <xi:include href="user-system-options.xml" xpointer="host" />

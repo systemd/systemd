@@ -3,7 +3,8 @@
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
-<refentry id="systemd-timesyncd.service" conditional='ENABLE_TIMESYNCD'>
+<refentry id="systemd-timesyncd.service" conditional='ENABLE_TIMESYNCD'
+          xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>systemd-timesyncd.service</title>
@@ -85,6 +86,8 @@
           if it exists – or to a time derived from the source tree at build time. This mechanism is used to
           ensure that the system clock remains somewhat reasonably initialized and roughly monotonic across
           reboots, in case no battery-buffered local RTC is available.</para>
+
+          <xi:include href="version-info.xml" xpointer="v235"/>
         </listitem>
       </varlistentry>
 
@@ -93,7 +96,9 @@
 
         <listitem><para>The modification time ("mtime") of this file is used for advancing the system clock
         in case <filename>/var/lib/systemd/timesync/clock</filename> does not exist yet, see
-        above.</para></listitem>
+        above.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -103,6 +108,8 @@
           <para>A file that is touched on each successful synchronization, to assist
           <filename>systemd-time-wait-sync</filename> and other applications to detecting synchronization
           with accurate reference clocks.</para>
+
+          <xi:include href="version-info.xml" xpointer="v239"/>
         </listitem>
 
       </varlistentry>

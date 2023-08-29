@@ -3,7 +3,7 @@
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
-<refentry id="smbios-type-11">
+<refentry id="smbios-type-11" xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>smbios-type-11</title>
@@ -50,7 +50,9 @@
         form. See
         <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> and
         <ulink url="https://systemd.io/CREDENTIALS">System and Service Credentials</ulink> for
-        details.</para></listitem>
+        details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -58,7 +60,9 @@
 
         <listitem><para>This allows configuration of additional kernel command line options, and is read by
         the kernel UEFI stub. For details see
-        <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para></listitem>
+        <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>

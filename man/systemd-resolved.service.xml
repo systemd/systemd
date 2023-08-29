@@ -3,7 +3,8 @@
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
-<refentry id="systemd-resolved.service" conditional='ENABLE_RESOLVE'>
+<refentry id="systemd-resolved.service" conditional='ENABLE_RESOLVE'
+          xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>systemd-resolved.service</title>
@@ -367,7 +368,9 @@ search foobar.com barbar.com
         <listitem><para>Upon reception of the <constant>SIGUSR1</constant> process signal
         <command>systemd-resolved</command> will dump the contents of all DNS resource record caches it
         maintains, as well as all feature level information it learnt about configured DNS servers into the
-        system logs.</para></listitem>
+        system logs.</para>
+
+        <xi:include href="version-info.xml" xpointer="v231"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -379,7 +382,9 @@ search foobar.com barbar.com
         <command>systemd-resolved</command> flushes the caches automatically anyway any time the host's
         network configuration changes. Sending this signal to <command>systemd-resolved</command> is
         equivalent to the <command>resolvectl flush-caches</command> command, however the latter is
-        recommended since it operates in a synchronous way.</para></listitem>
+        recommended since it operates in a synchronous way.</para>
+
+        <xi:include href="version-info.xml" xpointer="v231"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -394,7 +399,9 @@ search foobar.com barbar.com
         any time the DNS server configuration changes. Sending this signal to
         <command>systemd-resolved</command> is equivalent to the <command>resolvectl
         reset-server-features</command> command, however the latter is recommended since it operates in a
-        synchronous way.</para></listitem>
+        synchronous way.</para>
+
+        <xi:include href="version-info.xml" xpointer="v235"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
@@ -415,7 +422,9 @@ search foobar.com barbar.com
         <listitem><para>May contain a space separated list of DNS server IP addresses and DNS search
         domains. This information is only used when no explicit configuration via
         <filename>/etc/systemd/resolved.conf</filename>, <filename>/etc/resolv.conf</filename> or the kernel
-        command line has been provided.</para></listitem>
+        command line has been provided.</para>
+
+        <xi:include href="version-info.xml" xpointer="v253"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
@@ -437,7 +446,9 @@ search foobar.com barbar.com
         <varname>Domains=</varname> settings of
         <citerefentry><refentrytitle>resolved.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         will be ignored. These two kernel command line options hence override system
-        configuration.</para></listitem>
+        configuration.</para>
+
+        <xi:include href="version-info.xml" xpointer="v253"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>

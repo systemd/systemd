@@ -3,7 +3,7 @@
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
-<refentry id="systemd.special">
+<refentry id="systemd.special" xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>systemd.special</title>
@@ -199,6 +199,8 @@
           <listitem>
             <para>A target that pulls in setup services for all
             verity integrity protected block devices.</para>
+
+            <xi:include href="version-info.xml" xpointer="v248"/>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -287,6 +289,8 @@
           <term><filename>factory-reset.target</filename></term>
           <listitem>
             <para>A special target to trigger a factory reset.</para>
+
+          <xi:include href="version-info.xml" xpointer="v250"/>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -429,6 +433,8 @@
             the file system backing <filename>/usr/</filename> is mounted, though possibly at two different
             locations, either below the <filename>/sysusr/</filename> or the <filename>/sysroot/</filename>
             hierarchies.</para>
+
+          <xi:include href="version-info.xml" xpointer="v249"/>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -595,6 +601,8 @@
             integrity protected devices which are accessed over the network. It is used for
             <citerefentry><refentrytitle>veritytab</refentrytitle><manvolnum>8</manvolnum></citerefentry>
             entries marked with <option>_netdev</option>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v248"/>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -725,6 +733,8 @@
             <para>See
             <citerefentry><refentrytitle>systemd-soft-reboot.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
             for further details of the operation this target pulls in.</para>
+
+            <xi:include href="version-info.xml" xpointer="v254"/>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -955,6 +965,8 @@
             between units, this target is particularly useful to ensure
             that a service is shut down only after all verity integrity
             protected block devices are fully stopped.</para>
+
+            <xi:include href="version-info.xml" xpointer="v248"/>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -966,6 +978,8 @@
             be committed to disk, marking the first boot as completed.  If the boot is aborted at any time
             before that, the next boot will re-run any units with <varname>ConditionFirstBoot=yes</varname>.
             </para>
+
+            <xi:include href="version-info.xml" xpointer="v247"/>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -1338,6 +1352,8 @@ PartOf=graphical-session.target
             for the XDG desktop files in autostart directories. Desktop Environments can opt-in to use this
             service by adding a <varname>Wants=</varname> dependency on
             <filename>xdg-desktop-autostart.target</filename>.</para>
+
+            <xi:include href="version-info.xml" xpointer="v246"/>
           </listitem>
         </varlistentry>
       </variablelist>
@@ -1359,6 +1375,8 @@ PartOf=graphical-session.target
           <listitem>
             <para>The root slice is the root of the user's slice hierarchy.
             It usually does not contain units directly, but may be used to set defaults for the whole tree.</para>
+
+            <xi:include href="version-info.xml" xpointer="v247"/>
           </listitem>
         </varlistentry>
 
@@ -1369,6 +1387,8 @@ PartOf=graphical-session.target
             <command>systemd</command> are found in this slice.
             All interactively launched applications like web browsers and text editors
             as well as non-critical services should be placed into this slice.</para>
+
+            <xi:include href="version-info.xml" xpointer="v247"/>
           </listitem>
         </varlistentry>
 
@@ -1382,6 +1402,8 @@ PartOf=graphical-session.target
             This includes the display server, screen readers and other services such as DBus or XDG portals.
             Such services should be configured to be part of this slice by
             adding <varname>Slice=session.slice</varname> to their unit files.</para>
+
+            <xi:include href="version-info.xml" xpointer="v247"/>
           </listitem>
         </varlistentry>
 
@@ -1392,6 +1414,8 @@ PartOf=graphical-session.target
             This permits resources to be preferentially assigned to the other slices.
             Examples include non-interactive tasks like file indexing or backup operations
             where latency is not important.</para>
+
+            <xi:include href="version-info.xml" xpointer="v247"/>
           </listitem>
         </varlistentry>
       </variablelist>

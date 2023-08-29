@@ -153,13 +153,17 @@
         project='man-pages'><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry> via a
         command such as <command>mount -t ddi myimage.raw targetdir/</command>, as well as in <citerefentry
         project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>. For
-        details, see below.</para></listitem>
+        details, see below.</para>
+
+        <xi:include href="version-info.xml" xpointer="v247"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>-M</option></term>
 
-        <listitem><para>This is a shortcut for <option>--mount --mkdir</option>.</para></listitem>
+        <listitem><para>This is a shortcut for <option>--mount --mkdir</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v247"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -170,13 +174,17 @@
         a directory where an OS image was mounted.</para>
 
         <para>All mounted partitions will be recursively unmounted, and the underlying loop device will be
-        removed, along with all its partition sub-devices.</para></listitem>
+        removed, along with all its partition sub-devices.</para>
+
+        <xi:include href="version-info.xml" xpointer="v252"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>-U</option></term>
 
-        <listitem><para>This is a shortcut for <option>--umount --rmdir</option>.</para></listitem>
+        <listitem><para>This is a shortcut for <option>--umount --rmdir</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v252"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -186,7 +194,9 @@
         and print the path to the loopback block device to standard output. This is similar to an invocation
         of <command>losetup --find --show</command>, but will validate the image as DDI before attaching, and
         derive the correct sector size to use automatically. Moreover, it ensures the per-partition block
-        devices are created before returning. Takes a path to a disk image file.</para></listitem>
+        devices are created before returning. Takes a path to a disk image file.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -195,7 +205,9 @@
         <listitem><para>Detach the specified disk image from a loopback block device. This undoes the effect
         of <option>--attach</option> above. This expects either a path to a loopback block device as an
         argument, or the path to the backing image file. In the latter case it will automatically determine
-        the right device to detach.</para></listitem>
+        the right device to detach.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -203,7 +215,9 @@
         <term><option>-l</option></term>
 
         <listitem><para>Prints the paths of all the files and directories in the specified OS image or
-        directory to standard output.</para></listitem>
+        directory to standard output.</para>
+
+        <xi:include href="version-info.xml" xpointer="v253"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -222,7 +236,9 @@
         subvolume information, and various other file metadata. File content information is shown via a
         SHA256 digest. Additional fields might be added in future. Note that inode information such as link
         counts, inode numbers and timestamps is excluded from the output on purpose, as it typically
-        complicates reproducibility.</para></listitem>
+        complicates reproducibility.</para>
+
+        <xi:include href="version-info.xml" xpointer="v253"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -236,7 +252,9 @@
         <varname>$SYSTEMD_DISSECT_ROOT</varname> environment variable set, containing the absolute path name
         of the temporary mount point, i.e. the same directory that is set as the current working
         directory. It will also have the <varname>$SYSTEMD_DISSECT_DEVICE</varname> environment variable set,
-        containing the absolute path name of the loop device the image was attached to.</para></listitem>
+        containing the absolute path name of the loop device the image was attached to.</para>
+
+        <xi:include href="version-info.xml" xpointer="v253"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -252,7 +270,9 @@
         the destination path. In this case access mode, extended attributes and timestamps are copied as
         well, but file ownership is not. If the source path in the image refers to a directory, it is copied
         to the destination path, recursively with all containing files and directories. In this case the file
-        ownership is copied too.</para></listitem>
+        ownership is copied too.</para>
+
+        <xi:include href="version-info.xml" xpointer="v247"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -271,7 +291,9 @@
         ownership is copied too.</para>
 
         <para>As with <option>--mount</option> file system checks are implicitly run before the copy
-        operation begins.</para></listitem>
+        operation begins.</para>
+
+        <xi:include href="version-info.xml" xpointer="v247"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -282,7 +304,9 @@
         <filename>/usr/lib/machines/</filename>, <filename>/usr/lib/portables/</filename>,
         <filename>/usr/lib/confexts/</filename>, <filename>/var/lib/machines/</filename>,
         <filename>/var/lib/portables/</filename>, <filename>/var/lib/extensions/</filename> and so
-        on.</para></listitem>
+        on.</para>
+
+        <xi:include href="version-info.xml" xpointer="v253"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -296,7 +320,9 @@
         unlike all other commands implemented by this tool – requires no privileges other than the ability to
         access the specified file. Prints "OK" and returns zero if the image appears to be in order and
         matches the specified image dissection policy. Otherwise prints an error message and returns
-        non-zero.</para></listitem>
+        non-zero.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="help" />
@@ -317,7 +343,9 @@
 
         <listitem><para>Operate in read-only mode. By default <option>--mount</option> will establish
         writable mount points. If this option is specified they are established in read-only mode
-        instead.</para></listitem>
+        instead.</para>
+
+        <xi:include href="version-info.xml" xpointer="v247"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -328,7 +356,9 @@
         OS image are automatically checked using the appropriate <citerefentry
         project='man-pages'><refentrytitle>fsck</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         command, in automatic fixing mode. This behavior may be switched off using
-        <option>--fsck=no</option>.</para></listitem>
+        <option>--fsck=no</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v247"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -350,6 +380,8 @@
           <listitem><para>Bit 59 of the GPT partition flags for this partition is set, as per specification</para></listitem>
           <listitem><para>The <option>--growfs=no</option> option is not passed.</para></listitem>
         </orderedlist>
+
+          <xi:include href="version-info.xml" xpointer="v249"/>
         </listitem>
       </varlistentry>
 
@@ -358,14 +390,18 @@
 
         <listitem><para>If combined with <option>--mount</option> the directory to mount the OS image to is
         created if it is missing. Note that the directory is not automatically removed when the disk image is
-        unmounted again.</para></listitem>
+        unmounted again.</para>
+
+        <xi:include href="version-info.xml" xpointer="v247"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>--rmdir</option></term>
 
         <listitem><para>If combined with <option>--umount</option> the specified directory where the OS image
-        is mounted is removed after unmounting the OS image.</para></listitem>
+        is mounted is removed after unmounting the OS image.</para>
+
+        <xi:include href="version-info.xml" xpointer="v252"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -375,7 +411,9 @@
         <literal>all</literal>, <literal>crypto</literal>. If <literal>disabled</literal> the image is
         accessed with empty block discarding turned off. If <literal>loop</literal> discarding is enabled if
         operating on a regular file. If <literal>crypt</literal> discarding is enabled even on encrypted file
-        systems. If <literal>all</literal> discarding is unconditionally enabled.</para></listitem>
+        systems. If <literal>all</literal> discarding is unconditionally enabled.</para>
+
+        <xi:include href="version-info.xml" xpointer="v247"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -384,7 +422,9 @@
         <listitem><para>If specified an in-memory copy of the specified disk image is used. This may be used
         to operate with write-access on a (possibly read-only) image, without actually modifying the original
         file. This may also be used in order to operate on a disk image without keeping the originating file
-        system busy, in order to allow it to be unmounted.</para></listitem>
+        system busy, in order to allow it to be unmounted.</para>
+
+        <xi:include href="version-info.xml" xpointer="v253"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -401,7 +441,9 @@
         image, in case it is stored in a detached file. It is recommended to embed the Verity data directly
         in the image, using the Verity mechanisms in the <ulink
         url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">Discoverable Partitions Specification</ulink>.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v247"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -421,7 +463,9 @@
         <filename>/dev/disk/by-loop-ref/…</filename> symlinks. Example: first, set up the loopback device
         via <command>systemd-dissect attach --loop-ref=quux foo.raw</command>, and then reference it in a
         command via the specified filename: <command>cfdisk /dev/disk/by-loop-ref/quux</command>.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -429,7 +473,9 @@
 
         <listitem><para>If combined with <option>--mtree</option>, turns off inclusion of file hashes in the
         mtree output. This makes the <option>--mtree</option> faster when operating on large images.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="image-policy-open" />
