@@ -151,6 +151,13 @@
     than one initrd is specified, they will all be combined into a single PE section. This is useful to, for
     example, prepend microcode before the actual initrd.</para>
 
+    <para>There are three ways to specify configuration settings, in order of precedence: The default configuration
+    file (currently <filename>/etc/systemd/ukify.conf</filename>) will be attempted to be read first, followed
+    by the configuration file specified with the <option>--config=</option> option, if any. Finally, the commandline
+    options are parsed. Each step usually overrides the previous one. In some cases where the commandline
+    option does not fully override the config file setting, they are explicitly mentioned in the descriptions
+    of the individual options.</para>
+
     <para>The following options and settings are understood:</para>
 
     <refsect2>
@@ -160,10 +167,8 @@
         <varlistentry>
           <term><option>--config=<replaceable>PATH</replaceable></option></term>
 
-          <listitem><para>Load configuration from the given config file. In general, settings specified in
-          the config file have lower precedence than the settings specified via options. In cases where the
-          commandline option does not fully override the config file setting are explicitly mentioned in the
-          descriptions of individual options.</para></listitem>
+          <listitem><para>Load configuration from the given config file. This will take higher precedence
+          than the default config file if it exists but can be overriden by the commandline options.</para></listitem>
         </varlistentry>
 
         <varlistentry>
