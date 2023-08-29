@@ -125,6 +125,10 @@ static int process_managed_oom_message(Manager *m, uid_t uid, JsonVariant *param
                 ctx = hashmap_get(monitor_hm, empty_to_root(message.path));
                 if (ctx)
                         ctx->mem_pressure_limit = limit;
+
+                /* Disable wake-ups for "ManagedOOMSwap" unless entries are present. */
+                sd_event_source_set_enabled(m->swap_context_event_source,
+                                            hashmap_isempty(m->monitored_swap_cgroup_contexts) ? SD_EVENT_OFF : SD_EVENT_ON);
         }
 
         return 0;
@@ -349,6 +353,12 @@ static int monitor_swap_contexts_handler(sd_event_source *s, uint64_t usec, void
 
         assert(s);
 
+        /* Disable source until there are entries to monitor. */
+        if (hashmap_isempty(m->monitored_swap_cgroup_contexts)) {
+                sd_event_source_set_enabled(s, SD_EVENT_OFF);
+                return 0;
+        }
+
         /* Reset timer */
         r = sd_event_now(sd_event_source_get_event(s), CLOCK_MONOTONIC, &usec_now);
         if (r < 0)
@@ -370,10 +380,6 @@ static int monitor_swap_contexts_handler(sd_event_source *s, uint64_t usec, void
         /* If there are no units depending on swap actions, the only error we exit on is ENOMEM. */
         if (r == -ENOMEM || (r < 0 && !hashmap_isempty(m->monitored_swap_cgroup_contexts)))
                 return log_error_errno(r, "Failed to acquire system context: %m");
-
-        /* Return early if nothing is requesting swap monitoring */
-        if (hashmap_isempty(m->monitored_swap_cgroup_contexts))
-                return 0;
 
         /* Note that m->monitored_swap_cgroup_contexts does not need to be updated every interval because only the
          * system context is used for deciding whether the swap threshold is hit. m->monitored_swap_cgroup_contexts
