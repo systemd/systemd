@@ -163,7 +163,7 @@ int enroll_tpm2(struct crypt_device *cd,
         assert(cd);
         assert(volume_key);
         assert(volume_key_size > 0);
-        assert(TPM2_PCR_VALUES_VALID(hash_pcr_values, n_hash_pcr_values));
+        assert(tpm2_pcr_values_valid(hash_pcr_values, n_hash_pcr_values));
         assert(TPM2_PCR_MASK_VALID(pubkey_pcr_mask));
 
         assert_se(node = crypt_get_device_name(cd));
@@ -211,12 +211,7 @@ int enroll_tpm2(struct crypt_device *cd,
         if (r < 0)
                 return r;
 
-        bool pcr_value_specified = false;
-        for (size_t i = 0; i < n_hash_pcr_values; i++)
-                if (hash_pcr_values[i].value.size > 0) {
-                        pcr_value_specified = true;
-                        break;
-                }
+        bool pcr_value_specified = tpm2_pcr_values_has_any_values(hash_pcr_values, n_hash_pcr_values);
 
         r = tpm2_pcr_read_missing_values(tpm2_context, hash_pcr_values, n_hash_pcr_values);
         if (r < 0)
