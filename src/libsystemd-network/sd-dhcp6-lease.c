@@ -123,6 +123,18 @@ DHCP6IA *dhcp6_ia_free(DHCP6IA *ia) {
         return mfree(ia);
 }
 
+DHCP6RawOption *dhcp6_raw_option_free(DHCP6RawOption *option) {
+
+        if (!option)
+                return NULL;
+
+        if (option->data)
+                free(option->data);
+
+        free(option);
+        return NULL;
+}
+
 int dhcp6_lease_set_clientid(sd_dhcp6_lease *lease, const uint8_t *id, size_t len) {
         uint8_t *clientid = NULL;
 
@@ -473,6 +485,41 @@ int sd_dhcp6_lease_get_captive_portal(sd_dhcp6_lease *lease, const char **ret) {
         return 0;
 }
 
+int dhcp6_lease_insert_private_option(sd_dhcp6_lease *lease, uint16_t option_code, const void *data, size_t len) {
+        _cleanup_(dhcp6_raw_option_freep) DHCP6RawOption *option = NULL;
+        DHCP6RawOption *before = NULL;
+
+        assert(lease);
+
+        LIST_FOREACH(options, cur, lease->private_options) {
+                if (option_code < cur->option_code) {
+                        before = cur;
+                        break;
+                }
+                if (option_code == cur->option_code) {
+                        log_debug("Ignoring duplicated option, tagged %u.", option_code);
+                        return -EEXIST;
+                }
+        }
+
+        option = new(DHCP6RawOption, 1);
+        if (!option)
+                return -ENOMEM;
+
+        *option = (DHCP6RawOption) {
+                .option_code = option_code,
+                .length = len,
+        };
+
+        option->data = memdup(data, len);
+        if (!option->data) {
+                return -ENOMEM;
+        }
+
+        LIST_INSERT_BEFORE(options, lease->private_options, before, TAKE_PTR(option));
+        return 0;
+}
+
 static int dhcp6_lease_parse_message(
                 sd_dhcp6_client *client,
                 sd_dhcp6_lease *lease,
@@ -658,6 +705,12 @@ static int dhcp6_lease_parse_message(
 
                         irt = unaligned_read_be32(optval) * USEC_PER_SEC;
                         break;
+
+                case _SD_DHCP6_OPTION_PRIVATE_BASE ... _SD_DHCP6_OPTION_PRIVATE_LAST:
+                        r = dhcp6_lease_insert_private_option(lease, optcode, optval, optlen);
+                        if (r < 0)
+                                log_dhcp6_client_errno(client, r, "Failed to parse private option, ignoring: %m");
+                        break;
                 }
         }
 
@@ -695,8 +748,14 @@ static int dhcp6_lease_parse_message(
 }
 
 static sd_dhcp6_lease *dhcp6_lease_free(sd_dhcp6_lease *lease) {
+        DHCP6RawOption *dhcp6_option;
+
         if (!lease)
                 return NULL;
+
+        while ((dhcp6_option = LIST_POP(options, lease->private_options))) {
+                dhcp6_raw_option_free(dhcp6_option);
+        }
 
         free(lease->clientid);
         free(lease->serverid);

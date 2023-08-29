@@ -14,6 +14,14 @@
 #include "macro.h"
 #include "time-util.h"
 
+typedef struct DHCP6RawOption {
+        LIST_FIELDS(struct DHCP6RawOption, options);
+
+        uint16_t option_code;
+        size_t length;
+        void *data;
+} DHCP6RawOption;
+
 struct sd_dhcp6_lease {
         unsigned n_ref;
 
@@ -45,6 +53,8 @@ struct sd_dhcp6_lease {
         size_t sntp_count;
         char *fqdn;
         char *captive_portal;
+
+        LIST_HEAD(DHCP6RawOption, private_options);
 };
 
 int dhcp6_lease_get_lifetime(sd_dhcp6_lease *lease, usec_t *ret_t1, usec_t *ret_t2, usec_t *ret_valid);
@@ -72,3 +82,6 @@ int dhcp6_lease_new_from_message(
                 const triple_timestamp *timestamp,
                 const struct in6_addr *server_address,
                 sd_dhcp6_lease **ret);
+int dhcp6_lease_insert_private_option(sd_dhcp6_lease *lease, uint16_t tag, const void *data, size_t len);
+DHCP6RawOption *dhcp6_raw_option_free(DHCP6RawOption *option);
+DEFINE_TRIVIAL_CLEANUP_FUNC(DHCP6RawOption*, dhcp6_raw_option_free);
