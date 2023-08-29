@@ -206,6 +206,7 @@ bool dhcp6_option_can_request(uint16_t option) {
         case SD_DHCP6_OPTION_V6_DOTS_ADDRESS:
         case SD_DHCP6_OPTION_IPV6_ADDRESS_ANDSF:
                 return true;
+        case _SD_DHCP6_OPTION_PRIVATE_BASE ... _SD_DHCP6_OPTION_PRIVATE_LAST:
         default:
                 return false;
         }
