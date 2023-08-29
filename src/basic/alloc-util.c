@@ -103,6 +103,34 @@ void* greedy_realloc0(
         return q;
 }
 
+void* greedy_realloc_prepend(
+                void **p,
+                size_t *n_p,
+                const void *from,
+                size_t n_from,
+                size_t size) {
+
+        uint8_t *q;
+
+        assert(p);
+        assert(n_p);
+        assert(from || n_from == 0);
+
+        if (n_from > SIZE_MAX - *n_p)
+                return NULL;
+
+        q = greedy_realloc(p, *n_p + n_from, size);
+        if (!q)
+                return NULL;
+
+        memmove(q + n_from * size, q, *n_p * size);
+        memcpy_safe(q, from, n_from * size);
+
+        *n_p += n_from;
+
+        return q;
+}
+
 void* greedy_realloc_append(
                 void **p,
                 size_t *n_p,
