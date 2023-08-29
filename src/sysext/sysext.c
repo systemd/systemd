@@ -180,7 +180,7 @@ static int need_reload(void) {
                 if (!r)
                         continue;
 
-                f = path_join(*p, image_class_info[arg_image_class].dot_directory_name, image_class_info[arg_image_class].short_identifier_plural);
+                f = path_join(resolved, image_class_info[arg_image_class].dot_directory_name, image_class_info[arg_image_class].short_identifier_plural);
                 if (!f)
                         return log_oom();
 
@@ -348,7 +348,7 @@ static int verb_status(int argc, char **argv, void *userdata) {
                         continue;
                 }
 
-                f = path_join(*p, image_class_info[arg_image_class].dot_directory_name, image_class_info[arg_image_class].short_identifier_plural);
+                f = path_join(resolved, image_class_info[arg_image_class].dot_directory_name, image_class_info[arg_image_class].short_identifier_plural);
                 if (!f)
                         return log_oom();
 
@@ -1138,6 +1138,8 @@ static int parse_argv(int argc, char *argv[]) {
                         r = parse_path_argument(optarg, false, &arg_root);
                         if (r < 0)
                                 return r;
+                        /* If --root= is provided, do not reload the service manager */
+                        arg_no_reload = true;
                         break;
 
                 case ARG_JSON:
