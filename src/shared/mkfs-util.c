@@ -536,6 +536,7 @@ int make_filesystem(
                                 "-i", vol_id,
                                 "-n", label,
                                 "-F", "32",  /* yes, we force FAT32 here */
+                                "--invariant",
                                 node);
 
                 if (sector_size > 0) {
