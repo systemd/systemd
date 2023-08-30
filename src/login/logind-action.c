@@ -18,6 +18,8 @@
 #include "terminal-util.h"
 #include "user-util.h"
 
+/* For INHIBIT_SHUTDOWN items in this array, 'log-verb' is sent out by PrepareForShutdownWithType signals,
+ * so the values cannot change as they are public APIs. */
 static const HandleActionData handle_action_data_table[_HANDLE_ACTION_MAX] = {
         [HANDLE_POWEROFF] = {
                 .handle                          = HANDLE_POWEROFF,
