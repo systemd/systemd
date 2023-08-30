@@ -39,7 +39,7 @@ jobs:
       security-events: write
 
     steps:
-      - name: Build Fuzzers (${{ matrix.sanitizer }})
+      - name: Build Fuzzers
         id: build
         uses: google/oss-fuzz/infra/cifuzz/actions/build_fuzzers@master
         with:
@@ -51,7 +51,7 @@ jobs:
           sanitizer: ${{ matrix.sanitizer }}
           architecture: ${{ matrix.architecture }}
           output-sarif: true
-      - name: Run Fuzzers (${{ matrix.sanitizer }})
+      - name: Run Fuzzers
         uses: google/oss-fuzz/infra/cifuzz/actions/run_fuzzers@master
         with:
           oss-fuzz-project-name: 'systemd'

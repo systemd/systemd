@@ -140,14 +140,14 @@ jobs:
     - name: Generate secure boot key
       run: mkosi --debug genkey
 
-    - name: Show ${{ matrix.distro }} image summary
+    - name: Show image summary
       run: mkosi summary
 
-    - name: Build ${{ matrix.distro }}
+    - name: Build
       run: mkosi --debug
 
-    - name: Boot ${{ matrix.distro }} systemd-nspawn
+    - name: Boot systemd-nspawn
       run: test "$(sudo mkosi --debug boot 1>&2; echo $?)" -eq 123
 
-    - name: Boot ${{ matrix.distro }} QEMU
+    - name: Boot QEMU
       run: timeout -k 30 10m test "$(mkosi --debug qemu 1>&2; echo $?)" -eq 123
