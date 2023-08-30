@@ -870,13 +870,6 @@ static int client_message_init(
         if (client->request_broadcast || client->arp_type != ARPHRD_ETHER)
                 packet->dhcp.flags = htobe16(0x8000);
 
-        /* If no client identifier exists, construct an RFC 4361-compliant one */
-        if (client->client_id_len == 0) {
-                r = sd_dhcp_client_set_iaid_duid_en(client, /* iaid_set = */ false, /* iaid = */ 0);
-                if (r < 0)
-                        return r;
-        }
-
         /* Some DHCP servers will refuse to issue an DHCP lease if the Client
            Identifier option is not set */
         r = dhcp_option_append(&packet->dhcp, optlen, &optoffset, 0,
@@ -2074,6 +2067,13 @@ int sd_dhcp_client_start(sd_dhcp_client *client) {
         r = client_initialize(client);
         if (r < 0)
                 return r;
+
+        /* If no client identifier exists, construct an RFC 4361-compliant one */
+        if (client->client_id_len == 0) {
+                r = sd_dhcp_client_set_iaid_duid_en(client, /* iaid_set = */ false, /* iaid = */ 0);
+                if (r < 0)
+                        return r;
+        }
 
         /* RFC7844 section 3.3:
            SHOULD perform a complete four-way handshake, starting with a
