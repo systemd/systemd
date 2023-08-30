@@ -120,9 +120,9 @@ __get_machines() {
         sort -u
 }
 
-_systemctl () {
+__ctl () {
     local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
-    local i verb comps mode cur_orig
+    local i verb comps cur_orig mode=$1; shift
 
     local -A OPTS=(
         [STANDALONE]='--all -a --reverse --after --before --defaults --force -f --full -l --global
@@ -137,7 +137,7 @@ _systemctl () {
         mode=--user
     elif __contains_word "--global" ${COMP_WORDS[*]}; then
         mode=--user
-    else
+    elif __contains_word "--system" ${COMP_WORDS[*]}; then
         mode=--system
     fi
 
@@ -359,4 +359,13 @@ _systemctl () {
     return 0
 }
 
+_systemctl () {
+    __ctl --system
+}
+
+_userctl () {
+    __ctl --user
+}
+
 complete -F _systemctl systemctl
+complete -F _userctl userctl
