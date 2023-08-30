@@ -190,6 +190,165 @@ System factory reset has been initiated. The precise operation this
 executes is implementation-defined, but typically has the effect of
 reverting the system's state and configuration to vendor defaults.
 
+--d9ec5e95e4b646aaaea2fd05214edbda
+Subject: Exiting PID 1...
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+When systemd crashes, we want to either freeze or exit or reboot.
+For containers we choose the option of exiting.
+The details of the crash can be obtained from the container manager.
+
+To fix:
+Check the container manager for details.
+
+-- 3ed0163e868a4417ab8b9e210407a96c
+Subject: Failed to reboot
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+Reboot has failed when systemd attempted to reboot after a crash.
+
+-- 645c735537634ae0a32b15a7c6cba7d4
+Subject: Freezing execution
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+Freezing execution after fatal error.
+
+-- 5addb3a06a734d3396b794bf98fb2d01
+Subject: Caught <signal>, not dumping core
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+In the instance of a crash arising from corrupted memory. The signal caught is propagated, but the core is not dumped.
+
+-- 5c9e98de4ab94c6a9d04d0ad793bd903
+Subject: Caught <signal>, cannot fork for core dump
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+-- 5e6f1f5e4db64a0eaee3368249d20b94
+Subject: Caught <signal> from unknown sender process
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+-- 83f84b35ee264f74a3896a9717af34cb
+Subject: Caught <signal> from our own process
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+-- 3a73a98baf5b4b199929e3226c0be783
+Subject: Caught <signal> from <PID>
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+-- 2ed18d4f78ca47f0a9bc25271c26adb4
+Subject: Caught <signal>, waitpid() failed
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+-- 56b1cd96f24246c5b607666fda952356
+Subject: Caught <signal>, coredump failed (child <PID>, code=<code>, status=<status>.
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+-- 4ac7566d4d7548f4981f629a28f0f829
+Subject: Caught <signal>, dumped core as pid <PID>
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+-- 38e8b1e039ad469291b18b44c553a5b7
+Subject: Failed to fork off crash shell
+
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+-- 872729b47dbe473eb768ccecd477beda
+Subject: execle() failed
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+-- 658a67adc1c940b3b3316e7e8628834a
+Subject: Failed to load SELinux policy.
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+-- e6f456bd92004d9580160b2207555186
+Subject: Battery level critically low. Please connect your charger or the system will power off in 10 seconds.
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+-- 267437d33fdd41099ad76221cc24a335
+Subject: Battery level critically low, powering off.
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+-- 79e05b67bc4545d1922fe47107ee60c5
+Subject: Failed to run main loop
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+-- dbb136b10ef4457ba47a795d62f108c9
+Subject: Failed to determine <XDG_DIR> path
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+-- ed158c2df8884fa584eead2d902c1032
+Subject: Failed to drop capability bounding set of usermode helpers
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+-- 42695b500df048298bee37159caa9f2e
+Subject: Failed to drop capability bounding set
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+-- bfc2430724ab44499735b4f94cca9295
+Subject: Failed to disable new privileges
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+-- 59288af523be43a28d494e41e26e4510
+Subject: Failed to start default target <target>
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+-- 689b4fcc97b4486ea5da92db69c9e314
+Subject: Failed to isolate default target <target>
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+-- 5ed836f1766f4a8a9fc5da45aae23b29
+Subject: Failed to allocate fd set
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+-- 6a40fbfbd2ba4b8db02fb40c9cd090d7
+Subject: Failed to fix up PID1 environment
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+-- 0e54470984ac419689743d957a119e2e
+Subject: Failed to allocate manager object
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+-- d67fa9f847aa4b048a2ae33535331adb
+Subject: Failed to write Smack onlycap list
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+-- af55a6f75b544431b72649f36ff6d62c
+Subject: Critical error while doing system shutdown
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+-- d18e0339efb24a068d9c1060221048c2
+Subject: Failed to fork off valgrind helper
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
 -- 7d4958e842da4a758f6c1cdc7b36dcc5
 Subject: A start job for unit @UNIT@ has begun execution
 Defined-By: systemd

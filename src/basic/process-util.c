@@ -19,6 +19,8 @@
 #include <valgrind/valgrind.h>
 #endif
 
+#include "sd-messages.h"
+
 #include "alloc-util.h"
 #include "architecture.h"
 #include "argv-util.h"
@@ -1049,7 +1051,10 @@ void valgrind_summary_hack(void) {
                 pid_t pid;
                 pid = raw_clone(SIGCHLD);
                 if (pid < 0)
-                        log_emergency_errno(errno, "Failed to fork off valgrind helper: %m");
+                        log_struct_errno(
+                                LOG_EMERG, errno,
+                                "MESSAGE_ID=" SD_MESSAGE_VALGRIND_HELPER_FORK_STR,
+                                LOG_MESSAGE( "Failed to fork off valgrind helper: %m"));
                 else if (pid == 0)
                         exit(EXIT_SUCCESS);
                 else {
