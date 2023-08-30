@@ -806,6 +806,15 @@ static bool session_ready(Session *s) {
                 !s->user->service_job;
 }
 
+static int session_dispatch_leader_pidfd(sd_event_source *es, int fd, uint32_t revents, void *userdata) {
+        Session *s = ASSERT_PTR(userdata);
+
+        assert(s->leader_pidfd == fd);
+        session_stop(s, /* force = */ false);
+
+        return 1;
+}
+
 int session_send_create_reply(Session *s, sd_bus_error *error) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *c = NULL;
         _cleanup_close_ int fifo_fd = -EBADF;
@@ -826,9 +835,25 @@ int session_send_create_reply(Session *s, sd_bus_error *error) {
         if (error)
                 return sd_bus_reply_method_error(c, error);
 
-        fifo_fd = session_create_fifo(s);
-        if (fifo_fd < 0)
-                return fifo_fd;
+        if (s->leader_pidfd < 0) {
+                fifo_fd = session_create_fifo(s);
+                if (fifo_fd < 0)
+                        return fifo_fd;
+        } else {
+                int r;
+
+                if (!s->leader_pidfd_event_source) {
+                        r = sd_event_add_io(s->manager->event, &s->leader_pidfd_event_source, s->leader_pidfd, 0, session_dispatch_leader_pidfd, s);
+                        if (r < 0)
+                                return r;
+
+                        /* Let's make sure we noticed dead sessions before we process new bus requests (which might
+                         * create new sessions). */
+                        r = sd_event_source_set_priority(s->leader_pidfd_event_source, SD_EVENT_PRIORITY_NORMAL-10);
+                        if (r < 0)
+                                return r;
+                }
+        }
 
         /* Update the session state file before we notify the client about the result. */
         session_save(s);
@@ -837,27 +862,54 @@ int session_send_create_reply(Session *s, sd_bus_error *error) {
         if (!p)
                 return -ENOMEM;
 
+        if (fifo_fd >= 0) {
+                log_debug("Sending reply about created session: "
+                          "id=%s object_path=%s uid=%u runtime_path=%s "
+                          "session_fd=%d seat=%s vtnr=%u",
+                          s->id,
+                          p,
+                          (uint32_t) s->user->user_record->uid,
+                          s->user->runtime_path,
+                          fifo_fd,
+                          s->seat ? s->seat->id : "",
+                          (uint32_t) s->vtnr);
+
+
+                return sd_bus_reply_method_return(
+                                c, "soshusub",
+                                s->id,
+                                p,
+                                s->user->runtime_path,
+                                fifo_fd,
+                                (uint32_t) s->user->user_record->uid,
+                                s->seat ? s->seat->id : "",
+                                (uint32_t) s->vtnr,
+                                false);
+        }
+
         log_debug("Sending reply about created session: "
                   "id=%s object_path=%s uid=%u runtime_path=%s "
-                  "session_fd=%d seat=%s vtnr=%u",
+                  "seat=%s vtnr=%u",
                   s->id,
                   p,
                   (uint32_t) s->user->user_record->uid,
                   s->user->runtime_path,
-                  fifo_fd,
                   s->seat ? s->seat->id : "",
                   (uint32_t) s->vtnr);
 
+
         return sd_bus_reply_method_return(
-                        c, "soshusub",
+                        c, "sosusub",
                         s->id,
                         p,
                         s->user->runtime_path,
-                        fifo_fd,
                         (uint32_t) s->user->user_record->uid,
                         s->seat ? s->seat->id : "",
                         (uint32_t) s->vtnr,
                         false);
+
+
+
 }
 
 static const sd_bus_vtable session_vtable[] = {

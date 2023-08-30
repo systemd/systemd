@@ -935,6 +935,8 @@ int session_finalize(Session *s) {
                 seat_save(s->seat);
         }
 
+        s->leader_pidfd = safe_close(s->leader_pidfd);
+
         user_save(s->user);
         user_send_changed(s->user, "Display", NULL);
 
@@ -1232,6 +1234,10 @@ bool session_may_gc(Session *s, bool drop_not_started) {
                         return false;
         }
 
+        if (s->leader_pidfd >= 0)
+                if (pidfd_is_alive(s->leader_pidfd))
+                        return false;
+
         if (s->scope_job) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
 
@@ -1272,7 +1278,7 @@ SessionState session_get_state(Session *s) {
         if (s->stopping || s->timer_event_source)
                 return SESSION_CLOSING;
 
-        if (s->scope_job || s->fifo_fd < 0)
+        if (s->scope_job || (s->leader_pidfd < 0 && s->fifo_fd < 0))
                 return SESSION_OPENING;
 
         if (session_is_active(s))
