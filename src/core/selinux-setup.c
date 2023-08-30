@@ -8,6 +8,8 @@
 #include <selinux/selinux.h>
 #endif
 
+#include "sd-messages.h"
+
 #include "initrd-util.h"
 #include "log.h"
 #include "macro.h"
@@ -90,8 +92,9 @@ int mac_selinux_setup(bool *loaded_policy) {
 
                 if (enforce > 0) {
                         if (!initialized)
-                                return log_emergency_errno(SYNTHETIC_ERRNO(EIO),
-                                                           "Failed to load SELinux policy.");
+                                return log_struct_errno(LOG_EMERG, SYNTHETIC_ERRNO(EIO),
+                                                        LOG_MESSAGE("Failed to load SELinux policy :%m"),
+                                                        "MESSAGE_ID=" SD_MESSAGE_SELINUX_FAILED_STR);
 
                         log_warning("Failed to load new SELinux policy. Continuing with old policy.");
                 } else
