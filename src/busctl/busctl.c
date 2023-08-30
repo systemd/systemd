@@ -1308,7 +1308,8 @@ static int monitor(int argc, char **argv, int (*dump)(sd_bus_message *m, FILE *f
         if (r < 0)
                 return log_error_errno(r, "Failed to get unique name: %m");
 
-        log_info("Monitoring bus message stream.");
+        if (!arg_quiet && arg_json_format_flags == JSON_FORMAT_OFF)
+                log_info("Monitoring bus message stream.");
 
         for (;;) {
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
@@ -1339,7 +1340,8 @@ static int monitor(int argc, char **argv, int (*dump)(sd_bus_message *m, FILE *f
                         fflush(stdout);
 
                         if (sd_bus_message_is_signal(m, "org.freedesktop.DBus.Local", "Disconnected") > 0) {
-                                log_info("Connection terminated, exiting.");
+                                if (!arg_quiet && arg_json_format_flags == JSON_FORMAT_OFF)
+                                        log_info("Connection terminated, exiting.");
                                 return 0;
                         }
 
