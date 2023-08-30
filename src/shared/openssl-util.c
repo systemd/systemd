@@ -50,41 +50,407 @@ int openssl_pkey_from_pem(const void *pem, size_t pem_size, EVP_PKEY **ret) {
         return 0;
 }
 
-int openssl_hash(const EVP_MD *alg,
-                 const void *msg,
-                 size_t msg_len,
-                 uint8_t *ret_hash,
-                 size_t *ret_hash_len) {
+int openssl_digest_size(const char *digest_alg, size_t *ret_digest_size) {
+        size_t digest_size;
 
-        _cleanup_(EVP_MD_CTX_freep) EVP_MD_CTX *ctx = NULL;
-        unsigned len;
-        int r;
+        assert(digest_alg);
+        assert(ret_digest_size);
 
-        ctx = EVP_MD_CTX_new();
-        if (!ctx)
-                /* This function just calls OPENSSL_zalloc, so failure
-                 * here is almost certainly a failed allocation. */
-                return -ENOMEM;
+#if OPENSSL_VERSION_MAJOR >= 3
+        _cleanup_(EVP_MD_freep) EVP_MD *md = EVP_MD_fetch(NULL, digest_alg, NULL);
+#else
+        const EVP_MD *md = EVP_get_digestbyname(digest_alg);
+#endif
+        if (!md)
+                return log_openssl_errors("Failed to get EVP_MD for '%s'", digest_alg);
 
-        /* The documentation claims EVP_DigestInit behaves just like
-         * EVP_DigestInit_ex if passed NULL, except it also calls
-         * EVP_MD_CTX_reset, which deinitializes the context. */
-        r = EVP_DigestInit_ex(ctx, alg, NULL);
-        if (r == 0)
-                return -EIO;
+#if OPENSSL_VERSION_MAJOR >= 3
+        digest_size = EVP_MD_get_size(md);
+#else
+        digest_size = EVP_MD_size(md);
+#endif
+        if (digest_size == 0)
+                return log_openssl_errors("Failed to get Digest size");
 
-        r = EVP_DigestUpdate(ctx, msg, msg_len);
-        if (r == 0)
-                return -EIO;
-
-        r = EVP_DigestFinal_ex(ctx, ret_hash, &len);
-        if (r == 0)
-                return -EIO;
-
-        if (ret_hash_len)
-                *ret_hash_len = len;
+        *ret_digest_size = digest_size;
 
         return 0;
+}
+
+int openssl_digest_many(
+                const char *digest_alg,
+                const struct iovec data[],
+                size_t n_data,
+                void **ret_digest,
+                size_t *ret_digest_size) {
+
+        assert(digest_alg);
+        assert(data || n_data == 0);
+        assert(ret_digest);
+        /* ret_digest_size is optional, as caller may already know the digest size */
+
+#if OPENSSL_VERSION_MAJOR >= 3
+        _cleanup_(EVP_MD_freep) EVP_MD *md = EVP_MD_fetch(NULL, digest_alg, NULL);
+#else
+        const EVP_MD *md = EVP_get_digestbyname(digest_alg);
+#endif
+        if (!md)
+                return log_openssl_errors("Failed to get EVP_MD for '%s'", digest_alg);
+
+        _cleanup_(EVP_MD_CTX_freep) EVP_MD_CTX *ctx = EVP_MD_CTX_new();
+        if (!ctx)
+                return log_openssl_errors("Failed to create new EVP_MD_CTX");
+
+        if (!EVP_DigestInit_ex(ctx, md, NULL))
+                return log_openssl_errors("Failed to initializate EVP_MD_CTX");
+
+        for (size_t i = 0; i < n_data; i++)
+                if (!EVP_DigestUpdate(ctx, data[i].iov_base, data[i].iov_len))
+                        return log_openssl_errors("Failed to update Digest");
+
+        size_t digest_size;
+#if OPENSSL_VERSION_MAJOR >= 3
+        digest_size = EVP_MD_CTX_get_size(ctx);
+#else
+        digest_size = EVP_MD_CTX_size(ctx);
+#endif
+        if (digest_size == 0)
+                return log_openssl_errors("Failed to get Digest size");
+
+        _cleanup_free_ void *buf = malloc(digest_size);
+        if (!buf)
+                return log_oom_debug();
+
+        unsigned int size;
+        if (!EVP_DigestFinal_ex(ctx, buf, &size))
+                return log_openssl_errors("Failed to finalize Digest");
+
+        assert(size == digest_size);
+
+        *ret_digest = TAKE_PTR(buf);
+        if (ret_digest_size)
+                *ret_digest_size = size;
+
+        return 0;
+}
+
+int openssl_hmac_many(
+                const char *digest_alg,
+                const void *key,
+                size_t key_size,
+                const struct iovec data[],
+                size_t n_data,
+                void **ret_digest,
+                size_t *ret_digest_size) {
+
+#if OPENSSL_VERSION_MAJOR >= 3
+        _cleanup_(EVP_MAC_freep) EVP_MAC *mac = EVP_MAC_fetch(NULL, "HMAC", NULL);
+        if (!mac)
+                return log_openssl_errors("Failed to create new EVP_MAC");
+
+        _cleanup_(EVP_MAC_CTX_freep) EVP_MAC_CTX *ctx = EVP_MAC_CTX_new(mac);
+        if (!ctx)
+                return log_openssl_errors("Failed to create new EVP_MAC_CTX");
+
+        _cleanup_(OSSL_PARAM_BLD_freep) OSSL_PARAM_BLD *bld = OSSL_PARAM_BLD_new();
+        if (!bld)
+                return log_openssl_errors("Failed to create new OSSL_PARAM_BLD");
+
+        if (!OSSL_PARAM_BLD_push_utf8_string(bld, OSSL_MAC_PARAM_DIGEST, (char*) digest_alg, 0))
+                return log_openssl_errors("Failed to set HMAC OSSL_MAC_PARAM_DIGEST");
+
+        _cleanup_(OSSL_PARAM_freep) OSSL_PARAM *params = OSSL_PARAM_BLD_to_param(bld);
+        if (!params)
+                return log_openssl_errors("Failed to build HMAC OSSL_PARAM");
+
+        if (!EVP_MAC_init(ctx, key, key_size, params))
+                return log_openssl_errors("Failed to initializate EVP_MAC_CTX");
+#else
+        _cleanup_(HMAC_CTX_freep) HMAC_CTX *ctx = HMAC_CTX_new();
+        if (!ctx)
+                return log_openssl_errors("Failed to create new HMAC_CTX");
+
+        const EVP_MD *digest_md = EVP_get_digestbyname(digest_alg);
+        if (!digest_md)
+                return log_openssl_errors("Failed to get EVP_MD for '%s'", digest_alg);
+
+        if (!HMAC_Init_ex(ctx, key, key_size, digest_md, NULL))
+                return log_openssl_errors("Failed to initialize HMAC_CTX");
+#endif
+
+        for (size_t i = 0; i < n_data; i++)
+#if OPENSSL_VERSION_MAJOR >= 3
+                if (!EVP_MAC_update(ctx, data[i].iov_base, data[i].iov_len))
+#else
+                if (!HMAC_Update(ctx, data[i].iov_base, data[i].iov_len))
+#endif
+                        return log_openssl_errors("Failed to update HMAC");
+
+        size_t digest_size;
+#if OPENSSL_VERSION_MAJOR >= 3
+        digest_size = EVP_MAC_CTX_get_mac_size(ctx);
+#else
+        digest_size = HMAC_size(ctx);
+#endif
+        if (digest_size == 0)
+                return log_openssl_errors("Failed to get HMAC digest size");
+
+        _cleanup_free_ void *buf = malloc(digest_size);
+        if (!buf)
+                return log_oom_debug();
+
+#if OPENSSL_VERSION_MAJOR >= 3
+        size_t size;
+        if (!EVP_MAC_final(ctx, buf, &size, digest_size))
+#else
+        unsigned int size;
+        if (!HMAC_Final(ctx, buf, &size))
+#endif
+                return log_openssl_errors("Failed to finalize HMAC");
+
+        assert(size == digest_size);
+
+        *ret_digest = TAKE_PTR(buf);
+        *ret_digest_size = size;
+
+        return 0;
+}
+
+/* Symmetric Cipher encryption. */
+int openssl_cipher(
+                const char *alg,
+                size_t bits,
+                const char *mode,
+                const void *key,
+                size_t key_size,
+                const void *iv,
+                size_t iv_size,
+                const struct iovec data[],
+                size_t n_data,
+                void **ret,
+                size_t *ret_size) {
+
+        int r;
+
+        assert(alg);
+        assert(bits > 0);
+        assert(mode);
+        assert(key);
+        assert(iv || iv_size == 0);
+        assert(data || n_data == 0);
+        assert(ret);
+        assert(ret_size);
+
+        _cleanup_free_ char *cipher_alg = NULL;
+        r = asprintf(&cipher_alg, "%s-%zu-%s", alg, bits, mode);
+        if (r < 0)
+                return log_oom_debug();
+
+#if OPENSSL_VERSION_MAJOR >= 3
+        _cleanup_(EVP_CIPHER_freep) EVP_CIPHER *cipher = EVP_CIPHER_fetch(NULL, cipher_alg, NULL);
+#else
+        const EVP_CIPHER *cipher = EVP_get_cipherbyname(cipher_alg);
+#endif
+        if (!cipher)
+                return log_openssl_errors("Failed to get EVP_CIPHER for '%s'", cipher_alg);
+
+        _cleanup_(EVP_CIPHER_CTX_freep) EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
+        if (!ctx)
+                return log_openssl_errors("Failed to create new EVP_CIPHER_CTX");
+
+        /* Verify enough key data was provided. */
+        int cipher_key_length = EVP_CIPHER_key_length(cipher);
+        if ((size_t) cipher_key_length > key_size)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Not enough key bytes provided, require %d", cipher_key_length);
+
+        /* Verify enough IV data was provided or, if no IV was provided, use a zeroed buffer for IV data. */
+        int cipher_iv_length = EVP_CIPHER_iv_length(cipher);
+        _cleanup_free_ void *zero_iv = NULL;
+        if (!iv) {
+                zero_iv = malloc0(cipher_iv_length);
+                if (!zero_iv)
+                        return log_oom_debug();
+
+                iv = zero_iv;
+                iv_size = (size_t) cipher_iv_length;
+        }
+        if ((size_t) cipher_iv_length > iv_size)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Not enough IV bytes provided, require %d", cipher_iv_length);
+
+        if (!EVP_EncryptInit(ctx, cipher, key, iv))
+                return log_openssl_errors("Failed to initialize EVP_CIPHER_CTX.");
+
+        int cipher_block_size = EVP_CIPHER_CTX_block_size(ctx);
+
+        _cleanup_free_ uint8_t *buf = NULL;
+        size_t size = 0;
+
+        for (size_t i = 0; i < n_data; i++) {
+                /* Cipher may produce (up to) input length + cipher block size of output. */
+                if (!GREEDY_REALLOC(buf, size + data[i].iov_len + cipher_block_size))
+                        return log_oom_debug();
+
+                int update_size;
+                if (!EVP_EncryptUpdate(ctx, &buf[size], &update_size, data[i].iov_base, data[i].iov_len))
+                        return log_openssl_errors("Failed to update Cipher.");
+
+                size += update_size;
+        }
+
+        if (!GREEDY_REALLOC(buf, size + cipher_block_size))
+                return log_oom_debug();
+
+        int final_size;
+        if (!EVP_EncryptFinal_ex(ctx, &buf[size], &final_size))
+                return log_openssl_errors("Failed to finalize Cipher.");
+
+        *ret = TAKE_PTR(buf);
+        *ret_size = size + final_size;
+
+        return 0;
+}
+
+int kdf_ss_derive(
+                const char *digest,
+                const void *key,
+                size_t key_size,
+                const void *salt,
+                size_t salt_size,
+                const void *info,
+                size_t info_size,
+                size_t derive_size,
+                void **ret) {
+
+#if OPENSSL_VERSION_MAJOR >= 3
+        assert(digest);
+        assert(key);
+        assert(derive_size > 0);
+        assert(ret);
+
+        _cleanup_(EVP_KDF_freep) EVP_KDF *kdf = EVP_KDF_fetch(NULL, "SSKDF", NULL);
+        if (!kdf)
+                return log_openssl_errors("Failed to create new EVP_KDF");
+
+        _cleanup_(EVP_KDF_CTX_freep) EVP_KDF_CTX *ctx = EVP_KDF_CTX_new(kdf);
+        if (!ctx)
+                return log_openssl_errors("Failed to create new EVP_KDF_CTX");
+
+        _cleanup_(OSSL_PARAM_BLD_freep) OSSL_PARAM_BLD *bld = OSSL_PARAM_BLD_new();
+        if (!bld)
+                return log_openssl_errors("Failed to create new OSSL_PARAM_BLD");
+
+        _cleanup_free_ void *buf = malloc(derive_size);
+        if (!buf)
+                return log_oom_debug();
+
+        if (!OSSL_PARAM_BLD_push_utf8_string(bld, OSSL_KDF_PARAM_DIGEST, (char*) digest, 0))
+                return log_openssl_errors("Failed to add KDF-SS OSSL_KDF_PARAM_DIGEST");
+
+        if (!OSSL_PARAM_BLD_push_octet_string(bld, OSSL_KDF_PARAM_KEY, (char*) key, key_size))
+                return log_openssl_errors("Failed to add KDF-SS OSSL_KDF_PARAM_KEY");
+
+        if (salt)
+                if (!OSSL_PARAM_BLD_push_octet_string(bld, OSSL_KDF_PARAM_SALT, (char*) salt, salt_size))
+                        return log_openssl_errors("Failed to add KDF-SS OSSL_KDF_PARAM_SALT");
+
+        if (info)
+                if (!OSSL_PARAM_BLD_push_octet_string(bld, OSSL_KDF_PARAM_INFO, (char*) info, info_size))
+                        return log_openssl_errors("Failed to add KDF-SS OSSL_KDF_PARAM_INFO");
+
+        _cleanup_(OSSL_PARAM_freep) OSSL_PARAM *params = OSSL_PARAM_BLD_to_param(bld);
+        if (!params)
+                return log_openssl_errors("Failed to build KDF-SS OSSL_PARAM");
+
+        if (EVP_KDF_derive(ctx, buf, derive_size, params) <= 0)
+                return log_openssl_errors("Openssl KDF-SS derive failed");
+
+        *ret = TAKE_PTR(buf);
+
+        return 0;
+#else
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "KDF-SS requires openssl >= 3.");
+#endif
+}
+
+/* Perform Key-Based HMAC KDF. The mode must be "COUNTER" or "FEEDBACK". The parameter naming is from the
+ * Openssl api, and maps to SP800-108 naming as "...key, salt, info, and seed correspond to KI, Label,
+ * Context, and IV (respectively)...". The n_derive parameter specifies how many bytes are derived.
+ *
+ * For more details see: https://www.openssl.org/docs/manmaster/man7/EVP_KDF-KB.html */
+int kdf_kb_hmac_derive(
+                const char *mode,
+                const char *digest,
+                const void *key,
+                size_t n_key,
+                const void *salt,
+                size_t n_salt,
+                const void *info,
+                size_t n_info,
+                const void *seed,
+                size_t n_seed,
+                size_t n_derive,
+                void **ret) {
+
+#if OPENSSL_VERSION_MAJOR >= 3
+        assert(mode);
+        assert(digest);
+
+        _cleanup_(EVP_KDF_freep) EVP_KDF *kdf = EVP_KDF_fetch(NULL, "KBKDF", NULL);
+        if (!kdf)
+                return log_openssl_errors("Failed to create new EVP_KDF");
+
+        _cleanup_(EVP_KDF_CTX_freep) EVP_KDF_CTX *ctx = EVP_KDF_CTX_new(kdf);
+        if (!ctx)
+                return log_openssl_errors("Failed to create new EVP_KDF_CTX");
+
+        _cleanup_(OSSL_PARAM_BLD_freep) OSSL_PARAM_BLD *bld = OSSL_PARAM_BLD_new();
+        if (!bld)
+                return log_openssl_errors("Failed to create new OSSL_PARAM_BLD");
+
+        if (!OSSL_PARAM_BLD_push_utf8_string(bld, OSSL_KDF_PARAM_MAC, (char*) "HMAC", 0))
+                return log_openssl_errors("Failed to add KDF-KB OSSL_KDF_PARAM_MAC");
+
+        if (!OSSL_PARAM_BLD_push_utf8_string(bld, OSSL_KDF_PARAM_MODE, (char*) mode, 0))
+                return log_openssl_errors("Failed to add KDF-KB OSSL_KDF_PARAM_MODE");
+
+        if (!OSSL_PARAM_BLD_push_utf8_string(bld, OSSL_KDF_PARAM_DIGEST, (char*) digest, 0))
+                return log_openssl_errors("Failed to add KDF-KB OSSL_KDF_PARAM_DIGEST");
+
+        if (key)
+                if (!OSSL_PARAM_BLD_push_octet_string(bld, OSSL_KDF_PARAM_KEY, (char*) key, n_key))
+                        return log_openssl_errors("Failed to add KDF-KB OSSL_KDF_PARAM_KEY");
+
+        if (salt)
+                if (!OSSL_PARAM_BLD_push_octet_string(bld, OSSL_KDF_PARAM_SALT, (char*) salt, n_salt))
+                        return log_openssl_errors("Failed to add KDF-KB OSSL_KDF_PARAM_SALT");
+
+        if (info)
+                if (!OSSL_PARAM_BLD_push_octet_string(bld, OSSL_KDF_PARAM_INFO, (char*) info, n_info))
+                        return log_openssl_errors("Failed to add KDF-KB OSSL_KDF_PARAM_INFO");
+
+        if (seed)
+                if (!OSSL_PARAM_BLD_push_octet_string(bld, OSSL_KDF_PARAM_SEED, (char*) seed, n_seed))
+                        return log_openssl_errors("Failed to add KDF-KB OSSL_KDF_PARAM_SEED");
+
+        _cleanup_(OSSL_PARAM_freep) OSSL_PARAM *params = OSSL_PARAM_BLD_to_param(bld);
+        if (!params)
+                return log_openssl_errors("Failed to build KDF-KB OSSL_PARAM");
+
+        _cleanup_free_ void *buf = malloc(n_derive);
+        if (!buf)
+                return log_oom_debug();
+
+        if (EVP_KDF_derive(ctx, buf, n_derive, params) <= 0)
+                return log_openssl_errors("Openssl KDF-KB derive failed");
+
+        *ret = TAKE_PTR(buf);
+
+        return 0;
+#else
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "KDF-KB requires openssl >= 3.");
+#endif
 }
 
 int rsa_encrypt_bytes(
@@ -120,6 +486,70 @@ int rsa_encrypt_bytes(
 
         *ret_encrypt_key = TAKE_PTR(b);
         *ret_encrypt_key_size = l;
+
+        return 0;
+}
+
+int rsa_oaep_encrypt_bytes(
+                const EVP_PKEY *pkey,
+                const char *digest_alg,
+                const char *label,
+                const void *decrypted_key,
+                size_t decrypted_key_size,
+                void **ret_encrypt_key,
+                size_t *ret_encrypt_key_size) {
+
+        assert(pkey);
+        assert(digest_alg);
+        assert(label);
+        assert(decrypted_key);
+        assert(decrypted_key_size > 0);
+        assert(ret_encrypt_key);
+        assert(ret_encrypt_key_size);
+
+        _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new((EVP_PKEY*) pkey, NULL);
+        if (!ctx)
+                return log_openssl_errors("Failed to create new EVP_PKEY_CTX");
+
+        if (EVP_PKEY_encrypt_init(ctx) <= 0)
+                return log_openssl_errors("Failed to initialize EVP_PKEY_CTX");
+
+        if (EVP_PKEY_CTX_set_rsa_padding(ctx, RSA_PKCS1_OAEP_PADDING) <= 0)
+                return log_openssl_errors("Failed to configure RSA-OAEP padding");
+
+#if OPENSSL_VERSION_MAJOR >= 3
+        _cleanup_(EVP_MD_freep) EVP_MD *md = EVP_MD_fetch(NULL, digest_alg, NULL);
+#else
+        const EVP_MD *md = EVP_get_digestbyname(digest_alg);
+#endif
+        if (!md)
+                return log_openssl_errors("Failed to get EVP_MD");
+
+        if (EVP_PKEY_CTX_set_rsa_oaep_md(ctx, md) <= 0)
+                return log_openssl_errors("Failed to configure RSA-OAEP MD");
+
+        _cleanup_free_ char *duplabel = strdup(label);
+        if (!duplabel)
+                return log_oom_debug();
+
+        if (EVP_PKEY_CTX_set0_rsa_oaep_label(ctx, duplabel, strlen(duplabel) + 1) <= 0)
+                return log_openssl_errors("Failed to configure RSA-OAEP label");
+        /* ctx owns this now, don't free */
+        TAKE_PTR(duplabel);
+
+        size_t size = 0;
+        if (EVP_PKEY_encrypt(ctx, NULL, &size, decrypted_key, decrypted_key_size) <= 0)
+                return log_openssl_errors("Failed to determine RSA-OAEP encrypted key size");
+
+        _cleanup_free_ void *buf = malloc(size);
+        if (!buf)
+                return log_oom_debug();
+
+        if (EVP_PKEY_encrypt(ctx, buf, &size, decrypted_key, decrypted_key_size) <= 0)
+                return log_openssl_errors("Failed to RSA-OAEP encrypt");
+
+        *ret_encrypt_key = TAKE_PTR(buf);
+        *ret_encrypt_key_size = size;
 
         return 0;
 }
@@ -490,6 +920,56 @@ int ecc_pkey_new(int curve_id, EVP_PKEY **ret) {
         return 0;
 }
 
+/* Perform ECDH to derive a ECC shared secret. */
+int ecc_ecdh(const EVP_PKEY *peerkey,
+             EVP_PKEY **ret_pkey,
+             void **ret_shared_secret,
+             size_t *ret_shared_secret_size) {
+
+        int curve_id, r;
+
+        assert(peerkey);
+        assert(ret_pkey);
+        assert(ret_shared_secret);
+        assert(ret_shared_secret_size);
+
+        r = ecc_pkey_to_curve_x_y(peerkey, &curve_id, NULL, NULL, NULL, NULL);
+        if (r < 0)
+                return r;
+
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = NULL;
+        r = ecc_pkey_new(curve_id, &pkey);
+        if (r < 0)
+                return r;
+
+        _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new(pkey, NULL);
+        if (!ctx)
+                return log_openssl_errors("Failed to create new EVP_PKEY_CTX");
+
+        if (EVP_PKEY_derive_init(ctx) <= 0)
+                return log_openssl_errors("Failed to initialize EVP_PKEY_CTX");
+
+        if (EVP_PKEY_derive_set_peer(ctx, (EVP_PKEY*) peerkey) <= 0)
+                return log_openssl_errors("Failed to set ECC derive peer");
+
+        size_t shared_secret_size;
+        if (EVP_PKEY_derive(ctx, NULL, &shared_secret_size) <= 0)
+                return log_openssl_errors("Failed to get ECC shared secret size");
+
+        _cleanup_free_ void *shared_secret = malloc(shared_secret_size);
+        if (!shared_secret)
+                return log_oom_debug();
+
+        if (EVP_PKEY_derive(ctx, (unsigned char*) shared_secret, &shared_secret_size) <= 0)
+                return log_openssl_errors("Failed to derive ECC shared secret");
+
+        *ret_pkey = TAKE_PTR(pkey);
+        *ret_shared_secret = TAKE_PTR(shared_secret);
+        *ret_shared_secret_size = shared_secret_size;
+
+        return 0;
+}
+
 int pubkey_fingerprint(EVP_PKEY *pk, const EVP_MD *md, void **ret, size_t *ret_size) {
         _cleanup_(EVP_MD_CTX_freep) EVP_MD_CTX* m = NULL;
         _cleanup_free_ void *d = NULL, *h = NULL;
@@ -549,28 +1029,26 @@ int pubkey_fingerprint(EVP_PKEY *pk, const EVP_MD *md, void **ret, size_t *ret_s
 int string_hashsum(
                 const char *s,
                 size_t len,
-                const EVP_MD *md_algorithm,
+                const char *md_algorithm,
                 char **ret) {
 
-        uint8_t hash[EVP_MAX_MD_SIZE];
-        size_t hash_size;
-        char *enc;
         int r;
 
-        hash_size = EVP_MD_size(md_algorithm);
-        assert(hash_size > 0);
+        assert(s);
+        assert(md_algorithm);
+        assert(ret);
 
-        r = openssl_hash(md_algorithm, s, len, hash, NULL);
+        _cleanup_free_ void *digest = NULL;
+        size_t digest_size;
+        r = openssl_digest(md_algorithm, s, len, &digest, &digest_size);
         if (r < 0)
                 return r;
 
-        enc = hexmem(hash, hash_size);
-        if (!enc)
+        *ret = hexmem(digest, digest_size);
+        if (!*ret)
                 return -ENOMEM;
 
-        *ret = enc;
         return 0;
-
 }
 #  endif
 #endif
