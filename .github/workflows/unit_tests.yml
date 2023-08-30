@@ -39,7 +39,7 @@ jobs:
           # Pass only specific env variables through sudo, to avoid having
           # the already existing XDG_* stuff on the "other side"
           sudo --preserve-env=CRYPTOLIB,GITHUB_ACTIONS,CI .github/workflows/unit_tests.sh SETUP
-      - name: Build & test (${{ matrix.run_phase }}-${{ matrix.cryptolib }})
+      - name: Build & test
         run: sudo --preserve-env=CRYPTOLIB,GITHUB_ACTIONS,CI .github/workflows/unit_tests.sh RUN_${{ matrix.run_phase }}
         env:
           CRYPTOLIB: ${{ matrix.cryptolib }}

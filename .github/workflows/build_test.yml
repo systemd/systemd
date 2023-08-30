@@ -34,5 +34,5 @@ jobs:
     steps:
       - name: Repository checkout
         uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744
-      - name: ${{ format('Build check ({0}-{1}-{2}-{3})', env.COMPILER, env.COMPILER_VERSION, env.LINKER, env.CRYPTOLIB) }}
+      - name: Build check
         run: sudo -E .github/workflows/build_test.sh
