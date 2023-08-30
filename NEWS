@@ -655,7 +655,7 @@ CHANGES WITH 254:
         * systemd-resolved gained a new resolved.conf setting
           StateRetentionSec= which may be used to retain cached DNS records
           even after their nominal TTL, and use them in case upstream DNS
-          servers cannot be reached. This can be sued to make name resolution
+          servers cannot be reached. This can be used to make name resolution
           more resilient in case of network problems.
 
         * resolvectl gained a new verb "show-cache" to show the current cache
