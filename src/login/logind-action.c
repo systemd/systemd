@@ -281,6 +281,8 @@ static const char* const handle_action_verb_table[_HANDLE_ACTION_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP_TO_STRING(handle_action_verb, HandleAction);
 
+/* These strings are sent out by PrepareForShutdownWithMetadata signals as metadata, so the values cannot
+ * change as they are public APIs. */
 static const char* const handle_action_table[_HANDLE_ACTION_MAX] = {
         [HANDLE_IGNORE]                 = "ignore",
         [HANDLE_POWEROFF]               = "poweroff",
