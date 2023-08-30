@@ -2015,7 +2015,9 @@ static int invoke_main_loop(
                 int objective = manager_loop(m);
                 if (objective < 0) {
                         *ret_error_message = "Failed to run main loop";
-                        return log_emergency_errno(objective, "Failed to run main loop: %m");
+                        return log_struct_errno(LOG_EMERG, objective,
+                                                LOG_MESSAGE("Failed to run main loop: %m"),
+                                                "MESSAGE_ID=" SD_MESSAGE_CORE_MAINLOOP_FAILED_STR);
                 }
 
                 switch (objective) {
@@ -2316,7 +2318,9 @@ static int initialize_runtime(
                 r = xdg_user_runtime_dir(&p, "/systemd");
                 if (r < 0) {
                         *ret_error_message = "$XDG_RUNTIME_DIR is not set";
-                        return log_emergency_errno(r, "Failed to determine $XDG_RUNTIME_DIR path: %m");
+                        return log_struct_errno(LOG_EMERG, r,
+                                                LOG_MESSAGE("Failed to determine $XDG_RUNTIME_DIR path: %m"),
+                                                "MESSAGE_ID=" SD_MESSAGE_CORE_NO_XDGDIR_PATH_STR);
                 }
 
                 (void) mkdir_p_label(p, 0755);
@@ -2341,20 +2345,26 @@ static int initialize_runtime(
                         r = capability_bounding_set_drop_usermode(arg_capability_bounding_set);
                         if (r < 0) {
                                 *ret_error_message = "Failed to drop capability bounding set of usermode helpers";
-                                return log_emergency_errno(r, "Failed to drop capability bounding set of usermode helpers: %m");
+                                return log_struct_errno(LOG_EMERG, r,
+                                                        LOG_MESSAGE("Failed to drop capability bounding set of usermode helpers: %m"),
+                                                        "MESSAGE_ID=" SD_MESSAGE_CORE_CAPABILITY_BOUNDING_USER_STR);
                         }
 
                         r = capability_bounding_set_drop(arg_capability_bounding_set, true);
                         if (r < 0) {
                                 *ret_error_message = "Failed to drop capability bounding set";
-                                return log_emergency_errno(r, "Failed to drop capability bounding set: %m");
+                                return log_struct_errno(LOG_EMERG, r,
+                                                        LOG_MESSAGE("Failed to drop capability bounding set: %m"),
+                                                        "MESSAGE_ID=" SD_MESSAGE_CORE_CAPABILITY_BOUNDING_STR);
                         }
                 }
 
                 if (arg_no_new_privs) {
                         if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) < 0) {
                                 *ret_error_message = "Failed to disable new privileges";
-                                return log_emergency_errno(errno, "Failed to disable new privileges: %m");
+                                return log_struct_errno(LOG_EMERG, errno,
+                                                        LOG_MESSAGE("Failed to disable new privileges: %m"),
+                                                        "MESSAGE_ID=" SD_MESSAGE_CORE_DISABLE_PRIVILEGES_STR);
                         }
                 }
         }
@@ -2428,12 +2438,16 @@ static int do_queue_default_job(
                 r = manager_add_job(m, JOB_START, target, JOB_REPLACE, NULL, &error, &job);
                 if (r < 0) {
                         *ret_error_message = "Failed to start default target";
-                        return log_emergency_errno(r, "Failed to start default target: %s", bus_error_message(&error, r));
+                        return log_struct_errno(LOG_EMERG, r,
+                                                LOG_MESSAGE("Failed to start default target: %s", bus_error_message(&error, r)),
+                                                "MESSAGE_ID=" SD_MESSAGE_CORE_START_TARGET_FAILED_STR);
                 }
 
         } else if (r < 0) {
                 *ret_error_message = "Failed to isolate default target";
-                return log_emergency_errno(r, "Failed to isolate default target: %s", bus_error_message(&error, r));
+                return log_struct_errno(LOG_EMERG, r,
+                                        LOG_MESSAGE("Failed to isolate default target: %s", bus_error_message(&error, r)),
+                                        "MESSAGE_ID=" SD_MESSAGE_CORE_ISOLATE_TARGET_FAILED_STR);
         } else
                 log_info("Queued %s job for default target %s.",
                          job_type_to_string(job->type),
@@ -2795,7 +2809,9 @@ static int collect_fds(FDSet **ret_fds, const char **ret_error_message) {
         r = fdset_new_fill(/* filter_cloexec= */ 0, ret_fds);
         if (r < 0) {
                 *ret_error_message = "Failed to allocate fd set";
-                return log_emergency_errno(r, "Failed to allocate fd set: %m");
+                return log_struct_errno(LOG_EMERG, r,
+                                        LOG_MESSAGE("Failed to allocate fd set: %m"),
+                                        "MESSAGE_ID=" SD_MESSAGE_CORE_FD_SET_FAILED_STR);
         }
 
         (void) fdset_cloexec(*ret_fds, true);
@@ -2987,7 +3003,9 @@ int main(int argc, char *argv[]) {
 
                 r = fixup_environment();
                 if (r < 0) {
-                        log_emergency_errno(r, "Failed to fix up PID 1 environment: %m");
+                        log_struct_errno(LOG_EMERG, r,
+                                         LOG_MESSAGE("Failed to fix up PID 1 environment: %m"),
+                                         "MESSAGE_ID=" SD_MESSAGE_CORE_PID1_ENVIRONMENT_STR);
                         error_message = "Failed to fix up PID1 environment";
                         goto finish;
                 }
@@ -3129,7 +3147,9 @@ int main(int argc, char *argv[]) {
                         arg_action == ACTION_TEST ? MANAGER_TEST_FULL : 0,
                         &m);
         if (r < 0) {
-                log_emergency_errno(r, "Failed to allocate manager object: %m");
+                log_struct_errno(LOG_EMERG, r,
+                                 LOG_MESSAGE("Failed to allocate manager object: %m"),
+                                 "MESSAGE_ID=" SD_MESSAGE_CORE_MANAGER_ALLOCATE_STR);
                 error_message = "Failed to allocate manager object";
                 goto finish;
         }
