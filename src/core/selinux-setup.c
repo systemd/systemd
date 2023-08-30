@@ -11,6 +11,7 @@
 #include "initrd-util.h"
 #include "log.h"
 #include "macro.h"
+#include "sd-messages.h"
 #include "selinux-setup.h"
 #include "selinux-util.h"
 #include "string-util.h"
@@ -91,7 +92,7 @@ int mac_selinux_setup(bool *loaded_policy) {
                 if (enforce > 0) {
                         if (!initialized)
                                 return log_emergency_errno(SYNTHETIC_ERRNO(EIO),
-                                                           "Failed to load SELinux policy.");
+                                                           SD_MESSAGE_SELINUX_FAILED_STR, "Failed to load SELinux policy :%m");
 
                         log_warning("Failed to load new SELinux policy. Continuing with old policy.");
                 } else
