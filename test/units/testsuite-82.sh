@@ -76,6 +76,9 @@ elif [ -f /run/testsuite82.touch ]; then
     read -r x <&3
     test "$x" = "wuffwuff"
 
+    # Check that we got a PrepareForShutdownWithMetadata signal with the right type
+    test "$(jq .payload.data[1].type.data </run/testsuite82.signal)" = "\"soft-reboot\""
+
     # Upload another entry
     T="/dev/shm/fdstore.$RANDOM"
     echo "miaumiau" >"$T"
@@ -138,9 +141,17 @@ EOF
     systemd-run -p Type=notify -p DefaultDependencies=no -p IgnoreOnIsolate=yes --unit=testsuite-82-survive.service "$T"
     systemd-run -p Type=exec -p DefaultDependencies=no -p IgnoreOnIsolate=yes --unit=testsuite-82-nosurvive.service sleep infinity
 
+    # Check that we can set up an inhibitor, and that busctl monitor sees the
+    # PrepareForShutdownWithMetadata signal and that it says 'soft-reboot'.
+    systemd-run --unit busctl.service --property StandardOutput=file:/run/testsuite82.signal \
+        busctl monitor --json=pretty --match 'sender=org.freedesktop.login1,path=/org/freedesktop/login1,interface=org.freedesktop.login1.Manager,member=PrepareForShutdownWithMetadata,type=signal'
+    systemd-run --unit inhibit.service \
+        systemd-inhibit --what=shutdown --who=test --why=test --mode=delay \
+            sleep infinity
+
     # Now issue the soft reboot. We should be right back soon.
     touch /run/testsuite82.touch
-    systemctl --no-block soft-reboot
+    systemctl --no-block --check-inhibitors=yes soft-reboot
 
     # Now block until the soft-boot killing spree kills us
     exec sleep infinity
