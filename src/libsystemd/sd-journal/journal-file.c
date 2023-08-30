@@ -572,6 +572,10 @@ static int journal_file_verify_header(JournalFile *f) {
         if (journal_file_writable(f) && header_size != sizeof(Header))
                 return -EPROTONOSUPPORT;
 
+        /* Don't write to journal files without the new boot ID update behavior guarantee. */
+        if (journal_file_writable(f) && !JOURNAL_HEADER_TAIL_ENTRY_BOOT_ID(f->header))
+                return -EPROTONOSUPPORT;
+
         if (JOURNAL_HEADER_SEALED(f->header) && !JOURNAL_HEADER_CONTAINS(f->header, n_entry_arrays))
                 return -EBADMSG;
 
@@ -2283,18 +2287,15 @@ static int journal_file_append_entry_internal(
                                                "timestamp %" PRIu64 ", refusing entry.",
                                                ts->realtime, le64toh(f->header->tail_entry_realtime));
 
-                if (!sd_id128_is_null(f->header->tail_entry_boot_id) && boot_id) {
-
-                        if (!sd_id128_equal(f->header->tail_entry_boot_id, *boot_id))
-                                return log_debug_errno(SYNTHETIC_ERRNO(EREMOTE),
-                                                       "Boot ID to write is different from previous boot id, refusing entry.");
-
-                        if (ts->monotonic < le64toh(f->header->tail_entry_monotonic))
-                                return log_debug_errno(SYNTHETIC_ERRNO(ENOTNAM),
-                                                       "Monotonic timestamp %" PRIu64 " smaller than previous monotonic "
-                                                       "timestamp %" PRIu64 ", refusing entry.",
-                                                       ts->monotonic, le64toh(f->header->tail_entry_monotonic));
-                }
+                if ((!boot_id || sd_id128_equal(*boot_id, f->header->tail_entry_boot_id)) &&
+                    ts->monotonic < le64toh(f->header->tail_entry_monotonic))
+                        return log_debug_errno(
+                                        SYNTHETIC_ERRNO(ENOTNAM),
+                                        "Monotonic timestamp %" PRIu64
+                                        " smaller than previous monotonic timestamp %" PRIu64
+                                        " while having the same boot ID, refusing entry.",
+                                        ts->monotonic,
+                                        le64toh(f->header->tail_entry_monotonic));
         }
 
         if (seqnum_id) {
