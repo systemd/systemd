@@ -617,6 +617,25 @@ int link_save(Link *link) {
                         fprintf(f, "CAPTIVE_PORTAL=%s\n", captive_portal);
 
                 /************************************************************/
+                if (link->network->ipv6_accept_ra_use_pref64 && set_size(link->ndisc_pref64) > 0) {
+                         _cleanup_strv_free_ char **prefixes = NULL;
+                         struct in6_addr prefix;
+                         unsigned prefix_len;
+                         NDiscPREF64 *iter;
+
+                         SET_FOREACH(iter, link->ndisc_pref64) {
+                                 prefix = iter->prefix;
+                                 prefix_len = iter->prefix_len;
+
+                                 if (strv_prepend(&prefixes, IN6_ADDR_PREFIX_TO_STRING(&prefix, prefix_len)) < 0)
+                                         return log_oom();
+                         }
+
+                         fputs("PREF64=", f);
+                         fputstrv(f, prefixes, NULL, NULL);
+                         fputc('\n', f);
+                }
+                /************************************************************/
 
                 fputs("DOMAINS=", f);
                 if (link->search_domains)
