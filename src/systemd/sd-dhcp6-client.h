@@ -184,8 +184,14 @@ enum {
         SD_DHCP6_OPTION_SLAP_QUAD                  = 140, /* RFC 8948 */
         SD_DHCP6_OPTION_V6_DOTS_RI                 = 141, /* RFC 8973 */
         SD_DHCP6_OPTION_V6_DOTS_ADDRESS            = 142, /* RFC 8973 */
-        SD_DHCP6_OPTION_IPV6_ADDRESS_ANDSF         = 143 /* RFC 6153 */
+        SD_DHCP6_OPTION_IPV6_ADDRESS_ANDSF         = 143, /* RFC 6153 */
         /* option codes 144-65535 are unassigned */
+        /* DHCPv6 private options. Assuming private options base as 224
+         * derived from DHCPv4 and end as 65535
+         */
+        SD_DHCP6_OPTION_PRIVATE_BASE               = 224,
+        SD_DHCP6_OPTION_PRIVATE_LAST               = 65534,
+        SD_DHCP6_OPTION_END                        = 65535
 };
 
 typedef struct sd_dhcp6_client sd_dhcp6_client;
