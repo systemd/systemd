@@ -871,12 +871,12 @@ static bool shall_try_append_again(JournalFile *f, int r) {
                 log_ratelimit_info_errno(r, JOURNAL_LOG_RATELIMIT, "%s: Realtime clock jumped backwards relative to last journal entry, rotating.", f->path);
                 return true;
 
-        case -EREMOTE:         /* Boot ID different from the one of the last entry */
-                log_ratelimit_info_errno(r, JOURNAL_LOG_RATELIMIT, "%s: Boot ID changed since last record, rotating.", f->path);
-                return true;
-
-        case -ENOTNAM:         /* Monotonic time (CLOCK_MONOTONIC) jumped backwards relative to last journal entry */
-                log_ratelimit_info_errno(r, JOURNAL_LOG_RATELIMIT, "%s: Monotonic clock jumped backwards relative to last journal entry, rotating.", f->path);
+        case -ENOTNAM: /* Monotonic time (CLOCK_MONOTONIC) jumped backwards relative to last journal entry with the same boot ID */
+                log_ratelimit_info_errno(
+                                r,
+                                JOURNAL_LOG_RATELIMIT,
+                                "%s: Monotonic clock jumped backwards relative to last journal entry with the same boot ID, rotating.",
+                                f->path);
                 return true;
 
         case -EILSEQ:          /* seqnum ID last used in the file doesn't match the one we'd passed when writing an entry to it */
