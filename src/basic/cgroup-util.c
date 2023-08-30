@@ -1234,6 +1234,20 @@ int cg_pid_get_unit(pid_t pid, char **unit) {
         return cg_path_get_unit(cgroup, unit);
 }
 
+int cg_pidfd_get_unit(int pidfd, char **unit) {
+        pid_t p;
+        int r;
+
+        assert(pidfd >= 0);
+        assert(unit);
+
+        r = pidfd_get_pid(pidfd, &p);
+        if (r < 0)
+                return r;
+
+        return cg_pid_get_unit(p, unit);
+}
+
 /**
  * Skip session-*.scope, but require it to be there.
  */

@@ -277,6 +277,8 @@ int cg_pid_get_machine_name(pid_t pid, char **machine);
 int cg_pid_get_slice(pid_t pid, char **slice);
 int cg_pid_get_user_slice(pid_t pid, char **slice);
 
+int cg_pidfd_get_unit(int pidfd, char **unit);
+
 int cg_path_decode_unit(const char *cgroup, char **unit);
 
 bool cg_needs_escape(const char *p);

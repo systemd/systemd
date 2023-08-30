@@ -119,6 +119,7 @@ typedef enum CGroupPressureWatch {
         _CGROUP_PRESSURE_WATCH_INVALID = -EINVAL,
 } CGroupPressureWatch;
 
+/* When adding members make sure to update cgroup_context_copy() accordingly */
 struct CGroupContext {
         bool cpu_accounting;
         bool io_accounting;
@@ -251,6 +252,7 @@ typedef struct Manager Manager;
 usec_t cgroup_cpu_adjust_period(usec_t period, usec_t quota, usec_t resolution, usec_t max_period);
 
 void cgroup_context_init(CGroupContext *c);
+int cgroup_context_copy(const CGroupContext *src, CGroupContext *dst);
 void cgroup_context_done(CGroupContext *c);
 void cgroup_context_dump(Unit *u, FILE* f, const char *prefix);
 void cgroup_context_dump_socket_bind_item(const CGroupSocketBindItem *item, FILE *f);
