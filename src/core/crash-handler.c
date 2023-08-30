@@ -2,6 +2,8 @@
 
 #include <sys/reboot.h>
 
+#include "sd-messages.h"
+
 #include "crash-handler.h"
 #include "exit-status.h"
 #include "macro.h"
@@ -19,7 +21,9 @@ _noreturn_ void freeze_or_exit_or_reboot(void) {
         /* If we are running in a container, let's prefer exiting, after all we can propagate an exit code to
          * the container manager, and thus inform it that something went wrong. */
         if (detect_container() > 0) {
-                log_emergency("Exiting PID 1...");
+                log_struct(LOG_EMERG,
+                           LOG_MESSAGE("Exiting PID 1..."),
+                           "MESSAGE_ID=" SD_MESSAGE_CRASH_EXIT_STR);
                 _exit(EXIT_EXCEPTION);
         }
 
@@ -29,10 +33,14 @@ _noreturn_ void freeze_or_exit_or_reboot(void) {
 
                 log_notice("Rebooting now...");
                 (void) reboot(RB_AUTOBOOT);
-                log_emergency_errno(errno, "Failed to reboot: %m");
+                log_struct_errno(LOG_EMERG, errno,
+                                 LOG_MESSAGE("Failed to reboot: %m"),
+                                 "MESSAGE_ID=" SD_MESSAGE_CRASH_FAILED_STR);
         }
 
-        log_emergency("Freezing execution.");
+        log_struct(LOG_EMERG,
+                   LOG_MESSAGE("Freezing execution."),
+                   "MESSAGE_ID=" SD_MESSAGE_CRASH_FREEZE_STR);
         sync();
         freeze();
 }
@@ -51,7 +59,9 @@ _noreturn_ static void crash(int sig, siginfo_t *siginfo, void *context) {
                 /* Pass this on immediately, if this is not PID 1 */
                 propagate_signal(sig, siginfo);
         else if (!arg_dump_core)
-                log_emergency("Caught <%s>, not dumping core.", signal_to_string(sig));
+                log_struct(LOG_EMERG,
+                           LOG_MESSAGE("Caught <%s>, not dumping core.", signal_to_string(sig)),
+                           "MESSAGE_ID=" SD_MESSAGE_CRASH_NO_COREDUMP_STR);
         else {
                 sa = (struct sigaction) {
                         .sa_handler = nop_signal_handler,
@@ -63,7 +73,9 @@ _noreturn_ static void crash(int sig, siginfo_t *siginfo, void *context) {
 
                 pid = raw_clone(SIGCHLD);
                 if (pid < 0)
-                        log_emergency_errno(errno, "Caught <%s>, cannot fork for core dump: %m", signal_to_string(sig));
+                        log_struct_errno(LOG_EMERG, errno,
+                        LOG_MESSAGE("Caught <%s>, cannot fork for core dump: %m", signal_to_string(sig)),
+                        "MESSAGE_ID=" SD_MESSAGE_CRASH_NO_FORK_STR);
                 else if (pid == 0) {
                         /* Enable default signal handler for core dump */
 
@@ -88,30 +100,42 @@ _noreturn_ static void crash(int sig, siginfo_t *siginfo, void *context) {
 
                         if (siginfo) {
                                 if (siginfo->si_pid == 0)
-                                        log_emergency("Caught <%s> from unknown sender process.", signal_to_string(sig));
+                                        log_struct(LOG_EMERG,
+                                                   LOG_MESSAGE("Caught <%s>, from unknown sender process.", signal_to_string(sig)),
+                                                   "MESSAGE_ID=" SD_MESSAGE_CRASH_UNKNOWN_SIGNAL_STR);
                                 else if (siginfo->si_pid == 1)
-                                        log_emergency("Caught <%s> from our own process.", signal_to_string(sig));
+                                        log_struct(LOG_EMERG,
+                                                   LOG_MESSAGE("Caught <%s>, from our own process.", signal_to_string(sig)),
+                                                   "MESSAGE_ID=" SD_MESSAGE_CRASH_SYSTEMD_SIGNAL_STR);
                                 else
-                                        log_emergency("Caught <%s> from PID "PID_FMT".", signal_to_string(sig), siginfo->si_pid);
+                                        log_struct(LOG_EMERG,
+                                                   LOG_MESSAGE("Caught <%s> from PID "PID_FMT".", signal_to_string(sig), siginfo->si_pid),
+                                                   "MESSAGE_ID=" SD_MESSAGE_CRASH_PROCESS_SIGNAL_STR);
                         }
 
                         /* Order things nicely. */
                         r = wait_for_terminate(pid, &status);
                         if (r < 0)
-                                log_emergency_errno(r, "Caught <%s>, waitpid() failed: %m", signal_to_string(sig));
+                                log_struct_errno(LOG_EMERG, r,
+                                                 LOG_MESSAGE("Caught <%s>, waitpid() failed: %m", signal_to_string(sig)),
+                                                 "MESSAGE_ID=" SD_MESSAGE_CRASH_WAITPID_FAILED_STR);
                         else if (status.si_code != CLD_DUMPED) {
                                 const char *s = status.si_code == CLD_EXITED
                                         ? exit_status_to_string(status.si_status, EXIT_STATUS_LIBC)
                                         : signal_to_string(status.si_status);
 
-                                log_emergency("Caught <%s>, core dump failed (child "PID_FMT", code=%s, status=%i/%s).",
-                                              signal_to_string(sig),
-                                              pid,
-                                              sigchld_code_to_string(status.si_code),
-                                              status.si_status, strna(s));
+                                log_struct(LOG_EMERG,
+                                           LOG_MESSAGE("Caught <%s>, core dump failed (child "PID_FMT", code=%s, status=%i/%s).",
+                                                   signal_to_string(sig),
+                                                   pid,
+                                                   sigchld_code_to_string(status.si_code),
+                                                   status.si_status, strna(s)),
+                                           "MESSAGE_ID=" SD_MESSAGE_CRASH_COREDUMP_FAILED_STR);
                         } else
-                                log_emergency("Caught <%s>, dumped core as pid "PID_FMT".",
-                                              signal_to_string(sig), pid);
+                                log_struct(LOG_EMERG,
+                                           LOG_MESSAGE("Caught <%s>, dumped core as pid "PID_FMT".",
+                                                   signal_to_string(sig), pid),
+                                           "MESSAGE_ID=" SD_MESSAGE_CRASH_COREDUMP_PID_STR);
                 }
         }
 
@@ -132,14 +156,18 @@ _noreturn_ static void crash(int sig, siginfo_t *siginfo, void *context) {
 
                 pid = raw_clone(SIGCHLD);
                 if (pid < 0)
-                        log_emergency_errno(errno, "Failed to fork off crash shell: %m");
+                        log_struct_errno(LOG_EMERG, errno,
+                                         LOG_MESSAGE("Failed to fork off crash shell: %m"),
+                                         "MESSAGE_ID=" SD_MESSAGE_CRASH_SHELL_FORK_FAILED_STR);
                 else if (pid == 0) {
                         (void) setsid();
                         (void) make_console_stdio();
                         (void) rlimit_nofile_safe();
                         (void) execle("/bin/sh", "/bin/sh", NULL, environ);
 
-                        log_emergency_errno(errno, "execle() failed: %m");
+                        log_struct_errno(LOG_EMERG, errno,
+                                         LOG_MESSAGE("execle() failed: %m"),
+                                         "MESSAGE_ID=" SD_MESSAGE_CRASH_EXECLE_FAILED_STR);
                         _exit(EXIT_EXCEPTION);
                 } else {
                         log_info("Spawned crash shell as PID "PID_FMT".", pid);
