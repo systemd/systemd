@@ -264,6 +264,10 @@ if [[ -x "$SD_PCRPHASE" ]] && tpm_has_pcr sha256 11 && tpm_has_pcr sha256 15; th
 
     rm -f /tmp/oldpcr15 /tmp/newpcr15
 
+    # Check that the event log record was properly written:
+    test "$(jq --seq --slurp '.[0].pcr' < /var/log/systemd/tpm2-measure.log)" == "$(printf '\x1e15')"
+    test "$(jq --seq --slurp --raw-output '.[0].digests[1].digest' < /var/log/systemd/tpm2-measure.log) *stdin" == "$(echo -n "machine-id:994013bf23864ee7992eab39a96dd3bb" | openssl dgst -hex -sha256 -r)"
+
     # And similar for the boot phase measurement into PCR 11
     tpm2_pcrread sha256:11 -Q -o /tmp/oldpcr11
     SYSTEMD_FORCE_MEASURE=1 "$SD_PCRPHASE" foobar
@@ -271,6 +275,12 @@ if [[ -x "$SD_PCRPHASE" ]] && tpm_has_pcr sha256 11 && tpm_has_pcr sha256 15; th
 
     diff /tmp/newpcr11 \
         <(cat /tmp/oldpcr11 <(echo -n "foobar" | openssl dgst -binary -sha256) | openssl dgst -binary -sha256)
+
+    # Check the event log for the 2nd record
+    jq --seq --slurp < /var/log/systemd/tpm2-measure.log
+
+    test "$(jq --seq --slurp .[1].pcr < /var/log/systemd/tpm2-measure.log)" == "$(printf '\x1e11')"
+    test "$(jq --seq --slurp --raw-output .[1].digests[0].digest < /var/log/systemd/tpm2-measure.log) *stdin" == "$(echo -n "foobar" | openssl dgst -hex -sha256 -r)"
 
     rm -f /tmp/oldpcr11 /tmp/newpcr11
 else
