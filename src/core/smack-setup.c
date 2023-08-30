@@ -17,6 +17,7 @@
 #include "fileio.h"
 #include "log.h"
 #include "macro.h"
+#include "sd-messages.h"
 #include "smack-setup.h"
 #include "string-util.h"
 
@@ -378,7 +379,9 @@ int mac_smack_setup(bool *loaded_policy) {
                 log_info("Successfully wrote Smack onlycap list.");
                 break;
         default:
-                return log_emergency_errno(r, "Failed to write Smack onlycap list: %m");
+                return log_struct_errno(LOG_EMERG, r,
+                                        LOG_MESSAGE("Failed to write Smack onlycap list: %m"),
+                                        "MESSAGE_ID=" SD_MESSAGE_SMACK_FAILED_WRITE_STR);
         }
 
         *loaded_policy = true;
