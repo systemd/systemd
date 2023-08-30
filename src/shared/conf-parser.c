@@ -8,6 +8,7 @@
 #include <sys/types.h>
 
 #include "alloc-util.h"
+#include "chase.h"
 #include "conf-files.h"
 #include "conf-parser.h"
 #include "constants.h"
@@ -486,6 +487,7 @@ static int config_parse_many_files(
                 Hashmap **ret_stats_by_path) {
 
         _cleanup_hashmap_free_ Hashmap *stats_by_path = NULL;
+        _cleanup_strv_free_ char **chased_files = NULL;
         struct stat st;
         int r;
 
@@ -495,8 +497,31 @@ static int config_parse_many_files(
                         return -ENOMEM;
         }
 
+        /* build an array of chased file paths */
+        STRV_FOREACH(fn, files) {
+                _cleanup_free_ char *chased = NULL;
+
+                r = chase(*fn, NULL, 0, &chased, NULL);
+                if (r < 0)
+                        continue;
+
+                r = strv_consume(&chased_files, TAKE_PTR(chased));
+                if (r < 0)
+                        return r;
+        }
+
         /* First read the first found main config file. */
         STRV_FOREACH(fn, conf_files) {
+                _cleanup_free_ char *chased = NULL;
+
+                r = chase(*fn, NULL, 0, &chased, NULL);
+                if (r >= 0) {
+                        if (strv_find(chased_files, chased)) {
+                                log_debug("%s: symlink to drop-in, will be read later.", fn);
+                                continue;
+                        }
+                }
+
                 r = config_parse(NULL, *fn, NULL, sections, lookup, table, flags, userdata, &st);
                 if (r < 0)
                         return r;
