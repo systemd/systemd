@@ -2287,18 +2287,15 @@ static int journal_file_append_entry_internal(
                                                "timestamp %" PRIu64 ", refusing entry.",
                                                ts->realtime, le64toh(f->header->tail_entry_realtime));
 
-                if (!sd_id128_is_null(f->header->tail_entry_boot_id) && boot_id) {
-
-                        if (!sd_id128_equal(f->header->tail_entry_boot_id, *boot_id))
-                                return log_debug_errno(SYNTHETIC_ERRNO(EREMOTE),
-                                                       "Boot ID to write is different from previous boot id, refusing entry.");
-
-                        if (ts->monotonic < le64toh(f->header->tail_entry_monotonic))
-                                return log_debug_errno(SYNTHETIC_ERRNO(ENOTNAM),
-                                                       "Monotonic timestamp %" PRIu64 " smaller than previous monotonic "
-                                                       "timestamp %" PRIu64 ", refusing entry.",
-                                                       ts->monotonic, le64toh(f->header->tail_entry_monotonic));
-                }
+                if ((!boot_id || sd_id128_equal(*boot_id, f->header->tail_entry_boot_id)) &&
+                    ts->monotonic < le64toh(f->header->tail_entry_monotonic))
+                        return log_debug_errno(
+                                        SYNTHETIC_ERRNO(ENOTNAM),
+                                        "Monotonic timestamp %" PRIu64
+                                        " smaller than previous monotonic timestamp %" PRIu64
+                                        " while having the same boot ID, refusing entry.",
+                                        ts->monotonic,
+                                        le64toh(f->header->tail_entry_monotonic));
         }
 
         if (seqnum_id) {
