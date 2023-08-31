@@ -154,7 +154,7 @@ int lsm_bpf_setup(Manager *m) {
         return 0;
 }
 
-int lsm_bpf_unit_restrict_filesystems(Unit *u, const Set *filesystems, int outer_map_fd, bool allow_list) {
+int lsm_bpf_unit_restrict_filesystems(const Set *filesystems, uint64_t cgroup_id, int outer_map_fd, bool allow_list) {
         _cleanup_close_ int outer_map_fd_cleanup = -EBADF;
         uint32_t dummy_value = 1, zero = 0;
         const char *fs;
@@ -162,12 +162,7 @@ int lsm_bpf_unit_restrict_filesystems(Unit *u, const Set *filesystems, int outer
         int r;
 
         assert(filesystems);
-        assert(u);
-        assert(outer_map_fd >= 0 || u->manager);
-
-        if (u->manager && !u->manager->restrict_fs) /* Might be called in sd-executor with no manager object */
-                return log_unit_error_errno(u, SYNTHETIC_ERRNO(EINVAL),
-                                            "bpf-lsm: BPF LSM object is not installed, has setup failed?");
+        assert(outer_map_fd >= 0);
 
         int inner_map_fd = compat_bpf_map_create(
                         BPF_MAP_TYPE_HASH,
@@ -177,41 +172,35 @@ int lsm_bpf_unit_restrict_filesystems(Unit *u, const Set *filesystems, int outer
                         128U, /* Should be enough for all filesystem types */
                         NULL);
         if (inner_map_fd < 0)
-                return log_unit_error_errno(u, errno, "bpf-lsm: Failed to create inner BPF map: %m");
+                return log_error_errno(errno, "bpf-lsm: Failed to create inner BPF map: %m");
 
-        if (outer_map_fd < 0) {
-                outer_map_fd_cleanup = outer_map_fd = sym_bpf_map__fd(u->manager->restrict_fs->maps.cgroup_hash);
-                if (outer_map_fd < 0)
-                        return log_unit_error_errno(u, errno, "bpf-lsm: Failed to get BPF map fd: %m");
-        }
-
-        if (sym_bpf_map_update_elem(outer_map_fd, &u->cgroup_id, &inner_map_fd, BPF_ANY) != 0)
-                return log_unit_error_errno(u, errno, "bpf-lsm: Error populating BPF map: %m");
+        if (sym_bpf_map_update_elem(outer_map_fd, &cgroup_id, &inner_map_fd, BPF_ANY) != 0)
+                return log_error_errno(errno, "bpf-lsm: Error populating BPF map: %m");
 
         uint32_t allow = allow_list;
 
         /* Use key 0 to store whether this is an allow list or a deny list */
         if (sym_bpf_map_update_elem(inner_map_fd, &zero, &allow, BPF_ANY) != 0)
-                return log_unit_error_errno(u, errno, "bpf-lsm: Error initializing map: %m");
+                return log_error_errno(errno, "bpf-lsm: Error initializing map: %m");
 
         SET_FOREACH(fs, filesystems) {
                 r = fs_type_from_string(fs, &magic);
                 if (r < 0) {
-                        log_unit_warning(u, "bpf-lsm: Invalid filesystem name '%s', ignoring.", fs);
+                        log_warning("bpf-lsm: Invalid filesystem name '%s', ignoring.", fs);
                         continue;
                 }
 
-                log_unit_debug(u, "bpf-lsm: Restricting filesystem access to '%s'", fs);
+                log_debug("bpf-lsm: Restricting filesystem access to '%s'", fs);
 
                 for (int i = 0; i < FILESYSTEM_MAGIC_MAX; i++) {
                         if (magic[i] == 0)
                                 break;
 
                         if (sym_bpf_map_update_elem(inner_map_fd, &magic[i], &dummy_value, BPF_ANY) != 0) {
-                                r = log_unit_error_errno(u, errno, "bpf-lsm: Failed to update BPF map: %m");
+                                r = log_error_errno(errno, "bpf-lsm: Failed to update BPF map: %m");
 
-                                if (sym_bpf_map_delete_elem(outer_map_fd, &u->cgroup_id) != 0)
-                                        log_unit_debug_errno(u, errno, "bpf-lsm: Failed to delete cgroup entry from BPF map: %m");
+                                if (sym_bpf_map_delete_elem(outer_map_fd, &cgroup_id) != 0)
+                                        log_debug_errno(errno, "bpf-lsm: Failed to delete cgroup entry from BPF map: %m");
 
                                 return r;
                         }
@@ -264,8 +253,8 @@ int lsm_bpf_setup(Manager *m) {
         return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "bpf-lsm: Failed to set up LSM BPF: %m");
 }
 
-int lsm_bpf_unit_restrict_filesystems(Unit *u, const Set *filesystems, int outer_map_fd, const bool allow_list) {
-        return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EOPNOTSUPP), "bpf-lsm: Failed to restrict filesystems using LSM BPF: %m");
+int lsm_bpf_unit_restrict_filesystems(const Set *filesystems, uint64_t cgroup_id, int outer_map_fd, const bool allow_list) {
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "bpf-lsm: Failed to restrict filesystems using LSM BPF: %m");
 }
 
 int lsm_bpf_cleanup(const Unit *u) {
