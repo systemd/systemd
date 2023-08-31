@@ -142,6 +142,13 @@ static usec_t manager_watch_jobs_next_time(Manager *m) {
         return usec_add(now(CLOCK_MONOTONIC), timeout);
 }
 
+static bool manager_is_confirm_spawn_disabled(Manager *m) {
+        if (!m->confirm_spawn)
+                return true;
+
+        return access("/run/systemd/confirm_spawn_disabled", F_OK) >= 0;
+}
+
 static void manager_watch_jobs_in_progress(Manager *m) {
         usec_t next;
         int r;
@@ -4371,13 +4378,6 @@ void manager_set_first_boot(Manager *m, bool b) {
 
 void manager_disable_confirm_spawn(void) {
         (void) touch("/run/systemd/confirm_spawn_disabled");
-}
-
-bool manager_is_confirm_spawn_disabled(Manager *m) {
-        if (!m->confirm_spawn)
-                return true;
-
-        return access("/run/systemd/confirm_spawn_disabled", F_OK) >= 0;
 }
 
 static bool manager_should_show_status(Manager *m, StatusType type) {
