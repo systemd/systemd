@@ -5322,6 +5322,22 @@ int unit_set_exec_params(Unit *u, ExecParameters *p) {
         p->received_credentials_directory = u->manager->received_credentials_directory;
         p->received_encrypted_credentials_directory = u->manager->received_encrypted_credentials_directory;
 
+        p->shall_confirm_spawn = !!u->manager->confirm_spawn;
+
+        p->fallback_smack_process_label = u->manager->defaults.smack_process_label;
+
+        if (u->manager->restrict_fs && p->bpf_outer_map_fd < 0) {
+                int fd = lsm_bpf_map_restrict_fs_fd(u);
+                if (fd < 0)
+                        return fd;
+
+                p->bpf_outer_map_fd = fd;
+        }
+
+        p->user_lookup_fd = fcntl(u->manager->user_lookup_fds[1], F_DUPFD_CLOEXEC, 3);
+        if (p->user_lookup_fd < 0)
+                return -errno;
+
         return 0;
 }
 

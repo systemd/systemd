@@ -1631,11 +1631,13 @@ static int service_spawn_internal(
                 PidRef *ret_pid) {
 
         _cleanup_(exec_params_clear) ExecParameters exec_params = {
-                .flags     = flags,
-                .stdin_fd  = -EBADF,
-                .stdout_fd = -EBADF,
-                .stderr_fd = -EBADF,
-                .exec_fd   = -EBADF,
+                .flags            = flags,
+                .stdin_fd         = -EBADF,
+                .stdout_fd        = -EBADF,
+                .stderr_fd        = -EBADF,
+                .exec_fd          = -EBADF,
+                .bpf_outer_map_fd = -EBADF,
+                .user_lookup_fd   = -EBADF,
         };
         _cleanup_(sd_event_source_unrefp) sd_event_source *exec_fd_source = NULL;
         _cleanup_strv_free_ char **final_env = NULL, **our_env = NULL;
