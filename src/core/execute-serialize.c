@@ -19,6 +19,556 @@
 #include "string-util.h"
 #include "strv.h"
 
+static int exec_parameters_serialize(const ExecParameters *p, FILE *f, FDSet *fds) {
+        int r;
+
+        assert(f);
+        assert(fds);
+
+        if (!p)
+                return 0;
+
+        r = serialize_item(f, "exec-parameters-runtime-scope", runtime_scope_to_string(p->runtime_scope));
+        if (r < 0)
+                return r;
+
+        r = serialize_strv(f, "exec-parameters-environment", p->environment);
+        if (r < 0)
+                return r;
+
+        if (p->n_socket_fds) {
+                r = serialize_item_format(f, "exec-parameters-n-socket-fds", "%zu", p->n_socket_fds);
+                if (r < 0)
+                        return r;
+        }
+
+        if (p->n_storage_fds) {
+                r = serialize_item_format(f, "exec-parameters-n-storage-fds", "%zu", p->n_storage_fds);
+                if (r < 0)
+                        return r;
+        }
+
+        if (p->n_socket_fds + p->n_storage_fds > 0) {
+                _cleanup_free_ char *serialized_fds = NULL;
+
+                if (!p->fds)
+                        return -EINVAL;
+
+                for (size_t i = 0; i < p->n_socket_fds + p->n_storage_fds; ++i) {
+                        int copy = -EBADF;
+
+                        if (p->fds[i] >= 0) {
+                                copy = fdset_put_dup(fds, p->fds[i]);
+                                if (copy < 0)
+                                        return copy;
+                        }
+
+                        r = strextendf(&serialized_fds, "%d ", copy);
+                        if (r < 0)
+                                return r;
+                }
+
+                r = serialize_item(f, "exec-parameters-fds", serialized_fds);
+                if (r < 0)
+                        return r;
+        }
+
+        r = serialize_strv(f, "exec-parameters-fd-names", p->fd_names);
+        if (r < 0)
+                return r;
+
+        if (p->flags != 0) {
+                r = serialize_item_format(f, "exec-parameters-flags", "%u", (unsigned) p->flags);
+                if (r < 0)
+                        return r;
+        }
+
+        r = serialize_bool_elide(f, "exec-parameters-selinux-context-net", p->selinux_context_net);
+        if (r < 0)
+                return r;
+
+        if (p->cgroup_supported != 0) {
+                r = serialize_item_format(f, "exec-parameters-cgroup-supported", "%u", (unsigned) p->cgroup_supported);
+                if (r < 0)
+                        return r;
+        }
+
+        r = serialize_item(f, "exec-parameters-cgroup-path", p->cgroup_path);
+        if (r < 0)
+                return r;
+
+        r = serialize_item_format(f, "exec-parameters-cgroup-id", "%" PRIu64, p->cgroup_id);
+        if (r < 0)
+                return r;
+
+        for (ExecDirectoryType dt = 0; dt < _EXEC_DIRECTORY_TYPE_MAX; dt++) {
+                _cleanup_free_ char *key = NULL;
+
+                key = strjoin("exec-parameters-prefix-directories-", exec_directory_type_to_string(dt));
+                if (!key)
+                        return log_oom_debug();
+
+                /* Always serialize, even an empty prefix, as this is a fixed array and we always expect
+                 * to have all elements (unless fuzzing is happening, hence the NULL check). */
+                r = serialize_item(f, key, strempty(p->prefix ? p->prefix[dt] : NULL));
+                if (r < 0)
+                        return r;
+        }
+
+        r = serialize_item(f, "exec-parameters-received-credentials-directory", p->received_credentials_directory);
+        if (r < 0)
+                return r;
+
+        r = serialize_item(f, "exec-parameters-received-encrypted-credentials-directory", p->received_encrypted_credentials_directory);
+        if (r < 0)
+                return r;
+
+        r = serialize_item(f, "exec-parameters-confirm-spawn", p->confirm_spawn);
+        if (r < 0)
+                return r;
+
+        r = serialize_bool_elide(f, "exec-parameters-shall-confirm-spawn", p->shall_confirm_spawn);
+        if (r < 0)
+                return r;
+
+        if (p->watchdog_usec > 0) {
+                r = serialize_usec(f, "exec-parameters-watchdog-usec", p->watchdog_usec);
+                if (r < 0)
+                        return r;
+        }
+
+        if (p->idle_pipe) {
+                _cleanup_free_ char *serialized_fds = NULL;
+
+                for (size_t i = 0; i < 4; ++i) {
+                        int copy = -EBADF;
+
+                        if (p->idle_pipe[i] >= 0) {
+                                copy = fdset_put_dup(fds, p->idle_pipe[i]);
+                                if (copy < 0)
+                                        return copy;
+                        }
+
+                        r = strextendf(&serialized_fds, "%d ", copy);
+                        if (r < 0)
+                                return r;
+                }
+
+                r = serialize_item(f, "exec-parameters-idle-pipe", serialized_fds);
+                if (r < 0)
+                        return r;
+        }
+
+        if (p->stdin_fd >= 0) {
+                r = serialize_fd(f, fds, "exec-parameters-stdin-fd", p->stdin_fd);
+                if (r < 0)
+                        return r;
+        }
+
+        if (p->stdout_fd >= 0) {
+                r = serialize_fd(f, fds, "exec-parameters-stdout-fd", p->stdout_fd);
+                if (r < 0)
+                        return r;
+        }
+
+        if (p->stderr_fd >= 0) {
+                r = serialize_fd(f, fds, "exec-parameters-stderr-fd", p->stderr_fd);
+                if (r < 0)
+                        return r;
+        }
+
+        if (p->exec_fd >= 0) {
+                r = serialize_fd(f, fds, "exec-parameters-exec-fd", p->exec_fd);
+                if (r < 0)
+                        return r;
+        }
+
+        if (p->bpf_outer_map_fd >= 0) {
+                r = serialize_fd(f, fds, "exec-parameters-bpf-outer-map-fd", p->bpf_outer_map_fd);
+                if (r < 0)
+                        return r;
+        }
+
+        r = serialize_item(f, "exec-parameters-notify-socket", p->notify_socket);
+        if (r < 0)
+                return r;
+
+        LIST_FOREACH(open_files, file, p->open_files) {
+                _cleanup_free_ char *ofs = NULL;
+
+                r = open_file_to_string(file, &ofs);
+                if (r < 0)
+                        return r;
+
+                r = serialize_item(f, "exec-parameters-open-file", ofs);
+                if (r < 0)
+                        return r;
+        }
+
+        r = serialize_item(f, "exec-parameters-fallback-smack-process-label", p->fallback_smack_process_label);
+        if (r < 0)
+                return r;
+
+        if (p->user_lookup_fd >= 0) {
+                r = serialize_fd(f, fds, "exec-parameters-user-lookup-fd", p->user_lookup_fd);
+                if (r < 0)
+                        return r;
+        }
+
+        r = serialize_strv(f, "exec-parameters-files-env", p->files_env);
+        if (r < 0)
+                return r;
+
+        r = serialize_item(f, "exec-parameters-unit-id", p->unit_id);
+        if (r < 0)
+                return r;
+
+        r = serialize_item(f, "exec-parameters-invocation-id-string", p->invocation_id_string);
+        if (r < 0)
+                return r;
+
+        fputc('\n', f); /* End marker */
+
+        return 0;
+}
+
+static int exec_parameters_deserialize(ExecParameters *p, FILE *f, FDSet *fds) {
+        int r, nr_open;
+
+        assert(p);
+        assert(f);
+        assert(fds);
+
+        nr_open = read_nr_open();
+        if (nr_open < 3)
+                nr_open = HIGH_RLIMIT_NOFILE;
+        assert(nr_open > 0); /* For compilers/static analyzers */
+
+        for (;;) {
+                _cleanup_free_ char *l = NULL;
+                const char *val;
+
+                r = deserialize_read_line(f, &l);
+                if (r < 0)
+                        return r;
+                if (r == 0) /* eof or end marker */
+                        break;
+
+                if ((val = startswith(l, "exec-parameters-runtime-scope="))) {
+                        p->runtime_scope = runtime_scope_from_string(val);
+                        if (p->runtime_scope < 0)
+                                return p->runtime_scope;
+                } else if ((val = startswith(l, "exec-parameters-environment="))) {
+                        r = deserialize_strv(&p->environment, val);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-parameters-n-socket-fds="))) {
+                        if (p->fds)
+                                return -EINVAL; /* Already received */
+
+                        r = safe_atozu(val, &p->n_socket_fds);
+                        if (r < 0)
+                                return r;
+
+                        if (p->n_socket_fds > (size_t) nr_open)
+                                return -EINVAL; /* too many, someone is playing games with us */
+                } else if ((val = startswith(l, "exec-parameters-n-storage-fds="))) {
+                        if (p->fds)
+                                return -EINVAL; /* Already received */
+
+                        r = safe_atozu(val, &p->n_storage_fds);
+                        if (r < 0)
+                                return r;
+
+                        if (p->n_storage_fds > (size_t) nr_open)
+                                return -EINVAL; /* too many, someone is playing games with us */
+                } else if ((val = startswith(l, "exec-parameters-fds="))) {
+                        if (p->n_socket_fds + p->n_storage_fds == 0)
+                                return log_warning_errno(
+                                                SYNTHETIC_ERRNO(EINVAL),
+                                                "Got exec-parameters-fds= without "
+                                                "prior exec-parameters-n-socket-fds= or exec-parameters-n-storage-fds=");
+                        if (p->n_socket_fds + p->n_storage_fds > (size_t) nr_open)
+                                return -EINVAL; /* too many, someone is playing games with us */
+
+                        if (p->fds)
+                                return -EINVAL; /* duplicated */
+
+                        p->fds = new(int, p->n_socket_fds + p->n_storage_fds);
+                        if (!p->fds)
+                                return log_oom_debug();
+
+                        /* Ensure we don't leave any FD uninitialized on error, it makes the fuzzer sad */
+                        for (size_t i = 0; i < p->n_socket_fds + p->n_storage_fds; ++i)
+                                p->fds[i] = -EBADF;
+
+                        for (size_t i = 0; i < p->n_socket_fds + p->n_storage_fds; ++i) {
+                                _cleanup_free_ char *w = NULL;
+                                int fd;
+
+                                r = extract_first_word(&val, &w, WHITESPACE, 0);
+                                if (r < 0)
+                                        return r;
+                                if (r == 0)
+                                        break;
+
+                                if ((fd = parse_fd(w)) < 0 || !fdset_contains(fds, fd))
+                                        log_debug("Failed to parse %s value: %s, ignoring.", l, w);
+                                else {
+                                        r = fdset_remove(fds, fd);
+                                        if (r < 0) {
+                                                log_debug_errno(r, "Failed to remove %s value=%d from fdset, ignoring: %m", l, fd);
+                                                continue;
+                                        }
+
+                                        p->fds[i] = fd;
+                                }
+                        }
+                } else if ((val = startswith(l, "exec-parameters-fd-names="))) {
+                        r = deserialize_strv(&p->fd_names, val);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-parameters-flags="))) {
+                        unsigned flags;
+
+                        r = safe_atou(val, &flags);
+                        if (r < 0)
+                                return r;
+                        p->flags = flags;
+                } else if ((val = startswith(l, "exec-parameters-selinux-context-net="))) {
+                        r = parse_boolean(val);
+                        if (r < 0)
+                                return r;
+
+                        p->selinux_context_net = r;
+                } else if ((val = startswith(l, "exec-parameters-cgroup-supported="))) {
+                        unsigned cgroup_supported;
+
+                        r = safe_atou(val, &cgroup_supported);
+                        if (r < 0)
+                                return r;
+                        p->cgroup_supported = cgroup_supported;
+                } else if ((val = startswith(l, "exec-parameters-cgroup-path="))) {
+                        r = free_and_strdup(&p->cgroup_path, val);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-parameters-cgroup-id="))) {
+                        r = safe_atou64(val, &p->cgroup_id);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-parameters-prefix-directories-"))) {
+                        _cleanup_free_ char *type = NULL, *prefix = NULL;
+                        ExecDirectoryType dt;
+
+                        r = extract_many_words(&val, "= ", 0, &type, &prefix, NULL);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                return -EINVAL;
+
+                        dt = exec_directory_type_from_string(type);
+                        if (dt < 0)
+                                return -EINVAL;
+
+                        if (!p->prefix) {
+                                p->prefix = new0(char*, _EXEC_DIRECTORY_TYPE_MAX+1);
+                                if (!p->prefix)
+                                        return log_oom_debug();
+                        }
+
+                        if (isempty(prefix))
+                                p->prefix[dt] = mfree(p->prefix[dt]);
+                        else
+                                free_and_replace(p->prefix[dt], prefix);
+                } else if ((val = startswith(l, "exec-parameters-received-credentials-directory="))) {
+                        r = free_and_strdup(&p->received_credentials_directory, val);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-parameters-received-encrypted-credentials-directory="))) {
+                        r = free_and_strdup(&p->received_encrypted_credentials_directory, val);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-parameters-confirm-spawn="))) {
+                        r = free_and_strdup(&p->confirm_spawn, val);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-parameters-shall-confirm-spawn="))) {
+                        r = parse_boolean(val);
+                        if (r < 0)
+                                return r;
+
+                        p->shall_confirm_spawn = r;
+                } else if ((val = startswith(l, "exec-parameters-watchdog-usec="))) {
+                        r = deserialize_usec(val, &p->watchdog_usec);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-parameters-idle-pipe="))) {
+                        if (p->idle_pipe)
+                                return -EINVAL; /* duplicated */
+
+                        p->idle_pipe = new(int, 4);
+                        if (!p->idle_pipe)
+                                return log_oom_debug();
+
+                        p->idle_pipe[0] = p->idle_pipe[1] = p->idle_pipe[2] = p->idle_pipe[3] = -EBADF;
+
+                        for (size_t i = 0; i < 4; ++i) {
+                                _cleanup_free_ char *w = NULL;
+                                int fd;
+
+                                r = extract_first_word(&val, &w, WHITESPACE, 0);
+                                if (r < 0)
+                                        return r;
+                                if (r == 0)
+                                        break;
+
+                                if ((fd = parse_fd(w)) < 0 || !fdset_contains(fds, fd))
+                                        log_debug("Failed to parse %s value: %s, ignoring.", l, w);
+                                else {
+                                        r = fdset_remove(fds, fd);
+                                        if (r < 0) {
+                                                log_debug_errno(r, "Failed to remove %s value=%d from fdset, ignoring: %m", l, fd);
+                                                continue;
+                                        }
+
+                                        p->idle_pipe[i] = fd;
+                                }
+                        }
+                } else if ((val = startswith(l, "exec-parameters-stdin-fd="))) {
+                        int fd;
+
+                        if ((fd = parse_fd(val)) < 0 || !fdset_contains(fds, fd))
+                                log_debug("Failed to parse %s value: %s, ignoring.", l, val);
+                        else {
+                                r = fdset_remove(fds, fd);
+                                if (r < 0) {
+                                        log_debug_errno(r, "Failed to remove %s value=%d from fdset, ignoring: %m", l, fd);
+                                        continue;
+                                }
+
+                                p->stdin_fd = fd;
+                        }
+                } else if ((val = startswith(l, "exec-parameters-stdout-fd="))) {
+                        int fd;
+
+                        if ((fd = parse_fd(val)) < 0 || !fdset_contains(fds, fd))
+                                log_debug("Failed to parse %s value: %s, ignoring.", l, val);
+                        else {
+                                r = fdset_remove(fds, fd);
+                                if (r < 0) {
+                                        log_debug_errno(r, "Failed to remove %s value=%d from fdset, ignoring: %m", l, fd);
+                                        continue;
+                                }
+
+                                p->stdout_fd = fd;
+                        }
+                } else if ((val = startswith(l, "exec-parameters-stderr-fd="))) {
+                        int fd;
+
+                        if ((fd = parse_fd(val)) < 0 || !fdset_contains(fds, fd))
+                                log_debug("Failed to parse %s value: %s, ignoring.", l, val);
+                        else {
+                                r = fdset_remove(fds, fd);
+                                if (r < 0) {
+                                        log_debug_errno(r, "Failed to remove %s value=%d from fdset, ignoring: %m", l, fd);
+                                        continue;
+                                }
+
+                                p->stderr_fd = fd;
+                        }
+                } else if ((val = startswith(l, "exec-parameters-exec-fd="))) {
+                        int fd;
+
+                        if ((fd = parse_fd(val)) < 0 || !fdset_contains(fds, fd))
+                                log_debug("Failed to parse %s value: %s, ignoring.", l, val);
+                        else {
+                                r = fdset_remove(fds, fd);
+                                if (r < 0) {
+                                        log_debug_errno(r, "Failed to remove %s value=%d from fdset, ignoring: %m", l, fd);
+                                        continue;
+                                }
+
+                                /* This is special and relies on close-on-exec semantics, make sure it's
+                                 * there */
+                                r = fd_cloexec(fd, true);
+                                if (r < 0)
+                                        return r;
+
+                                p->exec_fd = fd;
+                        }
+                } else if ((val = startswith(l, "exec-parameters-bpf-outer-map-fd="))) {
+                        int fd;
+
+                        if ((fd = parse_fd(val)) < 0 || !fdset_contains(fds, fd))
+                                log_debug("Failed to parse %s value: %s, ignoring.", l, val);
+                        else {
+                                r = fdset_remove(fds, fd);
+                                if (r < 0) {
+                                        log_debug_errno(r, "Failed to remove %s value=%d from fdset, ignoring: %m", l, fd);
+                                        continue;
+                                }
+
+                                p->bpf_outer_map_fd = fd;
+                        }
+                } else if ((val = startswith(l, "exec-parameters-notify-socket="))) {
+                        r = free_and_strdup(&p->notify_socket, val);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-parameters-open-file="))) {
+                        OpenFile *of = NULL;
+
+                        r = open_file_parse(val, &of);
+                        if (r < 0)
+                                return r;
+
+                        LIST_APPEND(open_files, p->open_files, of);
+                } else if ((val = startswith(l, "exec-parameters-fallback-smack-process-label="))) {
+                        r = free_and_strdup(&p->fallback_smack_process_label, val);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-parameters-user-lookup-fd="))) {
+                        int fd;
+
+                        if ((fd = parse_fd(val)) < 0 || !fdset_contains(fds, fd))
+                                log_debug("Failed to parse %s value: %s, ignoring.", l, val);
+                        else {
+                                r = fdset_remove(fds, fd);
+                                if (r < 0) {
+                                        log_debug_errno(r, "Failed to remove %s value=%d from fdset, ignoring: %m", l, fd);
+                                        continue;
+                                }
+
+                                p->user_lookup_fd = fd;
+                        }
+                } else if ((val = startswith(l, "exec-parameters-files-env="))) {
+                        r = deserialize_strv(&p->files_env, val);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-parameters-unit-id="))) {
+                        r = free_and_strdup(&p->unit_id, val);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-parameters-invocation-id-string="))) {
+                        if (strlen(val) > SD_ID128_STRING_MAX - 1)
+                                return -EINVAL;
+
+                        r = sd_id128_from_string(val, &p->invocation_id);
+                        if (r < 0)
+                                return r;
+
+                        sd_id128_to_string(p->invocation_id, p->invocation_id_string);
+                } else
+                        log_warning("Failed to parse serialized line, ignorning: %s", l);
+        }
+
+        /* Bail out if we got exec-parameters-n-{socket/storage}-fds= but no corresponding
+         * exec-parameters-fds= */
+        if (p->n_socket_fds + p->n_storage_fds > 0 && !p->fds)
+                return -EINVAL;
+
+        return 0;
+}
+
 static int serialize_std_out_err(const ExecContext *c, FILE *f, int fileno) {
         char *key, *value;
         const char *type;
@@ -2169,7 +2719,8 @@ int exec_serialize_invocation(
                 FILE *f,
                 FDSet *fds,
                 const ExecContext *ctx,
-                const ExecCommand *cmd) {
+                const ExecCommand *cmd,
+                const ExecParameters *p) {
 
         int r;
 
@@ -2184,6 +2735,10 @@ int exec_serialize_invocation(
         if (r < 0)
                 return log_debug_errno(r, "Failed to serialize command: %m");
 
+        r = exec_parameters_serialize(p, f, fds);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to serialize parameters: %m");
+
         return 0;
 }
 
@@ -2191,7 +2746,8 @@ int exec_deserialize_invocation(
                 FILE *f,
                 FDSet *fds,
                 ExecContext *ctx,
-                ExecCommand *cmd) {
+                ExecCommand *cmd,
+                ExecParameters *p) {
 
         int r;
 
@@ -2205,6 +2761,10 @@ int exec_deserialize_invocation(
         r = exec_command_deserialize(cmd, f);
         if (r < 0)
                 return log_debug_errno(r, "Failed to deserialize command: %m");
+
+        r = exec_parameters_deserialize(p, f, fds);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to deserialize parameters: %m");
 
         return 0;
 }
