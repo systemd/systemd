@@ -80,7 +80,12 @@ int acquire_luks2_key(
                         return log_error_errno(r, "Failed to load PCR signature: %m");
         }
 
-        r = tpm2_unseal(device,
+        _cleanup_(tpm2_context_unrefp) Tpm2Context *tpm2_context = NULL;
+        r = tpm2_context_new(device, &tpm2_context);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create TPM2 context: %m");
+
+        r = tpm2_unseal(tpm2_context,
                         hash_pcr_mask,
                         pcr_bank,
                         pubkey, pubkey_size,
