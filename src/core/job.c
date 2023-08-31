@@ -283,6 +283,9 @@ int job_install_deserialized(Job *j) {
 
         assert(!j->installed);
 
+        if (!j->unit->manager) /* Might be called in sd-executor with no manager object */
+                return 0;
+
         if (j->type < 0 || j->type >= _JOB_TYPE_MAX_IN_TRANSACTION)
                 return log_unit_debug_errno(j->unit, SYNTHETIC_ERRNO(EINVAL),
                                             "Invalid job type %s in deserialization.",

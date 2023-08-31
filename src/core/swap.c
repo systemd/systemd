@@ -139,10 +139,12 @@ static void swap_init(Unit *u) {
         assert(s);
         assert(UNIT(s)->load_state == UNIT_STUB);
 
-        s->timeout_usec = u->manager->default_timeout_start_usec;
+        if (u->manager) { /* Might be called in sd-executor with no manager object */
+                s->timeout_usec = u->manager->default_timeout_start_usec;
 
-        s->exec_context.std_output = u->manager->default_std_output;
-        s->exec_context.std_error = u->manager->default_std_error;
+                s->exec_context.std_output = u->manager->default_std_output;
+                s->exec_context.std_error = u->manager->default_std_error;
+        }
 
         s->control_command_id = _SWAP_EXEC_COMMAND_INVALID;
 
@@ -655,11 +657,13 @@ static void swap_dump(Unit *u, FILE *f, const char *prefix) {
 static int swap_spawn(Swap *s, ExecCommand *c, pid_t *_pid) {
 
         _cleanup_(exec_params_clear) ExecParameters exec_params = {
-                .flags     = EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_APPLY_TTY_STDIN,
-                .stdin_fd  = -EBADF,
-                .stdout_fd = -EBADF,
-                .stderr_fd = -EBADF,
-                .exec_fd   = -EBADF,
+                .flags            = EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_APPLY_TTY_STDIN,
+                .stdin_fd         = -EBADF,
+                .stdout_fd        = -EBADF,
+                .stderr_fd        = -EBADF,
+                .exec_fd          = -EBADF,
+                .bpf_outer_map_fd = -EBADF,
+                .user_lookup_fd   = -EBADF,
         };
         pid_t pid;
         int r;
