@@ -11,11 +11,13 @@ int exec_serialize_invocation(FILE *f,
         const ExecContext *ctx,
         const ExecCommand *cmd,
         const ExecParameters *p,
-        const ExecRuntime *rt);
+        const ExecRuntime *rt,
+        const CGroupContext *cg);
 
 int exec_deserialize_invocation(FILE *f,
         FDSet *fds,
         ExecContext *ctx,
         ExecCommand *cmd,
         ExecParameters *p,
-        ExecRuntime *rt);
+        ExecRuntime *rt,
+        CGroupContext *cg);
