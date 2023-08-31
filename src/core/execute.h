@@ -100,7 +100,7 @@ struct ExecStatus {
 struct ExecCommand {
         char *path;
         char **argv;
-        ExecStatus exec_status;
+        ExecStatus exec_status; /* Note that this is not serialized to sd-executor */
         ExecCommandFlags flags;
         LIST_FIELDS(ExecCommand, command); /* useful for chaining commands */
 };
