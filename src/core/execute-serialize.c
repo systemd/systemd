@@ -19,6 +19,230 @@
 #include "string-util.h"
 #include "strv.h"
 
+static int exec_runtime_serialize(const ExecRuntime *rt, FILE *f, FDSet *fds) {
+        int r;
+
+        assert(f);
+        assert(fds);
+
+        if (!rt) {
+                fputc('\n', f); /* End marker */
+                return 0;
+        }
+
+        if (rt->shared) {
+                r = serialize_item(f, "exec-runtime-id", rt->shared->id);
+                if (r < 0)
+                        return r;
+
+                r = serialize_item(f, "exec-runtime-tmp-dir", rt->shared->tmp_dir);
+                if (r < 0)
+                        return r;
+
+                r = serialize_item(f, "exec-runtime-var-tmp-dir", rt->shared->var_tmp_dir);
+                if (r < 0)
+                        return r;
+
+                if (rt->shared->netns_storage_socket[0] >= 0 && rt->shared->netns_storage_socket[1] >= 0) {
+                        int a, b;
+
+                        a = fdset_put_dup(fds, rt->shared->netns_storage_socket[0]);
+                        if (a < 0)
+                                return a;
+
+                        b = fdset_put_dup(fds, rt->shared->netns_storage_socket[1]);
+                        if (b < 0)
+                                return b;
+
+                        r = serialize_item_format(f, "exec-runtime-netns-storage-socket", "%d %d", a, b);
+                        if (r < 0)
+                                return r;
+                }
+
+                if (rt->shared->ipcns_storage_socket[0] >= 0 && rt->shared->ipcns_storage_socket[1] >= 0) {
+                        int a, b;
+
+                        a = fdset_put_dup(fds, rt->shared->ipcns_storage_socket[0]);
+                        if (a < 0)
+                                return a;
+
+                        b = fdset_put_dup(fds, rt->shared->ipcns_storage_socket[1]);
+                        if (b < 0)
+                                return b;
+
+                        r = serialize_item_format(f, "exec-runtime-ipcns-storage-socket", "%d %d", a, b);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        if (rt->dynamic_creds) {
+                r = dynamic_user_serialize_one(rt->dynamic_creds->user, "exec-runtime-dynamic-creds-user", f, fds);
+                if (r < 0)
+                        return r;
+        }
+
+        if (rt->dynamic_creds && rt->dynamic_creds->group && rt->dynamic_creds->group == rt->dynamic_creds->user) {
+                r = serialize_bool(f, "exec-runtime-dynamic-creds-group-copy", true);
+                if (r < 0)
+                        return r;
+        } else if (rt->dynamic_creds) {
+                r = dynamic_user_serialize_one(rt->dynamic_creds->group, "exec-runtime-dynamic-creds-group", f, fds);
+                if (r < 0)
+                        return r;
+        }
+
+        r = serialize_item(f, "exec-runtime-ephemeral-copy", rt->ephemeral_copy);
+        if (r < 0)
+                return r;
+
+        if (rt->ephemeral_storage_socket[0] >= 0 && rt->ephemeral_storage_socket[1] >= 0) {
+                int a, b;
+
+                a = fdset_put_dup(fds, rt->ephemeral_storage_socket[0]);
+                if (a < 0)
+                        return a;
+
+                b = fdset_put_dup(fds, rt->ephemeral_storage_socket[1]);
+                if (b < 0)
+                        return b;
+
+                r = serialize_item_format(f, "exec-runtime-ephemeral-storage-socket", "%d %d", a, b);
+                if (r < 0)
+                        return r;
+        }
+
+        fputc('\n', f); /* End marker */
+
+        return 0;
+}
+
+static int exec_runtime_deserialize(ExecRuntime *rt, FILE *f, FDSet *fds) {
+        int r;
+
+        assert(rt);
+        assert(rt->shared);
+        assert(rt->dynamic_creds);
+        assert(f);
+        assert(fds);
+
+        for (;;) {
+                _cleanup_free_ char *l = NULL;
+                const char *val;
+
+                r = deserialize_read_line(f, &l);
+                if (r < 0)
+                        return r;
+                if (r == 0) /* eof or end marker */
+                        break;
+
+                if ((val = startswith(l, "exec-runtime-id="))) {
+                        r = free_and_strdup(&rt->shared->id, val);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-runtime-tmp-dir="))) {
+                        r = free_and_strdup(&rt->shared->tmp_dir, val);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-runtime-var-tmp-dir="))) {
+                        r = free_and_strdup(&rt->shared->var_tmp_dir, val);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-runtime-netns-storage-socket="))) {
+                        for (size_t i = 0; i < 2; ++i) {
+                                _cleanup_free_ char *w = NULL;
+                                int fd;
+
+                                r = extract_first_word(&val, &w, WHITESPACE, 0);
+                                if (r < 0)
+                                        return r;
+                                if (r == 0)
+                                        break;
+
+                                if ((fd = parse_fd(w)) < 0 || !fdset_contains(fds, fd))
+                                        log_debug("Failed to parse %s value: %s, ignoring.", l, w);
+                                else {
+                                        r = fdset_remove(fds, fd);
+                                        if (r < 0) {
+                                                log_debug_errno(r, "Failed to remove %s value=%d from fdset, ignoring: %m", l, fd);
+                                                continue;
+                                        }
+
+                                        rt->shared->netns_storage_socket[i] = fd;
+                                }
+                        }
+                } else if ((val = startswith(l, "exec-runtime-ipcns-storage-socket="))) {
+                        for (size_t i = 0; i < 2; ++i) {
+                                _cleanup_free_ char *w = NULL;
+                                int fd;
+
+                                r = extract_first_word(&val, &w, WHITESPACE, 0);
+                                if (r < 0)
+                                        return r;
+                                if (r == 0)
+                                        break;
+
+                                if ((fd = parse_fd(w)) < 0 || !fdset_contains(fds, fd))
+                                        log_debug("Failed to parse %s value: %s, ignoring.", l, w);
+                                else {
+                                        r = fdset_remove(fds, fd);
+                                        if (r < 0) {
+                                                log_debug_errno(r, "Failed to remove %s value=%d from fdset, ignoring: %m", l, fd);
+                                                continue;
+                                        }
+
+                                        rt->shared->ipcns_storage_socket[i] = fd;
+                                }
+                        }
+                } else if ((val = startswith(l, "exec-runtime-dynamic-creds-user=")))
+                        dynamic_user_deserialize_one(/* m= */ NULL, val, fds, &rt->dynamic_creds->user);
+                else if ((val = startswith(l, "exec-runtime-dynamic-creds-group=")))
+                        dynamic_user_deserialize_one(/* m= */ NULL, val, fds, &rt->dynamic_creds->group);
+                else if ((val = startswith(l, "exec-runtime-dynamic-creds-group-copy="))) {
+                        r = parse_boolean(val);
+                        if (r < 0)
+                                return r;
+                        if (!r)
+                                continue; /* Nothing to do */
+
+                        if (!rt->dynamic_creds->user)
+                                return -EINVAL;
+
+                        rt->dynamic_creds->group = dynamic_user_ref(rt->dynamic_creds->user);
+                } else if ((val = startswith(l, "exec-runtime-ephemeral-copy="))) {
+                        r = free_and_strdup(&rt->ephemeral_copy, val);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-runtime-ephemeral-storage-socket="))) {
+                        for (size_t i = 0; i < 2; ++i) {
+                                _cleanup_free_ char *w = NULL;
+                                int fd;
+
+                                r = extract_first_word(&val, &w, WHITESPACE, 0);
+                                if (r < 0)
+                                        return r;
+                                if (r == 0)
+                                        break;
+
+                                if ((fd = parse_fd(w)) < 0 || !fdset_contains(fds, fd))
+                                        log_debug("Failed to parse %s value: %s, ignoring.", l, w);
+                                else {
+                                        r = fdset_remove(fds, fd);
+                                        if (r < 0) {
+                                                log_debug_errno(r, "Failed to remove %s value=%d from fdset, ignoring: %m", l, fd);
+                                                continue;
+                                        }
+
+                                        rt->ephemeral_storage_socket[i] = fd;
+                                }
+                        }
+                } else
+                        log_warning("Failed to parse serialized line, ignorning: %s", l);
+        }
+
+        return 0;
+}
+
 static int exec_parameters_serialize(const ExecParameters *p, FILE *f, FDSet *fds) {
         int r;
 
@@ -2720,7 +2944,8 @@ int exec_serialize_invocation(
                 FDSet *fds,
                 const ExecContext *ctx,
                 const ExecCommand *cmd,
-                const ExecParameters *p) {
+                const ExecParameters *p,
+                const ExecRuntime *rt) {
 
         int r;
 
@@ -2739,6 +2964,10 @@ int exec_serialize_invocation(
         if (r < 0)
                 return log_debug_errno(r, "Failed to serialize parameters: %m");
 
+        r = exec_runtime_serialize(rt, f, fds);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to serialize runtime: %m");
+
         return 0;
 }
 
@@ -2747,7 +2976,8 @@ int exec_deserialize_invocation(
                 FDSet *fds,
                 ExecContext *ctx,
                 ExecCommand *cmd,
-                ExecParameters *p) {
+                ExecParameters *p,
+                ExecRuntime *rt) {
 
         int r;
 
@@ -2765,6 +2995,10 @@ int exec_deserialize_invocation(
         r = exec_parameters_deserialize(p, f, fds);
         if (r < 0)
                 return log_debug_errno(r, "Failed to deserialize parameters: %m");
+
+        r = exec_runtime_deserialize(rt, f, fds);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to deserialize runtime: %m");
 
         return 0;
 }
