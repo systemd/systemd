@@ -9,6 +9,7 @@
 #include "netif-util.h"
 #include "networkd-address.h"
 #include "networkd-dhcp-common.h"
+#include "networkd-dhcp-prefix-delegation.h"
 #include "networkd-json.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
@@ -1050,6 +1051,79 @@ static int dhcp6_client_append_json(Link *link, JsonVariant **v) {
         return json_append_one(v, "DHCPv6Client", w);
 }
 
+static int dhcp4_client_pd_append_json(Link *link, JsonVariant **v) {
+        _cleanup_(json_variant_unrefp) JsonVariant *addresses = NULL, *array = NULL;
+        uint8_t ipv4masklen;
+        uint8_t sixrd_prefixlen;
+        struct in6_addr sixrd_prefix;
+        const struct in_addr *br_addresses;
+        size_t n_br_addresses = 0;
+        size_t n = 0;
+        int r;
+
+        assert(link);
+        assert(v);
+
+        if (!link->dhcp_lease || !dhcp4_lease_has_pd_prefix(link->dhcp_lease))
+                return 0;
+
+        r = sd_dhcp_lease_get_6rd(link->dhcp_lease, &ipv4masklen, &sixrd_prefixlen, &sixrd_prefix, &br_addresses, &n_br_addresses);
+        if (r < 0)
+                return r;
+
+        for (n = 0; n < n_br_addresses; ++n) {
+                _cleanup_(json_variant_unrefp) JsonVariant *e = NULL;
+                r = json_build(&e, JSON_BUILD_IN4_ADDR(br_addresses + n));
+                if (r < 0)
+                        return r;
+
+                r = json_variant_append_array(&addresses, e);
+        }
+
+        r = json_build(&array, JSON_BUILD_OBJECT(
+                                       JSON_BUILD_PAIR_IN6_ADDR("Prefix", &sixrd_prefix),
+                                       JSON_BUILD_PAIR_INTEGER("PrefixLength", sixrd_prefixlen),
+                                       JSON_BUILD_PAIR_INTEGER("IPv4MaskLength", ipv4masklen),
+                                       JSON_BUILD_PAIR_VARIANT_NON_NULL("BorderRouters", addresses)));
+        if (r < 0)
+                return r;
+
+        return json_append_one(v, "6rdAllocatedPrefix", array);
+}
+
+static int dhcp6_client_pd_append_json(Link *link, JsonVariant **v) {
+        _cleanup_(json_variant_unrefp) JsonVariant *array = NULL;
+        struct in6_addr prefix;
+        uint32_t lifetime_preferred, lifetime_valid;
+        uint8_t prefix_len;
+        int r;
+
+        assert(link);
+        assert(v);
+
+        if (!link->dhcp6_lease || !dhcp6_lease_has_pd_prefix(link->dhcp6_lease))
+                return 0;
+
+        sd_dhcp6_lease_reset_pd_prefix_iter(link->dhcp6_lease);
+
+        while (sd_dhcp6_lease_get_pd(link->dhcp6_lease, &prefix, &prefix_len, &lifetime_preferred, &lifetime_valid) >= 0) {
+                _cleanup_(json_variant_unrefp) JsonVariant *e = NULL;
+                r = json_build(&e, JSON_BUILD_OBJECT(
+                                               JSON_BUILD_PAIR_IN6_ADDR("Prefix", &prefix),
+                                               JSON_BUILD_PAIR_INTEGER("PrefixLength", prefix_len),
+                                               JSON_BUILD_PAIR_INTEGER("PreferredLifetime", lifetime_preferred),
+                                               JSON_BUILD_PAIR_INTEGER("ValidLifetime", lifetime_valid)));
+                if (r < 0)
+                        return r;
+
+                r = json_variant_append_array(&array, e);
+                if (r < 0)
+                        return r;
+        }
+
+        return json_append_one(v, "DHCPv6AllocatedPrefixes", array);
+}
+
 int link_build_json(Link *link, JsonVariant **ret) {
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
         _cleanup_free_ char *type = NULL, *flags = NULL;
@@ -1166,6 +1240,14 @@ int link_build_json(Link *link, JsonVariant **ret) {
                 return r;
 
         r = dhcp6_client_append_json(link, &v);
+        if (r < 0)
+                return r;
+
+        r = dhcp4_client_pd_append_json(link, &v);
+        if (r < 0)
+                return r;
+
+        r = dhcp6_client_pd_append_json(link, &v);
         if (r < 0)
                 return r;
 
