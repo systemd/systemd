@@ -1854,18 +1854,6 @@ int unit_test_start_limit(Unit *u) {
         return -ECANCELED;
 }
 
-bool unit_shall_confirm_spawn(Unit *u) {
-        assert(u);
-
-        if (manager_is_confirm_spawn_disabled(u->manager))
-                return false;
-
-        /* For some reasons units remaining in the same process group
-         * as PID 1 fail to acquire the console even if it's not used
-         * by any process. So skip the confirmation question for them. */
-        return !unit_get_exec_context(u)->same_pgrp;
-}
-
 static bool unit_verify_deps(Unit *u) {
         Unit *other;
 
@@ -5419,9 +5407,14 @@ int unit_set_exec_params(Unit *u, ExecParameters *p) {
                 p->bpf_outer_map_fd = fd;
         }
 
-        p->user_lookup_fd = fcntl(u->manager->user_lookup_fds[1], F_DUPFD_CLOEXEC, 3);
-        if (p->user_lookup_fd < 0)
-                return -errno;
+        p->user_lookup_fd = u->manager->user_lookup_fds[1];
+
+        p->cgroup_id = u->cgroup_id;
+        p->invocation_id = u->invocation_id;
+        sd_id128_to_string(p->invocation_id, p->invocation_id_string);
+        p->unit_id = strdup(u->id);
+        if (!p->unit_id)
+                return -ENOMEM;
 
         return 0;
 }
