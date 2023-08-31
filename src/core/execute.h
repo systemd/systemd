@@ -418,14 +418,14 @@ struct ExecParameters {
         bool selinux_context_net:1;
 
         CGroupMask cgroup_supported;
-        const char *cgroup_path;
+        char *cgroup_path;
         uint64_t cgroup_id;
 
         char **prefix;
-        const char *received_credentials_directory;
-        const char *received_encrypted_credentials_directory;
+        char *received_credentials_directory;
+        char *received_encrypted_credentials_directory;
 
-        const char *confirm_spawn;
+        char *confirm_spawn;
         bool shall_confirm_spawn;
 
         usec_t watchdog_usec;
@@ -439,11 +439,11 @@ struct ExecParameters {
         /* An fd that is closed by the execve(), and thus will result in EOF when the execve() is done */
         int exec_fd;
 
-        const char *notify_socket;
+        char *notify_socket;
 
         LIST_HEAD(OpenFile, open_files);
 
-        const char *fallback_smack_process_label;
+        char *fallback_smack_process_label;
 
         char **files_env;
         int user_lookup_fd;
