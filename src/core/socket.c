@@ -1913,15 +1913,8 @@ static int socket_coldplug(Unit *u) {
 
 static int socket_spawn(Socket *s, ExecCommand *c, PidRef *ret_pid) {
 
-        _cleanup_(exec_params_clear) ExecParameters exec_params = {
-                .flags            = EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_APPLY_TTY_STDIN,
-                .stdin_fd         = -EBADF,
-                .stdout_fd        = -EBADF,
-                .stderr_fd        = -EBADF,
-                .exec_fd          = -EBADF,
-                .bpf_outer_map_fd = -EBADF,
-                .user_lookup_fd   = -EBADF,
-        };
+        _cleanup_(exec_params_clear) ExecParameters exec_params = EXEC_PARAMETERS_INIT(
+                        EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_APPLY_TTY_STDIN);
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         pid_t pid;
         int r;
