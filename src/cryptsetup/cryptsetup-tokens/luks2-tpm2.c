@@ -80,8 +80,13 @@ int acquire_luks2_key(
                         return r;
         }
 
+        _cleanup_(tpm2_context_unrefp) Tpm2Context *tpm2_context = NULL;
+        r = tpm2_context_new(device, &tpm2_context);
+        if (r < 0)
+                return r;
+
         return tpm2_unseal(
-                        device,
+                        tpm2_context,
                         hash_pcr_mask,
                         pcr_bank,
                         pubkey, pubkey_size,
