@@ -142,7 +142,14 @@ static void cgroup_compat_warn(void) {
 void cgroup_context_init(CGroupContext *c) {
         assert(c);
 
-        /* Initialize everything to the kernel defaults. */
+        /* Initialize everything to the kernel defaults. When initializing a bool member to 'true', make
+         * sure to serialize in execute-serialize.c using serialize_bool() instead of
+         * serialize_bool_elide(), as sd-executor will initialize here to 'true', but serialize_bool_elide()
+         * skips serialization if the value is 'false' (as that's the common default), so if the value at
+         * runtime is zero it would be lost after deserialization. Same when initializing uint64_t and other
+         * values, update/add a conditional serialization check. This is to minimize the amount of
+         * serialized data that is sent to the sd-executor, so that there is less work to do on the default
+         * cases. */
 
         *c = (CGroupContext) {
                 .cpu_weight = CGROUP_WEIGHT_INVALID,
