@@ -112,7 +112,21 @@ int tpm2_get_good_pcr_banks(Tpm2Context *c, uint32_t pcr_mask, TPMI_ALG_HASH **r
 int tpm2_get_good_pcr_banks_strv(Tpm2Context *c, uint32_t pcr_mask, char ***ret);
 int tpm2_get_best_pcr_bank(Tpm2Context *c, uint32_t pcr_mask, TPMI_ALG_HASH *ret);
 
-int tpm2_extend_bytes(Tpm2Context *c, char **banks, unsigned pcr_index, const void *data, size_t data_size, const void *secret, size_t secret_size);
+const char *tpm2_userspace_log_path(void);
+
+typedef enum Tpm2UserspaceEventType {
+        TPM2_EVENT_PHASE,
+        TPM2_EVENT_FILESYSTEM,
+        TPM2_EVENT_VOLUME_KEY,
+        TPM2_EVENT_MACHINE_ID,
+        _TPM2_USERSPACE_EVENT_TYPE_MAX,
+        _TPM2_USERSPACE_EVENT_TYPE_INVALID = -EINVAL,
+} Tpm2UserspaceEventType;
+
+const char* tpm2_userspace_event_type_to_string(Tpm2UserspaceEventType type) _const_;
+Tpm2UserspaceEventType tpm2_userspace_event_type_from_string(const char *s) _pure_;
+
+int tpm2_extend_bytes(Tpm2Context *c, char **banks, unsigned pcr_index, const void *data, size_t data_size, const void *secret, size_t secret_size, Tpm2UserspaceEventType event, const char *description);
 
 uint32_t tpm2_tpms_pcr_selection_to_mask(const TPMS_PCR_SELECTION *s);
 void tpm2_tpms_pcr_selection_from_mask(uint32_t mask, TPMI_ALG_HASH hash, TPMS_PCR_SELECTION *ret);
