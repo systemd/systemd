@@ -188,10 +188,27 @@ enum {
         /* option codes 144-65535 are unassigned */
 };
 
+typedef enum DHCP6State {
+        DHCP6_STATE_STOPPED,
+        DHCP6_STATE_INFORMATION_REQUEST,
+        DHCP6_STATE_SOLICITATION,
+        DHCP6_STATE_REQUEST,
+        DHCP6_STATE_BOUND,
+        DHCP6_STATE_RENEW,
+        DHCP6_STATE_REBIND,
+        DHCP6_STATE_STOPPING,
+        _DHCP6_STATE_MAX,
+        _DHCP6_STATE_INVALID = -EINVAL
+} DHCP6State;
+
 typedef struct sd_dhcp6_client sd_dhcp6_client;
 
 typedef void (*sd_dhcp6_client_callback_t)(sd_dhcp6_client *client, int event, void *userdata);
 int sd_dhcp6_client_set_callback(
+                sd_dhcp6_client *client,
+                sd_dhcp6_client_callback_t cb,
+                void *userdata);
+int sd_dhcp6_client_set_state_callback(
                 sd_dhcp6_client *client,
                 sd_dhcp6_client_callback_t cb,
                 void *userdata);
@@ -262,6 +279,7 @@ int sd_dhcp6_client_add_vendor_option(sd_dhcp6_client *client,
                                       sd_dhcp6_option *v);
 int sd_dhcp6_client_set_rapid_commit(sd_dhcp6_client *client, int enable);
 int sd_dhcp6_client_set_send_release(sd_dhcp6_client *client, int enable);
+int sd_dhcp6_client_get_state(sd_dhcp6_client *client);
 
 int sd_dhcp6_client_get_lease(
                 sd_dhcp6_client *client,
@@ -282,6 +300,8 @@ int sd_dhcp6_client_attach_device(sd_dhcp6_client *client, sd_device *dev);
 sd_dhcp6_client *sd_dhcp6_client_ref(sd_dhcp6_client *client);
 sd_dhcp6_client *sd_dhcp6_client_unref(sd_dhcp6_client *client);
 int sd_dhcp6_client_new(sd_dhcp6_client **ret);
+
+const char *dhcp6_state_to_string(DHCP6State s);
 
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_dhcp6_client, sd_dhcp6_client_unref);
 

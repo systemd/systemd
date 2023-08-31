@@ -26,11 +26,25 @@
 #include "random-util.h"
 #include "socket-util.h"
 #include "sort-util.h"
+#include "string-table.h"
 #include "strv.h"
 #include "web-util.h"
 
 #define DHCP6_CLIENT_DONT_DESTROY(client) \
         _cleanup_(sd_dhcp6_client_unrefp) _unused_ sd_dhcp6_client *_dont_destroy_##client = sd_dhcp6_client_ref(client)
+
+static const char * const dhcp6_state_table[_DHCP6_STATE_MAX] = {
+        [DHCP6_STATE_STOPPED]             = "stopped",
+        [DHCP6_STATE_INFORMATION_REQUEST] = "information-request",
+        [DHCP6_STATE_SOLICITATION]        = "solicitation",
+        [DHCP6_STATE_REQUEST]             = "request",
+        [DHCP6_STATE_BOUND]               = "bound",
+        [DHCP6_STATE_RENEW]               = "renew",
+        [DHCP6_STATE_REBIND]              = "rebind",
+        [DHCP6_STATE_STOPPING]            = "stopping",
+};
+
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(dhcp6_state, DHCP6State);
 
 static int client_start_transaction(sd_dhcp6_client *client, DHCP6State state);
 
@@ -43,6 +57,19 @@ int sd_dhcp6_client_set_callback(
 
         client->callback = cb;
         client->userdata = userdata;
+
+        return 0;
+}
+
+int sd_dhcp6_client_set_state_callback(
+                sd_dhcp6_client *client,
+                sd_dhcp6_client_callback_t cb,
+                void *userdata) {
+
+        assert_return(client, -EINVAL);
+
+        client->state_callback = cb;
+        client->state_userdata = userdata;
 
         return 0;
 }
@@ -553,6 +580,15 @@ static void client_set_state(sd_dhcp6_client *client, DHCP6State state) {
                          dhcp6_state_to_string(client->state), dhcp6_state_to_string(state));
 
         client->state = state;
+
+        if (client->state_callback)
+                client->state_callback(client, state, client->state_userdata);
+}
+
+int sd_dhcp6_client_get_state(sd_dhcp6_client *client) {
+        assert_return(client, -EINVAL);
+
+        return client->state;
 }
 
 static void client_notify(sd_dhcp6_client *client, int event) {

@@ -3,19 +3,6 @@
 #include "dhcp6-protocol.h"
 #include "string-table.h"
 
-static const char * const dhcp6_state_table[_DHCP6_STATE_MAX] = {
-        [DHCP6_STATE_STOPPED]             = "stopped",
-        [DHCP6_STATE_INFORMATION_REQUEST] = "information-request",
-        [DHCP6_STATE_SOLICITATION]        = "solicitation",
-        [DHCP6_STATE_REQUEST]             = "request",
-        [DHCP6_STATE_BOUND]               = "bound",
-        [DHCP6_STATE_RENEW]               = "renew",
-        [DHCP6_STATE_REBIND]              = "rebind",
-        [DHCP6_STATE_STOPPING]            = "stopping",
-};
-
-DEFINE_STRING_TABLE_LOOKUP_TO_STRING(dhcp6_state, DHCP6State);
-
 static const char * const dhcp6_message_type_table[_DHCP6_MESSAGE_TYPE_MAX] = {
         [DHCP6_MESSAGE_SOLICIT]             = "Solicit",
         [DHCP6_MESSAGE_ADVERTISE]           = "Advertise",

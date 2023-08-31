@@ -222,10 +222,29 @@ enum {
         SD_DHCP_RELAY_AGENT_REMOTE_ID              = 2
 };
 
+enum DHCPState {
+        DHCP_STATE_STOPPED                      = 0,
+        DHCP_STATE_INIT                         = 1,
+        DHCP_STATE_SELECTING                    = 2,
+        DHCP_STATE_INIT_REBOOT                  = 3,
+        DHCP_STATE_REBOOTING                    = 4,
+        DHCP_STATE_REQUESTING                   = 5,
+        DHCP_STATE_BOUND                        = 6,
+        DHCP_STATE_RENEWING                     = 7,
+        DHCP_STATE_REBINDING                    = 8,
+        _DHCP_STATE_MAX                         = 9
+};
+
+typedef enum DHCPState DHCPState;
+
 typedef struct sd_dhcp_client sd_dhcp_client;
 
 typedef int (*sd_dhcp_client_callback_t)(sd_dhcp_client *client, int event, void *userdata);
 int sd_dhcp_client_set_callback(
+                sd_dhcp_client *client,
+                sd_dhcp_client_callback_t cb,
+                void *userdata);
+int sd_dhcp_client_set_state_callback(
                 sd_dhcp_client *client,
                 sd_dhcp_client_callback_t cb,
                 void *userdata);
@@ -319,6 +338,7 @@ int sd_dhcp_client_set_socket_priority(
 int sd_dhcp_client_set_fallback_lease_lifetime(
                 sd_dhcp_client *client,
                 uint32_t fallback_lease_lifetime);
+int sd_dhcp_client_get_state(sd_dhcp_client *client);
 
 int sd_dhcp_client_add_option(sd_dhcp_client *client, sd_dhcp_option *v);
 int sd_dhcp_client_add_vendor_option(sd_dhcp_client *client, sd_dhcp_option *v);
@@ -346,6 +366,8 @@ int sd_dhcp_client_attach_event(
 int sd_dhcp_client_detach_event(sd_dhcp_client *client);
 sd_event *sd_dhcp_client_get_event(sd_dhcp_client *client);
 int sd_dhcp_client_attach_device(sd_dhcp_client *client, sd_device *dev);
+
+const char *dhcp_state_to_string(DHCPState s);
 
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_dhcp_client, sd_dhcp_client_unref);
 
