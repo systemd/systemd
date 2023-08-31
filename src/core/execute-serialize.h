@@ -10,10 +10,12 @@ int exec_serialize_invocation(FILE *f,
         FDSet *fds,
         const ExecContext *ctx,
         const ExecCommand *cmd,
-        const ExecParameters *p);
+        const ExecParameters *p,
+        const ExecRuntime *rt);
 
 int exec_deserialize_invocation(FILE *f,
         FDSet *fds,
         ExecContext *ctx,
         ExecCommand *cmd,
-        ExecParameters *p);
+        ExecParameters *p,
+        ExecRuntime *rt);
