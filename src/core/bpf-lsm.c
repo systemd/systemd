@@ -154,7 +154,8 @@ int lsm_bpf_setup(Manager *m) {
         return 0;
 }
 
-int lsm_bpf_unit_restrict_filesystems(Unit *u, const Set *filesystems, bool allow_list) {
+int lsm_bpf_unit_restrict_filesystems(Unit *u, const Set *filesystems, int outer_map_fd, bool allow_list) {
+        _cleanup_close_ int outer_map_fd_cleanup = -EBADF;
         uint32_t dummy_value = 1, zero = 0;
         const char *fs;
         const statfs_f_type_t *magic;
@@ -162,8 +163,9 @@ int lsm_bpf_unit_restrict_filesystems(Unit *u, const Set *filesystems, bool allo
 
         assert(filesystems);
         assert(u);
+        assert(outer_map_fd >= 0 || u->manager);
 
-        if (!u->manager->restrict_fs)
+        if (u->manager && !u->manager->restrict_fs) /* Might be called in sd-executor with no manager object */
                 return log_unit_error_errno(u, SYNTHETIC_ERRNO(EINVAL),
                                             "bpf-lsm: BPF LSM object is not installed, has setup failed?");
 
@@ -177,9 +179,11 @@ int lsm_bpf_unit_restrict_filesystems(Unit *u, const Set *filesystems, bool allo
         if (inner_map_fd < 0)
                 return log_unit_error_errno(u, errno, "bpf-lsm: Failed to create inner BPF map: %m");
 
-        int outer_map_fd = sym_bpf_map__fd(u->manager->restrict_fs->maps.cgroup_hash);
-        if (outer_map_fd < 0)
-                return log_unit_error_errno(u, errno, "bpf-lsm: Failed to get BPF map fd: %m");
+        if (outer_map_fd < 0) {
+                outer_map_fd_cleanup = outer_map_fd = sym_bpf_map__fd(u->manager->restrict_fs->maps.cgroup_hash);
+                if (outer_map_fd < 0)
+                        return log_unit_error_errno(u, errno, "bpf-lsm: Failed to get BPF map fd: %m");
+        }
 
         if (sym_bpf_map_update_elem(outer_map_fd, &u->cgroup_id, &inner_map_fd, BPF_ANY) != 0)
                 return log_unit_error_errno(u, errno, "bpf-lsm: Error populating BPF map: %m");
@@ -260,7 +264,7 @@ int lsm_bpf_setup(Manager *m) {
         return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "bpf-lsm: Failed to set up LSM BPF: %m");
 }
 
-int lsm_bpf_unit_restrict_filesystems(Unit *u, const Set *filesystems, const bool allow_list) {
+int lsm_bpf_unit_restrict_filesystems(Unit *u, const Set *filesystems, int outer_map_fd, const bool allow_list) {
         return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EOPNOTSUPP), "bpf-lsm: Failed to restrict filesystems using LSM BPF: %m");
 }
 
