@@ -156,6 +156,7 @@ node /org/freedesktop/login1 {
       SeatRemoved(s seat_id,
                   o object_path);
       PrepareForShutdown(b start);
+      PrepareForShutdownWithMetadata(a{sv} metadata);
       PrepareForSleep(b start);
     properties:
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
@@ -253,6 +254,8 @@ node /org/freedesktop/login1 {
   interface org.freedesktop.DBus.Properties { ... };
 };
     </programlisting>
+
+    <!--signal PrepareForShutdownWithMetadata is not documented!-->
 
     <!--property HandlePowerKeyLongPress is not documented!-->
 
@@ -401,6 +404,8 @@ node /org/freedesktop/login1 {
     <variablelist class="dbus-signal" generated="True" extra-ref="SeatRemoved"/>
 
     <variablelist class="dbus-signal" generated="True" extra-ref="PrepareForShutdown"/>
+
+    <variablelist class="dbus-signal" generated="True" extra-ref="PrepareForShutdownWithMetadata"/>
 
     <variablelist class="dbus-signal" generated="True" extra-ref="PrepareForSleep"/>
 
@@ -674,15 +679,20 @@ node /org/freedesktop/login1 {
       logs in or out, or a seat is added or removed. They each contain the ID of the object plus the object
       path.</para>
 
-      <para>The <function>PrepareForShutdown()</function> and <function>PrepareForSleep()</function> signals
-      are sent right before (with the argument <literal>true</literal>) or after (with the argument
+      <para>The <function>PrepareForShutdown()</function>,
+      <function>PrepareForShutdownWithMetadata()</function> and <function>PrepareForSleep()</function>
+      signals are sent right before (with the argument <literal>true</literal>) or after (with the argument
       <literal>false</literal>) the system goes down for reboot/poweroff and suspend/hibernate,
       respectively. This may be used by applications to save data on disk, release memory, or do other jobs
       that should be done shortly before shutdown/sleep, in conjunction with delay inhibitor locks. After
       completion of this work they should release their inhibition locks in order to not delay the operation
       any further. For more information see
-      <ulink url="https://www.freedesktop.org/wiki/Software/systemd/inhibit">Inhibitor Locks</ulink>.
-      </para>
+      <ulink url="https://www.freedesktop.org/wiki/Software/systemd/inhibit">Inhibitor Locks</ulink>. The
+      <function>PrepareForShutdownWithMetadata()</function> signal additionally sends a list of key/value
+      pair metadata fields. Currently it sends a <varname>pending</varname> boolean (as defined above) and a
+      <varname>type</varname> string which defines the type of shutdown. The type can be one of
+      <literal>power-off</literal>, <literal>reboot</literal>, <literal>halt</literal>,
+      <literal>kexec</literal> or <literal>soft-reboot</literal>.</para>
     </refsect2>
 
     <refsect2>
