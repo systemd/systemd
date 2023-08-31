@@ -4200,7 +4200,7 @@ int tpm2_seal(Tpm2Context *c,
 
 #define RETRY_UNSEAL_MAX 30u
 
-int tpm2_unseal(const char *device,
+int tpm2_unseal(Tpm2Context *c,
                 uint32_t hash_pcr_mask,
                 uint16_t pcr_bank,
                 const void *pubkey,
@@ -4231,10 +4231,6 @@ int tpm2_unseal(const char *device,
         assert(TPM2_PCR_MASK_VALID(hash_pcr_mask));
         assert(TPM2_PCR_MASK_VALID(pubkey_pcr_mask));
 
-        r = dlopen_tpm2();
-        if (r < 0)
-                return log_error_errno(r, "TPM2 support is not installed.");
-
         /* So here's what we do here: We connect to the TPM2 chip. As we do when sealing we generate a
          * "primary" key on the TPM2 chip, with the same parameters as well as a PCR-bound policy session.
          * Given we pass the same parameters, this will result in the same "primary" key, and same policy
@@ -4251,11 +4247,6 @@ int tpm2_unseal(const char *device,
         r = tpm2_unmarshal_blob(blob, blob_size, &public, &private, &seed);
         if (r < 0)
                 return log_error_errno(r, "Could not extract parts from blob: %m");
-
-        _cleanup_(tpm2_context_unrefp) Tpm2Context *c = NULL;
-        r = tpm2_context_new(device, &c);
-        if (r < 0)
-                return r;
 
         /* Older code did not save the pcr_bank, and unsealing needed to detect the best pcr bank to use,
          * so we need to handle that legacy situation. */
