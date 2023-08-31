@@ -4418,6 +4418,10 @@ const char *tpm2_userspace_log_path(void) {
         return secure_getenv("SYSTEMD_MEASURE_LOG_USERSPACE") ?: "/run/log/systemd/tpm2-measure.log";
 }
 
+const char *tpm2_firmware_log_path(void) {
+        return secure_getenv("SYSTEMD_MEASURE_LOG_FIRMWARE") ?: "/sys/kernel/security/tpm0/binary_bios_measurements";
+}
+
 static int tpm2_userspace_log_open(void) {
         _cleanup_close_ int fd = -EBADF;
         struct stat st;

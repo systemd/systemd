@@ -113,6 +113,7 @@ int tpm2_get_good_pcr_banks_strv(Tpm2Context *c, uint32_t pcr_mask, char ***ret)
 int tpm2_get_best_pcr_bank(Tpm2Context *c, uint32_t pcr_mask, TPMI_ALG_HASH *ret);
 
 const char *tpm2_userspace_log_path(void);
+const char *tpm2_firmware_log_path(void);
 
 typedef enum Tpm2UserspaceEventType {
         TPM2_EVENT_PHASE,
