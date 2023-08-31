@@ -1203,9 +1203,14 @@ int decrypt_credential_and_warn(
                                     le32toh(z->size));
                 }
 
+                _cleanup_(tpm2_context_unrefp) Tpm2Context *tpm2_context = NULL;
+                r = tpm2_context_new(tpm2_device, &tpm2_context);
+                if (r < 0)
+                        return r;
+
                  // TODO: Add the SRK data to the credential structure so it can be plumbed
                  // through and used to verify the TPM session.
-                r = tpm2_unseal(tpm2_device,
+                r = tpm2_unseal(tpm2_context,
                                 le64toh(t->pcr_mask),
                                 le16toh(t->pcr_bank),
                                 z ? z->data : NULL,

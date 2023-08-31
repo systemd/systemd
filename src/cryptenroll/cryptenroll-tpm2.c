@@ -279,7 +279,7 @@ int enroll_tpm2(struct crypt_device *cd,
                 size_t secret2_size;
 
                 log_debug("Unsealing for verification...");
-                r = tpm2_unseal(device,
+                r = tpm2_unseal(tpm2_context,
                                 hash_pcr_mask,
                                 hash_pcr_bank,
                                 pubkey, pubkey_size,

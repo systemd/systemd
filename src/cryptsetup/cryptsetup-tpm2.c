@@ -129,8 +129,13 @@ int acquire_tpm2_key(
                         return log_error_errno(r, "Failed to load pcr signature: %m");
         }
 
+        _cleanup_(tpm2_context_unrefp) Tpm2Context *tpm2_context = NULL;
+        r = tpm2_context_new(device, &tpm2_context);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create TPM2 context: %m");
+
         if (!(flags & TPM2_FLAGS_USE_PIN)) {
-                r = tpm2_unseal(device,
+                r = tpm2_unseal(tpm2_context,
                                 hash_pcr_mask,
                                 pcr_bank,
                                 pubkey, pubkey_size,
@@ -177,7 +182,7 @@ int acquire_tpm2_key(
                         /* no salting needed, backwards compat with non-salted pins */
                         b64_salted_pin = TAKE_PTR(pin_str);
 
-                r = tpm2_unseal(device,
+                r = tpm2_unseal(tpm2_context,
                                 hash_pcr_mask,
                                 pcr_bank,
                                 pubkey, pubkey_size,
