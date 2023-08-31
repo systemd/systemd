@@ -2120,9 +2120,117 @@ static int exec_context_deserialize(ExecContext *c, FILE *f, FDSet *fds) {
         return 0;
 }
 
+static int exec_command_serialize(const ExecCommand *c, FILE *f) {
+        int r;
+
+        assert(c);
+        assert(f);
+
+        r = serialize_item(f, "exec-command-path", c->path);
+        if (r < 0)
+                return r;
+
+        r = serialize_strv(f, "exec-command-argv", c->argv);
+        if (r < 0)
+                return r;
+
+        r = serialize_item_format(f, "exec-command-flags", "%d", c->flags);
+        if (r < 0)
+                return r;
+
+        r = serialize_dual_timestamp(f, "exec-status-start-timestamp", &c->exec_status.start_timestamp);
+        if (r < 0)
+                return r;
+
+        r = serialize_dual_timestamp(f, "exec-status-exit-timestamp", &c->exec_status.exit_timestamp);
+        if (r < 0)
+                return r;
+
+        r = serialize_item_format(f, "exec-status-pid", PID_FMT, c->exec_status.pid);
+        if (r < 0)
+                return r;
+
+        r = serialize_item_format(f, "exec-status-code", "%d", c->exec_status.code);
+        if (r < 0)
+                return r;
+
+        r = serialize_item_format(f, "exec-status-status", "%d", c->exec_status.status);
+        if (r < 0)
+                return r;
+
+        fputc('\n', f); /* End marker */
+
+        return 0;
+}
+
+static int exec_command_deserialize(ExecCommand *c, FILE *f) {
+        int r;
+
+        assert(c);
+        assert(f);
+
+        for (;;) {
+                _cleanup_free_ char *line = NULL;
+                const char *val, *l;
+
+                r = read_line(f, LONG_LINE_MAX, &line);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read serialization line: %m");
+                if (r == 0)
+                        break;
+
+                l = strstrip(line);
+                if (isempty(l)) /* end marker */
+                        break;
+
+                if ((val = startswith(l, "exec-command-path="))) {
+                        r = free_and_strdup(&c->path, val);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-command-argv="))) {
+                        r = deserialize_strv(&c->argv, val);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-command-flags="))) {
+                        unsigned long u;
+
+                        r = safe_atolu(val, &u);
+                        if (r < 0)
+                                return r;
+
+                        c->flags = u;
+                } else if ((val = startswith(l, "exec-status-start-timestamp="))) {
+                        r = deserialize_dual_timestamp(val, &c->exec_status.start_timestamp);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-status-exit-timestamp="))) {
+                        r = deserialize_dual_timestamp(val, &c->exec_status.exit_timestamp);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-status-pid="))) {
+                        r = safe_atoi(val, &c->exec_status.pid);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-status-code="))) {
+                        r = safe_atoi(val, &c->exec_status.code);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-status-status="))) {
+                        r = safe_atoi(val, &c->exec_status.status);
+                        if (r < 0)
+                                return r;
+                } else
+                        log_warning("Failed to parse serialization line: %s", l);
+
+        }
+
+        return 0;
+}
+
 int exec_serialize_invocation(FILE *f,
                 FDSet *fds,
-                const ExecContext *ctx) {
+                const ExecContext *ctx,
+                const ExecCommand *cmd) {
 
         int r;
 
@@ -2133,12 +2241,17 @@ int exec_serialize_invocation(FILE *f,
         if (r < 0)
                 return log_debug_errno(r, "Failed to serialize context: %m");
 
+        r = exec_command_serialize(cmd, f);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to serialize command: %m");
+
         return 0;
 }
 
 int exec_deserialize_invocation(FILE *f,
                 FDSet *fds,
-                ExecContext *ctx) {
+                ExecContext *ctx,
+                ExecCommand *cmd) {
 
         int r;
 
@@ -2148,6 +2261,10 @@ int exec_deserialize_invocation(FILE *f,
         r = exec_context_deserialize(ctx, f, fds);
         if (r < 0)
                 return log_debug_errno(r, "Failed to deserialize context: %m");
+
+        r = exec_command_deserialize(cmd, f);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to deserialize command: %m");
 
         return 0;
 }
