@@ -427,6 +427,7 @@ struct ExecParameters {
         const char *received_encrypted_credentials_directory;
 
         const char *confirm_spawn;
+        bool shall_confirm_spawn;
 
         usec_t watchdog_usec;
 
@@ -442,6 +443,12 @@ struct ExecParameters {
         const char *notify_socket;
 
         LIST_HEAD(OpenFile, open_files);
+
+        const char *fallback_smack_process_label;
+
+        char **files_env;
+        int user_lookup_fd;
+        int bpf_outer_map_fd;
 };
 
 #include "unit.h"
@@ -450,7 +457,7 @@ struct ExecParameters {
 int exec_spawn(Unit *unit,
                ExecCommand *command,
                const ExecContext *context,
-               const ExecParameters *exec_params,
+               ExecParameters *exec_params,
                ExecRuntime *runtime,
                const CGroupContext *cgroup_context,
                pid_t *ret);
