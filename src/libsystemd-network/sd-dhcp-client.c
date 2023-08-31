@@ -166,6 +166,7 @@ static const uint8_t default_req_opts_anonymize[] = {
 };
 
 static const char* const dhcp_state_table[_DHCP_STATE_MAX] = {
+        [DHCP_STATE_STOPPED]              = "stopped",
         [DHCP_STATE_INIT]                 = "initialization",
         [DHCP_STATE_SELECTING]            = "selecting",
         [DHCP_STATE_INIT_REBOOT]          = "init-reboot",
@@ -174,7 +175,6 @@ static const char* const dhcp_state_table[_DHCP_STATE_MAX] = {
         [DHCP_STATE_BOUND]                = "bound",
         [DHCP_STATE_RENEWING]             = "renewing",
         [DHCP_STATE_REBINDING]            = "rebinding",
-        [DHCP_STATE_STOPPED]              = "stopped",
 };
 
 DEFINE_STRING_TABLE_LOOKUP_TO_STRING(dhcp_state, DHCPState);
@@ -804,7 +804,7 @@ static int client_initialize(sd_dhcp_client *client) {
 
         client->attempt = 0;
 
-        client_set_state(client, DHCP_STATE_INIT);
+        client_set_state(client, DHCP_STATE_STOPPED);
         client->xid = 0;
 
         client->lease = sd_dhcp_lease_unref(client->lease);
@@ -1497,7 +1497,7 @@ static int client_start_delayed(sd_dhcp_client *client) {
         client->start_time = now(CLOCK_BOOTTIME);
 
         if (client->state == DHCP_STATE_STOPPED)
-                client->state = DHCP_STATE_INIT;
+                client_set_state(client, DHCP_STATE_INIT);
 
         return client_initialize_events(client, client_receive_message_raw);
 }
