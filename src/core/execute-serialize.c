@@ -19,6 +19,1076 @@
 #include "string-util.h"
 #include "strv.h"
 
+static int exec_cgroup_context_serialize(const CGroupContext *c, FILE *f) {
+        _cleanup_free_ char *disable_controllers_str = NULL, *delegate_controllers_str = NULL,
+                            *cpuset_cpus = NULL, *cpuset_mems = NULL, *startup_cpuset_cpus = NULL,
+                            *startup_cpuset_mems = NULL;
+        char *iface;
+        struct in_addr_prefix *iaai;
+        int r;
+
+        assert(f);
+
+        if (!c)
+                return 0;
+
+        r = serialize_bool_elide(f, "exec-cgroup-context-cpu-accounting", c->cpu_accounting);
+        if (r < 0)
+                return r;
+
+        r = serialize_bool_elide(f, "exec-cgroup-context-io-accounting", c->io_accounting);
+        if (r < 0)
+                return r;
+
+        r = serialize_bool_elide(f, "exec-cgroup-context-block-io-accounting", c->blockio_accounting);
+        if (r < 0)
+                return r;
+
+        r = serialize_bool_elide(f, "exec-cgroup-context-memory-accounting", c->memory_accounting);
+        if (r < 0)
+                return r;
+
+        r = serialize_bool_elide(f, "exec-cgroup-context-tasks-accounting", c->tasks_accounting);
+        if (r < 0)
+                return r;
+
+        r = serialize_bool_elide(f, "exec-cgroup-context-ip-accounting", c->ip_accounting);
+        if (r < 0)
+                return r;
+
+        r = serialize_bool_elide(f, "exec-cgroup-context-memory-oom-group", c->memory_oom_group);
+        if (r < 0)
+                return r;
+
+        if (c->cpu_weight != CGROUP_WEIGHT_INVALID) {
+                r = serialize_item_format(f, "exec-cgroup-context-cpu-weight", "%" PRIu64, c->cpu_weight);
+                if (r < 0)
+                        return r;
+        }
+
+        if (c->startup_cpu_weight != CGROUP_WEIGHT_INVALID) {
+                r = serialize_item_format(f, "exec-cgroup-context-startup-cpu-weight", "%" PRIu64, c->startup_cpu_weight);
+                if (r < 0)
+                        return r;
+        }
+
+        if (c->cpu_shares != CGROUP_CPU_SHARES_INVALID) {
+                r = serialize_item_format(f, "exec-cgroup-context-cpu-shares", "%" PRIu64, c->cpu_shares);
+                if (r < 0)
+                        return r;
+        }
+
+        if (c->startup_cpu_shares != CGROUP_CPU_SHARES_INVALID) {
+                r = serialize_item_format(f, "exec-cgroup-context-startup-cpu-shares", "%" PRIu64, c->startup_cpu_shares);
+                if (r < 0)
+                        return r;
+        }
+
+        if (c->cpu_quota_per_sec_usec != USEC_INFINITY) {
+                r = serialize_usec(f, "exec-cgroup-context-cpu-quota-per-sec-usec", c->cpu_quota_per_sec_usec);
+                if (r < 0)
+                        return r;
+        }
+
+        if (c->cpu_quota_period_usec != USEC_INFINITY) {
+                r = serialize_usec(f, "exec-cgroup-context-cpu-quota-period-usec", c->cpu_quota_period_usec);
+                if (r < 0)
+                        return r;
+        }
+
+        cpuset_cpus = cpu_set_to_range_string(&c->cpuset_cpus);
+        if (!cpuset_cpus)
+                return log_oom_debug();
+
+        r = serialize_item(f, "exec-cgroup-context-allowed-cpus", cpuset_cpus);
+        if (r < 0)
+                return r;
+
+        startup_cpuset_cpus = cpu_set_to_range_string(&c->startup_cpuset_cpus);
+        if (!startup_cpuset_cpus)
+                return log_oom_debug();
+
+        r = serialize_item(f, "exec-cgroup-context-startup-allowed-cpus", startup_cpuset_cpus);
+        if (r < 0)
+                return r;
+
+        cpuset_mems = cpu_set_to_range_string(&c->cpuset_mems);
+        if (!cpuset_mems)
+                return log_oom_debug();
+
+        r = serialize_item(f, "exec-cgroup-context-allowed-memory-nodes", cpuset_mems);
+        if (r < 0)
+                return r;
+
+        startup_cpuset_mems = cpu_set_to_range_string(&c->startup_cpuset_mems);
+        if (!startup_cpuset_mems)
+                return log_oom_debug();
+
+        r = serialize_item(f, "exec-cgroup-context-startup-allowed-memory-nodes", startup_cpuset_mems);
+        if (r < 0)
+                return r;
+
+        if (c->io_weight != CGROUP_WEIGHT_INVALID) {
+                r = serialize_item_format(f, "exec-cgroup-context-io-weight", "%" PRIu64, c->io_weight);
+                if (r < 0)
+                        return r;
+        }
+
+        if (c->startup_io_weight != CGROUP_WEIGHT_INVALID) {
+                r = serialize_item_format(f, "exec-cgroup-context-startup-io-weight", "%" PRIu64, c->startup_io_weight);
+                if (r < 0)
+                        return r;
+        }
+
+        if (c->blockio_weight != CGROUP_BLKIO_WEIGHT_INVALID) {
+                r = serialize_item_format(f, "exec-cgroup-context-block-io-weight", "%" PRIu64, c->blockio_weight);
+                if (r < 0)
+                        return r;
+        }
+
+        if (c->startup_blockio_weight != CGROUP_BLKIO_WEIGHT_INVALID) {
+                r = serialize_item_format(f, "exec-cgroup-context-startup-block-io-weight", "%" PRIu64, c->startup_blockio_weight);
+                if (r < 0)
+                        return r;
+        }
+
+        if (c->default_memory_min > 0) {
+                r = serialize_item_format(f, "exec-cgroup-context-default-memory-min", "%" PRIu64, c->default_memory_min);
+                if (r < 0)
+                        return r;
+        }
+
+        if (c->default_memory_low > 0) {
+                r = serialize_item_format(f, "exec-cgroup-context-default-memory-low", "%" PRIu64, c->default_memory_low);
+                if (r < 0)
+                        return r;
+        }
+
+        if (c->memory_min > 0) {
+                r = serialize_item_format(f, "exec-cgroup-context-memory-min", "%" PRIu64, c->memory_min);
+                if (r < 0)
+                        return r;
+        }
+
+        if (c->memory_low > 0) {
+                r = serialize_item_format(f, "exec-cgroup-context-memory-low", "%" PRIu64, c->memory_low);
+                if (r < 0)
+                        return r;
+        }
+
+        if (c->startup_memory_low > 0) {
+                r = serialize_item_format(f, "exec-cgroup-context-startup-memory-low", "%" PRIu64, c->startup_memory_low);
+                if (r < 0)
+                        return r;
+        }
+
+        if (c->memory_high != CGROUP_LIMIT_MAX) {
+                r = serialize_item_format(f, "exec-cgroup-context-memory-high", "%" PRIu64, c->memory_high);
+                if (r < 0)
+                        return r;
+        }
+
+        if (c->startup_memory_high != CGROUP_LIMIT_MAX) {
+                r = serialize_item_format(f, "exec-cgroup-context-startup-memory-high", "%" PRIu64, c->startup_memory_high);
+                if (r < 0)
+                        return r;
+        }
+
+        if (c->memory_max != CGROUP_LIMIT_MAX) {
+                r = serialize_item_format(f, "exec-cgroup-context-memory-max", "%" PRIu64, c->memory_max);
+                if (r < 0)
+                        return r;
+        }
+
+        if (c->startup_memory_max != CGROUP_LIMIT_MAX) {
+                r = serialize_item_format(f, "exec-cgroup-context-startup-memory-max", "%" PRIu64, c->startup_memory_max);
+                if (r < 0)
+                        return r;
+        }
+
+        if (c->memory_swap_max != CGROUP_LIMIT_MAX) {
+                r = serialize_item_format(f, "exec-cgroup-context-memory-swap-max", "%" PRIu64, c->memory_swap_max);
+                if (r < 0)
+                        return r;
+        }
+
+        if (c->startup_memory_swap_max != CGROUP_LIMIT_MAX) {
+                r = serialize_item_format(f, "exec-cgroup-context-startup-memory-swap-max", "%" PRIu64, c->startup_memory_swap_max);
+                if (r < 0)
+                        return r;
+        }
+
+        if (c->memory_zswap_max != CGROUP_LIMIT_MAX) {
+                r = serialize_item_format(f, "exec-cgroup-context-memory-zswap-max", "%" PRIu64, c->memory_zswap_max);
+                if (r < 0)
+                        return r;
+        }
+
+        if (c->startup_memory_zswap_max != CGROUP_LIMIT_MAX) {
+                r = serialize_item_format(f, "exec-cgroup-context-startup-memory-zswap-max", "%" PRIu64, c->startup_memory_zswap_max);
+                if (r < 0)
+                        return r;
+        }
+
+        if (c->memory_limit != CGROUP_LIMIT_MAX) {
+                r = serialize_item_format(f, "exec-cgroup-context-memory-limit", "%" PRIu64, c->memory_limit);
+                if (r < 0)
+                        return r;
+        }
+
+        if (c->tasks_max.value != UINT64_MAX) {
+                r = serialize_item_format(f, "exec-cgroup-context-tasks-max-value", "%" PRIu64, c->tasks_max.value);
+                if (r < 0)
+                        return r;
+        }
+
+        if (c->tasks_max.scale > 0) {
+                r = serialize_item_format(f, "exec-cgroup-context-tasks-max-scale", "%" PRIu64, c->tasks_max.scale);
+                if (r < 0)
+                        return r;
+        }
+
+        r = serialize_bool_elide(f, "exec-cgroup-context-default-memory-min-set", c->default_memory_min_set);
+        if (r < 0)
+                return r;
+
+        r = serialize_bool_elide(f, "exec-cgroup-context-default-memory-low-set", c->default_memory_low_set);
+        if (r < 0)
+                return r;
+
+        r = serialize_bool_elide(f, "exec-cgroup-context-default-startup-memory-low-set", c->default_startup_memory_low_set);
+        if (r < 0)
+                return r;
+
+        r = serialize_bool_elide(f, "exec-cgroup-context-memory-min-set", c->memory_min_set);
+        if (r < 0)
+                return r;
+
+        r = serialize_bool_elide(f, "exec-cgroup-context-memory-low-set", c->memory_low_set);
+        if (r < 0)
+                return r;
+
+        r = serialize_bool_elide(f, "exec-cgroup-context-startup-memory-low-set", c->startup_memory_low_set);
+        if (r < 0)
+                return r;
+
+        r = serialize_bool_elide(f, "exec-cgroup-context-startup-memory-high-set", c->startup_memory_high_set);
+        if (r < 0)
+                return r;
+
+        r = serialize_bool_elide(f, "exec-cgroup-context-startup-memory-max-set", c->startup_memory_max_set);
+        if (r < 0)
+                return r;
+
+        r = serialize_bool_elide(f, "exec-cgroup-context-startup-memory-swap-max-set", c->startup_memory_swap_max_set);
+        if (r < 0)
+                return r;
+
+        r = serialize_bool_elide(f, "exec-cgroup-context-startup-memory-zswap-max-set", c->startup_memory_zswap_max_set);
+        if (r < 0)
+                return r;
+
+        r = serialize_item(f, "exec-cgroup-context-device-policy", cgroup_device_policy_to_string(c->device_policy));
+        if (r < 0)
+                return r;
+
+        r = cg_mask_to_string(c->disable_controllers, &disable_controllers_str);
+        if (r < 0)
+                return r;
+
+        r = serialize_item(f, "exec-cgroup-context-disable-controllers", disable_controllers_str);
+        if (r < 0)
+                return r;
+
+        r = cg_mask_to_string(c->delegate_controllers, &delegate_controllers_str);
+        if (r < 0)
+                return r;
+
+        r = serialize_item(f, "exec-cgroup-context-delegate-controllers", delegate_controllers_str);
+        if (r < 0)
+                return r;
+
+        r = serialize_bool_elide(f, "exec-cgroup-context-delegate", c->delegate);
+        if (r < 0)
+                return r;
+
+        r = serialize_item(f, "exec-cgroup-context-managed-oom-swap", managed_oom_mode_to_string(c->moom_swap));
+        if (r < 0)
+                return r;
+
+        r = serialize_item(f, "exec-cgroup-context-managed-oom-memory-pressure", managed_oom_mode_to_string(c->moom_mem_pressure));
+        if (r < 0)
+                return r;
+
+        r = serialize_item_format(f, "exec-cgroup-context-managed-oom-memory-pressure-limit", "%" PRIu32, c->moom_mem_pressure_limit);
+        if (r < 0)
+                return r;
+
+        r = serialize_item(f, "exec-cgroup-context-managed-oom-preference", managed_oom_preference_to_string(c->moom_preference));
+        if (r < 0)
+                return r;
+
+        r = serialize_item(f, "exec-cgroup-context-memory-pressure-watch", cgroup_pressure_watch_to_string(c->memory_pressure_watch));
+        if (r < 0)
+                return r;
+
+        r = serialize_item(f, "exec-cgroup-context-delegate-subgroup", c->delegate_subgroup);
+        if (r < 0)
+                return r;
+
+        if (c->memory_pressure_threshold_usec != USEC_INFINITY) {
+                r = serialize_usec(f, "exec-cgroup-context-memory-pressure-threshold-usec", c->memory_pressure_threshold_usec);
+                if (r < 0)
+                        return r;
+        }
+
+        LIST_FOREACH(device_allow, a, c->device_allow) {
+                r = serialize_item_format(f, "exec-cgroup-context-device-allow", "%s %s%s%s",
+                                          a->path,
+                                          a->r ? "r" : "", a->w ? "w" : "", a->m ? "m" : "");
+                if (r < 0)
+                        return r;
+        }
+
+        LIST_FOREACH(device_weights, iw, c->io_device_weights) {
+                r = serialize_item_format(f, "exec-cgroup-context-io-device-weight", "%s %" PRIu64,
+                                          iw->path,
+                                          iw->weight);
+                if (r < 0)
+                        return r;
+        }
+
+        LIST_FOREACH(device_latencies, l, c->io_device_latencies) {
+                r = serialize_item_format(f, "exec-cgroup-context-io-device-latency-target-usec", "%s " USEC_FMT,
+                                          l->path,
+                                          l->target_usec);
+                if (r < 0)
+                        return r;
+        }
+
+        LIST_FOREACH(device_limits, il, c->io_device_limits)
+                for (CGroupIOLimitType type = 0; type < _CGROUP_IO_LIMIT_TYPE_MAX; type++) {
+                        _cleanup_free_ char *key = NULL;
+
+                        if (il->limits[type] == cgroup_io_limit_defaults[type])
+                                continue;
+
+                        key = strjoin("exec-cgroup-context-io-device-limit-",
+                                        cgroup_io_limit_type_to_string(type));
+                        if (!key)
+                                return -ENOMEM;
+
+                        r = serialize_item_format(f, key, "%s %" PRIu64, il->path, il->limits[type]);
+                        if (r < 0)
+                                return r;
+                }
+
+        LIST_FOREACH(device_weights, w, c->blockio_device_weights) {
+                r = serialize_item_format(f, "exec-cgroup-context-blockio-device-weight", "%s %" PRIu64,
+                                          w->path,
+                                          w->weight);
+                if (r < 0)
+                        return r;
+        }
+
+        LIST_FOREACH(device_bandwidths, b, c->blockio_device_bandwidths) {
+                if (b->rbps != CGROUP_LIMIT_MAX) {
+                        r = serialize_item_format(f, "exec-cgroup-context-blockio-read-bandwidth", "%s %" PRIu64,
+                                                  b->path,
+                                                  b->rbps);
+                        if (r < 0)
+                                return r;
+                }
+                if (b->wbps != CGROUP_LIMIT_MAX) {
+                        r = serialize_item_format(f, "exec-cgroup-context-blockio-write-bandwidth", "%s %" PRIu64,
+                                                  b->path,
+                                                  b->wbps);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        SET_FOREACH(iaai, c->ip_address_allow) {
+                r = serialize_item(f,
+                                   "exec-cgroup-context-ip-address-allow",
+                                   IN_ADDR_PREFIX_TO_STRING(iaai->family, &iaai->address, iaai->prefixlen));
+                if (r < 0)
+                        return r;
+        }
+        SET_FOREACH(iaai, c->ip_address_deny) {
+                r = serialize_item(f,
+                                   "exec-cgroup-context-ip-address-deny",
+                                   IN_ADDR_PREFIX_TO_STRING(iaai->family, &iaai->address, iaai->prefixlen));
+                if (r < 0)
+                        return r;
+        }
+
+        r = serialize_bool_elide(f, "exec-cgroup-context-ip-address-allow-reduced", c->ip_address_allow_reduced);
+        if (r < 0)
+                return r;
+
+        r = serialize_bool_elide(f, "exec-cgroup-context-ip-address-deny-reduced", c->ip_address_deny_reduced);
+        if (r < 0)
+                return r;
+
+        r = serialize_strv(f, "exec-cgroup-context-ip-ingress-filter-path=", c->ip_filters_ingress);
+        if (r < 0)
+                return r;
+
+        r = serialize_strv(f, "exec-cgroup-context-ip-egress-filter-path=", c->ip_filters_egress);
+        if (r < 0)
+                return r;
+
+        LIST_FOREACH(programs, p, c->bpf_foreign_programs) {
+                r = serialize_item_format(f, "exec-cgroup-context-bpf-program", "%" PRIu32 " %s",
+                                          p->attach_type,
+                                          p->bpffs_path);
+                if (r < 0)
+                        return r;
+        }
+
+        LIST_FOREACH(socket_bind_items, bi, c->socket_bind_allow) {
+                fprintf(f, "exec-cgroup-context-socket-bind-allow=");
+                cgroup_context_dump_socket_bind_item(bi, f);
+                fputc('\n', f);
+        }
+
+        LIST_FOREACH(socket_bind_items, bi, c->socket_bind_deny) {
+                fprintf(f, "exec-cgroup-context-socket-bind-deny=");
+                cgroup_context_dump_socket_bind_item(bi, f);
+                fputc('\n', f);
+        }
+
+        SET_FOREACH(iface, c->restrict_network_interfaces) {
+                r = serialize_item(f, "exec-cgroup-context-restrict-network-interfaces", iface);
+                if (r < 0)
+                        return r;
+        }
+
+        r = serialize_bool_elide(
+                        f,
+                        "exec-cgroup-context-restrict-network-interfaces-is-allow-list",
+                        c->restrict_network_interfaces_is_allow_list);
+        if (r < 0)
+                return r;
+
+        fputc('\n', f); /* End marker */
+
+        return 0;
+}
+
+static int exec_cgroup_context_deserialize(CGroupContext *c, FILE *f) {
+        int r;
+
+        assert(f);
+
+        if (!c)
+                return 0;
+
+        for (;;) {
+                _cleanup_free_ char *l = NULL;
+                const char *val;
+
+                r = deserialize_read_line(f, &l);
+                if (r < 0)
+                        return r;
+                if (r == 0) /* eof or end marker */
+                        break;
+
+                if ((val = startswith(l, "exec-cgroup-context-cpu-accounting="))) {
+                        r = parse_boolean(val);
+                        if (r < 0)
+                                return r;
+                        c->cpu_accounting = r;
+                } else if ((val = startswith(l, "exec-cgroup-context-io-accounting="))) {
+                        r = parse_boolean(val);
+                        if (r < 0)
+                                return r;
+                        c->io_accounting = r;
+                } else if ((val = startswith(l, "exec-cgroup-context-block-io-accounting="))) {
+                        r = parse_boolean(val);
+                        if (r < 0)
+                                return r;
+                        c->blockio_accounting = r;
+                } else if ((val = startswith(l, "exec-cgroup-context-memory-accounting="))) {
+                        r = parse_boolean(val);
+                        if (r < 0)
+                                return r;
+                        c->memory_accounting = r;
+                } else if ((val = startswith(l, "exec-cgroup-context-tasks-accounting="))) {
+                        r = parse_boolean(val);
+                        if (r < 0)
+                                return r;
+                        c->tasks_accounting = r;
+                } else if ((val = startswith(l, "exec-cgroup-context-ip-accounting="))) {
+                        r = parse_boolean(val);
+                        if (r < 0)
+                                return r;
+                        c->ip_accounting = r;
+                } else if ((val = startswith(l, "exec-cgroup-context-memory-oom-group="))) {
+                        r = parse_boolean(val);
+                        if (r < 0)
+                                return r;
+                        c->memory_oom_group = r;
+                } else if ((val = startswith(l, "exec-cgroup-context-cpu-weight="))) {
+                        r = safe_atou64(val, &c->cpu_weight);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-cgroup-context-startup-cpu-weight="))) {
+                        r = safe_atou64(val, &c->startup_cpu_weight);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-cgroup-context-cpu-shares="))) {
+                        r = safe_atou64(val, &c->cpu_shares);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-cgroup-context-startup-cpu-shares="))) {
+                        r = safe_atou64(val, &c->startup_cpu_shares);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-cgroup-context-cpu-quota-per-sec-usec="))) {
+                        r = deserialize_usec(val, &c->cpu_quota_per_sec_usec);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-cgroup-context-cpu-quota-period-usec="))) {
+                        r = deserialize_usec(val, &c->cpu_quota_period_usec);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-cgroup-context-allowed-cpus="))) {
+                        if (c->cpuset_cpus.set)
+                                return -EINVAL; /* duplicated */
+
+                        r = parse_cpu_set_full(
+                                        val,
+                                        &c->cpuset_cpus,
+                                        /* warn= */ false,
+                                        /* unit= */ NULL,
+                                        /* filename= */ NULL,
+                                        /* line= */ 0,
+                                        /* lvalue= */ NULL);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-cgroup-context-startup-allowed-cpus="))) {
+                        if (c->startup_cpuset_cpus.set)
+                                return -EINVAL; /* duplicated */
+
+                        r = parse_cpu_set_full(
+                                        val,
+                                        &c->startup_cpuset_cpus,
+                                        /* warn= */ false,
+                                        /* unit= */ NULL,
+                                        /* filename= */ NULL,
+                                        /* line= */ 0,
+                                        /* lvalue= */ NULL);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-cgroup-context-allowed-memory-nodes="))) {
+                        if (c->cpuset_mems.set)
+                                return -EINVAL; /* duplicated */
+
+                        r = parse_cpu_set_full(
+                                        val,
+                                        &c->cpuset_mems,
+                                        /* warn= */ false,
+                                        /* unit= */ NULL,
+                                        /* filename= */ NULL,
+                                        /* line= */ 0,
+                                        /* lvalue= */ NULL);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-cgroup-context-startup-allowed-memory-nodes="))) {
+                        if (c->startup_cpuset_mems.set)
+                                return -EINVAL; /* duplicated */
+
+                        r = parse_cpu_set_full(
+                                        val,
+                                        &c->startup_cpuset_mems,
+                                        /* warn= */ false,
+                                        /* unit= */ NULL,
+                                        /* filename= */ NULL,
+                                        /* line= */ 0,
+                                        /* lvalue= */ NULL);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-cgroup-context-io-weight="))) {
+                        r = safe_atou64(val, &c->io_weight);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-cgroup-context-startup-io-weight="))) {
+                        r = safe_atou64(val, &c->startup_io_weight);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-cgroup-context-block-io-weight="))) {
+                        r = safe_atou64(val, &c->blockio_weight);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-cgroup-context-startup-block-io-weight="))) {
+                        r = safe_atou64(val, &c->startup_blockio_weight);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-cgroup-context-default-memory-min="))) {
+                        r = safe_atou64(val, &c->default_memory_min);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-cgroup-context-default-memory-low="))) {
+                        r = safe_atou64(val, &c->default_memory_low);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-cgroup-context-memory-min="))) {
+                        r = safe_atou64(val, &c->memory_min);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-cgroup-context-memory-low="))) {
+                        r = safe_atou64(val, &c->memory_low);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-cgroup-context-startup-memory-low="))) {
+                        r = safe_atou64(val, &c->startup_memory_low);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-cgroup-context-memory-high="))) {
+                        r = safe_atou64(val, &c->memory_high);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-cgroup-context-startup-memory-high="))) {
+                        r = safe_atou64(val, &c->startup_memory_high);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-cgroup-context-memory-max="))) {
+                        r = safe_atou64(val, &c->memory_max);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-cgroup-context-startup-memory-max="))) {
+                        r = safe_atou64(val, &c->startup_memory_max);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-cgroup-context-memory-swap-max="))) {
+                        r = safe_atou64(val, &c->memory_swap_max);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-cgroup-context-startup-memory-swap-max="))) {
+                        r = safe_atou64(val, &c->startup_memory_swap_max);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-cgroup-context-memory-zswap-max="))) {
+                        r = safe_atou64(val, &c->memory_zswap_max);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-cgroup-context-startup-memory-zswap-max="))) {
+                        r = safe_atou64(val, &c->startup_memory_zswap_max);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-cgroup-context-memory-limit="))) {
+                        r = safe_atou64(val, &c->memory_limit);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-cgroup-context-tasks-max-value="))) {
+                        r = safe_atou64(val, &c->tasks_max.value);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-cgroup-context-tasks-max-scale="))) {
+                        r = safe_atou64(val, &c->tasks_max.scale);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-cgroup-context-default-memory-min-set="))) {
+                        r = parse_boolean(val);
+                        if (r < 0)
+                                return r;
+                        c->default_memory_min_set = r;
+                } else if ((val = startswith(l, "exec-cgroup-context-default-memory-low-set="))) {
+                        r = parse_boolean(val);
+                        if (r < 0)
+                                return r;
+                        c->default_memory_low_set = r;
+                } else if ((val = startswith(l, "exec-cgroup-context-default-startup-memory-low-set="))) {
+                        r = parse_boolean(val);
+                        if (r < 0)
+                                return r;
+                        c->default_startup_memory_low_set = r;
+                } else if ((val = startswith(l, "exec-cgroup-context-memory-min-set="))) {
+                        r = parse_boolean(val);
+                        if (r < 0)
+                                return r;
+                        c->memory_min_set = r;
+                } else if ((val = startswith(l, "exec-cgroup-context-memory-low-set="))) {
+                        r = parse_boolean(val);
+                        if (r < 0)
+                                return r;
+                        c->memory_low_set = r;
+                } else if ((val = startswith(l, "exec-cgroup-context-startup-memory-low-set="))) {
+                        r = parse_boolean(val);
+                        if (r < 0)
+                                return r;
+                        c->startup_memory_low_set = r;
+                } else if ((val = startswith(l, "exec-cgroup-context-startup-memory-high-set="))) {
+                        r = parse_boolean(val);
+                        if (r < 0)
+                                return r;
+                        c->startup_memory_high_set = r;
+                } else if ((val = startswith(l, "exec-cgroup-context-startup-memory-max-set="))) {
+                        r = parse_boolean(val);
+                        if (r < 0)
+                                return r;
+                        c->startup_memory_max_set = r;
+                } else if ((val = startswith(l, "exec-cgroup-context-startup-memory-swap-max-set="))) {
+                        r = parse_boolean(val);
+                        if (r < 0)
+                                return r;
+                        c->startup_memory_swap_max_set = r;
+                } else if ((val = startswith(l, "exec-cgroup-context-startup-memory-zswap-max-set="))) {
+                        r = parse_boolean(val);
+                        if (r < 0)
+                                return r;
+                        c->startup_memory_zswap_max_set = r;
+                } else if ((val = startswith(l, "exec-cgroup-context-device-policy="))) {
+                        c->device_policy = cgroup_device_policy_from_string(val);
+                        if (c->device_policy < 0)
+                                return -EINVAL;
+                } else if ((val = startswith(l, "exec-cgroup-context-disable-controllers="))) {
+                        r = cg_mask_from_string(val, &c->disable_controllers);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-cgroup-context-delegate-controllers="))) {
+                        r = cg_mask_from_string(val, &c->delegate_controllers);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-cgroup-context-delegate="))) {
+                        r = parse_boolean(val);
+                        if (r < 0)
+                                return r;
+                        c->delegate = r;
+                } else if ((val = startswith(l, "exec-cgroup-context-managed-oom-swap="))) {
+                        c->moom_swap = managed_oom_mode_from_string(val);
+                        if (c->moom_swap < 0)
+                                return -EINVAL;
+                } else if ((val = startswith(l, "exec-cgroup-context-managed-oom-memory-pressure="))) {
+                        c->moom_mem_pressure = managed_oom_mode_from_string(val);
+                        if (c->moom_mem_pressure < 0)
+                                return -EINVAL;
+                } else if ((val = startswith(l, "exec-cgroup-context-managed-oom-memory-pressure-limit="))) {
+                        r = safe_atou32(val, &c->moom_mem_pressure_limit);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-cgroup-context-managed-oom-preference="))) {
+                        c->moom_preference = managed_oom_preference_from_string(val);
+                        if (c->moom_preference < 0)
+                                return -EINVAL;
+                } else if ((val = startswith(l, "exec-cgroup-context-memory-pressure-watch="))) {
+                        c->memory_pressure_watch = cgroup_pressure_watch_from_string(val);
+                        if (c->memory_pressure_watch < 0)
+                                return -EINVAL;
+                } else if ((val = startswith(l, "exec-cgroup-context-delegate-subgroup="))) {
+                        r = free_and_strdup(&c->delegate_subgroup, val);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-cgroup-context-memory-pressure-threshold-usec="))) {
+                        r = deserialize_usec(val, &c->memory_pressure_threshold_usec);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-cgroup-context-device-allow="))) {
+                        _cleanup_free_ char *path = NULL, *rwm = NULL;
+
+                        r = extract_many_words(&val, " ", 0, &path, &rwm, NULL);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                return -EINVAL;
+                        if (!isempty(rwm) && !in_charset(rwm, "rwm"))
+                                return -EINVAL;
+
+                        r = cgroup_context_add_or_update_device_allow(c, path, rwm);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-cgroup-context-io-device-weight="))) {
+                        _cleanup_free_ char *path = NULL, *weight = NULL;
+                        CGroupIODeviceWeight *a = NULL;
+
+                        r = extract_many_words(&val, " ", 0, &path, &weight, NULL);
+                        if (r < 0)
+                                return r;
+                        if (r != 2)
+                                return -EINVAL;
+
+                        LIST_FOREACH(device_weights, b, c->io_device_weights)
+                                if (path_equal(b->path, path)) {
+                                        a = b;
+                                        break;
+                                }
+
+                        if (!a) {
+                                a = new0(CGroupIODeviceWeight, 1);
+                                if (!a)
+                                        return log_oom_debug();
+
+                                a->path = TAKE_PTR(path);
+
+                                LIST_PREPEND(device_weights, c->io_device_weights, a);
+                        }
+
+                        r = safe_atou64(weight, &a->weight);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-cgroup-context-io-device-latency-target-usec="))) {
+                        _cleanup_free_ char *path = NULL, *target = NULL;
+                        CGroupIODeviceLatency *a = NULL;
+
+                        r = extract_many_words(&val, " ", 0, &path, &target, NULL);
+                        if (r < 0)
+                                return r;
+                        if (r != 2)
+                                return -EINVAL;
+
+                        LIST_FOREACH(device_latencies, b, c->io_device_latencies)
+                                if (path_equal(b->path, path)) {
+                                        a = b;
+                                        break;
+                                }
+
+                        if (!a) {
+                                a = new0(CGroupIODeviceLatency, 1);
+                                if (!a)
+                                        return log_oom_debug();
+
+                                a->path = TAKE_PTR(path);
+
+                                LIST_PREPEND(device_latencies, c->io_device_latencies, a);
+                        }
+
+                        r = deserialize_usec(target, &a->target_usec);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-cgroup-context-io-device-limit-"))) {
+                        _cleanup_free_ char *type = NULL, *path = NULL, *limits = NULL;
+                        CGroupIODeviceLimit *limit = NULL;
+                        CGroupIOLimitType t;
+
+                        r = extract_many_words(&val, "= ", 0, &type, &path, &limits, NULL);
+                        if (r < 0)
+                                return r;
+                        if (r != 3)
+                                return -EINVAL;
+
+                        t = cgroup_io_limit_type_from_string(type);
+                        if (t < 0)
+                                return t;
+
+                        LIST_FOREACH(device_limits, i, c->io_device_limits)
+                                if (path_equal(path, i->path)) {
+                                        limit = i;
+                                        break;
+                                }
+
+                        if (!limit) {
+                                limit = new0(CGroupIODeviceLimit, 1);
+                                if (!limit)
+                                        return log_oom_debug();
+
+                                limit->path = TAKE_PTR(path);
+                                for (CGroupIOLimitType i = 0; i < _CGROUP_IO_LIMIT_TYPE_MAX; i++)
+                                        limit->limits[i] = cgroup_io_limit_defaults[i];
+
+                                LIST_PREPEND(device_limits, c->io_device_limits, limit);
+                        }
+
+                        r = safe_atou64(limits, &limit->limits[t]);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-cgroup-context-block-io-device-weight="))) {
+                        _cleanup_free_ char *path = NULL, *weight = NULL;
+                        CGroupBlockIODeviceWeight *a = NULL;
+
+                        r = extract_many_words(&val, " ", 0, &path, &weight, NULL);
+                        if (r < 0)
+                                return r;
+                        if (r != 2)
+                                return -EINVAL;
+
+                        a = new0(CGroupBlockIODeviceWeight, 1);
+                        if (!a)
+                                return log_oom_debug();
+
+                        a->path = TAKE_PTR(path);
+
+                        LIST_PREPEND(device_weights, c->blockio_device_weights, a);
+
+                        r = safe_atou64(weight, &a->weight);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-cgroup-context-block-io-read-bandwidth="))) {
+                        _cleanup_free_ char *path = NULL, *bw = NULL;
+                        CGroupBlockIODeviceBandwidth *a = NULL;
+
+                        r = extract_many_words(&val, " ", 0, &path, &bw, NULL);
+                        if (r < 0)
+                                return r;
+                        if (r != 2)
+                                return -EINVAL;
+
+                        LIST_FOREACH(device_bandwidths, b, c->blockio_device_bandwidths)
+                                if (path_equal(b->path, path)) {
+                                        a = b;
+                                        break;
+                                }
+
+                        if (!a) {
+                                a = new0(CGroupBlockIODeviceBandwidth, 1);
+                                if (!a)
+                                        return log_oom_debug();
+
+                                a->path = TAKE_PTR(path);
+                                a->wbps = CGROUP_LIMIT_MAX;
+
+                                LIST_PREPEND(device_bandwidths, c->blockio_device_bandwidths, a);
+                        }
+
+                        r = safe_atou64(bw, &a->rbps);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-cgroup-context-block-io-write-bandwidth="))) {
+                        _cleanup_free_ char *path = NULL, *bw = NULL;
+                        CGroupBlockIODeviceBandwidth *a = NULL;
+
+                        r = extract_many_words(&val, " ", 0, &path, &bw, NULL);
+                        if (r < 0)
+                                return r;
+                        if (r != 2)
+                                return -EINVAL;
+
+                        LIST_FOREACH(device_bandwidths, b, c->blockio_device_bandwidths)
+                                if (path_equal(b->path, path)) {
+                                        a = b;
+                                        break;
+                                }
+
+                        if (!a) {
+                                a = new0(CGroupBlockIODeviceBandwidth, 1);
+                                if (!a)
+                                        return log_oom_debug();
+
+                                a->path = TAKE_PTR(path);
+                                a->rbps = CGROUP_LIMIT_MAX;
+
+                                LIST_PREPEND(device_bandwidths, c->blockio_device_bandwidths, a);
+                        }
+
+                        r = safe_atou64(bw, &a->wbps);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-cgroup-context-ip-address-allow="))) {
+                        struct in_addr_prefix a;
+
+                        r = in_addr_prefix_from_string_auto(val, &a.family, &a.address, &a.prefixlen);
+                        if (r < 0)
+                                return r;
+
+                        r = in_addr_prefix_add(&c->ip_address_allow, &a);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-cgroup-context-ip-address-deny="))) {
+                        struct in_addr_prefix a;
+
+                        r = in_addr_prefix_from_string_auto(val, &a.family, &a.address, &a.prefixlen);
+                        if (r < 0)
+                                return r;
+
+                        r = in_addr_prefix_add(&c->ip_address_deny, &a);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-cgroup-context-ip-address-allow-reduced="))) {
+                        r = parse_boolean(val);
+                        if (r < 0)
+                                return r;
+                        c->ip_address_allow_reduced = r;
+                } else if ((val = startswith(l, "exec-cgroup-context-ip-address-deny-reduced="))) {
+                        r = parse_boolean(val);
+                        if (r < 0)
+                                return r;
+                        c->ip_address_deny_reduced = r;
+                } else if ((val = startswith(l, "exec-cgroup-context-ip-ingress-filter-path="))) {
+                        r = deserialize_strv(&c->ip_filters_ingress, val);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-cgroup-context-ip-egress-filter-path="))) {
+                        r = deserialize_strv(&c->ip_filters_egress, val);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-cgroup-context-bpf-program="))) {
+                        _cleanup_free_ char *type = NULL, *path = NULL;
+                        uint32_t t;
+
+                        r = extract_many_words(&val, " ", 0, &type, &path, NULL);
+                        if (r < 0)
+                                return r;
+                        if (r != 2)
+                                return -EINVAL;
+
+                        r = safe_atou32(type, &t);
+                        if (r < 0)
+                                return r;
+
+                        r = cgroup_context_add_bpf_foreign_program(c, t, path);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-cgroup-context-socket-bind-allow="))) {
+                        CGroupSocketBindItem *item;
+                        uint16_t nr_ports, port_min;
+                        int af, ip_protocol;
+
+                        r = parse_socket_bind_item(val, &af, &ip_protocol, &nr_ports, &port_min);
+                        if (r < 0)
+                                return r;
+
+                        item = new(CGroupSocketBindItem, 1);
+                        if (!item)
+                                return log_oom_debug();
+                        *item = (CGroupSocketBindItem) {
+                                .address_family = af,
+                                .ip_protocol = ip_protocol,
+                                .nr_ports = nr_ports,
+                                .port_min = port_min,
+                        };
+
+                        LIST_PREPEND(socket_bind_items, c->socket_bind_allow, item);
+                } else if ((val = startswith(l, "exec-cgroup-context-socket-bind-deny="))) {
+                        CGroupSocketBindItem *item;
+                        uint16_t nr_ports, port_min;
+                        int af, ip_protocol;
+
+                        r = parse_socket_bind_item(val, &af, &ip_protocol, &nr_ports, &port_min);
+                        if (r < 0)
+                                return r;
+
+                        item = new(CGroupSocketBindItem, 1);
+                        if (!item)
+                                return log_oom_debug();
+                        *item = (CGroupSocketBindItem) {
+                                .address_family = af,
+                                .ip_protocol = ip_protocol,
+                                .nr_ports = nr_ports,
+                                .port_min = port_min,
+                        };
+
+                        LIST_PREPEND(socket_bind_items, c->socket_bind_deny, item);
+                } else if ((val = startswith(l, "exec-cgroup-context-restrict-network-interfaces="))) {
+                        r = set_ensure_allocated(&c->restrict_network_interfaces, &string_hash_ops);
+                        if (r < 0)
+                                return r;
+
+                        r = set_put_strdup(&c->restrict_network_interfaces, val);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-cgroup-context-restrict-network-interfaces-is-allow-list="))) {
+                        r = parse_boolean(val);
+                        if (r < 0)
+                                return r;
+                        c->restrict_network_interfaces_is_allow_list = r;
+                } else
+                        log_warning("Failed to parse serialized line, ignorning: %s", l);
+        }
+
+        return 0;
+}
+
 static int exec_runtime_serialize(const ExecRuntime *rt, FILE *f, FDSet *fds) {
         int r;
 
@@ -2945,7 +4015,8 @@ int exec_serialize_invocation(
                 const ExecContext *ctx,
                 const ExecCommand *cmd,
                 const ExecParameters *p,
-                const ExecRuntime *rt) {
+                const ExecRuntime *rt,
+                const CGroupContext *cg) {
 
         int r;
 
@@ -2968,6 +4039,10 @@ int exec_serialize_invocation(
         if (r < 0)
                 return log_debug_errno(r, "Failed to serialize runtime: %m");
 
+        r = exec_cgroup_context_serialize(cg, f);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to serialize cgroup context: %m");
+
         return 0;
 }
 
@@ -2977,7 +4052,8 @@ int exec_deserialize_invocation(
                 ExecContext *ctx,
                 ExecCommand *cmd,
                 ExecParameters *p,
-                ExecRuntime *rt) {
+                ExecRuntime *rt,
+                CGroupContext *cg) {
 
         int r;
 
@@ -2999,6 +4075,10 @@ int exec_deserialize_invocation(
         r = exec_runtime_deserialize(rt, f, fds);
         if (r < 0)
                 return log_debug_errno(r, "Failed to deserialize runtime: %m");
+
+        r = exec_cgroup_context_deserialize(cg, f);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to deserialize cgroup context: %m");
 
         return 0;
 }
