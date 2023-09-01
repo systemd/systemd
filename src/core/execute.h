@@ -458,13 +458,6 @@ struct ExecParameters {
 #include "unit.h"
 #include "dynamic-user.h"
 
-int exec_invoke(const ExecCommand *command,
-                const ExecContext *context,
-                ExecParameters *params,
-                ExecRuntime *runtime,
-                const CGroupContext *cgroup_context,
-                int *exit_status);
-
 int exec_spawn(Unit *unit,
                ExecCommand *command,
                const ExecContext *context,
@@ -506,6 +499,10 @@ void exec_context_revert_tty(ExecContext *c);
 int exec_context_get_clean_directories(ExecContext *c, char **prefix, ExecCleanMask mask, char ***ret);
 int exec_context_get_clean_mask(ExecContext *c, ExecCleanMask *ret);
 
+const char *exec_context_tty_path(const ExecContext *context);
+int exec_context_tty_size(const ExecContext *context, unsigned *ret_rows, unsigned *ret_cols);
+void exec_context_tty_reset(const ExecContext *context, const ExecParameters *p);
+
 void exec_status_start(ExecStatus *s, pid_t pid);
 void exec_status_exit(ExecStatus *s, const ExecContext *context, pid_t pid, int code, int status);
 void exec_status_dump(const ExecStatus *s, FILE *f, const char *prefix);
@@ -528,6 +525,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(ExecRuntime*, exec_runtime_free);
 ExecRuntime* exec_runtime_destroy(ExecRuntime *rt);
 void exec_runtime_clear(ExecRuntime *rt);
 
+int exec_params_get_cgroup_path(const ExecParameters *params, const CGroupContext *c, char **ret);
 void exec_params_clear(ExecParameters *p);
 void exec_params_dump(const ExecParameters *p, FILE* f, const char *prefix);
 void exec_params_serialized_done(ExecParameters *p);
@@ -537,6 +535,7 @@ bool exec_context_get_cpu_affinity_from_numa(const ExecContext *c);
 void exec_directory_done(ExecDirectory *d);
 int exec_directory_add(ExecDirectory *d, const char *path, const char *symlink);
 void exec_directory_sort(ExecDirectory *d);
+bool exec_directory_is_private(const ExecContext *context, ExecDirectoryType type);
 
 ExecCleanMask exec_clean_mask_from_string(const char *s);
 
@@ -566,6 +565,7 @@ ExecDirectoryType exec_resource_type_from_string(const char *s) _pure_;
 
 bool exec_needs_mount_namespace(const ExecContext *context, const ExecParameters *params, const ExecRuntime *runtime);
 bool exec_needs_network_namespace(const ExecContext *context);
+bool exec_needs_ipc_namespace(const ExecContext *context);
 
 /* These logging macros do the same logging as those in unit.h, but using ExecContext and ExecParameters
  * instead of the unit object, so that it can be used in the sd-executor context (where the unit object is
