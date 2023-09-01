@@ -76,29 +76,31 @@ jobs:
 
     steps:
     - uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744
-    - uses: systemd/mkosi@0af3f8a35c3be0e54b20234be7ab478d25bcc740
+    - uses: systemd/mkosi@cb5974d013f7c4c2a45f67c9ae990767e32e9034
 
     - name: Configure
       run: |
+        # We configure ExtraSearchPaths=build/ so make sure build/ exists.
+        mkdir build/
+
         tee mkosi.conf <<- EOF
         [Distribution]
         Distribution=${{ matrix.distro }}
         Release=${{ matrix.release }}
+        EOF
 
+        tee mkosi.conf.d/99-ci.conf <<- EOF
         [Content]
         Environment=CI_BUILD=1
                     SLOW_TESTS=true
 
-        [Output]
+        [Host]
         KernelCommandLineExtra=systemd.unit=mkosi-check-and-shutdown.service
                                systemd.journald.max_level_console=debug
                                # udev's debug log output is very verbose, so up it to info in CI.
                                udev.log_level=info
                                # Root device can take a long time to appear, so let's bump the timeout.
                                systemd.default_device_timeout_sec=180
-
-        [Host]
-        ExtraSearchPaths=!*
         QemuVsock=yes
         Ephemeral=yes
         EOF
