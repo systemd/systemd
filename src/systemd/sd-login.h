@@ -83,14 +83,14 @@ int sd_pid_get_cgroup(pid_t pid, char **cgroup);
 /* Equivalent to the corresponding sd_pid_get* functions, but take a
  * PIDFD instead of a PID, to ensure there can be no possible PID
  * recycle issues before/after the calls. */
-int sd_pidfd_get_session(pid_t pid, char **session);
-int sd_pidfd_get_owner_uid(pid_t pid, uid_t *uid);
-int sd_pidfd_get_unit(pid_t pid, char **unit);
-int sd_pidfd_get_user_unit(pid_t pid, char **unit);
-int sd_pidfd_get_slice(pid_t pid, char **slice);
-int sd_pidfd_get_user_slice(pid_t pid, char **slice);
-int sd_pidfd_get_machine_name(pid_t pid, char **machine);
-int sd_pidfd_get_cgroup(pid_t pid, char **cgroup);
+int sd_pidfd_get_session(int pidfd, char **session);
+int sd_pidfd_get_owner_uid(int pidfd, uid_t *uid);
+int sd_pidfd_get_unit(int pidfd, char **unit);
+int sd_pidfd_get_user_unit(int pidfd, char **unit);
+int sd_pidfd_get_slice(int pidfd, char **slice);
+int sd_pidfd_get_user_slice(int pidfd, char **slice);
+int sd_pidfd_get_machine_name(int pidfd, char **machine);
+int sd_pidfd_get_cgroup(int pidfd, char **cgroup);
 
 /* Similar to sd_pid_get_session(), but retrieves data about the peer
  * of a connected AF_UNIX socket */
