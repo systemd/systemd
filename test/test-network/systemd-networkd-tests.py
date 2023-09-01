@@ -5071,6 +5071,44 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertIn('DHCPREPLY(veth-peer)', output)
         self.assertNotIn('rapid-commit', output)
 
+    def test_dhcp_client_ipv6_dbus_status(self):
+        def get_dbus_dhcp6_client_state(IF):
+            # busctl call org.freedesktop.network1 /org/freedesktop/network1 org.freedesktop.network1.Manager GetLinkByName s enp1s0
+            out = subprocess.check_output(['busctl', 'call', 'org.freedesktop.network1',
+                                           '/org/freedesktop/network1', 'org.freedesktop.network1.Manager',
+                                           'GetLinkByName', 's', IF])
+
+            assert out.startswith(b'io ')
+            out = out.strip()
+            assert out.endswith(b'"')
+            out = out.decode()
+            linkPath = out[:-1].split('"')[1]
+
+            print(f"Found {IF} link path: {linkPath}")
+
+            out = subprocess.check_output(['busctl', 'get-property', 'org.freedesktop.network1',
+                                           linkPath, 'org.freedesktop.network1.DHCP6Client', 'State'])
+            assert out.startswith(b's "')
+            out = out.strip()
+            assert out.endswith(b'"')
+            return out[3:-1].decode()
+
+        copy_network_unit('25-veth.netdev', '25-dhcp-server-veth-peer.network', '25-dhcp-client-ipv6-only.network')
+
+        start_networkd()
+        self.wait_online(['veth-peer:carrier'])
+
+        state = get_dbus_dhcp6_client_state('veth99')
+        print(f"State = {state}")
+        self.assertEqual(state, 'stopped')
+
+        start_dnsmasq()
+        self.wait_online(['veth99:routable', 'veth-peer:routable'])
+
+        state = get_dbus_dhcp6_client_state('veth99')
+        print(f"State = {state}")
+        self.assertEqual(state, 'bound')
+
     def test_dhcp_client_ipv6_only_with_custom_client_identifier(self):
         copy_network_unit('25-veth.netdev', '25-dhcp-server-veth-peer.network', '25-dhcp-client-ipv6-only-custom-client-identifier.network')
 
@@ -5223,6 +5261,47 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.check_nftset('ifindex', 'veth99')
 
         self.teardown_nftset('addr4', 'network4', 'ifindex')
+
+    def test_dhcp_client_ipv4_dbus_status(self):
+        def get_dbus_dhcp4_client_state(IF):
+            out = subprocess.check_output(['busctl', 'call', 'org.freedesktop.network1',
+                                           '/org/freedesktop/network1', 'org.freedesktop.network1.Manager',
+                                           'GetLinkByName', 's', IF])
+
+            assert out.startswith(b'io ')
+            out = out.strip()
+            assert out.endswith(b'"')
+            out = out.decode()
+            linkPath = out[:-1].split('"')[1]
+
+            print(f"Found {IF} link path: {linkPath}")
+
+            out = subprocess.check_output(['busctl', 'get-property', 'org.freedesktop.network1',
+                                           linkPath, 'org.freedesktop.network1.DHCPClient', 'State'])
+            assert out.startswith(b's "')
+            out = out.strip()
+            assert out.endswith(b'"')
+            return out[3:-1].decode()
+
+        copy_network_unit('25-veth.netdev', '25-dhcp-server-veth-peer.network', '25-dhcp-client-ipv4-only.network')
+
+        start_networkd()
+        self.wait_online(['veth-peer:carrier'])
+
+        state = get_dbus_dhcp4_client_state('veth99')
+        print(f"State = {state}")
+        self.assertEqual(state, 'selecting')
+
+        start_dnsmasq('--dhcp-option=option:dns-server,192.168.5.6,192.168.5.7',
+                      '--dhcp-option=option:domain-search,example.com',
+                      '--dhcp-alternate-port=67,5555',
+                      ipv4_range='192.168.5.110,192.168.5.119')
+        self.wait_online(['veth99:routable', 'veth-peer:routable'])
+        self.wait_address('veth99', r'inet 192.168.5.11[0-9]*/24', ipv='-4')
+
+        state = get_dbus_dhcp4_client_state('veth99')
+        print(f"State = {state}")
+        self.assertEqual(state, 'bound')
 
     def test_dhcp_client_ipv4_use_routes_gateway(self):
         first = True
