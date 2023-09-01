@@ -75,6 +75,12 @@ int dhcp_packet_verify_headers(DHCPPacket *packet, size_t len, bool checksum, ui
 
 void dhcp_client_set_test_mode(sd_dhcp_client *client, bool test_mode);
 
+int dhcp_client_set_state_callback(
+                sd_dhcp_client *client,
+                sd_dhcp_client_callback_t cb,
+                void *userdata);
+int dhcp_client_get_state(sd_dhcp_client *client);
+
 /* If we are invoking callbacks of a dhcp-client, ensure unreffing the
  * client from the callback doesn't destroy the object we are working
  * on */
