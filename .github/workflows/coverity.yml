@@ -22,7 +22,7 @@ jobs:
       COVERITY_SCAN_NOTIFICATION_EMAIL: "${{ secrets.COVERITY_SCAN_NOTIFICATION_EMAIL }}"
     steps:
       - name: Repository checkout
-        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744
       # Reuse the setup phase of the unit test script to avoid code duplication
       - name: Install build dependencies
         run: sudo -E .github/workflows/unit_tests.sh SETUP
