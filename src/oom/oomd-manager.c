@@ -127,6 +127,12 @@ static int process_managed_oom_message(Manager *m, uid_t uid, JsonVariant *param
                         ctx->mem_pressure_limit = limit;
         }
 
+        /* Toggle wake-ups for "ManagedOOMSwap" if entries are present. */
+        r = sd_event_source_set_enabled(m->swap_context_event_source,
+                                        hashmap_isempty(m->monitored_swap_cgroup_contexts) ? SD_EVENT_OFF : SD_EVENT_ON);
+        if (r < 0)
+                return log_error_errno(r, "Failed to toggle enabled state of swap context source: %m");
+
         return 0;
 }
 
@@ -348,6 +354,7 @@ static int monitor_swap_contexts_handler(sd_event_source *s, uint64_t usec, void
         int r;
 
         assert(s);
+        assert(!hashmap_isempty(m->monitored_swap_cgroup_contexts));
 
         /* Reset timer */
         r = sd_event_now(sd_event_source_get_event(s), CLOCK_MONOTONIC, &usec_now);
@@ -368,12 +375,8 @@ static int monitor_swap_contexts_handler(sd_event_source *s, uint64_t usec, void
         /* We still try to acquire system information for oomctl even if no units want swap monitoring */
         r = oomd_system_context_acquire("/proc/meminfo", &m->system_context);
         /* If there are no units depending on swap actions, the only error we exit on is ENOMEM. */
-        if (r == -ENOMEM || (r < 0 && !hashmap_isempty(m->monitored_swap_cgroup_contexts)))
+        if (r < 0)
                 return log_error_errno(r, "Failed to acquire system context: %m");
-
-        /* Return early if nothing is requesting swap monitoring */
-        if (hashmap_isempty(m->monitored_swap_cgroup_contexts))
-                return 0;
 
         /* Note that m->monitored_swap_cgroup_contexts does not need to be updated every interval because only the
          * system context is used for deciding whether the swap threshold is hit. m->monitored_swap_cgroup_contexts
@@ -594,7 +597,7 @@ static int monitor_swap_contexts(Manager *m) {
         if (r < 0)
                 return r;
 
-        r = sd_event_source_set_enabled(s, SD_EVENT_ON);
+        r = sd_event_source_set_enabled(s, SD_EVENT_OFF);
         if (r < 0)
                 return r;
 
