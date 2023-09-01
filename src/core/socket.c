@@ -1917,11 +1917,13 @@ static int socket_coldplug(Unit *u) {
 static int socket_spawn(Socket *s, ExecCommand *c, pid_t *_pid) {
 
         _cleanup_(exec_params_clear) ExecParameters exec_params = {
-                .flags     = EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_APPLY_TTY_STDIN,
-                .stdin_fd  = -EBADF,
-                .stdout_fd = -EBADF,
-                .stderr_fd = -EBADF,
-                .exec_fd   = -EBADF,
+                .flags            = EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_APPLY_TTY_STDIN,
+                .stdin_fd         = -EBADF,
+                .stdout_fd        = -EBADF,
+                .stderr_fd        = -EBADF,
+                .exec_fd          = -EBADF,
+                .bpf_outer_map_fd = -EBADF,
+                .user_lookup_fd   = -EBADF,
         };
         pid_t pid;
         int r;
