@@ -45,7 +45,7 @@ jobs:
       uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9
 
     - name: Initialize CodeQL
-      uses: github/codeql-action/init@0ba4244466797eb048eb91a6cd43d5c03ca8bd05
+      uses: github/codeql-action/init@00e563ead9f72a8461b24876bee2d0c2e8bd2ee8
       with:
         languages: ${{ matrix.language }}
         config-file: ./.github/codeql-config.yml
@@ -53,7 +53,7 @@ jobs:
     - run: sudo -E .github/workflows/unit_tests.sh SETUP
 
     - name: Autobuild
-      uses: github/codeql-action/autobuild@0ba4244466797eb048eb91a6cd43d5c03ca8bd05
+      uses: github/codeql-action/autobuild@00e563ead9f72a8461b24876bee2d0c2e8bd2ee8
 
     - name: Perform CodeQL Analysis
-      uses: github/codeql-action/analyze@0ba4244466797eb048eb91a6cd43d5c03ca8bd05
+      uses: github/codeql-action/analyze@00e563ead9f72a8461b24876bee2d0c2e8bd2ee8
