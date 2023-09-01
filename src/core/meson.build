@@ -145,6 +145,7 @@ systemd_sources = files(
 
 systemd_executor_sources = files(
         'executor.c',
+        'exec-invoke.c',
 )
 
 executables += [
@@ -168,7 +169,12 @@ executables += [
                         libcore,
                         libshared,
                 ],
-                'dependencies' : libseccomp,
+                'dependencies' : [
+                        libapparmor,
+                        libpam,
+                        libseccomp,
+                        libselinux,
+                ],
         },
         fuzz_template + {
                 'sources' : files('fuzz-unit-file.c'),
