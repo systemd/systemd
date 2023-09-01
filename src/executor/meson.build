@@ -10,6 +10,11 @@ executables += [
                         libcore,
                         libshared,
                 ],
-                'dependencies' : libseccomp,
+                'dependencies' : [
+                        libapparmor,
+                        libpam,
+                        libseccomp,
+                        libselinux,
+                ],
         },
 ]
