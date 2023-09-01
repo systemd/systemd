@@ -5359,29 +5359,34 @@ void exec_context_init(ExecContext *c) {
         /* When initializing a bool member to 'true', make sure to serialize in execute-serialize.c using
          * serialize_bool() instead of serialize_bool_elide(). */
 
-        c->umask = 0022;
-        c->ioprio = IOPRIO_DEFAULT_CLASS_AND_PRIO;
-        c->cpu_sched_policy = SCHED_OTHER;
-        c->syslog_priority = LOG_DAEMON|LOG_INFO;
-        c->syslog_level_prefix = true;
-        c->ignore_sigpipe = true;
-        c->timer_slack_nsec = NSEC_INFINITY;
-        c->personality = PERSONALITY_INVALID;
+        *c = (ExecContext) {
+                .umask = 0022,
+                .ioprio = IOPRIO_DEFAULT_CLASS_AND_PRIO,
+                .cpu_sched_policy = SCHED_OTHER,
+                .syslog_priority = LOG_DAEMON|LOG_INFO,
+                .syslog_level_prefix = true,
+                .ignore_sigpipe = true,
+                .timer_slack_nsec = NSEC_INFINITY,
+                .personality = PERSONALITY_INVALID,
+                .timeout_clean_usec = USEC_INFINITY,
+                .capability_bounding_set = CAP_MASK_UNSET,
+                .restrict_namespaces = NAMESPACE_FLAGS_INITIAL,
+                .log_level_max = -1,
+#if HAVE_SECCOMP
+                .syscall_errno = SECCOMP_ERROR_NUMBER_KILL,
+#endif
+                .tty_rows = UINT_MAX,
+                .tty_cols = UINT_MAX,
+                .private_mounts = -1,
+                .memory_ksm = -1,
+        };
+
         for (ExecDirectoryType t = 0; t < _EXEC_DIRECTORY_TYPE_MAX; t++)
                 c->directories[t].mode = 0755;
-        c->timeout_clean_usec = USEC_INFINITY;
-        c->capability_bounding_set = CAP_MASK_UNSET;
-        assert_cc(NAMESPACE_FLAGS_INITIAL != NAMESPACE_FLAGS_ALL);
-        c->restrict_namespaces = NAMESPACE_FLAGS_INITIAL;
-        c->log_level_max = -1;
-#if HAVE_SECCOMP
-        c->syscall_errno = SECCOMP_ERROR_NUMBER_KILL;
-#endif
-        c->tty_rows = UINT_MAX;
-        c->tty_cols = UINT_MAX;
+
         numa_policy_reset(&c->numa_policy);
-        c->private_mounts = -1;
-        c->memory_ksm = -1;
+
+        assert_cc(NAMESPACE_FLAGS_INITIAL != NAMESPACE_FLAGS_ALL);
 }
 
 void exec_context_done(ExecContext *c) {
