@@ -1402,6 +1402,8 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
         }
 }</programlisting>
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v255"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -2586,6 +2588,8 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
           <varname>NFTSet=</varname> in [Address] section for more details. For <literal>address</literal> or
           <literal>prefix</literal> source types, the type of the element used in the NFT filter must be
           <literal>ipv4_addr</literal>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v255"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -2755,6 +2759,8 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
           <varname>NFTSet=</varname> in [Address] section for more details. For <literal>address</literal>
           or <literal>prefix</literal> source types, the type of the element used in the NFT filter must be
           <literal>ipv6_addr</literal>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v255"/>
         </listitem>
       </varlistentry>
 
@@ -2878,6 +2884,8 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
           <varname>NFTSet=</varname> in [Address] section for more details. For <literal>address</literal> or
           <literal>prefix</literal> source types, the type of the element used in the NFT filter must be
           <literal>ipv6_addr</literal>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v255"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -3241,6 +3249,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           <varname>NFTSet=</varname> in [Address] section for more details. For <literal>address</literal> or
           <literal>prefix</literal> source types, the type of the element used in the NFT filter must be
           <literal>ipv6_addr</literal>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v255"/>
         </listitem>
       </varlistentry>
     </variablelist>
