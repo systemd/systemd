@@ -11,6 +11,7 @@
 
 #include "sd-dhcp-client.h"
 
+#include "dhcp-client-internal.h"
 #include "dhcp-protocol.h"
 #include "ether-addr-util.h"
 #include "network-common.h"
@@ -28,8 +29,6 @@ typedef struct DHCPServerData {
         struct in_addr *addr;
         size_t size;
 } DHCPServerData;
-
-extern const struct hash_ops dhcp_option_hash_ops;
 
 typedef struct sd_dhcp_client sd_dhcp_client;
 
