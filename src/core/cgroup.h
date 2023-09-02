@@ -6,6 +6,7 @@
 #include "bpf-lsm.h"
 #include "cgroup-util.h"
 #include "cpu-set-util.h"
+#include "firewall-util.h"
 #include "list.h"
 #include "time-util.h"
 
@@ -223,6 +224,8 @@ struct CGroupContext {
         usec_t memory_pressure_threshold_usec;
         /* NB: For now we don't make the period configurable, not the type, nor do we allow multiple
          * triggers, nor triggers for non-memory pressure. We might add that later. */
+
+        NFTSetContext nft_set_context;
 };
 
 /* Used when querying IP accounting data */
@@ -276,6 +279,8 @@ int cgroup_add_bpf_foreign_program(CGroupContext *c, uint32_t attach_type, const
 
 void cgroup_oomd_xattr_apply(Unit *u, const char *cgroup_path);
 int cgroup_log_xattr_apply(Unit *u, const char *cgroup_path);
+
+void cgroup_modify_nft_set(Unit *u, bool add);
 
 CGroupMask unit_get_own_mask(Unit *u);
 CGroupMask unit_get_delegate_mask(Unit *u);

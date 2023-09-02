@@ -1202,6 +1202,7 @@ static const char *const nft_set_source_table[] = {
         [NFT_SET_SOURCE_ADDRESS] = "address",
         [NFT_SET_SOURCE_PREFIX]  = "prefix",
         [NFT_SET_SOURCE_IFINDEX] = "ifindex",
+        [NFT_SET_SOURCE_CGROUP]  = "cgroup",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(nft_set_source, int);
@@ -1218,11 +1219,11 @@ void nft_set_context_clear(NFTSetContext *s) {
         s->sets = mfree(s->sets);
 }
 
-static int nft_set_add(NFTSetContext *s, NFTSetSource source, int nfproto, const char *table, const char *set) {
+int nft_set_add(NFTSetContext *s, NFTSetSource source, int nfproto, const char *table, const char *set) {
         _cleanup_free_ char *table_dup = NULL, *set_dup = NULL;
 
         assert(s);
-        assert(IN_SET(source, NFT_SET_SOURCE_ADDRESS, NFT_SET_SOURCE_PREFIX, NFT_SET_SOURCE_IFINDEX));
+        assert(IN_SET(source, NFT_SET_SOURCE_ADDRESS, NFT_SET_SOURCE_PREFIX, NFT_SET_SOURCE_IFINDEX, NFT_SET_SOURCE_CGROUP));
         assert(nfproto_is_valid(nfproto));
         assert(table);
         assert(set);
@@ -1328,7 +1329,7 @@ int config_parse_nft_set(
                 assert(set);
 
                 source = nft_set_source_from_string(source_str);
-                if (source < 0) {
+                if (source < 0 || source == NFT_SET_SOURCE_CGROUP) { /* can't use cgroup as source with network configuration */
                         _cleanup_free_ char *esc = NULL;
 
                         esc = cescape(source_str);
