@@ -6,6 +6,7 @@ sources = files(
         'dhcp-network.c',
         'dhcp-option.c',
         'dhcp-packet.c',
+        'dhcp-protocol.c',
         'dhcp6-network.c',
         'dhcp6-option.c',
         'dhcp6-protocol.c',
