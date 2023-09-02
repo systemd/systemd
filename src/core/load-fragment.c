@@ -33,8 +33,10 @@
 #include "env-util.h"
 #include "errno-list.h"
 #include "escape.h"
+#include "execute.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "firewall-util.h"
 #include "fs-util.h"
 #include "hexdecoct.h"
 #include "io-util.h"
@@ -6695,4 +6697,120 @@ int config_parse_open_file(
         LIST_APPEND(open_files, *head, TAKE_PTR(of));
 
         return 0;
+}
+
+static int config_parse_unit_nft_set(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                NFTSetContext *c,
+                Unit *u) {
+        int r;
+        assert(u);
+        assert(c);
+
+        if (isempty(rvalue)) {
+                /* Empty assignment resets the list */
+                nft_set_context_clear(c);
+                return 0;
+        }
+
+        for (const char *p = rvalue;;) {
+                _cleanup_free_ char *tuple = NULL, *family_str = NULL, *table = NULL, *set = NULL, *table_resolved = NULL, *set_resolved = NULL;
+
+                r = extract_first_word(&p, &tuple, NULL, EXTRACT_UNQUOTE|EXTRACT_RETAIN_ESCAPE);
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        _cleanup_free_ char *esc = NULL;
+
+                        esc = cescape(rvalue);
+                        log_syntax(unit, LOG_WARNING, filename, line, r, "Invalid syntax %s=%s, ignoring: %m", lvalue, strna(esc));
+                        return 0;
+                }
+                if (r == 0)
+                        return 0;
+
+                const char *q = NULL;
+                q = tuple;
+                r = extract_many_words(&q, ":", EXTRACT_CUNESCAPE, &family_str, &table, &set, NULL);
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r == 0)
+                        break;
+                if (!isempty(q)) {
+                        _cleanup_free_ char *esc = NULL;
+
+                        esc = cescape(tuple);
+                        return log_syntax(unit, LOG_WARNING, filename, line, 0, "Failed to parse NFT set %s, ignoring", strna(esc));
+                }
+
+                int nfproto;
+                nfproto = nfproto_from_string(family_str);
+                if (nfproto < 0) {
+                        _cleanup_free_ char *esc = NULL;
+
+                        esc = cescape(family_str);
+                        return log_syntax(unit, LOG_WARNING, filename, line, 0, "Unknown NFT protocol family %s, ignoring", strna(esc));
+                }
+                family_str = mfree(family_str);
+
+                r = unit_path_printf(u, table, &table_resolved);
+                if (r < 0) {
+                        _cleanup_free_ char *esc = NULL;
+
+                        esc = cescape(table);
+                        return log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to resolve unit specifiers in '%s', ignoring: %m", strna(esc));
+                }
+
+                if (!nft_identifier_valid(table_resolved)) {
+                        _cleanup_free_ char *esc = NULL;
+
+                        esc = cescape(table);
+                        return log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid table name %s, ignoring", strna(esc));
+                }
+
+                r = unit_path_printf(u, set, &set_resolved);
+                if (r < 0) {
+                        _cleanup_free_ char *esc = NULL;
+
+                        esc = cescape(set);
+                        return log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to resolve unit specifiers in '%s', ignoring: %m", strna(esc));
+                }
+
+                if (!nft_identifier_valid(set_resolved)) {
+                        _cleanup_free_ char *esc = NULL;
+
+                        esc = cescape(set);
+                        return log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid set name %s, ignoring", strna(esc));
+                }
+
+                r = nft_set_add(c, NFT_SET_SOURCE_CGROUP, nfproto, table_resolved, set_resolved);
+                if (r < 0)
+                        return log_oom();
+        }
+
+        return 0;
+}
+
+int config_parse_cgroup_nft_set(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+        CGroupContext *c = ASSERT_PTR(data);
+        Unit *u = ASSERT_PTR(userdata);
+
+        return config_parse_unit_nft_set(unit, filename, line, section, section_line, lvalue, ltype, rvalue, &c->nft_set_context, u);
 }

@@ -437,6 +437,9 @@ typedef struct Unit {
         /* If the job had a specific trigger that needs to be advertised (eg: a path unit), store it. */
         ActivationDetails *activation_details;
 
+        /* For NFTSet= */
+        FirewallContext *fw_ctx;
+
         /* Tweaking the GC logic */
         CollectMode collect_mode;
 

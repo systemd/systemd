@@ -258,6 +258,7 @@
 {{type}}.RestrictNetworkInterfaces,        config_parse_restrict_network_interfaces,    0,                                  offsetof({{type}}, cgroup_context)
 {{type}}.MemoryPressureThresholdSec,       config_parse_sec,                            0,                                  offsetof({{type}}, cgroup_context.memory_pressure_threshold_usec)
 {{type}}.MemoryPressureWatch,              config_parse_memory_pressure_watch,          0,                                  offsetof({{type}}, cgroup_context.memory_pressure_watch)
+{{type}}.NFTSet,                           config_parse_cgroup_nft_set,                 0,                                  offsetof({{type}}, cgroup_context)
 {%- endmacro -%}
 
 %{
