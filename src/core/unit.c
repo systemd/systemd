@@ -886,6 +886,8 @@ Unit* unit_free(Unit *u) {
 
         activation_details_unref(u->activation_details);
 
+        u->manager->fw_ctx = fw_ctx_free(u->manager->fw_ctx);
+
         return mfree(u);
 }
 
@@ -3811,6 +3813,10 @@ int unit_coldplug(Unit *u) {
                 if (q < 0 && r >= 0)
                         r = q;
         }
+
+        CGroupContext *c = unit_get_cgroup_context(u);
+        if (c)
+                cgroup_modify_nft_set(u, /* add = */ true);
 
         return r;
 }
