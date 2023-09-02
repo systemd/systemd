@@ -12,6 +12,7 @@ sources = files(
         'icmp6-util.c',
         'lldp-neighbor.c',
         'lldp-network.c',
+        'ndisc-protocol.c',
         'ndisc-router.c',
         'network-common.c',
         'network-internal.c',
