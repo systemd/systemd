@@ -8,7 +8,6 @@
 #include "sd-id128.h"
 
 #include "alloc-util.h"
-#include "device-nodes.h"
 #include "dropin.h"
 #include "efivars.h"
 #include "escape.h"
@@ -30,14 +29,17 @@
 #include "unit-name.h"
 
 static const char *arg_dest = NULL;
-static char *arg_resume_device = NULL;
 static char *arg_resume_options = NULL;
 static char *arg_root_options = NULL;
 static bool arg_noresume = false;
+static char *arg_resume_device = NULL;
 static uint64_t arg_resume_offset = 0;
 static bool arg_resume_offset_set = false;
+static char *arg_resume_device_efi = NULL;
+static uint64_t arg_resume_offset_efi = 0;
 
 STATIC_DESTRUCTOR_REGISTER(arg_resume_device, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_resume_device_efi, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_resume_options, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root_options, freep);
 
@@ -126,7 +128,7 @@ static int parse_efi_hibernate_location(void) {
         };
 
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
-        _cleanup_free_ char *location_str = NULL, *device = NULL, *id = NULL, *image_id = NULL,
+        _cleanup_free_ char *location_str = NULL, *id = NULL, *image_id = NULL,
                        *version_id = NULL, *image_version = NULL;
         struct utsname uts = {};
         EFIHibernateLocation location = {};
@@ -168,32 +170,10 @@ static int parse_efi_hibernate_location(void) {
                 return 0;
         }
 
-        if (asprintf(&device, "/dev/disk/by-uuid/" SD_ID128_UUID_FORMAT_STR, SD_ID128_FORMAT_VAL(location.uuid)) < 0)
+        if (asprintf(&arg_resume_device_efi, "/dev/disk/by-uuid/" SD_ID128_UUID_FORMAT_STR, SD_ID128_FORMAT_VAL(location.uuid)) < 0)
                 return log_oom();
 
-        if (!arg_resume_device) {
-                arg_resume_device = TAKE_PTR(device);
-                arg_resume_offset = location.offset;
-        } else {
-                if (!path_equal(arg_resume_device, device)) {
-                        r = devnode_same(arg_resume_device, device);
-                        if (r < 0)
-                                log_debug_errno(r,
-                                                "Failed to check if resume=%s is the same device as HibernateLocation device '%s', ignoring: %m",
-                                                arg_resume_device, device);
-                        if (r == 0)
-                                log_warning("resume=%s doesn't match with HibernateLocation device '%s', proceeding anyway with resume=.",
-                                            arg_resume_device, device);
-                }
-
-                if (arg_resume_offset != location.offset)
-                        log_warning("resume_offset=%" PRIu64 " doesn't match with HibernateLocation offset %" PRIu64 ", proceeding anyway with resume_offset=.",
-                                    arg_resume_offset, location.offset);
-        }
-
-        r = efi_set_variable(EFI_SYSTEMD_VARIABLE(HibernateLocation), NULL, 0);
-        if (r < 0)
-                log_warning_errno(r, "Failed to clear EFI variable HibernateLocation, ignoring: %m");
+        arg_resume_offset_efi = location.offset;
 #endif
 
         return r;
@@ -239,10 +219,18 @@ static int process_resume(void) {
                 "\n"
                 "[Service]\n"
                 "Type=oneshot\n"
-                "ExecStart=" LIBEXECDIR "/systemd-hibernate-resume %2$s %3$" PRIu64 "\n",
+                "ExecStart=" LIBEXECDIR "/systemd-hibernate-resume '%2$s' '%3$" PRIu64 "'",
                 device_unit,
                 device_escaped,
                 arg_resume_offset);
+
+        if (arg_resume_device_efi)
+                fprintf(f,
+                        "'%s' '%" PRIu64 "'",
+                        arg_resume_device_efi,
+                        arg_resume_offset_efi);
+
+        fputc('\n', f);
 
         r = fflush_and_check(f);
         if (r < 0)
