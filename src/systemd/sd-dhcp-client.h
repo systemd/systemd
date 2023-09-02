@@ -31,6 +31,7 @@
 #include "sd-event.h"
 
 #include "_sd-common.h"
+#include "time-util.h"
 
 _SD_BEGIN_DECLARATIONS;
 
@@ -329,6 +330,7 @@ int sd_dhcp_client_start(sd_dhcp_client *client);
 int sd_dhcp_client_send_release(sd_dhcp_client *client);
 int sd_dhcp_client_send_decline(sd_dhcp_client *client);
 int sd_dhcp_client_send_renew(sd_dhcp_client *client);
+int sd_dhcp_client_get_lease_timestamp(sd_dhcp_client *client, usec_t *timestamp);
 
 sd_dhcp_client *sd_dhcp_client_ref(sd_dhcp_client *client);
 sd_dhcp_client *sd_dhcp_client_unref(sd_dhcp_client *client);

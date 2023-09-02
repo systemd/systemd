@@ -701,6 +701,18 @@ int sd_dhcp_client_get_lease(sd_dhcp_client *client, sd_dhcp_lease **ret) {
         return 0;
 }
 
+int sd_dhcp_client_get_lease_timestamp(sd_dhcp_client *client, usec_t *timestamp) {
+        assert_return(client, -EINVAL);
+
+        if (!IN_SET(client->state, DHCP_STATE_SELECTING, DHCP_STATE_BOUND, DHCP_STATE_RENEWING, DHCP_STATE_REBINDING))
+                return -ENODATA;
+
+        if(timestamp)
+                *timestamp = client->request_sent;
+
+        return 0;
+}
+
 int sd_dhcp_client_set_service_type(sd_dhcp_client *client, int type) {
         assert_return(client, -EINVAL);
         assert_return(!sd_dhcp_client_is_running(client), -EBUSY);
