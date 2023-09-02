@@ -17,6 +17,7 @@
 #include "exec-util.h"
 #include "exit-status.h"
 #include "fileio.h"
+#include "firewall-util.h"
 #include "hexdecoct.h"
 #include "hostname-util.h"
 #include "in-addr-util.h"
@@ -447,6 +448,92 @@ static int bus_append_ip_address_access(sd_bus_message *m, int family, const uni
                 return r;
 
         return sd_bus_message_close_container(m);
+}
+
+static int bus_append_nft_set(sd_bus_message *m, const char *field, const char *eq) {
+        int r;
+
+        assert(m);
+        assert(field);
+        assert(eq);
+
+        if (isempty(eq)) {
+                r = sd_bus_message_append(m, "(sv)", field, "a(iss)", 0);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                return 1;
+        }
+
+        r = sd_bus_message_open_container(m, SD_BUS_TYPE_STRUCT, "sv");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append_basic(m, SD_BUS_TYPE_STRING, field);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_open_container(m, 'v', "a(iss)");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_open_container(m, 'a', "(iss)");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        for (;;) {
+                _cleanup_free_ char *word = NULL;
+                int family;
+
+                r = extract_first_word(&eq, &word, ":", 0);
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse %s: %m", field);
+                if (isempty(word))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse %s", field);
+
+                family = nfproto_from_string(word);
+                if (family < 0)
+                        return log_error_errno(family, "Failed to parse %s: %m", field);
+
+                r = extract_first_word(&eq, &word, ":", EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS);
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse %s: %m", field);
+                if (isempty(word) || isempty(eq))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse %s", field);
+
+
+                _cleanup_free_ char *unescaped = NULL;
+                ssize_t l;
+
+                l = cunescape(eq, 0, &unescaped);
+                if (l < 0)
+                        return log_error_errno(l, "Failed to unescape %s= value: %s", field, eq);
+
+                r = sd_bus_message_append(m, "(iss)", family, word, eq);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_close_container(m);
+                if (r < 0)
+                        return bus_log_create_error(r);
+        }
+        r = sd_bus_message_close_container(m);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_close_container(m);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_close_container(m);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        return 1;
 }
 
 static int bus_append_cgroup_property(sd_bus_message *m, const char *field, const char *eq) {
@@ -913,6 +1000,9 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
 
         if (streq(field, "MemoryPressureThresholdSec"))
                 return bus_append_parse_sec_rename(m, field, eq);
+
+        if (streq(field, "NFTSet"))
+                return bus_append_nft_set(m, field, eq);
 
         return 0;
 }
