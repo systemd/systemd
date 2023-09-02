@@ -1489,13 +1489,21 @@ static int socket_address_listen_do(
                 log_unit_error_errno(u, error, fmt, strna(_t));  \
         })
 
-static int fork_needed(const SocketAddress *address, const ExecContext *context) {
+static int fork_needed(const SocketAddress *address, Socket *s) {
         int r;
 
         assert(address);
-        assert(context);
+        assert(s);
 
         /* Check if we need to do the cgroup or netns stuff. If not we can do things much simpler. */
+
+        /* If there are any NFTSet= directives with cgroup source, we need the cgroup */
+        Unit *u = UNIT(s);
+        CGroupContext *c = unit_get_cgroup_context(u);
+        if (c)
+                FOREACH_ARRAY(nft_set, c->nft_set_context.sets, c->nft_set_context.n_sets)
+                        if (nft_set->source == NFT_SET_SOURCE_CGROUP)
+                                return true;
 
         if (IN_SET(address->sockaddr.sa.sa_family, AF_INET, AF_INET6)) {
                 r = bpf_firewall_supported();
@@ -1505,7 +1513,7 @@ static int fork_needed(const SocketAddress *address, const ExecContext *context)
                         return true;
         }
 
-        return exec_needs_network_namespace(context);
+        return exec_needs_network_namespace(&s->exec_context);
 }
 
 static int socket_address_listen_in_cgroup(
@@ -1525,7 +1533,7 @@ static int socket_address_listen_in_cgroup(
          * the socket is actually properly attached to the unit's cgroup for the purpose of BPF filtering and
          * such. */
 
-        r = fork_needed(address, &s->exec_context);
+        r = fork_needed(address, s);
         if (r < 0)
                 return r;
         if (r == 0) {
