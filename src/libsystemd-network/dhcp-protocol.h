@@ -64,6 +64,8 @@ enum DHCPState {
         DHCP_STATE_BOUND                        = 6,
         DHCP_STATE_RENEWING                     = 7,
         DHCP_STATE_REBINDING                    = 8,
+        _DHCP_STATE_MAX,
+        _DHCP_STATE_INVALID                     = -EINVAL,
 };
 
 typedef enum DHCPState DHCPState;
@@ -107,3 +109,5 @@ enum {
         DHCP_FQDN_FLAG_E = (1 << 2),
         DHCP_FQDN_FLAG_N = (1 << 3),
 };
+
+const char *dhcp_state_to_string(DHCPState s) _const_;
