@@ -11,6 +11,7 @@
 
 #include "sd-dhcp-client.h"
 
+#include "dhcp-client-internal.h"
 #include "dhcp-protocol.h"
 #include "ether-addr-util.h"
 #include "network-common.h"
@@ -28,8 +29,6 @@ typedef struct DHCPServerData {
         struct in_addr *addr;
         size_t size;
 } DHCPServerData;
-
-extern const struct hash_ops dhcp_option_hash_ops;
 
 typedef struct sd_dhcp_client sd_dhcp_client;
 
@@ -74,12 +73,6 @@ void dhcp_packet_append_ip_headers(DHCPPacket *packet, be32_t source_addr,
 int dhcp_packet_verify_headers(DHCPPacket *packet, size_t len, bool checksum, uint16_t port);
 
 void dhcp_client_set_test_mode(sd_dhcp_client *client, bool test_mode);
-
-int dhcp_client_set_state_callback(
-                sd_dhcp_client *client,
-                sd_dhcp_client_callback_t cb,
-                void *userdata);
-int dhcp_client_get_state(sd_dhcp_client *client);
 
 /* If we are invoking callbacks of a dhcp-client, ensure unreffing the
  * client from the callback doesn't destroy the object we are working

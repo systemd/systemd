@@ -12,6 +12,7 @@
 #include "sd-dhcp6-client.h"
 
 #include "dhcp-identifier.h"
+#include "dhcp6-client-internal.h"
 #include "dhcp6-option.h"
 #include "dhcp6-protocol.h"
 #include "ether-addr-util.h"
@@ -94,12 +95,6 @@ int dhcp6_network_send_udp_socket(int s, struct in6_addr *address,
 int dhcp6_client_send_message(sd_dhcp6_client *client);
 void dhcp6_client_set_test_mode(sd_dhcp6_client *client, bool test_mode);
 int dhcp6_client_set_transaction_id(sd_dhcp6_client *client, uint32_t transaction_id);
-
-int dhcp6_client_set_state_callback(
-                sd_dhcp6_client *client,
-                sd_dhcp6_client_callback_t cb,
-                void *userdata);
-int dhcp6_client_get_state(sd_dhcp6_client *client);
 
 #define log_dhcp6_client_errno(client, error, fmt, ...)         \
         log_interface_prefix_full_errno(                        \
