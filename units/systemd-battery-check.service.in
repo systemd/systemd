@@ -15,6 +15,7 @@ ConditionDirectoryNotEmpty=/sys/class/power_supply/
 ConditionKernelCommandLine=!systemd.battery-check=0
 AssertPathExists=/etc/initrd-release
 DefaultDependencies=no
+Before=systemd-hibernate-resume.service
 After=plymouth-start.service
 Before=initrd-root-device.target
 
