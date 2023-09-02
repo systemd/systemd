@@ -1004,7 +1004,7 @@ static int ndisc_router_process_options(Link *link, sd_ndisc_router *rt) {
         }
 }
 
-static int ndisc_drop_outdated(Link *link, usec_t timestamp_usec, const struct in6_addr *router) {
+static int ndisc_drop_outdated(Link *link, usec_t timestamp_usec) {
         bool updated = false;
         NDiscDNSSL *dnssl;
         NDiscRDNSS *rdnss;
@@ -1028,9 +1028,6 @@ static int ndisc_drop_outdated(Link *link, usec_t timestamp_usec, const struct i
                 if (route->lifetime_usec >= timestamp_usec)
                         continue; /* the route is still valid */
 
-                if (router && !in6_addr_equal(&route->provider.in6, router))
-                        continue;
-
                 k = route_remove_and_drop(route);
                 if (k < 0)
                         r = log_link_warning_errno(link, k, "Failed to remove outdated SLAAC route, ignoring: %m");
@@ -1043,9 +1040,6 @@ static int ndisc_drop_outdated(Link *link, usec_t timestamp_usec, const struct i
                 if (address->lifetime_valid_usec >= timestamp_usec)
                         continue; /* the address is still valid */
 
-                if (router && !in6_addr_equal(&address->provider.in6, router))
-                        continue;
-
                 k = address_remove_and_drop(address);
                 if (k < 0)
                         r = log_link_warning_errno(link, k, "Failed to remove outdated SLAAC address, ignoring: %m");
@@ -1055,9 +1049,6 @@ static int ndisc_drop_outdated(Link *link, usec_t timestamp_usec, const struct i
                 if (rdnss->lifetime_usec >= timestamp_usec)
                         continue; /* the DNS server is still valid */
 
-                if (router && !in6_addr_equal(&rdnss->router, router))
-                        continue;
-
                 free(set_remove(link->ndisc_rdnss, rdnss));
                 updated = true;
         }
@@ -1066,9 +1057,6 @@ static int ndisc_drop_outdated(Link *link, usec_t timestamp_usec, const struct i
                 if (dnssl->lifetime_usec >= timestamp_usec)
                         continue; /* the DNS domain is still valid */
 
-                if (router && !in6_addr_equal(&dnssl->router, router))
-                        continue;
-
                 free(set_remove(link->ndisc_dnssl, dnssl));
                 updated = true;
         }
@@ -1076,9 +1064,6 @@ static int ndisc_drop_outdated(Link *link, usec_t timestamp_usec, const struct i
         SET_FOREACH(cp, link->ndisc_captive_portals) {
                 if (cp->lifetime_usec >= timestamp_usec)
                         continue; /* the captive portal is still valid */
-
-                if (router && !in6_addr_equal(&cp->router, router))
-                        continue;
 
                 ndisc_captive_portal_free(set_remove(link->ndisc_captive_portals, cp));
                 updated = true;
@@ -1100,7 +1085,7 @@ static int ndisc_expire_handler(sd_event_source *s, uint64_t usec, void *userdat
 
         assert_se(sd_event_now(link->manager->event, CLOCK_BOOTTIME, &now_usec) >= 0);
 
-        (void) ndisc_drop_outdated(link, now_usec, NULL);
+        (void) ndisc_drop_outdated(link, now_usec);
         (void) ndisc_setup_expire(link);
         return 0;
 }
@@ -1201,7 +1186,6 @@ static int ndisc_start_dhcp6_client(Link *link, sd_ndisc_router *rt) {
 }
 
 static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
-        uint16_t router_lifetime_sec;
         struct in6_addr router;
         usec_t timestamp_usec;
         int r;
@@ -1234,28 +1218,12 @@ static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
                 log_link_debug(link, "Received RA without timestamp, ignoring.");
                 return 0;
         }
-
-        r = ndisc_drop_outdated(link, timestamp_usec, NULL);
         if (r < 0)
                 return r;
 
-        r = sd_ndisc_router_get_lifetime(rt, &router_lifetime_sec);
+        r = ndisc_drop_outdated(link, timestamp_usec);
         if (r < 0)
-                return log_link_warning_errno(link, r, "Failed to get lifetime of RA message: %m");
-
-         /* https://datatracker.ietf.org/doc/html/rfc4861
-          * Router Lifetime: A Lifetime of 0 indicates that the router is not a default router
-          * and SHOULD NOT appear on the default router list.
-          */
-        if (router_lifetime_sec == 0) {
-                log_link_debug(link, "Received RA with lifetime = 0, dropping configurations.");
-
-                r = ndisc_drop_outdated(link, USEC_INFINITY, &router);
-                if (r < 0)
-                        log_link_warning_errno(link, r, "Failed to process RA with zero lifetime, ignoring: %m");
-
-                return 0;
-        }
+                return r;
 
         r = ndisc_start_dhcp6_client(link, rt);
         if (r < 0)
