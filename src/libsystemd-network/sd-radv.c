@@ -1096,23 +1096,23 @@ int sd_radv_pref64_prefix_set_prefix(
         assert_return(prefix, -EINVAL);
 
         switch (prefixlen) {
-        case 96:
-                prefixlen_code = 0;
+        case PREF64_PREFIX_LEN_96:
+                prefixlen_code = PREF64_PLC_96;
                 break;
-        case 64:
-                prefixlen_code = 1;
+        case PREF64_PREFIX_LEN_64:
+                prefixlen_code = PREF64_PLC_64;
                 break;
-        case 56:
-                prefixlen_code = 2;
+        case PREF64_PREFIX_LEN_56:
+                prefixlen_code = PREF64_PLC_56;
                 break;
-        case 48:
-                prefixlen_code = 3;
+        case PREF64_PREFIX_LEN_48:
+                prefixlen_code = PREF64_PLC_48;
                 break;
-        case 40:
-                prefixlen_code = 4;
+        case PREF64_PREFIX_LEN_40:
+                prefixlen_code = PREF64_PLC_40;
                 break;
-        case 32:
-                prefixlen_code = 5;
+        case PREF64_PREFIX_LEN_32:
+                prefixlen_code = PREF64_PLC_32;
                 break;
         default:
                 log_radv(NULL, "Unsupported PREF64 prefix length %u. Valid lengths are 32, 40, 48, 56, 64 and 96", prefixlen);

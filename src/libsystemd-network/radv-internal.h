@@ -8,6 +8,7 @@
 #include "sd-radv.h"
 
 #include "list.h"
+#include "ndisc-protocol.h"
 #include "network-common.h"
 #include "sparse-endian.h"
 #include "time-util.h"
@@ -180,7 +181,6 @@ struct sd_radv_route_prefix {
         usec_t valid_until;
 };
 
-/* rfc8781: section 4 - Scaled Lifetime: 13-bit unsigned integer. PLC (Prefix Length Code): 3-bit unsigned integer */
 #define radv_pref64_prefix_opt__contents { \
         uint8_t type;                      \
         uint8_t length;                    \
@@ -196,7 +196,7 @@ assert_cc(sizeof(struct radv_pref64_prefix_opt) == sizeof(struct radv_pref64_pre
 struct sd_radv_pref64_prefix {
         unsigned n_ref;
 
-        struct radv_pref64_prefix_opt opt;
+        struct nd_opt_prefix64_info opt;
 
         struct in6_addr in6_addr;
         uint8_t prefixlen;

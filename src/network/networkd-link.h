@@ -157,6 +157,7 @@ typedef struct Link {
         Set *ndisc_rdnss;
         Set *ndisc_dnssl;
         Set *ndisc_captive_portals;
+        Set *ndisc_pref64;
         unsigned ndisc_messages;
         bool ndisc_configured:1;
 
