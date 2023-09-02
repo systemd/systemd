@@ -3812,6 +3812,10 @@ int unit_coldplug(Unit *u) {
                         r = q;
         }
 
+        CGroupContext *c = unit_get_cgroup_context(u);
+        if (c)
+                cgroup_modify_nft_set(u, /* add = */ true);
+
         return r;
 }
 
