@@ -885,6 +885,9 @@ static int ndisc_router_process_captive_portal(Link *link, sd_ndisc_router *rt) 
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to get router address from RA: %m");
 
+        /* RFC 4861 section 4.2. states that the lifetime in the message header should only used for the
+         * default gateway, but the captive portal option does not have lifetime field, hence, we use the
+         * main lifetime for the portal. */
         r = sd_ndisc_router_get_lifetime(rt, &lifetime_sec);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to get lifetime of RA message: %m");
@@ -909,7 +912,19 @@ static int ndisc_router_process_captive_portal(Link *link, sd_ndisc_router *rt) 
         if (!in_charset(captive_portal, URI_VALID))
                 return log_link_warning_errno(link, SYNTHETIC_ERRNO(EBADMSG), "Received invalid captive portal, ignoring.");
 
-        exist = set_get(link->ndisc_captive_portals, &(NDiscCaptivePortal) { .captive_portal = captive_portal });
+        if (lifetime_usec == 0) {
+                /* Drop the portal with the lifetime zero. */
+                ndisc_captive_portal_free(set_remove(link->ndisc_captive_portals,
+                                                     &(NDiscCaptivePortal) {
+                                                             .captive_portal = captive_portal,
+                                                     }));
+                return 0;
+        }
+
+        exist = set_get(link->ndisc_captive_portals,
+                        &(NDiscCaptivePortal) {
+                                .captive_portal = captive_portal,
+                        });
         if (exist) {
                 /* update existing entry */
                 exist->router = router;
