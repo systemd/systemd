@@ -886,6 +886,8 @@ Unit* unit_free(Unit *u) {
 
         activation_details_unref(u->activation_details);
 
+        u->fw_ctx = fw_ctx_free(u->fw_ctx);
+
         return mfree(u);
 }
 
