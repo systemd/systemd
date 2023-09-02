@@ -33,8 +33,10 @@
 #include "errno-list.h"
 #include "escape.h"
 #include "exec-credential.h"
+#include "execute.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "firewall-util.h"
 #include "fs-util.h"
 #include "hexdecoct.h"
 #include "io-util.h"
@@ -6695,4 +6697,21 @@ int config_parse_open_file(
         LIST_APPEND(open_files, *head, TAKE_PTR(of));
 
         return 0;
+}
+
+int config_parse_cgroup_nft_set(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+        CGroupContext *c = ASSERT_PTR(data);
+        Unit *u = ASSERT_PTR(userdata);
+
+        return config_parse_nft_set(unit, filename, line, section, section_line, lvalue, ltype, rvalue, &c->nft_set_context, u);
 }
