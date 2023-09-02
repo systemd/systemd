@@ -736,6 +736,9 @@ static void client_set_state(sd_dhcp_client *client, DHCPState state) {
         if (client->state == state)
                 return;
 
+        log_dhcp_client(client, "State changed: %s -> %s",
+                        dhcp_state_to_string(client->state), dhcp_state_to_string(state));
+
         client->state = state;
 }
 
@@ -1192,6 +1195,7 @@ static int client_send_request(sd_dhcp_client *client) {
         case DHCP_STATE_REBOOTING:
         case DHCP_STATE_BOUND:
         case DHCP_STATE_STOPPED:
+        default:
                 return -EINVAL;
         }
 
@@ -1349,6 +1353,7 @@ static int client_timeout_resend(
                 break;
 
         case DHCP_STATE_STOPPED:
+        default:
                 r = -EINVAL;
                 goto error;
         }
