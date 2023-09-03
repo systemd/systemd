@@ -1202,6 +1202,9 @@ static const char *const nft_set_source_table[] = {
         [NFT_SET_SOURCE_ADDRESS] = "address",
         [NFT_SET_SOURCE_PREFIX]  = "prefix",
         [NFT_SET_SOURCE_IFINDEX] = "ifindex",
+        [NFT_SET_SOURCE_CGROUP]  = "cgroup",
+        [NFT_SET_SOURCE_USER]    = "user",
+        [NFT_SET_SOURCE_GROUP]   = "group",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(nft_set_source, int);
@@ -1218,11 +1221,11 @@ void nft_set_context_clear(NFTSetContext *s) {
         s->sets = mfree(s->sets);
 }
 
-static int nft_set_add(NFTSetContext *s, NFTSetSource source, int nfproto, const char *table, const char *set) {
+int nft_set_add(NFTSetContext *s, NFTSetSource source, int nfproto, const char *table, const char *set) {
         _cleanup_free_ char *table_dup = NULL, *set_dup = NULL;
 
         assert(s);
-        assert(IN_SET(source, NFT_SET_SOURCE_ADDRESS, NFT_SET_SOURCE_PREFIX, NFT_SET_SOURCE_IFINDEX));
+        assert(IN_SET(source, NFT_SET_SOURCE_ADDRESS, NFT_SET_SOURCE_PREFIX, NFT_SET_SOURCE_IFINDEX, NFT_SET_SOURCE_CGROUP, NFT_SET_SOURCE_USER, NFT_SET_SOURCE_GROUP));
         assert(nfproto_is_valid(nfproto));
         assert(table);
         assert(set);
@@ -1285,6 +1288,7 @@ int config_parse_nft_set(
         assert(lvalue);
         assert(rvalue);
         assert(nft_set_context);
+        assert(IN_SET(ltype, NFT_SET_PARSE_NETWORK, NFT_SET_PARSE_CGROUP));
 
         if (isempty(rvalue)) {
                 nft_set_context_clear(nft_set_context);
@@ -1328,7 +1332,9 @@ int config_parse_nft_set(
                 assert(set);
 
                 source = nft_set_source_from_string(source_str);
-                if (source < 0) {
+                if (source < 0 ||
+                    (ltype == NFT_SET_PARSE_NETWORK && !IN_SET(source, NFT_SET_SOURCE_ADDRESS, NFT_SET_SOURCE_PREFIX, NFT_SET_SOURCE_IFINDEX)) ||
+                    (ltype == NFT_SET_PARSE_CGROUP && source != NFT_SET_SOURCE_CGROUP)) {
                         _cleanup_free_ char *esc = NULL;
 
                         esc = cescape(source_str);
