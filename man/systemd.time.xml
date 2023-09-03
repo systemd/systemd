@@ -110,7 +110,10 @@
 
     <para>When parsing, systemd will accept a similar syntax, but expects no timezone specification, unless
     it is given as the literal string <literal>UTC</literal> (for the UTC timezone), or is specified to be
-    the locally configured timezone, or the timezone name in the IANA timezone database format. The complete
+    the locally configured timezone, the timezone name in the IANA timezone database format,
+    or in the <ulink url="https://tools.ietf.org/html/rfc3339">RFC 3339</ulink> profile of ISO 8601, as
+    <literal>Z</literal> or <literal>+<replaceable>05</replaceable>:<replaceable>30</replaceable></literal>
+    appended directly after the timestamp. The complete
     list of timezones supported on your system can be obtained using the <literal>timedatectl
     list-timezones</literal> (see
     <citerefentry><refentrytitle>timedatectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>).  Using
@@ -154,6 +157,8 @@
     <programlisting>  Fri 2012-11-23 11:12:13 → Fri 2012-11-23 11:12:13
       2012-11-23 11:12:13 → Fri 2012-11-23 11:12:13
   2012-11-23 11:12:13 UTC → Fri 2012-11-23 19:12:13
+     2012-11-23T11:12:13Z → Fri 2012-11-23 19:12:13
+   2012-11-23T11:12+02:00 → Fri 2012-11-23 17:12:00
                2012-11-23 → Fri 2012-11-23 00:00:00
                  12-11-23 → Fri 2012-11-23 00:00:00
                  11:12:13 → Fri 2012-11-23 11:12:13
