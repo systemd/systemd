@@ -652,6 +652,8 @@ static int parse_timestamp_impl(
          *
          *   2012-09-22 16:34:22
          *   2012-09-22 16:34     (seconds will be set to 0)
+         *   2012-09-22T16:34:22
+         *   2012-09-22T16:34     (seconds will be set to 0)
          *   2012-09-22           (time will be set to 00:00:00)
          *   16:34:22             (date will be set to today)
          *   16:34                (date will be set to today, seconds to 0)
@@ -796,6 +798,15 @@ static int parse_timestamp_impl(
                         goto from_tm;
         }
 
+        tm = copy;
+        k = strptime(t, "%Y-%m-%dT%H:%M:%S", &tm);
+        if (k) {
+                if (*k == '.')
+                        goto parse_usec;
+                else if (*k == 0)
+                        goto from_tm;
+        }
+
         /* Support OUTPUT_SHORT and OUTPUT_SHORT_PRECISE formats */
         tm = copy;
         k = strptime(t, "%b %d %H:%M:%S", &tm);
@@ -815,6 +826,13 @@ static int parse_timestamp_impl(
 
         tm = copy;
         k = strptime(t, "%Y-%m-%d %H:%M", &tm);
+        if (k && *k == 0) {
+                tm.tm_sec = 0;
+                goto from_tm;
+        }
+
+        tm = copy;
+        k = strptime(t, "%Y-%m-%dT%H:%M", &tm);
         if (k && *k == 0) {
                 tm.tm_sec = 0;
                 goto from_tm;
