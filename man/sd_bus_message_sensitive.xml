@@ -75,6 +75,11 @@
   <xi:include href="libsystemd-pkgconfig.xml" />
 
   <refsect1>
+    <title>History</title>
+    <para><function>sd_bus_message_sensitive</function> was added in version 245.</para>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
 
     <para>

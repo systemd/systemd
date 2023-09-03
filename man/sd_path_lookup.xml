@@ -219,6 +219,12 @@
   <xi:include href="libsystemd-pkgconfig.xml" />
 
   <refsect1>
+    <title>History</title>
+    <para><function>sd_path_lookup</function> was added in version 246.</para>
+    <para><function>sd_path_lookup_strv</function> was added in version 246.</para>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
 
     <para>

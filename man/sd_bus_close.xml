@@ -106,6 +106,13 @@
   <xi:include href="libsystemd-pkgconfig.xml" />
 
   <refsect1>
+    <title>History</title>
+    <para><function>sd_bus_close</function> was added in version 240.</para>
+    <para><function>sd_bus_flush</function> was added in version 240.</para>
+    <para><function>sd_bus_default_flush_close</function> was added in version 246.</para>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
 
     <para>

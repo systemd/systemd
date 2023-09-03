@@ -124,6 +124,14 @@
   <xi:include href="libsystemd-pkgconfig.xml" />
 
   <refsect1>
+    <title>History</title>
+    <para><function>sd_hwdb_new</function> was added in version 246.</para>
+    <para><function>sd_hwdb_ref</function> was added in version 246.</para>
+    <para><function>sd_hwdb_unref</function> was added in version 246.</para>
+    <para><function>sd_hwdb_new_from_path</function> was added in version 252.</para>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
 
     <para>

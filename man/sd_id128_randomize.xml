@@ -65,6 +65,11 @@
   <xi:include href="libsystemd-pkgconfig.xml" />
 
   <refsect1>
+    <title>History</title>
+    <para><function>sd_id128_randomize</function> was added in version 187.</para>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
 
     <para>

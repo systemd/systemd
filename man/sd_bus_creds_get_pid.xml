@@ -508,6 +508,44 @@
   <xi:include href="libsystemd-pkgconfig.xml" />
 
   <refsect1>
+    <title>History</title>
+    <para><function>sd_bus_creds_get_audit_login_uid</function> was added in version 209.</para>
+    <para><function>sd_bus_creds_get_audit_session_id</function> was added in version 209.</para>
+    <para><function>sd_bus_creds_get_cgroup</function> was added in version 209.</para>
+    <para><function>sd_bus_creds_get_cmdline</function> was added in version 209.</para>
+    <para><function>sd_bus_creds_get_comm</function> was added in version 209.</para>
+    <para><function>sd_bus_creds_get_exe</function> was added in version 209.</para>
+    <para><function>sd_bus_creds_get_gid</function> was added in version 209.</para>
+    <para><function>sd_bus_creds_get_owner_uid</function> was added in version 209.</para>
+    <para><function>sd_bus_creds_get_pid</function> was added in version 209.</para>
+    <para><function>sd_bus_creds_get_selinux_context</function> was added in version 209.</para>
+    <para><function>sd_bus_creds_get_session</function> was added in version 209.</para>
+    <para><function>sd_bus_creds_get_slice</function> was added in version 209.</para>
+    <para><function>sd_bus_creds_get_tid</function> was added in version 209.</para>
+    <para><function>sd_bus_creds_get_tid_comm</function> was added in version 209.</para>
+    <para><function>sd_bus_creds_get_unique_name</function> was added in version 209.</para>
+    <para><function>sd_bus_creds_get_unit</function> was added in version 209.</para>
+    <para><function>sd_bus_creds_get_user_unit</function> was added in version 209.</para>
+    <para><function>sd_bus_creds_get_well_known_names</function> was added in version 209.</para>
+    <para><function>sd_bus_creds_has_bounding_cap</function> was added in version 209.</para>
+    <para><function>sd_bus_creds_has_effective_cap</function> was added in version 209.</para>
+    <para><function>sd_bus_creds_has_inheritable_cap</function> was added in version 209.</para>
+    <para><function>sd_bus_creds_has_permitted_cap</function> was added in version 209.</para>
+    <para><function>sd_bus_creds_get_description</function> was added in version 220.</para>
+    <para><function>sd_bus_creds_get_egid</function> was added in version 220.</para>
+    <para><function>sd_bus_creds_get_euid</function> was added in version 220.</para>
+    <para><function>sd_bus_creds_get_fsgid</function> was added in version 220.</para>
+    <para><function>sd_bus_creds_get_fsuid</function> was added in version 220.</para>
+    <para><function>sd_bus_creds_get_ppid</function> was added in version 220.</para>
+    <para><function>sd_bus_creds_get_sgid</function> was added in version 220.</para>
+    <para><function>sd_bus_creds_get_suid</function> was added in version 220.</para>
+    <para><function>sd_bus_creds_get_supplementary_gids</function> was added in version 220.</para>
+    <para><function>sd_bus_creds_get_tty</function> was added in version 220.</para>
+    <para><function>sd_bus_creds_get_uid</function> was added in version 220.</para>
+    <para><function>sd_bus_creds_get_user_slice</function> was added in version 223.</para>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
 
     <para>

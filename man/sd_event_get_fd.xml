@@ -97,6 +97,11 @@
   <xi:include href="libsystemd-pkgconfig.xml" />
 
   <refsect1>
+    <title>History</title>
+    <para><function>sd_event_get_fd</function> was added in version 217.</para>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
 
     <para>

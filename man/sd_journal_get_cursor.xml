@@ -101,6 +101,12 @@
   </refsect1>
 
   <refsect1>
+    <title>History</title>
+    <para><function>sd_journal_get_cursor</function> was added in version 187.</para>
+    <para><function>sd_journal_test_cursor</function> was added in version 195.</para>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
 
     <para>
