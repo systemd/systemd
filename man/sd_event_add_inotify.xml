@@ -214,6 +214,14 @@
   <xi:include href="libsystemd-pkgconfig.xml" />
 
   <refsect1>
+    <title>History</title>
+    <para><function>sd_event_add_inotify</function> was added in version 239.</para>
+    <para><function>sd_event_inotify_handler_t</function> was added in version 239.</para>
+    <para><function>sd_event_source_get_inotify_mask</function> was added in version 239.</para>
+    <para><function>sd_event_add_inotify_fd</function> was added in version 250.</para>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
 
     <para>

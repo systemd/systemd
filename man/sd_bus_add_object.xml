@@ -722,6 +722,18 @@
   <xi:include href="libsystemd-pkgconfig.xml" />
 
   <refsect1>
+    <title>History</title>
+    <para><function>sd_bus_add_fallback</function> was added in version 246.</para>
+    <para><function>sd_bus_add_fallback_vtable</function> was added in version 246.</para>
+    <para><function>sd_bus_add_filter</function> was added in version 246.</para>
+    <para><function>sd_bus_add_object</function> was added in version 246.</para>
+    <para><function>sd_bus_add_object_vtable</function> was added in version 246.</para>
+    <para><function>sd_bus_object_find_t</function> was added in version 246.</para>
+    <para><function>sd_bus_property_get_t</function> was added in version 246.</para>
+    <para><function>sd_bus_property_set_t</function> was added in version 246.</para>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
 
     <para>

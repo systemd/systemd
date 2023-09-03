@@ -120,6 +120,11 @@
   <xi:include href="libsystemd-pkgconfig.xml" />
 
   <refsect1>
+    <title>History</title>
+    <para><function>sd_event_source_get_pending</function> was added in version 229.</para>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
 
     <para>

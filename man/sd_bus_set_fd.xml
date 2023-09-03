@@ -117,6 +117,11 @@
   <xi:include href="libsystemd-pkgconfig.xml" />
 
   <refsect1>
+    <title>History</title>
+    <para><function>sd_bus_set_fd</function> was added in version 248.</para>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
 
     <para>

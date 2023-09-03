@@ -199,6 +199,16 @@
   <xi:include href="libsystemd-pkgconfig.xml" />
 
   <refsect1>
+    <title>History</title>
+    <para><function>sd_event_default</function> was added in version 213.</para>
+    <para><function>sd_event_new</function> was added in version 213.</para>
+    <para><function>sd_event_ref</function> was added in version 213.</para>
+    <para><function>sd_event_unref</function> was added in version 213.</para>
+    <para><function>sd_event_get_tid</function> was added in version 229.</para>
+    <para><function>sd_event_unrefp</function> was added in version 229.</para>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
 
     <para>

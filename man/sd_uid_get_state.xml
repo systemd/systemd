@@ -197,6 +197,12 @@
   <xi:include href="libsystemd-pkgconfig.xml" />
 
   <refsect1>
+    <title>History</title>
+    <para><function>sd_uid_get_display</function> was added in version 213.</para>
+    <para><function>sd_uid_get_login_time</function> was added in version 254.</para>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
 
     <para>
