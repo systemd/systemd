@@ -701,6 +701,17 @@ static void test_parse_timestamp_impl(const char *tz) {
         test_parse_timestamp_one("70-01-01 00:00:01.001 UTC", 0, USEC_PER_SEC + 1000);
         test_parse_timestamp_one("70-01-01 00:00:01.0010 UTC", 0, USEC_PER_SEC + 1000);
 
+        /* The same, but with a T like ISO 8601 */
+        test_parse_timestamp_one("Thu 1970-01-01T00:01 UTC", 0, USEC_PER_MINUTE);
+        test_parse_timestamp_one("Thu 1970-01-01T00:00:01 UTC", 0, USEC_PER_SEC);
+        test_parse_timestamp_one("Thu 1970-01-01T00:00:01.001 UTC", 0, USEC_PER_SEC + 1000);
+        test_parse_timestamp_one("Thu 1970-01-01T00:00:01.0010 UTC", 0, USEC_PER_SEC + 1000);
+
+        test_parse_timestamp_one("1970-01-01T00:01 UTC", 0, USEC_PER_MINUTE);
+        test_parse_timestamp_one("1970-01-01T00:00:01 UTC", 0, USEC_PER_SEC);
+        test_parse_timestamp_one("1970-01-01T00:00:01.001 UTC", 0, USEC_PER_SEC + 1000);
+        test_parse_timestamp_one("1970-01-01T00:00:01.0010 UTC", 0, USEC_PER_SEC + 1000);
+
         if (timezone_is_valid("Asia/Tokyo", LOG_DEBUG)) {
                 /* Asia/Tokyo (+0900) */
                 test_parse_timestamp_one("Thu 1970-01-01 09:01 Asia/Tokyo", 0, USEC_PER_MINUTE);
