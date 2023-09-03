@@ -11,7 +11,7 @@
 Description=User Database Manager
 Documentation=man:systemd-userdbd.service(8)
 Requires=systemd-userdbd.socket
-After=systemd-userdbd.socket
+After=systemd-userdbd.socket local-fs-pre.target
 Before=sysinit.target
 DefaultDependencies=no
 
