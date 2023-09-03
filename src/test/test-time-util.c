@@ -648,7 +648,7 @@ static void test_parse_timestamp_one(const char *str, usec_t max_diff, usec_t ex
         int r;
 
         r = parse_timestamp(str, &usec);
-        log_debug("/* %s(%s): max_diff="USEC_FMT", expected="USEC_FMT", result="USEC_FMT" */", __func__, str, max_diff, expected, usec);
+        fprintf(stderr, "/* %s(%s): max_diff="USEC_FMT", expected="USEC_FMT", result="USEC_FMT" */\n", __func__, str, max_diff, expected, usec);
         assert_se(r >= 0);
         assert_se(usec >= expected);
         assert_se(usec_sub_unsigned(usec, expected) <= max_diff);
@@ -673,7 +673,7 @@ static bool timezone_equal(usec_t today, usec_t target) {
 }
 
 static void test_parse_timestamp_impl(const char *tz) {
-        usec_t today, now_usec;
+        usec_t today, today2, now_usec;
 
         /* Invalid: Ensure that systemctl reboot --when=show and --when=cancel
          * will not result in ambiguities */
@@ -700,6 +700,56 @@ static void test_parse_timestamp_impl(const char *tz) {
         test_parse_timestamp_one("70-01-01 00:00:01 UTC", 0, USEC_PER_SEC);
         test_parse_timestamp_one("70-01-01 00:00:01.001 UTC", 0, USEC_PER_SEC + 1000);
         test_parse_timestamp_one("70-01-01 00:00:01.0010 UTC", 0, USEC_PER_SEC + 1000);
+
+        /* Examples from RFC3339 */
+        test_parse_timestamp_one("1985-04-12T23:20:50.52Z", 0, 482196050 * USEC_PER_SEC + 520000);
+        test_parse_timestamp_one("1996-12-19T16:39:57-08:00", 0, 851042397 * USEC_PER_SEC + 000000);
+        test_parse_timestamp_one("1996-12-20T00:39:57Z", 0, 851042397 * USEC_PER_SEC + 000000);
+        test_parse_timestamp_one("1990-12-31T23:59:60Z", 0, 662688000 * USEC_PER_SEC + 000000);
+        test_parse_timestamp_one("1990-12-31T15:59:60-08:00", 0, 662688000 * USEC_PER_SEC + 000000);
+        assert_se(parse_timestamp("1937-01-01T12:00:27.87+00:20", NULL) == -EINVAL); /* we don't support pre-epoch timestamps */
+        /* We accept timestamps without seconds as well */
+        test_parse_timestamp_one("1996-12-20T00:39Z", 0, (851042397 - 57) * USEC_PER_SEC + 000000);
+        test_parse_timestamp_one("1990-12-31T15:59-08:00", 0, (662688000-60) * USEC_PER_SEC + 000000);
+        /* We drop day-of-week before parsing the timestamp */
+        test_parse_timestamp_one("Thu 1970-01-01T00:01 UTC", 0, USEC_PER_MINUTE);
+        test_parse_timestamp_one("Thu 1970-01-01T00:00:01 UTC", 0, USEC_PER_SEC);
+        test_parse_timestamp_one("Thu 1970-01-01T00:01Z", 0, USEC_PER_MINUTE);
+        test_parse_timestamp_one("Thu 1970-01-01T00:00:01Z", 0, USEC_PER_SEC);
+        /* RFC3339-style timezones can be welded to all formats */
+        assert_se(parse_timestamp("today UTC", &today) == 0);
+        assert_se(parse_timestamp("todayZ", &today2) == 0);
+        assert_se(today == today2);
+        assert_se(parse_timestamp("today +0200", &today) == 0);
+        assert_se(parse_timestamp("today+02:00", &today2) == 0);
+        assert_se(today == today2);
+
+        /* https://ijmacd.github.io/rfc3339-iso8601/ */
+        test_parse_timestamp_one("2023-09-06 12:49:27-00:00", 0, 1694004567 * USEC_PER_SEC + 000000);
+        test_parse_timestamp_one("2023-09-06 12:49:27.284-00:00", 0, 1694004567 * USEC_PER_SEC + 284000);
+        test_parse_timestamp_one("2023-09-06 12:49:27.284029Z", 0, 1694004567 * USEC_PER_SEC + 284029);
+        test_parse_timestamp_one("2023-09-06 12:49:27.284Z", 0, 1694004567 * USEC_PER_SEC + 284000);
+        test_parse_timestamp_one("2023-09-06 12:49:27.28Z", 0, 1694004567 * USEC_PER_SEC + 280000);
+        test_parse_timestamp_one("2023-09-06 12:49:27.2Z", 0, 1694004567 * USEC_PER_SEC + 200000);
+        test_parse_timestamp_one("2023-09-06 12:49:27Z", 0, 1694004567 * USEC_PER_SEC + 000000);
+        test_parse_timestamp_one("2023-09-06 14:49:27+02:00", 0, 1694004567 * USEC_PER_SEC + 000000);
+        test_parse_timestamp_one("2023-09-06 14:49:27.2+02:00", 0, 1694004567 * USEC_PER_SEC + 200000);
+        test_parse_timestamp_one("2023-09-06 14:49:27.28+02:00", 0, 1694004567 * USEC_PER_SEC + 280000);
+        test_parse_timestamp_one("2023-09-06 14:49:27.284+02:00", 0, 1694004567 * USEC_PER_SEC + 284000);
+        test_parse_timestamp_one("2023-09-06 14:49:27.284029+02:00", 0, 1694004567 * USEC_PER_SEC + 284029);
+        test_parse_timestamp_one("2023-09-06T12:49:27+00:00", 0, 1694004567 * USEC_PER_SEC + 000000);
+        test_parse_timestamp_one("2023-09-06T12:49:27-00:00", 0, 1694004567 * USEC_PER_SEC + 000000);
+        test_parse_timestamp_one("2023-09-06T12:49:27.284+00:00", 0, 1694004567 * USEC_PER_SEC + 284000);
+        test_parse_timestamp_one("2023-09-06T12:49:27.284-00:00", 0, 1694004567 * USEC_PER_SEC + 284000);
+        test_parse_timestamp_one("2023-09-06T12:49:27.284029Z", 0, 1694004567 * USEC_PER_SEC + 284029);
+        test_parse_timestamp_one("2023-09-06T12:49:27.284Z", 0, 1694004567 * USEC_PER_SEC + 284000);
+        test_parse_timestamp_one("2023-09-06T12:49:27.28Z", 0, 1694004567 * USEC_PER_SEC + 280000);
+        test_parse_timestamp_one("2023-09-06T12:49:27.2Z", 0, 1694004567 * USEC_PER_SEC + 200000);
+        test_parse_timestamp_one("2023-09-06T12:49:27Z", 0, 1694004567 * USEC_PER_SEC + 000000);
+        test_parse_timestamp_one("2023-09-06T14:49:27+02:00", 0, 1694004567 * USEC_PER_SEC + 000000);
+        test_parse_timestamp_one("2023-09-06T14:49:27.284+02:00", 0, 1694004567 * USEC_PER_SEC + 284000);
+        test_parse_timestamp_one("2023-09-06T14:49:27.284029+02:00", 0, 1694004567 * USEC_PER_SEC + 284029);
+        test_parse_timestamp_one("2023-09-06T21:34:27+08:45", 0, 1694004567 * USEC_PER_SEC + 000000);
 
         if (timezone_is_valid("Asia/Tokyo", LOG_DEBUG)) {
                 /* Asia/Tokyo (+0900) */
