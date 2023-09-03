@@ -927,6 +927,12 @@ sensor:modalias:acpi:SMO8500*:dmi:*:rvnReeder:rnA8iW-Rev.A:*
  ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
 
 #########################################
+# RCA
+#########################################
+sensor:modalias:acpi:KIOX000A*:dmi:*:svnRCA:pnW101SA23T1:*
+ ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
+
+#########################################
 # Schneider
 #########################################
 
