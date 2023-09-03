@@ -54,8 +54,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - distro: arch
-            release: rolling
+# Temporarily disabled due to keyring packaging issues
+#          - distro: arch
+#            release: rolling
           - distro: debian
             release: testing
           - distro: ubuntu
