@@ -65,6 +65,11 @@ EFI_ARCH_MAP = {
 }
 EFI_ARCHES: list[str] = sum(EFI_ARCH_MAP.values(), [])
 
+# Default configuration directories and file name.
+# When the user does not specify one, the directories are searched in this order and the first file found is used.
+DEFAULT_CONFIG_DIRS = ['/run/systemd', '/etc/systemd', '/usr/local/lib/systemd', '/usr/lib/systemd']
+DEFAULT_CONFIG_FILE = 'ukify.conf'
+
 def guess_efi_arch():
     arch = os.uname().machine
 
@@ -1394,9 +1399,30 @@ CONFIGFILE_ITEMS = { item.config_key:item
 
 def apply_config(namespace, filename=None):
     if filename is None:
-        filename = namespace.config
+        if namespace.config:
+            # Config file specified, turn it into a pathlib.Path
+            filename = pathlib.Path(namespace.config)
+        else:
+            # If there is no config file provided, try to look for default configs and load the first found.
+            for config_dir in DEFAULT_CONFIG_DIRS:
+                config_path = pathlib.Path(config_dir).joinpath(DEFAULT_CONFIG_FILE)
+                if config_path.is_file():
+                    print(f'No config file specified but found config file: {config_path}')
+                    filename = config_path
+                    break
     if filename is None:
+        # No config file specified or found, nothing to do.
         return
+    # Also print the original filename if it is a symlink
+    # Too bad, pathlib.Path.resolve() has no option not to resolve symlinks
+    if filename.is_symlink():
+        print_filename = f'{filename.resolve()} (target of: {filename})'
+    else:
+        print_filename = f'{filename.resolve()}'
+    if filename.resolve().is_file():
+        print(f'Using config file: {print_filename}')
+    else:
+        raise FileNotFoundError(f'Config file not found or not a file: {print_filename}')
 
     # Fill in ._groups based on --pcr-public-key=, --pcr-private-key=, and --phases=.
     assert '_groups' not in namespace
