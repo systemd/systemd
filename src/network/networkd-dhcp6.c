@@ -261,16 +261,16 @@ static int dhcp6_address_acquired(Link *link) {
                 return log_link_warning_errno(link, r, "Failed to get timestamp of DHCPv6 lease: %m");
 
         for (sd_dhcp6_lease_reset_address_iter(link->dhcp6_lease);;) {
-                uint32_t lifetime_preferred_sec, lifetime_valid_sec;
+                usec_t lifetime_preferred_usec, lifetime_valid_usec;
                 struct in6_addr ip6_addr;
 
-                r = sd_dhcp6_lease_get_address(link->dhcp6_lease, &ip6_addr, &lifetime_preferred_sec, &lifetime_valid_sec);
+                r = sd_dhcp6_lease_get_address(link->dhcp6_lease, &ip6_addr, &lifetime_preferred_usec, &lifetime_valid_usec);
                 if (r < 0)
                         break;
 
                 r = dhcp6_request_address(link, &server_address, &ip6_addr,
-                                          sec_to_usec(lifetime_preferred_sec, timestamp_usec),
-                                          sec_to_usec(lifetime_valid_sec, timestamp_usec));
+                                          timespan_to_timestamp(lifetime_preferred_usec, timestamp_usec),
+                                          timespan_to_timestamp(lifetime_valid_usec, timestamp_usec));
                 if (r < 0)
                         return r;
         }
@@ -317,11 +317,11 @@ static int dhcp6_lease_ip_acquired(sd_dhcp6_client *client, Link *link) {
         if (r < 0)
                 return r;
 
-        if (dhcp6_lease_has_pd_prefix(lease)) {
+        if (sd_dhcp6_lease_has_pd_prefix(lease)) {
                 r = dhcp6_pd_prefix_acquired(link);
                 if (r < 0)
                         return r;
-        } else if (dhcp6_lease_has_pd_prefix(lease_old))
+        } else if (sd_dhcp6_lease_has_pd_prefix(lease_old))
                 /* When we had PD prefixes but not now, we need to remove them. */
                 dhcp_pd_prefix_lost(link);
 
@@ -353,7 +353,7 @@ static int dhcp6_lease_lost(Link *link) {
 
         log_link_info(link, "DHCPv6 lease lost");
 
-        if (dhcp6_lease_has_pd_prefix(link->dhcp6_lease))
+        if (sd_dhcp6_lease_has_pd_prefix(link->dhcp6_lease))
                 dhcp_pd_prefix_lost(link);
 
         link->dhcp6_lease = sd_dhcp6_lease_unref(link->dhcp6_lease);
