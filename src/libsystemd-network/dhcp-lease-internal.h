@@ -29,9 +29,9 @@ struct sd_dhcp_lease {
         unsigned n_ref;
 
         /* each 0 if unset */
-        uint32_t t1;
-        uint32_t t2;
-        uint32_t lifetime;
+        usec_t t1;
+        usec_t t2;
+        usec_t lifetime;
 
         /* each 0 if unset */
         be32_t address;
