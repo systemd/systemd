@@ -82,12 +82,12 @@ _SD_BEGIN_DECLARATIONS;
 #define SD_MESSAGE_FACTORY_RESET                      SD_ID128_MAKE(c1,4a,af,76,ec,28,4a,5f,a1,f1,05,f8,8d,fb,06,1c)
 #define SD_MESSAGE_FACTORY_RESET_STR                  SD_ID128_MAKE_STR(c1,4a,af,76,ec,28,4a,5f,a1,f1,05,f8,8d,fb,06,1c)
 
-#define SD_MESSAGE_CRASH_EXIT                        SD_ID128_MAKE(d9,ec,5e,95,e4,b6,46,aa,ae,a2,fd,05,21,4e,db,da)
-#define SD_MESSAGE_CRASH_EXIT_STR                    SD_ID128_MAKE_STR(d9,ec,5e,95,e4,b6,46,aa,ae,a2,fd,05,21,4e,db,da)
-#define SD_MESSAGE_CRASH_FAILED                      SD_ID128_MAKE(3e,d0,16,3e,86,8a,44,17,ab,8b,9e,21,04,07,a9,6c)
-#define SD_MESSAGE_CRASH_FAILED_STR                  SD_ID128_MAKE_STR(3e,d0,16,3e,86,8a,44,17,ab,8b,9e,21,04,07,a9,6c)
-#define SD_MESSAGE_CRASH_FREEZE                      SD_ID128_MAKE(64,5c,73,55,37,63,4a,e0,a3,2b,15,a7,c6,cb,a7,d4)
-#define SD_MESSAGE_CRASH_FREEZE_STR                  SD_ID128_MAKE_STR(64,5c,73,55,37,63,4a,e0,a3,2b,15,a7,c6,cb,a7,d4)
+#define SD_MESSAGE_CRASH_EXIT                         SD_ID128_MAKE(d9,ec,5e,95,e4,b6,46,aa,ae,a2,fd,05,21,4e,db,da)
+#define SD_MESSAGE_CRASH_EXIT_STR                     SD_ID128_MAKE_STR(d9,ec,5e,95,e4,b6,46,aa,ae,a2,fd,05,21,4e,db,da)
+#define SD_MESSAGE_CRASH_FAILED                       SD_ID128_MAKE(3e,d0,16,3e,86,8a,44,17,ab,8b,9e,21,04,07,a9,6c)
+#define SD_MESSAGE_CRASH_FAILED_STR                   SD_ID128_MAKE_STR(3e,d0,16,3e,86,8a,44,17,ab,8b,9e,21,04,07,a9,6c)
+#define SD_MESSAGE_CRASH_FREEZE                       SD_ID128_MAKE(64,5c,73,55,37,63,4a,e0,a3,2b,15,a7,c6,cb,a7,d4)
+#define SD_MESSAGE_CRASH_FREEZE_STR                   SD_ID128_MAKE_STR(64,5c,73,55,37,63,4a,e0,a3,2b,15,a7,c6,cb,a7,d4)
 
 #define SD_MESSAGE_CRASH_NO_COREDUMP                  SD_ID128_MAKE(5a,dd,b3,a0,6a,73,4d,33,96,b7,94,bf,98,fb,2d,01)
 #define SD_MESSAGE_CRASH_NO_COREDUMP_STR              SD_ID128_MAKE_STR(5a,dd,b3,a0,6a,73,4d,33,96,b7,94,bf,98,fb,2d,01)
