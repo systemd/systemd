@@ -84,10 +84,16 @@ executables += [
                 'sources' : files('test-lldp-rx.c'),
         },
         network_test_template + {
-                'sources' : files('test-ndisc-ra.c'),
+                'sources' : files(
+                        'test-ndisc-ra.c',
+                        'icmp6-util-unix.c',
+                ),
         },
         network_test_template + {
-                'sources' : files('test-ndisc-rs.c'),
+                'sources' : files(
+                        'test-ndisc-rs.c',
+                        'icmp6-util-unix.c',
+                ),
         },
         network_test_template + {
                 'sources' : files('test-sd-dhcp-lease.c'),
@@ -108,6 +114,9 @@ executables += [
                 'sources' : files('fuzz-lldp-rx.c'),
         },
         network_fuzz_template + {
-                'sources' : files('fuzz-ndisc-rs.c'),
+                'sources' : files(
+                        'fuzz-ndisc-rs.c',
+                        'icmp6-util-unix.c',
+                ),
         },
 ]
