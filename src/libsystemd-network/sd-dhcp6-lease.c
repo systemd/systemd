@@ -8,6 +8,7 @@
 #include "alloc-util.h"
 #include "dhcp6-internal.h"
 #include "dhcp6-lease-internal.h"
+#include "network-common.h"
 #include "strv.h"
 
 #define IRT_DEFAULT (1 * USEC_PER_DAY)
@@ -216,66 +217,148 @@ int dhcp6_lease_get_rapid_commit(sd_dhcp6_lease *lease, bool *ret) {
         return 0;
 }
 
-int sd_dhcp6_lease_get_address(
+int sd_dhcp6_lease_get_address(sd_dhcp6_lease *lease, struct in6_addr *ret) {
+        assert_return(lease, -EINVAL);
+
+        if (!lease->addr_iter)
+                return -ENODATA;
+
+        if (ret)
+                *ret = lease->addr_iter->iaaddr.address;
+        return 0;
+}
+
+int sd_dhcp6_lease_get_address_lifetime(
                 sd_dhcp6_lease *lease,
-                struct in6_addr *ret_addr,
-                uint32_t *ret_lifetime_preferred,
-                uint32_t *ret_lifetime_valid) {
+                usec_t *ret_lifetime_preferred,
+                usec_t *ret_lifetime_valid) {
+
+        const struct iaaddr *a;
 
         assert_return(lease, -EINVAL);
 
         if (!lease->addr_iter)
                 return -ENODATA;
 
-        if (ret_addr)
-                *ret_addr = lease->addr_iter->iaaddr.address;
-        if (ret_lifetime_preferred)
-                *ret_lifetime_preferred = be32toh(lease->addr_iter->iaaddr.lifetime_preferred);
-        if (ret_lifetime_valid)
-                *ret_lifetime_valid = be32toh(lease->addr_iter->iaaddr.lifetime_valid);
+        a = &lease->addr_iter->iaaddr;
 
-        lease->addr_iter = lease->addr_iter->addresses_next;
+        if (ret_lifetime_preferred)
+                *ret_lifetime_preferred = be32_sec_to_usec(a->lifetime_preferred);
+        if (ret_lifetime_valid)
+                *ret_lifetime_valid = be32_sec_to_usec(a->lifetime_valid);
         return 0;
 }
 
-void sd_dhcp6_lease_reset_address_iter(sd_dhcp6_lease *lease) {
-        if (lease)
-                lease->addr_iter = lease->ia_na ? lease->ia_na->addresses : NULL;
+int sd_dhcp6_lease_address_iterator_reset(sd_dhcp6_lease *lease) {
+        if (!lease)
+                return false;
+
+        lease->addr_iter = lease->ia_na ? lease->ia_na->addresses : NULL;
+        return !!lease->addr_iter;
+}
+
+int sd_dhcp6_lease_address_iterator_next(sd_dhcp6_lease *lease) {
+        if (!lease || !lease->addr_iter)
+                return false;
+
+        lease->addr_iter = lease->addr_iter->addresses_next;
+        return !!lease->addr_iter;
 }
 
 int sd_dhcp6_lease_has_address(sd_dhcp6_lease *lease) {
         return lease && lease->ia_na;
 }
 
-int sd_dhcp6_lease_get_pd(
+int sd_dhcp6_lease_get_pd_prefix(
                 sd_dhcp6_lease *lease,
                 struct in6_addr *ret_prefix,
-                uint8_t *ret_prefix_len,
-                uint32_t *ret_lifetime_preferred,
-                uint32_t *ret_lifetime_valid) {
+                uint8_t *ret_prefix_len) {
+
+        const struct iapdprefix *a;
 
         assert_return(lease, -EINVAL);
 
         if (!lease->prefix_iter)
                 return -ENODATA;
 
-        if (ret_prefix)
-                *ret_prefix = lease->prefix_iter->iapdprefix.address;
-        if (ret_prefix_len)
-                *ret_prefix_len = lease->prefix_iter->iapdprefix.prefixlen;
-        if (ret_lifetime_preferred)
-                *ret_lifetime_preferred = be32toh(lease->prefix_iter->iapdprefix.lifetime_preferred);
-        if (ret_lifetime_valid)
-                *ret_lifetime_valid = be32toh(lease->prefix_iter->iapdprefix.lifetime_valid);
+        a = &lease->prefix_iter->iapdprefix;
 
-        lease->prefix_iter = lease->prefix_iter->addresses_next;
+        if (ret_prefix)
+                *ret_prefix = a->address;
+        if (ret_prefix_len)
+                *ret_prefix_len = a->prefixlen;
         return 0;
 }
 
-void sd_dhcp6_lease_reset_pd_prefix_iter(sd_dhcp6_lease *lease) {
-        if (lease)
-                lease->prefix_iter = lease->ia_pd ? lease->ia_pd->addresses : NULL;
+int sd_dhcp6_lease_get_pd_lifetime(
+                sd_dhcp6_lease *lease,
+                uint64_t *ret_lifetime_preferred,
+                uint64_t *ret_lifetime_valid) {
+
+        const struct iapdprefix *a;
+
+        assert_return(lease, -EINVAL);
+
+        if (!lease->prefix_iter)
+                return -ENODATA;
+
+        a = &lease->prefix_iter->iapdprefix;
+
+        if (ret_lifetime_preferred)
+                *ret_lifetime_preferred = be32_sec_to_usec(a->lifetime_preferred);
+        if (ret_lifetime_valid)
+                *ret_lifetime_valid = be32_sec_to_usec(a->lifetime_valid);
+        return 0;
 }
+
+int sd_dhcp6_lease_pd_iterator_reset(sd_dhcp6_lease *lease) {
+        if (!lease)
+                return false;
+
+        lease->prefix_iter = lease->ia_pd ? lease->ia_pd->addresses : NULL;
+        return !!lease->prefix_iter;
+}
+
+int sd_dhcp6_lease_pd_iterator_next(sd_dhcp6_lease *lease) {
+        if (!lease || !lease->prefix_iter)
+                return false;
+
+        lease->prefix_iter = lease->prefix_iter->addresses_next;
+        return !!lease->prefix_iter;
+}
+
+#define DEFINE_GET_TIMESTAMP2(name)                                     \
+        int sd_dhcp6_lease_get_##name##_lifetime_timestamp(             \
+                        sd_dhcp6_lease *lease,                          \
+                        clockid_t clock,                                \
+                        uint64_t *ret_lifetime_preferred,               \
+                        uint64_t *ret_lifetime_valid) {                 \
+                                                                        \
+                usec_t t, p, v;                                         \
+                int r;                                                  \
+                                                                        \
+                assert_return(lease, -EINVAL);                          \
+                                                                        \
+                r = sd_dhcp6_lease_get_##name##_lifetime(               \
+                                lease,                                  \
+                                ret_lifetime_preferred ? &p : NULL,     \
+                                ret_lifetime_valid ? &v : NULL);        \
+                if (r < 0)                                              \
+                        return r;                                       \
+                                                                        \
+                r = sd_dhcp6_lease_get_timestamp(lease, clock, &t);     \
+                if (r < 0)                                              \
+                        return r;                                       \
+                                                                        \
+                if (ret_lifetime_preferred)                             \
+                        *ret_lifetime_preferred = time_span_to_stamp(p, t); \
+                if (ret_lifetime_valid)                                 \
+                        *ret_lifetime_valid = time_span_to_stamp(v, t); \
+                return 0;                                               \
+        }
+
+DEFINE_GET_TIMESTAMP2(address);
+DEFINE_GET_TIMESTAMP2(pd);
 
 int sd_dhcp6_lease_has_pd_prefix(sd_dhcp6_lease *lease) {
         return lease && lease->ia_pd;
