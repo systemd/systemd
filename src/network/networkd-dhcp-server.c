@@ -400,15 +400,13 @@ static int dhcp4_server_configure(Link *link) {
                 return log_link_error_errno(link, r, "Failed to configure address pool for DHCPv4 server instance: %m");
 
         if (link->network->dhcp_server_max_lease_time_usec > 0) {
-                r = sd_dhcp_server_set_max_lease_time(link->dhcp_server,
-                                                      DIV_ROUND_UP(link->network->dhcp_server_max_lease_time_usec, USEC_PER_SEC));
+                r = sd_dhcp_server_set_max_lease_time(link->dhcp_server, link->network->dhcp_server_max_lease_time_usec);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Failed to set maximum lease time for DHCPv4 server instance: %m");
         }
 
         if (link->network->dhcp_server_default_lease_time_usec > 0) {
-                r = sd_dhcp_server_set_default_lease_time(link->dhcp_server,
-                                                          DIV_ROUND_UP(link->network->dhcp_server_default_lease_time_usec, USEC_PER_SEC));
+                r = sd_dhcp_server_set_default_lease_time(link->dhcp_server, link->network->dhcp_server_default_lease_time_usec);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Failed to set default lease time for DHCPv4 server instance: %m");
         }
@@ -733,5 +731,46 @@ int config_parse_dhcp_server_address(
 
         network->dhcp_server_address = a.in;
         network->dhcp_server_address_prefixlen = prefixlen;
+        return 0;
+}
+
+int config_parse_dhcp_server_lease_time(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        usec_t t, *lease_time = ASSERT_PTR(data);
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                *lease_time = 0;
+                return 0;
+        }
+
+        r = parse_sec(rvalue, &t);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse [%s] %s=, ignoring assignment: %s", section, lvalue, rvalue);
+                return 0;
+        }
+
+        if (t < USEC_INFINITY && DIV_ROUND_UP(t, USEC_PER_SEC) >= UINT32_MAX) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Invalid [%s] %s=, ignoring assignment: %s", section, lvalue, rvalue);
+                return 0;
+        }
+
+        *lease_time = t;
         return 0;
 }
