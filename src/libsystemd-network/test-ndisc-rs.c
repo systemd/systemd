@@ -176,12 +176,17 @@ int icmp6_bind_router_advertisement(int ifindex) {
         return -ENOSYS;
 }
 
-int icmp6_receive(int fd, void *iov_base, size_t iov_len,
-                  struct in6_addr *dst, triple_timestamp *timestamp) {
+int icmp6_receive(
+                int fd,
+                void *iov_base,
+                size_t iov_len,
+                struct in6_addr *ret_sendor,
+                triple_timestamp *ret_timestamp) {
+
         assert_se(read (fd, iov_base, iov_len) == (ssize_t)iov_len);
 
-        if (timestamp)
-                triple_timestamp_get(timestamp);
+        if (ret_timestamp)
+                triple_timestamp_get(ret_timestamp);
 
         return 0;
 }
