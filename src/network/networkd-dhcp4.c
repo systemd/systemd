@@ -910,15 +910,14 @@ static int dhcp4_request_address(Link *link, bool announce) {
                 return log_link_debug_errno(link, r, "DHCP error: failed to get DHCP server IP address: %m");
 
         if (!FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP)) {
-                uint32_t lifetime_sec;
                 usec_t now_usec;
 
-                r = sd_dhcp_lease_get_lifetime(link->dhcp_lease, &lifetime_sec);
+                r = sd_dhcp_lease_get_lifetime(link->dhcp_lease, &lifetime_usec);
                 if (r < 0)
                         return log_link_warning_errno(link, r, "DHCP error: no lifetime: %m");
 
                 assert_se(sd_event_now(link->manager->event, CLOCK_BOOTTIME, &now_usec) >= 0);
-                lifetime_usec = sec_to_usec(lifetime_sec, now_usec);
+                lifetime_usec = usec_add(lifetime_usec, now_usec);
         } else
                 lifetime_usec = USEC_INFINITY;
 
@@ -1617,8 +1616,8 @@ static int dhcp4_configure(Link *link) {
                         return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to set socket priority: %m");
         }
 
-        if (link->network->dhcp_fallback_lease_lifetime > 0) {
-                r = sd_dhcp_client_set_fallback_lease_lifetime(link->dhcp_client, link->network->dhcp_fallback_lease_lifetime);
+        if (link->network->dhcp_fallback_lease_lifetime_usec > 0) {
+                r = sd_dhcp_client_set_fallback_lease_lifetime(link->dhcp_client, link->network->dhcp_fallback_lease_lifetime_usec);
                 if (r < 0)
                         return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed set to lease lifetime: %m");
         }
@@ -1877,7 +1876,7 @@ int config_parse_dhcp_fallback_lease_lifetime(
         assert(data);
 
         if (isempty(rvalue)) {
-                network->dhcp_fallback_lease_lifetime = 0;
+                network->dhcp_fallback_lease_lifetime_usec = 0;
                 return 0;
         }
 
@@ -1888,7 +1887,7 @@ int config_parse_dhcp_fallback_lease_lifetime(
                 return 0;
         }
 
-        network->dhcp_fallback_lease_lifetime = UINT32_MAX;
+        network->dhcp_fallback_lease_lifetime_usec = USEC_INFINITY;
 
         return 0;
 }
