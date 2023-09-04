@@ -57,6 +57,7 @@
 #include "user-util.h"
 #include "utmp-wtmp.h"
 #include "virt.h"
+#include "wall.h"
 
 /* As a random fun fact sysvinit had a 252 (256-(strlen(" \r\n")+1))
  * character limit for the wall message.
@@ -2342,7 +2343,7 @@ static int method_cancel_scheduled_shutdown(sd_bus_message *message, void *userd
                            "MESSAGE_ID=" SD_MESSAGE_SHUTDOWN_CANCELED_STR,
                            username ? "OPERATOR=%s" : NULL, username);
 
-                utmp_wall("System shutdown has been cancelled",
+                wall("System shutdown has been cancelled",
                           username, tty, logind_wall_tty_filter, m);
         }
 

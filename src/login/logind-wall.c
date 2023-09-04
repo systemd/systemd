@@ -18,7 +18,7 @@
 #include "strv.h"
 #include "unit-name.h"
 #include "user-util.h"
-#include "utmp-wtmp.h"
+#include "wall.h"
 
 static usec_t when_wall(usec_t n, usec_t elapse) {
         static const int wall_timers[] = {
@@ -94,7 +94,7 @@ static int warn_wall(Manager *m, usec_t n) {
                    username ? "OPERATOR=%s" : NULL, username);
 
         if (m->enable_wall_messages)
-                utmp_wall(l, username, m->scheduled_shutdown_tty, logind_wall_tty_filter, m);
+                wall(l, username, m->scheduled_shutdown_tty, logind_wall_tty_filter, m);
 
         return 1;
 }
