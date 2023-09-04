@@ -128,11 +128,13 @@ _systemctl () {
 
     local -A OPTS=(
         [STANDALONE]='--all -a --reverse --after --before --defaults --force -f --full -l --global
-                             --help -h --no-ask-password --no-block --legend=no --no-pager --no-reload --no-wall --now
-                             --quiet -q --system --user --version --runtime --recursive -r --firmware-setup
-                             --show-types --plain --failed --value --fail --dry-run --wait --no-warn'
-        [ARG]='--host -H --kill-whom --property -p --signal -s --type -t --state --job-mode --root
-                             --preset-mode -n --lines -o --output -M --machine --message --timestamp --check-inhibitors'
+                      --help -h --no-ask-password --no-block --legend=no --no-pager --no-reload --no-wall --now
+                      --quiet -q --system --user --version --runtime --recursive -r --firmware-setup
+                      --show-types --plain --failed --value --fail --dry-run --wait --no-warn --with-dependencies
+                      --show-transaction -T --mkdir --marked --read-only'
+        [ARG]='--host -H --kill-whom --property -p -P --signal -s --type -t --state --job-mode --root
+               --preset-mode -n --lines -o --output -M --machine --message --timestamp --check-inhibitors --what
+               --image --boot-loader-menu --boot-loader-entry --reboot-argument --drop-in'
     )
 
     if __contains_word "--user" ${COMP_WORDS[*]}; then
@@ -169,7 +171,7 @@ _systemctl () {
             --host|-H)
                 comps=$(compgen -A hostname)
                 ;;
-            --property|-p)
+            --property|-p|-P)
                 comps=$(__systemd_properties)
                 ;;
             --preset-mode)
@@ -186,6 +188,16 @@ _systemctl () {
                 ;;
             --check-inhibitors)
                 comps='auto yes no'
+                ;;
+            --what)
+                comps='configuration state cache logs runtime all'
+                ;;
+            --image)
+                comps=$(compgen -A file -- "$cur")
+                compopt -o filenames
+                ;;
+            --boot-loader-entry)
+                comps=$(systemctl --boot-loader-entry=help 2>/dev/null)
                 ;;
         esac
         COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
@@ -205,7 +217,7 @@ _systemctl () {
         [REENABLABLE_UNITS]='reenable'
         [FAILED_UNITS]='reset-failed'
         [STARTABLE_UNITS]='start'
-        [STOPPABLE_UNITS]='stop condstop kill try-restart condrestart'
+        [STOPPABLE_UNITS]='stop condstop kill try-restart condrestart freeze thaw'
         [ISOLATABLE_UNITS]='isolate'
         [RELOADABLE_UNITS]='reload condreload try-reload-or-restart force-reload'
         [RESTARTABLE_UNITS]='restart reload-or-restart'
