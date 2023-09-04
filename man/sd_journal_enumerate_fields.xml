@@ -98,6 +98,13 @@
   </refsect1>
 
   <refsect1>
+    <title>History</title>
+    <para><function>SD_JOURNAL_FOREACH_FIELD()</function> was added in version 229.</para>
+    <para><function>sd_journal_enumerate_fields()</function> was added in version 229.</para>
+    <para><function>sd_journal_restart_fields()</function> was added in version 229.</para>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
 
     <para>

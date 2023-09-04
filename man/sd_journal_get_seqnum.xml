@@ -90,6 +90,11 @@
   </refsect1>
 
   <refsect1>
+    <title>History</title>
+    <para><function>sd_journal_get_seqnum()</function> was added in version 254.</para>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
 
     <para>

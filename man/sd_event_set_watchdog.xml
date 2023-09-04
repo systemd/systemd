@@ -124,6 +124,12 @@
   <xi:include href="libsystemd-pkgconfig.xml" />
 
   <refsect1>
+    <title>History</title>
+    <para><function>sd_event_get_watchdog()</function> was added in version 229.</para>
+    <para><function>sd_event_set_watchdog()</function> was added in version 229.</para>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
 
     <para>

@@ -59,6 +59,11 @@
   </refsect1>
 
   <refsect1>
+    <title>History</title>
+    <para><function>sd_journal_get_usage()</function> was added in version 190.</para>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
 
     <para>
