@@ -72,3 +72,17 @@ int dhcp6_lease_new_from_message(
                 const triple_timestamp *timestamp,
                 const struct in6_addr *server_address,
                 sd_dhcp6_lease **ret);
+
+#define _FOREACH_DHCP6_ADDRESS(lease, it)                               \
+        for (int it = sd_dhcp6_lease_address_iterator_reset(lease);     \
+             it > 0;                                                    \
+             it = sd_dhcp6_lease_address_iterator_next(lease))
+#define FOREACH_DHCP6_ADDRESS(lease)                                    \
+        _FOREACH_DHCP6_ADDRESS(lease, UNIQ_T(i, UNIQ))
+
+#define _FOREACH_DHCP6_PD_PREFIX(lease, it)                             \
+        for (int it = sd_dhcp6_lease_pd_iterator_reset(lease);          \
+             it > 0;                                                    \
+             it = sd_dhcp6_lease_pd_iterator_next(lease))
+#define FOREACH_DHCP6_PD_PREFIX(lease)                                  \
+        _FOREACH_DHCP6_PD_PREFIX(lease, UNIQ_T(i, UNIQ))
