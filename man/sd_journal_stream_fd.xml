@@ -104,6 +104,11 @@
   </refsect1>
 
   <refsect1>
+    <title>History</title>
+    <para><function>sd_journal_stream_fd()</function> was added in version 187.</para>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
 
     <para>

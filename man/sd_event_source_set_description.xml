@@ -123,6 +123,12 @@
   <xi:include href="libsystemd-pkgconfig.xml" />
 
   <refsect1>
+    <title>History</title>
+    <para><function>sd_event_source_get_description()</function> was added in version 229.</para>
+    <para><function>sd_event_source_set_description()</function> was added in version 229.</para>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
 
     <para>

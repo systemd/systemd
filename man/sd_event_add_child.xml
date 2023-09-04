@@ -324,6 +324,19 @@
   </refsect1>
 
   <refsect1>
+    <title>History</title>
+    <para><function>sd_event_add_child()</function> was added in version 217.</para>
+    <para><function>sd_event_source_get_child_pid()</function> was added in version 217.</para>
+    <para><function>sd_event_add_child_pidfd()</function> was added in version 245.</para>
+    <para><function>sd_event_source_get_child_pidfd()</function> was added in version 245.</para>
+    <para><function>sd_event_source_get_child_pidfd_own()</function> was added in version 245.</para>
+    <para><function>sd_event_source_get_child_process_own()</function> was added in version 245.</para>
+    <para><function>sd_event_source_send_child_signal()</function> was added in version 245.</para>
+    <para><function>sd_event_source_set_child_pidfd_own()</function> was added in version 245.</para>
+    <para><function>sd_event_source_set_child_process_own()</function> was added in version 245.</para>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
 
     <para>

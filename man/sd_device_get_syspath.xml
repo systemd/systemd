@@ -194,6 +194,21 @@
   <xi:include href="libsystemd-pkgconfig.xml" />
 
   <refsect1>
+    <title>History</title>
+    <para><function>sd_device_get_devname()</function> was added in version 251.</para>
+    <para><function>sd_device_get_devnum()</function> was added in version 251.</para>
+    <para><function>sd_device_get_devpath()</function> was added in version 251.</para>
+    <para><function>sd_device_get_devtype()</function> was added in version 251.</para>
+    <para><function>sd_device_get_diskseq()</function> was added in version 251.</para>
+    <para><function>sd_device_get_driver()</function> was added in version 251.</para>
+    <para><function>sd_device_get_ifindex()</function> was added in version 251.</para>
+    <para><function>sd_device_get_subsystem()</function> was added in version 251.</para>
+    <para><function>sd_device_get_sysname()</function> was added in version 251.</para>
+    <para><function>sd_device_get_sysnum()</function> was added in version 251.</para>
+    <para><function>sd_device_get_syspath()</function> was added in version 251.</para>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
 
     <para>

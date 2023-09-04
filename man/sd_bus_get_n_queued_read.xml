@@ -86,6 +86,12 @@
   </refsect1>
 
   <refsect1>
+    <title>History</title>
+    <para><function>sd_bus_get_n_queued_read()</function> was added in version 238.</para>
+    <para><function>sd_bus_get_n_queued_write()</function> was added in version 238.</para>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
 
     <para>

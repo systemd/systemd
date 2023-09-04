@@ -97,6 +97,12 @@
   </refsect1>
 
   <refsect1>
+    <title>History</title>
+    <para><function>sd_journal_get_catalog()</function> was added in version 196.</para>
+    <para><function>sd_journal_get_catalog_for_message_id()</function> was added in version 196.</para>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
 
     <para>

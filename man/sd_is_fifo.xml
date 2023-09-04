@@ -183,6 +183,12 @@
   </refsect1>
 
   <refsect1>
+    <title>History</title>
+    <para><function>sd_is_special()</function> was added in version 209.</para>
+    <para><function>sd_is_socket_sockaddr()</function> was added in version 233.</para>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,

@@ -96,6 +96,12 @@
   <xi:include href="libsystemd-pkgconfig.xml" />
 
   <refsect1>
+    <title>History</title>
+    <para><function>sd_event_source_get_exit_on_failure()</function> was added in version 247.</para>
+    <para><function>sd_event_source_set_exit_on_failure()</function> was added in version 247.</para>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
 
     <para>

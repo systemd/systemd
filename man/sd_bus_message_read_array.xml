@@ -103,6 +103,11 @@
   </refsect1>
 
   <refsect1>
+    <title>History</title>
+    <para><function>sd_bus_message_read_array()</function> was added in version 240.</para>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
 
     <para>

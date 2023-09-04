@@ -272,6 +272,14 @@
   <xi:include href="libsystemd-pkgconfig.xml" />
 
   <refsect1>
+    <title>History</title>
+    <para><function>sd_event_add_memory_pressure()</function> was added in version 254.</para>
+    <para><function>sd_event_source_set_memory_pressure_period()</function> was added in version 254.</para>
+    <para><function>sd_event_source_set_memory_pressure_type()</function> was added in version 254.</para>
+    <para><function>sd_event_trim_memory()</function> was added in version 254.</para>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
 
     <para>

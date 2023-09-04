@@ -244,6 +244,16 @@ else {
   </refsect1>
 
   <refsect1>
+    <title>History</title>
+    <para><function>sd_journal_get_fd()</function> was added in version 187.</para>
+    <para><function>sd_journal_process()</function> was added in version 187.</para>
+    <para><function>sd_journal_wait()</function> was added in version 187.</para>
+    <para><function>sd_journal_reliable_fd()</function> was added in version 196.</para>
+    <para><function>sd_journal_get_events()</function> was added in version 201.</para>
+    <para><function>sd_journal_get_timeout()</function> was added in version 201.</para>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
 
     <para>
