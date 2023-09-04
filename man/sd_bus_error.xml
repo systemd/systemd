@@ -393,6 +393,24 @@
   <xi:include href="libsystemd-pkgconfig.xml" />
 
   <refsect1>
+    <title>History</title>
+    <para><function>sd_bus_error_copy()</function> was added in version 209.</para>
+    <para><function>sd_bus_error_free()</function> was added in version 209.</para>
+    <para><function>sd_bus_error_get_errno()</function> was added in version 209.</para>
+    <para><function>sd_bus_error_has_name()</function> was added in version 209.</para>
+    <para><function>sd_bus_error_is_set()</function> was added in version 209.</para>
+    <para><function>sd_bus_error_set()</function> was added in version 209.</para>
+    <para><function>sd_bus_error_set_const()</function> was added in version 209.</para>
+    <para><function>sd_bus_error_set_errno()</function> was added in version 209.</para>
+    <para><function>sd_bus_error_set_errnof()</function> was added in version 209.</para>
+    <para><function>sd_bus_error_setf()</function> was added in version 209.</para>
+    <para><function>sd_bus_error_set_errnofv()</function> was added in version 223.</para>
+    <para><function>sd_bus_error_move()</function> was added in version 240.</para>
+    <para><function>sd_bus_error_has_names_sentinel()</function> was added in version 247.</para>
+    <para><function>sd_bus_error_setfv()</function> was added in version 252.</para>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
 
     <para>
