@@ -10,6 +10,7 @@
 #include "dhcp-internal.h"
 #include "dhcp-protocol.h"
 #include "list.h"
+#include "time-util.h"
 
 struct sd_dhcp_route {
         struct in_addr dst_addr;
@@ -32,6 +33,7 @@ struct sd_dhcp_lease {
         usec_t t1;
         usec_t t2;
         usec_t lifetime;
+        triple_timestamp timestamp;
 
         /* each 0 if unset */
         be32_t address;

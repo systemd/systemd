@@ -855,7 +855,7 @@ static int dhcp4_pd_assign_subnet_prefix(Link *link, Link *uplink) {
         struct in6_addr sixrd_prefix, pd_prefix;
         const struct in_addr *br_addresses;
         struct in_addr ipv4address;
-        usec_t lifetime_usec, now_usec;
+        usec_t lifetime_usec;
         int r;
 
         assert(link);
@@ -867,12 +867,9 @@ static int dhcp4_pd_assign_subnet_prefix(Link *link, Link *uplink) {
         if (r < 0)
                 return log_link_warning_errno(uplink, r, "Failed to get DHCPv4 address: %m");
 
-        r = sd_dhcp_lease_get_lifetime(uplink->dhcp_lease, &lifetime_usec);
+        r = sd_dhcp_lease_get_lifetime_timestamp(uplink->dhcp_lease, CLOCK_BOOTTIME, &lifetime_usec);
         if (r < 0)
                 return log_link_warning_errno(uplink, r, "Failed to get lifetime of DHCPv4 lease: %m");
-
-        assert_se(sd_event_now(uplink->manager->event, CLOCK_BOOTTIME, &now_usec) >= 0);
-        lifetime_usec = usec_add(lifetime_usec, now_usec);
 
         r = sd_dhcp_lease_get_6rd(uplink->dhcp_lease, &ipv4masklen, &sixrd_prefixlen, &sixrd_prefix, &br_addresses, NULL);
         if (r < 0)
@@ -928,7 +925,7 @@ int dhcp4_pd_prefix_acquired(Link *uplink) {
         struct in_addr ipv4address;
         union in_addr_union server_address;
         const struct in_addr *br_addresses;
-        usec_t lifetime_usec, now_usec;
+        usec_t lifetime_usec;
         Link *link;
         int r;
 
@@ -940,12 +937,9 @@ int dhcp4_pd_prefix_acquired(Link *uplink) {
         if (r < 0)
                 return log_link_warning_errno(uplink, r, "Failed to get DHCPv4 address: %m");
 
-        r = sd_dhcp_lease_get_lifetime(uplink->dhcp_lease, &lifetime_usec);
+        r = sd_dhcp_lease_get_lifetime_timestamp(uplink->dhcp_lease, CLOCK_BOOTTIME, &lifetime_usec);
         if (r < 0)
                 return log_link_warning_errno(uplink, r, "Failed to get lifetime of DHCPv4 lease: %m");
-
-        assert_se(sd_event_now(uplink->manager->event, CLOCK_BOOTTIME, &now_usec) >= 0);
-        lifetime_usec = usec_add(lifetime_usec, now_usec);
 
         r = sd_dhcp_lease_get_server_identifier(uplink->dhcp_lease, &server_address.in);
         if (r < 0)
