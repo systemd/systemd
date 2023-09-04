@@ -921,8 +921,18 @@ static int captive_portal_append_json(Link *link, JsonVariant **v) {
         return json_variant_merge_objectb(v, JSON_BUILD_OBJECT(JSON_BUILD_PAIR_STRING("CaptivePortal", captive_portal)));
 }
 
+static int build_pref64_json(NDiscPREF64 *p, JsonVariant **ret) {
+        assert(p);
+
+        return json_build(ret, JSON_BUILD_OBJECT(
+                                          JSON_BUILD_PAIR_IN6_ADDR_NON_NULL("Prefix", &p->prefix),
+                                          JSON_BUILD_PAIR_UNSIGNED("PrefixLength", p->prefix_len),
+                                          JSON_BUILD_PAIR_FINITE_USEC("LifetimeUSec", p->lifetime_usec),
+                                          JSON_BUILD_PAIR_IN6_ADDR_NON_NULL("ConfigProvider", &p->router)));
+}
+
 static int pref64_append_json(Link *link, JsonVariant **v) {
-        _cleanup_(json_variant_unrefp) JsonVariant *array = NULL, *w = NULL;
+        _cleanup_(json_variant_unrefp) JsonVariant *w = NULL, *e = NULL;
         NDiscPREF64 *i;
         int r;
 
@@ -933,20 +943,22 @@ static int pref64_append_json(Link *link, JsonVariant **v) {
                 return 0;
 
         SET_FOREACH(i, link->ndisc_pref64) {
-                r = json_build(&array, JSON_BUILD_OBJECT(
-                                               JSON_BUILD_PAIR_IN6_ADDR_NON_NULL("Prefix", &i->prefix),
-                                               JSON_BUILD_PAIR_UNSIGNED("PrefixLength", i->prefix_len),
-                                               JSON_BUILD_PAIR_FINITE_USEC("LifetimeUSec", i->lifetime_usec),
-                                               JSON_BUILD_PAIR_IN6_ADDR_NON_NULL("ConfigProvider", &i->router)));
+                _cleanup_(json_variant_unrefp) JsonVariant *array = NULL;
+
+                r = build_pref64_json(i, &array);
+                if (r < 0)
+                        return r;
+
+                r = json_variant_append_array(&array, w);
                 if (r < 0)
                         return r;
         }
 
-        r = json_append_one(&w, "PREF64", array);
+        r = json_append_one(&e, "PREF64", w);
         if (r < 0)
                 return r;
 
-        return json_append_one(v, "NDisc", w);
+        return json_append_one(v, "NDisc", e);
 }
 
 static int dhcp_server_offered_leases_append_json(Link *link, JsonVariant **v) {
