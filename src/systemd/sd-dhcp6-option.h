@@ -20,6 +20,8 @@
 #include <inttypes.h>
 #include <sys/types.h>
 
+#include "sd-dhcp6-protocol.h"
+
 #include "_sd-common.h"
 
 _SD_BEGIN_DECLARATIONS;
