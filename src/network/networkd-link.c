@@ -477,7 +477,7 @@ void link_check_ready(Link *link) {
         /* If the uplink for PD is self, then request the corresponding DHCP protocol is also ready. */
         if (dhcp_pd_is_uplink(link, link, /* accept_auto = */ false)) {
                 if (link_dhcp4_enabled(link) && link->network->dhcp_use_6rd &&
-                    link->dhcp_lease && dhcp4_lease_has_pd_prefix(link->dhcp_lease)) {
+                    sd_dhcp_lease_has_6rd(link->dhcp_lease)) {
                         if (!dhcp4_ready)
                                 return (void) log_link_debug(link, "%s(): DHCPv4 6rd prefix is assigned, but DHCPv4 protocol is not finished yet.", __func__);
                         if (!dhcp_pd_ready)
