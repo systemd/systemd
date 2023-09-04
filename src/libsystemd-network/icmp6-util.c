@@ -182,7 +182,7 @@ int icmp6_receive(
             sa.in6.sin6_family == AF_INET6)  {
 
                 addr = sa.in6.sin6_addr;
-                if (!in6_addr_is_link_local(&addr))
+                if (!in6_addr_is_link_local(&addr) && !in6_addr_is_null(&addr))
                         return -EADDRNOTAVAIL;
 
         } else if (msg.msg_namelen > 0)
