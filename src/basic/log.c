@@ -404,10 +404,6 @@ void log_set_facility(int facility) {
         log_facility = facility;
 }
 
-int log_get_facility(void) {
-        return log_facility;
-}
-
 static int write_to_console(
                 int level,
                 int error,

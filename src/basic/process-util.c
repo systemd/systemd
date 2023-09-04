@@ -485,6 +485,22 @@ int get_process_gid(pid_t pid, gid_t *ret) {
         return get_process_id(pid, "Gid:", ret);
 }
 
+int get_process_loginuid(pid_t pid, uid_t *ret) {
+        _cleanup_free_ char *line;
+        const char *p;
+        int r;
+
+        p = procfs_file_alloca(pid, "loginuid");
+
+        r = read_one_line_file(p, &line);
+        if (r == -ENOENT)
+                return -ESRCH;
+        if (r < 0)
+                return r;
+
+        return parse_uid(line, ret);
+}
+
 int get_process_cwd(pid_t pid, char **ret) {
         assert(pid >= 0);
 
