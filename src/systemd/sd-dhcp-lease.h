@@ -85,6 +85,7 @@ int sd_dhcp_lease_get_6rd(
                 struct in6_addr *ret_prefix,
                 const struct in_addr **ret_br_addresses,
                 size_t *ret_n_br_addresses);
+int sd_dhcp_lease_has_6rd(sd_dhcp_lease *lease);
 
 int sd_dhcp_route_get_destination(sd_dhcp_route *route, struct in_addr *destination);
 int sd_dhcp_route_get_destination_prefix_length(sd_dhcp_route *route, uint8_t *length);

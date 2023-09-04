@@ -1174,7 +1174,7 @@ static int dhcp_client_pd_append_json(Link *link, JsonVariant **v) {
         assert(link->network);
         assert(v);
 
-        if (!link->network->dhcp_use_6rd || !link->dhcp_lease || !dhcp4_lease_has_pd_prefix(link->dhcp_lease))
+        if (!link->network->dhcp_use_6rd || !sd_dhcp_lease_has_6rd(link->dhcp_lease))
                 return 0;
 
         r = sd_dhcp_lease_get_6rd(link->dhcp_lease, &ipv4masklen, &sixrd_prefixlen, &sixrd_prefix, &br_addresses, &n_br_addresses);

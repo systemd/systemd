@@ -839,7 +839,7 @@ int dhcp4_lease_lost(Link *link) {
         link->dhcp4_configured = false;
 
         if (link->network->dhcp_use_6rd &&
-            dhcp4_lease_has_pd_prefix(link->dhcp_lease))
+            sd_dhcp_lease_has_6rd(link->dhcp_lease))
                 dhcp4_pd_prefix_lost(link);
 
         k = dhcp4_remove_address_and_routes(link, /* only_marked = */ false);
@@ -1027,11 +1027,11 @@ static int dhcp_lease_renew(sd_dhcp_client *client, Link *link) {
         link_dirty(link);
 
         if (link->network->dhcp_use_6rd) {
-                if (dhcp4_lease_has_pd_prefix(link->dhcp_lease)) {
+                if (sd_dhcp_lease_has_6rd(link->dhcp_lease)) {
                         r = dhcp4_pd_prefix_acquired(link);
                         if (r < 0)
                                 return log_link_warning_errno(link, r, "Failed to process 6rd option: %m");
-                } else if (dhcp4_lease_has_pd_prefix(old_lease))
+                } else if (sd_dhcp_lease_has_6rd(old_lease))
                         dhcp4_pd_prefix_lost(link);
         }
 
@@ -1101,7 +1101,7 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
         }
 
         if (link->network->dhcp_use_6rd &&
-            dhcp4_lease_has_pd_prefix(link->dhcp_lease)) {
+            sd_dhcp_lease_has_6rd(link->dhcp_lease)) {
                 r = dhcp4_pd_prefix_acquired(link);
                 if (r < 0)
                         return log_link_warning_errno(link, r, "Failed to process 6rd option: %m");
