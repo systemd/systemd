@@ -41,7 +41,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
-#include "utmp-wtmp.h"
+#include "wall.h"
 
 static enum {
         ACTION_LIST,
@@ -216,16 +216,16 @@ static int process_one_password_file(const char *filename) {
                 return 0;
 
         case ACTION_WALL: {
-                 _cleanup_free_ char *wall = NULL;
+                 _cleanup_free_ char *msg = NULL;
 
-                 if (asprintf(&wall,
+                 if (asprintf(&msg,
                               "Password entry required for \'%s\' (PID " PID_FMT ").\r\n"
                               "Please enter password with the systemd-tty-ask-password-agent tool.",
                               strna(message),
                               pid) < 0)
                          return log_oom();
 
-                 (void) utmp_wall(wall, NULL, NULL, wall_tty_match, NULL);
+                 (void) wall(msg, NULL, NULL, wall_tty_match, NULL);
                  return 0;
         }
         case ACTION_QUERY:
