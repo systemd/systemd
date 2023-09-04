@@ -1084,7 +1084,8 @@ static int dhcp6_client_pd_append_json(Link *link, JsonVariant **v) {
         assert(link->network);
         assert(v);
 
-        if (!link->network->dhcp6_use_pd_prefix || !link->dhcp6_lease || !dhcp6_lease_has_pd_prefix(link->dhcp6_lease))
+        if (!link->network->dhcp6_use_pd_prefix ||
+            !sd_dhcp6_lease_has_pd_prefix(link->dhcp6_lease))
                 return 0;
 
         sd_dhcp6_lease_reset_pd_prefix_iter(link->dhcp6_lease);
