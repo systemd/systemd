@@ -198,6 +198,8 @@ endif
 
 if conf.get('ENABLE_UTMP') == 1
         shared_sources += files('utmp-wtmp.c')
+else
+        shared_sources += files('wall.c')
 endif
 
 if conf.get('HAVE_SECCOMP') == 1
