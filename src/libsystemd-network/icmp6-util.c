@@ -144,8 +144,12 @@ int icmp6_send_router_solicitation(int s, const struct ether_addr *ether_addr) {
         return 0;
 }
 
-int icmp6_receive(int fd, void *buffer, size_t size, struct in6_addr *ret_dst,
-                  triple_timestamp *ret_timestamp) {
+int icmp6_receive(
+                int fd,
+                void *buffer,
+                size_t size,
+                struct in6_addr *ret_sender,
+                triple_timestamp *ret_timestamp) {
 
         /* This needs to be initialized with zero. See #20741. */
         CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(int)) + /* ttl */
@@ -178,7 +182,7 @@ int icmp6_receive(int fd, void *buffer, size_t size, struct in6_addr *ret_dst,
             sa.in6.sin6_family == AF_INET6)  {
 
                 addr = sa.in6.sin6_addr;
-                if (!in6_addr_is_link_local(&addr))
+                if (!in6_addr_is_link_local(&addr) && !in6_addr_is_null(&addr))
                         return -EADDRNOTAVAIL;
 
         } else if (msg.msg_namelen > 0)
@@ -206,10 +210,14 @@ int icmp6_receive(int fd, void *buffer, size_t size, struct in6_addr *ret_dst,
                 }
         }
 
-        if (!triple_timestamp_is_set(&t))
-                triple_timestamp_get(&t);
+        if (ret_timestamp) {
+                if (triple_timestamp_is_set(&t))
+                        *ret_timestamp = t;
+                else
+                        triple_timestamp_get(ret_timestamp);
+        }
 
-        *ret_dst = addr;
-        *ret_timestamp = t;
+        if (ret_sender)
+                *ret_sender = addr;
         return 0;
 }
