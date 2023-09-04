@@ -1060,9 +1060,9 @@ static int dhcp6_client_lease_append_json(Link *link, JsonVariant **v) {
 
         r = json_build(&w, JSON_BUILD_OBJECT(
                                 JSON_BUILD_PAIR_FINITE_USEC("Timeout1USec",
-                                        link->dhcp6_lease->lifetime_t1 + lease_timestamp_usec),
+                                        usec_add(link->dhcp6_lease->lifetime_t1, lease_timestamp_usec)),
                                 JSON_BUILD_PAIR_FINITE_USEC("Timeout2USec",
-                                        link->dhcp6_lease->lifetime_t2 + lease_timestamp_usec),
+                                        usec_add(link->dhcp6_lease->lifetime_t2, lease_timestamp_usec)),
                                 JSON_BUILD_PAIR_FINITE_USEC("LeaseTimestampUSec",
                                         lease_timestamp_usec)));
         if (r < 0)
