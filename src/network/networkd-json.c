@@ -1130,8 +1130,7 @@ static int dhcp6_client_append_json(Link *link, JsonVariant **v) {
 
 static int dhcp_client_lease_append_json(Link *link, JsonVariant **v) {
         _cleanup_(json_variant_unrefp) JsonVariant *w = NULL;
-        uint32_t t1, t2;
-        uint64_t lease_timestamp_usec;
+        usec_t lease_timestamp_usec, t1, t2;
         int r;
 
         assert(link);
@@ -1154,9 +1153,9 @@ static int dhcp_client_lease_append_json(Link *link, JsonVariant **v) {
 
         r = json_build(&w, JSON_BUILD_OBJECT(
                                 JSON_BUILD_PAIR_FINITE_USEC("Timeout1USec",
-                                                            sec_to_usec(t1, lease_timestamp_usec)),
+                                                            usec_add(t1, lease_timestamp_usec)),
                                 JSON_BUILD_PAIR_FINITE_USEC("Timeout2USec",
-                                                            sec_to_usec(t2, lease_timestamp_usec)),
+                                                            usec_add(t2, lease_timestamp_usec)),
                                 JSON_BUILD_PAIR_FINITE_USEC("LeaseTimestampUSec", lease_timestamp_usec)));
         if (r < 0)
                 return r;
