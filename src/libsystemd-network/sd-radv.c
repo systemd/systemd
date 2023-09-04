@@ -264,8 +264,7 @@ static int radv_recv(sd_event_source *s, int fd, uint32_t revents, void *userdat
         if (r < 0)
                 switch (r) {
                 case -EADDRNOTAVAIL:
-                        log_radv(ra, "Received RS from non-link-local address %s. Ignoring",
-                                 IN6_ADDR_TO_STRING(&src));
+                        log_radv(ra, "Received RS from neither link-local nor null address. Ignoring");
                         return 0;
 
                 case -EMULTIHOP:
@@ -285,6 +284,9 @@ static int radv_recv(sd_event_source *s, int fd, uint32_t revents, void *userdat
                 log_radv(ra, "Too short packet received, ignoring");
                 return 0;
         }
+
+        /* TODO: if the sender address is null, check that the message does not have the source link-layer
+         * address option. See RFC 4861 Section 6.1.1. */
 
         const char *addr = IN6_ADDR_TO_STRING(&src);
 
