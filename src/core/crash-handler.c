@@ -120,21 +120,22 @@ _noreturn_ static void crash(int sig, siginfo_t *siginfo, void *context) {
                                                  LOG_MESSAGE("Caught <%s>, waitpid() failed: %m", signal_to_string(sig)),
                                                  "MESSAGE_ID=" SD_MESSAGE_CRASH_WAITPID_FAILED_STR);
                         else if (status.si_code != CLD_DUMPED) {
-                                const char *s = status.si_code == CLD_EXITED
-                                        ? exit_status_to_string(status.si_status, EXIT_STATUS_LIBC)
-                                        : signal_to_string(status.si_status);
+                                const char *s = status.si_code == CLD_EXITED ?
+                                        exit_status_to_string(status.si_status, EXIT_STATUS_LIBC) :
+                                        signal_to_string(status.si_status);
 
                                 log_struct(LOG_EMERG,
                                            LOG_MESSAGE("Caught <%s>, core dump failed (child "PID_FMT", code=%s, status=%i/%s).",
-                                                   signal_to_string(sig),
-                                                   pid,
-                                                   sigchld_code_to_string(status.si_code),
-                                                   status.si_status, strna(s)),
+                                                       signal_to_string(sig),
+                                                       pid,
+                                                       sigchld_code_to_string(status.si_code),
+                                                       status.si_status,
+                                                       strna(s)),
                                            "MESSAGE_ID=" SD_MESSAGE_CRASH_COREDUMP_FAILED_STR);
                         } else
                                 log_struct(LOG_EMERG,
                                            LOG_MESSAGE("Caught <%s>, dumped core as pid "PID_FMT".",
-                                                   signal_to_string(sig), pid),
+                                                       signal_to_string(sig), pid),
                                            "MESSAGE_ID=" SD_MESSAGE_CRASH_COREDUMP_PID_STR);
                 }
         }
