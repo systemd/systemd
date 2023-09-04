@@ -54,9 +54,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-# Temporarily disabled due to keyring packaging issues
-#          - distro: arch
-#            release: rolling
+          - distro: arch
+            release: rolling
           - distro: debian
             release: testing
           - distro: ubuntu
@@ -102,6 +101,15 @@ jobs:
         ExtraSearchPaths=!*
         QemuVsock=yes
         Ephemeral=yes
+        EOF
+
+        # TODO: Remove once archlinux-keyring is updated in ppa:michel-slm/kernel-utils.
+        tee mkosi.conf.d/11-arch-keyring.conf <<- EOF
+        [Match]
+        Distribution=arch
+
+        [Distribution]
+        RepositoryKeyCheck=no
         EOF
 
         # For erofs, we have to install linux-modules-extra-azure, but that doesn't match the running kernel
