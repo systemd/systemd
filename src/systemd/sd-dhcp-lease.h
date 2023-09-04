@@ -47,9 +47,13 @@ __extension__ typedef enum sd_dhcp_lease_server_type_t {
 } sd_dhcp_lease_server_type_t;
 
 int sd_dhcp_lease_get_address(sd_dhcp_lease *lease, struct in_addr *addr);
+int sd_dhcp_lease_get_timestamp(sd_dhcp_lease *lease, clockid_t clock, uint64_t *ret);
 int sd_dhcp_lease_get_lifetime(sd_dhcp_lease *lease, uint64_t *ret);
 int sd_dhcp_lease_get_t1(sd_dhcp_lease *lease, uint64_t *ret);
 int sd_dhcp_lease_get_t2(sd_dhcp_lease *lease, uint64_t *ret);
+int sd_dhcp_lease_get_lifetime_timestamp(sd_dhcp_lease *lease, clockid_t clock, uint64_t *ret);
+int sd_dhcp_lease_get_t1_timestamp(sd_dhcp_lease *lease, clockid_t clock, uint64_t *ret);
+int sd_dhcp_lease_get_t2_timestamp(sd_dhcp_lease *lease, clockid_t clock, uint64_t *ret);
 int sd_dhcp_lease_get_broadcast(sd_dhcp_lease *lease, struct in_addr *addr);
 int sd_dhcp_lease_get_netmask(sd_dhcp_lease *lease, struct in_addr *addr);
 int sd_dhcp_lease_get_prefix(sd_dhcp_lease *lease, struct in_addr *ret_prefix, uint8_t *ret_prefixlen);
