@@ -29,8 +29,22 @@
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 #include "unaligned.h"
+
+int sd_dhcp_lease_get_timestamp(sd_dhcp_lease *lease, clockid_t clock, uint64_t *ret) {
+        assert_return(lease, -EINVAL);
+        assert_return(TRIPLE_TIMESTAMP_HAS_CLOCK(clock), -EOPNOTSUPP);
+        assert_return(clock_supported(clock), -EOPNOTSUPP);
+        assert_return(ret, -EINVAL);
+
+        if (!triple_timestamp_is_set(&lease->timestamp))
+                return -ENODATA;
+
+        *ret = triple_timestamp_by_clock(&lease->timestamp, clock);
+        return 0;
+}
 
 int sd_dhcp_lease_get_address(sd_dhcp_lease *lease, struct in_addr *addr) {
         assert_return(lease, -EINVAL);
@@ -86,6 +100,33 @@ int sd_dhcp_lease_get_t2(sd_dhcp_lease *lease, uint64_t *ret) {
         *ret = lease->t2;
         return 0;
 }
+
+#define DEFINE_GET_TIMESTAMP(name)                                      \
+        int sd_dhcp_lease_get_##name##_timestamp(                       \
+                        sd_dhcp_lease *lease,                           \
+                        clockid_t clock,                                \
+                        uint64_t *ret) {                                \
+                                                                        \
+                usec_t t, timestamp;                                    \
+                int r;                                                  \
+                                                                        \
+                assert_return(ret, -EINVAL);                            \
+                                                                        \
+                r = sd_dhcp_lease_get_##name(lease, &t);                \
+                if (r < 0)                                              \
+                        return r;                                       \
+                                                                        \
+                r = sd_dhcp_lease_get_timestamp(lease, clock, &timestamp); \
+                if (r < 0)                                              \
+                        return r;                                       \
+                                                                        \
+                *ret = usec_add(t, timestamp);                          \
+                return 0;                                               \
+        }
+
+DEFINE_GET_TIMESTAMP(lifetime);
+DEFINE_GET_TIMESTAMP(t1);
+DEFINE_GET_TIMESTAMP(t2);
 
 int sd_dhcp_lease_get_mtu(sd_dhcp_lease *lease, uint16_t *mtu) {
         assert_return(lease, -EINVAL);

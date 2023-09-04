@@ -910,14 +910,9 @@ static int dhcp4_request_address(Link *link, bool announce) {
                 return log_link_debug_errno(link, r, "DHCP error: failed to get DHCP server IP address: %m");
 
         if (!FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP)) {
-                usec_t now_usec;
-
-                r = sd_dhcp_lease_get_lifetime(link->dhcp_lease, &lifetime_usec);
+                r = sd_dhcp_lease_get_lifetime_timestamp(link->dhcp_lease, CLOCK_BOOTTIME, &lifetime_usec);
                 if (r < 0)
-                        return log_link_warning_errno(link, r, "DHCP error: no lifetime: %m");
-
-                assert_se(sd_event_now(link->manager->event, CLOCK_BOOTTIME, &now_usec) >= 0);
-                lifetime_usec = usec_add(lifetime_usec, now_usec);
+                        return log_link_warning_errno(link, r, "DHCP error: failed to get lifetime: %m");
         } else
                 lifetime_usec = USEC_INFINITY;
 
