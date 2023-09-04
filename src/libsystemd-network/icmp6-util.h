@@ -20,5 +20,9 @@
 int icmp6_bind_router_solicitation(int ifindex);
 int icmp6_bind_router_advertisement(int ifindex);
 int icmp6_send_router_solicitation(int s, const struct ether_addr *ether_addr);
-int icmp6_receive(int fd, void *buffer, size_t size, struct in6_addr *ret_dst,
-                  triple_timestamp *ret_timestamp);
+int icmp6_receive(
+                int fd,
+                void *buffer,
+                size_t size,
+                struct in6_addr *ret_sender,
+                triple_timestamp *ret_timestamp);
