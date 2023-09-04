@@ -51,19 +51,6 @@ bool dhcp_pd_is_uplink(Link *link, Link *target, bool accept_auto) {
         return accept_auto;
 }
 
-bool dhcp6_lease_has_pd_prefix(sd_dhcp6_lease *lease) {
-        uint32_t lifetime_preferred_sec, lifetime_valid_sec;
-        struct in6_addr pd_prefix;
-        uint8_t pd_prefix_len;
-
-        if (!lease)
-                return false;
-
-        sd_dhcp6_lease_reset_pd_prefix_iter(lease);
-
-        return sd_dhcp6_lease_get_pd(lease, &pd_prefix, &pd_prefix_len, &lifetime_preferred_sec, &lifetime_valid_sec) >= 0;
-}
-
 static void link_remove_dhcp_pd_subnet_prefix(Link *link, const struct in6_addr *prefix) {
         void *key;
 
@@ -1154,10 +1141,7 @@ static bool dhcp6_pd_uplink_is_ready(Link *link) {
         if (sd_dhcp6_client_is_running(link->dhcp6_client) <= 0)
                 return false;
 
-        if (!link->dhcp6_lease)
-                return false;
-
-        return dhcp6_lease_has_pd_prefix(link->dhcp6_lease);
+        return sd_dhcp6_lease_has_pd_prefix(link->dhcp6_lease);
 }
 
 int dhcp_pd_find_uplink(Link *link, Link **ret) {
