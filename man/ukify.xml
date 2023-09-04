@@ -155,6 +155,13 @@
     priority and overwrites the config file setting completely. If some setting behaves differently, this is
     described below.</para>
 
+    <para>If no config file is provided via the option <option>--config=<replaceable>PATH</replaceable></option>,
+    <command>ukify</command> will try to look for a default configuration file in the following paths in this
+    order: <filename>/run/systemd/ukify.conf</filename>, <filename>/etc/systemd/ukify.conf</filename>,
+    <filename>/usr/local/lib/systemd/ukify.conf</filename>, and <filename>/etc/systemd/ukify.conf</filename>,
+    and then load the first one found. <command>ukify</command> will proceed normally if no configuration file
+    is specified and no default one is found.</para>
+
     <para>The <replaceable>LINUX</replaceable> and <replaceable>INITRD</replaceable> positional arguments, or
     the equivalent <varname>Linux=</varname> and <varname>Initrd=</varname> settings, are optional. If more
     than one initrd is specified, they will all be combined into a single PE section. This is useful to, for
