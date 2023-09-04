@@ -1,4 +1,5 @@
 # systemctl(1) completion                                 -*- shell-script -*-
+# vi: ft=sh
 # SPDX-License-Identifier: LGPL-2.1-or-later
 #
 # This file is part of systemd.
@@ -103,21 +104,22 @@ __get_reloadable_units () {
         } | sort -u )
 }
 
-__get_failed_units   () { __systemctl $1 list-units "$2*"      \
-                              | { while read -r a b c d; do [[ $c == "failed"   ]] && echo " $a"; done; }; }
-__get_enabled_units  () { __systemctl $1 list-unit-files "$2*" \
-                              | { while read -r a b c  ; do [[ $b == "enabled"  ]] && echo " $a"; done; }; }
-__get_disabled_units () { __systemctl $1 list-unit-files "$2*" \
-                              | { while read -r a b c  ; do [[ $b == "disabled" ]] && echo " $a"; done; }; }
-__get_masked_units   () { __systemctl $1 list-unit-files "$2*" \
-                              | { while read -r a b c  ; do [[ $b == "masked"   ]] && echo " $a"; done; }; }
-__get_all_unit_files () { { __systemctl $1 list-unit-files "$2*"; } | { while read -r a b; do echo " $a"; done; }; }
+__get_failed_units()   { __systemctl $1 list-units "$2*"      \
+                              | while read -r a b c d; do [[ $c == "failed" ]] && echo " $a"; done; }
+__get_enabled_units()  { __systemctl $1 list-unit-files "$2*" \
+                              | while read -r a b c  ; do [[ $b == "enabled" ]] && echo " $a"; done; }
+__get_disabled_units() { __systemctl $1 list-unit-files "$2*" \
+                              | while read -r a b c  ; do [[ $b == "disabled" ]] && echo " $a"; done; }
+__get_masked_units()   { __systemctl $1 list-unit-files "$2*" \
+                              | while read -r a b c  ; do [[ $b == "masked" ]] && echo " $a"; done; }
+__get_all_unit_files() { __systemctl $1 list-unit-files "$2*" | while read -r a b; do echo " $a"; done; }
 
 __get_machines() {
-    local a b
-    { machinectl list --full --max-addresses=0 --no-legend --no-pager 2>/dev/null; echo ".host"; } | \
-	{ while read a b; do echo " $a"; done; } | \
-        sort -u
+    local a
+
+    while read a _; do
+        echo " $a"
+    done < <(machinectl list --full --max-addresses=0 --no-legend --no-pager 2>/dev/null | sort -u; echo ".host")
 }
 
 _systemctl () {
