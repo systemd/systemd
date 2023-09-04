@@ -608,7 +608,11 @@ int ask_password_tty(
                                         if (FLAGS_SET(flags, ASK_PASSWORD_ECHO))
                                                 (void) loop_write(ttyfd, passphrase + codepoint, n, false);
                                         else
-                                                (void) loop_write(ttyfd, "*", 1, false);
+                                                (void) loop_write(
+                                                                ttyfd,
+                                                                special_glyph(SPECIAL_GLYPH_BULLET),
+                                                                SIZE_MAX,
+                                                                false);
                                         codepoint = p;
                                 }
                         }
