@@ -1623,8 +1623,8 @@ int config_parse_router_home_agent_lifetime(
         if (usec == USEC_INFINITY || usec == 0 ||
             DIV_ROUND_UP(usec, USEC_PER_SEC) > RADV_MAX_HOME_AGENT_LIFETIME_USEC) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Invalid %s= must be in the range 1...%lu seconds, ignoring: %s", lvalue,
-                           RADV_MAX_HOME_AGENT_LIFETIME_USEC / USEC_PER_SEC, rvalue);
+                           "Invalid %s= must be in the range 1…%s, ignoring: %s", lvalue,
+                           FORMAT_TIMESPAN(RADV_MAX_HOME_AGENT_LIFETIME_USEC, USEC_PER_SEC), rvalue);
                 return 0;
         }
 
