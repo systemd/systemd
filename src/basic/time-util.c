@@ -156,6 +156,25 @@ triple_timestamp* triple_timestamp_from_realtime(triple_timestamp *ts, usec_t u)
         return ts;
 }
 
+triple_timestamp* triple_timestamp_from_boottime(triple_timestamp *ts, usec_t u) {
+        usec_t nowb;
+
+        assert(ts);
+
+        if (u == USEC_INFINITY) {
+                ts->realtime = ts->monotonic = ts->boottime = u;
+                return ts;
+        }
+
+        nowb = now(CLOCK_BOOTTIME);
+
+        ts->boottime = u;
+        ts->monotonic = map_clock_usec_internal(u, nowb, now(CLOCK_MONOTONIC));
+        ts->realtime = map_clock_usec_internal(u, nowb, now(CLOCK_REALTIME));
+
+        return ts;
+}
+
 dual_timestamp* dual_timestamp_from_monotonic(dual_timestamp *ts, usec_t u) {
         assert(ts);
 

@@ -86,6 +86,7 @@ dual_timestamp* dual_timestamp_from_boottime(dual_timestamp *ts, usec_t u);
 
 triple_timestamp* triple_timestamp_get(triple_timestamp *ts);
 triple_timestamp* triple_timestamp_from_realtime(triple_timestamp *ts, usec_t u);
+triple_timestamp* triple_timestamp_from_boottime(triple_timestamp *ts, usec_t u);
 
 #define DUAL_TIMESTAMP_HAS_CLOCK(clock)                               \
         IN_SET(clock, CLOCK_REALTIME, CLOCK_REALTIME_ALARM, CLOCK_MONOTONIC)
