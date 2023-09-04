@@ -317,11 +317,11 @@ static int dhcp6_lease_ip_acquired(sd_dhcp6_client *client, Link *link) {
         if (r < 0)
                 return r;
 
-        if (dhcp6_lease_has_pd_prefix(lease)) {
+        if (sd_dhcp6_lease_has_pd_prefix(lease)) {
                 r = dhcp6_pd_prefix_acquired(link);
                 if (r < 0)
                         return r;
-        } else if (dhcp6_lease_has_pd_prefix(lease_old))
+        } else if (sd_dhcp6_lease_has_pd_prefix(lease_old))
                 /* When we had PD prefixes but not now, we need to remove them. */
                 dhcp_pd_prefix_lost(link);
 
@@ -353,7 +353,7 @@ static int dhcp6_lease_lost(Link *link) {
 
         log_link_info(link, "DHCPv6 lease lost");
 
-        if (dhcp6_lease_has_pd_prefix(link->dhcp6_lease))
+        if (sd_dhcp6_lease_has_pd_prefix(link->dhcp6_lease))
                 dhcp_pd_prefix_lost(link);
 
         link->dhcp6_lease = sd_dhcp6_lease_unref(link->dhcp6_lease);
