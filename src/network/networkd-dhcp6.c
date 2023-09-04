@@ -3,9 +3,8 @@
   Copyright © 2014 Intel Corporation. All rights reserved.
 ***/
 
-#include "sd-dhcp6-client.h"
-
 #include "dhcp6-client-internal.h"
+#include "dhcp6-lease-internal.h"
 #include "hashmap.h"
 #include "hostname-setup.h"
 #include "hostname-util.h"
@@ -242,7 +241,6 @@ static int dhcp6_request_address(
 
 static int dhcp6_address_acquired(Link *link) {
         struct in6_addr server_address;
-        usec_t timestamp_usec;
         int r;
 
         assert(link);
@@ -256,21 +254,22 @@ static int dhcp6_address_acquired(Link *link) {
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to get server address of DHCPv6 lease: %m");
 
-        r = sd_dhcp6_lease_get_timestamp(link->dhcp6_lease, CLOCK_BOOTTIME, &timestamp_usec);
-        if (r < 0)
-                return log_link_warning_errno(link, r, "Failed to get timestamp of DHCPv6 lease: %m");
-
-        for (sd_dhcp6_lease_reset_address_iter(link->dhcp6_lease);;) {
-                uint32_t lifetime_preferred_sec, lifetime_valid_sec;
+        FOREACH_DHCP6_ADDRESS(link->dhcp6_lease) {
+                usec_t lifetime_preferred_usec, lifetime_valid_usec;
                 struct in6_addr ip6_addr;
 
-                r = sd_dhcp6_lease_get_address(link->dhcp6_lease, &ip6_addr, &lifetime_preferred_sec, &lifetime_valid_sec);
+                r = sd_dhcp6_lease_get_address(link->dhcp6_lease, &ip6_addr);
                 if (r < 0)
-                        break;
+                        return r;
+
+                r = sd_dhcp6_lease_get_address_lifetime_timestamp(link->dhcp6_lease, CLOCK_BOOTTIME,
+                                                                  &lifetime_preferred_usec, &lifetime_valid_usec);
+                if (r < 0)
+                        return r;
 
                 r = dhcp6_request_address(link, &server_address, &ip6_addr,
-                                          sec_to_usec(lifetime_preferred_sec, timestamp_usec),
-                                          sec_to_usec(lifetime_valid_sec, timestamp_usec));
+                                          lifetime_preferred_usec,
+                                          lifetime_valid_usec);
                 if (r < 0)
                         return r;
         }

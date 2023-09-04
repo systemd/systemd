@@ -893,7 +893,7 @@ static void test_lease_common(sd_dhcp6_client *client) {
 static void test_lease_managed(sd_dhcp6_client *client) {
         sd_dhcp6_lease *lease;
         struct in6_addr addr;
-        uint32_t lt_pref, lt_valid;
+        usec_t lt_pref, lt_valid;
         uint8_t *id, prefixlen;
         size_t len;
 
@@ -905,53 +905,37 @@ static void test_lease_managed(sd_dhcp6_client *client) {
         assert_se(sd_dhcp6_lease_has_address(lease));
         assert_se(sd_dhcp6_lease_has_pd_prefix(lease));
 
-        sd_dhcp6_lease_reset_address_iter(lease);
-        assert_se(sd_dhcp6_lease_get_address(lease, &addr, &lt_pref, &lt_valid) >= 0);
-        assert_se(in6_addr_equal(&addr, &ia_na_address1));
-        assert_se(lt_pref == 150);
-        assert_se(lt_valid == 180);
-        assert_se(sd_dhcp6_lease_get_address(lease, &addr, &lt_pref, &lt_valid) >= 0);
-        assert_se(in6_addr_equal(&addr, &ia_na_address2));
-        assert_se(lt_pref == 150);
-        assert_se(lt_valid == 180);
-        assert_se(sd_dhcp6_lease_get_address(lease, &addr, &lt_pref, &lt_valid) == -ENODATA);
+        for (unsigned i = 0; i < 2; i++) {
+                assert_se(sd_dhcp6_lease_address_iterator_reset(lease));
+                assert_se(sd_dhcp6_lease_get_address(lease, &addr) >= 0);
+                assert_se(sd_dhcp6_lease_get_address_lifetime(lease, &lt_pref, &lt_valid) >= 0);
+                assert_se(in6_addr_equal(&addr, &ia_na_address1));
+                assert_se(lt_pref == 150 * USEC_PER_SEC);
+                assert_se(lt_valid == 180 * USEC_PER_SEC);
+                assert_se(sd_dhcp6_lease_address_iterator_next(lease));
+                assert_se(sd_dhcp6_lease_get_address(lease, &addr) >= 0);
+                assert_se(sd_dhcp6_lease_get_address_lifetime(lease, &lt_pref, &lt_valid) >= 0);
+                assert_se(in6_addr_equal(&addr, &ia_na_address2));
+                assert_se(lt_pref == 150 * USEC_PER_SEC);
+                assert_se(lt_valid == 180 * USEC_PER_SEC);
+                assert_se(!sd_dhcp6_lease_address_iterator_next(lease));
 
-        sd_dhcp6_lease_reset_address_iter(lease);
-        assert_se(sd_dhcp6_lease_get_address(lease, &addr, &lt_pref, &lt_valid) >= 0);
-        assert_se(in6_addr_equal(&addr, &ia_na_address1));
-        assert_se(lt_pref == 150);
-        assert_se(lt_valid == 180);
-        assert_se(sd_dhcp6_lease_get_address(lease, &addr, &lt_pref, &lt_valid) >= 0);
-        assert_se(in6_addr_equal(&addr, &ia_na_address2));
-        assert_se(lt_pref == 150);
-        assert_se(lt_valid == 180);
-        assert_se(sd_dhcp6_lease_get_address(lease, &addr, &lt_pref, &lt_valid) == -ENODATA);
-
-        sd_dhcp6_lease_reset_pd_prefix_iter(lease);
-        assert_se(sd_dhcp6_lease_get_pd(lease, &addr, &prefixlen, &lt_pref, &lt_valid) >= 0);
-        assert_se(in6_addr_equal(&addr, &ia_pd_prefix1));
-        assert_se(prefixlen == 64);
-        assert_se(lt_pref == 150);
-        assert_se(lt_valid == 180);
-        assert_se(sd_dhcp6_lease_get_pd(lease, &addr, &prefixlen, &lt_pref, &lt_valid) >= 0);
-        assert_se(in6_addr_equal(&addr, &ia_pd_prefix2));
-        assert_se(prefixlen == 64);
-        assert_se(lt_pref == 150);
-        assert_se(lt_valid == 180);
-        assert_se(sd_dhcp6_lease_get_address(lease, &addr, &lt_pref, &lt_valid) == -ENODATA);
-
-        sd_dhcp6_lease_reset_pd_prefix_iter(lease);
-        assert_se(sd_dhcp6_lease_get_pd(lease, &addr, &prefixlen, &lt_pref, &lt_valid) >= 0);
-        assert_se(in6_addr_equal(&addr, &ia_pd_prefix1));
-        assert_se(prefixlen == 64);
-        assert_se(lt_pref == 150);
-        assert_se(lt_valid == 180);
-        assert_se(sd_dhcp6_lease_get_pd(lease, &addr, &prefixlen, &lt_pref, &lt_valid) >= 0);
-        assert_se(in6_addr_equal(&addr, &ia_pd_prefix2));
-        assert_se(prefixlen == 64);
-        assert_se(lt_pref == 150);
-        assert_se(lt_valid == 180);
-        assert_se(sd_dhcp6_lease_get_address(lease, &addr, &lt_pref, &lt_valid) == -ENODATA);
+                assert_se(sd_dhcp6_lease_pd_iterator_reset(lease));
+                assert_se(sd_dhcp6_lease_get_pd_prefix(lease, &addr, &prefixlen) >= 0);
+                assert_se(sd_dhcp6_lease_get_pd_lifetime(lease, &lt_pref, &lt_valid) >= 0);
+                assert_se(in6_addr_equal(&addr, &ia_pd_prefix1));
+                assert_se(prefixlen == 64);
+                assert_se(lt_pref == 150 * USEC_PER_SEC);
+                assert_se(lt_valid == 180 * USEC_PER_SEC);
+                assert_se(sd_dhcp6_lease_pd_iterator_next(lease));
+                assert_se(sd_dhcp6_lease_get_pd_prefix(lease, &addr, &prefixlen) >= 0);
+                assert_se(sd_dhcp6_lease_get_pd_lifetime(lease, &lt_pref, &lt_valid) >= 0);
+                assert_se(in6_addr_equal(&addr, &ia_pd_prefix2));
+                assert_se(prefixlen == 64);
+                assert_se(lt_pref == 150 * USEC_PER_SEC);
+                assert_se(lt_valid == 180 * USEC_PER_SEC);
+                assert_se(!sd_dhcp6_lease_pd_iterator_next(lease));
+        }
 
         test_lease_common(client);
 }
