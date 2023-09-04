@@ -12,6 +12,10 @@
 #include "macro.h"
 #include "sparse-endian.h"
 
+/* rfc8925 - IPv6-Only Preferred Option for DHCPv4 3.4.
+ * MIN_V6ONLY_WAIT: The lower boundary for V6ONLY_WAIT. Value: 300 seconds */
+#define MIN_V6ONLY_WAIT_USEC (300 * USEC_PER_SEC)
+
 struct DHCPMessage {
         uint8_t op;
         uint8_t htype;
