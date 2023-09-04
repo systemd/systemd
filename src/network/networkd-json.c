@@ -934,11 +934,14 @@ static int pref64_append_json(Link *link, JsonVariant **v) {
                 return 0;
 
         SET_FOREACH(i, link->ndisc_pref64) {
-                r = json_build(&array, JSON_BUILD_OBJECT(
-                                               JSON_BUILD_PAIR_IN6_ADDR_NON_NULL("Prefix", &i->prefix),
-                                               JSON_BUILD_PAIR_UNSIGNED("PrefixLength", i->prefix_len),
-                                               JSON_BUILD_PAIR_FINITE_USEC("LifetimeUSec", i->lifetime_usec),
-                                               JSON_BUILD_PAIR_IN6_ADDR_NON_NULL("ConfigProvider", &i->router)));
+                _cleanup_(json_variant_unrefp) JsonVariant *e = NULL;
+
+                r = json_variant_append_arrayb(&array,
+                                               JSON_BUILD_OBJECT(
+                                                               JSON_BUILD_PAIR_IN6_ADDR_NON_NULL("Prefix", &i->prefix),
+                                                               JSON_BUILD_PAIR_UNSIGNED("PrefixLength", i->prefix_len),
+                                                               JSON_BUILD_PAIR_FINITE_USEC("LifetimeUSec", i->lifetime_usec),
+                                                               JSON_BUILD_PAIR_IN6_ADDR_NON_NULL("ConfigProvider", &i->router)));
                 if (r < 0)
                         return r;
         }
