@@ -716,18 +716,6 @@ int sd_dhcp_client_get_lease(sd_dhcp_client *client, sd_dhcp_lease **ret) {
         return 0;
 }
 
-int sd_dhcp_client_get_lease_timestamp(sd_dhcp_client *client, uint64_t *timestamp) {
-        assert_return(client, -EINVAL);
-
-        if (!IN_SET(client->state, DHCP_STATE_BOUND, DHCP_STATE_RENEWING, DHCP_STATE_REBINDING))
-                return -ENODATA;
-
-        if(timestamp)
-                *timestamp = client->request_sent;
-
-        return 0;
-}
-
 int sd_dhcp_client_set_service_type(sd_dhcp_client *client, int type) {
         assert_return(client, -EINVAL);
         assert_return(!sd_dhcp_client_is_running(client), -EBUSY);
@@ -1726,6 +1714,8 @@ static int client_set_lease_timeouts(sd_dhcp_client *client) {
         assert(client->event);
         assert(client->lease);
         assert(client->lease->lifetime > 0);
+
+        triple_timestamp_from_boottime(&client->lease->timestamp, client->request_sent);
 
         /* don't set timers for infinite leases */
         if (client->lease->lifetime == USEC_INFINITY) {
