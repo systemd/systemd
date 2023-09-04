@@ -372,6 +372,10 @@ int sd_dhcp_lease_get_6rd(
         return 0;
 }
 
+int sd_dhcp_lease_has_6rd(sd_dhcp_lease *lease) {
+        return lease && lease->sixrd_n_br_addresses > 0;
+}
+
 int sd_dhcp_lease_get_vendor_specific(sd_dhcp_lease *lease, const void **data, size_t *data_len) {
         assert_return(lease, -EINVAL);
         assert_return(data, -EINVAL);
