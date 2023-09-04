@@ -242,6 +242,10 @@ struct Network {
         OrderedSet *router_search_domains;
         int router_uplink_index;
         char *router_uplink_name;
+        /* Mobile IPv6 Home Agent */
+        bool router_home_agent_information;
+        uint16_t router_home_agent_preference;
+        usec_t home_agent_lifetime_usec;
 
         /* DHCP Prefix Delegation support */
         int dhcp_pd;
