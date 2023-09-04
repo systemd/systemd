@@ -330,6 +330,7 @@ int sd_dhcp_client_send_release(sd_dhcp_client *client);
 int sd_dhcp_client_send_decline(sd_dhcp_client *client);
 int sd_dhcp_client_send_renew(sd_dhcp_client *client);
 int sd_dhcp_client_get_lease_timestamp(sd_dhcp_client *client, uint64_t *timestamp);
+int sd_dhcp_client_initialize_timeout_ipv6_only_mode(sd_dhcp_client *client, uint32_t delay);
 
 sd_dhcp_client *sd_dhcp_client_ref(sd_dhcp_client *client);
 sd_dhcp_client *sd_dhcp_client_unref(sd_dhcp_client *client);
