@@ -54,36 +54,36 @@ int sd_dhcp_lease_get_broadcast(sd_dhcp_lease *lease, struct in_addr *addr) {
         return 0;
 }
 
-int sd_dhcp_lease_get_lifetime(sd_dhcp_lease *lease, uint32_t *lifetime) {
+int sd_dhcp_lease_get_lifetime(sd_dhcp_lease *lease, uint64_t *ret) {
         assert_return(lease, -EINVAL);
-        assert_return(lifetime, -EINVAL);
+        assert_return(ret, -EINVAL);
 
         if (lease->lifetime <= 0)
                 return -ENODATA;
 
-        *lifetime = lease->lifetime;
+        *ret = lease->lifetime;
         return 0;
 }
 
-int sd_dhcp_lease_get_t1(sd_dhcp_lease *lease, uint32_t *t1) {
+int sd_dhcp_lease_get_t1(sd_dhcp_lease *lease, uint64_t *ret) {
         assert_return(lease, -EINVAL);
-        assert_return(t1, -EINVAL);
+        assert_return(ret, -EINVAL);
 
         if (lease->t1 <= 0)
                 return -ENODATA;
 
-        *t1 = lease->t1;
+        *ret = lease->t1;
         return 0;
 }
 
-int sd_dhcp_lease_get_t2(sd_dhcp_lease *lease, uint32_t *t2) {
+int sd_dhcp_lease_get_t2(sd_dhcp_lease *lease, uint64_t *ret) {
         assert_return(lease, -EINVAL);
-        assert_return(t2, -EINVAL);
+        assert_return(ret, -EINVAL);
 
         if (lease->t2 <= 0)
                 return -ENODATA;
 
-        *t2 = lease->t2;
+        *ret = lease->t2;
         return 0;
 }
 
@@ -389,6 +389,25 @@ static int lease_parse_u32(const uint8_t *option, size_t len, uint32_t *ret, uin
         return 0;
 }
 
+static int lease_parse_u32_seconds(const uint8_t *option, size_t len, usec_t *ret) {
+        uint32_t val;
+        int r;
+
+        assert(option);
+        assert(ret);
+
+        r = lease_parse_u32(option, len, &val, 1);
+        if (r < 0)
+                return r;
+
+        if (val == UINT32_MAX)
+                *ret = USEC_INFINITY;
+        else
+                *ret = val * USEC_PER_SEC;
+
+        return 0;
+}
+
 static int lease_parse_u16(const uint8_t *option, size_t len, uint16_t *ret, uint16_t min) {
         assert(option);
         assert(ret);
@@ -658,7 +677,7 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void
         switch (code) {
 
         case SD_DHCP_OPTION_IP_ADDRESS_LEASE_TIME:
-                r = lease_parse_u32(option, len, &lease->lifetime, 1);
+                r = lease_parse_u32_seconds(option, len, &lease->lifetime);
                 if (r < 0)
                         log_debug_errno(r, "Failed to parse lease time, ignoring: %m");
 
@@ -783,13 +802,13 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void
                 break;
 
         case SD_DHCP_OPTION_RENEWAL_TIME:
-                r = lease_parse_u32(option, len, &lease->t1, 1);
+                r = lease_parse_u32_seconds(option, len, &lease->t1);
                 if (r < 0)
                         log_debug_errno(r, "Failed to parse T1 time, ignoring: %m");
                 break;
 
         case SD_DHCP_OPTION_REBINDING_TIME:
-                r = lease_parse_u32(option, len, &lease->t2, 1);
+                r = lease_parse_u32_seconds(option, len, &lease->t2);
                 if (r < 0)
                         log_debug_errno(r, "Failed to parse T2 time, ignoring: %m");
                 break;
@@ -1002,7 +1021,7 @@ int dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file) {
         uint16_t mtu;
         _cleanup_free_ sd_dhcp_route **routes = NULL;
         char **search_domains;
-        uint32_t t1, t2, lifetime;
+        usec_t t;
         int r;
 
         assert(lease);
@@ -1048,17 +1067,17 @@ int dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file) {
         if (r >= 0)
                 fprintf(f, "MTU=%" PRIu16 "\n", mtu);
 
-        r = sd_dhcp_lease_get_t1(lease, &t1);
+        r = sd_dhcp_lease_get_t1(lease, &t);
         if (r >= 0)
-                fprintf(f, "T1=%" PRIu32 "\n", t1);
+                fprintf(f, "T1=%s\n", FORMAT_TIMESPAN(t, USEC_PER_SEC));
 
-        r = sd_dhcp_lease_get_t2(lease, &t2);
+        r = sd_dhcp_lease_get_t2(lease, &t);
         if (r >= 0)
-                fprintf(f, "T2=%" PRIu32 "\n", t2);
+                fprintf(f, "T2=%s\n", FORMAT_TIMESPAN(t, USEC_PER_SEC));
 
-        r = sd_dhcp_lease_get_lifetime(lease, &lifetime);
+        r = sd_dhcp_lease_get_lifetime(lease, &t);
         if (r >= 0)
-                fprintf(f, "LIFETIME=%" PRIu32 "\n", lifetime);
+                fprintf(f, "LIFETIME=%s\n", FORMAT_TIMESPAN(t, USEC_PER_SEC));
 
         r = sd_dhcp_lease_get_dns(lease, &addresses);
         if (r > 0) {
@@ -1390,19 +1409,19 @@ int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
         }
 
         if (lifetime) {
-                r = safe_atou32(lifetime, &lease->lifetime);
+                r = parse_sec(lifetime, &lease->lifetime);
                 if (r < 0)
                         log_debug_errno(r, "Failed to parse lifetime %s, ignoring: %m", lifetime);
         }
 
         if (t1) {
-                r = safe_atou32(t1, &lease->t1);
+                r = parse_sec(t1, &lease->t1);
                 if (r < 0)
                         log_debug_errno(r, "Failed to parse T1 %s, ignoring: %m", t1);
         }
 
         if (t2) {
-                r = safe_atou32(t2, &lease->t2);
+                r = parse_sec(t2, &lease->t2);
                 if (r < 0)
                         log_debug_errno(r, "Failed to parse T2 %s, ignoring: %m", t2);
         }
