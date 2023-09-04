@@ -71,7 +71,7 @@
 /* rfc6275 7.4 Neighbor Discovery Home Agent Lifetime.
  * The default value is the same as the Router Lifetime
  * The maximum value corresponds to 18.2 hours. value of 0 MUST NOT be used.*/
-#define RADV_MAX_HOME_AGENT_LIFETIME_USEC (65535 * USEC_PER_SEC)
+#define RADV_MAX_HOME_AGENT_LIFETIME_USEC (65535ULL * USEC_PER_SEC)
 
 enum RAdvState {
         RADV_STATE_IDLE                      = 0,
