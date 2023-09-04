@@ -9,39 +9,9 @@
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "fuzz.h"
-#include "icmp6-util.h"
+#include "icmp6-util-unix.h"
 #include "ndisc-internal.h"
 #include "socket-util.h"
-
-static int test_fd[2] = PIPE_EBADF;
-
-int icmp6_bind_router_solicitation(int index) {
-        assert_se(socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, test_fd) >= 0);
-        return test_fd[0];
-}
-
-int icmp6_bind_router_advertisement(int index) {
-        return -ENOSYS;
-}
-
-int icmp6_receive(
-                int fd,
-                void *iov_base,
-                size_t iov_len,
-                struct in6_addr *ret_sendor,
-                triple_timestamp *ret_timestamp) {
-
-        assert_se(read(fd, iov_base, iov_len) == (ssize_t) iov_len);
-
-        if (ret_timestamp)
-                triple_timestamp_get(ret_timestamp);
-
-        return 0;
-}
-
-int icmp6_send_router_solicitation(int s, const struct ether_addr *ether_addr) {
-        return 0;
-}
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         struct ether_addr mac_addr = {

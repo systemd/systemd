@@ -12,7 +12,7 @@
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "hexdecoct.h"
-#include "icmp6-util.h"
+#include "icmp6-util-unix.h"
 #include "socket-util.h"
 #include "strv.h"
 #include "ndisc-internal.h"
@@ -23,11 +23,7 @@ static struct ether_addr mac_addr = {
 };
 
 static bool verbose = false;
-static int test_fd[2];
 static sd_ndisc *test_timeout_nd;
-
-typedef int (*send_ra_t)(uint8_t flags);
-static send_ra_t send_ra_function;
 
 static void router_dump(sd_ndisc_router *rt) {
         struct in6_addr addr;
@@ -163,34 +159,6 @@ static void router_dump(sd_ndisc_router *rt) {
         }
 }
 
-int icmp6_bind_router_solicitation(int ifindex) {
-        assert_se(ifindex == 42);
-
-        if (socketpair(AF_UNIX, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, test_fd) < 0)
-                return -errno;
-
-        return test_fd[0];
-}
-
-int icmp6_bind_router_advertisement(int ifindex) {
-        return -ENOSYS;
-}
-
-int icmp6_receive(
-                int fd,
-                void *iov_base,
-                size_t iov_len,
-                struct in6_addr *ret_sendor,
-                triple_timestamp *ret_timestamp) {
-
-        assert_se(read (fd, iov_base, iov_len) == (ssize_t)iov_len);
-
-        if (ret_timestamp)
-                triple_timestamp_get(ret_timestamp);
-
-        return 0;
-}
-
 static int send_ra(uint8_t flags) {
         uint8_t advertisement[] = {
                 0x86, 0x00, 0xde, 0x83, 0x40, 0xc0, 0x00, 0xb4,
@@ -217,13 +185,6 @@ static int send_ra(uint8_t flags) {
                 printf("  sent RA with flag 0x%02x\n", flags);
 
         return 0;
-}
-
-int icmp6_send_router_solicitation(int s, const struct ether_addr *ether_addr) {
-        if (!send_ra_function)
-                return 0;
-
-        return send_ra_function(0);
 }
 
 static void test_callback(sd_ndisc *nd, sd_ndisc_event_t event, sd_ndisc_router *rt, void *userdata) {
