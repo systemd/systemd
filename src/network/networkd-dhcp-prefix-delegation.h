@@ -14,7 +14,6 @@ bool link_dhcp_pd_is_enabled(Link *link);
 bool dhcp_pd_is_uplink(Link *link, Link *target, bool accept_auto);
 int dhcp_pd_find_uplink(Link *link, Link **ret);
 bool dhcp4_lease_has_pd_prefix(sd_dhcp_lease *lease);
-bool dhcp6_lease_has_pd_prefix(sd_dhcp6_lease *lease);
 int dhcp_pd_remove(Link *link, bool only_marked);
 int dhcp_request_prefix_delegation(Link *link);
 int dhcp4_pd_prefix_acquired(Link *uplink);

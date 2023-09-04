@@ -58,19 +58,6 @@ bool dhcp4_lease_has_pd_prefix(sd_dhcp_lease *lease) {
         return sd_dhcp_lease_get_6rd(lease, NULL, NULL, NULL, NULL, NULL) >= 0;
 }
 
-bool dhcp6_lease_has_pd_prefix(sd_dhcp6_lease *lease) {
-        uint32_t lifetime_preferred_sec, lifetime_valid_sec;
-        struct in6_addr pd_prefix;
-        uint8_t pd_prefix_len;
-
-        if (!lease)
-                return false;
-
-        sd_dhcp6_lease_reset_pd_prefix_iter(lease);
-
-        return sd_dhcp6_lease_get_pd(lease, &pd_prefix, &pd_prefix_len, &lifetime_preferred_sec, &lifetime_valid_sec) >= 0;
-}
-
 static void link_remove_dhcp_pd_subnet_prefix(Link *link, const struct in6_addr *prefix) {
         void *key;
 
@@ -855,7 +842,6 @@ static int dhcp4_pd_assign_subnet_prefix(Link *link, Link *uplink) {
         struct in6_addr sixrd_prefix, pd_prefix;
         const struct in_addr *br_addresses;
         struct in_addr ipv4address;
-        uint32_t lifetime_sec;
         usec_t lifetime_usec, now_usec;
         int r;
 
@@ -868,12 +854,12 @@ static int dhcp4_pd_assign_subnet_prefix(Link *link, Link *uplink) {
         if (r < 0)
                 return log_link_warning_errno(uplink, r, "Failed to get DHCPv4 address: %m");
 
-        r = sd_dhcp_lease_get_lifetime(uplink->dhcp_lease, &lifetime_sec);
+        r = sd_dhcp_lease_get_lifetime(uplink->dhcp_lease, &lifetime_usec);
         if (r < 0)
                 return log_link_warning_errno(uplink, r, "Failed to get lifetime of DHCPv4 lease: %m");
 
         assert_se(sd_event_now(uplink->manager->event, CLOCK_BOOTTIME, &now_usec) >= 0);
-        lifetime_usec = sec_to_usec(lifetime_sec, now_usec);
+        lifetime_usec = usec_add(lifetime_usec, now_usec);
 
         r = sd_dhcp_lease_get_6rd(uplink->dhcp_lease, &ipv4masklen, &sixrd_prefixlen, &sixrd_prefix, &br_addresses, NULL);
         if (r < 0)
@@ -929,7 +915,6 @@ int dhcp4_pd_prefix_acquired(Link *uplink) {
         struct in_addr ipv4address;
         union in_addr_union server_address;
         const struct in_addr *br_addresses;
-        uint32_t lifetime_sec;
         usec_t lifetime_usec, now_usec;
         Link *link;
         int r;
@@ -942,12 +927,12 @@ int dhcp4_pd_prefix_acquired(Link *uplink) {
         if (r < 0)
                 return log_link_warning_errno(uplink, r, "Failed to get DHCPv4 address: %m");
 
-        r = sd_dhcp_lease_get_lifetime(uplink->dhcp_lease, &lifetime_sec);
+        r = sd_dhcp_lease_get_lifetime(uplink->dhcp_lease, &lifetime_usec);
         if (r < 0)
                 return log_link_warning_errno(uplink, r, "Failed to get lifetime of DHCPv4 lease: %m");
 
         assert_se(sd_event_now(uplink->manager->event, CLOCK_BOOTTIME, &now_usec) >= 0);
-        lifetime_usec = sec_to_usec(lifetime_sec, now_usec);
+        lifetime_usec = usec_add(lifetime_usec, now_usec);
 
         r = sd_dhcp_lease_get_server_identifier(uplink->dhcp_lease, &server_address.in);
         if (r < 0)
@@ -1037,12 +1022,12 @@ static int dhcp6_pd_assign_subnet_prefixes(Link *link, Link *uplink) {
                 return r;
 
         for (sd_dhcp6_lease_reset_pd_prefix_iter(uplink->dhcp6_lease);;) {
-                uint32_t lifetime_preferred_sec, lifetime_valid_sec;
+                usec_t lifetime_preferred_usec, lifetime_valid_usec;
                 struct in6_addr pd_prefix;
                 uint8_t pd_prefix_len;
 
                 r = sd_dhcp6_lease_get_pd(uplink->dhcp6_lease, &pd_prefix, &pd_prefix_len,
-                                          &lifetime_preferred_sec, &lifetime_valid_sec);
+                                          &lifetime_preferred_usec, &lifetime_valid_usec);
                 if (r < 0)
                         break;
 
@@ -1055,8 +1040,8 @@ static int dhcp6_pd_assign_subnet_prefixes(Link *link, Link *uplink) {
                         return r;
 
                 r = dhcp_pd_assign_subnet_prefix(link, &pd_prefix, pd_prefix_len,
-                                                 sec_to_usec(lifetime_preferred_sec, timestamp_usec),
-                                                 sec_to_usec(lifetime_valid_sec, timestamp_usec),
+                                                 timespan_to_timestamp(lifetime_preferred_usec, timestamp_usec),
+                                                 timespan_to_timestamp(lifetime_valid_usec, timestamp_usec),
                                                  /* is_uplink = */ link == uplink);
                 if (r < 0)
                         return r;
@@ -1084,12 +1069,12 @@ int dhcp6_pd_prefix_acquired(Link *uplink) {
 
         /* First, logs acquired prefixes and request unreachable routes. */
         for (sd_dhcp6_lease_reset_pd_prefix_iter(uplink->dhcp6_lease);;) {
-                uint32_t lifetime_preferred_sec, lifetime_valid_sec;
+                usec_t lifetime_preferred_usec, lifetime_valid_usec;
                 struct in6_addr pd_prefix;
                 uint8_t pd_prefix_len;
 
                 r = sd_dhcp6_lease_get_pd(uplink->dhcp6_lease, &pd_prefix, &pd_prefix_len,
-                                          &lifetime_preferred_sec, &lifetime_valid_sec);
+                                          &lifetime_preferred_usec, &lifetime_valid_usec);
                 if (r < 0)
                         break;
 
@@ -1103,7 +1088,7 @@ int dhcp6_pd_prefix_acquired(Link *uplink) {
                         return r;
 
                 r = dhcp6_request_unreachable_route(uplink, &pd_prefix, pd_prefix_len,
-                                                    sec_to_usec(lifetime_valid_sec, timestamp_usec),
+                                                    timespan_to_timestamp(lifetime_valid_usec, timestamp_usec),
                                                     &server_address);
                 if (r < 0)
                         return r;
@@ -1175,7 +1160,7 @@ static bool dhcp6_pd_uplink_is_ready(Link *link) {
         if (!link->dhcp6_lease)
                 return false;
 
-        return dhcp6_lease_has_pd_prefix(link->dhcp6_lease);
+        return sd_dhcp6_lease_has_pd_prefix(link->dhcp6_lease);
 }
 
 int dhcp_pd_find_uplink(Link *link, Link **ret) {

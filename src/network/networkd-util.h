@@ -36,6 +36,13 @@ typedef enum NetworkConfigState {
         NETWORK_CONFIG_STATE_REMOVING    = 1 << 4, /* e.g. address_remove() is called, but no response is received yet */
 } NetworkConfigState;
 
+static inline usec_t timespan_to_timestamp(usec_t span, usec_t base) {
+        if (span == 0)
+                return 0;
+
+        return usec_add(base, span);
+}
+
 static inline usec_t sec_to_usec(uint32_t sec, usec_t timestamp_usec) {
         return
                 sec == 0 ? 0 :
