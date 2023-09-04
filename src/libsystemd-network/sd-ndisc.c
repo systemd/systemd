@@ -225,7 +225,7 @@ static int ndisc_recv(sd_event_source *s, int fd, uint32_t revents, void *userda
         if (r < 0)
                 switch (r) {
                 case -EADDRNOTAVAIL:
-                        log_ndisc(nd, "Received RA from non-link-local address. Ignoring.");
+                        log_ndisc(nd, "Received RA from neither link-local nor null address. Ignoring.");
                         return 0;
 
                 case -EMULTIHOP:
@@ -240,6 +240,11 @@ static int ndisc_recv(sd_event_source *s, int fd, uint32_t revents, void *userda
                         log_ndisc_errno(nd, r, "Unexpected error while reading from ICMPv6, ignoring: %m");
                         return 0;
                 }
+
+        /* The function icmp6_receive() accepts the null source address, but RFC 4861 Section 6.1.2 states
+         * that hosts MUST discard messages with the null source address. */
+        if (in6_addr_is_null(&rt->address))
+                log_ndisc(nd, "Received RA from null address. Ignoring.");
 
         (void) event_source_disable(nd->timeout_event_source);
         (void) ndisc_handle_datagram(nd, rt);
