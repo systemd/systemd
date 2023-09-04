@@ -902,6 +902,9 @@ static void test_lease_managed(sd_dhcp6_client *client) {
         assert_se(dhcp6_lease_get_serverid(lease, &id, &len) >= 0);
         assert_se(memcmp_nn(id, len, server_id, sizeof(server_id)) == 0);
 
+        assert_se(sd_dhcp6_lease_has_address(lease));
+        assert_se(sd_dhcp6_lease_has_pd_prefix(lease));
+
         sd_dhcp6_lease_reset_address_iter(lease);
         assert_se(sd_dhcp6_lease_get_address(lease, &addr, &lt_pref, &lt_valid) >= 0);
         assert_se(in6_addr_equal(&addr, &ia_na_address1));
