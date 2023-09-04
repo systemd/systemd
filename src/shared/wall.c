@@ -156,8 +156,13 @@ int wall(
                 const char *path;
                 int q;
 
-                r = sd_session_get_tty(*s, &tty);
-                if (r < 0 || tty == NULL)
+                q = sd_session_get_tty(*s, &tty);
+                if (q < 0) {
+                        r = q;
+                        continue;
+                }
+
+                if (!tty)
                         continue; /* ignore sessions without TTY */
 
                 if (path_startswith(tty, "/dev/"))
