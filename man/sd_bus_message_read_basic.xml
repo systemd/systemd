@@ -223,6 +223,11 @@
   </refsect1>
 
   <refsect1>
+    <title>History</title>
+    <para><function>sd_bus_message_read_basic()</function> was added in version 231.</para>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
 
     <para>

@@ -106,6 +106,11 @@
   <xi:include href="libsystemd-pkgconfig.xml" />
 
   <refsect1>
+    <title>History</title>
+    <para><function>sd_get_machine_names()</function> was added in version 203.</para>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
 
     <para>
