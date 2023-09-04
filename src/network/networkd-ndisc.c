@@ -965,6 +965,113 @@ static int ndisc_router_process_captive_portal(Link *link, sd_ndisc_router *rt) 
         return 1;
 }
 
+static void ndisc_pref64_hash_func(const NDiscPREF64 *x, struct siphash *state) {
+        assert(x);
+
+        siphash24_compress(&x->prefix_len, sizeof(x->prefix_len), state);
+        siphash24_compress(&x->prefix, sizeof(x->prefix), state);
+}
+
+static int ndisc_pref64_compare_func(const NDiscPREF64 *a, const NDiscPREF64 *b) {
+        int r;
+
+        assert(a);
+        assert(b);
+
+        r = CMP(a->prefix_len, b->prefix_len);
+        if (r != 0)
+                return r;
+
+        return  memcmp(&a->prefix, &b->prefix, sizeof(a->prefix));
+}
+
+DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
+                ndisc_pref64_hash_ops,
+                NDiscPREF64,
+                ndisc_pref64_hash_func,
+                ndisc_pref64_compare_func,
+                mfree);
+
+static int ndisc_router_process_pref64(Link *link, sd_ndisc_router *rt) {
+        _cleanup_free_ NDiscPREF64 *new_entry = NULL;
+        usec_t lifetime_usec, timestamp_usec;
+        struct in6_addr a, router;
+        uint16_t lifetime_sec;
+        unsigned prefix_len;
+        NDiscPREF64 *exist;
+        int r;
+
+        assert(link);
+        assert(link->network);
+        assert(rt);
+
+        if (!link->network->ipv6_accept_ra_use_pref64)
+                return 0;
+
+        r = sd_ndisc_router_get_address(rt, &router);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to get router address from RA: %m");
+
+        r = sd_ndisc_router_prefix64_get_prefix(rt, &a);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to get pref64 prefix: %m");
+
+        r = sd_ndisc_router_prefix64_get_prefixlen(rt, &prefix_len);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to get pref64 prefix length: %m");
+
+        r = sd_ndisc_router_prefix64_get_lifetime_sec(rt, &lifetime_sec);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to get pref64 prefix lifetime: %m");
+
+        r = sd_ndisc_router_get_timestamp(rt, CLOCK_BOOTTIME, &timestamp_usec);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to get RA timestamp: %m");
+
+        lifetime_usec = sec16_to_usec(lifetime_sec, timestamp_usec);
+
+        if (lifetime_usec == 0) {
+                free(set_remove(link->ndisc_pref64,
+                                &(NDiscPREF64) {
+                                        .prefix = a,
+                                        .prefix_len = prefix_len
+                                }));
+                return 0;
+        }
+
+        exist = set_get(link->ndisc_pref64,
+                        &(NDiscPREF64) {
+                                .prefix = a,
+                                .prefix_len = prefix_len
+                });
+        if (exist) {
+                /* update existing entry */
+                exist->router = router;
+                exist->lifetime_usec = lifetime_usec;
+                return 0;
+        }
+
+        new_entry = new(NDiscPREF64, 1);
+        if (!new_entry)
+                return log_oom();
+
+        *new_entry = (NDiscPREF64) {
+                .router = router,
+                .lifetime_usec = lifetime_usec,
+                .prefix = a,
+                .prefix_len = prefix_len,
+        };
+
+        r = set_ensure_put(&link->ndisc_pref64, &ndisc_pref64_hash_ops, new_entry);
+        if (r < 0)
+                return log_oom();
+
+        assert(r > 0);
+        TAKE_PTR(new_entry);
+
+        return 0;
+}
+
 static int ndisc_router_process_options(Link *link, sd_ndisc_router *rt) {
         size_t n_captive_portal = 0;
         int r;
@@ -1012,6 +1119,9 @@ static int ndisc_router_process_options(Link *link, sd_ndisc_router *rt) {
                         r = ndisc_router_process_captive_portal(link, rt);
                         if (r > 0)
                                 n_captive_portal++;
+                        break;
+                case SD_NDISC_OPTION_PREF64:
+                        r = ndisc_router_process_pref64(link, rt);
                         break;
                 }
                 if (r < 0 && r != -EBADMSG)
@@ -1413,6 +1523,7 @@ void ndisc_flush(Link *link) {
         link->ndisc_rdnss = set_free(link->ndisc_rdnss);
         link->ndisc_dnssl = set_free(link->ndisc_dnssl);
         link->ndisc_captive_portals = set_free(link->ndisc_captive_portals);
+        link->ndisc_pref64 = set_free(link->ndisc_pref64);
 }
 
 static const char* const ipv6_accept_ra_start_dhcp6_client_table[_IPV6_ACCEPT_RA_START_DHCP6_CLIENT_MAX] = {
