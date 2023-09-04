@@ -2,8 +2,7 @@
 
 #include <linux/ipv6_route.h>
 
-#include "sd-dhcp6-client.h"
-
+#include "dhcp6-lease-internal.h"
 #include "hashmap.h"
 #include "in-addr-prefix-util.h"
 #include "networkd-address-generation.h"
@@ -993,7 +992,6 @@ int dhcp4_pd_prefix_acquired(Link *uplink) {
 }
 
 static int dhcp6_pd_assign_subnet_prefixes(Link *link, Link *uplink) {
-        usec_t timestamp_usec;
         int r;
 
         assert(link);
@@ -1004,19 +1002,14 @@ static int dhcp6_pd_assign_subnet_prefixes(Link *link, Link *uplink) {
         if (r <= 0)
                 return r;
 
-        r = sd_dhcp6_lease_get_timestamp(uplink->dhcp6_lease, CLOCK_BOOTTIME, &timestamp_usec);
-        if (r < 0)
-                return r;
-
-        for (sd_dhcp6_lease_reset_pd_prefix_iter(uplink->dhcp6_lease);;) {
-                uint32_t lifetime_preferred_sec, lifetime_valid_sec;
+        FOREACH_DHCP6_PD_PREFIX(uplink->dhcp6_lease) {
+                usec_t lifetime_preferred_usec, lifetime_valid_usec;
                 struct in6_addr pd_prefix;
                 uint8_t pd_prefix_len;
 
-                r = sd_dhcp6_lease_get_pd(uplink->dhcp6_lease, &pd_prefix, &pd_prefix_len,
-                                          &lifetime_preferred_sec, &lifetime_valid_sec);
+                r = sd_dhcp6_lease_get_pd_prefix(uplink->dhcp6_lease, &pd_prefix, &pd_prefix_len);
                 if (r < 0)
-                        break;
+                        return r;
 
                 if (pd_prefix_len > 64)
                         continue;
@@ -1026,9 +1019,13 @@ static int dhcp6_pd_assign_subnet_prefixes(Link *link, Link *uplink) {
                 if (r < 0)
                         return r;
 
+                r = sd_dhcp6_lease_get_pd_lifetime_timestamp(uplink->dhcp6_lease, CLOCK_BOOTTIME,
+                                                             &lifetime_preferred_usec, &lifetime_valid_usec);
+                if (r < 0)
+                        return r;
+
                 r = dhcp_pd_assign_subnet_prefix(link, &pd_prefix, pd_prefix_len,
-                                                 sec_to_usec(lifetime_preferred_sec, timestamp_usec),
-                                                 sec_to_usec(lifetime_valid_sec, timestamp_usec),
+                                                 lifetime_preferred_usec, lifetime_valid_usec,
                                                  /* is_uplink = */ link == uplink);
                 if (r < 0)
                         return r;
@@ -1039,7 +1036,6 @@ static int dhcp6_pd_assign_subnet_prefixes(Link *link, Link *uplink) {
 
 int dhcp6_pd_prefix_acquired(Link *uplink) {
         union in_addr_union server_address;
-        usec_t timestamp_usec;
         Link *link;
         int r;
 
@@ -1050,20 +1046,15 @@ int dhcp6_pd_prefix_acquired(Link *uplink) {
         if (r < 0)
                 return log_link_warning_errno(uplink, r, "Failed to get server address of DHCPv6 lease: %m");
 
-        r = sd_dhcp6_lease_get_timestamp(uplink->dhcp6_lease, CLOCK_BOOTTIME, &timestamp_usec);
-        if (r < 0)
-                return log_link_warning_errno(uplink, r, "Failed to get timestamp of DHCPv6 lease: %m");
-
         /* First, logs acquired prefixes and request unreachable routes. */
-        for (sd_dhcp6_lease_reset_pd_prefix_iter(uplink->dhcp6_lease);;) {
-                uint32_t lifetime_preferred_sec, lifetime_valid_sec;
+        FOREACH_DHCP6_PD_PREFIX(uplink->dhcp6_lease) {
+                usec_t lifetime_valid_usec;
                 struct in6_addr pd_prefix;
                 uint8_t pd_prefix_len;
 
-                r = sd_dhcp6_lease_get_pd(uplink->dhcp6_lease, &pd_prefix, &pd_prefix_len,
-                                          &lifetime_preferred_sec, &lifetime_valid_sec);
+                r = sd_dhcp6_lease_get_pd_prefix(uplink->dhcp6_lease, &pd_prefix, &pd_prefix_len);
                 if (r < 0)
-                        break;
+                        return r;
 
                 /* Mask prefix for safety. */
                 r = in6_addr_mask(&pd_prefix, pd_prefix_len);
@@ -1074,9 +1065,13 @@ int dhcp6_pd_prefix_acquired(Link *uplink) {
                 if (r < 0)
                         return r;
 
+                r = sd_dhcp6_lease_get_pd_lifetime_timestamp(uplink->dhcp6_lease, CLOCK_BOOTTIME,
+                                                             NULL, &lifetime_valid_usec);
+                if (r < 0)
+                        return r;
+
                 r = dhcp6_request_unreachable_route(uplink, &pd_prefix, pd_prefix_len,
-                                                    sec_to_usec(lifetime_valid_sec, timestamp_usec),
-                                                    &server_address);
+                                                    lifetime_valid_usec, &server_address);
                 if (r < 0)
                         return r;
         }

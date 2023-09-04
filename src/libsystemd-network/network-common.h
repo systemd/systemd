@@ -2,6 +2,8 @@
 #pragma once
 
 #include "log-link.h"
+#include "sparse-endian.h"
+#include "time-util.h"
 
 #define log_interface_prefix_full_errno_zerook(prefix, type, val, error, fmt, ...) \
         ({                                                              \
@@ -28,3 +30,6 @@
         })
 
 int get_ifname(int ifindex, char **ifname);
+
+usec_t be32_sec_to_usec(be32_t t);
+usec_t time_span_to_stamp(usec_t span, usec_t base);
