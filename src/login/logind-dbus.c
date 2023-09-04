@@ -1547,18 +1547,43 @@ int manager_set_lid_switch_ignore(Manager *m, usec_t until) {
         return r;
 }
 
-static int send_prepare_for(Manager *m, InhibitWhat w, bool _active) {
-        int active = _active;
+static int send_prepare_for(Manager *m, const HandleActionData *a, bool _active) {
+        int k = 0, r, active = _active;
 
         assert(m);
-        assert(IN_SET(w, INHIBIT_SHUTDOWN, INHIBIT_SLEEP));
+        assert(a);
+        assert(IN_SET(a->inhibit_what, INHIBIT_SHUTDOWN, INHIBIT_SLEEP));
 
-        return sd_bus_emit_signal(m->bus,
-                                  "/org/freedesktop/login1",
-                                  "org.freedesktop.login1.Manager",
-                                  w == INHIBIT_SHUTDOWN ? "PrepareForShutdown" : "PrepareForSleep",
-                                  "b",
-                                  active);
+        /* We need to send both old and new signal for backward compatibility. The newer one allows clients
+         * to know which type of reboot is going to happen, as they might be doing different actions (e.g.:
+         * on soft-reboot). */
+        if (a->inhibit_what == INHIBIT_SHUTDOWN) {
+                k = sd_bus_emit_signal(m->bus,
+                                       "/org/freedesktop/login1",
+                                       "org.freedesktop.login1.Manager",
+                                       "PrepareForShutdownWithMetadata",
+                                       "a{sv}",
+                                       2,
+                                       "pending",
+                                       "b",
+                                       active,
+                                       "type",
+                                       "s",
+                                       strna(a->log_verb));
+                if (k < 0)
+                        log_debug_errno(k, "Failed to emit PrepareForShutdownWithMetadata(): %m");
+        }
+
+        r = sd_bus_emit_signal(m->bus,
+                               "/org/freedesktop/login1",
+                               "org.freedesktop.login1.Manager",
+                               a->inhibit_what == INHIBIT_SHUTDOWN ? "PrepareForShutdown" : "PrepareForSleep",
+                               "b",
+                               active);
+        if (r < 0)
+                log_debug_errno(r, "Failed to emit PrepareForShutdown(): %m");
+
+        return RET_GATHER(k, r);
 }
 
 static int execute_shutdown_or_sleep(
@@ -1603,7 +1628,7 @@ static int execute_shutdown_or_sleep(
 
 error:
         /* Tell people that they now may take a lock again */
-        (void) send_prepare_for(m, a->inhibit_what, false);
+        (void) send_prepare_for(m, a, false);
 
         return r;
 }
@@ -1711,7 +1736,7 @@ int bus_manager_shutdown_or_sleep_now_or_later(
                                         a->target, load_state);
 
         /* Tell everybody to prepare for shutdown/sleep */
-        (void) send_prepare_for(m, a->inhibit_what, true);
+        (void) send_prepare_for(m, a, true);
 
         delayed =
                 m->inhibit_delay_max > 0 &&
@@ -3702,6 +3727,9 @@ static const sd_bus_vtable manager_vtable[] = {
         SD_BUS_SIGNAL_WITH_ARGS("PrepareForShutdown",
                                 SD_BUS_ARGS("b", start),
                                 0),
+        SD_BUS_SIGNAL_WITH_ARGS("PrepareForShutdownWithMetadata",
+                                SD_BUS_ARGS("a{sv}", metadata),
+                                0),
         SD_BUS_SIGNAL_WITH_ARGS("PrepareForSleep",
                                 SD_BUS_ARGS("b", start),
                                 0),
@@ -3757,7 +3785,7 @@ int match_job_removed(sd_bus_message *message, void *userdata, sd_bus_error *err
                 log_info("Operation '%s' finished.", inhibit_what_to_string(m->delayed_action->inhibit_what));
 
                 /* Tell people that they now may take a lock again */
-                (void) send_prepare_for(m, m->delayed_action->inhibit_what, false);
+                (void) send_prepare_for(m, m->delayed_action, false);
 
                 m->action_job = mfree(m->action_job);
                 m->delayed_action = NULL;
