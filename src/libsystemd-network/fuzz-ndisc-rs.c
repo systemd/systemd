@@ -24,6 +24,13 @@ int icmp6_bind_router_advertisement(int index) {
         return -ENOSYS;
 }
 
+static struct in6_addr dummy_link_local = {
+        .s6_addr = {
+                0xfe, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x12, 0x34, 0x56, 0xff, 0xfe, 0x78, 0x9a, 0xbc,
+        },
+};
+
 int icmp6_receive(
                 int fd,
                 void *iov_base,
@@ -35,6 +42,9 @@ int icmp6_receive(
 
         if (ret_timestamp)
                 triple_timestamp_get(ret_timestamp);
+
+        if (ret_sender)
+                *ret_sender = dummy_link_local;
 
         return 0;
 }
