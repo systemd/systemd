@@ -102,7 +102,7 @@ struct sd_dhcp_client {
         char *mudurl;
         char **user_class;
         uint32_t mtu;
-        uint32_t fallback_lease_lifetime;
+        usec_t fallback_lease_lifetime;
         uint32_t xid;
         usec_t start_time;
         usec_t t1_time;
@@ -747,11 +747,12 @@ int sd_dhcp_client_set_socket_priority(sd_dhcp_client *client, int socket_priori
         return 0;
 }
 
-int sd_dhcp_client_set_fallback_lease_lifetime(sd_dhcp_client *client, uint32_t fallback_lease_lifetime) {
+int sd_dhcp_client_set_fallback_lease_lifetime(sd_dhcp_client *client, uint64_t fallback_lease_lifetime) {
         assert_return(client, -EINVAL);
         assert_return(!sd_dhcp_client_is_running(client), -EBUSY);
         assert_return(fallback_lease_lifetime > 0, -EINVAL);
 
+        assert_cc(sizeof(usec_t) == sizeof(uint64_t));
         client->fallback_lease_lifetime = fallback_lease_lifetime;
 
         return 0;
@@ -1290,8 +1291,7 @@ static int client_timeout_resend(
 
         sd_dhcp_client *client = ASSERT_PTR(userdata);
         DHCP_CLIENT_DONT_DESTROY(client);
-        usec_t next_timeout;
-        uint64_t time_now;
+        usec_t time_now, next_timeout;
         int r;
 
         assert(s);
@@ -1439,7 +1439,7 @@ error:
 }
 
 static int client_initialize_time_events(sd_dhcp_client *client) {
-        uint64_t usec = 0;
+        usec_t usec = 0;
         int r;
 
         assert(client);
@@ -1447,7 +1447,7 @@ static int client_initialize_time_events(sd_dhcp_client *client) {
 
         if (client->start_delay > 0) {
                 assert_se(sd_event_now(client->event, CLOCK_BOOTTIME, &usec) >= 0);
-                usec += client->start_delay;
+                usec = usec_add(usec, client->start_delay);
         }
 
         r = event_reset_time(client->event, &client->timeout_resend,
@@ -1725,10 +1725,10 @@ static int client_set_lease_timeouts(sd_dhcp_client *client) {
         assert(client);
         assert(client->event);
         assert(client->lease);
-        assert(client->lease->lifetime);
+        assert(client->lease->lifetime > 0);
 
         /* don't set timers for infinite leases */
-        if (client->lease->lifetime == 0xffffffff) {
+        if (client->lease->lifetime == USEC_INFINITY) {
                 (void) event_source_disable(client->timeout_t1);
                 (void) event_source_disable(client->timeout_t2);
                 (void) event_source_disable(client->timeout_expire);
@@ -1748,14 +1748,18 @@ static int client_set_lease_timeouts(sd_dhcp_client *client) {
         if (client->lease->t1 == 0 || client->lease->t1 >= client->lease->t2)
                 client->lease->t1 = T1_DEFAULT(client->lease->lifetime);
         /* now, if t1 >= t2, t1 *must* be T1_DEFAULT, since the previous check
-         * could not evalate to false if t1 >= t2; so setting t2 to T2_DEFAULT
+         * could not evaluate to false if t1 >= t2; so setting t2 to T2_DEFAULT
          * guarantees t1 < t2. */
         if (client->lease->t1 >= client->lease->t2)
                 client->lease->t2 = T2_DEFAULT(client->lease->lifetime);
 
-        client->expire_time = client->request_sent + client->lease->lifetime * USEC_PER_SEC;
-        client->t1_time = client->request_sent + client->lease->t1 * USEC_PER_SEC;
-        client->t2_time = client->request_sent + client->lease->t2 * USEC_PER_SEC;
+        assert(client->lease->t1 > 0);
+        assert(client->lease->t1 < client->lease->t2);
+        assert(client->lease->t2 < client->lease->lifetime);
+
+        client->expire_time = usec_add(client->request_sent, client->lease->lifetime);
+        client->t1_time = usec_add(client->request_sent, client->lease->t1);
+        client->t2_time = usec_add(client->request_sent, client->lease->t2);
 
         /* RFC2131 section 4.4.5:
          * Times T1 and T2 SHOULD be chosen with some random "fuzz".
