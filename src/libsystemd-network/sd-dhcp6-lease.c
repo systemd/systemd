@@ -243,6 +243,10 @@ void sd_dhcp6_lease_reset_address_iter(sd_dhcp6_lease *lease) {
                 lease->addr_iter = lease->ia_na ? lease->ia_na->addresses : NULL;
 }
 
+int sd_dhcp6_lease_has_address(sd_dhcp6_lease *lease) {
+        return lease && lease->ia_na;
+}
+
 int sd_dhcp6_lease_get_pd(
                 sd_dhcp6_lease *lease,
                 struct in6_addr *ret_prefix,
@@ -271,6 +275,10 @@ int sd_dhcp6_lease_get_pd(
 void sd_dhcp6_lease_reset_pd_prefix_iter(sd_dhcp6_lease *lease) {
         if (lease)
                 lease->prefix_iter = lease->ia_pd ? lease->ia_pd->addresses : NULL;
+}
+
+int sd_dhcp6_lease_has_pd_prefix(sd_dhcp6_lease *lease) {
+        return lease && lease->ia_pd;
 }
 
 int dhcp6_lease_add_dns(sd_dhcp6_lease *lease, const uint8_t *optval, size_t optlen) {
