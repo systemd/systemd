@@ -20,13 +20,13 @@ _systemd_headers = [
 systemd_headers = files(_systemd_headers)
 
 _not_installed_headers = [
-        'sd-dhcp6-client.h',
-        'sd-dhcp6-lease.h',
         'sd-dhcp-client.h',
         'sd-dhcp-lease.h',
         'sd-dhcp-option.h',
-        'sd-dhcp6-option.h',
         'sd-dhcp-server.h',
+        'sd-dhcp6-client.h',
+        'sd-dhcp6-lease.h',
+        'sd-dhcp6-option.h',
         'sd-ipv4acd.h',
         'sd-ipv4ll.h',
         'sd-lldp-rx.h',
