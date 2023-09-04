@@ -11,7 +11,7 @@
 
 #include "alloc-util.h"
 #include "hexdecoct.h"
-#include "icmp6-util.h"
+#include "icmp6-util-unix.h"
 #include "socket-util.h"
 #include "strv.h"
 #include "tests.h"
@@ -52,7 +52,6 @@ static uint8_t advertisement[] = {
 };
 
 static bool test_stopped;
-static int test_fd[2];
 static struct {
         struct in6_addr address;
         unsigned char prefixlen;
@@ -206,36 +205,6 @@ TEST(radv) {
 
         ra = sd_radv_unref(ra);
         assert_se(!ra);
-}
-
-int icmp6_bind_router_solicitation(int ifindex) {
-        return -ENOSYS;
-}
-
-int icmp6_bind_router_advertisement(int ifindex) {
-        assert_se(ifindex == 42);
-
-        return test_fd[1];
-}
-
-int icmp6_send_router_solicitation(int s, const struct ether_addr *ether_addr) {
-
-        return 0;
-}
-
-int icmp6_receive(
-                int fd,
-                void *iov_base,
-                size_t iov_len,
-                struct in6_addr *ret_sendor,
-                triple_timestamp *ret_timestamp) {
-
-        assert_se(read (fd, iov_base, iov_len) == (ssize_t)iov_len);
-
-        if (ret_timestamp)
-                triple_timestamp_get(ret_timestamp);
-
-        return 0;
 }
 
 static int radv_recv(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
