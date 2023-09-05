@@ -32,6 +32,7 @@
 #include "pcrphase-util.h"
 #include "pehash.h"
 #include "pretty-print.h"
+#include "recovery-key.h"
 #include "sort-util.h"
 #include "terminal-util.h"
 #include "tpm2-util.h"
@@ -65,7 +66,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_location, freep);
 #define PCRLOCK_FILE_SYSTEM_PATH_PREFIX     "/var/lib/pcrlock.d/840-file-system-"
 
 /* The default set of PCRs to lock to */
-#define DEFAULT_PCR_MASK                                \
+#define DEFAULT_PCR_MASK                                     \
         ((UINT32_C(1) << TPM2_PCR_PLATFORM_CODE) |           \
          (UINT32_C(1) << TPM2_PCR_PLATFORM_CONFIG) |         \
          (UINT32_C(1) << TPM2_PCR_EXTERNAL_CODE) |           \
@@ -3963,6 +3964,536 @@ static int verb_predict(int argc, char *argv[], void *userdata) {
         return event_log_show_predictions(&context);
 }
 
+#define PCRLOCK_RSA_BITS 2048U
+
+static int calculate_signing_policy(
+                const TPM2B_PUBLIC *helper_public,
+                TPM2B_DIGEST *ret_helper_policy,
+                TPM2B_DIGEST *ret_recovery_policy,
+                TPM2B_DIGEST *combined_policy) {
+
+        TPM2B_DIGEST
+                helper_policy = TPM2B_DIGEST_MAKE(NULL, TPM2_SHA256_DIGEST_SIZE),
+                recovery_policy = TPM2B_DIGEST_MAKE(NULL, TPM2_SHA256_DIGEST_SIZE);
+        int r;
+
+        if (ret_helper_policy || combined_policy) {
+                assert(helper_public);
+
+                /* Make a PolicyAuthorize policy from the "helper" key */
+                log_debug("Calculating helper key policy for main key...");
+                r = tpm2_calculate_policy_authorize(
+                                helper_public,
+                                /* policy_ref= */ NULL,
+                                &helper_policy);
+                if (r < 0)
+                        return r;
+        }
+
+        if (ret_recovery_policy || combined_policy) {
+                /* Make a PolicyAuthValue policy for the recovery PIN */
+                log_debug("Calculating recovery PIN policy for main key...");
+                r = tpm2_calculate_policy_auth_value(&recovery_policy);
+                if (r < 0)
+                        return r;
+        }
+
+        if (combined_policy) {
+                /* Make a PolicyOR policy from both policies */
+                log_debug("Calculating combined OR policy for main key...");
+                r = tpm2_calculate_policy_or(
+                                /* branches= */ (const TPM2B_DIGEST[2]) {
+                                        helper_policy,
+                                        recovery_policy,
+                                },
+                                /* n_branches= */ 2,
+                                combined_policy);
+                if (r < 0)
+                        return r;
+        }
+
+        if (ret_helper_policy)
+                *ret_helper_policy = helper_policy;
+        if (ret_recovery_policy)
+                *ret_recovery_policy = recovery_policy;
+
+        return 0;
+}
+
+static int setup_signing_key(
+                Tpm2Context *tc,
+                Tpm2Handle *primary_handle,
+                Tpm2Handle *session,
+                Tpm2Handle **ret_key,
+                void **ret_helper_signature,
+                size_t *ret_helper_signature_size,
+                TPM2B_PUBLIC *ret_helper_public,
+                char **ret_recovery_pin) {
+
+        int r;
+
+        assert(tc);
+        assert(primary_handle);
+        assert(ret_key);
+
+        /* We work with two keys. Initial setup is like this:
+         *
+         *           1. The "helper" key pair is generated on the CPU
+         *           2. The "main" key pair is generated on the TPM, with a PolicyAuthorize access policy bound to the "helper" key.
+         *           3. The "helper" key then signs a PolicyAuthorize policy bound to the "main" key. Let's call this signature "HELPERSIG".
+         *           4. The "helper" key is now erased and forgotten.
+         *
+         * Whenever we want to sign a new PCR policy we calculate it and sign it with the "main" key. Let's
+         * call signatures like this "PCRSIG(t)".
+         *
+         * Whenever we want to unlock the "main" key we first set up a PCR policy, and then match that up
+         * with PCRSIG(t) to prove it's right, and then use HELPERSIG to prove that we should have access,
+         * and thus unlock "main" for us.
+         *
+         * Why the need for the "helper" key? Because we cannot generate the "main" key on the TPM and
+         * already specify it in the access policy for it. */
+
+        /* Generate "helper" key */
+        log_debug("Generating helper key on CPU...");
+        usec_t t = now(CLOCK_MONOTONIC);
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *helper_pkey = EVP_RSA_gen(PCRLOCK_RSA_BITS);
+        if (!helper_pkey)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to generate local RSA key.");
+        log_debug("Successfully generated key in %s.", FORMAT_TIMESPAN(now(CLOCK_MONOTONIC) - t, USEC_PER_MSEC));
+
+        /* Convert "helper" key to TPM format */
+        TPM2B_PUBLIC helper_tpm2b;
+        r = tpm2_tpm2b_public_from_openssl_pkey(helper_pkey, &helper_tpm2b);
+        if (r < 0)
+                return log_error_errno(r, "Failed to convert RSA key to TPM2 format: %m");
+
+        TPM2B_DIGEST combined_policy = TPM2B_DIGEST_MAKE(NULL, TPM2_SHA256_DIGEST_SIZE);
+        r = calculate_signing_policy(
+                        &helper_tpm2b,
+                        /* ret_helper_policy= */ NULL,
+                        /* ret_recovery_policy= */ NULL,
+                        &combined_policy);
+        if (r < 0)
+                return r;
+
+        /* Make a recovery PIN we can use as alternative access to the TPM key */
+        _cleanup_(erase_and_freep) char *recovery_pin = NULL;
+        r = make_recovery_key(&recovery_pin);
+        if (r < 0)
+                return r;
+
+        /* "main" key template, with the policy set we just calculated */
+        TPMT_PUBLIC policy_signature_key_template = {
+                .type = TPM2_ALG_RSA,
+                .nameAlg = TPM2_ALG_SHA256,
+                .objectAttributes =
+                        TPMA_OBJECT_SIGN_ENCRYPT |
+                        TPMA_OBJECT_FIXEDPARENT |
+                        TPMA_OBJECT_FIXEDTPM |
+                        TPMA_OBJECT_NODA |
+                        TPMA_OBJECT_SENSITIVEDATAORIGIN,
+                .parameters.rsaDetail = {
+                        .symmetric.algorithm = TPM2_ALG_NULL,
+                        .scheme.scheme = TPM2_ALG_NULL,
+                        .keyBits = PCRLOCK_RSA_BITS,
+                },
+                .authPolicy = combined_policy, /* ← enforce our OR policy on the newly generated key */
+        };
+
+        /* set up "sensitive" parameters for key */
+        TPMS_SENSITIVE_CREATE policy_signature_key_sensitive = {};
+        CLEANUP_ERASE(policy_signature_key_sensitive);
+        r = tpm2_get_pin_auth(TPM2_ALG_SHA256, recovery_pin, &policy_signature_key_sensitive.userAuth);
+        if (r < 0)
+                return r;
+
+        /* Now generate the "main" key in the TPM */
+        _cleanup_(Esys_Freep) TPM2B_PUBLIC *main_public = NULL;
+        _cleanup_(Esys_Freep) TPM2B_PRIVATE *main_private = NULL;
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *main_handle = NULL;
+        log_debug("Generating main key on TPM...");
+        r = tpm2_create_loaded(
+                        tc,
+                        primary_handle,
+                        session,
+                        &policy_signature_key_template,
+                        &policy_signature_key_sensitive,
+                        &main_public,
+                        &main_private,
+                        &main_handle);
+        if (r < 0)
+                return r;
+
+        /* Calculate a PolicyAuthorize policy based on the "main" key */
+        TPM2B_DIGEST main_policy = TPM2B_DIGEST_MAKE(NULL, TPM2_SHA256_DIGEST_SIZE);
+        log_debug("Calculating main key policy...");
+        r = tpm2_calculate_policy_authorize(main_public, NULL, &main_policy);
+        if (r < 0)
+                return r;
+
+        /* Sign the "main" key policy we just calculated with the helper key */
+        _cleanup_free_ void *sig = NULL;
+        size_t ss;
+        log_debug("Signing main policy with helper key...");
+        r = digest_and_sign(EVP_sha256(), helper_pkey, main_policy.buffer, main_policy.size, &sig, &ss);
+        if (r < 0)
+                return log_error_errno(r, "Failed to sign PCR policy: %m");
+
+        /* Destroy the helper key now, we don't want to sign policies with it ever again. */
+        EVP_PKEY_free(helper_pkey);
+        helper_pkey = NULL;
+
+        /* At this point only the "main" key remains. It has a policy bound to a "helper" key we don't
+         * possess anymore, but we have do retain one policy signed by the "helper" key, that permits access
+         * to the "main" key via any policy that is signed by the "main" key itself. Thus, we can sign new
+         * policies for access to the main key with the main key itself. */
+
+        /* Marshall the key data */
+        _cleanup_free_ void *marshalled_public = NULL;
+        size_t marshalled_public_size;
+        r = tpm2_marshal_public(main_public, &marshalled_public, &marshalled_public_size);
+        if (r < 0)
+                return log_error_errno(r, "Failed to marshal public key: %m");
+
+        _cleanup_free_ void *marshalled_private = NULL;
+        size_t marshalled_private_size;
+        r = tpm2_marshal_private(main_private, &marshalled_private, &marshalled_private_size);
+        if (r < 0)
+                return log_error_errno(r, "Failed to marshal private key: %m");
+
+        _cleanup_free_ void *marshalled_helper_public = NULL;
+        size_t marshalled_helper_public_size;
+        r = tpm2_marshal_public(&helper_tpm2b, &marshalled_helper_public, &marshalled_helper_public_size);
+        if (r < 0)
+                return log_error_errno(r, "Failed to marshal private key: %m");
+
+        /* Turn everything into a JSON object */
+        _cleanup_(json_variant_unrefp) JsonVariant *j = NULL;
+        r = json_build(&j,
+                       JSON_BUILD_OBJECT(
+                                       JSON_BUILD_PAIR_BASE64("public", marshalled_public, marshalled_public_size),
+                                       JSON_BUILD_PAIR_BASE64("private", marshalled_private, marshalled_private_size),
+                                       JSON_BUILD_PAIR_BASE64("helperPublic", marshalled_helper_public, marshalled_helper_public_size),
+                                       JSON_BUILD_PAIR_BASE64("helperSignature", sig, ss)));
+        if (r < 0)
+                return log_error_errno(r, "Failed to build key data JSON: %m");
+
+        _cleanup_free_ char *text = NULL;
+        r = json_variant_format(j, JSON_FORMAT_NEWLINE, &text);
+        if (r < 0)
+                return log_error_errno(r, "Failed to format key data as JSON: %m");
+
+        /* Store JSON data on disk */
+        r = write_string_file("/var/lib/systemd/pcrlock/pcrlock.keydata", text, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_SYNC|WRITE_STRING_FILE_MKDIR_0755);
+        if (r < 0)
+                return log_error_errno(r, "Failed to store key data on disk: %m");
+
+        *ret_key = TAKE_PTR(main_handle);
+        if (ret_helper_signature)
+                *ret_helper_signature = TAKE_PTR(sig);
+        if (ret_helper_signature_size)
+                *ret_helper_signature_size = ss;
+        if (ret_helper_public)
+                *ret_helper_public = helper_tpm2b;
+        if (ret_recovery_pin)
+                *ret_recovery_pin = TAKE_PTR(recovery_pin);
+
+        return 0;
+}
+
+static int load_signing_key(
+                Tpm2Context *tc,
+                Tpm2Handle *primary_handle,
+                Tpm2Handle *session,
+                Tpm2Handle **ret_key,
+                void **ret_helper_signature,
+                size_t *ret_helper_signature_size,
+                TPM2B_PUBLIC *ret_helper_public) {
+        int r;
+
+        assert(tc);
+        assert(primary_handle);
+        assert(ret_key);
+
+        _cleanup_(json_variant_unrefp) JsonVariant *j = NULL;
+        r = json_parse_file(NULL, "/var/lib/systemd/pcrlock/pcrlock.keydata", 0, &j, NULL, NULL);
+        if (r == -ENOENT) {
+                *ret_key = NULL;
+                *ret_helper_signature = NULL;
+                *ret_helper_signature_size = 0;
+                return 0; /* Not found */
+        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse pcrlock key data: %m");
+
+        JsonVariant *pubj = json_variant_by_key(j, "public");
+        if (!pubj)
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Key data lacks public part.");
+        _cleanup_free_ void *marshalled_public = NULL;
+        size_t marshalled_public_size;
+        r = json_variant_unbase64(pubj, &marshalled_public, &marshalled_public_size);
+        if (r < 0)
+                return log_error_errno(r, "Failed to decode marshalled public key: %m");
+
+        TPM2B_PUBLIC public = {};
+        r = tpm2_unmarshal_public(marshalled_public, marshalled_public_size, &public);
+        if (r < 0)
+                return log_error_errno(r, "Failed to unmarshal public key: %m");
+
+        JsonVariant *privj = json_variant_by_key(j, "private");
+        if (!privj)
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Key data lacks private part.");
+        _cleanup_free_ void *marshalled_private = NULL;
+        size_t marshalled_private_size;
+        r = json_variant_unbase64(privj, &marshalled_private, &marshalled_private_size);
+        if (r < 0)
+                return log_error_errno(r, "Failed to decode marshalled private key: %m");
+
+        TPM2B_PRIVATE private = {};
+        r = tpm2_unmarshal_private(marshalled_private, marshalled_private_size, &private);
+        if (r < 0)
+                return log_error_errno(r, "Failed to unmarshal private key: %m");
+
+        JsonVariant *hpubj = json_variant_by_key(j, "helperPublic");
+        if (!hpubj)
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Key data lacks public part of helper.");
+        _cleanup_free_ void *marshalled_helper_public = NULL;
+        size_t marshalled_helper_public_size;
+        r = json_variant_unbase64(hpubj, &marshalled_helper_public, &marshalled_helper_public_size);
+        if (r < 0)
+                return log_error_errno(r, "Failed to decode marshalled public helper key: %m");
+
+        TPM2B_PUBLIC helper_public = {};
+        r = tpm2_unmarshal_public(marshalled_helper_public, marshalled_helper_public_size, &helper_public);
+        if (r < 0)
+                return log_error_errno(r, "Failed to unmarshal public helper key: %m");
+
+        JsonVariant *helpersigj = json_variant_by_key(j, "helperSignature");
+        if (!helpersigj)
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Key data lacks helper signature data.");
+        _cleanup_free_ void *sig = NULL;
+        size_t ss;
+        r = json_variant_unbase64(privj, &sig, &ss);
+        if (r < 0)
+                return log_error_errno(r, "Failed to decode signal: %m");
+
+        r = tpm2_load(tc, primary_handle, session, &public, &private, ret_key);
+        if (r < 0)
+                return r;
+
+        if (ret_helper_signature)
+                *ret_helper_signature = TAKE_PTR(sig);
+        if (ret_helper_signature_size)
+                *ret_helper_signature_size = ss;
+        if (ret_helper_public)
+                *ret_helper_public = helper_public;
+
+        return 1; /* Found and loaded */
+}
+
+static int verb_sign(int argc, char *argv[], void *userdata) {
+        _cleanup_(event_log_prediction_context_done) EventLogPredictionContext context = {
+                arg_pcrs != 0 ? arg_pcrs : DEFAULT_PCR_MASK,
+        };
+        _cleanup_(tpm2_context_unrefp) Tpm2Context *tc = NULL;
+        _cleanup_(event_log_freep) EventLog *el = NULL;
+        ssize_t count;
+        int r;
+
+        r = event_log_load_and_process(&el);
+        if (r < 0)
+                return r;
+
+        count = event_log_calculate_component_combinations(el);
+        if (count < 0)
+                return count;
+
+        log_notice("%zi combinations of components.", count);
+        if (count > 500)
+                log_warning("%zi is a lot of combinations, consider removing alternatives.", count);
+
+        r = event_log_reduce_to_safe_pcrs(el, &context.pcrs);
+        if (r < 0)
+                return r;
+
+        r = event_log_prediction_run(el, &context);
+        if (r < 0)
+                return r;
+
+        r = tpm2_context_new(NULL, &tc);
+        if (r < 0)
+                return r;
+
+        size_t alg_index;
+        for (alg_index = 0; alg_index < ELEMENTSOF(all_hash_algorithms); alg_index++)
+                if (all_hash_algorithms[alg_index] == el->primary_algorithm)
+                        break;
+        assert_se(alg_index < ELEMENTSOF(all_hash_algorithms));
+
+        TPM2B_DIGEST combined_policy_digest = TPM2B_DIGEST_MAKE(NULL, TPM2_SHA256_DIGEST_SIZE);
+
+        for (uint32_t pcr = 0; pcr < TPM2_PCRS_MAX; pcr++) {
+                EventLogPredictionBanks *banks;
+                _cleanup_free_ TPM2B_DIGEST *pcr_policy_digest_variants = NULL;
+                size_t n_pcr_policy_digest_variants = 0;
+
+                if (!FLAGS_SET(context.pcrs, UINT32_C(1) << pcr))
+                        continue;
+
+                ORDERED_SET_FOREACH(banks, context.results[pcr]) {
+                        TPM2B_DIGEST pcr_policy_digest = TPM2B_DIGEST_MAKE(NULL, TPM2_SHA256_DIGEST_SIZE);
+
+                        r = tpm2_calculate_policy_pcr(
+                                        &TPM2_PCR_VALUE_MAKE(
+                                                        pcr,
+                                                        el->primary_algorithm,
+                                                        TPM2B_DIGEST_MAKE(banks->hash[alg_index], banks->hash_size[alg_index])),
+                                        /* n_pcr_values= */ 1,
+                                        &pcr_policy_digest);
+                        if (r < 0)
+                                return r;
+
+                        if (!GREEDY_REALLOC(pcr_policy_digest_variants, n_pcr_policy_digest_variants + 1))
+                                return log_oom();
+
+                        pcr_policy_digest_variants[n_pcr_policy_digest_variants++] = pcr_policy_digest;
+                }
+
+                if (n_pcr_policy_digest_variants == 0)
+                        continue;
+
+                r = tpm2_calculate_policy_or(
+                                pcr_policy_digest_variants,
+                                n_pcr_policy_digest_variants,
+                                &combined_policy_digest);
+                if (r < 0)
+                        return r;
+        }
+
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *primary_handle = NULL;
+        r = tpm2_get_or_create_srk(
+                        tc,
+                        /* session= */ NULL,
+                        /* ret_public= */ NULL,
+                        /* ret_name= */ NULL,
+                        /* ret_qname= */ NULL,
+                        &primary_handle);
+        if (r < 0)
+                return r;
+
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *encryption_session = NULL;
+        r = tpm2_make_encryption_session(
+                        tc,
+                        primary_handle,
+                        /* bind_key= */ &TPM2_HANDLE_NONE,
+                        &encryption_session);
+        if (r < 0)
+                return r;
+
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *signing_key = NULL;
+        _cleanup_free_ void *helpersig = NULL;
+        size_t helpersig_size = 0;
+        _cleanup_(erase_and_freep) char *recovery_pin = NULL;
+        TPM2B_PUBLIC helper_public;
+        r = load_signing_key(tc, primary_handle, encryption_session, &signing_key, &helpersig, &helpersig_size, &helper_public);
+        if (r < 0)
+                return r;
+        if (r > 0)
+                log_debug("Loaded signing key from disk.");
+        else {
+                log_debug("Signing key not yet generated. Generating...");
+                r = setup_signing_key(tc, primary_handle, encryption_session, &signing_key, &helpersig, &helpersig_size, &helper_public, &recovery_pin);
+                if (r < 0)
+                        return r;
+        }
+
+        /* Now set up a policy session so that we get access to the signing key */
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *policy_session = NULL;
+        r = tpm2_make_policy_session(
+                        tc,
+                        primary_handle,
+                        encryption_session,
+                        /* trial= */ false,
+                        &policy_session);
+        if (r < 0)
+                return r;
+
+        /* If we have the recovery PIN, we'll use it to get access to the key */
+        if (recovery_pin) {
+                /* Configure the policy, i.e. the fact that we are going to use a PIN to unlock this */
+                r = tpm2_policy_auth_value(
+                                tc,
+                                policy_session,
+                                /* ret_policy_digest= */ NULL);
+                if (r < 0)
+                        return r;
+
+                /* And already configure the PIN too. */
+                r = tpm2_set_auth(tc, signing_key, recovery_pin);
+                if (r < 0)
+                        return r;
+        } else {
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Not implemented yet.");
+        }
+
+        /* Now generate the PolicyOR command. For that we need to regenerate the policies ORed here */
+        TPM2B_DIGEST helper_policy, recovery_policy;
+        r = calculate_signing_policy(
+                        &helper_public,
+                        &helper_policy,
+                        &recovery_policy,
+                        /* combined_policy= */ NULL);
+        if (r < 0)
+                return r;
+
+        r = tpm2_policy_or(
+                        tc,
+                        policy_session,
+                        /* branches= */ (const TPM2B_DIGEST[2]) {
+                                helper_policy,
+                                recovery_policy,
+                        },
+                        /* n_branches= */ 2,
+                        /* ret_policy_digest= */ NULL);
+        if (r < 0)
+                return r;
+
+        static const TPMT_SIG_SCHEME scheme = {
+                .scheme = TPM2_ALG_RSASSA,
+                .details = {
+                        .rsapss.hashAlg = TPM2_ALG_SHA256,
+                },
+        };
+
+        _cleanup_free_ TPMT_SIGNATURE *signature = NULL;
+        log_debug("Signing combined PCR policy with main key...");
+        r = tpm2_sign(
+                        tc,
+                        signing_key,
+                        policy_session,
+                        &combined_policy_digest,
+                        &scheme,
+                        /* validation= */ NULL,
+                        &signature);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+static int verb_unlink(int argc, char *argv[], void *userdata) {
+
+        if (unlink("/var/lib/systemd/pcrlock/pcrlock.keydata") < 0) {
+                if (errno != ENOENT)
+                        return log_error_errno(errno, "Failed to remove PCR lock key file: %m");
+
+                log_info("PCR lock key file already removed.");
+        } else
+                log_info("PCR lock key file removed.");
+
+        return 0;
+}
+
 static int help(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -3977,6 +4508,9 @@ static int help(int argc, char *argv[], void *userdata) {
                "  log                         Show measurement log\n"
                "  cel                         Show measurement log in TCG CEL-JSON format\n"
                "  list-components             List defined .pcrlock components\n"
+               "  predict                     Predict PCR values\n"
+               "  sign                        Generate PCR signature\n"
+               "  unlink                      Remove PCR signature\n"
                "\n%3$sProtections:%4$s\n"
                "  lock-firmware-code          Generate a .pcrlock file from current firmware code\n"
                "  unlock-firmware-code        Remove .pcrlock file for firmware code\n"
@@ -4138,8 +4672,8 @@ static int pcrlock_main(int argc, char *argv[]) {
                 { "help",                        VERB_ANY, VERB_ANY, 0,            help                             },
                 { "log",                         VERB_ANY, 1,        VERB_DEFAULT, verb_show_log                    },
                 { "cel",                         VERB_ANY, 1,        0,            verb_show_cel                    },
-                { "predict",                     VERB_ANY, 1,        0,            verb_predict                     },
                 { "list-components",             VERB_ANY, 1,        0,            verb_list_components             },
+                { "predict",                     VERB_ANY, 1,        0,            verb_predict                     },
                 { "lock-firmware-code",          VERB_ANY, 2,        0,            verb_lock_firmware               },
                 { "unlock-firmware-code",        VERB_ANY, 1,        0,            verb_unlock_firmware             },
                 { "lock-firmware-config",        VERB_ANY, 2,        0,            verb_lock_firmware               },
@@ -4160,6 +4694,8 @@ static int pcrlock_main(int argc, char *argv[]) {
                 { "unlock-file-system",          VERB_ANY, 2,        0,            verb_unlock_file_system          },
                 { "lock-raw",                    VERB_ANY, 2,        0,            verb_lock_raw                    },
                 { "unlock-raw",                  VERB_ANY, 1,        0,            verb_unlock_simple               },
+                { "sign",                        VERB_ANY, 1,        0,            verb_sign                        },
+                { "unlink",                      VERB_ANY, 1,        0,            verb_unlink                      },
                 {}
         };
 
