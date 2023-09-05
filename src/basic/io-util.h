@@ -15,7 +15,11 @@ int flush_fd(int fd);
 
 ssize_t loop_read(int fd, void *buf, size_t nbytes, bool do_poll);
 int loop_read_exact(int fd, void *buf, size_t nbytes, bool do_poll);
-int loop_write(int fd, const void *buf, size_t nbytes, bool do_poll);
+
+int loop_write_full(int fd, const void *buf, size_t nbytes, bool do_poll, usec_t timeout);
+static inline int loop_write(int fd, const void *buf, size_t nbytes, bool do_poll) {
+        return loop_write_full(fd, buf, nbytes, do_poll, USEC_INFINITY);
+}
 
 int pipe_eof(int fd);
 
