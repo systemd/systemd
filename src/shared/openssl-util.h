@@ -128,3 +128,5 @@ static inline int string_hashsum_sha256(const char *s, size_t len, char **ret) {
         return string_hashsum(s, len, EVP_sha256(), ret);
 }
 #endif
+
+int digest_and_sign(const EVP_MD *md, EVP_PKEY *privkey, const void *data, size_t size, void **ret, size_t *ret_size);
