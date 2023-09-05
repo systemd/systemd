@@ -837,31 +837,12 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
                         if (r < 0)
                                 return r;
 
-                        _cleanup_(EVP_MD_CTX_freep) EVP_MD_CTX* mdctx = NULL;
-                        mdctx = EVP_MD_CTX_new();
-                        if (!mdctx)
-                                return log_oom();
-
-                        if (EVP_DigestSignInit(mdctx, NULL, p->md, NULL, privkey) != 1)
-                                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                                       "Failed to initialize signature context.");
-
-                        if (EVP_DigestSignUpdate(mdctx, pcr_policy_digest.buffer, pcr_policy_digest.size) != 1)
-                                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                                       "Failed to sign data.");
-
+                        _cleanup_free_ void *sig = NULL;
                         size_t ss;
-                        if (EVP_DigestSignFinal(mdctx, NULL, &ss) != 1)
-                                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                                       "Failed to finalize signature");
 
-                        _cleanup_free_ void *sig = malloc(ss);
-                        if (!sig)
-                                return log_oom();
-
-                        if (EVP_DigestSignFinal(mdctx, sig, &ss) != 1)
-                                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                                       "Failed to acquire signature data");
+                        r = digest_and_sign(p->md, privkey, pcr_policy_digest.buffer, pcr_policy_digest.size, &sig, &ss);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to sign PCR policy: %m");
 
                         _cleanup_free_ void *pubkey_fp = NULL;
                         size_t pubkey_fp_size = 0;
