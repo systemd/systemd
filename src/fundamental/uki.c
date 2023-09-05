@@ -5,6 +5,10 @@
 #include "uki.h"
 
 const char* const unified_sections[_UNIFIED_SECTION_MAX + 1] = {
+        /* These section names must fit in 8ch (excluding any trailing NUL) as per PE spec for executables:
+         * https://learn.microsoft.com/en-us/windows/win32/debug/pe-format#section-table-section-headers
+         * (Note that PE *object* files may have longer section names (via indirection in the string table) but
+         * this is not allowed for PE *executables*, which UKIs are.) */
         [UNIFIED_SECTION_LINUX]   = ".linux",
         [UNIFIED_SECTION_OSREL]   = ".osrel",
         [UNIFIED_SECTION_CMDLINE] = ".cmdline",
