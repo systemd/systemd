@@ -9,7 +9,6 @@
 #include "netif-util.h"
 #include "networkd-address.h"
 #include "networkd-dhcp-common.h"
-#include "networkd-dhcp-prefix-delegation.h"
 #include "networkd-json.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
@@ -1046,7 +1045,7 @@ static int dhcp_server_append_json(Link *link, JsonVariant **v) {
 
 static int dhcp6_client_lease_append_json(Link *link, JsonVariant **v) {
         _cleanup_(json_variant_unrefp) JsonVariant *w = NULL;
-        uint64_t lease_timestamp_usec;
+        usec_t ts, t1, t2;
         int r;
 
         assert(link);
@@ -1055,17 +1054,22 @@ static int dhcp6_client_lease_append_json(Link *link, JsonVariant **v) {
         if (!link->dhcp6_lease)
                 return 0;
 
-        r = sd_dhcp6_lease_get_timestamp(link->dhcp6_lease, CLOCK_BOOTTIME, &lease_timestamp_usec);
+        r = sd_dhcp6_lease_get_timestamp(link->dhcp6_lease, CLOCK_BOOTTIME, &ts);
         if (r < 0)
-                return 0;
+                return r;
+
+        r = sd_dhcp6_lease_get_t1_timestamp(link->dhcp6_lease, CLOCK_BOOTTIME, &t1);
+        if (r < 0)
+                return r;
+
+        r = sd_dhcp6_lease_get_t2_timestamp(link->dhcp6_lease, CLOCK_BOOTTIME, &t2);
+        if (r < 0)
+                return r;
 
         r = json_build(&w, JSON_BUILD_OBJECT(
-                                JSON_BUILD_PAIR_FINITE_USEC("Timeout1USec",
-                                        link->dhcp6_lease->lifetime_t1 + lease_timestamp_usec),
-                                JSON_BUILD_PAIR_FINITE_USEC("Timeout2USec",
-                                        link->dhcp6_lease->lifetime_t2 + lease_timestamp_usec),
-                                JSON_BUILD_PAIR_FINITE_USEC("LeaseTimestampUSec",
-                                        lease_timestamp_usec)));
+                                JSON_BUILD_PAIR_FINITE_USEC("Timeout1USec", t1),
+                                JSON_BUILD_PAIR_FINITE_USEC("Timeout2USec", t2),
+                                JSON_BUILD_PAIR_FINITE_USEC("LeaseTimestampUSec", ts)));
         if (r < 0)
                 return r;
 
@@ -1074,33 +1078,35 @@ static int dhcp6_client_lease_append_json(Link *link, JsonVariant **v) {
 
 static int dhcp6_client_pd_append_json(Link *link, JsonVariant **v) {
         _cleanup_(json_variant_unrefp) JsonVariant *array = NULL;
-        struct in6_addr prefix;
-        uint32_t lifetime_preferred, lifetime_valid;
-        uint8_t prefix_len;
-        uint64_t lease_timestamp_usec;
         int r;
 
         assert(link);
         assert(link->network);
         assert(v);
 
-        if (!link->network->dhcp6_use_pd_prefix || !link->dhcp6_lease || !dhcp6_lease_has_pd_prefix(link->dhcp6_lease))
+        if (!link->network->dhcp6_use_pd_prefix ||
+            !sd_dhcp6_lease_has_pd_prefix(link->dhcp6_lease))
                 return 0;
 
-        sd_dhcp6_lease_reset_pd_prefix_iter(link->dhcp6_lease);
+        FOREACH_DHCP6_PD_PREFIX(link->dhcp6_lease) {
+                usec_t lifetime_preferred_usec, lifetime_valid_usec;
+                struct in6_addr prefix;
+                uint8_t prefix_len;
 
-        r = sd_dhcp6_lease_get_timestamp(link->dhcp6_lease, CLOCK_BOOTTIME, &lease_timestamp_usec);
-        if (r < 0)
-                return 0;
+                r = sd_dhcp6_lease_get_pd_prefix(link->dhcp6_lease, &prefix, &prefix_len);
+                if (r < 0)
+                        return r;
 
-        while (sd_dhcp6_lease_get_pd(link->dhcp6_lease, &prefix, &prefix_len, &lifetime_preferred, &lifetime_valid) >= 0) {
+                r = sd_dhcp6_lease_get_pd_lifetime_timestamp(link->dhcp6_lease, CLOCK_BOOTTIME,
+                                                             &lifetime_preferred_usec, &lifetime_valid_usec);
+                if (r < 0)
+                        return r;
+
                 r = json_variant_append_arrayb(&array, JSON_BUILD_OBJECT(
                                                JSON_BUILD_PAIR_IN6_ADDR("Prefix", &prefix),
                                                JSON_BUILD_PAIR_UNSIGNED("PrefixLength", prefix_len),
-                                               JSON_BUILD_PAIR_FINITE_USEC("PreferredLifetimeUSec",
-                                                                           sec_to_usec(lifetime_preferred, lease_timestamp_usec)),
-                                               JSON_BUILD_PAIR_FINITE_USEC("ValidLifetimeUSec",
-                                                                           sec_to_usec(lifetime_valid, lease_timestamp_usec))));
+                                               JSON_BUILD_PAIR_FINITE_USEC("PreferredLifetimeUSec", lifetime_preferred_usec),
+                                               JSON_BUILD_PAIR_FINITE_USEC("ValidLifetimeUSec", lifetime_valid_usec)));
                 if (r < 0)
                         return r;
         }
@@ -1131,8 +1137,7 @@ static int dhcp6_client_append_json(Link *link, JsonVariant **v) {
 
 static int dhcp_client_lease_append_json(Link *link, JsonVariant **v) {
         _cleanup_(json_variant_unrefp) JsonVariant *w = NULL;
-        uint32_t t1, t2;
-        uint64_t lease_timestamp_usec;
+        usec_t lease_timestamp_usec, t1, t2;
         int r;
 
         assert(link);
@@ -1141,24 +1146,22 @@ static int dhcp_client_lease_append_json(Link *link, JsonVariant **v) {
         if (!link->dhcp_client || !link->dhcp_lease)
                 return 0;
 
-        r = sd_dhcp_lease_get_t1(link->dhcp_lease, &t1);
+        r = sd_dhcp_lease_get_timestamp(link->dhcp_lease, CLOCK_BOOTTIME, &lease_timestamp_usec);
         if (r < 0)
                 return 0;
 
-        r = sd_dhcp_lease_get_t2(link->dhcp_lease, &t2);
+        r = sd_dhcp_lease_get_t1_timestamp(link->dhcp_lease, CLOCK_BOOTTIME, &t1);
         if (r < 0)
                 return 0;
 
-        r = sd_dhcp_client_get_lease_timestamp(link->dhcp_client, &lease_timestamp_usec);
+        r = sd_dhcp_lease_get_t2_timestamp(link->dhcp_lease, CLOCK_BOOTTIME, &t2);
         if (r < 0)
                 return 0;
 
         r = json_build(&w, JSON_BUILD_OBJECT(
-                                JSON_BUILD_PAIR_FINITE_USEC("Timeout1USec",
-                                                            sec_to_usec(t1, lease_timestamp_usec)),
-                                JSON_BUILD_PAIR_FINITE_USEC("Timeout2USec",
-                                                            sec_to_usec(t2, lease_timestamp_usec)),
-                                JSON_BUILD_PAIR_FINITE_USEC("LeaseTimestampUSec", lease_timestamp_usec)));
+                                JSON_BUILD_PAIR_FINITE_USEC("LeaseTimestampUSec", lease_timestamp_usec),
+                                JSON_BUILD_PAIR_FINITE_USEC("Timeout1USec", t1),
+                                JSON_BUILD_PAIR_FINITE_USEC("Timeout2USec", t2)));
         if (r < 0)
                 return r;
 
@@ -1177,7 +1180,7 @@ static int dhcp_client_pd_append_json(Link *link, JsonVariant **v) {
         assert(link->network);
         assert(v);
 
-        if (!link->network->dhcp_use_6rd || !link->dhcp_lease || !dhcp4_lease_has_pd_prefix(link->dhcp_lease))
+        if (!link->network->dhcp_use_6rd || !sd_dhcp_lease_has_6rd(link->dhcp_lease))
                 return 0;
 
         r = sd_dhcp_lease_get_6rd(link->dhcp_lease, &ipv4masklen, &sixrd_prefixlen, &sixrd_prefix, &br_addresses, &n_br_addresses);
