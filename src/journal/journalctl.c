@@ -330,6 +330,7 @@ static int parse_lines(const char *arg, bool graceful) {
 
 default_noarg:
         arg_lines = 10;
+        arg_lines_oldest = false;
         return 0;
 }
 
