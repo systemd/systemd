@@ -77,7 +77,7 @@ if [[ "$COMPILER" == clang ]]; then
     AR="llvm-ar-$COMPILER_VERSION"
 
     # Prefer the distro version if available
-    if ! apt install --dry-run "llvm-$COMPILER_VERSION" >/dev/null; then
+    if ! apt-get -y install --dry-run "llvm-$COMPILER_VERSION" >/dev/null; then
         # Latest LLVM stack deb packages provided by https://apt.llvm.org/
         # Following snippet was partly borrowed from https://apt.llvm.org/llvm.sh
         wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | gpg --yes --dearmor --output /usr/share/keyrings/apt-llvm-org.gpg
@@ -91,7 +91,7 @@ elif [[ "$COMPILER" == gcc ]]; then
     CXX="g++-$COMPILER_VERSION"
     AR="gcc-ar-$COMPILER_VERSION"
 
-    if ! apt install --dry-run "gcc-$COMPILER_VERSION" >/dev/null; then
+    if ! apt-get -y install --dry-run "gcc-$COMPILER_VERSION" >/dev/null; then
         # Latest gcc stack deb packages provided by
         # https://launchpad.net/~ubuntu-toolchain-r/+archive/ubuntu/test
         add-apt-repository -y --no-update ppa:ubuntu-toolchain-r/test
