@@ -7,14 +7,16 @@ set -o pipefail
 . "$(dirname "$0")"/test-control.sh
 
 clear_unit() {
-    local UNIT_NAME="${1:?}"
-    systemctl stop "$UNIT_NAME" 2>/dev/null || :
-    rm -f  /{etc,run,usr/lib}/systemd/system/"$UNIT_NAME"
-    rm -fr /{etc,run,usr/lib}/systemd/system/"$UNIT_NAME".d
-    rm -fr /{etc,run,usr/lib}/systemd/system/"$UNIT_NAME".{wants,requires}
-    if [[ $UNIT_NAME == *@ ]]; then
-        local base="${UNIT_NAME%@*}"
-        local suffix="${UNIT_NAME##*.}"
+    local unit_name="${1:?}"
+    local base suffix
+
+    systemctl stop "$unit_name" 2>/dev/null || :
+    rm -f  /{etc,run,usr/lib}/systemd/system/"$unit_name"
+    rm -fr /{etc,run,usr/lib}/systemd/system/"$unit_name".d
+    rm -fr /{etc,run,usr/lib}/systemd/system/"$unit_name".{wants,requires}
+    if [[ $unit_name == *@* ]]; then
+        base="${unit_name%@*}"
+        suffix="${unit_name##*.}"
         systemctl stop "$base@"*."$suffix" 2>/dev/null || :
         rm -f  /{etc,run,usr/lib}/systemd/system/"$base@"*."$suffix"
         rm -fr /{etc,run,usr/lib}/systemd/system/"$base@"*."$suffix".d
@@ -30,17 +32,17 @@ clear_units() {
 }
 
 create_service() {
-    local SERVICE_NAME="${1:?}"
-    clear_units "${SERVICE_NAME}".service
+    local service_name="${1:?}"
+    clear_units "${service_name}".service
 
-    cat >/etc/systemd/system/"$SERVICE_NAME".service <<EOF
+    cat >/etc/systemd/system/"$service_name".service <<EOF
 [Unit]
-Description=$SERVICE_NAME unit
+Description=$service_name unit
 
 [Service]
 ExecStart=sleep 100000
 EOF
-    mkdir -p /{etc,run,usr/lib}/systemd/system/"$SERVICE_NAME".service.{d,wants,requires}
+    mkdir -p /{etc,run,usr/lib}/systemd/system/"$service_name".service.{d,wants,requires}
 }
 
 create_services() {
@@ -114,15 +116,15 @@ testcase_basic_dropins() {
     create_services test15-a test15-b
     check_ko test15-a ExecCondition "/bin/echo a"
     check_ko test15-b ExecCondition "/bin/echo b"
-    mkdir -p /usr/lib/systemd/system/service.d
-    cat >/usr/lib/systemd/system/service.d/override.conf <<EOF
+    mkdir -p /run/systemd/system/service.d
+    cat >/run/systemd/system/service.d/override.conf <<EOF
 [Service]
 ExecCondition=/bin/echo %n
 EOF
     systemctl daemon-reload
     check_ok test15-a ExecCondition "/bin/echo test15-a"
     check_ok test15-b ExecCondition "/bin/echo test15-b"
-    rm -rf /usr/lib/systemd/system/service.d
+    rm -rf /run/systemd/system/service.d
 
     clear_units test15-{a,b,c,c1}.service
 }
@@ -190,11 +192,11 @@ testcase_hierarchical_service_dropins() {
     check_ko a-b-c ExecCondition "echo a-b-c.service.d"
 
     for dropin in service.d a-.service.d a-b-.service.d a-b-c.service.d; do
-        mkdir -p /usr/lib/systemd/system/$dropin
-        echo "
+        mkdir -p "/run/systemd/system/$dropin"
+        cat >"/run/systemd/system/$dropin/override.conf" <<EOF
 [Service]
 ExecCondition=echo $dropin
-        " >/usr/lib/systemd/system/$dropin/override.conf
+EOF
         systemctl daemon-reload
         check_ok a-b-c ExecCondition "echo $dropin"
 
@@ -220,7 +222,7 @@ ExecCondition=echo $dropin
         systemctl stop a-b-c2.service
     done
     for dropin in service.d a-.service.d a-b-.service.d a-b-c.service.d; do
-        rm -rf /usr/lib/systemd/system/$dropin
+        rm -rf "/run/systemd/system/$dropin"
     done
 
     clear_units a-b-c.service
@@ -235,11 +237,11 @@ testcase_hierarchical_slice_dropins() {
 
     # Test drop-ins
     for dropin in slice.d a-.slice.d a-b-.slice.d a-b-c.slice.d; do
-        mkdir -p /usr/lib/systemd/system/$dropin
-        echo "
+        mkdir -p "/run/systemd/system/$dropin"
+        cat >"/run/systemd/system/$dropin/override.conf" <<EOF
 [Slice]
 MemoryMax=1000000000
-        " >/usr/lib/systemd/system/$dropin/override.conf
+EOF
         systemctl daemon-reload
         check_ok a-b-c.slice MemoryMax "1000000000"
 
@@ -271,14 +273,14 @@ MemoryMax=1000000000
                StopUnit 'ss' \
                'a-b-c.slice' 'replace'
 
-        rm /usr/lib/systemd/system/$dropin/override.conf
+        rm -f "/run/systemd/system/$dropin/override.conf"
     done
 
     # Test unit with a fragment
-    echo "
+    cat >/run/systemd/system/a-b-c.slice <<EOF
 [Slice]
 MemoryMax=1000000001
-        " >/usr/lib/systemd/system/a-b-c.slice
+EOF
     systemctl daemon-reload
     check_ok a-b-c.slice MemoryMax "1000000001"
 
@@ -614,7 +616,7 @@ EOF
     echo "*** test a wants b both ways"
     create_services test15-a test15-b
     ln -sf /dev/null /etc/systemd/system/test15-a.service.wants/test15-b.service
-    cat >/usr/lib/systemd/system/test15-a.service.d/wants-b.conf<<EOF
+    cat >/usr/lib/systemd/system/test15-a.service.d/wants-b.conf <<EOF
 [Unit]
 Wants=test15-b.service
 EOF
