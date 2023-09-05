@@ -318,7 +318,7 @@ int sd_dhcp_client_set_socket_priority(
                 int so_priority);
 int sd_dhcp_client_set_fallback_lease_lifetime(
                 sd_dhcp_client *client,
-                uint32_t fallback_lease_lifetime);
+                uint64_t fallback_lease_lifetime);
 
 int sd_dhcp_client_add_option(sd_dhcp_client *client, sd_dhcp_option *v);
 int sd_dhcp_client_add_vendor_option(sd_dhcp_client *client, sd_dhcp_option *v);
@@ -329,7 +329,6 @@ int sd_dhcp_client_start(sd_dhcp_client *client);
 int sd_dhcp_client_send_release(sd_dhcp_client *client);
 int sd_dhcp_client_send_decline(sd_dhcp_client *client);
 int sd_dhcp_client_send_renew(sd_dhcp_client *client);
-int sd_dhcp_client_get_lease_timestamp(sd_dhcp_client *client, uint64_t *timestamp);
 
 sd_dhcp_client *sd_dhcp_client_ref(sd_dhcp_client *client);
 sd_dhcp_client *sd_dhcp_client_unref(sd_dhcp_client *client);
