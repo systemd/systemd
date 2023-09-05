@@ -27,9 +27,12 @@
 
 #define NDISC_DNSSL_MAX 64U
 #define NDISC_RDNSS_MAX 64U
-/* Not defined RFC, but let's set an upper limit to make not consume much memory.
+/* Not defined in the RFC, but let's set an upper limit to make not consume much memory.
  * This should be safe as typically there should be at most 1 portal per network. */
 #define NDISC_CAPTIVE_PORTAL_MAX 64U
+/* Neither defined in the RFC. Just for safety. Otherwise, malformed messages can make clients trigger OOM.
+ * Not sure if the threshold is high enough. Let's adjust later if not. */
+#define NDISC_PREF64_MAX 64U
 
 bool link_ipv6_accept_ra_enabled(Link *link) {
         assert(link);
@@ -1051,6 +1054,11 @@ static int ndisc_router_process_pref64(Link *link, sd_ndisc_router *rt) {
                 return 0;
         }
 
+        if (set_size(link->ndisc_pref64) >= NDISC_PREF64_MAX) {
+                log_link_debug(link, "Too many PREF64 records received. Only first %u records will be used.", NDISC_PREF64_MAX);
+                return 0;
+        }
+
         new_entry = new(NDiscPREF64, 1);
         if (!new_entry)
                 return log_oom();
@@ -1134,6 +1142,7 @@ static int ndisc_drop_outdated(Link *link, usec_t timestamp_usec) {
         NDiscDNSSL *dnssl;
         NDiscRDNSS *rdnss;
         NDiscCaptivePortal *cp;
+        NDiscPREF64 *p64;
         Address *address;
         Route *route;
         int r = 0, k;
@@ -1194,6 +1203,15 @@ static int ndisc_drop_outdated(Link *link, usec_t timestamp_usec) {
                 updated = true;
         }
 
+        SET_FOREACH(p64, link->ndisc_pref64) {
+                if (p64->lifetime_usec >= timestamp_usec)
+                        continue; /* the pref64 prefix is still valid */
+
+                free(set_remove(link->ndisc_pref64, p64));
+                /* The pref64 prefix is not exported through the state file, hence it is not necessary to set
+                 * the 'updated' flag. */
+        }
+
         if (updated)
                 link_dirty(link);
 
@@ -1220,6 +1238,7 @@ static int ndisc_setup_expire(Link *link) {
         NDiscCaptivePortal *cp;
         NDiscDNSSL *dnssl;
         NDiscRDNSS *rdnss;
+        NDiscPREF64 *p64;
         Address *address;
         Route *route;
         int r;
@@ -1255,6 +1274,9 @@ static int ndisc_setup_expire(Link *link) {
 
         SET_FOREACH(cp, link->ndisc_captive_portals)
                 lifetime_usec = MIN(lifetime_usec, cp->lifetime_usec);
+
+        SET_FOREACH(p64, link->ndisc_pref64)
+                lifetime_usec = MIN(lifetime_usec, p64->lifetime_usec);
 
         if (lifetime_usec == USEC_INFINITY)
                 return 0;
