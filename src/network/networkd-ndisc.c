@@ -1134,6 +1134,7 @@ static int ndisc_drop_outdated(Link *link, usec_t timestamp_usec) {
         NDiscDNSSL *dnssl;
         NDiscRDNSS *rdnss;
         NDiscCaptivePortal *cp;
+        NDiscPREF64 *p64;
         Address *address;
         Route *route;
         int r = 0, k;
@@ -1194,6 +1195,15 @@ static int ndisc_drop_outdated(Link *link, usec_t timestamp_usec) {
                 updated = true;
         }
 
+        SET_FOREACH(p64, link->ndisc_pref64) {
+                if (p64->lifetime_usec >= timestamp_usec)
+                        continue; /* the pref64 prefix is still valid */
+
+                free(set_remove(link->ndisc_pref64, p64));
+                /* The pref64 prefix is not exported through the state file, hence it is not necessary to set
+                 * the 'updated' flag. */
+        }
+
         if (updated)
                 link_dirty(link);
 
@@ -1220,6 +1230,7 @@ static int ndisc_setup_expire(Link *link) {
         NDiscCaptivePortal *cp;
         NDiscDNSSL *dnssl;
         NDiscRDNSS *rdnss;
+        NDiscPREF64 *p64;
         Address *address;
         Route *route;
         int r;
@@ -1255,6 +1266,9 @@ static int ndisc_setup_expire(Link *link) {
 
         SET_FOREACH(cp, link->ndisc_captive_portals)
                 lifetime_usec = MIN(lifetime_usec, cp->lifetime_usec);
+
+        SET_FOREACH(p64, link->ndisc_pref64)
+                lifetime_usec = MIN(lifetime_usec, p64->lifetime_usec);
 
         if (lifetime_usec == USEC_INFINITY)
                 return 0;
