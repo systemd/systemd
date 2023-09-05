@@ -36,30 +36,26 @@ int sd_dhcp6_lease_get_timestamp(sd_dhcp6_lease *lease, clockid_t clock, uint64_
         return 0;
 }
 
-static usec_t sec2usec(uint32_t sec) {
-        return sec == UINT32_MAX ? USEC_INFINITY : sec * USEC_PER_SEC;
-}
-
 static void dhcp6_lease_set_lifetime(sd_dhcp6_lease *lease) {
-        uint32_t t1 = UINT32_MAX, t2 = UINT32_MAX, min_valid_lt = UINT32_MAX;
+        usec_t t1 = USEC_INFINITY, t2 = USEC_INFINITY, min_valid_lt = USEC_INFINITY;
 
         assert(lease);
         assert(lease->ia_na || lease->ia_pd);
 
         if (lease->ia_na) {
-                t1 = MIN(t1, be32toh(lease->ia_na->header.lifetime_t1));
-                t2 = MIN(t2, be32toh(lease->ia_na->header.lifetime_t2));
+                t1 = MIN(t1, be32_sec_to_usec(lease->ia_na->header.lifetime_t1, /* max_as_infinity = */ true));
+                t2 = MIN(t2, be32_sec_to_usec(lease->ia_na->header.lifetime_t2, /* max_as_infinity = */ true));
 
                 LIST_FOREACH(addresses, a, lease->ia_na->addresses)
-                        min_valid_lt = MIN(min_valid_lt, be32toh(a->iaaddr.lifetime_valid));
+                        min_valid_lt = MIN(min_valid_lt, be32_sec_to_usec(a->iaaddr.lifetime_valid, /* max_as_infinity = */ true));
         }
 
         if (lease->ia_pd) {
-                t1 = MIN(t1, be32toh(lease->ia_pd->header.lifetime_t1));
-                t2 = MIN(t2, be32toh(lease->ia_pd->header.lifetime_t2));
+                t1 = MIN(t1, be32_sec_to_usec(lease->ia_pd->header.lifetime_t1, /* max_as_infinity = */ true));
+                t2 = MIN(t2, be32_sec_to_usec(lease->ia_pd->header.lifetime_t2, /* max_as_infinity = */ true));
 
                 LIST_FOREACH(addresses, a, lease->ia_pd->addresses)
-                        min_valid_lt = MIN(min_valid_lt, be32toh(a->iapdprefix.lifetime_valid));
+                        min_valid_lt = MIN(min_valid_lt, be32_sec_to_usec(a->iapdprefix.lifetime_valid, /* max_as_infinity = */ true));
         }
 
         if (t2 == 0 || t2 > min_valid_lt) {
@@ -69,9 +65,9 @@ static void dhcp6_lease_set_lifetime(sd_dhcp6_lease *lease) {
                 t2 = min_valid_lt / 10 * 8;
         }
 
-        lease->lifetime_valid = sec2usec(min_valid_lt);
-        lease->lifetime_t1 = sec2usec(t1);
-        lease->lifetime_t2 = sec2usec(t2);
+        lease->lifetime_valid = min_valid_lt;
+        lease->lifetime_t1 = t1;
+        lease->lifetime_t2 = t2;
 }
 
 int dhcp6_lease_get_lifetime(sd_dhcp6_lease *lease, usec_t *ret_t1, usec_t *ret_t2, usec_t *ret_valid) {
@@ -747,7 +743,7 @@ static int dhcp6_lease_parse_message(
                                 return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL),
                                                               "Received information refresh time option with an invalid length (%zu).", optlen);
 
-                        irt = unaligned_read_be32(optval) * USEC_PER_SEC;
+                        irt = unaligned_be32_sec_to_usec(optval, /* max_as_infinity = */ false);
                         break;
                 }
         }
