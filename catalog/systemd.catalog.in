@@ -206,11 +206,11 @@ Support: %SUPPORT_URL%
 Reboot has failed when systemd attempted to reboot after a crash.
 
 -- 645c735537634ae0a32b15a7c6cba7d4
-Subject: Init execution freezed
+Subject: Init execution froze
 Defined-By: systemd
 Support: %SUPPORT_URL%
 
-Systemd freezed execution after fatal error.
+Systemd froze execution after fatal error.
 
 -- 5addb3a06a734d3396b794bf98fb2d01
 Subject: Init received fatal signal while coredump is disabled
