@@ -250,7 +250,7 @@ static int tar_import_write(const void *p, size_t sz, void *userdata) {
         TarImport *i = userdata;
         int r;
 
-        r = loop_write(i->tar_fd, p, sz, false);
+        r = loop_write(i->tar_fd, p, sz);
         if (r < 0)
                 return r;
 
