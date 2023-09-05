@@ -80,9 +80,10 @@ if [[ "$COMPILER" == clang ]]; then
     if ! apt-get -y install --dry-run "llvm-$COMPILER_VERSION" >/dev/null; then
         # Latest LLVM stack deb packages provided by https://apt.llvm.org/
         # Following snippet was partly borrowed from https://apt.llvm.org/llvm.sh
-        wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | gpg --yes --dearmor --output /usr/share/keyrings/apt-llvm-org.gpg
-        printf "deb [signed-by=/usr/share/keyrings/apt-llvm-org.gpg] http://apt.llvm.org/%s/   llvm-toolchain-%s-%s  main\n" \
-               "$RELEASE" "$RELEASE" "$COMPILER_VERSION" >/etc/apt/sources.list.d/llvm-toolchain.list
+        wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | \
+            sudo gpg --yes --dearmor --output /usr/share/keyrings/apt-llvm-org.gpg
+        echo "deb [signed-by=/usr/share/keyrings/apt-llvm-org.gpg] http://apt.llvm.org/$RELEASE/ llvm-toolchain-$RELEASE-$COMPILER_VERSION main" | \
+            sudo tee /etc/apt/sources.list.d/llvm-toolchain.list
     fi
 
     PACKAGES+=("clang-$COMPILER_VERSION" "lldb-$COMPILER_VERSION" "python3-lldb-$COMPILER_VERSION" "lld-$COMPILER_VERSION" "clangd-$COMPILER_VERSION")
@@ -94,7 +95,7 @@ elif [[ "$COMPILER" == gcc ]]; then
     if ! apt-get -y install --dry-run "gcc-$COMPILER_VERSION" >/dev/null; then
         # Latest gcc stack deb packages provided by
         # https://launchpad.net/~ubuntu-toolchain-r/+archive/ubuntu/test
-        add-apt-repository -y --no-update ppa:ubuntu-toolchain-r/test
+        sudo add-apt-repository -y --no-update ppa:ubuntu-toolchain-r/test
     fi
 
     PACKAGES+=("gcc-$COMPILER_VERSION" "gcc-$COMPILER_VERSION-multilib")
@@ -103,11 +104,11 @@ else
 fi
 
 # PPA with some newer build dependencies (like zstd)
-add-apt-repository -y --no-update ppa:upstream-systemd-ci/systemd-ci
-add-apt-repository -y --no-update --enable-source
-apt-get -y update
-apt-get -y build-dep systemd
-apt-get -y install "${PACKAGES[@]}"
+sudo add-apt-repository -y --no-update ppa:upstream-systemd-ci/systemd-ci
+sudo add-apt-repository -y --no-update --enable-source
+sudo apt-get -y update
+sudo apt-get -y build-dep systemd
+sudo apt-get -y install "${PACKAGES[@]}"
 # Install more or less recent meson and ninja with pip, since the distro versions don't
 # always support all the features we need (like --optimization=). Since the build-dep
 # command above installs the distro versions, let's install the pip ones just
