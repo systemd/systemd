@@ -2326,17 +2326,27 @@ foreach dict : executables
 
                 if want_tests != 'false'
                         # Run the fuzz regression tests without any sanitizers enabled.
-                        # Additional invocations with sanitizers may be added below.
+                        # Additional invocations with sanitizers may get added below.
                         fuzz_ins = fuzz_regression_tests.get(name, {})
                         foreach directive : fuzz_ins.get('directives', [])
-                                test('@0@_@1@'.format(name, fs.name(directive.full_path())),
+                                tt = '@0@_@1@'.format(name, fs.name(directive.full_path()))
+                                if tt.substring(45) != ''
+                                        error('Directive sample name is too long:', directive.full_path())
+                                endif
+
+                                test(tt,
                                      exe,
                                      suite : 'fuzz',
                                      args : directive.full_path(),
                                      depends : directive)
                         endforeach
                         foreach file : fuzz_ins.get('files', [])
-                                test('@0@_@1@'.format(name, fs.name(file)),
+                                tt = '@0@_@1@'.format(name, fs.name(file))
+                                if tt.substring(45) != ''
+                                        error('Fuzz sample name is too long:', fs.name(file))
+                                endif
+
+                                test(tt,
                                      exe,
                                      suite : 'fuzz',
                                      args : file)
