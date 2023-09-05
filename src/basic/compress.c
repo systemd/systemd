@@ -614,7 +614,7 @@ int compress_stream_xz(int fdf, int fdt, uint64_t max_bytes, uint64_t *ret_uncom
 
                         n = sizeof(out) - s.avail_out;
 
-                        k = loop_write(fdt, out, n, false);
+                        k = loop_write(fdt, out, n);
                         if (k < 0)
                                 return k;
 
@@ -693,7 +693,7 @@ int compress_stream_lz4(int fdf, int fdt, uint64_t max_bytes, uint64_t *ret_unco
                                                "Compressed stream longer than %" PRIu64 " bytes", max_bytes);
 
                 if (out_allocsize - offset < frame_size + 4) {
-                        k = loop_write(fdt, out_buff, offset, false);
+                        k = loop_write(fdt, out_buff, offset);
                         if (k < 0)
                                 return k;
                         offset = 0;
@@ -706,7 +706,7 @@ int compress_stream_lz4(int fdf, int fdt, uint64_t max_bytes, uint64_t *ret_unco
 
         offset += n;
         total_out += n;
-        r = loop_write(fdt, out_buff, offset, false);
+        r = loop_write(fdt, out_buff, offset);
         if (r < 0)
                 return r;
 
@@ -779,7 +779,7 @@ int decompress_stream_xz(int fdf, int fdt, uint64_t max_bytes) {
                                 max_bytes -= n;
                         }
 
-                        k = loop_write(fdt, out, n, false);
+                        k = loop_write(fdt, out, n);
                         if (k < 0)
                                 return k;
 
@@ -845,7 +845,7 @@ int decompress_stream_lz4(int in, int out, uint64_t max_bytes) {
                         goto cleanup;
                 }
 
-                r = loop_write(out, buf, produced, false);
+                r = loop_write(out, buf, produced);
                 if (r < 0)
                         goto cleanup;
         }
@@ -931,7 +931,7 @@ int compress_stream_zstd(int fdf, int fdt, uint64_t max_bytes, uint64_t *ret_unc
                         if (left < output.pos)
                                 return -EFBIG;
 
-                        wrote = loop_write(fdt, output.dst, output.pos, 1);
+                        wrote = loop_write_full(fdt, output.dst, output.pos, /* do_poll = */ true, USEC_INFINITY);
                         if (wrote < 0)
                                 return wrote;
 
@@ -1041,7 +1041,7 @@ int decompress_stream_zstd(int fdf, int fdt, uint64_t max_bytes) {
                         if (left < output.pos)
                                 return -EFBIG;
 
-                        wrote = loop_write(fdt, output.dst, output.pos, 1);
+                        wrote = loop_write_full(fdt, output.dst, output.pos, /* do_poll = */ true, USEC_INFINITY);
                         if (wrote < 0)
                                 return wrote;
 

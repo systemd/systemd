@@ -339,7 +339,7 @@ static int proc_cmdline_callback(const char *key, const char *value, void *data)
         if (nfd < 0)
                 return nfd;
 
-        r = loop_write(nfd, d, l, /* do_poll= */ false);
+        r = loop_write(nfd, d, l);
         if (r < 0) {
                 (void) unlinkat(c->target_dir_fd, n, 0);
                 return log_error_errno(r, "Failed to write credential: %m");
@@ -551,7 +551,7 @@ static int parse_smbios_strings(ImportCredentialContext *c, const char *data, si
                 if (nfd < 0)
                         return nfd;
 
-                r = loop_write(nfd, cdata, cdata_len, /* do_poll= */ false);
+                r = loop_write(nfd, cdata, cdata_len);
                 if (r < 0) {
                         (void) unlinkat(c->target_dir_fd, cn, 0);
                         return log_error_errno(r, "Failed to write credential: %m");
