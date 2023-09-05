@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <unistd.h>
 
+#include "errno-util.h"
 #include "io-util.h"
 #include "string-util.h"
 #include "time-util.h"
@@ -105,18 +106,20 @@ int loop_read_exact(int fd, void *buf, size_t nbytes, bool do_poll) {
         return 0;
 }
 
-int loop_write(int fd, const void *buf, size_t nbytes, bool do_poll) {
+int loop_write_full(int fd, const void *buf, size_t nbytes, bool do_poll, usec_t timeout) {
         const uint8_t *p;
+        usec_t end;
+        int r;
 
         assert(fd >= 0);
+        assert(buf || nbytes == 0);
+        assert(!do_poll || timeout > 0); /* If timeout == 0, we'll never wait */
 
         if (nbytes == 0) {
                 static const dummy_t dummy[0];
                 assert_cc(sizeof(dummy) == 0);
                 p = (const void*) dummy; /* Some valid pointer, in case NULL was specified */
         } else {
-                assert(buf);
-
                 if (nbytes == SIZE_MAX)
                         nbytes = strlen(buf);
                 else if (_unlikely_(nbytes > (size_t) SSIZE_MAX))
@@ -125,8 +128,18 @@ int loop_write(int fd, const void *buf, size_t nbytes, bool do_poll) {
                 p = buf;
         }
 
+        end = timestamp_is_set(timeout) ? usec_add(now(CLOCK_MONOTONIC), timeout) : USEC_INFINITY;
+
         do {
                 ssize_t k;
+                usec_t t;
+
+                if (end != USEC_INFINITY) {
+                        t = now(CLOCK_MONOTONIC);
+                        if (t >= end)
+                                return -ETIME;
+                } else
+                        t = 0; /* for usec_sub_unsigned below */
 
                 k = write(fd, p, nbytes);
                 if (k < 0) {
@@ -134,12 +147,17 @@ int loop_write(int fd, const void *buf, size_t nbytes, bool do_poll) {
                                 continue;
 
                         if (errno == EAGAIN && do_poll) {
-                                /* We knowingly ignore any return value here,
-                                 * and expect that any error/EOF is reported
-                                 * via write() */
+                                /* timeout == 0 is rejected early by assert */
 
-                                (void) fd_wait_for_event(fd, POLLOUT, USEC_INFINITY);
-                                continue;
+                                r = fd_wait_for_event(fd, POLLOUT, usec_sub_unsigned(end, t));
+                                if (end == USEC_INFINITY || ERRNO_IS_NEG_TRANSIENT(r))
+                                        /* If timeout == USEC_INFINITY we knowingly ignore any return value
+                                         * here, and expect that any error/EOF is reported via write() */
+                                        continue;
+                                if (r < 0)
+                                        return r;
+                                if (r == 0)
+                                        return -ETIME;
                         }
 
                         return -errno;
