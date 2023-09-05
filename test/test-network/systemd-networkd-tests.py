@@ -14,6 +14,7 @@ import pathlib
 import re
 import shutil
 import signal
+import socket
 import subprocess
 import sys
 import time
@@ -6327,6 +6328,20 @@ class NetworkdIPv6PrefixTests(unittest.TestCase, Utilities):
 
         output = check_output(*networkctl_cmd, '--json=short', 'status', env=env)
         check_json(output)
+
+        output = check_output(*networkctl_cmd, '--json=short', 'status', 'veth-peer', env=env)
+        check_json(output)
+
+        # PREF64 or NAT64
+        j = json.loads(output)
+
+        ndisc = y["NDisc"]
+        pref64 = ndisc["PREF64"]
+        prefix = pref64["Prefix"]
+        prefixlen = pref64["PrefixLength"]
+
+        self.assertEqual('64:ff9b::', socket.inet_ntop(socket.AF_INET6, prefix))
+        self.assertEqual('96', prefixlen)
 
     def test_ipv6_route_prefix_deny_list(self):
         copy_network_unit('25-veth.netdev', '25-ipv6ra-prefix-client-deny-list.network', '25-ipv6ra-prefix.network',
