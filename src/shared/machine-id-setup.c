@@ -162,7 +162,7 @@ int machine_id_setup(const char *root, bool force_transient, sd_id128_t machine_
                  *
                  * Otherwise write the machine-id directly to disk. */
                 if (force_transient) {
-                        r = loop_write(fd, "uninitialized\n", SIZE_MAX, false);
+                        r = loop_write(fd, "uninitialized\n", SIZE_MAX);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to write uninitialized %s: %m", etc_machine_id);
 

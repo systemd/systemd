@@ -166,7 +166,7 @@ static int display_emergency_message_fullscreen(const char *message) {
         if (ioctl(fd, VT_ACTIVATE, free_vt + 1) < 0)
                 return log_error_errno(errno, "Failed to activate tty: %m");
 
-        r = loop_write(fd, ANSI_BACKGROUND_BLUE ANSI_HOME_CLEAR, SIZE_MAX, /* do_poll = */ false);
+        r = loop_write(fd, ANSI_BACKGROUND_BLUE ANSI_HOME_CLEAR, SIZE_MAX);
         if (r < 0)
                 log_warning_errno(r, "Failed to clear terminal, ignoring: %m");
 
@@ -174,7 +174,7 @@ static int display_emergency_message_fullscreen(const char *message) {
         if (r < 0)
                 log_warning_errno(r, "Failed to move terminal cursor position, ignoring: %m");
 
-        r = loop_write(fd, "The current boot has failed!", SIZE_MAX, /* do_poll = */false);
+        r = loop_write(fd, "The current boot has failed!", SIZE_MAX);
         if (r < 0)
                 return log_warning_errno(r, "Failed to write to terminal: %m");
 
@@ -184,7 +184,7 @@ static int display_emergency_message_fullscreen(const char *message) {
         if (r < 0)
                 log_warning_errno(r, "Failed to move terminal cursor position, ignoring: %m");
 
-        r = loop_write(fd, message, SIZE_MAX, /* do_poll = */false);
+        r = loop_write(fd, message, SIZE_MAX);
         if (r < 0)
                 return log_warning_errno(r, "Failed to write emergency message to terminal: %m");
 
@@ -200,7 +200,7 @@ static int display_emergency_message_fullscreen(const char *message) {
         if (r < 0)
                 log_warning_errno(r, "Failed to move terminal cursor position, ignoring: %m");
 
-        r = loop_write(fd, "Press any key to exit...", SIZE_MAX, /* do_poll = */false);
+        r = loop_write(fd, "Press any key to exit...", SIZE_MAX);
         if (r < 0)
                 return log_warning_errno(r, "Failed to write to terminal: %m");
 
