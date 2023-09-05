@@ -35,4 +35,4 @@ jobs:
       - name: Repository checkout
         uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744
       - name: Build check
-        run: sudo -E .github/workflows/build_test.sh
+        run: .github/workflows/build_test.sh
