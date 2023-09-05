@@ -30,6 +30,12 @@ _SD_BEGIN_DECLARATIONS;
 typedef struct sd_dhcp6_lease sd_dhcp6_lease;
 
 int sd_dhcp6_lease_get_timestamp(sd_dhcp6_lease *lease, clockid_t clock, uint64_t *ret);
+int sd_dhcp6_lease_get_t1(sd_dhcp6_lease *lease, uint64_t *ret);
+int sd_dhcp6_lease_get_t1_timestamp(sd_dhcp6_lease *lease, clockid_t clock, uint64_t *ret);
+int sd_dhcp6_lease_get_t2(sd_dhcp6_lease *lease, uint64_t *ret);
+int sd_dhcp6_lease_get_t2_timestamp(sd_dhcp6_lease *lease, clockid_t clock, uint64_t *ret);
+int sd_dhcp6_lease_get_valid_lifetime(sd_dhcp6_lease *lease, uint64_t *ret);
+int sd_dhcp6_lease_get_valid_lifetime_timestamp(sd_dhcp6_lease *lease, clockid_t clock, uint64_t *ret);
 int sd_dhcp6_lease_get_server_address(sd_dhcp6_lease *lease, struct in6_addr *ret);
 
 int sd_dhcp6_lease_address_iterator_reset(sd_dhcp6_lease *lease);
