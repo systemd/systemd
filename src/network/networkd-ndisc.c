@@ -27,9 +27,12 @@
 
 #define NDISC_DNSSL_MAX 64U
 #define NDISC_RDNSS_MAX 64U
-/* Not defined RFC, but let's set an upper limit to make not consume much memory.
+/* Not defined in the RFC, but let's set an upper limit to make not consume much memory.
  * This should be safe as typically there should be at most 1 portal per network. */
 #define NDISC_CAPTIVE_PORTAL_MAX 64U
+/* Neither defined in the RFC. Just for safety. Otherwise, malformed messages can make clients trigger OOM.
+ * Not sure if the threshold is high enough. Let's adjust later if not. */
+#define NDISC_PREF64_MAX 64U
 
 bool link_ipv6_accept_ra_enabled(Link *link) {
         assert(link);
@@ -1012,6 +1015,11 @@ static int ndisc_router_process_pref64(Link *link, sd_ndisc_router *rt) {
                 /* update existing entry */
                 exist->router = router;
                 exist->lifetime_usec = lifetime_usec;
+                return 0;
+        }
+
+        if (set_size(link->ndisc_pref64) >= NDISC_PREF64_MAX) {
+                log_link_debug(link, "Too many PREF64 records received. Only first %u records will be used.", NDISC_PREF64_MAX);
                 return 0;
         }
 
