@@ -75,6 +75,8 @@ int ecc_pkey_new(int curve_id, EVP_PKEY **ret);
 
 int pubkey_fingerprint(EVP_PKEY *pk, const EVP_MD *md, void **ret, size_t *ret_size);
 
+int digest_and_sign(const EVP_MD *md, EVP_PKEY *privkey, const void *data, size_t size, void **ret, size_t *ret_size);
+
 #else
 
 typedef struct X509 X509;

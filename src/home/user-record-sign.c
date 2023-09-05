@@ -33,7 +33,6 @@ int user_record_sign(UserRecord *ur, EVP_PKEY *private_key, UserRecord **ret) {
         _cleanup_(memstream_done) MemStream m = {};
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
         _cleanup_(user_record_unrefp) UserRecord *signed_ur = NULL;
-        _cleanup_(EVP_MD_CTX_freep) EVP_MD_CTX *md_ctx = NULL;
         _cleanup_free_ char *text = NULL, *key = NULL;
         _cleanup_free_ void *signature = NULL;
         size_t signature_size = 0;
@@ -48,23 +47,9 @@ int user_record_sign(UserRecord *ur, EVP_PKEY *private_key, UserRecord **ret) {
         if (r < 0)
                 return r;
 
-        md_ctx = EVP_MD_CTX_new();
-        if (!md_ctx)
-                return -ENOMEM;
-
-        if (EVP_DigestSignInit(md_ctx, NULL, NULL, NULL, private_key) <= 0)
-                return -EIO;
-
-        /* Request signature size */
-        if (EVP_DigestSign(md_ctx, NULL, &signature_size, (uint8_t*) text, strlen(text)) <= 0)
-                return -EIO;
-
-        signature = malloc(signature_size);
-        if (!signature)
-                return -ENOMEM;
-
-        if (EVP_DigestSign(md_ctx, signature, &signature_size, (uint8_t*) text, strlen(text)) <= 0)
-                return -EIO;
+        r = digest_and_sign(/* md= */ NULL, private_key, text, SIZE_MAX, &signature, &signature_size);
+        if (r < 0)
+                return r;
 
         f = memstream_init(&m);
         if (!f)
