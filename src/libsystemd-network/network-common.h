@@ -32,4 +32,7 @@
 int get_ifname(int ifindex, char **ifname);
 
 usec_t be32_sec_to_usec(be32_t t);
+be32_t usec_to_be32_sec(usec_t t);
+be32_t usec_to_be32_msec(usec_t t);
+be16_t usec_to_be16_sec(usec_t t);
 usec_t time_span_to_stamp(usec_t span, usec_t base);
