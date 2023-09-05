@@ -191,7 +191,7 @@ the PR (set by the $UPSTREAM_PULL_REQUEST env variable) you'd like to debug:
 Now install necessary build & test dependencies:
 
 ## PPA with some newer Ubuntu packages required by upstream systemd
-# add-apt-repository -y ppa:upstream-systemd-ci/systemd-ci
+# add-apt-repository -y --enable-source ppa:upstream-systemd-ci/systemd-ci
 # apt build-dep -y systemd
 # apt install -y autopkgtest debhelper genisoimage git qemu-system-x86
 
