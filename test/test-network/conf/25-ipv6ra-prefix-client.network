@@ -12,3 +12,4 @@ PrefixAllowList=2001:db8:0:1:: 2001:db8:0:1:: 2001:db8:0:1::/64
 PrefixDenyList=2001:db8:0:1::/64 2001:db8:0:1:: 2001:db8:0:3::/64
 RouteDenyList=2001:db1:fff::/64 2001:db1:fff:: 2001:db2:fff::/64
 UseDomains=yes
+UsePREF64=yes

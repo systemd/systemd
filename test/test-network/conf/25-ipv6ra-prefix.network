@@ -32,3 +32,7 @@ LifetimeSec=1000
 [IPv6RoutePrefix]
 Route=2001:db2:fff::/64
 LifetimeSec=1000
+
+[IPv6PREF64Prefix]
+Prefix=64:ff9b::/96
+LifetimeSec=30m
