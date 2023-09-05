@@ -592,3 +592,43 @@ int x509_fingerprint(X509 *cert, uint8_t buffer[static SHA256_DIGEST_SIZE]) {
         return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "openssl is not supported, cannot calculate X509 fingerprint: %m");
 #endif
 }
+
+int digest_and_sign(
+                const EVP_MD *md,
+                EVP_PKEY *privkey,
+                const void *data, size_t size,
+                void **ret, size_t *ret_size) {
+
+        assert(privkey);
+        assert(data || size == 0);
+        assert(ret);
+        assert(ret_size);
+
+        _cleanup_(EVP_MD_CTX_freep) EVP_MD_CTX* mdctx = EVP_MD_CTX_new();
+        if (!mdctx)
+                return log_oom_debug();
+
+        if (EVP_DigestSignInit(mdctx, NULL, md, NULL, privkey) != 1)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to initialize signature context.");
+
+        if (size > 0)
+                if (EVP_DigestSignUpdate(mdctx, data, size) != 1)
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to sign data.");
+
+        /* Determine signature size */
+        size_t ss;
+        if (EVP_DigestSignFinal(mdctx, NULL, &ss) != 1)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to finalize signature");
+
+        _cleanup_free_ void *sig = malloc(ss);
+        if (!sig)
+                return log_oom_debug();
+
+        if (EVP_DigestSignFinal(mdctx, sig, &ss) != 1)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to acquire signature data");
+
+        *ret = TAKE_PTR(sig);
+        *ret_size = ss;
+
+        return 0;
+}
