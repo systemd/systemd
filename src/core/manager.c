@@ -59,6 +59,7 @@
 #include "load-fragment.h"
 #include "locale-setup.h"
 #include "log.h"
+#include "log-action-caller.h"
 #include "macro.h"
 #include "manager.h"
 #include "manager-dump.h"
@@ -2918,9 +2919,11 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
 
                 _fallthrough_;
         case SIGINT:
-                if (MANAGER_IS_SYSTEM(m))
+                if (MANAGER_IS_SYSTEM(m)) {
+                        if (pid_is_valid(sfsi.ssi_pid))
+                                log_action_caller_pid(sfsi.ssi_pid, "SIGINT");
                         manager_handle_ctrl_alt_del(m);
-                else
+                } else
                         manager_start_special(m, SPECIAL_EXIT_TARGET, JOB_REPLACE_IRREVERSIBLY);
                 break;
 

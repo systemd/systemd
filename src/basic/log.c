@@ -1457,6 +1457,7 @@ void log_received_signal(int level, const struct signalfd_siginfo *si) {
                          "Received SIG%s from PID %"PRIu32" (%s).",
                          signal_to_string(si->ssi_signo),
                          si->ssi_pid, strna(p));
+
         } else
                 log_full(level,
                          "Received SIG%s.",

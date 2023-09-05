@@ -44,6 +44,7 @@ int get_process_cmdline_strv(pid_t pid, ProcessCmdlineFlags flags, char ***ret);
 int get_process_exe(pid_t pid, char **ret);
 int get_process_uid(pid_t pid, uid_t *ret);
 int get_process_gid(pid_t pid, gid_t *ret);
+int get_process_loginuid(pid_t pid, uid_t *ret);
 int get_process_capeff(pid_t pid, char **ret);
 int get_process_cwd(pid_t pid, char **ret);
 int get_process_root(pid_t pid, char **ret);
