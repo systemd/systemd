@@ -32,6 +32,8 @@
 int get_ifname(int ifindex, char **ifname);
 
 usec_t be32_sec_to_usec(be32_t t);
+usec_t be32_msec_to_usec(be32_t t);
+usec_t be16_sec_to_usec(be16_t t);
 be32_t usec_to_be32_sec(usec_t t);
 be32_t usec_to_be32_msec(usec_t t);
 be16_t usec_to_be16_sec(usec_t t);
