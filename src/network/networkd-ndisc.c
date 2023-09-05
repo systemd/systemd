@@ -279,7 +279,6 @@ static int ndisc_request_address(Address *in, Link *link, sd_ndisc_router *rt) {
 
 static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
         usec_t lifetime_usec, timestamp_usec;
-        uint32_t icmp6_ratelimit = 0;
         struct in6_addr gateway;
         uint16_t lifetime_sec;
         unsigned preference;
@@ -360,19 +359,35 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
                         return log_link_warning_errno(link, r, "Could not request gateway: %m");
         }
 
+        return 0;
+}
+
+static int ndisc_router_process_icmp6_ratelimit(Link *link, sd_ndisc_router *rt) {
+        char buf[DECIMAL_STR_MAX(unsigned)];
+        uint32_t icmp6_ratelimit;
+        int r;
+
+        assert(link);
+        assert(link->network);
+        assert(rt);
+
+        if (!link->network->ipv6_accept_ra_use_icmp6_ratelimit)
+                return 0;
+
         r = sd_ndisc_router_get_icmp6_ratelimit(rt, &icmp6_ratelimit);
-        if (r < 0)
-                log_link_debug(link, "Failed to get default router preference from RA: %m");
-
-        if (icmp6_ratelimit > 0 && link->network->ipv6_accept_ra_use_icmp6_ratelimit) {
-                char buf[DECIMAL_STR_MAX(unsigned)];
-
-                xsprintf(buf, "%u", icmp6_ratelimit);
-
-                r = sysctl_write("net/ipv6/icmp/ratelimit", buf);
-                if (r < 0)
-                        log_link_warning_errno(link, r, "Could not configure icmp6 rate limit: %m");
+        if (r < 0) {
+                log_link_debug(link, "Failed to get ICMP6 ratelimit from RA, ignoring: %m");
+                return 0;
         }
+
+        if (icmp6_ratelimit == 0)
+                return 0;
+
+        xsprintf(buf, "%u", icmp6_ratelimit);
+
+        r = sysctl_write_ip_property(AF_INET6, NULL, "icmp/ratelimit", buf);
+        if (r < 0)
+                log_link_warning_errno(link, r, "Failed to apply ICMP6 ratelimit, ignoring: %m");
 
         return 0;
 }
@@ -1377,6 +1392,10 @@ static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
                 return r;
 
         r = ndisc_router_process_default(link, rt);
+        if (r < 0)
+                return r;
+
+        r = ndisc_router_process_icmp6_ratelimit(link, rt);
         if (r < 0)
                 return r;
 
