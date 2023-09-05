@@ -206,8 +206,8 @@ int sd_dhcp_server_new(sd_dhcp_server **ret, int ifindex) {
                 .netmask = htobe32(INADDR_ANY),
                 .ifindex = ifindex,
                 .bind_to_interface = true,
-                .default_lease_time = DIV_ROUND_UP(DHCP_DEFAULT_LEASE_TIME_USEC, USEC_PER_SEC),
-                .max_lease_time = DIV_ROUND_UP(DHCP_MAX_LEASE_TIME_USEC, USEC_PER_SEC),
+                .default_lease_time = DHCP_DEFAULT_LEASE_TIME_USEC,
+                .max_lease_time = DHCP_MAX_LEASE_TIME_USEC,
         };
 
         *ret = TAKE_PTR(server);
@@ -589,7 +589,11 @@ static int server_send_offer_or_ack(
         packet->dhcp.yiaddr = address;
         packet->dhcp.siaddr = server->boot_server_address.s_addr;
 
-        lease_time = htobe32(req->lifetime);
+        if (req->lifetime == USEC_INFINITY)
+                lease_time = UINT32_MAX;
+        else
+                lease_time = htobe32((uint32_t) DIV_ROUND_UP(req->lifetime, USEC_PER_SEC));
+
         r = dhcp_option_append(&packet->dhcp, req->max_optlen, &offset, 0,
                                SD_DHCP_OPTION_IP_ADDRESS_LEASE_TIME, 4,
                                &lease_time);
@@ -734,8 +738,15 @@ static int parse_request(uint8_t code, uint8_t len, const void *option, void *us
 
         switch (code) {
         case SD_DHCP_OPTION_IP_ADDRESS_LEASE_TIME:
-                if (len == 4)
-                        req->lifetime = unaligned_read_be32(option);
+                if (len == 4) {
+                        uint32_t t;
+
+                        t = unaligned_read_be32(option);
+                        if (t == UINT32_MAX)
+                                req->lifetime = USEC_INFINITY;
+                        else
+                                req->lifetime = t * USEC_PER_SEC;
+                }
 
                 break;
         case SD_DHCP_OPTION_REQUESTED_IP_ADDRESS:
@@ -844,7 +855,7 @@ static int ensure_sane_request(sd_dhcp_server *server, DHCPRequest *req, DHCPMes
                 req->max_optlen = DHCP_MIN_OPTIONS_SIZE;
 
         if (req->lifetime <= 0)
-                req->lifetime = MAX(1ULL, server->default_lease_time);
+                req->lifetime = MAX(USEC_PER_SEC, server->default_lease_time);
 
         if (server->max_lease_time > 0 && req->lifetime > server->max_lease_time)
                 req->lifetime = server->max_lease_time;
@@ -997,7 +1008,7 @@ static int server_ack_request(sd_dhcp_server *server, DHCPRequest *req, DHCPLeas
         if (r < 0)
                 return r;
 
-        expiration = usec_add(req->lifetime * USEC_PER_SEC, time_now);
+        expiration = usec_add(req->lifetime, time_now);
 
         if (existing_lease) {
                 assert(existing_lease->server);
@@ -1487,21 +1498,21 @@ int sd_dhcp_server_set_timezone(sd_dhcp_server *server, const char *tz) {
         return 1;
 }
 
-int sd_dhcp_server_set_max_lease_time(sd_dhcp_server *server, uint32_t t) {
+int sd_dhcp_server_set_max_lease_time(sd_dhcp_server *server, uint64_t t) {
         assert_return(server, -EINVAL);
 
-        if (t == server->max_lease_time)
-                return 0;
+        if (t < USEC_INFINITY && DIV_ROUND_UP(t, USEC_PER_SEC) >= UINT32_MAX)
+                return -EINVAL;
 
         server->max_lease_time = t;
         return 1;
 }
 
-int sd_dhcp_server_set_default_lease_time(sd_dhcp_server *server, uint32_t t) {
+int sd_dhcp_server_set_default_lease_time(sd_dhcp_server *server, uint64_t t) {
         assert_return(server, -EINVAL);
 
-        if (t == server->default_lease_time)
-                return 0;
+        if (t < USEC_INFINITY && DIV_ROUND_UP(t, USEC_PER_SEC) >= UINT32_MAX)
+                return -EINVAL;
 
         server->default_lease_time = t;
         return 1;
