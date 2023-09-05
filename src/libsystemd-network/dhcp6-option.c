@@ -15,6 +15,7 @@
 #include "dns-domain.h"
 #include "escape.h"
 #include "memory-util.h"
+#include "network-common.h"
 #include "strv.h"
 #include "unaligned.h"
 
@@ -585,7 +586,7 @@ static int dhcp6_option_parse_ia_options(sd_dhcp6_client *client, const uint8_t 
 
 static int dhcp6_option_parse_ia_address(sd_dhcp6_client *client, DHCP6IA *ia, const uint8_t *data, size_t len) {
         _cleanup_free_ DHCP6Address *a = NULL;
-        uint32_t lt_valid, lt_pref;
+        usec_t lt_valid, lt_pref;
         int r;
 
         assert(ia);
@@ -604,17 +605,18 @@ static int dhcp6_option_parse_ia_address(sd_dhcp6_client *client, DHCP6IA *ia, c
 
         memcpy(&a->iaaddr, data, sizeof(struct iaaddr));
 
-        lt_valid = be32toh(a->iaaddr.lifetime_valid);
-        lt_pref = be32toh(a->iaaddr.lifetime_preferred);
+        lt_valid = be32_sec_to_usec(a->iaaddr.lifetime_valid);
+        lt_pref = be32_sec_to_usec(a->iaaddr.lifetime_preferred);
 
         if (lt_valid == 0)
                 return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL),
                                               "Received an IA address with zero valid lifetime, ignoring.");
         if (lt_pref > lt_valid)
                 return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL),
-                                              "Received an IA address with preferred lifetime %"PRIu32
-                                              " larger than valid lifetime %"PRIu32", ignoring.",
-                                              lt_pref, lt_valid);
+                                              "Received an IA address with preferred lifetime %s "
+                                              "larger than valid lifetime %s, ignoring.",
+                                              FORMAT_TIMESPAN(lt_pref, USEC_PER_SEC),
+                                              FORMAT_TIMESPAN(lt_valid, USEC_PER_SEC));
 
         if (len > sizeof(struct iaaddr)) {
                 r = dhcp6_option_parse_ia_options(client, data + sizeof(struct iaaddr), len - sizeof(struct iaaddr));
@@ -628,7 +630,7 @@ static int dhcp6_option_parse_ia_address(sd_dhcp6_client *client, DHCP6IA *ia, c
 
 static int dhcp6_option_parse_ia_pdprefix(sd_dhcp6_client *client, DHCP6IA *ia, const uint8_t *data, size_t len) {
         _cleanup_free_ DHCP6Address *a = NULL;
-        uint32_t lt_valid, lt_pref;
+        usec_t lt_valid, lt_pref;
         int r;
 
         assert(ia);
@@ -647,17 +649,18 @@ static int dhcp6_option_parse_ia_pdprefix(sd_dhcp6_client *client, DHCP6IA *ia, 
 
         memcpy(&a->iapdprefix, data, sizeof(struct iapdprefix));
 
-        lt_valid = be32toh(a->iapdprefix.lifetime_valid);
-        lt_pref = be32toh(a->iapdprefix.lifetime_preferred);
+        lt_valid = be32_sec_to_usec(a->iapdprefix.lifetime_valid);
+        lt_pref = be32_sec_to_usec(a->iapdprefix.lifetime_preferred);
 
         if (lt_valid == 0)
                 return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL),
                                               "Received a PD prefix with zero valid lifetime, ignoring.");
         if (lt_pref > lt_valid)
                 return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL),
-                                              "Received a PD prefix with preferred lifetime %"PRIu32
-                                              " larger than valid lifetime %"PRIu32", ignoring.",
-                                              lt_pref, lt_valid);
+                                              "Received a PD prefix with preferred lifetime %s "
+                                              "larger than valid lifetime %s, ignoring.",
+                                              FORMAT_TIMESPAN(lt_pref, USEC_PER_SEC),
+                                              FORMAT_TIMESPAN(lt_valid, USEC_PER_SEC));
 
         if (len > sizeof(struct iapdprefix)) {
                 r = dhcp6_option_parse_ia_options(client, data + sizeof(struct iapdprefix), len - sizeof(struct iapdprefix));
@@ -678,7 +681,7 @@ int dhcp6_option_parse_ia(
                 DHCP6IA **ret) {
 
         _cleanup_(dhcp6_ia_freep) DHCP6IA *ia = NULL;
-        uint32_t lt_t1, lt_t2;
+        usec_t lt_t1, lt_t2;
         size_t header_len;
         int r;
 
@@ -728,17 +731,18 @@ int dhcp6_option_parse_ia(
                                               "from the one chosen by the client, ignoring.");
 
         /* It is not necessary to check if the lifetime_t2 is zero here, as in that case it will be updated later. */
-        lt_t1 = be32toh(ia->header.lifetime_t1);
-        lt_t2 = be32toh(ia->header.lifetime_t2);
+        lt_t1 = be32_sec_to_usec(ia->header.lifetime_t1);
+        lt_t2 = be32_sec_to_usec(ia->header.lifetime_t2);
 
         if (lt_t1 > lt_t2)
                 return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL),
-                                              "Received an IA option with T1 %"PRIu32"sec > T2 %"PRIu32"sec, ignoring.",
-                                              lt_t1, lt_t2);
+                                              "Received an IA option with T1 %s > T2 %s, ignoring.",
+                                              FORMAT_TIMESPAN(lt_t1, USEC_PER_SEC),
+                                              FORMAT_TIMESPAN(lt_t2, USEC_PER_SEC));
         if (lt_t1 == 0 && lt_t2 > 0)
                 return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL),
-                                              "Received an IA option with zero T1 and non-zero T2 (%"PRIu32"sec), ignoring.",
-                                              lt_t2);
+                                              "Received an IA option with zero T1 and non-zero T2 (%s), ignoring.",
+                                              FORMAT_TIMESPAN(lt_t2, USEC_PER_SEC));
 
         for (size_t offset = header_len; offset < option_data_len;) {
                 const uint8_t *subdata;
