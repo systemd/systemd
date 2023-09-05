@@ -285,9 +285,6 @@ int utmp_put_runlevel(int runlevel, int previous) {
 
 static int write_to_terminal(const char *tty, const char *message) {
         _cleanup_close_ int fd = -EBADF;
-        const char *p;
-        size_t left;
-        usec_t end;
 
         assert(tty);
         assert(message);
@@ -298,43 +295,7 @@ static int write_to_terminal(const char *tty, const char *message) {
         if (!isatty(fd))
                 return -ENOTTY;
 
-        p = message;
-        left = strlen(message);
-
-        end = usec_add(now(CLOCK_MONOTONIC), TIMEOUT_USEC);
-
-        while (left > 0) {
-                ssize_t n;
-                usec_t t;
-                int k;
-
-                t = now(CLOCK_MONOTONIC);
-                if (t >= end)
-                        return -ETIME;
-
-                k = fd_wait_for_event(fd, POLLOUT, end - t);
-                if (ERRNO_IS_NEG_TRANSIENT(k))
-                        continue;
-                if (k < 0)
-                        return k;
-                if (k == 0)
-                        return -ETIME;
-
-                n = write(fd, p, left);
-                if (n < 0) {
-                        if (ERRNO_IS_TRANSIENT(errno))
-                                continue;
-
-                        return -errno;
-                }
-
-                assert((size_t) n <= left);
-
-                p += n;
-                left -= n;
-        }
-
-        return 0;
+        return loop_write_full(fd, message, SIZE_MAX, /* do_poll = */ true, TIMEOUT_USEC);
 }
 
 int utmp_wall(
