@@ -1625,7 +1625,7 @@ static int write_argument_data(Item *i, int fd, const char *path) {
 
         log_debug("Writing to \"%s\".", path);
 
-        r = loop_write(fd, item_binary_argument(i), item_binary_argument_size(i), /* do_poll= */ false);
+        r = loop_write(fd, item_binary_argument(i), item_binary_argument_size(i));
         if (r < 0)
                 return log_error_errno(r, "Failed to write file \"%s\": %m", path);
 
