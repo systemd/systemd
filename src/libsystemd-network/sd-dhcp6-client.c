@@ -1069,7 +1069,15 @@ static int client_enter_bound_state(sd_dhcp6_client *client) {
         (void) event_source_disable(client->receive_message);
         (void) event_source_disable(client->timeout_resend);
 
-        r = dhcp6_lease_get_lifetime(client->lease, &lifetime_t1, &lifetime_t2, &lifetime_valid);
+        r = sd_dhcp6_lease_get_t1(client->lease, &lifetime_t1);
+        if (r < 0)
+                goto error;
+
+        r = sd_dhcp6_lease_get_t2(client->lease, &lifetime_t2);
+        if (r < 0)
+                goto error;
+
+        r = sd_dhcp6_lease_get_valid_lifetime(client->lease, &lifetime_valid);
         if (r < 0)
                 goto error;
 
