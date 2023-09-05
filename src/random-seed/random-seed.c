@@ -286,7 +286,7 @@ static int save_seed_file(
                 memcpy((uint8_t *)buf + k - l, hash, l);
         }
 
-        r = loop_write(seed_fd, buf, (size_t) k, false);
+        r = loop_write(seed_fd, buf, (size_t) k);
         if (r < 0)
                 return log_error_errno(r, "Failed to write new random seed file: %m");
 

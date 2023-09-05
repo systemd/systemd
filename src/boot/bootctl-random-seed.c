@@ -184,7 +184,7 @@ int install_random_seed(const char *esp) {
         if (!warned) /* only warn once per seed file */
                 (void) random_seed_verify_permissions(fd, S_IFREG);
 
-        r = loop_write(fd, buffer, sizeof(buffer), /* do_poll= */ false);
+        r = loop_write(fd, buffer, sizeof(buffer));
         if (r < 0) {
                 log_error_errno(r, "Failed to write random seed file: %m");
                 goto fail;

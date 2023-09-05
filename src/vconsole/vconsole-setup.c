@@ -242,7 +242,7 @@ static int toggle_utf8_vc(const char *name, int fd, bool utf8) {
         if (r < 0)
                 return log_warning_errno(errno, "Failed to %s UTF-8 kbdmode on %s: %m", enable_disable(utf8), name);
 
-        r = loop_write(fd, utf8 ? "\033%G" : "\033%@", SIZE_MAX, false);
+        r = loop_write(fd, utf8 ? "\033%G" : "\033%@", SIZE_MAX);
         if (r < 0)
                 return log_warning_errno(r, "Failed to %s UTF-8 term processing on %s: %m", enable_disable(utf8), name);
 

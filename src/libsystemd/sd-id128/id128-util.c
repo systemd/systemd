@@ -163,7 +163,7 @@ int id128_write_fd(int fd, Id128Flag f, sd_id128_t id) {
         }
 
         buffer[sz - 1] = '\n';
-        r = loop_write(fd, buffer, sz, false);
+        r = loop_write(fd, buffer, sz);
         if (r < 0)
                 return r;
 

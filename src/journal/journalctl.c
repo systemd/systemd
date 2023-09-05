@@ -1914,11 +1914,11 @@ static int setup_keys(void) {
                 .fsprg_state_size = htole64(state_size),
         };
 
-        r = loop_write(fd, &h, sizeof(h), false);
+        r = loop_write(fd, &h, sizeof(h));
         if (r < 0)
                 return log_error_errno(r, "Failed to write header: %m");
 
-        r = loop_write(fd, state, state_size, false);
+        r = loop_write(fd, state, state_size);
         if (r < 0)
                 return log_error_errno(r, "Failed to write state: %m");
 

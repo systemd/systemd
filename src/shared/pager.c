@@ -204,7 +204,7 @@ void pager_open(PagerFlags flags) {
                                                   * secure mode. Thus, start the pager specified through
                                                   * envvars only when $SYSTEMD_PAGERSECURE was explicitly set
                                                   * as well. */
-                        r = loop_write(exe_name_pipe[1], pager_args[0], strlen(pager_args[0]) + 1, false);
+                        r = loop_write(exe_name_pipe[1], pager_args[0], strlen(pager_args[0]) + 1);
                         if (r < 0) {
                                 log_error_errno(r, "Failed to write pager name to socket: %m");
                                 _exit(EXIT_FAILURE);
@@ -225,7 +225,7 @@ void pager_open(PagerFlags flags) {
                         if (use_secure_mode && !STR_IN_SET(pagers[i], "less", "(built-in)"))
                                 continue;
 
-                        r = loop_write(exe_name_pipe[1], pagers[i], strlen(pagers[i]) + 1, false);
+                        r = loop_write(exe_name_pipe[1], pagers[i], strlen(pagers[i]) + 1);
                         if (r < 0) {
                                 log_error_errno(r, "Failed to write pager name to socket: %m");
                                 _exit(EXIT_FAILURE);

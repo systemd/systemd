@@ -182,7 +182,7 @@ static int write_credential(
                 return -errno;
         }
 
-        r = loop_write(fd, data, size, /* do_poll = */ false);
+        r = loop_write(fd, data, size);
         if (r < 0)
                 return r;
 

@@ -275,7 +275,7 @@ int copy_data_fd(int fd) {
                         /* If there were remaining bytes (i.e. read into memory, but not written out yet) from the
                          * failed copy operation, let's flush them out next. */
 
-                        r = loop_write(tmp_fd, remains, remains_size, false);
+                        r = loop_write(tmp_fd, remains, remains_size);
                         if (r < 0)
                                 return r;
                 }
@@ -318,7 +318,7 @@ int copy_data_fd(int fd) {
 
         if (remains_size > 0) {
                 /* Then, copy in any read but not yet written bytes. */
-                r = loop_write(tmp_fd, remains, remains_size, false);
+                r = loop_write(tmp_fd, remains, remains_size);
                 if (r < 0)
                         return r;
         }

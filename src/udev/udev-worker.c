@@ -277,7 +277,7 @@ static int worker_send_result(UdevWorker *worker, EventResult result) {
         assert(worker);
         assert(worker->pipe_fd >= 0);
 
-        return loop_write(worker->pipe_fd, &result, sizeof(result), /* do_poll = */ false);
+        return loop_write(worker->pipe_fd, &result, sizeof(result));
 }
 
 static int worker_device_monitor_handler(sd_device_monitor *monitor, sd_device *dev, void *userdata) {
