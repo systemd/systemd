@@ -839,7 +839,7 @@ int dhcp4_lease_lost(Link *link) {
         link->dhcp4_configured = false;
 
         if (link->network->dhcp_use_6rd &&
-            dhcp4_lease_has_pd_prefix(link->dhcp_lease))
+            sd_dhcp_lease_has_6rd(link->dhcp_lease))
                 dhcp4_pd_prefix_lost(link);
 
         k = dhcp4_remove_address_and_routes(link, /* only_marked = */ false);
@@ -910,15 +910,9 @@ static int dhcp4_request_address(Link *link, bool announce) {
                 return log_link_debug_errno(link, r, "DHCP error: failed to get DHCP server IP address: %m");
 
         if (!FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP)) {
-                uint32_t lifetime_sec;
-                usec_t now_usec;
-
-                r = sd_dhcp_lease_get_lifetime(link->dhcp_lease, &lifetime_sec);
+                r = sd_dhcp_lease_get_lifetime_timestamp(link->dhcp_lease, CLOCK_BOOTTIME, &lifetime_usec);
                 if (r < 0)
-                        return log_link_warning_errno(link, r, "DHCP error: no lifetime: %m");
-
-                assert_se(sd_event_now(link->manager->event, CLOCK_BOOTTIME, &now_usec) >= 0);
-                lifetime_usec = sec_to_usec(lifetime_sec, now_usec);
+                        return log_link_warning_errno(link, r, "DHCP error: failed to get lifetime: %m");
         } else
                 lifetime_usec = USEC_INFINITY;
 
@@ -1033,11 +1027,11 @@ static int dhcp_lease_renew(sd_dhcp_client *client, Link *link) {
         link_dirty(link);
 
         if (link->network->dhcp_use_6rd) {
-                if (dhcp4_lease_has_pd_prefix(link->dhcp_lease)) {
+                if (sd_dhcp_lease_has_6rd(link->dhcp_lease)) {
                         r = dhcp4_pd_prefix_acquired(link);
                         if (r < 0)
                                 return log_link_warning_errno(link, r, "Failed to process 6rd option: %m");
-                } else if (dhcp4_lease_has_pd_prefix(old_lease))
+                } else if (sd_dhcp_lease_has_6rd(old_lease))
                         dhcp4_pd_prefix_lost(link);
         }
 
@@ -1107,7 +1101,7 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
         }
 
         if (link->network->dhcp_use_6rd &&
-            dhcp4_lease_has_pd_prefix(link->dhcp_lease)) {
+            sd_dhcp_lease_has_6rd(link->dhcp_lease)) {
                 r = dhcp4_pd_prefix_acquired(link);
                 if (r < 0)
                         return log_link_warning_errno(link, r, "Failed to process 6rd option: %m");
@@ -1617,8 +1611,8 @@ static int dhcp4_configure(Link *link) {
                         return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to set socket priority: %m");
         }
 
-        if (link->network->dhcp_fallback_lease_lifetime > 0) {
-                r = sd_dhcp_client_set_fallback_lease_lifetime(link->dhcp_client, link->network->dhcp_fallback_lease_lifetime);
+        if (link->network->dhcp_fallback_lease_lifetime_usec > 0) {
+                r = sd_dhcp_client_set_fallback_lease_lifetime(link->dhcp_client, link->network->dhcp_fallback_lease_lifetime_usec);
                 if (r < 0)
                         return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed set to lease lifetime: %m");
         }
@@ -1877,7 +1871,7 @@ int config_parse_dhcp_fallback_lease_lifetime(
         assert(data);
 
         if (isempty(rvalue)) {
-                network->dhcp_fallback_lease_lifetime = 0;
+                network->dhcp_fallback_lease_lifetime_usec = 0;
                 return 0;
         }
 
@@ -1888,7 +1882,7 @@ int config_parse_dhcp_fallback_lease_lifetime(
                 return 0;
         }
 
-        network->dhcp_fallback_lease_lifetime = UINT32_MAX;
+        network->dhcp_fallback_lease_lifetime_usec = USEC_INFINITY;
 
         return 0;
 }
