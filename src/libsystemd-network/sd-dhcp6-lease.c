@@ -70,20 +70,47 @@ static void dhcp6_lease_set_lifetime(sd_dhcp6_lease *lease) {
         lease->lifetime_t2 = t2;
 }
 
-int dhcp6_lease_get_lifetime(sd_dhcp6_lease *lease, usec_t *ret_t1, usec_t *ret_t2, usec_t *ret_valid) {
-        assert(lease);
+#define DEFINE_GET_TIME_FUNCTIONS(name, val)                            \
+        int sd_dhcp6_lease_get_##name(                                  \
+                        sd_dhcp6_lease *lease,                          \
+                        uint64_t *ret) {                                \
+                                                                        \
+                assert_return(lease, -EINVAL);                          \
+                                                                        \
+                if (!lease->ia_na && !lease->ia_pd)                     \
+                        return -ENODATA;                                \
+                                                                        \
+                if (ret)                                                \
+                        *ret = lease->val;                              \
+                return 0;                                               \
+        }                                                               \
+                                                                        \
+        int sd_dhcp6_lease_get_##name##_timestamp(                      \
+                        sd_dhcp6_lease *lease,                          \
+                        clockid_t clock,                                \
+                        uint64_t *ret) {                                \
+                                                                        \
+                usec_t s, t;                                            \
+                int r;                                                  \
+                                                                        \
+                assert_return(lease, -EINVAL);                          \
+                                                                        \
+                r = sd_dhcp6_lease_get_##name(lease, &s);               \
+                if (r < 0)                                              \
+                        return r;                                       \
+                                                                        \
+                r = sd_dhcp6_lease_get_timestamp(lease, clock, &t);     \
+                if (r < 0)                                              \
+                        return r;                                       \
+                                                                        \
+                if (ret)                                                \
+                        *ret = time_span_to_stamp(s, t);                \
+                return 0;                                               \
+        }
 
-        if (!lease->ia_na && !lease->ia_pd)
-                return -ENODATA;
-
-        if (ret_t1)
-                *ret_t1 = lease->lifetime_t1;
-        if (ret_t2)
-                *ret_t2 = lease->lifetime_t2;
-        if (ret_valid)
-                *ret_valid = lease->lifetime_valid;
-        return 0;
-}
+DEFINE_GET_TIME_FUNCTIONS(t1, lifetime_t1);
+DEFINE_GET_TIME_FUNCTIONS(t2, lifetime_t1);
+DEFINE_GET_TIME_FUNCTIONS(valid_lifetime, lifetime_valid);
 
 static void dhcp6_lease_set_server_address(sd_dhcp6_lease *lease, const struct in6_addr *server_address) {
         assert(lease);
