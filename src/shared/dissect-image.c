@@ -99,6 +99,7 @@ int dissect_fstype_ok(const char *fstype) {
                                "btrfs",
                                "erofs",
                                "ext4",
+                               "f2fs",
                                "squashfs",
                                "vfat",
                                "xfs");
