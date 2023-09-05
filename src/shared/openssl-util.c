@@ -545,6 +545,49 @@ int pubkey_fingerprint(EVP_PKEY *pk, const EVP_MD *md, void **ret, size_t *ret_s
         return 0;
 }
 
+int digest_and_sign(
+                const EVP_MD *md,
+                EVP_PKEY *privkey,
+                const void *data, size_t size,
+                void **ret, size_t *ret_size) {
+
+        assert(privkey);
+        assert(ret);
+        assert(ret_size);
+
+        if (size == 0)
+                data = ""; /* make sure to pass a valid pointer to OpenSSL */
+        else {
+                assert(data);
+
+                if (size == SIZE_MAX) /* If SIZE_MAX input is a string whose size we determine automatically */
+                        size = strlen(data);
+        }
+
+        _cleanup_(EVP_MD_CTX_freep) EVP_MD_CTX* mdctx = EVP_MD_CTX_new();
+        if (!mdctx)
+                return log_oom_debug();
+
+        if (EVP_DigestSignInit(mdctx, NULL, md, NULL, privkey) != 1)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to initialize signature context.");
+
+        /* Determine signature size */
+        size_t ss;
+        if (EVP_DigestSign(mdctx, NULL, &ss, data, size) != 1)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to determine size of signature.");
+
+        _cleanup_free_ void *sig = malloc(ss);
+        if (!sig)
+                return log_oom_debug();
+
+        if (EVP_DigestSign(mdctx, sig, &ss, data, size) != 1)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to sign data.");
+
+        *ret = TAKE_PTR(sig);
+        *ret_size = ss;
+        return 0;
+}
+
 #  if PREFER_OPENSSL
 int string_hashsum(
                 const char *s,
