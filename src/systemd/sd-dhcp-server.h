@@ -43,9 +43,9 @@ int sd_dhcp_server_get_ifname(sd_dhcp_server *server, const char **ret);
 sd_dhcp_server *sd_dhcp_server_ref(sd_dhcp_server *server);
 sd_dhcp_server *sd_dhcp_server_unref(sd_dhcp_server *server);
 
-int sd_dhcp_server_attach_event(sd_dhcp_server *client, sd_event *event, int64_t priority);
-int sd_dhcp_server_detach_event(sd_dhcp_server *client);
-sd_event *sd_dhcp_server_get_event(sd_dhcp_server *client);
+int sd_dhcp_server_attach_event(sd_dhcp_server *server, sd_event *event, int64_t priority);
+int sd_dhcp_server_detach_event(sd_dhcp_server *server);
+sd_event *sd_dhcp_server_get_event(sd_dhcp_server *server);
 
 typedef void (*sd_dhcp_server_callback_t)(sd_dhcp_server *server, uint64_t event, void *userdata);
 
@@ -82,8 +82,8 @@ int sd_dhcp_server_add_option(sd_dhcp_server *server, sd_dhcp_option *v);
 int sd_dhcp_server_add_vendor_option(sd_dhcp_server *server, sd_dhcp_option *v);
 int sd_dhcp_server_set_static_lease(sd_dhcp_server *server, const struct in_addr *address, uint8_t *client_id, size_t client_id_size);
 
-int sd_dhcp_server_set_max_lease_time(sd_dhcp_server *server, uint32_t t);
-int sd_dhcp_server_set_default_lease_time(sd_dhcp_server *server, uint32_t t);
+int sd_dhcp_server_set_max_lease_time(sd_dhcp_server *server, uint64_t t);
+int sd_dhcp_server_set_default_lease_time(sd_dhcp_server *server, uint64_t t);
 
 int sd_dhcp_server_forcerenew(sd_dhcp_server *server);
 
