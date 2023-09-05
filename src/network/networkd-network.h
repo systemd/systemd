@@ -127,7 +127,7 @@ struct Network {
         bool dhcp_route_metric_set;
         uint32_t dhcp_route_table;
         bool dhcp_route_table_set;
-        uint32_t dhcp_fallback_lease_lifetime;
+        usec_t dhcp_fallback_lease_lifetime_usec;
         uint32_t dhcp_route_mtu;
         uint16_t dhcp_client_port;
         int dhcp_critical;
