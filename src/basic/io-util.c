@@ -105,8 +105,10 @@ int loop_read_exact(int fd, void *buf, size_t nbytes, bool do_poll) {
         return 0;
 }
 
-int loop_write(int fd, const void *buf, size_t nbytes, bool do_poll) {
+int loop_write_full(int fd, const void *buf, size_t nbytes, bool do_poll, usec_t timeout) {
         const uint8_t *p;
+        usec_t end;
+        int r;
 
         assert(fd >= 0);
 
@@ -125,8 +127,17 @@ int loop_write(int fd, const void *buf, size_t nbytes, bool do_poll) {
                 p = buf;
         }
 
+        end = timestamp_is_set(timeout) ? usec_add(now(CLOCK_MONOTONIC), timeout) : USEC_INFINITY;
+
         do {
                 ssize_t k;
+                usec_t t;
+
+                if (end != USEC_INFINITY) {
+                        t = now(CLOCK_MONOTONIC);
+                        if (t >= end)
+                                return -ETIME;
+                }
 
                 k = write(fd, p, nbytes);
                 if (k < 0) {
@@ -134,12 +145,21 @@ int loop_write(int fd, const void *buf, size_t nbytes, bool do_poll) {
                                 continue;
 
                         if (errno == EAGAIN && do_poll) {
-                                /* We knowingly ignore any return value here,
-                                 * and expect that any error/EOF is reported
-                                 * via write() */
+                                if (end == USEC_INFINITY) {
+                                        /* We knowingly ignore any return value here, and expect that any
+                                         * error/EOF is reported via write() */
 
-                                (void) fd_wait_for_event(fd, POLLOUT, USEC_INFINITY);
-                                continue;
+                                        (void) fd_wait_for_event(fd, POLLOUT, USEC_INFINITY);
+                                        continue;
+                                }
+
+                                r = fd_wait_for_event(fd, POLLOUT, end - t);
+                                if (ERRNO_IS_NEG_TRANSIENT(r))
+                                        continue;
+                                if (r < 0)
+                                        return r;
+                                if (r == 0)
+                                        return -ETIME;
                         }
 
                         return -errno;
