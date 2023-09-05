@@ -138,7 +138,7 @@ for args in "${ARGS[@]}"; do
          CXX="$CXX" CXX_LD="$LD" CXXFLAGS="-Werror" \
          meson setup \
                -Dtests=unsafe -Dslow-tests=true -Dfuzz-tests=true --werror \
-               -Dnobody-group=nogroup -Dcryptolib="${CRYPTOLIB:?}" \
+               -Dnobody-group=nogroup -Dcryptolib="${CRYPTOLIB:?}" -Ddebug=false \
                $args build; then
 
         cat build/meson-logs/meson-log.txt
