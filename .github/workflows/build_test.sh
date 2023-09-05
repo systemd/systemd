@@ -68,8 +68,6 @@ LINKER="${LINKER:?}"
 CRYPTOLIB="${CRYPTOLIB:?}"
 RELEASE="$(lsb_release -cs)"
 
-bash -c "echo 'deb-src http://archive.ubuntu.com/ubuntu/ $RELEASE main restricted universe multiverse' >>/etc/apt/sources.list"
-
 # Note: As we use postfixed clang/gcc binaries, we need to override $AR
 #       as well, otherwise meson falls back to ar from binutils which
 #       doesn't work with LTO
@@ -96,7 +94,7 @@ elif [[ "$COMPILER" == gcc ]]; then
     if ! apt install --dry-run "gcc-$COMPILER_VERSION" >/dev/null; then
         # Latest gcc stack deb packages provided by
         # https://launchpad.net/~ubuntu-toolchain-r/+archive/ubuntu/test
-        add-apt-repository -y ppa:ubuntu-toolchain-r/test
+        add-apt-repository -y --no-update ppa:ubuntu-toolchain-r/test
     fi
 
     PACKAGES+=("gcc-$COMPILER_VERSION" "gcc-$COMPILER_VERSION-multilib")
@@ -105,7 +103,8 @@ else
 fi
 
 # PPA with some newer build dependencies (like zstd)
-add-apt-repository -y ppa:upstream-systemd-ci/systemd-ci
+add-apt-repository -y --no-update ppa:upstream-systemd-ci/systemd-ci
+add-apt-repository -y --no-update --enable-source
 apt-get -y update
 apt-get -y build-dep systemd
 apt-get -y install "${PACKAGES[@]}"
