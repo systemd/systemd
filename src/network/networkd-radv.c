@@ -222,7 +222,7 @@ static int pref64_prefix_new_static(Network *network, const char *filename, unsi
                 .network = network,
                 .section = TAKE_PTR(n),
 
-                .lifetime = RADV_DEFAULT_PRE64_LIFETIME_USEC,
+                .lifetime = RADV_PREF64_DEFAULT_LIFETIME_USEC,
         };
 
         r = hashmap_ensure_put(&network->pref64_prefixes_by_section, &config_section_hash_ops, prefix->section, prefix);
@@ -277,19 +277,6 @@ int link_request_radv_addresses(Link *link) {
         }
 
         return 0;
-}
-
-static uint32_t usec_to_lifetime(usec_t usec) {
-        uint64_t t;
-
-        if (usec == USEC_INFINITY)
-                return UINT32_MAX;
-
-        t = DIV_ROUND_UP(usec, USEC_PER_SEC);
-        if (t >= UINT32_MAX)
-                return UINT32_MAX;
-
-        return (uint32_t) t;
 }
 
 static int radv_set_prefix(Link *link, Prefix *prefix) {
@@ -446,7 +433,7 @@ static int radv_set_dns(Link *link, Link *uplink) {
 
 set_dns:
         return sd_radv_set_rdnss(link->radv,
-                                 usec_to_lifetime(link->network->router_dns_lifetime_usec),
+                                 link->network->router_dns_lifetime_usec,
                                  dns, n_dns);
 }
 
@@ -482,7 +469,7 @@ set_domains:
                 return log_oom();
 
         return sd_radv_set_dnssl(link->radv,
-                                 usec_to_lifetime(link->network->router_dns_lifetime_usec),
+                                 link->network->router_dns_lifetime_usec,
                                  s);
 
 }
@@ -567,7 +554,7 @@ static int radv_configure(Link *link) {
         }
 
         if (link->network->router_retransmit_usec > 0) {
-                r = sd_radv_set_retransmit(link->radv, DIV_ROUND_UP(link->network->router_retransmit_usec, USEC_PER_MSEC));
+                r = sd_radv_set_retransmit(link->radv, link->network->router_retransmit_usec);
                 if (r < 0)
                         return r;
         }
@@ -608,7 +595,7 @@ static int radv_configure(Link *link) {
         if (r < 0)
                 return r;
 
-        r = sd_radv_set_home_agent_lifetime(link->radv, DIV_ROUND_UP(link->network->home_agent_lifetime_usec, USEC_PER_SEC));
+        r = sd_radv_set_home_agent_lifetime(link->radv, link->network->home_agent_lifetime_usec);
         if (r < 0)
                 return r;
 
@@ -1545,9 +1532,9 @@ int config_parse_router_retransmit(
         }
 
         if (usec != USEC_INFINITY &&
-            DIV_ROUND_UP(usec, USEC_PER_MSEC) > UINT32_MAX) {
+            usec > RADV_MAX_RETRANSMIT_USEC) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Invalid %s= must be in the range 0...%"PRIu32"Sec, ignoring: %s", lvalue, UINT32_MAX, rvalue);
+                           "Invalid [%s] %s=, ignoring assignment: %s", section, lvalue, rvalue);
                 return 0;
         }
 
@@ -1621,10 +1608,9 @@ int config_parse_router_home_agent_lifetime(
         }
 
         if (usec == USEC_INFINITY || usec == 0 ||
-            DIV_ROUND_UP(usec, USEC_PER_SEC) > RADV_MAX_HOME_AGENT_LIFETIME_USEC) {
+            usec > RADV_HOME_AGENT_MAX_LIFETIME_USEC) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Invalid %s= must be in the range 1…%s, ignoring: %s", lvalue,
-                           FORMAT_TIMESPAN(RADV_MAX_HOME_AGENT_LIFETIME_USEC, USEC_PER_SEC), rvalue);
+                           "Invalid [%s] %s=, ignoring assignment: %s", section, lvalue, rvalue);
                 return 0;
         }
 

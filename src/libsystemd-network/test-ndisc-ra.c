@@ -193,15 +193,15 @@ TEST(radv) {
         assert_se(sd_radv_set_rdnss(NULL, 0, NULL, 0) < 0);
         assert_se(sd_radv_set_rdnss(ra, 0, NULL, 0) >= 0);
         assert_se(sd_radv_set_rdnss(ra, 0, NULL, 128) < 0);
-        assert_se(sd_radv_set_rdnss(ra, 600, &test_rdnss, 0) >= 0);
-        assert_se(sd_radv_set_rdnss(ra, 600, &test_rdnss, 1) >= 0);
+        assert_se(sd_radv_set_rdnss(ra, 600 * USEC_PER_SEC, &test_rdnss, 0) >= 0);
+        assert_se(sd_radv_set_rdnss(ra, 600 * USEC_PER_SEC, &test_rdnss, 1) >= 0);
         assert_se(sd_radv_set_rdnss(ra, 0, &test_rdnss, 1) >= 0);
         assert_se(sd_radv_set_rdnss(ra, 0, NULL, 0) >= 0);
 
         assert_se(sd_radv_set_dnssl(ra, 0, NULL) >= 0);
-        assert_se(sd_radv_set_dnssl(ra, 600, NULL) >= 0);
+        assert_se(sd_radv_set_dnssl(ra, 600 * USEC_PER_SEC, NULL) >= 0);
         assert_se(sd_radv_set_dnssl(ra, 0, (char **)test_dnssl) >= 0);
-        assert_se(sd_radv_set_dnssl(ra, 600, (char **)test_dnssl) >= 0);
+        assert_se(sd_radv_set_dnssl(ra, 600 * USEC_PER_SEC, (char **)test_dnssl) >= 0);
 
         ra = sd_radv_unref(ra);
         assert_se(!ra);
@@ -273,8 +273,8 @@ TEST(ra) {
         assert_se(sd_radv_set_hop_limit(ra, 64) >= 0);
         assert_se(sd_radv_set_managed_information(ra, true) >= 0);
         assert_se(sd_radv_set_other_information(ra, true) >= 0);
-        assert_se(sd_radv_set_rdnss(ra, 60, &test_rdnss, 1) >= 0);
-        assert_se(sd_radv_set_dnssl(ra, 60, (char **)test_dnssl) >= 0);
+        assert_se(sd_radv_set_rdnss(ra, 60 * USEC_PER_SEC, &test_rdnss, 1) >= 0);
+        assert_se(sd_radv_set_dnssl(ra, 60 * USEC_PER_SEC, (char **)test_dnssl) >= 0);
 
         for (unsigned i = 0; i < ELEMENTSOF(prefix); i++) {
                 sd_radv_prefix *p;
