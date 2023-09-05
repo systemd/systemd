@@ -1325,7 +1325,7 @@ static int trigger_device(Manager *m, sd_device *parent) {
         return 0;
 }
 
-static int attach_device(Manager *m, const char *seat, const char *sysfs) {
+static int attach_device(Manager *m, const char *seat, const char *sysfs, sd_bus_error *error) {
         _cleanup_(sd_device_unrefp) sd_device *d = NULL;
         _cleanup_free_ char *rule = NULL, *file = NULL;
         const char *id_for_seat;
@@ -1340,10 +1340,10 @@ static int attach_device(Manager *m, const char *seat, const char *sysfs) {
                 return r;
 
         if (sd_device_has_current_tag(d, "seat") <= 0)
-                return -ENODEV;
+                return sd_bus_error_set_errnof(error, ENODEV, "Device lacks 'seat' udev tag.");
 
         if (sd_device_get_property_value(d, "ID_FOR_SEAT", &id_for_seat) < 0)
-                return -ENODEV;
+                return sd_bus_error_set_errnof(error, ENODEV, "Device lacks 'ID_FOR_SEAT' udev property.");
 
         if (asprintf(&file, "/etc/udev/rules.d/72-seat-%s.rules", id_for_seat) < 0)
                 return -ENOMEM;
@@ -1428,7 +1428,7 @@ static int method_attach_device(sd_bus_message *message, void *userdata, sd_bus_
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        r = attach_device(m, seat, sysfs);
+        r = attach_device(m, seat, sysfs, error);
         if (r < 0)
                 return r;
 
