@@ -168,8 +168,9 @@ fail:
 
                 log_debug_errno(r, "Failed to %s %s, ignoring: %s", job_type, name, bus_error_message(error, r));
                 return 0;
-        } else
-                log_error_errno(r, "Failed to %s %s: %s", job_type, name, bus_error_message(error, r));
+        }
+
+        log_error_errno(r, "Failed to %s %s: %s", job_type, name, bus_error_message(error, r));
 
         if (!sd_bus_error_has_names(error, BUS_ERROR_NO_SUCH_UNIT,
                                            BUS_ERROR_UNIT_MASKED,
