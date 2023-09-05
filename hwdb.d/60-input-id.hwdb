@@ -75,3 +75,7 @@ id-input:modalias:input:b0003v046Dp4066e0111*
 id-input:modalias:input:b0003v068Ep00F2e0100*
  ID_INPUT_ACCELEROMETER=0
  ID_INPUT_JOYSTICK=1
+
+# TEX Shinobi Trackpoint
+id-input:modalias:input:b0003v04D9p0407*
+ ID_INPUT_POINTINGSTICK=1
