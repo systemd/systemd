@@ -23,6 +23,24 @@ usec_t be32_sec_to_usec(be32_t t) {
         return s * USEC_PER_SEC;
 }
 
+usec_t be32_msec_to_usec(be32_t t) {
+        uint32_t s = be32toh(t);
+
+        if (s == UINT32_MAX)
+                return USEC_INFINITY;
+
+        return s * USEC_PER_MSEC;
+}
+
+usec_t be16_sec_to_usec(be16_t t) {
+        uint16_t s = be16toh(t);
+
+        if (s == UINT16_MAX)
+                return USEC_INFINITY;
+
+        return s * USEC_PER_SEC;
+}
+
 be32_t usec_to_be32_sec(usec_t t) {
         if (t == USEC_INFINITY)
                 /* UINT32_MAX may be handled as infinity. */
