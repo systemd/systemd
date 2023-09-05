@@ -42,6 +42,10 @@
 #define RADV_MIN_ROUTER_LIFETIME_USEC             RADV_MIN_MAX_TIMEOUT_USEC
 #define RADV_MAX_ROUTER_LIFETIME_USEC             (9000 * USEC_PER_SEC)
 #define RADV_DEFAULT_ROUTER_LIFETIME_USEC         (3 * RADV_DEFAULT_MAX_TIMEOUT_USEC)
+/* RFC 4861 section 4.2.
+ * Retrans Timer
+ * 32-bit unsigned integer. The time, in milliseconds. */
+#define RADV_MAX_RETRANSMIT_USEC                  (UINT32_MAX * USEC_PER_MSEC)
 /* draft-ietf-6man-slaac-renum-02 section 4.1.1.
  * AdvPreferredLifetime: max(AdvDefaultLifetime, 3 * MaxRtrAdvInterval)
  * AdvValidLifetime: 2 * AdvPreferredLifetime */
@@ -60,18 +64,20 @@
 #define RADV_MAX_RA_DELAY_TIME_USEC               (500 * USEC_PER_MSEC)
 /* From RFC 8781 section 4.1
  * By default, the value of the Scaled Lifetime field SHOULD be set to the lesser of 3 x MaxRtrAdvInterval */
-#define RADV_DEFAULT_PRE64_LIFETIME_USEC          (3 * RADV_DEFAULT_MAX_TIMEOUT_USEC)
+#define RADV_PREF64_DEFAULT_LIFETIME_USEC         (3 * RADV_DEFAULT_MAX_TIMEOUT_USEC)
+
+#define RADV_RDNSS_MAX_LIFETIME_USEC              (UINT32_MAX * USEC_PER_SEC)
+#define RADV_DNSSL_MAX_LIFETIME_USEC              (UINT32_MAX * USEC_PER_SEC)
+/* rfc6275 7.4 Neighbor Discovery Home Agent Lifetime.
+ * The default value is the same as the Router Lifetime.
+ * The maximum value corresponds to 18.2 hours. 0 MUST NOT be used. */
+#define RADV_HOME_AGENT_MAX_LIFETIME_USEC         (UINT16_MAX * USEC_PER_SEC)
 
 #define RADV_OPT_ROUTE_INFORMATION                24
 #define RADV_OPT_RDNSS                            25
 #define RADV_OPT_DNSSL                            31
 /* Pref64 option type (RFC8781, section 4) */
 #define RADV_OPT_PREF64                           38
-
-/* rfc6275 7.4 Neighbor Discovery Home Agent Lifetime.
- * The default value is the same as the Router Lifetime
- * The maximum value corresponds to 18.2 hours. value of 0 MUST NOT be used.*/
-#define RADV_MAX_HOME_AGENT_LIFETIME_USEC (65535 * USEC_PER_SEC)
 
 enum RAdvState {
         RADV_STATE_IDLE                      = 0,
@@ -100,7 +106,7 @@ struct sd_radv {
         uint8_t hop_limit;
         uint8_t flags;
         uint32_t mtu;
-        uint32_t retransmit_msec;
+        usec_t retransmit_usec;
         usec_t lifetime_usec; /* timespan */
 
         int fd;
