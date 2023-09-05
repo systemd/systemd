@@ -3347,7 +3347,7 @@ int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_
                                 if (r < 0)
                                         fd = r;
                                 else {
-                                        r = loop_write(fds[2*k+1], &class, sizeof(class), false);
+                                        r = loop_write(fds[2*k+1], &class, sizeof(class));
                                         if (r < 0)
                                                 goto inner_fail; /* Propagate the error to the parent */
                                 }
@@ -3373,7 +3373,7 @@ int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_
                                         }
                                 }
 
-                                r = loop_write(fds[2*k+1], &found, sizeof(found), false);
+                                r = loop_write(fds[2*k+1], &found, sizeof(found));
                                 if (r < 0)
                                         goto inner_fail;
 

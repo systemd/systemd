@@ -470,10 +470,10 @@ TEST_RET(copy_holes_with_gaps) {
                 return log_tests_skipped("Filesystem doesn't support hole punching");
 
         assert_se(lseek(fd, blksz, SEEK_CUR) >= 0);
-        assert_se(loop_write(fd, buf, blksz, 0) >= 0);
-        assert_se(loop_write(fd, buf, blksz, 0) >= 0);
+        assert_se(loop_write(fd, buf, blksz) >= 0);
+        assert_se(loop_write(fd, buf, blksz) >= 0);
         assert_se(lseek(fd, 2 * blksz, SEEK_CUR) >= 0);
-        assert_se(loop_write(fd, buf, blksz, 0) >= 0);
+        assert_se(loop_write(fd, buf, blksz) >= 0);
         assert_se(lseek(fd, 0, SEEK_SET) >= 0);
         assert_se(fsync(fd) >= 0);
 

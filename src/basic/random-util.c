@@ -223,7 +223,7 @@ int random_write_entropy(int fd, const void *seed, size_t size, bool credit) {
                 if (ioctl(fd, RNDADDENTROPY, info) < 0)
                         return -errno;
         } else {
-                r = loop_write(fd, seed, size, false);
+                r = loop_write(fd, seed, size);
                 if (r < 0)
                         return r;
         }

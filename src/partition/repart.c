@@ -4166,7 +4166,7 @@ static int partition_format_verity_sig(Context *context, Partition *p) {
         if (lseek(whole_fd, p->offset, SEEK_SET) == (off_t) -1)
                 return log_error_errno(errno, "Failed to seek to partition %s offset: %m", strna(hint));
 
-        r = loop_write(whole_fd, text, p->new_size, /*do_poll=*/ false);
+        r = loop_write(whole_fd, text, p->new_size);
         if (r < 0)
                 return log_error_errno(r, "Failed to write verity signature to partition %s: %m", strna(hint));
 
