@@ -415,6 +415,11 @@ const BusObjectImplementation manager_object = {
         "/org/freedesktop/network1",
         "org.freedesktop.network1.Manager",
         .vtables = BUS_VTABLES(manager_vtable),
-        .children = BUS_IMPLEMENTATIONS(&dhcp_server_object, &dhcp_client_object,
-                                        &dhcp6_client_object, &link_object, &network_object),
+        .children = BUS_IMPLEMENTATIONS(
+                        &link_object, /* This is the main implementation for /org/freedesktop/network1/link,
+                                       * and must be earlier than the dhcp objects below. */
+                        &dhcp_server_object,
+                        &dhcp_client_object,
+                        &dhcp6_client_object,
+                        &network_object),
 };
