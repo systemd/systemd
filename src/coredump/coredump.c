@@ -131,6 +131,8 @@ typedef struct Context {
         const char *meta[_META_MAX];
         size_t meta_size[_META_MAX];
         pid_t pid;
+        uid_t uid;
+        gid_t gid;
         bool is_pid1;
         bool is_journald;
 } Context;
@@ -271,7 +273,6 @@ static int fix_permissions(
                 const char *filename,
                 const char *target,
                 const Context *context,
-                uid_t uid,
                 bool allow_user) {
 
         int r;
@@ -282,7 +283,7 @@ static int fix_permissions(
 
         /* Ignore errors on these */
         (void) fchmod(fd, 0640);
-        (void) fix_acl(fd, uid, allow_user);
+        (void) fix_acl(fd, context->uid, allow_user);
         (void) fix_xattr(fd, context);
 
         r = link_tmpfile(fd, filename, target, LINK_TMPFILE_SYNC);
@@ -418,7 +419,6 @@ static int save_external_coredump(
         uint64_t rlimit, process_limit, max_size;
         bool truncated, storage_on_tmpfs;
         struct stat st;
-        uid_t uid;
         int r;
 
         assert(context);
@@ -428,10 +428,6 @@ static int save_external_coredump(
         assert(ret_size);
         assert(ret_compressed_size);
         assert(ret_truncated);
-
-        r = parse_uid(context->meta[META_ARGV_UID], &uid);
-        if (r < 0)
-                return log_error_errno(r, "Failed to parse UID: %m");
 
         r = safe_atou64(context->meta[META_ARGV_RLIMIT], &rlimit);
         if (r < 0)
@@ -563,7 +559,7 @@ static int save_external_coredump(
                         uncompressed_size += partial_uncompressed_size;
                 }
 
-                r = fix_permissions(fd_compressed, tmp_compressed, fn_compressed, context, uid, allow_user);
+                r = fix_permissions(fd_compressed, tmp_compressed, fn_compressed, context, allow_user);
                 if (r < 0)
                         return r;
 
@@ -590,7 +586,7 @@ static int save_external_coredump(
                            "SIZE_LIMIT=%"PRIu64, max_size,
                            "MESSAGE_ID=" SD_MESSAGE_TRUNCATED_CORE_STR);
 
-        r = fix_permissions(fd, tmp, fn, context, uid, allow_user);
+        r = fix_permissions(fd, tmp, fn, context, allow_user);
         if (r < 0)
                 return log_error_errno(r, "Failed to fix permissions and finalize coredump %s into %s: %m", coredump_tmpfile_name(tmp), fn);
 
@@ -804,13 +800,9 @@ static int get_process_container_parent_cmdline(pid_t pid, char** cmdline) {
 }
 
 static int change_uid_gid(const Context *context) {
-        uid_t uid;
-        gid_t gid;
+        uid_t uid = context->uid;
+        gid_t gid = context->gid;
         int r;
-
-        r = parse_uid(context->meta[META_ARGV_UID], &uid);
-        if (r < 0)
-                return r;
 
         if (uid_is_system(uid)) {
                 const char *user = "systemd-coredump";
@@ -820,10 +812,6 @@ static int change_uid_gid(const Context *context) {
                         log_warning_errno(r, "Cannot resolve %s user. Proceeding to dump core as root: %m", user);
                         uid = gid = 0;
                 }
-        } else {
-                r = parse_gid(context->meta[META_ARGV_GID], &gid);
-                if (r < 0)
-                        return r;
         }
 
         return drop_privileges(uid, gid, 0);
@@ -1030,6 +1018,14 @@ static int save_context(Context *context, const struct iovec_wrapper *iovw) {
         r = parse_pid(context->meta[META_ARGV_PID], &context->pid);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse PID \"%s\": %m", context->meta[META_ARGV_PID]);
+
+        r = parse_uid(context->meta[META_ARGV_UID], &context->uid);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse UID \"%s\": %m", context->meta[META_ARGV_UID]);
+
+        r = parse_gid(context->meta[META_ARGV_GID], &context->gid);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse GID \"%s\": %m", context->meta[META_ARGV_GID]);
 
         unit = context->meta[META_UNIT];
         context->is_pid1 = streq(context->meta[META_ARGV_PID], "1") || streq_ptr(unit, SPECIAL_INIT_SCOPE);
