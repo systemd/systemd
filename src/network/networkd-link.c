@@ -485,7 +485,7 @@ void link_check_ready(Link *link) {
                 }
 
                 if (link_dhcp6_enabled(link) && link->network->dhcp6_use_pd_prefix &&
-                    link->dhcp6_lease && dhcp6_lease_has_pd_prefix(link->dhcp6_lease)) {
+                    sd_dhcp6_lease_has_pd_prefix(link->dhcp6_lease)) {
                         if (!dhcp6_ready)
                                 return (void) log_link_debug(link, "%s(): DHCPv6 IA_PD prefix is assigned, but DHCPv6 protocol is not finished yet.", __func__);
                         if (!dhcp_pd_ready)
