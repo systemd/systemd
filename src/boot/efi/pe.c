@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "devicetree.h"
 #include "pe.h"
 #include "util.h"
 
@@ -141,6 +142,7 @@ static size_t section_table_offset(const DosFileHeader *dos, const PeFileHeader 
 }
 
 static void locate_sections(
+                const uint8_t *base,
                 const PeSectionHeader section_table[],
                 size_t n_table,
                 const char * const sections[],
@@ -153,6 +155,8 @@ static void locate_sections(
         assert(offsets);
         assert(sizes);
 
+        EFI_STATUS err;
+
         for (size_t i = 0; i < n_table; i++) {
                 const PeSectionHeader *sect = section_table + i;
 
@@ -160,8 +164,23 @@ static void locate_sections(
                         if (memcmp(sect->Name, sections[j], strlen8(sections[j])) != 0)
                                 continue;
 
-                        offsets[j] = in_memory ? sect->VirtualAddress : sect->PointerToRawData;
-                        sizes[j] = sect->VirtualSize;
+                        size_t offset = in_memory ? sect->VirtualAddress : sect->PointerToRawData;
+                        size_t size = sect->VirtualSize;
+
+                        offsets[j] = offsets[j] ? : offset;
+                        sizes[j] = sizes[j] ? : size;
+
+                        if (in_memory && streq8(sections[j], ".dtb")) {
+                                err = devicetree_match(base + offset, size);
+
+                                if (err == EFI_SUCCESS) {
+                                        offsets[j] = offset;
+                                        sizes[j] = size;
+                                }
+
+                                if (err == EFI_INVALID_PARAMETER)
+                                        log_error_status(err, "Found bad DT blob in PE section %zu", i);
+                        }
                 }
         }
 }
@@ -174,7 +193,8 @@ static uint32_t get_compatibility_entry_address(const DosFileHeader *dos, const 
          * booting a 64-bit kernel on 32-bit EFI that is otherwise running on a 64-bit CPU. The locations of any
          * such compat entry points are located in a special PE section. */
 
-        locate_sections((const PeSectionHeader *) ((const uint8_t *) dos + section_table_offset(dos, pe)),
+        locate_sections((const uint8_t *) dos,
+                        (const PeSectionHeader *) ((const uint8_t *) dos + section_table_offset(dos, pe)),
                         pe->FileHeader.NumberOfSections,
                         sections,
                         &addr,
@@ -258,7 +278,8 @@ EFI_STATUS pe_memory_locate_sections(const void *base, const char * const sectio
                 return EFI_LOAD_ERROR;
 
         offset = section_table_offset(dos, pe);
-        locate_sections((PeSectionHeader *) ((uint8_t *) base + offset),
+        locate_sections((uint8_t *) dos,
+                        (PeSectionHeader *) ((uint8_t *) base + offset),
                         pe->FileHeader.NumberOfSections,
                         sections,
                         addrs,
@@ -325,7 +346,7 @@ EFI_STATUS pe_file_locate_sections(
         if (len != section_table_len)
                 return EFI_LOAD_ERROR;
 
-        locate_sections(section_table, pe.FileHeader.NumberOfSections,
+        locate_sections(NULL, section_table, pe.FileHeader.NumberOfSections,
                         sections, offsets, sizes, /*in_memory=*/false);
 
         return EFI_SUCCESS;
