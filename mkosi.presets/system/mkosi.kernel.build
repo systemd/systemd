@@ -30,7 +30,7 @@ if [ -d "$SRCDIR"/mkosi.kernel/ ]; then
     make O="$BUILDDIR" VERSION=99 INSTALL_MOD_PATH="$DESTDIR/usr" modules_install
     make O="$BUILDDIR" VERSION=99 INSTALL_PATH="$DESTDIR/usr/lib/modules/$KERNEL_RELEASE" install
     mkdir -p "$DESTDIR/usr/lib/kernel/selftests"
-    make -C tools/testing/selftests -j "$(nproc)" O="$BUILDDIR" VERSION=99 KSFT_INSTALL_PATH="$DESTDIR/usr/lib/kernel/selftests" SKIP_TARGETS="" install
+    make -C tools/testing/selftests -j "$(nproc)" O="$BUILDDIR" VERSION=99 KSFT_INSTALL_PATH="$DESTDIR/usr/lib/kernel/selftests" SKIP_TARGETS="hid" install
 
     mkdir -p "$DESTDIR"/usr/bin
     ln -sf /usr/lib/kernel/selftests/bpf/bpftool "$DESTDIR/usr/bin/bpftool"
