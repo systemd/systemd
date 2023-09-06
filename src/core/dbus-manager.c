@@ -2949,6 +2949,31 @@ static int method_dump_unit_descriptor_store(sd_bus_message *message, void *user
         return method_generic_unit_operation(message, userdata, error, bus_service_method_dump_file_descriptor_store, 0);
 }
 
+static int method_nft_set_reload(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Manager *m = ASSERT_PTR(userdata);
+        int r;
+
+        assert(message);
+
+        r = mac_selinux_access_check(message, "reload", error);
+        if (r < 0)
+                return r;
+
+        if (!MANAGER_IS_SYSTEM(m))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED,
+                                         "Reloading of NFT sets is only supported for system managers.");
+
+        Unit *u;
+        HASHMAP_FOREACH(u, m->units) {
+                CGroupContext *c = unit_get_cgroup_context(u);
+                if (!c)
+                        continue;
+                cgroup_modify_nft_set(u, /* add = */ true);
+        }
+
+        return sd_bus_reply_method_return(message, NULL);
+}
+
 const sd_bus_vtable bus_manager_vtable[] = {
         SD_BUS_VTABLE_START(0),
 
@@ -3527,6 +3552,11 @@ const sd_bus_vtable bus_manager_vtable[] = {
         SD_BUS_SIGNAL_WITH_ARGS("Reloading",
                                 SD_BUS_ARGS("b", active),
                                 0),
+        SD_BUS_METHOD("NFTSetReload",
+                      NULL,
+                      NULL,
+                      method_nft_set_reload,
+                      SD_BUS_VTABLE_CAPABILITY(CAP_NET_ADMIN)),
 
         SD_BUS_VTABLE_END
 };
