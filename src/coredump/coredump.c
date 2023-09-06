@@ -131,6 +131,8 @@ typedef struct Context {
         const char *meta[_META_MAX];
         size_t meta_size[_META_MAX];
         pid_t pid;
+        uid_t uid;
+        gid_t gid;
         bool is_pid1;
         bool is_journald;
 } Context;
@@ -1030,6 +1032,14 @@ static int save_context(Context *context, const struct iovec_wrapper *iovw) {
         r = parse_pid(context->meta[META_ARGV_PID], &context->pid);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse PID \"%s\": %m", context->meta[META_ARGV_PID]);
+
+        r = parse_uid(context->meta[META_ARGV_UID], &context->uid);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse UID \"%s\": %m", context->meta[META_ARGV_UID]);
+
+        r = parse_gid(context->meta[META_ARGV_GID], &context->gid);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse GID \"%s\": %m", context->meta[META_ARGV_GID]);
 
         unit = context->meta[META_UNIT];
         context->is_pid1 = streq(context->meta[META_ARGV_PID], "1") || streq_ptr(unit, SPECIAL_INIT_SCOPE);
