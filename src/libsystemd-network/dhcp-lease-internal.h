@@ -33,6 +33,7 @@ struct sd_dhcp_lease {
         usec_t t1;
         usec_t t2;
         usec_t lifetime;
+        usec_t ipv6_only_preferred;
         triple_timestamp timestamp;
 
         /* each 0 if unset */
