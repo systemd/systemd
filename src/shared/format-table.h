@@ -40,6 +40,7 @@ typedef enum TableDataType {
         TABLE_UINT8,
         TABLE_UINT16,
         TABLE_UINT32,
+        TABLE_UINT32_HEX,
         TABLE_UINT64,
         TABLE_UINT64_HEX,
         TABLE_PERCENT,
@@ -139,6 +140,8 @@ static inline TableCell* TABLE_HEADER_CELL(size_t i) {
 
 size_t table_get_rows(Table *t);
 size_t table_get_columns(Table *t);
+
+size_t table_get_current_column(Table *t);
 
 TableCell *table_get_cell(Table *t, size_t row, size_t column);
 

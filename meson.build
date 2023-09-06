@@ -173,6 +173,7 @@ randomseeddir = localstatedir / 'lib/systemd'
 profiledir = libexecdir / 'portable' / 'profile'
 ntpservicelistdir = prefixdir / 'lib/systemd/ntp-units.d'
 credstoredir = prefixdir / 'lib/credstore'
+pcrlockdir = prefixdir / 'lib/pcrlock.d'
 
 docdir = get_option('docdir')
 if docdir == ''
@@ -2173,6 +2174,7 @@ subdir('src/nss-systemd')
 subdir('src/oom')
 subdir('src/partition')
 subdir('src/path')
+subdir('src/pcrlock')
 subdir('src/portable')
 subdir('src/pstore')
 subdir('src/quotacheck')
