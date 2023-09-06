@@ -3,7 +3,6 @@
 
 # shellcheck disable=SC2206
 PHASES=(${@:-SETUP RUN RUN_ASAN_UBSAN CLEANUP})
-RELEASE="$(lsb_release -cs)"
 ADDITIONAL_DEPS=(
     clang
     expect
@@ -46,9 +45,9 @@ for phase in "${PHASES[@]}"; do
     case $phase in
         SETUP)
             info "Setup phase"
-            bash -c "echo 'deb-src http://archive.ubuntu.com/ubuntu/ $RELEASE main restricted universe multiverse' >>/etc/apt/sources.list"
             # PPA with some newer build dependencies
-            add-apt-repository -y ppa:upstream-systemd-ci/systemd-ci
+            add-apt-repository -y --no-update ppa:upstream-systemd-ci/systemd-ci
+            add-apt-repository -y --no-update --enable-source
             apt-get -y update
             apt-get -y build-dep systemd
             apt-get -y install "${ADDITIONAL_DEPS[@]}"
