@@ -4245,13 +4245,12 @@ int unit_get_ip_accounting(
 
 static uint64_t unit_get_effective_limit_one(Unit *u, CGroupLimitType type) {
         CGroupContext *cc;
+        size_t member;
 
         assert(u);
         assert(UNIT_HAS_CGROUP_CONTEXT(u));
 
         static const size_t members[_CGROUP_LIMIT_TYPE_MAX] = {
-                /* Note: on legacy/hybrid hierarchies memory_max stays CGROUP_LIMIT_MAX unless configured
-                 * explicitly. Effective value of MemoryLimit= (cgroup v1) is not implemented. */
                 [CGROUP_LIMIT_MEMORY_MAX]  = offsetof(CGroupContext, memory_max),
                 [CGROUP_LIMIT_MEMORY_HIGH] = offsetof(CGroupContext, memory_high),
                 [CGROUP_LIMIT_TASKS_MAX]   = offsetof(CGroupContext, tasks_max),
@@ -4264,11 +4263,15 @@ static uint64_t unit_get_effective_limit_one(Unit *u, CGroupLimitType type) {
                 [CGROUP_LIMIT_TASKS_MAX]   = system_tasks_max,
         };
 
+        member = members[type];
+        if (type == CGROUP_LIMIT_MEMORY_MAX && !unit_has_unified_memory_config(u))
+                member = offsetof(CGroupContext, memory_limit);
+
         if (unit_has_name(u, SPECIAL_ROOT_SLICE))
                 return callbacks[type]();
 
         cc = unit_get_cgroup_context(u);
-        return *(uint64_t *)((uint8_t *)cc + members[type]);
+        return *(uint64_t *)((uint8_t *)cc + member);
 }
 
 int unit_get_effective_limit(Unit *u, CGroupLimitType type, uint64_t *ret) {
