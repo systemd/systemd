@@ -126,18 +126,6 @@ static bool router_lifetime_is_valid(usec_t lifetime_usec) {
                  lifetime_usec <= RADV_MAX_ROUTER_LIFETIME_USEC);
 }
 
-static be32_t usec_to_be32_sec(usec_t usec) {
-        if (usec == USEC_INFINITY)
-                /* UINT32_MAX is handled as infinity. */
-                return htobe32(UINT32_MAX);
-
-        if (usec >= UINT32_MAX * USEC_PER_SEC)
-                /* Finite but too large. Let's use the largest finite value. */
-                return htobe32(UINT32_MAX - 1);
-
-        return htobe32(usec / USEC_PER_SEC);
-}
-
 static int radv_send(sd_radv *ra, const struct in6_addr *dst, usec_t lifetime_usec) {
         struct sockaddr_in6 dst_addr = {
                 .sin6_family = AF_INET6,
@@ -209,15 +197,15 @@ static int radv_send(sd_radv *ra, const struct in6_addr *dst, usec_t lifetime_us
                                                p->lifetime_preferred_usec,
                                                lifetime_valid_usec);
 
-                p->opt.lifetime_valid = usec_to_be32_sec(lifetime_valid_usec);
-                p->opt.lifetime_preferred = usec_to_be32_sec(lifetime_preferred_usec);
+                p->opt.lifetime_valid = usec_to_be32_sec_safe(lifetime_valid_usec);
+                p->opt.lifetime_preferred = usec_to_be32_sec_safe(lifetime_preferred_usec);
 
                 iov[msg.msg_iovlen++] = IOVEC_MAKE(&p->opt, sizeof(p->opt));
         }
 
         LIST_FOREACH(prefix, rt, ra->route_prefixes) {
-                rt->opt.lifetime = usec_to_be32_sec(MIN(usec_sub_unsigned(rt->valid_until, time_now),
-                                                        rt->lifetime_usec));
+                rt->opt.lifetime = usec_to_be32_sec_safe(MIN(usec_sub_unsigned(rt->valid_until, time_now),
+                                                             rt->lifetime_usec));
 
                 iov[msg.msg_iovlen++] = IOVEC_MAKE(&rt->opt, sizeof(rt->opt));
         }
