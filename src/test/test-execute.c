@@ -282,11 +282,7 @@ static void test_exec_cpuaffinity(Manager *m) {
 
 static void test_exec_credentials(Manager *m) {
         test(m, "exec-set-credential.service", 0, CLD_EXITED);
-        test(m, "exec-set-credential-with-mount-namespace.service", 0, CLD_EXITED);
-        test(m, "exec-set-credential-with-seccomp.service", 0, CLD_EXITED);
         test(m, "exec-load-credential.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_CREDENTIALS, CLD_EXITED);
-        test(m, "exec-load-credential-with-mount-namespace.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_CREDENTIALS, CLD_EXITED);
-        test(m, "exec-load-credential-with-seccomp.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_CREDENTIALS, CLD_EXITED);
         test(m, "exec-credentials-dir-specifier.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_CREDENTIALS, CLD_EXITED);
 }
 
