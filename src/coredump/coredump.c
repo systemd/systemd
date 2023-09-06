@@ -902,7 +902,8 @@ static int submit_coredump(
 log:
         core_message = strjoina("Process ", context->meta[META_ARGV_PID],
                                 " (", context->meta[META_COMM], ") of user ",
-                                context->meta[META_ARGV_UID], " dumped core.",
+                                context->meta[META_ARGV_UID], " received a fatal signal",
+                                coredump_fd >= 0 && arg_storage != COREDUMP_STORAGE_NONE ? " and dumped core." : ".",
                                 context->is_journald && filename ? "\nCoredump diverted to " : NULL,
                                 context->is_journald && filename ? filename : NULL);
 
