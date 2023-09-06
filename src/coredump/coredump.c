@@ -38,7 +38,9 @@
 #include "memory-util.h"
 #include "memstream-util.h"
 #include "mkdir-label.h"
+#include "namespace-util.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "process-util.h"
 #include "signal-util.h"
 #include "socket-util.h"
@@ -1314,6 +1316,237 @@ static int gather_pid_metadata_from_procfs(struct iovec_wrapper *iovw, Context *
         return save_context(context, iovw);
 }
 
+static int send_ucred(int transport_fd, struct ucred *ucred) {
+        CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(struct ucred))) control = {};
+        struct msghdr mh = {
+                .msg_control = &control,
+                .msg_controllen = sizeof(control),
+        };
+        struct cmsghdr *cmsg;
+
+        assert(transport_fd >= 0);
+
+        cmsg = CMSG_FIRSTHDR(&mh);
+        *cmsg = (struct cmsghdr) {
+                .cmsg_level = SOL_SOCKET,
+                .cmsg_type = SCM_CREDENTIALS,
+                .cmsg_len = CMSG_LEN(sizeof(struct ucred)),
+        };
+        memcpy(CMSG_DATA(cmsg), ucred, sizeof(struct ucred));
+
+        return RET_NERRNO(sendmsg(transport_fd, &mh, MSG_NOSIGNAL));
+}
+
+static int receive_ucred(int transport_fd, struct ucred *ret_ucred) {
+        CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(struct ucred))) control = {};
+        struct msghdr mh = {
+                .msg_control = &control,
+                .msg_controllen = sizeof(control),
+        };
+        struct cmsghdr *cmsg = NULL;
+        struct ucred *ucred = NULL;
+        ssize_t n;
+
+        assert(ret_ucred);
+
+        n = recvmsg_safe(transport_fd, &mh, 0);
+        if (n < 0)
+                return n;
+
+        CMSG_FOREACH(cmsg, &mh)
+                if (cmsg->cmsg_level == SOL_SOCKET &&
+                    cmsg->cmsg_type == SCM_CREDENTIALS &&
+                    cmsg->cmsg_len == CMSG_LEN(sizeof(struct ucred))) {
+
+                        assert(!ucred);
+                        ucred = CMSG_TYPED_DATA(cmsg, struct ucred);
+                }
+
+        if (!ucred)
+                return -EIO;
+
+        *ret_ucred = *ucred;
+
+        return 0;
+}
+
+static int can_forward_coredump(pid_t pid) {
+        _cleanup_free_ char *cgroup = NULL, *path = NULL, *unit = NULL;
+        int r;
+
+        r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, pid, &cgroup);
+        if (r < 0)
+                return r;
+
+        r = path_extract_directory(cgroup, &path);
+        if (r < 0)
+                return r;
+
+        r = cg_path_get_unit_path(path, &unit);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r == -ENXIO)
+                /* No valid units in this path. */
+                return false;
+        if (r < 0)
+                return r;
+
+        /* We require that this process belongs to a delegated cgroup
+         * (i.e. Delegate=yes), with CoredumpReceive=yes also. */
+        r = cg_is_delegated(unit);
+        if (r <= 0)
+                return r;
+
+        return cg_has_coredump_receive(unit);
+}
+
+static int forward_coredump_to_container(Context *context) {
+        _cleanup_close_ int pidnsfd = -EBADF, mntnsfd = -EBADF, netnsfd = -EBADF, usernsfd = -EBADF, rootfd = -EBADF;
+        _cleanup_close_pair_ int pair[2] = PIPE_EBADF;
+        pid_t pid, child;
+        struct ucred ucred = {
+                .pid = context->pid,
+                .uid = context->uid,
+                .gid = context->gid,
+        };
+        int r;
+
+        r = namespace_get_leader(context->pid, NAMESPACE_PID, &pid);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get namespace leader: %m");
+
+        r = can_forward_coredump(pid);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to check if coredump can be forwarded: %m");
+        if (r == 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOENT),
+                                       "Coredump will not be forwarded because no target cgroup was found.");
+
+        r = RET_NERRNO(socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, pair));
+        if (r < 0)
+                return log_debug_errno(r, "Failed to create socket pair: %m");
+
+        r = setsockopt_int(pair[1], SOL_SOCKET, SO_PASSCRED, true);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to set SO_PASSCRED: %m");
+
+        r = namespace_open(pid, &pidnsfd, &mntnsfd, &netnsfd, &usernsfd, &rootfd);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to join namespaces of PID " PID_FMT ": %m", pid);
+
+        r = namespace_fork("(sd-coredumpns)", "(sd-coredump)", NULL, 0,
+                           FORK_RESET_SIGNALS|FORK_DEATHSIG,
+                           pidnsfd, mntnsfd, netnsfd, usernsfd, rootfd, &child);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to fork into namespaces of PID " PID_FMT ": %m", pid);
+        if (r == 0) {
+                _cleanup_(iovw_free_freep) struct iovec_wrapper *iovw = NULL;
+                Context child_context = {};
+
+                pair[0] = safe_close(pair[0]);
+
+                if (laccess("/run/systemd/coredump", W_OK) < 0) {
+                        log_debug_errno(errno, "Cannot find coredump socket, exiting: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                r = receive_ucred(pair[1], &ucred);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to receive ucred and fd: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                iovw = iovw_new();
+                if (!iovw) {
+                        log_oom();
+                        _exit(EXIT_FAILURE);
+                }
+
+                (void) iovw_put_string_field(iovw, "MESSAGE_ID=", SD_MESSAGE_COREDUMP_STR);
+                (void) iovw_put_string_field(iovw, "PRIORITY=", STRINGIFY(LOG_CRIT));
+                (void) iovw_put_string_field(iovw, "COREDUMP_FORWARDED=", "1");
+
+                for (int i = 0; i < _META_ARGV_MAX; i++) {
+                        int signo;
+                        char buf[DECIMAL_STR_MAX(pid_t)];
+                        const char *t = context->meta[i];
+
+                        switch(i) {
+
+                        case META_ARGV_PID:
+                                xsprintf(buf, PID_FMT, ucred.pid);
+                                t = buf;
+
+                                break;
+
+                        case META_ARGV_UID:
+                                xsprintf(buf, UID_FMT, ucred.uid);
+                                t = buf;
+                                break;
+
+                        case META_ARGV_GID:
+                                xsprintf(buf, GID_FMT, ucred.gid);
+                                t = buf;
+                                break;
+
+                        case META_ARGV_SIGNAL:
+                                if (safe_atoi(t, &signo) >= 0 && SIGNAL_VALID(signo))
+                                        (void) iovw_put_string_field(iovw,
+                                                                     "COREDUMP_SIGNAL_NAME=SIG",
+                                                                     signal_to_string(signo));
+                                break;
+
+                        default:
+                                break;
+                        }
+
+                        r = iovw_put_string_field(iovw, meta_field_names[i], t);
+                        if (r < 0) {
+                                log_debug_errno(r, "Failed to construct iovec: %m");
+                                _exit(EXIT_FAILURE);
+                        }
+                }
+
+                r = save_context(&child_context, iovw);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to save context: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                r = gather_pid_metadata_from_procfs(iovw, &child_context);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to gather metadata from procfs: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                r = send_iovec(iovw, STDIN_FILENO);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to send iovec to coredump socket: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                _exit(EXIT_SUCCESS);
+        }
+
+        pair[1] = safe_close(pair[1]);
+
+        /* We need to translate the PID, UID, and GID of the crashing process
+         * to the container's namespaces. Do this by sending an SCM_CREDENTIALS
+         * message on a socket pair, and read the result when we join the
+         * container. The kernel will perform the translation for us. */
+        r = send_ucred(pair[0], &ucred);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to send metadata to container: %m");
+
+        r = wait_for_terminate_and_check("(sd-coredumpns)", child, 0);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to wait for child to terminate: %m");
+        if (r != EXIT_SUCCESS)
+                return log_debug_errno(SYNTHETIC_ERRNO(EPROTO), "Failed to process coredump in container: %m");
+
+        return 0;
+}
+
 static int process_kernel(int argc, char* argv[]) {
         _cleanup_(iovw_free_freep) struct iovec_wrapper *iovw = NULL;
         Context context = {};
@@ -1332,9 +1565,6 @@ static int process_kernel(int argc, char* argv[]) {
         if (!iovw)
                 return log_oom();
 
-        (void) iovw_put_string_field(iovw, "MESSAGE_ID=", SD_MESSAGE_COREDUMP_STR);
-        (void) iovw_put_string_field(iovw, "PRIORITY=", STRINGIFY(LOG_CRIT));
-
         /* Collect all process metadata passed by the kernel through argv[] */
         r = gather_pid_metadata_from_argv(iovw, &context, argc - 1, argv + 1);
         if (r < 0)
@@ -1349,6 +1579,17 @@ static int process_kernel(int argc, char* argv[]) {
                 /* OK, now we know it's not the journal, hence we can make use of it now. */
                 log_set_target_and_open(LOG_TARGET_JOURNAL_OR_KMSG);
 
+        r = in_same_namespace(getpid_cached(), context.pid, NAMESPACE_PID);
+        if (r < 0)
+                log_debug_errno(r, "Failed to check pidns of crashing process, ignoring: %m");
+        if (r == 0) {
+                /* If this fails, fallback to the old behavior so that
+                 * there is still some record of the crash. */
+                r = forward_coredump_to_container(&context);
+                if (r >= 0)
+                        return 0;
+        }
+
         /* If this is PID 1 disable coredump collection, we'll unlikely be able to process
          * it later on.
          *
@@ -1359,6 +1600,9 @@ static int process_kernel(int argc, char* argv[]) {
                 log_notice("Due to PID 1 having crashed coredump collection will now be turned off.");
                 disable_coredumps();
         }
+
+        (void) iovw_put_string_field(iovw, "MESSAGE_ID=", SD_MESSAGE_COREDUMP_STR);
+        (void) iovw_put_string_field(iovw, "PRIORITY=", STRINGIFY(LOG_CRIT));
 
         if (context.is_journald || context.is_pid1)
                 return submit_coredump(&context, iovw, STDIN_FILENO);
