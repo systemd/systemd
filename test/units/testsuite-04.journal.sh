@@ -207,9 +207,9 @@ ID="$(systemd-id128 new)"
 journalctl -t "$ID" --follow --cursor-file=/tmp/issue-26746-cursor | tee /tmp/issue-26746-log &
 systemd-cat -t "$ID" /bin/sh -c 'echo hogehoge'
 # shellcheck disable=SC2016
-timeout 10 bash -c 'while ! [[ -f /tmp/issue-26746-log && "$(cat /tmp/issue-26746-log)" =~ hogehoge ]]; do sleep .5; done'
+timeout 10 bash -c 'until [[ -f /tmp/issue-26746-log && "$(cat /tmp/issue-26746-log)" =~ hogehoge ]]; do sleep .5; done'
 pkill -TERM journalctl
-timeout 10 bash -c 'while ! test -f /tmp/issue-26746-cursor; do sleep .5; done'
+timeout 10 bash -c 'until test -f /tmp/issue-26746-cursor; do sleep .5; done'
 CURSOR_FROM_FILE="$(cat /tmp/issue-26746-cursor)"
 CURSOR_FROM_JOURNAL="$(journalctl -t "$ID" --output=export MESSAGE=hogehoge | sed -n -e '/__CURSOR=/ { s/__CURSOR=//; p }')"
 test "$CURSOR_FROM_FILE" = "$CURSOR_FROM_JOURNAL"

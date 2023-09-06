@@ -549,7 +549,7 @@ systemd-run --unit=test-root-ephemeral \
 test -n "$(ls -A /var/lib/systemd/ephemeral-trees)"
 systemctl stop test-root-ephemeral
 # shellcheck disable=SC2016
-timeout 10 bash -c 'while ! test -z "$(ls -A /var/lib/systemd/ephemeral-trees)"; do sleep .5; done'
+timeout 10 bash -c 'until test -z "$(ls -A /var/lib/systemd/ephemeral-trees)"; do sleep .5; done'
 test ! -f /tmp/img/abc
 
 systemd-dissect --mtree /tmp/img

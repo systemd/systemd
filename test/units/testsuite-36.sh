@@ -38,7 +38,7 @@ startStrace() {
     coproc strace -qq -p 1 -o "$straceLog" -e set_mempolicy -s 1024 ${1:+"$1"}
     # Wait for strace to properly "initialize", i.e. until PID 1 has the TracerPid
     # field set to the current strace's PID
-    while ! awk -v spid="$COPROC_PID" '/^TracerPid:/ {exit !($2 == spid);}' /proc/1/status; do sleep 0.1; done
+    until awk -v spid="$COPROC_PID" '/^TracerPid:/ {exit !($2 == spid);}' /proc/1/status; do sleep 0.1; done
 }
 
 stopStrace() {

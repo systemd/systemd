@@ -46,7 +46,7 @@ rm -f /tmp/testsuite-23-retry-fail
 systemctl start testsuite-23-retry-uphold.service
 systemctl is-active testsuite-23-upheldby-install.service
 
-while ! systemctl is-failed testsuite-23-retry-fail.service ; do
+until systemctl is-failed testsuite-23-retry-fail.service ; do
     sleep .5
 done
 
@@ -54,7 +54,7 @@ done
 
 touch /tmp/testsuite-23-retry-fail
 
-while ! systemctl is-active testsuite-23-retry-upheld.service ; do
+until systemctl is-active testsuite-23-retry-upheld.service ; do
     sleep .5
 done
 

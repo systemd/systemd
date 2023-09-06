@@ -171,7 +171,7 @@ EOF
 
     evemu-device /run/lidswitch.evemu &
 
-    timeout 20 bash -c 'while ! grep "^Fake Lid Switch" /sys/class/input/*/device/name; do sleep .5; done'
+    timeout 20 bash -c 'until grep "^Fake Lid Switch" /sys/class/input/*/device/name; do sleep .5; done'
     input_name=$(grep -l '^Fake Lid Switch' /sys/class/input/*/device/name || :)
     if [[ -z "$input_name" ]]; then
         echo "cannot find fake lid switch." >&2
@@ -418,7 +418,7 @@ EOF
     # coldplug: logind started with existing device
     systemctl stop systemd-logind.service
     modprobe scsi_debug
-    timeout 30 bash -c 'while ! ls /sys/bus/pseudo/drivers/scsi_debug/adapter*/host*/target*/*:*/block 2>/dev/null; do sleep 1; done'
+    timeout 30 bash -c 'until ls /sys/bus/pseudo/drivers/scsi_debug/adapter*/host*/target*/*:*/block 2>/dev/null; do sleep 1; done'
     dev=/dev/$(ls /sys/bus/pseudo/drivers/scsi_debug/adapter*/host*/target*/*:*/block 2>/dev/null)
     if [[ ! -b "$dev" ]]; then
         echo "cannot find suitable scsi block device" >&2
@@ -437,7 +437,7 @@ EOF
     # hotplug: new device appears while logind is running
     rmmod scsi_debug
     modprobe scsi_debug
-    timeout 30 bash -c 'while ! ls /sys/bus/pseudo/drivers/scsi_debug/adapter*/host*/target*/*:*/block 2>/dev/null; do sleep 1; done'
+    timeout 30 bash -c 'until ls /sys/bus/pseudo/drivers/scsi_debug/adapter*/host*/target*/*:*/block 2>/dev/null; do sleep 1; done'
     dev=/dev/$(ls /sys/bus/pseudo/drivers/scsi_debug/adapter*/host*/target*/*:*/block 2>/dev/null)
     if [[ ! -b "$dev" ]]; then
         echo "cannot find suitable scsi block device" >&2
