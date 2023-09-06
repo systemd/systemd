@@ -530,7 +530,7 @@ grep -qF "fd00:dead:beef:cafe::123" "$RUN_OUT"
 
 systemctl stop resmontest.service
 
-# Test serve stale feature if nftables is installed
+# Test serve stale feature and NFTSet= if nftables is installed
 if command -v nft >/dev/null; then
     ### Test without serve stale feature ###
     NFT_FILTER_NAME=dns_port_filter
@@ -587,6 +587,24 @@ if command -v nft >/dev/null; then
     sleep 2
     run dig stale1.unsigned.test -t A
     grep -qE "NXDOMAIN" "$RUN_OUT"
+
+    nft flush ruleset
+
+    ### NFTSet= test
+    nft add table inet sd_test
+    nft add set inet sd_test c '{ type cgroupsv2; }'
+    nft add set inet sd_test u '{ typeof meta skuid; }'
+    nft add set inet sd_test g '{ typeof meta skgid; }'
+    systemd-run -u nft-test.service -p DynamicUser=yes -p 'NFTSet=cgroup:inet:sd_test:c user:inet:sd_test:u group:inet:sd_test:g' sleep 10000
+    run nft list set inet sd_test c
+    grep -qE "nft-test.service" "$RUN_OUT"
+    uid=$(getent passwd nft-test | cut -d':' -f3)
+    run nft list set inet sd_test u
+    grep -qE "$uid" "$RUN_OUT"
+    gid=$(getent passwd nft-test | cut -d':' -f4)
+    run nft list set inet sd_test g
+    grep -qE "$gid" "$RUN_OUT"
+    systemctl stop nft-test.service
 
     nft flush ruleset
 else

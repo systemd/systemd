@@ -1426,6 +1426,95 @@ DeviceAllow=/dev/loop-control
 
         <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>NFTSet=</varname><replaceable>family</replaceable>:<replaceable>table</replaceable>:<replaceable>set</replaceable></term>
+        <listitem>
+          <para>This setting provides a method for integrating dynamic cgroup, user and group IDs into
+          firewall rules with <ulink url="https://netfilter.org/projects/nftables/index.html">NFT</ulink>
+          sets. The benefit of using this setting is to be able to use the IDs as selectors in firewall rules
+          easily and this in turn allows more fine grained filtering. NFT rules for cgroup matching use
+          numeric cgroup IDs, which change every time a service is restarted, making them hard to use in
+          systemd environment otherwise. Dynamic and random IDs used by <varname>DynamicUser=</varname> can
+          be also integrated with this setting.</para>
+
+          <para>This option expects a whitespace separated list of NFT set definitions. Each definition
+          consists of a colon-separated tuple of source type (one of <literal>cgroup</literal>,
+          <literal>user</literal> or <literal>group</literal>), NFT address family (one of
+          <literal>arp</literal>, <literal>bridge</literal>, <literal>inet</literal>, <literal>ip</literal>,
+          <literal>ip6</literal>, or <literal>netdev</literal>), table name and set name. The names of tables
+          and sets must conform to lexical restrictions of NFT table names. The type of the element used in
+          the NFT filter must match the type implied by the directive (<literal>cgroup</literal>,
+          <literal>user</literal> or <literal>group</literal>) as shown in the table below. When a control
+          group or a unit is realized, the corresponding ID will be appended to the NFT sets and it will be
+          be removed when the control group or unit is removed. <command>systemd</command> only inserts
+          elements to (or removes from) the sets, so the related NFT rules, tables and sets must be prepared
+          elsewhere in advance. Failures to manage the sets will be ignored.</para>
+
+          <table>
+            <title>Defined <varname>source type</varname> values</title>
+            <tgroup cols='3'>
+              <colspec colname='source type'/>
+              <colspec colname='description'/>
+              <colspec colname='NFT type name'/>
+              <thead>
+                <row>
+                  <entry>Source type</entry>
+                  <entry>Description</entry>
+                  <entry>Corresponding NFT type name</entry>
+                </row>
+              </thead>
+
+              <tbody>
+                <row>
+                  <entry><literal>cgroup</literal></entry>
+                  <entry>control group ID</entry>
+                  <entry><literal>cgroupsv2</literal></entry>
+                </row>
+                <row>
+                  <entry><literal>user</literal></entry>
+                  <entry>user ID</entry>
+                  <entry><literal>meta skuid</literal></entry>
+                </row>
+                <row>
+                  <entry><literal>group</literal></entry>
+                  <entry>group ID</entry>
+                  <entry><literal>meta skgid</literal></entry>
+                </row>
+              </tbody>
+            </tgroup>
+          </table>
+
+          <para>If the firewall rules are reinstalled so that the contents of NFT sets are destroyed, D-Bus
+          call can be used to request systemd to refill the sets, for example with
+          <citerefentry><refentrytitle>busctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>:
+          <command>busctl call org.freedesktop.systemd1 /org/freedesktop/systemd1
+          org.freedesktop.systemd1.Manager NFTSetReload</command>.</para>
+
+          <para>Example:
+          <programlisting>[Unit]
+NFTSet=cgroup:inet:filter:my_service user:inet:filter:serviceuser
+</programlisting>
+          Corresponding NFT rules:
+          <programlisting>table inet filter {
+        set my_service {
+                type cgroupsv2
+        }
+        set serviceuser {
+                typeof meta skuid
+        }
+        chain x {
+                socket cgroupv2 level 2 @my_service accept
+                drop
+        }
+        chain y {
+                meta skuid @serviceuser accept
+                drop
+        }
+}</programlisting>
+          </para>
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
     </variablelist>
     </refsect2>
   </refsect1>
