@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <unistd.h>
 
+#include "errno-util.h"
 #include "io-util.h"
 #include "string-util.h"
 #include "time-util.h"
@@ -105,18 +106,19 @@ int loop_read_exact(int fd, void *buf, size_t nbytes, bool do_poll) {
         return 0;
 }
 
-int loop_write(int fd, const void *buf, size_t nbytes, bool do_poll) {
+int loop_write_full(int fd, const void *buf, size_t nbytes, usec_t timeout) {
         const uint8_t *p;
+        usec_t end;
+        int r;
 
         assert(fd >= 0);
+        assert(buf || nbytes == 0);
 
         if (nbytes == 0) {
                 static const dummy_t dummy[0];
                 assert_cc(sizeof(dummy) == 0);
                 p = (const void*) dummy; /* Some valid pointer, in case NULL was specified */
         } else {
-                assert(buf);
-
                 if (nbytes == SIZE_MAX)
                         nbytes = strlen(buf);
                 else if (_unlikely_(nbytes > (size_t) SSIZE_MAX))
@@ -124,6 +126,9 @@ int loop_write(int fd, const void *buf, size_t nbytes, bool do_poll) {
 
                 p = buf;
         }
+
+        if (timeout != 0)
+                end = timeout == USEC_INFINITY ? USEC_INFINITY : usec_add(now(CLOCK_MONOTONIC), timeout);
 
         do {
                 ssize_t k;
@@ -133,16 +138,22 @@ int loop_write(int fd, const void *buf, size_t nbytes, bool do_poll) {
                         if (errno == EINTR)
                                 continue;
 
-                        if (errno == EAGAIN && do_poll) {
-                                /* We knowingly ignore any return value here,
-                                 * and expect that any error/EOF is reported
-                                 * via write() */
+                        if (errno != EAGAIN || timeout == 0)
+                                return -errno;
 
-                                (void) fd_wait_for_event(fd, POLLOUT, USEC_INFINITY);
+                        usec_t t = now(CLOCK_MONOTONIC);
+                        if (t >= end)
+                                return -ETIME;
+
+                        r = fd_wait_for_event(fd, POLLOUT, usec_sub_unsigned(end, t));
+                        if (timeout == USEC_INFINITY || ERRNO_IS_NEG_TRANSIENT(r))
+                                /* If timeout == USEC_INFINITY we knowingly ignore any return value
+                                 * here, and expect that any error/EOF is reported via write() */
                                 continue;
-                        }
-
-                        return -errno;
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                return -ETIME;
                 }
 
                 if (_unlikely_(nbytes > 0 && k == 0)) /* Can't really happen */

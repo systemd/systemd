@@ -400,7 +400,7 @@ static int verify_gpg(
                 if (sig_file < 0)
                         return log_error_errno(errno, "Failed to create temporary file: %m");
 
-                r = loop_write(sig_file, signature, signature_size, false);
+                r = loop_write(sig_file, signature, signature_size);
                 if (r < 0) {
                         log_error_errno(r, "Failed to write to temporary file: %m");
                         goto finish;
@@ -465,7 +465,7 @@ static int verify_gpg(
 
         gpg_pipe[0] = safe_close(gpg_pipe[0]);
 
-        r = loop_write(gpg_pipe[1], payload, payload_size, false);
+        r = loop_write(gpg_pipe[1], payload, payload_size);
         if (r < 0) {
                 log_error_errno(r, "Failed to write to pipe: %m");
                 goto finish;

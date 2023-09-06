@@ -569,7 +569,7 @@ int vt_disallocate(const char *name) {
                           "\033[r"   /* clear scrolling region */
                           "\033[H"   /* move home */
                           "\033[3J", /* clear screen including scrollback, requires Linux 2.6.40 */
-                          10, false);
+                          10);
         return 0;
 }
 
@@ -1544,7 +1544,7 @@ int set_terminal_cursor_position(int fd, unsigned int row, unsigned int column) 
 
         xsprintf(cursor_position, "\x1B[%u;%uH", row, column);
 
-        r = loop_write(fd, cursor_position, SIZE_MAX, /* do_poll = */false);
+        r = loop_write(fd, cursor_position, SIZE_MAX);
         if (r < 0)
                 return log_warning_errno(r, "Failed to set cursor position, ignoring: %m");
 

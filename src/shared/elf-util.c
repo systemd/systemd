@@ -826,7 +826,7 @@ int parse_elf_object(int fd, const char *executable, bool fork_disable_dump, cha
                          * Failure is ignored, because partial output is still useful. */
                         (void) fcntl(return_pipe[1], F_SETPIPE_SZ, len);
 
-                        r = loop_write(return_pipe[1], buf, len, false);
+                        r = loop_write(return_pipe[1], buf, len);
                         if (r == -EAGAIN)
                                 log_warning("Write failed, backtrace will be truncated.");
                         else if (r < 0)
