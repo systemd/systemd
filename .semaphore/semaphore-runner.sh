@@ -30,7 +30,7 @@ create_container() {
     sudo lxc-attach -n "$CONTAINER" -- sh -ex <<EOF
 sed 's/^deb/deb-src/' /etc/apt/sources.list >>/etc/apt/sources.list.d/sources.list
 # We might attach the console too soon
-while ! systemctl --quiet --wait is-system-running; do sleep 1; done
+until systemctl --quiet --wait is-system-running; do sleep 1; done
 # Manpages database trigger takes a lot of time and is not useful in a CI
 echo 'man-db man-db/auto-update boolean false' | debconf-set-selections
 # Speed up dpkg, image is thrown away after the test

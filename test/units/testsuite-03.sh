@@ -16,7 +16,7 @@ systemctl daemon-reexec
 systemctl start --no-block hello-after-sleep.target
 
 systemctl list-jobs >/root/list-jobs.txt
-while ! grep 'sleep\.service.*running' /root/list-jobs.txt; do
+until grep 'sleep\.service.*running' /root/list-jobs.txt; do
     systemctl list-jobs >/root/list-jobs.txt
 done
 

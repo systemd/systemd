@@ -19,7 +19,7 @@ EOF
     ID="$(systemd-id128 new)"
     systemd-cat -t "$ID" /bin/bash -c "for ((i=0;i<100;i++)); do echo -n hoge with ${c}; done; echo"
     journalctl --sync
-    timeout 10 bash -c "while ! SYSTEMD_LOG_LEVEL=debug journalctl --verify --quiet --file /var/log/journal/$MACHINE_ID/system.journal 2>&1 | grep -q -F 'compress=${c}'; do sleep .5; done"
+    timeout 10 bash -c "until SYSTEMD_LOG_LEVEL=debug journalctl --verify --quiet --file /var/log/journal/$MACHINE_ID/system.journal 2>&1 | grep -q -F 'compress=${c}'; do sleep .5; done"
 
     # $SYSTEMD_JOURNAL_COMPRESS= also works for journal-remote
     if [[ -x /usr/lib/systemd/systemd-journal-remote ]]; then
