@@ -313,28 +313,37 @@ for key in PK KEK db; do
   sbsiglist --owner "${uuid}" --type x509 --output "${key}.esl" "${key}.der"
 done
 
-for key in MicWinProPCA2011_2011-10-19.crt MicCorUEFCA2011_2011-06-27.crt MicCorKEKCA2011_2011-06-24.crt; do
-  curl "https://www.microsoft.com/pkiops/certs/${key}" --output "${key}"
+# See also: <ulink url="https://learn.microsoft.com/en-us/windows-hardware/manufacture/desktop/windows-secure-boot-key-creation-and-management-guidance">Windows Secure Boot Key Creation and Management Guidance</ulink>
+curl -L "https://go.microsoft.com/fwlink/p/?linkid=321192" -o ms-db-2011.crt \
+     -L "https://go.microsoft.com/fwlink/p/?linkid=321185" -o ms-kek-2011.crt \
+     -L "https://go.microsoft.com/fwlink/p/?linkid=321194" -o ms-uefi-db-2011.crt \
+     -L "https://go.microsoft.com/fwlink/p/?linkid=2239775" -o ms-kek-2023.base64 \
+     -L "https://go.microsoft.com/fwlink/p/?linkid=2239776" -o ms-db-2023.base64 \
+     -L "https://go.microsoft.com/fwlink/p/?linkid=2239872" -o ms-uefi-db-2023.base64
+for key in ms-*.base64; do
+  base64 -d "${key}" >"${key%base64}crt"
+done
+for key in ms-*.crt; do
   sbsiglist --owner 77fa9abd-0359-4d32-bd60-28f4e78f784b --type x509 --output "${key%crt}esl" "${key}"
 done
 
-# Optionally add Microsoft Windows Production CA 2011 (needed to boot into Windows).
-cat MicWinProPCA2011_2011-10-19.esl >>db.esl
+# Optionally add Microsoft Windows certificates (needed to boot into Windows).
+cat ms-db-*.esl >>db.esl
 
-# Optionally add Microsoft Corporation UEFI CA 2011 for firmware drivers / option ROMs
-# and third-party boot loaders (including shim). This is highly recommended on real
-# hardware as not including this may soft-brick your device (see next paragraph).
-cat MicCorUEFCA2011_2011-06-27.esl >>db.esl
+# Optionally add Microsoft UEFI certificates for firmware drivers / option ROMs and third-party
+# boot loaders (including shim). This is highly recommended on real hardware as not including this
+# may soft-brick your device (see next paragraph).
+cat ms-uefi-*.esl >>db.esl
 
-# Optionally add Microsoft Corporation KEK CA 2011. Recommended if either of the
-# Microsoft keys is used as the official UEFI revocation database is signed with this
-# key. The revocation database can be updated with <citerefentry project='man-pages'><refentrytitle>fwupdmgr</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
-cat MicCorKEKCA2011_2011-06-24.esl >>KEK.esl
+# Optionally add Microsoft KEK certificates. Recommended if either of the Microsoft keys is used as
+# the official UEFI revocation database is signed with this key. The revocation database can be
+# updated with <citerefentry project='man-pages'><refentrytitle>fwupdmgr</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+cat ms-kek-*.esl >>KEK.esl
 
 attr=NON_VOLATILE,RUNTIME_ACCESS,BOOTSERVICE_ACCESS,TIME_BASED_AUTHENTICATED_WRITE_ACCESS
-sbvarsign --attr ${attr} --key PK.key --cert PK.crt --output PK.auth PK PK.esl
-sbvarsign --attr ${attr} --key PK.key --cert PK.crt --output KEK.auth KEK KEK.esl
-sbvarsign --attr ${attr} --key KEK.key --cert KEK.crt --output db.auth db db.esl
+sbvarsign --attr "${attr}" --key PK.key --cert PK.crt --output PK.auth PK PK.esl
+sbvarsign --attr "${attr}" --key PK.key --cert PK.crt --output KEK.auth KEK KEK.esl
+sbvarsign --attr "${attr}" --key KEK.key --cert KEK.crt --output db.auth db db.esl
         </programlisting>
 
         <para>This feature is considered dangerous because even if all the required files are signed with the
