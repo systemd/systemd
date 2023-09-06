@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "devicetree.h"
 #include "pe.h"
 #include "util.h"
 
@@ -163,6 +164,7 @@ static bool pe_section_name_equal(const char *a, const char *b) {
 }
 
 static void pe_locate_sections(
+                const void *base,
                 const PeSectionHeader section_table[],
                 size_t n_section_table,
                 const char *const section_names[],
@@ -176,6 +178,7 @@ static void pe_locate_sections(
         /* Searches for the sections listed in 'sections[]' within the section table. Validates the resulted
          * data. If 'validate_base' is non-zero also takes base offset when loaded into memory into account for
          * checking for overflows. */
+        EFI_STATUS err;
 
         for (size_t i = 0; section_names[i]; i++)
                 FOREACH_ARRAY(j, section_table, n_section_table) {
@@ -206,6 +209,24 @@ static void pe_locate_sections(
                                         continue;
                         }
 
+                        /* Special handling of .dtb sections */
+                        if (base && pe_section_name_equal(section_names[i], ".dtb")) {
+                                err = devicetree_match((const uint8_t *) base + j->VirtualAddress, j->VirtualSize);
+
+                                if (err == EFI_SUCCESS) {
+                                        sections[i] = (PeSectionVector) {
+                                                .size = j->VirtualSize,
+                                                .file_offset = j->PointerToRawData,
+                                                .memory_offset = j->VirtualAddress,
+                                        };
+                                        break;
+                                } else if (err == EFI_INVALID_PARAMETER)
+                                        log_error_status(err, "Found bad DT blob in PE section %zu", i);
+
+                                /* No matching .dtb section found, continue searching */
+                                continue;
+                        }
+
                         /* At this time, the sizes and offsets have been validated. Store them away */
                         sections[i] = (PeSectionVector) {
                                 .size = j->VirtualSize,
@@ -229,6 +250,7 @@ static uint32_t get_compatibility_entry_address(const DosFileHeader *dos, const 
         static const char *const section_names[] = { ".compat", NULL };
         PeSectionVector vector = {};
         pe_locate_sections(
+                        (const uint8_t *) dos,
                         (const PeSectionHeader *) ((const uint8_t *) dos + section_table_offset(dos, pe)),
                         pe->FileHeader.NumberOfSections,
                         section_names,
@@ -341,6 +363,7 @@ EFI_STATUS pe_memory_locate_sections(
                 return err;
 
         pe_locate_sections(
+                        (uint8_t *) base,
                         section_table,
                         n_section_table,
                         section_names,
@@ -491,6 +514,7 @@ EFI_STATUS pe_locate_profile_sections(
 
         /* And now parse everything between the start and end of our profile */
         pe_locate_sections(
+                        NULL,
                         p,
                         n,
                         section_names,
