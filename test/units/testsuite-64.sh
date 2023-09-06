@@ -546,7 +546,7 @@ testcase_lvm_basic() {
     # Mount mypart1 through by-label devlink
     mkdir -p /tmp/mypart1-mount-point
     mount /dev/disk/by-label/mylvpart1 /tmp/mypart1-mount-point
-    timeout 30 bash -c "while ! systemctl -q is-active /tmp/mypart1-mount-point; do sleep .2; done"
+    timeout 30 bash -c "until systemctl -q is-active /tmp/mypart1-mount-point; do sleep .2; done"
     # Extend the partition and check if the device and mount units are still active.
     # See https://bugzilla.redhat.com/show_bug.cgi?id=2158628
     # Note, the test below may be unstable with LVM2 without the following patch:
@@ -556,8 +556,8 @@ testcase_lvm_basic() {
     # is hopefully fast.
     lvm lvextend -y --size 8M "/dev/$vgroup/mypart1"
     udevadm wait --settle --timeout="$timeout" "/dev/disk/by-label/mylvpart1"
-    timeout 30 bash -c "while ! systemctl -q is-active '/dev/$vgroup/mypart1'; do sleep .2; done"
-    timeout 30 bash -c "while ! systemctl -q is-active /tmp/mypart1-mount-point; do sleep .2; done"
+    timeout 30 bash -c "until systemctl -q is-active '/dev/$vgroup/mypart1'; do sleep .2; done"
+    timeout 30 bash -c "until systemctl -q is-active /tmp/mypart1-mount-point; do sleep .2; done"
     # Umount the partition, otherwise the underlying device unit will stay in
     # the inactive state and not be collected, and helper_check_device_units() will fail.
     systemctl show /tmp/mypart1-mount-point
@@ -956,7 +956,7 @@ testcase_long_sysfs_path() {
     echo "UUID=deadbeef-dead-dead-beef-222222222222 $mpoint ext4 defaults 0 0" >>/etc/fstab
     systemctl daemon-reload
     mount "$mpoint"
-    timeout 30 bash -c "while ! systemctl -q is-active '$mpoint'; do sleep .2; done"
+    timeout 30 bash -c "until systemctl -q is-active '$mpoint'; do sleep .2; done"
     test -e "$mpoint/test"
     umount "$mpoint"
 
