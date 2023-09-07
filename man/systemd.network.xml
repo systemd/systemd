@@ -3276,12 +3276,43 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
 
       <varlistentry>
         <term><varname>ServerAddress=</varname></term>
-        <listitem><para>Specifies server address for the DHCP server. Takes an IPv4 address with prefix
-        length, for example 192.168.0.1/24. This setting may be useful when the link on
-        which the DHCP server is running has multiple static addresses. When unset, one of static addresses
-        in the link will be automatically selected. Defaults to unset.</para>
+        <listitem>
+          <para>Specifies the server address for the DHCP server. Takes an IPv4 address with prefix length
+          separated with a slash, e.g. <literal>192.168.0.1/24</literal>. Defaults to unset, and one of
+          static IPv4 addresses configured in [Network] or [Address] section will be automatically selected.
+          This setting may be useful when the interface on which the DHCP server is running has multiple
+          static IPv4 addresses.</para>
+          <para>This implies <varname>Address=</varname> in [Network] or [Address] section with the same
+          address and prefix length. That is,
+          <programlisting>[Network]
+DHCPServer=yes
+Address=192.168.0.1/24
+Address=192.168.0.2/24
+[DHCPServer]
+ServerAddress=192.168.0.1/24</programlisting>
+          or
+          <programlisting>[Network]
+DHCPServer=yes
+[Address]
+Address=192.168.0.1/24
+[Address]
+Address=192.168.0.2/24
+[DHCPServer]
+ServerAddress=192.168.0.1/24</programlisting>
+          are equivalent to the following.
+          <programlisting>[Network]
+DHCPServer=yes
+Address=192.168.0.2/24
+[DHCPServer]
+ServerAddress=192.168.0.1/24</programlisting>
+          </para>
+          <para>Since version 255, like the <varname>Address=</varname> setting in [Network] or [Address]
+          section, this also supports a null address, e.g. <literal>0.0.0.0/24</literal>, and an unused
+          address will be automatically selected. For more details about the automatic address selection,
+          see <varname>Address=</varname> setting in [Network] section in the above.</para>
 
-        <xi:include href="version-info.xml" xpointer="v249"/></listitem>
+          <xi:include href="version-info.xml" xpointer="v249"/>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
