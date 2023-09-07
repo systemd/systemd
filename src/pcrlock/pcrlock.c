@@ -4443,7 +4443,7 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return r;
         } else {
-
+                /* Fulfill PCR policies
 
 
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Not implemented yet.");
