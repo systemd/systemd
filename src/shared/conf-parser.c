@@ -748,8 +748,12 @@ static int config_section_compare_func(const ConfigSection *x, const ConfigSecti
 
 DEFINE_HASH_OPS(config_section_hash_ops, ConfigSection, config_section_hash_func, config_section_compare_func);
 
-int config_section_new(const char *filename, unsigned line, ConfigSection **s) {
+int config_section_new(const char *filename, unsigned line, ConfigSection **ret) {
         ConfigSection *cs;
+
+        assert(filename);
+        assert(line > 0);
+        assert(ret);
 
         cs = malloc0(offsetof(ConfigSection, filename) + strlen(filename) + 1);
         if (!cs)
@@ -758,8 +762,7 @@ int config_section_new(const char *filename, unsigned line, ConfigSection **s) {
         strcpy(cs->filename, filename);
         cs->line = line;
 
-        *s = TAKE_PTR(cs);
-
+        *ret = TAKE_PTR(cs);
         return 0;
 }
 
