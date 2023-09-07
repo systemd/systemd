@@ -71,8 +71,12 @@
       <listitem><para>A boot splash (in Windows <filename>.BMP</filename> format) to show on screen before
       invoking the kernel will be looked for in the <literal>.splash</literal> PE section.</para></listitem>
 
-      <listitem><para>A compiled binary DeviceTree will be looked for in the <literal>.dtb</literal> PE
-      section.</para></listitem>
+      <listitem><para>Compiled binary DeviceTrees will be looked for in the <literal>.dtb</literal> PE
+      sections. The stub will try to match the DeviceTrees embedded in the PE image with the DeviceTree
+      provided by the device's firmware by comparing the first <literal>compatible</literal> string in each UKI DeviceTree
+      with the first <literal>compatible</literal> string supplied by the firmware. If no match is found the first
+      <literal>.dtb</literal> section in the image is selected.
+      </para></listitem>
 
       <listitem><para>Kernel version information, i.e. the output of <command>uname -r</command> for the
       kernel included in the UKI, in the <literal>.uname</literal> PE section.</para></listitem>
