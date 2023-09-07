@@ -136,7 +136,7 @@ static inline ConfigSection* config_section_free(ConfigSection *cs) {
 }
 DEFINE_TRIVIAL_CLEANUP_FUNC(ConfigSection*, config_section_free);
 
-int config_section_new(const char *filename, unsigned line, ConfigSection **s);
+int config_section_new(const char *filename, unsigned line, ConfigSection **ret);
 extern const struct hash_ops config_section_hash_ops;
 unsigned hashmap_find_free_section_line(Hashmap *hashmap);
 
