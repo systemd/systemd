@@ -718,9 +718,9 @@ int config_parse_dhcp_server_address(
                            "Failed to parse %s=, ignoring assignment: %s", lvalue, rvalue);
                 return 0;
         }
-        if (in4_addr_is_null(&a.in) || in4_addr_is_localhost(&a.in)) {
+        if (in4_addr_is_localhost(&a.in) || in4_addr_is_link_local(&a.in)) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "DHCP server address cannot be the ANY address or a localhost address, "
+                           "DHCP server address cannot be a localhost or link-local address, "
                            "ignoring assignment: %s", rvalue);
                 return 0;
         }
