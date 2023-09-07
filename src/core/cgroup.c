@@ -3751,10 +3751,7 @@ int manager_notify_cgroup_empty(Manager *m, const char *cgroup) {
 }
 
 int unit_get_memory_available(Unit *u, uint64_t *ret) {
-        uint64_t unit_current, available = UINT64_MAX;
-        CGroupContext *unit_context;
-        const char *memory_file;
-        int r;
+        uint64_t available = UINT64_MAX, current = 0;
 
         assert(u);
         assert(ret);
@@ -3763,58 +3760,34 @@ int unit_get_memory_available(Unit *u, uint64_t *ret) {
          * claim before hitting the configured cgroup limits (if any). Consider both MemoryHigh
          * and MemoryMax, and also any slice the unit might be nested below. */
 
-        if (!UNIT_CGROUP_BOOL(u, memory_accounting))
-                return -ENODATA;
-
-        if (!u->cgroup_path)
-                return -ENODATA;
-
-        /* The root cgroup doesn't expose this information */
-        if (unit_has_host_root_cgroup(u))
-                return -ENODATA;
-
-        if ((u->cgroup_realized_mask & CGROUP_MASK_MEMORY) == 0)
-                return -ENODATA;
-
-        r = cg_all_unified();
-        if (r < 0)
-                return r;
-        memory_file = r > 0 ? "memory.current" : "memory.usage_in_bytes";
-
-        r = cg_get_attribute_as_uint64("memory", u->cgroup_path, memory_file, &unit_current);
-        if (r < 0)
-                return r;
-
-        assert_se(unit_context = unit_get_cgroup_context(u));
-
-        if (unit_context->memory_max != UINT64_MAX || unit_context->memory_high != UINT64_MAX)
-                available = LESS_BY(MIN(unit_context->memory_max, unit_context->memory_high), unit_current);
-
-        for (Unit *slice = UNIT_GET_SLICE(u); slice; slice = UNIT_GET_SLICE(slice)) {
-                uint64_t slice_current, slice_available = UINT64_MAX;
-                CGroupContext *slice_context;
+        do {
+                uint64_t unit_available, unit_limit = UINT64_MAX;
+                CGroupContext *unit_context;
 
                 /* No point in continuing if we can't go any lower */
                 if (available == 0)
                         break;
 
-                if (!slice->cgroup_path)
+                if (!u->cgroup_path)
                         continue;
 
-                slice_context = unit_get_cgroup_context(slice);
-                if (!slice_context)
+                unit_context = unit_get_cgroup_context(u);
+                if (!unit_context)
                         continue;
 
-                if (slice_context->memory_max == UINT64_MAX && slice_context->memory_high == UINT64_MAX)
-                        continue;
+                (void) unit_get_memory_current(u, &current);
+                /* in case of error, previous current propagates as lower bound */
 
-                r = cg_get_attribute_as_uint64("memory", slice->cgroup_path, memory_file, &slice_current);
-                if (r < 0)
+                if (unit_has_name(u, SPECIAL_ROOT_SLICE))
+                        unit_limit = physical_memory();
+                else if (unit_context->memory_max == UINT64_MAX && unit_context->memory_high == UINT64_MAX)
                         continue;
+                unit_limit = MIN(unit_limit, unit_context->memory_max);
+                unit_limit = MIN(unit_limit, unit_context->memory_high);
 
-                slice_available = LESS_BY(MIN(slice_context->memory_max, slice_context->memory_high), slice_current);
-                available = MIN(slice_available, available);
-        }
+                unit_available = LESS_BY(unit_limit, current);
+                available = MIN(unit_available, available);
+        } while ((u = UNIT_GET_SLICE(u)));
 
         *ret = available;
 
