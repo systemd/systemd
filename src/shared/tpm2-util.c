@@ -2880,10 +2880,8 @@ static int tpm2_make_policy_session(
                 Tpm2Context *c,
                 const Tpm2Handle *primary,
                 const Tpm2Handle *encryption_session,
-                bool trial,
                 Tpm2Handle **ret_session) {
 
-        TPM2_SE session_type = trial ? TPM2_SE_TRIAL : TPM2_SE_POLICY;
         TSS2_RC rc;
         int r;
 
@@ -2911,7 +2909,7 @@ static int tpm2_make_policy_session(
                         ESYS_TR_NONE,
                         ESYS_TR_NONE,
                         NULL,
-                        session_type,
+                        TPM2_SE_POLICY,
                         &SESSION_TEMPLATE_SYM_AES_128_CFB,
                         TPM2_ALG_SHA256,
                         &session->esys_handle);
@@ -4112,7 +4110,6 @@ int tpm2_unseal(const char *device,
                                 c,
                                 primary_handle,
                                 encryption_session,
-                                /* trial= */ false,
                                 &policy_session);
                 if (r < 0)
                         return r;
