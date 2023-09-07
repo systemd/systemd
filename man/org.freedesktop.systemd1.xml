@@ -4603,10 +4603,11 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       <varname>ExtensionDirectories</varname>
       see systemd.exec(5) for their meaning.</para>
 
-      <para><varname>MemoryAvailable</varname> indicates how much unused memory is available to the unit before
-      the <literal>MemoryMax</literal> or <literal>MemoryHigh</literal> (whichever is lower) limit set by the cgroup
-      memory controller is reached. It will take into consideration limits on all parent slices, other than the
-      limits set on the unit itself.</para>
+      <para><varname>MemoryAvailable</varname> takes into account unit's and ancestors' <literal>MemoryMax</literal>
+      or <literal>MemoryHigh</literal> or physically available RAM versus given level's memory consumption
+      and takes minimum. Beware that other units below the tightest ancestor may consume the memory quicker
+      and less than reported value would remain for own allocation.
+      It works better in conjunction with <varname>MemoryAccounting=yes</varname> on involved units.</para>
 
       <para><varname>DelegateSubgroup</varname> contains the cgroup subgroup to place invoked unit processes
       in. As configured by the option of the same name in unit files. This is set to the empty string when it
