@@ -57,8 +57,7 @@ void network_adjust_dhcp_server(Network *network) {
                 bool have = false;
 
                 ORDERED_HASHMAP_FOREACH(address, network->addresses_by_section) {
-                        if (section_is_invalid(address->section))
-                                continue;
+                        assert(!section_is_invalid(address->section));
 
                         if (address->family != AF_INET)
                                 continue;
