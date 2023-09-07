@@ -576,13 +576,14 @@ static int config_check_inode_relevant_and_unseen(BootConfig *config, int fd, co
                 log_debug("Inode '%s' already seen before, ignoring.", fname);
                 return false;
         }
+
         d = memdup(&st, sizeof(st));
         if (!d)
                 return log_oom();
-        if (set_ensure_put(&config->inodes_seen, &inode_hash_ops, d) < 0)
+
+        if (set_ensure_consume(&config->inodes_seen, &inode_hash_ops, TAKE_PTR(d)) < 0)
                 return log_oom();
 
-        TAKE_PTR(d);
         return true;
 }
 
