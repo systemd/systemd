@@ -20,7 +20,6 @@
 #include "networkd-bridge-mdb.h"
 #include "networkd-dhcp-common.h"
 #include "networkd-dhcp-server-static-lease.h"
-#include "networkd-dhcp-server.h"
 #include "networkd-ipv6-proxy-ndp.h"
 #include "networkd-manager.h"
 #include "networkd-ndisc.h"
@@ -181,11 +180,6 @@ int network_verify(Network *network) {
                                     network->filename);
                         network->link_local = ADDRESS_FAMILY_NO;
                 }
-                if (network->dhcp_server) {
-                        log_warning("%s: Cannot enable DHCPServer= when Bond= is specified, disabling DHCPServer=.",
-                                    network->filename);
-                        network->dhcp_server = false;
-                }
                 if (!ordered_hashmap_isempty(network->addresses_by_section))
                         log_warning("%s: Cannot set addresses when Bond= is specified, ignoring addresses.",
                                     network->filename);
@@ -330,8 +324,6 @@ int network_verify(Network *network) {
         if (r < 0)
                 return r; /* sr_iov_drop_invalid_sections() logs internally. */
         network_drop_invalid_static_leases(network);
-
-        network_adjust_dhcp_server(network);
 
         return 0;
 }
