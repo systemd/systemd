@@ -65,8 +65,10 @@
       <listitem><para>The initrd will be loaded from the <literal>.initrd</literal> PE section.
       </para></listitem>
 
-      <listitem><para>A compiled binary DeviceTree will be looked for in the <literal>.dtb</literal> PE
-      section.</para></listitem>
+      <listitem><para>Compiled binary DeviceTrees will be looked for in the <literal>.dtb</literal> PE
+      sections. The stub will try to match the DeviceTrees embedded in the PE image with the DeviceTree
+      provided by the device's firmware. If no match is found the first DeviceTree in the image is selected.
+      </para></listitem>
 
       <listitem><para>Kernel version information, i.e. the output of <command>uname -r</command> for the
       kernel included in the UKI, in the <literal>.uname</literal> PE section.</para></listitem>
