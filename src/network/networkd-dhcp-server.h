@@ -2,13 +2,13 @@
 #pragma once
 
 #include "conf-parser.h"
+#include "set.h"
 
 typedef struct Link Link;
 typedef struct Network Network;
 
-void network_adjust_dhcp_server(Network *network);
+int network_adjust_dhcp_server(Network *network, Set **addresses);
 
-int link_request_dhcp_server_address(Link *link);
 int link_request_dhcp_server(Link *link);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_server_relay_agent_suboption);

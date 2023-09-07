@@ -15,6 +15,7 @@
 #include "ipoib.h"
 #include "net-condition.h"
 #include "netdev.h"
+#include "networkd-address.h"
 #include "networkd-bridge-vlan.h"
 #include "networkd-dhcp-common.h"
 #include "networkd-dhcp4.h"
@@ -199,7 +200,8 @@ struct Network {
         bool dhcp_server;
         bool dhcp_server_bind_to_interface;
         unsigned char dhcp_server_address_prefixlen;
-        struct in_addr dhcp_server_address;
+        struct in_addr dhcp_server_address_in_addr;
+        const Address *dhcp_server_address;
         int dhcp_server_uplink_index;
         char *dhcp_server_uplink_name;
         struct in_addr dhcp_server_relay_target;
