@@ -400,15 +400,13 @@ static int dhcp4_server_configure(Link *link) {
                 return log_link_error_errno(link, r, "Failed to configure address pool for DHCPv4 server instance: %m");
 
         if (link->network->dhcp_server_max_lease_time_usec > 0) {
-                r = sd_dhcp_server_set_max_lease_time(link->dhcp_server,
-                                                      DIV_ROUND_UP(link->network->dhcp_server_max_lease_time_usec, USEC_PER_SEC));
+                r = sd_dhcp_server_set_max_lease_time(link->dhcp_server, link->network->dhcp_server_max_lease_time_usec);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Failed to set maximum lease time for DHCPv4 server instance: %m");
         }
 
         if (link->network->dhcp_server_default_lease_time_usec > 0) {
-                r = sd_dhcp_server_set_default_lease_time(link->dhcp_server,
-                                                          DIV_ROUND_UP(link->network->dhcp_server_default_lease_time_usec, USEC_PER_SEC));
+                r = sd_dhcp_server_set_default_lease_time(link->dhcp_server, link->network->dhcp_server_default_lease_time_usec);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Failed to set default lease time for DHCPv4 server instance: %m");
         }
