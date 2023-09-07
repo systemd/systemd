@@ -20,7 +20,6 @@
 #include "networkd-bridge-mdb.h"
 #include "networkd-dhcp-common.h"
 #include "networkd-dhcp-server-static-lease.h"
-#include "networkd-dhcp-server.h"
 #include "networkd-ipv6-proxy-ndp.h"
 #include "networkd-manager.h"
 #include "networkd-ndisc.h"
@@ -325,8 +324,6 @@ int network_verify(Network *network) {
         if (r < 0)
                 return r; /* sr_iov_drop_invalid_sections() logs internally. */
         network_drop_invalid_static_leases(network);
-
-        network_adjust_dhcp_server(network);
 
         return 0;
 }
