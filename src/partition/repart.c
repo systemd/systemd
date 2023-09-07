@@ -4398,11 +4398,9 @@ static int add_subvolume_path(const char *path, Set **subvolumes) {
         if (r < 0)
                 return log_error_errno(r, "Failed to stat source file '%s/%s': %m", strempty(arg_root), path);
 
-        r = set_ensure_put(subvolumes, &inode_hash_ops, st);
+        r = set_ensure_consume(subvolumes, &inode_hash_ops, TAKE_PTR(st));
         if (r < 0)
                 return log_oom();
-        if (r > 0)
-                TAKE_PTR(st);
 
         return 0;
 }
