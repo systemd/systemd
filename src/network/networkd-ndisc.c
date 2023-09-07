@@ -27,9 +27,12 @@
 
 #define NDISC_DNSSL_MAX 64U
 #define NDISC_RDNSS_MAX 64U
-/* Not defined RFC, but let's set an upper limit to make not consume much memory.
+/* Not defined in the RFC, but let's set an upper limit to make not consume much memory.
  * This should be safe as typically there should be at most 1 portal per network. */
 #define NDISC_CAPTIVE_PORTAL_MAX 64U
+/* Neither defined in the RFC. Just for safety. Otherwise, malformed messages can make clients trigger OOM.
+ * Not sure if the threshold is high enough. Let's adjust later if not. */
+#define NDISC_PREF64_MAX 64U
 
 bool link_ipv6_accept_ra_enabled(Link *link) {
         assert(link);
@@ -276,7 +279,6 @@ static int ndisc_request_address(Address *in, Link *link, sd_ndisc_router *rt) {
 
 static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
         usec_t lifetime_usec, timestamp_usec;
-        uint32_t icmp6_ratelimit = 0;
         struct in6_addr gateway;
         uint16_t lifetime_sec;
         unsigned preference;
@@ -357,19 +359,35 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
                         return log_link_warning_errno(link, r, "Could not request gateway: %m");
         }
 
+        return 0;
+}
+
+static int ndisc_router_process_icmp6_ratelimit(Link *link, sd_ndisc_router *rt) {
+        char buf[DECIMAL_STR_MAX(unsigned)];
+        uint32_t icmp6_ratelimit;
+        int r;
+
+        assert(link);
+        assert(link->network);
+        assert(rt);
+
+        if (!link->network->ipv6_accept_ra_use_icmp6_ratelimit)
+                return 0;
+
         r = sd_ndisc_router_get_icmp6_ratelimit(rt, &icmp6_ratelimit);
-        if (r < 0)
-                log_link_debug(link, "Failed to get default router preference from RA: %m");
-
-        if (icmp6_ratelimit > 0 && link->network->ipv6_accept_ra_use_icmp6_ratelimit) {
-                char buf[DECIMAL_STR_MAX(unsigned)];
-
-                xsprintf(buf, "%u", icmp6_ratelimit);
-
-                r = sysctl_write("net/ipv6/icmp/ratelimit", buf);
-                if (r < 0)
-                        log_link_warning_errno(link, r, "Could not configure icmp6 rate limit: %m");
+        if (r < 0) {
+                log_link_debug(link, "Failed to get ICMP6 ratelimit from RA, ignoring: %m");
+                return 0;
         }
+
+        if (icmp6_ratelimit == 0)
+                return 0;
+
+        xsprintf(buf, "%u", icmp6_ratelimit);
+
+        r = sysctl_write_ip_property(AF_INET6, NULL, "icmp/ratelimit", buf);
+        if (r < 0)
+                log_link_warning_errno(link, r, "Failed to apply ICMP6 ratelimit, ignoring: %m");
 
         return 0;
 }
@@ -965,6 +983,118 @@ static int ndisc_router_process_captive_portal(Link *link, sd_ndisc_router *rt) 
         return 1;
 }
 
+static void ndisc_pref64_hash_func(const NDiscPREF64 *x, struct siphash *state) {
+        assert(x);
+
+        siphash24_compress(&x->prefix_len, sizeof(x->prefix_len), state);
+        siphash24_compress(&x->prefix, sizeof(x->prefix), state);
+}
+
+static int ndisc_pref64_compare_func(const NDiscPREF64 *a, const NDiscPREF64 *b) {
+        int r;
+
+        assert(a);
+        assert(b);
+
+        r = CMP(a->prefix_len, b->prefix_len);
+        if (r != 0)
+                return r;
+
+        return memcmp(&a->prefix, &b->prefix, sizeof(a->prefix));
+}
+
+DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
+                ndisc_pref64_hash_ops,
+                NDiscPREF64,
+                ndisc_pref64_hash_func,
+                ndisc_pref64_compare_func,
+                mfree);
+
+static int ndisc_router_process_pref64(Link *link, sd_ndisc_router *rt) {
+        _cleanup_free_ NDiscPREF64 *new_entry = NULL;
+        usec_t lifetime_usec, timestamp_usec;
+        struct in6_addr a, router;
+        uint16_t lifetime_sec;
+        unsigned prefix_len;
+        NDiscPREF64 *exist;
+        int r;
+
+        assert(link);
+        assert(link->network);
+        assert(rt);
+
+        if (!link->network->ipv6_accept_ra_use_pref64)
+                return 0;
+
+        r = sd_ndisc_router_get_address(rt, &router);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to get router address from RA: %m");
+
+        r = sd_ndisc_router_prefix64_get_prefix(rt, &a);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to get pref64 prefix: %m");
+
+        r = sd_ndisc_router_prefix64_get_prefixlen(rt, &prefix_len);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to get pref64 prefix length: %m");
+
+        r = sd_ndisc_router_prefix64_get_lifetime_sec(rt, &lifetime_sec);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to get pref64 prefix lifetime: %m");
+
+        r = sd_ndisc_router_get_timestamp(rt, CLOCK_BOOTTIME, &timestamp_usec);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to get RA timestamp: %m");
+
+        lifetime_usec = sec16_to_usec(lifetime_sec, timestamp_usec);
+
+        if (lifetime_usec == 0) {
+                free(set_remove(link->ndisc_pref64,
+                                &(NDiscPREF64) {
+                                        .prefix = a,
+                                        .prefix_len = prefix_len
+                                }));
+                return 0;
+        }
+
+        exist = set_get(link->ndisc_pref64,
+                        &(NDiscPREF64) {
+                                .prefix = a,
+                                .prefix_len = prefix_len
+                });
+        if (exist) {
+                /* update existing entry */
+                exist->router = router;
+                exist->lifetime_usec = lifetime_usec;
+                return 0;
+        }
+
+        if (set_size(link->ndisc_pref64) >= NDISC_PREF64_MAX) {
+                log_link_debug(link, "Too many PREF64 records received. Only first %u records will be used.", NDISC_PREF64_MAX);
+                return 0;
+        }
+
+        new_entry = new(NDiscPREF64, 1);
+        if (!new_entry)
+                return log_oom();
+
+        *new_entry = (NDiscPREF64) {
+                .router = router,
+                .lifetime_usec = lifetime_usec,
+                .prefix = a,
+                .prefix_len = prefix_len,
+        };
+
+        r = set_ensure_put(&link->ndisc_pref64, &ndisc_pref64_hash_ops, new_entry);
+        if (r < 0)
+                return log_oom();
+
+        assert(r > 0);
+        TAKE_PTR(new_entry);
+
+        return 0;
+}
+
 static int ndisc_router_process_options(Link *link, sd_ndisc_router *rt) {
         size_t n_captive_portal = 0;
         int r;
@@ -1013,6 +1143,9 @@ static int ndisc_router_process_options(Link *link, sd_ndisc_router *rt) {
                         if (r > 0)
                                 n_captive_portal++;
                         break;
+                case SD_NDISC_OPTION_PREF64:
+                        r = ndisc_router_process_pref64(link, rt);
+                        break;
                 }
                 if (r < 0 && r != -EBADMSG)
                         return r;
@@ -1024,6 +1157,7 @@ static int ndisc_drop_outdated(Link *link, usec_t timestamp_usec) {
         NDiscDNSSL *dnssl;
         NDiscRDNSS *rdnss;
         NDiscCaptivePortal *cp;
+        NDiscPREF64 *p64;
         Address *address;
         Route *route;
         int r = 0, k;
@@ -1084,6 +1218,15 @@ static int ndisc_drop_outdated(Link *link, usec_t timestamp_usec) {
                 updated = true;
         }
 
+        SET_FOREACH(p64, link->ndisc_pref64) {
+                if (p64->lifetime_usec >= timestamp_usec)
+                        continue; /* the pref64 prefix is still valid */
+
+                free(set_remove(link->ndisc_pref64, p64));
+                /* The pref64 prefix is not exported through the state file, hence it is not necessary to set
+                 * the 'updated' flag. */
+        }
+
         if (updated)
                 link_dirty(link);
 
@@ -1110,6 +1253,7 @@ static int ndisc_setup_expire(Link *link) {
         NDiscCaptivePortal *cp;
         NDiscDNSSL *dnssl;
         NDiscRDNSS *rdnss;
+        NDiscPREF64 *p64;
         Address *address;
         Route *route;
         int r;
@@ -1145,6 +1289,9 @@ static int ndisc_setup_expire(Link *link) {
 
         SET_FOREACH(cp, link->ndisc_captive_portals)
                 lifetime_usec = MIN(lifetime_usec, cp->lifetime_usec);
+
+        SET_FOREACH(p64, link->ndisc_pref64)
+                lifetime_usec = MIN(lifetime_usec, p64->lifetime_usec);
 
         if (lifetime_usec == USEC_INFINITY)
                 return 0;
@@ -1245,6 +1392,10 @@ static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
                 return r;
 
         r = ndisc_router_process_default(link, rt);
+        if (r < 0)
+                return r;
+
+        r = ndisc_router_process_icmp6_ratelimit(link, rt);
         if (r < 0)
                 return r;
 
@@ -1413,6 +1564,7 @@ void ndisc_flush(Link *link) {
         link->ndisc_rdnss = set_free(link->ndisc_rdnss);
         link->ndisc_dnssl = set_free(link->ndisc_dnssl);
         link->ndisc_captive_portals = set_free(link->ndisc_captive_portals);
+        link->ndisc_pref64 = set_free(link->ndisc_pref64);
 }
 
 static const char* const ipv6_accept_ra_start_dhcp6_client_table[_IPV6_ACCEPT_RA_START_DHCP6_CLIENT_MAX] = {

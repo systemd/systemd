@@ -1,4 +1,5 @@
 # systemctl(1) completion                                 -*- shell-script -*-
+# vi: ft=sh
 # SPDX-License-Identifier: LGPL-2.1-or-later
 #
 # This file is part of systemd.
@@ -103,21 +104,22 @@ __get_reloadable_units () {
         } | sort -u )
 }
 
-__get_failed_units   () { __systemctl $1 list-units "$2*"      \
-                              | { while read -r a b c d; do [[ $c == "failed"   ]] && echo " $a"; done; }; }
-__get_enabled_units  () { __systemctl $1 list-unit-files "$2*" \
-                              | { while read -r a b c  ; do [[ $b == "enabled"  ]] && echo " $a"; done; }; }
-__get_disabled_units () { __systemctl $1 list-unit-files "$2*" \
-                              | { while read -r a b c  ; do [[ $b == "disabled" ]] && echo " $a"; done; }; }
-__get_masked_units   () { __systemctl $1 list-unit-files "$2*" \
-                              | { while read -r a b c  ; do [[ $b == "masked"   ]] && echo " $a"; done; }; }
-__get_all_unit_files () { { __systemctl $1 list-unit-files "$2*"; } | { while read -r a b; do echo " $a"; done; }; }
+__get_failed_units()   { __systemctl $1 list-units "$2*"      \
+                              | while read -r a b c d; do [[ $c == "failed" ]] && echo " $a"; done; }
+__get_enabled_units()  { __systemctl $1 list-unit-files "$2*" \
+                              | while read -r a b c  ; do [[ $b == "enabled" ]] && echo " $a"; done; }
+__get_disabled_units() { __systemctl $1 list-unit-files "$2*" \
+                              | while read -r a b c  ; do [[ $b == "disabled" ]] && echo " $a"; done; }
+__get_masked_units()   { __systemctl $1 list-unit-files "$2*" \
+                              | while read -r a b c  ; do [[ $b == "masked" ]] && echo " $a"; done; }
+__get_all_unit_files() { __systemctl $1 list-unit-files "$2*" | while read -r a b; do echo " $a"; done; }
 
 __get_machines() {
-    local a b
-    { machinectl list --full --max-addresses=0 --no-legend --no-pager 2>/dev/null; echo ".host"; } | \
-	{ while read a b; do echo " $a"; done; } | \
-        sort -u
+    local a
+
+    while read a _; do
+        echo " $a"
+    done < <(machinectl list --full --max-addresses=0 --no-legend --no-pager 2>/dev/null | sort -u; echo ".host")
 }
 
 _systemctl () {
@@ -126,11 +128,13 @@ _systemctl () {
 
     local -A OPTS=(
         [STANDALONE]='--all -a --reverse --after --before --defaults --force -f --full -l --global
-                             --help -h --no-ask-password --no-block --legend=no --no-pager --no-reload --no-wall --now
-                             --quiet -q --system --user --version --runtime --recursive -r --firmware-setup
-                             --show-types --plain --failed --value --fail --dry-run --wait --no-warn'
-        [ARG]='--host -H --kill-whom --property -p --signal -s --type -t --state --job-mode --root
-                             --preset-mode -n --lines -o --output -M --machine --message --timestamp --check-inhibitors'
+                      --help -h --no-ask-password --no-block --legend=no --no-pager --no-reload --no-wall --now
+                      --quiet -q --system --user --version --runtime --recursive -r --firmware-setup
+                      --show-types --plain --failed --value --fail --dry-run --wait --no-warn --with-dependencies
+                      --show-transaction -T --mkdir --marked --read-only'
+        [ARG]='--host -H --kill-whom --property -p -P --signal -s --type -t --state --job-mode --root
+               --preset-mode -n --lines -o --output -M --machine --message --timestamp --check-inhibitors --what
+               --image --boot-loader-menu --boot-loader-entry --reboot-argument --drop-in'
     )
 
     if __contains_word "--user" ${COMP_WORDS[*]}; then
@@ -167,7 +171,7 @@ _systemctl () {
             --host|-H)
                 comps=$(compgen -A hostname)
                 ;;
-            --property|-p)
+            --property|-p|-P)
                 comps=$(__systemd_properties)
                 ;;
             --preset-mode)
@@ -184,6 +188,16 @@ _systemctl () {
                 ;;
             --check-inhibitors)
                 comps='auto yes no'
+                ;;
+            --what)
+                comps='configuration state cache logs runtime all'
+                ;;
+            --image)
+                comps=$(compgen -A file -- "$cur")
+                compopt -o filenames
+                ;;
+            --boot-loader-entry)
+                comps=$(systemctl --boot-loader-entry=help 2>/dev/null)
                 ;;
         esac
         COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
@@ -203,7 +217,7 @@ _systemctl () {
         [REENABLABLE_UNITS]='reenable'
         [FAILED_UNITS]='reset-failed'
         [STARTABLE_UNITS]='start'
-        [STOPPABLE_UNITS]='stop condstop kill try-restart condrestart'
+        [STOPPABLE_UNITS]='stop condstop kill try-restart condrestart freeze thaw'
         [ISOLATABLE_UNITS]='isolate'
         [RELOADABLE_UNITS]='reload condreload try-reload-or-restart force-reload'
         [RESTARTABLE_UNITS]='restart reload-or-restart'

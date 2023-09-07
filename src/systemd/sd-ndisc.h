@@ -42,7 +42,8 @@ enum {
         SD_NDISC_OPTION_RDNSS              = 25,
         SD_NDISC_OPTION_FLAGS_EXTENSION    = 26,
         SD_NDISC_OPTION_DNSSL              = 31,
-        SD_NDISC_OPTION_CAPTIVE_PORTAL     = 37
+        SD_NDISC_OPTION_CAPTIVE_PORTAL     = 37,
+        SD_NDISC_OPTION_PREF64             = 38
 };
 
 /* Route preference, RFC 4191, Section 2.1 */
@@ -126,6 +127,11 @@ int sd_ndisc_router_dnssl_get_lifetime(sd_ndisc_router *rt, uint32_t *ret);
 
 /* Specific option access: SD_NDISC_OPTION_CAPTIVE_PORTAL */
 int sd_ndisc_router_captive_portal_get_uri(sd_ndisc_router *rt, const char **uri, size_t *size);
+
+/* Specific option access: SD_NDISC_OPTION_PREF64 */
+int sd_ndisc_router_prefix64_get_prefix(sd_ndisc_router *rt, struct in6_addr *ret_addr);
+int sd_ndisc_router_prefix64_get_prefixlen(sd_ndisc_router *rt, unsigned *ret);
+int sd_ndisc_router_prefix64_get_lifetime_sec(sd_ndisc_router *rt, uint16_t *ret);
 
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_ndisc, sd_ndisc_unref);
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_ndisc_router, sd_ndisc_router_unref);

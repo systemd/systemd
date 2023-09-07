@@ -231,6 +231,17 @@ static int radv_send(sd_radv *ra, const struct in6_addr *dst, usec_t lifetime_us
         if (ra->dnssl)
                 iov[msg.msg_iovlen++] = IOVEC_MAKE(ra->dnssl, ra->dnssl->length * 8);
 
+        if (FLAGS_SET(ra->flags, ND_RA_FLAG_HOME_AGENT)) {
+                ra->home_agent.nd_opt_home_agent_info_type = ND_OPT_HOME_AGENT_INFO;
+                ra->home_agent.nd_opt_home_agent_info_len = 1;
+
+                /* 0 means to place the current Router Lifetime value */
+                if (ra->home_agent.nd_opt_home_agent_info_lifetime == 0)
+                        ra->home_agent.nd_opt_home_agent_info_lifetime = adv.nd_ra_router_lifetime;
+
+                iov[msg.msg_iovlen++] = IOVEC_MAKE(&ra->home_agent, sizeof(ra->home_agent));
+        }
+
         if (sendmsg(ra->fd, &msg, 0) < 0)
                 return -errno;
 
@@ -264,8 +275,7 @@ static int radv_recv(sd_event_source *s, int fd, uint32_t revents, void *userdat
         if (r < 0)
                 switch (r) {
                 case -EADDRNOTAVAIL:
-                        log_radv(ra, "Received RS from non-link-local address %s. Ignoring",
-                                 IN6_ADDR_TO_STRING(&src));
+                        log_radv(ra, "Received RS from neither link-local nor null address. Ignoring");
                         return 0;
 
                 case -EMULTIHOP:
@@ -285,6 +295,9 @@ static int radv_recv(sd_event_source *s, int fd, uint32_t revents, void *userdat
                 log_radv(ra, "Too short packet received, ignoring");
                 return 0;
         }
+
+        /* TODO: if the sender address is null, check that the message does not have the source link-layer
+         * address option. See RFC 4861 Section 6.1.1. */
 
         const char *addr = IN6_ADDR_TO_STRING(&src);
 
@@ -566,6 +579,39 @@ int sd_radv_set_preference(sd_radv *ra, unsigned preference) {
                 return -EINVAL;
 
         ra->flags = (ra->flags & ~(0x3 << 3)) | (preference << 3);
+
+        return 0;
+}
+
+int sd_radv_set_home_agent_information(sd_radv *ra, int home_agent) {
+        assert_return(ra, -EINVAL);
+
+        if (ra->state != RADV_STATE_IDLE)
+                return -EBUSY;
+
+        SET_FLAG(ra->flags, ND_RA_FLAG_HOME_AGENT, home_agent);
+
+        return 0;
+}
+
+int sd_radv_set_home_agent_preference(sd_radv *ra, uint16_t preference) {
+        assert_return(ra, -EINVAL);
+
+        if (ra->state != RADV_STATE_IDLE)
+                return -EBUSY;
+
+        ra->home_agent.nd_opt_home_agent_info_preference = htobe16(preference);
+
+        return 0;
+}
+
+int sd_radv_set_home_agent_lifetime(sd_radv *ra, uint16_t lifetime) {
+        assert_return(ra, -EINVAL);
+
+        if (ra->state != RADV_STATE_IDLE)
+                return -EBUSY;
+
+        ra->home_agent.nd_opt_home_agent_info_lifetime = htobe16(lifetime);
 
         return 0;
 }
@@ -1091,33 +1137,14 @@ int sd_radv_pref64_prefix_set_prefix(
 
         uint16_t pref64_lifetime;
         uint8_t prefixlen_code;
+        int r;
 
         assert_return(p, -EINVAL);
         assert_return(prefix, -EINVAL);
 
-        switch (prefixlen) {
-        case 96:
-                prefixlen_code = 0;
-                break;
-        case 64:
-                prefixlen_code = 1;
-                break;
-        case 56:
-                prefixlen_code = 2;
-                break;
-        case 48:
-                prefixlen_code = 3;
-                break;
-        case 40:
-                prefixlen_code = 4;
-                break;
-        case 32:
-                prefixlen_code = 5;
-                break;
-        default:
-                log_radv(NULL, "Unsupported PREF64 prefix length %u. Valid lengths are 32, 40, 48, 56, 64 and 96", prefixlen);
-                return -EINVAL;
-        }
+        r = pref64_prefix_length_to_plc(prefixlen, &prefixlen_code);
+        if (r < 0)
+                return log_radv_errno(NULL, r,  "Unsupported PREF64 prefix length %u. Valid lengths are 32, 40, 48, 56, 64 and 96", prefixlen);
 
         if (lifetime_usec == USEC_INFINITY || DIV_ROUND_UP(lifetime_usec, 8 * USEC_PER_SEC) >= UINT64_C(1) << 13)
                 return -EINVAL;

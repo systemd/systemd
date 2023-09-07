@@ -57,6 +57,7 @@
 #include "user-util.h"
 #include "utmp-wtmp.h"
 #include "virt.h"
+#include "wall.h"
 
 /* As a random fun fact sysvinit had a 252 (256-(strlen(" \r\n")+1))
  * character limit for the wall message.
@@ -1325,7 +1326,7 @@ static int trigger_device(Manager *m, sd_device *parent) {
         return 0;
 }
 
-static int attach_device(Manager *m, const char *seat, const char *sysfs) {
+static int attach_device(Manager *m, const char *seat, const char *sysfs, sd_bus_error *error) {
         _cleanup_(sd_device_unrefp) sd_device *d = NULL;
         _cleanup_free_ char *rule = NULL, *file = NULL;
         const char *id_for_seat;
@@ -1337,13 +1338,13 @@ static int attach_device(Manager *m, const char *seat, const char *sysfs) {
 
         r = sd_device_new_from_syspath(&d, sysfs);
         if (r < 0)
-                return r;
+                return sd_bus_error_set_errnof(error, r, "Failed to open device '%s': %m", sysfs);
 
         if (sd_device_has_current_tag(d, "seat") <= 0)
-                return -ENODEV;
+                return sd_bus_error_set_errnof(error, ENODEV, "Device '%s' lacks 'seat' udev tag.", sysfs);
 
         if (sd_device_get_property_value(d, "ID_FOR_SEAT", &id_for_seat) < 0)
-                return -ENODEV;
+                return sd_bus_error_set_errnof(error, ENODEV, "Device '%s' lacks 'ID_FOR_SEAT' udev property.", sysfs);
 
         if (asprintf(&file, "/etc/udev/rules.d/72-seat-%s.rules", id_for_seat) < 0)
                 return -ENOMEM;
@@ -1428,7 +1429,7 @@ static int method_attach_device(sd_bus_message *message, void *userdata, sd_bus_
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        r = attach_device(m, seat, sysfs);
+        r = attach_device(m, seat, sysfs, error);
         if (r < 0)
                 return r;
 
@@ -2342,8 +2343,8 @@ static int method_cancel_scheduled_shutdown(sd_bus_message *message, void *userd
                            "MESSAGE_ID=" SD_MESSAGE_SHUTDOWN_CANCELED_STR,
                            username ? "OPERATOR=%s" : NULL, username);
 
-                utmp_wall("System shutdown has been cancelled",
-                          username, tty, logind_wall_tty_filter, m);
+                (void) wall("System shutdown has been cancelled",
+                            username, tty, logind_wall_tty_filter, m);
         }
 
         reset_scheduled_shutdown(m);

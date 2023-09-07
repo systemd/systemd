@@ -3123,6 +3123,17 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>UsePREF64=</varname></term>
+        <listitem>
+          <para>When true, the IPv6 PREF64 (or NAT64) prefixes received in the Router Advertisement will be recorded
+          and made available to client programs and displayed in the <command>networkctl</command> status output per-link.
+          See <ulink url="https://tools.ietf.org/html/rfc8781">RFC 8781</ulink>. Defaults to false.</para>
+
+          <xi:include href="version-info.xml" xpointer="v255"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>UseAutonomousPrefix=</varname></term>
         <listitem>
           <para>When true (the default), the autonomous prefix received in the Router Advertisement will be used and take
@@ -3659,6 +3670,37 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         <listitem><para>Lifetime in seconds for the DNS server addresses listed in
         <varname>DNS=</varname> and search domains listed in <varname>Domains=</varname>. Defaults to
         3600 seconds (one hour).</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>HomeAgent=</varname></term>
+
+        <listitem><para>Takes a boolean. Specifies that IPv6 router advertisements which indicates to hosts that
+        the router acts as a Home Agent and includes a Home Agent Option. Defaults to false. See
+        <ulink url="https://tools.ietf.org/html/rfc6275">RFC 6275</ulink> for further details.</para>
+
+         <xi:include href="version-info.xml" xpointer="v255"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>HomeAgentLifetimeSec=</varname></term>
+
+        <listitem><para>Takes a timespan. Specifies the lifetime of the Home Agent. An integer the default unit of seconds,
+        in the range 1…65535. Defaults to the value set to <varname>RouterLifetimeSec=</varname>.</para>
+
+         <xi:include href="version-info.xml" xpointer="v255"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>HomeAgentPreference=</varname></term>
+
+        <listitem><para>Configures IPv6 Home Agent preference. Takes an integer in the range 0…65535.
+        Defaults to 0.</para>
+
+         <xi:include href="version-info.xml" xpointer="v255"/>
+        </listitem>
       </varlistentry>
 
     </variablelist>

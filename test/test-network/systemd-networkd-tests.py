@@ -14,6 +14,7 @@ import pathlib
 import re
 import shutil
 import signal
+import socket
 import subprocess
 import sys
 import time
@@ -5071,6 +5072,45 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertIn('DHCPREPLY(veth-peer)', output)
         self.assertNotIn('rapid-commit', output)
 
+    def test_dhcp_client_ipv6_dbus_status(self):
+        def get_dbus_dhcp6_client_state(IF):
+            out = subprocess.check_output(['busctl', 'call', 'org.freedesktop.network1',
+                                           '/org/freedesktop/network1', 'org.freedesktop.network1.Manager',
+                                           'GetLinkByName', 's', IF])
+
+            assert out.startswith(b'io ')
+            out = out.strip()
+            assert out.endswith(b'"')
+            out = out.decode()
+            linkPath = out[:-1].split('"')[1]
+
+            print(f"Found {IF} link path: {linkPath}")
+
+            out = subprocess.check_output(['busctl', 'get-property', 'org.freedesktop.network1',
+                                           linkPath, 'org.freedesktop.network1.DHCPv6Client', 'State'])
+            assert out.startswith(b's "')
+            out = out.strip()
+            assert out.endswith(b'"')
+            return out[3:-1].decode()
+
+        copy_network_unit('25-veth.netdev', '25-dhcp-server-veth-peer.network', '25-dhcp-client-ipv6-only.network')
+
+        start_networkd()
+        self.wait_online(['veth-peer:carrier'])
+
+        # Note that at this point the DHCPv6 client has not been started because no RA (with managed
+        # bit set) has yet been recieved and the configuration does not include WithoutRA=true
+        state = get_dbus_dhcp6_client_state('veth99')
+        print(f"State = {state}")
+        self.assertEqual(state, 'stopped')
+
+        start_dnsmasq()
+        self.wait_online(['veth99:routable', 'veth-peer:routable'])
+
+        state = get_dbus_dhcp6_client_state('veth99')
+        print(f"State = {state}")
+        self.assertEqual(state, 'bound')
+
     def test_dhcp_client_ipv6_only_with_custom_client_identifier(self):
         copy_network_unit('25-veth.netdev', '25-dhcp-server-veth-peer.network', '25-dhcp-client-ipv6-only-custom-client-identifier.network')
 
@@ -5223,6 +5263,47 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.check_nftset('ifindex', 'veth99')
 
         self.teardown_nftset('addr4', 'network4', 'ifindex')
+
+    def test_dhcp_client_ipv4_dbus_status(self):
+        def get_dbus_dhcp4_client_state(IF):
+            out = subprocess.check_output(['busctl', 'call', 'org.freedesktop.network1',
+                                           '/org/freedesktop/network1', 'org.freedesktop.network1.Manager',
+                                           'GetLinkByName', 's', IF])
+
+            assert out.startswith(b'io ')
+            out = out.strip()
+            assert out.endswith(b'"')
+            out = out.decode()
+            linkPath = out[:-1].split('"')[1]
+
+            print(f"Found {IF} link path: {linkPath}")
+
+            out = subprocess.check_output(['busctl', 'get-property', 'org.freedesktop.network1',
+                                           linkPath, 'org.freedesktop.network1.DHCPv4Client', 'State'])
+            assert out.startswith(b's "')
+            out = out.strip()
+            assert out.endswith(b'"')
+            return out[3:-1].decode()
+
+        copy_network_unit('25-veth.netdev', '25-dhcp-server-veth-peer.network', '25-dhcp-client-ipv4-only.network')
+
+        start_networkd()
+        self.wait_online(['veth-peer:carrier'])
+
+        state = get_dbus_dhcp4_client_state('veth99')
+        print(f"State = {state}")
+        self.assertEqual(state, 'selecting')
+
+        start_dnsmasq('--dhcp-option=option:dns-server,192.168.5.6,192.168.5.7',
+                      '--dhcp-option=option:domain-search,example.com',
+                      '--dhcp-alternate-port=67,5555',
+                      ipv4_range='192.168.5.110,192.168.5.119')
+        self.wait_online(['veth99:routable', 'veth-peer:routable'])
+        self.wait_address('veth99', r'inet 192.168.5.11[0-9]*/24', ipv='-4')
+
+        state = get_dbus_dhcp4_client_state('veth99')
+        print(f"State = {state}")
+        self.assertEqual(state, 'bound')
 
     def test_dhcp_client_ipv4_use_routes_gateway(self):
         first = True
@@ -5672,6 +5753,38 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
         tear_down_common()
 
     def test_dhcp6pd(self):
+        def get_dbus_dhcp6_prefix(IF):
+            # busctl call org.freedesktop.network1 /org/freedesktop/network1 org.freedesktop.network1.Manager GetLinkByName s IF
+            out = subprocess.check_output(['busctl', 'call', 'org.freedesktop.network1',
+                                           '/org/freedesktop/network1', 'org.freedesktop.network1.Manager',
+                                           'GetLinkByName', 's', IF])
+
+            assert out.startswith(b'io ')
+            out = out.strip()
+            assert out.endswith(b'"')
+            out = out.decode()
+            linkPath = out[:-1].split('"')[1]
+
+            print(f"Found {IF} link path: {linkPath}")
+
+            out = subprocess.check_output(['busctl', 'call', 'org.freedesktop.network1',
+                                           linkPath, 'org.freedesktop.network1.Link', 'Describe'])
+            assert out.startswith(b's "')
+            out = out.strip()
+            assert out.endswith(b'"')
+            json_raw = out[2:].decode()
+            check_json(json_raw)
+            description = json.loads(json_raw) # Convert from escaped sequences to json
+            check_json(description)
+            description = json.loads(description) # Now parse the json
+
+            self.assertIn('DHCPv6Client', description.keys())
+            self.assertIn('Prefixes', description['DHCPv6Client'])
+
+            prefixInfo = description['DHCPv6Client']['Prefixes']
+
+            return prefixInfo
+
         copy_network_unit('25-veth.netdev', '25-dhcp6pd-server.network', '25-dhcp6pd-upstream.network',
                           '25-veth-downstream-veth97.netdev', '25-dhcp-pd-downstream-veth97.network', '25-dhcp-pd-downstream-veth97-peer.network',
                           '25-veth-downstream-veth98.netdev', '25-dhcp-pd-downstream-veth98.network', '25-dhcp-pd-downstream-veth98-peer.network',
@@ -5689,6 +5802,22 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
         start_isc_dhcpd(conf_file='isc-dhcpd-dhcp6pd.conf', ipv='-6')
         self.wait_online(['veth99:routable', 'test1:routable', 'dummy98:routable', 'dummy99:degraded',
                           'veth97:routable', 'veth97-peer:routable', 'veth98:routable', 'veth98-peer:routable'])
+
+        # Check DBus assigned prefix information to veth99
+        prefixInfo = get_dbus_dhcp6_prefix('veth99')
+
+        self.assertEqual(len(prefixInfo), 1)
+        prefixInfo = prefixInfo[0]
+
+        self.assertIn('Prefix', prefixInfo.keys())
+        self.assertIn('PrefixLength', prefixInfo.keys())
+        self.assertIn('PreferredLifetimeUSec', prefixInfo.keys())
+        self.assertIn('ValidLifetimeUSec', prefixInfo.keys())
+
+        self.assertEqual(prefixInfo['Prefix'][0:6], [63, 254, 5, 1, 255, 255])
+        self.assertEqual(prefixInfo['PrefixLength'], 56)
+        self.assertGreater(prefixInfo['PreferredLifetimeUSec'], 0)
+        self.assertGreater(prefixInfo['ValidLifetimeUSec'], 0)
 
         print('### ip -6 address show dev veth-peer scope global')
         output = check_output('ip -6 address show dev veth-peer scope global')
@@ -6058,6 +6187,41 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
         self.assertIn(f'via ::10.0.0.1 dev {tunnel_name}', output)
 
     def test_dhcp4_6rd(self):
+        def get_dbus_dhcp_6rd_prefix(IF):
+            out = subprocess.check_output(['busctl', 'call', 'org.freedesktop.network1',
+                                           '/org/freedesktop/network1', 'org.freedesktop.network1.Manager',
+                                           'GetLinkByName', 's', IF])
+
+            assert out.startswith(b'io ')
+            out = out.strip()
+            assert out.endswith(b'"')
+            out = out.decode()
+            linkPath = out[:-1].split('"')[1]
+
+            print(f"Found {IF} link path: {linkPath}")
+
+            out = subprocess.check_output(['busctl', 'call', 'org.freedesktop.network1',
+                                           linkPath, 'org.freedesktop.network1.Link', 'Describe'])
+            assert out.startswith(b's "')
+            out = out.strip()
+            assert out.endswith(b'"')
+            json_raw = out[2:].decode()
+            check_json(json_raw)
+            description = json.loads(json_raw) # Convert from escaped sequences to json
+            check_json(description)
+            description = json.loads(description) # Now parse the json
+
+            self.assertIn('DHCPv4Client', description.keys())
+            self.assertIn('6rdPrefix', description['DHCPv4Client'].keys())
+
+            prefixInfo = description['DHCPv4Client']['6rdPrefix']
+            self.assertIn('Prefix', prefixInfo.keys())
+            self.assertIn('PrefixLength', prefixInfo.keys())
+            self.assertIn('IPv4MaskLength', prefixInfo.keys())
+            self.assertIn('BorderRouters', prefixInfo.keys())
+
+            return prefixInfo
+
         copy_network_unit('25-veth.netdev', '25-dhcp4-6rd-server.network', '25-dhcp4-6rd-upstream.network',
                           '25-veth-downstream-veth97.netdev', '25-dhcp-pd-downstream-veth97.network', '25-dhcp-pd-downstream-veth97-peer.network',
                           '25-veth-downstream-veth98.netdev', '25-dhcp-pd-downstream-veth98.network', '25-dhcp-pd-downstream-veth98-peer.network',
@@ -6079,6 +6243,14 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
                       ipv4_router='10.0.0.1')
         self.wait_online(['veth99:routable', 'test1:routable', 'dummy98:routable', 'dummy99:degraded',
                           'veth97:routable', 'veth97-peer:routable', 'veth98:routable', 'veth98-peer:routable'])
+
+        # Check the DBus interface for assigned prefix information
+        prefixInfo = get_dbus_dhcp_6rd_prefix('veth99')
+
+        self.assertEqual(prefixInfo['Prefix'], [32,1,13,184,0,0,0,0,0,0,0,0,0,0,0,0]) # 2001:db8::
+        self.assertEqual(prefixInfo['PrefixLength'], 32)
+        self.assertEqual(prefixInfo['IPv4MaskLength'], 8)
+        self.assertEqual(prefixInfo['BorderRouters'], [[10,0,0,1]])
 
         # Test case for a downstream which appears later
         check_output('ip link add dummy97 type dummy')
@@ -6156,6 +6328,18 @@ class NetworkdIPv6PrefixTests(unittest.TestCase, Utilities):
 
         output = check_output(*networkctl_cmd, '--json=short', 'status', env=env)
         check_json(output)
+
+        output = check_output(*networkctl_cmd, '--json=short', 'status', 'veth-peer', env=env)
+        check_json(output)
+
+        # PREF64 or NAT64
+        pref64 = json.loads(output)['NDisc']['PREF64'][0]
+
+        prefix = socket.inet_ntop(socket.AF_INET6, bytearray(pref64['Prefix']))
+        self.assertEqual(prefix, '64:ff9b::')
+
+        prefix_length = pref64['PrefixLength']
+        self.assertEqual(prefix_length, 96)
 
     def test_ipv6_route_prefix_deny_list(self):
         copy_network_unit('25-veth.netdev', '25-ipv6ra-prefix-client-deny-list.network', '25-ipv6ra-prefix.network',

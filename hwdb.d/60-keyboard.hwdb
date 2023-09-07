@@ -1050,6 +1050,9 @@ evdev:input:b0003v04B3p301B*
 evdev:name:SIPODEV Lenovo HID Device:dmi:*:svnLENOVO:*:pvrLenovoideapadD330-10IGM:*
  KEYBOARD_KEY_70073=f21                                 # Fn+Supr (Touchpad toggle)
 
+evdev:name:SIPODEV Lenovo HID Device Consumer Control:dmi:*:svnLENOVO:*:pvrLenovoideapadD330-10IGM:*
+ KEYBOARD_KEY_c00ff=fn_esc                              # Fn+Tab (FnLk toggle)
+
 ###########################################################
 # LG
 ###########################################################

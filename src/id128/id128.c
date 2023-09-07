@@ -178,6 +178,7 @@ static int help(void) {
                "\nOptions:\n"
                "  -h --help               Show this help\n"
                "  -p --pretty             Generate samples of program code\n"
+               "  -P --value              Only print the value\n"
                "  -a --app-specific=ID    Generate app-specific IDs\n"
                "  -u --uuid               Output in UUID format\n"
                "\nSee the %s for details.\n",
