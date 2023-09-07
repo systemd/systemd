@@ -29,6 +29,7 @@
 #include "bus-error.h"
 #include "bus-kernel.h"
 #include "bus-util.h"
+#include "cgroup-setup.h"
 #include "clean-ipc.h"
 #include "clock-util.h"
 #include "common-signal.h"
@@ -126,6 +127,107 @@ static int manager_run_environment_generators(Manager *m);
 static int manager_run_generators(Manager *m);
 static void manager_vacuum(Manager *m);
 
+int manager_spawn_workers(Manager *m) {
+        char socket_fd_number[DECIMAL_STR_MAX(int) + 1];
+        _cleanup_free_ char *log_level = NULL;
+        static int n_workers_cache = -2;
+        const char *scope_path;
+        size_t n_workers;
+        int r;
+
+        assert(m);
+
+        if (FLAGS_SET(m->test_run_flags, MANAGER_TEST_RUN_MINIMAL))
+                return 0;
+
+        if (n_workers_cache < -1) {
+                const char *e = secure_getenv("SYSTEMD_WORKERS_POOL_SIZE");
+                if (e) {
+                        r = safe_atoi(e, &n_workers_cache);
+                        if (r < 0) {
+                                log_debug("Invalid value in $SYSTEMD_WORKERS_POOL_SIZE, ignoring: %s", e);
+                                n_workers_cache = -1;
+                        }
+                } else
+                        n_workers_cache = -1;
+        }
+
+        if (n_workers_cache == 0)
+                return 0;
+
+        scope_path = strjoina(m->cgroup_root, "/" SPECIAL_INIT_WORKERS_SCOPE);
+
+        r = cg_is_empty(SYSTEMD_CGROUP_CONTROLLER, scope_path);
+        if (r <= 0)
+                return r;
+
+        /* At boot we are going to fork off a lot of processes on average, so prepare a bunch. */
+        if (n_workers_cache >= 0)
+                n_workers = n_workers_cache;
+        else if (MANAGER_IS_SYSTEM(m) && IN_SET(manager_state(m), MANAGER_STARTING, MANAGER_INITIALIZING))
+                n_workers = 25;
+        else
+                n_workers = 5;
+
+        r = log_level_to_string_alloc(log_get_max_level(), &log_level);
+        if (r < 0)
+                return log_error_errno(r, "Failed to convert log level to string: %m");
+
+        xsprintf(socket_fd_number, "%i", m->executors_pool_socket[1]);
+
+        r = fd_cloexec(m->executors_pool_socket[1], false);
+        if (r < 0)
+                return log_error_errno(errno, "Failed to set O_CLOEXEC on serialization fd: %m");
+
+        for (size_t i = 0; i < n_workers; ++i) {
+                pid_t pid;
+
+                /* The executor binary is pinned, to avoid compatibility problems during upgrades. */
+                r = posix_spawn_wrapper(FORMAT_PROC_FD_PATH(m->executor_fd),
+                                STRV_MAKE(FORMAT_PROC_FD_PATH(m->executor_fd),
+                                        "--manager-socket", socket_fd_number,
+                                        "--log-level", log_level,
+                                        "--log-target", log_target_to_string(manager_get_executor_log_target(m))),
+                                environ,
+                                &pid);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to spawn executor: %m");
+
+                (void) cg_attach(SYSTEMD_CGROUP_CONTROLLER, scope_path, pid);
+        }
+
+        r = fd_cloexec(m->executors_pool_socket[1], true);
+        if (r < 0)
+                return log_error_errno(errno, "Failed to set O_CLOEXEC on serialization fd: %m");
+
+        return 1;
+}
+
+int manager_kill_workers(Manager *m) {
+        const char *scope_path;
+        int r;
+
+        assert(m);
+
+        scope_path = strjoina(m->cgroup_root, "/" SPECIAL_INIT_WORKERS_SCOPE);
+
+        r = cg_is_empty(SYSTEMD_CGROUP_CONTROLLER, scope_path);
+        if (r > 0)
+                return 0;
+
+        r = cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER,
+                        scope_path,
+                        SIGKILL,
+                        /* flags= */ 0,
+                        /* s= */ NULL,
+                        /* log_kill= */ NULL,
+                        /* userdata= */ NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to kill workers: %m");
+
+        return 1;
+}
+
 static usec_t manager_watch_jobs_next_time(Manager *m) {
         usec_t timeout;
 
@@ -140,6 +242,13 @@ static usec_t manager_watch_jobs_next_time(Manager *m) {
                 timeout = JOBS_IN_PROGRESS_QUIET_WAIT_USEC;
 
         return usec_add(now(CLOCK_MONOTONIC), timeout);
+}
+
+static bool manager_is_confirm_spawn_disabled(Manager *m) {
+        if (!m->confirm_spawn)
+                return true;
+
+        return access("/run/systemd/confirm_spawn_disabled", F_OK) >= 0;
 }
 
 static void manager_watch_jobs_in_progress(Manager *m) {
@@ -918,6 +1027,9 @@ int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, 
                         .interval = 10 * USEC_PER_MINUTE,
                         .burst = 10,
                 },
+
+                .executor_fd = -EBADF,
+                .executors_pool_socket = { -EBADF, -EBADF },
         };
 
 #if ENABLE_EFI
@@ -1034,7 +1146,50 @@ int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, 
 
                 if (r < 0 && r != -EEXIST)
                         return r;
+
+                m->executor_fd = open(SYSTEMD_EXECUTOR_BINARY_PATH, O_CLOEXEC|O_PATH);
+                if (m->executor_fd < 0)
+                        return log_warning_errno(errno,
+                                                 "Failed to open executor binary '%s': %m",
+                                                 SYSTEMD_EXECUTOR_BINARY_PATH);
+        } else if (!FLAGS_SET(test_run_flags, MANAGER_TEST_DONT_OPEN_EXECUTOR)) {
+                _cleanup_free_ char *self_exe = NULL, *self_dir = NULL, *executor_path = NULL;
+                _cleanup_close_ int self_dir_fd = -EBADF;
+                int level = LOG_DEBUG;
+
+                /* Prefer sd-executor from the same directory as the test, e.g.: when running unit tests from the
+                * build directory. Fallback to working directory and then the installation path. */
+                r = readlink_and_make_absolute("/proc/self/exe", &self_exe);
+                if (r < 0)
+                        return r;
+
+                r = path_extract_directory(self_exe, &self_dir);
+                if (r < 0)
+                        return r;
+
+                self_dir_fd = open(self_dir, O_CLOEXEC|O_DIRECTORY);
+                if (self_dir_fd < 0)
+                        return -errno;
+
+                m->executor_fd = openat(self_dir_fd, "systemd-executor", O_CLOEXEC|O_PATH);
+                if (m->executor_fd < 0 && errno == ENOENT)
+                        m->executor_fd = openat(AT_FDCWD, "systemd-executor", O_CLOEXEC|O_PATH);
+                if (m->executor_fd < 0 && errno == ENOENT) {
+                        m->executor_fd = open(SYSTEMD_EXECUTOR_BINARY_PATH, O_CLOEXEC|O_PATH);
+                        level = LOG_WARNING; /* Tests should normally use local builds */
+                }
+                if (m->executor_fd < 0)
+                        return -errno;
+
+                r = fd_get_path(m->executor_fd, &executor_path);
+                if (r < 0)
+                        return r;
+
+                log_full(level, "Using systemd-executor binary from '%s'", executor_path);
         }
+
+        if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, m->executors_pool_socket) < 0)
+                return -errno;
 
         /* Note that we do not set up the notify fd here. We do that after deserialization,
          * since they might have gotten serialized across the reexec. */
@@ -1694,6 +1849,9 @@ Manager* manager_free(Manager *m) {
 #if BPF_FRAMEWORK
         lsm_bpf_destroy(m->restrict_fs);
 #endif
+
+        safe_close(m->executor_fd);
+        safe_close_pair(m->executors_pool_socket);
 
         return mfree(m);
 }
@@ -3209,6 +3367,10 @@ int manager_loop(Manager *m) {
                         sleep(1);
                 }
 
+                r = manager_spawn_workers(m);
+                if (r < 0)
+                        log_error_errno(r, "Failed to spawn workers, ignoring: %m");
+
                 if (manager_dispatch_load_queue(m) > 0)
                         continue;
 
@@ -4373,13 +4535,6 @@ void manager_disable_confirm_spawn(void) {
         (void) touch("/run/systemd/confirm_spawn_disabled");
 }
 
-bool manager_is_confirm_spawn_disabled(Manager *m) {
-        if (!m->confirm_spawn)
-                return true;
-
-        return access("/run/systemd/confirm_spawn_disabled", F_OK) >= 0;
-}
-
 static bool manager_should_show_status(Manager *m, StatusType type) {
         assert(m);
 
@@ -4851,6 +5006,17 @@ ManagerTimestamp manager_timestamp_initrd_mangle(ManagerTimestamp s) {
             s <= MANAGER_TIMESTAMP_UNITS_LOAD_FINISH)
                 return s - MANAGER_TIMESTAMP_SECURITY_START + MANAGER_TIMESTAMP_INITRD_SECURITY_START;
         return s;
+}
+
+LogTarget manager_get_executor_log_target(Manager *m) {
+        assert(m);
+
+        /* If journald is not available tell sd-executor to go to kmsg, as it might be starting journald */
+
+        if (!MANAGER_IS_SYSTEM(m) || (manager_journal_is_running(m) && manager_state(m) == MANAGER_RUNNING))
+                return log_get_target();
+
+        return LOG_TARGET_KMSG;
 }
 
 static const char *const manager_state_table[_MANAGER_STATE_MAX] = {

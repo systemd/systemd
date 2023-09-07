@@ -90,7 +90,7 @@ static const char *const io_accounting_metric_field_last[_CGROUP_IO_ACCOUNTING_M
         [CGROUP_IO_WRITE_OPERATIONS] = "io-accounting-write-operations-last",
 };
 
-int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool switching_root) {
+int unit_serialize_state(Unit *u, FILE *f, FDSet *fds, bool switching_root) {
         int r;
 
         assert(u);
@@ -264,7 +264,7 @@ static int unit_deserialize_job(Unit *u, FILE *f) {
                 _deserialize_matched;                                   \
         })
 
-int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
+int unit_deserialize_state(Unit *u, FILE *f, FDSet *fds) {
         int r;
 
         assert(u);
@@ -556,7 +556,7 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
         return 0;
 }
 
-int unit_deserialize_skip(FILE *f) {
+int unit_deserialize_state_skip(FILE *f) {
         int r;
         assert(f);
 
