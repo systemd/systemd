@@ -1181,6 +1181,7 @@ CONFIG_ITEMS = [
     ConfigItem(
         ('--config', '-c'),
         metavar = 'PATH',
+        type = pathlib.Path,
         help = 'configuration file',
     ),
 
@@ -1401,28 +1402,20 @@ def apply_config(namespace, filename=None):
     if filename is None:
         if namespace.config:
             # Config file specified, turn it into a pathlib.Path
-            filename = pathlib.Path(namespace.config)
+            filename = namespace.config
+            print(f'Using config file: {filename}')
+            if not filename.is_file():
+                raise FileNotFoundError(f'Set config file not found or not a file: {filename}')
         else:
-            # If there is no config file provided, try to look for default configs and load the first found.
+            # If there is no config file provided, try to look for default configs and load the first one found.
             for config_dir in DEFAULT_CONFIG_DIRS:
-                config_path = pathlib.Path(config_dir).joinpath(DEFAULT_CONFIG_FILE)
-                if config_path.is_file():
-                    print(f'No config file specified but found config file: {config_path}')
-                    filename = config_path
+                if (pathlib.Path(config_dir) / DEFAULT_CONFIG_FILE).is_file():
+                    filename = pathlib.Path(config_dir) / DEFAULT_CONFIG_FILE
+                    print(f'Found config file: {filename}')
                     break
-    if filename is None:
-        # No config file specified or found, nothing to do.
-        return
-    # Also print the original filename if it is a symlink
-    # Too bad, pathlib.Path.resolve() has no option not to resolve symlinks
-    if filename.is_symlink():
-        print_filename = f'{filename.resolve()} (target of: {filename})'
-    else:
-        print_filename = f'{filename.resolve()}'
-    if filename.resolve().is_file():
-        print(f'Using config file: {print_filename}')
-    else:
-        raise FileNotFoundError(f'Config file not found or not a file: {print_filename}')
+            if filename is None:
+                # No config file specified or found, nothing to do.
+                return
 
     # Fill in ._groups based on --pcr-public-key=, --pcr-private-key=, and --phases=.
     assert '_groups' not in namespace

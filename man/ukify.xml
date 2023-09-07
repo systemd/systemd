@@ -158,7 +158,7 @@
     <para>If no config file is provided via the option <option>--config=<replaceable>PATH</replaceable></option>,
     <command>ukify</command> will try to look for a default configuration file in the following paths in this
     order: <filename>/run/systemd/ukify.conf</filename>, <filename>/etc/systemd/ukify.conf</filename>,
-    <filename>/usr/local/lib/systemd/ukify.conf</filename>, and <filename>/etc/systemd/ukify.conf</filename>,
+    <filename>/usr/local/lib/systemd/ukify.conf</filename>, and <filename>/usr/lib/systemd/ukify.conf</filename>,
     and then load the first one found. <command>ukify</command> will proceed normally if no configuration file
     is specified and no default one is found.</para>
 
