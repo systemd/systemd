@@ -50,7 +50,6 @@ static int address_new_from_ipv4ll(Link *link, Address **ret) {
         address->prefixlen = 16;
         address->scope = RT_SCOPE_LINK;
         address->route_metric = IPV4LL_ROUTE_METRIC;
-        address_set_broadcast(address, link);
 
         *ret = TAKE_PTR(address);
         return 0;
