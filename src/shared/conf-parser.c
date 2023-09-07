@@ -487,6 +487,7 @@ static int config_parse_many_files(
                 Hashmap **ret_stats_by_path) {
 
         _cleanup_hashmap_free_ Hashmap *stats_by_path = NULL;
+        _cleanup_set_free_ Set *inodes = NULL;
         struct stat st;
         int r;
 
@@ -496,8 +497,37 @@ static int config_parse_many_files(
                         return -ENOMEM;
         }
 
+        /* Get inodes for all drop-ins. Later we'll verify if main config is a symlink to one of them. If so,
+         * we skip reading main config file directly. */
+        STRV_FOREACH(fn, files) {
+                _cleanup_free_ struct stat *st_dropin = NULL;
+
+                st_dropin = new(struct stat, 1);
+                if (!st_dropin)
+                        return -ENOMEM;
+
+                r = RET_NERRNO(stat(*fn, st_dropin));
+                if (r < 0 && r != -ENOENT)
+                        return r;
+
+                r = set_ensure_consume(&inodes, &inode_hash_ops, TAKE_PTR(st_dropin));
+                if (r < 0)
+                        return r;
+        }
+
         /* First read the first found main config file. */
         STRV_FOREACH(fn, conf_files) {
+                if (inodes) {
+                        r = RET_NERRNO(stat(*fn, &st));
+                        if (r < 0 && r != -ENOENT)
+                                return r;
+
+                        if (set_contains(inodes, &st)) {
+                                log_debug("%s: symlink to drop-in, will be read later.", *fn);
+                                continue;
+                        }
+                }
+
                 r = config_parse(NULL, *fn, NULL, sections, lookup, table, flags, userdata, &st);
                 if (r < 0)
                         return r;
