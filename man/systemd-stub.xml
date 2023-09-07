@@ -77,7 +77,11 @@
       <listitem><para>A <literal>.splash</literal> section with an image (in the Windows
       <filename>.BMP</filename> format) to show on screen before invoking the kernel.</para></listitem>
 
-      <listitem><para>A <literal>.dtb</literal> section with a compiled binary DeviceTree.</para></listitem>
+      <listitem><para>Zero or more <literal>.dtb</literal> sections. The stub will try to match the DeviceTrees 
+      embedded in the PE image with the DeviceTree provided by the device's firmware by comparing the first 
+      <literal>compatible</literal> string in each UKI DeviceTree with the first <literal>compatible</literal> 
+      string supplied by the firmware. If no match is found, <literal>.dtb</literal> section will be looked up by 
+      HWID. </para></listitem>
 
       <listitem><para>A <literal>.uname</literal> section with the kernel version information, i.e. the
       output of <command>uname -r</command> for the kernel included in the <literal>.linux</literal>
