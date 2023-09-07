@@ -65,6 +65,11 @@ EFI_ARCH_MAP = {
 }
 EFI_ARCHES: list[str] = sum(EFI_ARCH_MAP.values(), [])
 
+# Default configuration directories and file name.
+# When the user does not specify one, the directories are searched in this order and the first file found is used.
+DEFAULT_CONFIG_DIRS = ['/run/systemd', '/etc/systemd', '/usr/local/lib/systemd', '/usr/lib/systemd']
+DEFAULT_CONFIG_FILE = 'ukify.conf'
+
 def guess_efi_arch():
     arch = os.uname().machine
 
@@ -1176,6 +1181,7 @@ CONFIG_ITEMS = [
     ConfigItem(
         ('--config', '-c'),
         metavar = 'PATH',
+        type = pathlib.Path,
         help = 'configuration file',
     ),
 
@@ -1394,9 +1400,22 @@ CONFIGFILE_ITEMS = { item.config_key:item
 
 def apply_config(namespace, filename=None):
     if filename is None:
-        filename = namespace.config
-    if filename is None:
-        return
+        if namespace.config:
+            # Config file specified, turn it into a pathlib.Path
+            filename = namespace.config
+            print(f'Using config file: {filename}')
+            if not filename.is_file():
+                raise FileNotFoundError(f'Set config file not found or not a file: {filename}')
+        else:
+            # If there is no config file provided, try to look for default configs and load the first one found.
+            for config_dir in DEFAULT_CONFIG_DIRS:
+                if (pathlib.Path(config_dir) / DEFAULT_CONFIG_FILE).is_file():
+                    filename = pathlib.Path(config_dir) / DEFAULT_CONFIG_FILE
+                    print(f'Found config file: {filename}')
+                    break
+            if filename is None:
+                # No config file specified or found, nothing to do.
+                return
 
     # Fill in ._groups based on --pcr-public-key=, --pcr-private-key=, and --phases=.
     assert '_groups' not in namespace
