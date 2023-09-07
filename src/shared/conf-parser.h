@@ -138,7 +138,10 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(ConfigSection*, config_section_free);
 
 int config_section_new(const char *filename, unsigned line, ConfigSection **ret);
 extern const struct hash_ops config_section_hash_ops;
-unsigned hashmap_find_free_section_line(Hashmap *hashmap);
+int hashmap_by_section_find_unused_line(
+                Hashmap *entries_by_section,
+                const char *filename,
+                unsigned *ret);
 
 static inline bool section_is_invalid(ConfigSection *section) {
         /* If this returns false, then it does _not_ mean the section is valid. */
