@@ -188,7 +188,7 @@ TEST(copy_tree) {
         assert_se(write_string_file(ignorep, "ignore", WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755) == 0);
         assert_se(RET_NERRNO(stat(ignorep, &st)) >= 0);
         assert_se(cp = memdup(&st, sizeof(st)));
-        assert_se(hashmap_ensure_put(&denylist, &inode_hash_ops, cp, INT_TO_PTR(DENY_INODE)) >= 0);
+        assert_se(hashmap_ensure_put(&denylist, &inode_hash_ops_free, cp, INT_TO_PTR(DENY_INODE)) >= 0);
         TAKE_PTR(cp);
 
         assert_se(copy_tree(original_dir, copy_dir, UID_INVALID, GID_INVALID, COPY_REFLINK|COPY_MERGE|COPY_HARDLINKS, denylist, NULL) == 0);

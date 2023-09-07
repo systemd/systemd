@@ -4270,7 +4270,7 @@ static int add_exclude_path(const char *path, Hashmap **denylist, DenyType type)
         if (r < 0)
                 return log_error_errno(r, "Failed to stat source file '%s/%s': %m", strempty(arg_root), path);
 
-        r = hashmap_ensure_put(denylist, &inode_hash_ops, st, INT_TO_PTR(type));
+        r = hashmap_ensure_put(denylist, &inode_hash_ops_free, st, INT_TO_PTR(type));
         if (r == -EEXIST)
                 return 0;
         if (r < 0)
@@ -4398,7 +4398,7 @@ static int add_subvolume_path(const char *path, Set **subvolumes) {
         if (r < 0)
                 return log_error_errno(r, "Failed to stat source file '%s/%s': %m", strempty(arg_root), path);
 
-        r = set_ensure_put(subvolumes, &inode_hash_ops, st);
+        r = set_ensure_put(subvolumes, &inode_hash_ops_free, st);
         if (r < 0)
                 return log_oom();
         if (r > 0)

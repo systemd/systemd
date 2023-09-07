@@ -112,5 +112,6 @@ int xstatfsat(int dir_fd, const char *path, struct statfs *ret);
 void inode_hash_func(const struct stat *q, struct siphash *state);
 int inode_compare_func(const struct stat *a, const struct stat *b);
 extern const struct hash_ops inode_hash_ops;
+extern const struct hash_ops inode_hash_ops_free;
 
 const char* inode_type_to_string(mode_t m);
