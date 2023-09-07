@@ -209,7 +209,11 @@ static int link_set_sr_iov_phys_port(Link *link) {
         if (!link->dev)
                 return -ENODEV;
 
+        /* This may return -EINVAL or -ENODEV, instead of -ENOENT, if the device has been removed or is being
+         * removed. Let's map -EINVAL to -ENODEV, as the caller will ignore -ENODEV. */
         r = sd_device_get_sysattr_value(link->dev, "dev_port", &dev_port);
+        if (r == -EINVAL)
+                return -ENODEV;
         if (r < 0)
                 return r;
 
@@ -242,6 +246,8 @@ static int link_set_sr_iov_virt_ports(Link *link) {
                 return -ENODEV;
 
         r = sd_device_get_sysattr_value(link->dev, "dev_port", &dev_port);
+        if (r == -EINVAL)
+                return -ENODEV;
         if (r < 0)
                 return r;
 
