@@ -40,7 +40,9 @@ jobs:
   trigger: pull_request
   targets:
   - fedora-rawhide-aarch64
-  - fedora-rawhide-i386
+# FIXME: re-enable once https://bugzilla.redhat.com/show_bug.cgi?id=2237392 is
+#        resolved
+#  - fedora-rawhide-i386
   - fedora-rawhide-ppc64le
   - fedora-rawhide-s390x
   - fedora-rawhide-x86_64
