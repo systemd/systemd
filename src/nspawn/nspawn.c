@@ -2478,7 +2478,7 @@ static int setup_credentials(const char *root) {
                 if (fd < 0)
                         return log_error_errno(errno, "Failed to create credential file %s: %m", j);
 
-                r = loop_write(fd, arg_credentials[i].data, arg_credentials[i].size, /* do_poll= */ false);
+                r = loop_write(fd, arg_credentials[i].data, arg_credentials[i].size);
                 if (r < 0)
                         return log_error_errno(r, "Failed to write credential to file %s: %m", j);
 

@@ -378,7 +378,7 @@ static int raw_import_write(const void *p, size_t sz, void *userdata) {
                 if ((size_t) n < sz)
                         return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short write");
         } else {
-                r = loop_write(i->output_fd, p, sz, false);
+                r = loop_write(i->output_fd, p, sz);
                 if (r < 0)
                         return log_error_errno(r, "Failed to write file: %m");
         }

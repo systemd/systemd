@@ -82,7 +82,7 @@ static int plymouth_send_message(const char *mode, const char *message) {
                 return log_full_errno(ERRNO_IS_NO_PLYMOUTH(errno) ? LOG_DEBUG : LOG_WARNING, errno,
                                       "Failed to connect to plymouth: %m");
 
-        r = loop_write(fd, plymouth_message, c, /* do_poll = */ false);
+        r = loop_write(fd, plymouth_message, c);
         if (r < 0)
                 return log_full_errno(ERRNO_IS_NO_PLYMOUTH(r) ? LOG_DEBUG : LOG_WARNING, r,
                                       "Failed to write to plymouth: %m");
