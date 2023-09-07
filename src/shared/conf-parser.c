@@ -766,8 +766,8 @@ int config_section_new(const char *filename, unsigned line, ConfigSection **ret)
         return 0;
 }
 
-int hashmap_by_section_find_unused_line(
-                Hashmap *entries_by_section,
+int _hashmap_by_section_find_unused_line(
+                HashmapBase *entries_by_section,
                 const char *filename,
                 unsigned *ret) {
 
@@ -775,7 +775,7 @@ int hashmap_by_section_find_unused_line(
         unsigned n = 0;
         void *entry;
 
-        HASHMAP_FOREACH_KEY(entry, cs, entries_by_section) {
+        HASHMAP_BASE_FOREACH_KEY(entry, cs, entries_by_section) {
                 if (filename && !streq(cs->filename, filename))
                         continue;
                 n = MAX(n, cs->line);
