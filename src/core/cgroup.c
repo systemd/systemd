@@ -3791,7 +3791,7 @@ int unit_get_memory_available(Unit *u, uint64_t *ret) {
                 available = LESS_BY(MIN(unit_context->memory_max, unit_context->memory_high), unit_current);
 
         for (Unit *slice = UNIT_GET_SLICE(u); slice; slice = UNIT_GET_SLICE(slice)) {
-                uint64_t slice_current, slice_available = UINT64_MAX;
+                uint64_t slice_current, slice_available, slice_limit = UINT64_MAX;
                 CGroupContext *slice_context;
 
                 /* No point in continuing if we can't go any lower */
@@ -3805,14 +3805,17 @@ int unit_get_memory_available(Unit *u, uint64_t *ret) {
                 if (!slice_context)
                         continue;
 
-                if (slice_context->memory_max == UINT64_MAX && slice_context->memory_high == UINT64_MAX)
+                if (unit_has_name(slice, SPECIAL_ROOT_SLICE))
+                        slice_limit = physical_memory();
+                else if (slice_context->memory_max == UINT64_MAX && slice_context->memory_high == UINT64_MAX)
                         continue;
+                slice_limit = MIN3(slice_limit, slice_context->memory_max, slice_context->memory_high);
 
                 r = cg_get_attribute_as_uint64("memory", slice->cgroup_path, memory_file, &slice_current);
                 if (r < 0)
                         continue;
 
-                slice_available = LESS_BY(MIN(slice_context->memory_max, slice_context->memory_high), slice_current);
+                slice_available = LESS_BY(slice_limit, slice_current);
                 available = MIN(slice_available, available);
         }
 
