@@ -4935,6 +4935,29 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
         output = check_output(*networkctl_cmd, '-n', '0', 'status', 'veth-peer', env=env)
         self.assertRegex(output, "Offered DHCP leases: 192.168.5.[0-9]*")
 
+    def test_dhcp_server_null_server_address(self):
+        copy_network_unit('25-veth.netdev', '25-dhcp-client.network', '25-dhcp-server-null-server-address.network')
+        start_networkd()
+        self.wait_online(['veth99:routable', 'veth-peer:routable'])
+
+        output = check_output('ip --json address show dev veth-peer')
+        server_address = json.loads(output)[0]['addr_info'][0]['local']
+        print(server_address)
+
+        output = check_output('ip --json address show dev veth99')
+        client_address = json.loads(output)[0]['addr_info'][0]['local']
+        print(client_address)
+
+        output = check_output(*networkctl_cmd, '-n', '0', 'status', 'veth99', env=env)
+        print(output)
+        self.assertRegex(output, rf'Address: {client_address} \(DHCP4 via {server_address}\)')
+        self.assertIn(f'Gateway: {server_address}', output)
+        self.assertIn(f'DNS: {server_address}', output)
+        self.assertIn(f'NTP: {server_address}', output)
+
+        output = check_output(*networkctl_cmd, '-n', '0', 'status', 'veth-peer', env=env)
+        self.assertIn(f'Offered DHCP leases: {client_address}', output)
+
     def test_dhcp_server_with_uplink(self):
         copy_network_unit('25-veth.netdev', '25-dhcp-client.network', '25-dhcp-server-downstream.network',
                           '12-dummy.netdev', '25-dhcp-server-uplink.network')
