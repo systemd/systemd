@@ -15,6 +15,7 @@ typedef __CHAR16_TYPE__ char16_t;
 typedef __CHAR32_TYPE__ char32_t;
 
 /* Let's be paranoid and do some sanity checks. */
+assert_cc(__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__);
 assert_cc(__STDC_HOSTED__ == 0);
 assert_cc(sizeof(bool) == 1);
 assert_cc(sizeof(uint8_t) == 1);
@@ -26,6 +27,14 @@ assert_cc(sizeof(char16_t) == 2);
 assert_cc(sizeof(char32_t) == 4);
 assert_cc(sizeof(size_t) == sizeof(void *));
 assert_cc(sizeof(size_t) == sizeof(uintptr_t));
+assert_cc(alignof(bool) == 1);
+assert_cc(alignof(uint8_t) == 1);
+assert_cc(alignof(uint16_t) == 2);
+assert_cc(alignof(uint32_t) == 4);
+assert_cc(alignof(uint64_t) == 8);
+assert_cc(alignof(wchar_t) == 2);
+assert_cc(alignof(char16_t) == 2);
+assert_cc(alignof(char32_t) == 4);
 
 #  if defined(__x86_64__) && defined(__ILP32__)
 #    error Building for x64 requires -m64 on x32 ABI.
