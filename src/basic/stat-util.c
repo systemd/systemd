@@ -492,7 +492,7 @@ int inode_compare_func(const struct stat *a, const struct stat *b) {
         return CMP(a->st_ino, b->st_ino);
 }
 
-DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(inode_hash_ops, struct stat, inode_hash_func, inode_compare_func, free);
+DEFINE_HASH_OPS(inode_hash_ops, struct stat, inode_hash_func, inode_compare_func);
 
 const char* inode_type_to_string(mode_t m) {
 
