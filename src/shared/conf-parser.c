@@ -766,16 +766,27 @@ int config_section_new(const char *filename, unsigned line, ConfigSection **ret)
         return 0;
 }
 
-unsigned hashmap_find_free_section_line(Hashmap *hashmap) {
+int hashmap_by_section_find_unused_line(
+                Hashmap *entries_by_section,
+                const char *filename,
+                unsigned *ret) {
+
         ConfigSection *cs;
         unsigned n = 0;
         void *entry;
 
-        HASHMAP_FOREACH_KEY(entry, cs, hashmap)
-                if (n < cs->line)
-                        n = cs->line;
+        HASHMAP_FOREACH_KEY(entry, cs, entries_by_section) {
+                if (filename && !streq(cs->filename, filename))
+                        continue;
+                n = MAX(n, cs->line);
+        }
 
-        return n + 1;
+        /* overflow? */
+        if (n >= UINT_MAX)
+                return -EFBIG;
+
+        *ret = n + 1;
+        return 0;
 }
 
 #define DEFINE_PARSER(type, vartype, conv_func)                         \

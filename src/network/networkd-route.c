@@ -1945,7 +1945,9 @@ int network_add_ipv4ll_route(Network *network) {
         if (!network->ipv4ll_route)
                 return 0;
 
-        section_line = hashmap_find_free_section_line(network->routes_by_section);
+        r = hashmap_by_section_find_unused_line(network->routes_by_section, network->filename, &section_line);
+        if (r < 0)
+                return r;
 
         /* IPv4LLRoute= is in [Network] section. */
         r = route_new_static(network, network->filename, section_line, &n);
@@ -1978,7 +1980,9 @@ int network_add_default_route_on_device(Network *network) {
         if (!network->default_route_on_device)
                 return 0;
 
-        section_line = hashmap_find_free_section_line(network->routes_by_section);
+        r = hashmap_by_section_find_unused_line(network->routes_by_section, network->filename, &section_line);
+        if (r < 0)
+                return r;
 
         /* DefaultRouteOnDevice= is in [Network] section. */
         r = route_new_static(network, network->filename, section_line, &n);
