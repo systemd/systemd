@@ -240,7 +240,7 @@ void link_mark_addresses(Link *link, NetworkConfigSource source) {
         }
 }
 
-int address_get_broadcast(const Address *a, Link *link, struct in_addr *ret) {
+static int address_get_broadcast(const Address *a, Link *link, struct in_addr *ret) {
         struct in_addr b_addr = {};
 
         assert(a);
@@ -289,6 +289,11 @@ finalize:
                 *ret = b_addr;
 
         return in4_addr_is_set(&b_addr);
+}
+
+static void address_set_broadcast(Address *a, Link *link) {
+        assert(a);
+        assert_se(address_get_broadcast(a, link, &a->broadcast) >= 0);
 }
 
 static void address_set_cinfo(Manager *m, const Address *a, struct ifa_cacheinfo *cinfo) {

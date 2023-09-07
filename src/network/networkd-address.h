@@ -83,11 +83,6 @@ int address_remove_and_drop(Address *address);
 int address_dup(const Address *src, Address **ret);
 bool address_is_ready(const Address *a);
 bool link_check_addresses_ready(Link *link, NetworkConfigSource source);
-int address_get_broadcast(const Address *a, Link *link, struct in_addr *ret);
-static inline void address_set_broadcast(Address *a, Link *link) {
-        assert(a);
-        assert_se(address_get_broadcast(a, link, &a->broadcast) >= 0);
-}
 
 DEFINE_SECTION_CLEANUP_FUNCTIONS(Address, address_free);
 
