@@ -3751,8 +3751,7 @@ int manager_notify_cgroup_empty(Manager *m, const char *cgroup) {
 }
 
 int unit_get_memory_available(Unit *u, uint64_t *ret) {
-        uint64_t available = UINT64_MAX;
-        int r;
+        uint64_t available = UINT64_MAX, current = 0;
 
         assert(u);
         assert(ret);
@@ -3762,7 +3761,7 @@ int unit_get_memory_available(Unit *u, uint64_t *ret) {
          * and MemoryMax, and also any slice the unit might be nested below. */
 
         do {
-                uint64_t unit_current, unit_available, unit_limit = UINT64_MAX;
+                uint64_t unit_available, unit_limit = UINT64_MAX;
                 CGroupContext *unit_context;
 
                 /* No point in continuing if we can't go any lower */
@@ -3776,6 +3775,9 @@ int unit_get_memory_available(Unit *u, uint64_t *ret) {
                 if (!unit_context)
                         continue;
 
+                (void) unit_get_memory_current(u, &current);
+                /* in case of error, previous current propagates as lower bound */
+
                 if (unit_has_name(u, SPECIAL_ROOT_SLICE))
                         unit_limit = physical_memory();
                 else if (unit_context->memory_max == UINT64_MAX && unit_context->memory_high == UINT64_MAX)
@@ -3783,11 +3785,7 @@ int unit_get_memory_available(Unit *u, uint64_t *ret) {
                 unit_limit = MIN(unit_limit, unit_context->memory_max);
                 unit_limit = MIN(unit_limit, unit_context->memory_high);
 
-                r = unit_get_memory_current(u, &unit_current);
-                if (r < 0)
-                        continue;
-
-                unit_available = LESS_BY(unit_limit, unit_current);
+                unit_available = LESS_BY(unit_limit, current);
                 available = MIN(unit_available, available);
         } while ((u = UNIT_GET_SLICE(u)));
 
