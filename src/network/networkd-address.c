@@ -2444,6 +2444,8 @@ int network_drop_invalid_addresses(Network *network) {
                 assert(r > 0);
         }
 
+        network_adjust_dhcp_server(network);
+
         return 0;
 }
 
