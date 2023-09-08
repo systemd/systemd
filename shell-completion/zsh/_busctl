@@ -118,7 +118,7 @@ __dbus_matchspec() {
     __busctl introspect "$1" "$2" "$3" |
     while read NAME TYPE SIGNATURE VALUE FLAGS; do
         [[ -z "$member" || ${TYPE} == "$member" ]] &&
-        [[ -z "$required" || ${${(s: :)FLAGS}[-1]} == "$required" ]] &&
+        [[ -z "$required" || "${${(os: :)FLAGS}}" == $~required ]] &&
         echo ${NAME#.}
     done
 }
@@ -244,7 +244,7 @@ __dbus_matchspec() {
             ;;
         5)
             _wanted property expl 'property' \
-            compadd "$@" - $(_busctl_get_members $words[2,4] "property" "writable")
+            compadd "$@" - $(_busctl_get_members $words[2,4] "property" "*writable*")
             ;;
         6)
             compadd "$@" - $(_busctl_get_signature $words[2,5])
