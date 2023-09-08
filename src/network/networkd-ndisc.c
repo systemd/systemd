@@ -193,6 +193,11 @@ static int ndisc_request_route(Route *in, Link *link, sd_ndisc_router *rt) {
                 r = sd_ndisc_router_get_mtu(rt, &mtu);
                 if (r < 0 && r != -ENODATA)
                         return log_link_warning_errno(link, r, "Failed to get default router MTU from RA: %m");
+
+                link->network->ipv6_hop_limit = hop_limit;
+                r = link_set_ipv6_hop_limit(link);
+                if (r < 0)
+                        log_link_warning_errno(link, r, "Cannot set IPv6 hop limit for interface, ignoring: %m");
         }
 
        if (link->network->ipv6_accept_ra_use_hop_limit) {
