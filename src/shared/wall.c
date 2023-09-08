@@ -36,17 +36,26 @@ static int write_to_terminal(const char *tty, const char *message) {
         return loop_write_full(fd, message, SIZE_MAX, TIMEOUT_USEC);
 }
 
-#if ENABLE_UTMP
 static int wall_utmp(
         const char *message,
         bool (*match_tty)(const char *tty, bool is_local, void *userdata),
         void *userdata) {
 
+#if ENABLE_UTMP
         _unused_ _cleanup_(utxent_cleanup) bool utmpx = false;
         struct utmpx *u;
         int r = 0;
 
         assert(message);
+
+        /* libc's setutxent() unfortunately doesn't inform us about success, i.e. whether /var/run/utmp
+         * exists. Hence we have to check manually first. */
+        if (access(_PATH_UTMPX, F_OK) < 0) {
+                if (errno == ENOENT)
+                        return -ENOPROTOOPT;
+
+                return -errno;
+        }
 
         utmpx = utxent_start();
 
@@ -77,15 +86,18 @@ static int wall_utmp(
         }
 
         return r;
-}
-#endif
 
-#if ENABLE_LOGIND
+#else
+        return -ENOPROTOOPT;
+#endif
+}
+
 static int wall_logind(
         const char *message,
         bool (*match_tty)(const char *tty, bool is_local, void *userdata),
         void *userdata) {
 
+#if ENABLE_LOGIND
         _cleanup_strv_free_ char **sessions = NULL;
         int r;
 
@@ -120,8 +132,11 @@ static int wall_logind(
         }
 
         return r;
-}
+
+#else
+        return -ENOPROTOOPT;
 #endif
+}
 
 int wall(
         const char *message,
@@ -131,6 +146,7 @@ int wall(
         void *userdata) {
 
         _cleanup_free_ char *text = NULL, *hostname = NULL, *username_alloc = NULL, *stdin_tty = NULL;
+        int r;
 
         assert(message);
 
@@ -161,11 +177,11 @@ int wall(
                      message) < 0)
                 return -ENOMEM;
 
-#if ENABLE_UTMP
-        return wall_utmp(text, match_tty, userdata);
-#elif ENABLE_LOGIND
-        return wall_logind(text, match_tty, userdata);
-#endif
+        r = wall_utmp(text, match_tty, userdata);
+        if (r == -ENOPROTOOPT)
+                r = wall_logind(text, match_tty, userdata);
+
+        return r == -ENOPROTOOPT ? 0 : r;
 }
 
 #endif
