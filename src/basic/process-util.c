@@ -318,6 +318,30 @@ int container_get_leader(const char *machine, pid_t *pid) {
         return 0;
 }
 
+int get_namespace_leader(pid_t pid, NamespaceType type, pid_t *ret) {
+        int r;
+
+        assert(ret);
+
+        for (;;) {
+                pid_t ppid;
+
+                r = get_process_ppid(pid, &ppid);
+                if (r < 0)
+                        return r;
+
+                if (!in_same_namespace(pid, ppid, type)) {
+                        /* If the parent and the child are not in the same
+                         * namespace, then the child is the leader we are
+                         * looking for. */
+                        *ret = pid;
+                        return 0;
+                }
+
+                pid = ppid;
+        }
+}
+
 int is_kernel_thread(pid_t pid) {
         _cleanup_free_ char *line = NULL;
         unsigned long long flags;
