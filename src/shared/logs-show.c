@@ -403,24 +403,25 @@ static int output_timestamp_realtime(
                         break;
 
                 case OUTPUT_SHORT_ISO:
-                        if (strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%S%z",
-                                     localtime_or_gmtime_r(&t, &tm, flags & OUTPUT_UTC)) <= 0)
+                case OUTPUT_SHORT_ISO_PRECISE: {
+                        size_t tail = strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%S",
+                                               localtime_or_gmtime_r(&t, &tm, flags & OUTPUT_UTC));
+                        if (tail == 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Failed to format ISO time");
-                        break;
 
-                case OUTPUT_SHORT_ISO_PRECISE: {
-                        char usec[7];
+                        /* No usec in strftime, need to append */
+                        if (mode == OUTPUT_SHORT_ISO_PRECISE) {
+                                snprintf(buf + tail, ELEMENTSOF(buf) - tail, ".%06"PRI_USEC, display_ts->realtime % USEC_PER_SEC);
+                                tail += 7;
+                        }
 
-                        /* No usec in strftime, so we leave space and copy over */
-                        if (strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%S.xxxxxx%z",
-                                     localtime_or_gmtime_r(&t, &tm, flags & OUTPUT_UTC)) <= 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Failed to format ISO-precise time");
-                        xsprintf(usec, "%06"PRI_USEC, display_ts->realtime % USEC_PER_SEC);
-                        memcpy(buf + 20, usec, 6);
+                        int8_t h = tm.tm_gmtoff / 60 / 60;
+                        int8_t m = labs((tm.tm_gmtoff / 60) % 60);
+                        snprintf(buf + tail, ELEMENTSOF(buf) - tail, "%+03"PRId8":%02"PRId8, h, m);
                         break;
                 }
+
                 case OUTPUT_SHORT:
                 case OUTPUT_SHORT_PRECISE:
 
