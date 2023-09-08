@@ -338,17 +338,13 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
         _cleanup_(manager_reloading_stopp) _unused_ Manager *reloading = manager_reloading_start(m);
 
         for (;;) {
-                _cleanup_free_ char *line = NULL;
-                const char *val, *l;
+                _cleanup_free_ char *l = NULL;
+                const char *val;
 
-                r = read_line(f, LONG_LINE_MAX, &line);
+                r = deserialize_read_line(f, &l);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to read serialization line: %m");
-                if (r == 0)
-                        break;
-
-                l = strstrip(line);
-                if (isempty(l)) /* end marker */
+                        return r;
+                if (r == 0) /* eof or end marker */
                         break;
 
                 if ((val = startswith(l, "current-job-id="))) {
