@@ -467,7 +467,8 @@
 
           <varlistentry>
             <term><option>short-iso</option></term>
-            <listitem><para>is very similar, but shows ISO 8601 wallclock timestamps.</para>
+            <listitem><para>is very similar, but shows timestamps in the
+            <ulink url="https://tools.ietf.org/html/rfc3339">RFC 3339</ulink> profile of ISO 8601.</para>
 
             <xi:include href="version-info.xml" xpointer="v206"/></listitem>
           </varlistentry>
