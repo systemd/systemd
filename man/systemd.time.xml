@@ -108,37 +108,52 @@
   <refsect1>
     <title>Parsing Timestamps</title>
 
-    <para>When parsing, systemd will accept a similar syntax, but expects no timezone specification, unless
-    it is given as the literal string <literal>UTC</literal> (for the UTC timezone), or is specified to be
-    the locally configured timezone, the timezone name in the IANA timezone database format,
-    or in the <ulink url="https://tools.ietf.org/html/rfc3339">RFC 3339</ulink> profile of ISO 8601, as
-    <literal>Z</literal> or <literal>+<replaceable>05</replaceable>:<replaceable>30</replaceable></literal>
-    appended directly after the timestamp. The complete
-    list of timezones supported on your system can be obtained using the <literal>timedatectl
+    <para>When parsing, systemd will accept a similar syntax, but some fields can be omitted,
+    and the space between the date and time can be replaced with a <literal>T</literal>
+    (à la the <ulink url="https://tools.ietf.org/html/rfc3339">RFC 3339</ulink> profile of ISO 8601);
+    thus, in CET, the following are all identical:
+    <literal>Fri 2012-11-23 23:02:15 CET</literal>,
+    <literal>Fri 2012-11-23T23:02:15</literal>,
+    <literal>2012-11-23T23:02:15 CET</literal>,
+    <literal>2012-11-23 23:02:15</literal>.</para>
+
+    <para>The timezone defaults to the current timezone if not specified explicitly.
+    It may be given after a space, like above, in which case it can be:
+    <literal>UTC</literal>,
+    an entry in the installed IANA timezone database (<literal>CET</literal>, <literal>Asia/Tokyo</literal>, &amp;c.;
+    complete list obtainable with <literal>timedatectl
     list-timezones</literal> (see
-    <citerefentry><refentrytitle>timedatectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>).  Using
-    IANA format is recommended over local timezone names, as less prone to errors (e.g. with local timezone
-    it's possible to specify daylight saving time in winter, even though that is not correct). The weekday
-    specification is optional, but when the weekday is specified, it must either be in the abbreviated
+    <citerefentry><refentrytitle>timedatectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>)),
+    or <literal>±<replaceable>05</replaceable></literal>,
+    <literal>±<replaceable>05</replaceable><replaceable>30</replaceable></literal>,
+    <literal>±<replaceable>05</replaceable>:<replaceable>30</replaceable></literal>,
+    <literal>Z</literal>.</para>   <!-- glibc %z -->
+
+    <para>It may also be affixed directly to the timestamp, in which case it must correspond
+    to one of the formats defined in the
+    <ulink url="https://tools.ietf.org/html/rfc3339">RFC 3339</ulink> profile of ISO 8601:
+    <literal>±<replaceable>05</replaceable>:<replaceable>30</replaceable></literal> or <literal>Z</literal>.
+    Thus, the following are also identical to the above:
+    <literal>2012-11-23T23:02:15+01:00</literal>,
+    <literal>2012-11-23 22:02:15Z</literal>.</para>
+
+    <para>A timestamp can start with a field containing a weekday, which can be in an abbreviated
     (<literal>Wed</literal>) or non-abbreviated (<literal>Wednesday</literal>) English language form (case
-    does not matter), and is not subject to the locale choice of the user. Either the date, or the time part
-    may be omitted, in which case the current date or 00:00:00, respectively, is assumed. The seconds
-    component of the time may also be omitted, in which case ":00" is assumed. Year numbers may be specified
-    in full or may be abbreviated (omitting the century).</para>
+    does not matter), regardless of to the locale.
+    However, if a weekday <emphasis>is</emphasis> specified and doesn't match the date, the timestamp is rejected.</para>
 
-    <para>A timestamp is considered invalid if a weekday is specified and the date does not match the specified day of
-    the week.</para>
+    <para>If the date is omitted, it defaults to today. If the time is omitted, it defaults to 00:00:00.
+    Fractional seconds can be specified down to 1µs precision. The seconds field can also be omitted, defaulting to 0.</para>
 
-    <para>When parsing, systemd will also accept a few special
-    placeholders instead of timestamps: <literal>now</literal> may be
+    <para>There are special tokens that can be used in place of timestamps:
+    <literal>now</literal> may be
     used to refer to the current time (or of the invocation of the
     command that is currently executed). <literal>today</literal>,
     <literal>yesterday</literal>, and <literal>tomorrow</literal> refer to
     00:00:00 of the current day, the day before, or the next day,
     respectively.</para>
 
-    <para>When parsing, systemd will also accept relative time
-    specifications. A time span (see above) that is prefixed with
+    <para>Relative times are also accepted: a time span (see above) prefixed with
     <literal>+</literal> is evaluated to the current time plus the
     specified time span. Correspondingly, a time span that is prefixed
     with <literal>-</literal> is evaluated to the current time minus
@@ -147,9 +162,8 @@
     suffixed with a space and the word <literal>left</literal> or
     <literal>ago</literal>.</para>
 
-    <para>Finally, a timespan prefixed with <literal>@</literal> is
-    evaluated relative to the UNIX time epoch 1st Jan, 1970,
-    00:00.</para>
+    <para>Finally, an integer prefixed with <literal>@</literal> is
+    evaluated relative to the UNIX epoch – 1970-01-01 00:00:00 UTC.</para>
 
     <para>Examples for valid timestamps and their normalized form (assuming the current time was 2012-11-23
     18:15:22 and the timezone was UTC+8, for example <literal>TZ=:Asia/Shanghai</literal>):</para>
