@@ -203,10 +203,11 @@
     <variablelist class='journal-directives'>
       <varlistentry>
         <term><varname>_PID=</varname></term>
+        <term><varname>_PPID=</varname></term>
         <term><varname>_UID=</varname></term>
         <term><varname>_GID=</varname></term>
         <listitem>
-          <para>The process, user, and group ID of the process the
+          <para>The process, parent process, user, and group ID of the process the
           journal entry originates from formatted as a decimal
           string. Note that entries obtained via <literal>stdout</literal> or
           <literal>stderr</literal> of forked processes will contain credentials valid for a parent
@@ -552,6 +553,7 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>OBJECT_PPID=</varname></term>
         <term><varname>OBJECT_UID=</varname></term>
         <term><varname>OBJECT_GID=</varname></term>
         <term><varname>OBJECT_COMM=</varname></term>
@@ -568,6 +570,7 @@
           <para>These are additional fields added automatically by
           <command>systemd-journald</command>. Their meaning is the
           same as
+          <varname>_PPID=</varname>,
           <varname>_UID=</varname>,
           <varname>_GID=</varname>,
           <varname>_COMM=</varname>,

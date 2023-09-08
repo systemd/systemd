@@ -130,6 +130,8 @@ static inline bool sched_priority_is_valid(int i) {
         return i >= 0 && i <= sched_get_priority_max(SCHED_RR);
 }
 
+#define PID_INVALID 0
+
 static inline bool pid_is_valid(pid_t p) {
         return p > 0;
 }

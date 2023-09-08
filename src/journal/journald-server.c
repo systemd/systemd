@@ -1051,6 +1051,7 @@ static void server_dispatch_message_real(
 
         if (c) {
                 IOVEC_ADD_NUMERIC_FIELD(iovec, n, c->pid, pid_t, pid_is_valid, PID_FMT, "_PID");
+                IOVEC_ADD_NUMERIC_FIELD(iovec, n, c->ppid, pid_t, pid_is_valid, PID_FMT, "_PPID");
                 IOVEC_ADD_NUMERIC_FIELD(iovec, n, c->uid, uid_t, uid_is_valid, UID_FMT, "_UID");
                 IOVEC_ADD_NUMERIC_FIELD(iovec, n, c->gid, gid_t, gid_is_valid, GID_FMT, "_GID");
 
@@ -1088,6 +1089,7 @@ static void server_dispatch_message_real(
         if (pid_is_valid(object_pid) && client_context_get(s, object_pid, NULL, NULL, 0, NULL, &o) >= 0) {
 
                 IOVEC_ADD_NUMERIC_FIELD(iovec, n, o->pid, pid_t, pid_is_valid, PID_FMT, "OBJECT_PID");
+                IOVEC_ADD_NUMERIC_FIELD(iovec, n, o->ppid, pid_t, pid_is_valid, PID_FMT, "OBJECT_PPID");
                 IOVEC_ADD_NUMERIC_FIELD(iovec, n, o->uid, uid_t, uid_is_valid, UID_FMT, "OBJECT_UID");
                 IOVEC_ADD_NUMERIC_FIELD(iovec, n, o->gid, gid_t, gid_is_valid, GID_FMT, "OBJECT_GID");
 

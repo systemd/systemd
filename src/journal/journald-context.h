@@ -21,6 +21,7 @@ struct ClientContext {
         bool in_lru;
 
         pid_t pid;
+        pid_t ppid;
         uid_t uid;
         gid_t gid;
 

@@ -6,7 +6,7 @@ _journalctl_fields() {
     local -a journal_fields
     journal_fields=(MESSAGE{,_ID} PRIORITY CODE_{FILE,LINE,FUNC}
                     ERRNO SYSLOG_{FACILITY,IDENTIFIER,PID}
-                    _{P,U,G}ID _COMM _EXE _CMDLINE
+                    _{P,PP,U,G}ID _COMM _EXE _CMDLINE
                     _AUDIT_{SESSION,LOGINUID}
                     _SYSTEMD_{CGROUP,SESSION,UNIT,OWNER_UID}
                     _SYSTEMD_USER_UNIT USER_UNIT
