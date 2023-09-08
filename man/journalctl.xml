@@ -431,15 +431,6 @@
           </varlistentry>
 
           <varlistentry>
-            <term><option>--truncate-newline</option></term>
-
-            <listitem><para>Truncate each log message at the first newline character on output, so that only the
-            first line of each message is displayed.</para>
-
-            <xi:include href="version-info.xml" xpointer="v254"/></listitem>
-          </varlistentry>
-
-          <varlistentry>
             <term><option>short-precise</option></term>
             <listitem><para>is very similar, but shows classic syslog timestamps with full microsecond
             precision.</para></listitem>
@@ -539,6 +530,15 @@
             include the arguments in the unit names.</para></listitem>
           </varlistentry>
         </variablelist></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--truncate-newline</option></term>
+
+        <listitem><para>Truncate each log message at the first newline character on output, so that only the
+        first line of each message is displayed.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
 
       <varlistentry>
