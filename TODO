@@ -2466,3 +2466,7 @@ Features:
    - some servers don't do rapid commit without a filled in IA_NA, verify
      this behavior
    - RouteTable= ?
+
+* shared/wall: Once more programs are taught to prefer sd-login over utmp,
+  switch the default wall implementation to wall_logind
+  (https://github.com/systemd/systemd/pull/29051#issuecomment-1704917074)
