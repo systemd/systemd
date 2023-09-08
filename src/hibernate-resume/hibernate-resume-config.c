@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <sys/utsname.h>
-
 #include "alloc-util.h"
 #include "device-nodes.h"
 #include "fstab-util.h"
@@ -110,30 +108,20 @@ static int get_kernel_hibernate_location(KernelHibernateLocation **ret) {
 
 #if ENABLE_EFI
 static bool validate_efi_hibernate_location(EFIHibernateLocation *e) {
-        _cleanup_free_ char *id = NULL, *image_id = NULL, *version_id = NULL, *image_version = NULL;
-        struct utsname uts = {};
+        _cleanup_free_ char *id = NULL, *image_id = NULL;
         int r;
 
         assert(e);
 
-        if (uname(&uts) < 0)
-                log_warning_errno(errno, "Failed to get kernel info, ignoring: %m");
-
         r = parse_os_release(NULL,
                              "ID", &id,
-                             "IMAGE_ID", &image_id,
-                             "VERSION_ID", &version_id,
-                             "IMAGE_VERSION", &image_version);
+                             "IMAGE_ID", &image_id);
         if (r < 0)
-                log_warning_errno(r, "Failed to parse os-release, ignoring: %m");
+                log_warning_errno(r, "Failed to parse os-release: %m");
 
-        if (!streq(uts.release, strempty(e->kernel_version)) ||
-            !streq_ptr(id, e->id) ||
-            !streq_ptr(image_id, e->image_id) ||
-            !streq_ptr(version_id, e->version_id) ||
-            !streq_ptr(image_version, e->image_version)) {
-
-                log_notice("HibernateLocation system info doesn't match with current running system, not resuming from it.");
+        if (!streq_ptr(id, e->id) ||
+            !streq_ptr(image_id, e->image_id)) {
+                log_notice("HibernateLocation system identifier doesn't match currently running system, not resuming from it.");
                 return false;
         }
 
@@ -143,13 +131,10 @@ static bool validate_efi_hibernate_location(EFIHibernateLocation *e) {
 static int get_efi_hibernate_location(EFIHibernateLocation **ret) {
 
         static const JsonDispatch dispatch_table[] = {
-                { "uuid",                  JSON_VARIANT_STRING,   json_dispatch_id128,  offsetof(EFIHibernateLocation, uuid),           JSON_MANDATORY             },
-                { "offset",                JSON_VARIANT_UNSIGNED, json_dispatch_uint64, offsetof(EFIHibernateLocation, offset),         JSON_MANDATORY             },
-                { "kernelVersion",         JSON_VARIANT_STRING,   json_dispatch_string, offsetof(EFIHibernateLocation, kernel_version), JSON_PERMISSIVE|JSON_DEBUG },
-                { "osReleaseId",           JSON_VARIANT_STRING,   json_dispatch_string, offsetof(EFIHibernateLocation, id),             JSON_PERMISSIVE|JSON_DEBUG },
-                { "osReleaseImageId",      JSON_VARIANT_STRING,   json_dispatch_string, offsetof(EFIHibernateLocation, image_id),       JSON_PERMISSIVE|JSON_DEBUG },
-                { "osReleaseVersionId",    JSON_VARIANT_STRING,   json_dispatch_string, offsetof(EFIHibernateLocation, version_id),     JSON_PERMISSIVE|JSON_DEBUG },
-                { "osReleaseImageVersion", JSON_VARIANT_STRING,   json_dispatch_string, offsetof(EFIHibernateLocation, image_version),  JSON_PERMISSIVE|JSON_DEBUG },
+                { "uuid",             JSON_VARIANT_STRING,   json_dispatch_id128,  offsetof(EFIHibernateLocation, uuid),     JSON_MANDATORY             },
+                { "offset",           JSON_VARIANT_UNSIGNED, json_dispatch_uint64, offsetof(EFIHibernateLocation, offset),   JSON_MANDATORY             },
+                { "osReleaseId",      JSON_VARIANT_STRING,   json_dispatch_string, offsetof(EFIHibernateLocation, id),       JSON_PERMISSIVE|JSON_DEBUG },
+                { "osReleaseImageId", JSON_VARIANT_STRING,   json_dispatch_string, offsetof(EFIHibernateLocation, image_id), JSON_PERMISSIVE|JSON_DEBUG },
                 {},
         };
 
