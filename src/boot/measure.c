@@ -835,7 +835,7 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
 
                         r = tpm2_calculate_policy_pcr(&pcr_value, 1, &pcr_policy_digest);
                         if (r < 0)
-                                return r;
+                                return log_error_errno(r, "Could not calculate PolicyPCR digest: %m");
 
                         _cleanup_free_ void *sig = NULL;
                         size_t ss;
