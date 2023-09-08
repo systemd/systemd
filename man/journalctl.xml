@@ -421,22 +421,14 @@
 
           <varlistentry>
             <term><option>short-iso</option></term>
-            <listitem><para>is very similar, but shows ISO 8601 wallclock timestamps.</para></listitem>
+            <listitem><para>is very similar, but shows timestamps in the
+            <ulink url="https://tools.ietf.org/html/rfc3339">RFC 3339</ulink> profile of ISO 8601.</para></listitem>
           </varlistentry>
 
           <varlistentry>
             <term><option>short-iso-precise</option></term>
             <listitem><para>as for <option>short-iso</option> but includes full microsecond
             precision.</para></listitem>
-          </varlistentry>
-
-          <varlistentry>
-            <term><option>--truncate-newline</option></term>
-
-            <listitem><para>Truncate each log message at the first newline character on output, so that only the
-            first line of each message is displayed.</para>
-
-            <xi:include href="version-info.xml" xpointer="v254"/></listitem>
           </varlistentry>
 
           <varlistentry>
@@ -539,6 +531,15 @@
             include the arguments in the unit names.</para></listitem>
           </varlistentry>
         </variablelist></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--truncate-newline</option></term>
+
+        <listitem><para>Truncate each log message at the first newline character on output, so that only the
+        first line of each message is displayed.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
 
       <varlistentry>
