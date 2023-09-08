@@ -181,11 +181,6 @@ int network_verify(Network *network) {
                                     network->filename);
                         network->link_local = ADDRESS_FAMILY_NO;
                 }
-                if (network->dhcp_server) {
-                        log_warning("%s: Cannot enable DHCPServer= when Bond= is specified, disabling DHCPServer=.",
-                                    network->filename);
-                        network->dhcp_server = false;
-                }
                 if (!ordered_hashmap_isempty(network->addresses_by_section))
                         log_warning("%s: Cannot set addresses when Bond= is specified, ignoring addresses.",
                                     network->filename);
