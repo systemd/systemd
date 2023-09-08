@@ -1233,21 +1233,15 @@ int job_deserialize(Job *j, FILE *f) {
         assert(f);
 
         for (;;) {
-                _cleanup_free_ char *line = NULL;
-                char *l, *v;
+                _cleanup_free_ char *l = NULL;
                 size_t k;
+                char *v;
 
-                r = read_line(f, LONG_LINE_MAX, &line);
+                r = deserialize_read_line(f, &l);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to read serialization line: %m");
-                if (r == 0)
-                        return 0;
-
-                l = strstrip(line);
-
-                /* End marker */
-                if (isempty(l))
-                        return 0;
+                        return r;
+                if (r == 0) /* eof or end marker */
+                        break;
 
                 k = strcspn(l, "=");
 
@@ -1326,6 +1320,8 @@ int job_deserialize(Job *j, FILE *f) {
                 } else
                         log_debug("Unknown job serialization key: %s", l);
         }
+
+        return 0;
 }
 
 int job_coldplug(Job *j) {
