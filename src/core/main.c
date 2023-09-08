@@ -130,16 +130,7 @@ static StatusUnitFormat arg_status_unit_format;
 static bool arg_switched_root;
 static PagerFlags arg_pager_flags;
 static bool arg_service_watchdogs;
-static ExecOutput arg_default_std_output;
-static ExecOutput arg_default_std_error;
-static usec_t arg_default_restart_usec;
-static usec_t arg_default_timeout_start_usec;
-static usec_t arg_default_timeout_stop_usec;
-static usec_t arg_default_timeout_abort_usec;
-static usec_t arg_default_device_timeout_usec;
-static bool arg_default_timeout_abort_set;
-static usec_t arg_default_start_limit_interval;
-static unsigned arg_default_start_limit_burst;
+static UnitDefaults arg_defaults;
 static usec_t arg_runtime_watchdog;
 static usec_t arg_reboot_watchdog;
 static usec_t arg_kexec_watchdog;
@@ -149,33 +140,18 @@ static char *arg_watchdog_pretimeout_governor;
 static char *arg_watchdog_device;
 static char **arg_default_environment;
 static char **arg_manager_environment;
-static struct rlimit *arg_default_rlimit[_RLIMIT_MAX];
 static uint64_t arg_capability_bounding_set;
 static bool arg_no_new_privs;
 static nsec_t arg_timer_slack_nsec;
-static usec_t arg_default_timer_accuracy_usec;
 static Set* arg_syscall_archs;
 static FILE* arg_serialization;
-static int arg_default_cpu_accounting;
-static bool arg_default_io_accounting;
-static bool arg_default_ip_accounting;
-static bool arg_default_blockio_accounting;
-static bool arg_default_memory_accounting;
-static bool arg_default_tasks_accounting;
-static TasksMax arg_default_tasks_max;
-static usec_t arg_default_memory_pressure_threshold_usec;
-static CGroupPressureWatch arg_default_memory_pressure_watch;
 static sd_id128_t arg_machine_id;
 static EmergencyAction arg_cad_burst_action;
-static OOMPolicy arg_default_oom_policy;
 static CPUSet arg_cpu_affinity;
 static NUMAPolicy arg_numa_policy;
 static usec_t arg_clock_usec;
 static void *arg_random_seed;
 static size_t arg_random_seed_size;
-static int arg_default_oom_score_adjust;
-static bool arg_default_oom_score_adjust_set;
-static char *arg_default_smack_process_label;
 static usec_t arg_reload_limit_interval_sec;
 static unsigned arg_reload_limit_burst;
 
@@ -347,7 +323,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (r < 0)
                         log_warning_errno(r, "Failed to parse default standard output switch %s, ignoring: %m", value);
                 else
-                        arg_default_std_output = r;
+                        arg_defaults.std_output = r;
 
         } else if (proc_cmdline_key_streq(key, "systemd.default_standard_error")) {
 
@@ -358,7 +334,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (r < 0)
                         log_warning_errno(r, "Failed to parse default standard error switch %s, ignoring: %m", value);
                 else
-                        arg_default_std_error = r;
+                        arg_defaults.std_error = r;
 
         } else if (streq(key, "systemd.setenv")) {
 
@@ -387,24 +363,24 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
-                r = parse_sec(value, &arg_default_timeout_start_usec);
+                r = parse_sec(value, &arg_defaults.timeout_start_usec);
                 if (r < 0)
                         log_warning_errno(r, "Failed to parse default start timeout '%s', ignoring: %m", value);
 
-                if (arg_default_timeout_start_usec <= 0)
-                        arg_default_timeout_start_usec = USEC_INFINITY;
+                if (arg_defaults.timeout_start_usec <= 0)
+                        arg_defaults.timeout_start_usec = USEC_INFINITY;
 
         } else if (proc_cmdline_key_streq(key, "systemd.default_device_timeout_sec")) {
 
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
-                r = parse_sec(value, &arg_default_device_timeout_usec);
+                r = parse_sec(value, &arg_defaults.device_timeout_usec);
                 if (r < 0)
                         log_warning_errno(r, "Failed to parse default device timeout '%s', ignoring: %m", value);
 
-                if (arg_default_device_timeout_usec <= 0)
-                        arg_default_device_timeout_usec = USEC_INFINITY;
+                if (arg_defaults.device_timeout_usec <= 0)
+                        arg_defaults.device_timeout_usec = USEC_INFINITY;
 
         } else if (proc_cmdline_key_streq(key, "systemd.cpu_affinity")) {
 
@@ -589,10 +565,19 @@ static int config_parse_default_timeout_abort(
                 void *userdata) {
         int r;
 
-        r = config_parse_timeout_abort(unit, filename, line, section, section_line, lvalue, ltype, rvalue,
-                                       &arg_default_timeout_abort_usec, userdata);
+        r = config_parse_timeout_abort(
+                        unit,
+                        filename,
+                        line,
+                        section,
+                        section_line,
+                        lvalue,
+                        ltype,
+                        rvalue,
+                        &arg_defaults.timeout_abort_usec,
+                        userdata);
         if (r >= 0)
-                arg_default_timeout_abort_set = r;
+                arg_defaults.timeout_abort_set = r;
         return 0;
 }
 
@@ -611,7 +596,7 @@ static int config_parse_oom_score_adjust(
         int oa, r;
 
         if (isempty(rvalue)) {
-                arg_default_oom_score_adjust_set = false;
+                arg_defaults.oom_score_adjust_set = false;
                 return 0;
         }
 
@@ -621,8 +606,8 @@ static int config_parse_oom_score_adjust(
                 return 0;
         }
 
-        arg_default_oom_score_adjust = oa;
-        arg_default_oom_score_adjust_set = true;
+        arg_defaults.oom_score_adjust = oa;
+        arg_defaults.oom_score_adjust_set = true;
 
         return 0;
 }
@@ -661,51 +646,51 @@ static int parse_config_file(void) {
 
 #endif
                 { "Manager", "TimerSlackNSec",               config_parse_nsec,                  0,                        &arg_timer_slack_nsec             },
-                { "Manager", "DefaultTimerAccuracySec",      config_parse_sec,                   0,                        &arg_default_timer_accuracy_usec  },
-                { "Manager", "DefaultStandardOutput",        config_parse_output_restricted,     0,                        &arg_default_std_output           },
-                { "Manager", "DefaultStandardError",         config_parse_output_restricted,     0,                        &arg_default_std_error            },
-                { "Manager", "DefaultTimeoutStartSec",       config_parse_sec,                   0,                        &arg_default_timeout_start_usec   },
-                { "Manager", "DefaultTimeoutStopSec",        config_parse_sec,                   0,                        &arg_default_timeout_stop_usec    },
+                { "Manager", "DefaultTimerAccuracySec",      config_parse_sec,                   0,                        &arg_defaults.timer_accuracy_usec },
+                { "Manager", "DefaultStandardOutput",        config_parse_output_restricted,     0,                        &arg_defaults.std_output          },
+                { "Manager", "DefaultStandardError",         config_parse_output_restricted,     0,                        &arg_defaults.std_error           },
+                { "Manager", "DefaultTimeoutStartSec",       config_parse_sec,                   0,                        &arg_defaults.timeout_start_usec  },
+                { "Manager", "DefaultTimeoutStopSec",        config_parse_sec,                   0,                        &arg_defaults.timeout_stop_usec   },
                 { "Manager", "DefaultTimeoutAbortSec",       config_parse_default_timeout_abort, 0,                        NULL                              },
-                { "Manager", "DefaultDeviceTimeoutSec",      config_parse_sec,                   0,                        &arg_default_device_timeout_usec  },
-                { "Manager", "DefaultRestartSec",            config_parse_sec,                   0,                        &arg_default_restart_usec         },
-                { "Manager", "DefaultStartLimitInterval",    config_parse_sec,                   0,                        &arg_default_start_limit_interval }, /* obsolete alias */
-                { "Manager", "DefaultStartLimitIntervalSec", config_parse_sec,                   0,                        &arg_default_start_limit_interval },
-                { "Manager", "DefaultStartLimitBurst",       config_parse_unsigned,              0,                        &arg_default_start_limit_burst    },
+                { "Manager", "DefaultDeviceTimeoutSec",      config_parse_sec,                   0,                        &arg_defaults.device_timeout_usec },
+                { "Manager", "DefaultRestartSec",            config_parse_sec,                   0,                        &arg_defaults.restart_usec        },
+                { "Manager", "DefaultStartLimitInterval",    config_parse_sec,                   0,                        &arg_defaults.start_limit_interval}, /* obsolete alias */
+                { "Manager", "DefaultStartLimitIntervalSec", config_parse_sec,                   0,                        &arg_defaults.start_limit_interval},
+                { "Manager", "DefaultStartLimitBurst",       config_parse_unsigned,              0,                        &arg_defaults.start_limit_burst   },
                 { "Manager", "DefaultEnvironment",           config_parse_environ,               arg_runtime_scope,        &arg_default_environment          },
                 { "Manager", "ManagerEnvironment",           config_parse_environ,               arg_runtime_scope,        &arg_manager_environment          },
-                { "Manager", "DefaultLimitCPU",              config_parse_rlimit,                RLIMIT_CPU,               arg_default_rlimit                },
-                { "Manager", "DefaultLimitFSIZE",            config_parse_rlimit,                RLIMIT_FSIZE,             arg_default_rlimit                },
-                { "Manager", "DefaultLimitDATA",             config_parse_rlimit,                RLIMIT_DATA,              arg_default_rlimit                },
-                { "Manager", "DefaultLimitSTACK",            config_parse_rlimit,                RLIMIT_STACK,             arg_default_rlimit                },
-                { "Manager", "DefaultLimitCORE",             config_parse_rlimit,                RLIMIT_CORE,              arg_default_rlimit                },
-                { "Manager", "DefaultLimitRSS",              config_parse_rlimit,                RLIMIT_RSS,               arg_default_rlimit                },
-                { "Manager", "DefaultLimitNOFILE",           config_parse_rlimit,                RLIMIT_NOFILE,            arg_default_rlimit                },
-                { "Manager", "DefaultLimitAS",               config_parse_rlimit,                RLIMIT_AS,                arg_default_rlimit                },
-                { "Manager", "DefaultLimitNPROC",            config_parse_rlimit,                RLIMIT_NPROC,             arg_default_rlimit                },
-                { "Manager", "DefaultLimitMEMLOCK",          config_parse_rlimit,                RLIMIT_MEMLOCK,           arg_default_rlimit                },
-                { "Manager", "DefaultLimitLOCKS",            config_parse_rlimit,                RLIMIT_LOCKS,             arg_default_rlimit                },
-                { "Manager", "DefaultLimitSIGPENDING",       config_parse_rlimit,                RLIMIT_SIGPENDING,        arg_default_rlimit                },
-                { "Manager", "DefaultLimitMSGQUEUE",         config_parse_rlimit,                RLIMIT_MSGQUEUE,          arg_default_rlimit                },
-                { "Manager", "DefaultLimitNICE",             config_parse_rlimit,                RLIMIT_NICE,              arg_default_rlimit                },
-                { "Manager", "DefaultLimitRTPRIO",           config_parse_rlimit,                RLIMIT_RTPRIO,            arg_default_rlimit                },
-                { "Manager", "DefaultLimitRTTIME",           config_parse_rlimit,                RLIMIT_RTTIME,            arg_default_rlimit                },
-                { "Manager", "DefaultCPUAccounting",         config_parse_tristate,              0,                        &arg_default_cpu_accounting       },
-                { "Manager", "DefaultIOAccounting",          config_parse_bool,                  0,                        &arg_default_io_accounting        },
-                { "Manager", "DefaultIPAccounting",          config_parse_bool,                  0,                        &arg_default_ip_accounting        },
-                { "Manager", "DefaultBlockIOAccounting",     config_parse_bool,                  0,                        &arg_default_blockio_accounting   },
-                { "Manager", "DefaultMemoryAccounting",      config_parse_bool,                  0,                        &arg_default_memory_accounting    },
-                { "Manager", "DefaultTasksAccounting",       config_parse_bool,                  0,                        &arg_default_tasks_accounting     },
-                { "Manager", "DefaultTasksMax",              config_parse_tasks_max,             0,                        &arg_default_tasks_max            },
-                { "Manager", "DefaultMemoryPressureThresholdSec", config_parse_sec,              0,                        &arg_default_memory_pressure_threshold_usec },
-                { "Manager", "DefaultMemoryPressureWatch",   config_parse_memory_pressure_watch, 0,                        &arg_default_memory_pressure_watch },
+                { "Manager", "DefaultLimitCPU",              config_parse_rlimit,                RLIMIT_CPU,               arg_defaults.rlimit               },
+                { "Manager", "DefaultLimitFSIZE",            config_parse_rlimit,                RLIMIT_FSIZE,             arg_defaults.rlimit               },
+                { "Manager", "DefaultLimitDATA",             config_parse_rlimit,                RLIMIT_DATA,              arg_defaults.rlimit               },
+                { "Manager", "DefaultLimitSTACK",            config_parse_rlimit,                RLIMIT_STACK,             arg_defaults.rlimit               },
+                { "Manager", "DefaultLimitCORE",             config_parse_rlimit,                RLIMIT_CORE,              arg_defaults.rlimit               },
+                { "Manager", "DefaultLimitRSS",              config_parse_rlimit,                RLIMIT_RSS,               arg_defaults.rlimit               },
+                { "Manager", "DefaultLimitNOFILE",           config_parse_rlimit,                RLIMIT_NOFILE,            arg_defaults.rlimit               },
+                { "Manager", "DefaultLimitAS",               config_parse_rlimit,                RLIMIT_AS,                arg_defaults.rlimit               },
+                { "Manager", "DefaultLimitNPROC",            config_parse_rlimit,                RLIMIT_NPROC,             arg_defaults.rlimit               },
+                { "Manager", "DefaultLimitMEMLOCK",          config_parse_rlimit,                RLIMIT_MEMLOCK,           arg_defaults.rlimit               },
+                { "Manager", "DefaultLimitLOCKS",            config_parse_rlimit,                RLIMIT_LOCKS,             arg_defaults.rlimit               },
+                { "Manager", "DefaultLimitSIGPENDING",       config_parse_rlimit,                RLIMIT_SIGPENDING,        arg_defaults.rlimit               },
+                { "Manager", "DefaultLimitMSGQUEUE",         config_parse_rlimit,                RLIMIT_MSGQUEUE,          arg_defaults.rlimit               },
+                { "Manager", "DefaultLimitNICE",             config_parse_rlimit,                RLIMIT_NICE,              arg_defaults.rlimit               },
+                { "Manager", "DefaultLimitRTPRIO",           config_parse_rlimit,                RLIMIT_RTPRIO,            arg_defaults.rlimit               },
+                { "Manager", "DefaultLimitRTTIME",           config_parse_rlimit,                RLIMIT_RTTIME,            arg_defaults.rlimit               },
+                { "Manager", "DefaultCPUAccounting",         config_parse_bool,                  0,                        &arg_defaults.cpu_accounting      },
+                { "Manager", "DefaultIOAccounting",          config_parse_bool,                  0,                        &arg_defaults.io_accounting       },
+                { "Manager", "DefaultIPAccounting",          config_parse_bool,                  0,                        &arg_defaults.ip_accounting       },
+                { "Manager", "DefaultBlockIOAccounting",     config_parse_bool,                  0,                        &arg_defaults.blockio_accounting  },
+                { "Manager", "DefaultMemoryAccounting",      config_parse_bool,                  0,                        &arg_defaults.memory_accounting   },
+                { "Manager", "DefaultTasksAccounting",       config_parse_bool,                  0,                        &arg_defaults.tasks_accounting    },
+                { "Manager", "DefaultTasksMax",              config_parse_tasks_max,             0,                        &arg_defaults.tasks_max           },
+                { "Manager", "DefaultMemoryPressureThresholdSec", config_parse_sec,              0,                        &arg_defaults.memory_pressure_threshold_usec },
+                { "Manager", "DefaultMemoryPressureWatch",   config_parse_memory_pressure_watch, 0,                        &arg_defaults.memory_pressure_watch },
                 { "Manager", "CtrlAltDelBurstAction",        config_parse_emergency_action,      arg_runtime_scope,        &arg_cad_burst_action             },
-                { "Manager", "DefaultOOMPolicy",             config_parse_oom_policy,            0,                        &arg_default_oom_policy           },
+                { "Manager", "DefaultOOMPolicy",             config_parse_oom_policy,            0,                        &arg_defaults.oom_policy          },
                 { "Manager", "DefaultOOMScoreAdjust",        config_parse_oom_score_adjust,      0,                        NULL                              },
                 { "Manager", "ReloadLimitIntervalSec",       config_parse_sec,                   0,                        &arg_reload_limit_interval_sec    },
                 { "Manager", "ReloadLimitBurst",             config_parse_unsigned,              0,                        &arg_reload_limit_burst           },
 #if ENABLE_SMACK
-                { "Manager", "DefaultSmackProcessLabel",     config_parse_string,                0,                        &arg_default_smack_process_label  },
+                { "Manager", "DefaultSmackProcessLabel",     config_parse_string,                0,                        &arg_defaults.smack_process_label },
 #else
                 { "Manager", "DefaultSmackProcessLabel",     config_parse_warn_compat,           DISABLED_CONFIGURATION,   NULL                              },
 #endif
@@ -741,10 +726,10 @@ static int parse_config_file(void) {
 
         /* Traditionally "0" was used to turn off the default unit timeouts. Fix this up so that we use
          * USEC_INFINITY like everywhere else. */
-        if (arg_default_timeout_start_usec <= 0)
-                arg_default_timeout_start_usec = USEC_INFINITY;
-        if (arg_default_timeout_stop_usec <= 0)
-                arg_default_timeout_stop_usec = USEC_INFINITY;
+        if (arg_defaults.timeout_start_usec <= 0)
+                arg_defaults.timeout_start_usec = USEC_INFINITY;
+        if (arg_defaults.timeout_stop_usec <= 0)
+                arg_defaults.timeout_stop_usec = USEC_INFINITY;
 
         return 0;
 }
@@ -757,40 +742,33 @@ static void set_manager_defaults(Manager *m) {
          * affect the manager itself, but are just what newly allocated units will have set if they haven't set
          * anything else. (Also see set_manager_settings() for the settings that affect the manager's own behaviour) */
 
-        m->default_timer_accuracy_usec = arg_default_timer_accuracy_usec;
-        m->default_std_output = arg_default_std_output;
-        m->default_std_error = arg_default_std_error;
-        m->default_timeout_start_usec = arg_default_timeout_start_usec;
-        m->default_timeout_stop_usec = arg_default_timeout_stop_usec;
-        m->default_timeout_abort_usec = arg_default_timeout_abort_usec;
-        m->default_timeout_abort_set = arg_default_timeout_abort_set;
-        m->default_device_timeout_usec = arg_default_device_timeout_usec;
-        m->default_restart_usec = arg_default_restart_usec;
-        m->default_start_limit_interval = arg_default_start_limit_interval;
-        m->default_start_limit_burst = arg_default_start_limit_burst;
+        m->defaults.timer_accuracy_usec = arg_defaults.timer_accuracy_usec;
+        m->defaults.std_output = arg_defaults.std_output;
+        m->defaults.std_error = arg_defaults.std_error;
+        m->defaults.timeout_start_usec = arg_defaults.timeout_start_usec;
+        m->defaults.timeout_stop_usec = arg_defaults.timeout_stop_usec;
+        m->defaults.timeout_abort_usec = arg_defaults.timeout_abort_usec;
+        m->defaults.timeout_abort_set = arg_defaults.timeout_abort_set;
+        m->defaults.device_timeout_usec = arg_defaults.device_timeout_usec;
+        m->defaults.restart_usec = arg_defaults.restart_usec;
+        m->defaults.start_limit_interval = arg_defaults.start_limit_interval;
+        m->defaults.start_limit_burst = arg_defaults.start_limit_burst;
+        m->defaults.cpu_accounting = arg_defaults.cpu_accounting;
+        m->defaults.io_accounting = arg_defaults.io_accounting;
+        m->defaults.ip_accounting = arg_defaults.ip_accounting;
+        m->defaults.blockio_accounting = arg_defaults.blockio_accounting;
+        m->defaults.memory_accounting = arg_defaults.memory_accounting;
+        m->defaults.tasks_accounting = arg_defaults.tasks_accounting;
+        m->defaults.tasks_max = arg_defaults.tasks_max;
+        m->defaults.memory_pressure_watch = arg_defaults.memory_pressure_watch;
+        m->defaults.memory_pressure_threshold_usec = arg_defaults.memory_pressure_threshold_usec;
+        m->defaults.oom_policy = arg_defaults.oom_policy;
+        m->defaults.oom_score_adjust_set = arg_defaults.oom_score_adjust_set;
+        m->defaults.oom_score_adjust = arg_defaults.oom_score_adjust;
 
-        /* On 4.15+ with unified hierarchy, CPU accounting is essentially free as it doesn't require the CPU
-         * controller to be enabled, so the default is to enable it unless we got told otherwise. */
-        if (arg_default_cpu_accounting >= 0)
-                m->default_cpu_accounting = arg_default_cpu_accounting;
-        else
-                m->default_cpu_accounting = cpu_accounting_is_cheap();
+        (void) manager_set_default_smack_process_label(m, arg_defaults.smack_process_label);
 
-        m->default_io_accounting = arg_default_io_accounting;
-        m->default_ip_accounting = arg_default_ip_accounting;
-        m->default_blockio_accounting = arg_default_blockio_accounting;
-        m->default_memory_accounting = arg_default_memory_accounting;
-        m->default_tasks_accounting = arg_default_tasks_accounting;
-        m->default_tasks_max = arg_default_tasks_max;
-        m->default_memory_pressure_watch = arg_default_memory_pressure_watch;
-        m->default_memory_pressure_threshold_usec = arg_default_memory_pressure_threshold_usec;
-        m->default_oom_policy = arg_default_oom_policy;
-        m->default_oom_score_adjust_set = arg_default_oom_score_adjust_set;
-        m->default_oom_score_adjust = arg_default_oom_score_adjust;
-
-        (void) manager_set_default_smack_process_label(m, arg_default_smack_process_label);
-
-        (void) manager_set_default_rlimits(m, arg_default_rlimit);
+        (void) manager_set_default_rlimits(m, arg_defaults.rlimit);
 
         (void) manager_default_environment(m);
         (void) manager_transient_environment_add(m, arg_default_environment);
@@ -904,7 +882,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse default standard output setting \"%s\": %m",
                                                        optarg);
-                        arg_default_std_output = r;
+                        arg_defaults.std_output = r;
                         break;
 
                 case ARG_DEFAULT_STD_ERROR:
@@ -912,7 +890,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse default standard error output setting \"%s\": %m",
                                                        optarg);
-                        arg_default_std_error = r;
+                        arg_defaults.std_error = r;
                         break;
 
                 case ARG_UNIT:
@@ -1520,7 +1498,7 @@ static int become_shutdown(int objective, int retval) {
         assert(table[objective]);
 
         xsprintf(log_level, "--log-level=%d", log_get_max_level());
-        xsprintf(timeout, "--timeout=%" PRI_USEC "us", arg_default_timeout_stop_usec);
+        xsprintf(timeout, "--timeout=%" PRI_USEC "us", arg_defaults.timeout_stop_usec);
 
         const char* command_line[10] = {
                 SYSTEMD_SHUTDOWN_BINARY_PATH,
@@ -1805,11 +1783,11 @@ static void finish_remaining_processes(ManagerObjective objective) {
         /* Kill all remaining processes from the initrd, but don't wait for them, so that we can handle the
          * SIGCHLD for them after deserializing. */
         if (IN_SET(objective, MANAGER_SWITCH_ROOT, MANAGER_SOFT_REBOOT))
-                broadcast_signal(SIGTERM, /* wait_for_exit= */ false, /* send_sighup= */ true, arg_default_timeout_stop_usec);
+                broadcast_signal(SIGTERM, /* wait_for_exit= */ false, /* send_sighup= */ true, arg_defaults.timeout_stop_usec);
 
         /* On soft reboot really make sure nothing is left */
         if (objective == MANAGER_SOFT_REBOOT)
-                broadcast_signal(SIGKILL, /* wait_for_exit= */ false, /* send_sighup= */ false, arg_default_timeout_stop_usec);
+                broadcast_signal(SIGKILL, /* wait_for_exit= */ false, /* send_sighup= */ false, arg_defaults.timeout_stop_usec);
 }
 
 static int do_reexecute(
@@ -2460,7 +2438,7 @@ static void save_rlimits(struct rlimit *saved_rlimit_nofile,
 static void fallback_rlimit_nofile(const struct rlimit *saved_rlimit_nofile) {
         struct rlimit *rl;
 
-        if (arg_default_rlimit[RLIMIT_NOFILE])
+        if (arg_defaults.rlimit[RLIMIT_NOFILE])
                 return;
 
         /* Make sure forked processes get limits based on the original kernel setting */
@@ -2498,7 +2476,7 @@ static void fallback_rlimit_nofile(const struct rlimit *saved_rlimit_nofile) {
          * instance), then lower what we pass on to not confuse our children */
         rl->rlim_cur = MIN(rl->rlim_cur, (rlim_t) FD_SETSIZE);
 
-        arg_default_rlimit[RLIMIT_NOFILE] = rl;
+        arg_defaults.rlimit[RLIMIT_NOFILE] = rl;
 }
 
 static void fallback_rlimit_memlock(const struct rlimit *saved_rlimit_memlock) {
@@ -2506,7 +2484,7 @@ static void fallback_rlimit_memlock(const struct rlimit *saved_rlimit_memlock) {
 
         /* Pass the original value down to invoked processes */
 
-        if (arg_default_rlimit[RLIMIT_MEMLOCK])
+        if (arg_defaults.rlimit[RLIMIT_MEMLOCK])
                 return;
 
         rl = newdup(struct rlimit, saved_rlimit_memlock, 1);
@@ -2522,7 +2500,7 @@ static void fallback_rlimit_memlock(const struct rlimit *saved_rlimit_memlock) {
                 rl->rlim_cur = MAX(rl->rlim_cur, (rlim_t) DEFAULT_RLIMIT_MEMLOCK);
         }
 
-        arg_default_rlimit[RLIMIT_MEMLOCK] = rl;
+        arg_defaults.rlimit[RLIMIT_MEMLOCK] = rl;
 }
 
 static void setenv_manager_environment(void) {
@@ -2554,16 +2532,39 @@ static void reset_arguments(void) {
         arg_switched_root = false;
         arg_pager_flags = 0;
         arg_service_watchdogs = true;
-        arg_default_std_output = EXEC_OUTPUT_JOURNAL;
-        arg_default_std_error = EXEC_OUTPUT_INHERIT;
-        arg_default_restart_usec = DEFAULT_RESTART_USEC;
-        arg_default_timeout_start_usec = manager_default_timeout(arg_runtime_scope);
-        arg_default_timeout_stop_usec = manager_default_timeout(arg_runtime_scope);
-        arg_default_timeout_abort_usec = manager_default_timeout(arg_runtime_scope);
-        arg_default_timeout_abort_set = false;
-        arg_default_device_timeout_usec = manager_default_timeout(arg_runtime_scope);
-        arg_default_start_limit_interval = DEFAULT_START_LIMIT_INTERVAL;
-        arg_default_start_limit_burst = DEFAULT_START_LIMIT_BURST;
+
+        unit_defaults_done(&arg_defaults);
+
+        arg_defaults = (UnitDefaults) {
+                .std_output = EXEC_OUTPUT_JOURNAL,
+                .std_error = EXEC_OUTPUT_INHERIT,
+                .restart_usec = DEFAULT_RESTART_USEC,
+                .timeout_start_usec = manager_default_timeout(arg_runtime_scope),
+                .timeout_stop_usec = manager_default_timeout(arg_runtime_scope),
+                .timeout_abort_usec = manager_default_timeout(arg_runtime_scope),
+                .timeout_abort_set = false,
+                .device_timeout_usec = manager_default_timeout(arg_runtime_scope),
+                .start_limit_interval = DEFAULT_START_LIMIT_INTERVAL,
+                .start_limit_burst = DEFAULT_START_LIMIT_BURST,
+
+                /* On 4.15+ with unified hierarchy, CPU accounting is essentially free as it doesn't require the CPU
+                 * controller to be enabled, so the default is to enable it unless we got told otherwise. */
+                .cpu_accounting = cpu_accounting_is_cheap(),
+                .memory_accounting = MEMORY_ACCOUNTING_DEFAULT,
+                .io_accounting = false,
+                .blockio_accounting = false,
+                .tasks_accounting = true,
+                .ip_accounting = false,
+
+                .tasks_max = DEFAULT_TASKS_MAX,
+                .timer_accuracy_usec = 1 * USEC_PER_MINUTE,
+
+                .memory_pressure_watch = CGROUP_PRESSURE_WATCH_AUTO,
+                .memory_pressure_threshold_usec = MEMORY_PRESSURE_DEFAULT_THRESHOLD_USEC,
+
+                .oom_policy = OOM_STOP,
+                .oom_score_adjust_set = false,
+        };
         arg_runtime_watchdog = 0;
         arg_reboot_watchdog = 10 * USEC_PER_MINUTE;
         arg_kexec_watchdog = 0;
@@ -2574,29 +2575,17 @@ static void reset_arguments(void) {
 
         arg_default_environment = strv_free(arg_default_environment);
         arg_manager_environment = strv_free(arg_manager_environment);
-        rlimit_free_all(arg_default_rlimit);
 
         arg_capability_bounding_set = CAP_MASK_UNSET;
         arg_no_new_privs = false;
         arg_timer_slack_nsec = NSEC_INFINITY;
-        arg_default_timer_accuracy_usec = 1 * USEC_PER_MINUTE;
 
         arg_syscall_archs = set_free(arg_syscall_archs);
 
         /* arg_serialization — ignore */
 
-        arg_default_cpu_accounting = -1;
-        arg_default_io_accounting = false;
-        arg_default_ip_accounting = false;
-        arg_default_blockio_accounting = false;
-        arg_default_memory_accounting = MEMORY_ACCOUNTING_DEFAULT;
-        arg_default_tasks_accounting = true;
-        arg_default_tasks_max = DEFAULT_TASKS_MAX;
-        arg_default_memory_pressure_threshold_usec = MEMORY_PRESSURE_DEFAULT_THRESHOLD_USEC;
-        arg_default_memory_pressure_watch = CGROUP_PRESSURE_WATCH_AUTO;
         arg_machine_id = (sd_id128_t) {};
         arg_cad_burst_action = EMERGENCY_ACTION_REBOOT_FORCE;
-        arg_default_oom_policy = OOM_STOP;
 
         cpu_set_reset(&arg_cpu_affinity);
         numa_policy_reset(&arg_numa_policy);
@@ -2604,9 +2593,6 @@ static void reset_arguments(void) {
         arg_random_seed = mfree(arg_random_seed);
         arg_random_seed_size = 0;
         arg_clock_usec = 0;
-
-        arg_default_oom_score_adjust_set = false;
-        arg_default_smack_process_label = mfree(arg_default_smack_process_label);
 
         arg_reload_limit_interval_sec = 0;
         arg_reload_limit_burst = 0;
@@ -2619,7 +2605,7 @@ static void determine_default_oom_score_adjust(void) {
          * do this only if we don't run as root (i.e. only if we are run in user mode, for an unprivileged
          * user). */
 
-        if (arg_default_oom_score_adjust_set)
+        if (arg_defaults.oom_score_adjust_set)
                 return;
 
         if (getuid() == 0)
@@ -2635,8 +2621,8 @@ static void determine_default_oom_score_adjust(void) {
         if (a == b)
                 return;
 
-        arg_default_oom_score_adjust = b;
-        arg_default_oom_score_adjust_set = true;
+        arg_defaults.oom_score_adjust = b;
+        arg_defaults.oom_score_adjust_set = true;
 }
 
 static int parse_configuration(const struct rlimit *saved_rlimit_nofile,

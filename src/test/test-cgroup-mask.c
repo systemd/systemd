@@ -53,12 +53,12 @@ TEST_RET(cgroup_mask, .sd_booted = true) {
         /* Turn off all kinds of default accounting, so that we can
          * verify the masks resulting of our configuration and nothing
          * else. */
-        m->default_cpu_accounting =
-                m->default_memory_accounting =
-                m->default_blockio_accounting =
-                m->default_io_accounting =
-                m->default_tasks_accounting = false;
-        m->default_tasks_max = TASKS_MAX_UNSET;
+        m->defaults.cpu_accounting =
+                m->defaults.memory_accounting =
+                m->defaults.blockio_accounting =
+                m->defaults.io_accounting =
+                m->defaults.tasks_accounting = false;
+        m->defaults.tasks_max = TASKS_MAX_UNSET;
 
         assert_se(manager_startup(m, NULL, NULL, NULL) >= 0);
 

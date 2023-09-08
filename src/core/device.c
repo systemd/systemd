@@ -129,7 +129,7 @@ static void device_init(Unit *u) {
          * indefinitely for plugged in devices, something which cannot
          * happen for the other units since their operations time out
          * anyway. */
-        u->job_running_timeout = u->manager->default_device_timeout_usec;
+        u->job_running_timeout = u->manager->defaults.device_timeout_usec;
 
         u->ignore_on_isolate = true;
 

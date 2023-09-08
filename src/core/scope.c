@@ -41,7 +41,7 @@ static void scope_init(Unit *u) {
         assert(u->load_state == UNIT_STUB);
 
         s->runtime_max_usec = USEC_INFINITY;
-        s->timeout_stop_usec = u->manager->default_timeout_stop_usec;
+        s->timeout_stop_usec = u->manager->defaults.timeout_stop_usec;
         u->ignore_on_isolate = true;
         s->user = s->group = NULL;
         s->oom_policy = _OOM_POLICY_INVALID;
@@ -197,7 +197,7 @@ static int scope_add_extras(Scope *s) {
                 return r;
 
         if (s->oom_policy < 0)
-                s->oom_policy = s->cgroup_context.delegate ? OOM_CONTINUE : UNIT(s)->manager->default_oom_policy;
+                s->oom_policy = s->cgroup_context.delegate ? OOM_CONTINUE : UNIT(s)->manager->defaults.oom_policy;
 
         s->cgroup_context.memory_oom_group = s->oom_policy == OOM_KILL;
 
@@ -377,7 +377,7 @@ static int scope_enter_start_chown(Scope *s) {
         assert(s);
         assert(s->user);
 
-        r = scope_arm_timer(s, usec_add(now(CLOCK_MONOTONIC), u->manager->default_timeout_start_usec));
+        r = scope_arm_timer(s, usec_add(now(CLOCK_MONOTONIC), u->manager->defaults.timeout_start_usec));
         if (r < 0)
                 return r;
 

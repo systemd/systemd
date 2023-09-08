@@ -2735,14 +2735,14 @@ static int setup_smack(
                 r = mac_smack_apply_pid(0, context->smack_process_label);
                 if (r < 0)
                         return r;
-        } else if (manager->default_smack_process_label) {
+        } else if (manager->defaults.smack_process_label) {
                 _cleanup_free_ char *exec_label = NULL;
 
                 r = mac_smack_read_fd(executable_fd, SMACK_ATTR_EXEC, &exec_label);
                 if (r < 0 && !ERRNO_IS_XATTR_ABSENT(r))
                         return r;
 
-                r = mac_smack_apply_pid(0, exec_label ?: manager->default_smack_process_label);
+                r = mac_smack_apply_pid(0, exec_label ?: manager->defaults.smack_process_label);
                 if (r < 0)
                         return r;
         }
