@@ -139,10 +139,10 @@ static void swap_init(Unit *u) {
         assert(s);
         assert(UNIT(s)->load_state == UNIT_STUB);
 
-        s->timeout_usec = u->manager->default_timeout_start_usec;
+        s->timeout_usec = u->manager->defaults.timeout_start_usec;
 
-        s->exec_context.std_output = u->manager->default_std_output;
-        s->exec_context.std_error = u->manager->default_std_error;
+        s->exec_context.std_output = u->manager->defaults.std_output;
+        s->exec_context.std_error = u->manager->defaults.std_error;
 
         s->control_command_id = _SWAP_EXEC_COMMAND_INVALID;
 
