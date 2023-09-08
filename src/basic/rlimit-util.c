@@ -362,6 +362,27 @@ void rlimit_free_all(struct rlimit **rl) {
         free_many((void**) rl, _RLIMIT_MAX);
 }
 
+int rlimit_copy_all(struct rlimit* target[static _RLIMIT_MAX], struct rlimit* const source[static _RLIMIT_MAX]) {
+        struct rlimit* copy[_RLIMIT_MAX] = {};
+
+        assert(target);
+        assert(source);
+
+        for (int i = 0; i < _RLIMIT_MAX; i++) {
+                if (!source[i])
+                        continue;
+
+                copy[i] = newdup(struct rlimit, source[i], 1);
+                if (!copy[i]) {
+                        rlimit_free_all(copy);
+                        return -ENOMEM;
+                }
+        }
+
+        memcpy(target, copy, sizeof(struct rlimit*) * _RLIMIT_MAX);
+        return 0;
+}
+
 int rlimit_nofile_bump(int limit) {
         int r;
 

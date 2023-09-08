@@ -735,43 +735,26 @@ static int parse_config_file(void) {
 }
 
 static void set_manager_defaults(Manager *m) {
+        int r;
 
         assert(m);
 
-        /* Propagates the various default unit property settings into the manager object, i.e. properties that do not
-         * affect the manager itself, but are just what newly allocated units will have set if they haven't set
-         * anything else. (Also see set_manager_settings() for the settings that affect the manager's own behaviour) */
+        /* Propagates the various default unit property settings into the manager object, i.e. properties
+         * that do not affect the manager itself, but are just what newly allocated units will have set if
+         * they haven't set anything else. (Also see set_manager_settings() for the settings that affect the
+         * manager's own behaviour) */
 
-        m->defaults.timer_accuracy_usec = arg_defaults.timer_accuracy_usec;
-        m->defaults.std_output = arg_defaults.std_output;
-        m->defaults.std_error = arg_defaults.std_error;
-        m->defaults.timeout_start_usec = arg_defaults.timeout_start_usec;
-        m->defaults.timeout_stop_usec = arg_defaults.timeout_stop_usec;
-        m->defaults.timeout_abort_usec = arg_defaults.timeout_abort_usec;
-        m->defaults.timeout_abort_set = arg_defaults.timeout_abort_set;
-        m->defaults.device_timeout_usec = arg_defaults.device_timeout_usec;
-        m->defaults.restart_usec = arg_defaults.restart_usec;
-        m->defaults.start_limit_interval = arg_defaults.start_limit_interval;
-        m->defaults.start_limit_burst = arg_defaults.start_limit_burst;
-        m->defaults.cpu_accounting = arg_defaults.cpu_accounting;
-        m->defaults.io_accounting = arg_defaults.io_accounting;
-        m->defaults.ip_accounting = arg_defaults.ip_accounting;
-        m->defaults.blockio_accounting = arg_defaults.blockio_accounting;
-        m->defaults.memory_accounting = arg_defaults.memory_accounting;
-        m->defaults.tasks_accounting = arg_defaults.tasks_accounting;
-        m->defaults.tasks_max = arg_defaults.tasks_max;
-        m->defaults.memory_pressure_watch = arg_defaults.memory_pressure_watch;
-        m->defaults.memory_pressure_threshold_usec = arg_defaults.memory_pressure_threshold_usec;
-        m->defaults.oom_policy = arg_defaults.oom_policy;
-        m->defaults.oom_score_adjust_set = arg_defaults.oom_score_adjust_set;
-        m->defaults.oom_score_adjust = arg_defaults.oom_score_adjust;
+        r = manager_set_unit_defaults(m, &arg_defaults);
+        if (r < 0)
+                log_warning_errno(r, "Failed to set manager defaults, ignoring: %m");
 
-        (void) manager_set_default_smack_process_label(m, arg_defaults.smack_process_label);
+        r = manager_default_environment(m);
+        if (r < 0)
+                log_warning_errno(r, "Failed to set manager default environment, ignoring: %m");
 
-        (void) manager_set_default_rlimits(m, arg_defaults.rlimit);
-
-        (void) manager_default_environment(m);
-        (void) manager_transient_environment_add(m, arg_default_environment);
+        r = manager_transient_environment_add(m, arg_default_environment);
+        if (r < 0)
+                log_warning_errno(r, "Failed to add to transient environment, ignoring: %m");
 }
 
 static void set_manager_settings(Manager *m) {
