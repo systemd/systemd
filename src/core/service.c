@@ -120,11 +120,11 @@ static void service_init(Unit *u) {
         assert(u);
         assert(u->load_state == UNIT_STUB);
 
-        s->timeout_start_usec = u->manager->default_timeout_start_usec;
-        s->timeout_stop_usec = u->manager->default_timeout_stop_usec;
-        s->timeout_abort_usec = u->manager->default_timeout_abort_usec;
-        s->timeout_abort_set = u->manager->default_timeout_abort_set;
-        s->restart_usec = u->manager->default_restart_usec;
+        s->timeout_start_usec = u->manager->defaults.timeout_start_usec;
+        s->timeout_stop_usec = u->manager->defaults.timeout_stop_usec;
+        s->timeout_abort_usec = u->manager->defaults.timeout_abort_usec;
+        s->timeout_abort_set = u->manager->defaults.timeout_abort_set;
+        s->restart_usec = u->manager->defaults.restart_usec;
         s->restart_max_delay_usec = USEC_INFINITY;
         s->runtime_max_usec = USEC_INFINITY;
         s->type = _SERVICE_TYPE_INVALID;
@@ -777,10 +777,10 @@ static void service_fix_stdio(Service *s) {
 
         if (s->exec_context.std_error == EXEC_OUTPUT_INHERIT &&
             s->exec_context.std_output == EXEC_OUTPUT_INHERIT)
-                s->exec_context.std_error = UNIT(s)->manager->default_std_error;
+                s->exec_context.std_error = UNIT(s)->manager->defaults.std_error;
 
         if (s->exec_context.std_output == EXEC_OUTPUT_INHERIT)
-                s->exec_context.std_output = UNIT(s)->manager->default_std_output;
+                s->exec_context.std_output = UNIT(s)->manager->defaults.std_output;
 }
 
 static int service_setup_bus_name(Service *s) {
@@ -854,7 +854,7 @@ static int service_add_extras(Service *s) {
          * delegation is on, in that case it we assume the payload knows better what to do and can process
          * things in a more focused way. */
         if (s->oom_policy < 0)
-                s->oom_policy = s->cgroup_context.delegate ? OOM_CONTINUE : UNIT(s)->manager->default_oom_policy;
+                s->oom_policy = s->cgroup_context.delegate ? OOM_CONTINUE : UNIT(s)->manager->defaults.oom_policy;
 
         /* Let the kernel do the killing if that's requested. */
         s->cgroup_context.memory_oom_group = s->oom_policy == OOM_KILL;
