@@ -428,6 +428,8 @@ static int tpm2_get_capability_handles(
         assert(ret_handles);
         assert(ret_n_handles);
 
+        max = MIN(max, UINT32_MAX);
+
         while (max > 0) {
                 TPMU_CAPABILITIES capability;
                 r = tpm2_get_capability(c, TPM2_CAP_HANDLES, current, (uint32_t) max, &capability);
@@ -443,13 +445,10 @@ static int tpm2_get_capability_handles(
                 if (n_handles > SIZE_MAX - handle_list.count)
                         return log_oom_debug();
 
-                if (!GREEDY_REALLOC(handles, n_handles + handle_list.count))
+                if (!GREEDY_REALLOC_APPEND(handles, n_handles, handle_list.handle, handle_list.count))
                         return log_oom_debug();
 
-                memcpy_safe(&handles[n_handles], handle_list.handle, sizeof(handles[0]) * handle_list.count);
-
                 max -= handle_list.count;
-                n_handles += handle_list.count;
 
                 /* Update current to the handle index after the last handle in the list. */
                 current = handles[n_handles - 1] + 1;
