@@ -45,11 +45,11 @@ int acquire_luks2_key(
         assert(ret_decrypted_key_size);
 
         if (!device) {
-                r = tpm2_find_device_auto(LOG_DEBUG, &auto_device);
+                r = tpm2_find_device_auto(&auto_device);
                 if (r == -ENODEV)
                         return -EAGAIN; /* Tell the caller to wait for a TPM2 device to show up */
                 if (r < 0)
-                        return r;
+                        return log_error_errno(r, "Could not find TPM2 device: %m");
 
                 device = auto_device;
         }
@@ -77,11 +77,10 @@ int acquire_luks2_key(
         if (pubkey_pcr_mask != 0) {
                 r = tpm2_load_pcr_signature(signature_path, &signature_json);
                 if (r < 0)
-                        return r;
+                        return log_error_errno(r, "Failed to load PCR signature: %m");
         }
 
-        return tpm2_unseal(
-                        device,
+        r = tpm2_unseal(device,
                         hash_pcr_mask,
                         pcr_bank,
                         pubkey, pubkey_size,
@@ -93,4 +92,8 @@ int acquire_luks2_key(
                         policy_hash, policy_hash_size,
                         srk_buf, srk_buf_size,
                         ret_decrypted_key, ret_decrypted_key_size);
+        if (r < 0)
+                return log_error_errno(r, "Failed to unseal secret using TPM2: %m");
+
+        return r;
 }

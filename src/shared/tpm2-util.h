@@ -268,7 +268,7 @@ typedef struct {} Tpm2PCRValue;
 #endif /* HAVE_TPM2 */
 
 int tpm2_list_devices(void);
-int tpm2_find_device_auto(int log_level, char **ret);
+int tpm2_find_device_auto(char **ret);
 
 int tpm2_make_pcr_json_array(uint32_t pcr_mask, JsonVariant **ret);
 int tpm2_parse_pcr_json_array(JsonVariant *v, uint32_t *ret);
