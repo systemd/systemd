@@ -806,12 +806,12 @@ int manager_setup_memory_pressure_event_source(Manager *m) {
         if (r < 0)
                 log_full_errno(ERRNO_IS_NOT_SUPPORTED(r) || ERRNO_IS_PRIVILEGE(r) || (r == -EHOSTDOWN) ? LOG_DEBUG : LOG_NOTICE, r,
                                "Failed to establish memory pressure event source, ignoring: %m");
-        else if (m->default_memory_pressure_threshold_usec != USEC_INFINITY) {
+        else if (m->defaults.memory_pressure_threshold_usec != USEC_INFINITY) {
 
                 /* If there's a default memory pressure threshold set, also apply it to the service manager itself */
                 r = sd_event_source_set_memory_pressure_period(
                                 m->memory_pressure_event_source,
-                                m->default_memory_pressure_threshold_usec,
+                                m->defaults.memory_pressure_threshold_usec,
                                 MEMORY_PRESSURE_DEFAULT_WINDOW_USEC);
                 if (r < 0)
                         log_warning_errno(r, "Failed to adjust memory pressure threshold, ignoring: %m");
@@ -872,14 +872,19 @@ int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, 
 
                 .status_unit_format = STATUS_UNIT_FORMAT_DEFAULT,
 
-                .default_timer_accuracy_usec = USEC_PER_MINUTE,
-                .default_memory_accounting = MEMORY_ACCOUNTING_DEFAULT,
-                .default_tasks_accounting = true,
-                .default_tasks_max = TASKS_MAX_UNSET,
-                .default_timeout_start_usec = manager_default_timeout(runtime_scope),
-                .default_timeout_stop_usec = manager_default_timeout(runtime_scope),
-                .default_restart_usec = DEFAULT_RESTART_USEC,
-                .default_device_timeout_usec = manager_default_timeout(runtime_scope),
+                .defaults = {
+                        .timer_accuracy_usec = USEC_PER_MINUTE,
+                        .memory_accounting = MEMORY_ACCOUNTING_DEFAULT,
+                        .tasks_accounting = true,
+                        .tasks_max = TASKS_MAX_UNSET,
+                        .timeout_start_usec = manager_default_timeout(runtime_scope),
+                        .timeout_stop_usec = manager_default_timeout(runtime_scope),
+                        .restart_usec = DEFAULT_RESTART_USEC,
+                        .device_timeout_usec = manager_default_timeout(runtime_scope),
+                        .oom_policy = OOM_STOP,
+                        .memory_pressure_watch = CGROUP_PRESSURE_WATCH_AUTO,
+                        .memory_pressure_threshold_usec = USEC_INFINITY,
+                },
 
                 .original_log_level = -1,
                 .original_log_target = _LOG_TARGET_INVALID,
@@ -908,11 +913,6 @@ int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, 
                 .have_ask_password = -EINVAL, /* we don't know */
                 .first_boot = -1,
                 .test_run_flags = test_run_flags,
-
-                .default_oom_policy = OOM_STOP,
-
-                .default_memory_pressure_watch = CGROUP_PRESSURE_WATCH_AUTO,
-                .default_memory_pressure_threshold_usec = USEC_INFINITY,
 
                 .dump_ratelimit = {
                         .interval = 10 * USEC_PER_MINUTE,
@@ -1673,9 +1673,7 @@ Manager* manager_free(Manager *m) {
         free(m->switch_root);
         free(m->switch_root_init);
 
-        free(m->default_smack_process_label);
-
-        rlimit_free_all(m->rlimit);
+        unit_defaults_done(&m->defaults);
 
         assert(hashmap_isempty(m->units_requiring_mounts_for));
         hashmap_free(m->units_requiring_mounts_for);
@@ -4124,25 +4122,25 @@ int manager_set_default_smack_process_label(Manager *m, const char *label) {
 
 #ifdef SMACK_DEFAULT_PROCESS_LABEL
         if (!label)
-                return free_and_strdup(&m->default_smack_process_label, SMACK_DEFAULT_PROCESS_LABEL);
+                return free_and_strdup(&m->defaults.smack_process_label, SMACK_DEFAULT_PROCESS_LABEL);
 #endif
         if (streq_ptr(label, "/"))
-                return free_and_strdup(&m->default_smack_process_label, NULL);
+                return free_and_strdup(&m->defaults.smack_process_label, NULL);
 
-        return free_and_strdup(&m->default_smack_process_label, label);
+        return free_and_strdup(&m->defaults.smack_process_label, label);
 }
 
 int manager_set_default_rlimits(Manager *m, struct rlimit **default_rlimit) {
         assert(m);
 
         for (unsigned i = 0; i < _RLIMIT_MAX; i++) {
-                m->rlimit[i] = mfree(m->rlimit[i]);
+                m->defaults.rlimit[i] = mfree(m->defaults.rlimit[i]);
 
                 if (!default_rlimit[i])
                         continue;
 
-                m->rlimit[i] = newdup(struct rlimit, default_rlimit[i], 1);
-                if (!m->rlimit[i])
+                m->defaults.rlimit[i] = newdup(struct rlimit, default_rlimit[i], 1);
+                if (!m->defaults.rlimit[i])
                         return log_oom();
         }
 
@@ -4851,6 +4849,13 @@ ManagerTimestamp manager_timestamp_initrd_mangle(ManagerTimestamp s) {
             s <= MANAGER_TIMESTAMP_UNITS_LOAD_FINISH)
                 return s - MANAGER_TIMESTAMP_SECURITY_START + MANAGER_TIMESTAMP_INITRD_SECURITY_START;
         return s;
+}
+
+void unit_defaults_done(UnitDefaults *defaults) {
+        assert(defaults);
+
+        defaults->smack_process_label = mfree(defaults->smack_process_label);
+        rlimit_free_all(defaults->rlimit);
 }
 
 static const char *const manager_state_table[_MANAGER_STATE_MAX] = {

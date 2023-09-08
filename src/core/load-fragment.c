@@ -3920,7 +3920,7 @@ int config_parse_tasks_max(
         int r;
 
         if (isempty(rvalue)) {
-                *tasks_max = u ? u->manager->default_tasks_max : TASKS_MAX_UNSET;
+                *tasks_max = u ? u->manager->defaults.tasks_max : TASKS_MAX_UNSET;
                 return 0;
         }
 
