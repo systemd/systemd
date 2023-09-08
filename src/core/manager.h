@@ -613,4 +613,5 @@ int manager_override_watchdog_pretimeout_governor(Manager *m, const char *govern
 const char* oom_policy_to_string(OOMPolicy i) _const_;
 OOMPolicy oom_policy_from_string(const char *s) _pure_;
 
+void unit_defaults_init(UnitDefaults *defaults, RuntimeScope scope);
 void unit_defaults_done(UnitDefaults *defaults);
