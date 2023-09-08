@@ -748,8 +748,12 @@ static int config_section_compare_func(const ConfigSection *x, const ConfigSecti
 
 DEFINE_HASH_OPS(config_section_hash_ops, ConfigSection, config_section_hash_func, config_section_compare_func);
 
-int config_section_new(const char *filename, unsigned line, ConfigSection **s) {
+int config_section_new(const char *filename, unsigned line, ConfigSection **ret) {
         ConfigSection *cs;
+
+        assert(filename);
+        assert(line > 0);
+        assert(ret);
 
         cs = malloc0(offsetof(ConfigSection, filename) + strlen(filename) + 1);
         if (!cs)
@@ -758,21 +762,31 @@ int config_section_new(const char *filename, unsigned line, ConfigSection **s) {
         strcpy(cs->filename, filename);
         cs->line = line;
 
-        *s = TAKE_PTR(cs);
-
+        *ret = TAKE_PTR(cs);
         return 0;
 }
 
-unsigned hashmap_find_free_section_line(Hashmap *hashmap) {
+int _hashmap_by_section_find_unused_line(
+                HashmapBase *entries_by_section,
+                const char *filename,
+                unsigned *ret) {
+
         ConfigSection *cs;
         unsigned n = 0;
         void *entry;
 
-        HASHMAP_FOREACH_KEY(entry, cs, hashmap)
-                if (n < cs->line)
-                        n = cs->line;
+        HASHMAP_BASE_FOREACH_KEY(entry, cs, entries_by_section) {
+                if (filename && !streq(cs->filename, filename))
+                        continue;
+                n = MAX(n, cs->line);
+        }
 
-        return n + 1;
+        /* overflow? */
+        if (n >= UINT_MAX)
+                return -EFBIG;
+
+        *ret = n + 1;
+        return 0;
 }
 
 #define DEFINE_PARSER(type, vartype, conv_func)                         \
