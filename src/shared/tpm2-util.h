@@ -62,6 +62,8 @@ typedef struct {
         size_t n_capability_algorithms;
         TPMA_CC *capability_commands;
         size_t n_capability_commands;
+        TPM2_ECC_CURVE *capability_ecc_curves;
+        size_t n_capability_ecc_curves;
         TPML_PCR_SELECTION capability_pcrs;
 } Tpm2Context;
 
@@ -120,6 +122,7 @@ int tpm2_create_loaded(Tpm2Context *c, const Tpm2Handle *parent, const Tpm2Handl
 
 bool tpm2_supports_alg(Tpm2Context *c, TPM2_ALG_ID alg);
 bool tpm2_supports_command(Tpm2Context *c, TPM2_CC command);
+bool tpm2_supports_ecc_curve(Tpm2Context *c, TPM2_ECC_CURVE ecc_curve);
 
 bool tpm2_test_parms(Tpm2Context *c, TPMI_ALG_PUBLIC alg, const TPMU_PUBLIC_PARMS *parms);
 
