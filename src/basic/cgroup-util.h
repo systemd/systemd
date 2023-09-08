@@ -35,7 +35,7 @@ typedef enum CGroupController {
         CGROUP_CONTROLLER_BPF_SOCKET_BIND,
         CGROUP_CONTROLLER_BPF_RESTRICT_NETWORK_INTERFACES,
         /* The BPF hook implementing RestrictFileSystems= is not defined here.
-         * It's applied as late as possible in exec_child() so we don't block
+         * It's applied as late as possible in exec_invoke() so we don't block
          * our own unit setup code. */
 
         _CGROUP_CONTROLLER_MAX,
