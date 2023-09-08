@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <net/if.h>
-#include <linux/netdevice.h> /* Must be included after <net/if.h> */
+#include <linux/netdevice.h>
 #include <netinet/ether.h>
 #include <unistd.h>
 
