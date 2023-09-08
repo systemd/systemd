@@ -36,21 +36,24 @@ static int write_to_terminal(const char *tty, const char *message) {
         return loop_write_full(fd, message, SIZE_MAX, TIMEOUT_USEC);
 }
 
-/* We declare wall_utmp and wall_logind as potentially unused, so that both of them
- * are compiled without warnings even though we only use one of them in wall(),
- * in order to prevent things from bitrotting. */
-
-#if ENABLE_UTMP
-_unused_ static int wall_utmp(
+static int wall_utmp(
         const char *message,
         bool (*match_tty)(const char *tty, bool is_local, void *userdata),
         void *userdata) {
 
+#if ENABLE_UTMP
         _unused_ _cleanup_(utxent_cleanup) bool utmpx = false;
         struct utmpx *u;
         int r = 0;
 
         assert(message);
+
+        if (access(_PATH_UTMPX, F_OK) < 0) {
+                if (errno == ENOENT)
+                        return -ENOPROTOOPT;
+
+                return -errno;
+        }
 
         utmpx = utxent_start();
 
@@ -81,15 +84,18 @@ _unused_ static int wall_utmp(
         }
 
         return r;
-}
-#endif
 
-#if ENABLE_LOGIND
-_unused_ static int wall_logind(
+#else
+        return -ENOPROTOOPT;
+#endif
+}
+
+static int wall_logind(
         const char *message,
         bool (*match_tty)(const char *tty, bool is_local, void *userdata),
         void *userdata) {
 
+#if ENABLE_LOGIND
         _cleanup_strv_free_ char **sessions = NULL;
         int r;
 
@@ -124,8 +130,11 @@ _unused_ static int wall_logind(
         }
 
         return r;
-}
+
+#else
+        return -ENOPROTOOPT;
 #endif
+}
 
 int wall(
         const char *message,
@@ -135,6 +144,7 @@ int wall(
         void *userdata) {
 
         _cleanup_free_ char *text = NULL, *hostname = NULL, *username_alloc = NULL, *stdin_tty = NULL;
+        int r;
 
         assert(message);
 
@@ -165,11 +175,11 @@ int wall(
                      message) < 0)
                 return -ENOMEM;
 
-#if ENABLE_UTMP
-        return wall_utmp(text, match_tty, userdata);
-#elif ENABLE_LOGIND
-        return wall_logind(text, match_tty, userdata);
-#endif
+        r = wall_utmp(text, match_tty, userdata);
+        if (r == -ENOPROTOOPT)
+                r = wall_logind(text, match_tty, userdata);
+
+        return r == -ENOPROTOOPT ? 0 : r;
 }
 
 #endif
