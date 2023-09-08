@@ -102,8 +102,6 @@
 #include <sanitizer/lsan_interface.h>
 #endif
 
-#define DEFAULT_TASKS_MAX ((TasksMax) { 15U, 100U }) /* 15% */
-
 static enum {
         ACTION_RUN,
         ACTION_HELP,
@@ -2517,37 +2515,8 @@ static void reset_arguments(void) {
         arg_service_watchdogs = true;
 
         unit_defaults_done(&arg_defaults);
+        unit_defaults_init(&arg_defaults, arg_runtime_scope);
 
-        arg_defaults = (UnitDefaults) {
-                .std_output = EXEC_OUTPUT_JOURNAL,
-                .std_error = EXEC_OUTPUT_INHERIT,
-                .restart_usec = DEFAULT_RESTART_USEC,
-                .timeout_start_usec = manager_default_timeout(arg_runtime_scope),
-                .timeout_stop_usec = manager_default_timeout(arg_runtime_scope),
-                .timeout_abort_usec = manager_default_timeout(arg_runtime_scope),
-                .timeout_abort_set = false,
-                .device_timeout_usec = manager_default_timeout(arg_runtime_scope),
-                .start_limit_interval = DEFAULT_START_LIMIT_INTERVAL,
-                .start_limit_burst = DEFAULT_START_LIMIT_BURST,
-
-                /* On 4.15+ with unified hierarchy, CPU accounting is essentially free as it doesn't require the CPU
-                 * controller to be enabled, so the default is to enable it unless we got told otherwise. */
-                .cpu_accounting = cpu_accounting_is_cheap(),
-                .memory_accounting = MEMORY_ACCOUNTING_DEFAULT,
-                .io_accounting = false,
-                .blockio_accounting = false,
-                .tasks_accounting = true,
-                .ip_accounting = false,
-
-                .tasks_max = DEFAULT_TASKS_MAX,
-                .timer_accuracy_usec = 1 * USEC_PER_MINUTE,
-
-                .memory_pressure_watch = CGROUP_PRESSURE_WATCH_AUTO,
-                .memory_pressure_threshold_usec = MEMORY_PRESSURE_DEFAULT_THRESHOLD_USEC,
-
-                .oom_policy = OOM_STOP,
-                .oom_score_adjust_set = false,
-        };
         arg_runtime_watchdog = 0;
         arg_reboot_watchdog = 10 * USEC_PER_MINUTE;
         arg_kexec_watchdog = 0;
