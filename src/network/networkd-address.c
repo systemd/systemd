@@ -366,6 +366,9 @@ static void address_hash_func(const Address *a, struct siphash *state) {
                 _fallthrough_;
         case AF_INET6:
                 siphash24_compress(&a->in_addr, FAMILY_ADDRESS_SIZE(a->family), state);
+
+                if (a->family == AF_INET6 && in6_addr_is_null(&a->in_addr.in6))
+                        siphash24_compress(&a->prefixlen, sizeof(a->prefixlen), state);
                 break;
         default:
                 /* treat any other address family as AF_UNSPEC */
@@ -394,7 +397,16 @@ static int address_compare_func(const Address *a1, const Address *a2) {
                 _fallthrough_;
         case AF_INET6:
                 /* See kernel's ipv6_get_ifaddr() in net/ipv6/addrconf.c */
-                return memcmp(&a1->in_addr, &a2->in_addr, FAMILY_ADDRESS_SIZE(a1->family));
+                r = memcmp(&a1->in_addr, &a2->in_addr, FAMILY_ADDRESS_SIZE(a1->family));
+                if (r != 0)
+                        return r;
+
+                /* To distinguish IPv6 null addresses with different prefixlen, e.g. ::48 vs ::64, let's
+                 * compare the prefix length. */
+                if (a1->family == AF_INET6 && in6_addr_is_null(&a1->in_addr.in6))
+                        r = CMP(a1->prefixlen, a2->prefixlen);
+
+                return r;
         default:
                 /* treat any other address family as AF_UNSPEC */
                 return 0;
