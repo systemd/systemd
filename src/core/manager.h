@@ -537,9 +537,7 @@ int manager_transient_environment_add(Manager *m, char **plus);
 int manager_client_environment_modify(Manager *m, char **minus, char **plus);
 int manager_get_effective_environment(Manager *m, char ***ret);
 
-int manager_set_default_smack_process_label(Manager *m, const char *label);
-
-int manager_set_default_rlimits(Manager *m, struct rlimit **default_rlimit);
+int manager_set_unit_defaults(Manager *m, const UnitDefaults *defaults);
 
 void manager_trigger_run_queue(Manager *m);
 
