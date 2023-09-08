@@ -112,6 +112,8 @@
 /* How many units and jobs to process of the bus queue before returning to the event loop. */
 #define MANAGER_BUS_MESSAGE_BUDGET 100U
 
+#define DEFAULT_TASKS_MAX ((TasksMax) { 15U, 100U }) /* 15% */
+
 static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata);
 static int manager_dispatch_cgroups_agent_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata);
 static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata);
@@ -872,20 +874,6 @@ int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, 
 
                 .status_unit_format = STATUS_UNIT_FORMAT_DEFAULT,
 
-                .defaults = {
-                        .timer_accuracy_usec = USEC_PER_MINUTE,
-                        .memory_accounting = MEMORY_ACCOUNTING_DEFAULT,
-                        .tasks_accounting = true,
-                        .tasks_max = TASKS_MAX_UNSET,
-                        .timeout_start_usec = manager_default_timeout(runtime_scope),
-                        .timeout_stop_usec = manager_default_timeout(runtime_scope),
-                        .restart_usec = DEFAULT_RESTART_USEC,
-                        .device_timeout_usec = manager_default_timeout(runtime_scope),
-                        .oom_policy = OOM_STOP,
-                        .memory_pressure_watch = CGROUP_PRESSURE_WATCH_AUTO,
-                        .memory_pressure_threshold_usec = USEC_INFINITY,
-                },
-
                 .original_log_level = -1,
                 .original_log_target = _LOG_TARGET_INVALID,
 
@@ -919,6 +907,8 @@ int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, 
                         .burst = 10,
                 },
         };
+
+        unit_defaults_init(&m->defaults, runtime_scope);
 
 #if ENABLE_EFI
         if (MANAGER_IS_SYSTEM(m) && detect_container() <= 0)
@@ -4881,6 +4871,43 @@ ManagerTimestamp manager_timestamp_initrd_mangle(ManagerTimestamp s) {
             s <= MANAGER_TIMESTAMP_UNITS_LOAD_FINISH)
                 return s - MANAGER_TIMESTAMP_SECURITY_START + MANAGER_TIMESTAMP_INITRD_SECURITY_START;
         return s;
+}
+
+void unit_defaults_init(UnitDefaults *defaults, RuntimeScope scope) {
+        assert(defaults);
+        assert(scope >= 0);
+        assert(scope < _RUNTIME_SCOPE_MAX);
+
+        *defaults = (UnitDefaults) {
+                .std_output = EXEC_OUTPUT_JOURNAL,
+                .std_error = EXEC_OUTPUT_INHERIT,
+                .restart_usec = DEFAULT_RESTART_USEC,
+                .timeout_start_usec = manager_default_timeout(scope),
+                .timeout_stop_usec = manager_default_timeout(scope),
+                .timeout_abort_usec = manager_default_timeout(scope),
+                .timeout_abort_set = false,
+                .device_timeout_usec = manager_default_timeout(scope),
+                .start_limit_interval = DEFAULT_START_LIMIT_INTERVAL,
+                .start_limit_burst = DEFAULT_START_LIMIT_BURST,
+
+                /* On 4.15+ with unified hierarchy, CPU accounting is essentially free as it doesn't require the CPU
+                 * controller to be enabled, so the default is to enable it unless we got told otherwise. */
+                .cpu_accounting = cpu_accounting_is_cheap(),
+                .memory_accounting = MEMORY_ACCOUNTING_DEFAULT,
+                .io_accounting = false,
+                .blockio_accounting = false,
+                .tasks_accounting = true,
+                .ip_accounting = false,
+
+                .tasks_max = DEFAULT_TASKS_MAX,
+                .timer_accuracy_usec = 1 * USEC_PER_MINUTE,
+
+                .memory_pressure_watch = CGROUP_PRESSURE_WATCH_AUTO,
+                .memory_pressure_threshold_usec = MEMORY_PRESSURE_DEFAULT_THRESHOLD_USEC,
+
+                .oom_policy = OOM_STOP,
+                .oom_score_adjust_set = false,
+        };
 }
 
 void unit_defaults_done(UnitDefaults *defaults) {
