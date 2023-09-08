@@ -272,19 +272,15 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
         assert(fds);
 
         for (;;) {
-                _cleanup_free_ char *line = NULL;
-                char *l, *v;
+                _cleanup_free_ char *l  = NULL;
                 ssize_t m;
                 size_t k;
+                char *v;
 
-                r = read_line(f, LONG_LINE_MAX, &line);
+                r = deserialize_read_line(f, &l);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to read serialization line: %m");
-                if (r == 0) /* eof */
-                        break;
-
-                l = strstrip(line);
-                if (isempty(l)) /* End marker */
+                        return r;
+                if (r == 0) /* eof or end marker */
                         break;
 
                 k = strcspn(l, "=");
