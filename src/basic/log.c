@@ -1449,19 +1449,32 @@ void log_received_signal(int level, const struct signalfd_siginfo *si) {
         assert(si);
 
         if (pid_is_valid(si->ssi_pid)) {
-                _cleanup_free_ char *p = NULL;
+                _cleanup_free_ char *p = NULL, *u = NULL;
 
                 (void) get_process_comm(si->ssi_pid, &p);
 
+                (void) cg_pid_get_unit(si->ssi_pid, &u);
+
                 log_full(level,
-                         "Received SIG%s from PID %"PRIu32" (%s).",
+                         "Received SIG%s from PID %"PRIu32" (%s)%s%s%s.",
                          signal_to_string(si->ssi_signo),
-                         si->ssi_pid, strna(p));
+                         si->ssi_pid, strna(p), u ? " (unit " : "", u ? u : "", u ? ")" : "");
 
         } else
                 log_full(level,
                          "Received SIG%s.",
                          signal_to_string(si->ssi_signo));
+}
+
+void log_caller(pid_t pid, const char *comm, const char *caller, pid_t ppid, const char *comm_parent, const char *method) {
+        assert(comm);
+        assert(method);
+
+        log_info("Action '%s' requested from client PID " PID_FMT "%s%s%s%s%s%s executed by PID " PID_FMT "%s%s%s...",
+                 method, pid,
+                 comm ? " ('" : "", strempty(comm), comm ? "')" : "",
+                 caller ? " (unit " : "", caller ? caller : "", caller ? ")" : "",
+                 ppid, comm_parent ? " ('" : "", strempty(comm_parent), comm_parent ? "')" : "");
 }
 
 void set_log_syntax_callback(log_syntax_callback_t cb, void *userdata) {

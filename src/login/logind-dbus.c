@@ -32,7 +32,6 @@
 #include "fileio.h"
 #include "format-util.h"
 #include "fs-util.h"
-#include "log-action-caller.h"
 #include "logind-action.h"
 #include "logind-dbus.h"
 #include "logind-polkit.h"
@@ -1924,7 +1923,7 @@ static int method_do_shutdown_or_sleep(
         (void) setup_wall_message_timer(m, message);
 
         if (IN_SET(a->handle, HANDLE_HALT, HANDLE_REBOOT, HANDLE_POWEROFF, HANDLE_KEXEC))
-                log_action_caller_msg(message, handle_action_to_string(a->handle));
+                bus_log_caller(message, handle_action_to_string(a->handle));
 
         r = bus_manager_shutdown_or_sleep_now_or_later(m, a, error);
         if (r < 0)
