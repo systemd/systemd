@@ -821,6 +821,8 @@ static void print_status_info(
 }
 
 static void show_unit_help(UnitStatusInfo *i) {
+        bool previous_man_page = false;
+
         assert(i);
 
         if (!i->documentation) {
@@ -828,11 +830,28 @@ static void show_unit_help(UnitStatusInfo *i) {
                 return;
         }
 
-        STRV_FOREACH(p, i->documentation)
-                if (startswith(*p, "man:"))
-                        show_man_page(*p + 4, false);
-                else
-                        log_info("Can't show: %s", *p);
+        STRV_FOREACH(doc, i->documentation) {
+                const char *p;
+                _cleanup_free_ char *t = NULL;
+
+                p = startswith(*doc, "man:");
+
+                if (p ? doc != i->documentation : previous_man_page) {
+                        puts("");
+                        fflush(stdout);
+                }
+
+                previous_man_page = p;
+
+                if (p)
+                        show_man_page(p, /* null_stdio= */ false);
+                else {
+                        if ((p = startswith(*doc, "file://")))
+                                (void) terminal_urlify(*doc, p, &t);
+
+                        log_notice("Additional documentation: %s", t ?: p ?: *doc);
+                }
+        }
 }
 
 static int map_main_pid(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
