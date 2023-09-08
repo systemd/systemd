@@ -45,6 +45,14 @@ int main(int argc, char **argv) {
 
                 r = nft_set_element_modify_any(ctx, add, nfproto, table, set, &element, sizeof(element));
                 assert_se(r == 0);
+        } else if (streq(argv[5], "uint64")) {
+                uint64_t element;
+
+                r = safe_atou64(argv[6], &element);
+                assert_se(r == 0);
+
+                r = nft_set_element_modify_any(ctx, add, nfproto, table, set, &element, sizeof(element));
+                assert_se(r == 0);
         } else if (streq(argv[5], "in_addr")) {
                 union in_addr_union addr;
                 int af;
