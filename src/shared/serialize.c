@@ -131,6 +131,34 @@ int serialize_strv(FILE *f, const char *key, char **l) {
         return ret;
 }
 
+int deserialize_read_line(FILE *f, char **ret) {
+        _cleanup_free_ char *line = NULL;
+        int r;
+
+        assert(f);
+        assert(ret);
+
+        r = read_line(f, LONG_LINE_MAX, &line);
+        if (r < 0)
+                return log_error_errno(r, "Failed to read serialization line: %m");
+        if (r == 0) { /* eof */
+                *ret = NULL;
+                return 0;
+        }
+
+        const char *l = strstrip(line);
+        if (isempty(l)) { /* End marker */
+                *ret = NULL;
+                return 0;
+        }
+
+        if (free_and_strdup(&line, l) < 0)
+                return log_oom();
+
+        *ret = TAKE_PTR(line);
+        return 1;
+}
+
 int deserialize_strv(char ***l, const char *value) {
         ssize_t unescaped_len;
         char *unescaped;
