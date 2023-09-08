@@ -4430,7 +4430,7 @@ static int tpm2_userspace_log(
         if (lseek(fd, 0, SEEK_END) == (off_t) -1)
                 return log_error_errno(errno, "Failed to seek to end of JSON log: %m");
 
-        r = loop_write(fd, f, SIZE_MAX, /* do_poll= */ false);
+        r = loop_write(fd, f, SIZE_MAX);
         if (r < 0)
                 return log_error_errno(r, "Failed to write JSON data to log: %m");
 

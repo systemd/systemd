@@ -47,7 +47,7 @@ int talk_initctl(char rl) {
                 .runlevel = rl,
         };
 
-        r = loop_write(fd, &request, sizeof(request), false);
+        r = loop_write(fd, &request, sizeof(request));
         if (r < 0)
                 return log_error_errno(r, "Failed to write to %s: %m", path);
 
