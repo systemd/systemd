@@ -131,7 +131,7 @@ int terminal_urlify_man(const char *page, const char *section, char **ret) {
         return terminal_urlify(url, text, ret);
 }
 
-static int cat_file(const char *filename, bool newline) {
+int cat_file(const char *filename, bool newline) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *urlified = NULL;
         int r;

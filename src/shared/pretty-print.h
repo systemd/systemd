@@ -18,6 +18,7 @@ typedef enum CatFlags {
         CAT_FLAGS_MAIN_FILE_OPTIONAL = 1 << 0,
 } CatFlags;
 
+int cat_file(const char *filename, bool newline);
 int cat_files(const char *file, char **dropins, CatFlags flags);
 int conf_files_cat(const char *root, const char *name);
 
