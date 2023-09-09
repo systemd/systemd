@@ -3,8 +3,9 @@
 
 typedef struct Mount Mount;
 
-#include "kill.h"
 #include "dynamic-user.h"
+#include "kill.h"
+#include "pidref.h"
 #include "unit.h"
 
 typedef enum MountExecCommand {
@@ -83,7 +84,7 @@ struct Mount {
 
         ExecCommand* control_command;
         MountExecCommand control_command_id;
-        pid_t control_pid;
+        PidRef control_pid;
 
         sd_event_source *timer_event_source;
 
