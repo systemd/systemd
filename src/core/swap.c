@@ -144,6 +144,7 @@ static void swap_init(Unit *u) {
         s->exec_context.std_output = u->manager->default_std_output;
         s->exec_context.std_error = u->manager->default_std_error;
 
+        s->control_pid = PIDREF_NULL;
         s->control_command_id = _SWAP_EXEC_COMMAND_INVALID;
 
         u->ignore_on_isolate = true;
@@ -152,10 +153,11 @@ static void swap_init(Unit *u) {
 static void swap_unwatch_control_pid(Swap *s) {
         assert(s);
 
-        if (s->control_pid <= 0)
+        if (!pidref_is_set(&s->control_pid))
                 return;
 
-        unit_unwatch_pid(UNIT(s), TAKE_PID(s->control_pid));
+        unit_unwatch_pid(UNIT(s), s->control_pid.pid);
+        pidref_done(&s->control_pid);
 }
 
 static void swap_done(Unit *u) {
@@ -578,11 +580,11 @@ static int swap_coldplug(Unit *u) {
         if (new_state == s->state)
                 return 0;
 
-        if (s->control_pid > 0 &&
-            pid_is_unwaited(s->control_pid) &&
+        if (pidref_is_set(&s->control_pid) &&
+            pid_is_unwaited(s->control_pid.pid) &&
             SWAP_STATE_WITH_PROCESS(new_state)) {
 
-                r = unit_watch_pid(UNIT(s), s->control_pid, false);
+                r = unit_watch_pid(UNIT(s), s->control_pid.pid, /* exclusive= */ false);
                 if (r < 0)
                         return r;
 
@@ -642,17 +644,17 @@ static void swap_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sTimeoutSec: %s\n",
                 prefix, FORMAT_TIMESPAN(s->timeout_usec, USEC_PER_SEC));
 
-        if (s->control_pid > 0)
+        if (pidref_is_set(&s->control_pid))
                 fprintf(f,
                         "%sControl PID: "PID_FMT"\n",
-                        prefix, s->control_pid);
+                        prefix, s->control_pid.pid);
 
         exec_context_dump(&s->exec_context, f, prefix);
         kill_context_dump(&s->kill_context, f, prefix);
         cgroup_context_dump(UNIT(s), f, prefix);
 }
 
-static int swap_spawn(Swap *s, ExecCommand *c, pid_t *_pid) {
+static int swap_spawn(Swap *s, ExecCommand *c, PidRef *ret_pid) {
 
         _cleanup_(exec_params_clear) ExecParameters exec_params = {
                 .flags     = EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_APPLY_TTY_STDIN,
@@ -661,12 +663,13 @@ static int swap_spawn(Swap *s, ExecCommand *c, pid_t *_pid) {
                 .stderr_fd = -EBADF,
                 .exec_fd   = -EBADF,
         };
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         pid_t pid;
         int r;
 
         assert(s);
         assert(c);
-        assert(_pid);
+        assert(ret_pid);
 
         r = unit_prepare_exec(UNIT(s));
         if (r < 0)
@@ -674,11 +677,11 @@ static int swap_spawn(Swap *s, ExecCommand *c, pid_t *_pid) {
 
         r = swap_arm_timer(s, usec_add(now(CLOCK_MONOTONIC), s->timeout_usec));
         if (r < 0)
-                goto fail;
+                return r;
 
         r = unit_set_exec_params(UNIT(s), &exec_params);
         if (r < 0)
-                goto fail;
+                return r;
 
         r = exec_spawn(UNIT(s),
                        c,
@@ -688,20 +691,18 @@ static int swap_spawn(Swap *s, ExecCommand *c, pid_t *_pid) {
                        &s->cgroup_context,
                        &pid);
         if (r < 0)
-                goto fail;
+                return r;
 
-        r = unit_watch_pid(UNIT(s), pid, true);
+        r = pidref_set_pid(&pidref, pid);
         if (r < 0)
-                goto fail;
+                return r;
 
-        *_pid = pid;
+        r = unit_watch_pid(UNIT(s), pidref.pid, /* exclusive= */ true);
+        if (r < 0)
+                return r;
 
+        *ret_pid = TAKE_PIDREF(pidref);
         return 0;
-
-fail:
-        s->timer_event_source = sd_event_source_disable_unref(s->timer_event_source);
-
-        return r;
 }
 
 static void swap_enter_dead(Swap *s, SwapResult f) {
@@ -766,7 +767,7 @@ static void swap_enter_signal(Swap *s, SwapState state, SwapResult f) {
                               &s->kill_context,
                               state_to_kill_operation(s, state),
                               -1,
-                              s->control_pid,
+                              s->control_pid.pid,
                               false);
         if (r < 0)
                 goto fail;
@@ -973,8 +974,8 @@ static int swap_serialize(Unit *u, FILE *f, FDSet *fds) {
         (void) serialize_item(f, "state", swap_state_to_string(s->state));
         (void) serialize_item(f, "result", swap_result_to_string(s->result));
 
-        if (s->control_pid > 0)
-                (void) serialize_item_format(f, "control-pid", PID_FMT, s->control_pid);
+        if (pidref_is_set(&s->control_pid))
+                (void) serialize_item_format(f, "control-pid", PID_FMT, s->control_pid.pid);
 
         if (s->control_command_id >= 0)
                 (void) serialize_item(f, "control-command", swap_exec_command_to_string(s->control_command_id));
@@ -984,6 +985,7 @@ static int swap_serialize(Unit *u, FILE *f, FDSet *fds) {
 
 static int swap_deserialize_item(Unit *u, const char *key, const char *value, FDSet *fds) {
         Swap *s = SWAP(u);
+        int r;
 
         assert(s);
         assert(fds);
@@ -1005,12 +1007,11 @@ static int swap_deserialize_item(Unit *u, const char *key, const char *value, FD
                 else if (f != SWAP_SUCCESS)
                         s->result = f;
         } else if (streq(key, "control-pid")) {
-                pid_t pid;
 
-                if (parse_pid(value, &pid) < 0)
-                        log_unit_debug(u, "Failed to parse control-pid value: %s", value);
-                else
-                        s->control_pid = pid;
+                pidref_done(&s->control_pid);
+                r = pidref_set_pidstr(&s->control_pid, value);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to pin control PID '%s', ignoring: %m", value);
 
         } else if (streq(key, "control-command")) {
                 SwapExecCommand id;
@@ -1035,14 +1036,14 @@ static void swap_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         assert(s);
         assert(pid >= 0);
 
-        if (pid != s->control_pid)
+        if (pid != s->control_pid.pid)
                 return;
 
         /* Let's scan /proc/swaps before we process SIGCHLD. For the reasoning see the similar code in
          * mount.c */
         (void) swap_process_proc_swaps(u->manager);
 
-        s->control_pid = 0;
+        pidref_done(&s->control_pid);
 
         if (is_clean_exit(code, status, EXIT_CLEAN_COMMAND, NULL))
                 f = SWAP_SUCCESS;
@@ -1475,7 +1476,7 @@ static void swap_reset_failed(Unit *u) {
 }
 
 static int swap_kill(Unit *u, KillWho who, int signo, int code, int value, sd_bus_error *error) {
-        return unit_kill_common(u, who, signo, code, value, -1, SWAP(u)->control_pid, error);
+        return unit_kill_common(u, who, signo, code, value, -1, SWAP(u)->control_pid.pid, error);
 }
 
 static int swap_get_timeout(Unit *u, usec_t *timeout) {
@@ -1519,12 +1520,13 @@ static int swap_control_pid(Unit *u) {
 
         assert(s);
 
-        return s->control_pid;
+        return s->control_pid.pid;
 }
 
 static int swap_clean(Unit *u, ExecCleanMask mask) {
         _cleanup_strv_free_ char **l = NULL;
         Swap *s = SWAP(u);
+        pid_t pid;
         int r;
 
         assert(s);
@@ -1549,12 +1551,15 @@ static int swap_clean(Unit *u, ExecCleanMask mask) {
         if (r < 0)
                 goto fail;
 
-        r = unit_fork_and_watch_rm_rf(u, l, &s->control_pid);
+        r = unit_fork_and_watch_rm_rf(u, l, &pid);
+        if (r < 0)
+                goto fail;
+
+        r = pidref_set_pid(&s->control_pid, pid);
         if (r < 0)
                 goto fail;
 
         swap_set_state(s, SWAP_CLEANING);
-
         return 0;
 
 fail:

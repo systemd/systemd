@@ -185,6 +185,7 @@ static void mount_init(Unit *u) {
          * already trying to comply its last one. */
         m->exec_context.same_pgrp = true;
 
+        m->control_pid = PIDREF_NULL;
         m->control_command_id = _MOUNT_EXEC_COMMAND_INVALID;
 
         u->ignore_on_isolate = true;
@@ -223,10 +224,11 @@ static int mount_arm_timer(Mount *m, usec_t usec) {
 static void mount_unwatch_control_pid(Mount *m) {
         assert(m);
 
-        if (m->control_pid <= 0)
+        if (!pidref_is_set(&m->control_pid))
                 return;
 
-        unit_unwatch_pid(UNIT(m), TAKE_PID(m->control_pid));
+        unit_unwatch_pid(UNIT(m), m->control_pid.pid);
+        pidref_done(&m->control_pid);
 }
 
 static void mount_parameters_done(MountParameters *p) {
@@ -799,11 +801,11 @@ static int mount_coldplug(Unit *u) {
         if (m->deserialized_state == m->state)
                 return 0;
 
-        if (m->control_pid > 0 &&
-            pid_is_unwaited(m->control_pid) &&
+        if (pidref_is_set(&m->control_pid) &&
+            pid_is_unwaited(m->control_pid.pid) &&
             MOUNT_STATE_WITH_PROCESS(m->deserialized_state)) {
 
-                r = unit_watch_pid(UNIT(m), m->control_pid, false);
+                r = unit_watch_pid(UNIT(m), m->control_pid.pid, /* exclusive= */ false);
                 if (r < 0)
                         return r;
 
@@ -829,13 +831,13 @@ static void mount_catchup(Unit *u) {
                 switch (m->state) {
                 case MOUNT_DEAD:
                 case MOUNT_FAILED:
-                        assert(m->control_pid == 0);
+                        assert(!pidref_is_set(&m->control_pid));
                         (void) unit_acquire_invocation_id(u);
                         mount_cycle_clear(m);
                         mount_enter_mounted(m, MOUNT_SUCCESS);
                         break;
                 case MOUNT_MOUNTING:
-                        assert(m->control_pid > 0);
+                        assert(pidref_is_set(&m->control_pid));
                         mount_set_state(m, MOUNT_MOUNTING_DONE);
                         break;
                 default:
@@ -844,11 +846,11 @@ static void mount_catchup(Unit *u) {
         else
                 switch (m->state) {
                 case MOUNT_MOUNTING_DONE:
-                        assert(m->control_pid > 0);
+                        assert(pidref_is_set(&m->control_pid));
                         mount_set_state(m, MOUNT_MOUNTING);
                         break;
                 case MOUNT_MOUNTED:
-                        assert(m->control_pid == 0);
+                        assert(!pidref_is_set(&m->control_pid));
                         mount_enter_dead(m, MOUNT_SUCCESS);
                         break;
                 default:
@@ -899,17 +901,17 @@ static void mount_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, yes_no(m->read_write_only),
                 prefix, FORMAT_TIMESPAN(m->timeout_usec, USEC_PER_SEC));
 
-        if (m->control_pid > 0)
+        if (pidref_is_set(&m->control_pid))
                 fprintf(f,
                         "%sControl PID: "PID_FMT"\n",
-                        prefix, m->control_pid);
+                        prefix, m->control_pid.pid);
 
         exec_context_dump(&m->exec_context, f, prefix);
         kill_context_dump(&m->kill_context, f, prefix);
         cgroup_context_dump(UNIT(m), f, prefix);
 }
 
-static int mount_spawn(Mount *m, ExecCommand *c, pid_t *ret_pid) {
+static int mount_spawn(Mount *m, ExecCommand *c, PidRef *ret_pid) {
 
         _cleanup_(exec_params_clear) ExecParameters exec_params = {
                 .flags     = EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_APPLY_TTY_STDIN,
@@ -918,6 +920,7 @@ static int mount_spawn(Mount *m, ExecCommand *c, pid_t *ret_pid) {
                 .stderr_fd = -EBADF,
                 .exec_fd   = -EBADF,
         };
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         pid_t pid;
         int r;
 
@@ -947,11 +950,15 @@ static int mount_spawn(Mount *m, ExecCommand *c, pid_t *ret_pid) {
         if (r < 0)
                 return r;
 
-        r = unit_watch_pid(UNIT(m), pid, true);
+        r = pidref_set_pid(&pidref, pid);
         if (r < 0)
                 return r;
 
-        *ret_pid = pid;
+        r = unit_watch_pid(UNIT(m), pidref.pid, /* exclusive= */ true);
+        if (r < 0)
+                return r;
+
+        *ret_pid = TAKE_PIDREF(pidref);
         return 0;
 }
 
@@ -1030,7 +1037,7 @@ static void mount_enter_signal(Mount *m, MountState state, MountResult f) {
                         &m->kill_context,
                         state_to_kill_operation(state),
                         -1,
-                        m->control_pid,
+                        m->control_pid.pid,
                         false);
         if (r < 0)
                 goto fail;
@@ -1356,8 +1363,8 @@ static int mount_serialize(Unit *u, FILE *f, FDSet *fds) {
         (void) serialize_item(f, "reload-result", mount_result_to_string(m->reload_result));
         (void) serialize_item_format(f, "n-retry-umount", "%u", m->n_retry_umount);
 
-        if (m->control_pid > 0)
-                (void) serialize_item_format(f, "control-pid", PID_FMT, m->control_pid);
+        if (pidref_is_set(&m->control_pid))
+                (void) serialize_item_format(f, "control-pid", PID_FMT, m->control_pid.pid);
 
         if (m->control_command_id >= 0)
                 (void) serialize_item(f, "control-command", mount_exec_command_to_string(m->control_command_id));
@@ -1410,9 +1417,10 @@ static int mount_deserialize_item(Unit *u, const char *key, const char *value, F
 
         } else if (streq(key, "control-pid")) {
 
-                r = parse_pid(value, &m->control_pid);
+                pidref_done(&m->control_pid);
+                r = pidref_set_pidstr(&m->control_pid, value);
                 if (r < 0)
-                        log_unit_debug_errno(u, r, "Failed to parse control-pid value: %s", value);
+                        log_debug_errno(r, "Failed to set control PID to '%s': %m", value);
 
         } else if (streq(key, "control-command")) {
                 MountExecCommand id;
@@ -1460,7 +1468,7 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         assert(m);
         assert(pid >= 0);
 
-        if (pid != m->control_pid)
+        if (pid != m->control_pid.pid)
                 return;
 
         /* So here's the thing, we really want to know before /usr/bin/mount or /usr/bin/umount exit whether
@@ -1479,7 +1487,7 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
          * /proc/self/mountinfo changes before our mount/umount exits. */
         (void) mount_process_proc_self_mountinfo(u->manager);
 
-        m->control_pid = 0;
+        pidref_done(&m->control_pid);
 
         if (is_clean_exit(code, status, EXIT_CLEAN_COMMAND, NULL))
                 f = MOUNT_SUCCESS;
@@ -2210,7 +2218,7 @@ static int mount_kill(Unit *u, KillWho who, int signo, int code, int value, sd_b
 
         assert(m);
 
-        return unit_kill_common(u, who, signo, code, value, -1, m->control_pid, error);
+        return unit_kill_common(u, who, signo, code, value, -1, m->control_pid.pid, error);
 }
 
 static int mount_control_pid(Unit *u) {
@@ -2218,12 +2226,13 @@ static int mount_control_pid(Unit *u) {
 
         assert(m);
 
-        return m->control_pid;
+        return m->control_pid.pid;
 }
 
 static int mount_clean(Unit *u, ExecCleanMask mask) {
         _cleanup_strv_free_ char **l = NULL;
         Mount *m = MOUNT(u);
+        pid_t pid;
         int r;
 
         assert(m);
@@ -2248,12 +2257,15 @@ static int mount_clean(Unit *u, ExecCleanMask mask) {
         if (r < 0)
                 goto fail;
 
-        r = unit_fork_and_watch_rm_rf(u, l, &m->control_pid);
+        r = unit_fork_and_watch_rm_rf(u, l, &pid);
+        if (r < 0)
+                goto fail;
+
+        r = pidref_set_pid(&m->control_pid, pid);
         if (r < 0)
                 goto fail;
 
         mount_set_state(m, MOUNT_CLEANING);
-
         return 0;
 
 fail:
