@@ -676,11 +676,11 @@ static int swap_spawn(Swap *s, ExecCommand *c, PidRef *ret_pid) {
 
         r = swap_arm_timer(s, usec_add(now(CLOCK_MONOTONIC), s->timeout_usec));
         if (r < 0)
-                goto fail;
+                return r;
 
         r = unit_set_exec_params(UNIT(s), &exec_params);
         if (r < 0)
-                goto fail;
+                return r;
 
         r = exec_spawn(UNIT(s),
                        c,
@@ -690,22 +690,18 @@ static int swap_spawn(Swap *s, ExecCommand *c, PidRef *ret_pid) {
                        &s->cgroup_context,
                        &pid);
         if (r < 0)
-                goto fail;
+                return r;
 
         r = pidref_set_pid(&pidref, pid);
         if (r < 0)
-                goto fail;
+                return r;
 
         r = unit_watch_pid(UNIT(s), pidref.pid, /* exclusive= */ true);
         if (r < 0)
-                goto fail;
+                return r;
 
         *ret_pid = TAKE_PIDREF(pidref);
         return 0;
-
-fail:
-        s->timer_event_source = sd_event_source_disable_unref(s->timer_event_source);
-        return r;
 }
 
 static void swap_enter_dead(Swap *s, SwapResult f) {

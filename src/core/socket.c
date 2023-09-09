@@ -1977,7 +1977,7 @@ static int socket_chown(Socket *s, PidRef *ret_pid) {
 
         r = socket_arm_timer(s, usec_add(now(CLOCK_MONOTONIC), s->timeout_usec));
         if (r < 0)
-                goto fail;
+                return r;
 
         /* We have to resolve the user names out-of-process, hence
          * let's fork here. It's messy, but well, what can we do? */
@@ -2033,18 +2033,14 @@ static int socket_chown(Socket *s, PidRef *ret_pid) {
 
         r = pidref_set_pid(&pidref, pid);
         if (r < 0)
-                goto fail;
+                return r;
 
         r = unit_watch_pid(UNIT(s), pidref.pid, /* exclusive= */ true);
         if (r < 0)
-                goto fail;
+                return r;
 
         *ret_pid = TAKE_PIDREF(pidref);
         return 0;
-
-fail:
-        s->timer_event_source = sd_event_source_disable_unref(s->timer_event_source);
-        return r;
 }
 
 static void socket_enter_dead(Socket *s, SocketResult f) {
