@@ -65,6 +65,8 @@ basic_sources = files(
         'path-lookup.c',
         'path-util.c',
         'percent-util.c',
+        'pidref.c',
+        'pidref.h',
         'prioq.c',
         'proc-cmdline.c',
         'process-util.c',
