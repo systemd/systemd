@@ -507,6 +507,8 @@ Socket.FileDescriptorName,               config_parse_fdname,                   
 Socket.Service,                          config_parse_socket_service,                 0,                                  0
 Socket.TriggerLimitIntervalSec,          config_parse_sec,                            0,                                  offsetof(Socket, trigger_limit.interval)
 Socket.TriggerLimitBurst,                config_parse_unsigned,                       0,                                  offsetof(Socket, trigger_limit.burst)
+Socket.PollLimitIntervalSec,             config_parse_sec,                            0,                                  offsetof(Socket, poll_limit_interval)
+Socket.PollLimitBurst,                   config_parse_unsigned,                       0,                                  offsetof(Socket, poll_limit_burst)
 {% if ENABLE_SMACK %}
 Socket.SmackLabel,                       config_parse_unit_string_printf,             0,                                  offsetof(Socket, smack)
 Socket.SmackLabelIPIn,                   config_parse_unit_string_printf,             0,                                  offsetof(Socket, smack_ip_in)
