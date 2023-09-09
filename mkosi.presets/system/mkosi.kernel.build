@@ -12,6 +12,11 @@ if [ -d "$SRCDIR"/mkosi.kernel/ ]; then
     cd "$SRCDIR"
     mkdir -p "$BUILDDIR"
 
+    # Prevent a distro's custom installkernel script from being used.
+    if [ -x /sbin/installkernel ]; then
+        mount --bind /dev/null /sbin/installkernel
+    fi
+
     # Ensure fast incremental builds by fixating these values which usually change for each build.
     export KBUILD_BUILD_TIMESTAMP="Fri Jun  5 15:58:00 CEST 2015"
     export KBUILD_BUILD_HOST="mkosi"
