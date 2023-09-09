@@ -6,6 +6,8 @@
 ***/
 
 #include "sd-device.h"
+
+#include "pidref.h"
 #include "unit.h"
 
 typedef struct Swap Swap;
@@ -73,7 +75,7 @@ struct Swap {
 
         ExecCommand* control_command;
         SwapExecCommand control_command_id;
-        pid_t control_pid;
+        PidRef control_pid;
 
         sd_event_source *timer_event_source;
 

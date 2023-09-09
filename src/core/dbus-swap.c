@@ -42,7 +42,7 @@ const sd_bus_vtable bus_swap_vtable[] = {
         SD_BUS_PROPERTY("Priority", "i", property_get_priority, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("Options", "s", property_get_options, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("TimeoutUSec", "t", bus_property_get_usec, offsetof(Swap, timeout_usec), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("ControlPID", "u", bus_property_get_pid, offsetof(Swap, control_pid), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("ControlPID", "u", bus_property_get_pid, offsetof(Swap, control_pid.pid), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("Result", "s", property_get_result, offsetof(Swap, result), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("UID", "u", bus_property_get_uid, offsetof(Unit, ref_uid), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("GID", "u", bus_property_get_gid, offsetof(Unit, ref_gid), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
