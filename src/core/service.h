@@ -8,6 +8,7 @@ typedef struct ServiceFDStore ServiceFDStore;
 #include "kill.h"
 #include "open-file.h"
 #include "path.h"
+#include "pidref.h"
 #include "ratelimit.h"
 #include "socket.h"
 #include "unit.h"
@@ -167,7 +168,7 @@ struct Service {
         /* Runtime data of the execution context */
         ExecRuntime *exec_runtime;
 
-        pid_t main_pid, control_pid;
+        PidRef main_pid, control_pid;
 
         /* if we are a socket activated service instance, store information of the connection/peer/socket */
         int socket_fd;
