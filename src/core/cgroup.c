@@ -20,6 +20,7 @@
 #include "devnum-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "firewall-util.h"
 #include "in-addr-prefix-util.h"
 #include "inotify-util.h"
 #include "io-util.h"
@@ -291,6 +292,8 @@ void cgroup_context_done(CGroupContext *c) {
         cpu_set_reset(&c->startup_cpuset_mems);
 
         c->delegate_subgroup = mfree(c->delegate_subgroup);
+
+        nft_set_context_clear(&c->nft_set_context);
 }
 
 static int unit_get_kernel_memory_limit(Unit *u, const char *file, uint64_t *ret) {
@@ -664,6 +667,10 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 SET_FOREACH(iface, c->restrict_network_interfaces)
                         fprintf(f, "%sRestrictNetworkInterfaces: %s\n", prefix, iface);
         }
+
+        FOREACH_ARRAY(nft_set, c->nft_set_context.sets, c->nft_set_context.n_sets)
+                fprintf(f, "%sNFTSet: %s:%s:%s:%s\n", prefix, nft_set_source_to_string(nft_set->source),
+                        nfproto_to_string(nft_set->nfproto), nft_set->table, nft_set->set);
 }
 
 void cgroup_context_dump_socket_bind_item(const CGroupSocketBindItem *item, FILE *f) {
@@ -1342,6 +1349,43 @@ static void cgroup_apply_firewall(Unit *u) {
         (void) bpf_firewall_install(u);
 }
 
+void cgroup_modify_nft_set(Unit *u, bool add) {
+        int r;
+        CGroupContext *c;
+
+        assert(u);
+
+        if (!MANAGER_IS_SYSTEM(u->manager))
+                return;
+
+        if (cg_all_unified() <= 0)
+                return;
+
+        assert_se(c = unit_get_cgroup_context(u));
+        if (u->cgroup_id == 0)
+                return;
+
+        if (!u->fw_ctx) {
+                r = fw_ctx_new_full(&u->fw_ctx, /* init_tables= */ false);
+                if (r < 0)
+                        return;
+
+                assert(u->fw_ctx);
+        }
+
+        FOREACH_ARRAY(nft_set, c->nft_set_context.sets, c->nft_set_context.n_sets) {
+                uint64_t element = u->cgroup_id;
+
+                r = nft_set_element_modify_any(u->fw_ctx, add, nft_set->nfproto, nft_set->table, nft_set->set, &element, sizeof(element));
+                if (r < 0)
+                        log_warning_errno(r, "Failed to %s NFT set: family %s, table %s, set %s, cgroup %" PRIu64 ", ignoring: %m",
+                                          add? "add" : "delete", nfproto_to_string(nft_set->nfproto), nft_set->table, nft_set->set, u->cgroup_id);
+                else
+                        log_debug("%s NFT set: family %s, table %s, set %s, cgroup %" PRIu64,
+                                  add? "Added" : "Deleted", nfproto_to_string(nft_set->nfproto), nft_set->table, nft_set->set, u->cgroup_id);
+        }
+}
+
 static void cgroup_apply_socket_bind(Unit *u) {
         assert(u);
 
@@ -1781,6 +1825,8 @@ static void cgroup_context_apply(
 
         if (apply_mask & CGROUP_MASK_BPF_RESTRICT_NETWORK_INTERFACES)
                 cgroup_apply_restrict_network_interfaces(u);
+
+        cgroup_modify_nft_set(u, /* add = */ true);
 }
 
 static bool unit_get_needs_bpf_firewall(Unit *u) {
@@ -2949,6 +2995,8 @@ void unit_prune_cgroup(Unit *u) {
 #if BPF_FRAMEWORK
         (void) lsm_bpf_cleanup(u); /* Remove cgroup from the global LSM BPF map */
 #endif
+
+        cgroup_modify_nft_set(u, /* add = */ false);
 
         is_root_slice = unit_has_name(u, SPECIAL_ROOT_SLICE);
 
