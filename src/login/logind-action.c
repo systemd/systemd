@@ -239,7 +239,7 @@ int manager_handle_action(
             manager_is_inhibited(m, inhibit_operation, INHIBIT_BLOCK, NULL, false, false, 0, &offending)) {
                 _cleanup_free_ char *comm = NULL, *u = NULL;
 
-                (void) get_process_comm(offending->pid, &comm);
+                (void) get_process_comm(offending->pid.pid, &comm);
                 u = uid_to_name(offending->uid);
 
                 /* If this is just a recheck of the lid switch then don't warn about anything */
@@ -248,7 +248,7 @@ int manager_handle_action(
                          handle_action_to_string(handle),
                          inhibit_what_to_string(inhibit_operation),
                          offending->uid, strna(u),
-                         offending->pid, strna(comm));
+                         offending->pid.pid, strna(comm));
 
                 return is_edge ? -EPERM : 0;
         }

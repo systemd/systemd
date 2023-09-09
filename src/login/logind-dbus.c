@@ -665,7 +665,7 @@ static int method_list_inhibitors(sd_bus_message *message, void *userdata, sd_bu
                                           strempty(inhibitor->why),
                                           strempty(inhibit_mode_to_string(inhibitor->mode)),
                                           (uint32_t) inhibitor->uid,
-                                          (uint32_t) inhibitor->pid);
+                                          (uint32_t) inhibitor->pid.pid);
                 if (r < 0)
                         return r;
         }
@@ -1625,12 +1625,12 @@ int manager_dispatch_delayed(Manager *manager, bool timeout) {
                 if (!timeout)
                         return 0;
 
-                (void) get_process_comm(offending->pid, &comm);
+                (void) get_process_comm(offending->pid.pid, &comm);
                 u = uid_to_name(offending->uid);
 
                 log_notice("Delay lock is active (UID "UID_FMT"/%s, PID "PID_FMT"/%s) but inhibitor timeout is reached.",
                            offending->uid, strna(u),
-                           offending->pid, strna(comm));
+                           offending->pid.pid, strna(comm));
         }
 
         /* Actually do the operation */
@@ -3207,6 +3207,7 @@ static int method_set_wall_message(
 
 static int method_inhibit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         const char *who, *why, *what, *mode;
         _cleanup_free_ char *id = NULL;
         _cleanup_close_ int fifo_fd = -EBADF;
@@ -3279,6 +3280,10 @@ static int method_inhibit(sd_bus_message *message, void *userdata, sd_bus_error 
         if (r < 0)
                 return r;
 
+        r = pidref_set_pid(&pidref, pid);
+        if (r < 0)
+                return sd_bus_error_set_errnof(error, r, "Failed pin source process "PID_FMT": %m", pid);
+
         if (hashmap_size(m->inhibitors) >= m->inhibitors_max)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_LIMITS_EXCEEDED,
                                          "Maximum number of inhibitors (%" PRIu64 ") reached, refusing further inhibitors.",
@@ -3299,7 +3304,7 @@ static int method_inhibit(sd_bus_message *message, void *userdata, sd_bus_error 
 
         i->what = w;
         i->mode = mm;
-        i->pid = pid;
+        i->pid = TAKE_PIDREF(pidref);
         i->uid = uid;
         i->why = strdup(why);
         i->who = strdup(who);

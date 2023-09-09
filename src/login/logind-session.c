@@ -66,6 +66,7 @@ int session_new(Session **ret, Manager *m, const char *id) {
                 .vtfd = -EBADF,
                 .audit_id = AUDIT_SESSION_INVALID,
                 .tty_validity = _TTY_VALIDITY_INVALID,
+                .leader = PIDREF_NULL,
         };
 
         s->state_file = path_join("/run/systemd/sessions", id);
@@ -128,8 +129,10 @@ Session* session_free(Session *s) {
                 free(s->scope);
         }
 
-        if (pid_is_valid(s->leader))
-                (void) hashmap_remove_value(s->manager->sessions_by_leader, PID_TO_PTR(s->leader), s);
+        if (pidref_is_set(&s->leader)) {
+                (void) hashmap_remove_value(s->manager->sessions_by_leader, PID_TO_PTR(s->leader.pid), s);
+                pidref_done(&s->leader);
+        }
 
         free(s->scope_job);
 
@@ -168,6 +171,7 @@ void session_set_user(Session *s, User *u) {
 }
 
 int session_set_leader(Session *s, pid_t pid) {
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         int r;
 
         assert(s);
@@ -175,18 +179,24 @@ int session_set_leader(Session *s, pid_t pid) {
         if (!pid_is_valid(pid))
                 return -EINVAL;
 
-        if (s->leader == pid)
+        if (s->leader.pid == pid)
                 return 0;
 
-        r = hashmap_put(s->manager->sessions_by_leader, PID_TO_PTR(pid), s);
+        r = pidref_set_pid(&pidref, pid);
         if (r < 0)
                 return r;
 
-        if (pid_is_valid(s->leader))
-                (void) hashmap_remove_value(s->manager->sessions_by_leader, PID_TO_PTR(s->leader), s);
+        r = hashmap_put(s->manager->sessions_by_leader, PID_TO_PTR(pidref.pid), s);
+        if (r < 0)
+                return r;
 
-        s->leader = pid;
-        (void) audit_session_from_pid(pid, &s->audit_id);
+        if (pidref_is_set(&s->leader)) {
+                (void) hashmap_remove_value(s->manager->sessions_by_leader, PID_TO_PTR(s->leader.pid), s);
+                pidref_done(&s->leader);
+        }
+
+        s->leader = TAKE_PIDREF(pidref);
+        (void) audit_session_from_pid(s->leader.pid, &s->audit_id);
 
         return 1;
 }
@@ -323,8 +333,8 @@ int session_save(Session *s) {
         if (!s->vtnr)
                 fprintf(f, "POSITION=%u\n", s->position);
 
-        if (pid_is_valid(s->leader))
-                fprintf(f, "LEADER="PID_FMT"\n", s->leader);
+        if (pidref_is_set(&s->leader))
+                fprintf(f, "LEADER="PID_FMT"\n", s->leader.pid);
 
         if (audit_session_is_valid(s->audit_id))
                 fprintf(f, "AUDIT=%"PRIu32"\n", s->audit_id);
@@ -674,7 +684,7 @@ static int session_start_scope(Session *s, sd_bus_message *properties, sd_bus_er
                 r = manager_start_scope(
                                 s->manager,
                                 scope,
-                                s->leader,
+                                s->leader.pid,
                                 s->user->slice,
                                 description,
                                 /* These two have StopWhenUnneeded= set, hence add a dep towards them */
@@ -779,7 +789,7 @@ int session_start(Session *s, sd_bus_message *properties, sd_bus_error *error) {
                    "MESSAGE_ID=" SD_MESSAGE_SESSION_START_STR,
                    "SESSION_ID=%s", s->id,
                    "USER_ID=%s", s->user->user_record->user_name,
-                   "LEADER="PID_FMT, s->leader,
+                   "LEADER="PID_FMT, s->leader.pid,
                    LOG_MESSAGE("New session %s of user %s.", s->id, s->user->user_record->user_name));
 
         if (!dual_timestamp_is_set(&s->timestamp))
@@ -849,7 +859,7 @@ static int session_stop_scope(Session *s, bool force) {
                 log_struct(s->class == SESSION_BACKGROUND ? LOG_DEBUG : LOG_INFO,
                            "SESSION_ID=%s", s->id,
                            "USER_ID=%s", s->user->user_record->user_name,
-                           "LEADER="PID_FMT, s->leader,
+                           "LEADER="PID_FMT, s->leader.pid,
                            LOG_MESSAGE("Session %s logged out. Waiting for processes to exit.", s->id));
         }
 
@@ -907,7 +917,7 @@ int session_finalize(Session *s) {
                            "MESSAGE_ID=" SD_MESSAGE_SESSION_STOP_STR,
                            "SESSION_ID=%s", s->id,
                            "USER_ID=%s", s->user->user_record->user_name,
-                           "LEADER="PID_FMT, s->leader,
+                           "LEADER="PID_FMT, s->leader.pid,
                            LOG_MESSAGE("Removed session %s.", s->id));
 
         s->timer_event_source = sd_event_source_unref(s->timer_event_source);
@@ -1036,8 +1046,8 @@ int session_get_idle_hint(Session *s, dual_timestamp *t) {
 
         /* For sessions with a leader but no explicitly configured tty, let's check the controlling tty of
          * the leader */
-        if (pid_is_valid(s->leader)) {
-                r = get_process_ctty_atime(s->leader, &atime);
+        if (pidref_is_set(&s->leader)) {
+                r = get_process_ctty_atime(s->leader.pid, &atime);
                 if (r >= 0)
                         goto found_atime;
         }
