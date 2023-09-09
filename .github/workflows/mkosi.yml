@@ -80,9 +80,6 @@ jobs:
 
     - name: Configure
       run: |
-        # We configure ExtraSearchPaths=build/ so make sure build/ exists.
-        mkdir build/
-
         tee mkosi.conf <<- EOF
         [Distribution]
         Distribution=${{ matrix.distro }}
