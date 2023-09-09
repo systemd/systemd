@@ -102,6 +102,9 @@ static void socket_init(Unit *u) {
 
         s->trigger_limit.interval = USEC_INFINITY;
         s->trigger_limit.burst = UINT_MAX;
+
+        s->poll_limit_interval = USEC_INFINITY;
+        s->poll_limit_burst = UINT_MAX;
 }
 
 static void socket_unwatch_control_pid(Socket *s) {
@@ -307,17 +310,20 @@ static int socket_add_extras(Socket *s) {
          * off the queues, which it might not necessarily do. Moreover, while Accept=no services are supposed to
          * process whatever is queued in one go, and thus should normally never have to be started frequently. This is
          * different for Accept=yes where each connection is processed by a new service instance, and thus frequent
-         * service starts are typical. */
+         * service starts are typical.
+         *
+         * For the poll limit we follow a similar rule, but use 3/4th of the trigger limit parameters, to
+         * trigger this earlier. */
 
         if (s->trigger_limit.interval == USEC_INFINITY)
                 s->trigger_limit.interval = 2 * USEC_PER_SEC;
+        if (s->trigger_limit.burst == UINT_MAX)
+                s->trigger_limit.burst = s->accept ? 200 : 20;
 
-        if (s->trigger_limit.burst == UINT_MAX) {
-                if (s->accept)
-                        s->trigger_limit.burst = 200;
-                else
-                        s->trigger_limit.burst = 20;
-        }
+        if (s->poll_limit_interval == USEC_INFINITY)
+                s->poll_limit_interval = 2 * USEC_PER_SEC;
+        if (s->poll_limit_burst == UINT_MAX)
+                s->poll_limit_burst = s->accept ? 150 : 15;
 
         if (have_non_accept_socket(s)) {
 
@@ -767,9 +773,13 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
 
         fprintf(f,
                 "%sTriggerLimitIntervalSec: %s\n"
-                "%sTriggerLimitBurst: %u\n",
+                "%sTriggerLimitBurst: %u\n"
+                "%sPollLimitIntervalSec: %s\n"
+                "%sPollLimitBurst: %u\n",
                 prefix, FORMAT_TIMESPAN(s->trigger_limit.interval, USEC_PER_SEC),
-                prefix, s->trigger_limit.burst);
+                prefix, s->trigger_limit.burst,
+                prefix, FORMAT_TIMESPAN(s->poll_limit_interval, USEC_PER_SEC),
+                prefix, s->poll_limit_burst);
 
         str = ip_protocol_to_name(s->socket_protocol);
         if (str)
@@ -1761,6 +1771,10 @@ static int socket_watch_fds(Socket *s) {
 
                         (void) sd_event_source_set_description(p->event_source, "socket-port-io");
                 }
+
+                r = sd_event_source_set_ratelimit(p->event_source, s->poll_limit_interval, s->poll_limit_burst);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to set pause limit on I/O event sources.");
         }
 
         return 0;
