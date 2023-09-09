@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "pidref.h"
+
 typedef struct Inhibitor Inhibitor;
 
 typedef enum InhibitWhat {
@@ -40,7 +42,7 @@ struct Inhibitor {
         char *why;
         InhibitMode mode;
 
-        pid_t pid;
+        PidRef pid;
         uid_t uid;
 
         dual_timestamp since;
