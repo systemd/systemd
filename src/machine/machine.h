@@ -7,6 +7,7 @@ typedef enum KillWho KillWho;
 #include "list.h"
 #include "machined.h"
 #include "operation.h"
+#include "pidref.h"
 #include "time-util.h"
 
 typedef enum MachineState {
@@ -47,7 +48,7 @@ struct Machine {
         char *unit;
         char *scope_job;
 
-        pid_t leader;
+        PidRef leader;
 
         dual_timestamp timestamp;
 
