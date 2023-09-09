@@ -122,9 +122,6 @@ Deprecations and removals:
 * drop fd_is_mount_point() fallback mess once we can rely on
   STATX_ATTR_MOUNT_ROOT to exist i.e. kernel baseline 5.8
 
-* rework our PID tracking in services and so on, to be strictly based on pidfd,
-  once kernel baseline is 5.13.
-
 * Remove /dev/mem ACPI FPDT parsing when /sys/firmware/acpi/fpdt is ubiquitous.
   That requires distros to enable CONFIG_ACPI_FPDT, and have kernels v5.12 for
   x86 and v6.2 for arm.
@@ -135,6 +132,19 @@ Deprecations and removals:
 * remove remaining tpm1.2 support from sd-stub
 
 Features:
+
+* PidRef conversion work:
+  - pid_is_unwaited() → pidref_is_unwaited()
+  - pid_is_alive() → pidref_is_alive()
+  - unit_watch_pid() → unit_watch_pidref()
+  - unit_kill_common()
+  - unit_kill_context()
+  - service_set_main_pid()
+  - actually wait for POLLIN on piref's pidfd in service logic
+  - unit_main_pid() + unit_control_pid()
+  - exec_spawn()
+  - serialization of control/main pid in service, socket, mount, swap units
+  - unit_fork_and_watch_rm_rf()
 
 * ddi must be listed as block device fstype
 
@@ -1280,8 +1290,6 @@ Features:
 * make use of new glibc 2.32 APIs sigabbrev_np() and strerrorname_np().
 
 * if /usr/bin/swapoff fails due to OOM, log a friendly explanatory message about it
-
-* pid1: Move to tracking of main pid/control pid of units per pidfd
 
 * pid1: support new clone3() fork-into-cgroup feature
 
