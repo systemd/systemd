@@ -2878,7 +2878,6 @@ static void manager_handle_ctrl_alt_del(Manager *m) {
 
 static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
-        _cleanup_free_ char *comm = NULL;
         ssize_t n;
         struct signalfd_siginfo sfsi;
         int r;
