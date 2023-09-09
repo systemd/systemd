@@ -129,8 +129,15 @@ Unit* unit_new(Manager *m, size_t size) {
 
         u->last_section_private = -1;
 
-        u->start_ratelimit = (RateLimit) { m->default_start_limit_interval, m->default_start_limit_burst };
-        u->auto_start_stop_ratelimit = (const RateLimit) { 10 * USEC_PER_SEC, 16 };
+        u->start_ratelimit = (RateLimit) {
+                m->defaults.start_limit_interval,
+                m->defaults.start_limit_burst
+        };
+
+        u->auto_start_stop_ratelimit = (const RateLimit) {
+                10 * USEC_PER_SEC,
+                16
+        };
 
         return u;
 }
@@ -177,26 +184,26 @@ static void unit_init(Unit *u) {
                  * context, _before_ the rest of the settings have
                  * been initialized */
 
-                cc->cpu_accounting = u->manager->default_cpu_accounting;
-                cc->io_accounting = u->manager->default_io_accounting;
-                cc->blockio_accounting = u->manager->default_blockio_accounting;
-                cc->memory_accounting = u->manager->default_memory_accounting;
-                cc->tasks_accounting = u->manager->default_tasks_accounting;
-                cc->ip_accounting = u->manager->default_ip_accounting;
+                cc->cpu_accounting = u->manager->defaults.cpu_accounting;
+                cc->io_accounting = u->manager->defaults.io_accounting;
+                cc->blockio_accounting = u->manager->defaults.blockio_accounting;
+                cc->memory_accounting = u->manager->defaults.memory_accounting;
+                cc->tasks_accounting = u->manager->defaults.tasks_accounting;
+                cc->ip_accounting = u->manager->defaults.ip_accounting;
 
                 if (u->type != UNIT_SLICE)
-                        cc->tasks_max = u->manager->default_tasks_max;
+                        cc->tasks_max = u->manager->defaults.tasks_max;
 
-                cc->memory_pressure_watch = u->manager->default_memory_pressure_watch;
-                cc->memory_pressure_threshold_usec = u->manager->default_memory_pressure_threshold_usec;
+                cc->memory_pressure_watch = u->manager->defaults.memory_pressure_watch;
+                cc->memory_pressure_threshold_usec = u->manager->defaults.memory_pressure_threshold_usec;
         }
 
         ec = unit_get_exec_context(u);
         if (ec) {
                 exec_context_init(ec);
 
-                if (u->manager->default_oom_score_adjust_set) {
-                        ec->oom_score_adjust = u->manager->default_oom_score_adjust;
+                if (u->manager->defaults.oom_score_adjust_set) {
+                        ec->oom_score_adjust = u->manager->defaults.oom_score_adjust;
                         ec->oom_score_adjust_set = true;
                 }
 
@@ -4277,8 +4284,8 @@ int unit_patch_contexts(Unit *u) {
         if (ec) {
                 /* This only copies in the ones that need memory */
                 for (unsigned i = 0; i < _RLIMIT_MAX; i++)
-                        if (u->manager->rlimit[i] && !ec->rlimit[i]) {
-                                ec->rlimit[i] = newdup(struct rlimit, u->manager->rlimit[i], 1);
+                        if (u->manager->defaults.rlimit[i] && !ec->rlimit[i]) {
+                                ec->rlimit[i] = newdup(struct rlimit, u->manager->defaults.rlimit[i], 1);
                                 if (!ec->rlimit[i])
                                         return -ENOMEM;
                         }
