@@ -49,9 +49,13 @@ int machine_new(Manager *manager, MachineClass class, const char *name, Machine 
          * means as much as "we don't know yet", and that we'll figure
          * it out later when loading the state file. */
 
-        m = new0(Machine, 1);
+        m = new(Machine, 1);
         if (!m)
                 return -ENOMEM;
+
+        *m = (Machine) {
+                .leader = PIDREF_NULL,
+        };
 
         m->name = strdup(name);
         if (!m->name)
@@ -94,8 +98,10 @@ Machine* machine_free(Machine *m) {
         if (m->manager->host_machine == m)
                 m->manager->host_machine = NULL;
 
-        if (m->leader > 0)
-                (void) hashmap_remove_value(m->manager->machine_leaders, PID_TO_PTR(m->leader), m);
+        if (pidref_is_set(&m->leader)) {
+                (void) hashmap_remove_value(m->manager->machine_leaders, PID_TO_PTR(m->leader.pid), m);
+                pidref_done(&m->leader);
+        }
 
         sd_bus_message_unref(m->create_message);
 
@@ -175,8 +181,8 @@ int machine_save(Machine *m) {
         if (!sd_id128_is_null(m->id))
                 fprintf(f, "ID=" SD_ID128_FORMAT_STR "\n", SD_ID128_FORMAT_VAL(m->id));
 
-        if (m->leader != 0)
-                fprintf(f, "LEADER="PID_FMT"\n", m->leader);
+        if (pidref_is_set(&m->leader))
+                fprintf(f, "LEADER="PID_FMT"\n", m->leader.pid);
 
         if (m->class != _MACHINE_CLASS_INVALID)
                 fprintf(f, "CLASS=%s\n", machine_class_to_string(m->class));
@@ -272,10 +278,14 @@ int machine_load(Machine *m) {
                 return log_error_errno(r, "Failed to read %s: %m", m->state_file);
 
         if (id)
-                sd_id128_from_string(id, &m->id);
+                (void) sd_id128_from_string(id, &m->id);
 
-        if (leader)
-                parse_pid(leader, &m->leader);
+        if (leader) {
+                pidref_done(&m->leader);
+                r = pidref_set_pidstr(&m->leader, leader);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to set leader PID to '%s', ignoring: %m", leader);
+        }
 
         if (class) {
                 MachineClass c;
@@ -337,7 +347,7 @@ static int machine_start_scope(
         int r;
 
         assert(machine);
-        assert(machine->leader > 0);
+        assert(pidref_is_set(&machine->leader));
         assert(!machine->unit);
 
         escaped = unit_name_escape(machine->name);
@@ -374,7 +384,7 @@ static int machine_start_scope(
                 return r;
 
         r = sd_bus_message_append(m, "(sv)(sv)(sv)(sv)(sv)",
-                                  "PIDs", "au", 1, machine->leader,
+                                  "PIDs", "au", 1, machine->leader.pid,
                                   "Delegate", "b", 1,
                                   "CollectMode", "s", "inactive-or-failed",
                                   "AddRef", "b", 1,
@@ -440,7 +450,7 @@ int machine_start(Machine *m, sd_bus_message *properties, sd_bus_error *error) {
         if (m->started)
                 return 0;
 
-        r = hashmap_put(m->manager->machine_leaders, PID_TO_PTR(m->leader), m);
+        r = hashmap_put(m->manager->machine_leaders, PID_TO_PTR(m->leader.pid), m);
         if (r < 0)
                 return r;
 
@@ -452,7 +462,7 @@ int machine_start(Machine *m, sd_bus_message *properties, sd_bus_error *error) {
         log_struct(LOG_INFO,
                    "MESSAGE_ID=" SD_MESSAGE_MACHINE_START_STR,
                    "NAME=%s", m->name,
-                   "LEADER="PID_FMT, m->leader,
+                   "LEADER="PID_FMT, m->leader.pid,
                    LOG_MESSAGE("New machine %s.", m->name));
 
         if (!dual_timestamp_is_set(&m->timestamp))
@@ -503,7 +513,7 @@ int machine_finalize(Machine *m) {
                 log_struct(LOG_INFO,
                            "MESSAGE_ID=" SD_MESSAGE_MACHINE_STOP_STR,
                            "NAME=%s", m->name,
-                           "LEADER="PID_FMT, m->leader,
+                           "LEADER="PID_FMT, m->leader.pid,
                            LOG_MESSAGE("Machine %s terminated.", m->name));
 
                 m->stopping = true; /* The machine is supposed to be going away. Don't try to kill it. */
@@ -573,7 +583,7 @@ int machine_kill(Machine *m, KillWho who, int signo) {
                 return -ESRCH;
 
         if (who == KILL_LEADER) /* If we shall simply kill the leader, do so directly */
-                return RET_NERRNO(kill(m->leader, signo));
+                return pidref_kill(&m->leader, signo);
 
         /* Otherwise, make PID 1 do it for us, for the entire cgroup */
         return manager_kill_unit(m->manager, m->unit, signo, NULL);
@@ -585,14 +595,13 @@ int machine_openpt(Machine *m, int flags, char **ret_slave) {
         switch (m->class) {
 
         case MACHINE_HOST:
-
                 return openpt_allocate(flags, ret_slave);
 
         case MACHINE_CONTAINER:
-                if (m->leader <= 0)
+                if (!pidref_is_set(&m->leader))
                         return -EINVAL;
 
-                return openpt_allocate_in_namespace(m->leader, flags, ret_slave);
+                return openpt_allocate_in_namespace(m->leader.pid, flags, ret_slave);
 
         default:
                 return -EOPNOTSUPP;
@@ -608,10 +617,10 @@ int machine_open_terminal(Machine *m, const char *path, int mode) {
                 return open_terminal(path, mode);
 
         case MACHINE_CONTAINER:
-                if (m->leader <= 0)
+                if (!pidref_is_set(&m->leader))
                         return -EINVAL;
 
-                return open_terminal_in_namespace(m->leader, path, mode);
+                return open_terminal_in_namespace(m->leader.pid, path, mode);
 
         default:
                 return -EOPNOTSUPP;
@@ -664,7 +673,7 @@ int machine_get_uid_shift(Machine *m, uid_t *ret) {
         if (m->class != MACHINE_CONTAINER)
                 return -EOPNOTSUPP;
 
-        xsprintf(p, "/proc/" PID_FMT "/uid_map", m->leader);
+        xsprintf(p, "/proc/" PID_FMT "/uid_map", m->leader.pid);
         f = fopen(p, "re");
         if (!f) {
                 if (errno == ENOENT) {
@@ -702,7 +711,7 @@ int machine_get_uid_shift(Machine *m, uid_t *ret) {
 
         fclose(f);
 
-        xsprintf(p, "/proc/" PID_FMT "/gid_map", m->leader);
+        xsprintf(p, "/proc/" PID_FMT "/gid_map", m->leader.pid);
         f = fopen(p, "re");
         if (!f)
                 return -errno;
@@ -756,7 +765,7 @@ static int machine_owns_uid_internal(
         if (machine->class != MACHINE_CONTAINER)
                 goto negative;
 
-        p = procfs_file_alloca(machine->leader, map_file);
+        p = procfs_file_alloca(machine->leader.pid, map_file);
         f = fopen(p, "re");
         if (!f) {
                 log_debug_errno(errno, "Failed to open %s, ignoring.", p);
@@ -830,7 +839,7 @@ static int machine_translate_uid_internal(
 
         /* Translates a machine UID into a host UID */
 
-        p = procfs_file_alloca(machine->leader, map_file);
+        p = procfs_file_alloca(machine->leader.pid, map_file);
         f = fopen(p, "re");
         if (!f)
                 return -errno;

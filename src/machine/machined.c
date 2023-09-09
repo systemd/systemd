@@ -107,6 +107,7 @@ static Manager* manager_unref(Manager *m) {
 }
 
 static int manager_add_host_machine(Manager *m) {
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         _cleanup_free_ char *rd = NULL, *unit = NULL;
         sd_id128_t mid;
         Machine *t;
@@ -127,11 +128,15 @@ static int manager_add_host_machine(Manager *m) {
         if (!unit)
                 return log_oom();
 
+        r = pidref_set_pid(&pidref, 1);
+        if (r < 0)
+                return log_error_errno(r, "Failed to open reference to PID 1: %m");
+
         r = machine_new(m, MACHINE_HOST, ".host", &t);
         if (r < 0)
                 return log_error_errno(r, "Failed to create machine: %m");
 
-        t->leader = 1;
+        t->leader = TAKE_PIDREF(pidref);
         t->id = mid;
 
         t->root_directory = TAKE_PTR(rd);
