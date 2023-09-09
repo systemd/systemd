@@ -73,3 +73,5 @@ extern const struct hash_ops bus_message_hash_ops;
 int bus_message_append_string_set(sd_bus_message *m, Set *s);
 
 int bus_property_get_string_set(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error);
+
+void bus_log_caller(sd_bus_message *message, const char *method);

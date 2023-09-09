@@ -316,6 +316,7 @@ extern bool _log_message_dummy;
 #endif
 
 void log_received_signal(int level, const struct signalfd_siginfo *si);
+void log_caller(pid_t pid, const char *comm, const char *caller, pid_t ppid, const char *comm_parent, const char *method);
 
 /* If turned on, any requests for a log target involving "syslog" will be implicitly upgraded to the equivalent journal target */
 void log_set_upgrade_syslog_to_journal(bool b);
