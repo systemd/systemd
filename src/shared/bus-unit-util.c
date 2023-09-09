@@ -2165,10 +2165,10 @@ static int bus_append_path_property(sd_bus_message *m, const char *field, const 
                 return 1;
         }
 
-        if (streq(field, "TriggerLimitBurst"))
+        if (STR_IN_SET(field, "TriggerLimitBurst", "PollLimitBurst"))
                 return bus_append_safe_atou(m, field, eq);
 
-        if (streq(field, "TriggerLimitIntervalSec"))
+        if (STR_IN_SET(field, "TriggerLimitIntervalSec", "PollLimitIntervalSec"))
                 return bus_append_parse_sec_rename(m, field, eq);
 
         return 0;
@@ -2377,7 +2377,8 @@ static int bus_append_socket_property(sd_bus_message *m, const char *field, cons
                               "MaxConnections",
                               "MaxConnectionsPerSource",
                               "KeepAliveProbes",
-                              "TriggerLimitBurst"))
+                              "TriggerLimitBurst",
+                              "PollLimitBurst"))
                 return bus_append_safe_atou(m, field, eq);
 
         if (STR_IN_SET(field, "SocketMode",
@@ -2392,7 +2393,8 @@ static int bus_append_socket_property(sd_bus_message *m, const char *field, cons
                               "KeepAliveTimeSec",
                               "KeepAliveIntervalSec",
                               "DeferAcceptSec",
-                              "TriggerLimitIntervalSec"))
+                              "TriggerLimitIntervalSec",
+                              "PollLimitIntervalSec"))
                 return bus_append_parse_sec_rename(m, field, eq);
 
         if (STR_IN_SET(field, "ReceiveBuffer",
