@@ -566,4 +566,17 @@ node /org/freedesktop/portable1 {
   </refsect1>
 
   <xi:include href="org.freedesktop.locale1.xml" xpointer="versioning"/>
+
+  <refsect1>
+    <title>History</title>
+    <refsect2>
+      <title>The Image Object</title>
+      <para><function>GetStateWithExtensions()</function> was added in version 251.</para>
+      <para><function>ReattachWithExtensions()</function> was added in version 254.</para>
+    </refsect2>
+    <refsect2>
+      <title>The Manager Object</title>
+      <para><function>GetImageStateWithExtensions()</function> was added in version 251.</para>
+    </refsect2>
+  </refsect1>
 </refentry>

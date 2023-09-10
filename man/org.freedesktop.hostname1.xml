@@ -418,4 +418,16 @@ node /org/freedesktop/hostname1 {
     <para>David Zeuthen's original Fedora
     <ulink url="https://fedoraproject.org/wiki/Features/BetterHostname">Feature page about xdg-hostname</ulink></para>
   </refsect1>
+
+  <refsect1>
+    <title>History</title>
+    <refsect2>
+      <title>The D-Bus API</title>
+      <para><varname>FirmwareVersion</varname> and
+      <function>GetHardwareSerial()</function> were added in version 251.</para>
+      <para><varname>OperatingSystemSupportEnd</varname>,
+      <varname>FirmwareVendor</varname> and
+      <varname>FirmwareDate</varname> were added in version 253.</para>
+    </refsect2>
+  </refsect1>
 </refentry>
