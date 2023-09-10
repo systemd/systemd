@@ -8,6 +8,7 @@
 #include "sd-device.h"
 #include "sd-event.h"
 
+#include "common-signal.h"
 #include "cgroup-util.h"
 #include "cgroup.h"
 #include "fdset.h"
@@ -22,6 +23,14 @@ typedef struct Unit Unit;
 
 /* Enforce upper limit how many names we allow */
 #define MANAGER_MAX_NAMES 131072 /* 128K */
+
+/* On sigrtmin+18, private commands */
+enum {
+        MANAGER_SIGNAL_COMMAND_DUMP_JOBS = _COMMON_SIGNAL_COMMAND_PRIVATE_BASE + 0,
+        _MANAGER_SIGNAL_COMMAND_MAX,
+};
+
+assert_cc((int) _MANAGER_SIGNAL_COMMAND_MAX <= (int) _COMMON_SIGNAL_COMMAND_PRIVATE_END);
 
 typedef struct Manager Manager;
 
