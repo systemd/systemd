@@ -573,4 +573,16 @@ $ gdbus introspect --system \
   </refsect1>
 
   <xi:include href="org.freedesktop.locale1.xml" xpointer="versioning"/>
+
+  <refsect1>
+    <title>History</title>
+    <refsect2>
+      <title>DHCPv4 Client Object</title>
+      <para><varname>State</varname> was added in version 255.</para>
+    </refsect2>
+    <refsect2>
+      <title>DHCPv6 Client Object</title>
+      <para><varname>State</varname> was added in version 255.</para>
+    </refsect2>
+  </refsect1>
 </refentry>

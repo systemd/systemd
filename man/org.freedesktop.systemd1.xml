@@ -11490,4 +11490,166 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
   </refsect1>
 
   <xi:include href="org.freedesktop.locale1.xml" xpointer="versioning"/>
+
+  <refsect1>
+    <title>History</title>
+    <refsect2>
+      <title>Unit Objects</title>
+      <para><varname>Upholds</varname> and
+      <varname>UpheldBy</varname> were added in version 251.</para>
+      <para><varname>AccessSELinuxContext</varname> and
+      <varname>ActivationDetails</varname> were added in version 252.</para>
+      <para><function>QueueSignal()</function> was added in version 254.</para>
+    </refsect2>
+    <refsect2>
+      <title>The Manager Object</title>
+      <para><varname>RuntimeWatchdogPreUSec</varname> and
+      <varname>RuntimeWatchdogPreGovernor</varname> were added in version 251.</para>
+      <para><varname>WatchdogDevice</varname>,
+      <varname>WatchdogLastPingTimestamp</varname>,
+      <varname>WatchdogLastPingTimestampMonotonic</varname>,
+      <varname>DefaultDeviceTimeoutUSec</varname>,
+      <function>DumpUnitsMatchingPatterns()</function> and
+      <function>DumpUnitsMatchingPatternsByFileDescriptor()</function> were added in version 252.</para>
+      <para><function>GetUnitByPIDFD()</function> and
+      <function>DisableUnitFilesWithFlagsAndInstallInfo()</function> were added in version 253.</para>
+      <para><varname>ConfidentialVirtualization</varname>,
+      <varname>DefaultIOAccounting</varname>,
+      <varname>DefaultIPAccounting</varname>,
+      <varname>DefaultMemoryPressureThresholdUSec</varname>,
+      <varname>DefaultMemoryPressureWatch</varname>,
+      <function>QueueSignalUnit()</function>,
+      <function>SoftReboot()</function> and
+      <function>DumpUnitFileDescriptorStore()</function> were added in version 254.</para>
+    </refsect2>
+    <refsect2>
+      <title>Mount Unit Objects</title>
+      <para><varname>ControlGroupId</varname> and
+      <varname>ExtensionDirectories</varname> were added in version 251.</para>
+      <para><varname>MemoryZSwapMax</varname> and
+      <varname>LogFilterPatterns</varname> were added in version 253.</para>
+      <para><varname>DelegateSubgroup</varname>,
+      <varname>DefaultStartupMemoryLow</varname>,
+      <varname>StartupMemoryLow</varname>,
+      <varname>StartupMemoryHigh</varname>,
+      <varname>StartupMemoryMax</varname>,
+      <varname>StartupMemorySwapMax</varname>,
+      <varname>StartupMemoryZSwapMax</varname>,
+      <varname>MemoryPressureWatch</varname>,
+      <varname>MemoryPressureThresholdUSec</varname>,
+      <varname>RootEphemeral</varname>,
+      <varname>ImportCredential</varname>,
+      <varname>MemoryKSM</varname>,
+      <varname>RootImagePolicy</varname>,
+      <varname>MountImagePolicy</varname> and
+      <varname>ExtensionImagePolicy</varname> were added in version 254.</para>
+    </refsect2>
+    <refsect2>
+      <title>Scope Unit Objects</title>
+      <para><varname>ControlGroupId</varname> was added in version 251.</para>
+      <para><varname>OOMPolicy</varname> and
+      <varname>MemoryZSwapMax</varname> were added in version 253.</para>
+      <para><varname>DelegateSubgroup</varname>,
+      <varname>DefaultStartupMemoryLow</varname>,
+      <varname>StartupMemoryLow</varname>,
+      <varname>StartupMemoryHigh</varname>,
+      <varname>StartupMemoryMax</varname>,
+      <varname>StartupMemorySwapMax</varname>,
+      <varname>StartupMemoryZSwapMax</varname>,
+      <varname>MemoryPressureWatch</varname> and
+      <varname>MemoryPressureThresholdUSec</varname> were added in version 254.</para>
+    </refsect2>
+    <refsect2>
+      <title>Service Unit Objects</title>
+      <para><varname>ControlGroupId</varname> and
+      <varname>ExtensionDirectories</varname> were added in version 251.</para>
+      <para><varname>OpenFile</varname>,
+      <varname>ReloadSignal</varname>,
+      <varname>MemoryZSwapMax</varname> and
+      <varname>LogFilterPatterns</varname> were added in version 253.</para>
+      <para><varname>RestartMode</varname>,
+      <varname>RestartSteps</varname>,
+      <varname>RestartMaxDelayUSec</varname>,
+      <varname>RestartUSecNext</varname>,
+      <varname>FileDescriptorStorePreserve</varname>,
+      <function>DumpFileDescriptorStore()</function>,
+      <varname>DelegateSubgroup</varname>,
+      <varname>DefaultStartupMemoryLow</varname>,
+      <varname>StartupMemoryLow</varname>,
+      <varname>StartupMemoryHigh</varname>,
+      <varname>StartupMemoryMax</varname>,
+      <varname>StartupMemorySwapMax</varname>,
+      <varname>StartupMemoryZSwapMax</varname>,
+      <varname>MemoryPressureWatch</varname>,
+      <varname>MemoryPressureThresholdUSec</varname>,
+      <varname>RootEphemeral</varname>,
+      <varname>ImportCredential</varname>,
+      <varname>MemoryKSM</varname>,
+      <varname>RootImagePolicy</varname>,
+      <varname>MountImagePolicy</varname> and
+      <varname>ExtensionImagePolicy</varname> were added in version 254.</para>
+    </refsect2>
+    <refsect2>
+      <title>Slice Unit Objects</title>
+      <para><varname>ControlGroupId</varname> was added in version 251.</para>
+      <para><varname>MemoryZSwapMax</varname> was added in version 253.</para>
+      <para><varname>DelegateSubgroup</varname>,
+      <varname>DefaultStartupMemoryLow</varname>,
+      <varname>StartupMemoryLow</varname>,
+      <varname>StartupMemoryHigh</varname>,
+      <varname>StartupMemoryMax</varname>,
+      <varname>StartupMemorySwapMax</varname>,
+      <varname>StartupMemoryZSwapMax</varname>,
+      <varname>MemoryPressureWatch</varname> and
+      <varname>MemoryPressureThresholdUSec</varname> were added in version 254.</para>
+    </refsect2>
+    <refsect2>
+      <title>Socket Unit Objects</title>
+      <para><varname>ControlGroupId</varname> and
+      <varname>ExtensionDirectories</varname> were added in version 251.</para>
+      <para><varname>MemoryZSwapMax</varname> and
+      <varname>LogFilterPatterns</varname> were added in version 253.</para>
+      <para><varname>DelegateSubgroup</varname>,
+      <varname>DefaultStartupMemoryLow</varname>,
+      <varname>StartupMemoryLow</varname>,
+      <varname>StartupMemoryHigh</varname>,
+      <varname>StartupMemoryMax</varname>,
+      <varname>StartupMemorySwapMax</varname>,
+      <varname>StartupMemoryZSwapMax</varname>,
+      <varname>MemoryPressureWatch</varname>,
+      <varname>MemoryPressureThresholdUSec</varname>,
+      <varname>RootEphemeral</varname>,
+      <varname>ImportCredential</varname>,
+      <varname>MemoryKSM</varname>,
+      <varname>RootImagePolicy</varname>,
+      <varname>MountImagePolicy</varname> and
+      <varname>ExtensionImagePolicy</varname> were added in version 254.</para>
+    </refsect2>
+    <refsect2>
+      <title>Swap Unit Objects</title>
+      <para><varname>ControlGroupId</varname> and
+      <varname>ExtensionDirectories</varname> were added in version 251.</para>
+      <para><varname>MemoryZSwapMax</varname> and
+      <varname>LogFilterPatterns</varname> were added in version 253.</para>
+      <para><varname>DelegateSubgroup</varname>,
+      <varname>DefaultStartupMemoryLow</varname>,
+      <varname>StartupMemoryLow</varname>,
+      <varname>StartupMemoryHigh</varname>,
+      <varname>StartupMemoryMax</varname>,
+      <varname>StartupMemorySwapMax</varname>,
+      <varname>StartupMemoryZSwapMax</varname>,
+      <varname>MemoryPressureWatch</varname>,
+      <varname>MemoryPressureThresholdUSec</varname>,
+      <varname>RootEphemeral</varname>,
+      <varname>ImportCredential</varname>,
+      <varname>MemoryKSM</varname>,
+      <varname>RootImagePolicy</varname>,
+      <varname>MountImagePolicy</varname> and
+      <varname>ExtensionImagePolicy</varname> were added in version 254.</para>
+    </refsect2>
+    <refsect2>
+      <title>Job Objects</title>
+      <para><varname>ActivationDetails</varname> was added in version 252.</para>
+    </refsect2>
+  </refsect1>
 </refentry>
