@@ -714,7 +714,8 @@ int bus_property_get_string_set(
 
 void bus_log_caller(sd_bus_message *message, const char *method) {
         _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
-        const char *comm = NULL, *comm_parent = NULL, *caller = NULL;
+        const char *comm = NULL, *caller = NULL;
+        _cleanup_free_ char *comm_parent = NULL;
         pid_t pid, ppid = 0;
 
         assert(message);
@@ -736,7 +737,7 @@ void bus_log_caller(sd_bus_message *message, const char *method) {
         if (get_process_ppid(pid, &ppid) < 0)
                 log_debug("PPID for "PID_FMT" not found.", pid);
         else
-                (void) get_process_comm(ppid, (char **) &comm_parent);
+                (void) get_process_comm(ppid, &comm_parent);
 
-        log_caller(pid, comm, caller, ppid, comm_parent, method);
+        log_caller(pid, comm, caller, ppid, (const char *) comm_parent, method);
 }
