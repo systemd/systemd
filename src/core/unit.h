@@ -1024,8 +1024,8 @@ bool unit_shall_confirm_spawn(Unit *u);
 
 int unit_set_exec_params(Unit *s, ExecParameters *p);
 
-int unit_fork_helper_process(Unit *u, const char *name, pid_t *ret);
-int unit_fork_and_watch_rm_rf(Unit *u, char **paths, pid_t *ret_pid);
+int unit_fork_helper_process(Unit *u, const char *name, PidRef *ret);
+int unit_fork_and_watch_rm_rf(Unit *u, char **paths, PidRef *ret);
 
 void unit_remove_dependencies(Unit *u, UnitDependencyMask mask);
 

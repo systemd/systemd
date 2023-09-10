@@ -372,8 +372,8 @@ fail:
 }
 
 static int scope_enter_start_chown(Scope *s) {
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         Unit *u = UNIT(s);
-        pid_t pid;
         int r;
 
         assert(s);
@@ -383,7 +383,7 @@ static int scope_enter_start_chown(Scope *s) {
         if (r < 0)
                 return r;
 
-        r = unit_fork_helper_process(u, "(sd-chown-cgroup)", &pid);
+        r = unit_fork_helper_process(u, "(sd-chown-cgroup)", &pidref);
         if (r < 0)
                 goto fail;
 
@@ -420,7 +420,7 @@ static int scope_enter_start_chown(Scope *s) {
                 _exit(EXIT_SUCCESS);
         }
 
-        r = unit_watch_pid(UNIT(s), pid, true);
+        r = unit_watch_pid(UNIT(s), pidref.pid, /* exclusive= */ true);
         if (r < 0)
                 goto fail;
 

@@ -174,10 +174,9 @@ Features:
   - pid_is_unwaited() → pidref_is_unwaited()
   - pid_is_alive() → pidref_is_alive()
   - unit_watch_pid() → unit_watch_pidref()
-  - actually wait for POLLIN on piref's pidfd in service logic
+  - actually wait for POLLIN on pidref's pidfd in service logic
   - exec_spawn()
   - serialization of control/main pid in service, socket, mount, swap units
-  - unit_fork_and_watch_rm_rf()
   - cg_pid_get_unit()
   - openpt_allocate_in_namespace()
   - scope dbus PIDs property needs to gain PIDFDs companion
