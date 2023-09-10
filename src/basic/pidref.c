@@ -6,6 +6,7 @@
 #include "parse-util.h"
 #include "pidref.h"
 #include "process-util.h"
+#include "signal-util.h"
 
 int pidref_set_pid(PidRef *pidref, pid_t pid) {
         int fd;
@@ -142,4 +143,31 @@ int pidref_kill_and_sigcont(PidRef *pidref, int sig) {
                 (void) pidref_kill(pidref, SIGCONT);
 
         return 0;
+}
+
+int pidref_sigqueue(PidRef *pidref, int sig, int value) {
+
+        if (!pidref)
+                return -ESRCH;
+
+        if (pidref->fd >= 0) {
+                siginfo_t si;
+
+                /* We can't use structured initialization here, since the structure contains various unions
+                 * and these fields lie in overlapping (carefully aligned) unions that LLVM is allergic to
+                 * allow assignments to */
+                zero(si);
+                si.si_signo = sig;
+                si.si_code = SI_QUEUE;
+                si.si_pid = getpid_cached();
+                si.si_uid = getuid();
+                si.si_value.sival_int = value;
+
+                return RET_NERRNO(pidfd_send_signal(pidref->fd, sig, &si, 0));
+        }
+
+        if (pidref->pid > 0)
+                return RET_NERRNO(sigqueue(pidref->pid, sig, (const union sigval) { .sival_int = value }));
+
+        return -ESRCH;
 }
