@@ -1503,9 +1503,9 @@ static int socket_address_listen_in_cgroup(
                 const SocketAddress *address,
                 const char *label) {
 
+        _cleanup_(pidref_done) PidRef pid = PIDREF_NULL;
         _cleanup_close_pair_ int pair[2] = PIPE_EBADF;
         int fd, r;
-        pid_t pid;
 
         assert(s);
         assert(address);
@@ -1597,7 +1597,7 @@ static int socket_address_listen_in_cgroup(
         fd = receive_one_fd(pair[0], 0);
 
         /* We synchronously wait for the helper, as it shouldn't be slow */
-        r = wait_for_terminate_and_check("(sd-listen)", pid, WAIT_LOG_ABNORMAL);
+        r = wait_for_terminate_and_check("(sd-listen)", pid.pid, WAIT_LOG_ABNORMAL);
         if (r < 0) {
                 safe_close(fd);
                 return r;
@@ -1968,8 +1968,7 @@ static int socket_spawn(Socket *s, ExecCommand *c, PidRef *ret_pid) {
 }
 
 static int socket_chown(Socket *s, PidRef *ret_pid) {
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
-        pid_t pid;
+        _cleanup_(pidref_done) PidRef pid = PIDREF_NULL;
         int r;
 
         assert(s);
@@ -2030,15 +2029,11 @@ static int socket_chown(Socket *s, PidRef *ret_pid) {
                 _exit(EXIT_SUCCESS);
         }
 
-        r = pidref_set_pid(&pidref, pid);
+        r = unit_watch_pid(UNIT(s), pid.pid, /* exclusive= */ true);
         if (r < 0)
                 return r;
 
-        r = unit_watch_pid(UNIT(s), pidref.pid, /* exclusive= */ true);
-        if (r < 0)
-                return r;
-
-        *ret_pid = TAKE_PIDREF(pidref);
+        *ret_pid = TAKE_PIDREF(pid);
         return 0;
 }
 
@@ -2982,9 +2977,9 @@ static int socket_accept_do(Socket *s, int fd) {
 }
 
 static int socket_accept_in_cgroup(Socket *s, SocketPort *p, int fd) {
+        _cleanup_(pidref_done) PidRef pid = PIDREF_NULL;
         _cleanup_close_pair_ int pair[2] = PIPE_EBADF;
         int cfd, r;
-        pid_t pid;
 
         assert(s);
         assert(p);
@@ -3034,7 +3029,7 @@ static int socket_accept_in_cgroup(Socket *s, SocketPort *p, int fd) {
         cfd = receive_one_fd(pair[0], 0);
 
         /* We synchronously wait for the helper, as it shouldn't be slow */
-        r = wait_for_terminate_and_check("(sd-accept)", pid, WAIT_LOG_ABNORMAL);
+        r = wait_for_terminate_and_check("(sd-accept)", pid.pid, WAIT_LOG_ABNORMAL);
         if (r < 0) {
                 safe_close(cfd);
                 return r;
@@ -3417,7 +3412,6 @@ static PidRef *socket_control_pid(Unit *u) {
 static int socket_clean(Unit *u, ExecCleanMask mask) {
         _cleanup_strv_free_ char **l = NULL;
         Socket *s = SOCKET(u);
-        pid_t pid;
         int r;
 
         assert(s);
@@ -3442,11 +3436,7 @@ static int socket_clean(Unit *u, ExecCleanMask mask) {
         if (r < 0)
                 goto fail;
 
-        r = unit_fork_and_watch_rm_rf(u, l, &pid);
-        if (r < 0)
-                goto fail;
-
-        r = pidref_set_pid(&s->control_pid, pid);
+        r = unit_fork_and_watch_rm_rf(u, l, &s->control_pid);
         if (r < 0)
                 goto fail;
 

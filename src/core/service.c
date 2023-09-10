@@ -4902,7 +4902,6 @@ static int service_clean(Unit *u, ExecCleanMask mask) {
         _cleanup_strv_free_ char **l = NULL;
         bool may_clean_fdstore = false;
         Service *s = SERVICE(u);
-        pid_t pid;
         int r;
 
         assert(s);
@@ -4943,11 +4942,7 @@ static int service_clean(Unit *u, ExecCleanMask mask) {
         if (r < 0)
                 goto fail;
 
-        r = unit_fork_and_watch_rm_rf(u, l, &pid);
-        if (r < 0)
-                goto fail;
-
-        r = pidref_set_pid(&s->control_pid, pid);
+        r = unit_fork_and_watch_rm_rf(u, l, &s->control_pid);
         if (r < 0)
                 goto fail;
 
