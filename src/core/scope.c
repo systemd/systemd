@@ -345,7 +345,9 @@ static void scope_enter_signal(Scope *s, ScopeState state, ScopeResult f) {
                                 state != SCOPE_STOP_SIGTERM ? KILL_KILL :
                                 s->was_abandoned            ? KILL_TERMINATE_AND_LOG :
                                                               KILL_TERMINATE,
-                                -1, -1, false);
+                                /* main_pid= */ NULL,
+                                /* control_pid= */ NULL,
+                                /* main_pid_alien= */ false);
                 if (r < 0)
                         goto fail;
         }
