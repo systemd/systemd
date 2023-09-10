@@ -18,10 +18,12 @@
 #include "bus-internal.h"
 #include "bus-label.h"
 #include "bus-util.h"
+#include "cgroup-util.h"
 #include "data-fd-util.h"
 #include "fd-util.h"
 #include "memstream-util.h"
 #include "path-util.h"
+#include "process-util.h"
 #include "socket-util.h"
 #include "stdio-util.h"
 
@@ -708,4 +710,34 @@ int bus_property_get_string_set(
         assert(reply);
 
         return bus_message_append_string_set(reply, *s);
+}
+
+void bus_log_caller(sd_bus_message *message, const char *method) {
+        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
+        const char *comm = NULL, *caller = NULL;
+        _cleanup_free_ char *comm_parent = NULL;
+        pid_t pid, ppid = 0;
+
+        assert(message);
+        assert(method);
+
+        if (sd_bus_query_sender_creds(message, SD_BUS_CREDS_PID|SD_BUS_CREDS_AUGMENT|SD_BUS_CREDS_COMM|SD_BUS_CREDS_UNIT, &creds) < 0)
+                return;
+
+        /* We need at least the PID, otherwise there's nothing to log, the rest is optional */
+        if (sd_bus_creds_get_pid(creds, &pid) < 0)
+                return;
+
+        (void) sd_bus_creds_get_comm(creds, &comm);
+        (void) sd_bus_creds_get_unit(creds, &caller);
+
+        if (!caller)
+               cg_pid_get_unit(pid, (char **) &caller);
+
+        if (get_process_ppid(pid, &ppid) < 0)
+                log_debug("PPID for "PID_FMT" not found.", pid);
+        else
+                (void) get_process_comm(ppid, &comm_parent);
+
+        log_caller(pid, comm, caller, ppid, (const char *) comm_parent, method);
 }
