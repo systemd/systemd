@@ -5319,7 +5319,8 @@ int unit_set_exec_params(Unit *u, ExecParameters *p) {
         return 0;
 }
 
-int unit_fork_helper_process(Unit *u, const char *name, pid_t *ret) {
+int unit_fork_helper_process(Unit *u, const char *name, PidRef *ret) {
+        pid_t pid;
         int r;
 
         assert(u);
@@ -5330,9 +5331,19 @@ int unit_fork_helper_process(Unit *u, const char *name, pid_t *ret) {
 
         (void) unit_realize_cgroup(u);
 
-        r = safe_fork(name, FORK_REOPEN_LOG|FORK_DEATHSIG, ret);
-        if (r != 0)
+        r = safe_fork(name, FORK_REOPEN_LOG|FORK_DEATHSIG, &pid);
+        if (r < 0)
                 return r;
+        if (r > 0) {
+                _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+
+                r = pidref_set_pid(&pidref, pid);
+                if (r < 0)
+                        return r;
+
+                *ret = TAKE_PIDREF(pidref);
+                return r;
+        }
 
         (void) default_signals(SIGNALS_CRASH_HANDLER, SIGNALS_IGNORE);
         (void) ignore_signals(SIGPIPE);
@@ -5348,8 +5359,8 @@ int unit_fork_helper_process(Unit *u, const char *name, pid_t *ret) {
         return 0;
 }
 
-int unit_fork_and_watch_rm_rf(Unit *u, char **paths, pid_t *ret_pid) {
-        pid_t pid;
+int unit_fork_and_watch_rm_rf(Unit *u, char **paths, PidRef *ret_pid) {
+        _cleanup_(pidref_done) PidRef pid = PIDREF_NULL;
         int r;
 
         assert(u);
@@ -5372,11 +5383,11 @@ int unit_fork_and_watch_rm_rf(Unit *u, char **paths, pid_t *ret_pid) {
                 _exit(ret);
         }
 
-        r = unit_watch_pid(u, pid, true);
+        r = unit_watch_pid(u, pid.pid, /* exclusive= */ true);
         if (r < 0)
                 return r;
 
-        *ret_pid = pid;
+        *ret_pid = TAKE_PIDREF(pid);
         return 0;
 }
 
