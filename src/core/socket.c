@@ -2117,9 +2117,9 @@ static void socket_enter_signal(Socket *s, SocketState state, SocketResult f) {
                         UNIT(s),
                         &s->kill_context,
                         state_to_kill_operation(s, state),
-                        -1,
-                        s->control_pid.pid,
-                        false);
+                        /* main_pid= */ NULL,
+                        &s->control_pid,
+                        /* main_pid_alien= */ false);
         if (r < 0)
                 goto fail;
 

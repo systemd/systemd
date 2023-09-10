@@ -1036,9 +1036,9 @@ static void mount_enter_signal(Mount *m, MountState state, MountResult f) {
                         UNIT(m),
                         &m->kill_context,
                         state_to_kill_operation(state),
-                        -1,
-                        m->control_pid.pid,
-                        false);
+                        /* main_pid= */ NULL,
+                        &m->control_pid,
+                        /* main_pid_alien= */ false);
         if (r < 0)
                 goto fail;
 

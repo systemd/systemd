@@ -763,12 +763,13 @@ static void swap_enter_signal(Swap *s, SwapState state, SwapResult f) {
         if (s->result == SWAP_SUCCESS)
                 s->result = f;
 
-        r = unit_kill_context(UNIT(s),
-                              &s->kill_context,
-                              state_to_kill_operation(s, state),
-                              -1,
-                              s->control_pid.pid,
-                              false);
+        r = unit_kill_context(
+                        UNIT(s),
+                        &s->kill_context,
+                        state_to_kill_operation(s, state),
+                        /* main_pid= */ NULL,
+                        &s->control_pid,
+                        /* main_pid_alien= */ false);
         if (r < 0)
                 goto fail;
 

@@ -9,14 +9,15 @@
 #include "sd-id128.h"
 
 #include "bpf-program.h"
+#include "cgroup.h"
 #include "condition.h"
 #include "emergency-action.h"
 #include "install.h"
 #include "list.h"
-#include "show-status.h"
+#include "pidref.h"
 #include "set.h"
+#include "show-status.h"
 #include "unit-file.h"
-#include "cgroup.h"
 
 typedef struct UnitRef UnitRef;
 
@@ -992,7 +993,7 @@ char* unit_concat_strv(char **l, UnitWriteFlags flags);
 int unit_write_setting(Unit *u, UnitWriteFlags flags, const char *name, const char *data);
 int unit_write_settingf(Unit *u, UnitWriteFlags mode, const char *name, const char *format, ...) _printf_(4,5);
 
-int unit_kill_context(Unit *u, KillContext *c, KillOperation k, pid_t main_pid, pid_t control_pid, bool main_pid_alien);
+int unit_kill_context(Unit *u, KillContext *c, KillOperation k, PidRef *main_pid, PidRef *control_pid, bool main_pid_alien);
 
 int unit_make_transient(Unit *u);
 

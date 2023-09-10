@@ -4775,8 +4775,8 @@ int unit_kill_context(
                 Unit *u,
                 KillContext *c,
                 KillOperation k,
-                pid_t main_pid,
-                pid_t control_pid,
+                PidRef* main_pid,
+                PidRef* control_pid,
                 bool main_pid_alien) {
 
         bool wait_for_exit = false, send_sighup;
@@ -4803,40 +4803,40 @@ int unit_kill_context(
                 IN_SET(k, KILL_TERMINATE, KILL_TERMINATE_AND_LOG) &&
                 sig != SIGHUP;
 
-        if (main_pid > 0) {
+        if (pidref_is_set(main_pid)) {
                 if (log_func)
-                        log_func(main_pid, sig, u);
+                        log_func(main_pid->pid, sig, u);
 
-                r = kill_and_sigcont(main_pid, sig);
+                r = pidref_kill_and_sigcont(main_pid, sig);
                 if (r < 0 && r != -ESRCH) {
                         _cleanup_free_ char *comm = NULL;
-                        (void) get_process_comm(main_pid, &comm);
+                        (void) get_process_comm(main_pid->pid, &comm);
 
-                        log_unit_warning_errno(u, r, "Failed to kill main process " PID_FMT " (%s), ignoring: %m", main_pid, strna(comm));
+                        log_unit_warning_errno(u, r, "Failed to kill main process " PID_FMT " (%s), ignoring: %m", main_pid->pid, strna(comm));
                 } else {
                         if (!main_pid_alien)
                                 wait_for_exit = true;
 
                         if (r != -ESRCH && send_sighup)
-                                (void) kill(main_pid, SIGHUP);
+                                (void) pidref_kill(main_pid, SIGHUP);
                 }
         }
 
-        if (control_pid > 0) {
+        if (pidref_is_set(control_pid)) {
                 if (log_func)
-                        log_func(control_pid, sig, u);
+                        log_func(control_pid->pid, sig, u);
 
-                r = kill_and_sigcont(control_pid, sig);
+                r = pidref_kill_and_sigcont(control_pid, sig);
                 if (r < 0 && r != -ESRCH) {
                         _cleanup_free_ char *comm = NULL;
-                        (void) get_process_comm(control_pid, &comm);
+                        (void) get_process_comm(control_pid->pid, &comm);
 
-                        log_unit_warning_errno(u, r, "Failed to kill control process " PID_FMT " (%s), ignoring: %m", control_pid, strna(comm));
+                        log_unit_warning_errno(u, r, "Failed to kill control process " PID_FMT " (%s), ignoring: %m", control_pid->pid, strna(comm));
                 } else {
                         wait_for_exit = true;
 
                         if (r != -ESRCH && send_sighup)
-                                (void) kill(control_pid, SIGHUP);
+                                (void) pidref_kill(control_pid, SIGHUP);
                 }
         }
 
@@ -4845,7 +4845,7 @@ int unit_kill_context(
                 _cleanup_set_free_ Set *pid_set = NULL;
 
                 /* Exclude the main/control pids from being killed via the cgroup */
-                pid_set = unit_pid_set(main_pid, control_pid);
+                pid_set = unit_pid_set(main_pid ? main_pid->pid : 0, control_pid ? control_pid->pid : 0);
                 if (!pid_set)
                         return -ENOMEM;
 
@@ -4874,7 +4874,7 @@ int unit_kill_context(
                         if (send_sighup) {
                                 set_free(pid_set);
 
-                                pid_set = unit_pid_set(main_pid, control_pid);
+                                pid_set = unit_pid_set(main_pid ? main_pid->pid : 0, control_pid ? control_pid->pid : 0);
                                 if (!pid_set)
                                         return -ENOMEM;
 

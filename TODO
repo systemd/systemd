@@ -175,7 +175,6 @@ Features:
   - pid_is_alive() → pidref_is_alive()
   - unit_watch_pid() → unit_watch_pidref()
   - unit_kill_common()
-  - unit_kill_context()
   - actually wait for POLLIN on piref's pidfd in service logic
   - unit_main_pid() + unit_control_pid()
   - exec_spawn()
