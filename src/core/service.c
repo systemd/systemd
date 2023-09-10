@@ -179,38 +179,51 @@ static void service_unwatch_pid_file(Service *s) {
         s->pid_file_pathspec = mfree(s->pid_file_pathspec);
 }
 
+static int service_set_main_pidref(Service *s, PidRef *pidref) {
+        assert(s);
+
+        /* Takes ownership of the specified pidref on success, but not on failure. */
+
+        if (!pidref_is_set(pidref))
+                return -ESRCH;
+
+        if (pidref->pid <= 1)
+                return -EINVAL;
+
+        if (pidref->pid == getpid_cached())
+                return -EINVAL;
+
+        if (s->main_pid.pid == pidref->pid && s->main_pid_known) {
+                pidref_done(pidref);
+                return 0;
+        }
+
+        if (s->main_pid.pid != pidref->pid) {
+                service_unwatch_main_pid(s);
+                exec_status_start(&s->main_exec_status, pidref->pid);
+        }
+
+        s->main_pid = TAKE_PIDREF(*pidref);
+        s->main_pid_known = true;
+        s->main_pid_alien = pid_is_my_child(s->main_pid.pid) == 0;
+
+        if (s->main_pid_alien)
+                log_unit_warning(UNIT(s), "Supervising process "PID_FMT" which is not our child. We'll most likely not notice when it exits.", s->main_pid.pid);
+
+        return 0;
+}
+
 static int service_set_main_pid(Service *s, pid_t pid) {
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         int r;
 
         assert(s);
 
-        if (pid <= 1)
-                return -EINVAL;
-
-        if (pid == getpid_cached())
-                return -EINVAL;
-
-        if (s->main_pid.pid == pid && s->main_pid_known)
-                return 0;
-
         r = pidref_set_pid(&pidref, pid);
         if (r < 0)
                 return r;
 
-        if (s->main_pid.pid != pid) {
-                service_unwatch_main_pid(s);
-                exec_status_start(&s->main_exec_status, pid);
-        }
-
-        s->main_pid = TAKE_PIDREF(pidref);
-        s->main_pid_known = true;
-        s->main_pid_alien = pid_is_my_child(pid) == 0;
-
-        if (s->main_pid_alien)
-                log_unit_warning(UNIT(s), "Supervising process "PID_FMT" which is not our child. We'll most likely not notice when it exits.", pid);
-
-        return 0;
+        return service_set_main_pidref(s, &pidref);
 }
 
 void service_release_socket_fd(Service *s) {
@@ -1108,6 +1121,7 @@ static int service_is_suitable_main_pid(Service *s, pid_t pid, int prio) {
 }
 
 static int service_load_pid_file(Service *s, bool may_warn) {
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         bool questionable_pid_file = false;
         _cleanup_free_ char *k = NULL;
         _cleanup_close_ int fd = -EBADF;
@@ -1149,7 +1163,11 @@ static int service_load_pid_file(Service *s, bool may_warn) {
         if (s->main_pid_known && pid == s->main_pid.pid)
                 return 0;
 
-        r = service_is_suitable_main_pid(s, pid, prio);
+        r = pidref_set_pid(&pidref, pid);
+        if (r < 0)
+                return log_unit_full_errno(UNIT(s), prio, r, "Failed to pin PID " PID_FMT ": %m", pid);
+
+        r = service_is_suitable_main_pid(s, pidref.pid, prio);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -1166,26 +1184,26 @@ static int service_load_pid_file(Service *s, bool may_warn) {
 
                 if (st.st_uid != 0)
                         return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(EPERM),
-                                                    "New main PID "PID_FMT" does not belong to service, and PID file is not owned by root. Refusing.", pid);
+                                                    "New main PID "PID_FMT" does not belong to service, and PID file is not owned by root. Refusing.", pidref.pid);
 
-                log_unit_debug(UNIT(s), "New main PID "PID_FMT" does not belong to service, but we'll accept it since PID file is owned by root.", pid);
+                log_unit_debug(UNIT(s), "New main PID "PID_FMT" does not belong to service, but we'll accept it since PID file is owned by root.", pidref.pid);
         }
 
         if (s->main_pid_known) {
-                log_unit_debug(UNIT(s), "Main PID changing: "PID_FMT" -> "PID_FMT, s->main_pid.pid, pid);
+                log_unit_debug(UNIT(s), "Main PID changing: "PID_FMT" -> "PID_FMT, s->main_pid.pid, pidref.pid);
 
                 service_unwatch_main_pid(s);
                 s->main_pid_known = false;
         } else
-                log_unit_debug(UNIT(s), "Main PID loaded: "PID_FMT, pid);
+                log_unit_debug(UNIT(s), "Main PID loaded: "PID_FMT, pidref.pid);
 
-        r = service_set_main_pid(s, pid);
+        r = service_set_main_pidref(s, &pidref);
         if (r < 0)
                 return r;
 
-        r = unit_watch_pid(UNIT(s), pid, /* exclusive= */ false);
+        r = unit_watch_pid(UNIT(s), s->main_pid.pid, /* exclusive= */ false);
         if (r < 0) /* FIXME: we need to do something here */
-                return log_unit_warning_errno(UNIT(s), r, "Failed to watch PID "PID_FMT" for service: %m", pid);
+                return log_unit_warning_errno(UNIT(s), r, "Failed to watch PID "PID_FMT" for service: %m", s->main_pid.pid);
 
         return 1;
 }
@@ -1212,10 +1230,10 @@ static void service_search_main_pid(Service *s) {
         if (service_set_main_pid(s, pid) < 0)
                 return;
 
-        r = unit_watch_pid(UNIT(s), pid, /* exclusive= */ false);
+        r = unit_watch_pid(UNIT(s), s->main_pid.pid, /* exclusive= */ false);
         if (r < 0)
                 /* FIXME: we need to do something here */
-                log_unit_warning_errno(UNIT(s), r, "Failed to watch PID "PID_FMT" from: %m", pid);
+                log_unit_warning_errno(UNIT(s), r, "Failed to watch PID "PID_FMT" from: %m", s->main_pid.pid);
 }
 
 static void service_set_state(Service *s, ServiceState state) {
@@ -2412,7 +2430,7 @@ static void service_enter_start(Service *s) {
                 /* For simple services we immediately start
                  * the START_POST binaries. */
 
-                (void) service_set_main_pid(s, pidref.pid);
+                (void) service_set_main_pidref(s, &pidref);
                 service_enter_start_post(s);
 
         } else  if (s->type == SERVICE_FORKING) {
@@ -2431,7 +2449,7 @@ static void service_enter_start(Service *s) {
                 /* For D-Bus services we know the main pid right away, but wait for the bus name to appear on the
                  * bus. 'notify' and 'exec' services are similar. */
 
-                (void) service_set_main_pid(s, pidref.pid);
+                (void) service_set_main_pidref(s, &pidref);
                 service_set_state(s, SERVICE_START);
         } else
                 assert_not_reached();
@@ -2700,8 +2718,7 @@ static void service_run_next_main(Service *s) {
         if (r < 0)
                 goto fail;
 
-        (void) service_set_main_pid(s, pidref.pid);
-
+        (void) service_set_main_pidref(s, &pidref);
         return;
 
 fail:
