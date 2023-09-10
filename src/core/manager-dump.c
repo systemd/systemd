@@ -24,6 +24,22 @@ void manager_dump_jobs(Manager *s, FILE *f, char **patterns, const char *prefix)
         }
 }
 
+int manager_get_dump_jobs_string(Manager *m, char **patterns, const char *prefix, char **ret) {
+        _cleanup_(memstream_done) MemStream ms = {};
+        FILE *f;
+
+        assert(m);
+        assert(ret);
+
+        f = memstream_init(&ms);
+        if (!f)
+                return -errno;
+
+        manager_dump_jobs(m, f, patterns, prefix);
+
+        return memstream_finalize(&ms, ret, NULL);
+}
+
 void manager_dump_units(Manager *s, FILE *f, char **patterns, const char *prefix) {
         Unit *u;
         const char *t;

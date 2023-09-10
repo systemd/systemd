@@ -3030,6 +3030,19 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
                                         manager_override_log_target(m, LOG_TARGET_NULL);
                                         break;
 
+                                case MANAGER_SIGNAL_COMMAND_DUMP_JOBS: {
+                                        _cleanup_free_ char *dump_jobs = NULL;
+
+                                        r = manager_get_dump_jobs_string(m, /* patterns= */ NULL, "  ", &dump_jobs);
+                                        if (r < 0) {
+                                                log_warning_errno(errno, "Failed to acquire manager jobs dump: %m");
+                                                break;
+                                        }
+
+                                        log_dump(LOG_INFO, dump_jobs);
+                                        break;
+                                }
+
                                 default:
                                         generic = true;
                                 }
