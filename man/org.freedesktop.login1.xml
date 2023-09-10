@@ -1505,4 +1505,23 @@ node /org/freedesktop/login1/session/1 {
   </refsect1>
 
   <xi:include href="org.freedesktop.locale1.xml" xpointer="versioning"/>
+
+  <refsect1>
+    <title>History</title>
+    <refsect2>
+      <title>The Manager Object</title>
+      <para><varname>HandlePowerKeyLongPress</varname>,
+      <varname>HandleRebootKey</varname>,
+      <varname>HandleRebootKeyLongPress</varname>,
+      <varname>HandleSuspendKeyLongPress</varname>, and
+      <varname>HandleHibernateKeyLongPress</varname> were added in version 251.</para>
+      <para><varname>StopIdleSessionUSec</varname> was added in version 252.</para>
+      <para><function>PrepareForShutdownWithMetadata</function> was added in version 255.</para>
+    </refsect2>
+    <refsect2>
+      <title>Session Objects</title>
+      <para><function>SetDisplay()</function> was added in version 252.</para>
+      <para><function>SetTTY()</function> was added in version 254.</para>
+    </refsect2>
+  </refsect1>
 </refentry>
