@@ -670,4 +670,18 @@ $ gdbus introspect --system \
   </refsect1>
 
   <xi:include href="org.freedesktop.locale1.xml" xpointer="versioning"/>
+
+  <refsect1>
+    <title>History</title>
+    <refsect2>
+      <title>The Manager Object</title>
+      <para><function>CopyFromMachineWithFlags()</function> and
+      <function>CopyToMachineWithFlags()</function> were added in version 252.</para>
+    </refsect2>
+    <refsect2>
+      <title>Machine Objects</title>
+      <para><function>CopyFromWithFlags()</function> and
+      <function>CopyToWithFlags()</function> were added in version 252.</para>
+    </refsect2>
+  </refsect1>
 </refentry>
