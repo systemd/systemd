@@ -533,10 +533,6 @@ static void scope_reset_failed(Unit *u) {
         s->result = SCOPE_SUCCESS;
 }
 
-static int scope_kill(Unit *u, KillWho who, int signo, int code, int value, sd_bus_error *error) {
-        return unit_kill_common(u, who, signo, code, value, -1, -1, error);
-}
-
 static int scope_get_timeout(Unit *u, usec_t *timeout) {
         Scope *s = SCOPE(u);
         usec_t t;
@@ -829,8 +825,6 @@ const UnitVTable scope_vtable = {
 
         .start = scope_start,
         .stop = scope_stop,
-
-        .kill = scope_kill,
 
         .freeze = unit_freeze_vtable_common,
         .thaw = unit_thaw_vtable_common,

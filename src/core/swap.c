@@ -1476,10 +1476,6 @@ static void swap_reset_failed(Unit *u) {
         s->clean_result = SWAP_SUCCESS;
 }
 
-static int swap_kill(Unit *u, KillWho who, int signo, int code, int value, sd_bus_error *error) {
-        return unit_kill_common(u, who, signo, code, value, -1, SWAP(u)->control_pid.pid, error);
-}
-
 static int swap_get_timeout(Unit *u, usec_t *timeout) {
         Swap *s = SWAP(u);
         usec_t t;
@@ -1516,12 +1512,8 @@ static bool swap_supported(void) {
         return supported;
 }
 
-static int swap_control_pid(Unit *u) {
-        Swap *s = SWAP(u);
-
-        assert(s);
-
-        return s->control_pid.pid;
+static PidRef* swap_control_pid(Unit *u) {
+        return &ASSERT_PTR(SWAP(u))->control_pid;
 }
 
 static int swap_clean(Unit *u, ExecCleanMask mask) {
@@ -1638,7 +1630,6 @@ const UnitVTable swap_vtable = {
         .start = swap_start,
         .stop = swap_stop,
 
-        .kill = swap_kill,
         .clean = swap_clean,
         .can_clean = swap_can_clean,
 
