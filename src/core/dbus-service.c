@@ -134,7 +134,6 @@ static int bus_service_method_mount(sd_bus_message *message, void *userdata, sd_
         int read_only, make_file_or_directory;
         Unit *u = ASSERT_PTR(userdata);
         ExecContext *c;
-        pid_t unit_pid;
         int r;
 
         assert(message);
@@ -192,14 +191,14 @@ static int bus_service_method_mount(sd_bus_message *message, void *userdata, sd_
         if (!exec_needs_mount_namespace(c, NULL, unit_get_exec_runtime(u)))
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Unit not running in private mount namespace, cannot activate bind mount");
 
-        unit_pid = unit_main_pid(u);
-        if (unit_pid == 0 || !UNIT_IS_ACTIVE_OR_RELOADING(unit_active_state(u)))
+        PidRef* unit_pid = unit_main_pid(u);
+        if (!pidref_is_set(unit_pid) || !UNIT_IS_ACTIVE_OR_RELOADING(unit_active_state(u)))
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Unit is not running");
 
         propagate_directory = strjoina("/run/systemd/propagate/", u->id);
         if (is_image)
                 r = mount_image_in_namespace(
-                                unit_pid,
+                                unit_pid->pid,
                                 propagate_directory,
                                 "/run/systemd/incoming/",
                                 src, dest,
@@ -209,7 +208,7 @@ static int bus_service_method_mount(sd_bus_message *message, void *userdata, sd_
                                 c->mount_image_policy ?: &image_policy_service);
         else
                 r = bind_mount_in_namespace(
-                                unit_pid,
+                                unit_pid->pid,
                                 propagate_directory,
                                 "/run/systemd/incoming/",
                                 src, dest,

@@ -2213,20 +2213,8 @@ static void mount_reset_failed(Unit *u) {
         m->clean_result = MOUNT_SUCCESS;
 }
 
-static int mount_kill(Unit *u, KillWho who, int signo, int code, int value, sd_bus_error *error) {
-        Mount *m = MOUNT(u);
-
-        assert(m);
-
-        return unit_kill_common(u, who, signo, code, value, -1, m->control_pid.pid, error);
-}
-
-static int mount_control_pid(Unit *u) {
-        Mount *m = MOUNT(u);
-
-        assert(m);
-
-        return m->control_pid.pid;
+static PidRef* mount_control_pid(Unit *u) {
+        return &ASSERT_PTR(MOUNT(u))->control_pid;
 }
 
 static int mount_clean(Unit *u, ExecCleanMask mask) {
@@ -2358,7 +2346,6 @@ const UnitVTable mount_vtable = {
         .stop = mount_stop,
         .reload = mount_reload,
 
-        .kill = mount_kill,
         .clean = mount_clean,
         .can_clean = mount_can_clean,
 

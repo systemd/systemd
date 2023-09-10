@@ -3382,10 +3382,6 @@ static void socket_trigger_notify(Unit *u, Unit *other) {
                 socket_set_state(s, SOCKET_RUNNING);
 }
 
-static int socket_kill(Unit *u, KillWho who, int signo, int code, int value, sd_bus_error *error) {
-        return unit_kill_common(u, who, signo, code, value, -1, SOCKET(u)->control_pid.pid, error);
-}
-
 static int socket_get_timeout(Unit *u, usec_t *timeout) {
         Socket *s = SOCKET(u);
         usec_t t;
@@ -3414,12 +3410,8 @@ char *socket_fdname(Socket *s) {
         return s->fdname ?: UNIT(s)->id;
 }
 
-static int socket_control_pid(Unit *u) {
-        Socket *s = SOCKET(u);
-
-        assert(s);
-
-        return s->control_pid.pid;
+static PidRef *socket_control_pid(Unit *u) {
+        return &ASSERT_PTR(SOCKET(u))->control_pid;
 }
 
 static int socket_clean(Unit *u, ExecCleanMask mask) {
@@ -3576,7 +3568,6 @@ const UnitVTable socket_vtable = {
         .start = socket_start,
         .stop = socket_stop,
 
-        .kill = socket_kill,
         .clean = socket_clean,
         .can_clean = socket_can_clean,
 

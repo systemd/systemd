@@ -247,10 +247,6 @@ static int slice_stop(Unit *u) {
         return 1;
 }
 
-static int slice_kill(Unit *u, KillWho who, int signo, int code, int value, sd_bus_error *error) {
-        return unit_kill_common(u, who, signo, code, value, -1, -1, error);
-}
-
 static int slice_serialize(Unit *u, FILE *f, FDSet *fds) {
         Slice *s = SLICE(u);
 
@@ -435,8 +431,6 @@ const UnitVTable slice_vtable = {
 
         .start = slice_start,
         .stop = slice_stop,
-
-        .kill = slice_kill,
 
         .freeze = slice_freeze,
         .thaw = slice_thaw,
