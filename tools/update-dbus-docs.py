@@ -141,10 +141,16 @@ def print_interface(iface, *, prefix, file, print_boring, only_interface, declar
         print(f'''{prefix}}};''', file=file)
 
 def document_has_elem_with_text(document, elem, item_repr):
-    predicate = f".//{elem}" # [text() = 'foo'] doesn't seem supported :(
+    predicate = f".//{elem}[. = '{item_repr}']"
+
+    # Ignore mentions in the History section
+    history = document.find(".//refsect1[title = 'History']")
+    history_mentions = history.findall(predicate) if history else []
+
     for loc in document.findall(predicate):
-        if loc.text == item_repr:
-            return True
+        if loc in history_mentions:
+            continue
+        return True
     return False
 
 def check_documented(document, declarations, stats):
