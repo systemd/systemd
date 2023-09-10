@@ -3030,6 +3030,10 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
                                         manager_override_log_target(m, LOG_TARGET_NULL);
                                         break;
 
+                                case MANAGER_SIGNAL_COMMAND_DUMP_JOBS:
+                                        manager_dump_jobs(m, stdout, /* patterns= */ NULL, "  ");
+                                        break;
+
                                 default:
                                         generic = true;
                                 }

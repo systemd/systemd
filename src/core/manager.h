@@ -23,6 +23,9 @@ typedef struct Unit Unit;
 /* Enforce upper limit how many names we allow */
 #define MANAGER_MAX_NAMES 131072 /* 128K */
 
+/* On sigrtmin+18, private command */
+#define MANAGER_SIGNAL_COMMAND_DUMP_JOBS 0x500
+
 typedef struct Manager Manager;
 
 /* An externally visible state. We don't actually maintain this as state variable, but derive it from various fields
