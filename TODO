@@ -174,9 +174,7 @@ Features:
   - pid_is_unwaited() → pidref_is_unwaited()
   - pid_is_alive() → pidref_is_alive()
   - unit_watch_pid() → unit_watch_pidref()
-  - unit_kill_common()
   - actually wait for POLLIN on piref's pidfd in service logic
-  - unit_main_pid() + unit_control_pid()
   - exec_spawn()
   - serialization of control/main pid in service, socket, mount, swap units
   - unit_fork_and_watch_rm_rf()

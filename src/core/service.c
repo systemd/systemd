@@ -4837,28 +4837,12 @@ static void service_reset_failed(Unit *u) {
         s->flush_n_restarts = false;
 }
 
-static int service_kill(Unit *u, KillWho who, int signo, int code, int value, sd_bus_error *error) {
-        Service *s = SERVICE(u);
-
-        assert(s);
-
-        return unit_kill_common(u, who, signo, code, value, s->main_pid.pid, s->control_pid.pid, error);
+static PidRef* service_main_pid(Unit *u) {
+        return &ASSERT_PTR(SERVICE(u))->main_pid;
 }
 
-static int service_main_pid(Unit *u) {
-        Service *s = SERVICE(u);
-
-        assert(s);
-
-        return s->main_pid.pid;
-}
-
-static int service_control_pid(Unit *u) {
-        Service *s = SERVICE(u);
-
-        assert(s);
-
-        return s->control_pid.pid;
+static PidRef* service_control_pid(Unit *u) {
+        return &ASSERT_PTR(SERVICE(u))->control_pid;
 }
 
 static bool service_needs_console(Unit *u) {
@@ -5175,7 +5159,6 @@ const UnitVTable service_vtable = {
 
         .can_reload = service_can_reload,
 
-        .kill = service_kill,
         .clean = service_clean,
         .can_clean = service_can_clean,
 

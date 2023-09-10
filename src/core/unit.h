@@ -625,8 +625,6 @@ typedef struct UnitVTable {
         int (*stop)(Unit *u);
         int (*reload)(Unit *u);
 
-        int (*kill)(Unit *u, KillWho w, int signo, int code, int value, sd_bus_error *error);
-
         /* Clear out the various runtime/state/cache/logs/configuration data */
         int (*clean)(Unit *u, ExecCleanMask m);
 
@@ -720,10 +718,10 @@ typedef struct UnitVTable {
         usec_t (*get_timeout_start_usec)(Unit *u);
 
         /* Returns the main PID if there is any defined, or 0. */
-        pid_t (*main_pid)(Unit *u);
+        PidRef* (*main_pid)(Unit *u);
 
-        /* Returns the main PID if there is any defined, or 0. */
-        pid_t (*control_pid)(Unit *u);
+        /* Returns the control PID if there is any defined, or 0. */
+        PidRef* (*control_pid)(Unit *u);
 
         /* Returns true if the unit currently needs access to the console */
         bool (*needs_console)(Unit *u);
@@ -914,7 +912,6 @@ int unit_stop(Unit *u);
 int unit_reload(Unit *u);
 
 int unit_kill(Unit *u, KillWho w, int signo, int code, int value, sd_bus_error *error);
-int unit_kill_common(Unit *u, KillWho who, int signo, int code, int value, pid_t main_pid, pid_t control_pid, sd_bus_error *error);
 
 void unit_notify_cgroup_oom(Unit *u, bool managed_oom);
 
@@ -1007,8 +1004,8 @@ bool unit_is_unneeded(Unit *u);
 bool unit_is_upheld_by_active(Unit *u, Unit **ret_culprit);
 bool unit_is_bound_by_inactive(Unit *u, Unit **ret_culprit);
 
-pid_t unit_control_pid(Unit *u);
-pid_t unit_main_pid(Unit *u);
+PidRef* unit_control_pid(Unit *u);
+PidRef* unit_main_pid(Unit *u);
 
 void unit_warn_if_dir_nonempty(Unit *u, const char* where);
 int unit_fail_if_noncanonical(Unit *u, const char* where);
