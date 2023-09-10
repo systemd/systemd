@@ -2178,8 +2178,8 @@ static void service_enter_signal(Service *s, ServiceState state, ServiceResult f
                         UNIT(s),
                         &s->kill_context,
                         kill_operation,
-                        s->main_pid.pid,
-                        s->control_pid.pid,
+                        &s->main_pid,
+                        &s->control_pid,
                         s->main_pid_alien);
         if (r < 0)
                 goto fail;
