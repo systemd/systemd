@@ -24,10 +24,8 @@ int serialize_item(FILE *f, const char *key, const char *value) {
 
         /* Make sure that anything we serialize we can also read back again with read_line() with a maximum line size
          * of LONG_LINE_MAX. This is a safety net only. All code calling us should filter this out earlier anyway. */
-        if (strlen(key) + 1 + strlen(value) + 1 > LONG_LINE_MAX) {
-                log_warning("Attempted to serialize overly long item '%s', refusing.", key);
-                return -EINVAL;
-        }
+        if (strlen(key) + 1 + strlen(value) + 1 > LONG_LINE_MAX)
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL), "Attempted to serialize overly long item '%s', refusing.", key);
 
         fputs(key, f);
         fputc('=', f);
@@ -54,7 +52,10 @@ int serialize_item_escaped(FILE *f, const char *key, const char *value) {
 }
 
 int serialize_item_format(FILE *f, const char *key, const char *format, ...) {
-        char buf[LONG_LINE_MAX];
+        _cleanup_free_ char *allocated = NULL;
+        char buf[256]; /* Something resonably short that fits nicely on any stack (i.e. is considerably less
+                        * than LONG_LINE_MAX (1MiB!) */
+        const char *b;
         va_list ap;
         int k;
 
@@ -62,18 +63,35 @@ int serialize_item_format(FILE *f, const char *key, const char *format, ...) {
         assert(key);
         assert(format);
 
+        /* First, let's try to format this into a stack buffer */
         va_start(ap, format);
         k = vsnprintf(buf, sizeof(buf), format, ap);
         va_end(ap);
 
-        if (k < 0 || (size_t) k >= sizeof(buf) || strlen(key) + 1 + k + 1 > LONG_LINE_MAX) {
-                log_warning("Attempted to serialize overly long item '%s', refusing.", key);
-                return -EINVAL;
+        if (k < 0)
+                return log_warning_errno(errno, "Failed to serialize item '%s', ignoring: %m", key);
+        if (strlen(key) + 1 + k + 1 > LONG_LINE_MAX) /* See above */
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL), "Attempted to serialize overly long item '%s', refusing.", key);
+
+        if ((size_t) k < sizeof(buf))
+                b = buf; /* Yay, it fit! */
+        else {
+                /* So the string didn't fit in the short buffer above, but was not above our total limit,
+                 * hence let's format it via dynamic memory */
+
+                va_start(ap, format);
+                k = vasprintf(&allocated, format, ap);
+                va_end(ap);
+
+                if (k < 0)
+                        return log_warning_errno(errno, "Failed to serialize item '%s', ignoring: %m", key);
+
+                b = allocated;
         }
 
         fputs(key, f);
         fputc('=', f);
-        fputs(buf, f);
+        fputs(b, f);
         fputc('\n', f);
 
         return 1;
