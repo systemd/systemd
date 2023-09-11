@@ -259,16 +259,16 @@ sd_journal_send("MESSAGE=Hello World, this is PID %lu!", (unsigned long) getpid(
 
   <refsect1>
     <title>History</title>
-    <para><function>sd_journal_print()</function> was added in version 187.</para>
-    <para><function>sd_journal_printv()</function> was added in version 187.</para>
-    <para><function>sd_journal_send()</function> was added in version 187.</para>
-    <para><function>sd_journal_sendv()</function> was added in version 187.</para>
+    <para><function>sd_journal_print()</function>,
+    <function>sd_journal_printv()</function>,
+    <function>sd_journal_send()</function> and
+    <function>sd_journal_sendv()</function> were added in version 187.</para>
     <para><function>sd_journal_perror()</function> was added in version 188.</para>
-    <para><function>sd_journal_perror_with_location()</function> was added in version 246.</para>
-    <para><function>sd_journal_print_with_location()</function> was added in version 246.</para>
-    <para><function>sd_journal_printv_with_location()</function> was added in version 246.</para>
-    <para><function>sd_journal_send_with_location()</function> was added in version 246.</para>
-    <para><function>sd_journal_sendv_with_location()</function> was added in version 246.</para>
+    <para><function>sd_journal_print_with_location()</function>,
+    <function>sd_journal_printv_with_location()</function>,
+    <function>sd_journal_send_with_location()</function>,
+    <function>sd_journal_sendv_with_location()</function> and
+    <function>sd_journal_perror_with_location()</function> were added in version 246.</para>
   </refsect1>
 
   <refsect1>

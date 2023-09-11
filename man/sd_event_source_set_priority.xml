@@ -151,8 +151,8 @@
 
   <refsect1>
     <title>History</title>
-    <para><function>sd_event_source_get_priority()</function> was added in version 229.</para>
-    <para><function>sd_event_source_set_priority()</function> was added in version 229.</para>
+    <para><function>sd_event_source_set_priority()</function> and
+    <function>sd_event_source_get_priority()</function> were added in version 229.</para>
   </refsect1>
 
   <refsect1>

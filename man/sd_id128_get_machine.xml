@@ -256,8 +256,8 @@ As man:sd-id128(3) macro:
 
   <refsect1>
     <title>History</title>
-    <para><function>sd_id128_get_boot()</function> was added in version 187.</para>
-    <para><function>sd_id128_get_machine()</function> was added in version 187.</para>
+    <para><function>sd_id128_get_machine()</function> and
+    <function>sd_id128_get_boot()</function> were added in version 187.</para>
     <para><function>sd_id128_get_invocation()</function> was added in version 232.</para>
     <para><function>sd_id128_get_machine_app_specific()</function> was added in version 233.</para>
     <para><function>sd_id128_get_boot_app_specific()</function> was added in version 240.</para>

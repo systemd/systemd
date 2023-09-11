@@ -151,10 +151,10 @@
 
   <refsect1>
     <title>History</title>
-    <para><function>SD_HWDB_FOREACH_PROPERTY()</function> was added in version 246.</para>
-    <para><function>sd_hwdb_enumerate()</function> was added in version 246.</para>
-    <para><function>sd_hwdb_get()</function> was added in version 246.</para>
-    <para><function>sd_hwdb_seek()</function> was added in version 246.</para>
+    <para><function>sd_hwdb_get()</function>,
+    <function>sd_hwdb_seek()</function>,
+    <function>sd_hwdb_enumerate()</function> and
+    <function>SD_HWDB_FOREACH_PROPERTY()</function> were added in version 246.</para>
   </refsect1>
 
   <refsect1>

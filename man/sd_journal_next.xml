@@ -151,12 +151,12 @@
 
   <refsect1>
     <title>History</title>
-    <para><function>SD_JOURNAL_FOREACH()</function> was added in version 187.</para>
-    <para><function>SD_JOURNAL_FOREACH_BACKWARDS()</function> was added in version 187.</para>
-    <para><function>sd_journal_next()</function> was added in version 187.</para>
-    <para><function>sd_journal_next_skip()</function> was added in version 187.</para>
-    <para><function>sd_journal_previous()</function> was added in version 187.</para>
-    <para><function>sd_journal_previous_skip()</function> was added in version 187.</para>
+    <para><function>sd_journal_next()</function>,
+    <function>sd_journal_previous()</function>,
+    <function>sd_journal_next_skip()</function>,
+    <function>sd_journal_previous_skip()</function>,
+    <function>SD_JOURNAL_FOREACH()</function> and
+    <function>SD_JOURNAL_FOREACH_BACKWARDS()</function> were added in version 187.</para>
     <para><function>sd_journal_step_one()</function> was added in version 254.</para>
   </refsect1>
 

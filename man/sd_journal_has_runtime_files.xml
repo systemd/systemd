@@ -71,8 +71,8 @@
 
   <refsect1>
     <title>History</title>
-    <para><function>sd_journal_has_persistent_files()</function> was added in version 229.</para>
-    <para><function>sd_journal_has_runtime_files()</function> was added in version 229.</para>
+    <para><function>sd_journal_has_runtime_files()</function> and
+    <function>sd_journal_has_persistent_files()</function> were added in version 229.</para>
   </refsect1>
 
   <refsect1>

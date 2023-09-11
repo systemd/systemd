@@ -263,8 +263,8 @@ fd_copy = fcntl(fd, FD_DUPFD_CLOEXEC, 3);</programlisting>
 
   <refsect1>
     <title>History</title>
-    <para><function>sd_bus_message_read()</function> was added in version 240.</para>
-    <para><function>sd_bus_message_readv()</function> was added in version 240.</para>
+    <para><function>sd_bus_message_read()</function> and
+    <function>sd_bus_message_readv()</function> were added in version 240.</para>
     <para><function>sd_bus_message_peek_type()</function> was added in version 246.</para>
   </refsect1>
 

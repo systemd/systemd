@@ -116,11 +116,11 @@
 
   <refsect1>
     <title>History</title>
-    <para><function>sd_journal_seek_cursor()</function> was added in version 187.</para>
-    <para><function>sd_journal_seek_head()</function> was added in version 187.</para>
-    <para><function>sd_journal_seek_monotonic_usec()</function> was added in version 187.</para>
-    <para><function>sd_journal_seek_realtime_usec()</function> was added in version 187.</para>
-    <para><function>sd_journal_seek_tail()</function> was added in version 187.</para>
+    <para><function>sd_journal_seek_head()</function>,
+    <function>sd_journal_seek_tail()</function>,
+    <function>sd_journal_seek_monotonic_usec()</function>,
+    <function>sd_journal_seek_realtime_usec()</function> and
+    <function>sd_journal_seek_cursor()</function> were added in version 187.</para>
   </refsect1>
 
   <refsect1>

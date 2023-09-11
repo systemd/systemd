@@ -142,10 +142,10 @@
 
   <refsect1>
     <title>History</title>
-    <para><function>sd_bus_path_decode()</function> was added in version 211.</para>
-    <para><function>sd_bus_path_encode()</function> was added in version 211.</para>
-    <para><function>sd_bus_path_decode_many()</function> was added in version 227.</para>
-    <para><function>sd_bus_path_encode_many()</function> was added in version 227.</para>
+    <para><function>sd_bus_path_encode()</function> and
+    <function>sd_bus_path_decode()</function> were added in version 211.</para>
+    <para><function>sd_bus_path_encode_many()</function> and
+    <function>sd_bus_path_decode_many()</function> were added in version 227.</para>
   </refsect1>
 
   <refsect1>
