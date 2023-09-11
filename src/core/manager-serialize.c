@@ -195,7 +195,7 @@ int manager_serialize(
                 if (u->id != t)
                         continue;
 
-                r = unit_serialize(u, f, fds, switching_root);
+                r = unit_serialize_state(u, f, fds, switching_root);
                 if (r < 0)
                         return r;
         }
@@ -222,7 +222,7 @@ static int manager_deserialize_one_unit(Manager *m, const char *name, FILE *f, F
                 return log_notice_errno(r, "Failed to load unit \"%s\", skipping deserialization: %m", name);
         }
 
-        r = unit_deserialize(u, f, fds);
+        r = unit_deserialize_state(u, f, fds);
         if (r < 0) {
                 if (r == -ENOMEM)
                         return r;
@@ -251,7 +251,7 @@ static int manager_deserialize_units(Manager *m, FILE *f, FDSet *fds) {
                 if (r == -ENOMEM)
                         return r;
                 if (r < 0) {
-                        r = unit_deserialize_skip(f);
+                        r = unit_deserialize_state_skip(f);
                         if (r < 0)
                                 return r;
                 }
@@ -507,7 +507,12 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         }
 
                 } else if ((val = startswith(l, "dynamic-user=")))
-                        dynamic_user_deserialize_one(m, val, fds);
+                        dynamic_user_deserialize_one(m,
+                                        val,
+                                        fds,
+                                        /* fds_array= */ NULL,
+                                        /* n_fds_array= */ 0,
+                                        /* ret= */ NULL);
                 else if ((val = startswith(l, "destroy-ipc-uid=")))
                         manager_deserialize_uid_refs_one(m, val);
                 else if ((val = startswith(l, "destroy-ipc-gid=")))

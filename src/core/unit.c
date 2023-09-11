@@ -1854,18 +1854,6 @@ int unit_test_start_limit(Unit *u) {
         return -ECANCELED;
 }
 
-bool unit_shall_confirm_spawn(Unit *u) {
-        assert(u);
-
-        if (manager_is_confirm_spawn_disabled(u->manager))
-                return false;
-
-        /* For some reasons units remaining in the same process group
-         * as PID 1 fail to acquire the console even if it's not used
-         * by any process. So skip the confirmation question for them. */
-        return !unit_get_exec_context(u)->same_pgrp;
-}
-
 static bool unit_verify_deps(Unit *u) {
         Unit *other;
 
@@ -5298,6 +5286,7 @@ int unit_acquire_invocation_id(Unit *u) {
 }
 
 int unit_set_exec_params(Unit *u, ExecParameters *p) {
+        const char *confirm_spawn;
         int r;
 
         assert(u);
@@ -5310,7 +5299,13 @@ int unit_set_exec_params(Unit *u, ExecParameters *p) {
 
         p->runtime_scope = u->manager->runtime_scope;
 
-        p->confirm_spawn = manager_get_confirm_spawn(u->manager);
+        confirm_spawn = manager_get_confirm_spawn(u->manager);
+        if (confirm_spawn) {
+                p->confirm_spawn = strdup(confirm_spawn);
+                if (!p->confirm_spawn)
+                        return -ENOMEM;
+        }
+
         p->cgroup_supported = u->manager->cgroup_supported;
         p->prefix = u->manager->prefix;
         SET_FLAG(p->flags, EXEC_PASS_LOG_UNIT|EXEC_CHOWN_DIRECTORIES, MANAGER_IS_SYSTEM(u->manager));
@@ -5321,6 +5316,29 @@ int unit_set_exec_params(Unit *u, ExecParameters *p) {
 
         p->received_credentials_directory = u->manager->received_credentials_directory;
         p->received_encrypted_credentials_directory = u->manager->received_encrypted_credentials_directory;
+
+        p->shall_confirm_spawn = !!u->manager->confirm_spawn;
+
+        p->fallback_smack_process_label = u->manager->defaults.smack_process_label;
+
+        if (u->manager->restrict_fs && p->bpf_outer_map_fd < 0) {
+                int fd = lsm_bpf_map_restrict_fs_fd(u);
+                if (fd < 0)
+                        return fd;
+
+                p->bpf_outer_map_fd = fd;
+        }
+
+        p->user_lookup_fd = fcntl(u->manager->user_lookup_fds[1], F_DUPFD_CLOEXEC, 3);
+        if (p->user_lookup_fd < 0)
+                return -errno;
+
+        p->cgroup_id = u->cgroup_id;
+        p->invocation_id = u->invocation_id;
+        sd_id128_to_string(p->invocation_id, p->invocation_id_string);
+        p->unit_id = strdup(u->id);
+        if (!p->unit_id)
+                return -ENOMEM;
 
         return 0;
 }
