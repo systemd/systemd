@@ -277,6 +277,7 @@ bool in_hypervisor(void) {
                 return cache;
 
         cache = cpuid_in_hypervisor() || smbios_in_hypervisor();
+        log_debug("hypervisor: %ls", yes_no(cache));
         return cache;
 }
 
@@ -405,10 +406,8 @@ static bool detect_tdx(void) {
 
         return false;
 }
-#endif /* ! __i386__ && ! __x86_64__ */
 
-bool is_confidential_vm(void) {
-#if defined(__i386__) || defined(__x86_64__)
+static bool is_confidential_vm_x86(void) {
         char sig[13] = {};
 
         if (!cpuid_in_hypervisor())
@@ -420,7 +419,22 @@ bool is_confidential_vm(void) {
                 return detect_sev();
         if (memcmp(sig, CPUID_SIG_INTEL, sizeof(sig)) == 0)
                 return detect_tdx();
-#endif /* ! __i386__ && ! __x86_64__ */
 
         return false;
+}
+#endif
+
+bool is_confidential_vm(void) {
+        static int cache = -1;
+        if (cache >= 0)
+                return cache;
+
+#if defined(__i386__) || defined(__x86_64__)
+        cache = is_confidential_vm_x86();
+#else
+        cache = false;
+#endif
+
+        log_debug("confidential VM: %ls", yes_no(cache));
+        return cache;
 }

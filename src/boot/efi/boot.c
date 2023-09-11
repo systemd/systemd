@@ -1213,7 +1213,7 @@ static void config_defaults_load_from_file(Config *config, char *content) {
                         else {
                                 uint64_t u;
                                 if (!parse_number8(value, &u, NULL) || u > TIMEOUT_TYPE_MAX) {
-                                        log_error("Error parsing 'timeout' config option: %s", value);
+                                        log_warning("Cannot parse 'timeout' config option: %s", value);
                                         continue;
                                 }
                                 config->timeout_sec_config = u;
@@ -1224,7 +1224,7 @@ static void config_defaults_load_from_file(Config *config, char *content) {
 
                 if (streq8(key, "default")) {
                         if (value[0] == '@' && !strcaseeq8(value, "@saved")) {
-                                log_error("Unsupported special entry identifier: %s", value);
+                                log_warning("Unsupported special entry identifier: %s", value);
                                 continue;
                         }
                         free(config->entry_default_config);
@@ -1235,35 +1235,35 @@ static void config_defaults_load_from_file(Config *config, char *content) {
                 if (streq8(key, "editor")) {
                         err = parse_boolean(value, &config->editor);
                         if (err != EFI_SUCCESS)
-                                log_error("Error parsing 'editor' config option: %s", value);
+                                log_warning("Cannot parse 'editor' config option: %s", value);
                         continue;
                 }
 
                 if (streq8(key, "auto-entries")) {
                         err = parse_boolean(value, &config->auto_entries);
                         if (err != EFI_SUCCESS)
-                                log_error("Error parsing 'auto-entries' config option: %s", value);
+                                log_warning("Cannot parse 'auto-entries' config option: %s", value);
                         continue;
                 }
 
                 if (streq8(key, "auto-firmware")) {
                         err = parse_boolean(value, &config->auto_firmware);
                         if (err != EFI_SUCCESS)
-                                log_error("Error parsing 'auto-firmware' config option: %s", value);
+                                log_warning("Cannot parse 'auto-firmware' config option: %s", value);
                         continue;
                 }
 
                 if (streq8(key, "beep")) {
                         err = parse_boolean(value, &config->beep);
                         if (err != EFI_SUCCESS)
-                                log_error("Error parsing 'beep' config option: %s", value);
+                                log_warning("Cannot parse 'beep' config option: %s", value);
                         continue;
                 }
 
                 if (streq8(key, "reboot-for-bitlocker")) {
                         err = parse_boolean(value, &config->reboot_for_bitlocker);
                         if (err != EFI_SUCCESS)
-                                log_error("Error parsing 'reboot-for-bitlocker' config option: %s", value);
+                                log_warning("Cannot parse 'reboot-for-bitlocker' config option: %s", value);
                 }
 
                 if (streq8(key, "secure-boot-enroll")) {
@@ -1276,7 +1276,7 @@ static void config_defaults_load_from_file(Config *config, char *content) {
                         else if (streq8(value, "off"))
                                 config->secure_boot_enroll = ENROLL_OFF;
                         else
-                                log_error("Error parsing 'secure-boot-enroll' config option: %s", value);
+                                log_warning("Cannot parse 'secure-boot-enroll' config option: %s", value);
                         continue;
                 }
 
@@ -1290,7 +1290,7 @@ static void config_defaults_load_from_file(Config *config, char *content) {
                         else {
                                 uint64_t u;
                                 if (!parse_number8(value, &u, NULL) || u > CONSOLE_MODE_RANGE_MAX) {
-                                        log_error("Error parsing 'console-mode' config option: %s", value);
+                                        log_warning("Cannot parse 'console-mode' config option: %s", value);
                                         continue;
                                 }
                                 config->console_mode = u;
@@ -1609,7 +1609,7 @@ static void config_load_defaults(Config *config, EFI_FILE *root_dir) {
         if (err == EFI_SUCCESS)
                 config->timeout_sec = config->timeout_sec_efivar;
         else if (err != EFI_NOT_FOUND)
-                log_error_status(err, "Error reading LoaderConfigTimeout EFI variable: %m");
+                log_warning_status(err, "Cannot read LoaderConfigTimeout EFI variable: %m");
 
         err = efivar_get_timeout(u"LoaderConfigTimeoutOneShot", &config->timeout_sec);
         if (err == EFI_SUCCESS) {
@@ -1618,7 +1618,7 @@ static void config_load_defaults(Config *config, EFI_FILE *root_dir) {
 
                 config->force_menu = true; /* force the menu when this is set */
         } else if (err != EFI_NOT_FOUND)
-                log_error_status(err, "Error reading LoaderConfigTimeoutOneShot EFI variable: %m");
+                log_warning_status(err, "Cannot read LoaderConfigTimeoutOneShot EFI variable: %m");
 
         err = efivar_get_uint_string(MAKE_GUID_PTR(LOADER), u"LoaderConfigConsoleMode", &value);
         if (err == EFI_SUCCESS)
@@ -2417,6 +2417,7 @@ static EFI_STATUS image_start(
         }
 
         efivar_set_time_usec(MAKE_GUID_PTR(LOADER), u"LoaderTimeExecUSec", 0);
+        log_info("Starting image.");
         err = BS->StartImage(image, NULL, NULL);
         graphics_mode(false);
         if (err == EFI_SUCCESS)
@@ -2434,6 +2435,7 @@ static EFI_STATUS image_start(
                         EFI_IMAGE_ENTRY_POINT kernel_entry =
                                 (EFI_IMAGE_ENTRY_POINT) ((uint8_t *) loaded_image->ImageBase + compat_address);
 
+                        log_info("Starting kernel using compat entry address.");
                         err = kernel_entry(image, ST);
                         graphics_mode(false);
                         if (err == EFI_SUCCESS)
