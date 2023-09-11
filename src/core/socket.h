@@ -159,6 +159,8 @@ struct Socket {
         char *fdname;
 
         RateLimit trigger_limit;
+        usec_t poll_limit_interval;
+        unsigned poll_limit_burst;
 };
 
 SocketPeer *socket_peer_ref(SocketPeer *p);
