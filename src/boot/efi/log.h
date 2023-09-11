@@ -31,7 +31,6 @@ typedef enum {
 extern LogLevel max_log_level;
 
 _noreturn_ void freeze(void);
-void log_wait(void);
 _gnu_printf_(3, 4) EFI_STATUS log_internal(LogLevel level, EFI_STATUS status, const char *format, ...);
 
 #define log_full_status(level, status, ...)                             \

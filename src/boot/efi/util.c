@@ -383,7 +383,6 @@ void print_at(size_t x, size_t y, size_t attr, const char16_t *str) {
 }
 
 void clear_screen(size_t attr) {
-        log_wait();
         ST->ConOut->SetAttribute(ST->ConOut, attr);
         ST->ConOut->ClearScreen(ST->ConOut);
 }
