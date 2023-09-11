@@ -142,7 +142,6 @@ EFI_STATUS linux_exec(
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Error registering initrd: %m");
 
-        log_wait();
         err = BS->StartImage(kernel_image, NULL, NULL);
 
         /* Try calling the kernel compat entry point if one exists. */

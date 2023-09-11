@@ -31,7 +31,6 @@ EFI_STATUS graphics_mode(bool on) {
         if (new == current)
                 return EFI_SUCCESS;
 
-        log_wait();
         err = ConsoleControl->SetMode(ConsoleControl, new);
 
         /* some firmware enables the cursor when switching modes */

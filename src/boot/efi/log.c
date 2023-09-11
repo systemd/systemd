@@ -7,7 +7,6 @@
 #include "util.h"
 
 LogLevel max_log_level = LOG_WARNING;
-static unsigned log_count = 0;
 
 static const int32_t log_colors[] = {
         [LOG_FATAL]   = EFI_TEXT_ATTR(EFI_LIGHTRED, EFI_BLACK),
@@ -60,7 +59,6 @@ EFI_STATUS log_internal(LogLevel level, EFI_STATUS status, const char *format, .
         ST->ConOut->OutputString(ST->ConOut, (char16_t *) u"\r\n");
         ST->ConOut->SetAttribute(ST->ConOut, attr);
 
-        log_count++;
         return status;
 }
 
@@ -83,14 +81,6 @@ void log_device_path(const char16_t *prefix, const EFI_DEVICE_PATH *dp) {
                 log_error_status(err, "%ls: %m", prefix);
 }
 #endif
-
-void log_wait(void) {
-        if (log_count == 0)
-                return;
-
-        BS->Stall(MIN(4u, log_count) * 2500 * 1000);
-        log_count = 0;
-}
 
 _used_ intptr_t __stack_chk_guard = (intptr_t) 0x70f6967de78acae3;
 
