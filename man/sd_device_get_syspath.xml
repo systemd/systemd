@@ -195,17 +195,17 @@
 
   <refsect1>
     <title>History</title>
-    <para><function>sd_device_get_devname()</function> was added in version 251.</para>
-    <para><function>sd_device_get_devnum()</function> was added in version 251.</para>
-    <para><function>sd_device_get_devpath()</function> was added in version 251.</para>
-    <para><function>sd_device_get_devtype()</function> was added in version 251.</para>
-    <para><function>sd_device_get_diskseq()</function> was added in version 251.</para>
-    <para><function>sd_device_get_driver()</function> was added in version 251.</para>
-    <para><function>sd_device_get_ifindex()</function> was added in version 251.</para>
-    <para><function>sd_device_get_subsystem()</function> was added in version 251.</para>
-    <para><function>sd_device_get_sysname()</function> was added in version 251.</para>
-    <para><function>sd_device_get_sysnum()</function> was added in version 251.</para>
-    <para><function>sd_device_get_syspath()</function> was added in version 251.</para>
+    <para><function>sd_device_get_syspath()</function>,
+    <function>sd_device_get_devpath()</function>,
+    <function>sd_device_get_sysname()</function>,
+    <function>sd_device_get_sysnum()</function>,
+    <function>sd_device_get_subsystem()</function>,
+    <function>sd_device_get_devtype()</function>,
+    <function>sd_device_get_devname()</function>,
+    <function>sd_device_get_devnum()</function>,
+    <function>sd_device_get_ifindex()</function>,
+    <function>sd_device_get_driver()</function> and
+    <function>sd_device_get_diskseq()</function> were added in version 251.</para>
   </refsect1>
 
   <refsect1>

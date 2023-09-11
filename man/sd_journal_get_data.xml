@@ -281,12 +281,12 @@ int print_fields(sd_journal *j) {
 
   <refsect1>
     <title>History</title>
-    <para><function>SD_JOURNAL_FOREACH_DATA()</function> was added in version 187.</para>
-    <para><function>sd_journal_enumerate_data()</function> was added in version 187.</para>
-    <para><function>sd_journal_get_data()</function> was added in version 187.</para>
-    <para><function>sd_journal_restart_data()</function> was added in version 187.</para>
-    <para><function>sd_journal_get_data_threshold()</function> was added in version 196.</para>
-    <para><function>sd_journal_set_data_threshold()</function> was added in version 196.</para>
+    <para><function>sd_journal_get_data()</function>,
+    <function>sd_journal_enumerate_data()</function>,
+    <function>sd_journal_restart_data()</function> and
+    <function>SD_JOURNAL_FOREACH_DATA()</function> were added in version 187.</para>
+    <para><function>sd_journal_set_data_threshold()</function> and
+    <function>sd_journal_get_data_threshold()</function> were added in version 196.</para>
     <para><function>sd_journal_enumerate_available_data()</function> was added in version 246.</para>
   </refsect1>
 
