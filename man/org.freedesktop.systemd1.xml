@@ -2876,6 +2876,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       readonly s MemoryPressureWatch = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryPressureThresholdUSec = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly a(iiss) NFTSet = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as Environment = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -3493,6 +3495,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <!--property MemoryPressureWatch is not documented!-->
 
     <!--property MemoryPressureThresholdUSec is not documented!-->
+
+    <!--property NFTSet is not documented!-->
 
     <!--property EnvironmentFiles is not documented!-->
 
@@ -4123,6 +4127,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryPressureWatch"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryPressureThresholdUSec"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="NFTSet"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="Environment"/>
 
@@ -4909,6 +4915,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       readonly s MemoryPressureWatch = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryPressureThresholdUSec = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly a(iiss) NFTSet = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as Environment = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -5537,6 +5545,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
 
     <!--property MemoryPressureThresholdUSec is not documented!-->
 
+    <!--property NFTSet is not documented!-->
+
     <!--property EnvironmentFiles is not documented!-->
 
     <!--property PassEnvironment is not documented!-->
@@ -6144,6 +6154,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryPressureWatch"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryPressureThresholdUSec"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="NFTSet"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="Environment"/>
 
@@ -6804,6 +6816,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       readonly s MemoryPressureWatch = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryPressureThresholdUSec = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly a(iiss) NFTSet = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as Environment = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -7360,6 +7374,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
 
     <!--property MemoryPressureThresholdUSec is not documented!-->
 
+    <!--property NFTSet is not documented!-->
+
     <!--property EnvironmentFiles is not documented!-->
 
     <!--property PassEnvironment is not documented!-->
@@ -7885,6 +7901,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryPressureWatch"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryPressureThresholdUSec"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="NFTSet"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="Environment"/>
 
@@ -8672,6 +8690,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
       readonly s MemoryPressureWatch = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryPressureThresholdUSec = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly a(iiss) NFTSet = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as Environment = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -9214,6 +9234,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
 
     <!--property MemoryPressureThresholdUSec is not documented!-->
 
+    <!--property NFTSet is not documented!-->
+
     <!--property EnvironmentFiles is not documented!-->
 
     <!--property PassEnvironment is not documented!-->
@@ -9725,6 +9747,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryPressureWatch"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryPressureThresholdUSec"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="NFTSet"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="Environment"/>
 
@@ -10371,6 +10395,8 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
       readonly s MemoryPressureWatch = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryPressureThresholdUSec = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly a(iiss) NFTSet = [...];
   };
   interface org.freedesktop.DBus.Peer { ... };
   interface org.freedesktop.DBus.Introspectable { ... };
@@ -10540,6 +10566,8 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
     <!--property MemoryPressureWatch is not documented!-->
 
     <!--property MemoryPressureThresholdUSec is not documented!-->
+
+    <!--property NFTSet is not documented!-->
 
     <!--Autogenerated cross-references for systemd.directives, do not edit-->
 
@@ -10718,6 +10746,8 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryPressureWatch"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryPressureThresholdUSec"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="NFTSet"/>
 
     <!--End of Autogenerated section-->
 
@@ -10920,6 +10950,8 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
       readonly s MemoryPressureWatch = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryPressureThresholdUSec = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly a(iiss) NFTSet = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s KillMode = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -11109,6 +11141,8 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
     <!--property MemoryPressureWatch is not documented!-->
 
     <!--property MemoryPressureThresholdUSec is not documented!-->
+
+    <!--property NFTSet is not documented!-->
 
     <!--property KillMode is not documented!-->
 
@@ -11317,6 +11351,8 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryPressureWatch"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryPressureThresholdUSec"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="NFTSet"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="KillMode"/>
 
