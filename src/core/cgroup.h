@@ -245,6 +245,15 @@ typedef enum CGroupIOAccountingMetric {
         _CGROUP_IO_ACCOUNTING_METRIC_INVALID = -EINVAL,
 } CGroupIOAccountingMetric;
 
+/* Used for limits whose value sets have infimum */
+typedef enum CGroupLimitType {
+        CGROUP_LIMIT_MEMORY_MAX,
+        CGROUP_LIMIT_MEMORY_HIGH,
+        CGROUP_LIMIT_TASKS_MAX,
+        _CGROUP_LIMIT_TYPE_MAX,
+        _CGROUP_LIMIT_INVALID = -EINVAL,
+} CGroupLimitType;
+
 typedef struct Unit Unit;
 typedef struct Manager Manager;
 
@@ -336,6 +345,7 @@ int unit_get_tasks_current(Unit *u, uint64_t *ret);
 int unit_get_cpu_usage(Unit *u, nsec_t *ret);
 int unit_get_io_accounting(Unit *u, CGroupIOAccountingMetric metric, bool allow_cache, uint64_t *ret);
 int unit_get_ip_accounting(Unit *u, CGroupIPAccountingMetric metric, uint64_t *ret);
+int unit_get_effective_limit(Unit *u, CGroupLimitType type, uint64_t *ret);
 
 int unit_reset_cpu_accounting(Unit *u);
 int unit_reset_ip_accounting(Unit *u);
