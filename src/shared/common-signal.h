@@ -48,6 +48,8 @@ enum {
 
         COMMON_SIGNAL_COMMAND_MEMORY_PRESSURE = 0x300,
         COMMON_SIGNAL_COMMAND_MALLOC_INFO,
+
+        /* Private signals start at 0x500 */
 };
 
 struct sigrtmin18_info {
