@@ -1503,9 +1503,9 @@ static int socket_address_listen_in_cgroup(
                 const SocketAddress *address,
                 const char *label) {
 
+        _cleanup_(pidref_done) PidRef pid = PIDREF_NULL;
         _cleanup_close_pair_ int pair[2] = PIPE_EBADF;
         int fd, r;
-        pid_t pid;
 
         assert(s);
         assert(address);
@@ -1597,7 +1597,7 @@ static int socket_address_listen_in_cgroup(
         fd = receive_one_fd(pair[0], 0);
 
         /* We synchronously wait for the helper, as it shouldn't be slow */
-        r = wait_for_terminate_and_check("(sd-listen)", pid, WAIT_LOG_ABNORMAL);
+        r = wait_for_terminate_and_check("(sd-listen)", pid.pid, WAIT_LOG_ABNORMAL);
         if (r < 0) {
                 safe_close(fd);
                 return r;
@@ -1968,8 +1968,7 @@ static int socket_spawn(Socket *s, ExecCommand *c, PidRef *ret_pid) {
 }
 
 static int socket_chown(Socket *s, PidRef *ret_pid) {
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
-        pid_t pid;
+        _cleanup_(pidref_done) PidRef pid = PIDREF_NULL;
         int r;
 
         assert(s);
@@ -2030,15 +2029,11 @@ static int socket_chown(Socket *s, PidRef *ret_pid) {
                 _exit(EXIT_SUCCESS);
         }
 
-        r = pidref_set_pid(&pidref, pid);
+        r = unit_watch_pid(UNIT(s), pid.pid, /* exclusive= */ true);
         if (r < 0)
                 return r;
 
-        r = unit_watch_pid(UNIT(s), pidref.pid, /* exclusive= */ true);
-        if (r < 0)
-                return r;
-
-        *ret_pid = TAKE_PIDREF(pidref);
+        *ret_pid = TAKE_PIDREF(pid);
         return 0;
 }
 
@@ -2117,9 +2112,9 @@ static void socket_enter_signal(Socket *s, SocketState state, SocketResult f) {
                         UNIT(s),
                         &s->kill_context,
                         state_to_kill_operation(s, state),
-                        -1,
-                        s->control_pid.pid,
-                        false);
+                        /* main_pid= */ NULL,
+                        &s->control_pid,
+                        /* main_pid_alien= */ false);
         if (r < 0)
                 goto fail;
 
@@ -2982,9 +2977,9 @@ static int socket_accept_do(Socket *s, int fd) {
 }
 
 static int socket_accept_in_cgroup(Socket *s, SocketPort *p, int fd) {
+        _cleanup_(pidref_done) PidRef pid = PIDREF_NULL;
         _cleanup_close_pair_ int pair[2] = PIPE_EBADF;
         int cfd, r;
-        pid_t pid;
 
         assert(s);
         assert(p);
@@ -3034,7 +3029,7 @@ static int socket_accept_in_cgroup(Socket *s, SocketPort *p, int fd) {
         cfd = receive_one_fd(pair[0], 0);
 
         /* We synchronously wait for the helper, as it shouldn't be slow */
-        r = wait_for_terminate_and_check("(sd-accept)", pid, WAIT_LOG_ABNORMAL);
+        r = wait_for_terminate_and_check("(sd-accept)", pid.pid, WAIT_LOG_ABNORMAL);
         if (r < 0) {
                 safe_close(cfd);
                 return r;
@@ -3382,10 +3377,6 @@ static void socket_trigger_notify(Unit *u, Unit *other) {
                 socket_set_state(s, SOCKET_RUNNING);
 }
 
-static int socket_kill(Unit *u, KillWho who, int signo, int code, int value, sd_bus_error *error) {
-        return unit_kill_common(u, who, signo, code, value, -1, SOCKET(u)->control_pid.pid, error);
-}
-
 static int socket_get_timeout(Unit *u, usec_t *timeout) {
         Socket *s = SOCKET(u);
         usec_t t;
@@ -3414,18 +3405,13 @@ char *socket_fdname(Socket *s) {
         return s->fdname ?: UNIT(s)->id;
 }
 
-static int socket_control_pid(Unit *u) {
-        Socket *s = SOCKET(u);
-
-        assert(s);
-
-        return s->control_pid.pid;
+static PidRef *socket_control_pid(Unit *u) {
+        return &ASSERT_PTR(SOCKET(u))->control_pid;
 }
 
 static int socket_clean(Unit *u, ExecCleanMask mask) {
         _cleanup_strv_free_ char **l = NULL;
         Socket *s = SOCKET(u);
-        pid_t pid;
         int r;
 
         assert(s);
@@ -3450,11 +3436,7 @@ static int socket_clean(Unit *u, ExecCleanMask mask) {
         if (r < 0)
                 goto fail;
 
-        r = unit_fork_and_watch_rm_rf(u, l, &pid);
-        if (r < 0)
-                goto fail;
-
-        r = pidref_set_pid(&s->control_pid, pid);
+        r = unit_fork_and_watch_rm_rf(u, l, &s->control_pid);
         if (r < 0)
                 goto fail;
 
@@ -3576,7 +3558,6 @@ const UnitVTable socket_vtable = {
         .start = socket_start,
         .stop = socket_stop,
 
-        .kill = socket_kill,
         .clean = socket_clean,
         .can_clean = socket_can_clean,
 

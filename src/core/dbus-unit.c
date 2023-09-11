@@ -1331,7 +1331,6 @@ int bus_unit_method_get_processes(sd_bus_message *message, void *userdata, sd_bu
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_set_free_ Set *pids = NULL;
         Unit *u = userdata;
-        pid_t pid;
         int r;
 
         assert(message);
@@ -1359,16 +1358,16 @@ int bus_unit_method_get_processes(sd_bus_message *message, void *userdata, sd_bu
         }
 
         /* The main and control pids might live outside of the cgroup, hence fetch them separately */
-        pid = unit_main_pid(u);
-        if (pid > 0) {
-                r = append_process(reply, NULL, pid, pids);
+        PidRef *pid = unit_main_pid(u);
+        if (pidref_is_set(pid)) {
+                r = append_process(reply, NULL, pid->pid, pids);
                 if (r < 0)
                         return r;
         }
 
         pid = unit_control_pid(u);
-        if (pid > 0) {
-                r = append_process(reply, NULL, pid, pids);
+        if (pidref_is_set(pid)) {
+                r = append_process(reply, NULL, pid->pid, pids);
                 if (r < 0)
                         return r;
         }
