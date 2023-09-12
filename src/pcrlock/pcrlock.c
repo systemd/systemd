@@ -18,6 +18,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-table.h"
+#include "format-util.h"
 #include "gpt.h"
 #include "hash-funcs.h"
 #include "hexdecoct.h"
@@ -4423,7 +4424,6 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
                         tc,
                         primary_handle,
                         encryption_session,
-                        /* trial= */ false,
                         &policy_session);
         if (r < 0)
                 return r;
@@ -4443,7 +4443,7 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return r;
         } else {
-                /* Fulfill PCR policies
+                /* Fulfill PCR policies */
 
 
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Not implemented yet.");
