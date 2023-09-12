@@ -68,9 +68,6 @@
       <listitem><para>A compiled binary DeviceTree will be looked for in the <literal>.dtb</literal> PE
       section.</para></listitem>
 
-      <listitem><para>Kernel version information, i.e. the output of <command>uname -r</command> for the
-      kernel included in the UKI, in the <literal>.uname</literal> PE section.</para></listitem>
-
       <listitem><para>The kernel command line to pass to the invoked kernel will be looked for in the
       <literal>.cmdline</literal> PE section.</para></listitem>
 
