@@ -188,7 +188,7 @@ int tpm2_pcr_read_missing_values(Tpm2Context *c, Tpm2PCRValue *pcr_values, size_
 int tpm2_get_pin_auth(TPMI_ALG_HASH hash, const char *pin, TPM2B_AUTH *ret_auth);
 int tpm2_set_auth(Tpm2Context *c, const Tpm2Handle *handle, const char *pin);
 
-int tpm2_make_policy_session(Tpm2Context *c, const Tpm2Handle *primary, const Tpm2Handle *encryption_session, bool trial, Tpm2Handle **ret_session);
+int tpm2_make_policy_session(Tpm2Context *c, const Tpm2Handle *primary, const Tpm2Handle *encryption_session, Tpm2Handle **ret_session);
 int tpm2_policy_auth_value(Tpm2Context *c, const Tpm2Handle *session, TPM2B_DIGEST **ret_policy_digest);
 int tpm2_policy_or(Tpm2Context *c, const Tpm2Handle *session, const TPM2B_DIGEST *branches, size_t n_branches, TPM2B_DIGEST **ret_policy_digest);
 
