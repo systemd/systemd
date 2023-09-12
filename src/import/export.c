@@ -18,6 +18,7 @@
 #include "main-func.h"
 #include "signal-util.h"
 #include "string-util.h"
+#include "terminal-util.h"
 #include "verbs.h"
 
 static ImportCompressType arg_compress = IMPORT_COMPRESS_UNKNOWN;
@@ -201,16 +202,20 @@ static int export_raw(int argc, char *argv[], void *userdata) {
 }
 
 static int help(int argc, char *argv[], void *userdata) {
-
-        printf("%s [OPTIONS...] {COMMAND} ...\n\n"
-               "Export container or virtual machine images.\n\n"
+        printf("%1$s [OPTIONS...] {COMMAND} ...\n"
+               "\n%4$sExport container or virtual machine images.%5$s\n"
+               "\n%2$sCommands:%3$s\n"
+               "  tar NAME [FILE]              Export a TAR image\n"
+               "  raw NAME [FILE]              Export a RAW image\n"
+               "\n%2$sOptions:%3$s\n"
                "  -h --help                    Show this help\n"
                "     --version                 Show package version\n"
-               "     --format=FORMAT           Select format\n\n"
-               "Commands:\n"
-               "  tar NAME [FILE]              Export a TAR image\n"
-               "  raw NAME [FILE]              Export a RAW image\n",
-               program_invocation_short_name);
+               "     --format=FORMAT           Select format\n\n",
+               program_invocation_short_name,
+               ansi_underline(),
+               ansi_normal(),
+               ansi_highlight(),
+               ansi_normal());
 
         return 0;
 }
