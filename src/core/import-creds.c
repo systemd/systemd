@@ -620,33 +620,25 @@ static int import_credentials_smbios(ImportCredentialContext *c) {
         return 0;
 }
 
-static int import_credentials_initrd(ImportCredentialContext *c) {
+static int import_credentials_directory(ImportCredentialContext *c, const char* source_dir, bool delete_source_dir) {
         _cleanup_free_ DirectoryEntries *de = NULL;
         _cleanup_close_ int source_dir_fd = -EBADF;
         int r;
 
         assert(c);
 
-        /* This imports credentials from /run/credentials/@initrd/ into our credentials directory and deletes
-         * the source directory afterwards. This is run once after the initrd → host transition. This is
-         * supposed to establish a well-defined avenue for initrd-based host configurators to pass
-         * credentials into the main system. */
-
-        if (in_initrd())
-                return 0;
-
-        source_dir_fd = open("/run/credentials/@initrd", O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
+        source_dir_fd = open(source_dir, O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
         if (source_dir_fd < 0) {
                 if (errno == ENOENT)
                         log_debug_errno(errno, "No credentials passed from initrd.");
                 else
-                        log_warning_errno(errno, "Failed to open '/run/credentials/@initrd', ignoring: %m");
+                        log_warning_errno(errno, "Failed to open '%s', ignoring: %m", source_dir);
                 return 0;
         }
 
         r = readdir_all(source_dir_fd, RECURSE_DIR_SORT|RECURSE_DIR_IGNORE_DOT, &de);
         if (r < 0) {
-                log_warning_errno(r, "Failed to read '/run/credentials/@initrd' contents, ignoring: %m");
+                log_warning_errno(r, "Failed to read '%s' contents, ignoring: %m", source_dir);
                 return 0;
         }
 
@@ -701,22 +693,58 @@ static int import_credentials_initrd(ImportCredentialContext *c) {
 
                 log_debug("Successfully copied initrd credential '%s'.", d->d_name);
 
-                (void) unlinkat(source_dir_fd, d->d_name, 0);
+                if (delete_source_dir)
+                        (void) unlinkat(source_dir_fd, d->d_name, 0);
         }
 
         source_dir_fd = safe_close(source_dir_fd);
 
-        if (rmdir("/run/credentials/@initrd") < 0)
-                log_warning_errno(errno, "Failed to remove /run/credentials/@initrd after import, ignoring: %m");
+        if (delete_source_dir && rmdir(source_dir) < 0)
+                log_warning_errno(errno, "Failed to remove '%s' after import, ignoring: %m", source_dir);
 
         return 0;
+}
+
+static int import_credentials_virtiofs(ImportCredentialContext *c) {
+        /* This imports the credentials from a virtiofs tag io.systemd.credentials by mounting
+         * the directory, copying the credentials and then unmounting it again. */
+        int r;
+
+        r = mount_nofollow_verbose(LOG_DEBUG, "io.systemd.credentials", "/run/credentials/@virtiofs", "virtiofs", MS_RDONLY, NULL);
+        if (r < 0) {
+                if (r == -ENOENT)
+                        log_debug_errno(r, "No credentials passed from virtiofs.");
+                else
+                        log_warning_errno(r, "Failed to mount virtiofs credentials, ignoring: %m");
+                return 0;
+        }
+
+        r = import_credentials_directory(c, "/run/credentials/@virtiofs", /* delete_source= */ false);
+        if (r < 0)
+                return r;
+
+        return umount_verbose(LOG_DEBUG, "/run/credentials/@virtiofs", UMOUNT_NOFOLLOW);
+
+}
+
+static int import_credentials_initrd(ImportCredentialContext *c) {
+
+        /* This imports credentials from /run/credentials/@initrd/ into our credentials directory and deletes
+         * the source directory afterwards. This is run once after the initrd → host transition. This is
+         * supposed to establish a well-defined avenue for initrd-based host configurators to pass
+         * credentials into the main system. */
+
+        if (in_initrd())
+                return 0;
+
+        return import_credentials_directory(c, /*source_dir= */ "/run/credentials/@initrd", /* delete_source= */ true);
 }
 
 static int import_credentials_trusted(void) {
         _cleanup_(import_credentials_context_free) ImportCredentialContext c = {
                 .target_dir_fd = -EBADF,
         };
-        int q, w, r, y;
+        int q, w, r, y, v;
 
         /* This is invoked during early boot when no credentials have been imported so far. (Specifically, if
          * the $CREDENTIALS_DIRECTORY or $ENCRYPTED_CREDENTIALS_DIRECTORY environment variables are not set
@@ -724,6 +752,7 @@ static int import_credentials_trusted(void) {
 
         r = import_credentials_qemu(&c);
         w = import_credentials_smbios(&c);
+        v = import_credentials_virtiofs(&c);
         q = import_credentials_proc_cmdline(&c);
         y = import_credentials_initrd(&c);
 
@@ -737,7 +766,7 @@ static int import_credentials_trusted(void) {
                         return z;
         }
 
-        return r < 0 ? r : w < 0 ? w : q < 0 ? q : y;
+        return r < 0 ? r : w < 0 ? w :  v < 0 ? v : q < 0 ? q : y;
 }
 
 static int merge_credentials_trusted(const char *creds_dir) {

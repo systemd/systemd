@@ -280,7 +280,7 @@ via `systemd` credentials. In particular, it might make sense to boot a
 system with a set of credentials that are then propagated to individual
 services where they are ultimately consumed.
 
-`systemd` supports five ways to pass credentials to systems:
+`systemd` supports several ways to pass credentials to systems:
 
 1. A container manager may set the `$CREDENTIALS_DIRECTORY` environment
    variable for systemd running as PID 1 in the container, the same way as
@@ -304,14 +304,17 @@ services where they are ultimately consumed.
    implementation. Moreover, `fw_cfg` has a 55 character limitation on names
    passed that way. So some settings may not fit.
 
-3. Credentials may be passed from the initrd to the host during the initrd →
+3. VMs can also be passed credentials through virtiofs. Credentials will
+   be looked for in a virtiofs with the tag `io.systemd.credentials`.
+
+4. Credentials may be passed from the initrd to the host during the initrd →
    host transition. Provisioning systems that run in the initrd may use this to
    install credentials on the system. All files placed in
    `/run/credentials/@initrd/` are imported into the set of file system
    credentials during the transition. The files (and their directory) are
    removed once this is completed.
 
-4. Credentials may also be passed from the UEFI environment to userspace, if
+5. Credentials may also be passed from the UEFI environment to userspace, if
    the
    [`systemd-stub`](https://www.freedesktop.org/software/systemd/man/systemd-stub.html)
    UEFI kernel stub is used. This allows placing encrypted credentials in the
@@ -321,7 +324,7 @@ services where they are ultimately consumed.
    initrds, as userspace can place credentials next to these EFI kernels, and
    be sure they can be accessed securely from initrd context.
 
-5. Credentials can also be passed into a system via the kernel command line,
+6. Credentials can also be passed into a system via the kernel command line,
    via the `systemd.set_credential=` and `systemd.set_credential_binary=`
    kernel command line options (the latter takes Base64 encoded binary
    data). Note though that any data specified here is visible to all userspace
