@@ -145,3 +145,5 @@ static inline bool btrfs_might_be_subvol(const struct stat *st) {
 }
 
 int btrfs_forget_device(const char *path);
+
+int btrfs_get_file_physical_offset_fd(int fd, uint64_t *ret);
