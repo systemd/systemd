@@ -719,56 +719,6 @@ static int compose_open_fds(pid_t pid, char **ret) {
         return memstream_finalize(&m, ret, NULL);
 }
 
-static int get_process_ns(pid_t pid, const char *namespace, ino_t *ns) {
-        const char *p;
-        struct stat stbuf;
-        _cleanup_close_ int proc_ns_dir_fd = -EBADF;
-
-        p = procfs_file_alloca(pid, "ns");
-
-        proc_ns_dir_fd = open(p, O_DIRECTORY | O_CLOEXEC | O_RDONLY);
-        if (proc_ns_dir_fd < 0)
-                return -errno;
-
-        if (fstatat(proc_ns_dir_fd, namespace, &stbuf, /* flags */0) < 0)
-                return -errno;
-
-        *ns = stbuf.st_ino;
-        return 0;
-}
-
-static int get_mount_namespace_leader(pid_t pid, pid_t *ret) {
-        ino_t proc_mntns;
-        int r;
-
-        r = get_process_ns(pid, "mnt", &proc_mntns);
-        if (r < 0)
-                return r;
-
-        for (;;) {
-                ino_t parent_mntns;
-                pid_t ppid;
-
-                r = get_process_ppid(pid, &ppid);
-                if (r == -EADDRNOTAVAIL) /* Reached the top (i.e. typically PID 1, but could also be a process
-                                          * whose parent is not in our pidns) */
-                        return -ENOENT;
-                if (r < 0)
-                        return r;
-
-                r = get_process_ns(ppid, "mnt", &parent_mntns);
-                if (r < 0)
-                        return r;
-
-                if (proc_mntns != parent_mntns) {
-                        *ret = ppid;
-                        return 0;
-                }
-
-                pid = ppid;
-        }
-}
-
 /* Returns 1 if the parent was found.
  * Returns 0 if there is not a process we can call the pid's
  * container parent (the pid's process isn't 'containerized').
@@ -794,7 +744,7 @@ static int get_process_container_parent_cmdline(pid_t pid, char** cmdline) {
                 return 0;
         }
 
-        r = get_mount_namespace_leader(pid, &container_pid);
+        r = get_namespace_leader(pid, NAMESPACE_MOUNT, &container_pid);
         if (r < 0)
                 return r;
 
