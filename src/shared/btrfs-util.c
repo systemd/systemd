@@ -1871,3 +1871,270 @@ int btrfs_forget_device(const char *path) {
 
         return RET_NERRNO(ioctl(control_fd, BTRFS_IOC_FORGET_DEV, &args));
 }
+
+typedef struct BtrfsStripe {
+        uint64_t devid;
+        uint64_t offset;
+} BtrfsStripe;
+
+typedef struct BtrfsChunk {
+        uint64_t offset;
+        uint64_t length;
+        uint64_t type;
+
+        BtrfsStripe *stripes;
+        uint16_t n_stripes;
+        uint64_t stripe_len;
+} BtrfsChunk;
+
+typedef struct BtrfsChunkTree {
+        BtrfsChunk **chunks;
+        size_t n_chunks;
+} BtrfsChunkTree;
+
+static BtrfsChunk* btrfs_chunk_free(BtrfsChunk *chunk) {
+        if (!chunk)
+                return NULL;
+
+        free(chunk->stripes);
+
+        return mfree(chunk);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(BtrfsChunk*, btrfs_chunk_free);
+
+static void btrfs_chunk_tree_done(BtrfsChunkTree *tree) {
+        assert(tree);
+
+        FOREACH_ARRAY(i, tree->chunks, tree->n_chunks)
+                btrfs_chunk_free(*i);
+}
+
+static int btrfs_read_chunk_tree_fd(int fd, BtrfsChunkTree *ret) {
+
+        struct btrfs_ioctl_search_args search_args = {
+                .key.tree_id = BTRFS_CHUNK_TREE_OBJECTID,
+
+                .key.min_type = BTRFS_CHUNK_ITEM_KEY,
+                .key.max_type = BTRFS_CHUNK_ITEM_KEY,
+
+                .key.min_objectid = BTRFS_FIRST_CHUNK_TREE_OBJECTID,
+                .key.max_objectid = BTRFS_FIRST_CHUNK_TREE_OBJECTID,
+
+                .key.min_offset = 0,
+                .key.max_offset = UINT64_MAX,
+
+                .key.min_transid = 0,
+                .key.max_transid = UINT64_MAX,
+        };
+
+        _cleanup_(btrfs_chunk_tree_done) BtrfsChunkTree tree = {};
+        int r;
+
+        assert(fd >= 0);
+        assert(ret);
+
+        r = fd_is_fs_type(fd, BTRFS_SUPER_MAGIC);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -ENOTTY;
+
+        while (btrfs_ioctl_search_args_compare(&search_args) <= 0) {
+                const struct btrfs_ioctl_search_header *sh;
+                unsigned i;
+
+                search_args.key.nr_items = 256;
+
+                if (ioctl(fd, BTRFS_IOC_TREE_SEARCH, &search_args) < 0)
+                        return -errno;
+
+                if (search_args.key.nr_items == 0)
+                        break;
+
+                FOREACH_BTRFS_IOCTL_SEARCH_HEADER(i, sh, search_args) {
+                        _cleanup_(btrfs_chunk_freep) BtrfsChunk *chunk = NULL;
+                        const struct btrfs_chunk *item;
+
+                        btrfs_ioctl_search_args_set(&search_args, sh);
+
+                        if (sh->objectid != BTRFS_FIRST_CHUNK_TREE_OBJECTID)
+                                continue;
+                        if (sh->type != BTRFS_CHUNK_ITEM_KEY)
+                                continue;
+
+                        chunk = new(BtrfsChunk, 1);
+                        if (!chunk)
+                                return -ENOMEM;
+
+                        item = BTRFS_IOCTL_SEARCH_HEADER_BODY(sh);
+
+                        *chunk = (BtrfsChunk) {
+                                .offset = sh->offset,
+                                .length = le64toh(item->length),
+                                .type = le64toh(item->type),
+                                .n_stripes = le16toh(item->num_stripes),
+                                .stripe_len = le64toh(item->stripe_len),
+                        };
+
+                        chunk->stripes = new(BtrfsStripe, chunk->n_stripes);
+                        if (!chunk->stripes)
+                                return -ENOMEM;
+
+                        for (int j = 0; j < chunk->n_stripes; j++) {
+                                const struct btrfs_stripe *stripe = &item->stripe + j;
+
+                                chunk->stripes[j] = (BtrfsStripe) {
+                                        .devid = le64toh(stripe->devid),
+                                        .offset = le64toh(stripe->offset),
+                                };
+                        }
+
+                        if (!GREEDY_REALLOC(tree.chunks, tree.n_chunks + 1))
+                                return -ENOMEM;
+
+                        tree.chunks[tree.n_chunks++] = TAKE_PTR(chunk);
+                }
+
+                if (!btrfs_ioctl_search_args_inc(&search_args))
+                        break;
+        }
+
+        *ret = TAKE_STRUCT(tree);
+        return 0;
+}
+
+static BtrfsChunk* btrfs_find_chunk_from_logical_address(const BtrfsChunkTree *tree, uint64_t logical) {
+        size_t min_index, max_index;
+
+        assert(tree);
+
+        if (tree->n_chunks == 0)
+                return NULL;
+
+        min_index = 0;
+        max_index = tree->n_chunks - 1;
+
+        while (min_index <= max_index) {
+                size_t mid = (min_index + max_index) / 2;
+
+                if (logical < tree->chunks[mid]->offset)
+                        max_index = mid - 1;
+                else if (logical >= tree->chunks[mid + 1]->offset)
+                        min_index = mid + 1;
+                else
+                        return tree->chunks[mid];
+        }
+
+        return NULL;
+}
+
+int btrfs_get_file_physical_offset_fd(int fd, uint64_t *ret) {
+
+        struct btrfs_ioctl_search_args search_args = {
+                .key.min_type = BTRFS_EXTENT_DATA_KEY,
+                .key.max_type = BTRFS_EXTENT_DATA_KEY,
+
+                .key.min_offset = 0,
+                .key.max_offset = UINT64_MAX,
+
+                .key.min_transid = 0,
+                .key.max_transid = UINT64_MAX,
+        };
+
+        _cleanup_(btrfs_chunk_tree_done) BtrfsChunkTree tree = {};
+        uint64_t subvol_id;
+        struct stat st;
+        int r;
+
+        assert(fd >= 0);
+        assert(ret);
+
+        if (fstat(fd, &st) < 0)
+                return -errno;
+
+        if (!S_ISREG(st.st_mode))
+                return -ENOTTY;
+
+        r = btrfs_subvol_get_id_fd(fd, &subvol_id);
+        if (r < 0)
+                return r;
+
+        r = btrfs_read_chunk_tree_fd(fd, &tree);
+        if (r < 0)
+                return r;
+
+        search_args.key.tree_id = subvol_id;
+        search_args.key.min_objectid = search_args.key.max_objectid = st.st_ino;
+
+        while (btrfs_ioctl_search_args_compare(&search_args) <= 0) {
+                const struct btrfs_ioctl_search_header *sh;
+                unsigned i;
+
+                search_args.key.nr_items = 256;
+
+                if (ioctl(fd, BTRFS_IOC_TREE_SEARCH, &search_args) < 0)
+                        return -errno;
+
+                if (search_args.key.nr_items == 0)
+                        break;
+
+                FOREACH_BTRFS_IOCTL_SEARCH_HEADER(i, sh, search_args) {
+                        const struct btrfs_file_extent_item *item;
+                        uint64_t logical_offset;
+                        BtrfsChunk *chunk;
+
+                        btrfs_ioctl_search_args_set(&search_args, sh);
+
+                        if (sh->type != BTRFS_EXTENT_DATA_KEY)
+                                continue;
+
+                        if (sh->objectid != st.st_ino)
+                                continue;
+
+                        item = BTRFS_IOCTL_SEARCH_HEADER_BODY(sh);
+
+                        if (!IN_SET(item->type, BTRFS_FILE_EXTENT_REG, BTRFS_FILE_EXTENT_PREALLOC))
+                                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Cannot get physical address for btrfs extent: invalid type %" PRIu8,
+                                                       item->type);
+
+                        if (item->compression != 0 || item->encryption != 0 || item->other_encoding != 0)
+                                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Cannot get physical address for btrfs extent: has incompatible property");
+
+                        logical_offset = le64toh(item->disk_bytenr);
+                        if (logical_offset == 0)
+                                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Cannot get physical address for btrfs extent: has no logical offset");
+
+                        chunk = btrfs_find_chunk_from_logical_address(&tree, logical_offset);
+                        if (!chunk)
+                                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Cannot get physical address for btrfs extent: no matching chunk found");
+
+                        if ((chunk->type & BTRFS_BLOCK_GROUP_PROFILE_MASK) != 0)
+                                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Cannot get physical address for btrfs extent: unsupported profile");
+
+                        uint64_t relative_chunk, relative_stripe, stripe_nr;
+                        uint16_t stripe_index;
+
+                        relative_chunk = logical_offset - chunk->offset;
+                        stripe_nr = relative_chunk / chunk->stripe_len;
+                        relative_stripe = relative_chunk - stripe_nr * chunk->stripe_len;
+                        stripe_index = stripe_nr % chunk->n_stripes;
+
+                        *ret = chunk->stripes[stripe_index].offset +
+                                stripe_nr / chunk->n_stripes * chunk->stripe_len +
+                                relative_stripe;
+
+                        return 0;
+                }
+
+                if (!btrfs_ioctl_search_args_inc(&search_args))
+                        break;
+        }
+
+        return -ENODATA;
+}
