@@ -486,6 +486,9 @@ struct Manager {
         RateLimit dump_ratelimit;
 
         sd_event_source *memory_pressure_event_source;
+
+        /* For NFTSet= */
+        FirewallContext *fw_ctx;
 };
 
 static inline usec_t manager_default_timeout_abort_usec(Manager *m) {
