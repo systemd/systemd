@@ -3792,7 +3792,7 @@ static int journal_file_warn_btrfs(JournalFile *f) {
         r = fd_is_fs_type(f->fd, BTRFS_SUPER_MAGIC);
         if (r < 0)
                 return log_ratelimit_warning_errno(r, JOURNAL_LOG_RATELIMIT, "Failed to determine if journal is on btrfs: %m");
-        if (!r)
+        if (r == 0)
                 return 0;
 
         r = read_attr_fd(f->fd, &attrs);
