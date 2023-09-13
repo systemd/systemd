@@ -120,7 +120,7 @@ int btrfs_get_block_device_at(int dir_fd, const char *path, dev_t *ret) {
         r = fd_is_fs_type(fd, BTRFS_SUPER_MAGIC);
         if (r < 0)
                 return r;
-        if (!r)
+        if (r == 0)
                 return -ENOTTY;
 
         if (ioctl(fd, BTRFS_IOC_FS_INFO, &fsi) < 0)
@@ -182,7 +182,7 @@ int btrfs_subvol_get_id_fd(int fd, uint64_t *ret) {
         r = fd_is_fs_type(fd, BTRFS_SUPER_MAGIC);
         if (r < 0)
                 return r;
-        if (!r)
+        if (r == 0)
                 return -ENOTTY;
 
         if (ioctl(fd, BTRFS_IOC_INO_LOOKUP, &args) < 0)
@@ -302,7 +302,7 @@ int btrfs_subvol_get_info_fd(int fd, uint64_t subvol_id, BtrfsSubvolInfo *ret) {
                 r = fd_is_fs_type(fd, BTRFS_SUPER_MAGIC);
                 if (r < 0)
                         return r;
-                if (!r)
+                if (r == 0)
                         return -ENOTTY;
         }
 
@@ -393,7 +393,7 @@ int btrfs_qgroup_get_quota_fd(int fd, uint64_t qgroupid, BtrfsQuotaInfo *ret) {
                 r = fd_is_fs_type(fd, BTRFS_SUPER_MAGIC);
                 if (r < 0)
                         return r;
-                if (!r)
+                if (r == 0)
                         return -ENOTTY;
         }
 
@@ -610,7 +610,7 @@ int btrfs_quota_enable_fd(int fd, bool b) {
         r = fd_is_fs_type(fd, BTRFS_SUPER_MAGIC);
         if (r < 0)
                 return r;
-        if (!r)
+        if (r == 0)
                 return -ENOTTY;
 
         return RET_NERRNO(ioctl(fd, BTRFS_IOC_QUOTA_CTL, &args));
@@ -644,7 +644,7 @@ int btrfs_qgroup_set_limit_fd(int fd, uint64_t qgroupid, uint64_t referenced_max
                 r = fd_is_fs_type(fd, BTRFS_SUPER_MAGIC);
                 if (r < 0)
                         return r;
-                if (!r)
+                if (r == 0)
                         return -ENOTTY;
         }
 
@@ -1071,7 +1071,7 @@ int btrfs_qgroup_copy_limits(int fd, uint64_t old_qgroupid, uint64_t new_qgroupi
         r = fd_is_fs_type(fd, BTRFS_SUPER_MAGIC);
         if (r < 0)
                 return r;
-        if (!r)
+        if (r == 0)
                 return -ENOTTY;
 
         while (btrfs_ioctl_search_args_compare(&args) <= 0) {
@@ -1575,7 +1575,7 @@ int btrfs_qgroup_find_parents(int fd, uint64_t qgroupid, uint64_t **ret) {
                 r = fd_is_fs_type(fd, BTRFS_SUPER_MAGIC);
                 if (r < 0)
                         return r;
-                if (!r)
+                if (r == 0)
                         return -ENOTTY;
         }
 
@@ -1822,7 +1822,7 @@ int btrfs_subvol_get_parent(int fd, uint64_t subvol_id, uint64_t *ret) {
                 r = fd_is_fs_type(fd, BTRFS_SUPER_MAGIC);
                 if (r < 0)
                         return r;
-                if (!r)
+                if (r == 0)
                         return -ENOTTY;
         }
 

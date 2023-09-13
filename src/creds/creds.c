@@ -181,8 +181,8 @@ static int add_credentials_to_table(Table *t, bool encrypted) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to determine backing file system of '%s': %m", de->d_name);
 
-                        secure = r ? "secure" : "weak"; /* ramfs is not swappable, hence "secure", everything else is "weak" */
-                        secure_color = r ? ansi_highlight_green() : ansi_highlight_yellow4();
+                        secure = r > 0 ? "secure" : "weak"; /* ramfs is not swappable, hence "secure", everything else is "weak" */
+                        secure_color = r > 0 ? ansi_highlight_green() : ansi_highlight_yellow4();
                 }
 
                 j = path_join(prefix, de->d_name);
