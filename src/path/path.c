@@ -12,10 +12,12 @@
 #include "log.h"
 #include "macro.h"
 #include "main-func.h"
+#include "pager.h"
 #include "pretty-print.h"
 #include "string-util.h"
 
 static const char *arg_suffix = NULL;
+PagerFlags arg_pager_flags = 0;
 
 static const char* const path_table[_SD_PATH_MAX] = {
         [SD_PATH_TEMPORARY]                                   = "temporary",
@@ -101,11 +103,12 @@ static const char* const path_table[_SD_PATH_MAX] = {
         [SD_PATH_SYSTEMD_SEARCH_USER_ENVIRONMENT_GENERATOR]   = "systemd-search-user-environment-generator",
 };
 
-static int list_homes(void) {
-        uint64_t i = 0;
+static int list_paths(void) {
         int r = 0;
 
-        for (i = 0; i < ELEMENTSOF(path_table); i++) {
+        pager_open(arg_pager_flags);
+
+        for (size_t i = 0; i < ELEMENTSOF(path_table); i++) {
                 _cleanup_free_ char *p = NULL;
                 int q;
 
@@ -114,7 +117,7 @@ static int list_homes(void) {
                         log_full_errno(q == -ENXIO ? LOG_DEBUG : LOG_ERR,
                                        q, "Failed to query %s: %m", path_table[i]);
                         if (q != -ENXIO)
-                                r = q;
+                                RET_GATHER(r, q);
                         continue;
                 }
 
@@ -124,11 +127,10 @@ static int list_homes(void) {
         return r;
 }
 
-static int print_home(const char *n) {
-        uint64_t i = 0;
+static int print_path(const char *n) {
         int r;
 
-        for (i = 0; i < ELEMENTSOF(path_table); i++) {
+        for (size_t i = 0; i < ELEMENTSOF(path_table); i++)
                 if (streq(path_table[i], n)) {
                         _cleanup_free_ char *p = NULL;
 
@@ -139,7 +141,6 @@ static int print_home(const char *n) {
                         printf("%s\n", p);
                         return 0;
                 }
-        }
 
         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                "Path %s not known.", n);
@@ -158,6 +159,7 @@ static int help(void) {
                "  -h --help             Show this help\n"
                "     --version          Show package version\n"
                "     --suffix=SUFFIX    Suffix to append to paths\n"
+               "     --no-pager         Do not pipe output into a pager\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                link);
@@ -169,12 +171,14 @@ static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
                 ARG_SUFFIX,
+                ARG_NO_PAGER,
         };
 
         static const struct option options[] = {
                 { "help",      no_argument,       NULL, 'h'           },
                 { "version",   no_argument,       NULL, ARG_VERSION   },
                 { "suffix",    required_argument, NULL, ARG_SUFFIX    },
+                { "no-pager",  no_argument,       NULL, ARG_NO_PAGER  },
                 {}
         };
 
@@ -195,6 +199,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_SUFFIX:
                         arg_suffix = optarg;
+                        break;
+
+                case ARG_NO_PAGER:
+                        arg_pager_flags |= PAGER_DISABLE;
                         break;
 
                 case '?':
@@ -218,18 +226,13 @@ static int run(int argc, char* argv[]) {
         if (r <= 0)
                 return r;
 
-        if (argc > optind) {
-                int i, q;
+        if (argc > optind)
+                for (int i = optind; i < argc; i++)
+                        RET_GATHER(r, print_path(argv[i]));
+        else
+                r = list_paths();
 
-                for (i = optind; i < argc; i++) {
-                        q = print_home(argv[i]);
-                        if (q < 0)
-                                r = q;
-                }
-
-                return r;
-        } else
-                return list_homes();
+        return r;
 }
 
 DEFINE_MAIN_FUNCTION(run);
