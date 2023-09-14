@@ -1798,6 +1798,7 @@ make_autosuspend_rules_py = find_program('tools/make-autosuspend-rules.py')
 make_directive_index_py = find_program('tools/make-directive-index.py')
 make_man_index_py = find_program('tools/make-man-index.py')
 meson_render_jinja2 = find_program('tools/meson-render-jinja2.py')
+meson_vcs_tag_sh = find_program('tools/meson-vcs-tag.sh')
 update_dbus_docs_py = find_program('tools/update-dbus-docs.py')
 update_hwdb_autosuspend_sh = find_program('tools/update-hwdb-autosuspend.sh')
 update_hwdb_sh = find_program('tools/update-hwdb.sh')
@@ -1808,26 +1809,13 @@ xml_helper_py = find_program('tools/xml_helper.py')
 ############################################################
 
 version_tag = get_option('version-tag')
-# Check that we have either .git/ (a normal clone) or a .git file (a work-tree) and that we don't
-# get confused if a tarball is extracted in a higher-level git repository.
-if version_tag == '' and git.found() and fs.exists(project_source_root / '.git')
-        # If the working tree has no tags (CI builds), the first git-describe will fail
-        # and we fall back to project_version-commitid instead.
-        version_cmd = '''(git -C "$1" describe --abbrev=7 --dirty=^ 2>/dev/null ||
-                          echo "$2-$(git -C "$1" describe --always --abbrev=7)") |
-                         sed 's/^v//; s/-rc/~rc/' '''
-else
-        version_cmd = '''echo "$2" '''
-endif
-
 version_h = vcs_tag(
         input : 'src/version/version.h.in',
         output : 'version.h',
-        # TODO: Use 'sh' variable with meson >= 0.63.0
-        command: ['sh', '-euc', version_cmd,
-                  '_',
+        command: [meson_vcs_tag_sh,
                   project_source_root,
-                  version_tag == '' ? meson.project_version() : version_tag,
+                  version_tag,
+                  meson.project_version(),
                  ])
 
 shared_lib_tag = get_option('shared-lib-tag')
