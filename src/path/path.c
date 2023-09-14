@@ -12,10 +12,12 @@
 #include "log.h"
 #include "macro.h"
 #include "main-func.h"
+#include "pager.h"
 #include "pretty-print.h"
 #include "string-util.h"
 
 static const char *arg_suffix = NULL;
+PagerFlags arg_pager_flags = 0;
 
 static const char* const path_table[_SD_PATH_MAX] = {
         [SD_PATH_TEMPORARY]                                   = "temporary",
@@ -104,6 +106,8 @@ static const char* const path_table[_SD_PATH_MAX] = {
 static int list_paths(void) {
         int r = 0;
 
+        pager_open(arg_pager_flags);
+
         for (size_t i = 0; i < ELEMENTSOF(path_table); i++) {
                 _cleanup_free_ char *p = NULL;
                 int q;
@@ -155,6 +159,7 @@ static int help(void) {
                "  -h --help             Show this help\n"
                "     --version          Show package version\n"
                "     --suffix=SUFFIX    Suffix to append to paths\n"
+               "     --no-pager         Do not pipe output into a pager\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                link);
@@ -166,12 +171,14 @@ static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
                 ARG_SUFFIX,
+                ARG_NO_PAGER,
         };
 
         static const struct option options[] = {
                 { "help",      no_argument,       NULL, 'h'           },
                 { "version",   no_argument,       NULL, ARG_VERSION   },
                 { "suffix",    required_argument, NULL, ARG_SUFFIX    },
+                { "no-pager",  no_argument,       NULL, ARG_NO_PAGER  },
                 {}
         };
 
@@ -192,6 +199,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_SUFFIX:
                         arg_suffix = optarg;
+                        break;
+
+                case ARG_NO_PAGER:
+                        arg_pager_flags |= PAGER_DISABLE;
                         break;
 
                 case '?':
