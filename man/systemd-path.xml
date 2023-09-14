@@ -59,6 +59,7 @@
         <xi:include href="version-info.xml" xpointer="v215"/></listitem>
       </varlistentry>
 
+      <xi:include href="standard-options.xml" xpointer="no-pager-255"/>
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
     </variablelist>
