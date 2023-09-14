@@ -324,7 +324,7 @@ class UKI:
     sections: list[Section] = dataclasses.field(default_factory=list, init=False)
 
     def add_section(self, section):
-        if section.name in [s.name for s in self.sections]:
+        if section.name in [s.name for s in self.sections] and section.name != '.dtb':
             raise ValueError(f'Duplicate section {section.name}')
 
         self.sections += [section]
@@ -605,7 +605,7 @@ def pe_add_sections(uki: UKI, output: str):
         # the one from the kernel to it. It should be small enough to fit in the existing section, so just
         # swap the data.
         for i, s in enumerate(pe.sections):
-            if s.Name.rstrip(b"\x00").decode() == section.name:
+            if s.Name.rstrip(b"\x00").decode() == section.name and section.name != '.dtb':
                 if new_section.Misc_VirtualSize > s.SizeOfRawData:
                     raise PEError(f'Not enough space in existing section {section.name} to append new data.')
 
@@ -775,7 +775,6 @@ def make_uki(opts):
         # name,      content,         measure?
         ('.osrel',   opts.os_release, True ),
         ('.cmdline', opts.cmdline,    True ),
-        ('.dtb',     opts.devicetree, True ),
         ('.uname',   opts.uname,      True ),
         ('.splash',  opts.splash,     True ),
         ('.pcrpkey', pcrpkey,         True ),
@@ -788,6 +787,11 @@ def make_uki(opts):
     for name, content, measure in sections:
         if content:
             uki.add_section(Section.create(name, content, measure=measure))
+
+    # Add dtbs manually since there can be multiple of them and each needs its own section.
+    for dtb in opts.devicetree:
+        if dtb is not None:
+            uki.add_section(Section.create('.dtb', dtb, measure=True))
 
     # systemd-measure doesn't know about those extra sections
     for section in opts.sections:
@@ -1203,6 +1207,7 @@ CONFIG_ITEMS = [
         '--devicetree',
         metavar = 'PATH',
         type = pathlib.Path,
+        action = 'append',
         help = 'Device Tree file [.dtb section]',
         config_key = 'UKI/DeviceTree',
     ),
