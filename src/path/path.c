@@ -101,7 +101,7 @@ static const char* const path_table[_SD_PATH_MAX] = {
         [SD_PATH_SYSTEMD_SEARCH_USER_ENVIRONMENT_GENERATOR]   = "systemd-search-user-environment-generator",
 };
 
-static int list_homes(void) {
+static int list_paths(void) {
         int r = 0;
 
         for (size_t i = 0; i < ELEMENTSOF(path_table); i++) {
@@ -123,7 +123,7 @@ static int list_homes(void) {
         return r;
 }
 
-static int print_home(const char *n) {
+static int print_path(const char *n) {
         int r;
 
         for (size_t i = 0; i < ELEMENTSOF(path_table); i++)
@@ -217,9 +217,9 @@ static int run(int argc, char* argv[]) {
 
         if (argc > optind)
                 for (int i = optind; i < argc; i++)
-                        RET_GATHER(r, print_home(argv[i]));
+                        RET_GATHER(r, print_path(argv[i]));
         else
-                r = list_homes();
+                r = list_paths();
 
         return r;
 }
