@@ -102,10 +102,9 @@ static const char* const path_table[_SD_PATH_MAX] = {
 };
 
 static int list_homes(void) {
-        uint64_t i = 0;
         int r = 0;
 
-        for (i = 0; i < ELEMENTSOF(path_table); i++) {
+        for (size_t i = 0; i < ELEMENTSOF(path_table); i++) {
                 _cleanup_free_ char *p = NULL;
                 int q;
 
@@ -114,7 +113,7 @@ static int list_homes(void) {
                         log_full_errno(q == -ENXIO ? LOG_DEBUG : LOG_ERR,
                                        q, "Failed to query %s: %m", path_table[i]);
                         if (q != -ENXIO)
-                                r = q;
+                                RET_GATHER(r, q);
                         continue;
                 }
 
@@ -125,10 +124,9 @@ static int list_homes(void) {
 }
 
 static int print_home(const char *n) {
-        uint64_t i = 0;
         int r;
 
-        for (i = 0; i < ELEMENTSOF(path_table); i++) {
+        for (size_t i = 0; i < ELEMENTSOF(path_table); i++)
                 if (streq(path_table[i], n)) {
                         _cleanup_free_ char *p = NULL;
 
@@ -139,7 +137,6 @@ static int print_home(const char *n) {
                         printf("%s\n", p);
                         return 0;
                 }
-        }
 
         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                "Path %s not known.", n);
@@ -218,18 +215,13 @@ static int run(int argc, char* argv[]) {
         if (r <= 0)
                 return r;
 
-        if (argc > optind) {
-                int i, q;
+        if (argc > optind)
+                for (int i = optind; i < argc; i++)
+                        RET_GATHER(r, print_home(argv[i]));
+        else
+                r = list_homes();
 
-                for (i = optind; i < argc; i++) {
-                        q = print_home(argv[i]);
-                        if (q < 0)
-                                r = q;
-                }
-
-                return r;
-        } else
-                return list_homes();
+        return r;
 }
 
 DEFINE_MAIN_FUNCTION(run);
