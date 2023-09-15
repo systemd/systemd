@@ -192,11 +192,14 @@ TEST(x11_convert_to_vconsole) {
         assert_se(streq(vc.keymap, "fr-latin9"));
         vc_context_clear(&vc);
 
+        /* https://bugzilla.redhat.com/show_bug.cgi?id=1039185 */
+        /* us,ru is the x config users want, but they still want ru
+        as the console layout in this case */
         log_info("/* test with a compound mapping (us,ru:) */");
         assert_se(free_and_strdup(&xc.layout, "us,ru") >= 0);
         assert_se(free_and_strdup(&xc.variant, NULL) >= 0);
         assert_se(x11_convert_to_vconsole(&xc, &vc) >= 0);
-        assert_se(streq(vc.keymap, "us"));
+        assert_se(streq(vc.keymap, "ru"));
         vc_context_clear(&vc);
 
         log_info("/* test with a compound mapping (ru,us:) */");

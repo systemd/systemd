@@ -803,21 +803,35 @@ int find_legacy_keymap(const X11Context *xc, char **ret) {
                         /* If we got an exact match, this is the best */
                         matching = 10;
                 else {
-                        /* We have multiple X layouts, look for an
-                         * entry that matches our key with everything
-                         * but the first layout stripped off. */
-                        if (startswith_comma(xc->layout, a[1]))
-                                matching = 5;
+                        /* see if we get an exact match with the order reversed */
+                        _cleanup_strv_free_ char **b = NULL;
+                        _cleanup_free_ char *c = NULL;
+                        r = strv_split_full(&b, a[1], ",", 0);
+                        if (r < 0)
+                                return r;
+                        strv_reverse(b);
+                        c = strv_join(b, ",");
+                        if (!c)
+                                return log_oom();
+                        if (streq(xc->layout, c))
+                                matching = 9;
                         else {
-                                _cleanup_free_ char *x = NULL;
+                                /* We have multiple X layouts, look for an
+                                 * entry that matches our key with everything
+                                 * but the first layout stripped off. */
+                                if (startswith_comma(xc->layout, a[1]))
+                                        matching = 5;
+                                else {
+                                        _cleanup_free_ char *x = NULL;
 
-                                /* If that didn't work, strip off the
-                                 * other layouts from the entry, too */
-                                x = strdupcspn(a[1], ",");
-                                if (!x)
-                                        return -ENOMEM;
-                                if (startswith_comma(xc->layout, x))
-                                        matching = 1;
+                                        /* If that didn't work, strip off the
+                                         * other layouts from the entry, too */
+                                        x = strdupcspn(a[1], ",");
+                                        if (!x)
+                                                return -ENOMEM;
+                                        if (startswith_comma(xc->layout, x))
+                                                matching = 1;
+                                }
                         }
                 }
 
@@ -848,7 +862,7 @@ int find_legacy_keymap(const X11Context *xc, char **ret) {
                 }
         }
 
-        if (best_matching < 10 && !isempty(xc->layout)) {
+        if (best_matching < 9 && !isempty(xc->layout)) {
                 _cleanup_free_ char *l = NULL, *v = NULL, *converted = NULL;
 
                 /* The best match is only the first part of the X11
