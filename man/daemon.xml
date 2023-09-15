@@ -166,12 +166,22 @@
       following:</para>
 
       <orderedlist>
-        <listitem><para>If <constant>SIGTERM</constant> is received,
-        shut down the daemon and exit cleanly.</para></listitem>
+        <listitem><para>If applicable, the daemon should notify the init system about startup completion or
+        status updates via the
+        <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+        interface, in particular <varname>READY=1</varname> and <varname>STATUS=…</varname>.
+        </para></listitem>
 
-        <listitem><para>If <constant>SIGHUP</constant> is received,
-        reload the configuration files, if this
-        applies.</para></listitem>
+        <listitem><para>If <constant>SIGTERM</constant> is received, shut down the daemon and exit cleanly.
+        A <varname>STOPPING=1</varname> notification should be sent via
+        <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+        </para></listitem>
+
+        <listitem><para>If <constant>SIGHUP</constant> is received, reload the configuration files, if this
+        applies. This should be combined with notifications via
+        <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>:
+        <varname>RELOADING=1</varname> and <varname>READY=1</varname>.
+        </para></listitem>
 
         <listitem><para>Provide a correct exit code from the main
         daemon process, as this is used by the init system to detect
@@ -222,10 +232,10 @@
         can be restarted without losing a single request. See below
         for details.</para></listitem>
 
-        <listitem><para>If applicable, a daemon should notify the init
-        system about startup completion or status updates via the
-        <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-        interface.</para></listitem>
+        <listitem><para>If the service opens sockets or other files on it own, and those file descriptors
+        shall survive a restart, the daemon should store them in the service manager via
+        <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry> with
+        <varname>FDSTORE=1</varname>..</para></listitem>
 
         <listitem><para>Instead of using the
         <function>syslog()</function> call to log directly to the
@@ -243,8 +253,10 @@
         <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para></listitem>
 
         <listitem><para>As new-style daemons are invoked without a controlling TTY (but as their own session
-        leaders) care should be taken to always specify `O_NOCTTY` on `open()` calls that possibly reference
-        a TTY device node, so that no controlling TTY is accidentally acquired.</para></listitem>
+        leaders) care should be taken to always specify <constant>O_NOCTTY</constant> on
+        <citerefentry><refentrytitle>open</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+        calls that possibly reference a TTY device node, so that no controlling TTY is accidentally
+        acquired.</para></listitem>
 
       </orderedlist>
 
