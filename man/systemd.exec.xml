@@ -796,21 +796,10 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         <listitem><para>Takes a boolean argument. If true, ensures that the service process and all its
         children can never gain new privileges through <function>execve()</function> (e.g. via setuid or
         setgid bits, or filesystem capabilities). This is the simplest and most effective way to ensure that
-        a process and its children can never elevate privileges again. Defaults to false, but certain
-        settings override this and ignore the value of this setting. This is the case when
-        <varname>DynamicUser=</varname>, <varname>LockPersonality=</varname>,
-        <varname>MemoryDenyWriteExecute=</varname>, <varname>PrivateDevices=</varname>,
-        <varname>ProtectClock=</varname>, <varname>ProtectHostname=</varname>,
-        <varname>ProtectKernelLogs=</varname>, <varname>ProtectKernelModules=</varname>,
-        <varname>ProtectKernelTunables=</varname>, <varname>RestrictAddressFamilies=</varname>,
-        <varname>RestrictNamespaces=</varname>, <varname>RestrictRealtime=</varname>,
-        <varname>RestrictSUIDSGID=</varname>, <varname>SystemCallArchitectures=</varname>,
-        <varname>SystemCallFilter=</varname>, or <varname>SystemCallLog=</varname> are specified. Note that
-        even if this setting is overridden by them, <command>systemctl show</command> shows the original
-        value of this setting. In case the service will be run in a new mount namespace anyway and SELinux is
-        disabled, all file systems are mounted with <constant>MS_NOSUID</constant> flag. Also see <ulink
-        url="https://docs.kernel.org/userspace-api/no_new_privs.html">No New Privileges
-        Flag</ulink>.</para>
+        a process and its children can never elevate privileges again. Defaults to false. In case the service
+        will be run in a new mount namespace anyway and SELinux is disabled, all file systems are mounted with
+        <constant>MS_NOSUID</constant> flag. Also see <ulink
+        url="https://docs.kernel.org/userspace-api/no_new_privs.html">No New Privileges Flag</ulink>.</para>
 
         <para>Note that this setting only has an effect on the unit's processes themselves (or any processes
         directly or indirectly forked off them). It has no effect on processes potentially invoked on request
@@ -2184,9 +2173,7 @@ RestrictFileSystems=ext4</programlisting>
         creation and switching of the specified types of namespaces (or all of them, if true) access to the
         <function>setns()</function> system call with a zero flags parameter is prohibited. This setting is only
         supported on x86, x86-64, mips, mips-le, mips64, mips64-le, mips64-n32, mips64-le-n32, ppc64, ppc64-le, s390
-        and s390x, and enforces no restrictions on other architectures. If running in user mode, or in system mode, but
-        without the <constant>CAP_SYS_ADMIN</constant> capability (e.g. setting <varname>User=</varname>),
-        <varname>NoNewPrivileges=yes</varname> is implied.</para>
+        and s390x, and enforces no restrictions on other architectures.</para>
 
         <para>Example: if a unit has the following,
         <programlisting>RestrictNamespaces=cgroup ipc
@@ -2205,9 +2192,7 @@ RestrictNamespaces=~cgroup net</programlisting>
         project='man-pages'><refentrytitle>personality</refentrytitle><manvolnum>2</manvolnum></citerefentry> system
         call so that the kernel execution domain may not be changed from the default or the personality selected with
         <varname>Personality=</varname> directive. This may be useful to improve security, because odd personality
-        emulations may be poorly tested and source of vulnerabilities. If running in user mode, or in system mode, but
-        without the <constant>CAP_SYS_ADMIN</constant> capability (e.g. setting <varname>User=</varname>),
-        <varname>NoNewPrivileges=yes</varname> is implied.</para></listitem>
+        emulations may be poorly tested and source of vulnerabilities.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -2237,9 +2222,7 @@ RestrictNamespaces=~cgroup net</programlisting>
         available on x86. Note that on systems supporting multiple ABIs (such as x86/x86-64) it is
         recommended to turn off alternative ABIs for services, so that they cannot be used to circumvent the
         restrictions of this option. Specifically, it is recommended to combine this option with
-        <varname>SystemCallArchitectures=native</varname> or similar. If running in user mode, or in system
-        mode, but without the <constant>CAP_SYS_ADMIN</constant> capability (e.g. setting
-        <varname>User=</varname>), <varname>NoNewPrivileges=yes</varname> is implied.</para></listitem>
+        <varname>SystemCallArchitectures=native</varname> or similar.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -2249,9 +2232,7 @@ RestrictNamespaces=~cgroup net</programlisting>
         the unit are refused. This restricts access to realtime task scheduling policies such as
         <constant>SCHED_FIFO</constant>, <constant>SCHED_RR</constant> or <constant>SCHED_DEADLINE</constant>. See
         <citerefentry project='man-pages'><refentrytitle>sched</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-        for details about these scheduling policies. If running in user mode, or in system mode, but without the
-        <constant>CAP_SYS_ADMIN</constant> capability (e.g. setting <varname>User=</varname>),
-        <varname>NoNewPrivileges=yes</varname> is implied. Realtime scheduling policies may be used to monopolize CPU
+        for details about these scheduling policies. Realtime scheduling policies may be used to monopolize CPU
         time for longer periods of time, and may hence be used to lock up or otherwise trigger Denial-of-Service
         situations on the system. It is hence recommended to restrict access to realtime scheduling to the few programs
         that actually require them. Defaults to off.</para></listitem>
