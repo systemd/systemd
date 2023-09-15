@@ -98,13 +98,13 @@
     <title>Description</title>
 
     <para><function>sd_notify()</function> may be called by a service to notify the service manager about
-    state changes. It can be used to send arbitrary information, encoded in an environment-block-like
-    string. Most importantly, it can be used for start-up completion notification.</para>
+    state changes. It can be used to send arbitrary information, encoded in an environment-block-like string.
+    Most importantly, it can be used for start-up or reload completion notifications.</para>
 
     <para>If the <parameter>unset_environment</parameter> parameter is non-zero,
     <function>sd_notify()</function> will unset the <varname>$NOTIFY_SOCKET</varname> environment variable
     before returning (regardless of whether the function call itself succeeded or not). Further calls to
-    <function>sd_notify()</function> will then fail, but the variable is no longer inherited by child
+    <function>sd_notify()</function> will then fail, and the variable is no longer inherited by child
     processes.</para>
 
     <para>The <parameter>state</parameter> parameter should contain a newline-separated list of variable
@@ -336,29 +336,40 @@
       <varlistentry>
         <term>FDSTORE=1</term>
 
-        <listitem><para>Stores additional file descriptors in the service manager. File descriptors sent this
-        way will be maintained per-service by the service manager and will later be handed back using the
-        usual file descriptor passing logic at the next invocation of the service (e.g. when it is
-        restarted), see
+        <listitem><para>Store file descriptors in the service manager. File descriptors sent this way will be
+        held for the service by the service manager and will later be handed back using the usual file
+        descriptor passing logic at the next start or restart of the service, see
         <citerefentry><refentrytitle>sd_listen_fds</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
-        This is useful for implementing services that can restart after an explicit request or a crash
-        without losing state. Any open sockets and other file descriptors which should not be closed during
-        the restart may be stored this way. Application state can either be serialized to a file in
-        <filename>/run/</filename>, or better, stored in a
-        <citerefentry><refentrytitle>memfd_create</refentrytitle><manvolnum>2</manvolnum></citerefentry>
-        memory file descriptor. Note that the service manager will accept messages for a service only if its
+        Any open sockets and other file descriptors which should not be closed during a restart may be stored
+        this way. When a service is stopped, its file descriptor store is discarded and all file descriptors
+        in it are closed, except when overridden with <varname>FileDescriptorStorePreserve=</varname>, see
+        <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        </para>
+
+        <para>The service manager will accept messages for a service only if its
         <varname>FileDescriptorStoreMax=</varname> setting is non-zero (defaults to zero, see
-        <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>). If
-        <varname>FDPOLL=0</varname> is not set and the file descriptors sent are pollable (see
+        <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
+        The service manager will set the <varname>$FDSTORE</varname> environment variable for services that
+        have the file descriptor store enabled, see
+        <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        </para>
+
+        <para>If <varname>FDPOLL=0</varname> is not set and the file descriptors are pollable (see
         <citerefentry><refentrytitle>epoll_ctl</refentrytitle><manvolnum>2</manvolnum></citerefentry>), then
         any <constant>EPOLLHUP</constant> or <constant>EPOLLERR</constant> event seen on them will result in
-        their automatic removal from the store. Multiple arrays of file descriptors may be sent in separate
-        messages, in which case the arrays are combined. Note that the service manager removes duplicate
-        (pointing to the same object) file descriptors before passing them to the service. When a service is
-        stopped, its file descriptor store is discarded and all file descriptors in it are closed. Use
-        <function>sd_pid_notify_with_fds()</function> to send messages with <literal>FDSTORE=1</literal>, see
-        below. The service manager will set the <varname>$FDSTORE</varname> environment variable for services
-        that have the file descriptor store enabled.</para>
+        their automatic removal from the store.</para>
+
+        <para>Multiple sets of file descriptors may be sent in separate messages, in which case the sets are
+        combined. The service manager removes duplicate file descriptors (those pointing to the same object)
+        before passing them to the service.</para>
+
+        <para>This functionality should be used to implement services that can restart after an explicit
+        request or a crash without losing state. Application state can either be serialized to a file in
+        <filename>/run/</filename>, or better, stored in a
+        <citerefentry><refentrytitle>memfd_create</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+        memory file descriptor. Use <function>sd_pid_notify_with_fds()</function> to send messages with
+        <literal>FDSTORE=1</literal>. It is recommended to combine <varname>FDSTORE=</varname> with
+        <varname>FDNAME=</varname> to make it easier to manage the stored file descriptors.</para>
 
         <xi:include href="version-info.xml" xpointer="v219"/></listitem>
       </varlistentry>
@@ -380,14 +391,16 @@
         submitted file descriptors. When used with <varname>FDSTOREREMOVE=1</varname>, specifies the name for
         the file descriptors to remove. This name is passed to the service during activation, and may be
         queried using
-        <citerefentry><refentrytitle>sd_listen_fds_with_names</refentrytitle><manvolnum>3</manvolnum></citerefentry>. File
-        descriptors submitted without this field set, will implicitly get the name <literal>stored</literal>
-        assigned. Note that, if multiple file descriptors are submitted at once, the specified name will be
-        assigned to all of them. In order to assign different names to submitted file descriptors, submit
-        them in separate invocations of <function>sd_pid_notify_with_fds()</function>. The name may consist
-        of arbitrary ASCII characters except control characters or <literal>:</literal>. It may not be longer
-        than 255 characters. If a submitted name does not follow these restrictions, it is
-        ignored.</para>
+        <citerefentry><refentrytitle>sd_listen_fds_with_names</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+        File descriptors submitted without this field will be called <literal>stored</literal>.</para>
+
+        <para>The name may consist of arbitrary ASCII characters except control characters or
+        <literal>:</literal>. It may not be longer than 255 characters. If a submitted name does not follow
+        these restrictions, it is ignored.</para>
+
+        <para>Note that if multiple file descriptors are submitted in a single message, the specified name
+        will be used for all of them. In order to assign different names to submitted file descriptors,
+        submit them in separate messages.</para>
 
         <xi:include href="version-info.xml" xpointer="v233"/></listitem>
       </varlistentry>
