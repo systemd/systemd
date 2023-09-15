@@ -173,6 +173,18 @@ TEST(x11_convert_to_vconsole) {
         assert_se(streq(vc.keymap, "es-dvorak"));
         vc_context_clear(&vc);
 
+        /* es no-variant test is not very good as the desired match
+        comes first in the list so will win if both candidates score
+        the same. in this case the desired match comes second so will
+        not win unless we correctly give the no-variant match a bonus
+        */
+        log_info("/* test without variant, desired match second (bg,us:) */");
+        assert_se(free_and_strdup(&xc.layout, "bg,us") >= 0);
+        assert_se(free_and_strdup(&xc.variant, NULL) >= 0);
+        assert_se(x11_convert_to_vconsole(&xc, &vc) >= 0);
+        assert_se(streq(vc.keymap, "bg_bds-utf8"));
+        vc_context_clear(&vc);
+
         log_info("/* test with old mapping (fr:latin9) */");
         assert_se(free_and_strdup(&xc.layout, "fr") >= 0);
         assert_se(free_and_strdup(&xc.variant, "latin9") >= 0);

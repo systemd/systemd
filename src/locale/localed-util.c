@@ -825,7 +825,7 @@ int find_legacy_keymap(const X11Context *xc, char **ret) {
                         if (isempty(xc->model) || streq_ptr(xc->model, a[2])) {
                                 matching++;
 
-                                if (streq_ptr(xc->variant, a[3])) {
+                                if (streq_ptr(xc->variant, a[3]) || (isempty(xc->variant) && streq(a[3], "-"))) {
                                         matching++;
 
                                         if (streq_ptr(xc->options, a[4]))
