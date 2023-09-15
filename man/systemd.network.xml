@@ -1183,6 +1183,7 @@ Table=1234</programlisting></para>
           the network, even through a gateway), <literal>link</literal> (only valid on this device,
           will not traverse a gateway) or <literal>host</literal> (only valid within the device itself,
           e.g. 127.0.0.1) or an integer in the range 0…255. Defaults to <literal>global</literal>.
+          IPv4 only - IPv6 scope is automatically assigned by the kernel and cannot be set manually.
           </para>
 
         <xi:include href="version-info.xml" xpointer="v235"/>
