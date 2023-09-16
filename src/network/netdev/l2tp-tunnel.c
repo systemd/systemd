@@ -626,30 +626,16 @@ int config_parse_l2tp_tunnel_id(
                 void *data,
                 void *userdata) {
 
-        uint32_t *id = data, k;
-        int r;
-
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
-        r = safe_atou32(rvalue, &k);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse L2TP tunnel id. Ignoring assignment: %s", rvalue);
-                return 0;
-        }
+        uint32_t *id = ASSERT_PTR(data);
 
-        if (k == 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Invalid L2TP tunnel id. Ignoring assignment: %s", rvalue);
-                return 0;
-        }
-
-        *id = k;
-
-        return 0;
+        return config_parse_uint32_bounded(
+                        unit, filename, line, section, section_line, lvalue, rvalue,
+                        1, UINT32_MAX, true,
+                        id);
 }
 
 int config_parse_l2tp_session_id(
@@ -664,40 +650,29 @@ int config_parse_l2tp_session_id(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(l2tp_session_free_or_set_invalidp) L2tpSession *session = NULL;
-        L2tpTunnel *t = userdata;
-        uint32_t k;
-        int r;
-
         assert(filename);
         assert(section);
         assert(lvalue);
         assert(rvalue);
         assert(data);
 
+        L2tpTunnel *t = ASSERT_PTR(userdata);
+        _cleanup_(l2tp_session_free_or_set_invalidp) L2tpSession *session = NULL;
+        int r;
+
         r = l2tp_session_new_static(t, filename, section_line, &session);
         if (r < 0)
                 return log_oom();
 
-        r = safe_atou32(rvalue, &k);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse L2TP session id. Ignoring assignment: %s", rvalue);
-                return 0;
-        }
+        uint32_t *id = streq(lvalue, "SessionId") ? &session->session_id : &session->peer_session_id;
 
-        if (k == 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Invalid L2TP session id. Ignoring assignment: %s", rvalue);
-                return 0;
-        }
-
-        if (streq(lvalue, "SessionId"))
-                session->session_id = k;
-        else
-                session->peer_session_id = k;
-
-        session = NULL;
+        r = config_parse_uint32_bounded(
+                        unit, filename, line, section, section_line, lvalue, rvalue,
+                        1, UINT32_MAX, true,
+                        id);
+        if (r <= 0)
+                return r;
+        TAKE_PTR(session);
         return 0;
 }
 

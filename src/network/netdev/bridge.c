@@ -189,36 +189,22 @@ int config_parse_bridge_igmp_version(
                 void *data,
                 void *userdata) {
 
-        Bridge *b = userdata;
-        uint8_t u;
-        int r;
-
         assert(filename);
         assert(lvalue);
         assert(rvalue);
         assert(data);
+
+        Bridge *b = ASSERT_PTR(userdata);
 
         if (isempty(rvalue)) {
                 b->igmp_version = 0; /* 0 means unset. */
                 return 0;
         }
 
-        r = safe_atou8(rvalue, &u);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse bridge's multicast IGMP version number '%s', ignoring assignment: %m",
-                           rvalue);
-                return 0;
-        }
-        if (!IN_SET(u, 2, 3)) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Invalid bridge's multicast IGMP version number '%s', ignoring assignment.", rvalue);
-                return 0;
-        }
-
-        b->igmp_version = u;
-
-        return 0;
+        return config_parse_uint8_bounded(
+                        unit, filename, line, section, section_line, lvalue, rvalue,
+                        2, 3, true,
+                        &b->igmp_version);
 }
 
 int config_parse_bridge_port_priority(
@@ -233,33 +219,16 @@ int config_parse_bridge_port_priority(
                 void *data,
                 void *userdata) {
 
-        uint16_t i;
-        int r;
-
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
-        /* This is used in networkd-network-gperf.gperf. */
+        uint16_t *prio = ASSERT_PTR(data);
 
-        r = safe_atou16(rvalue, &i);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse bridge port priority, ignoring: %s", rvalue);
-                return 0;
-        }
-
-        if (i > LINK_BRIDGE_PORT_PRIORITY_MAX) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Bridge port priority is larger than maximum %u, ignoring: %s",
-                           LINK_BRIDGE_PORT_PRIORITY_MAX, rvalue);
-                return 0;
-        }
-
-        *((uint16_t *)data) = i;
-
-        return 0;
+        return config_parse_uint16_bounded(
+                        unit, filename, line, section, section_line, lvalue, rvalue,
+                        0, LINK_BRIDGE_PORT_PRIORITY_MAX, true,
+                        prio);
 }
 
 static void bridge_init(NetDev *n) {

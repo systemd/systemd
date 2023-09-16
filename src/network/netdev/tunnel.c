@@ -972,33 +972,26 @@ int config_parse_encap_limit(
                 void *data,
                 void *userdata) {
 
-        Tunnel *t = ASSERT_PTR(userdata);
-        int k, r;
-
         assert(filename);
         assert(rvalue);
 
+        Tunnel *t = ASSERT_PTR(userdata);
+        int r;
+
         if (streq(rvalue, "none")) {
-                t->flags |= IP6_TNL_F_IGN_ENCAP_LIMIT;
                 t->encap_limit = 0;
+                t->flags |= IP6_TNL_F_IGN_ENCAP_LIMIT;
                 return 0;
         }
 
-        r = safe_atoi(rvalue, &k);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse Tunnel Encapsulation Limit option, ignoring assignment: %s", rvalue);
-                return 0;
-        }
-
-        if (k > 255 || k < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Invalid Tunnel Encapsulation value, ignoring assignment: %d", k);
-                return 0;
-        }
-
-        t->encap_limit = k;
+        r = config_parse_uint8_bounded(
+                        unit, filename, line, section, section_line, lvalue, rvalue,
+                        0, UINT8_MAX, true,
+                        &t->encap_limit);
+        if (r <= 0)
+                return r;
         t->flags &= ~IP6_TNL_F_IGN_ENCAP_LIMIT;
+
         return 0;
 }
 
@@ -1051,32 +1044,21 @@ int config_parse_erspan_version(
                 void *data,
                 void *userdata) {
 
-        uint8_t n, *v = ASSERT_PTR(data);
-        int r;
-
         assert(filename);
         assert(lvalue);
         assert(rvalue);
+
+        uint8_t *v = ASSERT_PTR(data);
 
         if (isempty(rvalue)) {
                 *v = 1; /* defaults to 1 */
                 return 0;
         }
 
-        r = safe_atou8(rvalue, &n);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse erspan version \"%s\", ignoring: %m", rvalue);
-                return 0;
-        }
-        if (!IN_SET(n, 0, 1, 2)) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Invalid erspan version \"%s\", which must be 0, 1 or 2, ignoring.", rvalue);
-                return 0;
-        }
-
-        *v = n;
-        return 0;
+        return config_parse_uint8_bounded(
+                        unit, filename, line, section, section_line, lvalue, rvalue,
+                        0, 2, true,
+                        v);
 }
 
 int config_parse_erspan_index(
@@ -1091,32 +1073,21 @@ int config_parse_erspan_index(
                 void *data,
                 void *userdata) {
 
-        uint32_t n, *v = ASSERT_PTR(data);
-        int r;
-
         assert(filename);
         assert(lvalue);
         assert(rvalue);
+
+        uint32_t *v = ASSERT_PTR(data);
 
         if (isempty(rvalue)) {
                 *v = 0; /* defaults to 0 */
                 return 0;
         }
 
-        r = safe_atou32(rvalue, &n);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse erspan index \"%s\", ignoring: %m", rvalue);
-                return 0;
-        }
-        if (n >= 0x100000) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Invalid erspan index \"%s\", which must be less than 0x100000, ignoring.", rvalue);
-                return 0;
-        }
-
-        *v = n;
-        return 0;
+        return config_parse_uint32_bounded(
+                        unit, filename, line, section, section_line, lvalue, rvalue,
+                        0, 0x100000 - 1, true,
+                        v);
 }
 
 int config_parse_erspan_direction(
@@ -1131,11 +1102,11 @@ int config_parse_erspan_direction(
                 void *data,
                 void *userdata) {
 
-        uint8_t *v = ASSERT_PTR(data);
-
         assert(filename);
         assert(lvalue);
         assert(rvalue);
+
+        uint8_t *v = ASSERT_PTR(data);
 
         if (isempty(rvalue) || streq(rvalue, "ingress"))
                 *v = 0; /* defaults to ingress */
@@ -1160,32 +1131,21 @@ int config_parse_erspan_hwid(
                 void *data,
                 void *userdata) {
 
-        uint16_t n, *v = ASSERT_PTR(data);
-        int r;
-
         assert(filename);
         assert(lvalue);
         assert(rvalue);
+
+        uint16_t *v = ASSERT_PTR(data);
 
         if (isempty(rvalue)) {
                 *v = 0; /* defaults to 0 */
                 return 0;
         }
 
-        r = safe_atou16(rvalue, &n);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse erspan hwid \"%s\", ignoring: %m", rvalue);
-                return 0;
-        }
-        if (n >= 64) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Invalid erspan index \"%s\", which must be less than 64, ignoring.", rvalue);
-                return 0;
-        }
-
-        *v = n;
-        return 0;
+        return config_parse_uint16_bounded(
+                        unit, filename, line, section, section_line, lvalue, rvalue,
+                        0, 63, true,
+                        v);
 }
 
 static void netdev_tunnel_init(NetDev *netdev) {
