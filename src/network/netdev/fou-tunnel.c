@@ -156,37 +156,32 @@ int config_parse_ip_protocol(
                 void *data,
                 void *userdata) {
 
-        uint8_t *ret = ASSERT_PTR(data);
-        unsigned protocol;
-        /* linux/fou.h defines the netlink field as one byte, so we need to reject protocols numbers that
-         * don't fit in one byte. */
-        int r;
-
         assert(filename);
         assert(section);
         assert(lvalue);
         assert(rvalue);
 
-        r = parse_ip_protocol(rvalue);
-        if (r >= 0)
-                protocol = r;
-        else {
-                r = safe_atou(rvalue, &protocol);
-                if (r < 0)
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Failed to parse IP protocol '%s' for FooOverUDP tunnel, "
-                                   "ignoring assignment: %m", rvalue);
+        uint8_t *proto = ASSERT_PTR(data);
+        int r;
+
+        r = parse_ip_protocol_full(rvalue, /* relaxed= */ true);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to %s '%s', ignoring: %m", lvalue, rvalue);
                 return 0;
         }
 
-        if (protocol > UINT8_MAX) {
+        if (r > UINT8_MAX) {
+                /* linux/fou.h defines the netlink field as one byte, so we need to reject
+                 * protocols numbers that don't fit in one byte. */
+
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "IP protocol '%s' for FooOverUDP tunnel out of range, "
-                           "ignoring assignment: %m", rvalue);
+                           "IP protocol '%s' for FooOverUDP tunnel out of range, ignoring: %m",
+                           rvalue);
                 return 0;
         }
 
-        *ret = protocol;
+        *proto = r;
         return 0;
 }
 
