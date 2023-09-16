@@ -11,9 +11,11 @@
 TEST(sbat_section_text) {
         log_info("---SBAT-----------&<----------------------------------------\n"
                  "%s"
+                 "%s"
                  "------------------>&-----------------------------------------",
 #ifdef SBAT_DISTRO
-                 SBAT_SECTION_TEXT
+                 SBAT_BOOT_SECTION_TEXT,
+                 SBAT_STUB_SECTION_TEXT
 #else
                  "(not defined)"
 #endif
