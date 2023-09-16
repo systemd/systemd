@@ -714,7 +714,8 @@ int bus_property_get_string_set(
 
 void bus_log_caller(sd_bus_message *message, const char *method) {
         _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
-        const char *comm = NULL, *caller = NULL;
+        _cleanup_free_ char *unit_pid = NULL;
+        const char *comm = NULL, *caller = NULL, *unit_creds = NULL;
         pid_t pid;
 
         assert(message);
@@ -728,10 +729,14 @@ void bus_log_caller(sd_bus_message *message, const char *method) {
                 return;
 
         (void) sd_bus_creds_get_comm(creds, &comm);
-        (void) sd_bus_creds_get_unit(creds, &caller);
+        (void) sd_bus_creds_get_unit(creds, &unit_creds);
 
-        if (!caller)
-               cg_pid_get_unit(pid, (char **) &caller);
+        caller = unit_creds;
+
+        if (!unit_creds) {
+                cg_pid_get_unit(pid, &unit_pid);
+                caller = unit_pid;
+        }
 
         log_info("Action '%s' requested from client PID " PID_FMT "%s%s%s%s%s%s.",
                  method, pid,
