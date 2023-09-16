@@ -93,12 +93,12 @@ TEST(is_device_path) {
         assert_se(!is_device_path(""));
         assert_se(!is_device_path(".."));
 
-        assert_se( is_device_path("/dev"));
-        assert_se( is_device_path("//dev"));
-        assert_se( is_device_path("///dev"));
-        assert_se( is_device_path("/dev/"));
-        assert_se( is_device_path("///dev/"));
-        assert_se( is_device_path("/./dev/"));
+        assert_se(!is_device_path("/dev"));
+        assert_se(!is_device_path("//dev"));
+        assert_se(!is_device_path("///dev"));
+        assert_se(!is_device_path("/dev/"));
+        assert_se(!is_device_path("///dev/"));
+        assert_se(!is_device_path("/./dev/"));
         assert_se(!is_device_path("/../dev/"));
         assert_se( is_device_path("/dev/sda"));
         assert_se( is_device_path("/dev/sda5"));
@@ -108,13 +108,13 @@ TEST(is_device_path) {
         assert_se(!is_device_path("/../../dev/sda5"));
         assert_se(!is_device_path("/../../../dev/sda5b3"));
         assert_se(!is_device_path("/.././.././dev/sda5b3/idontexit"));
-        assert_se( is_device_path("/sys"));
-        assert_se( is_device_path("/sys/"));
+        assert_se(!is_device_path("/sys"));
+        assert_se(!is_device_path("/sys/"));
         assert_se( is_device_path("/sys/what"));
         assert_se( is_device_path("/sys/something/.."));
         assert_se( is_device_path("/sys/something/../"));
-        assert_se( is_device_path("/sys////"));
-        assert_se( is_device_path("/sys////."));
+        assert_se(!is_device_path("/sys////"));
+        assert_se(!is_device_path("/sys////."));
         assert_se( is_device_path("/sys/.."));
         assert_se( is_device_path("/sys/../"));
         assert_se(!is_device_path("/usr/../dev/sda"));
