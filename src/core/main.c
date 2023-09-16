@@ -3181,7 +3181,17 @@ finish:
 #endif
 
 #if HAS_FEATURE_ADDRESS_SANITIZER
+        /* At this stage we most likely don't have stdio/stderr open, so the following
+         * LSan check would not print any actionable information and would just crash
+         * PID 1. To make this a bit more helpful, let's try to open /dev/console,
+         * and if we succeed redirect LSan's report there. */
+
+        int tty_fd = open_terminal("/dev/console", O_WRONLY|O_NOCTTY|O_CLOEXEC);
+        if (tty_fd >= 0)
+            __sanitizer_set_report_fd((void*) (intptr_t) tty_fd);
+
         __lsan_do_leak_check();
+        tty_fd = safe_close(tty_fd);
 #endif
 
         if (r < 0)
