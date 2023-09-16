@@ -84,36 +84,23 @@ int config_parse_macvlan_broadcast_queue_size(
                 void *data,
                 void *userdata) {
 
-        MacVlan *m = ASSERT_PTR(userdata);
-        uint32_t v;
-        int r;
-
         assert(filename);
         assert(section);
         assert(lvalue);
         assert(rvalue);
         assert(data);
 
+        MacVlan *m = ASSERT_PTR(userdata);
+
         if (isempty(rvalue)) {
                 m->bc_queue_length = UINT32_MAX;
                 return 0;
         }
 
-        r = safe_atou32(rvalue, &v);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse BroadcastMulticastQueueLength=%s, ignoring assignment: %m", rvalue);
-                return 0;
-        }
-
-        if (v == UINT32_MAX) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Invalid BroadcastMulticastQueueLength=%s, ignoring assignment: %m", rvalue);
-                return 0;
-        }
-
-        m->bc_queue_length = v;
-        return 0;
+        return config_parse_uint32_bounded(
+                        unit, filename, line, section, section_line, lvalue, rvalue,
+                        0, UINT32_MAX - 1, true,
+                        &m->bc_queue_length);
 }
 
 static void macvlan_done(NetDev *n) {

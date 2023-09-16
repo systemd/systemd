@@ -1908,6 +1908,44 @@ int config_parse_in_addr_non_null(
         return 0;
 }
 
+int config_parse_unsigned_bounded(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *name,
+                const char *value,
+                unsigned min,
+                unsigned max,
+                bool ignoring,
+                unsigned *ret) {
+
+        int r;
+
+        assert(filename);
+        assert(name);
+        assert(value);
+        assert(ret);
+
+        r = safe_atou_bounded(value, min, max, ret);
+        if (r == -ERANGE)
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Invalid '%s=%s', allowed range is %u..%u%s.",
+                           name, value, min, max, ignoring ? ", ignoring" : "");
+        else if (r < 0)
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse '%s=%s'%s: %m",
+                           name, value, ignoring ? ", ignoring" : "");
+
+        if (r >= 0)
+                return 1;  /* Return 1 if something was set */
+        else if (ignoring)
+                return 0;
+        else
+                return r;
+}
+
 DEFINE_CONFIG_PARSE(config_parse_percent, parse_percent, "Failed to parse percent value");
 DEFINE_CONFIG_PARSE(config_parse_permyriad, parse_permyriad, "Failed to parse permyriad value");
 DEFINE_CONFIG_PARSE_PTR(config_parse_sec_fix_0, parse_sec_fix_0, usec_t, "Failed to parse time value");
