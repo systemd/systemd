@@ -1272,9 +1272,16 @@ bool hidden_or_backup_file(const char *filename) {
 bool is_device_path(const char *path) {
 
         /* Returns true for paths that likely refer to a device, either by path in sysfs or to something in
-         * /dev. */
+         * /dev. This accepts any path that starts with /dev/ or /sys/ and has something after that prefix.
+         * It does not actually resolve the path.
+         *
+         * Examples:
+         * /dev/sda, /dev/sda/foo, /sys/class, /dev/.., /sys/.., /./dev/foo → yes.
+         * /../dev/sda, /dev, /sys, /usr/path, /usr/../dev/sda → no.
+         */
 
-        return PATH_STARTSWITH_SET(path, "/dev/", "/sys/");
+        const char *p = PATH_STARTSWITH_SET(ASSERT_PTR(path), "/dev/", "/sys/");
+        return !isempty(p);
 }
 
 bool valid_device_node_path(const char *path) {
