@@ -417,6 +417,32 @@ TEST(parse_range) {
         assert_se(upper == 9999);
 }
 
+TEST(safe_atou_bounded) {
+        int r;
+        unsigned x;
+
+        r = safe_atou_bounded("12345", 12, 20000, &x);
+        assert_se(r == 0);
+        assert_se(x == 12345);
+
+        r = safe_atou_bounded("12", 12, 20000, &x);
+        assert_se(r == 0);
+        assert_se(x == 12);
+
+        r = safe_atou_bounded("20000", 12, 20000, &x);
+        assert_se(r == 0);
+        assert_se(x == 20000);
+
+        r = safe_atou_bounded("-1", 12, 20000, &x);
+        assert_se(r == -ERANGE);
+
+        r = safe_atou_bounded("11", 12, 20000, &x);
+        assert_se(r == -ERANGE);
+
+        r = safe_atou_bounded("20001", 12, 20000, &x);
+        assert_se(r == -ERANGE);
+}
+
 TEST(safe_atolli) {
         int r;
         long long l;
