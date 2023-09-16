@@ -57,16 +57,12 @@ DEFINE_CONFIG_PARSE_ENUM(config_parse_bond_arp_all_targets, bond_arp_all_targets
 DEFINE_CONFIG_PARSE_ENUM(config_parse_bond_primary_reselect, bond_primary_reselect, BondPrimaryReselect, "Failed to parse bond primary reselect");
 
 static int netdev_bond_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
-        Bond *b;
-        int r;
-
         assert(netdev);
         assert(!link);
         assert(m);
 
-        b = BOND(netdev);
-
-        assert(b);
+        Bond *b = ASSERT_PTR(BOND(netdev));
+        int r;
 
         if (b->mode != _NETDEV_BOND_MODE_INVALID) {
                 r = sd_netlink_message_append_u8(m, IFLA_BOND_MODE, b->mode);
@@ -237,13 +233,13 @@ int config_parse_arp_ip_target_address(
                 void *data,
                 void *userdata) {
 
-        Bond *b = userdata;
-        int r;
-
         assert(filename);
         assert(lvalue);
         assert(rvalue);
         assert(data);
+
+        Bond *b = ASSERT_PTR(BOND(userdata));
+        int r;
 
         if (isempty(rvalue)) {
                 b->arp_ip_targets = ordered_set_free(b->arp_ip_targets);
@@ -382,23 +378,17 @@ int config_parse_ad_actor_system(
 }
 
 static void bond_done(NetDev *netdev) {
-        Bond *b;
-
         assert(netdev);
-        b = BOND(netdev);
-        assert(b);
+
+        Bond *b = ASSERT_PTR(BOND(netdev));
 
         ordered_set_free(b->arp_ip_targets);
 }
 
 static void bond_init(NetDev *netdev) {
-        Bond *b;
-
         assert(netdev);
 
-        b = BOND(netdev);
-
-        assert(b);
+        Bond *b = ASSERT_PTR(BOND(netdev));
 
         b->mode = _NETDEV_BOND_MODE_INVALID;
         b->xmit_hash_policy = _NETDEV_BOND_XMIT_HASH_POLICY_INVALID;

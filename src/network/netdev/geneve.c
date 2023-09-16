@@ -28,13 +28,11 @@ DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(geneve_df, GeneveDF, NETDEV_GENEVE_DF_YE
 DEFINE_CONFIG_PARSE_ENUM(config_parse_geneve_df, geneve_df, GeneveDF, "Failed to parse Geneve IPDoNotFragment= setting");
 
 static int netdev_geneve_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
-        Geneve *v;
-        int r;
-
         assert(netdev);
         assert(m);
 
-        v = GENEVE(netdev);
+        Geneve *v = ASSERT_PTR(GENEVE(netdev));
+        int r;
 
         if (v->id <= GENEVE_VID_MAX) {
                 r = sd_netlink_message_append_u32(m, IFLA_GENEVE_ID, v->id);
@@ -141,24 +139,26 @@ int config_parse_geneve_address(
                 void *data,
                 void *userdata) {
 
-        Geneve *v = userdata;
-        union in_addr_union *addr = data, buffer;
-        int r, f;
-
         assert(filename);
         assert(lvalue);
         assert(rvalue);
         assert(data);
 
+        Geneve *v = ASSERT_PTR(userdata);
+        union in_addr_union *addr = data, buffer;
+        int r, f;
+
         r = in_addr_from_string_auto(rvalue, &f, &buffer);
         if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r, "geneve '%s' address is invalid, ignoring assignment: %s", lvalue, rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "geneve '%s' address is invalid, ignoring assignment: %s", lvalue, rvalue);
                 return 0;
         }
 
         r = in_addr_is_multicast(f, &buffer);
         if (r > 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0, "geneve invalid multicast '%s' address, ignoring assignment: %s", lvalue, rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "geneve invalid multicast '%s' address, ignoring assignment: %s", lvalue, rvalue);
                 return 0;
         }
 
@@ -180,14 +180,14 @@ int config_parse_geneve_flow_label(
                 void *data,
                 void *userdata) {
 
-        Geneve *v = userdata;
-        uint32_t f;
-        int r;
-
         assert(filename);
         assert(lvalue);
         assert(rvalue);
         assert(data);
+
+        Geneve *v = ASSERT_PTR(userdata);
+        uint32_t f;
+        int r;
 
         r = safe_atou32(rvalue, &f);
         if (r < 0) {
@@ -237,28 +237,22 @@ int config_parse_geneve_ttl(
 }
 
 static int netdev_geneve_verify(NetDev *netdev, const char *filename) {
-        Geneve *v = GENEVE(netdev);
-
         assert(netdev);
-        assert(v);
         assert(filename);
+
+        Geneve *v = ASSERT_PTR(GENEVE(netdev));
 
         if (v->id > GENEVE_VID_MAX)
                 return log_netdev_warning_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
                                                 "%s: Geneve without valid VNI (or Virtual Network Identifier) configured. Ignoring.",
                                                 filename);
-
         return 0;
 }
 
 static void geneve_init(NetDev *netdev) {
-        Geneve *v;
-
         assert(netdev);
 
-        v = GENEVE(netdev);
-
-        assert(v);
+        Geneve *v = ASSERT_PTR(GENEVE(netdev));
 
         v->id = GENEVE_VID_MAX + 1;
         v->geneve_df = _NETDEV_GENEVE_DF_INVALID;
