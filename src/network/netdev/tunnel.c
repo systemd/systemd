@@ -909,7 +909,8 @@ int config_parse_ipv6_flowlabel(
                 void *userdata) {
 
         Tunnel *t = ASSERT_PTR(userdata);
-        int k, r;
+        uint32_t k;
+        int r;
 
         assert(filename);
         assert(rvalue);
@@ -920,21 +921,15 @@ int config_parse_ipv6_flowlabel(
                 return 0;
         }
 
-        r = safe_atoi(rvalue, &k);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse tunnel IPv6 flowlabel, ignoring assignment: %s", rvalue);
-                return 0;
-        }
-
-        if (k > 0xFFFFF) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Invalid tunnel IPv6 flowlabel, ignoring assignment: %s", rvalue);
-                return 0;
-        }
-
+        r = config_parse_uint32_bounded(
+                        unit, filename, line, section, section_line, lvalue, rvalue,
+                        0, 0xFFFFF, true,
+                        &k);
+        if (r <= 0)
+                return r;
         t->ipv6_flowlabel = htobe32(k) & IP6_FLOWINFO_FLOWLABEL;
         t->flags &= ~IP6_TNL_F_USE_ORIG_FLOWLABEL;
+
         return 0;
 }
 
