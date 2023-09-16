@@ -90,10 +90,14 @@
         <term><option>--path</option></term>
         <term><option>-p</option></term>
 
-        <listitem><para>When escaping or unescaping a string, assume it refers to a file system path. This eliminates
-        leading, trailing or duplicate <literal>/</literal> characters and rejects <literal>.</literal> and
-        <literal>..</literal> path components. This is particularly useful for generating strings suitable for
-        unescaping with the <literal>%f</literal> specifier in unit files, see
+        <listitem><para>When escaping or unescaping a string, assume it refers to a file system path. This
+        simplifies the path (leading, trailing, and duplicate <literal>/</literal> characters are removed,
+        no-op path <literal>.</literal> components are removed, and for absolute paths, leading
+        <literal>..</literal> components are removed). After the simplification, the path must not contain
+        <literal>..</literal>.</para>
+
+        <para>This is particularly useful for generating strings suitable for unescaping with the
+        <literal>%f</literal> specifier in unit files, see
         <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
         </para>
 

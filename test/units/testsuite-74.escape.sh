@@ -65,12 +65,18 @@ assert_eq "$(systemd-escape --unescape --instance 'mount-my-stuff@-this-is-where
 assert_eq "$(systemd-escape --unescape --instance --path 'mount-my-stuff@this-is-where-my-stuff-is-\x20with\x20spaces\x20though\x20.service')" \
           '/this/is/where/my/stuff/is/ with spaces though '
 
-# --path
+# --path, reversible cases
 check_escape / '-' --path
 check_escape '/hello/world' 'hello-world' --path
 check_escape '/mnt/smb/おにぎり' \
              'mnt-smb-\xe3\x81\x8a\xe3\x81\xab\xe3\x81\x8e\xe3\x82\x8a' \
              --path
+
+# --path, non-reversible cases
+assert_eq "$(systemd-escape --path ///////////////)" '-'
+assert_eq "$(systemd-escape --path /..)" '-'
+assert_eq "$(systemd-escape --path /../.././../.././)" '-'
+assert_eq "$(systemd-escape --path /../.././../.././foo)" 'foo'
 
 # --mangle
 assert_eq "$(systemd-escape --mangle 'hello-world')" 'hello-world.service'
@@ -94,7 +100,7 @@ assert_eq "$(systemd-escape --mangle 'trailing-whitespace.mount ')" 'trailing-wh
 (! systemd-escape --instance 'hello@hello.service')
 (! systemd-escape --instance --template=hello@.service 'hello@hello.service')
 (! systemd-escape --unescape --instance --path 'mount-my-stuff@-this-is-where-my-stuff-is-\x20with\x20spaces\x20though\x20.service')
-(! systemd-escape --path '/../hello')
+(! systemd-escape --path '/../hello/..')
 (! systemd-escape --path '.')
 (! systemd-escape --path '..')
 (! systemd-escape --path "$(set +x; printf '%0.sa' {0..256})")
