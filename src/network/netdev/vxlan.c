@@ -286,25 +286,18 @@ int config_parse_port_range(
                 void *data,
                 void *userdata) {
 
-        VxLan *v = userdata;
-        uint16_t low, high;
-        int r;
-
         assert(filename);
         assert(lvalue);
         assert(rvalue);
         assert(data);
 
-        r = parse_ip_port_range(rvalue, &low, &high);
-        if (r < 0) {
+        VxLan *v = ASSERT_PTR(userdata);
+        int r;
+
+        r = parse_ip_port_range(rvalue, &v->port_range.low, &v->port_range.high);
+        if (r < 0)
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to parse VXLAN port range '%s'. Port should be greater than 0 and less than 65535.", rvalue);
-                return 0;
-        }
-
-        v->port_range.low = low;
-        v->port_range.high = high;
-
         return 0;
 }
 
