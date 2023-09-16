@@ -8,6 +8,8 @@
 #include "sd-id128.h"
 
 #include "alloc-util.h"
+#include "chase.h"
+#include "errno-util.h"
 #include "glob-util.h"
 #include "hexdecoct.h"
 #include "memory-util.h"
@@ -736,16 +738,23 @@ int unit_name_mangle_with_suffix(
                 suggest_escape = false;
         }
 
-        if (is_device_path(name)) {
-                r = unit_name_from_path(name, ".device", ret);
-                if (r >= 0)
-                        return 1;
-                if (r != -EINVAL)
-                        return r;
-        }
-
         if (path_is_absolute(name)) {
-                r = unit_name_from_path(name, ".mount", ret);
+                _cleanup_free_ char *t = NULL;
+
+                r = chase(name, NULL, CHASE_NOFOLLOW|CHASE_NONEXISTENT|CHASE_NO_AUTOFS|CHASE_WARN, &t, NULL);
+                if (ERRNO_IS_NEG_RESOURCE(r))
+                        return r;
+                /* If the chase failed, let's just ignore use the unchased path. */
+
+                if (is_device_path(t ?: name)) {
+                        r = unit_name_from_path(t ?: name, ".device", ret);
+                        if (r >= 0)
+                                return 1;
+                        if (r != -EINVAL)
+                                return r;
+                }
+
+                r = unit_name_from_path(t ?: name, ".mount", ret);
                 if (r >= 0)
                         return 1;
                 if (r != -EINVAL)
