@@ -25,7 +25,7 @@
 
 static const char* const ip6tnl_mode_table[_NETDEV_IP6_TNL_MODE_MAX] = {
         [NETDEV_IP6_TNL_MODE_IP6IP6] = "ip6ip6",
-        [NETDEV_IP6_TNL_MODE_IPIP6] = "ipip6",
+        [NETDEV_IP6_TNL_MODE_IPIP6]  = "ipip6",
         [NETDEV_IP6_TNL_MODE_ANYIP6] = "any",
 };
 
