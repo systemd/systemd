@@ -351,34 +351,27 @@ int config_parse_vxlan_ttl(
                 void *data,
                 void *userdata) {
 
-        VxLan *v = userdata;
-        unsigned f;
-        int r;
-
         assert(filename);
         assert(lvalue);
         assert(rvalue);
         assert(data);
 
-        if (streq(rvalue, "inherit"))
+        VxLan *v = ASSERT_PTR(userdata);
+        int r;
+
+        if (streq(rvalue, "inherit")) {
                 v->inherit = true;
-        else {
-                r = safe_atou(rvalue, &f);
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Failed to parse VXLAN TTL '%s', ignoring assignment: %m", rvalue);
-                        return 0;
-                }
-
-                if (f > 255) {
-                        log_syntax(unit, LOG_WARNING, filename, line, 0,
-                                   "Invalid VXLAN TTL '%s'. TTL must be <= 255. Ignoring assignment.", rvalue);
-                        return 0;
-                }
-
-                v->ttl = f;
+                v->ttl = 0;  /* unset the unused ttl field for clarity */
+                return 0;
         }
 
+        r = config_parse_unsigned_bounded(
+                        unit, filename, line, section, section_line, lvalue, rvalue,
+                        0, UINT8_MAX, true,
+                        &v->ttl);
+        if (r <= 0)
+                return r;
+        v->inherit = false;
         return 0;
 }
 
