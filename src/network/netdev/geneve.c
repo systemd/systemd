@@ -224,16 +224,22 @@ int config_parse_geneve_ttl(
         assert(data);
 
         Geneve *v = ASSERT_PTR(userdata);
+        int r;
 
         if (streq(rvalue, "inherit")) {
                 v->inherit = true;
+                v->ttl = 0;  /* unset the unused ttl field for clarity */
                 return 0;
         }
 
-        return config_parse_uint8_bounded(
+        r = config_parse_uint8_bounded(
                         unit, filename, line, section, section_line, lvalue, rvalue,
                         0, UINT8_MAX, true,
                         &v->ttl);
+        if (r <= 0)
+                return r;
+        v->inherit = false;
+        return 0;
 }
 
 static int netdev_geneve_verify(NetDev *netdev, const char *filename) {
