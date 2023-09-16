@@ -53,7 +53,7 @@ int safe_getcwd(char **ret);
 int path_make_absolute_cwd(const char *p, char **ret);
 int path_make_relative(const char *from, const char *to, char **ret);
 int path_make_relative_parent(const char *from_child, const char *to, char **ret);
-char *path_startswith_full(const char *path, const char *prefix, bool accept_dot_dot) _pure_;
+char* path_startswith_full(const char *path, const char *prefix, bool accept_dot_dot) _pure_;
 static inline char* path_startswith(const char *path, const char *prefix) {
         return path_startswith_full(path, prefix, true);
 }
@@ -80,7 +80,7 @@ typedef enum PathSimplifyFlags {
         PATH_SIMPLIFY_KEEP_TRAILING_SLASH = 1 << 0,
 } PathSimplifyFlags;
 
-char *path_simplify_full(char *path, PathSimplifyFlags flags);
+char* path_simplify_full(char *path, PathSimplifyFlags flags);
 static inline char* path_simplify(char *path) {
         return path_simplify_full(path, 0);
 }
@@ -159,7 +159,7 @@ int fsck_exists_for_fstype(const char *fstype);
 
 int path_find_first_component(const char **p, bool accept_dot_dot, const char **ret);
 int path_find_last_component(const char *path, bool accept_dot_dot, const char **next, const char **ret);
-const char *last_path_component(const char *path);
+const char* last_path_component(const char *path);
 int path_extract_filename(const char *path, char **ret);
 int path_extract_directory(const char *path, char **ret);
 
@@ -196,7 +196,7 @@ static inline const char *skip_dev_prefix(const char *p) {
 }
 
 bool empty_or_root(const char *path);
-static inline const char *empty_to_root(const char *path) {
+static inline const char* empty_to_root(const char *path) {
         return isempty(path) ? "/" : path;
 }
 
