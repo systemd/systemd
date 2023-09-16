@@ -13,7 +13,7 @@ TEST(sbat_section_text) {
                  "%s"
                  "------------------>&-----------------------------------------",
 #ifdef SBAT_DISTRO
-                 SBAT_SECTION_TEXT
+                 SBAT_BOOT_SECTION_TEXT
 #else
                  "(not defined)"
 #endif
