@@ -17,6 +17,7 @@
 #include "proto/device-path.h"
 #include "proto/simple-text-io.h"
 #include "random-seed.h"
+#include "sbat.h"
 #include "secure-boot.h"
 #include "shim.h"
 #include "ticks.h"
@@ -33,6 +34,8 @@ _used_ _section_(".osrel") static const char osrel[] =
         "ID=systemd-boot\n"
         "VERSION=\"" GIT_VERSION "\"\n"
         "NAME=\"systemd-boot " GIT_VERSION "\"\n";
+
+DECLARE_SBAT(SBAT_STUB_SECTION_TEXT);
 
 typedef enum LoaderType {
         LOADER_UNDEFINED,
