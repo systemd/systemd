@@ -116,29 +116,17 @@ int config_parse_geneve_vni(
                 void *data,
                 void *userdata) {
 
-        Geneve *v = userdata;
-        uint32_t f;
-        int r;
-
         assert(filename);
         assert(lvalue);
         assert(rvalue);
         assert(data);
 
-        r = safe_atou32(rvalue, &f);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse Geneve VNI '%s'.", rvalue);
-                return 0;
-        }
+        Geneve *v = ASSERT_PTR(userdata);
 
-        if (f > GENEVE_VID_MAX){
-                log_syntax(unit, LOG_WARNING, filename, line, 0, "Geneve VNI out is of range '%s'.", rvalue);
-                return 0;
-        }
-
-        v->id = f;
-
-        return 0;
+        return config_parse_uint32_bounded(
+                        unit, filename, line, section, section_line, lvalue, rvalue,
+                        0, GENEVE_VID_MAX, true,
+                        &v->id);
 }
 
 int config_parse_geneve_address(
@@ -230,35 +218,22 @@ int config_parse_geneve_ttl(
                 void *data,
                 void *userdata) {
 
-        Geneve *v = userdata;
-        unsigned f;
-        int r;
-
         assert(filename);
         assert(lvalue);
         assert(rvalue);
         assert(data);
 
-        if (streq(rvalue, "inherit"))
+        Geneve *v = ASSERT_PTR(userdata);
+
+        if (streq(rvalue, "inherit")) {
                 v->inherit = true;
-        else {
-                r = safe_atou(rvalue, &f);
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Failed to parse Geneve TTL '%s', ignoring assignment: %m", rvalue);
-                        return 0;
-                }
-
-                if (f > 255) {
-                        log_syntax(unit, LOG_WARNING, filename, line, 0,
-                                   "Invalid Geneve TTL '%s'. TTL must be <= 255. Ignoring assignment.", rvalue);
-                        return 0;
-                }
-
-                v->ttl = f;
+                return 0;
         }
 
-        return 0;
+        return config_parse_uint8_bounded(
+                        unit, filename, line, section, section_line, lvalue, rvalue,
+                        0, UINT8_MAX, true,
+                        &v->ttl);
 }
 
 static int netdev_geneve_verify(NetDev *netdev, const char *filename) {
