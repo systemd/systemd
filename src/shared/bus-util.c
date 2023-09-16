@@ -18,10 +18,12 @@
 #include "bus-internal.h"
 #include "bus-label.h"
 #include "bus-util.h"
+#include "cgroup-util.h"
 #include "data-fd-util.h"
 #include "fd-util.h"
 #include "memstream-util.h"
 #include "path-util.h"
+#include "process-util.h"
 #include "socket-util.h"
 #include "stdio-util.h"
 
@@ -708,4 +710,31 @@ int bus_property_get_string_set(
         assert(reply);
 
         return bus_message_append_string_set(reply, *s);
+}
+
+void bus_log_caller(sd_bus_message *message, const char *method) {
+        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
+        const char *comm = NULL, *caller = NULL;
+        pid_t pid;
+
+        assert(message);
+        assert(method);
+
+        if (sd_bus_query_sender_creds(message, SD_BUS_CREDS_PID|SD_BUS_CREDS_AUGMENT|SD_BUS_CREDS_COMM|SD_BUS_CREDS_UNIT, &creds) < 0)
+                return;
+
+        /* We need at least the PID, otherwise there's nothing to log, the rest is optional */
+        if (sd_bus_creds_get_pid(creds, &pid) < 0)
+                return;
+
+        (void) sd_bus_creds_get_comm(creds, &comm);
+        (void) sd_bus_creds_get_unit(creds, &caller);
+
+        if (!caller)
+               cg_pid_get_unit(pid, (char **) &caller);
+
+        log_info("Action '%s' requested from client PID " PID_FMT "%s%s%s%s%s%s.",
+                 method, pid,
+                 comm ? " ('" : "", strempty(comm), comm ? "')" : "",
+                 caller ? " (unit " : "", caller ? caller : "", caller ? ")" : "");
 }

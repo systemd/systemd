@@ -1449,14 +1449,17 @@ void log_received_signal(int level, const struct signalfd_siginfo *si) {
         assert(si);
 
         if (pid_is_valid(si->ssi_pid)) {
-                _cleanup_free_ char *p = NULL;
+                _cleanup_free_ char *p = NULL, *u = NULL;
 
                 (void) get_process_comm(si->ssi_pid, &p);
 
+                (void) cg_pid_get_unit(si->ssi_pid, &u);
+
                 log_full(level,
-                         "Received SIG%s from PID %"PRIu32" (%s).",
+                         "Received SIG%s from PID %"PRIu32" (%s)%s%s%s.",
                          signal_to_string(si->ssi_signo),
-                         si->ssi_pid, strna(p));
+                         si->ssi_pid, strna(p), u ? " (unit " : "", u ? u : "", u ? ")" : "");
+
         } else
                 log_full(level,
                          "Received SIG%s.",
