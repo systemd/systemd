@@ -19,8 +19,8 @@
 #define DEFAULT_GENEVE_DESTINATION_PORT 6081
 
 static const char* const geneve_df_table[_NETDEV_GENEVE_DF_MAX] = {
-        [NETDEV_GENEVE_DF_NO] = "no",
-        [NETDEV_GENEVE_DF_YES] = "yes",
+        [NETDEV_GENEVE_DF_NO]      = "no",
+        [NETDEV_GENEVE_DF_YES]     = "yes",
         [NETDEV_GENEVE_DF_INHERIT] = "inherit",
 };
 

@@ -14,8 +14,8 @@
 #include "vxlan.h"
 
 static const char* const df_table[_NETDEV_VXLAN_DF_MAX] = {
-        [NETDEV_VXLAN_DF_NO] = "no",
-        [NETDEV_VXLAN_DF_YES] = "yes",
+        [NETDEV_VXLAN_DF_NO]      = "no",
+        [NETDEV_VXLAN_DF_YES]     = "yes",
         [NETDEV_VXLAN_DF_INHERIT] = "inherit",
 };
 

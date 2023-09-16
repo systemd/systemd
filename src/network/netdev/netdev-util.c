@@ -6,11 +6,11 @@
 #include "string-table.h"
 
 static const char * const netdev_local_address_type_table[_NETDEV_LOCAL_ADDRESS_TYPE_MAX] = {
-        [NETDEV_LOCAL_ADDRESS_IPV4LL]  = "ipv4_link_local",
-        [NETDEV_LOCAL_ADDRESS_IPV6LL]  = "ipv6_link_local",
-        [NETDEV_LOCAL_ADDRESS_DHCP4]   = "dhcp4",
-        [NETDEV_LOCAL_ADDRESS_DHCP6]   = "dhcp6",
-        [NETDEV_LOCAL_ADDRESS_SLAAC]   = "slaac",
+        [NETDEV_LOCAL_ADDRESS_IPV4LL] = "ipv4_link_local",
+        [NETDEV_LOCAL_ADDRESS_IPV6LL] = "ipv6_link_local",
+        [NETDEV_LOCAL_ADDRESS_DHCP4]  = "dhcp4",
+        [NETDEV_LOCAL_ADDRESS_DHCP6]  = "dhcp6",
+        [NETDEV_LOCAL_ADDRESS_SLAAC]  = "slaac",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(netdev_local_address_type, NetDevLocalAddressType);
