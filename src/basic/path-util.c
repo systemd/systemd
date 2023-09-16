@@ -1274,7 +1274,8 @@ bool is_device_path(const char *path) {
         /* Returns true for paths that likely refer to a device, either by path in sysfs or to something in
          * /dev. */
 
-        return PATH_STARTSWITH_SET(path, "/dev/", "/sys/");
+        const char *p = PATH_STARTSWITH_SET(ASSERT_PTR(path), "/dev/", "/sys/");
+        return !isempty(p);
 }
 
 bool valid_device_node_path(const char *path) {
