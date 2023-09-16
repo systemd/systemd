@@ -1948,6 +1948,10 @@ static int method_do_shutdown_or_sleep(
 
         (void) setup_wall_message_timer(m, message);
 
+        if (IN_SET(a->handle, HANDLE_HALT, HANDLE_REBOOT, HANDLE_POWEROFF, HANDLE_KEXEC, 
+                   HANDLE_HIBERNATE, HANDLE_HYBRID_SLEEP, HANDLE_SUSPEND, HANDLE_SUSPEND_THEN_HIBERNATE))
+                bus_log_caller(message, handle_action_to_string(a->handle));
+
         r = bus_manager_shutdown_or_sleep_now_or_later(m, a, error);
         if (r < 0)
                 return r;
