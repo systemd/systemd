@@ -303,32 +303,18 @@ int config_parse_ad_actor_sys_prio(
                 const char *rvalue,
                 void *data,
                 void *userdata) {
-        Bond *b = userdata;
-        uint16_t v;
-        int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
         assert(data);
 
-        r = safe_atou16(rvalue, &v);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse actor system priority '%s', ignoring: %m", rvalue);
-                return 0;
-        }
+        Bond *b = ASSERT_PTR(userdata);
 
-        if (v == 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Failed to parse actor system priority '%s'. Range is [1,65535], ignoring.",
-                           rvalue);
-                return 0;
-        }
-
-        b->ad_actor_sys_prio = v;
-
-        return 0;
+        return config_parse_uint16_bounded(
+                        unit, filename, line, section, section_line, lvalue, rvalue,
+                        1, UINT16_MAX, true,
+                        &b->ad_actor_sys_prio);
 }
 
 int config_parse_ad_user_port_key(
@@ -342,31 +328,18 @@ int config_parse_ad_user_port_key(
                 const char *rvalue,
                 void *data,
                 void *userdata) {
-        Bond *b = userdata;
-        uint16_t v;
-        int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
         assert(data);
 
-        r = safe_atou16(rvalue, &v);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse user port key '%s', ignoring: %m", rvalue);
-                return 0;
-        }
+        Bond *b = ASSERT_PTR(userdata);
 
-        if (v > 1023) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Failed to parse user port key '%s'. Range is [0…1023], ignoring.", rvalue);
-                return 0;
-        }
-
-        b->ad_user_port_key = v;
-
-        return 0;
+        return config_parse_uint16_bounded(
+                        unit, filename, line, section, section_line, lvalue, rvalue,
+                        0, 1023, true,
+                        &b->ad_user_port_key);
 }
 
 int config_parse_ad_actor_system(
