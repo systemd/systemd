@@ -701,7 +701,13 @@ static bool do_escape_mangle(const char *f, bool allow_globs, char *t) {
  *
  *  If @allow_globs, globs characters are preserved. Otherwise, they are escaped.
  */
-int unit_name_mangle_with_suffix(const char *name, const char *operation, UnitNameMangle flags, const char *suffix, char **ret) {
+int unit_name_mangle_with_suffix(
+                const char *name,
+                const char *operation,
+                UnitNameMangle flags,
+                const char *suffix,
+                char **ret) {
+
         _cleanup_free_ char *s = NULL;
         bool mangled, suggest_escape = true;
         int r;
