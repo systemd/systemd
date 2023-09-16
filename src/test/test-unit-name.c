@@ -201,8 +201,12 @@ TEST(unit_name_to_path) {
 
 static void test_unit_name_mangle_one(bool allow_globs, const char *pattern, const char *expect, int ret) {
         _cleanup_free_ char *t = NULL;
+        int r;
 
-        assert_se(unit_name_mangle(pattern, (allow_globs * UNIT_NAME_MANGLE_GLOB) | UNIT_NAME_MANGLE_WARN, &t) == ret);
+        r = unit_name_mangle(pattern, (allow_globs * UNIT_NAME_MANGLE_GLOB) | UNIT_NAME_MANGLE_WARN, &t);
+        log_debug("%s: %s -> %d, %s", __func__, pattern, r, strnull(t));
+
+        assert_se(r == ret);
         puts(strna(t));
         assert_se(streq_ptr(t, expect));
 
@@ -232,6 +236,42 @@ TEST(unit_name_mangle) {
         test_unit_name_mangle_one(true, "foo", "foo.service", 1);
         test_unit_name_mangle_one(true, "foo*", "foo*", 0);
         test_unit_name_mangle_one(true, "ü*", "\\xc3\\xbc*", 1);
+}
+
+static void test_unit_name_mangle_with_suffix_one(const char *arg, int expected, const char *expected_name) {
+        _cleanup_free_ char *s = NULL;
+        int r;
+
+        r = unit_name_mangle_with_suffix(arg, NULL, 0, ".service", &s);
+        log_debug("%s: %s -> %d, %s", __func__, arg, r, strnull(s));
+
+        assert_se(r == expected);
+        assert_se(streq_ptr(s, expected_name));
+}
+
+TEST(unit_name_mangle_with_suffix) {
+        test_unit_name_mangle_with_suffix_one("", -EINVAL, NULL);
+
+        test_unit_name_mangle_with_suffix_one("/dev", 1, "dev.mount");
+        test_unit_name_mangle_with_suffix_one("/../dev", 1, "dev.mount");
+        test_unit_name_mangle_with_suffix_one("/../dev/.", 1, "dev.mount");
+        /* We don't skip the last '..', and it makes this an invalid device or mount name */
+        test_unit_name_mangle_with_suffix_one("/.././dev/..", 1, "-..-.-dev-...service");
+
+        test_unit_name_mangle_with_suffix_one("/dev/sda", 1, "dev-sda.device");
+        test_unit_name_mangle_with_suffix_one("/dev/sda5", 1, "dev-sda5.device");
+
+        test_unit_name_mangle_with_suffix_one("/sys", 1, "sys.mount");
+        test_unit_name_mangle_with_suffix_one("/../sys", 1, "sys.mount");
+        test_unit_name_mangle_with_suffix_one("/../sys/.", 1, "sys.mount");
+        /* We don't skip the last '..', and it makes this an invalid device or mount name */
+        test_unit_name_mangle_with_suffix_one("/.././sys/..", 1, "-..-.-sys-...service");
+
+        test_unit_name_mangle_with_suffix_one("/proc", 1, "proc.mount");
+        test_unit_name_mangle_with_suffix_one("/../proc", 1, "proc.mount");
+        test_unit_name_mangle_with_suffix_one("/../proc/.", 1, "proc.mount");
+        /* We don't skip the last '..', and it makes this an invalid device or mount name */
+        test_unit_name_mangle_with_suffix_one("/.././proc/..", 1, "-..-.-proc-...service");
 }
 
 TEST_RET(unit_printf, .sd_booted = true) {
