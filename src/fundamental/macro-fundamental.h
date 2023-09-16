@@ -395,3 +395,10 @@ static inline size_t ALIGN_TO(size_t l, size_t ali) {
                 dummy_t __empty__ ## name;             \
                 type name[];                           \
         }
+
+#ifdef SBAT_DISTRO
+        #define DECLARE_SBAT(text) \
+                static const char sbat[] _used_ _section_(".sbat") = (text)
+#else
+        #define DECLARE_SBAT(text)
+#endif

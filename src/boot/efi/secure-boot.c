@@ -2,7 +2,6 @@
 
 #include "console.h"
 #include "proto/security-arch.h"
-#include "sbat.h"
 #include "secure-boot.h"
 #include "util.h"
 #include "vmm.h"
@@ -32,10 +31,6 @@ SecureBootMode secure_boot_mode(void) {
 
         return decode_secure_boot_mode(secure, audit, deployed, setup);
 }
-
-#ifdef SBAT_DISTRO
-static const char sbat[] _used_ _section_(".sbat") = SBAT_SECTION_TEXT;
-#endif
 
 EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path, bool force) {
         assert(root_dir);
