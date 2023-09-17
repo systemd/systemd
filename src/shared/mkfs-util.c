@@ -325,6 +325,7 @@ int make_filesystem(
                 sd_id128_t uuid,
                 bool discard,
                 bool quiet,
+                bool unprivileged,
                 uint64_t sector_size,
                 char * const *extra_mkfs_args) {
 
@@ -603,7 +604,7 @@ int make_filesystem(
                         /*except_fds=*/ NULL,
                         /*n_except_fds=*/ 0,
                         FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_DEATHSIG|FORK_LOG|FORK_WAIT|
-                        FORK_CLOSE_ALL_FDS|FORK_REARRANGE_STDIO|FORK_NEW_MOUNTNS|FORK_REOPEN_LOG,
+                        FORK_CLOSE_ALL_FDS|FORK_REARRANGE_STDIO|(unprivileged?0:FORK_NEW_MOUNTNS)|FORK_REOPEN_LOG,
                         /*ret_pid=*/ NULL);
         if (r < 0)
                 return r;

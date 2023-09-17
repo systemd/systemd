@@ -2362,6 +2362,7 @@ int home_create_luks(
                             fs_uuid,
                             user_record_luks_discard(h),
                             /* quiet = */ true,
+                            /* unprivileged */ false,
                             /* sector_size = */ 0,
                             extra_mkfs_options);
         if (r < 0)

@@ -77,6 +77,7 @@ static int run(int argc, char *argv[]) {
                                uuid,
                                /* discard = */ true,
                                /* quiet = */ true,
+                               /* unprivileged */ false,
                                /* sector_size = */ 0,
                                /* extra_mkfs_options = */ NULL);
 }
