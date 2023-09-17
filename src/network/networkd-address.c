@@ -110,7 +110,7 @@ int address_new(Address **ret) {
         return 0;
 }
 
-static int address_new_static(Network *network, const char *filename, unsigned section_line, Address **ret) {
+int address_new_static(Network *network, const char *filename, unsigned section_line, Address **ret) {
         _cleanup_(config_section_freep) ConfigSection *n = NULL;
         _cleanup_(address_freep) Address *address = NULL;
         int r;
@@ -401,7 +401,7 @@ static int address_compare_func(const Address *a1, const Address *a2) {
         }
 }
 
-DEFINE_PRIVATE_HASH_OPS(
+DEFINE_HASH_OPS(
         address_hash_ops,
         Address,
         address_hash_func,
@@ -1561,10 +1561,6 @@ int link_request_static_addresses(Link *link) {
         if (r < 0)
                 return r;
 
-        r = link_request_dhcp_server_address(link);
-        if (r < 0)
-                return r;
-
         if (link->static_address_messages == 0) {
                 link->static_addresses_configured = true;
                 link_check_ready(link);
@@ -2334,7 +2330,7 @@ static void address_section_adjust_broadcast(Address *address) {
         address->broadcast.s_addr = 0;
 }
 
-static int address_section_verify(Address *address) {
+int address_section_verify(Address *address) {
         if (section_is_invalid(address->section))
                 return -EINVAL;
 
@@ -2443,6 +2439,10 @@ int network_drop_invalid_addresses(Network *network) {
                         return log_oom();
                 assert(r > 0);
         }
+
+        r = network_adjust_dhcp_server(network, &addresses);
+        if (r < 0)
+                return r;
 
         return 0;
 }

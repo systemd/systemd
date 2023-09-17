@@ -38,26 +38,31 @@ static bool link_dhcp4_server_enabled(Link *link) {
         return link->network->dhcp_server;
 }
 
-void network_adjust_dhcp_server(Network *network) {
+int network_adjust_dhcp_server(Network *network, Set **addresses) {
+        int r;
+
         assert(network);
+        assert(addresses);
 
         if (!network->dhcp_server)
-                return;
+                return 0;
 
         if (network->bond) {
                 log_warning("%s: DHCPServer= is enabled for bond slave. Disabling DHCP server.",
                             network->filename);
                 network->dhcp_server = false;
-                return;
+                return 0;
         }
 
-        if (!in4_addr_is_set(&network->dhcp_server_address)) {
+        assert(network->dhcp_server_address_prefixlen <= 32);
+
+        if (network->dhcp_server_address_prefixlen == 0) {
                 Address *address;
-                bool have = false;
+
+                /* If the server address is not specified, then find suitable static address. */
 
                 ORDERED_HASHMAP_FOREACH(address, network->addresses_by_section) {
-                        if (section_is_invalid(address->section))
-                                continue;
+                        assert(!section_is_invalid(address->section));
 
                         if (address->family != AF_INET)
                                 continue;
@@ -71,83 +76,69 @@ void network_adjust_dhcp_server(Network *network) {
                         if (in4_addr_is_set(&address->in_addr_peer.in))
                                 continue;
 
-                        have = true;
+                        /* TODO: check if the prefix length is small enough for the pool. */
+
+                        network->dhcp_server_address = address;
                         break;
                 }
-                if (!have) {
-                        log_warning("%s: DHCPServer= is enabled, but no static address configured. "
+                if (!network->dhcp_server_address) {
+                        log_warning("%s: DHCPServer= is enabled, but no suitable static address configured. "
                                     "Disabling DHCP server.",
                                     network->filename);
                         network->dhcp_server = false;
-                        return;
+                        return 0;
                 }
-        }
-}
 
-int link_request_dhcp_server_address(Link *link) {
-        _cleanup_(address_freep) Address *address = NULL;
-        Address *existing;
-        int r;
+        } else {
+                _cleanup_(address_freep) Address *a = NULL;
+                Address *existing;
+                unsigned line;
 
-        assert(link);
-        assert(link->network);
+                /* TODO: check if the prefix length is small enough for the pool. */
 
-        if (!link_dhcp4_server_enabled(link))
-                return 0;
+                /* If an address is explicitly specified, then check if the corresponding [Address] section
+                 * is configured, and add one if not. */
 
-        if (!in4_addr_is_set(&link->network->dhcp_server_address))
-                return 0;
+                existing = set_get(*addresses,
+                                   &(Address) {
+                                           .family = AF_INET,
+                                           .in_addr.in = network->dhcp_server_address_in_addr,
+                                           .prefixlen = network->dhcp_server_address_prefixlen,
+                                   });
+                if (existing) {
+                        /* Corresponding [Address] section already exists. */
+                        network->dhcp_server_address = existing;
+                        return 0;
+                }
 
-        r = address_new(&address);
-        if (r < 0)
-                return r;
+                r = ordered_hashmap_by_section_find_unused_line(network->addresses_by_section, network->filename, &line);
+                if (r < 0)
+                        return log_warning_errno(r, "%s: Failed to find unused line number for DHCP server address: %m",
+                                                 network->filename);
 
-        address->source = NETWORK_CONFIG_SOURCE_STATIC;
-        address->family = AF_INET;
-        address->in_addr.in = link->network->dhcp_server_address;
-        address->prefixlen = link->network->dhcp_server_address_prefixlen;
+                r = address_new_static(network, network->filename, line, &a);
+                if (r < 0)
+                        return log_warning_errno(r, "%s: Failed to add new static address object for DHCP server: %m",
+                                                 network->filename);
 
-        if (address_get_harder(link, address, &existing) >= 0 &&
-            (address_exists(existing) || address_is_requesting(existing)) &&
-            existing->source == NETWORK_CONFIG_SOURCE_STATIC)
-                /* The same address seems explicitly configured in [Address] or [Network] section.
-                 * Configure the DHCP server address only when it is not. */
-                return 0;
+                a->family = AF_INET;
+                a->prefixlen = network->dhcp_server_address_prefixlen;
+                a->in_addr.in = network->dhcp_server_address_in_addr;
+                a->requested_as_null = !in4_addr_is_set(&network->dhcp_server_address_in_addr);
 
-        return link_request_static_address(link, address);
-}
+                r = address_section_verify(a);
+                if (r < 0)
+                        return r;
 
-static int link_find_dhcp_server_address(Link *link, Address **ret) {
-        Address *address;
+                r = set_ensure_put(addresses, &address_hash_ops, a);
+                if (r < 0)
+                        return log_oom();
+                assert(r > 0);
 
-        assert(link);
-        assert(link->network);
-
-        /* If ServerAddress= is specified, then use the address. */
-        if (in4_addr_is_set(&link->network->dhcp_server_address))
-                return link_get_ipv4_address(link, &link->network->dhcp_server_address,
-                                             link->network->dhcp_server_address_prefixlen, ret);
-
-        /* If not, then select one from static addresses. */
-        SET_FOREACH(address, link->addresses) {
-                if (address->source != NETWORK_CONFIG_SOURCE_STATIC)
-                        continue;
-                if (!address_exists(address))
-                        continue;
-                if (address->family != AF_INET)
-                        continue;
-                if (in4_addr_is_localhost(&address->in_addr.in))
-                        continue;
-                if (in4_addr_is_link_local(&address->in_addr.in))
-                        continue;
-                if (in4_addr_is_set(&address->in_addr_peer.in))
-                        continue;
-
-                *ret = address;
-                return 0;
+                network->dhcp_server_address = TAKE_PTR(a);
         }
 
-        return -ENOENT;
+        return 0;
 }
 
 static int dhcp_server_find_uplink(Link *link, Link **ret) {
@@ -369,6 +360,8 @@ static int dhcp4_server_configure(Link *link) {
         int r;
 
         assert(link);
+        assert(link->network);
+        assert(link->network->dhcp_server_address);
 
         log_link_debug(link, "Configuring DHCP Server.");
 
@@ -387,7 +380,7 @@ static int dhcp4_server_configure(Link *link) {
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to set callback for DHCPv4 server instance: %m");
 
-        r = link_find_dhcp_server_address(link, &address);
+        r = address_get(link, link->network->dhcp_server_address, &address);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to find suitable address for DHCPv4 server instance: %m");
 
@@ -535,6 +528,8 @@ static bool dhcp_server_is_ready_to_configure(Link *link) {
         Address *a;
 
         assert(link);
+        assert(link->network);
+        assert(link->network->dhcp_server_address);
 
         if (!link_is_ready_to_configure(link, /* allow_unmanaged = */ false))
                 return false;
@@ -545,7 +540,7 @@ static bool dhcp_server_is_ready_to_configure(Link *link) {
         if (!link->static_addresses_configured)
                 return false;
 
-        if (link_find_dhcp_server_address(link, &a) < 0)
+        if (address_get(link, link->network->dhcp_server_address, &a) < 0)
                 return false;
 
         if (!address_is_ready(a))
@@ -711,7 +706,7 @@ int config_parse_dhcp_server_address(
         assert(rvalue);
 
         if (isempty(rvalue)) {
-                network->dhcp_server_address = (struct in_addr) {};
+                network->dhcp_server_address_in_addr = (struct in_addr) {};
                 network->dhcp_server_address_prefixlen = 0;
                 return 0;
         }
@@ -722,14 +717,14 @@ int config_parse_dhcp_server_address(
                            "Failed to parse %s=, ignoring assignment: %s", lvalue, rvalue);
                 return 0;
         }
-        if (in4_addr_is_null(&a.in) || in4_addr_is_localhost(&a.in)) {
+        if (in4_addr_is_localhost(&a.in) || in4_addr_is_link_local(&a.in)) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "DHCP server address cannot be the ANY address or a localhost address, "
+                           "DHCP server address cannot be a localhost or link-local address, "
                            "ignoring assignment: %s", rvalue);
                 return 0;
         }
 
-        network->dhcp_server_address = a.in;
+        network->dhcp_server_address_in_addr = a.in;
         network->dhcp_server_address_prefixlen = prefixlen;
         return 0;
 }
