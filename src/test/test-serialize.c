@@ -225,6 +225,37 @@ TEST(serialize_item_base64mem) {
         assert_se(streq(line, "a=////"));
 }
 
+TEST(serialize_string_set) {
+        _cleanup_(unlink_tempfilep) char fn[] = "/tmp/test-serialize.XXXXXX";
+        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_set_free_free_ Set *s = NULL;
+        _cleanup_free_ char *line1 = NULL, *line2 = NULL;
+        char *p, *q;
+
+        assert_se(fmkostemp_safe(fn, "r+", &f) == 0);
+        log_info("/* %s (%s) */", __func__, fn);
+
+        assert_se(set_ensure_allocated(&s, &string_hash_ops) >= 0);
+
+        assert_se(serialize_string_set(f, "a", s) == 0);
+
+        assert_se(set_put_strsplit(s, "abc def,ghi jkl", ",", 0) >= 0);
+
+        assert_se(serialize_string_set(f, "a", s) == 1);
+
+        rewind(f);
+
+        assert_se(read_line(f, LONG_LINE_MAX, &line1) > 0);
+        assert_se((p = startswith(line1, "a=")));
+
+        assert_se(read_line(f, LONG_LINE_MAX, &line2) > 0);
+        assert_se((q = startswith(line2, "a=")));
+
+        assert_se(!streq(p, q));
+        assert_se(STR_IN_SET(p, "abc def", "ghi jkl"));
+        assert_se(STR_IN_SET(q, "abc def", "ghi jkl"));
+}
+
 static int intro(void) {
         memset(long_string, 'x', sizeof(long_string)-1);
         char_array_0(long_string);
