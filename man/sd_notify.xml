@@ -300,6 +300,9 @@
         below. The service manager will set the <varname>$FDSTORE</varname> environment variable for services
         that have the file descriptor store enabled.</para>
 
+        <para>For further information on the file descriptor store see the <ulink
+        url="https://systemd.io/FILE_DESCRIPTOR_STORE">File Descriptor Store</ulink> overview.</para>
+
         <xi:include href="version-info.xml" xpointer="v219"/></listitem>
       </varlistentry>
 
