@@ -7,6 +7,7 @@
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "hexdecoct.h"
 #include "memfd-util.h"
 #include "missing_mman.h"
 #include "missing_syscall.h"
@@ -171,6 +172,28 @@ int serialize_pidref(FILE *f, FDSet *fds, const char *key, PidRef *pidref) {
                 return log_error_errno(copy, "Failed to add file descriptor to serialization set: %m");
 
         return serialize_item_format(f, key, "@%i", copy);
+}
+
+int serialize_item_hexmem(FILE *f, const char *key, const void *p, size_t l) {
+        _cleanup_free_ char *encoded = NULL;
+        int r;
+
+        assert(f);
+        assert(key);
+        assert(p || l == 0);
+
+        if (l == 0)
+                return 0;
+
+        encoded = hexmem(p, l);
+        if (!encoded)
+                return log_oom_debug();
+
+        r = serialize_item(f, key, encoded);
+        if (r < 0)
+                return r;
+
+        return 1;
 }
 
 int deserialize_read_line(FILE *f, char **ret) {
