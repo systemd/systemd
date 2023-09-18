@@ -363,10 +363,13 @@ static void address_hash_func(const Address *a, struct siphash *state) {
                 uint32_t prefix = address_prefix(a);
                 siphash24_compress(&prefix, sizeof(prefix), state);
 
-                _fallthrough_;
-        case AF_INET6:
-                siphash24_compress(&a->in_addr, FAMILY_ADDRESS_SIZE(a->family), state);
+                siphash24_compress(&a->in_addr.in, sizeof(a->in_addr.in), state);
                 break;
+
+        case AF_INET6:
+                siphash24_compress(&a->in_addr.in6, sizeof(a->in_addr.in6), state);
+                break;
+
         default:
                 /* treat any other address family as AF_UNSPEC */
                 break;
@@ -391,10 +394,12 @@ static int address_compare_func(const Address *a1, const Address *a2) {
                 if (r != 0)
                         return r;
 
-                _fallthrough_;
+                return memcmp(&a1->in_addr.in, &a2->in_addr.in, sizeof(a1->in_addr.in));
+
         case AF_INET6:
                 /* See kernel's ipv6_get_ifaddr() in net/ipv6/addrconf.c */
-                return memcmp(&a1->in_addr, &a2->in_addr, FAMILY_ADDRESS_SIZE(a1->family));
+                return memcmp(&a1->in_addr.in6, &a2->in_addr.in6, sizeof(a1->in_addr.in6));
+
         default:
                 /* treat any other address family as AF_UNSPEC */
                 return 0;
