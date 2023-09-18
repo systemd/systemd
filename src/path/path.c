@@ -17,7 +17,7 @@
 #include "string-util.h"
 
 static const char *arg_suffix = NULL;
-PagerFlags arg_pager_flags = 0;
+static PagerFlags arg_pager_flags = 0;
 
 static const char* const path_table[_SD_PATH_MAX] = {
         [SD_PATH_TEMPORARY]                                   = "temporary",
