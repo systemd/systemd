@@ -35,6 +35,10 @@ test_append_files() {
         dinfo "Install the unit test binaries needed by the TEST-02-UNITTESTS at runtime"
         inst_recursive "${SOURCE_DIR}/unit-tests"
     fi
+
+    if modprobe -nv btrfs &>/dev/null && command -v btrfs >/dev/null; then
+        install_btrfs
+    fi
 }
 
 check_result_nspawn() {
