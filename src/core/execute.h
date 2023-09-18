@@ -506,6 +506,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(ExecRuntime*, exec_runtime_free);
 ExecRuntime* exec_runtime_destroy(ExecRuntime *rt);
 
 void exec_params_clear(ExecParameters *p);
+void exec_params_dump(const ExecParameters *p, FILE* f, const char *prefix);
 
 bool exec_context_get_cpu_affinity_from_numa(const ExecContext *c);
 
