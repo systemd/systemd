@@ -196,6 +196,27 @@ int serialize_item_base64mem(FILE *f, const char *key, const void *p, size_t l) 
         return 1;
 }
 
+int serialize_string_set(FILE *f, const char *key, Set *s) {
+        _cleanup_free_ char *serialized = NULL;
+        int r;
+
+        assert(f);
+        assert(key);
+
+        if (set_isempty(s))
+                return 0;
+
+        r = set_strjoin(s, " ", /* wrap_with_separator= */ false, &serialized);
+        if (r < 0)
+                return r;
+
+        r = serialize_item(f, key, serialized);
+        if (r < 0)
+                return r;
+
+        return 1;
+}
+
 int deserialize_read_line(FILE *f, char **ret) {
         _cleanup_free_ char *line = NULL;
         int r;
