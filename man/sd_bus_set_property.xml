@@ -162,12 +162,12 @@
 
   <refsect1>
     <title>History</title>
-    <para><function>sd_bus_get_property()</function> was added in version 246.</para>
-    <para><function>sd_bus_get_property_string()</function> was added in version 246.</para>
-    <para><function>sd_bus_get_property_strv()</function> was added in version 246.</para>
-    <para><function>sd_bus_get_property_trivial()</function> was added in version 246.</para>
-    <para><function>sd_bus_set_property()</function> was added in version 246.</para>
-    <para><function>sd_bus_set_propertyv()</function> was added in version 246.</para>
+    <para><function>sd_bus_set_property()</function>,
+    <function>sd_bus_set_propertyv()</function>,
+    <function>sd_bus_get_property()</function>,
+    <function>sd_bus_get_property_trivial()</function>,
+    <function>sd_bus_get_property_string()</function>, and
+    <function>sd_bus_get_property_strv()</function> were added in version 246.</para>
   </refsect1>
 
   <refsect1>

@@ -297,14 +297,15 @@
 
   <refsect1>
     <title>History</title>
-    <para><function>sd_event_add_io()</function> was added in version 229.</para>
-    <para><function>sd_event_source_get_io_events()</function> was added in version 229.</para>
-    <para><function>sd_event_source_get_io_fd()</function> was added in version 229.</para>
-    <para><function>sd_event_source_get_io_revents()</function> was added in version 229.</para>
-    <para><function>sd_event_source_set_io_events()</function> was added in version 229.</para>
-    <para><function>sd_event_source_set_io_fd()</function> was added in version 229.</para>
-    <para><function>sd_event_source_get_io_fd_own()</function> was added in version 239.</para>
-    <para><function>sd_event_source_set_io_fd_own()</function> was added in version 239.</para>
+    <para><function>sd_event_io_handler_t()</function>,
+    <function>sd_event_add_io()</function>,
+    <function>sd_event_source_get_io_events()</function>,
+    <function>sd_event_source_set_io_events()</function>,
+    <function>sd_event_source_get_io_revents()</function>,
+    <function>sd_event_source_get_io_fd()</function>, and
+    <function>sd_event_source_set_io_fd()</function> were added in version 229.</para>
+    <para><function>sd_event_source_get_io_fd_own()</function> and
+    <function>sd_event_source_set_io_fd_own()</function> were added in version 239.</para>
   </refsect1>
 
   <refsect1>

@@ -303,14 +303,15 @@
 
   <refsect1>
     <title>History</title>
-    <para><function>sd_event_add_time()</function> was added in version 213.</para>
-    <para><function>sd_event_source_get_time()</function> was added in version 213.</para>
-    <para><function>sd_event_source_get_time_accuracy()</function> was added in version 213.</para>
-    <para><function>sd_event_source_get_time_clock()</function> was added in version 213.</para>
-    <para><function>sd_event_source_set_time()</function> was added in version 213.</para>
-    <para><function>sd_event_source_set_time_accuracy()</function> was added in version 213.</para>
-    <para><function>sd_event_add_time_relative()</function> was added in version 247.</para>
-    <para><function>sd_event_source_set_time_relative()</function> was added in version 247.</para>
+    <para><function>sd_event_add_time()</function>,
+    <function>sd_event_source_get_time()</function>,
+    <function>sd_event_source_set_time()</function>,
+    <function>sd_event_source_get_time_accuracy()</function>,
+    <function>sd_event_source_set_time_accuracy()</function>, and
+    <function>sd_event_source_get_time_clock()</function> were added in version 213.</para>
+    <para><function>sd_event_time_handler_t()</function> was added in version 217.</para>
+    <para><function>sd_event_add_time_relative()</function> and
+    <function>sd_event_source_set_time_relative()</function> were added in version 247.</para>
   </refsect1>
 
   <refsect1>

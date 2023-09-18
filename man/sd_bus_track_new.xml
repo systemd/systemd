@@ -220,15 +220,15 @@
 
   <refsect1>
     <title>History</title>
-    <para><function>sd_bus_track_get_bus()</function> was added in version 232.</para>
-    <para><function>sd_bus_track_get_recursive()</function> was added in version 232.</para>
-    <para><function>sd_bus_track_get_userdata()</function> was added in version 232.</para>
-    <para><function>sd_bus_track_new()</function> was added in version 232.</para>
-    <para><function>sd_bus_track_ref()</function> was added in version 232.</para>
-    <para><function>sd_bus_track_set_recursive()</function> was added in version 232.</para>
-    <para><function>sd_bus_track_set_userdata()</function> was added in version 232.</para>
-    <para><function>sd_bus_track_unref()</function> was added in version 232.</para>
-    <para><function>sd_bus_track_unrefp()</function> was added in version 232.</para>
+    <para><function>sd_bus_track_new()</function>,
+    <function>sd_bus_track_ref()</function>,
+    <function>sd_bus_track_unref()</function>,
+    <function>sd_bus_track_unrefp()</function>,
+    <function>sd_bus_track_get_recursive()</function>,
+    <function>sd_bus_track_set_recursive()</function>,
+    <function>sd_bus_track_get_bus()</function>,
+    <function>sd_bus_track_get_userdata()</function>, and
+    <function>sd_bus_track_set_userdata()</function> were added in version 232.</para>
   </refsect1>
 
   <refsect1>

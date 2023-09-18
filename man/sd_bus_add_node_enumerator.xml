@@ -135,7 +135,8 @@
 
   <refsect1>
     <title>History</title>
-    <para><function>sd_bus_add_node_enumerator()</function> was added in version 246.</para>
+    <para><function>sd_bus_node_enumerator_t()</function> and
+    <function>sd_bus_add_node_enumerator()</function> were added in version 246.</para>
   </refsect1>
 
   <refsect1>
