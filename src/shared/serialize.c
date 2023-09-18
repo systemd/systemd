@@ -195,6 +195,28 @@ int serialize_item_base64mem(FILE *f, const char *key, const void *p, size_t l) 
         return 1;
 }
 
+int serialize_string_set(FILE *f, const char *key, Set *s) {
+        _cleanup_free_ char *serialized = NULL;
+        const char *e;
+        int r;
+
+        assert(f);
+        assert(key);
+
+        if (set_isempty(s))
+                return 0;
+
+        /* Serialize as individual items, as each element might contain separators and escapes */
+
+        SET_FOREACH(e, s) {
+                r = serialize_item(f, key, e);
+                if (r < 0)
+                        return r;
+        }
+
+        return 1;
+}
+
 int deserialize_read_line(FILE *f, char **ret) {
         _cleanup_free_ char *line = NULL;
         int r;
