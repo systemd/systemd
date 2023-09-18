@@ -137,12 +137,12 @@
 
   <refsect1>
     <title>History</title>
-    <para><function>sd_bus_message_get_auto_start()</function> was added in version 240.</para>
-    <para><function>sd_bus_message_get_expect_reply()</function> was added in version 240.</para>
-    <para><function>sd_bus_message_set_auto_start()</function> was added in version 240.</para>
-    <para><function>sd_bus_message_set_expect_reply()</function> was added in version 240.</para>
-    <para><function>sd_bus_message_get_allow_interactive_authorization()</function> was added in version 246.</para>
-    <para><function>sd_bus_message_set_allow_interactive_authorization()</function> was added in version 246.</para>
+    <para><function>sd_bus_message_set_expect_reply()</function>,
+    <function>sd_bus_message_get_expect_reply()</function>,
+    <function>sd_bus_message_set_auto_start()</function>, and
+    <function>sd_bus_message_get_auto_start()</function> were added in version 240.</para>
+    <para><function>sd_bus_message_set_allow_interactive_authorization()</function> and
+    <function>sd_bus_message_get_allow_interactive_authorization()</function> were added in version 246.</para>
   </refsect1>
 
   <refsect1>

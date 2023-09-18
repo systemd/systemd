@@ -144,11 +144,8 @@
   <refsect1>
     <title>History</title>
 
-    <para>In the past, <function>sd_seat_can_multi_session()</function> was used to check whether the seat
-    supports multiple sessions. All seats support that now, so that function has been deprecated and always
-    returns true.</para>
-    <para><function>sd_seat_can_graphical()</function> was added in version 186.</para>
-    <para><function>sd_seat_can_tty()</function> was added in version 186.</para>
+    <para><function>sd_seat_can_tty()</function> and
+    <function>sd_seat_can_graphical()</function> were added in version 186.</para>
   </refsect1>
 
   <refsect1>

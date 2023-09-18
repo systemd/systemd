@@ -104,8 +104,8 @@
 
   <refsect1>
     <title>History</title>
-    <para><function>sd_machine_get_class()</function> was added in version 217.</para>
-    <para><function>sd_machine_get_ifindices()</function> was added in version 217.</para>
+    <para><function>sd_machine_get_class()</function> and
+    <function>sd_machine_get_ifindices()</function> were added in version 217.</para>
   </refsect1>
 
   <refsect1>

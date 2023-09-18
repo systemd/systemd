@@ -346,13 +346,13 @@
     <para><function>sd_session_get_state()</function> was added in version 186.</para>
     <para><function>sd_session_get_tty()</function> was added in version 198.</para>
     <para><function>sd_session_get_vt()</function> was added in version 207.</para>
-    <para><function>sd_session_get_remote_host()</function> was added in version 209.</para>
-    <para><function>sd_session_get_remote_user()</function> was added in version 209.</para>
-    <para><function>sd_session_is_remote()</function> was added in version 209.</para>
+    <para><function>sd_session_is_remote()</function>,
+    <function>sd_session_get_remote_host()</function>, and
+    <function>sd_session_get_remote_user()</function> were added in version 209.</para>
     <para><function>sd_session_get_desktop()</function> was added in version 217.</para>
-    <para><function>sd_session_get_leader()</function> was added in version 254.</para>
-    <para><function>sd_session_get_start_time()</function> was added in version 254.</para>
-    <para><function>sd_session_get_username()</function> was added in version 254.</para>
+    <para><function>sd_session_get_username()</function>,
+    <function>sd_session_get_start_time()</function>, and
+    <function>sd_session_get_leader()</function> were added in version 254.</para>
   </refsect1>
 
   <refsect1>

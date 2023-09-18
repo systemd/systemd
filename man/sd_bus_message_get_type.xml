@@ -153,13 +153,13 @@
 
   <refsect1>
     <title>History</title>
-    <para><function>sd_bus_message_get_type()</function> was added in version 240.</para>
-    <para><function>sd_bus_message_is_method_call()</function> was added in version 240.</para>
-    <para><function>sd_bus_message_is_method_error()</function> was added in version 240.</para>
-    <para><function>sd_bus_message_is_signal()</function> was added in version 240.</para>
-    <para><function>sd_bus_message_get_creds()</function> was added in version 246.</para>
-    <para><function>sd_bus_message_get_errno()</function> was added in version 246.</para>
-    <para><function>sd_bus_message_get_error()</function> was added in version 246.</para>
+    <para><function>sd_bus_message_get_type()</function>,
+    <function>sd_bus_message_is_signal()</function>,
+    <function>sd_bus_message_is_method_call()</function>, and
+    <function>sd_bus_message_is_method_error()</function> were added in version 240.</para>
+    <para><function>sd_bus_message_get_error()</function>,
+    <function>sd_bus_message_get_errno()</function>, and
+    <function>sd_bus_message_get_creds()</function> were added in version 246.</para>
   </refsect1>
 
   <refsect1>

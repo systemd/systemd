@@ -200,12 +200,12 @@
 
   <refsect1>
     <title>History</title>
-    <para><function>sd_event_default()</function> was added in version 213.</para>
-    <para><function>sd_event_new()</function> was added in version 213.</para>
-    <para><function>sd_event_ref()</function> was added in version 213.</para>
-    <para><function>sd_event_unref()</function> was added in version 213.</para>
-    <para><function>sd_event_get_tid()</function> was added in version 229.</para>
-    <para><function>sd_event_unrefp()</function> was added in version 229.</para>
+    <para><function>sd_event_new()</function>,
+    <function>sd_event_default()</function>,
+    <function>sd_event_ref()</function>, and
+    <function>sd_event_unref()</function> were added in version 213.</para>
+    <para><function>sd_event_unrefp()</function> and
+    <function>sd_event_get_tid()</function> were added in version 229.</para>
   </refsect1>
 
   <refsect1>
