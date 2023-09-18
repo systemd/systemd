@@ -345,7 +345,9 @@ static void scope_enter_signal(Scope *s, ScopeState state, ScopeResult f) {
                                 state != SCOPE_STOP_SIGTERM ? KILL_KILL :
                                 s->was_abandoned            ? KILL_TERMINATE_AND_LOG :
                                                               KILL_TERMINATE,
-                                -1, -1, false);
+                                /* main_pid= */ NULL,
+                                /* control_pid= */ NULL,
+                                /* main_pid_alien= */ false);
                 if (r < 0)
                         goto fail;
         }
@@ -370,8 +372,8 @@ fail:
 }
 
 static int scope_enter_start_chown(Scope *s) {
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         Unit *u = UNIT(s);
-        pid_t pid;
         int r;
 
         assert(s);
@@ -381,7 +383,7 @@ static int scope_enter_start_chown(Scope *s) {
         if (r < 0)
                 return r;
 
-        r = unit_fork_helper_process(u, "(sd-chown-cgroup)", &pid);
+        r = unit_fork_helper_process(u, "(sd-chown-cgroup)", &pidref);
         if (r < 0)
                 goto fail;
 
@@ -418,7 +420,7 @@ static int scope_enter_start_chown(Scope *s) {
                 _exit(EXIT_SUCCESS);
         }
 
-        r = unit_watch_pid(UNIT(s), pid, true);
+        r = unit_watch_pid(UNIT(s), pidref.pid, /* exclusive= */ true);
         if (r < 0)
                 goto fail;
 
@@ -529,10 +531,6 @@ static void scope_reset_failed(Unit *u) {
                 scope_set_state(s, SCOPE_DEAD);
 
         s->result = SCOPE_SUCCESS;
-}
-
-static int scope_kill(Unit *u, KillWho who, int signo, int code, int value, sd_bus_error *error) {
-        return unit_kill_common(u, who, signo, code, value, -1, -1, error);
 }
 
 static int scope_get_timeout(Unit *u, usec_t *timeout) {
@@ -827,8 +825,6 @@ const UnitVTable scope_vtable = {
 
         .start = scope_start,
         .stop = scope_stop,
-
-        .kill = scope_kill,
 
         .freeze = unit_freeze_vtable_common,
         .thaw = unit_thaw_vtable_common,

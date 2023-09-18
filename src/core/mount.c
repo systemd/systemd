@@ -1036,9 +1036,9 @@ static void mount_enter_signal(Mount *m, MountState state, MountResult f) {
                         UNIT(m),
                         &m->kill_context,
                         state_to_kill_operation(state),
-                        -1,
-                        m->control_pid.pid,
-                        false);
+                        /* main_pid= */ NULL,
+                        &m->control_pid,
+                        /* main_pid_alien= */ false);
         if (r < 0)
                 goto fail;
 
@@ -2213,26 +2213,13 @@ static void mount_reset_failed(Unit *u) {
         m->clean_result = MOUNT_SUCCESS;
 }
 
-static int mount_kill(Unit *u, KillWho who, int signo, int code, int value, sd_bus_error *error) {
-        Mount *m = MOUNT(u);
-
-        assert(m);
-
-        return unit_kill_common(u, who, signo, code, value, -1, m->control_pid.pid, error);
-}
-
-static int mount_control_pid(Unit *u) {
-        Mount *m = MOUNT(u);
-
-        assert(m);
-
-        return m->control_pid.pid;
+static PidRef* mount_control_pid(Unit *u) {
+        return &ASSERT_PTR(MOUNT(u))->control_pid;
 }
 
 static int mount_clean(Unit *u, ExecCleanMask mask) {
         _cleanup_strv_free_ char **l = NULL;
         Mount *m = MOUNT(u);
-        pid_t pid;
         int r;
 
         assert(m);
@@ -2257,11 +2244,7 @@ static int mount_clean(Unit *u, ExecCleanMask mask) {
         if (r < 0)
                 goto fail;
 
-        r = unit_fork_and_watch_rm_rf(u, l, &pid);
-        if (r < 0)
-                goto fail;
-
-        r = pidref_set_pid(&m->control_pid, pid);
+        r = unit_fork_and_watch_rm_rf(u, l, &m->control_pid);
         if (r < 0)
                 goto fail;
 
@@ -2358,7 +2341,6 @@ const UnitVTable mount_vtable = {
         .stop = mount_stop,
         .reload = mount_reload,
 
-        .kill = mount_kill,
         .clean = mount_clean,
         .can_clean = mount_can_clean,
 
