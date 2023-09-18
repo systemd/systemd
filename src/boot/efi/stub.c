@@ -10,6 +10,7 @@
 #include "pe.h"
 #include "proto/shell-parameters.h"
 #include "random-seed.h"
+#include "sbat.h"
 #include "secure-boot.h"
 #include "shim.h"
 #include "splash.h"
@@ -21,6 +22,8 @@
 
 /* magic string to find in the binary image */
 _used_ _section_(".sdmagic") static const char magic[] = "#### LoaderInfo: systemd-stub " GIT_VERSION " ####";
+
+DECLARE_SBAT(SBAT_STUB_SECTION_TEXT);
 
 static EFI_STATUS combine_initrd(
                 EFI_PHYSICAL_ADDRESS initrd_base, size_t initrd_size,
