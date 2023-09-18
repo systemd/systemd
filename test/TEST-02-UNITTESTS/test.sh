@@ -35,6 +35,10 @@ test_append_files() {
         dinfo "Install the unit test binaries needed by the TEST-02-UNITTESTS at runtime"
         inst_recursive "${SOURCE_DIR}/unit-tests"
     fi
+
+    if command -v btrfs >/dev/null; then
+        image_install btrfs sync
+    fi
 }
 
 check_result_nspawn() {

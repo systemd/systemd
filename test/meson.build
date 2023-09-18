@@ -330,3 +330,19 @@ if want_tests != 'false' and conf.get('ENABLE_KERNEL_INSTALL') == 1
              depends : deps,
              suite : 'kernel-install')
 endif
+
+############################################################
+
+test_btrfs_physical_offset_sh = files('test-btrfs-physical-offset.sh')
+if want_tests != 'false'
+        exe = executables_by_name.get('test-btrfs-physical-offset')
+        test('test-btrfs-physical-offset',
+             test_btrfs_physical_offset_sh,
+             args : exe.full_path(),
+             depends : exe,
+             suite : 'test')
+endif
+if install_tests
+        install_data(test_btrfs_physical_offset_sh,
+                     install_dir : unittestsdir)
+endif
