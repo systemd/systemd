@@ -133,6 +133,13 @@ Deprecations and removals:
 
 Features:
 
+* make systemd-pcrphase accessible via varlink so that clients can measure
+  things reasonably freely, and get a proper entry in the TPM event log we
+  maintain, correctly synchronized
+
+* add some service that makes an atomic snapshot of PCR state and event log up
+  to that point available, possibly even with quote by the TPM.
+
 * encode type1 entries in some UKI section to add additional entries to the
   menu.
 
