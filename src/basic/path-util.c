@@ -657,7 +657,14 @@ static int find_executable_impl(const char *name, const char *root, char **ret_f
         return 0;
 }
 
-int find_executable_full(const char *name, const char *root, char **exec_search_path, bool use_path_envvar, char **ret_filename, int *ret_fd) {
+int find_executable_full(
+                const char *name,
+                const char *root,
+                char **exec_search_path,
+                bool use_path_envvar,
+                char **ret_filename,
+                int *ret_fd) {
+
         int last_error = -ENOENT, r = 0;
         const char *p = NULL;
 
