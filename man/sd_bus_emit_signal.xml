@@ -269,18 +269,18 @@
 
   <refsect1>
     <title>History</title>
-    <para><function>sd_bus_emit_interfaces_added()</function> was added in version 246.</para>
-    <para><function>sd_bus_emit_interfaces_added_strv()</function> was added in version 246.</para>
-    <para><function>sd_bus_emit_interfaces_removed()</function> was added in version 246.</para>
-    <para><function>sd_bus_emit_interfaces_removed_strv()</function> was added in version 246.</para>
-    <para><function>sd_bus_emit_object_added()</function> was added in version 246.</para>
-    <para><function>sd_bus_emit_object_removed()</function> was added in version 246.</para>
-    <para><function>sd_bus_emit_properties_changed()</function> was added in version 246.</para>
-    <para><function>sd_bus_emit_properties_changed_strv()</function> was added in version 246.</para>
-    <para><function>sd_bus_emit_signal()</function> was added in version 246.</para>
-    <para><function>sd_bus_emit_signalv()</function> was added in version 246.</para>
-    <para><function>sd_bus_emit_signal_to()</function> was added in version 253.</para>
-    <para><function>sd_bus_emit_signal_tov()</function> was added in version 253.</para>
+    <para><function>sd_bus_emit_signal()</function>,
+    <function>sd_bus_emit_signalv()</function>,
+    <function>sd_bus_emit_interfaces_added()</function>,
+    <function>sd_bus_emit_interfaces_added_strv()</function>,
+    <function>sd_bus_emit_interfaces_removed()</function>,
+    <function>sd_bus_emit_interfaces_removed_strv()</function>,
+    <function>sd_bus_emit_properties_changed()</function>,
+    <function>sd_bus_emit_properties_changed_strv()</function>,
+    <function>sd_bus_emit_object_added()</function>, and
+    <function>sd_bus_emit_object_removed()</function> were added in version 246.</para>
+    <para><function>sd_bus_emit_signal_to()</function> and
+    <function>sd_bus_emit_signal_tov()</function> were added in version 253.</para>
   </refsect1>
 
   <refsect1>

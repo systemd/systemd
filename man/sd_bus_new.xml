@@ -184,14 +184,14 @@
 
   <refsect1>
     <title>History</title>
-    <para><function>sd_bus_new()</function> was added in version 209.</para>
-    <para><function>sd_bus_ref()</function> was added in version 209.</para>
-    <para><function>sd_bus_unref()</function> was added in version 209.</para>
+    <para><function>sd_bus_new()</function>,
+    <function>sd_bus_ref()</function>, and
+    <function>sd_bus_unref()</function> were added in version 209.</para>
     <para><function>sd_bus_unrefp()</function> was added in version 229.</para>
-    <para><function>sd_bus_flush_close_unref()</function> was added in version 240.</para>
-    <para><function>sd_bus_flush_close_unrefp()</function> was added in version 240.</para>
-    <para><function>sd_bus_close_unref()</function> was added in version 241.</para>
-    <para><function>sd_bus_close_unrefp()</function> was added in version 241.</para>
+    <para><function>sd_bus_flush_close_unref()</function> and
+    <function>sd_bus_flush_close_unrefp()</function> were added in version 240.</para>
+    <para><function>sd_bus_close_unref()</function> and
+    <function>sd_bus_close_unrefp()</function> were added in version 241.</para>
   </refsect1>
 
   <refsect1>

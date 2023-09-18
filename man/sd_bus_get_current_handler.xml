@@ -76,10 +76,10 @@
 
   <refsect1>
     <title>History</title>
-    <para><function>sd_bus_get_current_handler()</function> was added in version 246.</para>
-    <para><function>sd_bus_get_current_message()</function> was added in version 246.</para>
-    <para><function>sd_bus_get_current_slot()</function> was added in version 246.</para>
-    <para><function>sd_bus_get_current_userdata()</function> was added in version 246.</para>
+    <para><function>sd_bus_get_current_handler()</function>,
+    <function>sd_bus_get_current_message()</function>,
+    <function>sd_bus_get_current_slot()</function>, and
+    <function>sd_bus_get_current_userdata()</function> were added in version 246.</para>
   </refsect1>
 
   <refsect1>

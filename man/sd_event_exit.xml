@@ -133,8 +133,8 @@
 
   <refsect1>
     <title>History</title>
-    <para><function>sd_event_exit()</function> was added in version 229.</para>
-    <para><function>sd_event_get_exit_code()</function> was added in version 229.</para>
+    <para><function>sd_event_exit()</function> and
+    <function>sd_event_get_exit_code()</function> were added in version 229.</para>
   </refsect1>
 
   <refsect1>

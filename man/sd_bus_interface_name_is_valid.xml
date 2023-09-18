@@ -89,10 +89,10 @@
 
   <refsect1>
     <title>History</title>
-    <para><function>sd_bus_interface_name_is_valid()</function> was added in version 246.</para>
-    <para><function>sd_bus_member_name_is_valid()</function> was added in version 246.</para>
-    <para><function>sd_bus_object_path_is_valid()</function> was added in version 246.</para>
-    <para><function>sd_bus_service_name_is_valid()</function> was added in version 246.</para>
+    <para><function>sd_bus_interface_name_is_valid()</function>,
+    <function>sd_bus_service_name_is_valid()</function>,
+    <function>sd_bus_member_name_is_valid()</function>, and
+    <function>sd_bus_object_path_is_valid()</function> were added in version 246.</para>
   </refsect1>
 
   <refsect1>

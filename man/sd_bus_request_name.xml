@@ -204,10 +204,10 @@
 
   <refsect1>
     <title>History</title>
-    <para><function>sd_bus_release_name()</function> was added in version 209.</para>
-    <para><function>sd_bus_request_name()</function> was added in version 209.</para>
-    <para><function>sd_bus_release_name_async()</function> was added in version 237.</para>
-    <para><function>sd_bus_request_name_async()</function> was added in version 237.</para>
+    <para><function>sd_bus_request_name()</function> and
+    <function>sd_bus_release_name()</function> were added in version 209.</para>
+    <para><function>sd_bus_request_name_async()</function> and
+    <function>sd_bus_release_name_async()</function> were added in version 237.</para>
   </refsect1>
 
   <refsect1>

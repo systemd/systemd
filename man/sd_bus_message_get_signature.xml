@@ -100,9 +100,9 @@
 
   <refsect1>
     <title>History</title>
-    <para><function>sd_bus_message_get_signature()</function> was added in version 240.</para>
-    <para><function>sd_bus_message_has_signature()</function> was added in version 240.</para>
-    <para><function>sd_bus_message_is_empty()</function> was added in version 240.</para>
+    <para><function>sd_bus_message_get_signature()</function>,
+    <function>sd_bus_message_is_empty()</function>, and
+    <function>sd_bus_message_has_signature()</function> were added in version 240.</para>
   </refsect1>
 
   <refsect1>

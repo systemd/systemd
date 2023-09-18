@@ -105,8 +105,8 @@
 
   <refsect1>
     <title>History</title>
-    <para><function>sd_bus_slot_get_floating()</function> was added in version 239.</para>
-    <para><function>sd_bus_slot_set_floating()</function> was added in version 239.</para>
+    <para><function>sd_bus_slot_set_floating()</function> and
+    <function>sd_bus_slot_get_floating()</function> were added in version 239.</para>
   </refsect1>
 
   <refsect1>

@@ -153,9 +153,9 @@
 
   <refsect1>
     <title>History</title>
-    <para><function>sd_bus_negotiate_creds()</function> was added in version 212.</para>
-    <para><function>sd_bus_negotiate_fds()</function> was added in version 212.</para>
-    <para><function>sd_bus_negotiate_timestamp()</function> was added in version 212.</para>
+    <para><function>sd_bus_negotiate_fds()</function>,
+    <function>sd_bus_negotiate_timestamp()</function>, and
+    <function>sd_bus_negotiate_creds()</function> were added in version 212.</para>
     <para><function>sd_bus_get_creds_mask()</function> was added in version 246.</para>
   </refsect1>
 

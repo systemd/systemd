@@ -173,11 +173,11 @@
 
   <refsect1>
     <title>History</title>
-    <para><function>sd_bus_message_get_bus()</function> was added in version 240.</para>
-    <para><function>sd_bus_message_new()</function> was added in version 240.</para>
-    <para><function>sd_bus_message_ref()</function> was added in version 240.</para>
-    <para><function>sd_bus_message_unref()</function> was added in version 240.</para>
-    <para><function>sd_bus_message_unrefp()</function> was added in version 240.</para>
+    <para><function>sd_bus_message_new()</function>,
+    <function>sd_bus_message_ref()</function>,
+    <function>sd_bus_message_unref()</function>,
+    <function>sd_bus_message_unrefp()</function>, and
+    <function>sd_bus_message_get_bus()</function> were added in version 240.</para>
   </refsect1>
 
   <refsect1>

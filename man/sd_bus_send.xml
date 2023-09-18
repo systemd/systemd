@@ -168,8 +168,8 @@
 
   <refsect1>
     <title>History</title>
-    <para><function>sd_bus_send()</function> was added in version 246.</para>
-    <para><function>sd_bus_send_to()</function> was added in version 246.</para>
+    <para><function>sd_bus_send()</function> and
+    <function>sd_bus_send_to()</function> were added in version 246.</para>
   </refsect1>
 
   <refsect1>

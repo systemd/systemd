@@ -124,8 +124,8 @@
 
   <refsect1>
     <title>History</title>
-    <para><function>sd_event_source_get_description()</function> was added in version 229.</para>
-    <para><function>sd_event_source_set_description()</function> was added in version 229.</para>
+    <para><function>sd_event_source_set_description()</function> and
+    <function>sd_event_source_get_description()</function> were added in version 229.</para>
   </refsect1>
 
   <refsect1>

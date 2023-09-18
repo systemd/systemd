@@ -102,8 +102,8 @@
 
   <refsect1>
     <title>History</title>
-    <para><function>sd_bus_get_watch_bind()</function> was added in version 237.</para>
-    <para><function>sd_bus_set_watch_bind()</function> was added in version 237.</para>
+    <para><function>sd_bus_set_watch_bind()</function> and
+    <function>sd_bus_get_watch_bind()</function> were added in version 237.</para>
   </refsect1>
 
   <refsect1>
