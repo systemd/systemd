@@ -424,6 +424,8 @@
         <literal>systemd.journald.max_level_kmsg=</literal>,
         <literal>systemd.journald.max_level_console=</literal>,
         <literal>systemd.journald.max_level_wall=</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v185"/>
         </listitem>
       </varlistentry>
 

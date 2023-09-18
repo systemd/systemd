@@ -131,7 +131,9 @@
         <term><option>-u</option></term>
 
         <listitem><para>Use this unit name instead of an automatically
-        generated one.</para></listitem>
+        generated one.</para>
+
+        <xi:include href="version-info.xml" xpointer="v206"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -220,6 +222,8 @@
         <varname>RemainAfterExit=</varname> in
         <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
         </para>
+
+        <xi:include href="version-info.xml" xpointer="v207"/>
         </listitem>
       </varlistentry>
 
@@ -306,7 +310,7 @@
         <para>Also see <varname>Environment=</varname> in
         <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
-        <xi:include href="version-info.xml" xpointer="v250"/>
+        <xi:include href="version-info.xml" xpointer="v211"/>
         </listitem>
       </varlistentry>
 
@@ -432,6 +436,8 @@
         <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
         <command>set-property</command> command. These options may not be combined with
         <option>--scope</option> or <option>--pty</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v218"/>
         </listitem>
       </varlistentry>
 

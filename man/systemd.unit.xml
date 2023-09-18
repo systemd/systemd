@@ -600,6 +600,8 @@
         <replaceable>description</replaceable>.</literal>), so it should be capitalized, and should not be a
         full sentence, or a phrase with a continuous verb. Bad examples include <literal>exiting the
         container</literal> or <literal>updating the database once per day.</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v201"/>
         </listitem>
       </varlistentry>
 
@@ -620,7 +622,9 @@
         once, in which case the specified list of URIs is merged. If
         the empty string is assigned to this option, the list is reset
         and all prior assignments will have no
-        effect.</para></listitem>
+        effect.</para>
+
+        <xi:include href="version-info.xml" xpointer="v201"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -643,7 +647,9 @@
         <filename>bar.service</filename> as configured with <varname>Wants=</varname> and no ordering is
         configured with <varname>After=</varname> or <varname>Before=</varname>, then both units will be
         started simultaneously and without any delay between them if <filename>foo.service</filename> is
-        activated.</para></listitem>
+        activated.</para>
+
+        <xi:include href="version-info.xml" xpointer="v201"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -670,7 +676,9 @@
         example, a service process may decide to exit cleanly, or a device may be unplugged by the user), which is not
         propagated to units having a <varname>Requires=</varname> dependency. Use the <varname>BindsTo=</varname>
         dependency type together with <varname>After=</varname> to ensure that a unit may never be in active state
-        without a specific other unit also in active state (see below).</para></listitem>
+        without a specific other unit also in active state (see below).</para>
+
+        <xi:include href="version-info.xml" xpointer="v201"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -688,6 +696,8 @@
         <varname>RequisiteOf=a.service</varname> in property listing of
         <filename>b.service</filename>. <varname>RequisiteOf=</varname>
         dependency cannot be specified directly.</para>
+
+        <xi:include href="version-info.xml" xpointer="v201"/>
         </listitem>
       </varlistentry>
 
@@ -715,6 +725,8 @@
         <varname>BoundBy=a.service</varname> in property listing of
         <filename>b.service</filename>. <varname>BoundBy=</varname>
         dependency cannot be specified directly.</para>
+
+        <xi:include href="version-info.xml" xpointer="v201"/>
         </listitem>
       </varlistentry>
 
@@ -733,6 +745,8 @@
         <varname>ConsistsOf=a.service</varname> in property listing of
         <filename>b.service</filename>. <varname>ConsistsOf=</varname>
         dependency cannot be specified directly.</para>
+
+        <xi:include href="version-info.xml" xpointer="v201"/>
         </listitem>
       </varlistentry>
 
@@ -776,7 +790,9 @@
         required part of the transaction). In the latter case, the job
         that is not required will be removed, or in case both are
         not required, the unit that conflicts will be started and the
-        unit that is conflicted is stopped.</para></listitem>
+        unit that is conflicted is stopped.</para>
+
+        <xi:include href="version-info.xml" xpointer="v201"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -817,14 +833,18 @@
 
         <para>Note that <varname>Before=</varname> dependencies on device units have no effect and are not
         supported.  Devices generally become available as a result of an external hotplug event, and systemd
-        creates the corresponding device unit without delay.</para></listitem>
+        creates the corresponding device unit without delay.</para>
+
+        <xi:include href="version-info.xml" xpointer="v201"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>OnFailure=</varname></term>
 
         <listitem><para>A space-separated list of one or more units that are activated when this unit enters
-        the <literal>failed</literal> state.</para></listitem>
+        the <literal>failed</literal> state.</para>
+
+        <xi:include href="version-info.xml" xpointer="v201"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -843,7 +863,9 @@
         <listitem><para>A space-separated list of one or more units to which reload requests from this unit
         shall be propagated to, or units from which reload requests shall be propagated to this unit,
         respectively. Issuing a reload request on a unit will automatically also enqueue reload requests on
-        all units that are linked to it using these two settings.</para></listitem>
+        all units that are linked to it using these two settings.</para>
+
+        <xi:include href="version-info.xml" xpointer="v201"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -876,7 +898,9 @@
         effect if <varname>PrivateNetwork=</varname>/<varname>NetworkNamespacePath=</varname>,
         <varname>PrivateIPC=</varname>/<varname>IPCNamespacePath=</varname> and/or
         <varname>PrivateTmp=</varname> is enabled for both the unit that joins the namespace and the unit
-        whose namespace is joined.</para></listitem>
+        whose namespace is joined.</para>
+
+        <xi:include href="version-info.xml" xpointer="v209"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -890,7 +914,9 @@
         <para>Mount points marked with <option>noauto</option> are not
         mounted automatically through <filename>local-fs.target</filename>,
         but are still honored for the purposes of this option, i.e. they
-        will be pulled in by this unit.</para></listitem>
+        will be pulled in by this unit.</para>
+
+        <xi:include href="version-info.xml" xpointer="v201"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -911,7 +937,9 @@
         <option>--job-mode=</option> option for details on the
         possible values. If this is set to <literal>isolate</literal>,
         only a single unit may be listed in
-        <varname>OnSuccess=</varname>/<varname>OnFailure=</varname>.</para></listitem>
+        <varname>OnSuccess=</varname>/<varname>OnFailure=</varname>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v209"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -920,7 +948,9 @@
         <listitem><para>Takes a boolean argument. If <option>true</option>, this unit will not be stopped
         when isolating another unit. Defaults to <option>false</option> for service, target, socket, timer,
         and path units, and <option>true</option> for slice, scope, device, swap, mount, and automount
-        units.</para></listitem>
+        units.</para>
+
+        <xi:include href="version-info.xml" xpointer="v201"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -933,7 +963,9 @@
         are conflicting with other units, or the user explicitly
         requested their shut down. If this option is set, a unit will
         be automatically cleaned up if no other active unit requires
-        it. Defaults to <option>false</option>.</para></listitem>
+        it. Defaults to <option>false</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v201"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -950,7 +982,9 @@
         that are not intended to be activated explicitly, and not
         accidentally deactivate units that are not intended to be
         deactivated. These options default to
-        <option>false</option>.</para></listitem>
+        <option>false</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v201"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -963,7 +997,9 @@
         disabled except for target units that shall be used similar to
         runlevels in SysV init systems, just as a precaution to avoid
         unusable system states. This option defaults to
-        <option>false</option>.</para></listitem>
+        <option>false</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v201"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -982,7 +1018,9 @@
         leave this option enabled for the majority of common units. If
         set to <option>no</option>, this option does not disable
         all implicit dependencies, just non-essential
-        ones.</para></listitem>
+        ones.</para>
+
+        <xi:include href="version-info.xml" xpointer="v201"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1080,6 +1118,8 @@
         unit itself. Or in other words: unit-specific timeouts are useful to abort unit state changes, and
         revert them. The job timeout set with this option however is useful to abort only the job waiting for
         the unit state to change.</para>
+
+        <xi:include href="version-info.xml" xpointer="v201"/>
         </listitem>
       </varlistentry>
 
@@ -1138,7 +1178,7 @@
         <para>This setting does not apply to slice, target, device, and scope units, since they are unit
         types whose activation may either never fail, or may succeed only a single time.</para>
 
-        <xi:include href="version-info.xml" xpointer="v236"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v229"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1170,7 +1210,9 @@
         implementation of generator tools that convert configuration
         from an external configuration file format into native unit
         files. This functionality should not be used in normal
-        units.</para></listitem>
+        units.</para>
+
+        <xi:include href="version-info.xml" xpointer="v201"/></listitem>
       </varlistentry>
     </variablelist>
 
@@ -1261,6 +1303,8 @@
           condition. A special architecture name <literal>native</literal> is mapped to the architecture the
           system manager itself is compiled for. The test may be negated by prepending an exclamation
           mark.</para>
+
+          <xi:include href="version-info.xml" xpointer="v201"/>
           </listitem>
         </varlistentry>
 
@@ -1884,6 +1928,8 @@
           only the job queued for it. Use assertion expressions for units that cannot operate when specific
           requirements are not met, and when this is something the administrator or user should look
           into.</para>
+
+          <xi:include href="version-info.xml" xpointer="v218"/>
           </listitem>
         </varlistentry>
       </variablelist>
@@ -2039,7 +2085,9 @@
         in which case all listed names are used. At installation time, <command>systemctl enable</command> will create
         symlinks from these names to the unit filename. Note that not all unit types support such alias names, and this
         setting is not supported for them. Specifically, mount, slice, swap, and automount units do not support
-        aliasing.</para></listitem>
+        aliasing.</para>
+
+        <xi:include href="version-info.xml" xpointer="v201"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -2070,7 +2118,9 @@
         result in <command>systemctl enable monitor@.service</command> creating a
         <filename>container@.target.wants/monitor@.service</filename> link to
         <filename>monitor@.service</filename>, which applies to all instances of
-        <filename>container@.target</filename>.</para></listitem>
+        <filename>container@.target</filename>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v201"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -2085,7 +2135,9 @@
 
         <para>This option may be used more than once, or a
         space-separated list of unit names may be
-        given.</para></listitem>
+        given.</para>
+
+        <xi:include href="version-info.xml" xpointer="v201"/></listitem>
       </varlistentry>
 
       <varlistentry>
