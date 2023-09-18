@@ -133,6 +133,36 @@ Deprecations and removals:
 
 Features:
 
+* encode type1 entries in some UKI section to add additional entries to the
+  menu.
+
+* extend the various CLI tools we have that output JSON already to also read
+  their command to execute from JSON in varlink format, so that you can fork
+  them off and talk to them fully via varlink.
+
+* add a "varlinkctl" tool that allows interacting with varlink services from
+  the shell. In particular add a "--exec=" switch, which allows specifying a
+  binary to invoke to which to talk via stdin/stdout
+
+* make tools that speak varlink over stdin/stdout trivially sockect
+  activatable. i.e. once bootctl, kernel-install, systemd-measure and similar
+  speak varlink make them available via a .socket unit with Accept=yes, so that
+  they can be talked to via IPC out-of-process
+
+* beef up .service units that are socket activated with Accept=yes with options
+  AllowPeerUser= + AllowPeerGroup= to allow trivially simple access control
+  when invoked via socket as IPC services
+
+* when systemd-sysext learns mutable /usr/ (and systemd-confext mutable /etc/)
+  then allow them to store the result in a .v/ versioned subdir, for some basic
+  snapshot logic
+
+* add a new PE binary section ".mokkeys" or so which sd-stub will insert into
+  Mok keyring, by overriding/extending whatever shim sets in the EFI
+  var. Benefit: we can extend the kernel module keyring at ukify time,
+  i.e. without recompiling the kernel, taking an upstrem OS' kernel and adding
+  a local key to it.
+
 * PidRef conversion work:
   - pid_is_unwaited() → pidref_is_unwaited()
   - pid_is_alive() → pidref_is_alive()
