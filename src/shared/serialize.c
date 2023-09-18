@@ -172,6 +172,29 @@ int serialize_item_hexmem(FILE *f, const char *key, const void *p, size_t l) {
         return 1;
 }
 
+int serialize_item_base64mem(FILE *f, const char *key, const void *p, size_t l) {
+        _cleanup_free_ char *encoded = NULL;
+        ssize_t len;
+        int r;
+
+        assert(f);
+        assert(key);
+        assert(p || l == 0);
+
+        if (l == 0)
+                return 0;
+
+        len = base64mem(p, l, &encoded);
+        if (len <= 0)
+                return log_oom_debug();
+
+        r = serialize_item(f, key, encoded);
+        if (r < 0)
+                return r;
+
+        return 1;
+}
+
 int deserialize_read_line(FILE *f, char **ret) {
         _cleanup_free_ char *line = NULL;
         int r;
