@@ -190,6 +190,24 @@ TEST(serialize_environment) {
         assert_se(strv_equal(env, env2));
 }
 
+TEST(serialize_item_hexmem) {
+        _cleanup_(unlink_tempfilep) char fn[] = "/tmp/test-serialize.XXXXXX";
+        _cleanup_fclose_ FILE *f = NULL;
+
+        assert_se(fmkostemp_safe(fn, "r+", &f) == 0);
+        log_info("/* %s (%s) */", __func__, fn);
+
+        assert_se(serialize_item_hexmem(f, "a", NULL, 0) == 0);
+        assert_se(serialize_item_hexmem(f, "a", (uint8_t []){0xff, 0xff, 0xff}, sizeof(uint8_t) * 3) == 1);
+
+        rewind(f);
+
+        _cleanup_free_ char *line = NULL;
+        assert_se(read_line(f, LONG_LINE_MAX, &line) > 0);
+        assert_se(streq(line, "a=ffffff"));
+
+}
+
 static int intro(void) {
         memset(long_string, 'x', sizeof(long_string)-1);
         char_array_0(long_string);
