@@ -1926,7 +1926,7 @@ static int method_do_shutdown_or_sleep(
                 r = can_sleep(a->sleep_operation);
                 if (r == -ENOSPC)
                         return sd_bus_error_set(error, BUS_ERROR_SLEEP_VERB_NOT_SUPPORTED,
-                                                "Not enough swap space for hibernation");
+                                                "Not enough suitable swap space for hibernation available on compatible block devices and file systems");
                 if (r == 0)
                         return sd_bus_error_setf(error, BUS_ERROR_SLEEP_VERB_NOT_SUPPORTED,
                                                  "Sleep verb \"%s\" not supported",
