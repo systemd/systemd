@@ -52,6 +52,8 @@
         specified, this is the implied default.</para>
 
         <para>See the example below for details of the output.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/>
         </listitem>
       </varlistentry>
 
@@ -94,6 +96,8 @@
         JSON output may be requested with <option>--json=</option>.</para>
 
         <para>See the example below for details of the output.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/>
         </listitem>
       </varlistentry>
 
@@ -159,7 +163,9 @@
         <command>systemctl reboot --boot-loader-menu=<replaceable>timeout</replaceable></command>
         to reboot into the boot loader menu once. See
         <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-        for details.</para></listitem>
+        for details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v240"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -174,7 +180,9 @@
         <para>If this is set to <option>menu-hidden</option> or <option>0</option> no menu is shown and
         the default entry will be booted immediately, while setting this to <option>menu-force</option>
         disables the timeout while always showing the menu. When an empty string ("") is specified the
-        bootloader will revert to its default menu timeout.</para></listitem>
+        bootloader will revert to its default menu timeout.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
@@ -192,7 +200,9 @@
         <listitem><para>Installs <command>systemd-boot</command> into the EFI system partition. A copy of
         <command>systemd-boot</command> will be stored as the EFI default/fallback loader at
         <filename><replaceable>ESP</replaceable>/EFI/BOOT/BOOT*.EFI</filename>. The boot loader is then added
-        to the top of the firmware's boot loader list.</para></listitem>
+        to the top of the firmware's boot loader list.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -202,14 +212,18 @@
         <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>, if the
         available version is newer than the version installed in the EFI system partition. This also includes the EFI
         default/fallback loader at <filename><replaceable>ESP</replaceable>/EFI/BOOT/BOOT*.EFI</filename>. The boot
-        loader is then added to end of the firmware's boot loader list if missing.</para></listitem>
+        loader is then added to end of the firmware's boot loader list if missing.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>remove</option></term>
 
         <listitem><para>Removes all installed versions of <command>systemd-boot</command> from the EFI system partition
-        and the firmware's boot loader list.</para></listitem>
+        and the firmware's boot loader list.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -218,7 +232,9 @@
         <listitem><para>Checks whether <command>systemd-boot</command> is installed in the ESP. Note that a
         single ESP might host multiple boot loaders; this hence checks whether
         <command>systemd-boot</command> is one (of possibly many) installed boot loaders — and neither
-        whether it is the default nor whether it is registered in any EFI variables.</para></listitem>
+        whether it is the default nor whether it is registered in any EFI variables.</para>
+
+        <xi:include href="version-info.xml" xpointer="v243"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -235,7 +251,9 @@
         <citerefentry><refentrytitle>systemd-boot-random-seed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
 
         <para>See <ulink url="https://systemd.io/RANDOM_SEEDS">Random Seeds</ulink> for further
-        information.</para></listitem>
+        information.</para>
+
+        <xi:include href="version-info.xml" xpointer="v243"/></listitem>
       </varlistentry>
 
     </variablelist>
@@ -316,7 +334,9 @@
         <term><option>-p</option></term>
         <term><option>--print-esp-path</option></term>
         <listitem><para>This option modifies the behaviour of <command>status</command>. Only prints the path
-        to the EFI System Partition (ESP) to standard output and exits.</para></listitem>
+        to the EFI System Partition (ESP) to standard output and exits.</para>
+
+        <xi:include href="version-info.xml" xpointer="v236"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -335,7 +355,9 @@
 
         <para>Note that this option (similarly to the <option>--print-boot-path</option> option mentioned
         above), is available independently from the boot loader used, i.e. also without
-        <command>systemd-boot</command> being installed.</para></listitem>
+        <command>systemd-boot</command> being installed.</para>
+
+        <xi:include href="version-info.xml" xpointer="v242"/></listitem>
       </varlistentry>
 
       <varlistentry>

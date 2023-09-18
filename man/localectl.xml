@@ -71,7 +71,9 @@
         <term><command>status</command></term>
 
         <listitem><para>Show current settings of the system locale and keyboard mapping.
-        If no command is specified, this is the implied default.</para></listitem>
+        If no command is specified, this is the implied default.</para>
+
+        <xi:include href="version-info.xml" xpointer="v195"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -86,7 +88,7 @@
         <command>list-locales</command> for a list of available
         locales (see below). </para>
 
-        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v195"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -94,7 +96,9 @@
 
         <listitem><para>List available locales useful for
         configuration with
-        <command>set-locale</command>.</para></listitem>
+        <command>set-locale</command>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v195"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -108,7 +112,9 @@
         keyboard mapping of X11, after converting it to the closest
         matching X11 keyboard mapping. Use
         <command>list-keymaps</command> for a list of available
-        keyboard mappings (see below).</para></listitem>
+        keyboard mappings (see below).</para>
+
+        <xi:include href="version-info.xml" xpointer="v195"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -116,7 +122,9 @@
 
         <listitem><para>List available keyboard mappings for the
         console, useful for configuration with
-        <command>set-keymap</command>.</para></listitem>
+        <command>set-keymap</command>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v195"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -130,7 +138,9 @@
         for details. Unless <option>--no-convert</option> is passed,
         the selected setting is also applied as the system console
         keyboard mapping, after converting it to the closest matching
-        console keyboard mapping.</para></listitem>
+        console keyboard mapping.</para>
+
+        <xi:include href="version-info.xml" xpointer="v195"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -144,7 +154,9 @@
         <command>set-keymap</command>. The command
         <command>list-x11-keymap-variants</command> optionally takes a
         layout parameter to limit the output to the variants suitable
-        for the specific layout.</para></listitem>
+        for the specific layout.</para>
+
+        <xi:include href="version-info.xml" xpointer="v201"/></listitem>
       </varlistentry>
     </variablelist>
 

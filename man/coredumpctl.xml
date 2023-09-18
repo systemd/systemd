@@ -121,7 +121,9 @@
         <citerefentry><refentrytitle>systemd-coredump</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
         Thus it may very well happen that a particular core dump is still listed
         in the journal while its corresponding core dump file has already been
-        removed.</para></listitem>
+        removed.</para>
+
+        <xi:include href="version-info.xml" xpointer="v215"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -129,7 +131,9 @@
 
         <listitem><para>Show detailed information about the last core dump
         or core dumps matching specified characteristics
-        captured in the journal.</para></listitem>
+        captured in the journal.</para>
+
+        <xi:include href="version-info.xml" xpointer="v215"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -138,7 +142,9 @@
         <listitem><para>Extract the last core dump matching specified
         characteristics. The core dump will be written on standard
         output, unless an output file is specified with
-        <option>--output=</option>. </para></listitem>
+        <option>--output=</option>. </para>
+
+        <xi:include href="version-info.xml" xpointer="v215"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -226,7 +232,7 @@
         field takes in matching core dump entries of the
         journal.</para>
 
-        <xi:include href="version-info.xml" xpointer="v225"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v215"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -234,7 +240,9 @@
         <term><option>--output=</option><replaceable>FILE</replaceable></term>
 
         <listitem><para>Write the core to <option>FILE</option>.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v215"/></listitem>
       </varlistentry>
 
       <varlistentry>

@@ -114,7 +114,9 @@ r     -        500-900
           <listitem><para>Create a system user and group of the specified name should
           they not exist yet. The user's primary group will be set to the group
           bearing the same name unless the ID field specifies it. The account will be
-          created disabled, so that logins are not allowed.</para></listitem>
+          created disabled, so that logins are not allowed.</para>
+
+          <xi:include href="version-info.xml" xpointer="v215"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -122,14 +124,18 @@ r     -        500-900
           <listitem><para>Create a system group of the specified name
           should it not exist yet. Note that <varname>u</varname>
           implicitly creates a matching group. The group will be
-          created with no password set.</para></listitem>
+          created with no password set.</para>
+
+          <xi:include href="version-info.xml" xpointer="v215"/></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><varname>m</varname></term>
           <listitem><para>Add a user to a group. If the user or group
           do not exist yet, they will be implicitly
-          created.</para></listitem>
+          created.</para>
+
+          <xi:include href="version-info.xml" xpointer="v215"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -140,7 +146,9 @@ r     -        500-900
           compiled-in default. Note that both UIDs and GIDs are
           allocated from the same pool, in order to ensure that users
           and groups of the same name are likely to carry the same
-          numeric UID and GID.</para></listitem>
+          numeric UID and GID.</para>
+
+          <xi:include href="version-info.xml" xpointer="v216"/></listitem>
         </varlistentry>
 
       </variablelist>

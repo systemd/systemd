@@ -141,7 +141,7 @@
         <term><keycap>→</keycap> (Right)</term>
         <listitem><para>Boot selected entry</para>
 
-        <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -199,7 +199,9 @@
         <term><keycap>h</keycap></term>
         <term><keycap>?</keycap></term>
         <term><keycap>F1</keycap></term>
-        <listitem><para>Show a help screen</para></listitem>
+        <listitem><para>Show a help screen</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -304,14 +306,16 @@
       <varlistentry>
         <term><keycap>Esc</keycap></term>
         <term><keycombo><keycap>Ctrl</keycap><keycap>c</keycap></keycombo></term>
-        <listitem><para>Abort the edit and quit the editor</para></listitem>
+        <listitem><para>Abort the edit and quit the editor</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><keycombo><keycap>Ctrl</keycap><keycap>k</keycap></keycombo></term>
         <listitem><para>Clear the command line forwards</para>
 
-        <xi:include href="version-info.xml" xpointer="v240"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -319,13 +323,15 @@
         <term><keycombo><keycap>Alt</keycap><keycap>Backspace</keycap></keycombo></term>
         <listitem><para>Delete word backwards</para>
 
-        <xi:include href="version-info.xml" xpointer="v240"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><keycombo><keycap>Ctrl</keycap><keycap>Del</keycap></keycombo></term>
         <term><keycombo><keycap>Alt</keycap><keycap>d</keycap></keycombo></term>
-        <listitem><para>Delete word forwards</para></listitem>
+        <listitem><para>Delete word forwards</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>

@@ -87,7 +87,7 @@
           ensure that the system clock remains somewhat reasonably initialized and roughly monotonic across
           reboots, in case no battery-buffered local RTC is available.</para>
 
-          <xi:include href="version-info.xml" xpointer="v235"/>
+          <xi:include href="version-info.xml" xpointer="v219"/>
         </listitem>
       </varlistentry>
 

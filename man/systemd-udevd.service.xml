@@ -65,6 +65,8 @@
         <term><option>--daemon</option></term>
         <listitem>
           <para>Detach and run in the background.</para>
+
+        <xi:include href="version-info.xml" xpointer="v186"/>
         </listitem>
       </varlistentry>
 
@@ -73,6 +75,8 @@
         <term><option>--debug</option></term>
         <listitem>
           <para>Print debug messages to standard error.</para>
+
+        <xi:include href="version-info.xml" xpointer="v186"/>
         </listitem>
       </varlistentry>
 
@@ -81,6 +85,8 @@
         <term><option>--children-max=</option></term>
         <listitem>
           <para>Limit the number of events executed in parallel.</para>
+
+        <xi:include href="version-info.xml" xpointer="v186"/>
         </listitem>
       </varlistentry>
 
@@ -93,6 +99,8 @@
           might be useful when debugging system crashes during
           coldplug caused by loading non-working kernel
           modules.</para>
+
+        <xi:include href="version-info.xml" xpointer="v186"/>
         </listitem>
       </varlistentry>
 
@@ -102,6 +110,8 @@
         <listitem>
           <para>Set the number of seconds to wait for events to finish. After
           this time, the event will be terminated. The default is 180 seconds.</para>
+
+          <xi:include href="version-info.xml" xpointer="v216"/>
         </listitem>
       </varlistentry>
 
@@ -132,6 +142,8 @@
           <option>late</option>, names will be resolved for every event.
           When set to <option>never</option>, names will never be resolved
           and all devices will be owned by root.</para>
+
+          <xi:include href="version-info.xml" xpointer="v186"/>
         </listitem>
       </varlistentry>
 
@@ -159,7 +171,7 @@
         <listitem>
           <para>Limit the number of events executed in parallel.</para>
 
-        <xi:include href="version-info.xml" xpointer="v233"/>
+        <xi:include href="version-info.xml" xpointer="v186"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -171,7 +183,7 @@
           debugging system crashes during coldplug caused by loading
           non-working kernel modules.</para>
 
-        <xi:include href="version-info.xml" xpointer="v233"/>
+        <xi:include href="version-info.xml" xpointer="v186"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -182,7 +194,7 @@
           of seconds. This option might be useful if events are
           terminated due to kernel drivers taking too long to initialize.</para>
 
-          <xi:include href="version-info.xml" xpointer="v233"/>
+          <xi:include href="version-info.xml" xpointer="v216"/>
         </listitem>
       </varlistentry>
       <varlistentry>

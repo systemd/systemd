@@ -97,7 +97,9 @@
         be started, use <command>list-images</command> (see
         below). Note that this command hides the special
         <literal>.host</literal> machine by default. Use the
-        <option>--all</option> switch to show it.</para></listitem>
+        <option>--all</option> switch to show it.</para>
+
+        <xi:include href="version-info.xml" xpointer="v206"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -113,7 +115,7 @@
         console output of the machine, but not necessarily journal
         contents of the machine itself.</para>
 
-        <xi:include href="version-info.xml" xpointer="v233"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v206"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -127,7 +129,7 @@
         required, and does not print the control group tree or journal entries. Use <command>status</command> if you
         are looking for formatted human-readable output.</para>
 
-        <xi:include href="version-info.xml" xpointer="v233"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v206"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -161,7 +163,7 @@
         <command>systemd-nspawn</command> directly. To stop a running
         container use <command>machinectl poweroff</command>.</para>
 
-        <xi:include href="version-info.xml" xpointer="v233"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v219"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -188,7 +190,7 @@
         a single command, either interactively or in the
         background.</para>
 
-        <xi:include href="version-info.xml" xpointer="v225"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v209"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -233,7 +235,7 @@
         preferable for scripting purposes. However, note that <command>systemd-run</command> might require
         higher privileges than <command>machinectl shell</command>.</para>
 
-        <xi:include href="version-info.xml" xpointer="v233"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v225"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -250,7 +252,7 @@
         Note that this command does not implicitly start or power off the containers that are being operated on.
         If this is desired, combine the command with the <option>--now</option> switch.</para>
 
-        <xi:include href="version-info.xml" xpointer="v233"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v219"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -267,7 +269,7 @@
         terminate a container or VM, without cleanly shutting it
         down.</para>
 
-        <xi:include href="version-info.xml" xpointer="v233"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v212"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -279,7 +281,7 @@
         on a non-containerized system, and is compatible with
         containers running any system manager.</para>
 
-        <xi:include href="version-info.xml" xpointer="v233"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v209"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -292,7 +294,7 @@
         <command>poweroff</command> to issue a clean shutdown
         request.</para>
 
-        <xi:include href="version-info.xml" xpointer="v233"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v206"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -305,7 +307,7 @@
         process to kill. Use <option>--signal=</option> to select the
         signal to send.</para>
 
-        <xi:include href="version-info.xml" xpointer="v233"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v206"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -338,7 +340,7 @@
         group ID is preserved for the copy, otherwise all files and directories in the copy will be owned by the root
         user and group (UID/GID 0).</para>
 
-        <xi:include href="version-info.xml" xpointer="v252"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v219"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -354,7 +356,7 @@
         group ID is preserved for the copy, otherwise all files and directories in the copy will be owned by the root
         user and group (UID/GID 0).</para>
 
-        <xi:include href="version-info.xml" xpointer="v252"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v219"/></listitem>
       </varlistentry>
     </variablelist></refsect2>
 
@@ -387,7 +389,7 @@
         <command>show-image</command> (see below) to generate
         computer-parsable output instead.</para>
 
-        <xi:include href="version-info.xml" xpointer="v233"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v219"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -405,7 +407,7 @@
         <command>image-status</command> if you are looking for
         formatted human-readable output.</para>
 
-        <xi:include href="version-info.xml" xpointer="v233"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v219"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -477,7 +479,7 @@
         the host's own directory tree, may not be
         removed.</para>
 
-        <xi:include href="version-info.xml" xpointer="v233"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v219"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -705,7 +707,7 @@
         transfers and their IDs, use
         <command>list-transfers</command>. </para>
 
-        <xi:include href="version-info.xml" xpointer="v237"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v219"/></listitem>
       </varlistentry>
 
     </variablelist></refsect2>
@@ -780,7 +782,7 @@
         processes of the machine. If omitted, defaults to
         <option>all</option>.</para>
 
-        <xi:include href="version-info.xml" xpointer="v252"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v206"/></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="signal" />
@@ -809,7 +811,7 @@
         <para>Note that this option is not supported for the <command>login</command> command.
         </para>
 
-        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v230"/></listitem>
       </varlistentry>
 
       <varlistentry>

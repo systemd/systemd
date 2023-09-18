@@ -81,7 +81,9 @@
         <listitem><para>Configures various parameters of basic manager operation. These options may be overridden by
         the respective process and kernel command line arguments. See
         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
-        details.</para></listitem>
+        details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v198"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -182,7 +184,9 @@
         recommended to enable <varname>KExecWatchdogSec=</varname> only if
         <varname>RuntimeWatchdogSec=</varname> is also enabled.</para>
 
-        <para>These settings have no effect if a hardware watchdog is not available.</para></listitem>
+        <para>These settings have no effect if a hardware watchdog is not available.</para>
+
+        <xi:include href="version-info.xml" xpointer="v198"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -388,7 +392,9 @@
         default to &DEFAULT_TIMEOUT; in the system manager and &DEFAULT_USER_TIMEOUT; in the user manager.
         <varname>DefaultTimeoutAbortSec=</varname> is not set by default so that all units fall back to
         <varname>TimeoutStopSec=</varname>. <varname>DefaultRestartSec=</varname> defaults to 100 ms.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v209"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -417,7 +423,9 @@
         for details on the per-service settings.
         <varname>DefaultStartLimitIntervalSec=</varname> defaults to
         10s. <varname>DefaultStartLimitBurst=</varname> defaults to
-        5.</para></listitem>
+        5.</para>
+
+        <xi:include href="version-info.xml" xpointer="v209"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -482,6 +490,8 @@
         <varname>DefaultMemoryAccounting=</varname> defaults to &MEMORY_ACCOUNTING_DEFAULT;.
         <varname>DefaultTasksAccounting=</varname> defaults to yes.
         The other settings default to no.</para>
+
+        <xi:include href="version-info.xml" xpointer="v211"/>
         </listitem>
       </varlistentry>
 

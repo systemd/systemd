@@ -146,6 +146,8 @@
           (for IPv6 tunnel), or 20 (for InfiniBand). This option may appear more than once, in which
           case the lists are merged. If the empty string is assigned to this option, the list of
           hardware addresses defined prior to this is reset. Defaults to unset.</para>
+
+          <xi:include href="version-info.xml" xpointer="v211"/>
         </listitem>
       </varlistentry>
 
@@ -170,6 +172,8 @@
           <para>A whitespace-separated list of shell-style globs matching
           the persistent path, as exposed by the udev property
           <varname>ID_PATH</varname>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v211"/>
         </listitem>
       </varlistentry>
 
@@ -180,6 +184,8 @@
           device, as exposed by the udev property <varname>ID_NET_DRIVER</varname> of its parent device, or
           if that is not set, the driver as exposed by <command>ethtool -i</command> of the device itself.
           If the list is prefixed with a "!", the test is inverted.</para>
+
+          <xi:include href="version-info.xml" xpointer="v211"/>
         </listitem>
       </varlistentry>
 
@@ -192,6 +198,8 @@
           Valid types are named either from the udev <literal>DEVTYPE</literal> attribute, or
           <literal>ARPHRD_</literal> macros in <filename>linux/if_arp.h</filename>, so this is not comprehensive.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v211"/>
         </listitem>
       </varlistentry>
 
@@ -249,6 +257,8 @@
           for details. When prefixed with an exclamation mark (<literal>!</literal>), the result is negated.
           If an empty string is assigned, the previously assigned value is cleared.
           </para>
+
+        <xi:include href="version-info.xml" xpointer="v211"/>
         </listitem>
       </varlistentry>
 
@@ -261,6 +271,8 @@
           for details. When prefixed with an exclamation mark (<literal>!</literal>), the result is negated.
           If an empty string is assigned, the previously assigned value is cleared.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v211"/>
         </listitem>
       </varlistentry>
 
@@ -273,6 +285,8 @@
           for details. When prefixed with an exclamation mark (<literal>!</literal>), the result is negated.
           If an empty string is assigned, the previously assigned value is cleared.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v211"/>
         </listitem>
       </varlistentry>
 
@@ -313,6 +327,8 @@
           for details. When prefixed with an exclamation mark (<literal>!</literal>), the result is negated.
           If an empty string is assigned, the previously assigned value is cleared.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v211"/>
         </listitem>
       </varlistentry>
 
@@ -344,12 +360,16 @@
         <term><varname>Description=</varname></term>
         <listitem>
           <para>A description of the device.</para>
+
+        <xi:include href="version-info.xml" xpointer="v211"/>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>Alias=</varname></term>
         <listitem>
           <para>The <varname>ifalias</varname> interface property is set to this value.</para>
+
+        <xi:include href="version-info.xml" xpointer="v211"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -372,6 +392,8 @@
                 properties to exist for the link. On hardware where these
                 properties are not set, the generation of a persistent MAC address
                 will fail.</para>
+
+                <xi:include href="version-info.xml" xpointer="v211"/>
               </listitem>
             </varlistentry>
             <varlistentry>
@@ -383,6 +405,8 @@
                 boot. Either way, the random address will have the
                 <literal>unicast</literal> and
                 <literal>locally administered</literal> bits set.</para>
+
+                <xi:include href="version-info.xml" xpointer="v211"/>
               </listitem>
             </varlistentry>
             <varlistentry>
@@ -397,6 +421,8 @@
           </variablelist>
 
           <para>An empty string assignment is equivalent to setting <literal>none</literal>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v211"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -406,7 +432,7 @@
           <varname>MACAddressPolicy=</varname> must either be unset, empty, or <literal>none</literal>.
           </para>
 
-          <xi:include href="version-info.xml" xpointer="v215"/>
+          <xi:include href="version-info.xml" xpointer="v211"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -439,6 +465,8 @@
                 Hardware Database with the key
                 <varname>ID_NET_NAME_FROM_DATABASE</varname>.
                 </para>
+
+                <xi:include href="version-info.xml" xpointer="v211"/>
               </listitem>
             </varlistentry>
             <varlistentry>
@@ -449,6 +477,8 @@
                 udev property <varname>ID_NET_NAME_ONBOARD</varname>.
                 See <citerefentry><refentrytitle>systemd.net-naming-scheme</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
                 </para>
+
+                <xi:include href="version-info.xml" xpointer="v211"/>
               </listitem>
             </varlistentry>
             <varlistentry>
@@ -459,6 +489,8 @@
                 udev property <varname>ID_NET_NAME_SLOT</varname>.
                 See <citerefentry><refentrytitle>systemd.net-naming-scheme</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
                 </para>
+
+                <xi:include href="version-info.xml" xpointer="v211"/>
               </listitem>
             </varlistentry>
             <varlistentry>
@@ -469,6 +501,8 @@
                 <varname>ID_NET_NAME_PATH</varname>.
                 See <citerefentry><refentrytitle>systemd.net-naming-scheme</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
                 </para>
+
+                <xi:include href="version-info.xml" xpointer="v211"/>
               </listitem>
             </varlistentry>
             <varlistentry>
@@ -479,6 +513,8 @@
                 <varname>ID_NET_NAME_MAC</varname>.
                 See <citerefentry><refentrytitle>systemd.net-naming-scheme</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
                 </para>
+
+                <xi:include href="version-info.xml" xpointer="v211"/>
               </listitem>
             </varlistentry>
             <varlistentry>
@@ -491,6 +527,8 @@
               </listitem>
             </varlistentry>
           </variablelist>
+
+            <xi:include href="version-info.xml" xpointer="v211"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -517,6 +555,8 @@
           ambiguity with interface specification by numeric indexes), as are the special strings
           <literal>.</literal>, <literal>..</literal>, <literal>all</literal> and
           <literal>default</literal>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v211"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -582,6 +622,8 @@
           <para>The maximum transmission unit in bytes to set for the
           device. The usual suffixes K, M, G are supported and are
           understood to the base of 1024.</para>
+
+          <xi:include href="version-info.xml" xpointer="v211"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -590,6 +632,8 @@
           <para>The speed to set for the device, the value is rounded
           down to the nearest Mbps. The usual suffixes K, M, G are
           supported and are understood to the base of 1000.</para>
+
+          <xi:include href="version-info.xml" xpointer="v211"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -597,6 +641,8 @@
         <listitem>
           <para>The duplex mode to set for the device. The accepted values are <option>half</option> and
           <option>full</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v211"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -626,6 +672,8 @@
               <term><option>phy</option></term>
               <listitem>
                 <para>Wake on PHY activity.</para>
+
+              <xi:include href="version-info.xml" xpointer="v211"/>
               </listitem>
             </varlistentry>
             <varlistentry>
@@ -665,6 +713,8 @@
               <listitem>
                 <para>Wake on receipt of a magic packet.
                 </para>
+
+                <xi:include href="version-info.xml" xpointer="v211"/>
               </listitem>
             </varlistentry>
             <varlistentry>
@@ -690,6 +740,8 @@
           <para>Defaults to unset, and the device's default will be used. This setting can be specified
           multiple times. If an empty string is assigned, then the all previous assignments are
           cleared.</para>
+
+          <xi:include href="version-info.xml" xpointer="v211"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -917,6 +969,8 @@
           Takes an unsigned integer in the range 1…4294967295 or <literal>max</literal>. If set to
           <literal>max</literal>, the advertised maximum value of the hardware will be used. When
           unset, the number will not be changed. Defaults to unset.</para>
+
+          <xi:include href="version-info.xml" xpointer="v239"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -930,6 +984,8 @@
           the range 1…4294967295 or <literal>max</literal>. If set to <literal>max</literal>, the
           advertised maximum value of the hardware will be used. When unset, the number will not be
           changed. Defaults to unset.</para>
+
+          <xi:include href="version-info.xml" xpointer="v244"/>
         </listitem>
       </varlistentry>
       <varlistentry>

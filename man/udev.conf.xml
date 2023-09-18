@@ -47,7 +47,7 @@
           <option>err</option>, <option>info</option> and
           <option>debug</option>.</para>
 
-          <xi:include href="version-info.xml" xpointer="v240"/>
+          <xi:include href="version-info.xml" xpointer="v216"/>
         </listitem>
       </varlistentry>
 

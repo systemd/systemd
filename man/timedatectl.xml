@@ -58,7 +58,9 @@
 
         <listitem><para>Show current settings of the system clock and RTC, including whether network time
         synchronization is active. If no command is specified, this is the implied default.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v195"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -79,7 +81,9 @@
         <listitem><para>Set the system clock to the specified time.
         This will also update the RTC time accordingly. The time may
         be specified in the format "2012-10-30
-        18:17:16".</para></listitem>
+        18:17:16".</para>
+
+        <xi:include href="version-info.xml" xpointer="v195"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -92,7 +96,9 @@
         call will alter the <filename>/etc/localtime</filename>
         symlink. See
         <citerefentry><refentrytitle>localtime</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        for more information.</para></listitem>
+        for more information.</para>
+
+        <xi:include href="version-info.xml" xpointer="v195"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -100,7 +106,9 @@
 
         <listitem><para>List available time zones, one per line.
         Entries from the list can be set as the system timezone with
-        <command>set-timezone</command>.</para></listitem>
+        <command>set-timezone</command>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v195"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -119,7 +127,9 @@
         This command will change the 3rd line of
         <filename>/etc/adjtime</filename>, as documented in
         <citerefentry project='man-pages'><refentrytitle>hwclock</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v195"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -130,7 +140,9 @@
         synchronization service. If the argument is false, then this disables and stops the known network
         synchronization services. The way that the list of services is built is described in
         <citerefentry><refentrytitle>systemd-timedated.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v195"/></listitem>
       </varlistentry>
 
     </variablelist>
@@ -233,7 +245,9 @@
 
         <listitem><para>When showing properties of
         <citerefentry><refentrytitle>systemd-timesyncd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-        show all properties regardless of whether they are set or not.</para></listitem>
+        show all properties regardless of whether they are set or not.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>

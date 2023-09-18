@@ -272,7 +272,7 @@
         <option>--discover</option>, see above), and the file system block device is detected to be removable, this
         option is implied.</para>
 
-        <xi:include href="version-info.xml" xpointer="v243"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v232"/></listitem>
       </varlistentry>
 
       <varlistentry>

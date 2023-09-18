@@ -80,6 +80,8 @@
           <para>Parameters understood by the system and service
           manager to control system behavior. For details, see
           <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v186"/>
         </listitem>
       </varlistentry>
 
@@ -92,6 +94,8 @@
           <citerefentry><refentrytitle>systemd-debug-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
           to mask or start specific units at boot, or invoke a debug
           shell on tty9.</para>
+
+          <xi:include href="version-info.xml" xpointer="v215"/>
         </listitem>
       </varlistentry>
 
@@ -204,6 +208,8 @@
           <para>Parameters understood by the system and service
           manager, as compatibility and convenience options. For details, see
           <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v186"/>
         </listitem>
       </varlistentry>
 
@@ -240,6 +246,8 @@
           <para>Parameters understood by the file system checker
           services. For details, see
           <citerefentry><refentrytitle>systemd-fsck@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v186"/>
         </listitem>
       </varlistentry>
 
@@ -265,6 +273,8 @@
           <para>Parameters understood by the journal service. For
           details, see
           <citerefentry><refentrytitle>systemd-journald.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v186"/>
         </listitem>
       </varlistentry>
 
@@ -278,6 +288,8 @@
         <listitem>
           <para>Parameters understood by the virtual console setup logic. For details, see
           <citerefentry><refentrytitle>vconsole.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v186"/>
         </listitem>
       </varlistentry>
 
@@ -301,6 +313,8 @@
           <para>Parameters understood by the device event managing
           daemon. For details, see
           <citerefentry><refentrytitle>systemd-udevd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v186"/>
         </listitem>
       </varlistentry>
 
@@ -334,6 +348,8 @@
           <para>Configures the LUKS full-disk encryption logic at
           boot. For details, see
           <citerefentry><refentrytitle>systemd-cryptsetup-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v186"/>
         </listitem>
       </varlistentry>
 
@@ -368,6 +384,8 @@
           will be in effect. In this case <varname>rootfstype=</varname>, <varname>rootflags=</varname>,
           <varname>ro</varname>, <varname>rw</varname> will be interpreted by
           <command>systemd-gpt-auto-generator</command>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v215"/>
         </listitem>
       </varlistentry>
 
@@ -402,6 +420,8 @@
           <para>Configures the integrity protection root hash for the root and <filename>/usr</filename> file systems, and other related
           parameters. For details, see
           <citerefentry><refentrytitle>systemd-veritysetup-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v233"/>
         </listitem>
       </varlistentry>
 
@@ -540,7 +560,7 @@
           details, see
           <citerefentry><refentrytitle>systemd-modules-load.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
 
-          <xi:include href="version-info.xml" xpointer="v233"/>
+          <xi:include href="version-info.xml" xpointer="v187"/>
         </listitem>
       </varlistentry>
 
@@ -565,6 +585,8 @@
           <citerefentry project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>-like
           paths are supported. For details, see
           <citerefentry><refentrytitle>systemd-hibernate-resume-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v217"/>
         </listitem>
       </varlistentry>
 

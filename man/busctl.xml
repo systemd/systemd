@@ -64,7 +64,7 @@
         the owner of the bus (if no parameter is
         specified).</para>
 
-        <xi:include href="version-info.xml" xpointer="v218"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v209"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -77,7 +77,7 @@
         <keycombo><keycap>Ctrl</keycap><keycap>C</keycap></keycombo>
         to terminate the dump.</para>
 
-        <xi:include href="version-info.xml" xpointer="v218"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v209"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -116,7 +116,7 @@
         output is limited to members of the specified
         interface.</para>
 
-        <xi:include href="version-info.xml" xpointer="v219"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v218"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -285,6 +285,8 @@
           if this option is specified, errors returned will still be
           printed and the tool will indicate success or failure with
           the process exit code.</para>
+
+        <xi:include href="version-info.xml" xpointer="v218"/>
         </listitem>
       </varlistentry>
 

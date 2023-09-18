@@ -257,7 +257,7 @@
         any swap devices configured in <filename>/etc/fstab</filename>.
         Defaults to enabled.</para>
 
-        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v246"/></listitem>
       </varlistentry>
 
       <varlistentry>

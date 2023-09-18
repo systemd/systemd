@@ -640,7 +640,9 @@
         <listitem><para>Sets the log target to <literal>console</literal> on <constant>SIGRTMIN+27</constant> (or
         <literal>kmsg</literal> on <constant>SIGRTMIN+28</constant>), in a fashion equivalent to
         <varname>systemd.log_target=console</varname> (or <varname>systemd.log_target=kmsg</varname> on
-        <constant>SIGRTMIN+28</constant>) on the kernel command line.</para></listitem>
+        <constant>SIGRTMIN+28</constant>) on the kernel command line.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
@@ -851,7 +853,7 @@
         reboot loop. If combined with <varname>systemd.crash_shell</varname>, the
         system is rebooted after the shell exits.</para>
 
-        <xi:include href="version-info.xml" xpointer="v233"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v227"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -985,7 +987,9 @@
         keys), or in testing/debugging environments.</para>
 
         <para>For further information see <ulink url="https://systemd.io/CREDENTIALS">System and Service
-        Credentials</ulink> documentation.</para></listitem>
+        Credentials</ulink> documentation.</para>
+
+        <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1032,7 +1036,9 @@
         <listitem><para>Boot into emergency mode. This is equivalent
         to <varname>systemd.unit=emergency.target</varname> or
         <varname>rd.systemd.unit=emergency.target</varname>, respectively, and
-        provided for compatibility reasons and to be easier to type.</para></listitem>
+        provided for compatibility reasons and to be easier to type.</para>
+
+        <xi:include href="version-info.xml" xpointer="v186"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1046,7 +1052,9 @@
         <listitem><para>Boot into rescue mode. This is equivalent to
         <varname>systemd.unit=rescue.target</varname> or
         <varname>rd.systemd.unit=rescue.target</varname>, respectively, and
-        provided for compatibility reasons and to be easier to type.</para></listitem>
+        provided for compatibility reasons and to be easier to type.</para>
+
+        <xi:include href="version-info.xml" xpointer="v186"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1198,7 +1206,9 @@
           <term><option>--dump-bus-properties</option></term>
 
           <listitem><para>Dump exposed bus properties. This outputs a terse but complete list of properties
-          exposed on D-Bus.</para></listitem>
+          exposed on D-Bus.</para>
+
+          <xi:include href="version-info.xml" xpointer="v239"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -1270,7 +1280,9 @@
 
           <listitem><para>Switch to a specific virtual console (VT) on crash. This switch has no effect when
           running as user instance. Same as <varname>systemd.crash_chvt=</varname> above (but not the
-          different spelling!).</para></listitem>
+          different spelling!).</para>
+
+          <xi:include href="version-info.xml" xpointer="v227"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -1284,7 +1296,9 @@
           <term><option>--crash-reboot</option></term>
 
           <listitem><para>Automatically reboot the system on crash. This switch has no effect when running as
-          user instance. See <varname>systemd.crash_reboot</varname> above.</para></listitem>
+          user instance. See <varname>systemd.crash_reboot</varname> above.</para>
+
+          <xi:include href="version-info.xml" xpointer="v227"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -1346,7 +1360,9 @@
           <term><option>--machine-id=</option></term>
 
           <listitem><para>Override the machine-id set on the hard drive. See
-          <varname>systemd.machine_id=</varname> above.</para></listitem>
+          <varname>systemd.machine_id=</varname> above.</para>
+
+          <xi:include href="version-info.xml" xpointer="v229"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -1355,7 +1371,7 @@
           <listitem><para>Globally enable/disable all service watchdog timeouts and emergency actions. See
           <varname>systemd.service_watchdogs</varname> above.</para>
 
-          <xi:include href="version-info.xml" xpointer="v244"/></listitem>
+          <xi:include href="version-info.xml" xpointer="v237"/></listitem>
         </varlistentry>
 
         <varlistentry>

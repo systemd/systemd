@@ -141,6 +141,8 @@
         <filename>swap.target</filename>. This means that the boot
         will continue even if this swap device is not activated
         successfully.</para>
+
+        <xi:include href="version-info.xml" xpointer="v218"/>
         </listitem>
       </varlistentry>
 

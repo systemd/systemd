@@ -450,6 +450,8 @@
           <listitem>
             <para>Trigger events for devices with a matching device path. When this option is specified more than once,
             then each matching result is ORed, that is, all specified devices are triggered.</para>
+
+            <xi:include href="version-info.xml" xpointer="v218"/>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -494,6 +496,8 @@
             settle</command>. <command>udevadm settle</command> waits for all
             events to finish. This option only waits for events triggered by
             the same command to finish.</para>
+
+            <xi:include href="version-info.xml" xpointer="v238"/>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -730,6 +734,8 @@
             be resolved for every event. When set to
             <constant>never</constant>, names will never be resolved
             and all devices will be owned by root.</para>
+
+            <xi:include href="version-info.xml" xpointer="v209"/>
           </listitem>
         </varlistentry>
 
@@ -755,6 +761,8 @@
             <literal>online</literal>, <literal>offline</literal>, <literal>bind</literal>,
             and <literal>unbind</literal>. Also, the special value <literal>help</literal> can be used
             to list the possible actions. The default value is <literal>add</literal>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v250"/>
           </listitem>
         </varlistentry>
 

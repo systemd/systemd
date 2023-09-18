@@ -279,7 +279,9 @@
         logic.</para>
 
         <para>The <varname>rootfstype=</varname> and <varname>rootflags=</varname> are used to select the
-        file system type and options when the root file system is automatically discovered.</para></listitem>
+        file system type and options when the root file system is automatically discovered.</para>
+
+        <xi:include href="version-info.xml" xpointer="v242"/></listitem>
       </varlistentry>
 
       <varlistentry>

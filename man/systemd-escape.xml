@@ -107,7 +107,9 @@
         <listitem><para>Instead of escaping the specified strings,
         undo the escaping, reversing the operation. May not be used in
         conjunction with <option>--suffix=</option> or
-        <option>--mangle</option>.</para></listitem>
+        <option>--mangle</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v216"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -119,7 +121,9 @@
         possibly automatically append an appropriate unit type suffix
         to the string. May not be used in conjunction with
         <option>--suffix=</option>, <option>--template=</option> or
-        <option>--unescape</option>.</para></listitem>
+        <option>--unescape</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v216"/></listitem>
       </varlistentry>
 
       <varlistentry>

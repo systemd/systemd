@@ -126,7 +126,9 @@
         configures the files to read the unified kernel image components from. Each option corresponds with
         the equally named section in the unified kernel PE file. The <option>--linux=</option> switch expects
         the path to the ELF kernel file that the unified PE kernel will wrap. All switches except
-        <option>--linux=</option> are optional. Each option may be used at most once.</para></listitem>
+        <option>--linux=</option> are optional. Each option may be used at most once.</para>
+
+        <xi:include href="version-info.xml" xpointer="v252"/></listitem>
       </varlistentry>
 
       <varlistentry>
