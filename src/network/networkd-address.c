@@ -337,18 +337,21 @@ static bool address_is_static_null(const Address *address) {
         return true;
 }
 
-static uint32_t address_prefix(const Address *a) {
+static int address_ipv4_prefix(const Address *a, struct in_addr *ret) {
+        struct in_addr p;
+        int r;
+
         assert(a);
+        assert(a->family == AF_INET);
+        assert(ret);
 
-        /* make sure we don't try to shift by 32.
-         * See ISO/IEC 9899:TC3 § 6.5.7.3. */
-        if (a->prefixlen == 0)
-                return 0;
+        p = in4_addr_is_set(&a->in_addr_peer.in) ? a->in_addr_peer.in : a->in_addr.in;
+        r = in4_addr_mask(&p, a->prefixlen);
+        if (r < 0)
+                return r;
 
-        if (a->in_addr_peer.in.s_addr != 0)
-                return be32toh(a->in_addr_peer.in.s_addr) >> (32 - a->prefixlen);
-        else
-                return be32toh(a->in_addr.in.s_addr) >> (32 - a->prefixlen);
+        *ret = p;
+        return 0;
 }
 
 static void address_hash_func(const Address *a, struct siphash *state) {
@@ -357,15 +360,17 @@ static void address_hash_func(const Address *a, struct siphash *state) {
         siphash24_compress(&a->family, sizeof(a->family), state);
 
         switch (a->family) {
-        case AF_INET:
+        case AF_INET: {
+                struct in_addr prefix;
+
                 siphash24_compress(&a->prefixlen, sizeof(a->prefixlen), state);
 
-                uint32_t prefix = address_prefix(a);
+                assert_se(address_ipv4_prefix(a, &prefix) >= 0);
                 siphash24_compress(&prefix, sizeof(prefix), state);
 
                 siphash24_compress(&a->in_addr.in, sizeof(a->in_addr.in), state);
                 break;
-
+        }
         case AF_INET6:
                 siphash24_compress(&a->in_addr.in6, sizeof(a->in_addr.in6), state);
                 break;
@@ -384,18 +389,22 @@ static int address_compare_func(const Address *a1, const Address *a2) {
                 return r;
 
         switch (a1->family) {
-        case AF_INET:
+        case AF_INET: {
+                struct in_addr p1, p2;
+
                 /* See kernel's find_matching_ifa() in net/ipv4/devinet.c */
                 r = CMP(a1->prefixlen, a2->prefixlen);
                 if (r != 0)
                         return r;
 
-                r = CMP(address_prefix(a1), address_prefix(a2));
+                assert_se(address_ipv4_prefix(a1, &p1) >= 0);
+                assert_se(address_ipv4_prefix(a2, &p2) >= 0);
+                r = memcmp(&p1, &p2, sizeof(p1));
                 if (r != 0)
                         return r;
 
                 return memcmp(&a1->in_addr.in, &a2->in_addr.in, sizeof(a1->in_addr.in));
-
+        }
         case AF_INET6:
                 /* See kernel's ipv6_get_ifaddr() in net/ipv6/addrconf.c */
                 return memcmp(&a1->in_addr.in6, &a2->in_addr.in6, sizeof(a1->in_addr.in6));
