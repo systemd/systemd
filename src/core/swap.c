@@ -763,12 +763,13 @@ static void swap_enter_signal(Swap *s, SwapState state, SwapResult f) {
         if (s->result == SWAP_SUCCESS)
                 s->result = f;
 
-        r = unit_kill_context(UNIT(s),
-                              &s->kill_context,
-                              state_to_kill_operation(s, state),
-                              -1,
-                              s->control_pid.pid,
-                              false);
+        r = unit_kill_context(
+                        UNIT(s),
+                        &s->kill_context,
+                        state_to_kill_operation(s, state),
+                        /* main_pid= */ NULL,
+                        &s->control_pid,
+                        /* main_pid_alien= */ false);
         if (r < 0)
                 goto fail;
 
@@ -1475,10 +1476,6 @@ static void swap_reset_failed(Unit *u) {
         s->clean_result = SWAP_SUCCESS;
 }
 
-static int swap_kill(Unit *u, KillWho who, int signo, int code, int value, sd_bus_error *error) {
-        return unit_kill_common(u, who, signo, code, value, -1, SWAP(u)->control_pid.pid, error);
-}
-
 static int swap_get_timeout(Unit *u, usec_t *timeout) {
         Swap *s = SWAP(u);
         usec_t t;
@@ -1515,18 +1512,13 @@ static bool swap_supported(void) {
         return supported;
 }
 
-static int swap_control_pid(Unit *u) {
-        Swap *s = SWAP(u);
-
-        assert(s);
-
-        return s->control_pid.pid;
+static PidRef* swap_control_pid(Unit *u) {
+        return &ASSERT_PTR(SWAP(u))->control_pid;
 }
 
 static int swap_clean(Unit *u, ExecCleanMask mask) {
         _cleanup_strv_free_ char **l = NULL;
         Swap *s = SWAP(u);
-        pid_t pid;
         int r;
 
         assert(s);
@@ -1551,11 +1543,7 @@ static int swap_clean(Unit *u, ExecCleanMask mask) {
         if (r < 0)
                 goto fail;
 
-        r = unit_fork_and_watch_rm_rf(u, l, &pid);
-        if (r < 0)
-                goto fail;
-
-        r = pidref_set_pid(&s->control_pid, pid);
+        r = unit_fork_and_watch_rm_rf(u, l, &s->control_pid);
         if (r < 0)
                 goto fail;
 
@@ -1637,7 +1625,6 @@ const UnitVTable swap_vtable = {
         .start = swap_start,
         .stop = swap_stop,
 
-        .kill = swap_kill,
         .clean = swap_clean,
         .can_clean = swap_can_clean,
 
