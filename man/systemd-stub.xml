@@ -52,6 +52,9 @@
     individual resources at once. Specifically it may include:</para>
 
     <itemizedlist>
+      <!-- Let's keep this in the canonical order we also measure the sections by, i.e. as in
+           src/fundamental/uki.h's UnifiedSection enum -->
+
       <listitem><para>The ELF Linux kernel images will be looked for in the <literal>.linux</literal> PE
       section of the executed image.</para></listitem>
 
@@ -59,11 +62,14 @@
       <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry> file of
       the OS the kernel belongs to, in the <literal>.osrel</literal> PE section.</para></listitem>
 
-      <listitem><para>Kernel version information, i.e. the output of <command>uname -r</command> for the
-      kernel included in the UKI, in the <literal>.uname</literal> PE section.</para></listitem>
+      <listitem><para>The kernel command line to pass to the invoked kernel will be looked for in the
+      <literal>.cmdline</literal> PE section.</para></listitem>
 
-      <listitem><para>The initrd will be loaded from the <literal>.initrd</literal> PE section.
-      </para></listitem>
+      <listitem><para>The initrd will be loaded from the <literal>.initrd</literal> PE
+      section.</para></listitem>
+
+      <listitem><para>A boot splash (in Windows <filename>.BMP</filename> format) to show on screen before
+      invoking the kernel will be looked for in the <literal>.splash</literal> PE section.</para></listitem>
 
       <listitem><para>A compiled binary DeviceTree will be looked for in the <literal>.dtb</literal> PE
       section.</para></listitem>
@@ -71,11 +77,8 @@
       <listitem><para>Kernel version information, i.e. the output of <command>uname -r</command> for the
       kernel included in the UKI, in the <literal>.uname</literal> PE section.</para></listitem>
 
-      <listitem><para>The kernel command line to pass to the invoked kernel will be looked for in the
-      <literal>.cmdline</literal> PE section.</para></listitem>
-
-      <listitem><para>A boot splash (in Windows <filename>.BMP</filename> format) to show on screen before
-      invoking the kernel will be looked for in the <literal>.splash</literal> PE section.</para></listitem>
+      <listitem><para><ulink url="https://github.com/rhboot/shim/blob/main/SBAT.md">SBAT</ulink> revocation
+      metadata, in the <literal>.sbat</literal> PE section.</para></listitem>
 
       <listitem><para>A set of cryptographic signatures for expected TPM2 PCR values when this kernel is
       booted, in JSON format, in the <literal>.pcrsig</literal> section. This is useful for implementing TPM2
