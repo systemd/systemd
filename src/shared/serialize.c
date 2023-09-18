@@ -6,6 +6,7 @@
 #include "env-util.h"
 #include "escape.h"
 #include "fileio.h"
+#include "hexdecoct.h"
 #include "memfd-util.h"
 #include "missing_mman.h"
 #include "missing_syscall.h"
@@ -147,6 +148,28 @@ int serialize_strv(FILE *f, const char *key, char **l) {
         }
 
         return ret;
+}
+
+int serialize_item_hexmem(FILE *f, const char *key, const void *p, size_t l) {
+        _cleanup_free_ char *encoded = NULL;
+        int r;
+
+        assert(f);
+        assert(key);
+        assert(p || l == 0);
+
+        if (l == 0)
+                return 0;
+
+        encoded = hexmem(p, l);
+        if (!encoded)
+                return log_oom_debug();
+
+        r = serialize_item(f, key, encoded);
+        if (r < 0)
+                return r;
+
+        return 1;
 }
 
 int deserialize_read_line(FILE *f, char **ret) {
