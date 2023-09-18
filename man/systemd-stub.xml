@@ -127,7 +127,7 @@
   <refsect1>
     <title>Companion Files</title>
 
-    <para>The <command>systemd-stub</command> UEFI boot stub automatically collects two types of auxiliary
+    <para>The <command>systemd-stub</command> UEFI boot stub automatically collects three types of auxiliary
     companion files optionally placed in drop-in directories on the same partition as the EFI binary,
     dynamically generates <command>cpio</command> initrd archives from them, and passes them to the kernel.
     Specifically:</para>
