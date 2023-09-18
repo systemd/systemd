@@ -2195,7 +2195,7 @@ static int context_read_definitions(Context *context) {
 
                 assert_se(dp = p->siblings[VERITY_DATA]);
 
-                if (dp->minimize == MINIMIZE_OFF && !(p->copy_blocks_path || p->copy_blocks_auto))
+                if (dp->minimize == MINIMIZE_OFF && !(dp->copy_blocks_path || dp->copy_blocks_auto))
                         return log_syntax(NULL, LOG_ERR, p->definition_path, 1, SYNTHETIC_ERRNO(EINVAL),
                                           "Minimize= set for verity hash partition but data partition does "
                                           "not set CopyBlocks= or Minimize=");
