@@ -961,7 +961,7 @@ sensor:modalias:acpi:KIOX000A*:dmi:*:svnTECLAST:pnTbooK11:*
  ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
 
 # Teclast X3 Plus (G4K3)
-sensor:modalias:acpi:KIOX000A*:dmi:*svnTECLAST:pnX3Plus:*:skuG4K3_A1:
+sensor:modalias:acpi:KIOX000A*:dmi:*svnTECLAST:pnX3Plus:*:skuG4K3_A1:*
  ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
 
 # Teclast X4 2-in-1 (G4M6)
