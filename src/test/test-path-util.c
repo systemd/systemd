@@ -26,10 +26,6 @@ TEST(path) {
         assert_se(path_is_absolute("/"));
         assert_se(!path_is_absolute("./"));
 
-        assert_se(is_path("/dir"));
-        assert_se(is_path("a/b"));
-        assert_se(!is_path("."));
-
         assert_se(streq(basename("./aa/bb/../file.da."), "file.da."));
         assert_se(streq(basename("/aa///.file"), ".file"));
         assert_se(streq(basename("/aa///file..."), "file..."));
@@ -46,6 +42,82 @@ TEST(path) {
         assert_se(!path_equal_ptr("/a", "/b"));
         assert_se(!path_equal_ptr("/a", NULL));
         assert_se(!path_equal_ptr(NULL, "/a"));
+}
+
+TEST(is_path) {
+        assert_se(!is_path("foo"));
+        assert_se(!is_path("dos.ext"));
+        assert_se( is_path("/dir"));
+        assert_se( is_path("a/b"));
+        assert_se( is_path("a/b.ext"));
+
+        assert_se(!is_path("."));
+        assert_se(!is_path(""));
+        assert_se(!is_path(".."));
+
+        assert_se( is_path("/dev"));
+        assert_se( is_path("//dev"));
+        assert_se( is_path("///dev"));
+        assert_se( is_path("/dev/"));
+        assert_se( is_path("///dev/"));
+        assert_se( is_path("/./dev/"));
+        assert_se( is_path("/../dev/"));
+        assert_se( is_path("/dev/sda"));
+        assert_se( is_path("/dev/sda5"));
+        assert_se( is_path("/dev/sda5b3"));
+        assert_se( is_path("/dev/sda5b3/idontexit"));
+        assert_se( is_path("/../dev/sda"));
+        assert_se( is_path("/../../dev/sda5"));
+        assert_se( is_path("/../../../dev/sda5b3"));
+        assert_se( is_path("/.././.././dev/sda5b3/idontexit"));
+        assert_se( is_path("/sys"));
+        assert_se( is_path("/sys/"));
+        assert_se( is_path("/sys/what"));
+        assert_se( is_path("/sys/something/.."));
+        assert_se( is_path("/sys/something/../"));
+        assert_se( is_path("/sys////"));
+        assert_se( is_path("/sys////."));
+        assert_se( is_path("/sys/.."));
+        assert_se( is_path("/sys/../"));
+        assert_se( is_path("/usr/../dev/sda"));
+}
+
+TEST(is_device_path) {
+        assert_se(!is_device_path("foo"));
+        assert_se(!is_device_path("dos.ext"));
+        assert_se(!is_device_path("/dir"));
+        assert_se(!is_device_path("a/b"));
+        assert_se(!is_device_path("a/b.ext"));
+
+        assert_se(!is_device_path("."));
+        assert_se(!is_device_path(""));
+        assert_se(!is_device_path(".."));
+
+        assert_se(!is_device_path("/dev"));
+        assert_se(!is_device_path("//dev"));
+        assert_se(!is_device_path("///dev"));
+        assert_se(!is_device_path("/dev/"));
+        assert_se(!is_device_path("///dev/"));
+        assert_se(!is_device_path("/./dev/"));
+        assert_se(!is_device_path("/../dev/"));
+        assert_se( is_device_path("/dev/sda"));
+        assert_se( is_device_path("/dev/sda5"));
+        assert_se( is_device_path("/dev/sda5b3"));
+        assert_se( is_device_path("/dev/sda5b3/idontexit"));
+        assert_se(!is_device_path("/../dev/sda"));
+        assert_se(!is_device_path("/../../dev/sda5"));
+        assert_se(!is_device_path("/../../../dev/sda5b3"));
+        assert_se(!is_device_path("/.././.././dev/sda5b3/idontexit"));
+        assert_se(!is_device_path("/sys"));
+        assert_se(!is_device_path("/sys/"));
+        assert_se( is_device_path("/sys/what"));
+        assert_se( is_device_path("/sys/something/.."));
+        assert_se( is_device_path("/sys/something/../"));
+        assert_se(!is_device_path("/sys////"));
+        assert_se(!is_device_path("/sys////."));
+        assert_se( is_device_path("/sys/.."));
+        assert_se( is_device_path("/sys/../"));
+        assert_se(!is_device_path("/usr/../dev/sda"));
 }
 
 static void test_path_simplify_one(const char *in, const char *out, PathSimplifyFlags flags) {
