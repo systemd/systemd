@@ -64,7 +64,9 @@
         <term><command>status</command></term>
 
         <listitem><para>Show system hostname and related information. If no command is specified,
-        this is the implied default.</para></listitem>
+        this is the implied default.</para>
+
+        <xi:include href="version-info.xml" xpointer="v195"/></listitem>
       </varlistentry>
 
       <varlistentry>

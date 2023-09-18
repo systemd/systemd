@@ -209,7 +209,7 @@
             </variablelist>
         </para>
 
-        <xi:include href="version-info.xml" xpointer="v242"/>
+        <xi:include href="version-info.xml" xpointer="v219"/>
         </listitem>
       </varlistentry>
 
@@ -278,7 +278,7 @@
           </variablelist>
           </para>
 
-          <xi:include href="version-info.xml" xpointer="v242"/>
+          <xi:include href="version-info.xml" xpointer="v219"/>
         </listitem>
 
       </varlistentry>
@@ -308,7 +308,7 @@ s - Service VLAN, m - Two-port MAC Relay (TPMR)
 
 1 neighbors listed.</programlisting></para>
 
-          <xi:include href="version-info.xml" xpointer="v242"/>
+          <xi:include href="version-info.xml" xpointer="v219"/>
         </listitem>
       </varlistentry>
 
@@ -347,7 +347,7 @@ s - Service VLAN, m - Two-port MAC Relay (TPMR)
         </term>
         <listitem><para>Deletes virtual netdevs. Takes interface name or index number.</para>
 
-        <xi:include href="version-info.xml" xpointer="v247"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v243"/></listitem>
       </varlistentry>
 
        <varlistentry>
@@ -357,7 +357,7 @@ s - Service VLAN, m - Two-port MAC Relay (TPMR)
         </term>
         <listitem><para>Bring devices up. Takes interface name or index number.</para>
 
-        <xi:include href="version-info.xml" xpointer="v247"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v246"/></listitem>
       </varlistentry>
 
        <varlistentry>
@@ -367,7 +367,7 @@ s - Service VLAN, m - Two-port MAC Relay (TPMR)
         </term>
         <listitem><para>Bring devices down. Takes interface name or index number.</para>
 
-        <xi:include href="version-info.xml" xpointer="v247"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v246"/></listitem>
       </varlistentry>
 
        <varlistentry>
@@ -378,7 +378,7 @@ s - Service VLAN, m - Two-port MAC Relay (TPMR)
         <listitem><para>Renew dynamic configurations e.g. addresses received from DHCP server.
         Takes interface name or index number.</para>
 
-        <xi:include href="version-info.xml" xpointer="v247"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v244"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -389,7 +389,7 @@ s - Service VLAN, m - Two-port MAC Relay (TPMR)
         <listitem><para>Send a FORCERENEW message to all connected clients, triggering DHCP reconfiguration.
         Takes interface name or index number.</para>
 
-        <xi:include href="version-info.xml" xpointer="v247"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v246"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -402,7 +402,7 @@ s - Service VLAN, m - Two-port MAC Relay (TPMR)
         corresponding to the specified interface. So, if you edit config files, it is necessary to call
         <command>networkctl reload</command> first to apply new settings.</para>
 
-        <xi:include href="version-info.xml" xpointer="v247"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v244"/></listitem>
       </varlistentry>
 
       <varlistentry>

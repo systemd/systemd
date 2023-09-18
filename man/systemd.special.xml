@@ -127,6 +127,8 @@
             <para>The root mount point, i.e. the mount unit for the <filename>/</filename>
             path. This unit is unconditionally active, during the entire time the system is up, as
             this mount point is where the basic userspace is running from.</para>
+
+          <xi:include href="version-info.xml" xpointer="v235"/>
           </listitem>
         </varlistentry>
 
@@ -177,6 +179,8 @@
             <citerefentry><refentrytitle>systemd-bless-boot.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
             for a service that propagates boot success information to the boot loader, and orders itself after
             <filename>boot-complete.target</filename>.</para>
+
+            <xi:include href="version-info.xml" xpointer="v240"/>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -283,6 +287,8 @@
             <filename>shutdown.target</filename>, which in turn should be
             conflicted by all units that want to be scheduled for
             shutdown when the service manager starts to exit.</para>
+
+            <xi:include href="version-info.xml" xpointer="v186"/>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -339,6 +345,8 @@
             <para>A special target unit for hibernating and suspending
             the system at the same time. This pulls in
             <filename>sleep.target</filename>.</para>
+
+            <xi:include href="version-info.xml" xpointer="v196"/>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -347,6 +355,8 @@
             <para>A special target unit for suspending the system for a period
             of time, waking it and putting it into hibernate. This pulls in
             <filename>sleep.target</filename>.</para>
+
+            <xi:include href="version-info.xml" xpointer="v239"/>
           </listitem>
         </varlistentry>
 
@@ -372,6 +382,8 @@
           <listitem>
             <para>This scope unit is where the system and service manager (PID 1) itself resides. It
             is active as long as the system is running.</para>
+
+            <xi:include href="version-info.xml" xpointer="v235"/>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -381,6 +393,8 @@
             the main system. It is used to mount the real root and transition to it. See
             <citerefentry><refentrytitle>bootup</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
             more discussion.</para>
+
+          <xi:include href="version-info.xml" xpointer="v245"/>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -394,6 +408,8 @@
             <filename>sysroot.mount</filename>. Thus, once this target is reached the
             <filename>/sysroot/</filename> hierarchy is fully set up, in preparation for the transition to
             the host OS.</para>
+
+          <xi:include href="version-info.xml" xpointer="v199"/>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -406,6 +422,8 @@
             <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>3</manvolnum></citerefentry>
             automatically setup the appropriate dependencies to make this happen.
             </para>
+
+            <xi:include href="version-info.xml" xpointer="v230"/>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -415,6 +433,8 @@
             automatically adds dependencies of type <varname>Before=</varname> to the
             <filename>sysroot.mount</filename> unit, which is generated from the kernel command line's
             <varname>root=</varname> setting (or equivalent).</para>
+
+          <xi:include href="version-info.xml" xpointer="v199"/>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -482,6 +502,8 @@
             <para>A standard target unit for starting all the containers
             and other virtual machines. See <filename>systemd-nspawn@.service</filename>
             for an example.</para>
+
+            <xi:include href="version-info.xml" xpointer="v233"/>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -533,6 +555,8 @@
             logic. After the system has completed booting up, it will not track the online state of
             the system anymore. Due to this it cannot be used as a network connection monitor
             concept, it is purely a one-time system start-up concept.</para>
+
+            <xi:include href="version-info.xml" xpointer="v200"/>
             </listitem>
         </varlistentry>
         <varlistentry>
@@ -547,6 +571,8 @@
             dependencies from this unit. This is best configured via a
             <varname>WantedBy=paths.target</varname> in the path unit's
             [Install] section.</para>
+
+            <xi:include href="version-info.xml" xpointer="v199"/>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -592,6 +618,8 @@
             devices which are accessed over the network. It is used for
             <citerefentry><refentrytitle>crypttab</refentrytitle><manvolnum>8</manvolnum></citerefentry>
             entries marked with <option>_netdev</option>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v235"/>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -699,6 +727,8 @@
             section should only be done for units that need to be always active. In that case care
             needs to be taken to avoid creating a loop through the automatic dependencies on
             "parent" slices.</para>
+
+            <xi:include href="version-info.xml" xpointer="v229"/>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -803,6 +833,8 @@
             <filename>system-update.target</filename> is reached,
             <filename>system-update-cleanup.service</filename> will remove the symlinks and reboot
             the machine.</para>
+
+            <xi:include href="version-info.xml" xpointer="v186"/>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -818,6 +850,8 @@
             dependencies from this unit. This is best configured via
             <varname>WantedBy=timers.target</varname> in the timer
             unit's [Install] section.</para>
+
+            <xi:include href="version-info.xml" xpointer="v199"/>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -897,6 +931,8 @@
 
             <para>This may be used to pull in usb gadget
             dynamically when UDC hardware is found.</para>
+
+            <xi:include href="version-info.xml" xpointer="v242"/>
           </listitem>
         </varlistentry>
       </variablelist>
@@ -939,7 +975,9 @@
           part of any transaction unless a storage daemon is used. The instance name for instances of this
           template unit must be a properly escaped block device node path, e.g.
           <filename index="false">blockdev@dev-mapper-foobar.target</filename> for the storage device
-          <filename index="false">/dev/mapper/foobar</filename>.</para></listitem>
+          <filename index="false">/dev/mapper/foobar</filename>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v245"/></listitem>
         </varlistentry>
         <varlistentry>
           <term><filename>cryptsetup-pre.target</filename></term>
@@ -952,6 +990,8 @@
             particularly useful to ensure that a service is shut down
             only after all encrypted block devices are fully
             stopped.</para>
+
+            <xi:include href="version-info.xml" xpointer="v215"/>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -991,6 +1031,8 @@
             unit before this unit if you want to make use of the console
             just before <filename>getty</filename> is started.
             </para>
+
+            <xi:include href="version-info.xml" xpointer="v235"/>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -1041,6 +1083,8 @@
             orders itself after this target, but does not pull it in. Also see <ulink
             url="https://systemd.io/NETWORK_ONLINE">Running Services After the Network Is Up</ulink> for more
             information.</para>
+
+            <xi:include href="version-info.xml" xpointer="v214"/>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -1128,6 +1172,8 @@
             monotonic. Enable
             <citerefentry><refentrytitle>systemd-timesyncd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
             or an alternative NTP implementation to delay the target.</para>
+
+            <xi:include href="version-info.xml" xpointer="v242"/>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -1215,6 +1261,8 @@
           <listitem>
             <para>The root slice is the root of the slice hierarchy. It usually does not contain
             units directly, but may be used to set defaults for the whole tree.</para>
+
+            <xi:include href="version-info.xml" xpointer="v206"/>
           </listitem>
         </varlistentry>
 
@@ -1223,6 +1271,8 @@
           <listitem>
             <para>By default, all system services started by
             <command>systemd</command> are found in this slice.</para>
+
+            <xi:include href="version-info.xml" xpointer="v206"/>
           </listitem>
         </varlistentry>
 
@@ -1233,6 +1283,8 @@
             behalf of the user, including the per-user systemd instance
             are found in this slice.  This is pulled in by
             <filename>systemd-logind.service</filename>.</para>
+
+            <xi:include href="version-info.xml" xpointer="v206"/>
           </listitem>
         </varlistentry>
 
@@ -1243,6 +1295,8 @@
             registered with <command>systemd-machined</command> are
             found in this slice. This is pulled in by
             <filename>systemd-machined.service</filename>.</para>
+
+            <xi:include href="version-info.xml" xpointer="v206"/>
           </listitem>
         </varlistentry>
       </variablelist>
@@ -1266,6 +1320,8 @@
             compose the normal user session should be pulled into this target. In this regard,
             <filename>default.target</filename> is similar to <filename>multi-user.target</filename> in the
             system instance, but it is a real unit, not an alias.</para>
+
+            <xi:include href="version-info.xml" xpointer="v242"/>
           </listitem>
         </varlistentry>
       </variablelist>
@@ -1328,6 +1384,8 @@ PartOf=graphical-session.target
 [Service]
 …</programlisting>
             </example>
+
+              <xi:include href="version-info.xml" xpointer="v234"/>
           </listitem>
         </varlistentry>
 
@@ -1340,6 +1398,8 @@ PartOf=graphical-session.target
             upgrade (which needs to happen before starting any process that might use them). This
             target must be started before starting a graphical session like
             <filename>gnome-session.target</filename>.</para>
+
+            <xi:include href="version-info.xml" xpointer="v234"/>
           </listitem>
         </varlistentry>
 

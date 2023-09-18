@@ -139,7 +139,7 @@
             <para>If <varname>$KERNEL_INSTALL_LAYOUT</varname> is not "uki", this plugin does nothing.</para></listitem>
           </itemizedlist>
 
-            <xi:include href="version-info.xml" xpointer="v241"/>
+            <xi:include href="version-info.xml" xpointer="v198"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -172,7 +172,7 @@
             </para></listitem>
           </itemizedlist>
 
-            <xi:include href="version-info.xml" xpointer="v203"/>
+            <xi:include href="version-info.xml" xpointer="v198"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -182,7 +182,7 @@
           values of the various <varname>$KERNEL_INSTALL_*</varname> environment variables listed
           below.</para>
 
-          <xi:include href="version-info.xml" xpointer="v254"/>
+          <xi:include href="version-info.xml" xpointer="v251"/>
         </listitem>
       </varlistentry>
 
@@ -337,6 +337,8 @@
             kernel and initrds under
             <filename>$BOOT/<replaceable>ENTRY-TOKEN</replaceable>/<replaceable>KERNEL-VERSION</replaceable>/</filename></para>
             <para>Implemented by <filename>90-loaderentry.install</filename>.</para>
+
+            <xi:include href="version-info.xml" xpointer="v250"/>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -357,6 +359,8 @@
           <term>other</term>
           <listitem>
             <para>Some other layout not understood natively by <command>kernel-install</command>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v250"/>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -441,7 +445,7 @@
             exist, <filename>/proc/cmdline</filename> is used. <varname>$KERNEL_INSTALL_CONF_ROOT</varname>
             may be used to override the path.</para>
 
-          <xi:include href="version-info.xml" xpointer="v250"/>
+          <xi:include href="version-info.xml" xpointer="v198"/>
           </listitem>
       </varlistentry>
       <varlistentry>
@@ -497,7 +501,7 @@
             If available, <varname>PRETTY_NAME=</varname> is read from these files and used as the title of the boot menu entry.
             Otherwise, <literal>Linux <replaceable>KERNEL-VERSION</replaceable></literal> will be used.</para>
 
-        <xi:include href="version-info.xml" xpointer="v215"/>
+        <xi:include href="version-info.xml" xpointer="v198"/>
           </listitem>
       </varlistentry>
       <varlistentry>

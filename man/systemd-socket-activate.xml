@@ -132,7 +132,7 @@
         ignored. In case less names are given than descriptors, the remaining file descriptors will be unnamed.
         </para>
 
-        <xi:include href="version-info.xml" xpointer="v233"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v230"/></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="help" />
@@ -162,7 +162,9 @@
         <term><varname>$SYSTEMD_LOG_LOCATION</varname></term>
 
         <listitem><para>Same as in
-        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para></listitem>
+        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v230"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>

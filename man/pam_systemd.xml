@@ -299,7 +299,7 @@
 
         <listitem><para>Sets unit <varname>MemoryMax=</varname>.</para>
 
-        <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -307,7 +307,7 @@
 
         <listitem><para>Sets unit <varname>TasksMax=</varname>.</para>
 
-        <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -315,7 +315,7 @@
 
         <listitem><para>Sets unit <varname>CPUWeight=</varname>.</para>
 
-        <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -323,7 +323,7 @@
 
         <listitem><para>Sets unit <varname>IOWeight=</varname>.</para>
 
-        <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -331,7 +331,7 @@
 
         <listitem><para>Sets unit <varname>RuntimeMaxSec=</varname>.</para>
 
-        <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v244"/></listitem>
       </varlistentry>
     </variablelist>
 

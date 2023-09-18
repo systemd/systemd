@@ -190,7 +190,9 @@
 
           <listitem><para>Enable or disable a call to
           <citerefentry><refentrytitle>systemd-measure</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-          to print pre-calculated PCR values. Defaults to false.</para></listitem>
+          to print pre-calculated PCR values. Defaults to false.</para>
+
+          <xi:include href="version-info.xml" xpointer="v253"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -212,7 +214,7 @@
           <para>Note that the name is used as-is, and if the section name should start with a dot, it must be
           included in <replaceable>NAME</replaceable>.</para>
 
-          <xi:include href="version-info.xml" xpointer="v255"/>
+          <xi:include href="version-info.xml" xpointer="v253"/>
           </listitem>
         </varlistentry>
 
@@ -221,7 +223,9 @@
 
           <listitem><para>Specify one or more directories with helper tools. <command>ukify</command> will
           look for helper tools in those directories first, and if not found, try to load them from
-          <varname>$PATH</varname> in the usual fashion.</para></listitem>
+          <varname>$PATH</varname> in the usual fashion.</para>
+
+          <xi:include href="version-info.xml" xpointer="v253"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -230,7 +234,9 @@
           <listitem><para>The output filename. If not specified, the name of the
           <replaceable>LINUX</replaceable> argument, with the suffix <literal>.unsigned.efi</literal> or
           <literal>.signed.efi</literal> will be used, depending on whether signing for SecureBoot was
-          performed.</para></listitem>
+          performed.</para>
+
+          <xi:include href="version-info.xml" xpointer="v253"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -293,7 +299,9 @@
 
           <listitem><para>The kernel command line (the <literal>.cmdline</literal> section). The argument may
           be a literal string, or <literal>@</literal> followed by a path name. If not specified, no command
-          line will be embedded.</para></listitem>
+          line will be embedded.</para>
+
+          <xi:include href="version-info.xml" xpointer="v253"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -303,7 +311,9 @@
           <listitem><para>The os-release description (the <literal>.osrel</literal> section). The argument
           may be a literal string, or <literal>@</literal> followed by a path name. If not specified, the
           <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry> file
-          will be picked up from the host system.</para></listitem>
+          will be picked up from the host system.</para>
+
+          <xi:include href="version-info.xml" xpointer="v253"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -312,7 +322,9 @@
 
           <listitem><para>The devicetree description (the <literal>.dtb</literal> section). The argument is a
           path to a compiled binary DeviceTree file. If not specified, the section will not be present.
-          </para></listitem>
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v253"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -321,7 +333,9 @@
 
           <listitem><para>A picture to display during boot (the <literal>.splash</literal> section). The
           argument is a path to a BMP file. If not specified, the section will not be present.
-          </para></listitem>
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v253"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -331,7 +345,9 @@
           <listitem><para>A path to a public key to embed in the <literal>.pcrpkey</literal> section. If not
           specified, and there's exactly one
           <varname>PCRPublicKey=</varname>/<option>--pcr-public-key=</option> argument, that key will be used.
-          Otherwise, the section will not be present.</para></listitem>
+          Otherwise, the section will not be present.</para>
+
+          <xi:include href="version-info.xml" xpointer="v253"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -342,7 +358,9 @@
           <literal>.uname</literal> section). If not specified, an attempt will be made to extract the
           version string from the kernel image. It is recommended to pass this explicitly if known, because
           the extraction is based on heuristics and not very reliable. If not specified and extraction fails,
-          the section will not be present.</para></listitem>
+          the section will not be present.</para>
+
+          <xi:include href="version-info.xml" xpointer="v253"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -352,7 +370,9 @@
           <listitem><para>A comma or space-separated list of PCR banks to sign a policy for. If not present,
           all known banks will be used (<literal>sha1</literal>, <literal>sha256</literal>,
           <literal>sha384</literal>, <literal>sha512</literal>), which will fail if not supported by the
-          system.</para></listitem>
+          system.</para>
+
+          <xi:include href="version-info.xml" xpointer="v253"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -373,7 +393,9 @@
           <listitem><para>A path to a private key to use for signing of the resulting binary. If the
           <varname>SigningEngine=</varname>/<option>--signing-engine=</option> option is used, this may also be
           an engine-specific designation. This option is required by
-          <varname>SecureBootSigningTool=sbsign</varname>/<option>--signtool=sbsign</option>. </para></listitem>
+          <varname>SecureBootSigningTool=sbsign</varname>/<option>--signtool=sbsign</option>. </para>
+
+          <xi:include href="version-info.xml" xpointer="v253"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -383,7 +405,9 @@
           <listitem><para>A path to a certificate to use for signing of the resulting binary. If the
           <varname>SigningEngine=</varname>/<option>--signing-engine=</option> option is used, this may also
           be an engine-specific designation. This option is required by
-          <varname>SecureBootSigningTool=sbsign</varname>/<option>--signtool=sbsign</option>. </para></listitem>
+          <varname>SecureBootSigningTool=sbsign</varname>/<option>--signtool=sbsign</option>. </para>
+
+          <xi:include href="version-info.xml" xpointer="v253"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -424,7 +448,9 @@
           <listitem><para>An "engine" for signing of the resulting binary. This option is currently passed
           verbatim to the <option>--engine=</option> option of
           <citerefentry project='archlinux'><refentrytitle>sbsign</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
-          </para></listitem>
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v253"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -438,7 +464,9 @@
           <varname>SecureBootPrivateKey=</varname>/<option>--secureboot-private-key=</option> option and the
           binary has not already been signed. If
           <varname>SignKernel=</varname>/<option>--sign-kernel</option> is true, and the binary has already
-          been signed, the signature will be appended anyway.</para></listitem>
+          been signed, the signature will be appended anyway.</para>
+
+          <xi:include href="version-info.xml" xpointer="v253"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -471,7 +499,9 @@
           <term><option>--pcr-private-key=<replaceable>PATH</replaceable></option></term>
 
           <listitem><para>A private key to use for signing PCR policies. On the commandline, this option may
-          be specified more than once, in which case multiple signatures will be made.</para></listitem>
+          be specified more than once, in which case multiple signatures will be made.</para>
+
+          <xi:include href="version-info.xml" xpointer="v253"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -483,7 +513,9 @@
           <para>On the commandline, this option may be specified more than once, similarly to the
           <option>--pcr-private-key=</option> option. If not present, the public keys will be extracted from
           the private keys. On the commandline, if present, the this option must be specified the same number
-          of times as the <option>--pcr-private-key=</option> option.</para></listitem>
+          of times as the <option>--pcr-private-key=</option> option.</para>
+
+          <xi:include href="version-info.xml" xpointer="v253"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -497,7 +529,9 @@
           will be used.</para>
 
           <para>On the commandline, when this argument is present, it must appear the same number of times as
-          the <option>--pcr-private-key=</option> option. </para></listitem>
+          the <option>--pcr-private-key=</option> option. </para>
+
+          <xi:include href="version-info.xml" xpointer="v253"/></listitem>
         </varlistentry>
       </variablelist>
     </refsect2>
