@@ -1172,6 +1172,9 @@
         <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
         details.</para>
 
+        <para>For further information on the file descriptor store see the <ulink
+        url="https://systemd.io/FILE_DESCRIPTOR_STORE">File Descriptor Store</ulink> overview.</para>
+
         <xi:include href="version-info.xml" xpointer="v219"/></listitem>
       </varlistentry>
 
