@@ -5670,6 +5670,48 @@ static void strv_dump(FILE* f, const char *prefix, const char *name, char **strv
         }
 }
 
+void exec_params_dump(const ExecParameters *p, FILE* f, const char *prefix) {
+        assert(p);
+        assert(f);
+
+        prefix = strempty(prefix);
+
+        fprintf(f,
+                "%sRuntimeScope: %s\n"
+                "%sExecFlags: %u\n"
+                "%sSELinuxContextNetwork: %s\n"
+                "%sCgroupSupportedMask: %u\n"
+                "%sCgroupPath: %s\n"
+                "%sCrededentialsDirectory: %s\n"
+                "%sEncryptedCredentialsDirectory: %s\n"
+                "%sConfirmSpawn: %s\n"
+                "%sShallConfirmSpawn: %s\n"
+                "%sWatchdogUSec: " USEC_FMT "\n"
+                "%sNotifySocket: %s\n"
+                "%sFallbackSmackProcessLabel: %s\n",
+                prefix, runtime_scope_to_string(p->runtime_scope),
+                prefix, p->flags,
+                prefix, yes_no(p->selinux_context_net),
+                prefix, p->cgroup_supported,
+                prefix, p->cgroup_path,
+                prefix, strempty(p->received_credentials_directory),
+                prefix, strempty(p->received_encrypted_credentials_directory),
+                prefix, strempty(p->confirm_spawn),
+                prefix, yes_no(p->shall_confirm_spawn),
+                prefix, p->watchdog_usec,
+                prefix, strempty(p->notify_socket),
+                prefix, strempty(p->fallback_smack_process_label));
+
+        strv_dump(f, prefix, "FdNames", p->fd_names);
+        strv_dump(f, prefix, "Environment", p->environment);
+        strv_dump(f, prefix, "Prefix", p->prefix);
+
+        LIST_FOREACH(open_files, file, p->open_files)
+                fprintf(f, "%sOpenFile: %s %s", prefix, file->path, open_file_flags_to_string(file->flags));
+
+        strv_dump(f, prefix, "FilesEnv", p->files_env);
+}
+
 void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
         int r;
 
