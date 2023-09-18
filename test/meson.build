@@ -25,7 +25,7 @@ if install_tests
         ]
                 # install_subdir() does not handle symlinks correctly which causes a very ugly warning when
                 # installing, so if rsync is available we use that instead. TODO: switch to the new option
-                # 'follow_symlinks' once we require Meson 1.2.2 or greater, see:
+                # 'follow_symlinks' once we require Meson 1.3.0 or greater, see:
                 # https://github.com/mesonbuild/meson/commit/0af126fec798d6dbb0d1ad52168cc1f3f1758acd
                 if rsync.found()
                         rsync_r = rsync.full_path() + ' -rlpt --exclude .gitattributes -- "@0@" "${DESTDIR:-}@1@"'
