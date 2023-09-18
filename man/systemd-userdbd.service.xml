@@ -32,9 +32,10 @@
     <para><command>systemd-userdbd</command> is a system service that multiplexes user/group lookups to all
     local services that provide JSON user/group record definitions to the system. In addition it synthesizes
     JSON user/group records from classic UNIX/glibc NSS user/group records in order to provide full backwards
-    compatibility. It may also pick up statically defined JSON user/group records from drop-in files in
+    compatibility. It may also pick up statically defined JSON user/group records from files in
     <filename>/etc/userdb/</filename>, <filename>/run/userdb/</filename>,
-    <filename>/run/host/userdb/</filename> and <filename>/usr/lib/userdb/</filename>.</para>
+    <filename>/run/host/userdb/</filename> and <filename>/usr/lib/userdb/</filename> with the
+    <literal>.user</literal> extension.</para>
 
     <para>Most of <command>systemd-userdbd</command>'s functionality is accessible through the
     <citerefentry><refentrytitle>userdbctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
