@@ -218,7 +218,7 @@ This is based on crypttab(5).
         path to roothash signature file used to verify the root hash (in kernel). This feature requires Linux kernel
         version 5.4 or more recent.</para>
 
-        <xi:include href="version-info.xml" xpointer="v251"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v248"/></listitem>
       </varlistentry>
 
       <varlistentry>

@@ -129,6 +129,8 @@
                 </tbody>
               </tgroup>
             </table>
+
+              <xi:include href="version-info.xml" xpointer="v243"/>
           </listitem>
         </varlistentry>
 
@@ -243,6 +245,8 @@
 
           <para>In some configurations a parent PCI bridge of a given network controller may be associated
           with a slot. In such case we don't generate this device property to avoid possible naming conflicts.</para>
+
+          <xi:include href="version-info.xml" xpointer="v243"/>
           </listitem>
         </varlistentry>
 
@@ -311,6 +315,8 @@
 
           <para>For PCI, BCMA, and USB devices, the same rules as described above for slot naming are
           used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v243"/>
           </listitem>
         </varlistentry>
     </variablelist>

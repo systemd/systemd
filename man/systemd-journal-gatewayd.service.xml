@@ -176,7 +176,7 @@
         <para>GET parameters can be used to modify what events are
         returned. Supported parameters are described below.</para>
 
-        <xi:include href="version-info.xml" xpointer="v233"/>
+        <xi:include href="version-info.xml" xpointer="v197"/>
         </listitem>
       </varlistentry>
 
@@ -329,7 +329,7 @@
         <listitem><para>Match journal fields. See
         <citerefentry><refentrytitle>systemd.journal-fields</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
 
-        <xi:include href="version-info.xml" xpointer="v198"/>
+        <xi:include href="version-info.xml" xpointer="v197"/>
         </listitem>
       </varlistentry>
     </variablelist>

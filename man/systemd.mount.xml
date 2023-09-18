@@ -289,7 +289,9 @@
         <listitem><para>An automount unit will be created for the file
         system. See
         <citerefentry><refentrytitle>systemd.automount</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        for details.</para></listitem>
+        for details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v215"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -317,6 +319,8 @@
         <filename>/etc/fstab</filename>, and will be
         ignored when part of the <varname>Options=</varname>
         setting in a unit file.</para>
+
+        <xi:include href="version-info.xml" xpointer="v215"/>
         </listitem>
       </varlistentry>
 
@@ -443,6 +447,8 @@
         <para>Note that if <option>x-systemd.automount</option> (see above) is used, neither
         <option>auto</option> nor <option>noauto</option> have any effect. The matching automount unit will
         be added as a dependency to the appropriate target.</para>
+
+        <xi:include href="version-info.xml" xpointer="v215"/>
         </listitem>
       </varlistentry>
 
@@ -453,6 +459,8 @@
         <filename>local-fs.target</filename> or <filename>remote-fs.target</filename>. Moreover the mount unit is not
         ordered before these target units. This means that the boot will continue without waiting for the mount unit
         and regardless whether the mount point can be mounted successfully.</para>
+
+        <xi:include href="version-info.xml" xpointer="v215"/>
         </listitem>
       </varlistentry>
 
@@ -466,7 +474,9 @@
         leave the partition mounted until final shutdown. Or in other words, if this flag is set it is
         assumed the mount shall be active during the entire regular runtime of the system, i.e. established
         before the initrd transitions into the host all the way until the host transitions to the final
-        shutdown phase.</para></listitem>
+        shutdown phase.</para>
+
+        <xi:include href="version-info.xml" xpointer="v215"/></listitem>
       </varlistentry>
     </variablelist>
 

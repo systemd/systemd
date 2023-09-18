@@ -215,7 +215,9 @@
           Edition"</literal>.</para>
 
           <para>Note: this field is for display purposes only. The <varname>VARIANT_ID</varname> field should
-          be used for making programmatic decisions.</para></listitem>
+          be used for making programmatic decisions.</para>
+
+          <xi:include href="version-info.xml" xpointer="v220"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -227,7 +229,9 @@
           may not be implemented on all systems.</para>
 
           <para>Examples: <literal>VARIANT_ID=server</literal>, <literal>VARIANT_ID=embedded</literal>.
-          </para></listitem>
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v220"/></listitem>
         </varlistentry>
       </variablelist>
     </refsect2>
@@ -268,7 +272,9 @@
           is optional and may not be implemented on all systems.</para>
 
           <para>Examples: <literal>VERSION_CODENAME=buster</literal>,
-          <literal>VERSION_CODENAME=xenial</literal>.</para></listitem>
+          <literal>VERSION_CODENAME=xenial</literal>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v231"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -283,7 +289,9 @@
           optional.</para>
 
           <para>Examples: <literal>BUILD_ID="2013-03-20.3"</literal>, <literal>BUILD_ID=201303203</literal>.
-          </para></listitem>
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v200"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -384,7 +392,9 @@
           systems.</para>
 
           <para>Examples: <literal>LOGO=fedora-logo</literal>, <literal>LOGO=distributor-logo-opensuse</literal>
-          </para></listitem>
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v240"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -452,7 +462,9 @@
           <para>See <citerefentry><refentrytitle>org.freedesktop.hostname1</refentrytitle><manvolnum>5</manvolnum></citerefentry>
           for a description of how
           <citerefentry><refentrytitle>systemd-hostnamed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-          determines the fallback hostname.</para></listitem>
+          determines the fallback hostname.</para>
+
+          <xi:include href="version-info.xml" xpointer="v248"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -480,7 +492,9 @@
           for more information.</para>
 
           <para>Examples: <literal>SYSEXT_LEVEL=2</literal>, <literal>SYSEXT_LEVEL=15.14</literal>.
-          </para></listitem>
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v248"/></listitem>
         </varlistentry>
 
         <varlistentry>

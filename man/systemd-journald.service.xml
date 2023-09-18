@@ -240,6 +240,8 @@ systemd-tmpfiles --create --prefix /var/log/journal</programlisting>
         <para>See
         <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         for information about these settings.</para>
+
+        <xi:include href="version-info.xml" xpointer="v186"/>
         </listitem>
 
       </varlistentry>

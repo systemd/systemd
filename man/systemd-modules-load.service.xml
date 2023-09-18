@@ -56,7 +56,7 @@
         <listitem><para>Takes a comma-separated list of kernel modules to statically load during early boot.
         The option prefixed with <literal>rd.</literal> is read in the initrd only.</para>
 
-        <xi:include href="version-info.xml" xpointer="v233"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v187"/></listitem>
       </varlistentry>
 
     </variablelist>

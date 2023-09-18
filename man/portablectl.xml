@@ -155,7 +155,7 @@
         files. This is a convenience feature to allow all arguments passed as <command>attach</command> also to
         <command>detach</command>.</para>
 
-        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
 
         <para>If <option>--now</option> and/or <option>--enable</option> are passed, the portable services are
         immediately stopped (blocking operation) and/or disabled before detaching the image. Prefix(es) are also accepted,

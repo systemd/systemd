@@ -202,7 +202,9 @@
         for more information on the format of the hashed password. Note that it is not recommended to specify
         plaintext passwords on the command line, as other users might be able to see them simply by invoking
         <citerefentry project='die-net'><refentrytitle>ps</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v216"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -237,7 +239,9 @@
         <listitem><para>Prompt the user interactively for a specific
         basic setting. Note that any explicit configuration settings
         specified on the command line take precedence, and the user is
-        not prompted for it.</para></listitem>
+        not prompted for it.</para>
+
+        <xi:include href="version-info.xml" xpointer="v216"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -265,7 +269,9 @@
 
         <listitem><para>Copy a specific basic setting from the host.
         This only works in combination with <option>--root=</option> or <option>--image=</option>.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v216"/></listitem>
       </varlistentry>
 
       <varlistentry>

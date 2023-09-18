@@ -203,6 +203,8 @@
           <para>For details about these settings, their possible values and their effect, see the
           corresponding settings in
           <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v239"/>
         </listitem>
       </varlistentry>
 

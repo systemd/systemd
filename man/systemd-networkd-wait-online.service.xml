@@ -76,7 +76,7 @@
         <filename>.network</filename> file is used if present, and <literal>degraded</literal> otherwise.
         </para>
 
-        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v213"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -87,7 +87,7 @@
         interface is ignored. This option may be used more than once
         to ignore multiple network interfaces. </para>
 
-        <xi:include href="version-info.xml" xpointer="v242"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v219"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -101,7 +101,7 @@
         But this does not override operational states specified in <option>--interface=</option> option.
         </para>
 
-        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v242"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -164,7 +164,7 @@
         by the time the timeout elapses. A timeout of 0 disables the
         timeout. Defaults to 120 seconds. </para>
 
-        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v219"/></listitem>
       </varlistentry>
 
       <varlistentry>
