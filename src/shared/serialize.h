@@ -6,6 +6,7 @@
 #include "fdset.h"
 #include "macro.h"
 #include "pidref.h"
+#include "set.h"
 #include "string-util.h"
 #include "time-util.h"
 
@@ -19,6 +20,7 @@ int serialize_usec(FILE *f, const char *key, usec_t usec);
 int serialize_dual_timestamp(FILE *f, const char *key, const dual_timestamp *t);
 int serialize_strv(FILE *f, const char *key, char **l);
 int serialize_pidref(FILE *f, FDSet *fds, const char *key, PidRef *pidref);
+int serialize_string_set(FILE *f, const char *key, Set *s);
 
 static inline int serialize_bool(FILE *f, const char *key, bool b) {
         return serialize_item(f, key, yes_no(b));
