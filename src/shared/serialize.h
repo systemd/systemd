@@ -23,6 +23,10 @@ static inline int serialize_bool_elide(FILE *f, const char *key, bool b) {
         return b ? serialize_item(f, key, yes_no(b)) : 0;
 }
 
+static inline int serialize_item_tristate(FILE *f, const char *key, int value) {
+        return value >= 0 ? serialize_item_format(f, key, "%i", value) : 0;
+}
+
 int deserialize_read_line(FILE *f, char **ret);
 
 int deserialize_usec(const char *value, usec_t *timestamp);
