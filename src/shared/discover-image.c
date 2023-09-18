@@ -298,7 +298,7 @@ static int image_make(
                         r = fd_is_fs_type(fd, BTRFS_SUPER_MAGIC);
                         if (r < 0)
                                 return r;
-                        if (r) {
+                        if (r > 0) {
                                 BtrfsSubvolInfo info;
 
                                 /* It's a btrfs subvolume */
