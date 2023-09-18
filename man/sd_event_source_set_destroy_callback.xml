@@ -95,8 +95,9 @@
 
   <refsect1>
     <title>History</title>
-    <para><function>sd_event_source_get_destroy_callback()</function> was added in version 239.</para>
-    <para><function>sd_event_source_set_destroy_callback()</function> was added in version 239.</para>
+    <para><function>sd_event_destroy_t()</function>,
+    <function>sd_event_source_set_destroy_callback()</function>, and
+    <function>sd_event_source_get_destroy_callback()</function> were added in version 239.</para>
   </refsect1>
 
   <refsect1>
