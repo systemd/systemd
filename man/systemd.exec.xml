@@ -3998,12 +3998,12 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
         <varlistentry>
           <term><varname>$FDSTORE</varname></term>
 
-          <listitem><para>If the file descriptor store is enabled for a service
-          (i.e. <varname>FileDescriptorStoreMax=</varname> is set to a non-zero value, see
+          <listitem><para>The maximum number of file descriptors that may be stored in the manager for the
+          service. This variable is set when the file descriptor store is enabled for the service, i.e.
+          <varname>FileDescriptorStoreMax=</varname> is set to a non-zero value (see
           <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-          for details), this environment variable will be set to the maximum number of permitted entries, as
-          per the setting. Applications may check this environment variable before sending file descriptors
-          to the service manager via <function>sd_pid_notify_with_fds()</function> (see
+          for details). Applications may check this environment variable before sending file descriptors to
+          the service manager via <function>sd_pid_notify_with_fds()</function> (see
           <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry> for
           details).</para>
 

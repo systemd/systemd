@@ -98,19 +98,80 @@
     <title>Description</title>
 
     <para><function>sd_notify()</function> may be called by a service to notify the service manager about
-    state changes. It can be used to send arbitrary information, encoded in an environment-block-like
-    string. Most importantly, it can be used for start-up completion notification.</para>
+    state changes. It can be used to send arbitrary information, encoded in an environment-block-like string.
+    Most importantly, it can be used for start-up or reload completion notifications.</para>
 
     <para>If the <parameter>unset_environment</parameter> parameter is non-zero,
     <function>sd_notify()</function> will unset the <varname>$NOTIFY_SOCKET</varname> environment variable
     before returning (regardless of whether the function call itself succeeded or not). Further calls to
-    <function>sd_notify()</function> will then fail, but the variable is no longer inherited by child
+    <function>sd_notify()</function> will then fail, and the variable is no longer inherited by child
     processes.</para>
 
     <para>The <parameter>state</parameter> parameter should contain a newline-separated list of variable
     assignments, similar in style to an environment block. A trailing newline is implied if none is
-    specified. The string may contain any kind of variable assignments, but the following shall be considered
-    well-known:</para>
+    specified. The string may contain any kind of variable assignments, but see the next section
+    for a list of assignments understood by the service manager.</para>
+
+    <para>Note that systemd will accept status data sent from a service only if the
+    <varname>NotifyAccess=</varname> option is correctly set in the service definition file. See
+    <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+    details.</para>
+
+    <para>Note that <function>sd_notify()</function> notifications may be attributed to units correctly only
+    if either the sending process is still around at the time PID 1 processes the message, or if the sending
+    process is explicitly runtime-tracked by the service manager. The latter is the case if the service
+    manager originally forked off the process, i.e. on all processes that match
+    <varname>NotifyAccess=</varname><option>main</option> or
+    <varname>NotifyAccess=</varname><option>exec</option>. Conversely, if an auxiliary process of the unit
+    sends an <function>sd_notify()</function> message and immediately exits, the service manager might not be
+    able to properly attribute the message to the unit, and thus will ignore it, even if
+    <varname>NotifyAccess=</varname><option>all</option> is set for it.</para>
+
+    <para>Hence, to eliminate all race conditions involving lookup of the client's unit and attribution of
+    notifications to units correctly, <function>sd_notify_barrier()</function> may be used. This call acts as
+    a synchronization point and ensures all notifications sent before this call have been picked up by the
+    service manager when it returns successfully. Use of <function>sd_notify_barrier()</function> is needed
+    for clients which are not invoked by the service manager, otherwise this synchronization mechanism is
+    unnecessary for attribution of notifications to the unit.</para>
+
+    <para><function>sd_notifyf()</function> is similar to <function>sd_notify()</function> but takes a
+    <function>printf()</function>-like format string plus arguments.</para>
+
+    <para><function>sd_pid_notify()</function> and <function>sd_pid_notifyf()</function> are similar to
+    <function>sd_notify()</function> and <function>sd_notifyf()</function> but take a process ID (PID) to use
+    as originating PID for the message as first argument. This is useful to send notification messages on
+    behalf of other processes, provided the appropriate privileges are available. If the PID argument is
+    specified as 0, the process ID of the calling process is used, in which case the calls are fully
+    equivalent to <function>sd_notify()</function> and <function>sd_notifyf()</function>.</para>
+
+    <para><function>sd_pid_notify_with_fds()</function> is similar to <function>sd_pid_notify()</function>
+    but takes an additional array of file descriptors. These file descriptors are sent along the notification
+    message to the service manager. This is particularly useful for sending <literal>FDSTORE=1</literal>
+    messages, as described above. The additional arguments are a pointer to the file descriptor array plus
+    the number of file descriptors in the array. If the number of file descriptors is passed as 0, the call
+    is fully equivalent to <function>sd_pid_notify()</function>, i.e. no file descriptors are passed. Note
+    that file descriptors sent to the service manager on a message without <literal>FDSTORE=1</literal> are
+    immediately closed on reception.</para>
+
+    <para><function>sd_pid_notifyf_with_fds()</function> is a combination of
+    <function>sd_pid_notify_with_fds()</function> and <function>sd_notifyf()</function>, i.e. it accepts both
+    a PID and a set of file descriptors as input, and processes a format string to generate the state
+    string.</para>
+
+    <para><function>sd_notify_barrier()</function> allows the caller to synchronize against reception of
+    previously sent notification messages and uses the <varname>BARRIER=1</varname> command. It takes a
+    relative <varname>timeout</varname> value in microseconds which is passed to
+    <citerefentry><refentrytitle>ppoll</refentrytitle><manvolnum>2</manvolnum>
+    </citerefentry>. A value of UINT64_MAX is interpreted as infinite timeout.</para>
+
+    <para><function>sd_pid_notify_barrier()</function> is just like <function>sd_notify_barrier()</function>,
+    but allows specifying the originating PID for the notification message.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Well-known assignments</title>
+
+    <para>The following assignments have a defined meaning:</para>
 
     <variablelist>
       <varlistentry>
@@ -126,14 +187,24 @@
       <varlistentry>
         <term>RELOADING=1</term>
 
-        <listitem><para>Tells the service manager that the service is beginning to reload its
-        configuration. This is useful to allow the service manager to track the service's internal state, and
-        present it to the user. Note that a service that sends this notification must also send a
+        <listitem><para>Tells the service manager that the service is beginning to reload its configuration.
+        This is useful to allow the service manager to track the service's internal state, and present it to
+        the user. Note that a service that sends this notification must also send a
         <literal>READY=1</literal> notification when it completed reloading its configuration. Reloads the
         service manager is notified about with this mechanisms are propagated in the same way as they are
         when originally initiated through the service manager. This message is particularly relevant for
         <varname>Type=notify-reload</varname> services, to inform the service manager that the request to
         reload the service has been received and is now being processed.</para>
+
+        <xi:include href="version-info.xml" xpointer="v217"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>STOPPING=1</term>
+
+        <listitem><para>Tells the service manager that the service is beginning its shutdown. This is useful
+        to allow the service manager to track the service's internal state, and present it to the user.
+        </para>
 
         <xi:include href="version-info.xml" xpointer="v217"/></listitem>
       </varlistentry>
@@ -152,23 +223,12 @@
       </varlistentry>
 
       <varlistentry>
-        <term>STOPPING=1</term>
-
-        <listitem><para>Tells the service manager that the service is beginning its shutdown. This is useful
-        to allow the service manager to track the service's internal state, and present it to the
-        user.</para>
-
-        <xi:include href="version-info.xml" xpointer="v217"/></listitem>
-      </varlistentry>
-
-      <varlistentry>
         <term>STATUS=…</term>
 
         <listitem><para>Passes a single-line UTF-8 status string back to the service manager that describes
         the service state. This is free-form and can be used for various purposes: general state feedback,
         fsck-like programs could pass completion percentages and failing programs could pass a human-readable
-        error message. Example: <literal>STATUS=Completed 66% of file system
-        check…</literal></para>
+        error message. Example: <literal>STATUS=Completed 66% of file system check…</literal></para>
 
         <xi:include href="version-info.xml" xpointer="v233"/></listitem>
       </varlistentry>
@@ -179,8 +239,8 @@
         <listitem><para>Reset the access to the service status notification socket during runtime, overriding
         <varname>NotifyAccess=</varname> setting in the service unit file. See
         <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        for details, specifically <literal>NotifyAccess=</literal> for a list of accepted
-        values.</para>
+        for details, specifically <literal>NotifyAccess=</literal> for a list of accepted values.
+        </para>
 
         <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
@@ -198,7 +258,8 @@
         <term>BUSERROR=…</term>
 
         <listitem><para>If a service fails, the D-Bus error-style error code. Example:
-        <literal>BUSERROR=org.freedesktop.DBus.Error.TimedOut</literal></para>
+        <literal>BUSERROR=org.freedesktop.DBus.Error.TimedOut</literal>. Note that this assignment is
+        currently not used by <command>systemd</command>.</para>
 
         <xi:include href="version-info.xml" xpointer="v233"/></listitem>
       </varlistentry>
@@ -206,8 +267,15 @@
       <varlistentry>
         <term>EXIT_STATUS=…</term>
 
-        <listitem><para>If a service exits, the return value of its <function>main()</function> function.
-        </para>
+        <listitem><para>The exit status of a service or the manager itself. Note that
+        <command>systemd</command> currently does not consume this value when sent by services, so this
+        assignment is only informational. The manager will send this notification to <emphasis>its</emphasis>
+        notification socket, which may be used to to collect an exit status from the system (a container or
+        VM) as it shuts down. For example,
+        <citerefentry project='debian'><refentrytitle>mkosi</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        makes use of this. The value to return may be set via the
+        <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        <command>exit</command> verb.</para>
 
         <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
@@ -216,7 +284,7 @@
         <term>MAINPID=…</term>
 
         <listitem><para>The main process ID (PID) of the service, in case the service manager did not fork
-        off the process itself.  Example: <literal>MAINPID=4711</literal></para>
+        off the process itself. Example: <literal>MAINPID=4711</literal>.</para>
 
         <xi:include href="version-info.xml" xpointer="v233"/></listitem>
       </varlistentry>
@@ -276,29 +344,40 @@
       <varlistentry>
         <term>FDSTORE=1</term>
 
-        <listitem><para>Stores additional file descriptors in the service manager. File descriptors sent this
-        way will be maintained per-service by the service manager and will later be handed back using the
-        usual file descriptor passing logic at the next invocation of the service (e.g. when it is
-        restarted), see
+        <listitem><para>Store file descriptors in the service manager. File descriptors sent this way will be
+        held for the service by the service manager and will later be handed back using the usual file
+        descriptor passing logic at the next start or restart of the service, see
         <citerefentry><refentrytitle>sd_listen_fds</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
-        This is useful for implementing services that can restart after an explicit request or a crash
-        without losing state. Any open sockets and other file descriptors which should not be closed during
-        the restart may be stored this way. Application state can either be serialized to a file in
-        <filename>/run/</filename>, or better, stored in a
-        <citerefentry><refentrytitle>memfd_create</refentrytitle><manvolnum>2</manvolnum></citerefentry>
-        memory file descriptor. Note that the service manager will accept messages for a service only if its
+        Any open sockets and other file descriptors which should not be closed during a restart may be stored
+        this way. When a service is stopped, its file descriptor store is discarded and all file descriptors
+        in it are closed, except when overridden with <varname>FileDescriptorStorePreserve=</varname>, see
+        <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        </para>
+
+        <para>The service manager will accept messages for a service only if its
         <varname>FileDescriptorStoreMax=</varname> setting is non-zero (defaults to zero, see
-        <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>). If
-        <varname>FDPOLL=0</varname> is not set and the file descriptors sent are pollable (see
+        <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
+        The service manager will set the <varname>$FDSTORE</varname> environment variable for services that
+        have the file descriptor store enabled, see
+        <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        </para>
+
+        <para>If <varname>FDPOLL=0</varname> is not set and the file descriptors are pollable (see
         <citerefentry><refentrytitle>epoll_ctl</refentrytitle><manvolnum>2</manvolnum></citerefentry>), then
         any <constant>EPOLLHUP</constant> or <constant>EPOLLERR</constant> event seen on them will result in
-        their automatic removal from the store. Multiple arrays of file descriptors may be sent in separate
-        messages, in which case the arrays are combined. Note that the service manager removes duplicate
-        (pointing to the same object) file descriptors before passing them to the service. When a service is
-        stopped, its file descriptor store is discarded and all file descriptors in it are closed. Use
-        <function>sd_pid_notify_with_fds()</function> to send messages with <literal>FDSTORE=1</literal>, see
-        below. The service manager will set the <varname>$FDSTORE</varname> environment variable for services
-        that have the file descriptor store enabled.</para>
+        their automatic removal from the store.</para>
+
+        <para>Multiple sets of file descriptors may be sent in separate messages, in which case the sets are
+        combined. The service manager removes duplicate file descriptors (those pointing to the same object)
+        before passing them to the service.</para>
+
+        <para>This functionality should be used to implement services that can restart after an explicit
+        request or a crash without losing state. Application state can either be serialized to a file in
+        <filename>/run/</filename>, or better, stored in a
+        <citerefentry><refentrytitle>memfd_create</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+        memory file descriptor. Use <function>sd_pid_notify_with_fds()</function> to send messages with
+        <literal>FDSTORE=1</literal>. It is recommended to combine <varname>FDSTORE=</varname> with
+        <varname>FDNAME=</varname> to make it easier to manage the stored file descriptors.</para>
 
         <para>For further information on the file descriptor store see the <ulink
         url="https://systemd.io/FILE_DESCRIPTOR_STORE">File Descriptor Store</ulink> overview.</para>
@@ -323,14 +402,16 @@
         submitted file descriptors. When used with <varname>FDSTOREREMOVE=1</varname>, specifies the name for
         the file descriptors to remove. This name is passed to the service during activation, and may be
         queried using
-        <citerefentry><refentrytitle>sd_listen_fds_with_names</refentrytitle><manvolnum>3</manvolnum></citerefentry>. File
-        descriptors submitted without this field set, will implicitly get the name <literal>stored</literal>
-        assigned. Note that, if multiple file descriptors are submitted at once, the specified name will be
-        assigned to all of them. In order to assign different names to submitted file descriptors, submit
-        them in separate invocations of <function>sd_pid_notify_with_fds()</function>. The name may consist
-        of arbitrary ASCII characters except control characters or <literal>:</literal>. It may not be longer
-        than 255 characters. If a submitted name does not follow these restrictions, it is
-        ignored.</para>
+        <citerefentry><refentrytitle>sd_listen_fds_with_names</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+        File descriptors submitted without this field will be called <literal>stored</literal>.</para>
+
+        <para>The name may consist of arbitrary ASCII characters except control characters or
+        <literal>:</literal>. It may not be longer than 255 characters. If a submitted name does not follow
+        these restrictions, it is ignored.</para>
+
+        <para>Note that if multiple file descriptors are submitted in a single message, the specified name
+        will be used for all of them. In order to assign different names to submitted file descriptors,
+        submit them in separate messages.</para>
 
         <xi:include href="version-info.xml" xpointer="v233"/></listitem>
       </varlistentry>
@@ -364,63 +445,10 @@
       </varlistentry>
     </variablelist>
 
-    <para>It is recommended to prefix variable names that are not listed above with <varname>X_</varname> to
-    avoid namespace clashes.</para>
-
-    <para>Note that systemd will accept status data sent from a service only if the
-    <varname>NotifyAccess=</varname> option is correctly set in the service definition file. See
-    <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
-    details.</para>
-
-    <para>Note that <function>sd_notify()</function> notifications may be attributed to units correctly only
-    if either the sending process is still around at the time PID 1 processes the message, or if the sending
-    process is explicitly runtime-tracked by the service manager. The latter is the case if the service
-    manager originally forked off the process, i.e. on all processes that match
-    <varname>NotifyAccess=</varname><option>main</option> or
-    <varname>NotifyAccess=</varname><option>exec</option>. Conversely, if an auxiliary process of the unit
-    sends an <function>sd_notify()</function> message and immediately exits, the service manager might not be
-    able to properly attribute the message to the unit, and thus will ignore it, even if
-    <varname>NotifyAccess=</varname><option>all</option> is set for it.</para>
-
-    <para>Hence, to eliminate all race conditions involving lookup of the client's unit and attribution of
-    notifications to units correctly, <function>sd_notify_barrier()</function> may be used. This call acts as
-    a synchronization point and ensures all notifications sent before this call have been picked up by the
-    service manager when it returns successfully. Use of <function>sd_notify_barrier()</function> is needed
-    for clients which are not invoked by the service manager, otherwise this synchronization mechanism is
-    unnecessary for attribution of notifications to the unit.</para>
-
-    <para><function>sd_notifyf()</function> is similar to <function>sd_notify()</function> but takes a
-    <function>printf()</function>-like format string plus arguments.</para>
-
-    <para><function>sd_pid_notify()</function> and <function>sd_pid_notifyf()</function> are similar to
-    <function>sd_notify()</function> and <function>sd_notifyf()</function> but take a process ID (PID) to use
-    as originating PID for the message as first argument. This is useful to send notification messages on
-    behalf of other processes, provided the appropriate privileges are available. If the PID argument is
-    specified as 0, the process ID of the calling process is used, in which case the calls are fully
-    equivalent to <function>sd_notify()</function> and <function>sd_notifyf()</function>.</para>
-
-    <para><function>sd_pid_notify_with_fds()</function> is similar to <function>sd_pid_notify()</function>
-    but takes an additional array of file descriptors. These file descriptors are sent along the notification
-    message to the service manager. This is particularly useful for sending <literal>FDSTORE=1</literal>
-    messages, as described above. The additional arguments are a pointer to the file descriptor array plus
-    the number of file descriptors in the array. If the number of file descriptors is passed as 0, the call
-    is fully equivalent to <function>sd_pid_notify()</function>, i.e. no file descriptors are passed. Note
-    that file descriptors sent to the service manager on a message without <literal>FDSTORE=1</literal> are
-    immediately closed on reception.</para>
-
-    <para><function>sd_pid_notifyf_with_fds()</function> is a combination of
-    <function>sd_pid_notify_with_fds()</function> and <function>sd_notifyf()</function>, i.e. it accepts both
-    a PID and a set of file descriptors as input, and processes a format string to generate the state
-    string.</para>
-
-    <para><function>sd_notify_barrier()</function> allows the caller to synchronize against reception of
-    previously sent notification messages and uses the <varname>BARRIER=1</varname> command. It takes a
-    relative <varname>timeout</varname> value in microseconds which is passed to
-    <citerefentry><refentrytitle>ppoll</refentrytitle><manvolnum>2</manvolnum>
-    </citerefentry>. A value of UINT64_MAX is interpreted as infinite timeout.</para>
-
-    <para><function>sd_pid_notify_barrier()</function> is just like <function>sd_notify_barrier()</function>,
-    but allows specifying the originating PID for the notification message.</para>
+    <para>The notification messages sent by services are interpreted by the service manager. Unknown
+    assignments may be logged, but are otherwise ignored. Thus, it is not useful to send assignments which
+    are not in this list. The service manager also sends some messages to <emphasis>its</emphasis>
+    notification socket, which are then consumed by the machine or container manager.</para>
   </refsect1>
 
   <refsect1>
