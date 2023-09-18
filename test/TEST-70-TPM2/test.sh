@@ -16,7 +16,12 @@ test_require_bin swtpm tpm2_pcrextend tpm2_dictionarylockout
 test_append_files() {
     local workspace="${1:?}"
 
-    instmods tpm tpm_tis tpm_ibmvtpm
+    instmods tpm tpm_tis
+    machine="$(uname -m)"
+    if [ "${machine}" = "ppc64le" ]; then
+        # This module is only available on PPC hw
+        instmods tpm_ibmvtpm
+    fi
     install_dmevent
     generate_module_dependencies
     inst_binary tpm2_dictionarylockout
