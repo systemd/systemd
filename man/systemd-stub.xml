@@ -119,6 +119,9 @@
     and <citerefentry><refentrytitle>systemd-creds</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     will automatically use files present under these paths to unlock protected resources (encrypted storage
     or credentials) or bind encryption to booted kernels.</para>
+
+    <para>For further details about the UKI concept, see the <ulink
+    url="https://uapi-group.org/specifications/specs/unified_kernel_image/">UKI specification</ulink>.</para>
   </refsect1>
 
   <refsect1>
