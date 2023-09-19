@@ -198,8 +198,18 @@ static int extract_now(
 
         /* First, find os-release/extension-release and send it upstream (or just save it). */
         if (path_is_extension) {
-                os_release_id = strjoina("/usr/lib/extension-release.d/extension-release.", image_name);
+                ImageClass class = IMAGE_SYSEXT;
+
                 r = open_extension_release(where, IMAGE_SYSEXT, image_name, relax_extension_release_check, &os_release_path, &os_release_fd);
+                if (r == -ENOENT) {
+                        r = open_extension_release(where, IMAGE_CONFEXT, image_name, relax_extension_release_check, &os_release_path, &os_release_fd);
+                        if (r >= 0)
+                                class = IMAGE_CONFEXT;
+                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to open extension release from '%s': %m", image_name);
+
+                os_release_id = (class == IMAGE_SYSEXT) ? strjoina("/usr/lib/extension-release.d/extension-release.", image_name) : strjoina("/etc/extension-release.d/extension-release.", image_name);
         } else {
                 os_release_id = "/etc/os-release";
                 r = open_os_release(where, &os_release_path, &os_release_fd);
@@ -524,7 +534,7 @@ static int extract_image_and_extensions(
                 const char *name_or_path,
                 char **matches,
                 char **extension_image_paths,
-                bool validate_sysext,
+                bool validate_extension,
                 bool relax_extension_release_check,
                 const ImagePolicy *image_policy,
                 Image **ret_image,
@@ -535,7 +545,7 @@ static int extract_image_and_extensions(
                 char ***ret_valid_prefixes,
                 sd_bus_error *error) {
 
-        _cleanup_free_ char *id = NULL, *version_id = NULL, *sysext_level = NULL;
+        _cleanup_free_ char *id = NULL, *version_id = NULL, *sysext_level = NULL, *confext_level = NULL;
         _cleanup_(portable_metadata_unrefp) PortableMetadata *os_release = NULL;
         _cleanup_ordered_hashmap_free_ OrderedHashmap *extension_images = NULL, *extension_releases = NULL;
         _cleanup_hashmap_free_ Hashmap *unit_files = NULL;
@@ -590,13 +600,14 @@ static int extract_image_and_extensions(
         /* If we are layering extension images on top of a runtime image, check that the os-release and
          * extension-release metadata match, otherwise reject it immediately as invalid, or it will fail when
          * the units are started. Also, collect valid portable prefixes if caller requested that. */
-        if (validate_sysext || ret_valid_prefixes) {
+        if (validate_extension || ret_valid_prefixes) {
                 _cleanup_free_ char *prefixes = NULL;
 
                 r = parse_env_file_fd(os_release->fd, os_release->name,
                                      "ID", &id,
                                      "VERSION_ID", &version_id,
                                      "SYSEXT_LEVEL", &sysext_level,
+                                     "CONFEXT_LEVEL", &confext_level,
                                      "PORTABLE_PREFIXES", &prefixes);
                 if (r < 0)
                         return r;
@@ -632,15 +643,18 @@ static int extract_image_and_extensions(
                 if (r < 0)
                         return r;
 
-                if (!validate_sysext && !ret_valid_prefixes && !ret_extension_releases)
+                if (!validate_extension && !ret_valid_prefixes && !ret_extension_releases)
                         continue;
 
                 r = load_env_file_pairs_fd(extension_release_meta->fd, extension_release_meta->name, &extension_release);
                 if (r < 0)
                         return r;
 
-                if (validate_sysext) {
+                if (validate_extension) {
                         r = extension_release_validate(ext->path, id, version_id, sysext_level, "portable", extension_release, IMAGE_SYSEXT);
+                        if (r < 0)
+                                r = extension_release_validate(ext->path, id, version_id, confext_level, "portable", extension_release, IMAGE_CONFEXT);
+
                         if (r == 0)
                                 return sd_bus_error_set_errnof(error, SYNTHETIC_ERRNO(ESTALE), "Image %s extension-release metadata does not match the root's", ext->path);
                         if (r < 0)
@@ -711,8 +725,8 @@ int portable_extract(
                         name_or_path,
                         matches,
                         extension_image_paths,
-                        /* validate_sysext= */ false,
-                        /* relax_extension_release_check= */ FLAGS_SET(flags, PORTABLE_FORCE_SYSEXT),
+                        /* validate_extension= */ false,
+                        /* relax_extension_release_check= */ FLAGS_SET(flags, PORTABLE_FORCE_EXTENSION),
                         image_policy,
                         &image,
                         &extension_images,
@@ -978,16 +992,18 @@ static int append_release_log_fields(
         static const char *const field_versions[_IMAGE_CLASS_MAX][4]= {
                  [IMAGE_PORTABLE] = { "IMAGE_VERSION", "VERSION_ID", "BUILD_ID", NULL },
                  [IMAGE_SYSEXT] = { "SYSEXT_IMAGE_VERSION", "SYSEXT_VERSION_ID", "SYSEXT_BUILD_ID", NULL },
+                 [IMAGE_CONFEXT] = { "CONFEXT_IMAGE_VERSION", "CONFEXT_VERSION_ID", "CONFEXT_BUILD_ID", NULL },
         };
         static const char *const field_ids[_IMAGE_CLASS_MAX][3]= {
                  [IMAGE_PORTABLE] = { "IMAGE_ID", "ID", NULL },
                  [IMAGE_SYSEXT] = { "SYSEXT_IMAGE_ID", "SYSEXT_ID", NULL },
+                 [IMAGE_CONFEXT] = { "CONFEXT_IMAGE_ID", "CONFEXT_ID", NULL },
         };
         _cleanup_strv_free_ char **fields = NULL;
         const char *id = NULL, *version = NULL;
         int r;
 
-        assert(IN_SET(type, IMAGE_PORTABLE, IMAGE_SYSEXT));
+        assert(IN_SET(type, IMAGE_PORTABLE, IMAGE_SYSEXT, IMAGE_CONFEXT));
         assert(!strv_isempty((char *const *)field_ids[type]));
         assert(!strv_isempty((char *const *)field_versions[type]));
         assert(field_name);
@@ -1110,7 +1126,7 @@ static int install_chroot_dropin(
                                                /* With --force tell PID1 to avoid enforcing that the image <name> and
                                                 * extension-release.<name> have to match. */
                                                !IN_SET(type, IMAGE_DIRECTORY, IMAGE_SUBVOLUME) &&
-                                                   FLAGS_SET(flags, PORTABLE_FORCE_SYSEXT) ?
+                                                   FLAGS_SET(flags, PORTABLE_FORCE_EXTENSION) ?
                                                        ":x-systemd.relax-extension-release-check\n" :
                                                        "\n",
                                                /* In PORTABLE= we list the 'main' image name for this unit
@@ -1127,6 +1143,13 @@ static int install_chroot_dropin(
                                 r = append_release_log_fields(&text,
                                                               ordered_hashmap_get(extension_releases, ext->name),
                                                               IMAGE_SYSEXT,
+                                                              "PORTABLE_EXTENSION_NAME_AND_VERSION");
+                                if (r < 0)
+                                        return r;
+
+                                r = append_release_log_fields(&text,
+                                                              ordered_hashmap_get(extension_releases, ext->name),
+                                                              IMAGE_CONFEXT,
                                                               "PORTABLE_EXTENSION_NAME_AND_VERSION");
                                 if (r < 0)
                                         return r;
@@ -1431,8 +1454,8 @@ int portable_attach(
                         name_or_path,
                         matches,
                         extension_image_paths,
-                        /* validate_sysext= */ true,
-                        /* relax_extension_release_check= */ FLAGS_SET(flags, PORTABLE_FORCE_SYSEXT),
+                        /* validate_extension= */ true,
+                        /* relax_extension_release_check= */ FLAGS_SET(flags, PORTABLE_FORCE_EXTENSION),
                         image_policy,
                         &image,
                         &extension_images,
