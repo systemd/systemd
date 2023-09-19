@@ -90,6 +90,24 @@ int cg_read_pid(FILE *f, pid_t *ret) {
         return 1;
 }
 
+int cg_read_pidref(FILE *f, PidRef *ret) {
+        int r;
+
+        for (;;) {
+                pid_t pid;
+
+                r = cg_read_pid(f, &pid);
+                if (r <= 0) /* failure or EOF? */
+                        return r;
+
+                r = pidref_set_pid(ret, pid);
+                if (r != -ESRCH)
+                        return r;
+
+                /* ESRCH → gone by now? just skip over it, read the next */
+        }
+}
+
 int cg_read_event(
                 const char *controller,
                 const char *path,
