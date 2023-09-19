@@ -1442,8 +1442,11 @@ static int dissect_image(
                 if (verity->designator >= 0 && !m->partitions[verity->designator].found)
                         return -EADDRNOTAVAIL;
 
-                bool have_verity_sig_partition =
-                        m->partitions[verity->designator == PARTITION_USR ? PARTITION_USR_VERITY_SIG : PARTITION_ROOT_VERITY_SIG].found;
+                bool have_verity_sig_partition;
+                if (verity->designator >= 0)
+                        have_verity_sig_partition = m->partitions[verity->designator == PARTITION_USR ? PARTITION_USR_VERITY_SIG : PARTITION_ROOT_VERITY_SIG].found;
+                else
+                        have_verity_sig_partition = m->partitions[PARTITION_USR_VERITY_SIG].found || m->partitions[PARTITION_ROOT_VERITY_SIG].found;
 
                 if (verity->root_hash) {
                         /* If we have an explicit root hash and found the partitions for it, then we are ready to use
@@ -1475,7 +1478,13 @@ static int dissect_image(
                         /* If we found an embedded signature partition, we are ready, too. */
 
                         m->verity_ready = m->verity_sig_ready = true;
-                        m->partitions[verity->designator == PARTITION_USR ? PARTITION_USR : PARTITION_ROOT].rw = false;
+                        if (verity->designator <= 0) {
+                                if (m->partitions[PARTITION_USR_VERITY_SIG].found)
+                                        m->partitions[PARTITION_USR].rw = false;
+                                if (m->partitions[PARTITION_ROOT_VERITY_SIG].found)
+                                        m->partitions[PARTITION_ROOT].rw = false;
+                        } else
+                                m->partitions[verity->designator == PARTITION_USR ? PARTITION_USR : PARTITION_ROOT].rw = false;
                 }
         }
 
