@@ -1908,6 +1908,8 @@ static void btrfs_chunk_tree_done(BtrfsChunkTree *tree) {
 
         FOREACH_ARRAY(i, tree->chunks, tree->n_chunks)
                 btrfs_chunk_free(*i);
+
+        free(tree->chunks);
 }
 
 static int btrfs_read_chunk_tree_fd(int fd, BtrfsChunkTree *ret) {
