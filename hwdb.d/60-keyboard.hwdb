@@ -173,6 +173,10 @@ evdev:atkbd:dmi:*:svnPackardBell:pndots:*:rvnPackardBell:rnSJE01_CT:*
  KEYBOARD_KEY_ce=unknown  # Brightness Up, also emitted by acpi-video, ignore
  KEYBOARD_KEY_ef=unknown  # Brightness Down, also emitted by acpi-video, ignore
 
+# Predator PT314-52s
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnPredator*PT314-52s:pvr*
+ KEYBOARD_KEY_66=micmute                                # Microphone mute button
+
 # Predator PH 315-52
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnPredator*PH*315-52:*
  KEYBOARD_KEY_ef=kbdillumup                             # Fn+F10
