@@ -51,6 +51,8 @@ int pidref_kill(PidRef *pidref, int sig);
 int pidref_kill_and_sigcont(PidRef *pidref, int sig);
 int pidref_sigqueue(PidRef *pidfref, int sig, int value);
 
+int pidref_verify(PidRef *pidref);
+
 #define TAKE_PIDREF(p) TAKE_GENERIC((p), PidRef, PIDREF_NULL)
 
 extern const struct hash_ops pidref_hash_ops; /* Has destructor call for pidref_free(), i.e. expects heap allocated PidRef as keys */
