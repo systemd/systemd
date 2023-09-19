@@ -18,21 +18,9 @@
 #include "varlink-internal.h"
 
 int manager_open_serialization(Manager *m, FILE **ret_f) {
-        _cleanup_close_ int fd = -EBADF;
-        FILE *f;
-
         assert(ret_f);
 
-        fd = open_serialization_fd("systemd-state");
-        if (fd < 0)
-                return fd;
-
-        f = take_fdopen(&fd, "w+");
-        if (!f)
-                return -errno;
-
-        *ret_f = f;
-        return 0;
+        return open_serialization_file("systemd-state", ret_f);
 }
 
 static bool manager_timestamp_shall_serialize(ManagerTimestamp t) {
