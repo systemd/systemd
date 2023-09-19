@@ -240,6 +240,26 @@ int pidref_sigqueue(PidRef *pidref, int sig, int value) {
         return -ESRCH;
 }
 
+int pidref_verify(PidRef *pidref) {
+        int r;
+
+        /* This is a helper that is supposed to be called after reading information from procfs via a
+         * PidRef. It ensures that the PID we track still matches the PIDFD we pin. If this value differs
+         * after a procfs read, we might have read the data from a recycled PID. */
+
+        if (!pidref_is_set(pidref))
+                return -ESRCH;
+
+        if (pidref->fd < 0)
+                return 0; /* If we don't have a pidfd we cannot validate it, hence we assume it's all OK → return 0 */
+
+        r = pidfd_verify_pid(pidref->fd, pidref->pid);
+        if (r < 0)
+                return r;
+
+        return 1; /* We have a pidfd and it still points to the PID we have, hence all is *really* OK → return 1 */
+}
+
 static void pidref_hash_func(const PidRef *pidref, struct siphash *state) {
         siphash24_compress(&pidref->pid, sizeof(pidref->pid), state);
 }
