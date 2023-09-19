@@ -273,3 +273,22 @@ int open_serialization_fd(const char *ident) {
 
         return fd;
 }
+
+int open_serialization_file(const char *ident, FILE **ret) {
+        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_close_ int fd;
+
+        assert(ret);
+
+        fd = open_serialization_fd(ident);
+        if (fd < 0)
+                return fd;
+
+        f = take_fdopen(&fd, "w+");
+        if (!f)
+                return -errno;
+
+        *ret = TAKE_PTR(f);
+
+        return 0;
+}
