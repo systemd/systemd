@@ -185,6 +185,13 @@ TEST(x11_convert_to_vconsole) {
         assert_se(streq(vc.keymap, "bg_bds-utf8"));
         vc_context_clear(&vc);
 
+        /* same, but with variant specified as "," */
+        log_info("/* test with variant as ',', desired match second (bg,us:) */");
+        assert_se(free_and_strdup(&xc.variant, ",") >= 0);
+        assert_se(x11_convert_to_vconsole(&xc, &vc) >= 0);
+        assert_se(streq(vc.keymap, "bg_bds-utf8"));
+        vc_context_clear(&vc);
+
         log_info("/* test with old mapping (fr:latin9) */");
         assert_se(free_and_strdup(&xc.layout, "fr") >= 0);
         assert_se(free_and_strdup(&xc.variant, "latin9") >= 0);
