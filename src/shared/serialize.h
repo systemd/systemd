@@ -41,3 +41,4 @@ int deserialize_strv(char ***l, const char *value);
 int deserialize_pidref(FDSet *fds, const char *value, PidRef *ret);
 
 int open_serialization_fd(const char *ident);
+int open_serialization_file(const char *ident, FILE **ret);
