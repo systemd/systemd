@@ -42,11 +42,12 @@
     <title>Configuration Directories and Precedence</title>
 
     <para>The default configuration is set during compilation, so configuration is only needed when it is
-    necessary to deviate from those defaults. Initially, the main configuration file in
-    <filename>/etc/systemd/</filename> contains commented out entries showing the defaults as a guide to the
-    administrator. Local overrides can be created by editing this file or by creating drop-ins, as described
-    below. Using drop-ins for local configuration is recommended over modifications to the main configuration
-    file.</para>
+    necessary to deviate from those defaults. The main configuration file is either in
+    <filename>/usr/lib/systemd</filename> or <filename>/etc/systemd/</filename> and contains commented out
+    entries showing the defaults as a guide to the administrator. Local overrides can be created by creating
+    drop-ins, as described below. The main configuration file can also be edited for this purpose (or a copy
+    in <filename>/etc</filename> if it's shipped in <filename>/usr</filename>) however using drop-ins for
+    local configuration is recommended over modifications to the main configuration file.</para>
 
     <para>In addition to the "main" configuration file, drop-in configuration snippets are read from
     <filename>/usr/lib/systemd/*.conf.d/</filename>, <filename>/usr/local/lib/systemd/*.conf.d/</filename>,
@@ -62,7 +63,9 @@
     who may use this logic to override the configuration files installed by vendor packages. Drop-ins have to
     be used to override package drop-ins, since the main configuration file has lower precedence. It is
     recommended to prefix all filenames in those subdirectories with a two-digit number and a dash, to
-    simplify the ordering of the files.</para>
+    simplify the ordering of the files. This also defined a concept of drop-in priority to allow
+    distributions to ship drop-ins within a specific range lower than the range used by users. This should
+    lower the risk of package drop-ins overriding accidentally drop-ins defined by users.</para>
 
     <para>To disable a configuration file supplied by the vendor, the recommended way is to place a symlink
     to <filename>/dev/null</filename> in the configuration directory in <filename>/etc/</filename>, with the
