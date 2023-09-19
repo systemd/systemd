@@ -685,14 +685,14 @@ foreach unit : units
         if install
                 foreach target : unit.get('symlinks', [])
                         if target.endswith('/')
-                                install_emptydir(systemunitdir / target)
-                                meson.add_install_script(sh, '-c',
-                                                         ln_s.format(systemunitdir / name,
-                                                                     systemunitdir / target / name))
+                                assert(target.replace('/', '') + '/' == target)
+                                install_symlink(name,
+                                                pointing_to : '..' / name,
+                                                install_dir : systemunitdir / target)
                         else
-                                meson.add_install_script(sh, '-c',
-                                                         ln_s.format(systemunitdir / name,
-                                                                     systemunitdir / target))
+                                install_symlink(target,
+                                                pointing_to : name,
+                                                install_dir : systemunitdir)
                         endif
                 endforeach
         endif
@@ -708,6 +708,10 @@ install_data('user@0.service.d/10-login-barrier.conf',
 
 ############################################################
 
+# The dbussystemservicedir and dbussessionservicedir may not share the same parent directory.
+# Currently, meson does not support 'relative' flag to create relative symlink with absolute paths.
+# Let's use the custom install script to create the symlink. Note, install_emptydir() is always
+# operated eariler than custom install scripts.
 install_emptydir(dbussessionservicedir)
 meson.add_install_script(sh, '-c',
                          ln_s.format(dbussystemservicedir / 'org.freedesktop.systemd1.service',

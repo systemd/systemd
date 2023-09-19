@@ -54,8 +54,10 @@ if install_tests
 
         # The unit tests implemented as shell scripts expect to find testdata/
         # in the directory where they are stored.
-        meson.add_install_script(sh, '-c', ln_s.format(testdata_dir,
-                                                       unittestsdir / 'testdata'))
+        assert(fs.parent(unittestsdir) / 'testdata' == testdata_dir)
+        install_symlink('testdata',
+                        pointing_to : '../testdata',
+                        install_dir : unittestsdir)
 endif
 
 ############################################################
