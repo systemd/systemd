@@ -449,13 +449,11 @@ static int scope_enter_running(Scope *s) {
         r = unit_attach_pids_to_cgroup(u, u->pids, NULL);
         if (r < 0) {
                 log_unit_warning_errno(u, r, "Failed to add PIDs to scope's control group: %m");
-                scope_enter_dead(s, SCOPE_FAILURE_RESOURCES);
-                return r;
+                goto fail;
         }
         if (r == 0) {
-                log_unit_warning(u, "No PIDs left to attach to the scope's control group, refusing.");
-                scope_enter_dead(s, SCOPE_FAILURE_RESOURCES);
-                return -ECHILD;
+                r = log_unit_warning_errno(u, SYNTHETIC_ERRNO(ECHILD), "No PIDs left to attach to the scope's control group, refusing.");
+                goto fail;
         }
         log_unit_debug(u, "%i %s added to scope's control group.", r, r == 1 ? "process" : "processes");
 
@@ -475,6 +473,10 @@ static int scope_enter_running(Scope *s) {
         /* Start watching the PIDs currently in the scope (legacy hierarchy only) */
         (void) unit_enqueue_rewatch_pids(u);
         return 1;
+
+fail:
+        scope_enter_dead(s, SCOPE_FAILURE_RESOURCES);
+        return r;
 }
 
 static int scope_start(Unit *u) {
