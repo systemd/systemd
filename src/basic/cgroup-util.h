@@ -10,6 +10,7 @@
 #include <sys/types.h>
 
 #include "constants.h"
+#include "pidref.h"
 #include "set.h"
 
 #define SYSTEMD_CGROUP_CONTROLLER_LEGACY "name=systemd"
@@ -178,6 +179,7 @@ typedef enum CGroupUnified {
 
 int cg_enumerate_processes(const char *controller, const char *path, FILE **ret);
 int cg_read_pid(FILE *f, pid_t *ret);
+int cg_read_pidref(FILE *f, PidRef *ret);
 int cg_read_event(const char *controller, const char *path, const char *event, char **ret);
 
 int cg_enumerate_subgroups(const char *controller, const char *path, DIR **ret);
