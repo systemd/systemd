@@ -225,9 +225,8 @@ static void test_skip_one(void (*setup)(void)) {
         assert_ret(sd_journal_open_directory(&j, t, 0));
         assert_ret(sd_journal_seek_tail(j));
         assert_se(sd_journal_previous(j) == 1); /* pointing to the last entry */
-        // FIXME: the below does not work. See issue #29216.
-        //assert_ret(sd_journal_seek_tail(j));
-        //assert_se(sd_journal_previous(j) == 1); /* pointing to the last entry */
+        assert_ret(sd_journal_seek_tail(j));
+        assert_se(sd_journal_previous(j) == 1); /* pointing to the last entry */
         test_check_numbers_up(j, 9);
         sd_journal_close(j);
 
