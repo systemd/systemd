@@ -5,6 +5,7 @@
 #include "alloc-util.h"
 #include "env-util.h"
 #include "escape.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "hexdecoct.h"
 #include "memfd-util.h"
@@ -340,4 +341,23 @@ int open_serialization_fd(const char *ident) {
                 log_debug("Serializing %s to memfd.", ident);
 
         return fd;
+}
+
+int open_serialization_file(const char *ident, FILE **ret) {
+        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_close_ int fd;
+
+        assert(ret);
+
+        fd = open_serialization_fd(ident);
+        if (fd < 0)
+                return fd;
+
+        f = take_fdopen(&fd, "w+");
+        if (!f)
+                return -errno;
+
+        *ret = TAKE_PTR(f);
+
+        return 0;
 }
