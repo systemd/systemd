@@ -68,11 +68,7 @@ int pidref_set_pidfd(PidRef *pidref, int fd) {
                 if (r < 0)
                         return r;
 
-                *pidref = (PidRef) {
-                        .fd = -EBADF,
-                        .pid = pid,
-                };
-
+                *pidref = PIDREF_MAKE_FROM_PID(pid);
                 return 0;
         }
 
