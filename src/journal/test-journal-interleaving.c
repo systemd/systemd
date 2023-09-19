@@ -185,6 +185,15 @@ static void test_skip_one(void (*setup)(void)) {
         test_check_numbers_down(j, 9);
         sd_journal_close(j);
 
+        /* Seek to head twice, iterate down. */
+        assert_ret(sd_journal_open_directory(&j, t, 0));
+        assert_ret(sd_journal_seek_head(j));
+        assert_se(sd_journal_next(j) == 1);     /* pointing the first entry */
+        assert_ret(sd_journal_seek_head(j));
+        assert_se(sd_journal_next(j) == 1);     /* pointing the first entry */
+        test_check_numbers_down(j, 9);
+        sd_journal_close(j);
+
         /* Seek to head, move to previous, then iterate down. */
         assert_ret(sd_journal_open_directory(&j, t, 0));
         assert_ret(sd_journal_seek_head(j));
@@ -209,6 +218,16 @@ static void test_skip_one(void (*setup)(void)) {
         assert_ret(sd_journal_open_directory(&j, t, 0));
         assert_ret(sd_journal_seek_tail(j));
         assert_se(sd_journal_previous(j) == 1); /* pointing the last entry */
+        test_check_numbers_up(j, 9);
+        sd_journal_close(j);
+
+        /* Seek to tail twice, iterate up. */
+        assert_ret(sd_journal_open_directory(&j, t, 0));
+        assert_ret(sd_journal_seek_tail(j));
+        assert_se(sd_journal_previous(j) == 1); /* pointing the last entry */
+        // FIXME: the below does not work. See issue #29216.
+        //assert_ret(sd_journal_seek_tail(j));
+        //assert_se(sd_journal_previous(j) == 1); /* pointing the last entry */
         test_check_numbers_up(j, 9);
         sd_journal_close(j);
 
