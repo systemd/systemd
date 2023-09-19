@@ -82,6 +82,14 @@
   </refsect1>
 
   <refsect1>
+    <title>History</title>
+    <para><function>udev_list_entry_get_next()</function>,
+    <function>udev_list_entry_get_by_name()</function>,
+    <function>udev_list_entry_get_name()</function>, and
+    <function>udev_list_entry_get_value()</function> were added in version 221.</para>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
 
     <para>

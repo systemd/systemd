@@ -120,6 +120,19 @@
   </refsect1>
 
   <refsect1>
+    <title>History</title>
+    <para><function>udev_enumerate_add_match_subsystem()</function>,
+    <function>udev_enumerate_add_nomatch_subsystem()</function>,
+    <function>udev_enumerate_add_match_sysattr()</function>,
+    <function>udev_enumerate_add_nomatch_sysattr()</function>,
+    <function>udev_enumerate_add_match_property()</function>,
+    <function>udev_enumerate_add_match_sysname()</function>,
+    <function>udev_enumerate_add_match_tag()</function>,
+    <function>udev_enumerate_add_match_parent()</function>, and
+    <function>udev_enumerate_add_match_is_initialized()</function> were added in version 221.</para>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
 
     <para>
