@@ -40,6 +40,12 @@ int pidref_set_pidfd_take(PidRef *pidref, int fd); /* takes ownership of the pas
 int pidref_set_pidfd_consume(PidRef *pidref, int fd); /* takes ownership of the passed pidfd in both success and failure */
 
 void pidref_done(PidRef *pidref);
+PidRef *pidref_free(PidRef *pidref);
+DEFINE_TRIVIAL_CLEANUP_FUNC(PidRef*, pidref_free);
+
+int pidref_dup(const PidRef *pidref, PidRef **ret);
+
+int pidref_new_from_pid(pid_t pid, PidRef **ret);
 
 int pidref_kill(PidRef *pidref, int sig);
 int pidref_kill_and_sigcont(PidRef *pidref, int sig);
