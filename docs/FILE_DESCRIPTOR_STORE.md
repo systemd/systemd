@@ -32,7 +32,7 @@ maintains a duplicate of it (in the sense of UNIX
 also in possession of the service itself, and it may (and is expected to)
 invoke any operations on it that it likes.
 
-The primary usecase of this logic is to permit services to restart seamlessly
+The primary use case of this logic is to permit services to restart seamlessly
 (for example to update them to a newer version), without losing execution
 context, dropping pinned resources, terminating established connections or even
 just momentarily losing connectivity. In fact, as the file descriptors can be
@@ -81,7 +81,7 @@ And that's already the gist of it.
 A system service that provides a client-facing interface that shall be able to
 seamlessly restart can make use of this in a scheme like the following:
 whenever a new connection comes in it uploads its fd immediately into its
-fdstore. At approporate times it also serializes its state into a memfd it
+fdstore. At appropriate times it also serializes its state into a memfd it
 uploads to the service manager — either whenever the state changed
 sufficiently, or simply right before it terminates. (The latter of course means
 that state only survives on *clean* restarts and abnormal termination implies the
@@ -104,7 +104,7 @@ lifecycle management (i.e. `KillMode=none` must be set), which disables large
 parts of the service managers state tracking, resource management (as resource
 counters cannot start at zero during service activation anymore, since the old
 processes remaining skew them), security policies (as processes with possibly
-out-of-date security policies – selinux, AppArmor, any LSM, seccomp, BPF — in
+out-of-date security policies – SElinux, AppArmor, any LSM, seccomp, BPF — in
 effect remain), and similar.
 
 # File Descriptor Store Lifecycle
@@ -176,7 +176,7 @@ This mechanism can be enabled either by making sure the service survives until
 the very end (i.e. by setting `DefaultDependencies=no` so that it keeps running
 for the whole system lifetime without being regularly deactivated at shutdown)
 or by setting `FileDescriptorStorePresever=yes` (and referencing the unit
-continously).
+continuously).
 
 # Debugging
 

@@ -797,7 +797,7 @@ CPUWeight=20   DisableControllers=cpu              /          \
           not applied to any sockets passed into the service via socket activation. Thus, it is usually a
           good idea to replicate the IP access lists on both the socket and the service unit. Nevertheless,
           it may make sense to maintain one list more open and the other one more restricted, depending on
-          the usecase.</para>
+          the use case.</para>
 
           <para>If these settings are used multiple times in the same unit the specified lists are combined. If an
           empty string is assigned to these settings the specific access list is reset and all previous settings undone.</para>
@@ -1041,7 +1041,7 @@ RestrictNetworkInterfaces=~eth1</programlisting>
           for it. Conversely, the IP filter programs configured for the service are not applied to any sockets passed into
           the service via socket activation. Thus, it is usually a good idea, to replicate the IP filter programs on both
           the socket and the service unit, however it often makes sense to maintain one configuration more open and the other
-          one more restricted, depending on the usecase.</para>
+          one more restricted, depending on the use case.</para>
 
           <para>Note that these settings might not be supported on some systems (for example if eBPF control group
           support is not enabled in the underlying kernel or container manager). These settings will fail the service in

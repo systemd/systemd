@@ -1485,11 +1485,11 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
         multiple times for creating multiple independent bind mount points.</para>
 
         <para>Mount options are comma-separated. <option>rbind</option> and <option>norbind</option> control whether
-        to create a recursive or a regular bind mount. Defaults to "rbind". <option>noidmap</option>,
+        to create a recursive or a regular bind mount. Defaults to <option>rbind</option>. <option>noidmap</option>,
         <option>idmap</option>, and <option>rootidmap</option> control ID mapping.</para>
 
         <para>Using <option>idmap</option> or <option>rootidmap</option> requires support by the source filesystem
-        for user/group ID mapped mounts. Defaults to "noidmap". With <option>x</option> being the container's UID range
+        for user/group ID mapped mounts. Defaults to <option>noidmap</option>. With <option>x</option> being the container's UID range
         offset, <option>y</option> being the length of the container's UID range, and <option>p</option> being the
         owner UID of the bind mount source inode on the host:
 

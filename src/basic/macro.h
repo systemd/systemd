@@ -14,7 +14,7 @@
 
 /* Note: on GCC "no_sanitize_address" is a function attribute only, on llvm it may also be applied to global
  * variables. We define a specific macro which knows this. Note that on GCC we don't need this decorator so much, since
- * our primary usecase for this attribute is registration structures placed in named ELF sections which shall not be
+ * our primary use case for this attribute is registration structures placed in named ELF sections which shall not be
  * padded, but GCC doesn't pad those anyway if AddressSanitizer is enabled. */
 #if HAS_FEATURE_ADDRESS_SANITIZER && defined(__clang__)
 #define _variable_no_sanitize_address_ __attribute__((__no_sanitize_address__))
