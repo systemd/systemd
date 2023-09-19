@@ -199,13 +199,20 @@ Features:
 * PidRef conversion work:
   - pid_is_unwaited() → pidref_is_unwaited()
   - pid_is_alive() → pidref_is_alive()
-  - unit_watch_pid() → unit_watch_pidref()
+  - is_kernel_thread() → pidref_is_kernel_thread()
+  - pid_is_my_child() → pidref_is_my_child()
+  - cg_pid_get_path() → cg_pidref_get_path()
+  - get_process_uid() → pidref_get_uid()
   - actually wait for POLLIN on pidref's pidfd in service logic
   - exec_spawn()
   - serialization of control/main pid in service, socket, mount, swap units
   - cg_pid_get_unit()
   - openpt_allocate_in_namespace()
   - scope dbus PIDs property needs to gain PIDFDs companion
+  - sd_bus_creds
+  - unit_attach_pid_to_cgroup_via_bus()
+  - cg_attach() – requires new kernel feature
+  - varlink_get_peer_pid()
 
 * ddi must be listed as block device fstype
 
