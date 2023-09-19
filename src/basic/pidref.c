@@ -114,6 +114,78 @@ void pidref_done(PidRef *pidref) {
         };
 }
 
+PidRef *pidref_free(PidRef *pidref) {
+        /* Regularly, this is an embedded structure. But sometimes we want it on the heap too */
+        if (!pidref)
+                return NULL;
+
+        pidref_done(pidref);
+        return mfree(pidref);
+}
+
+int pidref_dup(const PidRef *pidref, PidRef **ret) {
+        _cleanup_close_ int dup_fd = -EBADF;
+        pid_t dup_pid = 0;
+
+        assert(ret);
+
+        /* Allocates a new PidRef on the heap, making it a copy of the specified pidref. This does not try to
+         * acquire a pidfd if we don't have one yet!
+         *
+         * If NULL is passed we'll generate a PidRef that refers to no process. This makes it easy to copy
+         * pidref fields that might or might not reference a process yet. */
+
+        if (pidref) {
+                if (pidref->fd >= 0) {
+                        dup_fd = fcntl(pidref->fd, F_DUPFD_CLOEXEC, 3);
+                        if (dup_fd < 0) {
+                                if (!ERRNO_IS_RESOURCE(errno))
+                                        return -errno;
+
+                                dup_fd = -EBADF;
+                        }
+                }
+
+                if (pidref->pid > 0)
+                        dup_pid = pidref->pid;
+        }
+
+        PidRef *dup_pidref = new(PidRef, 1);
+        if (!dup_pidref)
+                return -ENOMEM;
+
+        *dup_pidref = (PidRef) {
+                .fd = TAKE_FD(dup_fd),
+                .pid = dup_pid,
+        };
+
+        *ret = TAKE_PTR(dup_pidref);
+        return 0;
+}
+
+int pidref_new_from_pid(pid_t pid, PidRef **ret) {
+        _cleanup_(pidref_freep) PidRef *n = 0;
+        int r;
+
+        assert(ret);
+
+        if (pid < 0)
+                return -ESRCH;
+
+        n = new(PidRef, 1);
+        if (!n)
+                return -ENOMEM;
+
+        *n = PIDREF_NULL;
+
+        r = pidref_set_pid(n, pid);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(n);
+        return 0;
+}
+
 int pidref_kill(PidRef *pidref, int sig) {
 
         if (!pidref)
