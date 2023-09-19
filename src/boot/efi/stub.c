@@ -10,16 +10,20 @@
 #include "pe.h"
 #include "proto/shell-parameters.h"
 #include "random-seed.h"
+#include "sbat.h"
 #include "secure-boot.h"
 #include "shim.h"
 #include "splash.h"
-#include "tpm-pcr.h"
+#include "tpm2-pcr.h"
+#include "uki.h"
 #include "util.h"
 #include "version.h"
 #include "vmm.h"
 
 /* magic string to find in the binary image */
 _used_ _section_(".sdmagic") static const char magic[] = "#### LoaderInfo: systemd-stub " GIT_VERSION " ####";
+
+DECLARE_SBAT(SBAT_STUB_SECTION_TEXT);
 
 static EFI_STATUS combine_initrd(
                 EFI_PHYSICAL_ADDRESS initrd_base, size_t initrd_size,
@@ -417,7 +421,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
 
                 /* First measure the name of the section */
                 (void) tpm_log_event_ascii(
-                                TPM_PCR_INDEX_KERNEL_IMAGE,
+                                TPM2_PCR_KERNEL_BOOT,
                                 POINTER_TO_PHYSICAL_ADDRESS(unified_sections[section]),
                                 strsize8(unified_sections[section]), /* including NUL byte */
                                 unified_sections[section],
@@ -427,7 +431,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
 
                 /* Then measure the data of the section */
                 (void) tpm_log_event_ascii(
-                                TPM_PCR_INDEX_KERNEL_IMAGE,
+                                TPM2_PCR_KERNEL_BOOT,
                                 POINTER_TO_PHYSICAL_ADDRESS(loaded_image->ImageBase) + addrs[section],
                                 szs[section],
                                 unified_sections[section],
@@ -439,7 +443,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
         /* After we are done, set an EFI variable that tells userspace this was done successfully, and encode
          * in it which PCR was used. */
         if (sections_measured > 0)
-                (void) efivar_set_uint_string(MAKE_GUID_PTR(LOADER), u"StubPcrKernelImage", TPM_PCR_INDEX_KERNEL_IMAGE, 0);
+                (void) efivar_set_uint_string(MAKE_GUID_PTR(LOADER), u"StubPcrKernelImage", TPM2_PCR_KERNEL_BOOT, 0);
 
         /* Show splash screen as early as possible */
         graphics_splash((const uint8_t*) loaded_image->ImageBase + addrs[UNIFIED_SECTION_SPLASH], szs[UNIFIED_SECTION_SPLASH]);
@@ -515,7 +519,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
                       ".extra/credentials",
                       /* dir_mode= */ 0500,
                       /* access_mode= */ 0400,
-                      /* tpm_pcr= */ TPM_PCR_INDEX_KERNEL_PARAMETERS,
+                      /* tpm_pcr= */ TPM2_PCR_KERNEL_CONFIG,
                       u"Credentials initrd",
                       &credential_initrd,
                       &credential_initrd_size,
@@ -528,7 +532,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
                       ".extra/global_credentials",
                       /* dir_mode= */ 0500,
                       /* access_mode= */ 0400,
-                      /* tpm_pcr= */ TPM_PCR_INDEX_KERNEL_PARAMETERS,
+                      /* tpm_pcr= */ TPM2_PCR_KERNEL_CONFIG,
                       u"Global credentials initrd",
                       &global_credential_initrd,
                       &global_credential_initrd_size,
@@ -541,7 +545,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
                       ".extra/sysext",
                       /* dir_mode= */ 0555,
                       /* access_mode= */ 0444,
-                      /* tpm_pcr= */ TPM_PCR_INDEX_INITRD_SYSEXTS,
+                      /* tpm_pcr= */ TPM2_PCR_SYSEXTS,
                       u"System extension initrd",
                       &sysext_initrd,
                       &sysext_initrd_size,
@@ -549,9 +553,9 @@ static EFI_STATUS run(EFI_HANDLE image) {
                 sysext_measured = m;
 
         if (parameters_measured > 0)
-                (void) efivar_set_uint_string(MAKE_GUID_PTR(LOADER), u"StubPcrKernelParameters", TPM_PCR_INDEX_KERNEL_PARAMETERS, 0);
+                (void) efivar_set_uint_string(MAKE_GUID_PTR(LOADER), u"StubPcrKernelParameters", TPM2_PCR_KERNEL_CONFIG, 0);
         if (sysext_measured)
-                (void) efivar_set_uint_string(MAKE_GUID_PTR(LOADER), u"StubPcrInitRDSysExts", TPM_PCR_INDEX_INITRD_SYSEXTS, 0);
+                (void) efivar_set_uint_string(MAKE_GUID_PTR(LOADER), u"StubPcrInitRDSysExts", TPM2_PCR_SYSEXTS, 0);
 
         /* If the PCR signature was embedded in the PE image, then let's wrap it in a cpio and also pass it
          * to the kernel, so that it can be read from /.extra/tpm2-pcr-signature.json. Note that this section

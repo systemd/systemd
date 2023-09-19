@@ -55,15 +55,17 @@ enum {
 };
 
 enum DHCPState {
-        DHCP_STATE_INIT                         = 0,
-        DHCP_STATE_SELECTING                    = 1,
-        DHCP_STATE_INIT_REBOOT                  = 2,
-        DHCP_STATE_REBOOTING                    = 3,
-        DHCP_STATE_REQUESTING                   = 4,
-        DHCP_STATE_BOUND                        = 5,
-        DHCP_STATE_RENEWING                     = 6,
-        DHCP_STATE_REBINDING                    = 7,
-        DHCP_STATE_STOPPED                      = 8,
+        DHCP_STATE_STOPPED,
+        DHCP_STATE_INIT,
+        DHCP_STATE_SELECTING,
+        DHCP_STATE_INIT_REBOOT,
+        DHCP_STATE_REBOOTING,
+        DHCP_STATE_REQUESTING,
+        DHCP_STATE_BOUND,
+        DHCP_STATE_RENEWING,
+        DHCP_STATE_REBINDING,
+        _DHCP_STATE_MAX,
+        _DHCP_STATE_INVALID                     = -EINVAL,
 };
 
 typedef enum DHCPState DHCPState;
@@ -107,3 +109,5 @@ enum {
         DHCP_FQDN_FLAG_E = (1 << 2),
         DHCP_FQDN_FLAG_N = (1 << 3),
 };
+
+const char *dhcp_state_to_string(DHCPState s) _const_;

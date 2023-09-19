@@ -9,6 +9,7 @@
 #include "macro.h"
 #include "openssl-util.h"
 #include "sha256.h"
+#include "tpm2-pcr.h"
 
 typedef enum TPM2Flags {
         TPM2_FLAGS_USE_PIN = 1 << 0,
@@ -18,6 +19,7 @@ typedef enum TPM2Flags {
  * TPM2 on a Client PC must have at least 24 PCRs. This hardcodes our expectation of 24. */
 #define TPM2_PCRS_MAX 24U
 #define TPM2_PCRS_MASK ((UINT32_C(1) << TPM2_PCRS_MAX) - 1)
+
 static inline bool TPM2_PCR_INDEX_VALID(unsigned pcr) {
         return pcr < TPM2_PCRS_MAX;
 }
@@ -75,12 +77,20 @@ typedef struct {
         TPM2B_DIGEST value;
 } Tpm2PCRValue;
 
-#define TPM2_PCR_VALUE_MAKE(i, h, v) (Tpm2PCRValue) { .index = (i), .hash = (h), .value = ((TPM2B_DIGEST) v), }
-bool TPM2_PCR_VALUE_VALID(const Tpm2PCRValue *pcr_value);
+#define TPM2_PCR_VALUE_MAKE(i, h, v)                                    \
+        (Tpm2PCRValue) {                                                \
+                .index = (i),                                           \
+                .hash = (h),                                            \
+                .value = ((TPM2B_DIGEST) v),                            \
+        }
+
+bool tpm2_pcr_value_valid(const Tpm2PCRValue *pcr_value);
+bool tpm2_pcr_values_has_any_values(const Tpm2PCRValue *pcr_values, size_t n_pcr_values);
+bool tpm2_pcr_values_has_all_values(const Tpm2PCRValue *pcr_values, size_t n_pcr_values);
 int tpm2_pcr_value_from_string(const char *arg, Tpm2PCRValue *ret_pcr_value);
 char *tpm2_pcr_value_to_string(const Tpm2PCRValue *pcr_value);
 
-bool TPM2_PCR_VALUES_VALID(const Tpm2PCRValue *pcr_values, size_t n_pcr_values);
+bool tpm2_pcr_values_valid(const Tpm2PCRValue *pcr_values, size_t n_pcr_values);
 void tpm2_sort_pcr_values(Tpm2PCRValue *pcr_values, size_t n_pcr_values);
 int tpm2_pcr_values_from_mask(uint32_t mask, TPMI_ALG_HASH hash, Tpm2PCRValue **ret_pcr_values, size_t *ret_n_pcr_values);
 int tpm2_pcr_values_to_mask(const Tpm2PCRValue *pcr_values, size_t n_pcr_values, TPMI_ALG_HASH hash, uint32_t *ret_mask);
@@ -102,7 +112,21 @@ int tpm2_get_good_pcr_banks(Tpm2Context *c, uint32_t pcr_mask, TPMI_ALG_HASH **r
 int tpm2_get_good_pcr_banks_strv(Tpm2Context *c, uint32_t pcr_mask, char ***ret);
 int tpm2_get_best_pcr_bank(Tpm2Context *c, uint32_t pcr_mask, TPMI_ALG_HASH *ret);
 
-int tpm2_extend_bytes(Tpm2Context *c, char **banks, unsigned pcr_index, const void *data, size_t data_size, const void *secret, size_t secret_size);
+const char *tpm2_userspace_log_path(void);
+
+typedef enum Tpm2UserspaceEventType {
+        TPM2_EVENT_PHASE,
+        TPM2_EVENT_FILESYSTEM,
+        TPM2_EVENT_VOLUME_KEY,
+        TPM2_EVENT_MACHINE_ID,
+        _TPM2_USERSPACE_EVENT_TYPE_MAX,
+        _TPM2_USERSPACE_EVENT_TYPE_INVALID = -EINVAL,
+} Tpm2UserspaceEventType;
+
+const char* tpm2_userspace_event_type_to_string(Tpm2UserspaceEventType type) _const_;
+Tpm2UserspaceEventType tpm2_userspace_event_type_from_string(const char *s) _pure_;
+
+int tpm2_extend_bytes(Tpm2Context *c, char **banks, unsigned pcr_index, const void *data, size_t data_size, const void *secret, size_t secret_size, Tpm2UserspaceEventType event, const char *description);
 
 uint32_t tpm2_tpms_pcr_selection_to_mask(const TPMS_PCR_SELECTION *s);
 void tpm2_tpms_pcr_selection_from_mask(uint32_t mask, TPMI_ALG_HASH hash, TPMS_PCR_SELECTION *ret);
@@ -193,7 +217,7 @@ int tpm2_tpm2b_public_to_fingerprint(const TPM2B_PUBLIC *public, void **ret_fing
                 struct_type UNIQ_T(STRUCT, uniq) = { .size_field = UNIQ_T(SIZE, uniq), }; \
                 assert(sizeof(UNIQ_T(STRUCT, uniq).buffer_field) >= (size_t) UNIQ_T(SIZE, uniq)); \
                 if (UNIQ_T(BUF, uniq))                                  \
-                        memcpy(UNIQ_T(STRUCT, uniq).buffer_field, UNIQ_T(BUF, uniq), UNIQ_T(SIZE, uniq)); \
+                        memcpy_safe(UNIQ_T(STRUCT, uniq).buffer_field, UNIQ_T(BUF, uniq), UNIQ_T(SIZE, uniq)); \
                 UNIQ_T(STRUCT, uniq);                                   \
         })
 
@@ -241,7 +265,7 @@ int tpm2_make_luks2_json(int keyslot, uint32_t hash_pcr_mask, uint16_t pcr_bank,
 int tpm2_parse_luks2_json(JsonVariant *v, int *ret_keyslot, uint32_t *ret_hash_pcr_mask, uint16_t *ret_pcr_bank, void **ret_pubkey, size_t *ret_pubkey_size, uint32_t *ret_pubkey_pcr_mask, uint16_t *ret_primary_alg, void **ret_blob, size_t *ret_blob_size, void **ret_policy_hash, size_t *ret_policy_hash_size, void **ret_salt, size_t *ret_salt_size, void **ret_srk_buf, size_t *ret_srk_buf_size, TPM2Flags *ret_flags);
 
 /* Default to PCR 7 only */
-#define TPM2_PCR_INDEX_DEFAULT (7)
+#define TPM2_PCR_INDEX_DEFAULT UINT32_C(7)
 #define TPM2_PCR_MASK_DEFAULT INDEX_TO_MASK(uint32_t, TPM2_PCR_INDEX_DEFAULT)
 
 /* We want the helpers below to work also if TPM2 libs are not available, hence define these four defines if
@@ -298,34 +322,6 @@ typedef enum Tpm2Support {
         TPM2_SUPPORT_FULL      = TPM2_SUPPORT_FIRMWARE|TPM2_SUPPORT_DRIVER|TPM2_SUPPORT_SYSTEM|TPM2_SUPPORT_SUBSYSTEM|TPM2_SUPPORT_LIBRARIES,
 } Tpm2Support;
 
-enum {
-        /* The following names for PCRs 0…7 are based on the names in the "TCG PC Client Specific Platform
-         * Firmware Profile Specification"
-         * (https://trustedcomputinggroup.org/resource/pc-client-specific-platform-firmware-profile-specification/) */
-        PCR_PLATFORM_CODE       = 0,
-        PCR_PLATFORM_CONFIG     = 1,
-        PCR_EXTERNAL_CODE       = 2,
-        PCR_EXTERNAL_CONFIG     = 3,
-        PCR_BOOT_LOADER_CODE    = 4,
-        PCR_BOOT_LOADER_CONFIG  = 5,
-        PCR_HOST_PLATFORM       = 6,
-        PCR_SECURE_BOOT_POLICY  = 7,
-        /* The following names for PCRs 9…15 are based on the "Linux TPM PCR Registry"
-        (https://uapi-group.org/specifications/specs/linux_tpm_pcr_registry/) */
-        PCR_KERNEL_INITRD       = 9,
-        PCR_IMA                 = 10,
-        PCR_KERNEL_BOOT         = 11,
-        PCR_KERNEL_CONFIG       = 12,
-        PCR_SYSEXTS             = 13,
-        PCR_SHIM_POLICY         = 14,
-        PCR_SYSTEM_IDENTITY     = 15,
-        /* As per "TCG PC Client Specific Platform Firmware Profile Specification" again, see above */
-        PCR_DEBUG               = 16,
-        PCR_APPLICATION_SUPPORT = 23,
-        _PCR_INDEX_MAX_DEFINED  = TPM2_PCRS_MAX,
-        _PCR_INDEX_INVALID      = -EINVAL,
-};
-
 Tpm2Support tpm2_support(void);
 
 int tpm2_parse_pcr_argument(const char *arg, Tpm2PCRValue **ret_pcr_values, size_t *ret_n_pcr_values);
@@ -341,5 +337,11 @@ int tpm2_util_pbkdf2_hmac_sha256(const void *pass,
                     size_t saltlen,
                     uint8_t res[static SHA256_DIGEST_SIZE]);
 
-int pcr_index_from_string(const char *s) _pure_;
-const char *pcr_index_to_string(int pcr) _const_;
+enum {
+        /* Additional defines for the PCR index naming enum from "fundamental/tpm2-pcr.h" */
+        _TPM2_PCR_INDEX_MAX_DEFINED = TPM2_PCRS_MAX,
+        _TPM2_PCR_INDEX_INVALID     = -EINVAL,
+};
+
+int tpm2_pcr_index_from_string(const char *s) _pure_;
+const char *tpm2_pcr_index_to_string(int pcr) _const_;

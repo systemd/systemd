@@ -18,8 +18,9 @@
 #include "pretty-print.h"
 #include "sha256.h"
 #include "terminal-util.h"
-#include "tpm-pcr.h"
+#include "tpm2-pcr.h"
 #include "tpm2-util.h"
+#include "uki.h"
 #include "verbs.h"
 
 /* Tool for pre-calculating expected TPM PCR values based on measured resources. This is intended to be used
@@ -409,7 +410,7 @@ static int measure_kernel(PcrState *pcr_states, size_t n) {
                         _cleanup_free_ void *v = NULL;
                         size_t sz;
 
-                        if (asprintf(&p, "/sys/class/tpm/tpm0/pcr-%s/%" PRIu32, pcr_states[i].bank, TPM_PCR_INDEX_KERNEL_IMAGE) < 0)
+                        if (asprintf(&p, "/sys/class/tpm/tpm0/pcr-%s/%i", pcr_states[i].bank, TPM2_PCR_KERNEL_BOOT) < 0)
                                 return log_oom();
 
                         r = read_virtual_file(p, 4096, &s, NULL);
@@ -679,9 +680,9 @@ static int verb_calculate(int argc, char *argv[], void *userdata) {
 
                                 if (i == 0) {
                                         fflush(stdout);
-                                        fprintf(stderr, "%s# PCR[%" PRIu32 "] Phase <%s>%s\n",
+                                        fprintf(stderr, "%s# PCR[%i] Phase <%s>%s\n",
                                                 ansi_grey(),
-                                                TPM_PCR_INDEX_KERNEL_IMAGE,
+                                                TPM2_PCR_KERNEL_BOOT,
                                                 isempty(*phase) ? ":" : *phase,
                                                 ansi_normal());
                                         fflush(stderr);
@@ -691,7 +692,7 @@ static int verb_calculate(int argc, char *argv[], void *userdata) {
                                 if (!hd)
                                         return log_oom();
 
-                                printf("%" PRIu32 ":%s=%s\n", TPM_PCR_INDEX_KERNEL_IMAGE, pcr_states[i].bank, hd);
+                                printf("%i:%s=%s\n", TPM2_PCR_KERNEL_BOOT, pcr_states[i].bank, hd);
                         } else {
                                 _cleanup_(json_variant_unrefp) JsonVariant *array = NULL;
 
@@ -701,7 +702,7 @@ static int verb_calculate(int argc, char *argv[], void *userdata) {
                                                 &array,
                                                 JSON_BUILD_OBJECT(
                                                                 JSON_BUILD_PAIR_CONDITION(!isempty(*phase), "phase", JSON_BUILD_STRING(*phase)),
-                                                                JSON_BUILD_PAIR("pcr", JSON_BUILD_INTEGER(TPM_PCR_INDEX_KERNEL_IMAGE)),
+                                                                JSON_BUILD_PAIR("pcr", JSON_BUILD_INTEGER(TPM2_PCR_KERNEL_BOOT)),
                                                                 JSON_BUILD_PAIR("hash", JSON_BUILD_HEX(pcr_states[i].value, pcr_states[i].value_size))));
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to append JSON object to array: %m");
@@ -826,7 +827,7 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
                         if (tpmalg < 0)
                                 return log_error_errno(tpmalg, "Unsupported PCR bank");
 
-                        Tpm2PCRValue pcr_value = TPM2_PCR_VALUE_MAKE(TPM_PCR_INDEX_KERNEL_IMAGE,
+                        Tpm2PCRValue pcr_value = TPM2_PCR_VALUE_MAKE(TPM2_PCR_KERNEL_BOOT,
                                                                      tpmalg,
                                                                      TPM2B_DIGEST_MAKE(p->value, p->value_size));
 
@@ -836,31 +837,12 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
                         if (r < 0)
                                 return r;
 
-                        _cleanup_(EVP_MD_CTX_freep) EVP_MD_CTX* mdctx = NULL;
-                        mdctx = EVP_MD_CTX_new();
-                        if (!mdctx)
-                                return log_oom();
-
-                        if (EVP_DigestSignInit(mdctx, NULL, p->md, NULL, privkey) != 1)
-                                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                                       "Failed to initialize signature context.");
-
-                        if (EVP_DigestSignUpdate(mdctx, pcr_policy_digest.buffer, pcr_policy_digest.size) != 1)
-                                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                                       "Failed to sign data.");
-
+                        _cleanup_free_ void *sig = NULL;
                         size_t ss;
-                        if (EVP_DigestSignFinal(mdctx, NULL, &ss) != 1)
-                                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                                       "Failed to finalize signature");
 
-                        _cleanup_free_ void *sig = malloc(ss);
-                        if (!sig)
-                                return log_oom();
-
-                        if (EVP_DigestSignFinal(mdctx, sig, &ss) != 1)
-                                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                                       "Failed to acquire signature data");
+                        r = digest_and_sign(p->md, privkey, pcr_policy_digest.buffer, pcr_policy_digest.size, &sig, &ss);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to sign PCR policy: %m");
 
                         _cleanup_free_ void *pubkey_fp = NULL;
                         size_t pubkey_fp_size = 0;
@@ -869,7 +851,7 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
                                 return r;
 
                         _cleanup_(json_variant_unrefp) JsonVariant *a = NULL;
-                        r = tpm2_make_pcr_json_array(UINT64_C(1) << TPM_PCR_INDEX_KERNEL_IMAGE, &a);
+                        r = tpm2_make_pcr_json_array(UINT64_C(1) << TPM2_PCR_KERNEL_BOOT, &a);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to build JSON PCR mask array: %m");
 
@@ -944,15 +926,15 @@ static int validate_stub(void) {
                 log_warning("Warning: current kernel image does not support measuring itself, the command line or initrd system extension images.\n"
                             "The PCR measurements seen are unlikely to be valid.");
 
-        r = compare_reported_pcr_nr(TPM_PCR_INDEX_KERNEL_IMAGE, EFI_LOADER_VARIABLE(StubPcrKernelImage), "kernel image");
+        r = compare_reported_pcr_nr(TPM2_PCR_KERNEL_BOOT, EFI_LOADER_VARIABLE(StubPcrKernelImage), "kernel image");
         if (r < 0)
                 return r;
 
-        r = compare_reported_pcr_nr(TPM_PCR_INDEX_KERNEL_PARAMETERS, EFI_LOADER_VARIABLE(StubPcrKernelParameters), "kernel parameters");
+        r = compare_reported_pcr_nr(TPM2_PCR_KERNEL_CONFIG, EFI_LOADER_VARIABLE(StubPcrKernelParameters), "kernel parameters");
         if (r < 0)
                 return r;
 
-        r = compare_reported_pcr_nr(TPM_PCR_INDEX_INITRD_SYSEXTS, EFI_LOADER_VARIABLE(StubPcrInitRDSysExts), "initrd system extension images");
+        r = compare_reported_pcr_nr(TPM2_PCR_SYSEXTS, EFI_LOADER_VARIABLE(StubPcrInitRDSysExts), "initrd system extension images");
         if (r < 0)
                 return r;
 
@@ -980,17 +962,13 @@ static int validate_stub(void) {
 }
 
 static int verb_status(int argc, char *argv[], void *userdata) {
-        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
-
-        static const struct {
-                uint32_t nr;
-                const char *description;
-        } relevant_pcrs[] = {
-                { TPM_PCR_INDEX_KERNEL_IMAGE,      "Unified Kernel Image"     },
-                { TPM_PCR_INDEX_KERNEL_PARAMETERS, "Kernel Parameters"        },
-                { TPM_PCR_INDEX_INITRD_SYSEXTS,    "initrd System Extensions" },
+        static const uint32_t relevant_pcrs[] = {
+                TPM2_PCR_KERNEL_BOOT,
+                TPM2_PCR_KERNEL_CONFIG,
+                TPM2_PCR_SYSEXTS,
         };
 
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
         int r;
 
         r = validate_stub();
@@ -1008,7 +986,7 @@ static int verb_status(int argc, char *argv[], void *userdata) {
                         if (!b)
                                 return log_oom();
 
-                        if (asprintf(&p, "/sys/class/tpm/tpm0/pcr-%s/%" PRIu32, ascii_strlower(b), relevant_pcrs[i].nr) < 0)
+                        if (asprintf(&p, "/sys/class/tpm/tpm0/pcr-%s/%" PRIu32, ascii_strlower(b), relevant_pcrs[i]) < 0)
                                 return log_oom();
 
                         r = read_virtual_file(p, 4096, &s, NULL);
@@ -1034,21 +1012,21 @@ static int verb_status(int argc, char *argv[], void *userdata) {
                                         fflush(stdout);
                                         fprintf(stderr, "%s# PCR[%" PRIu32 "] %s%s%s\n",
                                                 ansi_grey(),
-                                                relevant_pcrs[i].nr,
-                                                relevant_pcrs[i].description,
+                                                relevant_pcrs[i],
+                                                tpm2_pcr_index_to_string(relevant_pcrs[i]),
                                                 memeqzero(h, l) ? " (NOT SET!)" : "",
                                                 ansi_normal());
                                         fflush(stderr);
                                 }
 
-                                printf("%" PRIu32 ":%s=%s\n", relevant_pcrs[i].nr, b, f);
+                                printf("%" PRIu32 ":%s=%s\n", relevant_pcrs[i], b, f);
 
                         } else {
                                 _cleanup_(json_variant_unrefp) JsonVariant *bv = NULL, *a = NULL;
 
                                 r = json_build(&bv,
                                                JSON_BUILD_OBJECT(
-                                                               JSON_BUILD_PAIR("pcr", JSON_BUILD_INTEGER(relevant_pcrs[i].nr)),
+                                                               JSON_BUILD_PAIR("pcr", JSON_BUILD_INTEGER(relevant_pcrs[i])),
                                                                JSON_BUILD_PAIR("hash", JSON_BUILD_HEX(h, l))
                                                )
                                 );

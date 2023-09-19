@@ -195,6 +195,8 @@ CPUWeight=20   DisableControllers=cpu              /          \
 
           <para>Under the unified cgroup hierarchy, CPU accounting is available for all units and this
           setting has no effect.</para>
+
+          <xi:include href="version-info.xml" xpointer="v208"/>
         </listitem>
       </varlistentry>
 
@@ -238,6 +240,8 @@ CPUWeight=20   DisableControllers=cpu              /          \
           project='man-pages'><refentrytitle>sched</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
           The effect of this feature is similar to the <option>cpu</option> controller with no explicit
           configuration, so users should be careful to not mistake one for the other.</para>
+
+          <xi:include href="version-info.xml" xpointer="v232"/>
         </listitem>
       </varlistentry>
 
@@ -258,6 +262,8 @@ CPUWeight=20   DisableControllers=cpu              /          \
 
           <para>Example: <varname>CPUQuota=20%</varname> ensures that the executed processes will never get more than
           20% CPU time on one CPU.</para>
+
+          <xi:include href="version-info.xml" xpointer="v213"/>
 
         </listitem>
       </varlistentry>
@@ -280,6 +286,8 @@ CPUWeight=20   DisableControllers=cpu              /          \
           <ulink url="https://docs.kernel.org/scheduler/sched-design-CFS.html">CFS Scheduler</ulink>.</para>
 
           <para>Example: <varname>CPUQuotaPeriodSec=10ms</varname> to request that the CPU quota is measured in periods of 10ms.</para>
+
+          <xi:include href="version-info.xml" xpointer="v242"/>
         </listitem>
       </varlistentry>
 
@@ -303,6 +311,8 @@ CPUWeight=20   DisableControllers=cpu              /          \
           boot-up and shutdown differently than during normal runtime.</para>
 
           <para>This setting is supported only with the unified control group hierarchy.</para>
+
+          <xi:include href="version-info.xml" xpointer="v244"/>
         </listitem>
       </varlistentry>
 
@@ -326,6 +336,8 @@ CPUWeight=20   DisableControllers=cpu              /          \
           for this setting may be controlled with
           <varname>DefaultMemoryAccounting=</varname> in
           <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v208"/>
         </listitem>
       </varlistentry>
 
@@ -372,6 +384,8 @@ CPUWeight=20   DisableControllers=cpu              /          \
           <varname>MemoryMin=</varname> applies to normal runtime of the system, and if the former is not set also to
           the startup and shutdown phases. Using <varname>StartupMemoryLow=</varname> allows prioritizing specific services at
           boot-up and shutdown differently than during normal runtime.</para>
+
+          <xi:include href="version-info.xml" xpointer="v240"/>
         </listitem>
       </varlistentry>
 
@@ -398,6 +412,8 @@ CPUWeight=20   DisableControllers=cpu              /          \
           <varname>MemoryHigh=</varname> applies to normal runtime of the system, and if the former is not set also to
           the startup and shutdown phases. Using <varname>StartupMemoryHigh=</varname> allows prioritizing specific services at
           boot-up and shutdown differently than during normal runtime.</para>
+
+          <xi:include href="version-info.xml" xpointer="v231"/>
         </listitem>
       </varlistentry>
 
@@ -424,6 +440,8 @@ CPUWeight=20   DisableControllers=cpu              /          \
           <varname>MemoryMax=</varname> applies to normal runtime of the system, and if the former is not set also to
           the startup and shutdown phases. Using <varname>StartupMemoryMax=</varname> allows prioritizing specific services at
           boot-up and shutdown differently than during normal runtime.</para>
+
+          <xi:include href="version-info.xml" xpointer="v231"/>
         </listitem>
       </varlistentry>
 
@@ -446,6 +464,8 @@ CPUWeight=20   DisableControllers=cpu              /          \
           <varname>MemorySwapMax=</varname> applies to normal runtime of the system, and if the former is not set also to
           the startup and shutdown phases. Using <varname>StartupMemorySwapMax=</varname> allows prioritizing specific services at
           boot-up and shutdown differently than during normal runtime.</para>
+
+          <xi:include href="version-info.xml" xpointer="v232"/>
         </listitem>
       </varlistentry>
 
@@ -472,6 +492,8 @@ CPUWeight=20   DisableControllers=cpu              /          \
           <varname>MemoryZSwapMax=</varname> applies to normal runtime of the system, and if the former is not set also to
           the startup and shutdown phases. Using <varname>StartupMemoryZSwapMax=</varname> allows prioritizing specific services at
           boot-up and shutdown differently than during normal runtime.</para>
+
+          <xi:include href="version-info.xml" xpointer="v253"/>
         </listitem>
       </varlistentry>
 
@@ -496,6 +518,8 @@ CPUWeight=20   DisableControllers=cpu              /          \
           boot-up and shutdown differently than during normal runtime.</para>
 
           <para>This setting is supported only with the unified control group hierarchy.</para>
+
+          <xi:include href="version-info.xml" xpointer="v244"/>
         </listitem>
       </varlistentry>
 
@@ -518,6 +542,8 @@ CPUWeight=20   DisableControllers=cpu              /          \
           slice and for all its parent slices and the units contained therein. The system default for this
           setting may be controlled with <varname>DefaultTasksAccounting=</varname> in
           <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v227"/>
         </listitem>
       </varlistentry>
 
@@ -539,6 +565,8 @@ CPUWeight=20   DisableControllers=cpu              /          \
           <para>The system default for this setting may be controlled with
           <varname>DefaultTasksMax=</varname> in
           <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v227"/>
         </listitem>
       </varlistentry>
 
@@ -560,6 +588,8 @@ CPUWeight=20   DisableControllers=cpu              /          \
           therein. The system default for this setting may be controlled with <varname>DefaultIOAccounting=</varname>
           in
           <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v230"/>
         </listitem>
       </varlistentry>
 
@@ -585,6 +615,8 @@ CPUWeight=20   DisableControllers=cpu              /          \
           the system, and if the former is not set also to the startup
           and shutdown phases. This allows prioritizing specific services at boot-up
           and shutdown differently than during runtime.</para>
+
+          <xi:include href="version-info.xml" xpointer="v230"/>
         </listitem>
       </varlistentry>
 
@@ -610,6 +642,8 @@ CPUWeight=20   DisableControllers=cpu              /          \
           correctly only for simpler cases, where the file system is directly placed on a partition or
           physical block device, or where simple 1:1 encryption using dm-crypt/LUKS is used. This discovery
           does not cover complex storage and in particular RAID and volume management storage devices.</para>
+
+          <xi:include href="version-info.xml" xpointer="v230"/>
         </listitem>
       </varlistentry>
 
@@ -634,6 +668,8 @@ CPUWeight=20   DisableControllers=cpu              /          \
           </para>
 
           <para>Similar restrictions on block device discovery as for <varname>IODeviceWeight=</varname> apply, see above.</para>
+
+          <xi:include href="version-info.xml" xpointer="v230"/>
         </listitem>
       </varlistentry>
 
@@ -658,6 +694,8 @@ CPUWeight=20   DisableControllers=cpu              /          \
           </para>
 
           <para>Similar restrictions on block device discovery as for <varname>IODeviceWeight=</varname> apply, see above.</para>
+
+          <xi:include href="version-info.xml" xpointer="v230"/>
         </listitem>
       </varlistentry>
 
@@ -681,6 +719,8 @@ CPUWeight=20   DisableControllers=cpu              /          \
           <para>These settings are supported only if the unified control group hierarchy is used.</para>
 
           <para>Similar restrictions on block device discovery as for <varname>IODeviceWeight=</varname> apply, see above.</para>
+
+          <xi:include href="version-info.xml" xpointer="v240"/>
         </listitem>
       </varlistentry>
 
@@ -708,6 +748,8 @@ CPUWeight=20   DisableControllers=cpu              /          \
 
           <para>The system default for this setting may be controlled with <varname>DefaultIPAccounting=</varname> in
           <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v235"/>
         </listitem>
       </varlistentry>
 
@@ -755,7 +797,7 @@ CPUWeight=20   DisableControllers=cpu              /          \
           not applied to any sockets passed into the service via socket activation. Thus, it is usually a
           good idea to replicate the IP access lists on both the socket and the service unit. Nevertheless,
           it may make sense to maintain one list more open and the other one more restricted, depending on
-          the usecase.</para>
+          the use case.</para>
 
           <para>If these settings are used multiple times in the same unit the specified lists are combined. If an
           empty string is assigned to these settings the specific access list is reset and all previous settings undone.</para>
@@ -813,6 +855,8 @@ CPUWeight=20   DisableControllers=cpu              /          \
           them for IP security.</para>
 
           <xi:include href="cgroup-sandboxing.xml" xpointer="singular"/>
+
+          <xi:include href="version-info.xml" xpointer="v235"/>
         </listitem>
       </varlistentry>
 
@@ -906,6 +950,8 @@ SocketBindDeny=any
 …</programlisting></para>
 
           <xi:include href="cgroup-sandboxing.xml" xpointer="singular"/>
+
+          <xi:include href="version-info.xml" xpointer="v249"/>
         </listitem>
       </varlistentry>
 
@@ -954,6 +1000,8 @@ RestrictNetworkInterfaces=~eth1</programlisting>
           </para>
 
           <xi:include href="cgroup-sandboxing.xml" xpointer="singular"/>
+
+          <xi:include href="version-info.xml" xpointer="v250"/>
         </listitem>
       </varlistentry>
 
@@ -993,12 +1041,14 @@ RestrictNetworkInterfaces=~eth1</programlisting>
           for it. Conversely, the IP filter programs configured for the service are not applied to any sockets passed into
           the service via socket activation. Thus, it is usually a good idea, to replicate the IP filter programs on both
           the socket and the service unit, however it often makes sense to maintain one configuration more open and the other
-          one more restricted, depending on the usecase.</para>
+          one more restricted, depending on the use case.</para>
 
           <para>Note that these settings might not be supported on some systems (for example if eBPF control group
           support is not enabled in the underlying kernel or container manager). These settings will fail the service in
           that case. If compatibility with such systems is desired it is hence recommended to attach your filter manually
           (requires <varname>Delegate=</varname><constant>yes</constant>) instead of using this setting.</para>
+
+          <xi:include href="version-info.xml" xpointer="v243"/>
         </listitem>
       </varlistentry>
 
@@ -1050,6 +1100,8 @@ RestrictNetworkInterfaces=~eth1</programlisting>
           <para>Examples:<programlisting>BPFProgram=egress:/sys/fs/bpf/egress-hook
 BPFProgram=bind6:/sys/fs/bpf/sock-addr-hook
 </programlisting></para>
+
+          <xi:include href="version-info.xml" xpointer="v249"/>
         </listitem>
       </varlistentry>
 
@@ -1109,6 +1161,8 @@ DeviceAllow=/dev/loop-control
 …</programlisting></para>
 
           <xi:include href="cgroup-sandboxing.xml" xpointer="singular"/>
+
+          <xi:include href="version-info.xml" xpointer="v208"/>
         </listitem>
       </varlistentry>
 
@@ -1125,6 +1179,8 @@ DeviceAllow=/dev/loop-control
               <listitem>
                 <para>means to only allow types of access that are
                 explicitly specified.</para>
+
+                <xi:include href="version-info.xml" xpointer="v208"/>
               </listitem>
             </varlistentry>
 
@@ -1139,6 +1195,8 @@ DeviceAllow=/dev/loop-control
                 <filename>/dev/random</filename>, and
                 <filename>/dev/urandom</filename>.
                 </para>
+
+                <xi:include href="version-info.xml" xpointer="v208"/>
               </listitem>
             </varlistentry>
 
@@ -1150,11 +1208,15 @@ DeviceAllow=/dev/loop-control
                   explicit <varname>DeviceAllow=</varname> is present.
                   This is the default.
                 </para>
+
+                  <xi:include href="version-info.xml" xpointer="v208"/>
               </listitem>
             </varlistentry>
           </variablelist>
 
           <xi:include href="cgroup-sandboxing.xml" xpointer="singular"/>
+
+          <xi:include href="version-info.xml" xpointer="v208"/>
         </listitem>
       </varlistentry>
 
@@ -1188,6 +1250,8 @@ DeviceAllow=/dev/loop-control
           that have <varname>DefaultDependencies=no</varname> set, see
           <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>, section
           "Default Dependencies" for details.</para>
+
+          <xi:include href="version-info.xml" xpointer="v208"/>
 
         </listitem>
       </varlistentry>
@@ -1234,6 +1298,8 @@ DeviceAllow=/dev/loop-control
 
           <para>For further details on the delegation model consult <ulink
           url="https://systemd.io/CGROUP_DELEGATION">Control Group APIs and Delegation</ulink>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v218"/>
         </listitem>
       </varlistentry>
 
@@ -1257,6 +1323,8 @@ DeviceAllow=/dev/loop-control
           has been started. Since no processes should live in inner nodes of the control group tree it's
           almost always necessary to run the main ("supervising") process of a unit that has delegation
           turned on in a subgroup.</para>
+
+          <xi:include href="version-info.xml" xpointer="v254"/>
         </listitem>
       </varlistentry>
 
@@ -1279,6 +1347,8 @@ DeviceAllow=/dev/loop-control
           of the cgroup hierarchy is unmanaged by systemd.</para>
 
           <xi:include href="supported-controllers.xml"  xpointer="controllers-text" />
+
+          <xi:include href="version-info.xml" xpointer="v240"/>
         </listitem>
       </varlistentry>
 
@@ -1315,6 +1385,8 @@ DeviceAllow=/dev/loop-control
           cgroup's data for monitoring and detection. However, if an ancestor cgroup has one of these
           properties set to <option>kill</option>, a unit with <option>auto</option> can still be a candidate
           for <command>systemd-oomd</command> to terminate.</para>
+
+          <xi:include href="version-info.xml" xpointer="v247"/>
         </listitem>
       </varlistentry>
 
@@ -1329,6 +1401,8 @@ DeviceAllow=/dev/loop-control
           which means to use the default set by
           <citerefentry><refentrytitle>oomd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v247"/>
         </listitem>
       </varlistentry>
 
@@ -1371,6 +1445,8 @@ DeviceAllow=/dev/loop-control
           <citerefentry><refentrytitle>systemd-oomd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
           and <citerefentry><refentrytitle>oomd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v248"/>
         </listitem>
       </varlistentry>
 
@@ -1404,7 +1480,9 @@ DeviceAllow=/dev/loop-control
         to watch for and handle memory pressure events.</para>
 
         <para>If not explicit set, defaults to the <varname>DefaultMemoryPressureWatch=</varname> setting in
-        <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para></listitem>
+        <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1418,7 +1496,9 @@ DeviceAllow=/dev/loop-control
         (which in turn defaults to 200ms). The specified value expects a time unit such as
         <literal>ms</literal> or <literal>μs</literal>, see
         <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
-        details on the permitted syntax.</para></listitem>
+        details on the permitted syntax.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
     </variablelist>
     </refsect2>
@@ -1444,7 +1524,9 @@ DeviceAllow=/dev/loop-control
           <varname>BlockIOReadBandwidth=<replaceable>device</replaceable>
           <replaceable>bytes</replaceable></varname>,
           <varname>BlockIOWriteBandwidth=<replaceable>device</replaceable> <replaceable>bytes</replaceable></varname>.
-          Please switch to the unified cgroup hierarchy.</para></listitem>
+          Please switch to the unified cgroup hierarchy.</para>
+
+ <xi:include href="version-info.xml" xpointer="v252"/></listitem>
         </varlistentry>
       </variablelist>
   </refsect1>

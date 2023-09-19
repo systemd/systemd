@@ -3,7 +3,7 @@
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
-<refentry id="kernel-command-line">
+<refentry id="kernel-command-line" xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>kernel-command-line</title>
@@ -80,6 +80,8 @@
           <para>Parameters understood by the system and service
           manager to control system behavior. For details, see
           <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v186"/>
         </listitem>
       </varlistentry>
 
@@ -92,6 +94,8 @@
           <citerefentry><refentrytitle>systemd-debug-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
           to mask or start specific units at boot, or invoke a debug
           shell on tty9.</para>
+
+          <xi:include href="version-info.xml" xpointer="v215"/>
         </listitem>
       </varlistentry>
 
@@ -103,6 +107,8 @@
           <para>Additional parameters understood by
           <citerefentry><refentrytitle>systemd-run-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>, to
           run a command line specified on the kernel command line as system service after booting up.</para>
+
+          <xi:include href="version-info.xml" xpointer="v240"/>
         </listitem>
       </varlistentry>
 
@@ -113,6 +119,8 @@
           takes over. This parameter allows specifying an absolute path where core dump files should be stored until
           a handler is installed. The path should be absolute and may contain specifiers, see
           <citerefentry project='man-pages'><refentrytitle>core</refentrytitle><manvolnum>5</manvolnum></citerefentry> for details.</para>
+
+          <xi:include href="version-info.xml" xpointer="v240"/>
         </listitem>
       </varlistentry>
 
@@ -126,6 +134,8 @@
           and
           <citerefentry><refentrytitle>systemd-rfkill.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v209"/>
         </listitem>
       </varlistentry>
 
@@ -151,6 +161,8 @@
           <citerefentry><refentrytitle>systemd-volatile-root.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
           and
           <citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v233"/>
         </listitem>
       </varlistentry>
 
@@ -161,6 +173,8 @@
           and service manager to control console log verbosity. For
           details, see
           <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v186"/>
         </listitem>
       </varlistentry>
 
@@ -171,6 +185,8 @@
           and service manager to control console log verbosity. For
           details, see
           <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v205"/>
         </listitem>
       </varlistentry>
 
@@ -192,6 +208,8 @@
           <para>Parameters understood by the system and service
           manager, as compatibility and convenience options. For details, see
           <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v186"/>
         </listitem>
       </varlistentry>
 
@@ -215,6 +233,8 @@
           manager to control locale and language settings. For
           details, see
           <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v186"/>
         </listitem>
       </varlistentry>
 
@@ -226,6 +246,8 @@
           <para>Parameters understood by the file system checker
           services. For details, see
           <citerefentry><refentrytitle>systemd-fsck@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v186"/>
         </listitem>
       </varlistentry>
 
@@ -236,6 +258,8 @@
           <para>Parameter understood by the file quota checker
           service. For details, see
           <citerefentry><refentrytitle>systemd-quotacheck.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v186"/>
         </listitem>
       </varlistentry>
 
@@ -249,6 +273,8 @@
           <para>Parameters understood by the journal service. For
           details, see
           <citerefentry><refentrytitle>systemd-journald.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v186"/>
         </listitem>
       </varlistentry>
 
@@ -262,6 +288,8 @@
         <listitem>
           <para>Parameters understood by the virtual console setup logic. For details, see
           <citerefentry><refentrytitle>vconsole.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v186"/>
         </listitem>
       </varlistentry>
 
@@ -285,6 +313,8 @@
           <para>Parameters understood by the device event managing
           daemon. For details, see
           <citerefentry><refentrytitle>systemd-udevd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v186"/>
         </listitem>
       </varlistentry>
 
@@ -295,6 +325,8 @@
           <para>May be used to disable the Plymouth boot splash. For
           details, see
           <citerefentry project='die-net'><refentrytitle>plymouth</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v186"/>
         </listitem>
       </varlistentry>
 
@@ -316,6 +348,8 @@
           <para>Configures the LUKS full-disk encryption logic at
           boot. For details, see
           <citerefentry><refentrytitle>systemd-cryptsetup-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v186"/>
         </listitem>
       </varlistentry>
 
@@ -327,6 +361,8 @@
           <para>Configures the <filename>/etc/fstab</filename> logic
           at boot. For details, see
           <citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v186"/>
         </listitem>
       </varlistentry>
 
@@ -348,6 +384,8 @@
           will be in effect. In this case <varname>rootfstype=</varname>, <varname>rootflags=</varname>,
           <varname>ro</varname>, <varname>rw</varname> will be interpreted by
           <command>systemd-gpt-auto-generator</command>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v215"/>
         </listitem>
       </varlistentry>
 
@@ -360,6 +398,8 @@
           <para>Configures the /usr file system (if required) and
           its file system type and mount options. For details, see
           <citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v235"/>
         </listitem>
       </varlistentry>
 
@@ -380,6 +420,8 @@
           <para>Configures the integrity protection root hash for the root and <filename>/usr</filename> file systems, and other related
           parameters. For details, see
           <citerefentry><refentrytitle>systemd-veritysetup-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v233"/>
         </listitem>
       </varlistentry>
 
@@ -390,6 +432,8 @@
           <para>Configures whether the <filename>serial-getty@.service</filename> will run.
           For details, see
           <citerefentry><refentrytitle>systemd-getty-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/>
         </listitem>
       </varlistentry>
 
@@ -400,6 +444,8 @@
         <listitem>
           <para>Configures whether GPT-based partition auto-discovery shall be attempted. For details, see
           <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v215"/>
         </listitem>
       </varlistentry>
 
@@ -411,7 +457,9 @@
         policy string to apply, as per
         <citerefentry><refentrytitle>systemd.image-policy</refentrytitle><manvolnum>7</manvolnum></citerefentry>. For
         details see
-        <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para></listitem>
+        <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -421,6 +469,8 @@
           <para>Overrides the default start job timeout <varname>DefaultTimeoutStartSec=</varname> at
           boot. For details, see
           <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v230"/>
         </listitem>
       </varlistentry>
 
@@ -431,6 +481,8 @@
           <para>Overrides the default device timeout <varname>DefaultDeviceTimeoutSec=</varname> at boot. For
           details, see
           <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/>
         </listitem>
       </varlistentry>
 
@@ -440,6 +492,8 @@
         <listitem>
           <para>Overrides the watchdog device path <varname>WatchdogDevice=</varname>. For details, see
           <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v236"/>
         </listitem>
       </varlistentry>
 
@@ -453,6 +507,8 @@
           implicitly assumed time unit) or the special strings <literal>off</literal> or
           <literal>default</literal>. For details, see
           <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v250"/>
         </listitem>
       </varlistentry>
 
@@ -465,6 +521,8 @@
           implicitly assumed time unit) or the special strings <literal>off</literal> or
           <literal>default</literal>. For details, see
           <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v251"/>
         </listitem>
       </varlistentry>
 
@@ -475,6 +533,8 @@
           <para>Overrides the watchdog pre-timeout settings otherwise configured with
           <varname>RuntimeWatchdogPreGovernor=</varname>. Takes a string value. For details, see
           <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v251"/>
         </listitem>
       </varlistentry>
 
@@ -486,6 +546,8 @@
           processes it forks. This takes precedence over <varname>CPUAffinity=</varname>, see
           <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
           for details.</para>
+
+          <xi:include href="version-info.xml" xpointer="v245"/>
         </listitem>
       </varlistentry>
 
@@ -497,6 +559,8 @@
           <para>Load a specific kernel module early at boot. For
           details, see
           <citerefentry><refentrytitle>systemd-modules-load.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v187"/>
         </listitem>
       </varlistentry>
 
@@ -506,7 +570,9 @@
 
         <listitem><para>Configures DNS server information and search domains, see
         <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-        for details.</para></listitem>
+        for details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v253"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -519,6 +585,8 @@
           <citerefentry project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>-like
           paths are supported. For details, see
           <citerefentry><refentrytitle>systemd-hibernate-resume-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v217"/>
         </listitem>
       </varlistentry>
 
@@ -531,7 +599,9 @@
         the relevant settings are not initialized yet. Not to be confused with
         <varname>systemd.condition-first-boot=</varname> (see below), which overrides the result of the
         <varname>ConditionFirstBoot=</varname> unit file condition, and thus controls more than just
-        <filename>systemd-firstboot.service</filename> behaviour.</para></listitem>
+        <filename>systemd-firstboot.service</filename> behaviour.</para>
+
+        <xi:include href="version-info.xml" xpointer="v233"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -540,7 +610,9 @@
         <listitem><para>Takes a boolean argument. If specified, overrides the result of
         <varname>ConditionNeedsUpdate=</varname> unit condition checks. See
         <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
-        details.</para></listitem>
+        details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v246"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -551,7 +623,9 @@
         <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
         details. Not to be confused with <varname>systemd.firstboot=</varname> which only controls behaviour
         of the <filename>systemd-firstboot.service</filename> system service but has no effect on the
-        condition check (see above).</para></listitem>
+        condition check (see above).</para>
+
+        <xi:include href="version-info.xml" xpointer="v246"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -559,7 +633,9 @@
 
         <listitem><para>Takes a decimal, numeric timestamp in μs since January 1st 1970, 00:00am, to set the
         system clock to. The system time is set to the specified timestamp early during boot. It is not
-        propagated to the hardware clock (RTC).</para></listitem>
+        propagated to the hardware clock (RTC).</para>
+
+        <xi:include href="version-info.xml" xpointer="v246"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -583,6 +659,8 @@
         <para>Again: do not use this option outside of testing environments, it's a security risk elsewhere,
         as secret key material derived from the entropy pool can possibly be reconstructed by unprivileged
         programs.</para>
+
+        <xi:include href="version-info.xml" xpointer="v246"/>
         </listitem>
       </varlistentry>
 
@@ -591,7 +669,9 @@
 
         <listitem><para>Accepts a hostname to set during early boot. If specified takes precedence over what
         is set in <filename>/etc/hostname</filename>. Note that this does not bar later runtime changes to
-        the hostname, it simply controls the initial hostname set during early boot.</para></listitem>
+        the hostname, it simply controls the initial hostname set during early boot.</para>
+
+        <xi:include href="version-info.xml" xpointer="v246"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -605,7 +685,9 @@
         configure the <varname>$TERM</varname> value used by <command>systemd</command> if not set explicitly
         using <varname>TERM</varname> on the kernel command line. The tty name should be specified without
         the <filename>/dev/</filename> prefix (e.g. <literal>systemd.tty.rows.ttyS0=80</literal>).
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
@@ -618,7 +700,9 @@
           <term>systemd 252</term>
           <listitem><para>Kernel command-line arguments <varname>systemd.unified_cgroup_hierarchy</varname>
           and <varname>systemd.legacy_systemd_cgroup_controller</varname> were deprecated. Please switch to
-          the unified cgroup hierarchy.</para></listitem>
+          the unified cgroup hierarchy.</para>
+
+          <xi:include href="version-info.xml" xpointer="v252"/></listitem>
         </varlistentry>
       </variablelist>
   </refsect1>

@@ -330,6 +330,7 @@ static int parse_lines(const char *arg, bool graceful) {
 
 default_noarg:
         arg_lines = 10;
+        arg_lines_oldest = false;
         return 0;
 }
 
@@ -736,7 +737,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (streq(optarg, "-"))
                                 /* An undocumented feature: we can read journal files from STDIN. We don't document
                                  * this though, since after all we only support this for mmap-able, seekable files, and
-                                 * not for example pipes which are probably the primary usecase for reading things from
+                                 * not for example pipes which are probably the primary use case for reading things from
                                  * STDIN. To avoid confusion we hence don't document this feature. */
                                 arg_file_stdin = true;
                         else {
@@ -1913,11 +1914,11 @@ static int setup_keys(void) {
                 .fsprg_state_size = htole64(state_size),
         };
 
-        r = loop_write(fd, &h, sizeof(h), false);
+        r = loop_write(fd, &h, sizeof(h));
         if (r < 0)
                 return log_error_errno(r, "Failed to write header: %m");
 
-        r = loop_write(fd, state, state_size, false);
+        r = loop_write(fd, state, state_size);
         if (r < 0)
                 return log_error_errno(r, "Failed to write state: %m");
 

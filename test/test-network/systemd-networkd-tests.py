@@ -14,6 +14,7 @@ import pathlib
 import re
 import shutil
 import signal
+import socket
 import subprocess
 import sys
 import time
@@ -943,6 +944,37 @@ class Utilities():
             output = check_output('netlabelctl unlbl list')
             print(output)
             self.assertRegex(output, f'interface:{interface},address:{address},label:"{label}"')
+
+    def setup_nftset(self, filter_name, filter_type, flags=''):
+        if not shutil.which('nft'):
+            print('## Setting up NFT sets skipped: nft command not found.')
+        else:
+            if call(f'nft add table inet sd_test') != 0:
+                print('## Setting up NFT table failed.')
+                self.fail()
+            if call(f'nft add set inet sd_test {filter_name} {{ type {filter_type}; {flags} }}') != 0:
+                print('## Setting up NFT sets failed.')
+                self.fail()
+
+    def teardown_nftset(self, *filters):
+        if not shutil.which('nft'):
+            print('## Tearing down NFT sets skipped: nft command not found.')
+        else:
+            for filter_name in filters:
+                if call(f'nft delete set inet sd_test {filter_name}') != 0:
+                    print('## Tearing down NFT sets failed.')
+                    self.fail()
+            if call(f'nft delete table inet sd_test') != 0:
+                print('## Tearing down NFT table failed.')
+                self.fail()
+
+    def check_nftset(self, filter_name, contents):
+        if not shutil.which('nft'):
+            print('## Checking NFT sets skipped: nft command not found.')
+        else:
+            output = check_output(f'nft list set inet sd_test {filter_name}')
+            print(output)
+            self.assertRegex(output, r'.*elements = { [^}]*' + contents + r'[^}]* }.*')
 
 class NetworkctlTests(unittest.TestCase, Utilities):
 
@@ -2351,6 +2383,10 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
             flag2: str,
             flag3: str,
             flag4: str,
+            ip4_null_16: str,
+            ip4_null_24: str,
+            ip6_null_73: str,
+            ip6_null_74: str,
     ):
         output = check_output('ip address show dev dummy98')
         print(output)
@@ -2410,9 +2446,14 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertIn(f'inet6 2001:db8:0:f106::2/64 scope global{flag4}', output)
 
         # null address
-        self.assertRegex(output, r'inet [0-9]*.[0-9]*.0.1/16 brd [0-9]*.[0-9]*.255.255 scope global subnet16')
-        self.assertRegex(output, r'inet [0-9]*.[0-9]*.[0-9]*.1/24 brd [0-9]*.[0-9]*.[0-9]*.255 scope global subnet24')
-        self.assertRegex(output, r'inet6 [0-9a-f:]*:1/73 scope global')
+        self.assertTrue(ip4_null_16.endswith('.0.1'))
+        prefix16 = ip4_null_16[:-len('.0.1')]
+        self.assertTrue(ip4_null_24.endswith('.1'))
+        prefix24 = ip4_null_24[:-len('.1')]
+        self.assertIn(f'inet {ip4_null_16}/16 brd {prefix16}.255.255 scope global subnet16', output)
+        self.assertIn(f'inet {ip4_null_24}/24 brd {prefix24}.255 scope global subnet24', output)
+        self.assertIn(f'inet6 {ip6_null_73}/73 scope global', output)
+        self.assertIn(f'inet6 {ip6_null_74}/74 scope global', output)
 
         # invalid sections
         self.assertNotIn('10.4.4.1', output)
@@ -2432,8 +2473,34 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
     def test_address_static(self):
         copy_network_unit('25-address-static.network', '12-dummy.netdev', copy_dropins=False)
         start_networkd()
+        self.setup_nftset('addr4', 'ipv4_addr')
+        self.setup_nftset('network4', 'ipv4_addr', 'flags interval;')
+        self.setup_nftset('ifindex', 'iface_index')
 
         self.wait_online(['dummy98:routable'])
+
+        ip4_null_16 = None
+        ip4_null_24 = None
+        output = check_output('ip -4 --json address show dev dummy98')
+        for i in json.loads(output)[0]['addr_info']:
+            if i['label'] == 'subnet16':
+                ip4_null_16 = i['local']
+            elif i['label'] == 'subnet24':
+                ip4_null_24 = i['local']
+        self.assertTrue(ip4_null_16.endswith('.0.1'))
+        self.assertTrue(ip4_null_24.endswith('.1'))
+
+        ip6_null_73 = None
+        ip6_null_74 = None
+        output = check_output('ip -6 --json address show dev dummy98')
+        for i in json.loads(output)[0]['addr_info']:
+            if i['prefixlen'] == 73:
+                ip6_null_73 = i['local']
+            elif i['prefixlen'] == 74:
+                ip6_null_74 = i['local']
+        self.assertTrue(ip6_null_73.endswith(':1'))
+        self.assertTrue(ip6_null_74.endswith(':1'))
+
         self.verify_address_static(
             label1='label1',
             label2='label2',
@@ -2458,7 +2525,17 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
             flag2='',
             flag3=' noprefixroute',
             flag4=' home mngtmpaddr',
+            ip4_null_16=ip4_null_16,
+            ip4_null_24=ip4_null_24,
+            ip6_null_73=ip6_null_73,
+            ip6_null_74=ip6_null_74,
         )
+        # nft set
+        self.check_nftset('addr4', r'10\.10\.1\.1')
+        self.check_nftset('network4', r'10\.10\.1\.0/24')
+        self.check_nftset('ifindex', 'dummy98')
+
+        self.teardown_nftset('addr4', 'network4', 'ifindex')
 
         copy_network_unit('25-address-static.network.d/10-override.conf')
         networkctl_reload()
@@ -2487,6 +2564,10 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
             flag2=' noprefixroute',
             flag3=' home mngtmpaddr',
             flag4=' noprefixroute',
+            ip4_null_16=ip4_null_16,
+            ip4_null_24=ip4_null_24,
+            ip6_null_73=ip6_null_73,
+            ip6_null_74=ip6_null_74,
         )
 
         networkctl_reconfigure('dummy98')
@@ -2515,6 +2596,10 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
             flag2=' noprefixroute',
             flag3=' home mngtmpaddr',
             flag4=' noprefixroute',
+            ip4_null_16=ip4_null_16,
+            ip4_null_24=ip4_null_24,
+            ip6_null_73=ip6_null_73,
+            ip6_null_74=ip6_null_74,
         )
 
         # Tests for #20891.
@@ -2553,6 +2638,10 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
             flag2=' noprefixroute',
             flag3=' home mngtmpaddr',
             flag4=' noprefixroute',
+            ip4_null_16=ip4_null_16,
+            ip4_null_24=ip4_null_24,
+            ip6_null_73=ip6_null_73,
+            ip6_null_74=ip6_null_74,
         )
 
         # test for ENOBUFS issue #17012 (with reload)
@@ -2569,34 +2658,6 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         output = check_output('ip -4 address show dev dummy98')
         for i in range(1, 254):
             self.assertIn(f'inet 10.3.3.{i}/16 brd 10.3.255.255', output)
-
-    def test_address_null(self):
-        copy_network_unit('25-address-null.network', '12-dummy.netdev')
-        start_networkd()
-
-        self.wait_online(['dummy98:routable'])
-
-        output = check_output('ip address show dev dummy98 scope global')
-        print(output)
-
-        ipv4_address_16 = re.findall(r'inet 172.[0-9]*.0.1/16 brd 172.[0-9]*.255.255', output)
-        self.assertEqual(len(ipv4_address_16), 1)
-        ipv4_address_24 = re.findall(r'inet 192.168.[0-9]*.1/24 brd 192.168.[0-9]*.255', output)
-        self.assertEqual(len(ipv4_address_24), 1)
-        ipv4_address_30 = re.findall(r'inet 192.168.[0-9]*.[0-9]*/30 brd 192.168.[0-9]*.[0-9]*', output)
-        self.assertEqual(len(ipv4_address_30), 1)
-        ipv6_address = re.findall(r'inet6 fd[0-9a-f:]*/64', output)
-        self.assertEqual(len(ipv6_address), 1)
-
-        networkctl_reconfigure('dummy98')
-        self.wait_online(['dummy98:routable'])
-
-        output = check_output('ip address show dev dummy98 scope global')
-        print(output)
-        self.assertIn(ipv4_address_16[0], output)
-        self.assertIn(ipv4_address_24[0], output)
-        self.assertIn(ipv4_address_30[0], output)
-        self.assertIn(ipv6_address[0], output)
 
     def test_address_ipv4acd(self):
         check_output('ip netns add ns99')
@@ -4702,6 +4763,9 @@ class NetworkdRATests(unittest.TestCase, Utilities):
 
     def test_ipv6_prefix_delegation(self):
         copy_network_unit('25-veth.netdev', '25-ipv6-prefix.network', '25-ipv6-prefix-veth.network')
+        self.setup_nftset('addr6', 'ipv6_addr')
+        self.setup_nftset('network6', 'ipv6_addr', 'flags interval;')
+        self.setup_nftset('ifindex', 'iface_index')
         start_networkd()
         self.wait_online(['veth99:routable', 'veth-peer:degraded'])
 
@@ -4720,6 +4784,14 @@ class NetworkdRATests(unittest.TestCase, Utilities):
 
         self.check_netlabel('veth99', '2002:da8:1::/64')
         self.check_netlabel('veth99', '2002:da8:2::/64')
+
+        self.check_nftset('addr6', '2002:da8:1:[0-9a-f]*:[0-9a-f]*:[0-9a-f]*:[0-9a-f]*:[0-9a-f]*')
+        self.check_nftset('addr6', '2002:da8:2:[0-9a-f]*:[0-9a-f]*:[0-9a-f]*:[0-9a-f]*:[0-9a-f]*')
+        self.check_nftset('network6', '2002:da8:1::/64')
+        self.check_nftset('network6', '2002:da8:2::/64')
+        self.check_nftset('ifindex', 'veth99')
+
+        self.teardown_nftset('addr6', 'network6', 'ifindex')
 
     def test_ipv6_token_static(self):
         copy_network_unit('25-veth.netdev', '25-ipv6-prefix.network', '25-ipv6-prefix-veth-token-static.network')
@@ -4883,6 +4955,29 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
         output = check_output(*networkctl_cmd, '-n', '0', 'status', 'veth-peer', env=env)
         self.assertRegex(output, "Offered DHCP leases: 192.168.5.[0-9]*")
 
+    def test_dhcp_server_null_server_address(self):
+        copy_network_unit('25-veth.netdev', '25-dhcp-client.network', '25-dhcp-server-null-server-address.network')
+        start_networkd()
+        self.wait_online(['veth99:routable', 'veth-peer:routable'])
+
+        output = check_output('ip --json address show dev veth-peer')
+        server_address = json.loads(output)[0]['addr_info'][0]['local']
+        print(server_address)
+
+        output = check_output('ip --json address show dev veth99')
+        client_address = json.loads(output)[0]['addr_info'][0]['local']
+        print(client_address)
+
+        output = check_output(*networkctl_cmd, '-n', '0', 'status', 'veth99', env=env)
+        print(output)
+        self.assertRegex(output, rf'Address: {client_address} \(DHCP4 via {server_address}\)')
+        self.assertIn(f'Gateway: {server_address}', output)
+        self.assertIn(f'DNS: {server_address}', output)
+        self.assertIn(f'NTP: {server_address}', output)
+
+        output = check_output(*networkctl_cmd, '-n', '0', 'status', 'veth-peer', env=env)
+        self.assertIn(f'Offered DHCP leases: {client_address}', output)
+
     def test_dhcp_server_with_uplink(self):
         copy_network_unit('25-veth.netdev', '25-dhcp-client.network', '25-dhcp-server-downstream.network',
                           '12-dummy.netdev', '25-dhcp-server-uplink.network')
@@ -5020,6 +5115,45 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertIn('DHCPREPLY(veth-peer)', output)
         self.assertNotIn('rapid-commit', output)
 
+    def test_dhcp_client_ipv6_dbus_status(self):
+        def get_dbus_dhcp6_client_state(IF):
+            out = subprocess.check_output(['busctl', 'call', 'org.freedesktop.network1',
+                                           '/org/freedesktop/network1', 'org.freedesktop.network1.Manager',
+                                           'GetLinkByName', 's', IF])
+
+            assert out.startswith(b'io ')
+            out = out.strip()
+            assert out.endswith(b'"')
+            out = out.decode()
+            linkPath = out[:-1].split('"')[1]
+
+            print(f"Found {IF} link path: {linkPath}")
+
+            out = subprocess.check_output(['busctl', 'get-property', 'org.freedesktop.network1',
+                                           linkPath, 'org.freedesktop.network1.DHCPv6Client', 'State'])
+            assert out.startswith(b's "')
+            out = out.strip()
+            assert out.endswith(b'"')
+            return out[3:-1].decode()
+
+        copy_network_unit('25-veth.netdev', '25-dhcp-server-veth-peer.network', '25-dhcp-client-ipv6-only.network')
+
+        start_networkd()
+        self.wait_online(['veth-peer:carrier'])
+
+        # Note that at this point the DHCPv6 client has not been started because no RA (with managed
+        # bit set) has yet been recieved and the configuration does not include WithoutRA=true
+        state = get_dbus_dhcp6_client_state('veth99')
+        print(f"State = {state}")
+        self.assertEqual(state, 'stopped')
+
+        start_dnsmasq()
+        self.wait_online(['veth99:routable', 'veth-peer:routable'])
+
+        state = get_dbus_dhcp6_client_state('veth99')
+        print(f"State = {state}")
+        self.assertEqual(state, 'bound')
+
     def test_dhcp_client_ipv6_only_with_custom_client_identifier(self):
         copy_network_unit('25-veth.netdev', '25-dhcp-server-veth-peer.network', '25-dhcp-client-ipv6-only-custom-client-identifier.network')
 
@@ -5047,6 +5181,10 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
 
     def test_dhcp_client_ipv4_only(self):
         copy_network_unit('25-veth.netdev', '25-dhcp-server-veth-peer.network', '25-dhcp-client-ipv4-only.network')
+
+        self.setup_nftset('addr4', 'ipv4_addr')
+        self.setup_nftset('network4', 'ipv4_addr', 'flags interval;')
+        self.setup_nftset('ifindex', 'iface_index')
 
         start_networkd()
         self.wait_online(['veth-peer:carrier'])
@@ -5162,6 +5300,53 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertIn('26:mtu', output)
 
         self.check_netlabel('veth99', r'192\.168\.5\.0/24')
+
+        self.check_nftset('addr4', r'192\.168\.5\.1')
+        self.check_nftset('network4', r'192\.168\.5\.0/24')
+        self.check_nftset('ifindex', 'veth99')
+
+        self.teardown_nftset('addr4', 'network4', 'ifindex')
+
+    def test_dhcp_client_ipv4_dbus_status(self):
+        def get_dbus_dhcp4_client_state(IF):
+            out = subprocess.check_output(['busctl', 'call', 'org.freedesktop.network1',
+                                           '/org/freedesktop/network1', 'org.freedesktop.network1.Manager',
+                                           'GetLinkByName', 's', IF])
+
+            assert out.startswith(b'io ')
+            out = out.strip()
+            assert out.endswith(b'"')
+            out = out.decode()
+            linkPath = out[:-1].split('"')[1]
+
+            print(f"Found {IF} link path: {linkPath}")
+
+            out = subprocess.check_output(['busctl', 'get-property', 'org.freedesktop.network1',
+                                           linkPath, 'org.freedesktop.network1.DHCPv4Client', 'State'])
+            assert out.startswith(b's "')
+            out = out.strip()
+            assert out.endswith(b'"')
+            return out[3:-1].decode()
+
+        copy_network_unit('25-veth.netdev', '25-dhcp-server-veth-peer.network', '25-dhcp-client-ipv4-only.network')
+
+        start_networkd()
+        self.wait_online(['veth-peer:carrier'])
+
+        state = get_dbus_dhcp4_client_state('veth99')
+        print(f"State = {state}")
+        self.assertEqual(state, 'selecting')
+
+        start_dnsmasq('--dhcp-option=option:dns-server,192.168.5.6,192.168.5.7',
+                      '--dhcp-option=option:domain-search,example.com',
+                      '--dhcp-alternate-port=67,5555',
+                      ipv4_range='192.168.5.110,192.168.5.119')
+        self.wait_online(['veth99:routable', 'veth-peer:routable'])
+        self.wait_address('veth99', r'inet 192.168.5.11[0-9]*/24', ipv='-4')
+
+        state = get_dbus_dhcp4_client_state('veth99')
+        print(f"State = {state}")
+        self.assertEqual(state, 'bound')
 
     def test_dhcp_client_ipv4_use_routes_gateway(self):
         first = True
@@ -5611,6 +5796,38 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
         tear_down_common()
 
     def test_dhcp6pd(self):
+        def get_dbus_dhcp6_prefix(IF):
+            # busctl call org.freedesktop.network1 /org/freedesktop/network1 org.freedesktop.network1.Manager GetLinkByName s IF
+            out = subprocess.check_output(['busctl', 'call', 'org.freedesktop.network1',
+                                           '/org/freedesktop/network1', 'org.freedesktop.network1.Manager',
+                                           'GetLinkByName', 's', IF])
+
+            assert out.startswith(b'io ')
+            out = out.strip()
+            assert out.endswith(b'"')
+            out = out.decode()
+            linkPath = out[:-1].split('"')[1]
+
+            print(f"Found {IF} link path: {linkPath}")
+
+            out = subprocess.check_output(['busctl', 'call', 'org.freedesktop.network1',
+                                           linkPath, 'org.freedesktop.network1.Link', 'Describe'])
+            assert out.startswith(b's "')
+            out = out.strip()
+            assert out.endswith(b'"')
+            json_raw = out[2:].decode()
+            check_json(json_raw)
+            description = json.loads(json_raw) # Convert from escaped sequences to json
+            check_json(description)
+            description = json.loads(description) # Now parse the json
+
+            self.assertIn('DHCPv6Client', description.keys())
+            self.assertIn('Prefixes', description['DHCPv6Client'])
+
+            prefixInfo = description['DHCPv6Client']['Prefixes']
+
+            return prefixInfo
+
         copy_network_unit('25-veth.netdev', '25-dhcp6pd-server.network', '25-dhcp6pd-upstream.network',
                           '25-veth-downstream-veth97.netdev', '25-dhcp-pd-downstream-veth97.network', '25-dhcp-pd-downstream-veth97-peer.network',
                           '25-veth-downstream-veth98.netdev', '25-dhcp-pd-downstream-veth98.network', '25-dhcp-pd-downstream-veth98-peer.network',
@@ -5619,11 +5836,31 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
                           '12-dummy.netdev', '25-dhcp-pd-downstream-dummy98.network',
                           '13-dummy.netdev', '25-dhcp-pd-downstream-dummy99.network')
 
+        self.setup_nftset('addr6', 'ipv6_addr')
+        self.setup_nftset('network6', 'ipv6_addr', 'flags interval;')
+        self.setup_nftset('ifindex', 'iface_index')
+
         start_networkd()
         self.wait_online(['veth-peer:routable'])
         start_isc_dhcpd(conf_file='isc-dhcpd-dhcp6pd.conf', ipv='-6')
         self.wait_online(['veth99:routable', 'test1:routable', 'dummy98:routable', 'dummy99:degraded',
                           'veth97:routable', 'veth97-peer:routable', 'veth98:routable', 'veth98-peer:routable'])
+
+        # Check DBus assigned prefix information to veth99
+        prefixInfo = get_dbus_dhcp6_prefix('veth99')
+
+        self.assertEqual(len(prefixInfo), 1)
+        prefixInfo = prefixInfo[0]
+
+        self.assertIn('Prefix', prefixInfo.keys())
+        self.assertIn('PrefixLength', prefixInfo.keys())
+        self.assertIn('PreferredLifetimeUSec', prefixInfo.keys())
+        self.assertIn('ValidLifetimeUSec', prefixInfo.keys())
+
+        self.assertEqual(prefixInfo['Prefix'][0:6], [63, 254, 5, 1, 255, 255])
+        self.assertEqual(prefixInfo['PrefixLength'], 56)
+        self.assertGreater(prefixInfo['PreferredLifetimeUSec'], 0)
+        self.assertGreater(prefixInfo['ValidLifetimeUSec'], 0)
 
         print('### ip -6 address show dev veth-peer scope global')
         output = check_output('ip -6 address show dev veth-peer scope global')
@@ -5806,6 +6043,13 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
 
         self.check_netlabel('dummy98', '3ffe:501:ffff:[2-9a-f]00::/64')
 
+        self.check_nftset('addr6', '3ffe:501:ffff:[2-9a-f]00:1a:2b:3c:4d')
+        self.check_nftset('addr6', '3ffe:501:ffff:[2-9a-f]00:[0-9a-f]*:[0-9a-f]*:[0-9a-f]*:[0-9a-f]*')
+        self.check_nftset('network6', '3ffe:501:ffff:[2-9a-f]00::/64')
+        self.check_nftset('ifindex', 'dummy98')
+
+        self.teardown_nftset('addr6', 'network6', 'ifindex')
+
     def verify_dhcp4_6rd(self, tunnel_name):
         print('### ip -4 address show dev veth-peer scope global')
         output = check_output('ip -4 address show dev veth-peer scope global')
@@ -5986,6 +6230,41 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
         self.assertIn(f'via ::10.0.0.1 dev {tunnel_name}', output)
 
     def test_dhcp4_6rd(self):
+        def get_dbus_dhcp_6rd_prefix(IF):
+            out = subprocess.check_output(['busctl', 'call', 'org.freedesktop.network1',
+                                           '/org/freedesktop/network1', 'org.freedesktop.network1.Manager',
+                                           'GetLinkByName', 's', IF])
+
+            assert out.startswith(b'io ')
+            out = out.strip()
+            assert out.endswith(b'"')
+            out = out.decode()
+            linkPath = out[:-1].split('"')[1]
+
+            print(f"Found {IF} link path: {linkPath}")
+
+            out = subprocess.check_output(['busctl', 'call', 'org.freedesktop.network1',
+                                           linkPath, 'org.freedesktop.network1.Link', 'Describe'])
+            assert out.startswith(b's "')
+            out = out.strip()
+            assert out.endswith(b'"')
+            json_raw = out[2:].decode()
+            check_json(json_raw)
+            description = json.loads(json_raw) # Convert from escaped sequences to json
+            check_json(description)
+            description = json.loads(description) # Now parse the json
+
+            self.assertIn('DHCPv4Client', description.keys())
+            self.assertIn('6rdPrefix', description['DHCPv4Client'].keys())
+
+            prefixInfo = description['DHCPv4Client']['6rdPrefix']
+            self.assertIn('Prefix', prefixInfo.keys())
+            self.assertIn('PrefixLength', prefixInfo.keys())
+            self.assertIn('IPv4MaskLength', prefixInfo.keys())
+            self.assertIn('BorderRouters', prefixInfo.keys())
+
+            return prefixInfo
+
         copy_network_unit('25-veth.netdev', '25-dhcp4-6rd-server.network', '25-dhcp4-6rd-upstream.network',
                           '25-veth-downstream-veth97.netdev', '25-dhcp-pd-downstream-veth97.network', '25-dhcp-pd-downstream-veth97-peer.network',
                           '25-veth-downstream-veth98.netdev', '25-dhcp-pd-downstream-veth98.network', '25-dhcp-pd-downstream-veth98-peer.network',
@@ -6007,6 +6286,14 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
                       ipv4_router='10.0.0.1')
         self.wait_online(['veth99:routable', 'test1:routable', 'dummy98:routable', 'dummy99:degraded',
                           'veth97:routable', 'veth97-peer:routable', 'veth98:routable', 'veth98-peer:routable'])
+
+        # Check the DBus interface for assigned prefix information
+        prefixInfo = get_dbus_dhcp_6rd_prefix('veth99')
+
+        self.assertEqual(prefixInfo['Prefix'], [32,1,13,184,0,0,0,0,0,0,0,0,0,0,0,0]) # 2001:db8::
+        self.assertEqual(prefixInfo['PrefixLength'], 32)
+        self.assertEqual(prefixInfo['IPv4MaskLength'], 8)
+        self.assertEqual(prefixInfo['BorderRouters'], [[10,0,0,1]])
 
         # Test case for a downstream which appears later
         check_output('ip link add dummy97 type dummy')
@@ -6084,6 +6371,18 @@ class NetworkdIPv6PrefixTests(unittest.TestCase, Utilities):
 
         output = check_output(*networkctl_cmd, '--json=short', 'status', env=env)
         check_json(output)
+
+        output = check_output(*networkctl_cmd, '--json=short', 'status', 'veth-peer', env=env)
+        check_json(output)
+
+        # PREF64 or NAT64
+        pref64 = json.loads(output)['NDisc']['PREF64'][0]
+
+        prefix = socket.inet_ntop(socket.AF_INET6, bytearray(pref64['Prefix']))
+        self.assertEqual(prefix, '64:ff9b::')
+
+        prefix_length = pref64['PrefixLength']
+        self.assertEqual(prefix_length, 96)
 
     def test_ipv6_route_prefix_deny_list(self):
         copy_network_unit('25-veth.netdev', '25-ipv6ra-prefix-client-deny-list.network', '25-ipv6ra-prefix.network',

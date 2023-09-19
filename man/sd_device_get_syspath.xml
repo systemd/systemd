@@ -174,13 +174,17 @@
         <varlistentry>
           <term><constant>-EINVAL</constant></term>
 
-          <listitem><para>A specified parameter is invalid.</para></listitem>
+          <listitem><para>A specified parameter is invalid.</para>
+
+          <xi:include href="version-info.xml" xpointer="v251"/></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-ENOENT</constant></term>
 
-          <listitem><para>The requested field is not present in the device record.</para></listitem>
+          <listitem><para>The requested field is not present in the device record.</para>
+
+          <xi:include href="version-info.xml" xpointer="v251"/></listitem>
         </varlistentry>
 
       </variablelist>
@@ -188,6 +192,21 @@
   </refsect1>
 
   <xi:include href="libsystemd-pkgconfig.xml" />
+
+  <refsect1>
+    <title>History</title>
+    <para><function>sd_device_get_syspath()</function>,
+    <function>sd_device_get_devpath()</function>,
+    <function>sd_device_get_sysname()</function>,
+    <function>sd_device_get_sysnum()</function>,
+    <function>sd_device_get_subsystem()</function>,
+    <function>sd_device_get_devtype()</function>,
+    <function>sd_device_get_devname()</function>,
+    <function>sd_device_get_devnum()</function>,
+    <function>sd_device_get_ifindex()</function>,
+    <function>sd_device_get_driver()</function>, and
+    <function>sd_device_get_diskseq()</function> were added in version 251.</para>
+  </refsect1>
 
   <refsect1>
     <title>See Also</title>

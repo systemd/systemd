@@ -382,7 +382,7 @@ static int make_credential_host_secret(
         if (r < 0)
                 goto fail;
 
-        r = loop_write(fd, &buf, sizeof(buf), false);
+        r = loop_write(fd, &buf, sizeof(buf));
         if (r < 0)
                 goto fail;
 

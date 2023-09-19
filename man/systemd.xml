@@ -525,6 +525,8 @@
         <listitem><para>Reboots userspace, starts the <filename>soft-reboot.target</filename> unit. This is
         mostly equivalent to <command>systemctl start soft-reboot.target
         --job-mode=replace-irreversibly</command>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/>
         </listitem>
       </varlistentry>
 
@@ -555,7 +557,9 @@
       <varlistentry>
         <term><constant>SIGRTMIN+17</constant></term>
 
-        <listitem><para>Immediately reboots the userspace.</para></listitem>
+        <listitem><para>Immediately reboots the userspace.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -591,14 +595,18 @@
         <listitem><para>Restores the log level to its configured value. The configured value is derived from – in order
         of priority – the value specified with <varname>systemd.log-level=</varname> on the kernel command line, or the
         value specified with <option>LogLevel=</option> in the configuration file, or the built-in default of
-        <literal>info</literal>.</para></listitem>
+        <literal>info</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><constant>SIGRTMIN+24</constant></term>
 
         <listitem><para>Immediately exits the manager (only available
-        for --user instances).</para></listitem>
+        for --user instances).</para>
+
+        <xi:include href="version-info.xml" xpointer="v195"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -609,7 +617,9 @@
         done asynchronously.</para>
 
         <para>The systemd system manager treats this signal the same way as
-        <constant>SIGTERM</constant>.</para></listitem>
+        <constant>SIGTERM</constant>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -618,7 +628,9 @@
         <listitem><para>Restores the log target to its configured value. The configured value is derived from – in
         order of priority – the value specified with <varname>systemd.log-target=</varname> on the kernel command line,
         or the value specified with <option>LogTarget=</option> in the configuration file, or the built-in
-        default.</para></listitem>
+        default.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -628,7 +640,9 @@
         <listitem><para>Sets the log target to <literal>console</literal> on <constant>SIGRTMIN+27</constant> (or
         <literal>kmsg</literal> on <constant>SIGRTMIN+28</constant>), in a fashion equivalent to
         <varname>systemd.log_target=console</varname> (or <varname>systemd.log_target=kmsg</varname> on
-        <constant>SIGRTMIN+28</constant>) on the kernel command line.</para></listitem>
+        <constant>SIGRTMIN+28</constant>) on the kernel command line.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
@@ -673,7 +687,9 @@
         <term><varname>$SYSTEMD_LOG_TIME</varname></term>
         <listitem><xi:include href="common-variables.xml" xpointer="log-time-body" />
 
-        <para>This can be overridden with <option>--log-time=</option>.</para></listitem>
+        <para>This can be overridden with <option>--log-time=</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v246"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -685,7 +701,9 @@
 
       <varlistentry>
         <term><varname>$SYSTEMD_LOG_TID</varname></term>
-        <listitem><xi:include href="common-variables.xml" xpointer="log-tid-body" /></listitem>
+        <listitem><xi:include href="common-variables.xml" xpointer="log-tid-body" />
+
+        <xi:include href="version-info.xml" xpointer="v247"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -697,7 +715,9 @@
 
       <varlistentry>
         <term><varname>$SYSTEMD_LOG_RATELIMIT_KMSG</varname></term>
-        <listitem><xi:include href="common-variables.xml" xpointer="log-ratelimit-kmsg-body" /></listitem>
+        <listitem><xi:include href="common-variables.xml" xpointer="log-ratelimit-kmsg-body" />
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -794,6 +814,8 @@
         <listitem><para>Takes a boolean argument or enables the option if specified
         without an argument. If enabled, the systemd manager (PID 1) dumps core when
         it crashes. Otherwise, no core dump is created. Defaults to enabled.</para>
+
+        <xi:include href="version-info.xml" xpointer="v233"/>
         </listitem>
       </varlistentry>
 
@@ -804,7 +826,9 @@
         argument, with the same effect as a positive boolean. If a positive integer (in the range 1–63) is
         specified, the system manager (PID 1) will activate the specified virtual terminal when it crashes.
         Defaults to disabled, meaning that no such switch is attempted. If set to enabled, the virtual
-        terminal the kernel messages are written to is used instead.</para></listitem>
+        terminal the kernel messages are written to is used instead.</para>
+
+        <xi:include href="version-info.xml" xpointer="v233"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -814,7 +838,9 @@
         without an argument. If enabled, the system manager (PID 1) spawns a shell
         when it crashes, after a 10s delay. Otherwise, no shell is spawned. Defaults
         to disabled, for security reasons, as the shell is not protected by password
-        authentication.</para></listitem>
+        authentication.</para>
+
+        <xi:include href="version-info.xml" xpointer="v233"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -825,7 +851,9 @@
         machine automatically when it crashes, after a 10s delay.  Otherwise, the
         system will hang indefinitely. Defaults to disabled, in order to avoid a
         reboot loop. If combined with <varname>systemd.crash_shell</varname>, the
-        system is rebooted after the shell exits.</para></listitem>
+        system is rebooted after the shell exits.</para>
+
+        <xi:include href="version-info.xml" xpointer="v227"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -838,7 +866,9 @@
         using <option>/dev/console</option>. If a path or a console name (such as
         <literal>ttyS0</literal>) is provided, the virtual console pointed to by this
         path or described by the give name will be used instead. Defaults to disabled.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v233"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -851,7 +881,9 @@
         <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
         Defaults to enabled, i.e. watchdogs and failure actions are processed
         normally. The hardware watchdog is not affected by this
-        option.</para></listitem>
+        option.</para>
+
+        <xi:include href="version-info.xml" xpointer="v237"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -866,7 +898,9 @@
         command line option, in which case it defaults to <constant>error</constant>. If specified overrides
         the system manager configuration file option <option>ShowStatus=</option>, see
         <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v233"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -878,7 +912,9 @@
         description in status messages. When specified, overrides the system manager configuration file
         option <option>StatusUnitFormat=</option>, see
         <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v243"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -930,7 +966,9 @@
         <listitem><para>Takes a 32 character hex value to be
         used for setting the machine-id. Intended mostly for
         network booting where the same machine-id is desired
-        for every boot.</para></listitem>
+        for every boot.</para>
+
+        <xi:include href="version-info.xml" xpointer="v229"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -949,7 +987,9 @@
         keys), or in testing/debugging environments.</para>
 
         <para>For further information see <ulink url="https://systemd.io/CREDENTIALS">System and Service
-        Credentials</ulink> documentation.</para></listitem>
+        Credentials</ulink> documentation.</para>
+
+        <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -957,7 +997,9 @@
 
         <listitem><para>Takes a boolean argument. If false disables importing credentials from the kernel
         command line, the DMI/SMBIOS OEM string table, the qemu_fw_cfg subsystem or the EFI kernel
-        stub.</para></listitem>
+        stub.</para>
+
+        <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -968,7 +1010,9 @@
         this option is also read by the kernel itself and disables
         kernel log output. Passing this option hence turns off the
         usual output from both the system manager and the kernel.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v186"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -979,7 +1023,9 @@
         option is also read by the kernel itself and enables kernel
         debug output. Passing this option hence turns on the debug
         output from both the system manager and the
-        kernel.</para></listitem>
+        kernel.</para>
+
+        <xi:include href="version-info.xml" xpointer="v205"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -990,7 +1036,9 @@
         <listitem><para>Boot into emergency mode. This is equivalent
         to <varname>systemd.unit=emergency.target</varname> or
         <varname>rd.systemd.unit=emergency.target</varname>, respectively, and
-        provided for compatibility reasons and to be easier to type.</para></listitem>
+        provided for compatibility reasons and to be easier to type.</para>
+
+        <xi:include href="version-info.xml" xpointer="v186"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1004,7 +1052,9 @@
         <listitem><para>Boot into rescue mode. This is equivalent to
         <varname>systemd.unit=rescue.target</varname> or
         <varname>rd.systemd.unit=rescue.target</varname>, respectively, and
-        provided for compatibility reasons and to be easier to type.</para></listitem>
+        provided for compatibility reasons and to be easier to type.</para>
+
+        <xi:include href="version-info.xml" xpointer="v186"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1020,7 +1070,9 @@
         <varname>systemd.unit=runlevel4.target</varname>, and
         <varname>systemd.unit=runlevel5.target</varname>,
         respectively, and provided for compatibility reasons and to be
-        easier to type.</para></listitem>
+        easier to type.</para>
+
+        <xi:include href="version-info.xml" xpointer="v186"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1045,7 +1097,9 @@
         <citerefentry project='man-pages'><refentrytitle>locale.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         and
         <citerefentry project='man-pages'><refentrytitle>locale</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v186"/></listitem>
       </varlistentry>
     </variablelist>
 
@@ -1106,6 +1160,8 @@
 
           <para>This feature is useful for hypervisors/VMMs or other processes on the host to receive a
           notification via VSOCK when a virtual machine has finished booting.</para>
+
+          <xi:include href="version-info.xml" xpointer="v254"/>
         </listitem>
       </varlistentry>
 
@@ -1116,6 +1172,8 @@
           file is not set up yet. See
           <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
           details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -1148,7 +1206,9 @@
           <term><option>--dump-bus-properties</option></term>
 
           <listitem><para>Dump exposed bus properties. This outputs a terse but complete list of properties
-          exposed on D-Bus.</para></listitem>
+          exposed on D-Bus.</para>
+
+          <xi:include href="version-info.xml" xpointer="v239"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -1220,7 +1280,9 @@
 
           <listitem><para>Switch to a specific virtual console (VT) on crash. This switch has no effect when
           running as user instance. Same as <varname>systemd.crash_chvt=</varname> above (but not the
-          different spelling!).</para></listitem>
+          different spelling!).</para>
+
+          <xi:include href="version-info.xml" xpointer="v227"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -1234,7 +1296,9 @@
           <term><option>--crash-reboot</option></term>
 
           <listitem><para>Automatically reboot the system on crash. This switch has no effect when running as
-          user instance. See <varname>systemd.crash_reboot</varname> above.</para></listitem>
+          user instance. See <varname>systemd.crash_reboot</varname> above.</para>
+
+          <xi:include href="version-info.xml" xpointer="v227"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -1248,14 +1312,18 @@
           <term><option>--show-status</option></term>
 
           <listitem><para>Show terse unit status information on the console during boot-up and shutdown. See
-          <varname>systemd.show_status</varname> above.</para></listitem>
+          <varname>systemd.show_status</varname> above.</para>
+
+          <xi:include href="version-info.xml" xpointer="v244"/></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><option>--log-color</option></term>
 
           <listitem><para>Highlight important log messages. See <varname>systemd.log_color</varname> above.
-          </para></listitem>
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v244"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -1268,7 +1336,9 @@
           <term><option>--log-location</option></term>
 
           <listitem><para>Include code location in log messages. See <varname>systemd.log_location</varname>
-          above.</para></listitem>
+          above.</para>
+
+          <xi:include href="version-info.xml" xpointer="v244"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -1281,21 +1351,27 @@
           <term><option>--log-time=</option></term>
 
           <listitem><para>Prefix console messages with timestamp. See <varname>systemd.log_time</varname> above.
-          </para></listitem>
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><option>--machine-id=</option></term>
 
           <listitem><para>Override the machine-id set on the hard drive. See
-          <varname>systemd.machine_id=</varname> above.</para></listitem>
+          <varname>systemd.machine_id=</varname> above.</para>
+
+          <xi:include href="version-info.xml" xpointer="v229"/></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><option>--service-watchdogs</option></term>
 
           <listitem><para>Globally enable/disable all service watchdog timeouts and emergency actions. See
-          <varname>systemd.service_watchdogs</varname> above.</para></listitem>
+          <varname>systemd.service_watchdogs</varname> above.</para>
+
+          <xi:include href="version-info.xml" xpointer="v237"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -1356,7 +1432,9 @@
           <term>systemd 252</term>
           <listitem><para>Kernel command-line arguments <varname>systemd.unified_cgroup_hierarchy</varname>
           and <varname>systemd.legacy_systemd_cgroup_controller</varname> were deprecated. Please switch to
-          the unified cgroup hierarchy.</para></listitem>
+          the unified cgroup hierarchy.</para>
+
+          <xi:include href="version-info.xml" xpointer="v252"/></listitem>
         </varlistentry>
       </variablelist>
   </refsect1>

@@ -114,7 +114,9 @@
         <listitem><para>Set by the system manager for supervised
         process for which watchdog support is enabled, and contains
         the PID of that process. See above for
-        details.</para></listitem>
+        details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v209"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -123,9 +125,16 @@
         <listitem><para>Set by the system manager for supervised
         process for which watchdog support is enabled, and contains
         the watchdog timeout in μs. See above for
-        details.</para></listitem>
+        details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v209"/></listitem>
       </varlistentry>
     </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>History</title>
+    <para><function>sd_watchdog_enabled()</function> was added in version 209.</para>
   </refsect1>
 
   <refsect1>

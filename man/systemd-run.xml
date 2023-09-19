@@ -109,7 +109,9 @@
         <term><option>--no-ask-password</option></term>
 
         <listitem><para>Do not query the user for authentication for
-        privileged operations.</para></listitem>
+        privileged operations.</para>
+
+        <xi:include href="version-info.xml" xpointer="v226"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -119,6 +121,8 @@
           <para>Create a transient <filename>.scope</filename> unit instead of the default transient
           <filename>.service</filename> unit (see above).
           </para>
+
+        <xi:include href="version-info.xml" xpointer="v206"/>
         </listitem>
       </varlistentry>
 
@@ -127,7 +131,9 @@
         <term><option>-u</option></term>
 
         <listitem><para>Use this unit name instead of an automatically
-        generated one.</para></listitem>
+        generated one.</para>
+
+        <xi:include href="version-info.xml" xpointer="v206"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -138,6 +144,8 @@
         in the same format as
         <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
         <command>set-property</command> command.</para>
+
+        <xi:include href="version-info.xml" xpointer="v211"/>
         </listitem>
       </varlistentry>
 
@@ -147,7 +155,9 @@
         <listitem><para>Provide a description for the service, scope, path, socket, or timer unit. If not specified,
         the command itself will be used as a description. See <varname>Description=</varname> in
         <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v206"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -157,6 +167,8 @@
         of the specified slice, instead of <filename>system.slice</filename> (when running in
         <option>--system</option> mode) or the root slice (when running in <option>--user</option>
         mode).</para>
+
+        <xi:include href="version-info.xml" xpointer="v206"/>
         </listitem>
       </varlistentry>
 
@@ -170,6 +182,8 @@
         <command>systemd-run</command> slice is <filename>foo.slice</filename>, and the
         <option>--slice=</option> argument is <filename>bar</filename>, the unit will be placed under the
         <filename>foo-bar.slice</filename>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v246"/>
 
         </listitem>
       </varlistentry>
@@ -194,6 +208,8 @@
         <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         for a description of variable expansion. Disabling variable expansion is useful if the specified
         command includes or may include a <literal>$</literal> sign.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/>
         </listitem>
       </varlistentry>
 
@@ -206,6 +222,8 @@
         <varname>RemainAfterExit=</varname> in
         <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
         </para>
+
+        <xi:include href="version-info.xml" xpointer="v207"/>
         </listitem>
       </varlistentry>
 
@@ -217,6 +235,8 @@
         <varname>SendSIGHUP=</varname> in
         <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
         </para>
+
+        <xi:include href="version-info.xml" xpointer="v207"/>
         </listitem>
       </varlistentry>
 
@@ -229,6 +249,8 @@
         option has no effect in conjunction with
         <option>--scope</option>. Defaults to
         <constant>simple</constant>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v211"/>
         </listitem>
       </varlistentry>
 
@@ -239,6 +261,8 @@
         <listitem><para>Runs the service process under the specified UNIX user and group. Also see
         <varname>User=</varname> and <varname>Group=</varname> in
         <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v211"/>
         </listitem>
       </varlistentry>
 
@@ -248,6 +272,8 @@
         <listitem><para>Runs the service process with the specified
         nice level. Also see <varname>Nice=</varname> in
         <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v211"/>
         </listitem>
       </varlistentry>
 
@@ -257,6 +283,8 @@
         <listitem><para>Runs the service process with the specified working directory. Also see
         <varname>WorkingDirectory=</varname> in
         <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v240"/>
         </listitem>
       </varlistentry>
 
@@ -265,7 +293,9 @@
         <term><option>-d</option></term>
 
         <listitem><para>Similar to <option>--working-directory=</option>, but uses the current working
-        directory of the caller for the service to execute.</para></listitem>
+        directory of the caller for the service to execute.</para>
+
+        <xi:include href="version-info.xml" xpointer="v240"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -279,6 +309,8 @@
 
         <para>Also see <varname>Environment=</varname> in
         <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v211"/>
         </listitem>
       </varlistentry>
 
@@ -295,7 +327,9 @@
         <command>shell</command> command is usually a better alternative for requesting a new, interactive login
         session on the local host or a local container.</para>
 
-        <para>See below for details on how this switch combines with <option>--pipe</option>.</para></listitem>
+        <para>See below for details on how this switch combines with <option>--pipe</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v219"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -319,7 +353,9 @@
         descriptors, due to normal file descriptor access restrictions. If the invoked process is a shell script that
         uses the <command>echo "hello" >/dev/stderr</command> construct for writing messages to stderr, this might
         cause problems, as this only works if stderr can be re-opened. To mitigate this use the construct <command>echo
-        "hello" >&amp;2</command> instead, which is mostly equivalent and avoids this pitfall.</para></listitem>
+        "hello" >&amp;2</command> instead, which is mostly equivalent and avoids this pitfall.</para>
+
+        <xi:include href="version-info.xml" xpointer="v235"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -328,7 +364,9 @@
 
         <listitem><para>A shortcut for <literal>--pty --same-dir --wait --collect --service-type=exec $SHELL</literal>,
         i.e. requests an interactive shell in the current working directory, running in service context, accessible
-        with a single switch.</para></listitem>
+        with a single switch.</para>
+
+        <xi:include href="version-info.xml" xpointer="v240"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -338,7 +376,9 @@
         <listitem><para>Suppresses additional informational output
         while running. This is particularly useful in combination with
         <option>--pty</option> when it will suppress the initial
-        message explaining how to terminate the TTY connection.</para></listitem>
+        message explaining how to terminate the TTY connection.</para>
+
+        <xi:include href="version-info.xml" xpointer="v219"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -354,6 +394,8 @@
         <citerefentry><refentrytitle>systemd.timer</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
         details. These options are shortcuts for <command>--timer-property=</command> with the relevant properties.
         These options may not be combined with <option>--scope</option> or <option>--pty</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v218"/>
         </listitem>
       </varlistentry>
 
@@ -364,6 +406,8 @@
         in <citerefentry><refentrytitle>systemd.timer</refentrytitle><manvolnum>5</manvolnum></citerefentry>. This
         option is a shortcut for <command>--timer-property=OnCalendar=</command>. This option may not be combined with
         <option>--scope</option> or <option>--pty</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v218"/>
         </listitem>
       </varlistentry>
 
@@ -376,7 +420,9 @@
         <citerefentry><refentrytitle>systemd.timer</refentrytitle><manvolnum>5</manvolnum></citerefentry>. These
         options are shortcuts for <command>--timer-property=OnClockChange=yes</command> and
         <command>--timer-property=OnTimezoneChange=yes</command>. These options may not be combined with
-        <option>--scope</option> or <option>--pty</option>.</para></listitem>
+        <option>--scope</option> or <option>--pty</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v242"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -390,6 +436,8 @@
         <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
         <command>set-property</command> command. These options may not be combined with
         <option>--scope</option> or <option>--pty</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v218"/>
         </listitem>
       </varlistentry>
 
@@ -401,6 +449,8 @@
           start request for the transient unit will be verified, enqueued and <command>systemd-run</command> will wait
           until the unit's start-up is completed. By passing this argument, it is only verified and enqueued. This
           option may not be combined with <option>--wait</option>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v220"/>
         </listitem>
       </varlistentry>
 
@@ -413,7 +463,9 @@
         completed). On exit, terse information about the unit's runtime is shown, including total runtime (as well as
         CPU usage, if <option>--property=CPUAccounting=1</option> was set) and the exit code and status of the main
         process. This output may be suppressed with <option>--quiet</option>. This option may not be combined with
-        <option>--no-block</option>, <option>--scope</option> or the various path, socket, or timer options.</para></listitem>
+        <option>--no-block</option>, <option>--scope</option> or the various path, socket, or timer options.</para>
+
+        <xi:include href="version-info.xml" xpointer="v232"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -428,7 +480,9 @@
         <command>--property=CollectMode=inactive-or-failed</command>, see the explanation for
         <varname>CollectMode=</varname> in
         <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry> for further
-        information.</para></listitem>
+        information.</para>
+
+        <xi:include href="version-info.xml" xpointer="v236"/></listitem>
       </varlistentry>
 
       <xi:include href="user-system-options.xml" xpointer="user" />

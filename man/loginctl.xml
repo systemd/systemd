@@ -63,7 +63,9 @@
         the caller's session is shown. This function is intended to
         generate human-readable output. If you are looking for
         computer-parsable output, use <command>show-session</command>
-        instead.</para></listitem>
+        instead.</para>
+
+        <xi:include href="version-info.xml" xpointer="v233"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -78,7 +80,9 @@
         <option>--property=</option>. This command is intended to be
         used whenever computer-parsable output is required. Use
         <command>session-status</command> if you are looking for
-        formatted human-readable output.</para></listitem>
+        formatted human-readable output.</para>
+
+        <xi:include href="version-info.xml" xpointer="v233"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -88,7 +92,9 @@
         the foreground if another session is currently in the
         foreground on the respective seat. Takes a session identifier
         as argument. If no argument is specified, the session of the
-        caller is put into foreground.</para></listitem>
+        caller is put into foreground.</para>
+
+        <xi:include href="version-info.xml" xpointer="v219"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -99,7 +105,9 @@
         or more sessions, if the session supports it. Takes one or
         more session identifiers as arguments. If no argument is
         specified, the session of the caller is locked/unlocked.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v233"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -107,7 +115,9 @@
         <term><command>unlock-sessions</command></term>
 
         <listitem><para>Activates/deactivates the screen lock on all
-        current sessions supporting it. </para></listitem>
+        current sessions supporting it. </para>
+
+        <xi:include href="version-info.xml" xpointer="v188"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -115,7 +125,9 @@
 
         <listitem><para>Terminates a session. This kills all processes of the session and deallocates all
         resources attached to the session. If the argument is specified as empty string the session invoking
-        the command is terminated.</para></listitem>
+        the command is terminated.</para>
+
+        <xi:include href="version-info.xml" xpointer="v233"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -124,7 +136,9 @@
         <listitem><para>Send a signal to one or more processes of the session. Use
         <option>--kill-whom=</option> to select which process to kill. Use <option>--signal=</option> to
         select the signal to send. If the argument is specified as empty string the signal is sent to the
-        session invoking the command.</para></listitem>
+        session invoking the command.</para>
+
+        <xi:include href="version-info.xml" xpointer="v233"/></listitem>
       </varlistentry>
     </variablelist></refsect2>
 
@@ -146,7 +160,9 @@
         is shown for the user of the session of the caller. This
         function is intended to generate human-readable output. If you
         are looking for computer-parsable output, use
-        <command>show-user</command> instead.</para></listitem>
+        <command>show-user</command> instead.</para>
+
+        <xi:include href="version-info.xml" xpointer="v233"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -161,7 +177,9 @@
         <option>--property=</option>. This command is intended to be
         used whenever computer-parsable output is required. Use
         <command>user-status</command> if you are looking for
-        formatted human-readable output.</para></listitem>
+        formatted human-readable output.</para>
+
+        <xi:include href="version-info.xml" xpointer="v233"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -178,7 +196,9 @@
 
         <para>See also <varname>KillUserProcesses=</varname> setting in
         <citerefentry><refentrytitle>logind.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v233"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -186,7 +206,9 @@
 
         <listitem><para>Terminates all sessions of a user. This kills all processes of all sessions of the
         user and deallocates all runtime resources attached to the user. If the argument is specified as
-        empty string the sessions of the user invoking the command are terminated.</para></listitem>
+        empty string the sessions of the user invoking the command are terminated.</para>
+
+        <xi:include href="version-info.xml" xpointer="v233"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -194,7 +216,9 @@
 
         <listitem><para>Send a signal to all processes of a user. Use <option>--signal=</option> to select
         the signal to send. If the argument is specified as empty string the signal is sent to the sessions
-        of the user invoking the command.</para></listitem>
+        of the user invoking the command.</para>
+
+        <xi:include href="version-info.xml" xpointer="v233"/></listitem>
       </varlistentry>
     </variablelist></refsect2>
 
@@ -215,7 +239,9 @@
         session's seat is shown. This function is intended to generate
         human-readable output. If you are looking for
         computer-parsable output, use <command>show-seat</command>
-        instead.</para></listitem>
+        instead.</para>
+
+        <xi:include href="version-info.xml" xpointer="v233"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -230,7 +256,9 @@
         <option>--property=</option>. This command is intended to be
         used whenever computer-parsable output is required. Use
         <command>seat-status</command> if you are looking for
-        formatted human-readable output.</para></listitem>
+        formatted human-readable output.</para>
+
+        <xi:include href="version-info.xml" xpointer="v233"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -245,7 +273,9 @@
         prefixed with <literal>seat</literal>. To drop assignment of a
         device to a specific seat, just reassign it to a different
         seat, or use <command>flush-devices</command>.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v233"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -262,7 +292,9 @@
 
         <listitem><para>Terminates all sessions on a seat. This kills
         all processes of all sessions on the seat and deallocates all
-        runtime resources attached to them.</para></listitem>
+        runtime resources attached to them.</para>
+
+        <xi:include href="version-info.xml" xpointer="v233"/></listitem>
       </varlistentry>
     </variablelist></refsect2>
 
@@ -299,7 +331,9 @@
 
         <listitem><para>When showing session/user/seat properties,
         only print the value, and skip the property name and
-        <literal>=</literal>.</para></listitem>
+        <literal>=</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v230"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -316,6 +350,8 @@
         <term><option>--full</option></term>
 
         <listitem><para>Do not ellipsize process tree entries.</para>
+
+        <xi:include href="version-info.xml" xpointer="v198"/>
         </listitem>
       </varlistentry>
 
@@ -327,7 +363,9 @@
         kill. Must be one of <option>leader</option>, or
         <option>all</option> to select whether to kill only the leader
         process of the session or all processes of the session. If
-        omitted, defaults to <option>all</option>.</para></listitem>
+        omitted, defaults to <option>all</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v252"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -352,6 +390,8 @@
         and <command>session-status</command>, controls the number of
         journal lines to show, counting from the most recent ones.
         Takes a positive integer argument. Defaults to 10.</para>
+
+        <xi:include href="version-info.xml" xpointer="v219"/>
         </listitem>
       </varlistentry>
 
@@ -364,7 +404,9 @@
         of the journal entries that are shown. For the available
         choices, see
         <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
-        Defaults to <literal>short</literal>.</para></listitem>
+        Defaults to <literal>short</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v219"/></listitem>
       </varlistentry>
 
       <xi:include href="user-system-options.xml" xpointer="host" />

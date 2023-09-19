@@ -291,13 +291,28 @@
           <term><constant>-EOVERFLOW</constant></term>
 
           <listitem><para>The passed relative time is outside of the allowed range for time values (i.e. the
-          specified value added to the current time is outside the 64 bit unsigned integer range).</para></listitem>
+          specified value added to the current time is outside the 64 bit unsigned integer range).</para>
+
+          <xi:include href="version-info.xml" xpointer="v247"/></listitem>
         </varlistentry>
       </variablelist>
     </refsect2>
   </refsect1>
 
   <xi:include href="libsystemd-pkgconfig.xml" />
+
+  <refsect1>
+    <title>History</title>
+    <para><function>sd_event_add_time()</function>,
+    <function>sd_event_source_get_time()</function>,
+    <function>sd_event_source_set_time()</function>,
+    <function>sd_event_source_get_time_accuracy()</function>,
+    <function>sd_event_source_set_time_accuracy()</function>, and
+    <function>sd_event_source_get_time_clock()</function> were added in version 213.</para>
+    <para><function>sd_event_time_handler_t()</function> was added in version 217.</para>
+    <para><function>sd_event_add_time_relative()</function> and
+    <function>sd_event_source_set_time_relative()</function> were added in version 247.</para>
+  </refsect1>
 
   <refsect1>
     <title>See Also</title>

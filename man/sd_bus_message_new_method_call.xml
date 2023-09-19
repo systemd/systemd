@@ -158,6 +158,12 @@
   </refsect1>
 
   <refsect1>
+    <title>History</title>
+    <para><function>sd_bus_message_new_method_call()</function> and
+    <function>sd_bus_message_new_method_return()</function> were added in version 246.</para>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
 
     <para>

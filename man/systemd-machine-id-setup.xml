@@ -85,14 +85,18 @@
         <term><option>--root=<replaceable>path</replaceable></option></term>
         <listitem><para>Takes a directory path as argument. All paths operated on will be prefixed with the
         given alternate <replaceable>root</replaceable> path, including the path for
-        <filename>/etc/machine-id</filename> itself.</para></listitem>
+        <filename>/etc/machine-id</filename> itself.</para>
+
+        <xi:include href="version-info.xml" xpointer="v212"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>--image=<replaceable>path</replaceable></option></term>
         <listitem><para>Takes a path to a device node or regular file as argument. This is similar to
         <option>--root=</option> as described above, but operates on a disk image instead of a directory
-        tree.</para></listitem>
+        tree.</para>
+
+        <xi:include href="version-info.xml" xpointer="v249"/></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="image-policy-open" />
@@ -120,13 +124,17 @@
 
         <para>This command is primarily used by the
         <citerefentry><refentrytitle>systemd-machine-id-commit.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-        early boot service.</para></listitem>
+        early boot service.</para>
+
+        <xi:include href="version-info.xml" xpointer="v227"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>--print</option></term>
 
-        <listitem><para>Print the machine ID generated or committed after the operation is complete.</para></listitem>
+        <listitem><para>Print the machine ID generated or committed after the operation is complete.</para>
+
+        <xi:include href="version-info.xml" xpointer="v231"/></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="help" />

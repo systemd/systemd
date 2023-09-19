@@ -66,6 +66,7 @@ int session_new(Session **ret, Manager *m, const char *id) {
                 .vtfd = -EBADF,
                 .audit_id = AUDIT_SESSION_INVALID,
                 .tty_validity = _TTY_VALIDITY_INVALID,
+                .leader = PIDREF_NULL,
         };
 
         s->state_file = path_join("/run/systemd/sessions", id);
@@ -128,8 +129,10 @@ Session* session_free(Session *s) {
                 free(s->scope);
         }
 
-        if (pid_is_valid(s->leader))
-                (void) hashmap_remove_value(s->manager->sessions_by_leader, PID_TO_PTR(s->leader), s);
+        if (pidref_is_set(&s->leader)) {
+                (void) hashmap_remove_value(s->manager->sessions_by_leader, PID_TO_PTR(s->leader.pid), s);
+                pidref_done(&s->leader);
+        }
 
         free(s->scope_job);
 
@@ -168,6 +171,7 @@ void session_set_user(Session *s, User *u) {
 }
 
 int session_set_leader(Session *s, pid_t pid) {
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         int r;
 
         assert(s);
@@ -175,18 +179,24 @@ int session_set_leader(Session *s, pid_t pid) {
         if (!pid_is_valid(pid))
                 return -EINVAL;
 
-        if (s->leader == pid)
+        if (s->leader.pid == pid)
                 return 0;
 
-        r = hashmap_put(s->manager->sessions_by_leader, PID_TO_PTR(pid), s);
+        r = pidref_set_pid(&pidref, pid);
         if (r < 0)
                 return r;
 
-        if (pid_is_valid(s->leader))
-                (void) hashmap_remove_value(s->manager->sessions_by_leader, PID_TO_PTR(s->leader), s);
+        r = hashmap_put(s->manager->sessions_by_leader, PID_TO_PTR(pidref.pid), s);
+        if (r < 0)
+                return r;
 
-        s->leader = pid;
-        (void) audit_session_from_pid(pid, &s->audit_id);
+        if (pidref_is_set(&s->leader)) {
+                (void) hashmap_remove_value(s->manager->sessions_by_leader, PID_TO_PTR(s->leader.pid), s);
+                pidref_done(&s->leader);
+        }
+
+        s->leader = TAKE_PIDREF(pidref);
+        (void) audit_session_from_pid(s->leader.pid, &s->audit_id);
 
         return 1;
 }
@@ -323,8 +333,8 @@ int session_save(Session *s) {
         if (!s->vtnr)
                 fprintf(f, "POSITION=%u\n", s->position);
 
-        if (pid_is_valid(s->leader))
-                fprintf(f, "LEADER="PID_FMT"\n", s->leader);
+        if (pidref_is_set(&s->leader))
+                fprintf(f, "LEADER="PID_FMT"\n", s->leader.pid);
 
         if (audit_session_is_valid(s->audit_id))
                 fprintf(f, "AUDIT=%"PRIu32"\n", s->audit_id);
@@ -674,7 +684,7 @@ static int session_start_scope(Session *s, sd_bus_message *properties, sd_bus_er
                 r = manager_start_scope(
                                 s->manager,
                                 scope,
-                                s->leader,
+                                s->leader.pid,
                                 s->user->slice,
                                 description,
                                 /* These two have StopWhenUnneeded= set, hence add a dep towards them */
@@ -779,7 +789,7 @@ int session_start(Session *s, sd_bus_message *properties, sd_bus_error *error) {
                    "MESSAGE_ID=" SD_MESSAGE_SESSION_START_STR,
                    "SESSION_ID=%s", s->id,
                    "USER_ID=%s", s->user->user_record->user_name,
-                   "LEADER="PID_FMT, s->leader,
+                   "LEADER="PID_FMT, s->leader.pid,
                    LOG_MESSAGE("New session %s of user %s.", s->id, s->user->user_record->user_name));
 
         if (!dual_timestamp_is_set(&s->timestamp))
@@ -849,7 +859,7 @@ static int session_stop_scope(Session *s, bool force) {
                 log_struct(s->class == SESSION_BACKGROUND ? LOG_DEBUG : LOG_INFO,
                            "SESSION_ID=%s", s->id,
                            "USER_ID=%s", s->user->user_record->user_name,
-                           "LEADER="PID_FMT, s->leader,
+                           "LEADER="PID_FMT, s->leader.pid,
                            LOG_MESSAGE("Session %s logged out. Waiting for processes to exit.", s->id));
         }
 
@@ -907,7 +917,7 @@ int session_finalize(Session *s) {
                            "MESSAGE_ID=" SD_MESSAGE_SESSION_STOP_STR,
                            "SESSION_ID=%s", s->id,
                            "USER_ID=%s", s->user->user_record->user_name,
-                           "LEADER="PID_FMT, s->leader,
+                           "LEADER="PID_FMT, s->leader.pid,
                            LOG_MESSAGE("Removed session %s.", s->id));
 
         s->timer_event_source = sd_event_source_unref(s->timer_event_source);
@@ -1036,8 +1046,8 @@ int session_get_idle_hint(Session *s, dual_timestamp *t) {
 
         /* For sessions with a leader but no explicitly configured tty, let's check the controlling tty of
          * the leader */
-        if (pid_is_valid(s->leader)) {
-                r = get_process_ctty_atime(s->leader, &atime);
+        if (pidref_is_set(&s->leader)) {
+                r = get_process_ctty_atime(s->leader.pid, &atime);
                 if (r >= 0)
                         goto found_atime;
         }
@@ -1290,20 +1300,25 @@ int session_kill(Session *s, KillWho who, int signo) {
         return manager_kill_unit(s->manager, s->scope, who, signo, NULL);
 }
 
-static int session_open_vt(Session *s) {
+static int session_open_vt(Session *s, bool reopen) {
+        _cleanup_close_ int fd = -EBADF;
         char path[sizeof("/dev/tty") + DECIMAL_STR_MAX(s->vtnr)];
+
+        assert(s);
 
         if (s->vtnr < 1)
                 return -ENODEV;
 
-        if (s->vtfd >= 0)
+        if (!reopen && s->vtfd >= 0)
                 return s->vtfd;
 
         sprintf(path, "/dev/tty%u", s->vtnr);
-        s->vtfd = open_terminal(path, O_RDWR | O_CLOEXEC | O_NONBLOCK | O_NOCTTY);
-        if (s->vtfd < 0)
-                return log_error_errno(s->vtfd, "cannot open VT %s of session %s: %m", path, s->id);
 
+        fd = open_terminal(path, O_RDWR | O_CLOEXEC | O_NONBLOCK | O_NOCTTY);
+        if (fd < 0)
+                return log_error_errno(fd, "Cannot open VT %s of session %s: %m", path, s->id);
+
+        close_and_replace(s->vtfd, fd);
         return s->vtfd;
 }
 
@@ -1311,10 +1326,12 @@ static int session_prepare_vt(Session *s) {
         int vt, r;
         struct vt_mode mode = {};
 
+        assert(s);
+
         if (s->vtnr < 1)
                 return 0;
 
-        vt = session_open_vt(s);
+        vt = session_open_vt(s, /* reopen = */ false);
         if (vt < 0)
                 return vt;
 
@@ -1366,28 +1383,24 @@ error:
 static void session_restore_vt(Session *s) {
         int r;
 
+        assert(s);
+
         if (s->vtfd < 0)
                 return;
 
         r = vt_restore(s->vtfd);
         if (r == -EIO) {
-                int vt, old_fd;
-
                 /* It might happen if the controlling process exited before or while we were
                  * restoring the VT as it would leave the old file-descriptor in a hung-up
                  * state. In this case let's retry with a fresh handle to the virtual terminal. */
 
                 /* We do a little dance to avoid having the terminal be available
                  * for reuse before we've cleaned it up. */
-                old_fd = TAKE_FD(s->vtfd);
 
-                vt = session_open_vt(s);
-                safe_close(old_fd);
-
-                if (vt >= 0)
-                        r = vt_restore(vt);
+                int fd = session_open_vt(s, /* reopen = */ true);
+                if (fd >= 0)
+                        r = vt_restore(fd);
         }
-
         if (r < 0)
                 log_warning_errno(r, "Failed to restore VT, ignoring: %m");
 
@@ -1414,7 +1427,14 @@ void session_leave_vt(Session *s) {
                 return;
 
         session_device_pause_all(s);
-        r = vt_release(s->vtfd, false);
+        r = vt_release(s->vtfd, /* restore = */ false);
+        if (r == -EIO) {
+                /* Handle the same VT hung-up case as in session_restore_vt */
+
+                int fd = session_open_vt(s, /* reopen = */ true);
+                if (fd >= 0)
+                        r = vt_release(fd, /* restore = */ false);
+        }
         if (r < 0)
                 log_debug_errno(r, "Cannot release VT of session %s: %m", s->id);
 }
@@ -1426,6 +1446,8 @@ bool session_is_controller(Session *s, const char *sender) {
 static void session_release_controller(Session *s, bool notify) {
         _unused_ _cleanup_free_ char *name = NULL;
         SessionDevice *sd;
+
+        assert(s);
 
         if (!s->controller)
                 return;

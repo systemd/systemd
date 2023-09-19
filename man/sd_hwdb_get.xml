@@ -108,21 +108,27 @@
         <varlistentry>
           <term><constant>-EINVAL</constant></term>
 
-          <listitem><para>A parameter is <constant>NULL</constant>.</para></listitem>
+          <listitem><para>A parameter is <constant>NULL</constant>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-ENOENT</constant></term>
 
           <listitem><para>An entry for the specified <parameter>modalias</parameter> was not found.
-          </para></listitem>
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-EAGAIN</constant></term>
 
           <listitem><para><function>sd_hwdb_seek()</function> was not called before
-          <function>sd_hwdb_enumerate()</function>.</para></listitem>
+          <function>sd_hwdb_enumerate()</function>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
         </varlistentry>
       </variablelist>
     </refsect2>
@@ -141,6 +147,14 @@
       <para>The effect is similar to calling <command>systemd-hwdb query usb:v046DpC534</command>.
       </para>
     </example>
+  </refsect1>
+
+  <refsect1>
+    <title>History</title>
+    <para><function>sd_hwdb_get()</function>,
+    <function>sd_hwdb_seek()</function>,
+    <function>sd_hwdb_enumerate()</function>, and
+    <function>SD_HWDB_FOREACH_PROPERTY()</function> were added in version 246.</para>
   </refsect1>
 
   <refsect1>

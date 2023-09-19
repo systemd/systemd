@@ -108,6 +108,8 @@
 
         <listitem><para>Suspend, hibernate, suspend then hibernate, or put the
         system to hybrid sleep.</para>
+
+        <xi:include href="version-info.xml" xpointer="v203"/>
         </listitem>
       </varlistentry>
     </variablelist>

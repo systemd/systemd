@@ -79,6 +79,14 @@
   <xi:include href="libsystemd-pkgconfig.xml" />
 
   <refsect1>
+    <title>History</title>
+    <para><function>sd_bus_slot_get_bus()</function>,
+    <function>sd_bus_slot_get_current_handler()</function>,
+    <function>sd_bus_slot_get_current_message()</function>, and
+    <function>sd_bus_slot_get_current_userdata()</function> were added in version 246.</para>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
 
     <para>

@@ -142,7 +142,9 @@
       <varlistentry>
         <term><option>--user</option></term>
         <listitem><para>Execute "user" configuration, i.e. <filename>tmpfiles.d</filename>
-        files in user configuration directories.</para></listitem>
+        files in user configuration directories.</para>
+
+        <xi:include href="version-info.xml" xpointer="v236"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -150,27 +152,35 @@
         <listitem><para>Also execute lines with an exclamation mark. Lines that are not safe to be executed
         on a running system may be marked in this way. <command>systemd-tmpfiles</command> is executed in
         early boot with <option>--boot</option> specified and will execute those lines. When invoked again
-        later, it should be called without <option>--boot</option>.</para></listitem>
+        later, it should be called without <option>--boot</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v209"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>--graceful</option></term>
         <listitem><para>Ignore configuration lines pertaining to unknown users or groups. This option is
-        intended to be used in early boot before all users or groups have been created.</para></listitem>
+        intended to be used in early boot before all users or groups have been created.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>--prefix=<replaceable>path</replaceable></option></term>
         <listitem><para>Only apply rules with paths that start with
         the specified prefix. This option can be specified multiple
-        times.</para></listitem>
+        times.</para>
+
+        <xi:include href="version-info.xml" xpointer="v212"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>--exclude-prefix=<replaceable>path</replaceable></option></term>
         <listitem><para>Ignore rules with paths that start with the
         specified prefix. This option can be specified multiple
-        times.</para></listitem>
+        times.</para>
+
+        <xi:include href="version-info.xml" xpointer="v207"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -180,7 +190,9 @@
         by virtual or memory file systems. This is useful in combination with <option>--root=</option>, if
         the specified directory tree contains an OS tree without these virtual/memory file systems mounted
         in, as it is typically not desirable to create any files and directories below these subdirectories
-        if they are supposed to be overmounted during runtime.</para></listitem>
+        if they are supposed to be overmounted during runtime.</para>
+
+        <xi:include href="version-info.xml" xpointer="v247"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -195,7 +207,9 @@
 
         <para>Consider combining this with <option>-E</option> to ensure the invocation does not create files
         or directories below mount points in the OS image operated on that are typically overmounted during
-        runtime.</para></listitem>
+        runtime.</para>
+
+        <xi:include href="version-info.xml" xpointer="v212"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -210,7 +224,9 @@
         <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
         switch of the same name.</para>
 
-        <para>Implies <option>-E</option>.</para></listitem>
+        <para>Implies <option>-E</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v247"/></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="image-policy-open" />
@@ -228,7 +244,9 @@
         are running and files belonging to that package are not yet available on
         disk, so their contents must be given on the command line, but the admin
         configuration might already exist and should be given higher priority.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v238"/></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="cat-config" />
@@ -261,7 +279,9 @@
         credential contents should follow the same format as any other <filename>tmpfiles.d/</filename>
         drop-in configuration file. If this credential is passed it is processed after all of the drop-in
         files read from the file system. The lines in the credential can hence augment existing lines of the
-        OS, but not override them.</para></listitem>
+        OS, but not override them.</para>
+
+        <xi:include href="version-info.xml" xpointer="v252"/></listitem>
       </varlistentry>
     </variablelist>
 

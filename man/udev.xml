@@ -7,7 +7,7 @@
   Copyright © 2014 Jason St. John
 -->
 
-<refentry id="udev">
+<refentry id="udev" xmlns:xi="http://www.w3.org/2001/XInclude">
   <refentryinfo>
     <title>udev</title>
     <productname>systemd</productname>
@@ -111,6 +111,8 @@
             <term><literal>-=</literal></term>
             <listitem>
               <para>Remove the value from a key that holds a list of entries.</para>
+
+            <xi:include href="version-info.xml" xpointer="v217"/>
             </listitem>
           </varlistentry>
 
@@ -118,6 +120,8 @@
             <term><literal>:=</literal></term>
             <listitem>
               <para>Assign a value to a key finally; disallow any later changes.</para>
+
+            <xi:include href="version-info.xml" xpointer="v247"/>
             </listitem>
           </varlistentry>
         </variablelist>
@@ -248,6 +252,8 @@
             <term><varname>SYSCTL{<replaceable>kernel parameter</replaceable>}</varname></term>
             <listitem>
               <para>Match a kernel parameter value.</para>
+
+            <xi:include href="version-info.xml" xpointer="v240"/>
             </listitem>
           </varlistentry>
 
@@ -269,6 +275,8 @@
                     <para>System's architecture. See <option>ConditionArchitecture=</option> in
                     <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
                     for possible values.</para>
+
+                  <xi:include href="version-info.xml" xpointer="v244"/>
                   </listitem>
                 </varlistentry>
                 <varlistentry>
@@ -277,6 +285,8 @@
                     <para>System's virtualization environment. See
                     <citerefentry><refentrytitle>systemd-detect-virt</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                     for possible values.</para>
+
+                    <xi:include href="version-info.xml" xpointer="v244"/>
                   </listitem>
                 </varlistentry>
                 <varlistentry>
@@ -285,10 +295,14 @@
                     <para>System's confidential virtualization technology. See
                     <citerefentry><refentrytitle>systemd-detect-virt</refentrytitle><manvolnum>1</manvolnum></citerefentry>
                     for possible values.</para>
+
+                    <xi:include href="version-info.xml" xpointer="v254"/>
                   </listitem>
                 </varlistentry>
               </variablelist>
               <para>Unknown keys will never match.</para>
+
+              <xi:include href="version-info.xml" xpointer="v244"/>
             </listitem>
           </varlistentry>
 
@@ -378,6 +392,8 @@
               <para>Separates alternative patterns. For example, the pattern string
               <literal>abc|x*</literal> would match either <literal>abc</literal>
               or <literal>x*</literal>.</para>
+
+              <xi:include href="version-info.xml" xpointer="v217"/>
             </listitem>
           </varlistentry>
         </variablelist>
@@ -429,6 +445,8 @@
             <term><varname>SECLABEL{<replaceable>module</replaceable>}</varname></term>
             <listitem>
               <para>Applies the specified Linux Security Module label to the device node.</para>
+
+            <xi:include href="version-info.xml" xpointer="v209"/>
             </listitem>
           </varlistentry>
 
@@ -444,6 +462,8 @@
             <term><varname>SYSCTL{<replaceable>kernel parameter</replaceable>}</varname></term>
             <listitem>
               <para>The value that should be written to kernel parameter.</para>
+
+            <xi:include href="version-info.xml" xpointer="v220"/>
             </listitem>
           </varlistentry>
 
@@ -498,6 +518,8 @@
                   <listitem>
                     <para>As <varname>program</varname>, but use one of the
                     built-in programs rather than an external one.</para>
+
+                  <xi:include href="version-info.xml" xpointer="v199"/>
                   </listitem>
                 </varlistentry>
               </variablelist>
@@ -550,6 +572,8 @@
                     import its output, which must be in environment key
                     format. Path specification, command/argument separation,
                     and quoting work like in <varname>RUN</varname>.</para>
+
+                    <xi:include href="version-info.xml" xpointer="v199"/>
                   </listitem>
                 </varlistentry>
                 <varlistentry>
@@ -557,6 +581,8 @@
                   <listitem>
                     <para>Similar to <literal>program</literal>, but use one of the
                     built-in programs rather than an external one.</para>
+
+                  <xi:include href="version-info.xml" xpointer="v199"/>
                   </listitem>
                 </varlistentry>
               <varlistentry>
@@ -663,6 +689,8 @@
                     --cleanup-db</command> is called.  This option can be useful in certain cases
                     (e.g. Device Mapper devices) for persisting device state on the transition from
                     initrd.</para>
+
+                    <xi:include href="version-info.xml" xpointer="v241"/>
                   </listitem>
                 </varlistentry>
                 <varlistentry>
@@ -681,6 +709,8 @@
                     <para>Example for debugging uevent processing for network interfaces:
                     <programlisting># /etc/udev/rules.d/00-debug-net.rules
 SUBSYSTEM=="net", OPTIONS="log_level=debug"</programlisting></para>
+
+                    <xi:include href="version-info.xml" xpointer="v248"/>
                   </listitem>
                 </varlistentry>
               </variablelist>

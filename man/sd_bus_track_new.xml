@@ -219,6 +219,19 @@
   <xi:include href="libsystemd-pkgconfig.xml" />
 
   <refsect1>
+    <title>History</title>
+    <para><function>sd_bus_track_new()</function>,
+    <function>sd_bus_track_ref()</function>,
+    <function>sd_bus_track_unref()</function>,
+    <function>sd_bus_track_unrefp()</function>,
+    <function>sd_bus_track_get_recursive()</function>,
+    <function>sd_bus_track_set_recursive()</function>,
+    <function>sd_bus_track_get_bus()</function>,
+    <function>sd_bus_track_get_userdata()</function>, and
+    <function>sd_bus_track_set_userdata()</function> were added in version 232.</para>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
 
     <para>

@@ -61,7 +61,9 @@
         <listitem><para>Specify the path to a file or <constant>AF_UNIX</constant> stream socket to read the
         server certificate from. The certificate must be in PEM format. This option switches
         <command>systemd-journal-gatewayd</command> into HTTPS mode and must be used together with
-        <option>--key=</option>.</para></listitem>
+        <option>--key=</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v198"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -69,14 +71,18 @@
 
         <listitem><para>Specify the path to a file or <constant>AF_UNIX</constant> stream socket to read the
         secret server key corresponding to the certificate specified with <option>--cert=</option> from. The
-        key must be in PEM format.</para></listitem>
+        key must be in PEM format.</para>
+
+        <xi:include href="version-info.xml" xpointer="v198"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>--trust=</option></term>
 
         <listitem><para>Specify the path to a file or <constant>AF_UNIX</constant> stream socket to read a CA
-        certificate from. The certificate must be in PEM format.</para></listitem>
+        certificate from. The certificate must be in PEM format.</para>
+
+        <xi:include href="version-info.xml" xpointer="v236"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -90,7 +96,9 @@
         for
         <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>. If
         neither is specified, all accessible entries are served.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v249"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -100,7 +108,9 @@
         <listitem><para>Serve entries interleaved from all available
         journals, including other machines. This has the same meaning
         as <option>--merge</option> option for
-        <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para></listitem>
+        <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v249"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -110,7 +120,9 @@
         <listitem><para>Takes a directory path as argument. If
         specified, <command>systemd-journal-gatewayd</command> will serve the
         specified journal directory <replaceable>DIR</replaceable> instead of
-        the default runtime and system journal paths.</para></listitem>
+        the default runtime and system journal paths.</para>
+
+        <xi:include href="version-info.xml" xpointer="v232"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -123,7 +135,9 @@
         which case files will be suitably interleaved. This has the same meaning as
         <option>--file=</option> option for
         <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v249"/></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="help" />
@@ -140,7 +154,9 @@
       <varlistentry>
         <term><uri>/browse</uri></term>
 
-        <listitem><para>Interactive browsing.</para></listitem>
+        <listitem><para>Interactive browsing.</para>
+
+        <xi:include href="version-info.xml" xpointer="v197"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -159,6 +175,8 @@
 
         <para>GET parameters can be used to modify what events are
         returned. Supported parameters are described below.</para>
+
+        <xi:include href="version-info.xml" xpointer="v197"/>
         </listitem>
       </varlistentry>
 
@@ -175,6 +193,8 @@
   "virtualization" : "kvm",
   …}</programlisting>
         </para>
+
+        <xi:include href="version-info.xml" xpointer="v197"/>
         </listitem>
       </varlistentry>
 
@@ -182,6 +202,8 @@
         <term><uri>/fields/<replaceable>FIELD_NAME</replaceable></uri></term>
 
         <listitem><para>Return a list of values of this field present in the logs.</para>
+
+        <xi:include href="version-info.xml" xpointer="v197"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -203,6 +225,8 @@
         <listitem><para>The default. Plaintext syslog-like output,
         one line per journal entry
         (like <command>journalctl --output short</command>).</para>
+
+        <xi:include href="version-info.xml" xpointer="v197"/>
         </listitem>
       </varlistentry>
 
@@ -214,6 +238,8 @@
         (like <command>journalctl --output json</command>).
         See <ulink url="https://systemd.io/JOURNAL_EXPORT_FORMATS#journal-json-format">Journal JSON Format</ulink>
         for more information.</para>
+
+        <xi:include href="version-info.xml" xpointer="v197"/>
         </listitem>
       </varlistentry>
 
@@ -226,6 +252,8 @@
         Server-Sent Events</ulink>
         (like <command>journalctl --output json-sse</command>).
         </para>
+
+        <xi:include href="version-info.xml" xpointer="v229"/>
         </listitem>
       </varlistentry>
 
@@ -236,6 +264,8 @@
         backups and network transfer (like <command>journalctl --output export</command>).  See <ulink
         url="https://systemd.io/JOURNAL_EXPORT_FORMATS#journal-export-format">Journal Export Format</ulink>
         for more information.</para>
+
+        <xi:include href="version-info.xml" xpointer="v197"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -269,6 +299,8 @@
         <listitem><para>wait for new events
         (like <command>journalctl --follow</command>, except that
         the number of events returned is not limited).</para>
+
+        <xi:include href="version-info.xml" xpointer="v197"/>
         </listitem>
       </varlistentry>
 
@@ -277,6 +309,8 @@
 
         <listitem><para>Test that the specified cursor refers to an
         entry in the journal. Returns just this entry.</para>
+
+        <xi:include href="version-info.xml" xpointer="v197"/>
         </listitem>
       </varlistentry>
 
@@ -284,7 +318,9 @@
         <term><uri>boot</uri></term>
 
         <listitem><para>Limit events to the current boot of the system
-        (like <command>journalctl -b</command>).</para></listitem>
+        (like <command>journalctl -b</command>).</para>
+
+        <xi:include href="version-info.xml" xpointer="v197"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -292,6 +328,8 @@
 
         <listitem><para>Match journal fields. See
         <citerefentry><refentrytitle>systemd.journal-fields</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v197"/>
         </listitem>
       </varlistentry>
     </variablelist>

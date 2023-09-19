@@ -232,7 +232,7 @@ int efi_set_variable(const char *variable, const void *value, size_t size) {
         buf->attr = attr;
         memcpy(buf->buf, value, size);
 
-        r = loop_write(fd, buf, sizeof(uint32_t) + size, false);
+        r = loop_write(fd, buf, sizeof(uint32_t) + size);
         if (r < 0)
                 goto finish;
 

@@ -6,7 +6,7 @@
 ]>
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
-<refentry id="systemd.generator">
+<refentry id="systemd.generator" xmlns:xi="http://www.w3.org/2001/XInclude">
   <refentryinfo>
     <title>systemd.generator</title>
     <productname>systemd</productname>
@@ -147,7 +147,9 @@
 
         <listitem><para>If the generator is invoked from the system service manager this variable is set to
         <literal>system</literal>; if invoked from the per-user service manager it is set to
-        <literal>user</literal>.</para></listitem>
+        <literal>user</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -155,7 +157,9 @@
 
         <listitem><para>If the generator is run as part of an initrd this is set to <literal>1</literal>. If
         it is run from the regular host (i.e. after the transition from initrd to host) it is set to
-        <literal>0</literal>. This environment variable is only set for system generators.</para></listitem>
+        <literal>0</literal>. This environment variable is only set for system generators.</para>
+
+        <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -165,7 +169,9 @@
         <literal>1</literal>; if it is a subsequent, regular boot it is set to <literal>0</literal>. For
         details see the documentation of <varname>ConditionFirstBoot=</varname> in
         <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>. This
-        environment variable is only set for system generators.</para></listitem>
+        environment variable is only set for system generators.</para>
+
+        <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -179,7 +185,9 @@
         what
         <citerefentry><refentrytitle>systemd-detect-virt</refentrytitle><manvolnum>1</manvolnum></citerefentry>
         detects and reports, and uses the same vocabulary of virtualization implementation
-        identifiers.</para></listitem>
+        identifiers.</para>
+
+        <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -188,7 +196,9 @@
         <listitem><para>This variable is set to a short identifier of the reported architecture of the
         system. For details about defined values, see documentation of
         <varname>ConditionArchitecture=</varname> in
-        <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para></listitem>
+        <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -201,7 +211,9 @@
         <varname>$ENCRYPTED_CREDENTIALS_DIRECTORY</varname>. Use the
         <citerefentry><refentrytitle>systemd-creds</refentrytitle><manvolnum>1</manvolnum></citerefentry>
         command to automatically decrypt/authenticate credentials passed in, if needed. Specifically, use the
-        <command>systemd-creds --system cat</command> command.</para></listitem>
+        <command>systemd-creds --system cat</command> command.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -213,7 +225,9 @@
         detected this variable will not be set. This data is identical to what
         <citerefentry><refentrytitle>systemd-detect-virt</refentrytitle><manvolnum>1</manvolnum></citerefentry>
         detects and reports, and uses the same vocabulary of confidential virtualization
-        technology identifiers.</para></listitem>
+        technology identifiers.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>

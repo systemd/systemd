@@ -5,9 +5,8 @@
 
 #include <errno.h>
 #include <sys/ioctl.h>
-#include <net/if.h>
-#include <linux/if_arp.h> /* Must be included after <net/if.h> */
-#include <linux/if_infiniband.h> /* Must be included after <net/if.h> */
+#include <linux/if_arp.h>
+#include <linux/if_infiniband.h>
 
 #include "sd-dhcp6-client.h"
 
@@ -43,6 +42,19 @@ int sd_dhcp6_client_set_callback(
 
         client->callback = cb;
         client->userdata = userdata;
+
+        return 0;
+}
+
+int dhcp6_client_set_state_callback(
+                sd_dhcp6_client *client,
+                sd_dhcp6_client_callback_t cb,
+                void *userdata) {
+
+        assert_return(client, -EINVAL);
+
+        client->state_callback = cb;
+        client->state_userdata = userdata;
 
         return 0;
 }
@@ -553,6 +565,15 @@ static void client_set_state(sd_dhcp6_client *client, DHCP6State state) {
                          dhcp6_state_to_string(client->state), dhcp6_state_to_string(state));
 
         client->state = state;
+
+        if (client->state_callback)
+                client->state_callback(client, state, client->state_userdata);
+}
+
+int dhcp6_client_get_state(sd_dhcp6_client *client) {
+        assert_return(client, -EINVAL);
+
+        return client->state;
 }
 
 static void client_notify(sd_dhcp6_client *client, int event) {

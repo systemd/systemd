@@ -268,6 +268,17 @@ int main(int argc, char **argv) {
   <xi:include href="libsystemd-pkgconfig.xml" />
 
   <refsect1>
+    <title>History</title>
+    <para><function>sd_id128_equal()</function>,
+    <function>sd_id128_string_equal()</function>,
+    <function>sd_id128_is_null()</function>,
+    <function>sd_id128_is_allf()</function>,
+    <function>sd_id128_in_setv()</function>,
+    <function>sd_id128_in_set_sentinel()</function>, and
+    <function>sd_id128_in_set()</function> were added in version 252.</para>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,

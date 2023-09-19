@@ -181,13 +181,17 @@
         <varlistentry>
           <term><constant>-ENOMEM</constant></term>
 
-          <listitem><para>Not enough memory to allocate an object.</para></listitem>
+          <listitem><para>Not enough memory to allocate an object.</para>
+
+          <xi:include href="version-info.xml" xpointer="v254"/></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-EINVAL</constant></term>
 
-          <listitem><para>An invalid argument has been passed.</para></listitem>
+          <listitem><para>An invalid argument has been passed.</para>
+
+          <xi:include href="version-info.xml" xpointer="v254"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -195,28 +199,36 @@
 
           <listitem><para>The <varname>$MEMORY_PRESSURE_WATCH</varname> variable has been set to the literal
           string <filename>/dev/null</filename>, in order to explicitly disable memory pressure
-          handling.</para></listitem>
+          handling.</para>
+
+          <xi:include href="version-info.xml" xpointer="v254"/></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-EBADMSG</constant></term>
 
           <listitem><para>The <varname>$MEMORY_PRESSURE_WATCH</varname> variable has been set to an invalid
-          string, for example a relative rather than an absolute path.</para></listitem>
+          string, for example a relative rather than an absolute path.</para>
+
+          <xi:include href="version-info.xml" xpointer="v254"/></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-ENOTTY</constant></term>
 
           <listitem><para>The <varname>$MEMORY_PRESSURE_WATCH</varname> variable points to a regular file
-          outside of the procfs or cgroupfs file systems.</para></listitem>
+          outside of the procfs or cgroupfs file systems.</para>
+
+          <xi:include href="version-info.xml" xpointer="v254"/></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-EOPNOTSUPP</constant></term>
 
           <listitem><para>No configuration via <varname>$MEMORY_PRESSURE_WATCH</varname> has been specified
-          and the local kernel does not support the PSI interface.</para></listitem>
+          and the local kernel does not support the PSI interface.</para>
+
+          <xi:include href="version-info.xml" xpointer="v254"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -224,25 +236,33 @@
 
           <listitem><para>This is returned by <function>sd_event_source_set_memory_pressure_type()</function>
           and <function>sd_event_source_set_memory_pressure_period()</function> if invoked on event sources
-          at a time later than immediately after allocating them.</para></listitem>
+          at a time later than immediately after allocating them.</para>
+
+          <xi:include href="version-info.xml" xpointer="v254"/></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-ESTALE</constant></term>
 
-          <listitem><para>The event loop is already terminated.</para></listitem>
+          <listitem><para>The event loop is already terminated.</para>
+
+          <xi:include href="version-info.xml" xpointer="v254"/></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-ECHILD</constant></term>
 
-          <listitem><para>The event loop has been created in a different process, library or module instance.</para></listitem>
+          <listitem><para>The event loop has been created in a different process, library or module instance.</para>
+
+          <xi:include href="version-info.xml" xpointer="v254"/></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><constant>-EDOM</constant></term>
 
-          <listitem><para>The passed event source is not a signal event source.</para></listitem>
+          <listitem><para>The passed event source is not a signal event source.</para>
+
+          <xi:include href="version-info.xml" xpointer="v254"/></listitem>
         </varlistentry>
 
       </variablelist>
@@ -250,6 +270,14 @@
   </refsect1>
 
   <xi:include href="libsystemd-pkgconfig.xml" />
+
+  <refsect1>
+    <title>History</title>
+    <para><function>sd_event_add_memory_pressure()</function>,
+    <function>sd_event_source_set_memory_pressure_type()</function>,
+    <function>sd_event_source_set_memory_pressure_period()</function>, and
+    <function>sd_event_trim_memory()</function> were added in version 254.</para>
+  </refsect1>
 
   <refsect1>
     <title>See Also</title>

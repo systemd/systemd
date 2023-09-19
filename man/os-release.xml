@@ -215,7 +215,9 @@
           Edition"</literal>.</para>
 
           <para>Note: this field is for display purposes only. The <varname>VARIANT_ID</varname> field should
-          be used for making programmatic decisions.</para></listitem>
+          be used for making programmatic decisions.</para>
+
+          <xi:include href="version-info.xml" xpointer="v220"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -227,7 +229,9 @@
           may not be implemented on all systems.</para>
 
           <para>Examples: <literal>VARIANT_ID=server</literal>, <literal>VARIANT_ID=embedded</literal>.
-          </para></listitem>
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v220"/></listitem>
         </varlistentry>
       </variablelist>
     </refsect2>
@@ -268,7 +272,9 @@
           is optional and may not be implemented on all systems.</para>
 
           <para>Examples: <literal>VERSION_CODENAME=buster</literal>,
-          <literal>VERSION_CODENAME=xenial</literal>.</para></listitem>
+          <literal>VERSION_CODENAME=xenial</literal>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v231"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -283,7 +289,9 @@
           optional.</para>
 
           <para>Examples: <literal>BUILD_ID="2013-03-20.3"</literal>, <literal>BUILD_ID=201303203</literal>.
-          </para></listitem>
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v200"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -297,7 +305,9 @@
           the local system.</para>
 
           <para>Examples: <literal>IMAGE_ID=vendorx-cashier-system</literal>,
-          <literal>IMAGE_ID=netbook-image</literal>.</para></listitem>
+          <literal>IMAGE_ID=netbook-image</literal>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v249"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -309,7 +319,9 @@
           </para>
 
           <para>Examples: <literal>IMAGE_VERSION=33</literal>, <literal>IMAGE_VERSION=47.1rc1</literal>.
-          </para></listitem>
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v249"/></listitem>
         </varlistentry>
       </variablelist>
 
@@ -365,7 +377,9 @@
           not</emphasis> provided.</para>
 
           <para>For example, <literal>SUPPORT_END=2001-01-01</literal> means that the system was supported
-          until the end of the last day of the previous millennium.</para></listitem>
+          until the end of the last day of the previous millennium.</para>
+
+          <xi:include href="version-info.xml" xpointer="v252"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -378,7 +392,9 @@
           systems.</para>
 
           <para>Examples: <literal>LOGO=fedora-logo</literal>, <literal>LOGO=distributor-logo-opensuse</literal>
-          </para></listitem>
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v240"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -403,7 +419,9 @@
           needed to distinguish the OS vendor from the OS itself. It is intended to be human readable.</para>
 
           <para>Examples: <literal>VENDOR_NAME="Fedora Project"</literal> for Fedora Linux,
-          <literal>VENDOR_NAME="Canonical"</literal> for Ubuntu.</para></listitem>
+          <literal>VENDOR_NAME="Canonical"</literal> for Ubuntu.</para>
+
+          <xi:include href="version-info.xml" xpointer="v254"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -419,7 +437,9 @@
           setting.</para>
 
           <para>Examples: <literal>VENDOR_URL="https://fedoraproject.org/"</literal>,
-          <literal>VENDOR_URL="https://canonical.com/"</literal>.</para></listitem>
+          <literal>VENDOR_URL="https://canonical.com/"</literal>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v254"/></listitem>
         </varlistentry>
       </variablelist>
     </refsect2>
@@ -442,7 +462,9 @@
           <para>See <citerefentry><refentrytitle>org.freedesktop.hostname1</refentrytitle><manvolnum>5</manvolnum></citerefentry>
           for a description of how
           <citerefentry><refentrytitle>systemd-hostnamed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-          determines the fallback hostname.</para></listitem>
+          determines the fallback hostname.</para>
+
+          <xi:include href="version-info.xml" xpointer="v248"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -454,7 +476,9 @@
           It may provide redundant information when used in a GPT partition with a GUID type that already
           encodes the architecture. If this is not the case, the architecture should be specified in
           e.g., an extension image, to prevent an incompatible host from loading it.
-          </para></listitem>
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v252"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -468,7 +492,9 @@
           for more information.</para>
 
           <para>Examples: <literal>SYSEXT_LEVEL=2</literal>, <literal>SYSEXT_LEVEL=15.14</literal>.
-          </para></listitem>
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v248"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -479,7 +505,9 @@
           for more information.</para>
 
           <para>Examples: <literal>CONFEXT_LEVEL=2</literal>, <literal>CONFEXT_LEVEL=15.14</literal>.
-          </para></listitem>
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v254"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -490,13 +518,17 @@
           the system extension is applicable to: i.e. to regular systems, to initrds, or to portable service
           images. If unspecified, <literal>SYSEXT_SCOPE=system portable</literal> is implied, i.e. any system
           extension without this field is applicable to regular systems and to portable service environments,
-          but not to initrd environments.</para></listitem>
+          but not to initrd environments.</para>
+
+          <xi:include href="version-info.xml" xpointer="v250"/></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><varname>CONFEXT_SCOPE=</varname></term>
 
-          <listitem><para>Semantically the same as <varname>SYSEXT_SCOPE=</varname> but for confext images.</para></listitem>
+          <listitem><para>Semantically the same as <varname>SYSEXT_SCOPE=</varname> but for confext images.</para>
+
+          <xi:include href="version-info.xml" xpointer="v254"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -507,7 +539,9 @@
           (and thus allowing them to be distinguished from other OS images, such as bootable system images).
           It is also used when a portable service image is attached: the specified or implied portable
           service prefix is checked against the list specified here, to enforce restrictions how images may
-          be attached to a system.</para></listitem>
+          be attached to a system.</para>
+
+          <xi:include href="version-info.xml" xpointer="v250"/></listitem>
         </varlistentry>
       </variablelist>
     </refsect2>

@@ -3,7 +3,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
-<refentry id="systemd-fstab-generator">
+<refentry id="systemd-fstab-generator" xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>systemd-fstab-generator</title>
@@ -73,7 +73,9 @@
         <listitem><para>Takes a boolean argument. Defaults to <literal>yes</literal>. If
         <literal>no</literal>, causes the generator to ignore any mounts or swap devices configured in
         <filename>/etc/fstab</filename>. <varname>rd.fstab=</varname> is honored only in the initrd, while
-        <varname>fstab=</varname> is honored by both the main system and the initrd.</para></listitem>
+        <varname>fstab=</varname> is honored by both the main system and the initrd.</para>
+
+        <xi:include href="version-info.xml" xpointer="v186"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -95,7 +97,9 @@
         system as root file system of the OS. This is useful in combination with
         <varname>mount.usr=</varname> (see below) in order to combine a volatile root file system with a
         separate, immutable <filename>/usr/</filename> file system. Also see
-        <varname>systemd.volatile=</varname> below.</para></listitem>
+        <varname>systemd.volatile=</varname> below.</para>
+
+        <xi:include href="version-info.xml" xpointer="v217"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -103,7 +107,9 @@
 
         <listitem><para>Takes the root filesystem type that will be
         passed to the mount command. <varname>rootfstype=</varname> is
-        honored by the initrd.</para></listitem>
+        honored by the initrd.</para>
+
+        <xi:include href="version-info.xml" xpointer="v217"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -115,7 +121,9 @@
         <para>Note that unlike most kernel command line options this setting does not override settings made
         in configuration files (specifically: the mount option string in
         <filename>/etc/fstab</filename>). See
-        <citerefentry><refentrytitle>systemd-remount-fs.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para></listitem>
+        <citerefentry><refentrytitle>systemd-remount-fs.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v217"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -133,7 +141,9 @@
         <filename>/etc/fstab</filename> on the root filesystem.</para>
 
         <para><varname>mount.usr=</varname> is honored by the initrd.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v217"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -151,7 +161,9 @@
         <filename>/etc/fstab</filename> on the root filesystem.</para>
 
         <para><varname>mount.usrfstype=</varname> is honored by the
-        initrd.</para></listitem>
+        initrd.</para>
+
+        <xi:include href="version-info.xml" xpointer="v217"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -168,7 +180,9 @@
         <filename>/etc/fstab</filename> on the root filesystem.</para>
 
         <para><varname>mount.usrflags=</varname> is honored by the
-        initrd.</para></listitem>
+        initrd.</para>
+
+        <xi:include href="version-info.xml" xpointer="v217"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -180,7 +194,9 @@
         set this indicates that the root file system (or <filename>/usr/</filename>) shall be mounted from
         Verity volumes with the specified hashes. If these kernel command line options are set the root (or
         <filename>/usr/</filename>) file system is thus mounted from a device mapper volume
-        <filename>/dev/mapper/root</filename> (or <filename>/dev/mapper/usr</filename>).</para></listitem>
+        <filename>/dev/mapper/root</filename> (or <filename>/dev/mapper/usr</filename>).</para>
+
+        <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -228,7 +244,9 @@
         <varname>mount.usr=</varname> is that the former operates on top of a regular root file system and
         temporarily obstructs the files and directories above its <filename>/usr/</filename> subdirectory,
         while the latter does not hide any files, but simply mounts a unpopulated tmpfs as root file system
-        and combines it with a user picked <filename>/usr/</filename> file system.</para></listitem>
+        and combines it with a user picked <filename>/usr/</filename> file system.</para>
+
+        <xi:include href="version-info.xml" xpointer="v233"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -237,7 +255,9 @@
         <listitem><para>Takes a boolean argument or enables the option if specified
         without an argument. If disabled, causes the generator to ignore
         any swap devices configured in <filename>/etc/fstab</filename>.
-        Defaults to enabled.</para></listitem>
+        Defaults to enabled.</para>
+
+        <xi:include href="version-info.xml" xpointer="v246"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -255,6 +275,8 @@
           <programlisting>
 systemd.mount-extra=/dev/sda1:/mount-point:ext4:rw,noatime</programlisting>
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v254"/>
         </listitem>
       </varlistentry>
 
@@ -271,6 +293,8 @@ systemd.mount-extra=/dev/sda1:/mount-point:ext4:rw,noatime</programlisting>
           <programlisting>
 systemd.swap=/dev/sda2:x-systemd.makefs</programlisting>
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v254"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -286,7 +310,9 @@ systemd.swap=/dev/sda2:x-systemd.makefs</programlisting>
         <listitem><para>This credential may contain addition mounts to establish, in the same format as
         <citerefentry
         project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>, with
-        one mount per line. It is read in addition to <filename>/etc/fstab</filename>.</para></listitem>
+        one mount per line. It is read in addition to <filename>/etc/fstab</filename>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>

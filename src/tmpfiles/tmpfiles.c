@@ -1625,7 +1625,7 @@ static int write_argument_data(Item *i, int fd, const char *path) {
 
         log_debug("Writing to \"%s\".", path);
 
-        r = loop_write(fd, item_binary_argument(i), item_binary_argument_size(i), /* do_poll= */ false);
+        r = loop_write(fd, item_binary_argument(i), item_binary_argument_size(i));
         if (r < 0)
                 return log_error_errno(r, "Failed to write file \"%s\": %m", path);
 
@@ -3278,7 +3278,7 @@ static int patch_var_run(const char *fname, unsigned line, char **path) {
          * might create the paths that are intermediary to the listed paths. We can't really cover the generic case,
          * but the least we can do is cover the specific case of /var/run vs. /run, as /var/run is a legacy name for
          * /run only, and we explicitly document that and require that on systemd systems the former is a symlink to
-         * the latter. Moreover files below this path are by far the primary usecase for tmpfiles.d/. */
+         * the latter. Moreover files below this path are by far the primary use case for tmpfiles.d/. */
 
         k = path_startswith(*path, "/var/run/");
         if (isempty(k)) /* Don't complain about other paths than /var/run, and not about /var/run itself either. */

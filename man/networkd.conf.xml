@@ -53,13 +53,17 @@
         <listitem><para>Takes a boolean. If set to yes, then <command>systemd-networkd</command>
         measures the traffic of each interface, and
         <command>networkctl status <replaceable>INTERFACE</replaceable></command> shows the measured speed.
-        Defaults to no.</para></listitem>
+        Defaults to no.</para>
+
+        <xi:include href="version-info.xml" xpointer="v244"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>SpeedMeterIntervalSec=</varname></term>
         <listitem><para>Specifies the time interval to calculate the traffic speed of each interface.
-        If <varname>SpeedMeter=no</varname>, the value is ignored. Defaults to 10sec.</para></listitem>
+        If <varname>SpeedMeter=no</varname>, the value is ignored. Defaults to 10sec.</para>
+
+        <xi:include href="version-info.xml" xpointer="v244"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -68,7 +72,9 @@
         that are not configured in .network files (except for rules with protocol
         <literal>kernel</literal>). When false, it will not remove any foreign rules, keeping them even
         if they are not configured in a .network file. Defaults to yes.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v249"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -79,7 +85,9 @@
         is true or <literal>dhcp</literal>, and <literal>static</literal> when
         <varname>KeepConfiguration=</varname> is true or <literal>static</literal>). When false, it will
         not remove any foreign routes, keeping them even if they are not configured in a .network file.
-        Defaults to yes.</para></listitem>
+        Defaults to yes.</para>
+
+        <xi:include href="version-info.xml" xpointer="v246"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -92,7 +100,9 @@
         254, and 255, respectively. The route table number must be an integer in the range 1…4294967295,
         except for predefined numbers 253, 254, and 255. This setting can be specified multiple times.
         If an empty string is specified, then the list specified earlier are cleared. Defaults to unset.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -103,6 +113,8 @@
           <literal>kernel</literal>. See for details in
           <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
           Defaults to <literal>no</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -135,7 +147,9 @@
             <literal>43793</literal> as the vendor identifier (systemd) and hashed contents of
             <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
             This is the default if <varname>DUIDType=</varname> is not specified.
-            </para></listitem>
+            </para>
+
+            <xi:include href="version-info.xml" xpointer="v230"/></listitem>
           </varlistentry>
 
           <varlistentry>
@@ -146,7 +160,9 @@
             <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>
             is used as a DUID value. About the application-specific machine ID, see
             <citerefentry><refentrytitle>sd_id128_get_machine_app_specific</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
-            </para></listitem>
+            </para>
+
+            <xi:include href="version-info.xml" xpointer="v230"/></listitem>
           </varlistentry>
 
           <varlistentry>
@@ -156,13 +172,17 @@
             then the MAC address of the interface is used as a DUID value. The value <literal>link-layer-time</literal>
             can take additional time value after a colon, e.g. <literal>link-layer-time:2018-01-23 12:34:56 UTC</literal>.
             The default time value is <literal>2000-01-01 00:00:00 UTC</literal>.
-            </para></listitem>
+            </para>
+
+            <xi:include href="version-info.xml" xpointer="v240"/></listitem>
           </varlistentry>
         </variablelist>
         </para>
 
         <para>In all cases, <varname>DUIDRawData=</varname> can be used to override the
-        actual DUID value that is used.</para></listitem>
+        actual DUID value that is used.</para>
+
+        <xi:include href="version-info.xml" xpointer="v230"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -191,6 +211,8 @@ DUIDRawData=00:00:ab:11:f9:2a:c2:77:29:f9:5c:00</programlisting>
           43793 (<literal>00:00:ab:11</literal>), and identifier value <literal>f9:2a:c2:77:29:f9:5c:00</literal>.
           </para>
         </example>
+
+          <xi:include href="version-info.xml" xpointer="v230"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -213,7 +235,9 @@ DUIDRawData=00:00:ab:11:f9:2a:c2:77:29:f9:5c:00</programlisting>
       <varlistentry>
         <term><varname>DUIDType=</varname></term>
         <term><varname>DUIDRawData=</varname></term>
-        <listitem><para>As in the [DHCPv4] section.</para></listitem>
+        <listitem><para>As in the [DHCPv4] section.</para>
+
+        <xi:include href="version-info.xml" xpointer="v249"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>

@@ -65,6 +65,11 @@ EFI_ARCH_MAP = {
 }
 EFI_ARCHES: list[str] = sum(EFI_ARCH_MAP.values(), [])
 
+# Default configuration directories and file name.
+# When the user does not specify one, the directories are searched in this order and the first file found is used.
+DEFAULT_CONFIG_DIRS = ['/run/systemd', '/etc/systemd', '/usr/local/lib/systemd', '/usr/lib/systemd']
+DEFAULT_CONFIG_FILE = 'ukify.conf'
+
 def guess_efi_arch():
     arch = os.uname().machine
 
@@ -1176,6 +1181,7 @@ CONFIG_ITEMS = [
     ConfigItem(
         ('--config', '-c'),
         metavar = 'PATH',
+        type = pathlib.Path,
         help = 'configuration file',
     ),
 
@@ -1394,9 +1400,21 @@ CONFIGFILE_ITEMS = { item.config_key:item
 
 def apply_config(namespace, filename=None):
     if filename is None:
-        filename = namespace.config
-    if filename is None:
-        return
+        if namespace.config:
+            # Config set by the user, use that.
+            filename = namespace.config
+            print(f'Using config file: {filename}')
+        else:
+            # Try to look for a config file then use the first one found.
+            for config_dir in DEFAULT_CONFIG_DIRS:
+                filename = pathlib.Path(config_dir) / DEFAULT_CONFIG_FILE
+                if filename.is_file():
+                    # Found a config file, use it.
+                    print(f'Using found config file: {filename}')
+                    break
+            else:
+                # No config file specified or found, nothing to do.
+                return
 
     # Fill in ._groups based on --pcr-public-key=, --pcr-private-key=, and --phases=.
     assert '_groups' not in namespace
@@ -1413,7 +1431,10 @@ def apply_config(namespace, filename=None):
     # Do not make keys lowercase
     cp.optionxform = lambda option: option
 
-    cp.read(filename)
+    # The API is not great.
+    read = cp.read(filename)
+    if not read:
+        raise IOError(f'Failed to read {filename}')
 
     for section_name, section in cp.items():
         idx = section_name.find(':')

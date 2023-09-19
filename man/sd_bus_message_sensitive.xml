@@ -63,7 +63,9 @@
           <term><constant>-EINVAL</constant></term>
 
           <listitem><para>The <parameter>message</parameter> parameter is
-          <constant>NULL</constant>.</para></listitem>
+          <constant>NULL</constant>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v245"/></listitem>
         </varlistentry>
 
       </variablelist>
@@ -71,6 +73,11 @@
   </refsect1>
 
   <xi:include href="libsystemd-pkgconfig.xml" />
+
+  <refsect1>
+    <title>History</title>
+    <para><function>sd_bus_message_sensitive()</function> was added in version 245.</para>
+  </refsect1>
 
   <refsect1>
     <title>See Also</title>

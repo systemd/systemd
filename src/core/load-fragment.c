@@ -28,11 +28,11 @@
 #include "conf-parser.h"
 #include "core-varlink.h"
 #include "cpu-set-util.h"
-#include "credential.h"
 #include "creds-util.h"
 #include "env-util.h"
 #include "errno-list.h"
 #include "escape.h"
+#include "exec-credential.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
@@ -3920,7 +3920,7 @@ int config_parse_tasks_max(
         int r;
 
         if (isempty(rvalue)) {
-                *tasks_max = u ? u->manager->default_tasks_max : TASKS_MAX_UNSET;
+                *tasks_max = u ? u->manager->defaults.tasks_max : TASKS_MAX_UNSET;
                 return 0;
         }
 

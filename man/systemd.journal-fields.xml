@@ -3,7 +3,7 @@
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
-<refentry id="systemd.journal-fields">
+<refentry id="systemd.journal-fields" xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>systemd.journal-fields</title>
@@ -95,6 +95,8 @@
           any. Contains the numeric value of
           <citerefentry project='man-pages'><refentrytitle>errno</refentrytitle><manvolnum>3</manvolnum></citerefentry>
           formatted as a decimal string.</para>
+
+          <xi:include href="version-info.xml" xpointer="v188"/>
         </listitem>
       </varlistentry>
 
@@ -105,6 +107,8 @@
           <para>A randomized, unique 128-bit ID identifying each runtime cycle of the unit. This is different from
           <varname>_SYSTEMD_INVOCATION_ID</varname> in that it is only used for messages coming from systemd code
           (e.g. logs from the system/user manager or from forked processes performing systemd-related setup).</para>
+
+          <xi:include href="version-info.xml" xpointer="v245"/>
         </listitem>
       </varlistentry>
 
@@ -144,6 +148,8 @@
           based on the stored priority and facility, timestamp, identifier, and the
           message payload in <varname>MESSAGE=</varname>.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v240"/>
         </listitem>
       </varlistentry>
 
@@ -154,6 +160,8 @@
           as <command>journalctl</command> will include a hyperlink to a URL specified this way in their
           output. Should be an <literal>http://</literal>, <literal>https://</literal>,
           <literal>file:/</literal>, <literal>man:</literal> or <literal>info:</literal> URL.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/>
         </listitem>
       </varlistentry>
 
@@ -161,6 +169,8 @@
         <term><varname>TID=</varname></term>
         <listitem>
           <para>The numeric thread ID (TID) the log message originates from.</para>
+
+        <xi:include href="version-info.xml" xpointer="v247"/>
         </listitem>
       </varlistentry>
 
@@ -176,6 +186,8 @@
           <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>, a
           match pattern that includes <literal>UNIT=<replaceable>name</replaceable>.service</literal> or
           <literal>USER_UNIT=<replaceable>name</replaceable>.service</literal> will be generated.</para>
+
+          <xi:include href="version-info.xml" xpointer="v251"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -218,6 +230,8 @@
           <para>The effective
           <citerefentry project='man-pages'><refentrytitle>capabilities</refentrytitle><manvolnum>7</manvolnum></citerefentry>
           of the process the journal entry originates from.</para>
+
+          <xi:include href="version-info.xml" xpointer="v206"/>
         </listitem>
       </varlistentry>
 
@@ -291,6 +305,8 @@
           the message was generated in, as available to processes
           of the unit in <varname>$INVOCATION_ID</varname> (see
           <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>).</para>
+
+          <xi:include href="version-info.xml" xpointer="v233"/>
         </listitem>
       </varlistentry>
 
@@ -315,6 +331,8 @@
               <listitem>
                 <para>for those read from the kernel audit subsystem
                 </para>
+
+                <xi:include href="version-info.xml" xpointer="v227"/>
               </listitem>
             </varlistentry>
 
@@ -325,6 +343,8 @@
               <listitem>
                 <para>for internally generated messages
                 </para>
+
+                <xi:include href="version-info.xml" xpointer="v205"/>
               </listitem>
             </varlistentry>
 
@@ -336,6 +356,8 @@
                 <para>for those received via the local syslog socket
                 with the syslog protocol
                 </para>
+
+                <xi:include href="version-info.xml" xpointer="v205"/>
               </listitem>
             </varlistentry>
 
@@ -347,6 +369,8 @@
                 <para>for those received via the native journal
                 protocol
                 </para>
+
+                <xi:include href="version-info.xml" xpointer="v205"/>
               </listitem>
             </varlistentry>
 
@@ -358,6 +382,8 @@
                 <para>for those read from a service's standard output
                 or error output
                 </para>
+
+                <xi:include href="version-info.xml" xpointer="v205"/>
               </listitem>
             </varlistentry>
 
@@ -368,6 +394,8 @@
               <listitem>
                 <para>for those read from the kernel
                 </para>
+
+                <xi:include href="version-info.xml" xpointer="v205"/>
               </listitem>
             </varlistentry>
           </variablelist>
@@ -379,6 +407,8 @@
           <para>Only applies to <literal>_TRANSPORT=stdout</literal> records: specifies a randomized 128-bit ID assigned
           to the stream connection when it was first created. This ID is useful to reconstruct individual log streams
           from the log records: all log records carrying the same stream ID originate from the same stream.</para>
+
+        <xi:include href="version-info.xml" xpointer="v235"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -394,6 +424,8 @@
           final newline character), or <option>pid-change</option> (if the process which generated the log
           output changed in the middle of a line). Note that this record is not generated when a normal
           newline character was used for marking the log line end.</para>
+
+        <xi:include href="version-info.xml" xpointer="v235"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -403,6 +435,8 @@
         journal namespace that is not the default, this field contains the namespace identifier. See
         <citerefentry><refentrytitle>systemd-journald.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         for details about journal namespaces.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -411,7 +445,9 @@
         <listitem><para>A string field that specifies the runtime scope in which the message was logged. If
         <literal>initrd</literal>, the log message was processed while the system was running inside the
         initrd. If <literal>system</literal>, the log message was generated after the system switched
-        execution to the host root filesystem.</para></listitem>
+        execution to the host root filesystem.</para>
+
+        <xi:include href="version-info.xml" xpointer="v252"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
@@ -432,12 +468,16 @@
           network devices, this is the interface index prefixed by <literal>n</literal>. For all other
           devices, this is the subsystem name prefixed by <literal>+</literal>, followed by
           <literal>:</literal>, followed by the kernel device name.</para>
+
+          <xi:include href="version-info.xml" xpointer="v189"/>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>_KERNEL_SUBSYSTEM=</varname></term>
         <listitem>
           <para>The kernel subsystem name.</para>
+
+        <xi:include href="version-info.xml" xpointer="v189"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -445,6 +485,8 @@
         <listitem>
           <para>The kernel device name as it shows up in the device
           tree below <filename>/sys/</filename>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v189"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -452,6 +494,8 @@
         <listitem>
           <para>The device node path of this device in
           <filename>/dev/</filename>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v189"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -460,6 +504,8 @@
           <para>Additional symlink names pointing to the device node
           in <filename>/dev/</filename>. This field is frequently set
           more than once per entry.</para>
+
+          <xi:include href="version-info.xml" xpointer="v189"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -485,6 +531,8 @@
           system and session units. See
           <citerefentry><refentrytitle>coredumpctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v198"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -500,6 +548,8 @@
         <listitem>
           <para>PID of the program that this message pertains to.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v205"/>
         </listitem>
       </varlistentry>
 
@@ -535,6 +585,8 @@
           as described above, except that the process identified by
           <replaceable>PID</replaceable> is described, instead of the
           process which logged the message.</para>
+
+          <xi:include href="version-info.xml" xpointer="v205"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -604,7 +656,9 @@
         <listitem><para>The sequence number (and associated sequence number ID) of this journal entry in the
         journal file it originates from. See
         <citerefentry><refentrytitle>sd_journal_get_seqnum</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-        for details.</para></listitem>
+        for details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>

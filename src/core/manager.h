@@ -8,6 +8,7 @@
 #include "sd-device.h"
 #include "sd-event.h"
 
+#include "common-signal.h"
 #include "cgroup-util.h"
 #include "cgroup.h"
 #include "fdset.h"
@@ -22,6 +23,14 @@ typedef struct Unit Unit;
 
 /* Enforce upper limit how many names we allow */
 #define MANAGER_MAX_NAMES 131072 /* 128K */
+
+/* On sigrtmin+18, private commands */
+enum {
+        MANAGER_SIGNAL_COMMAND_DUMP_JOBS = _COMMON_SIGNAL_COMMAND_PRIVATE_BASE + 0,
+        _MANAGER_SIGNAL_COMMAND_MAX,
+};
+
+assert_cc((int) _MANAGER_SIGNAL_COMMAND_MAX <= (int) _COMMON_SIGNAL_COMMAND_PRIVATE_END);
 
 typedef struct Manager Manager;
 
@@ -140,6 +149,38 @@ typedef enum ManagerTestRunFlags {
 } ManagerTestRunFlags;
 
 assert_cc((MANAGER_TEST_FULL & UINT8_MAX) == MANAGER_TEST_FULL);
+
+/* Various defaults for unit file settings. */
+typedef struct UnitDefaults {
+        ExecOutput std_output, std_error;
+
+        usec_t restart_usec, timeout_start_usec, timeout_stop_usec, timeout_abort_usec, device_timeout_usec;
+        bool timeout_abort_set;
+
+        usec_t start_limit_interval;
+        unsigned start_limit_burst;
+
+        bool cpu_accounting;
+        bool memory_accounting;
+        bool io_accounting;
+        bool blockio_accounting;
+        bool tasks_accounting;
+        bool ip_accounting;
+
+        TasksMax tasks_max;
+        usec_t timer_accuracy_usec;
+
+        OOMPolicy oom_policy;
+        int oom_score_adjust;
+        bool oom_score_adjust_set;
+
+        CGroupPressureWatch memory_pressure_watch;
+        usec_t memory_pressure_threshold_usec;
+
+        char *smack_process_label;
+
+        struct rlimit *rlimit[_RLIMIT_MAX];
+} UnitDefaults;
 
 struct Manager {
         /* Note that the set of units we know of is allowed to be
@@ -356,39 +397,12 @@ struct Manager {
         bool no_console_output;
         bool service_watchdogs;
 
-        ExecOutput default_std_output, default_std_error;
-
-        usec_t default_restart_usec, default_timeout_start_usec, default_timeout_stop_usec;
-        usec_t default_device_timeout_usec;
-        usec_t default_timeout_abort_usec;
-        bool default_timeout_abort_set;
-
-        usec_t default_start_limit_interval;
-        unsigned default_start_limit_burst;
-
-        bool default_cpu_accounting;
-        bool default_memory_accounting;
-        bool default_io_accounting;
-        bool default_blockio_accounting;
-        bool default_tasks_accounting;
-        bool default_ip_accounting;
-
-        TasksMax default_tasks_max;
-        usec_t default_timer_accuracy_usec;
-
-        OOMPolicy default_oom_policy;
-        int default_oom_score_adjust;
-        bool default_oom_score_adjust_set;
-
-        CGroupPressureWatch default_memory_pressure_watch;
-        usec_t default_memory_pressure_threshold_usec;
+        UnitDefaults defaults;
 
         int original_log_level;
         LogTarget original_log_target;
         bool log_level_overridden;
         bool log_target_overridden;
-
-        struct rlimit *rlimit[_RLIMIT_MAX];
 
         /* non-zero if we are reloading or reexecuting, */
         int n_reloading;
@@ -466,8 +480,6 @@ struct Manager {
         /* Reference to RestrictFileSystems= BPF program */
         struct restrict_fs_bpf *restrict_fs;
 
-        char *default_smack_process_label;
-
         /* Allow users to configure a rate limit for Reload() operations */
         RateLimit reload_ratelimit;
         /* Dump*() are slow, so always rate limit them to 10 per 10 minutes */
@@ -478,7 +490,7 @@ struct Manager {
 
 static inline usec_t manager_default_timeout_abort_usec(Manager *m) {
         assert(m);
-        return m->default_timeout_abort_set ? m->default_timeout_abort_usec : m->default_timeout_stop_usec;
+        return m->defaults.timeout_abort_set ? m->defaults.timeout_abort_usec : m->defaults.timeout_stop_usec;
 }
 
 #define MANAGER_IS_SYSTEM(m) ((m)->runtime_scope == RUNTIME_SCOPE_SYSTEM)
@@ -534,9 +546,7 @@ int manager_transient_environment_add(Manager *m, char **plus);
 int manager_client_environment_modify(Manager *m, char **minus, char **plus);
 int manager_get_effective_environment(Manager *m, char ***ret);
 
-int manager_set_default_smack_process_label(Manager *m, const char *label);
-
-int manager_set_default_rlimits(Manager *m, struct rlimit **default_rlimit);
+int manager_set_unit_defaults(Manager *m, const UnitDefaults *defaults);
 
 void manager_trigger_run_queue(Manager *m);
 
@@ -611,3 +621,6 @@ int manager_override_watchdog_pretimeout_governor(Manager *m, const char *govern
 
 const char* oom_policy_to_string(OOMPolicy i) _const_;
 OOMPolicy oom_policy_from_string(const char *s) _pure_;
+
+void unit_defaults_init(UnitDefaults *defaults, RuntimeScope scope);
+void unit_defaults_done(UnitDefaults *defaults);

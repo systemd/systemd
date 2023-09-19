@@ -1808,33 +1808,14 @@ xml_helper_py = find_program('tools/xml_helper.py')
 ############################################################
 
 version_tag = get_option('version-tag')
-if version_tag == ''
-        # Check that we have either .git/ (a normal clone) or a .git file (a work-tree) and that we don't
-        # get confused if a tarball is extracted in a higher-level git repository.
-        if git.found() and fs.exists(project_source_root / '.git')
-                # Apparently git describe has a bug where it always considers the work-tree dirty when
-                # invoked with --git-dir (even though 'git status' is happy). Work around this issue by
-                # cd-ing to the source directory.
-                version_tag = run_command(
-                        sh, '-c',
-                        'cd "$MESON_SOURCE_ROOT"; git describe --abbrev=7 --dirty=^ 2>/dev/null | sed "s/^v//; s/-rc/~rc/"',
-                        check : true,
-                ).stdout().strip()
-        else
-                version_tag = meson.project_version()
-        endif
-endif
-
-vcs_data = configuration_data()
-vcs_data.set('VCS_TAG', version_tag)
-version_h = configure_file(configuration : vcs_data,
-                           input : 'src/version/version.h.in',
-                           output : 'version.h')
-
-versiondep = declare_dependency(
-        sources : version_h,
-        include_directories : include_directories('.'),
-)
+version_h = vcs_tag(
+        input : 'src/version/version.h.in',
+        output : 'version.h',
+        command: [project_source_root / 'tools/meson-vcs-tag.sh',
+                  project_source_root,
+                  meson.project_version(),
+                  version_tag,
+                 ])
 
 shared_lib_tag = get_option('shared-lib-tag')
 if shared_lib_tag == ''
@@ -1860,7 +1841,7 @@ jinja2_cmdline = [meson_render_jinja2, config_h, version_h]
 userspace = declare_dependency(
         compile_args : userspace_c_args,
         link_args : userspace_c_ld_args,
-        dependencies : versiondep,
+        sources : version_h,
 )
 
 man_page_depends = []
@@ -1885,6 +1866,8 @@ dbus_programs = []
 
 # A list of boot stubs. Required for testing of ukify.
 boot_stubs = []
+
+build_dir_include = include_directories('.')
 
 basic_includes = include_directories(
         'src/basic',
@@ -2330,17 +2313,27 @@ foreach dict : executables
 
                 if want_tests != 'false'
                         # Run the fuzz regression tests without any sanitizers enabled.
-                        # Additional invocations with sanitizers may be added below.
+                        # Additional invocations with sanitizers may get added below.
                         fuzz_ins = fuzz_regression_tests.get(name, {})
                         foreach directive : fuzz_ins.get('directives', [])
-                                test('@0@_@1@'.format(name, fs.name(directive.full_path())),
+                                tt = '@0@_@1@'.format(name, fs.name(directive.full_path()))
+                                if tt.substring(45) != ''
+                                        error('Directive sample name is too long:', directive.full_path())
+                                endif
+
+                                test(tt,
                                      exe,
                                      suite : 'fuzz',
                                      args : directive.full_path(),
                                      depends : directive)
                         endforeach
                         foreach file : fuzz_ins.get('files', [])
-                                test('@0@_@1@'.format(name, fs.name(file)),
+                                tt = '@0@_@1@'.format(name, fs.name(file))
+                                if tt.substring(45) != ''
+                                        error('Fuzz sample name is too long:', fs.name(file))
+                                endif
+
+                                test(tt,
                                      exe,
                                      suite : 'fuzz',
                                      args : file)
@@ -2421,9 +2414,13 @@ ukify = custom_target(
         command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
         install : want_ukify,
         install_mode : 'rwxr-xr-x',
-        install_dir : libexecdir)
+        install_dir : bindir)
 if want_ukify
         public_programs += ukify
+
+        meson.add_install_script(sh, '-c',
+                                 ln_s.format(bindir / 'ukify',
+                                             libexecdir / 'ukify'))
 endif
 
 ############################################################

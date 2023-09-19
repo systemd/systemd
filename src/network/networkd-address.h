@@ -6,6 +6,8 @@
 #include <stdio.h>
 
 #include "conf-parser.h"
+#include "firewall-util.h"
+#include "hash-funcs.h"
 #include "in-addr-util.h"
 #include "networkd-link.h"
 #include "networkd-util.h"
@@ -59,6 +61,8 @@ struct Address {
 
         /* Called when address become ready */
         address_ready_callback_t callback;
+
+        NFTSetContext nft_set_context;
 };
 
 const char* format_lifetime(char *buf, size_t l, usec_t lifetime_usec) _warn_unused_result_;
@@ -70,7 +74,10 @@ const char* format_lifetime(char *buf, size_t l, usec_t lifetime_usec) _warn_unu
 
 int address_flags_to_string_alloc(uint32_t flags, int family, char **ret);
 
+extern const struct hash_ops address_hash_ops;
+
 int address_new(Address **ret);
+int address_new_static(Network *network, const char *filename, unsigned section_line, Address **ret);
 Address* address_free(Address *address);
 int address_get(Link *link, const Address *in, Address **ret);
 int address_get_harder(Link *link, const Address *in, Address **ret);
@@ -80,11 +87,6 @@ int address_remove_and_drop(Address *address);
 int address_dup(const Address *src, Address **ret);
 bool address_is_ready(const Address *a);
 bool link_check_addresses_ready(Link *link, NetworkConfigSource source);
-int address_get_broadcast(const Address *a, Link *link, struct in_addr *ret);
-static inline void address_set_broadcast(Address *a, Link *link) {
-        assert(a);
-        assert_se(address_get_broadcast(a, link, &a->broadcast) >= 0);
-}
 
 DEFINE_SECTION_CLEANUP_FUNCTIONS(Address, address_free);
 
@@ -117,6 +119,7 @@ int link_request_static_addresses(Link *link);
 
 int manager_rtnl_process_address(sd_netlink *nl, sd_netlink_message *message, Manager *m);
 
+int address_section_verify(Address *address);
 int network_drop_invalid_addresses(Network *network);
 
 DEFINE_NETWORK_CONFIG_STATE_FUNCTIONS(Address, address);
@@ -132,3 +135,4 @@ CONFIG_PARSER_PROTOTYPE(config_parse_address_scope);
 CONFIG_PARSER_PROTOTYPE(config_parse_address_route_metric);
 CONFIG_PARSER_PROTOTYPE(config_parse_duplicate_address_detection);
 CONFIG_PARSER_PROTOTYPE(config_parse_address_netlabel);
+CONFIG_PARSER_PROTOTYPE(config_parse_address_ip_nft_set);

@@ -123,7 +123,9 @@
 
         <para>Note that <option>--user</option> only works if persistent logging is enabled, via the
         <varname>Storage=</varname> setting in
-        <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para></listitem>
+        <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v205"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -131,7 +133,9 @@
         <term><option>--machine=</option></term>
 
         <listitem><para>Show messages from a running, local container. Specify a container name to connect
-        to.</para></listitem>
+        to.</para>
+
+        <xi:include href="version-info.xml" xpointer="v209"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -139,7 +143,9 @@
         <term><option>--merge</option></term>
 
         <listitem><para>Show entries interleaved from all available journals, including remote
-        ones.</para></listitem>
+        ones.</para>
+
+        <xi:include href="version-info.xml" xpointer="v190"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -148,7 +154,9 @@
 
         <listitem><para>Takes a directory path as argument. If specified, journalctl will operate on the
         specified journal directory <replaceable>DIR</replaceable> instead of the default runtime and system
-        journal paths.</para></listitem>
+        journal paths.</para>
+
+        <xi:include href="version-info.xml" xpointer="v187"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -157,7 +165,9 @@
         <listitem><para>Takes a file glob as an argument. If specified, journalctl will operate on the
         specified journal files matching <replaceable>GLOB</replaceable> instead of the default runtime and
         system journal paths. May be specified multiple times, in which case files will be suitably
-        interleaved.</para></listitem>
+        interleaved.</para>
+
+        <xi:include href="version-info.xml" xpointer="v205"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -169,7 +179,9 @@
         <filename><replaceable>ROOT</replaceable>/var/lib/systemd/catalog/database</filename>, and journal
         files under <filename><replaceable>ROOT</replaceable>/run/journal/</filename> or
         <filename><replaceable>ROOT</replaceable>/var/log/journal/</filename> will be displayed).
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v201"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -183,7 +195,9 @@
         the <ulink url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">Discoverable Partitions
         Specification</ulink>. For further information on supported disk images, see
         <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
-        switch of the same name.</para></listitem>
+        switch of the same name.</para>
+
+        <xi:include href="version-info.xml" xpointer="v247"/></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="image-policy-open" />
@@ -197,7 +211,9 @@
         shown, interleaved. If the namespace identifier is prefixed with <literal>+</literal> data from the
         specified namespace and the default namespace is shown, interleaved, but no other. For details about
         journal namespaces see
-        <citerefentry><refentrytitle>systemd-journald.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para></listitem>
+        <citerefentry><refentrytitle>systemd-journald.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
@@ -226,7 +242,9 @@
         after the current time, respectively. For complete time and date specification, see
         <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>. Note
         that <option>--output=short-full</option> prints timestamps that follow precisely this format.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v195"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -234,7 +252,9 @@
         <term><option>--cursor=</option></term>
 
         <listitem><para>Start showing entries from the location in the journal specified by the passed
-        cursor.</para></listitem>
+        cursor.</para>
+
+        <xi:include href="version-info.xml" xpointer="v193"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -242,7 +262,9 @@
 
         <listitem><para>Start showing entries from the location in the journal <emphasis>after</emphasis>
         the location specified by the passed cursor.  The cursor is shown when the
-        <option>--show-cursor</option> option is used.</para></listitem>
+        <option>--show-cursor</option> option is used.</para>
+
+        <xi:include href="version-info.xml" xpointer="v206"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -252,7 +274,9 @@
         entries <emphasis>after</emphasis> this location.  Otherwise show entries according to the other
         given options. At the end, write the cursor of the last entry to
         <replaceable>FILE</replaceable>. Use this option to continually read the journal by sequentially
-        calling <command>journalctl</command>.</para></listitem>
+        calling <command>journalctl</command>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v242"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -281,7 +305,9 @@
         logs for the boot given by <replaceable>ID</replaceable> are shown.</para>
 
         <para>The special argument <constant>all</constant> can be used to negate the effect of an earlier
-        use of <option>-b</option>.</para></listitem>
+        use of <option>-b</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v186"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -302,7 +328,9 @@
         <para>With <option>--user</option>, all <option>--unit=</option> arguments will be converted to match
         user messages as if specified with <option>--user-unit=</option>.</para>
 
-        <para>This parameter can be specified multiple times.</para></listitem>
+        <para>This parameter can be specified multiple times.</para>
+
+        <xi:include href="version-info.xml" xpointer="v195"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -316,7 +344,9 @@
         <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         unit, all logs of children of the unit will be shown.</para>
 
-        <para>This parameter can be specified multiple times.</para></listitem>
+        <para>This parameter can be specified multiple times.</para>
+
+        <xi:include href="version-info.xml" xpointer="v198"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -326,7 +356,9 @@
         <listitem><para>Show messages for the specified syslog identifier
         <replaceable>SYSLOG_IDENTIFIER</replaceable>.</para>
 
-        <para>This parameter can be specified multiple times.</para></listitem>
+        <para>This parameter can be specified multiple times.</para>
+
+        <xi:include href="version-info.xml" xpointer="v217"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -344,7 +376,9 @@
         messages with this log level or a lower (hence more important) log level are shown. If a range is
         specified, all messages within the range are shown, including both the start and the end value of the
         range. This will add <literal>PRIORITY=</literal> matches for the specified
-        priorities.</para></listitem>
+        priorities.</para>
+
+        <xi:include href="version-info.xml" xpointer="v188"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -354,7 +388,9 @@
         facility names. The names are the usual syslog facilities as documented in <citerefentry
         project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
         <option>--facility=help</option> may be used to display a list of known facility names and exit.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -372,13 +408,17 @@
         below.</para>
 
         <para>When used with <option>--lines=</option> (not prefixed with <literal>+</literal>),
-        <option>--reverse</option> is implied.</para></listitem>
+        <option>--reverse</option> is implied.</para>
+
+        <xi:include href="version-info.xml" xpointer="v237"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>--case-sensitive<optional>=BOOLEAN</optional></option></term>
 
-        <listitem><para>Make pattern matching case sensitive or case insensitive.</para></listitem>
+        <listitem><para>Make pattern matching case sensitive or case insensitive.</para>
+
+        <xi:include href="version-info.xml" xpointer="v237"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -386,7 +426,9 @@
         <term><option>--dmesg</option></term>
 
         <listitem><para>Show only kernel messages. This implies <option>-b</option> and adds the match
-        <literal>_TRANSPORT=kernel</literal>.</para></listitem>
+        <literal>_TRANSPORT=kernel</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v205"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
@@ -408,7 +450,9 @@
           <varlistentry>
             <term><option>short</option></term>
             <listitem><para>is the default and generates an output that is mostly identical to the
-            formatting of classic syslog files, showing one line per journal entry.</para></listitem>
+            formatting of classic syslog files, showing one line per journal entry.</para>
+
+            <xi:include href="version-info.xml" xpointer="v206"/></listitem>
           </varlistentry>
 
           <varlistentry>
@@ -416,55 +460,73 @@
             <listitem><para>is very similar, but shows timestamps in the format the
             <option>--since=</option> and <option>--until=</option> options accept. Unlike the timestamp
             information shown in <option>short</option> output mode this mode includes weekday, year and
-            timezone information in the output, and is locale-independent.</para></listitem>
+            timezone information in the output, and is locale-independent.</para>
+
+            <xi:include href="version-info.xml" xpointer="v232"/></listitem>
           </varlistentry>
 
           <varlistentry>
             <term><option>short-iso</option></term>
-            <listitem><para>is very similar, but shows ISO 8601 wallclock timestamps.</para></listitem>
+            <listitem><para>is very similar, but shows ISO 8601 wallclock timestamps.</para>
+
+            <xi:include href="version-info.xml" xpointer="v206"/></listitem>
           </varlistentry>
 
           <varlistentry>
             <term><option>short-iso-precise</option></term>
             <listitem><para>as for <option>short-iso</option> but includes full microsecond
-            precision.</para></listitem>
+            precision.</para>
+
+            <xi:include href="version-info.xml" xpointer="v234"/></listitem>
           </varlistentry>
 
           <varlistentry>
             <term><option>--truncate-newline</option></term>
 
             <listitem><para>Truncate each log message at the first newline character on output, so that only the
-            first line of each message is displayed.</para></listitem>
+            first line of each message is displayed.</para>
+
+            <xi:include href="version-info.xml" xpointer="v254"/></listitem>
           </varlistentry>
 
           <varlistentry>
             <term><option>short-precise</option></term>
             <listitem><para>is very similar, but shows classic syslog timestamps with full microsecond
-            precision.</para></listitem>
+            precision.</para>
+
+            <xi:include href="version-info.xml" xpointer="v207"/></listitem>
           </varlistentry>
 
           <varlistentry>
             <term><option>short-monotonic</option></term>
             <listitem><para>is very similar, but shows monotonic timestamps instead of wallclock
-            timestamps.</para></listitem>
+            timestamps.</para>
+
+            <xi:include href="version-info.xml" xpointer="v206"/></listitem>
           </varlistentry>
 
           <varlistentry>
             <term><option>short-delta</option></term>
             <listitem><para>as for <option>short-monotonic</option> but includes the time difference
             to the previous entry.
-            Maybe unreliable time differences are marked by a <literal>*</literal>.</para></listitem>
+            Maybe unreliable time differences are marked by a <literal>*</literal>.</para>
+
+            <xi:include href="version-info.xml" xpointer="v252"/></listitem>
           </varlistentry>
 
           <varlistentry>
             <term><option>short-unix</option></term>
             <listitem><para>is very similar, but shows seconds passed since January 1st 1970 UTC instead of
-            wallclock timestamps ("UNIX time"). The time is shown with microsecond accuracy.</para></listitem>
+            wallclock timestamps ("UNIX time"). The time is shown with microsecond accuracy.</para>
+
+            <xi:include href="version-info.xml" xpointer="v230"/></listitem>
           </varlistentry>
 
           <varlistentry>
             <term><option>verbose</option></term>
-            <listitem><para>shows the full-structured entry items with all fields.</para></listitem>
+            <listitem><para>shows the full-structured entry items with all fields.</para>
+
+            <xi:include href="version-info.xml" xpointer="v206"/></listitem>
           </varlistentry>
 
           <varlistentry>
@@ -474,7 +536,9 @@
             url="https://systemd.io/JOURNAL_EXPORT_FORMATS#journal-export-format">Journal Export
             Format</ulink> for more information). To import the binary stream back into native journald
             format use
-            <citerefentry><refentrytitle>systemd-journal-remote</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para></listitem>
+            <citerefentry><refentrytitle>systemd-journal-remote</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+            <xi:include href="version-info.xml" xpointer="v206"/></listitem>
           </varlistentry>
 
           <varlistentry>
@@ -495,13 +559,17 @@
               containing the raw bytes individually formatted as unsigned numbers.</para></listitem>
             </orderedlist>
 
-            Note that this encoding is reversible (with the exception of the size limit).</para></listitem>
+            Note that this encoding is reversible (with the exception of the size limit).</para>
+
+            <xi:include href="version-info.xml" xpointer="v206"/></listitem>
           </varlistentry>
 
           <varlistentry>
             <term><option>json-pretty</option></term>
             <listitem><para>formats entries as JSON data structures, but formats them in multiple lines in
-            order to make them more readable by humans.</para></listitem>
+            order to make them more readable by humans.</para>
+
+            <xi:include href="version-info.xml" xpointer="v206"/></listitem>
           </varlistentry>
 
           <varlistentry>
@@ -509,7 +577,9 @@
             <listitem><para>formats entries as JSON data structures, but wraps them in a format suitable for
             <ulink
             url="https://developer.mozilla.org/en-US/docs/Server-sent_events/Using_server-sent_events">Server-Sent
-            Events</ulink>.</para></listitem>
+            Events</ulink>.</para>
+
+            <xi:include href="version-info.xml" xpointer="v206"/></listitem>
           </varlistentry>
 
           <varlistentry>
@@ -517,7 +587,9 @@
             <listitem><para>formats entries as JSON data structures, but prefixes them with an ASCII Record
             Separator character (0x1E) and suffixes them with an ASCII Line Feed character (0x0A), in
             accordance with <ulink url="https://tools.ietf.org/html/rfc7464">JavaScript Object Notation
-            (JSON) Text Sequences </ulink> (<literal>application/json-seq</literal>).</para></listitem>
+            (JSON) Text Sequences </ulink> (<literal>application/json-seq</literal>).</para>
+
+            <xi:include href="version-info.xml" xpointer="v240"/></listitem>
           </varlistentry>
 
           <varlistentry>
@@ -525,14 +597,18 @@
             <listitem><para>generates a very terse output, only showing the actual message of each journal
             entry with no metadata, not even a timestamp. If combined with the
             <option>--output-fields=</option> option will output the listed fields for each log record,
-            instead of the message.</para></listitem>
+            instead of the message.</para>
+
+            <xi:include href="version-info.xml" xpointer="v206"/></listitem>
           </varlistentry>
 
           <varlistentry>
             <term><option>with-unit</option></term>
             <listitem><para>similar to <option>short-full</option>, but prefixes the unit and user unit names
             instead of the traditional syslog identifier. Useful when using templated instances, as it will
-            include the arguments in the unit names.</para></listitem>
+            include the arguments in the unit names.</para>
+
+            <xi:include href="version-info.xml" xpointer="v239"/></listitem>
           </varlistentry>
         </variablelist></listitem>
       </varlistentry>
@@ -546,7 +622,9 @@
         <option>json-pretty</option>, <option>json-sse</option> and <option>json-seq</option>), as well as
         on <option>cat</option>. For the former, the <literal>__CURSOR</literal>,
         <literal>__REALTIME_TIMESTAMP</literal>, <literal>__MONOTONIC_TIMESTAMP</literal>, and
-        <literal>_BOOT_ID</literal> fields are always printed.</para></listitem>
+        <literal>_BOOT_ID</literal> fields are always printed.</para>
+
+        <xi:include href="version-info.xml" xpointer="v236"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -566,7 +644,9 @@
         <term><option>-r</option></term>
         <term><option>--reverse</option></term>
 
-        <listitem><para>Reverse output so that the newest entries are displayed first.</para></listitem>
+        <listitem><para>Reverse output so that the newest entries are displayed first.</para>
+
+        <xi:include href="version-info.xml" xpointer="v198"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -574,13 +654,17 @@
 
         <listitem><para>The cursor is shown after the last entry after two dashes:</para>
         <programlisting>-- cursor: s=0639…</programlisting>
-        <para>The format of the cursor is private and subject to change.</para></listitem>
+        <para>The format of the cursor is private and subject to change.</para>
+
+        <xi:include href="version-info.xml" xpointer="v209"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>--utc</option></term>
 
-        <listitem><para>Express time in Coordinated Universal Time (UTC).</para></listitem>
+        <listitem><para>Express time in Coordinated Universal Time (UTC).</para>
+
+        <xi:include href="version-info.xml" xpointer="v217"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -596,7 +680,9 @@
         Catalog Developer Documentation</ulink>.</para>
 
         <para>Note: when attaching <command>journalctl</command> output to bug reports, please do
-        <emphasis>not</emphasis> use <option>-x</option>.</para></listitem>
+        <emphasis>not</emphasis> use <option>-x</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v196"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -606,7 +692,9 @@
         switch has an effect only on the <option>short</option> family of output modes (see above).</para>
 
         <para>Note: this option does not remove occurrences of the hostname from log entries themselves, so
-        it does not prevent the hostname from being visible in the logs.</para></listitem>
+        it does not prevent the hostname from being visible in the logs.</para>
+
+        <xi:include href="version-info.xml" xpointer="v230"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -618,7 +706,9 @@
         full fields, allowing them to wrap or be truncated by the pager, if one is used.</para>
 
         <para>The old options <option>-l</option>/<option>--full</option> are not useful anymore, except to
-        undo <option>--no-full</option>.</para></listitem>
+        undo <option>--no-full</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v196"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -675,7 +765,9 @@
         while <option>-nall</option> will disable this cap.  Note that this option is only supported for
         the <citerefentry
         project='man-pages'><refentrytitle>less</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-        pager.</para></listitem>
+        pager.</para>
+
+        <xi:include href="version-info.xml" xpointer="v198"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
@@ -692,21 +784,27 @@
 
         <listitem><para>Specifies the change interval for the sealing key when generating an FSS key pair
         with <option>--setup-keys</option>. Shorter intervals increase CPU consumption but shorten the time
-        range of undetectable journal alterations. Defaults to 15min.</para></listitem>
+        range of undetectable journal alterations. Defaults to 15min.</para>
+
+        <xi:include href="version-info.xml" xpointer="v189"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>--verify-key=</option></term>
 
         <listitem><para>Specifies the FSS verification key to use for the <option>--verify</option>
-        operation.</para></listitem>
+        operation.</para>
+
+        <xi:include href="version-info.xml" xpointer="v189"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>--force</option></term>
 
         <listitem><para>When <option>--setup-keys</option> is passed and Forward Secure Sealing (FSS) has
-        already been configured, recreate FSS keys.</para></listitem>
+        already been configured, recreate FSS keys.</para>
+
+        <xi:include href="version-info.xml" xpointer="v206"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
@@ -721,7 +819,9 @@
         <term><option>-N</option></term>
         <term><option>--fields</option></term>
 
-        <listitem><para>Print all field names currently used in all entries of the journal.</para></listitem>
+        <listitem><para>Print all field names currently used in all entries of the journal.</para>
+
+        <xi:include href="version-info.xml" xpointer="v229"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -729,21 +829,27 @@
         <term><option>--field=</option></term>
 
         <listitem><para>Print all possible data values the specified field can take in all entries of the
-        journal.</para></listitem>
+        journal.</para>
+
+        <xi:include href="version-info.xml" xpointer="v195"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>--list-boots</option></term>
 
         <listitem><para>Show a tabular list of boot numbers (relative to the current boot), their IDs, and
-        the timestamps of the first and last message pertaining to the boot.</para></listitem>
+        the timestamps of the first and last message pertaining to the boot.</para>
+
+        <xi:include href="version-info.xml" xpointer="v209"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>--disk-usage</option></term>
 
         <listitem><para>Shows the current disk usage of all journal files. This shows the sum of the disk
-        usage of all archived and active journal files.</para></listitem>
+        usage of all archived and active journal files.</para>
+
+        <xi:include href="version-info.xml" xpointer="v190"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -782,7 +888,9 @@
         so, all active files are rotated first, and the requested vacuuming operation is executed right
         after. The rotation has the effect that all currently active files are archived (and potentially new,
         empty journal files opened as replacement), and hence the vacuuming operation has the greatest effect
-        as it can take all log data written so far into account.</para></listitem>
+        as it can take all log data written so far into account.</para>
+
+        <xi:include href="version-info.xml" xpointer="v218"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -790,7 +898,9 @@
 
         <listitem><para>Check the journal file for internal consistency. If the file has been generated
         with FSS enabled and the FSS verification key has been specified with
-        <option>--verify-key=</option>, authenticity of the journal file is verified.</para></listitem>
+        <option>--verify-key=</option>, authenticity of the journal file is verified.</para>
+
+        <xi:include href="version-info.xml" xpointer="v189"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -799,7 +909,9 @@
         <listitem><para>Asks the journal daemon to write all yet unwritten journal data to the backing file
         system and synchronize all journals. This call does not return until the synchronization operation
         is complete. This command guarantees that any log messages written before its invocation are safely
-        stored on disk at the time it returns.</para></listitem>
+        stored on disk at the time it returns.</para>
+
+        <xi:include href="version-info.xml" xpointer="v228"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -809,7 +921,9 @@
         requested the daemon will write further log data to <filename>/run/log/journal/</filename> and
         stops writing to <filename>/var/log/journal/</filename>. A subsequent call to
         <option>--flush</option> causes the log output to switch back to
-        <filename>/var/log/journal/</filename>, see above.</para></listitem>
+        <filename>/var/log/journal/</filename>, see above.</para>
+
+        <xi:include href="version-info.xml" xpointer="v243"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -819,7 +933,9 @@
         file system and <filename>/var/log/journal/</filename> reside on the same mount point. This operation
         is used during system shutdown in order to make the journal daemon stop writing data to
         <filename>/var/log/journal/</filename> in case that directory is located on a mount point that needs
-        to be unmounted.</para></listitem>
+        to be unmounted.</para>
+
+        <xi:include href="version-info.xml" xpointer="v243"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -832,7 +948,9 @@
         <filename>/var/log/journal/</filename> once during system runtime (but see
         <option>--relinquish-var</option> below), and this command exits cleanly without executing any
         operation if this has already happened. This command effectively guarantees that all data is flushed
-        to <filename>/var/log/journal/</filename> at the time it returns.</para></listitem>
+        to <filename>/var/log/journal/</filename> at the time it returns.</para>
+
+        <xi:include href="version-info.xml" xpointer="v217"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -843,7 +961,9 @@
         journal files are marked as archived and renamed, so that they are never written to in future. New
         (empty) journal files are then created in their place. This operation may be combined with
         <option>--vacuum-size=</option>, <option>--vacuum-time=</option> and
-        <option>--vacuum-file=</option> into a single command, see above.</para></listitem>
+        <option>--vacuum-file=</option> into a single command, see above.</para>
+
+        <xi:include href="version-info.xml" xpointer="v227"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -853,7 +973,9 @@
         journal fields accessed.</para>
 
         <para>This option is particularly useful when trying to identify out-of-order journal entries, as
-        happens for example when the machine is booted with the wrong system time.</para></listitem>
+        happens for example when the machine is booted with the wrong system time.</para>
+
+        <xi:include href="version-info.xml" xpointer="v187"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -863,7 +985,9 @@
         short description strings.</para>
 
         <para>If any <replaceable>128-bit-ID</replaceable>s are specified, only those entries are
-        shown.</para></listitem>
+        shown.</para>
+
+        <xi:include href="version-info.xml" xpointer="v196"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -874,7 +998,9 @@
         files).</para>
 
         <para>If any <replaceable>128-bit-ID</replaceable>s are specified, only those entries are
-        shown.</para></listitem>
+        shown.</para>
+
+        <xi:include href="version-info.xml" xpointer="v199"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -882,7 +1008,9 @@
 
         <listitem><para>Update the message catalog index. This command needs to be executed each time new
         catalog files are installed, removed, or updated to rebuild the binary catalog
-        index.</para></listitem>
+        index.</para>
+
+        <xi:include href="version-info.xml" xpointer="v196"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -894,7 +1022,9 @@
         externally. Refer to the <option>Seal=</option> option in
         <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
         information on Forward Secure Sealing and for a link to a refereed scholarly paper detailing the
-        cryptographic theory it is based on.</para></listitem>
+        cryptographic theory it is based on.</para>
+
+        <xi:include href="version-info.xml" xpointer="v189"/></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="help" />

@@ -5,6 +5,8 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+#include "sd-messages.h"
+
 #include "battery-util.h"
 #include "build.h"
 #include "constants.h"
@@ -80,7 +82,7 @@ static int plymouth_send_message(const char *mode, const char *message) {
                 return log_full_errno(ERRNO_IS_NO_PLYMOUTH(errno) ? LOG_DEBUG : LOG_WARNING, errno,
                                       "Failed to connect to plymouth: %m");
 
-        r = loop_write(fd, plymouth_message, c, /* do_poll = */ false);
+        r = loop_write(fd, plymouth_message, c);
         if (r < 0)
                 return log_full_errno(ERRNO_IS_NO_PLYMOUTH(r) ? LOG_DEBUG : LOG_WARNING, r,
                                       "Failed to write to plymouth: %m");
@@ -156,8 +158,9 @@ static int run(int argc, char *argv[]) {
         }
         if (r == 0)
                 return 0;
-
-        log_emergency("%s " BATTERY_LOW_MESSAGE, special_glyph(SPECIAL_GLYPH_LOW_BATTERY));
+        log_struct(LOG_EMERG,
+                   LOG_MESSAGE("%s " BATTERY_LOW_MESSAGE, special_glyph(SPECIAL_GLYPH_LOW_BATTERY)),
+                   "MESSAGE_ID=" SD_MESSAGE_BATTERY_LOW_WARNING_STR);
 
         fd = open_terminal("/dev/console", O_WRONLY|O_NOCTTY|O_CLOEXEC);
         if (fd < 0)
@@ -178,7 +181,9 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_warning_errno(r, "Failed to check battery status, assuming not charged yet, powering off: %m");
         if (r > 0) {
-                log_emergency("Battery level critically low, powering off.");
+                log_struct(LOG_EMERG,
+                           LOG_MESSAGE("Battery level critically low, powering off."),
+                           "MESSAGE_ID=" SD_MESSAGE_BATTERY_LOW_POWEROFF_STR);
                 return r;
         }
 

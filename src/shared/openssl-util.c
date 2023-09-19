@@ -403,7 +403,7 @@ int ecc_pkey_to_curve_x_y(
         if (!EVP_PKEY_get_utf8_string_param(pkey, OSSL_PKEY_PARAM_GROUP_NAME, NULL, 0, &name_size))
                 return log_openssl_errors("Failed to get ECC group name size");
 
-        _cleanup_free_ char *name = malloc(name_size + 1);
+        _cleanup_free_ char *name = new(char, name_size + 1);
         if (!name)
                 return log_oom_debug();
 
@@ -542,6 +542,49 @@ int pubkey_fingerprint(EVP_PKEY *pk, const EVP_MD *md, void **ret, size_t *ret_s
         *ret = TAKE_PTR(h);
         *ret_size = msz;
 
+        return 0;
+}
+
+int digest_and_sign(
+                const EVP_MD *md,
+                EVP_PKEY *privkey,
+                const void *data, size_t size,
+                void **ret, size_t *ret_size) {
+
+        assert(privkey);
+        assert(ret);
+        assert(ret_size);
+
+        if (size == 0)
+                data = ""; /* make sure to pass a valid pointer to OpenSSL */
+        else {
+                assert(data);
+
+                if (size == SIZE_MAX) /* If SIZE_MAX input is a string whose size we determine automatically */
+                        size = strlen(data);
+        }
+
+        _cleanup_(EVP_MD_CTX_freep) EVP_MD_CTX* mdctx = EVP_MD_CTX_new();
+        if (!mdctx)
+                return log_openssl_errors("Failed to create new EVP_MD_CTX");
+
+        if (EVP_DigestSignInit(mdctx, NULL, md, NULL, privkey) != 1)
+                return log_openssl_errors("Failed to initialize signature context");
+
+        /* Determine signature size */
+        size_t ss;
+        if (EVP_DigestSign(mdctx, NULL, &ss, data, size) != 1)
+                return log_openssl_errors("Failed to determine size of signature");
+
+        _cleanup_free_ void *sig = malloc(ss);
+        if (!sig)
+                return log_oom_debug();
+
+        if (EVP_DigestSign(mdctx, sig, &ss, data, size) != 1)
+                return log_openssl_errors("Failed to sign data");
+
+        *ret = TAKE_PTR(sig);
+        *ret_size = ss;
         return 0;
 }
 

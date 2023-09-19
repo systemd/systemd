@@ -57,6 +57,7 @@
 #include "user-util.h"
 #include "utmp-wtmp.h"
 #include "virt.h"
+#include "wall.h"
 
 /* As a random fun fact sysvinit had a 252 (256-(strlen(" \r\n")+1))
  * character limit for the wall message.
@@ -664,7 +665,7 @@ static int method_list_inhibitors(sd_bus_message *message, void *userdata, sd_bu
                                           strempty(inhibitor->why),
                                           strempty(inhibit_mode_to_string(inhibitor->mode)),
                                           (uint32_t) inhibitor->uid,
-                                          (uint32_t) inhibitor->pid);
+                                          (uint32_t) inhibitor->pid.pid);
                 if (r < 0)
                         return r;
         }
@@ -1325,7 +1326,7 @@ static int trigger_device(Manager *m, sd_device *parent) {
         return 0;
 }
 
-static int attach_device(Manager *m, const char *seat, const char *sysfs) {
+static int attach_device(Manager *m, const char *seat, const char *sysfs, sd_bus_error *error) {
         _cleanup_(sd_device_unrefp) sd_device *d = NULL;
         _cleanup_free_ char *rule = NULL, *file = NULL;
         const char *id_for_seat;
@@ -1337,13 +1338,13 @@ static int attach_device(Manager *m, const char *seat, const char *sysfs) {
 
         r = sd_device_new_from_syspath(&d, sysfs);
         if (r < 0)
-                return r;
+                return sd_bus_error_set_errnof(error, r, "Failed to open device '%s': %m", sysfs);
 
         if (sd_device_has_current_tag(d, "seat") <= 0)
-                return -ENODEV;
+                return sd_bus_error_set_errnof(error, ENODEV, "Device '%s' lacks 'seat' udev tag.", sysfs);
 
         if (sd_device_get_property_value(d, "ID_FOR_SEAT", &id_for_seat) < 0)
-                return -ENODEV;
+                return sd_bus_error_set_errnof(error, ENODEV, "Device '%s' lacks 'ID_FOR_SEAT' udev property.", sysfs);
 
         if (asprintf(&file, "/etc/udev/rules.d/72-seat-%s.rules", id_for_seat) < 0)
                 return -ENOMEM;
@@ -1428,7 +1429,7 @@ static int method_attach_device(sd_bus_message *message, void *userdata, sd_bus_
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        r = attach_device(m, seat, sysfs);
+        r = attach_device(m, seat, sysfs, error);
         if (r < 0)
                 return r;
 
@@ -1547,18 +1548,43 @@ int manager_set_lid_switch_ignore(Manager *m, usec_t until) {
         return r;
 }
 
-static int send_prepare_for(Manager *m, InhibitWhat w, bool _active) {
-        int active = _active;
+static int send_prepare_for(Manager *m, const HandleActionData *a, bool _active) {
+        int k = 0, r, active = _active;
 
         assert(m);
-        assert(IN_SET(w, INHIBIT_SHUTDOWN, INHIBIT_SLEEP));
+        assert(a);
+        assert(IN_SET(a->inhibit_what, INHIBIT_SHUTDOWN, INHIBIT_SLEEP));
 
-        return sd_bus_emit_signal(m->bus,
-                                  "/org/freedesktop/login1",
-                                  "org.freedesktop.login1.Manager",
-                                  w == INHIBIT_SHUTDOWN ? "PrepareForShutdown" : "PrepareForSleep",
-                                  "b",
-                                  active);
+        /* We need to send both old and new signal for backward compatibility. The newer one allows clients
+         * to know which type of reboot is going to happen, as they might be doing different actions (e.g.:
+         * on soft-reboot), and it is sent first, so that clients know that if they receive the old one
+         * first then they don't have to wait for the new one, as it means it's not supported. So, do not
+         * change the order here, as it is an API. */
+        if (a->inhibit_what == INHIBIT_SHUTDOWN) {
+                k = sd_bus_emit_signal(m->bus,
+                                       "/org/freedesktop/login1",
+                                       "org.freedesktop.login1.Manager",
+                                       "PrepareForShutdownWithMetadata",
+                                       "ba{sv}",
+                                       active,
+                                       1,
+                                       "type",
+                                       "s",
+                                       handle_action_to_string(a->handle));
+                if (k < 0)
+                        log_debug_errno(k, "Failed to emit PrepareForShutdownWithMetadata(): %m");
+        }
+
+        r = sd_bus_emit_signal(m->bus,
+                               "/org/freedesktop/login1",
+                               "org.freedesktop.login1.Manager",
+                               a->inhibit_what == INHIBIT_SHUTDOWN ? "PrepareForShutdown" : "PrepareForSleep",
+                               "b",
+                               active);
+        if (r < 0)
+                log_debug_errno(r, "Failed to emit PrepareForShutdown(): %m");
+
+        return RET_GATHER(k, r);
 }
 
 static int execute_shutdown_or_sleep(
@@ -1603,7 +1629,7 @@ static int execute_shutdown_or_sleep(
 
 error:
         /* Tell people that they now may take a lock again */
-        (void) send_prepare_for(m, a->inhibit_what, false);
+        (void) send_prepare_for(m, a, false);
 
         return r;
 }
@@ -1624,12 +1650,12 @@ int manager_dispatch_delayed(Manager *manager, bool timeout) {
                 if (!timeout)
                         return 0;
 
-                (void) get_process_comm(offending->pid, &comm);
+                (void) get_process_comm(offending->pid.pid, &comm);
                 u = uid_to_name(offending->uid);
 
                 log_notice("Delay lock is active (UID "UID_FMT"/%s, PID "PID_FMT"/%s) but inhibitor timeout is reached.",
                            offending->uid, strna(u),
-                           offending->pid, strna(comm));
+                           offending->pid.pid, strna(comm));
         }
 
         /* Actually do the operation */
@@ -1711,7 +1737,7 @@ int bus_manager_shutdown_or_sleep_now_or_later(
                                         a->target, load_state);
 
         /* Tell everybody to prepare for shutdown/sleep */
-        (void) send_prepare_for(m, a->inhibit_what, true);
+        (void) send_prepare_for(m, a, true);
 
         delayed =
                 m->inhibit_delay_max > 0 &&
@@ -1900,7 +1926,7 @@ static int method_do_shutdown_or_sleep(
                 r = can_sleep(a->sleep_operation);
                 if (r == -ENOSPC)
                         return sd_bus_error_set(error, BUS_ERROR_SLEEP_VERB_NOT_SUPPORTED,
-                                                "Not enough swap space for hibernation");
+                                                "Not enough suitable swap space for hibernation available on compatible block devices and file systems");
                 if (r == 0)
                         return sd_bus_error_setf(error, BUS_ERROR_SLEEP_VERB_NOT_SUPPORTED,
                                                  "Sleep verb \"%s\" not supported",
@@ -2342,8 +2368,8 @@ static int method_cancel_scheduled_shutdown(sd_bus_message *message, void *userd
                            "MESSAGE_ID=" SD_MESSAGE_SHUTDOWN_CANCELED_STR,
                            username ? "OPERATOR=%s" : NULL, username);
 
-                utmp_wall("System shutdown has been cancelled",
-                          username, tty, logind_wall_tty_filter, m);
+                (void) wall("System shutdown has been cancelled",
+                            username, tty, logind_wall_tty_filter, m);
         }
 
         reset_scheduled_shutdown(m);
@@ -3206,6 +3232,7 @@ static int method_set_wall_message(
 
 static int method_inhibit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         const char *who, *why, *what, *mode;
         _cleanup_free_ char *id = NULL;
         _cleanup_close_ int fifo_fd = -EBADF;
@@ -3278,6 +3305,10 @@ static int method_inhibit(sd_bus_message *message, void *userdata, sd_bus_error 
         if (r < 0)
                 return r;
 
+        r = pidref_set_pid(&pidref, pid);
+        if (r < 0)
+                return sd_bus_error_set_errnof(error, r, "Failed pin source process "PID_FMT": %m", pid);
+
         if (hashmap_size(m->inhibitors) >= m->inhibitors_max)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_LIMITS_EXCEEDED,
                                          "Maximum number of inhibitors (%" PRIu64 ") reached, refusing further inhibitors.",
@@ -3298,7 +3329,7 @@ static int method_inhibit(sd_bus_message *message, void *userdata, sd_bus_error 
 
         i->what = w;
         i->mode = mm;
-        i->pid = pid;
+        i->pid = TAKE_PIDREF(pidref);
         i->uid = uid;
         i->why = strdup(why);
         i->who = strdup(who);
@@ -3702,6 +3733,9 @@ static const sd_bus_vtable manager_vtable[] = {
         SD_BUS_SIGNAL_WITH_ARGS("PrepareForShutdown",
                                 SD_BUS_ARGS("b", start),
                                 0),
+        SD_BUS_SIGNAL_WITH_ARGS("PrepareForShutdownWithMetadata",
+                                SD_BUS_ARGS("b", start, "a{sv}", metadata),
+                                0),
         SD_BUS_SIGNAL_WITH_ARGS("PrepareForSleep",
                                 SD_BUS_ARGS("b", start),
                                 0),
@@ -3757,7 +3791,7 @@ int match_job_removed(sd_bus_message *message, void *userdata, sd_bus_error *err
                 log_info("Operation '%s' finished.", inhibit_what_to_string(m->delayed_action->inhibit_what));
 
                 /* Tell people that they now may take a lock again */
-                (void) send_prepare_for(m, m->delayed_action->inhibit_what, false);
+                (void) send_prepare_for(m, m->delayed_action, false);
 
                 m->action_job = mfree(m->action_job);
                 m->delayed_action = NULL;

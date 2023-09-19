@@ -67,13 +67,20 @@
         <varlistentry>
           <term><constant>-ECHILD</constant></term>
 
-          <listitem><para>The bus connection has been created in a different process, library or module instance.</para></listitem>
+          <listitem><para>The bus connection has been created in a different process, library or module instance.</para>
+
+          <xi:include href="version-info.xml" xpointer="v245"/></listitem>
         </varlistentry>
       </variablelist>
     </refsect2>
   </refsect1>
 
   <xi:include href="libsystemd-pkgconfig.xml" />
+
+  <refsect1>
+    <title>History</title>
+    <para><function>sd_bus_enqueue_for_read()</function> was added in version 245.</para>
+  </refsect1>
 
   <refsect1>
     <title>See Also</title>

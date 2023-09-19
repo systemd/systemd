@@ -178,6 +178,14 @@
   <xi:include href="libsystemd-pkgconfig.xml" />
 
   <refsect1>
+    <title>History</title>
+    <para><function>sd_event_add_defer()</function>,
+    <function>sd_event_add_post()</function>,
+    <function>sd_event_add_exit()</function>, and
+    <function>sd_event_handler_t()</function> were added in version 217.</para>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
 
     <para>

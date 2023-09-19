@@ -56,13 +56,17 @@
         <term><option>--help</option></term>
 
         <xi:include href="standard-options.xml" xpointer="help-text" />
+
+        <xi:include href="version-info.xml" xpointer="v253"/>
       </varlistentry>
 
       <varlistentry>
         <term><option>--halt</option></term>
 
         <listitem><para>Halt the machine, regardless of which one of
-        the three commands is invoked.</para></listitem>
+        the three commands is invoked.</para>
+
+        <xi:include href="version-info.xml" xpointer="v253"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -71,14 +75,18 @@
 
         <listitem><para>Power off the machine, when either <command>halt</command>
         or <command>poweroff</command> is invoked. This option is ignored when
-        <command>reboot</command> is invoked.</para></listitem>
+        <command>reboot</command> is invoked.</para>
+
+        <xi:include href="version-info.xml" xpointer="v253"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>--reboot</option></term>
 
         <listitem><para>Reboot the machine, regardless of which one of
-        the three commands is invoked.</para></listitem>
+        the three commands is invoked.</para>
+
+        <xi:include href="version-info.xml" xpointer="v253"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -91,6 +99,8 @@
           the command <command>reboot -f</command> is mostly equivalent to
           <command>systemctl reboot -ff</command>, instead of <command>systemctl reboot -f</command>.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v253"/>
         </listitem>
       </varlistentry>
 
@@ -99,14 +109,18 @@
         <term><option>--wtmp-only</option></term>
 
         <listitem><para>Only write wtmp shutdown entry, do not actually power off, reboot, or halt.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v253"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>-d</option></term>
         <term><option>--no-wtmp</option></term>
 
-        <listitem><para>Do not write wtmp shutdown entry.</para></listitem>
+        <listitem><para>Do not write wtmp shutdown entry.</para>
+
+        <xi:include href="version-info.xml" xpointer="v253"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -114,13 +128,17 @@
         <term><option>--no-sync</option></term>
 
         <listitem><para>Don't sync hard disks/storage media before power-off, reboot, or halt.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v253"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>--no-wall</option></term>
 
-        <listitem><para>Do not send wall message before power-off, reboot, or halt.</para></listitem>
+        <listitem><para>Do not send wall message before power-off, reboot, or halt.</para>
+
+        <xi:include href="version-info.xml" xpointer="v253"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>

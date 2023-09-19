@@ -97,7 +97,9 @@
         be started, use <command>list-images</command> (see
         below). Note that this command hides the special
         <literal>.host</literal> machine by default. Use the
-        <option>--all</option> switch to show it.</para></listitem>
+        <option>--all</option> switch to show it.</para>
+
+        <xi:include href="version-info.xml" xpointer="v206"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -111,7 +113,9 @@
         instead. Note that the log data shown is reported by the
         virtual machine or container manager, and frequently contains
         console output of the machine, but not necessarily journal
-        contents of the machine itself.</para></listitem>
+        contents of the machine itself.</para>
+
+        <xi:include href="version-info.xml" xpointer="v206"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -123,7 +127,9 @@
         <option>--all</option> to show those too.  To select specific properties to show, use
         <option>--property=</option>. This command is intended to be used whenever computer-parsable output is
         required, and does not print the control group tree or journal entries. Use <command>status</command> if you
-        are looking for formatted human-readable output.</para></listitem>
+        are looking for formatted human-readable output.</para>
+
+        <xi:include href="version-info.xml" xpointer="v206"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -155,7 +161,9 @@
         <para>To interactively start a container on the command line
         with full access to the container's console, please invoke
         <command>systemd-nspawn</command> directly. To stop a running
-        container use <command>machinectl poweroff</command>.</para></listitem>
+        container use <command>machinectl poweroff</command>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v219"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -180,7 +188,9 @@
         <citerefentry><refentrytitle>systemd-run</refentrytitle><manvolnum>1</manvolnum></citerefentry>
         with the <option>--machine=</option> switch to directly invoke
         a single command, either interactively or in the
-        background.</para></listitem>
+        background.</para>
+
+        <xi:include href="version-info.xml" xpointer="v209"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -223,7 +233,9 @@
         <command>systemd-run</command>'s <option>--pty</option> switch to acquire an interactive shell,
         similarly to <command>machinectl shell</command>. In general, <command>systemd-run</command> is
         preferable for scripting purposes. However, note that <command>systemd-run</command> might require
-        higher privileges than <command>machinectl shell</command>.</para></listitem>
+        higher privileges than <command>machinectl shell</command>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v225"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -238,7 +250,9 @@
 
         <para>This command implicitly reloads the system manager configuration after completing the operation.
         Note that this command does not implicitly start or power off the containers that are being operated on.
-        If this is desired, combine the command with the <option>--now</option> switch.</para></listitem>
+        If this is desired, combine the command with the <option>--now</option> switch.</para>
+
+        <xi:include href="version-info.xml" xpointer="v219"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -253,7 +267,9 @@
         init system, such as sysvinit. Use
         <command>terminate</command> (see below) to immediately
         terminate a container or VM, without cleanly shutting it
-        down.</para></listitem>
+        down.</para>
+
+        <xi:include href="version-info.xml" xpointer="v212"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -263,7 +279,9 @@
         trigger a reboot by sending SIGINT to the container's init
         process, which is roughly equivalent to pressing Ctrl+Alt+Del
         on a non-containerized system, and is compatible with
-        containers running any system manager.</para></listitem>
+        containers running any system manager.</para>
+
+        <xi:include href="version-info.xml" xpointer="v209"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -274,7 +292,9 @@
         processes of the virtual machine or container and deallocates
         all resources attached to that instance. Use
         <command>poweroff</command> to issue a clean shutdown
-        request.</para></listitem>
+        request.</para>
+
+        <xi:include href="version-info.xml" xpointer="v206"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -285,7 +305,9 @@
         the host, not the processes inside the virtual machine or
         container. Use <option>--kill-whom=</option> to select which
         process to kill. Use <option>--signal=</option> to select the
-        signal to send.</para></listitem>
+        signal to send.</para>
+
+        <xi:include href="version-info.xml" xpointer="v206"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -300,7 +322,9 @@
         <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry> containers,
         and only if user namespacing (<option>--private-users</option>) is not used. This command supports bind
         mounting directories, regular files, device nodes, <constant>AF_UNIX</constant> socket nodes, as well as
-        FIFOs.</para></listitem>
+        FIFOs.</para>
+
+        <xi:include href="version-info.xml" xpointer="v219"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -314,7 +338,9 @@
 
         <para>If host and container share the same user and group namespace, file ownership by numeric user ID and
         group ID is preserved for the copy, otherwise all files and directories in the copy will be owned by the root
-        user and group (UID/GID 0).</para></listitem>
+        user and group (UID/GID 0).</para>
+
+        <xi:include href="version-info.xml" xpointer="v219"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -328,7 +354,9 @@
 
         <para>If host and container share the same user and group namespace, file ownership by numeric user ID and
         group ID is preserved for the copy, otherwise all files and directories in the copy will be owned by the root
-        user and group (UID/GID 0).</para></listitem>
+        user and group (UID/GID 0).</para>
+
+        <xi:include href="version-info.xml" xpointer="v219"/></listitem>
       </varlistentry>
     </variablelist></refsect2>
 
@@ -347,7 +375,9 @@
         (<literal>.</literal>) are not shown. To show these too,
         specify <option>--all</option>. Note that a special image
         <literal>.host</literal> always implicitly exists and refers
-        to the image the host itself is booted from.</para></listitem>
+        to the image the host itself is booted from.</para>
+
+        <xi:include href="version-info.xml" xpointer="v219"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -357,7 +387,9 @@
         more container or VM images. This function is intended to
         generate human-readable output. Use
         <command>show-image</command> (see below) to generate
-        computer-parsable output instead.</para></listitem>
+        computer-parsable output instead.</para>
+
+        <xi:include href="version-info.xml" xpointer="v219"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -373,7 +405,9 @@
         <option>--property=</option>. This command is intended to be
         used whenever computer-parsable output is required. Use
         <command>image-status</command> if you are looking for
-        formatted human-readable output.</para></listitem>
+        formatted human-readable output.</para>
+
+        <xi:include href="version-info.xml" xpointer="v219"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -382,13 +416,17 @@
         <listitem><para>Edit the settings file of the specified machines. For the format of the settings file, refer to <citerefentry
         project='man-pages'><refentrytitle>systemd.nspawn</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
         If an existing settings file of the given machine can't be found, <command>edit</command> automatically
-        create a new settings file from scratch under <filename>/etc/</filename></para></listitem>
+        create a new settings file from scratch under <filename>/etc/</filename></para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><command>cat</command> <replaceable>NAME|FILE</replaceable></term>
 
-        <listitem><para>Show the settings file of the specified machines.</para></listitem>
+        <listitem><para>Show the settings file of the specified machines.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -407,7 +445,9 @@
         change them in the copy.</para>
 
         <para>If combined with the <option>--read-only</option> switch a read-only cloned image is
-        created.</para></listitem>
+        created.</para>
+
+        <xi:include href="version-info.xml" xpointer="v219"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -415,7 +455,9 @@
 
         <listitem><para>Renames a container or VM image. The
         arguments specify the name of the image to rename and the new
-        name of the image.</para></listitem>
+        name of the image.</para>
+
+        <xi:include href="version-info.xml" xpointer="v219"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -424,7 +466,9 @@
         <listitem><para>Marks or (unmarks) a container or VM image
         read-only. Takes a VM or container image name, followed by a
         boolean as arguments. If the boolean is omitted, positive is
-        implied, i.e. the image is marked read-only.</para></listitem>
+        implied, i.e. the image is marked read-only.</para>
+
+        <xi:include href="version-info.xml" xpointer="v219"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -433,7 +477,9 @@
         <listitem><para>Removes one or more container or VM images.
         The special image <literal>.host</literal>, which refers to
         the host's own directory tree, may not be
-        removed.</para></listitem>
+        removed.</para>
+
+        <xi:include href="version-info.xml" xpointer="v219"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -450,7 +496,9 @@
         units. If the size limit shall be disabled, specify
         <literal>-</literal> as size.</para>
 
-        <para>Note that per-container size limits are only supported on btrfs file systems.</para></listitem>
+        <para>Note that per-container size limits are only supported on btrfs file systems.</para>
+
+        <xi:include href="version-info.xml" xpointer="v220"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -467,7 +515,9 @@
         pull-raw</command> usually create hidden, read-only, unmodified machine images from the downloaded image first,
         before cloning a writable working copy of it, in order to avoid duplicate downloads in case of images that are
         reused multiple times. Use <command>machinectl clean</command> to remove old, hidden images created this
-        way.</para></listitem>
+        way.</para>
+
+        <xi:include href="version-info.xml" xpointer="v230"/></listitem>
       </varlistentry>
 
     </variablelist></refsect2>
@@ -526,7 +576,9 @@
         <para>Note that pressing C-c during execution of this command
         will not abort the download. Use
         <command>cancel-transfer</command>, described
-        below.</para></listitem>
+        below.</para>
+
+        <xi:include href="version-info.xml" xpointer="v219"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -565,7 +617,9 @@
         <para>Note that pressing C-c during execution of this command
         will not abort the download. Use
         <command>cancel-transfer</command>, described
-        below.</para></listitem>
+        below.</para>
+
+        <xi:include href="version-info.xml" xpointer="v219"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -591,7 +645,9 @@
 
         <para>Much like image downloads, ongoing imports may be listed
         with <command>list-transfers</command> and aborted with
-        <command>cancel-transfer</command>.</para></listitem>
+        <command>cancel-transfer</command>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v220"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -600,7 +656,9 @@
         <listitem><para>Imports a container image stored in a local directory into
         <filename>/var/lib/machines/</filename>, operates similarly to <command>import-tar</command> or
         <command>import-raw</command>, but the first argument is the source directory. If supported, this
-        command will create a btrfs snapshot or subvolume for the new image.</para></listitem>
+        command will create a btrfs snapshot or subvolume for the new image.</para>
+
+        <xi:include href="version-info.xml" xpointer="v240"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -626,7 +684,9 @@
 
         <para>Note that, currently, only directory and subvolume images
         may be exported as TAR images, and only raw disk images as RAW
-        images.</para></listitem>
+        images.</para>
+
+        <xi:include href="version-info.xml" xpointer="v220"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -634,7 +694,9 @@
 
         <listitem><para>Shows a list of container or VM image
         downloads, imports and exports that are currently in
-        progress.</para></listitem>
+        progress.</para>
+
+        <xi:include href="version-info.xml" xpointer="v219"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -643,7 +705,9 @@
         <listitem><para>Aborts a download, import or export of the
         container or VM image with the specified ID. To list ongoing
         transfers and their IDs, use
-        <command>list-transfers</command>. </para></listitem>
+        <command>list-transfers</command>. </para>
+
+        <xi:include href="version-info.xml" xpointer="v219"/></listitem>
       </varlistentry>
 
     </variablelist></refsect2>
@@ -666,7 +730,9 @@
         argument should be a property name, such as
         <literal>Name</literal>. If specified more than once, all
         properties with the specified names are
-        shown.</para></listitem>
+        shown.</para>
+
+        <xi:include href="version-info.xml" xpointer="v206"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -681,14 +747,18 @@
         images beginning in a dot character
         (<literal>.</literal>).</para>
 
-        <para>When cleaning VM or container images, remove all images, not just hidden ones.</para></listitem>
+        <para>When cleaning VM or container images, remove all images, not just hidden ones.</para>
+
+        <xi:include href="version-info.xml" xpointer="v206"/></listitem>
       </varlistentry>
 
        <varlistentry>
         <term><option>--value</option></term>
 
         <listitem><para>When printing properties with <command>show</command>, only print the value,
-        and skip the property name and <literal>=</literal>.</para></listitem>
+        and skip the property name and <literal>=</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v230"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -697,6 +767,8 @@
 
         <listitem><para>Do not ellipsize process tree entries or table. This implies
         <option>--max-addresses=full</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v206"/>
         </listitem>
       </varlistentry>
 
@@ -708,7 +780,9 @@
         <option>leader</option>, or <option>all</option> to select
         whether to kill only the leader process of the machine or all
         processes of the machine. If omitted, defaults to
-        <option>all</option>.</para></listitem>
+        <option>all</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v206"/></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="signal" />
@@ -720,7 +794,9 @@
          open the interactive shell session as. If the argument to the <command>shell</command>
          command also specifies a user name, this option is ignored. If the name is not specified
          in either way, <literal>root</literal> will be used by default. Note that this switch is
-         not supported for the <command>login</command> command (see below).</para></listitem>
+         not supported for the <command>login</command> command (see below).</para>
+
+         <xi:include href="version-info.xml" xpointer="v225"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -733,7 +809,9 @@
         the same name in the program environment will be used.</para>
 
         <para>Note that this option is not supported for the <command>login</command> command.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v230"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -742,7 +820,9 @@
         <listitem><para>When used with <command>bind</command>, creates the destination file or directory before
         applying the bind mount. Note that even though the name of this option suggests that it is suitable only for
         directories, this option also creates the destination file node to mount over if the object to mount is not
-        a directory, but a regular file, device node, socket or FIFO.</para></listitem>
+        a directory, but a regular file, device node, socket or FIFO.</para>
+
+        <xi:include href="version-info.xml" xpointer="v219"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -751,7 +831,9 @@
         <listitem><para>When used with <command>bind</command>, creates a read-only bind mount.</para>
 
         <para>When used with <command>clone</command>, <command>import-raw</command> or <command>import-tar</command> a
-        read-only container or VM image is created.</para></listitem>
+        read-only container or VM image is created.</para>
+
+        <xi:include href="version-info.xml" xpointer="v219"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -762,6 +844,8 @@
         controls the number of journal lines to show, counting from
         the most recent ones. Takes a positive integer argument.
         Defaults to 10.</para>
+
+        <xi:include href="version-info.xml" xpointer="v219"/>
         </listitem>
       </varlistentry>
 
@@ -773,7 +857,9 @@
         controls the formatting of the journal entries that are shown.
         For the available choices, see
         <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
-        Defaults to <literal>short</literal>.</para></listitem>
+        Defaults to <literal>short</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v219"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -792,7 +878,9 @@
         strongly recommended to set this option to
         <literal>signature</literal> if the server and protocol
         support this. Defaults to
-        <literal>signature</literal>.</para></listitem>
+        <literal>signature</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v219"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -803,6 +891,8 @@
           the containers will also be started or powered off. The start or poweroff
           operation is only carried out when the respective enable or disable
           operation has been successful.</para>
+
+        <xi:include href="version-info.xml" xpointer="v253"/>
         </listitem>
       </varlistentry>
 
@@ -812,7 +902,9 @@
         <listitem><para>When downloading a container or VM image, and
         a local copy by the specified local machine name already
         exists, delete it first and replace it by the newly downloaded
-        image.</para></listitem>
+        image.</para>
+
+        <xi:include href="version-info.xml" xpointer="v219"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -824,7 +916,9 @@
         <literal>uncompressed</literal>, <literal>xz</literal>,
         <literal>gzip</literal>, <literal>bzip2</literal>. By default,
         the format is determined automatically from the image file
-        name passed.</para></listitem>
+        name passed.</para>
+
+        <xi:include href="version-info.xml" xpointer="v220"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -833,14 +927,18 @@
         <listitem><para>When used with the <option>list-machines</option> command, limits the number of IP
         addresses shown for every machine. Defaults to 1. All addresses can be requested with
         <literal>all</literal>. If the limit is 0, the address column is not shown. Otherwise, if the machine
-        has more addresses than shown, <literal>…</literal> follows the last address.</para></listitem>
+        has more addresses than shown, <literal>…</literal> follows the last address.</para>
+
+        <xi:include href="version-info.xml" xpointer="v232"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>-q</option></term>
         <term><option>--quiet</option></term>
 
-        <listitem><para>Suppresses additional informational output while running.</para></listitem>
+        <listitem><para>Suppresses additional informational output while running.</para>
+
+        <xi:include href="version-info.xml" xpointer="v236"/></listitem>
       </varlistentry>
 
       <xi:include href="user-system-options.xml" xpointer="host" />
@@ -852,7 +950,9 @@
         <listitem><para>Connect to
         <citerefentry><refentrytitle>systemd-machined.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         running in a local container, to perform the specified operation within
-        the container.</para></listitem>
+        the container.</para>
+
+        <xi:include href="version-info.xml" xpointer="v235"/></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="no-pager" />

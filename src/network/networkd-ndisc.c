@@ -27,6 +27,12 @@
 
 #define NDISC_DNSSL_MAX 64U
 #define NDISC_RDNSS_MAX 64U
+/* Not defined in the RFC, but let's set an upper limit to make not consume much memory.
+ * This should be safe as typically there should be at most 1 portal per network. */
+#define NDISC_CAPTIVE_PORTAL_MAX 64U
+/* Neither defined in the RFC. Just for safety. Otherwise, malformed messages can make clients trigger OOM.
+ * Not sure if the threshold is high enough. Let's adjust later if not. */
+#define NDISC_PREF64_MAX 64U
 
 bool link_ipv6_accept_ra_enabled(Link *link) {
         assert(link);
@@ -273,7 +279,6 @@ static int ndisc_request_address(Address *in, Link *link, sd_ndisc_router *rt) {
 
 static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
         usec_t lifetime_usec, timestamp_usec;
-        uint32_t icmp6_ratelimit = 0;
         struct in6_addr gateway;
         uint16_t lifetime_sec;
         unsigned preference;
@@ -354,19 +359,35 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
                         return log_link_warning_errno(link, r, "Could not request gateway: %m");
         }
 
+        return 0;
+}
+
+static int ndisc_router_process_icmp6_ratelimit(Link *link, sd_ndisc_router *rt) {
+        char buf[DECIMAL_STR_MAX(unsigned)];
+        uint32_t icmp6_ratelimit;
+        int r;
+
+        assert(link);
+        assert(link->network);
+        assert(rt);
+
+        if (!link->network->ipv6_accept_ra_use_icmp6_ratelimit)
+                return 0;
+
         r = sd_ndisc_router_get_icmp6_ratelimit(rt, &icmp6_ratelimit);
-        if (r < 0)
-                log_link_debug(link, "Failed to get default router preference from RA: %m");
-
-        if (icmp6_ratelimit > 0 && link->network->ipv6_accept_ra_use_icmp6_ratelimit) {
-                char buf[DECIMAL_STR_MAX(unsigned)];
-
-                xsprintf(buf, "%u", icmp6_ratelimit);
-
-                r = sysctl_write("net/ipv6/icmp/ratelimit", buf);
-                if (r < 0)
-                        log_link_warning_errno(link, r, "Could not configure icmp6 rate limit: %m");
+        if (r < 0) {
+                log_link_debug(link, "Failed to get ICMP6 ratelimit from RA, ignoring: %m");
+                return 0;
         }
+
+        if (icmp6_ratelimit == 0)
+                return 0;
+
+        xsprintf(buf, "%u", icmp6_ratelimit);
+
+        r = sysctl_write_ip_property(AF_INET6, NULL, "icmp/ratelimit", buf);
+        if (r < 0)
+                log_link_warning_errno(link, r, "Failed to apply ICMP6 ratelimit, ignoring: %m");
 
         return 0;
 }
@@ -882,6 +903,9 @@ static int ndisc_router_process_captive_portal(Link *link, sd_ndisc_router *rt) 
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to get router address from RA: %m");
 
+        /* RFC 4861 section 4.2. states that the lifetime in the message header should be used only for the
+         * default gateway, but the captive portal option does not have a lifetime field, hence, we use the
+         * main lifetime for the portal. */
         r = sd_ndisc_router_get_lifetime(rt, &lifetime_sec);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to get lifetime of RA message: %m");
@@ -897,21 +921,46 @@ static int ndisc_router_process_captive_portal(Link *link, sd_ndisc_router *rt) 
                 return log_link_warning_errno(link, r, "Failed to get captive portal from RA: %m");
 
         if (len == 0)
-                return 0;
+                return log_link_warning_errno(link, SYNTHETIC_ERRNO(EBADMSG), "Received empty captive portal, ignoring.");
 
         r = make_cstring(uri, len, MAKE_CSTRING_REFUSE_TRAILING_NUL, &captive_portal);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to convert captive portal URI: %m");
 
         if (!in_charset(captive_portal, URI_VALID))
-                return log_link_debug_errno(link, SYNTHETIC_ERRNO(EBADMSG), "Received invalid captive portal, ignoring.");
+                return log_link_warning_errno(link, SYNTHETIC_ERRNO(EBADMSG), "Received invalid captive portal, ignoring.");
 
-        exist = set_get(link->ndisc_captive_portals, &(NDiscCaptivePortal) { .captive_portal = captive_portal });
+        if (lifetime_usec == 0) {
+                /* Drop the portal with zero lifetime. */
+                ndisc_captive_portal_free(set_remove(link->ndisc_captive_portals,
+                                                     &(NDiscCaptivePortal) {
+                                                             .captive_portal = captive_portal,
+                                                     }));
+                return 0;
+        }
+
+        exist = set_get(link->ndisc_captive_portals,
+                        &(NDiscCaptivePortal) {
+                                .captive_portal = captive_portal,
+                        });
         if (exist) {
                 /* update existing entry */
                 exist->router = router;
                 exist->lifetime_usec = lifetime_usec;
-                return 0;
+                return 1;
+        }
+
+        if (set_size(link->ndisc_captive_portals) >= NDISC_CAPTIVE_PORTAL_MAX) {
+                NDiscCaptivePortal *c, *target = NULL;
+
+                /* Find the portal who has the minimal lifetime and drop it to store new one. */
+                SET_FOREACH(c, link->ndisc_captive_portals)
+                        if (!target || c->lifetime_usec < target->lifetime_usec)
+                                target = c;
+
+                assert(target);
+                assert(set_remove(link->ndisc_captive_portals, target) == target);
+                ndisc_captive_portal_free(target);
         }
 
         new_entry = new(NDiscCaptivePortal, 1);
@@ -931,10 +980,123 @@ static int ndisc_router_process_captive_portal(Link *link, sd_ndisc_router *rt) 
         TAKE_PTR(new_entry);
 
         link_dirty(link);
+        return 1;
+}
+
+static void ndisc_pref64_hash_func(const NDiscPREF64 *x, struct siphash *state) {
+        assert(x);
+
+        siphash24_compress(&x->prefix_len, sizeof(x->prefix_len), state);
+        siphash24_compress(&x->prefix, sizeof(x->prefix), state);
+}
+
+static int ndisc_pref64_compare_func(const NDiscPREF64 *a, const NDiscPREF64 *b) {
+        int r;
+
+        assert(a);
+        assert(b);
+
+        r = CMP(a->prefix_len, b->prefix_len);
+        if (r != 0)
+                return r;
+
+        return memcmp(&a->prefix, &b->prefix, sizeof(a->prefix));
+}
+
+DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
+                ndisc_pref64_hash_ops,
+                NDiscPREF64,
+                ndisc_pref64_hash_func,
+                ndisc_pref64_compare_func,
+                mfree);
+
+static int ndisc_router_process_pref64(Link *link, sd_ndisc_router *rt) {
+        _cleanup_free_ NDiscPREF64 *new_entry = NULL;
+        usec_t lifetime_usec, timestamp_usec;
+        struct in6_addr a, router;
+        uint16_t lifetime_sec;
+        unsigned prefix_len;
+        NDiscPREF64 *exist;
+        int r;
+
+        assert(link);
+        assert(link->network);
+        assert(rt);
+
+        if (!link->network->ipv6_accept_ra_use_pref64)
+                return 0;
+
+        r = sd_ndisc_router_get_address(rt, &router);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to get router address from RA: %m");
+
+        r = sd_ndisc_router_prefix64_get_prefix(rt, &a);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to get pref64 prefix: %m");
+
+        r = sd_ndisc_router_prefix64_get_prefixlen(rt, &prefix_len);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to get pref64 prefix length: %m");
+
+        r = sd_ndisc_router_prefix64_get_lifetime_sec(rt, &lifetime_sec);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to get pref64 prefix lifetime: %m");
+
+        r = sd_ndisc_router_get_timestamp(rt, CLOCK_BOOTTIME, &timestamp_usec);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to get RA timestamp: %m");
+
+        lifetime_usec = sec16_to_usec(lifetime_sec, timestamp_usec);
+
+        if (lifetime_usec == 0) {
+                free(set_remove(link->ndisc_pref64,
+                                &(NDiscPREF64) {
+                                        .prefix = a,
+                                        .prefix_len = prefix_len
+                                }));
+                return 0;
+        }
+
+        exist = set_get(link->ndisc_pref64,
+                        &(NDiscPREF64) {
+                                .prefix = a,
+                                .prefix_len = prefix_len
+                });
+        if (exist) {
+                /* update existing entry */
+                exist->router = router;
+                exist->lifetime_usec = lifetime_usec;
+                return 0;
+        }
+
+        if (set_size(link->ndisc_pref64) >= NDISC_PREF64_MAX) {
+                log_link_debug(link, "Too many PREF64 records received. Only first %u records will be used.", NDISC_PREF64_MAX);
+                return 0;
+        }
+
+        new_entry = new(NDiscPREF64, 1);
+        if (!new_entry)
+                return log_oom();
+
+        *new_entry = (NDiscPREF64) {
+                .router = router,
+                .lifetime_usec = lifetime_usec,
+                .prefix = a,
+                .prefix_len = prefix_len,
+        };
+
+        r = set_ensure_put(&link->ndisc_pref64, &ndisc_pref64_hash_ops, new_entry);
+        if (r < 0)
+                return log_oom();
+
+        assert(r > 0);
+        TAKE_PTR(new_entry);
+
         return 0;
 }
 
 static int ndisc_router_process_options(Link *link, sd_ndisc_router *rt) {
+        size_t n_captive_portal = 0;
         int r;
 
         assert(link);
@@ -970,7 +1132,19 @@ static int ndisc_router_process_options(Link *link, sd_ndisc_router *rt) {
                         r = ndisc_router_process_dnssl(link, rt);
                         break;
                 case SD_NDISC_OPTION_CAPTIVE_PORTAL:
+                        if (n_captive_portal > 0) {
+                                if (n_captive_portal == 1)
+                                        log_link_notice(link, "Received RA with multiple captive portals, only using the first one.");
+
+                                n_captive_portal++;
+                                continue;
+                        }
                         r = ndisc_router_process_captive_portal(link, rt);
+                        if (r > 0)
+                                n_captive_portal++;
+                        break;
+                case SD_NDISC_OPTION_PREF64:
+                        r = ndisc_router_process_pref64(link, rt);
                         break;
                 }
                 if (r < 0 && r != -EBADMSG)
@@ -978,11 +1152,12 @@ static int ndisc_router_process_options(Link *link, sd_ndisc_router *rt) {
         }
 }
 
-static int ndisc_drop_outdated(Link *link, usec_t timestamp_usec, const struct in6_addr *router) {
+static int ndisc_drop_outdated(Link *link, usec_t timestamp_usec) {
         bool updated = false;
         NDiscDNSSL *dnssl;
         NDiscRDNSS *rdnss;
         NDiscCaptivePortal *cp;
+        NDiscPREF64 *p64;
         Address *address;
         Route *route;
         int r = 0, k;
@@ -1002,9 +1177,6 @@ static int ndisc_drop_outdated(Link *link, usec_t timestamp_usec, const struct i
                 if (route->lifetime_usec >= timestamp_usec)
                         continue; /* the route is still valid */
 
-                if (router && !in6_addr_equal(&route->provider.in6, router))
-                        continue;
-
                 k = route_remove_and_drop(route);
                 if (k < 0)
                         r = log_link_warning_errno(link, k, "Failed to remove outdated SLAAC route, ignoring: %m");
@@ -1017,9 +1189,6 @@ static int ndisc_drop_outdated(Link *link, usec_t timestamp_usec, const struct i
                 if (address->lifetime_valid_usec >= timestamp_usec)
                         continue; /* the address is still valid */
 
-                if (router && !in6_addr_equal(&address->provider.in6, router))
-                        continue;
-
                 k = address_remove_and_drop(address);
                 if (k < 0)
                         r = log_link_warning_errno(link, k, "Failed to remove outdated SLAAC address, ignoring: %m");
@@ -1029,9 +1198,6 @@ static int ndisc_drop_outdated(Link *link, usec_t timestamp_usec, const struct i
                 if (rdnss->lifetime_usec >= timestamp_usec)
                         continue; /* the DNS server is still valid */
 
-                if (router && !in6_addr_equal(&rdnss->router, router))
-                        continue;
-
                 free(set_remove(link->ndisc_rdnss, rdnss));
                 updated = true;
         }
@@ -1039,9 +1205,6 @@ static int ndisc_drop_outdated(Link *link, usec_t timestamp_usec, const struct i
         SET_FOREACH(dnssl, link->ndisc_dnssl) {
                 if (dnssl->lifetime_usec >= timestamp_usec)
                         continue; /* the DNS domain is still valid */
-
-                if (router && !in6_addr_equal(&dnssl->router, router))
-                        continue;
 
                 free(set_remove(link->ndisc_dnssl, dnssl));
                 updated = true;
@@ -1051,11 +1214,17 @@ static int ndisc_drop_outdated(Link *link, usec_t timestamp_usec, const struct i
                 if (cp->lifetime_usec >= timestamp_usec)
                         continue; /* the captive portal is still valid */
 
-                if (router && !in6_addr_equal(&cp->router, router))
-                        continue;
-
                 ndisc_captive_portal_free(set_remove(link->ndisc_captive_portals, cp));
                 updated = true;
+        }
+
+        SET_FOREACH(p64, link->ndisc_pref64) {
+                if (p64->lifetime_usec >= timestamp_usec)
+                        continue; /* the pref64 prefix is still valid */
+
+                free(set_remove(link->ndisc_pref64, p64));
+                /* The pref64 prefix is not exported through the state file, hence it is not necessary to set
+                 * the 'updated' flag. */
         }
 
         if (updated)
@@ -1074,7 +1243,7 @@ static int ndisc_expire_handler(sd_event_source *s, uint64_t usec, void *userdat
 
         assert_se(sd_event_now(link->manager->event, CLOCK_BOOTTIME, &now_usec) >= 0);
 
-        (void) ndisc_drop_outdated(link, now_usec, NULL);
+        (void) ndisc_drop_outdated(link, now_usec);
         (void) ndisc_setup_expire(link);
         return 0;
 }
@@ -1084,6 +1253,7 @@ static int ndisc_setup_expire(Link *link) {
         NDiscCaptivePortal *cp;
         NDiscDNSSL *dnssl;
         NDiscRDNSS *rdnss;
+        NDiscPREF64 *p64;
         Address *address;
         Route *route;
         int r;
@@ -1119,6 +1289,9 @@ static int ndisc_setup_expire(Link *link) {
 
         SET_FOREACH(cp, link->ndisc_captive_portals)
                 lifetime_usec = MIN(lifetime_usec, cp->lifetime_usec);
+
+        SET_FOREACH(p64, link->ndisc_pref64)
+                lifetime_usec = MIN(lifetime_usec, p64->lifetime_usec);
 
         if (lifetime_usec == USEC_INFINITY)
                 return 0;
@@ -1175,7 +1348,6 @@ static int ndisc_start_dhcp6_client(Link *link, sd_ndisc_router *rt) {
 }
 
 static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
-        uint16_t router_lifetime_sec;
         struct in6_addr router;
         usec_t timestamp_usec;
         int r;
@@ -1208,34 +1380,22 @@ static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
                 log_link_debug(link, "Received RA without timestamp, ignoring.");
                 return 0;
         }
-
-        r = ndisc_drop_outdated(link, timestamp_usec, NULL);
         if (r < 0)
                 return r;
 
-        r = sd_ndisc_router_get_lifetime(rt, &router_lifetime_sec);
+        r = ndisc_drop_outdated(link, timestamp_usec);
         if (r < 0)
-                return log_link_warning_errno(link, r, "Failed to get lifetime of RA message: %m");
-
-         /* https://datatracker.ietf.org/doc/html/rfc4861
-          * Router Lifetime: A Lifetime of 0 indicates that the router is not a default router
-          * and SHOULD NOT appear on the default router list.
-          */
-        if (router_lifetime_sec == 0) {
-                log_link_debug(link, "Received RA with lifetime = 0, dropping configurations.");
-
-                r = ndisc_drop_outdated(link, USEC_INFINITY, &router);
-                if (r < 0)
-                        log_link_warning_errno(link, r, "Failed to process RA with zero lifetime, ignoring: %m");
-
-                return 0;
-        }
+                return r;
 
         r = ndisc_start_dhcp6_client(link, rt);
         if (r < 0)
                 return r;
 
         r = ndisc_router_process_default(link, rt);
+        if (r < 0)
+                return r;
+
+        r = ndisc_router_process_icmp6_ratelimit(link, rt);
         if (r < 0)
                 return r;
 
@@ -1404,6 +1564,7 @@ void ndisc_flush(Link *link) {
         link->ndisc_rdnss = set_free(link->ndisc_rdnss);
         link->ndisc_dnssl = set_free(link->ndisc_dnssl);
         link->ndisc_captive_portals = set_free(link->ndisc_captive_portals);
+        link->ndisc_pref64 = set_free(link->ndisc_pref64);
 }
 
 static const char* const ipv6_accept_ra_start_dhcp6_client_table[_IPV6_ACCEPT_RA_START_DHCP6_CLIENT_MAX] = {

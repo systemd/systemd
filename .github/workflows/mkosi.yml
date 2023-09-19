@@ -61,7 +61,7 @@ jobs:
           - distro: ubuntu
             release: jammy
           - distro: fedora
-            release: "38"
+            release: "39"
           - distro: fedora
             release: rawhide
           - distro: opensuse
@@ -75,8 +75,8 @@ jobs:
       SYSTEMD_LOG_LEVEL: debug
 
     steps:
-    - uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9
-    - uses: systemd/mkosi@0af3f8a35c3be0e54b20234be7ab478d25bcc740
+    - uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744
+    - uses: systemd/mkosi@adaa41512aa30c952daae5ba0abcf2622d66b93b
 
     - name: Configure
       run: |
@@ -84,21 +84,20 @@ jobs:
         [Distribution]
         Distribution=${{ matrix.distro }}
         Release=${{ matrix.release }}
+        EOF
 
+        tee mkosi.conf.d/99-ci.conf <<- EOF
         [Content]
         Environment=CI_BUILD=1
                     SLOW_TESTS=true
 
-        [Output]
+        [Host]
         KernelCommandLineExtra=systemd.unit=mkosi-check-and-shutdown.service
                                systemd.journald.max_level_console=debug
                                # udev's debug log output is very verbose, so up it to info in CI.
                                udev.log_level=info
                                # Root device can take a long time to appear, so let's bump the timeout.
                                systemd.default_device_timeout_sec=180
-
-        [Host]
-        ExtraSearchPaths=!*
         QemuVsock=yes
         Ephemeral=yes
         EOF
@@ -129,14 +128,14 @@ jobs:
     - name: Generate secure boot key
       run: mkosi --debug genkey
 
-    - name: Show ${{ matrix.distro }} image summary
+    - name: Show image summary
       run: mkosi summary
 
-    - name: Build ${{ matrix.distro }}
+    - name: Build
       run: mkosi --debug
 
-    - name: Boot ${{ matrix.distro }} systemd-nspawn
+    - name: Boot systemd-nspawn
       run: test "$(sudo mkosi --debug boot 1>&2; echo $?)" -eq 123
 
-    - name: Boot ${{ matrix.distro }} QEMU
+    - name: Boot QEMU
       run: timeout -k 30 10m test "$(mkosi --debug qemu 1>&2; echo $?)" -eq 123

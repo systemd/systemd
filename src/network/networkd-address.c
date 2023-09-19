@@ -110,7 +110,7 @@ int address_new(Address **ret) {
         return 0;
 }
 
-static int address_new_static(Network *network, const char *filename, unsigned section_line, Address **ret) {
+int address_new_static(Network *network, const char *filename, unsigned section_line, Address **ret) {
         _cleanup_(config_section_freep) ConfigSection *n = NULL;
         _cleanup_(address_freep) Address *address = NULL;
         int r;
@@ -173,6 +173,7 @@ Address *address_free(Address *address) {
         config_section_free(address->section);
         free(address->label);
         free(address->netlabel);
+        nft_set_context_clear(&address->nft_set_context);
         return mfree(address);
 }
 
@@ -239,7 +240,7 @@ void link_mark_addresses(Link *link, NetworkConfigSource source) {
         }
 }
 
-int address_get_broadcast(const Address *a, Link *link, struct in_addr *ret) {
+static int address_get_broadcast(const Address *a, Link *link, struct in_addr *ret) {
         struct in_addr b_addr = {};
 
         assert(a);
@@ -290,6 +291,11 @@ finalize:
         return in4_addr_is_set(&b_addr);
 }
 
+static void address_set_broadcast(Address *a, Link *link) {
+        assert(a);
+        assert_se(address_get_broadcast(a, link, &a->broadcast) >= 0);
+}
+
 static void address_set_cinfo(Manager *m, const Address *a, struct ifa_cacheinfo *cinfo) {
         usec_t now_usec;
 
@@ -331,18 +337,21 @@ static bool address_is_static_null(const Address *address) {
         return true;
 }
 
-static uint32_t address_prefix(const Address *a) {
+static int address_ipv4_prefix(const Address *a, struct in_addr *ret) {
+        struct in_addr p;
+        int r;
+
         assert(a);
+        assert(a->family == AF_INET);
+        assert(ret);
 
-        /* make sure we don't try to shift by 32.
-         * See ISO/IEC 9899:TC3 § 6.5.7.3. */
-        if (a->prefixlen == 0)
-                return 0;
+        p = in4_addr_is_set(&a->in_addr_peer.in) ? a->in_addr_peer.in : a->in_addr.in;
+        r = in4_addr_mask(&p, a->prefixlen);
+        if (r < 0)
+                return r;
 
-        if (a->in_addr_peer.in.s_addr != 0)
-                return be32toh(a->in_addr_peer.in.s_addr) >> (32 - a->prefixlen);
-        else
-                return be32toh(a->in_addr.in.s_addr) >> (32 - a->prefixlen);
+        *ret = p;
+        return 0;
 }
 
 static void address_hash_func(const Address *a, struct siphash *state) {
@@ -351,16 +360,24 @@ static void address_hash_func(const Address *a, struct siphash *state) {
         siphash24_compress(&a->family, sizeof(a->family), state);
 
         switch (a->family) {
-        case AF_INET:
+        case AF_INET: {
+                struct in_addr prefix;
+
                 siphash24_compress(&a->prefixlen, sizeof(a->prefixlen), state);
 
-                uint32_t prefix = address_prefix(a);
+                assert_se(address_ipv4_prefix(a, &prefix) >= 0);
                 siphash24_compress(&prefix, sizeof(prefix), state);
 
-                _fallthrough_;
-        case AF_INET6:
-                siphash24_compress(&a->in_addr, FAMILY_ADDRESS_SIZE(a->family), state);
+                siphash24_compress(&a->in_addr.in, sizeof(a->in_addr.in), state);
                 break;
+        }
+        case AF_INET6:
+                siphash24_compress(&a->in_addr.in6, sizeof(a->in_addr.in6), state);
+
+                if (in6_addr_is_null(&a->in_addr.in6))
+                        siphash24_compress(&a->prefixlen, sizeof(a->prefixlen), state);
+                break;
+
         default:
                 /* treat any other address family as AF_UNSPEC */
                 break;
@@ -375,27 +392,42 @@ static int address_compare_func(const Address *a1, const Address *a2) {
                 return r;
 
         switch (a1->family) {
-        case AF_INET:
+        case AF_INET: {
+                struct in_addr p1, p2;
+
                 /* See kernel's find_matching_ifa() in net/ipv4/devinet.c */
                 r = CMP(a1->prefixlen, a2->prefixlen);
                 if (r != 0)
                         return r;
 
-                r = CMP(address_prefix(a1), address_prefix(a2));
+                assert_se(address_ipv4_prefix(a1, &p1) >= 0);
+                assert_se(address_ipv4_prefix(a2, &p2) >= 0);
+                r = memcmp(&p1, &p2, sizeof(p1));
                 if (r != 0)
                         return r;
 
-                _fallthrough_;
+                return memcmp(&a1->in_addr.in, &a2->in_addr.in, sizeof(a1->in_addr.in));
+        }
         case AF_INET6:
                 /* See kernel's ipv6_get_ifaddr() in net/ipv6/addrconf.c */
-                return memcmp(&a1->in_addr, &a2->in_addr, FAMILY_ADDRESS_SIZE(a1->family));
+                r = memcmp(&a1->in_addr.in6, &a2->in_addr.in6, sizeof(a1->in_addr.in6));
+                if (r != 0)
+                        return r;
+
+                /* To distinguish IPv6 null addresses with different prefixlen, e.g. ::48 vs ::64, let's
+                 * compare the prefix length. */
+                if (in6_addr_is_null(&a1->in_addr.in6))
+                        r = CMP(a1->prefixlen, a2->prefixlen);
+
+                return r;
+
         default:
                 /* treat any other address family as AF_UNSPEC */
                 return 0;
         }
 }
 
-DEFINE_PRIVATE_HASH_OPS(
+DEFINE_HASH_OPS(
         address_hash_ops,
         Address,
         address_hash_func,
@@ -502,6 +534,8 @@ int address_dup(const Address *src, Address **ret) {
         dest->link = NULL;
         dest->label = NULL;
         dest->netlabel = NULL;
+        dest->nft_set_context.sets = NULL;
+        dest->nft_set_context.n_sets = 0;
 
         if (src->family == AF_INET) {
                 r = free_and_strdup(&dest->label, src->label);
@@ -510,6 +544,10 @@ int address_dup(const Address *src, Address **ret) {
         }
 
         r = free_and_strdup(&dest->netlabel, src->netlabel);
+        if (r < 0)
+                return r;
+
+        r = nft_set_context_dup(&src->nft_set_context, &dest->nft_set_context);
         if (r < 0)
                 return r;
 
@@ -555,6 +593,82 @@ static int address_set_masquerade(Address *address, bool add) {
         return 0;
 }
 
+static void address_modify_nft_set_context(Address *address, bool add, NFTSetContext *nft_set_context) {
+        int r;
+
+        assert(address);
+        assert(address->link);
+        assert(address->link->manager);
+        assert(nft_set_context);
+
+        if (!address->link->manager->fw_ctx) {
+                r = fw_ctx_new(&address->link->manager->fw_ctx);
+                if (r < 0)
+                        return;
+        }
+
+        FOREACH_ARRAY(nft_set, nft_set_context->sets, nft_set_context->n_sets) {
+                uint32_t ifindex;
+
+                assert(nft_set);
+
+                switch (nft_set->source) {
+                case NFT_SET_SOURCE_ADDRESS:
+                        r = nft_set_element_modify_ip(address->link->manager->fw_ctx, add, nft_set->nfproto, address->family, nft_set->table, nft_set->set,
+                                                      &address->in_addr);
+                        break;
+                case NFT_SET_SOURCE_PREFIX:
+                        r = nft_set_element_modify_iprange(address->link->manager->fw_ctx, add, nft_set->nfproto, address->family, nft_set->table, nft_set->set,
+                                                           &address->in_addr, address->prefixlen);
+                        break;
+                case NFT_SET_SOURCE_IFINDEX:
+                        ifindex = address->link->ifindex;
+                        r = nft_set_element_modify_any(address->link->manager->fw_ctx, add, nft_set->nfproto, nft_set->table, nft_set->set,
+                                                       &ifindex, sizeof(ifindex));
+                        break;
+                default:
+                        assert_not_reached();
+                }
+
+                if (r < 0)
+                        log_warning_errno(r, "Failed to %s NFT set: family %s, table %s, set %s, IP address %s, ignoring",
+                                          add? "add" : "delete",
+                                          nfproto_to_string(nft_set->nfproto), nft_set->table, nft_set->set,
+                                          IN_ADDR_PREFIX_TO_STRING(address->family, &address->in_addr, address->prefixlen));
+                else
+                        log_debug("%s NFT set: family %s, table %s, set %s, IP address %s",
+                                  add ? "Added" : "Deleted",
+                                  nfproto_to_string(nft_set->nfproto), nft_set->table, nft_set->set,
+                                  IN_ADDR_PREFIX_TO_STRING(address->family, &address->in_addr, address->prefixlen));
+        }
+}
+
+static void address_modify_nft_set(Address *address, bool add) {
+        assert(address);
+        assert(address->link);
+
+        if (!IN_SET(address->family, AF_INET, AF_INET6))
+                return;
+
+        if (!address->link->network)
+                return;
+
+        switch (address->source) {
+        case NETWORK_CONFIG_SOURCE_DHCP4:
+                return address_modify_nft_set_context(address, add, &address->link->network->dhcp_nft_set_context);
+        case NETWORK_CONFIG_SOURCE_DHCP6:
+                return address_modify_nft_set_context(address, add, &address->link->network->dhcp6_nft_set_context);
+        case NETWORK_CONFIG_SOURCE_DHCP_PD:
+                return address_modify_nft_set_context(address, add, &address->link->network->dhcp_pd_nft_set_context);
+        case NETWORK_CONFIG_SOURCE_NDISC:
+                return address_modify_nft_set_context(address, add, &address->link->network->ndisc_nft_set_context);
+        case NETWORK_CONFIG_SOURCE_STATIC:
+                return address_modify_nft_set_context(address, add, &address->nft_set_context);
+        default:
+                return;
+        }
+}
+
 static int address_add(Link *link, Address *address) {
         int r;
 
@@ -596,6 +710,8 @@ static int address_update(Address *address) {
 
         address_add_netlabel(address);
 
+        address_modify_nft_set(address, /* add = */ true);
+
         if (address_is_ready(address) && address->callback) {
                 r = address->callback(address);
                 if (r < 0)
@@ -614,6 +730,8 @@ static int address_drop(Address *address) {
         r = address_set_masquerade(address, /* add = */ false);
         if (r < 0)
                 log_link_warning_errno(link, r, "Failed to disable IP masquerading, ignoring: %m");
+
+        address_modify_nft_set(address, /* add = */ false);
 
         address_del_netlabel(address);
 
@@ -1469,10 +1587,6 @@ int link_request_static_addresses(Link *link) {
         if (r < 0)
                 return r;
 
-        r = link_request_dhcp_server_address(link);
-        if (r < 0)
-                return r;
-
         if (link->static_address_messages == 0) {
                 link->static_addresses_configured = true;
                 link_check_ready(link);
@@ -1664,6 +1778,8 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
                 address->source = a->source;
                 address->provider = a->provider;
                 (void) free_and_strdup_warn(&address->netlabel, a->netlabel);
+                nft_set_context_clear(&address->nft_set_context);
+                (void) nft_set_context_dup(&a->nft_set_context, &address->nft_set_context);
                 address->requested_as_null = a->requested_as_null;
                 address->callback = a->callback;
         }
@@ -2240,7 +2356,7 @@ static void address_section_adjust_broadcast(Address *address) {
         address->broadcast.s_addr = 0;
 }
 
-static int address_section_verify(Address *address) {
+int address_section_verify(Address *address) {
         if (section_is_invalid(address->section))
                 return -EINVAL;
 
@@ -2350,5 +2466,47 @@ int network_drop_invalid_addresses(Network *network) {
                 assert(r > 0);
         }
 
+        r = network_adjust_dhcp_server(network, &addresses);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+int config_parse_address_ip_nft_set(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Network *network = userdata;
+        _cleanup_(address_free_or_set_invalidp) Address *n = NULL;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(network);
+
+        r = address_new_static(network, filename, section_line, &n);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to allocate a new address, ignoring assignment: %m");
+                return 0;
+        }
+
+        r = config_parse_nft_set(unit, filename, line, section, section_line, lvalue, ltype, rvalue, &n->nft_set_context, network);
+        if (r < 0)
+                return r;
+
+        TAKE_PTR(n);
         return 0;
 }

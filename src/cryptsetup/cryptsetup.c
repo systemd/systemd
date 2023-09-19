@@ -40,7 +40,7 @@
 #include "random-util.h"
 #include "string-table.h"
 #include "strv.h"
-#include "tpm-pcr.h"
+#include "tpm2-pcr.h"
 #include "tpm2-util.h"
 
 /* internal helper */
@@ -434,7 +434,7 @@ static int parse_one_option(const char *option) {
                                 return 0;
                         }
 
-                        pcr = r ? TPM_PCR_INDEX_VOLUME_KEY : UINT_MAX;
+                        pcr = r ? TPM2_PCR_SYSTEM_IDENTITY : UINT_MAX;
                 } else if (!TPM2_PCR_INDEX_VALID(pcr)) {
                         log_warning("Selected TPM index for measurement %u outside of allowed range 0…%u, ignoring.", pcr, TPM2_PCRS_MAX-1);
                         return 0;
@@ -862,7 +862,7 @@ static int measure_volume_key(
         if (!s)
                 return log_oom();
 
-        r = tpm2_extend_bytes(c, l ?: arg_tpm2_measure_banks, arg_tpm2_measure_pcr, s, SIZE_MAX, volume_key, volume_key_size);
+        r = tpm2_extend_bytes(c, l ?: arg_tpm2_measure_banks, arg_tpm2_measure_pcr, s, SIZE_MAX, volume_key, volume_key_size, TPM2_EVENT_VOLUME_KEY, s);
         if (r < 0)
                 return r;
 

@@ -285,13 +285,28 @@
           project='man-pages'><refentrytitle>epoll</refentrytitle><manvolnum>7</manvolnum></citerefentry>
           API, for example because it is a regular file or directory. See <citerefentry
           project='man-pages'><refentrytitle>epoll_ctl</refentrytitle><manvolnum>2</manvolnum></citerefentry>
-          for details.</para></listitem>
+          for details.</para>
+
+          <xi:include href="version-info.xml" xpointer="v255"/></listitem>
         </varlistentry>
       </variablelist>
     </refsect2>
   </refsect1>
 
   <xi:include href="libsystemd-pkgconfig.xml" />
+
+  <refsect1>
+    <title>History</title>
+    <para><function>sd_event_io_handler_t()</function>,
+    <function>sd_event_add_io()</function>,
+    <function>sd_event_source_get_io_events()</function>,
+    <function>sd_event_source_set_io_events()</function>,
+    <function>sd_event_source_get_io_revents()</function>,
+    <function>sd_event_source_get_io_fd()</function>, and
+    <function>sd_event_source_set_io_fd()</function> were added in version 229.</para>
+    <para><function>sd_event_source_get_io_fd_own()</function> and
+    <function>sd_event_source_set_io_fd_own()</function> were added in version 239.</para>
+  </refsect1>
 
   <refsect1>
     <title>See Also</title>

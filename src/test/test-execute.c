@@ -282,11 +282,7 @@ static void test_exec_cpuaffinity(Manager *m) {
 
 static void test_exec_credentials(Manager *m) {
         test(m, "exec-set-credential.service", 0, CLD_EXITED);
-        test(m, "exec-set-credential-with-mount-namespace.service", 0, CLD_EXITED);
-        test(m, "exec-set-credential-with-seccomp.service", 0, CLD_EXITED);
         test(m, "exec-load-credential.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_CREDENTIALS, CLD_EXITED);
-        test(m, "exec-load-credential-with-mount-namespace.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_CREDENTIALS, CLD_EXITED);
-        test(m, "exec-load-credential-with-seccomp.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_CREDENTIALS, CLD_EXITED);
         test(m, "exec-credentials-dir-specifier.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_CREDENTIALS, CLD_EXITED);
 }
 
@@ -1263,7 +1259,7 @@ static void run_tests(RuntimeScope scope, char **patterns) {
                 return (void) log_tests_skipped_errno(r, "manager_new");
         assert_se(r >= 0);
 
-        m->default_std_output = EXEC_OUTPUT_NULL; /* don't rely on host journald */
+        m->defaults.std_output = EXEC_OUTPUT_NULL; /* don't rely on host journald */
         assert_se(manager_startup(m, NULL, NULL, NULL) >= 0);
 
         /* Uncomment below if you want to make debugging logs stored to journal. */

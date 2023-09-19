@@ -5,6 +5,7 @@ typedef struct Socket Socket;
 typedef struct SocketPeer SocketPeer;
 
 #include "mount.h"
+#include "pidref.h"
 #include "socket-util.h"
 #include "unit.h"
 
@@ -103,7 +104,7 @@ struct Socket {
 
         ExecCommand* control_command;
         SocketExecCommand control_command_id;
-        pid_t control_pid;
+        PidRef control_pid;
 
         mode_t directory_mode;
         mode_t socket_mode;
@@ -158,6 +159,8 @@ struct Socket {
         char *fdname;
 
         RateLimit trigger_limit;
+        usec_t poll_limit_interval;
+        unsigned poll_limit_burst;
 };
 
 SocketPeer *socket_peer_ref(SocketPeer *p);

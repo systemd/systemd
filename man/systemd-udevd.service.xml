@@ -65,6 +65,8 @@
         <term><option>--daemon</option></term>
         <listitem>
           <para>Detach and run in the background.</para>
+
+        <xi:include href="version-info.xml" xpointer="v186"/>
         </listitem>
       </varlistentry>
 
@@ -73,6 +75,8 @@
         <term><option>--debug</option></term>
         <listitem>
           <para>Print debug messages to standard error.</para>
+
+        <xi:include href="version-info.xml" xpointer="v186"/>
         </listitem>
       </varlistentry>
 
@@ -81,6 +85,8 @@
         <term><option>--children-max=</option></term>
         <listitem>
           <para>Limit the number of events executed in parallel.</para>
+
+        <xi:include href="version-info.xml" xpointer="v186"/>
         </listitem>
       </varlistentry>
 
@@ -93,6 +99,8 @@
           might be useful when debugging system crashes during
           coldplug caused by loading non-working kernel
           modules.</para>
+
+        <xi:include href="version-info.xml" xpointer="v186"/>
         </listitem>
       </varlistentry>
 
@@ -102,6 +110,8 @@
         <listitem>
           <para>Set the number of seconds to wait for events to finish. After
           this time, the event will be terminated. The default is 180 seconds.</para>
+
+          <xi:include href="version-info.xml" xpointer="v216"/>
         </listitem>
       </varlistentry>
 
@@ -117,6 +127,8 @@
           <constant>SIGKILL</constant>. Note that setting the option on the command line
           overrides the setting from the configuration file.
           </para>
+
+        <xi:include href="version-info.xml" xpointer="v246"/>
         </listitem>
       </varlistentry>
 
@@ -130,6 +142,8 @@
           <option>late</option>, names will be resolved for every event.
           When set to <option>never</option>, names will never be resolved
           and all devices will be owned by root.</para>
+
+          <xi:include href="version-info.xml" xpointer="v186"/>
         </listitem>
       </varlistentry>
 
@@ -147,6 +161,8 @@
         <term><varname>rd.udev.log_level=</varname></term>
         <listitem>
           <para>Set the log level.</para>
+
+        <xi:include href="version-info.xml" xpointer="v247"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -154,6 +170,8 @@
         <term><varname>rd.udev.children_max=</varname></term>
         <listitem>
           <para>Limit the number of events executed in parallel.</para>
+
+        <xi:include href="version-info.xml" xpointer="v186"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -164,6 +182,8 @@
           number of seconds. This option might be useful when
           debugging system crashes during coldplug caused by loading
           non-working kernel modules.</para>
+
+        <xi:include href="version-info.xml" xpointer="v186"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -173,6 +193,8 @@
           <para>Wait for events to finish up to the given number
           of seconds. This option might be useful if events are
           terminated due to kernel drivers taking too long to initialize.</para>
+
+          <xi:include href="version-info.xml" xpointer="v216"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -182,6 +204,8 @@
           <para>Specifies a signal that <filename>systemd-udevd</filename> will send to
           workers on timeout. Note that kernel command line option overrides both the
           setting in the configuration file and the one on the program command line.</para>
+
+        <xi:include href="version-info.xml" xpointer="v246"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -198,6 +222,8 @@
           --setrw</command> command, see <citerefentry
           project='man-pages'><refentrytitle>blockdev</refentrytitle><manvolnum>8</manvolnum></citerefentry>
           for details.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -205,6 +231,8 @@
         <listitem>
           <para>Network interfaces are renamed to give them predictable names
           when possible. It is enabled by default; specifying 0 disables it.</para>
+
+          <xi:include href="version-info.xml" xpointer="v199"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -222,6 +250,8 @@
           the naming is generally derived from driver attributes exposed by the kernel. As the kernel is
           updated, previously missing attributes <filename>systemd-udevd.service</filename> is checking might
           appear, which affects older name derivation algorithms, too.</para>
+
+          <xi:include href="version-info.xml" xpointer="v240"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -262,6 +292,8 @@ OriginalName=*
 NamePolicy=keep kernel path slot onboard mac
 AlternativeNamePolicy=path slot onboard mac</programlisting>
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v250"/>
         </listitem>
       </varlistentry>
     </variablelist>

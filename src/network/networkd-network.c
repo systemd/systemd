@@ -20,7 +20,6 @@
 #include "networkd-bridge-mdb.h"
 #include "networkd-dhcp-common.h"
 #include "networkd-dhcp-server-static-lease.h"
-#include "networkd-dhcp-server.h"
 #include "networkd-ipv6-proxy-ndp.h"
 #include "networkd-manager.h"
 #include "networkd-ndisc.h"
@@ -181,11 +180,6 @@ int network_verify(Network *network) {
                                     network->filename);
                         network->link_local = ADDRESS_FAMILY_NO;
                 }
-                if (network->dhcp_server) {
-                        log_warning("%s: Cannot enable DHCPServer= when Bond= is specified, disabling DHCPServer=.",
-                                    network->filename);
-                        network->dhcp_server = false;
-                }
                 if (!ordered_hashmap_isempty(network->addresses_by_section))
                         log_warning("%s: Cannot set addresses when Bond= is specified, ignoring addresses.",
                                     network->filename);
@@ -330,8 +324,6 @@ int network_verify(Network *network) {
         if (r < 0)
                 return r; /* sr_iov_drop_invalid_sections() logs internally. */
         network_drop_invalid_static_leases(network);
-
-        network_adjust_dhcp_server(network);
 
         return 0;
 }
@@ -529,6 +521,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                         "IPv6PrefixDelegation\0"
                         "IPv6Prefix\0"
                         "IPv6RoutePrefix\0"
+                        "IPv6PREF64Prefix\0"
                         "LLDP\0"
                         "TrafficControlQueueingDiscipline\0"
                         "CAN\0"
@@ -724,6 +717,7 @@ static Network *network_free(Network *network) {
         ordered_hashmap_free(network->dhcp_client_send_options);
         ordered_hashmap_free(network->dhcp_client_send_vendor_options);
         free(network->dhcp_netlabel);
+        nft_set_context_clear(&network->dhcp_nft_set_context);
 
         /* DHCPv6 client */
         free(network->dhcp6_mudurl);
@@ -733,11 +727,13 @@ static Network *network_free(Network *network) {
         ordered_hashmap_free(network->dhcp6_client_send_options);
         ordered_hashmap_free(network->dhcp6_client_send_vendor_options);
         free(network->dhcp6_netlabel);
+        nft_set_context_clear(&network->dhcp6_nft_set_context);
 
         /* DHCP PD */
         free(network->dhcp_pd_uplink_name);
         set_free(network->dhcp_pd_tokens);
         free(network->dhcp_pd_netlabel);
+        nft_set_context_clear(&network->dhcp_pd_nft_set_context);
 
         /* Router advertisement */
         ordered_set_free(network->router_search_domains);
@@ -753,6 +749,7 @@ static Network *network_free(Network *network) {
         set_free(network->ndisc_allow_listed_route_prefix);
         set_free(network->ndisc_tokens);
         free(network->ndisc_netlabel);
+        nft_set_context_clear(&network->ndisc_nft_set_context);
 
         /* LLDP */
         free(network->lldp_mudurl);
@@ -779,6 +776,7 @@ static Network *network_free(Network *network) {
         hashmap_free_with_destructor(network->address_labels_by_section, address_label_free);
         hashmap_free_with_destructor(network->prefixes_by_section, prefix_free);
         hashmap_free_with_destructor(network->route_prefixes_by_section, route_prefix_free);
+        hashmap_free_with_destructor(network->pref64_prefixes_by_section, pref64_prefix_free);
         hashmap_free_with_destructor(network->rules_by_section, routing_policy_rule_free);
         hashmap_free_with_destructor(network->dhcp_static_leases_by_section, dhcp_static_lease_free);
         ordered_hashmap_free_with_destructor(network->sr_iov_by_section, sr_iov_free);
@@ -842,6 +840,9 @@ bool network_has_static_ipv6_configurations(Network *network) {
                 return true;
 
         if (!hashmap_isempty(network->route_prefixes_by_section))
+                return true;
+
+        if (!hashmap_isempty(network->pref64_prefixes_by_section))
                 return true;
 
         return false;

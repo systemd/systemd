@@ -33,6 +33,10 @@ CHANGES WITH 255 in spe:
           by default when combined with --scope, will be changed in a future
           release to be enabled by default.
 
+        * "systemctl switch-root" is now restricted to initrd transtions only.
+          Transitions between real systems should be done with "systemctl soft-reboot"
+          instead.
+
         Device Management:
 
         * udev will now create symlinks to loopback block devices in the
@@ -655,7 +659,7 @@ CHANGES WITH 254:
         * systemd-resolved gained a new resolved.conf setting
           StateRetentionSec= which may be used to retain cached DNS records
           even after their nominal TTL, and use them in case upstream DNS
-          servers cannot be reached. This can be sued to make name resolution
+          servers cannot be reached. This can be used to make name resolution
           more resilient in case of network problems.
 
         * resolvectl gained a new verb "show-cache" to show the current cache

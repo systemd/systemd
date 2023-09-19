@@ -22,18 +22,27 @@
 
   <refsynopsisdiv>
     <cmdsynopsis>
-      <command>/usr/lib/systemd/ukify</command>
+      <command>ukify</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
       <arg choice="plain">build</arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis>
+      <command>ukify</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
       <arg choice="plain">genkey</arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis>
+      <command>ukify</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">inspect</arg>
+      <arg choice="plain" rep="repeat">FILE</arg>
     </cmdsynopsis>
   </refsynopsisdiv>
 
   <refsect1>
     <title>Description</title>
-
-    <para>Note: this command is experimental for now. While it is intended to become a regular component of
-    systemd, it might still change in behaviour and interface.</para>
 
     <para><command>ukify</command> is a tool whose primary purpose is to combine components (usually a
     kernel, an initrd, and a UEFI boot stub) to create a
@@ -146,6 +155,13 @@
     priority and overwrites the config file setting completely. If some setting behaves differently, this is
     described below.</para>
 
+    <para>If no config file is provided via the option <option>--config=<replaceable>PATH</replaceable></option>,
+    <command>ukify</command> will try to look for a default configuration file in the following paths in this
+    order: <filename>/run/systemd/ukify.conf</filename>, <filename>/etc/systemd/ukify.conf</filename>,
+    <filename>/usr/local/lib/systemd/ukify.conf</filename>, and <filename>/usr/lib/systemd/ukify.conf</filename>,
+    and then load the first one found. <command>ukify</command> will proceed normally if no configuration file
+    is specified and no default one is found.</para>
+
     <para>The <replaceable>LINUX</replaceable> and <replaceable>INITRD</replaceable> positional arguments, or
     the equivalent <varname>Linux=</varname> and <varname>Initrd=</varname> settings, are optional. If more
     than one initrd is specified, they will all be combined into a single PE section. This is useful to, for
@@ -163,7 +179,9 @@
           <listitem><para>Load configuration from the given config file. In general, settings specified in
           the config file have lower precedence than the settings specified via options. In cases where the
           commandline option does not fully override the config file setting are explicitly mentioned in the
-          descriptions of individual options.</para></listitem>
+          descriptions of individual options.</para>
+
+          <xi:include href="version-info.xml" xpointer="v254"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -172,7 +190,9 @@
 
           <listitem><para>Enable or disable a call to
           <citerefentry><refentrytitle>systemd-measure</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-          to print pre-calculated PCR values. Defaults to false.</para></listitem>
+          to print pre-calculated PCR values. Defaults to false.</para>
+
+          <xi:include href="version-info.xml" xpointer="v253"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -193,6 +213,8 @@
 
           <para>Note that the name is used as-is, and if the section name should start with a dot, it must be
           included in <replaceable>NAME</replaceable>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v253"/>
           </listitem>
         </varlistentry>
 
@@ -201,7 +223,9 @@
 
           <listitem><para>Specify one or more directories with helper tools. <command>ukify</command> will
           look for helper tools in those directories first, and if not found, try to load them from
-          <varname>$PATH</varname> in the usual fashion.</para></listitem>
+          <varname>$PATH</varname> in the usual fashion.</para>
+
+          <xi:include href="version-info.xml" xpointer="v253"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -210,26 +234,34 @@
           <listitem><para>The output filename. If not specified, the name of the
           <replaceable>LINUX</replaceable> argument, with the suffix <literal>.unsigned.efi</literal> or
           <literal>.signed.efi</literal> will be used, depending on whether signing for SecureBoot was
-          performed.</para></listitem>
+          performed.</para>
+
+          <xi:include href="version-info.xml" xpointer="v253"/></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><option>--summary</option></term>
 
           <listitem><para>Print a summary of loaded config and exit. This is useful to check how the options
-          form the configuration file and the commandline are combined.</para></listitem>
+          form the configuration file and the commandline are combined.</para>
+
+          <xi:include href="version-info.xml" xpointer="v254"/></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><option>--all</option></term>
 
-          <listitem><para>Print all sections (with <command>inspect</command> verb).</para></listitem>
+          <listitem><para>Print all sections (with <command>inspect</command> verb).</para>
+
+          <xi:include href="version-info.xml" xpointer="v255"/></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><option>--json</option></term>
 
-          <listitem><para>Generate JSON output (with <command>inspect</command> verb).</para></listitem>
+          <listitem><para>Generate JSON output (with <command>inspect</command> verb).</para>
+
+          <xi:include href="version-info.xml" xpointer="v255"/></listitem>
         </varlistentry>
 
         <xi:include href="standard-options.xml" xpointer="help" />
@@ -245,7 +277,9 @@
           <term><varname>Linux=<replaceable>LINUX</replaceable></varname></term>
           <term><option>--linux=<replaceable>LINUX</replaceable></option></term>
 
-          <listitem><para>A path to the kernel binary.</para></listitem>
+          <listitem><para>A path to the kernel binary.</para>
+
+          <xi:include href="version-info.xml" xpointer="v254"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -254,7 +288,9 @@
 
           <listitem><para>Zero or more initrd paths. In the configuration file, items are separated by
           whitespace. The initrds are combined in the order of specification, with the initrds specified in
-          the config file first.</para></listitem>
+          the config file first.</para>
+
+          <xi:include href="version-info.xml" xpointer="v254"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -263,7 +299,9 @@
 
           <listitem><para>The kernel command line (the <literal>.cmdline</literal> section). The argument may
           be a literal string, or <literal>@</literal> followed by a path name. If not specified, no command
-          line will be embedded.</para></listitem>
+          line will be embedded.</para>
+
+          <xi:include href="version-info.xml" xpointer="v253"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -273,7 +311,9 @@
           <listitem><para>The os-release description (the <literal>.osrel</literal> section). The argument
           may be a literal string, or <literal>@</literal> followed by a path name. If not specified, the
           <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry> file
-          will be picked up from the host system.</para></listitem>
+          will be picked up from the host system.</para>
+
+          <xi:include href="version-info.xml" xpointer="v253"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -282,7 +322,9 @@
 
           <listitem><para>The devicetree description (the <literal>.dtb</literal> section). The argument is a
           path to a compiled binary DeviceTree file. If not specified, the section will not be present.
-          </para></listitem>
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v253"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -291,7 +333,9 @@
 
           <listitem><para>A picture to display during boot (the <literal>.splash</literal> section). The
           argument is a path to a BMP file. If not specified, the section will not be present.
-          </para></listitem>
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v253"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -301,7 +345,9 @@
           <listitem><para>A path to a public key to embed in the <literal>.pcrpkey</literal> section. If not
           specified, and there's exactly one
           <varname>PCRPublicKey=</varname>/<option>--pcr-public-key=</option> argument, that key will be used.
-          Otherwise, the section will not be present.</para></listitem>
+          Otherwise, the section will not be present.</para>
+
+          <xi:include href="version-info.xml" xpointer="v253"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -312,7 +358,9 @@
           <literal>.uname</literal> section). If not specified, an attempt will be made to extract the
           version string from the kernel image. It is recommended to pass this explicitly if known, because
           the extraction is based on heuristics and not very reliable. If not specified and extraction fails,
-          the section will not be present.</para></listitem>
+          the section will not be present.</para>
+
+          <xi:include href="version-info.xml" xpointer="v253"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -322,7 +370,9 @@
           <listitem><para>A comma or space-separated list of PCR banks to sign a policy for. If not present,
           all known banks will be used (<literal>sha1</literal>, <literal>sha256</literal>,
           <literal>sha384</literal>, <literal>sha512</literal>), which will fail if not supported by the
-          system.</para></listitem>
+          system.</para>
+
+          <xi:include href="version-info.xml" xpointer="v253"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -331,7 +381,9 @@
 
           <listitem><para>Whether to use <literal>sbsign</literal> or <literal>pesign</literal>.
           Depending on this choice, different parameters are required in order to sign an image.
-          Defaults to <literal>sbsign</literal>.</para></listitem>
+          Defaults to <literal>sbsign</literal>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v254"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -341,7 +393,9 @@
           <listitem><para>A path to a private key to use for signing of the resulting binary. If the
           <varname>SigningEngine=</varname>/<option>--signing-engine=</option> option is used, this may also be
           an engine-specific designation. This option is required by
-          <varname>SecureBootSigningTool=sbsign</varname>/<option>--signtool=sbsign</option>. </para></listitem>
+          <varname>SecureBootSigningTool=sbsign</varname>/<option>--signtool=sbsign</option>. </para>
+
+          <xi:include href="version-info.xml" xpointer="v253"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -351,7 +405,9 @@
           <listitem><para>A path to a certificate to use for signing of the resulting binary. If the
           <varname>SigningEngine=</varname>/<option>--signing-engine=</option> option is used, this may also
           be an engine-specific designation. This option is required by
-          <varname>SecureBootSigningTool=sbsign</varname>/<option>--signtool=sbsign</option>. </para></listitem>
+          <varname>SecureBootSigningTool=sbsign</varname>/<option>--signtool=sbsign</option>. </para>
+
+          <xi:include href="version-info.xml" xpointer="v253"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -360,7 +416,9 @@
 
           <listitem><para>A path to a nss certificate database directory to use for signing of the resulting binary.
           Takes effect when <varname>SecureBootSigningTool=pesign</varname>/<option>--signtool=pesign</option> is used.
-          Defaults to <filename>/etc/pki/pesign</filename>.</para></listitem>
+          Defaults to <filename>/etc/pki/pesign</filename>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v254"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -368,7 +426,9 @@
           <term><option>--secureboot-certificate-name=<replaceable>SB_CERTNAME</replaceable></option></term>
 
           <listitem><para>The name of the nss certificate database entry to use for signing of the resulting binary.
-          This option is required by <varname>SecureBootSigningTool=pesign</varname>/<option>--signtool=pesign</option>.</para></listitem>
+          This option is required by <varname>SecureBootSigningTool=pesign</varname>/<option>--signtool=pesign</option>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v254"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -376,7 +436,9 @@
           <term><option>--secureboot-certificate-validity=<replaceable>DAYS</replaceable></option></term>
 
           <listitem><para>Period of validity (in days) for a certificate created by
-          <command>genkey</command>. Defaults to 3650, i.e. 10 years.</para></listitem>
+          <command>genkey</command>. Defaults to 3650, i.e. 10 years.</para>
+
+          <xi:include href="version-info.xml" xpointer="v254"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -386,7 +448,9 @@
           <listitem><para>An "engine" for signing of the resulting binary. This option is currently passed
           verbatim to the <option>--engine=</option> option of
           <citerefentry project='archlinux'><refentrytitle>sbsign</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
-          </para></listitem>
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v253"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -400,7 +464,9 @@
           <varname>SecureBootPrivateKey=</varname>/<option>--secureboot-private-key=</option> option and the
           binary has not already been signed. If
           <varname>SignKernel=</varname>/<option>--sign-kernel</option> is true, and the binary has already
-          been signed, the signature will be appended anyway.</para></listitem>
+          been signed, the signature will be appended anyway.</para>
+
+          <xi:include href="version-info.xml" xpointer="v253"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -413,7 +479,9 @@
           <literal>uki,1,UKI,uki,1,https://www.freedesktop.org/software/systemd/man/systemd-stub.html</literal>
           will be used, to ensure it is always possible to revoke UKIs and addons. For more information on
           SBAT see <ulink url="https://github.com/rhboot/shim/blob/main/SBAT.md">Shim's documentation.</ulink>
-          </para></listitem>
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v254"/></listitem>
         </varlistentry>
       </variablelist>
     </refsect2>
@@ -431,7 +499,9 @@
           <term><option>--pcr-private-key=<replaceable>PATH</replaceable></option></term>
 
           <listitem><para>A private key to use for signing PCR policies. On the commandline, this option may
-          be specified more than once, in which case multiple signatures will be made.</para></listitem>
+          be specified more than once, in which case multiple signatures will be made.</para>
+
+          <xi:include href="version-info.xml" xpointer="v253"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -443,7 +513,9 @@
           <para>On the commandline, this option may be specified more than once, similarly to the
           <option>--pcr-private-key=</option> option. If not present, the public keys will be extracted from
           the private keys. On the commandline, if present, the this option must be specified the same number
-          of times as the <option>--pcr-private-key=</option> option.</para></listitem>
+          of times as the <option>--pcr-private-key=</option> option.</para>
+
+          <xi:include href="version-info.xml" xpointer="v253"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -457,7 +529,9 @@
           will be used.</para>
 
           <para>On the commandline, when this argument is present, it must appear the same number of times as
-          the <option>--pcr-private-key=</option> option. </para></listitem>
+          the <option>--pcr-private-key=</option> option. </para>
+
+          <xi:include href="version-info.xml" xpointer="v253"/></listitem>
         </varlistentry>
       </variablelist>
     </refsect2>
@@ -481,7 +555,7 @@
     <example>
       <title>All the bells and whistles</title>
 
-      <programlisting>$ /usr/lib/systemd/ukify build \
+      <programlisting>$ ukify build \
       --linux=/lib/modules/6.0.9-300.fc37.x86_64/vmlinuz \
       --initrd=early_cpio \
       --initrd=/some/path/initramfs-6.0.9-300.fc37.x86_64.img \
@@ -524,7 +598,7 @@ Initrd=early_cpio
 Cmdline=quiet rw rhgb
 
 SecureBootPrivateKey=sb.key
-SecureBootCerificate=sb.cert
+SecureBootCertificate=sb.cert
 SignKernel=yes
 PCRBanks=sha384,sha512
 
@@ -540,7 +614,7 @@ Phases=enter-initrd:leave-initrd
        enter-initrd:leave-initrd:sysinit
        enter-initrd:leave-initrd:sysinit:ready
 
-$ /usr/lib/systemd/ukify -c ukify.conf build \
+$ ukify -c ukify.conf build \
         --linux=/lib/modules/6.0.9-300.fc37.x86_64/vmlinuz \
         --initrd=/some/path/initramfs-6.0.9-300.fc37.x86_64.img
       </programlisting>
@@ -576,7 +650,7 @@ $ /usr/lib/systemd/ukify -c ukify.conf build \
 <xi:include href="uki.conf.example" parse="text" />EOF</programlisting>
 
       <para>Next, we can generate the certificate and keys:</para>
-      <programlisting># /usr/lib/systemd/ukify genkey --config=/etc/kernel/uki.conf
+      <programlisting># ukify genkey --config=/etc/kernel/uki.conf
 Writing SecureBoot private key to /etc/kernel/secure-boot.key.pem
 Writing SecureBoot certificate to /etc/kernel/secure-boot.cert.pem
 Writing private key for PCR signing to /etc/kernel/pcr-initrd.key.pem
@@ -589,7 +663,7 @@ Writing public key for PCR signing to /etc/kernel/pcr-system.pub.pem
       to <filename>/etc/kernel/</filename>.)</para>
 
       <para>Subsequent invocations of using the config file
-      (<command>/usr/lib/systemd/ukify build --config=/etc/kernel/uki.conf</command>)
+      (<command>ukify build --config=/etc/kernel/uki.conf</command>)
       will use this certificate and key files. Note that the
       <citerefentry><refentrytitle>kernel-install</refentrytitle><manvolnum>8</manvolnum></citerefentry>
       plugin <filename>60-ukify.install</filename> uses <filename>/etc/kernel/uki.conf</filename>

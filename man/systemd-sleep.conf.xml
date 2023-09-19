@@ -45,7 +45,9 @@
         enter and exit. This corresponds to
         suspend, standby, or freeze states as
         understood by the kernel.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v203"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -58,7 +60,9 @@
         be slow to enter and exit. This
         corresponds to the hibernation as
         understood by the kernel.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v203"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -71,7 +75,9 @@
         lost data but might be slower to exit
         in that case. This mode is called
         suspend-to-both by the kernel.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v203"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -86,6 +92,8 @@
           RTC alarm and hibernated. The estimated timespan is calculated from the change of the battery
           capacity level after the time specified by <varname>SuspendEstimationSec=</varname> or when
           the system is woken up from the suspend.</para>
+
+          <xi:include href="version-info.xml" xpointer="v239"/>
         </listitem>
       </varlistentry>
 
@@ -130,7 +138,9 @@
         <varname>AllowHybridSleep=no</varname>, since those methods use both suspend and hibernation
         internally. <varname>AllowSuspendThenHibernate=yes</varname> and
         <varname>AllowHybridSleep=yes</varname> can be used to override and enable those specific
-        modes.</para></listitem>
+        modes.</para>
+
+        <xi:include href="version-info.xml" xpointer="v240"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -155,7 +165,9 @@
         <para>
         <citerefentry><refentrytitle>systemd-suspend-then-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         uses the value of <varname>SuspendMode=</varname> when suspending and the value of
-        <varname>HibernateMode=</varname> when hibernating.</para></listitem>
+        <varname>HibernateMode=</varname> when hibernating.</para>
+
+        <xi:include href="version-info.xml" xpointer="v203"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -181,7 +193,9 @@
         <para>
         <citerefentry><refentrytitle>systemd-suspend-then-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         uses the value of <varname>SuspendState=</varname> when suspending and the value of
-        <varname>HibernateState=</varname> when hibernating.</para></listitem>
+        <varname>HibernateState=</varname> when hibernating.</para>
+
+        <xi:include href="version-info.xml" xpointer="v203"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -193,6 +207,8 @@
           <citerefentry><refentrytitle>systemd-suspend-then-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
           If the system has a battery, then defaults to the estimated timespan until the system battery charge level goes down to 5%.
           If the system has no battery, then defaults to 2h.</para>
+
+          <xi:include href="version-info.xml" xpointer="v239"/>
         </listitem>
       </varlistentry>
 
@@ -204,7 +220,9 @@
           capacity level and estimate battery discharging rate, which is used for estimating timespan until the system battery charge
           level goes down to 5%. Only used by
           <citerefentry><refentrytitle>systemd-suspend-then-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
-          Defaults to 1h.</para></listitem>
+          Defaults to 1h.</para>
+
+          <xi:include href="version-info.xml" xpointer="v253"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>

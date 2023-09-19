@@ -3,7 +3,8 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
-<refentry id="systemd-random-seed.service" conditional='ENABLE_RANDOMSEED'>
+<refentry id="systemd-random-seed.service" conditional='ENABLE_RANDOMSEED'
+          xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>systemd-random-seed.service</title>
@@ -75,7 +76,9 @@
         a boolean parameter or the special string <literal>force</literal>. Defaults to false, in which case
         no entropy is credited. If true, entropy is credited if the random seed file and system state pass
         various superficial concisistency checks. If set to <literal>force</literal> entropy is credited,
-        regardless of these checks, as long as the random seed file exists.</para></listitem>
+        regardless of these checks, as long as the random seed file exists.</para>
+
+        <xi:include href="version-info.xml" xpointer="v243"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>

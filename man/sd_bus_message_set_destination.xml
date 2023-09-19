@@ -138,6 +138,17 @@
   <xi:include href="libsystemd-pkgconfig.xml" />
 
   <refsect1>
+    <title>History</title>
+    <para><function>sd_bus_message_set_destination()</function> and
+    <function>sd_bus_message_set_sender()</function> were added in version 237.</para>
+    <para><function>sd_bus_message_get_destination()</function>,
+    <function>sd_bus_message_get_path()</function>,
+    <function>sd_bus_message_get_interface()</function>,
+    <function>sd_bus_message_get_member()</function>, and
+    <function>sd_bus_message_get_sender()</function> were added in version 240.</para>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
 
     <para>

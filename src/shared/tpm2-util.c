@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sys/file.h>
+
 #include "alloc-util.h"
 #include "constants.h"
 #include "cryptsetup-util.h"
@@ -14,10 +16,12 @@
 #include "hexdecoct.h"
 #include "hmac.h"
 #include "initrd-util.h"
+#include "io-util.h"
 #include "lock-util.h"
 #include "log.h"
 #include "logarithm.h"
 #include "memory-util.h"
+#include "mkdir.h"
 #include "nulstr-util.h"
 #include "parse-util.h"
 #include "random-util.h"
@@ -25,6 +29,7 @@
 #include "sort-util.h"
 #include "stat-util.h"
 #include "string-table.h"
+#include "sync-util.h"
 #include "time-util.h"
 #include "tpm2-util.h"
 #include "virt.h"
@@ -1282,21 +1287,14 @@ void tpm2_tpms_pcr_selection_move(TPMS_PCR_SELECTION *a, TPMS_PCR_SELECTION *b) 
         tpm2_tpms_pcr_selection_from_mask(0, b->hash, b);
 }
 
-#define FOREACH_PCR_IN_TPMS_PCR_SELECTION(pcr, tpms)                    \
-        _FOREACH_PCR_IN_TPMS_PCR_SELECTION(pcr, tpms, UNIQ)
-#define _FOREACH_PCR_IN_TPMS_PCR_SELECTION(pcr, tpms, uniq)             \
-        FOREACH_PCR_IN_MASK(pcr, tpm2_tpms_pcr_selection_to_mask(tpms))
-
 #define FOREACH_TPMS_PCR_SELECTION_IN_TPML_PCR_SELECTION(tpms, tpml)    \
-        UNIQ_FOREACH_TPMS_PCR_SELECTION_IN_TPML_PCR_SELECTION(tpms, tpml, UNIQ)
-#define UNIQ_FOREACH_TPMS_PCR_SELECTION_IN_TPML_PCR_SELECTION(tpms, tpml, uniq) \
-        for (TPML_PCR_SELECTION *UNIQ_T(_tpml, uniq) = (TPML_PCR_SELECTION*)(tpml); \
-             UNIQ_T(_tpml, uniq); UNIQ_T(_tpml, uniq) = NULL)           \
-                _FOREACH_TPMS_PCR_SELECTION_IN_TPML_PCR_SELECTION(tpms, UNIQ_T(_tpml, uniq))
-#define _FOREACH_TPMS_PCR_SELECTION_IN_TPML_PCR_SELECTION(tpms, tpml)   \
-        for (TPMS_PCR_SELECTION *tpms = tpml->pcrSelections;            \
-             (uint32_t)(tpms - tpml->pcrSelections) < tpml->count;      \
-             tpms++)
+        _FOREACH_TPMS_PCR_SELECTION_IN_TPML_PCR_SELECTION(tpms, tpml, UNIQ_T(l, UNIQ))
+#define _FOREACH_TPMS_PCR_SELECTION_IN_TPML_PCR_SELECTION(tpms, tpml, l) \
+        for (typeof(tpml) (l) = (tpml); (l); (l) = NULL)                \
+                FOREACH_ARRAY(tpms, (l)->pcrSelections, (l)->count)
+
+#define FOREACH_PCR_IN_TPMS_PCR_SELECTION(pcr, tpms)                    \
+        FOREACH_PCR_IN_MASK(pcr, tpm2_tpms_pcr_selection_to_mask(tpms))
 
 #define FOREACH_PCR_IN_TPML_PCR_SELECTION(pcr, tpms, tpml)              \
         FOREACH_TPMS_PCR_SELECTION_IN_TPML_PCR_SELECTION(tpms, tpml)    \
@@ -1369,6 +1367,14 @@ static TPMS_PCR_SELECTION *tpm2_tpml_pcr_selection_get_tpms_pcr_selection(
         return selection;
 }
 
+/* Combine all duplicate (same hash alg) TPMS_PCR_SELECTION entries in 'l'. */
+static void tpm2_tpml_pcr_selection_cleanup(TPML_PCR_SELECTION *l) {
+        /* Can't use FOREACH_TPMS_PCR_SELECTION_IN_TPML_PCR_SELECTION() because we might modify l->count */
+        for (uint32_t i = 0; i < l->count; i++)
+                /* This removes all duplicate TPMS_PCR_SELECTION entries for this hash. */
+                (void) tpm2_tpml_pcr_selection_get_tpms_pcr_selection(l, l->pcrSelections[i].hash);
+}
+
 /* Convert a TPML_PCR_SELECTION object to a mask. Returns empty mask (i.e. 0) if 'hash_alg' is not in the object. */
 uint32_t tpm2_tpml_pcr_selection_to_mask(const TPML_PCR_SELECTION *l, TPMI_ALG_HASH hash_alg) {
         assert(l);
@@ -1396,13 +1402,6 @@ void tpm2_tpml_pcr_selection_from_mask(uint32_t mask, TPMI_ALG_HASH hash_alg, TP
                 .count = 1,
                 .pcrSelections[0] = s,
         };
-}
-
-/* Combine all duplicate (same hash alg) TPMS_PCR_SELECTION entries in 'l'. */
-static void tpm2_tpml_pcr_selection_cleanup(TPML_PCR_SELECTION *l) {
-        FOREACH_TPMS_PCR_SELECTION_IN_TPML_PCR_SELECTION(s, l)
-                /* This removes all duplicates for s->hash. */
-                (void) tpm2_tpml_pcr_selection_get_tpms_pcr_selection(l, s->hash);
 }
 
 /* Add the PCR selections in 's' to the corresponding hash alg TPMS_PCR_SELECTION entry in 'l'. Adds a new
@@ -1478,7 +1477,7 @@ void tpm2_tpml_pcr_selection_add(TPML_PCR_SELECTION *a, const TPML_PCR_SELECTION
         assert(a);
         assert(b);
 
-        FOREACH_TPMS_PCR_SELECTION_IN_TPML_PCR_SELECTION(selection_b, (TPML_PCR_SELECTION*) b)
+        FOREACH_TPMS_PCR_SELECTION_IN_TPML_PCR_SELECTION(selection_b, b)
                 tpm2_tpml_pcr_selection_add_tpms_pcr_selection(a, selection_b);
 }
 
@@ -1487,7 +1486,7 @@ void tpm2_tpml_pcr_selection_sub(TPML_PCR_SELECTION *a, const TPML_PCR_SELECTION
         assert(a);
         assert(b);
 
-        FOREACH_TPMS_PCR_SELECTION_IN_TPML_PCR_SELECTION(selection_b, (TPML_PCR_SELECTION*) b)
+        FOREACH_TPMS_PCR_SELECTION_IN_TPML_PCR_SELECTION(selection_b, b)
                 tpm2_tpml_pcr_selection_sub_tpms_pcr_selection(a, selection_b);
 }
 
@@ -1495,7 +1494,7 @@ char *tpm2_tpml_pcr_selection_to_string(const TPML_PCR_SELECTION *l) {
         assert(l);
 
         _cleanup_free_ char *banks = NULL;
-        FOREACH_TPMS_PCR_SELECTION_IN_TPML_PCR_SELECTION(s, (TPML_PCR_SELECTION*) l) {
+        FOREACH_TPMS_PCR_SELECTION_IN_TPML_PCR_SELECTION(s, l) {
                 if (tpm2_tpms_pcr_selection_is_empty(s))
                         continue;
 
@@ -1521,10 +1520,11 @@ size_t tpm2_tpml_pcr_selection_weight(const TPML_PCR_SELECTION *l) {
         return weight;
 }
 
-bool TPM2_PCR_VALUE_VALID(const Tpm2PCRValue *pcr_value) {
+bool tpm2_pcr_value_valid(const Tpm2PCRValue *pcr_value) {
         int r;
 
-        assert(pcr_value);
+        if (!pcr_value)
+                return false;
 
         if (!TPM2_PCR_INDEX_VALID(pcr_value->index)) {
                 log_debug("PCR index %u invalid.", pcr_value->index);
@@ -1537,7 +1537,7 @@ bool TPM2_PCR_VALUE_VALID(const Tpm2PCRValue *pcr_value) {
                 if (r < 0)
                         return false;
 
-                if ((int) pcr_value->value.size != r) {
+                if (pcr_value->value.size != (size_t) r) {
                         log_debug("PCR hash 0x%" PRIx16 " expected size %d does not match actual size %" PRIu16 ".",
                                   pcr_value->hash, r, pcr_value->value.size);
                         return false;
@@ -1551,44 +1551,68 @@ bool TPM2_PCR_VALUE_VALID(const Tpm2PCRValue *pcr_value) {
  *
  * 1) all entries must be sorted in ascending order (e.g. using tpm2_sort_pcr_values())
  * 2) all entries must be unique, i.e. there cannot be 2 entries with the same hash and index
+ *
+ * Returns true if all entries are valid (or if no entries are provided), false otherwise.
  */
-bool TPM2_PCR_VALUES_VALID(const Tpm2PCRValue *pcr_values, size_t n_pcr_values) {
-        assert(pcr_values || n_pcr_values == 0);
+bool tpm2_pcr_values_valid(const Tpm2PCRValue *pcr_values, size_t n_pcr_values) {
+        if (!pcr_values && n_pcr_values > 0)
+                return false;
 
-        for (size_t i = 0; i < n_pcr_values; i++) {
-                const Tpm2PCRValue *v = &pcr_values[i];
-
-                if (!TPM2_PCR_VALUE_VALID(v))
+        const Tpm2PCRValue *previous = NULL;
+        FOREACH_ARRAY(current, pcr_values, n_pcr_values) {
+                if (!tpm2_pcr_value_valid(current))
                         return false;
 
-                if (i == 0)
+                if (!previous) {
+                        previous = current;
                         continue;
-
-                const Tpm2PCRValue *l = &pcr_values[i - 1];
+                }
 
                 /* Hashes must be sorted in ascending order */
-                if (v->hash < l->hash) {
+                if (current->hash < previous->hash) {
                         log_debug("PCR values not in ascending order, hash %" PRIu16 " is after %" PRIu16 ".",
-                                  v->hash, l->hash);
+                                  current->hash, previous->hash);
                         return false;
                 }
 
-                if (v->hash == l->hash) {
+                if (current->hash == previous->hash) {
                         /* Indexes (for the same hash) must be sorted in ascending order */
-                        if (v->index < l->index) {
+                        if (current->index < previous->index) {
                                 log_debug("PCR values not in ascending order, hash %" PRIu16 " index %u is after %u.",
-                                          v->hash, v->index, l->index);
+                                          current->hash, current->index, previous->index);
                                 return false;
                         }
 
                         /* Indexes (for the same hash) must not be duplicates */
-                        if (v->index == l->index) {
+                        if (current->index == previous->index) {
                                 log_debug("PCR values contain duplicates for hash %" PRIu16 " index %u.",
-                                          v->hash, v->index);
+                                          current->hash, previous->index);
                                 return false;
                         }
                 }
         }
+
+        return true;
+}
+
+/* Returns true if any of the provided PCR values has an actual hash value included, false otherwise. */
+bool tpm2_pcr_values_has_any_values(const Tpm2PCRValue *pcr_values, size_t n_pcr_values) {
+        assert(pcr_values || n_pcr_values == 0);
+
+        FOREACH_ARRAY(v, pcr_values, n_pcr_values)
+                if (v->value.size > 0)
+                        return true;
+
+        return false;
+}
+
+/* Returns true if all of the provided PCR values has an actual hash value included, false otherwise. */
+bool tpm2_pcr_values_has_all_values(const Tpm2PCRValue *pcr_values, size_t n_pcr_values) {
+        assert(pcr_values || n_pcr_values == 0);
+
+        FOREACH_ARRAY(v, pcr_values, n_pcr_values)
+                if (v->value.size == 0)
+                        return false;
 
         return true;
 }
@@ -1633,12 +1657,12 @@ int tpm2_pcr_values_to_mask(const Tpm2PCRValue *pcr_values, size_t n_pcr_values,
         assert(pcr_values || n_pcr_values == 0);
         assert(ret_mask);
 
-        if (!TPM2_PCR_VALUES_VALID(pcr_values, n_pcr_values))
+        if (!tpm2_pcr_values_valid(pcr_values, n_pcr_values))
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid PCR values.");
 
-        for (size_t i = 0; i < n_pcr_values; i++)
-                if (pcr_values[i].hash == hash)
-                        SET_BIT(mask, pcr_values[i].index);
+        FOREACH_ARRAY(v, pcr_values, n_pcr_values)
+                if (v->hash == hash)
+                        SET_BIT(mask, v->index);
 
         *ret_mask = mask;
 
@@ -1658,17 +1682,13 @@ int tpm2_tpml_pcr_selection_from_pcr_values(
 
         assert(pcr_values || n_pcr_values == 0);
 
-        if (!TPM2_PCR_VALUES_VALID(pcr_values, n_pcr_values))
+        if (!tpm2_pcr_values_valid(pcr_values, n_pcr_values))
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "PCR values are not valid.");
 
-        for (size_t i = 0; i < n_pcr_values; i++) {
-                unsigned index = pcr_values[i].index;
-                TPMI_ALG_HASH hash = pcr_values[i].hash;
-                const TPM2B_DIGEST *digest = &pcr_values[i].value;
+        FOREACH_ARRAY(v, pcr_values, n_pcr_values) {
+                tpm2_tpml_pcr_selection_add_mask(&selection, v->hash, INDEX_TO_MASK(uint32_t, v->index));
 
-                tpm2_tpml_pcr_selection_add_mask(&selection, hash, INDEX_TO_MASK(uint32_t, index));
-
-                if (!GREEDY_REALLOC_APPEND(values, n_values, digest, 1))
+                if (!GREEDY_REALLOC_APPEND(values, n_values, &v->value, 1))
                         return log_oom_debug();
         }
 
@@ -1722,7 +1742,7 @@ int tpm2_pcr_value_from_string(const char *arg, Tpm2PCRValue *ret_pcr_value) {
         if (r < 1)
                 return log_error_errno(r, "Could not parse pcr value '%s': %m", p);
 
-        r = pcr_index_from_string(index);
+        r = tpm2_pcr_index_from_string(index);
         if (r < 0)
                 return log_error_errno(r, "Invalid pcr index '%s': %m", index);
         pcr_value.index = (unsigned) r;
@@ -1737,23 +1757,23 @@ int tpm2_pcr_value_from_string(const char *arg, Tpm2PCRValue *ret_pcr_value) {
                 if (r < 0)
                         return log_error_errno(r, "Invalid pcr hash algorithm '%s': %m", hash);
                 pcr_value.hash = (TPMI_ALG_HASH) r;
-        }
 
-        if (!isempty(p)) {
-                /* Remove leading 0x if present */
-                p = startswith_no_case(p, "0x") ?: p;
+                if (!isempty(p)) {
+                        /* Remove leading 0x if present */
+                        p = startswith_no_case(p, "0x") ?: p;
 
-                _cleanup_free_ void *buf = NULL;
-                size_t buf_size = 0;
-                r = unhexmem(p, strlen(p), &buf, &buf_size);
-                if (r < 0)
-                        return log_error_errno(r, "Invalid pcr hash value '%s': %m", p);
+                        _cleanup_free_ void *buf = NULL;
+                        size_t buf_size = 0;
+                        r = unhexmem(p, SIZE_MAX, &buf, &buf_size);
+                        if (r < 0)
+                                return log_error_errno(r, "Invalid pcr hash value '%s': %m", p);
 
-                r = TPM2B_DIGEST_CHECK_SIZE(buf_size);
-                if (r < 0)
-                        return log_error_errno(r, "PCR hash value size %zu too large.", buf_size);
+                        r = TPM2B_DIGEST_CHECK_SIZE(buf_size);
+                        if (r < 0)
+                                return log_error_errno(r, "PCR hash value size %zu too large.", buf_size);
 
-                pcr_value.value = TPM2B_DIGEST_MAKE(buf, buf_size);
+                        pcr_value.value = TPM2B_DIGEST_MAKE(buf, buf_size);
+                }
         }
 
         *ret_pcr_value = pcr_value;
@@ -1766,13 +1786,11 @@ int tpm2_pcr_value_from_string(const char *arg, Tpm2PCRValue *ret_pcr_value) {
  * string. This does not check for validity. */
 char *tpm2_pcr_value_to_string(const Tpm2PCRValue *pcr_value) {
         _cleanup_free_ char *index = NULL, *value = NULL;
-        int r;
 
-        r = asprintf(&index, "%u", pcr_value->index);
-        if (r < 0)
+        if (asprintf(&index, "%u", pcr_value->index) < 0)
                 return NULL;
 
-        const char *hash = tpm2_hash_alg_to_string(pcr_value->hash);
+        const char *hash = pcr_value->hash > 0 ? tpm2_hash_alg_to_string(pcr_value->hash) : NULL;
 
         if (hash && pcr_value->value.size > 0) {
                 value = hexmem(pcr_value->value.buffer, pcr_value->value.size);
@@ -1780,7 +1798,7 @@ char *tpm2_pcr_value_to_string(const Tpm2PCRValue *pcr_value) {
                         return NULL;
         }
 
-        return strjoin(index, hash ? ":" : "", hash ?: "", value ? "=" : "", value ?: "");
+        return strjoin(index, hash ? ":" : "", strempty(hash), value ? "=" : "", strempty(value));
 }
 
 /* Parse a string argument into an array of Tpm2PCRValue objects.
@@ -1826,8 +1844,8 @@ int tpm2_pcr_values_from_string(const char *arg, Tpm2PCRValue **ret_pcr_values, 
 char *tpm2_pcr_values_to_string(const Tpm2PCRValue *pcr_values, size_t n_pcr_values) {
         _cleanup_free_ char *s = NULL;
 
-        for (size_t i = 0; i < n_pcr_values; i++) {
-                _cleanup_free_ char *pcrstr = tpm2_pcr_value_to_string(&pcr_values[i]);
+        FOREACH_ARRAY(v, pcr_values, n_pcr_values) {
+                _cleanup_free_ char *pcrstr = tpm2_pcr_value_to_string(v);
                 if (!pcrstr || !strextend_with_separator(&s, "+", pcrstr))
                         return NULL;
         }
@@ -2315,7 +2333,7 @@ int tpm2_pcr_read(
 
         tpm2_sort_pcr_values(pcr_values, n_pcr_values);
 
-        if (!TPM2_PCR_VALUES_VALID(pcr_values, n_pcr_values))
+        if (!tpm2_pcr_values_valid(pcr_values, n_pcr_values))
                 return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "PCR values read from TPM are not valid.");
 
         *ret_pcr_values = TAKE_PTR(pcr_values);
@@ -2353,9 +2371,7 @@ int tpm2_pcr_read_missing_values(Tpm2Context *c, Tpm2PCRValue *pcr_values, size_
                 }
         }
 
-        for (size_t i = 0; i < n_pcr_values; i++) {
-                Tpm2PCRValue *v = &pcr_values[i];
-
+        FOREACH_ARRAY(v, pcr_values, n_pcr_values) {
                 if (v->hash == 0)
                         v->hash = pcr_bank;
 
@@ -2411,9 +2427,9 @@ static int tpm2_pcr_mask_good(
                 return r;
 
         /* If at least one of the selected PCR values is something other than all 0x00 or all 0xFF we are happy. */
-        for (unsigned i = 0; i < n_pcr_values; i++)
-                if (!memeqbyte(0x00, pcr_values[i].value.buffer, pcr_values[i].value.size) &&
-                    !memeqbyte(0xFF, pcr_values[i].value.buffer, pcr_values[i].value.size))
+        FOREACH_ARRAY(v, pcr_values, n_pcr_values)
+                if (!memeqbyte(0x00, v->value.buffer, v->value.size) &&
+                    !memeqbyte(0xFF, v->value.buffer, v->value.size))
                         return true;
 
         return false;
@@ -2607,12 +2623,12 @@ int tpm2_get_good_pcr_banks_strv(
         if (n_algs < 0)
                 return n_algs;
 
-        for (int i = 0; i < n_algs; i++) {
+        FOREACH_ARRAY(a, algs, n_algs) {
                 _cleanup_free_ char *n = NULL;
                 const EVP_MD *implementation;
                 const char *salg;
 
-                salg = tpm2_hash_alg_to_string(algs[i]);
+                salg = tpm2_hash_alg_to_string(*a);
                 if (!salg)
                         return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "TPM2 operates with unknown PCR algorithm, can't measure.");
 
@@ -2684,8 +2700,8 @@ int tpm2_digest_many(
                         return 0;
         }
 
-        for (size_t i = 0; i < n_data; i++)
-                sha256_process_bytes(data[i].iov_base, data[i].iov_len, &ctx);
+        FOREACH_ARRAY(d, data, n_data)
+                sha256_process_bytes(d->iov_base, d->iov_len, &ctx);
 
         sha256_finish_ctx(&ctx, digest->buffer);
 
@@ -2864,10 +2880,8 @@ static int tpm2_make_policy_session(
                 Tpm2Context *c,
                 const Tpm2Handle *primary,
                 const Tpm2Handle *encryption_session,
-                bool trial,
                 Tpm2Handle **ret_session) {
 
-        TPM2_SE session_type = trial ? TPM2_SE_TRIAL : TPM2_SE_POLICY;
         TSS2_RC rc;
         int r;
 
@@ -2895,7 +2909,7 @@ static int tpm2_make_policy_session(
                         ESYS_TR_NONE,
                         ESYS_TR_NONE,
                         NULL,
-                        session_type,
+                        TPM2_SE_POLICY,
                         &SESSION_TEMPLATE_SYM_AES_128_CFB,
                         TPM2_ALG_SHA256,
                         &session->esys_handle);
@@ -3518,36 +3532,42 @@ static int tpm2_build_sealing_policy(
 }
 
 #if HAVE_OPENSSL
-static int tpm2_ecc_curve_from_openssl_curve_id(int curve_id, TPM2_ECC_CURVE *ret) {
+static const struct {
+        TPM2_ECC_CURVE tpm2_ecc_curve_id;
+        int openssl_ecc_curve_id;
+} tpm2_openssl_ecc_curve_table[] = {
+        { TPM2_ECC_NIST_P192, NID_X9_62_prime192v1, },
+        { TPM2_ECC_NIST_P224, NID_secp224r1,        },
+        { TPM2_ECC_NIST_P256, NID_X9_62_prime256v1, },
+        { TPM2_ECC_NIST_P384, NID_secp384r1,        },
+        { TPM2_ECC_NIST_P521, NID_secp521r1,        },
+        { TPM2_ECC_SM2_P256,  NID_sm2,              },
+};
+
+static int tpm2_ecc_curve_from_openssl_curve_id(int openssl_ecc_curve_id, TPM2_ECC_CURVE *ret) {
         assert(ret);
 
-        switch (curve_id) {
-        case NID_X9_62_prime192v1: *ret = TPM2_ECC_NIST_P192; return 0;
-        case NID_secp224r1:        *ret = TPM2_ECC_NIST_P192; return 0;
-        case NID_X9_62_prime256v1: *ret = TPM2_ECC_NIST_P256; return 0;
-        case NID_secp384r1:        *ret = TPM2_ECC_NIST_P384; return 0;
-        case NID_secp521r1:        *ret = TPM2_ECC_NIST_P521; return 0;
-        case NID_sm2:              *ret = TPM2_ECC_SM2_P256;  return 0;
-        }
+        FOREACH_ARRAY(t, tpm2_openssl_ecc_curve_table, ELEMENTSOF(tpm2_openssl_ecc_curve_table))
+                if (t->openssl_ecc_curve_id == openssl_ecc_curve_id) {
+                        *ret = t->tpm2_ecc_curve_id;
+                        return 0;
+                }
 
         return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                               "Openssl ECC curve id %d not supported.", curve_id);
+                               "Openssl ECC curve id %d not supported.", openssl_ecc_curve_id);
 }
 
-static int tpm2_ecc_curve_to_openssl_curve_id(TPM2_ECC_CURVE curve, int *ret) {
+static int tpm2_ecc_curve_to_openssl_curve_id(TPM2_ECC_CURVE tpm2_ecc_curve_id, int *ret) {
         assert(ret);
 
-        switch (curve) {
-        case TPM2_ECC_NIST_P192: *ret = NID_X9_62_prime192v1; return 0;
-        case TPM2_ECC_NIST_P224: *ret = NID_secp224r1;        return 0;
-        case TPM2_ECC_NIST_P256: *ret = NID_X9_62_prime256v1; return 0;
-        case TPM2_ECC_NIST_P384: *ret = NID_secp384r1;        return 0;
-        case TPM2_ECC_NIST_P521: *ret = NID_secp521r1;        return 0;
-        case TPM2_ECC_SM2_P256:  *ret = NID_sm2;              return 0;
-        }
+        FOREACH_ARRAY(t, tpm2_openssl_ecc_curve_table, ELEMENTSOF(tpm2_openssl_ecc_curve_table))
+                if (t->tpm2_ecc_curve_id == tpm2_ecc_curve_id) {
+                        *ret = t->openssl_ecc_curve_id;
+                        return 0;
+                }
 
         return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                               "TPM2 ECC curve %u not supported.", curve);
+                               "TPM2 ECC curve %u not supported.", tpm2_ecc_curve_id);
 }
 
 #define TPM2_RSA_DEFAULT_EXPONENT UINT32_C(0x10001)
@@ -3559,7 +3579,8 @@ int tpm2_tpm2b_public_to_openssl_pkey(const TPM2B_PUBLIC *public, EVP_PKEY **ret
         assert(ret);
 
         const TPMT_PUBLIC *p = &public->publicArea;
-        if (p->type == TPM2_ALG_ECC) {
+        switch (p->type) {
+        case TPM2_ALG_ECC: {
                 int curve_id;
                 r = tpm2_ecc_curve_to_openssl_curve_id(p->parameters.eccDetail.curveID, &curve_id);
                 if (r < 0)
@@ -3574,8 +3595,7 @@ int tpm2_tpm2b_public_to_openssl_pkey(const TPM2B_PUBLIC *public, EVP_PKEY **ret
                                 point->y.size,
                                 ret);
         }
-
-        if (p->type == TPM2_ALG_RSA) {
+        case TPM2_ALG_RSA: {
                 /* TPM specification Part 2 ("Structures") section for TPMS_RSA_PARAMS states "An exponent of
                  * zero indicates that the exponent is the default of 2^16 + 1". */
                 uint32_t exponent = htobe32(p->parameters.rsaDetail.exponent ?: TPM2_RSA_DEFAULT_EXPONENT);
@@ -3586,9 +3606,10 @@ int tpm2_tpm2b_public_to_openssl_pkey(const TPM2B_PUBLIC *public, EVP_PKEY **ret
                                 sizeof(exponent),
                                 ret);
         }
-
-        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                               "TPM2 asymmetric algorithm 0x%" PRIx16 " not supported.", p->type);
+        default:
+                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "TPM2 asymmetric algorithm 0x%" PRIx16 " not supported.", p->type);
+        }
 }
 
 int tpm2_tpm2b_public_from_openssl_pkey(const EVP_PKEY *pkey, TPM2B_PUBLIC *ret) {
@@ -3612,7 +3633,8 @@ int tpm2_tpm2b_public_from_openssl_pkey(const EVP_PKEY *pkey, TPM2B_PUBLIC *ret)
         key_id = EVP_PKEY_id(pkey);
 #endif
 
-        if (key_id == EVP_PKEY_EC) {
+        switch (key_id) {
+        case EVP_PKEY_EC: {
                 public.type = TPM2_ALG_ECC;
 
                 int curve_id;
@@ -3620,7 +3642,7 @@ int tpm2_tpm2b_public_from_openssl_pkey(const EVP_PKEY *pkey, TPM2B_PUBLIC *ret)
                 size_t x_size, y_size;
                 r = ecc_pkey_to_curve_x_y(pkey, &curve_id, &x, &x_size, &y, &y_size);
                 if (r < 0)
-                        return log_error_errno(r, "Could not get ECC key curve/x/y: %m");
+                        return log_debug_errno(r, "Could not get ECC key curve/x/y: %m");
 
                 TPM2_ECC_CURVE curve;
                 r = tpm2_ecc_curve_from_openssl_curve_id(curve_id, &curve);
@@ -3633,44 +3655,51 @@ int tpm2_tpm2b_public_from_openssl_pkey(const EVP_PKEY *pkey, TPM2B_PUBLIC *ret)
 
                 r = TPM2B_ECC_PARAMETER_CHECK_SIZE(x_size);
                 if (r < 0)
-                        return log_error_errno(r, "ECC key x size %zu too large.", x_size);
+                        return log_debug_errno(r, "ECC key x size %zu too large.", x_size);
 
                 public.unique.ecc.x = TPM2B_ECC_PARAMETER_MAKE(x, x_size);
 
                 r = TPM2B_ECC_PARAMETER_CHECK_SIZE(y_size);
                 if (r < 0)
-                        return log_error_errno(r, "ECC key y size %zu too large.", y_size);
+                        return log_debug_errno(r, "ECC key y size %zu too large.", y_size);
 
                 public.unique.ecc.y = TPM2B_ECC_PARAMETER_MAKE(y, y_size);
-        } else if (key_id == EVP_PKEY_RSA) {
+
+                break;
+        }
+        case EVP_PKEY_RSA: {
                 public.type = TPM2_ALG_RSA;
 
                 _cleanup_free_ void *n = NULL, *e = NULL;
                 size_t n_size, e_size;
                 r = rsa_pkey_to_n_e(pkey, &n, &n_size, &e, &e_size);
                 if (r < 0)
-                        return log_error_errno(r, "Could not get RSA key n/e: %m");
+                        return log_debug_errno(r, "Could not get RSA key n/e: %m");
 
                 r = TPM2B_PUBLIC_KEY_RSA_CHECK_SIZE(n_size);
                 if (r < 0)
-                        return log_error_errno(r, "RSA key n size %zu too large.", n_size);
+                        return log_debug_errno(r, "RSA key n size %zu too large.", n_size);
 
                 public.unique.rsa = TPM2B_PUBLIC_KEY_RSA_MAKE(n, n_size);
                 public.parameters.rsaDetail.keyBits = n_size * 8;
 
                 if (sizeof(uint32_t) < e_size)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "RSA key e size %zu too large.", e_size);
 
                 uint32_t exponent = 0;
-                memcpy((void*) &exponent, e, e_size);
+                memcpy(&exponent, e, e_size);
                 exponent = be32toh(exponent) >> (32 - e_size * 8);
                 if (exponent == TPM2_RSA_DEFAULT_EXPONENT)
                         exponent = 0;
                 public.parameters.rsaDetail.exponent = exponent;
-        } else
+
+                break;
+        }
+        default:
                 return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                        "EVP_PKEY type %d not supported.", key_id);
+        }
 
         *ret = (TPM2B_PUBLIC) {
                 .size = sizeof(public),
@@ -4081,7 +4110,6 @@ int tpm2_unseal(const char *device,
                                 c,
                                 primary_handle,
                                 encryption_session,
-                                /* trial= */ false,
                                 &policy_session);
                 if (r < 0)
                         return r;
@@ -4267,6 +4295,159 @@ int tpm2_find_device_auto(
 }
 
 #if HAVE_TPM2
+static const char* tpm2_userspace_event_type_table[_TPM2_USERSPACE_EVENT_TYPE_MAX] = {
+        [TPM2_EVENT_PHASE]      = "phase",
+        [TPM2_EVENT_FILESYSTEM] = "filesystem",
+        [TPM2_EVENT_VOLUME_KEY] = "volume-key",
+        [TPM2_EVENT_MACHINE_ID] = "machine-id",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(tpm2_userspace_event_type, Tpm2UserspaceEventType);
+
+const char *tpm2_userspace_log_path(void) {
+        return secure_getenv("SYSTEMD_MEASURE_LOG_USERSPACE") ?: "/var/log/systemd/tpm2-measure.log";
+}
+
+static int tpm2_userspace_log_open(void) {
+        _cleanup_close_ int fd = -EBADF;
+        struct stat st;
+        const char *e;
+        int r;
+
+        e = tpm2_userspace_log_path();
+        (void) mkdir_parents(e, 0755);
+
+        /* We use access mode 0600 here (even though the measurements should not strictly be confidential),
+         * because we use BSD file locking on it, and if anyone but root can access the file they can also
+         * lock it, which we want to avoid. */
+        fd = open(e, O_CREAT|O_WRONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, 0600);
+        if (fd < 0)
+                return log_warning_errno(errno, "Failed to open TPM log file '%s' for writing, ignoring: %m", e);
+
+        if (flock(fd, LOCK_EX) < 0)
+                return log_warning_errno(errno, "Failed to lock TPM log file '%s', ignoring: %m", e);
+
+        if (fstat(fd, &st) < 0)
+                return log_warning_errno(errno, "Failed to fstat TPM log file '%s', ignoring: %m", e);
+
+        r = stat_verify_regular(&st);
+        if (r < 0)
+                return log_warning_errno(r, "TPM log file '%s' is not regular, ignoring: %m", e);
+
+        /* We set the sticky bit when we are about to append to the log file. We'll unset it afterwards
+         * again. If we manage to take a lock on a file that has it set we know we didn't write it fully and
+         * it is corrupted. Ideally we'd like to use user xattrs for this, but unfortunately tmpfs (which is
+         * our assumed backend fs) doesn't know user xattrs. */
+        if (st.st_mode & S_ISVTX)
+                return log_warning_errno(SYNTHETIC_ERRNO(ESTALE), "TPM log file '%s' aborted, ignoring.", e);
+
+        if (fchmod(fd, 0600 | S_ISVTX) < 0)
+                return log_warning_errno(errno, "Failed to chmod() TPM log file '%s', ignoring: %m", e);
+
+        return TAKE_FD(fd);
+}
+
+static int tpm2_userspace_log(
+                int fd,
+                unsigned pcr_index,
+                const TPML_DIGEST_VALUES *values,
+                Tpm2UserspaceEventType event_type,
+                const char *description) {
+
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *array = NULL;
+        _cleanup_free_ char *f = NULL;
+        sd_id128_t boot_id;
+        int r;
+
+        assert(values);
+        assert(values->count > 0);
+
+        /* We maintain a local PCR measurement log. This implements a subset of the TCG Canonical Event Log
+         * Format – the JSON flavour –
+         * (https://trustedcomputinggroup.org/resource/canonical-event-log-format/), but departs in certain
+         * ways from it, specifically:
+         *
+         * - We don't write out a recnum. It's a bit too vaguely defined which means we'd have to read
+         *   through the whole logs (include firmware logs) before knowing what the next value is we should
+         *   use. Hence we simply don't write this out as append-time, and instead expect a consumer to add
+         *   it in when it uses the data.
+         *
+         * - We write this out in RFC 7464 application/json-seq rather than as a JSON array. Writing this as
+         *   JSON array would mean that for each appending we'd have to read the whole log file fully into
+         *   memory before writing it out again. We prefer a strictly append-only write pattern however. (RFC
+         *   7464 is what jq --seq eats.) Conversion into a proper JSON array is trivial.
+         *
+         * It should be possible to convert this format in a relatively straight-forward way into the
+         * official TCG Canonical Event Log Format on read, by simply adding in a few more fields that can be
+         * determined from the full dataset.
+         *
+         * We set the 'content_type' field to "systemd" to make clear this data is generated by us, and
+         * include various interesting fields in the 'content' subobject, including a CLOCK_BOOTTIME
+         * timestamp which can be used to order this measurement against possibly other measurements
+         * independently done by other subsystems on the system.
+         */
+
+        if (fd < 0) /* Apparently tpm2_local_log_open() failed earlier, let's not complain again */
+                return 0;
+
+        for (size_t i = 0; i < values->count; i++) {
+                const EVP_MD *implementation;
+                const char *a;
+
+                assert_se(a = tpm2_hash_alg_to_string(values->digests[i].hashAlg));
+                assert_se(implementation = EVP_get_digestbyname(a));
+
+                r = json_variant_append_arrayb(
+                                &array, JSON_BUILD_OBJECT(
+                                                JSON_BUILD_PAIR_STRING("hashAlg", a),
+                                                JSON_BUILD_PAIR("digest", JSON_BUILD_HEX(&values->digests[i].digest, EVP_MD_size(implementation)))));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to append digest object to JSON array: %m");
+        }
+
+        assert(array);
+
+        r = sd_id128_get_boot(&boot_id);
+        if (r < 0)
+                return log_error_errno(r, "Failed to acquire boot ID: %m");
+
+        r = json_build(&v, JSON_BUILD_OBJECT(
+                                       JSON_BUILD_PAIR("pcr", JSON_BUILD_UNSIGNED(pcr_index)),
+                                       JSON_BUILD_PAIR("digests", JSON_BUILD_VARIANT(array)),
+                                       JSON_BUILD_PAIR("content_type", JSON_BUILD_STRING("systemd")),
+                                       JSON_BUILD_PAIR("content", JSON_BUILD_OBJECT(
+                                                                       JSON_BUILD_PAIR_CONDITION(description, "string", JSON_BUILD_STRING(description)),
+                                                                       JSON_BUILD_PAIR("bootId", JSON_BUILD_ID128(boot_id)),
+                                                                       JSON_BUILD_PAIR("timestamp", JSON_BUILD_UNSIGNED(now(CLOCK_BOOTTIME))),
+                                                                       JSON_BUILD_PAIR_CONDITION(event_type >= 0, "eventType", JSON_BUILD_STRING(tpm2_userspace_event_type_to_string(event_type)))))));
+        if (r < 0)
+                return log_error_errno(r, "Failed to build log record JSON: %m");
+
+        r = json_variant_format(v, JSON_FORMAT_SEQ, &f);
+        if (r < 0)
+                return log_error_errno(r, "Failed to format JSON: %m");
+
+        if (lseek(fd, 0, SEEK_END) == (off_t) -1)
+                return log_error_errno(errno, "Failed to seek to end of JSON log: %m");
+
+        r = loop_write(fd, f, SIZE_MAX);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write JSON data to log: %m");
+
+        if (fsync(fd) < 0)
+                return log_error_errno(errno, "Failed to sync JSON data: %m");
+
+        /* Unset S_ISVTX again */
+        if (fchmod(fd, 0600) < 0)
+                return log_warning_errno(errno, "Failed to chmod() TPM log file, ignoring: %m");
+
+        r = fsync_full(fd);
+        if (r < 0)
+                return log_error_errno(r, "Failed to sync JSON log: %m");
+
+        return 1;
+}
+
 int tpm2_extend_bytes(
                 Tpm2Context *c,
                 char **banks,
@@ -4274,9 +4455,12 @@ int tpm2_extend_bytes(
                 const void *data,
                 size_t data_size,
                 const void *secret,
-                size_t secret_size) {
+                size_t secret_size,
+                Tpm2UserspaceEventType event_type,
+                const char *description) {
 
 #if HAVE_OPENSSL
+        _cleanup_close_ int log_fd = -EBADF;
         TPML_DIGEST_VALUES values = {};
         TSS2_RC rc;
 
@@ -4328,6 +4512,10 @@ int tpm2_extend_bytes(
                 values.count++;
         }
 
+        /* Open + lock the log file *before* we start measuring, so that noone else can come between our log
+         * and our measurement and change either */
+        log_fd = tpm2_userspace_log_open();
+
         rc = sym_Esys_PCR_Extend(
                         c->esys_context,
                         ESYS_TR_PCR0 + pcr_index,
@@ -4341,6 +4529,9 @@ int tpm2_extend_bytes(
                                 "Failed to measure into PCR %u: %s",
                                 pcr_index,
                                 sym_Tss2_RC_Decode(rc));
+
+        /* Now, write what we just extended to the log, too. */
+        (void) tpm2_userspace_log(log_fd, pcr_index, &values, event_type, description);
 
         return 0;
 #else /* HAVE_OPENSSL */
@@ -4654,28 +4845,34 @@ int tpm2_parse_luks2_json(
 }
 
 int tpm2_hash_alg_to_size(uint16_t alg) {
-        if (alg == TPM2_ALG_SHA1)
+        switch (alg) {
+        case TPM2_ALG_SHA1:
                 return 20;
-        if (alg == TPM2_ALG_SHA256)
+        case TPM2_ALG_SHA256:
                 return 32;
-        if (alg == TPM2_ALG_SHA384)
+        case TPM2_ALG_SHA384:
                 return 48;
-        if (alg == TPM2_ALG_SHA512)
+        case TPM2_ALG_SHA512:
                 return 64;
-        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown hash algorithm id 0x%" PRIx16, alg);
+        default:
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown hash algorithm id 0x%" PRIx16, alg);
+        }
 }
 
 const char *tpm2_hash_alg_to_string(uint16_t alg) {
-        if (alg == TPM2_ALG_SHA1)
+        switch (alg) {
+        case TPM2_ALG_SHA1:
                 return "sha1";
-        if (alg == TPM2_ALG_SHA256)
+        case TPM2_ALG_SHA256:
                 return "sha256";
-        if (alg == TPM2_ALG_SHA384)
+        case TPM2_ALG_SHA384:
                 return "sha384";
-        if (alg == TPM2_ALG_SHA512)
+        case TPM2_ALG_SHA512:
                 return "sha512";
-        log_debug("Unknown hash algorithm id 0x%" PRIx16, alg);
-        return NULL;
+        default:
+                log_debug("Unknown hash algorithm id 0x%" PRIx16, alg);
+                return NULL;
+        }
 }
 
 int tpm2_hash_alg_from_string(const char *alg) {
@@ -4691,12 +4888,15 @@ int tpm2_hash_alg_from_string(const char *alg) {
 }
 
 const char *tpm2_asym_alg_to_string(uint16_t alg) {
-        if (alg == TPM2_ALG_ECC)
+        switch (alg) {
+        case TPM2_ALG_ECC:
                 return "ecc";
-        if (alg == TPM2_ALG_RSA)
+        case TPM2_ALG_RSA:
                 return "rsa";
-        log_debug("Unknown asymmetric algorithm id 0x%" PRIx16, alg);
-        return NULL;
+        default:
+                log_debug("Unknown asymmetric algorithm id 0x%" PRIx16, alg);
+                return NULL;
+        }
 }
 
 int tpm2_asym_alg_from_string(const char *alg) {
@@ -4745,16 +4945,16 @@ Tpm2Support tpm2_support(void) {
 #if HAVE_TPM2
 static void tpm2_pcr_values_apply_default_hash_alg(Tpm2PCRValue *pcr_values, size_t n_pcr_values) {
         TPMI_ALG_HASH default_hash = 0;
-        for (size_t i = 0; i < n_pcr_values; i++)
-                if (pcr_values[i].hash != 0) {
-                        default_hash = pcr_values[i].hash;
+        FOREACH_ARRAY(v, pcr_values, n_pcr_values)
+                if (v->hash != 0) {
+                        default_hash = v->hash;
                         break;
                 }
 
         if (default_hash != 0)
-                for (size_t i = 0; i < n_pcr_values; i++)
-                        if (pcr_values[i].hash == 0)
-                                pcr_values[i].hash = default_hash;
+                FOREACH_ARRAY(v, pcr_values, n_pcr_values)
+                        if (v->hash == 0)
+                                v->hash = default_hash;
 }
 #endif
 
@@ -4784,7 +4984,7 @@ int tpm2_parse_pcr_argument(const char *arg, Tpm2PCRValue **ret_pcr_values, size
 
         tpm2_sort_pcr_values(pcr_values, n_pcr_values);
 
-        if (!TPM2_PCR_VALUES_VALID(pcr_values, n_pcr_values))
+        if (!tpm2_pcr_values_valid(pcr_values, n_pcr_values))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Parsed PCR values are not valid.");
 
         *ret_pcr_values = TAKE_PTR(pcr_values);
@@ -4804,33 +5004,33 @@ int tpm2_parse_pcr_argument(const char *arg, Tpm2PCRValue **ret_pcr_values, size
  * including application of the default hash algorithm. Then the two arrays are combined, the default hash
  * algorithm check applied again (in case either the previous or current array had no default hash
  * algorithm), and then the resulting array is sorted and rechecked for validity. */
-int tpm2_parse_pcr_argument_append(const char *arg, Tpm2PCRValue **ret_pcr_values, size_t *ret_n_pcr_values) {
+int tpm2_parse_pcr_argument_append(const char *arg, Tpm2PCRValue **pcr_values, size_t *n_pcr_values) {
 #if HAVE_TPM2
         int r;
 
         assert(arg);
-        assert(ret_pcr_values);
-        assert(ret_n_pcr_values);
+        assert(pcr_values);
+        assert(n_pcr_values);
 
-        _cleanup_free_ Tpm2PCRValue *pcr_values = NULL;
-        size_t n_pcr_values;
-        r = tpm2_parse_pcr_argument(arg, &pcr_values, &n_pcr_values);
+        _cleanup_free_ Tpm2PCRValue *more_pcr_values = NULL;
+        size_t n_more_pcr_values;
+        r = tpm2_parse_pcr_argument(arg, &more_pcr_values, &n_more_pcr_values);
         if (r < 0)
                 return r;
 
         /* If we got previous values, append them. */
-        if (*ret_pcr_values && !GREEDY_REALLOC_APPEND(pcr_values, n_pcr_values, *ret_pcr_values, *ret_n_pcr_values))
+        if (*pcr_values && !GREEDY_REALLOC_APPEND(more_pcr_values, n_more_pcr_values, *pcr_values, *n_pcr_values))
                 return log_oom();
 
-        tpm2_pcr_values_apply_default_hash_alg(pcr_values, n_pcr_values);
+        tpm2_pcr_values_apply_default_hash_alg(more_pcr_values, n_more_pcr_values);
 
-        tpm2_sort_pcr_values(pcr_values, n_pcr_values);
+        tpm2_sort_pcr_values(more_pcr_values, n_more_pcr_values);
 
-        if (!TPM2_PCR_VALUES_VALID(pcr_values, n_pcr_values))
+        if (!tpm2_pcr_values_valid(more_pcr_values, n_more_pcr_values))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Parsed PCR values are not valid.");
 
-        SWAP_TWO(*ret_pcr_values, pcr_values);
-        *ret_n_pcr_values = n_pcr_values;
+        SWAP_TWO(*pcr_values, more_pcr_values);
+        *n_pcr_values = n_more_pcr_values;
 
         return 0;
 #else
@@ -5001,25 +5201,25 @@ int tpm2_util_pbkdf2_hmac_sha256(const void *pass,
         return 0;
 }
 
-static const char* const pcr_index_table[_PCR_INDEX_MAX_DEFINED] = {
-        [PCR_PLATFORM_CODE]       = "platform-code",
-        [PCR_PLATFORM_CONFIG]     = "platform-config",
-        [PCR_EXTERNAL_CODE]       = "external-code",
-        [PCR_EXTERNAL_CONFIG]     = "external-config",
-        [PCR_BOOT_LOADER_CODE]    = "boot-loader-code",
-        [PCR_BOOT_LOADER_CONFIG]  = "boot-loader-config",
-        [PCR_HOST_PLATFORM]       = "host-platform",
-        [PCR_SECURE_BOOT_POLICY]  = "secure-boot-policy",
-        [PCR_KERNEL_INITRD]       = "kernel-initrd",
-        [PCR_IMA]                 = "ima",
-        [PCR_KERNEL_BOOT]         = "kernel-boot",
-        [PCR_KERNEL_CONFIG]       = "kernel-config",
-        [PCR_SYSEXTS]             = "sysexts",
-        [PCR_SHIM_POLICY]         = "shim-policy",
-        [PCR_SYSTEM_IDENTITY]     = "system-identity",
-        [PCR_DEBUG]               = "debug",
-        [PCR_APPLICATION_SUPPORT] = "application-support",
+static const char* const tpm2_pcr_index_table[_TPM2_PCR_INDEX_MAX_DEFINED] = {
+        [TPM2_PCR_PLATFORM_CODE]       = "platform-code",
+        [TPM2_PCR_PLATFORM_CONFIG]     = "platform-config",
+        [TPM2_PCR_EXTERNAL_CODE]       = "external-code",
+        [TPM2_PCR_EXTERNAL_CONFIG]     = "external-config",
+        [TPM2_PCR_BOOT_LOADER_CODE]    = "boot-loader-code",
+        [TPM2_PCR_BOOT_LOADER_CONFIG]  = "boot-loader-config",
+        [TPM2_PCR_HOST_PLATFORM]       = "host-platform",
+        [TPM2_PCR_SECURE_BOOT_POLICY]  = "secure-boot-policy",
+        [TPM2_PCR_KERNEL_INITRD]       = "kernel-initrd",
+        [TPM2_PCR_IMA]                 = "ima",
+        [TPM2_PCR_KERNEL_BOOT]         = "kernel-boot",
+        [TPM2_PCR_KERNEL_CONFIG]       = "kernel-config",
+        [TPM2_PCR_SYSEXTS]             = "sysexts",
+        [TPM2_PCR_SHIM_POLICY]         = "shim-policy",
+        [TPM2_PCR_SYSTEM_IDENTITY]     = "system-identity",
+        [TPM2_PCR_DEBUG]               = "debug",
+        [TPM2_PCR_APPLICATION_SUPPORT] = "application-support",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_FROM_STRING_WITH_FALLBACK(pcr_index, int, TPM2_PCRS_MAX - 1);
-DEFINE_STRING_TABLE_LOOKUP_TO_STRING(pcr_index, int);
+DEFINE_STRING_TABLE_LOOKUP_FROM_STRING_WITH_FALLBACK(tpm2_pcr_index, int, TPM2_PCRS_MAX - 1);
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(tpm2_pcr_index, int);

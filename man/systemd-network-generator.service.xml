@@ -3,7 +3,7 @@
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
-<refentry id="systemd-network-generator.service">
+<refentry id="systemd-network-generator.service" xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>systemd-network-generator.service</title>
@@ -61,6 +61,8 @@
         <listitem>
           <para>— translated into
           <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry> files.</para>
+
+          <xi:include href="version-info.xml" xpointer="v245"/>
         </listitem>
       </varlistentry>
 
@@ -70,6 +72,8 @@
         <listitem>
           <para>— translated into
           <citerefentry><refentrytitle>systemd.link</refentrytitle><manvolnum>5</manvolnum></citerefentry> files.</para>
+
+          <xi:include href="version-info.xml" xpointer="v245"/>
         </listitem>
       </varlistentry>
 
@@ -81,6 +85,8 @@
         <listitem>
           <para>— translated into
           <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry> files.</para>
+
+          <xi:include href="version-info.xml" xpointer="v245"/>
         </listitem>
       </varlistentry>
 

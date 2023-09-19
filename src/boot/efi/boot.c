@@ -17,6 +17,7 @@
 #include "proto/device-path.h"
 #include "proto/simple-text-io.h"
 #include "random-seed.h"
+#include "sbat.h"
 #include "secure-boot.h"
 #include "shim.h"
 #include "ticks.h"
@@ -33,6 +34,8 @@ _used_ _section_(".osrel") static const char osrel[] =
         "ID=systemd-boot\n"
         "VERSION=\"" GIT_VERSION "\"\n"
         "NAME=\"systemd-boot " GIT_VERSION "\"\n";
+
+DECLARE_SBAT(SBAT_BOOT_SECTION_TEXT);
 
 typedef enum LoaderType {
         LOADER_UNDEFINED,
@@ -56,6 +59,7 @@ typedef struct {
         char16_t *loader;
         char16_t *devicetree;
         char16_t *options;
+        bool options_implied; /* If true, these options are implied if we invoke the PE binary without any parameters (as in: UKI). If false we must specify these options explicitly. */
         char16_t **initrd;
         char16_t key;
         EFI_STATUS (*call)(void);
@@ -942,6 +946,10 @@ static bool menu_run(
                         print_at(1, y_status, COLOR_EDIT, clearline + 2);
                         exit = line_edit(&config->entries[idx_highlight]->options, x_max - 2, y_status);
                         print_at(1, y_status, COLOR_NORMAL, clearline + 2);
+
+                        /* The options string was now edited, hence we have to pass it to the invoked
+                         * binary. */
+                        config->entries[idx_highlight]->options_implied = false;
                         break;
 
                 case KEYPRESS(0, 0, 'v'):
@@ -2248,6 +2256,7 @@ static void config_entry_add_unified(
                 if (err == EFI_SUCCESS) {
                         entry->options = xstrn8_to_16(content, cmdline_len);
                         mangle_stub_cmdline(entry->options);
+                        entry->options_implied = true;
                 }
         }
 }
@@ -2382,7 +2391,9 @@ static EFI_STATUS image_start(
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Error loading %ls: %m", entry->loader);
 
-        if (entry->devicetree) {
+        /* DTBs are loaded by the kernel before ExitBootServices, and they can be used to map and assign
+         * arbitrary memory ranges, so skip it when secure boot is enabled as the DTB here is unverified. */
+        if (entry->devicetree && !secure_boot_enabled()) {
                 err = devicetree_install(&dtstate, image_root, entry->devicetree);
                 if (err != EFI_SUCCESS)
                         return log_error_status(err, "Error loading %ls: %m", entry->devicetree);
@@ -2398,7 +2409,10 @@ static EFI_STATUS image_start(
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Error getting LoadedImageProtocol handle: %m");
 
-        char16_t *options = options_initrd ?: entry->options;
+        /* If we had to append an initrd= entry to the command line, we have to pass it, and measure
+         * it. Otherwise, only pass/measure it if it is not implicit anyway (i.e. embedded into the UKI or
+         * so). */
+        char16_t *options = options_initrd ?: entry->options_implied ? NULL : entry->options;
         if (options) {
                 loaded_image->LoadOptions = options;
                 loaded_image->LoadOptionsSize = strsize16(options);

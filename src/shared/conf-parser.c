@@ -19,6 +19,7 @@
 #include "fileio.h"
 #include "fs-util.h"
 #include "hostname-util.h"
+#include "id128-util.h"
 #include "in-addr-util.h"
 #include "log.h"
 #include "macro.h"
@@ -486,6 +487,7 @@ static int config_parse_many_files(
                 Hashmap **ret_stats_by_path) {
 
         _cleanup_hashmap_free_ Hashmap *stats_by_path = NULL;
+        _cleanup_set_free_ Set *inodes = NULL;
         struct stat st;
         int r;
 
@@ -495,8 +497,37 @@ static int config_parse_many_files(
                         return -ENOMEM;
         }
 
+        /* Get inodes for all drop-ins. Later we'll verify if main config is a symlink to one of them. If so,
+         * we skip reading main config file directly. */
+        STRV_FOREACH(fn, files) {
+                _cleanup_free_ struct stat *st_dropin = NULL;
+
+                st_dropin = new(struct stat, 1);
+                if (!st_dropin)
+                        return -ENOMEM;
+
+                r = RET_NERRNO(stat(*fn, st_dropin));
+                if (r < 0 && r != -ENOENT)
+                        return r;
+
+                r = set_ensure_consume(&inodes, &inode_hash_ops, TAKE_PTR(st_dropin));
+                if (r < 0)
+                        return r;
+        }
+
         /* First read the first found main config file. */
         STRV_FOREACH(fn, conf_files) {
+                if (inodes) {
+                        r = RET_NERRNO(stat(*fn, &st));
+                        if (r < 0 && r != -ENOENT)
+                                return r;
+
+                        if (set_contains(inodes, &st)) {
+                                log_debug("%s: symlink to drop-in, will be read later.", *fn);
+                                continue;
+                        }
+                }
+
                 r = config_parse(NULL, *fn, NULL, sections, lookup, table, flags, userdata, &st);
                 if (r < 0)
                         return r;
@@ -747,8 +778,12 @@ static int config_section_compare_func(const ConfigSection *x, const ConfigSecti
 
 DEFINE_HASH_OPS(config_section_hash_ops, ConfigSection, config_section_hash_func, config_section_compare_func);
 
-int config_section_new(const char *filename, unsigned line, ConfigSection **s) {
+int config_section_new(const char *filename, unsigned line, ConfigSection **ret) {
         ConfigSection *cs;
+
+        assert(filename);
+        assert(line > 0);
+        assert(ret);
 
         cs = malloc0(offsetof(ConfigSection, filename) + strlen(filename) + 1);
         if (!cs)
@@ -757,21 +792,31 @@ int config_section_new(const char *filename, unsigned line, ConfigSection **s) {
         strcpy(cs->filename, filename);
         cs->line = line;
 
-        *s = TAKE_PTR(cs);
-
+        *ret = TAKE_PTR(cs);
         return 0;
 }
 
-unsigned hashmap_find_free_section_line(Hashmap *hashmap) {
+int _hashmap_by_section_find_unused_line(
+                HashmapBase *entries_by_section,
+                const char *filename,
+                unsigned *ret) {
+
         ConfigSection *cs;
         unsigned n = 0;
         void *entry;
 
-        HASHMAP_FOREACH_KEY(entry, cs, hashmap)
-                if (n < cs->line)
-                        n = cs->line;
+        HASHMAP_BASE_FOREACH_KEY(entry, cs, entries_by_section) {
+                if (filename && !streq(cs->filename, filename))
+                        continue;
+                n = MAX(n, cs->line);
+        }
 
-        return n + 1;
+        /* overflow? */
+        if (n >= UINT_MAX)
+                return -EFBIG;
+
+        *ret = n + 1;
+        return 0;
 }
 
 #define DEFINE_PARSER(type, vartype, conv_func)                         \
@@ -944,25 +989,19 @@ int config_parse_id128(
                 void *data,
                 void *userdata) {
 
-        sd_id128_t t, *result = data;
+        sd_id128_t *result = data;
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
 
-        r = sd_id128_from_string(rvalue, &t);
-        if (r < 0) {
+        r = id128_from_string_nonzero(rvalue, result);
+        if (r == -ENXIO)
+                log_syntax(unit, LOG_WARNING, filename, line, r, "128-bit ID/UUID is all 0, ignoring: %s", rvalue);
+        else if (r < 0)
                 log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse 128-bit ID/UUID, ignoring: %s", rvalue);
-                return 0;
-        }
 
-        if (sd_id128_is_null(t)) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0, "128-bit ID/UUID is all 0, ignoring: %s", rvalue);
-                return 0;
-        }
-
-        *result = t;
         return 0;
 }
 

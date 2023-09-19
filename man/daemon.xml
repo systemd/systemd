@@ -146,13 +146,11 @@
       new-style daemons. This makes it easier to supervise and control
       them at runtime and simplifies their implementation.</para>
 
-      <para>For developing a new-style daemon, none of the
-      initialization steps recommended for SysV daemons need to be
-      implemented. New-style init systems such as systemd make all of
-      them redundant. Moreover, since some of these steps interfere
-      with process monitoring, file descriptor passing and other
-      functionality of the init system, it is recommended not to
-      execute them when run as new-style service.</para>
+      <para>For developing a new-style daemon, none of the initialization steps recommended for SysV daemons
+      need to be implemented. New-style init systems such as systemd make all of them redundant. Moreover,
+      since some of these steps interfere with process monitoring, file descriptor passing, and other
+      functionality of the service manager, it is recommended not to execute them when run as new-style
+      service.</para>
 
       <para>Note that new-style init systems guarantee execution of daemon processes in a clean process context: it is
       guaranteed that the environment block is sanitized, that the signal handlers and mask is reset and that no
@@ -166,20 +164,28 @@
       following:</para>
 
       <orderedlist>
-        <listitem><para>If <constant>SIGTERM</constant> is received,
-        shut down the daemon and exit cleanly.</para></listitem>
+        <listitem><para>If applicable, the daemon should notify the service manager about startup completion
+        or status updates via the
+        <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+        interface, in particular <varname>READY=1</varname> and <varname>STATUS=…</varname>.
+        </para></listitem>
 
-        <listitem><para>If <constant>SIGHUP</constant> is received,
-        reload the configuration files, if this
-        applies.</para></listitem>
+        <listitem><para>If <constant>SIGTERM</constant> is received, shut down the daemon and exit cleanly.
+        A <varname>STOPPING=1</varname> notification should be sent via
+        <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+        </para></listitem>
 
-        <listitem><para>Provide a correct exit code from the main
-        daemon process, as this is used by the init system to detect
-        service errors and problems. It is recommended to follow the
-        exit code scheme as defined in the <ulink
+        <listitem><para>If <constant>SIGHUP</constant> is received, reload the configuration files, if this
+        applies. This should be combined with notifications via
+        <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>:
+        <varname>RELOADING=1</varname> and <varname>READY=1</varname>.
+        </para></listitem>
+
+        <listitem><para>Provide a correct exit code from the main daemon process, as this is used by the
+        service manager to detect service errors and problems. It is recommended to follow the exit code
+        scheme as defined in the <ulink
         url="http://refspecs.linuxbase.org/LSB_3.1.1/LSB-Core-generic/LSB-Core-generic/iniscrptact.html">LSB
-        recommendations for SysV init
-        scripts</ulink>.</para></listitem>
+        recommendations for SysV init scripts</ulink>.</para></listitem>
 
         <listitem><para>If possible and applicable, expose the
         daemon's control interface via the D-Bus IPC system and grab a
@@ -192,15 +198,12 @@
         <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         for details.</para></listitem>
 
-        <listitem><para>As much as possible, rely on the init system's
-        functionality to limit the access of the daemon to files,
-        services and other resources, i.e. in the case of systemd,
-        rely on systemd's resource limit control instead of
-        implementing your own, rely on systemd's privilege dropping
-        code instead of implementing it in the daemon, and similar.
-        See
-        <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        for the available controls.</para></listitem>
+        <listitem><para>As much as possible, rely on the service manager's functionality to limit the access
+        of the daemon to files, services, and other resources, i.e. in the case of systemd, rely on systemd's
+        resource limit control instead of implementing your own, rely on systemd's privilege dropping code
+        instead of implementing it in the daemon, and so on. See
+        <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+        the available controls.</para></listitem>
 
         <listitem><para>If D-Bus is used, make your daemon
         bus-activatable by supplying a D-Bus service activation
@@ -222,29 +225,25 @@
         can be restarted without losing a single request. See below
         for details.</para></listitem>
 
-        <listitem><para>If applicable, a daemon should notify the init
-        system about startup completion or status updates via the
-        <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-        interface.</para></listitem>
+        <listitem><para>If the service opens sockets or other files on it own, and those file descriptors
+        shall survive a restart, the daemon should store them in the service manager via
+        <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry> with
+        <varname>FDSTORE=1</varname>..</para></listitem>
 
-        <listitem><para>Instead of using the
-        <function>syslog()</function> call to log directly to the
-        system syslog service, a new-style daemon may choose to simply
-        log to standard error via <function>fprintf()</function>,
-        which is then forwarded to syslog by the init system. If log
-        levels are necessary, these can be encoded by prefixing
-        individual log lines with strings like
-        <literal>&lt;4&gt;</literal> (for log level 4 "WARNING" in the
-        syslog priority scheme), following a similar style as the
-        Linux kernel's <function>printk()</function> level system. For
-        details, see
-        <citerefentry><refentrytitle>sd-daemon</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-        and
+        <listitem><para>Instead of using the <function>syslog()</function> call to log directly to the system
+        syslog service, a new-style daemon may choose to simply log to standard error via
+        <function>fprintf()</function>, which is then forwarded to syslog. If log levels are necessary, these
+        can be encoded by prefixing individual log lines with strings like <literal>&lt;4&gt;</literal> (for
+        log level 4 "WARNING" in the syslog priority scheme), following a similar style as the Linux kernel's
+        <function>printk()</function> level system. For details, see
+        <citerefentry><refentrytitle>sd-daemon</refentrytitle><manvolnum>3</manvolnum></citerefentry> and
         <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para></listitem>
 
         <listitem><para>As new-style daemons are invoked without a controlling TTY (but as their own session
-        leaders) care should be taken to always specify `O_NOCTTY` on `open()` calls that possibly reference
-        a TTY device node, so that no controlling TTY is accidentally acquired.</para></listitem>
+        leaders) care should be taken to always specify <constant>O_NOCTTY</constant> on
+        <citerefentry><refentrytitle>open</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+        calls that possibly reference a TTY device node, so that no controlling TTY is accidentally
+        acquired.</para></listitem>
 
       </orderedlist>
 
@@ -282,17 +281,14 @@
     <refsect2>
       <title>Activation on Boot</title>
 
-      <para>Old-style daemons are usually activated exclusively on
-      boot (and manually by the administrator) via SysV init scripts,
-      as detailed in the <ulink
+      <para>Old-style daemons are usually activated exclusively on boot (and manually by the administrator)
+      via SysV init scripts, as detailed in the <ulink
       url="http://refspecs.linuxbase.org/LSB_3.1.1/LSB-Core-generic/LSB-Core-generic/iniscrptact.html">LSB
-      Linux Standard Base Core Specification</ulink>. This method of
-      activation is supported ubiquitously on Linux init systems, both
-      old-style and new-style systems. Among other issues, SysV init
-      scripts have the disadvantage of involving shell scripts in the
-      boot process. New-style init systems generally employ updated
-      versions of activation, both during boot-up and during runtime
-      and using more minimal service description files.</para>
+      Linux Standard Base Core Specification</ulink>. This method of activation is supported ubiquitously on
+      Linux init systems, both old-style and new-style systems. Among other issues, SysV init scripts have
+      the disadvantage of involving shell scripts in the boot process. New-style init systems generally use
+      updated versions of activation, both during boot-up and during runtime and using more minimal service
+      description files.</para>
 
       <para>In systemd, if the developer or administrator wants to
       make sure that a service or other unit is activated
@@ -312,42 +308,29 @@
     <refsect2>
       <title>Socket-Based Activation</title>
 
-      <para>In order to maximize the possible parallelization and
-      robustness and simplify configuration and development, it is
-      recommended for all new-style daemons that communicate via
-      listening sockets to employ socket-based activation. In a
-      socket-based activation scheme, the creation and binding of the
-      listening socket as primary communication channel of daemons to
-      local (and sometimes remote) clients is moved out of the daemon
-      code and into the init system. Based on per-daemon
-      configuration, the init system installs the sockets and then
-      hands them off to the spawned process as soon as the respective
-      daemon is to be started. Optionally, activation of the service
-      can be delayed until the first inbound traffic arrives at the
-      socket to implement on-demand activation of daemons. However,
-      the primary advantage of this scheme is that all providers and
-      all consumers of the sockets can be started in parallel as soon
-      as all sockets are established. In addition to that, daemons can
-      be restarted with losing only a minimal number of client
-      transactions, or even any client request at all (the latter is
-      particularly true for state-less protocols, such as DNS or
-      syslog), because the socket stays bound and accessible during
-      the restart, and all requests are queued while the daemon cannot
-      process them.</para>
+      <para>In order to maximize the possible parallelization and robustness and simplify configuration and
+      development, it is recommended for all new-style daemons that communicate via listening sockets to use
+      socket-based activation. In a socket-based activation scheme, the creation and binding of the listening
+      socket as primary communication channel of daemons to local (and sometimes remote) clients is moved out
+      of the daemon code and into the service manager. Based on per-daemon configuration, the service manager
+      installs the sockets and then hands them off to the spawned process as soon as the respective daemon is
+      to be started. Optionally, activation of the service can be delayed until the first inbound traffic
+      arrives at the socket to implement on-demand activation of daemons. However, the primary advantage of
+      this scheme is that all providers and all consumers of the sockets can be started in parallel as soon
+      as all sockets are established. In addition to that, daemons can be restarted with losing only a
+      minimal number of client transactions, or even any client request at all (the latter is particularly
+      true for state-less protocols, such as DNS or syslog), because the socket stays bound and accessible
+      during the restart, and all requests are queued while the daemon cannot process them.</para>
 
-      <para>New-style daemons which support socket activation must be
-      able to receive their sockets from the init system instead of
-      creating and binding them themselves. For details about the
-      programming interfaces for this scheme provided by systemd, see
-      <citerefentry><refentrytitle>sd_listen_fds</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-      and
-      <citerefentry><refentrytitle>sd-daemon</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
-      For details about porting existing daemons to socket-based
-      activation, see below. With minimal effort, it is possible to
-      implement socket-based activation in addition to traditional
-      internal socket creation in the same codebase in order to
-      support both new-style and old-style init systems from the same
-      daemon binary.</para>
+      <para>New-style daemons which support socket activation must be able to receive their sockets from the
+      service manager instead of creating and binding them themselves. For details about the programming
+      interfaces for this scheme provided by systemd, see
+      <citerefentry><refentrytitle>sd_listen_fds</refentrytitle><manvolnum>3</manvolnum></citerefentry> and
+      <citerefentry><refentrytitle>sd-daemon</refentrytitle><manvolnum>3</manvolnum></citerefentry>. For
+      details about porting existing daemons to socket-based activation, see below. With minimal effort, it
+      is possible to implement socket-based activation in addition to traditional internal socket creation in
+      the same codebase in order to support both new-style and old-style init systems from the same daemon
+      binary.</para>
 
       <para>systemd implements socket-based activation via
       <filename>.socket</filename> units, which are described in
@@ -373,23 +356,16 @@
     <refsect2>
       <title>Bus-Based Activation</title>
 
-      <para>When the D-Bus IPC system is used for communication with
-      clients, new-style daemons should employ bus activation so that
-      they are automatically activated when a client application
-      accesses their IPC interfaces. This is configured in D-Bus
-      service files (not to be confused with systemd service unit
-      files!). To ensure that D-Bus uses systemd to start-up and
-      maintain the daemon, use the <varname>SystemdService=</varname>
-      directive in these service files to configure the matching
-      systemd service for a D-Bus service. e.g.: For a D-Bus service
-      whose D-Bus activation file is named
-      <filename>org.freedesktop.RealtimeKit.service</filename>, make
-      sure to set
-      <varname>SystemdService=rtkit-daemon.service</varname> in that
-      file to bind it to the systemd service
-      <filename>rtkit-daemon.service</filename>. This is needed to
-      make sure that the daemon is started in a race-free fashion when
-      activated via multiple mechanisms simultaneously.</para>
+      <para>When the D-Bus IPC system is used for communication with clients, new-style daemons should use
+      bus activation so that they are automatically activated when a client application accesses their IPC
+      interfaces. This is configured in D-Bus service files (not to be confused with systemd service unit
+      files!). To ensure that D-Bus uses systemd to start-up and maintain the daemon, use the
+      <varname>SystemdService=</varname> directive in these service files to configure the matching systemd
+      service for a D-Bus service. e.g.: For a D-Bus service whose D-Bus activation file is named
+      <filename>org.freedesktop.RealtimeKit.service</filename>, make sure to set
+      <varname>SystemdService=rtkit-daemon.service</varname> in that file to bind it to the systemd service
+      <filename>rtkit-daemon.service</filename>. This is needed to make sure that the daemon is started in a
+      race-free fashion when activated via multiple mechanisms simultaneously.</para>
     </refsect2>
 
     <refsect2>
@@ -449,10 +425,10 @@
       <title>Other Forms of Activation</title>
 
       <para>Other forms of activation have been suggested and implemented in some systems. However, there are
-      often simpler or better alternatives, or they can be put together of combinations of the schemes
-      above. Example: Sometimes, it appears useful to start daemons or <filename>.socket</filename> units
-      when a specific IP address is configured on a network interface, because network sockets shall be bound
-      to the address. However, an alternative to implement this is by utilizing the Linux
+      often simpler or better alternatives, or they can be put together of combinations of the schemes above.
+      Example: Sometimes, it appears useful to start daemons or <filename>.socket</filename> units when a
+      specific IP address is configured on a network interface, because network sockets shall be bound to the
+      address. However, an alternative to implement this is by utilizing the Linux
       <constant>IP_FREEBIND</constant>/<constant>IPV6_FREEBIND</constant> socket option, as accessible via
       <varname>FreeBind=yes</varname> in systemd socket files (see
       <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
@@ -460,15 +436,14 @@
       address, and hence allows bindings to a particular IP address before it actually becomes available,
       making such an explicit dependency to the configured address redundant. Another often suggested trigger
       for service activation is low system load. However, here too, a more convincing approach might be to
-      make proper use of features of the operating system, in particular, the CPU or I/O scheduler of
-      Linux. Instead of scheduling jobs from userspace based on monitoring the OS scheduler, it is advisable
-      to leave the scheduling of processes to the OS scheduler itself. systemd provides fine-grained access
-      to the CPU and I/O schedulers. If a process executed by the init system shall not negatively impact the
-      amount of CPU or I/O bandwidth available to other processes, it should be configured with
-      <varname>CPUSchedulingPolicy=idle</varname> and/or
-      <varname>IOSchedulingClass=idle</varname>. Optionally, this may be combined with timer-based activation
-      to schedule background jobs during runtime and with minimal impact on the system, and remove it from
-      the boot phase itself.</para>
+      make proper use of features of the operating system, in particular, the CPU or I/O scheduler of Linux.
+      Instead of scheduling jobs from userspace based on monitoring the OS scheduler, it is advisable to
+      leave the scheduling of processes to the OS scheduler itself. systemd provides fine-grained access to
+      the CPU and I/O schedulers. If a process executed by the service manager shall not negatively impact
+      the amount of CPU or I/O bandwidth available to other processes, it should be configured with
+      <varname>CPUSchedulingPolicy=idle</varname> and/or <varname>IOSchedulingClass=idle</varname>.
+      Optionally, this may be combined with timer-based activation to schedule background jobs during runtime
+      and with minimal impact on the system, and remove it from the boot phase itself.</para>
     </refsect2>
 
   </refsect1>
@@ -553,7 +528,7 @@
       unit installation path during source
       configuration:</para>
 
-      <programlisting>PKG_PROG_PKG_CONFIG
+      <programlisting>PKG_PROG_PKG_CONFIG()
 AC_ARG_WITH([systemdsystemunitdir],
      [AS_HELP_STRING([--with-systemdsystemunitdir=DIR], [Directory for systemd service files])],,
      [with_systemdsystemunitdir=auto])
@@ -675,26 +650,20 @@ fi</programlisting>
       is useful not only for using the daemon in new-style init
       systems, but also to ease debugging.</para></listitem>
 
-      <listitem><para>If the daemon offers interfaces to other
-      software running on the local system via local
-      <constant>AF_UNIX</constant> sockets, consider implementing
-      socket-based activation (see above). Usually, a minimal patch is
-      sufficient to implement this: Extend the socket creation in the
-      daemon code so that
-      <citerefentry><refentrytitle>sd_listen_fds</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-      is checked for already passed sockets first. If sockets are
-      passed (i.e. when <function>sd_listen_fds()</function> returns a
-      positive value), skip the socket creation step and use the
-      passed sockets. Secondly, ensure that the file system socket
-      nodes for local <constant>AF_UNIX</constant> sockets used in the
-      socket-based activation are not removed when the daemon shuts
-      down, if sockets have been passed. Third, if the daemon normally
-      closes all remaining open file descriptors as part of its
-      initialization, the sockets passed from the init system must be
-      spared. Since new-style init systems guarantee that no left-over
-      file descriptors are passed to executed processes, it might be a
-      good choice to simply skip the closing of all remaining open
-      file descriptors if sockets are passed.</para></listitem>
+      <listitem><para>If the daemon offers interfaces to other software running on the local system via local
+      <constant>AF_UNIX</constant> sockets, consider implementing socket-based activation (see above).
+      Usually, a minimal patch is sufficient to implement this: Extend the socket creation in the daemon code
+      so that
+      <citerefentry><refentrytitle>sd_listen_fds</refentrytitle><manvolnum>3</manvolnum></citerefentry> is
+      checked for already passed sockets first. If sockets are passed (i.e. when
+      <function>sd_listen_fds()</function> returns a positive value), skip the socket creation step and use
+      the passed sockets. Secondly, ensure that the file system socket nodes for local
+      <constant>AF_UNIX</constant> sockets used in the socket-based activation are not removed when the
+      daemon shuts down, if sockets have been passed. Third, if the daemon normally closes all remaining open
+      file descriptors as part of its initialization, the sockets passed from the service manager must be
+      spared. Since new-style init systems guarantee that no left-over file descriptors are passed to
+      executed processes, it might be a good choice to simply skip the closing of all remaining open file
+      descriptors if sockets are passed.</para></listitem>
 
       <listitem><para>Write and install a systemd unit file for the
       service (and the sockets if socket-based activation is used, as

@@ -161,7 +161,7 @@ static int do_mcopy(const char *node, const char *root) {
         if (r == 0) {
                 /* Avoid failures caused by mismatch in expectations between mkfs.vfat and mcopy by disabling
                  * the stricter mcopy checks using MTOOLS_SKIP_CHECK. */
-                execve(mcopy, argv, STRV_MAKE("MTOOLS_SKIP_CHECK=1"));
+                execve(mcopy, argv, STRV_MAKE("MTOOLS_SKIP_CHECK=1", strv_find_prefix(environ, "SOURCE_DATE_EPOCH=")));
 
                 log_error_errno(errno, "Failed to execute mcopy: %m");
 
@@ -334,6 +334,8 @@ int make_filesystem(
         _cleanup_(unlink_and_freep) char *protofile = NULL;
         char vol_id[CONST_MAX(SD_ID128_UUID_STRING_MAX, 8U + 1U)] = {};
         int stdio_fds[3] = { -EBADF, STDERR_FILENO, STDERR_FILENO};
+        ForkFlags flags = FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_DEATHSIG|FORK_LOG|FORK_WAIT|
+                        FORK_CLOSE_ALL_FDS|FORK_REARRANGE_STDIO|FORK_REOPEN_LOG;
         int r;
 
         assert(node);
@@ -590,6 +592,16 @@ int make_filesystem(
         if (extra_mkfs_args && strv_extend_strv(&argv, extra_mkfs_args, false) < 0)
                 return log_oom();
 
+        if (streq(fstype, "btrfs")) {
+                struct stat st;
+
+                if (stat(node, &st) < 0)
+                        return log_error_errno(r, "Failed to stat '%s': %m", node);
+
+                if (S_ISBLK(st.st_mode))
+                        flags |= FORK_NEW_MOUNTNS;
+        }
+
         if (DEBUG_LOGGING) {
                 _cleanup_free_ char *j = NULL;
 
@@ -602,8 +614,7 @@ int make_filesystem(
                         stdio_fds,
                         /*except_fds=*/ NULL,
                         /*n_except_fds=*/ 0,
-                        FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_DEATHSIG|FORK_LOG|FORK_WAIT|
-                        FORK_CLOSE_ALL_FDS|FORK_REARRANGE_STDIO|FORK_NEW_MOUNTNS,
+                        flags,
                         /*ret_pid=*/ NULL);
         if (r < 0)
                 return r;
@@ -620,7 +631,8 @@ int make_filesystem(
                  * on unformatted free space, so let's trick it and other mkfs tools into thinking no
                  * partitions are mounted. See https://github.com/kdave/btrfs-progs/issues/640 for more
                  ° information. */
-                (void) mount_nofollow_verbose(LOG_DEBUG, "/dev/null", "/proc/self/mounts", NULL, MS_BIND, NULL);
+                 if (flags & FORK_NEW_MOUNTNS)
+                        (void) mount_nofollow_verbose(LOG_DEBUG, "/dev/null", "/proc/self/mounts", NULL, MS_BIND, NULL);
 
                 execvp(mkfs, argv);
 

@@ -362,6 +362,27 @@ void rlimit_free_all(struct rlimit **rl) {
         free_many((void**) rl, _RLIMIT_MAX);
 }
 
+int rlimit_copy_all(struct rlimit* target[static _RLIMIT_MAX], struct rlimit* const source[static _RLIMIT_MAX]) {
+        struct rlimit* copy[_RLIMIT_MAX] = {};
+
+        assert(target);
+        assert(source);
+
+        for (int i = 0; i < _RLIMIT_MAX; i++) {
+                if (!source[i])
+                        continue;
+
+                copy[i] = newdup(struct rlimit, source[i], 1);
+                if (!copy[i]) {
+                        rlimit_free_all(copy);
+                        return -ENOMEM;
+                }
+        }
+
+        memcpy(target, copy, sizeof(struct rlimit*) * _RLIMIT_MAX);
+        return 0;
+}
+
 int rlimit_nofile_bump(int limit) {
         int r;
 
@@ -395,7 +416,11 @@ int rlimit_nofile_safe(void) {
         if (rl.rlim_cur <= FD_SETSIZE)
                 return 0;
 
-        rl.rlim_cur = FD_SETSIZE;
+        /* So we might have inherited a hard limit that's larger than the kernel's maximum limit as stored in
+         * /proc/sys/fs/nr_open. If we pass this hard limit unmodified to setrlimit(), we'll get EPERM. To
+         * make sure that doesn't happen, let's limit our hard limit to the value from nr_open. */
+        rl.rlim_max = MIN(rl.rlim_max, (rlim_t) read_nr_open());
+        rl.rlim_cur = MIN((rlim_t) FD_SETSIZE, rl.rlim_max);
         if (setrlimit(RLIMIT_NOFILE, &rl) < 0)
                 return log_debug_errno(errno, "Failed to lower RLIMIT_NOFILE's soft limit to " RLIM_FMT ": %m", rl.rlim_cur);
 

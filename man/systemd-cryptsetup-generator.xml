@@ -3,7 +3,8 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
-<refentry id="systemd-cryptsetup-generator" conditional='HAVE_LIBCRYPTSETUP'>
+<refentry id="systemd-cryptsetup-generator" conditional='HAVE_LIBCRYPTSETUP'
+          xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>systemd-cryptsetup-generator</title>
@@ -52,7 +53,9 @@
         <listitem><para>Takes a boolean argument. Defaults to <literal>yes</literal>. If
         <literal>no</literal>, disables the generator entirely. <varname>rd.luks=</varname> is honored only
         in the initrd while <varname>luks=</varname> is honored by both the main system and in the initrd.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v186"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -64,7 +67,9 @@
         <filename>/etc/crypttab</filename> (<varname>luks.uuid=</varname> will still work however).
         <varname>rd.luks.crypttab=</varname> is honored only in initrd while
         <varname>luks.crypttab=</varname> is honored by both the main system and in the initrd.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v186"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -83,6 +88,8 @@
 
         <para>If <filename>/etc/crypttab</filename> exists, only those UUIDs specified on the kernel command
         line will be activated in the initrd or the real root.</para>
+
+        <xi:include href="version-info.xml" xpointer="v186"/>
         </listitem>
       </varlistentry>
 
@@ -102,6 +109,8 @@
 
         <para><varname>rd.luks.name=</varname> is honored only in the initrd, while
         <varname>luks.name=</varname> is honored by both the main system and in the initrd.</para>
+
+        <xi:include href="version-info.xml" xpointer="v218"/>
         </listitem>
       </varlistentry>
 
@@ -130,6 +139,8 @@
 
         <para><varname>rd.luks.data=</varname> is honored only in the initrd, while
         <varname>luks.data=</varname> is honored by both the main system and in the initrd.</para>
+
+        <xi:include href="version-info.xml" xpointer="v247"/>
         </listitem>
       </varlistentry>
 
@@ -166,6 +177,8 @@
 
         <para><varname>rd.luks.key=</varname> is honored only in the initrd, while
         <varname>luks.key=</varname> is honored by both the main system and in the initrd.</para>
+
+        <xi:include href="version-info.xml" xpointer="v202"/>
         </listitem>
       </varlistentry>
 
@@ -204,6 +217,8 @@
         <para><varname>rd.luks.options=</varname> is honored only by initial
         RAM disk (initrd) while <varname>luks.options=</varname> is
         honored by both the main system and in the initrd.</para>
+
+        <xi:include href="version-info.xml" xpointer="v208"/>
         </listitem>
       </varlistentry>
     </variablelist>

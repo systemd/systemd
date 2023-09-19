@@ -438,7 +438,7 @@ _public_ int sd_journal_stream_fd(const char *identifier, int priority, int leve
         header[l++] = '0';
         header[l++] = '\n';
 
-        r = loop_write(fd, header, l, false);
+        r = loop_write(fd, header, l);
         if (r < 0)
                 return r;
 

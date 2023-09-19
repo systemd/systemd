@@ -1637,27 +1637,35 @@ node /org/freedesktop/systemd1 {
           For more information on this issue consult
           <ulink url="https://www.freedesktop.org/wiki/Software/systemd/TheCaseForTheUsrMerge">
             The Case for the /usr Merge
-          </ulink>.</para></listitem>
+          </ulink>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v252"/></listitem>
 
         </varlistentry>
 
         <varlistentry>
           <term><literal>cgroups-missing</literal></term>
 
-          <listitem><para>Support for cgroups is unavailable.</para></listitem>
+          <listitem><para>Support for cgroups is unavailable.</para>
+
+          <xi:include href="version-info.xml" xpointer="v252"/></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><literal>cgroupsv1</literal></term>
 
-          <listitem><para>The system is using the old cgroup hierarchy.</para></listitem>
+          <listitem><para>The system is using the old cgroup hierarchy.</para>
+
+          <xi:include href="version-info.xml" xpointer="v252"/></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><literal>local-hwclock</literal></term>
 
           <listitem><para>The local hardware clock (RTC) is configured to be in local time rather than
-          UTC.</para></listitem>
+          UTC.</para>
+
+          <xi:include href="version-info.xml" xpointer="v252"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -1666,28 +1674,36 @@ node /org/freedesktop/systemd1 {
           <listitem><para>The system is running past the end of support declared by the vendor. See the
           description of <varname>SUPPORT_END=</varname> in
           <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-          </para></listitem>
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v252"/></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><literal>old-kernel</literal></term>
 
           <listitem><para>The system is running a kernel version that is older than the minimum supported by
-          this version of systemd.</para></listitem>
+          this version of systemd.</para>
+
+          <xi:include href="version-info.xml" xpointer="v252"/></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><literal>var-run-bad</literal></term>
 
           <listitem><para><filename>/run/</filename> does not exist or <filename>/var/run</filename> is not a
-          symlink to <filename>/run/</filename>.</para></listitem>
+          symlink to <filename>/run/</filename>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v252"/></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><literal>overflowuid-not-65534</literal></term>
           <term><literal>overflowgid-not-65534</literal></term>
 
-          <listitem><para>The kernel overflow UID or GID have a value other than 65534.</para></listitem>
+          <listitem><para>The kernel overflow UID or GID have a value other than 65534.</para>
+
+          <xi:include href="version-info.xml" xpointer="v252"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -1695,7 +1711,9 @@ node /org/freedesktop/systemd1 {
           <term><literal>short-gid-range</literal></term>
 
           <listitem><para>The UID or GID range assigned to the running systemd instance covers less than
-          0…65534.</para></listitem>
+          0…65534.</para>
+
+          <xi:include href="version-info.xml" xpointer="v252"/></listitem>
         </varlistentry>
 
         <!-- mtab-not-symlink was removed in b492ce8a22d4527c1372b2d3fbd580627d70c917 -->
@@ -4585,10 +4603,11 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       <varname>ExtensionDirectories</varname>
       see systemd.exec(5) for their meaning.</para>
 
-      <para><varname>MemoryAvailable</varname> indicates how much unused memory is available to the unit before
-      the <literal>MemoryMax</literal> or <literal>MemoryHigh</literal> (whichever is lower) limit set by the cgroup
-      memory controller is reached. It will take into consideration limits on all parent slices, other than the
-      limits set on the unit itself.</para>
+      <para><varname>MemoryAvailable</varname> takes into account unit's and parents' <literal>MemoryMax</literal>
+      or <literal>MemoryHigh</literal> or physically available RAM versus given level's memory consumption
+      and takes minimum. Beware that other units below the tightest parent slice may consume the memory quicker
+      and less than reported value would remain for own allocation.
+      It works better in conjunction with <varname>MemoryAccounting=yes</varname> on involved units.</para>
 
       <para><varname>DelegateSubgroup</varname> contains the cgroup subgroup to place invoked unit processes
       in. As configured by the option of the same name in unit files. This is set to the empty string when it
@@ -4716,6 +4735,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       readonly t TriggerLimitIntervalUSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly u TriggerLimitBurst = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly t PollLimitIntervalUSec = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly u PollLimitBurst = ...;
       readonly u UID = ...;
       readonly u GID = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("invalidates")
@@ -5950,6 +5973,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
 
     <variablelist class="dbus-property" generated="True" extra-ref="TriggerLimitBurst"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="PollLimitIntervalUSec"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="PollLimitBurst"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="UID"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="GID"/>
@@ -6485,6 +6512,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <variablelist class="dbus-property" generated="True" extra-ref="WatchdogSignal"/>
 
     <!--End of Autogenerated section-->
+
+    <para><varname>PollLimitIntervalUSec</varname>/<varname>PollLimitBurst</varname> properties configure the
+    polling limit for the socket unit. Expects a time in µs, resp. an unsigned integer. If either is set to
+    zero the limiting feature is turned off.</para>
 
     <refsect2>
       <title>Properties</title>
@@ -11471,4 +11502,168 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
   </refsect1>
 
   <xi:include href="org.freedesktop.locale1.xml" xpointer="versioning"/>
+
+  <refsect1>
+    <title>History</title>
+    <refsect2>
+      <title>The Manager Object</title>
+      <para><varname>RuntimeWatchdogPreUSec</varname> and
+      <varname>RuntimeWatchdogPreGovernor</varname> were added in version 251.</para>
+      <para><varname>WatchdogDevice</varname>,
+      <varname>WatchdogLastPingTimestamp</varname>,
+      <varname>WatchdogLastPingTimestampMonotonic</varname>,
+      <varname>DefaultDeviceTimeoutUSec</varname>,
+      <function>DumpUnitsMatchingPatterns()</function>, and
+      <function>DumpUnitsMatchingPatternsByFileDescriptor()</function> were added in version 252.</para>
+      <para><function>GetUnitByPIDFD()</function> and
+      <function>DisableUnitFilesWithFlagsAndInstallInfo()</function> were added in version 253.</para>
+      <para><varname>ConfidentialVirtualization</varname>,
+      <varname>DefaultIOAccounting</varname>,
+      <varname>DefaultIPAccounting</varname>,
+      <varname>DefaultMemoryPressureThresholdUSec</varname>,
+      <varname>DefaultMemoryPressureWatch</varname>,
+      <function>QueueSignalUnit()</function>,
+      <function>SoftReboot()</function>, and
+      <function>DumpUnitFileDescriptorStore()</function> were added in version 254.</para>
+    </refsect2>
+    <refsect2>
+      <title>Unit Objects</title>
+      <para><varname>Upholds</varname> and
+      <varname>UpheldBy</varname> were added in version 251.</para>
+      <para><varname>AccessSELinuxContext</varname> and
+      <varname>ActivationDetails</varname> were added in version 252.</para>
+      <para><function>QueueSignal()</function> was added in version 254.</para>
+    </refsect2>
+    <refsect2>
+      <title>Service Unit Objects</title>
+      <para><varname>ControlGroupId</varname> and
+      <varname>ExtensionDirectories</varname> were added in version 251.</para>
+      <para><varname>OpenFile</varname>,
+      <varname>ReloadSignal</varname>,
+      <varname>MemoryZSwapMax</varname>, and
+      <varname>LogFilterPatterns</varname> were added in version 253.</para>
+      <para><varname>RestartMode</varname>,
+      <varname>RestartSteps</varname>,
+      <varname>RestartMaxDelayUSec</varname>,
+      <varname>RestartUSecNext</varname>,
+      <varname>FileDescriptorStorePreserve</varname>,
+      <function>DumpFileDescriptorStore()</function>,
+      <varname>DelegateSubgroup</varname>,
+      <varname>DefaultStartupMemoryLow</varname>,
+      <varname>StartupMemoryLow</varname>,
+      <varname>StartupMemoryHigh</varname>,
+      <varname>StartupMemoryMax</varname>,
+      <varname>StartupMemorySwapMax</varname>,
+      <varname>StartupMemoryZSwapMax</varname>,
+      <varname>MemoryPressureWatch</varname>,
+      <varname>MemoryPressureThresholdUSec</varname>,
+      <varname>RootEphemeral</varname>,
+      <varname>ImportCredential</varname>,
+      <varname>MemoryKSM</varname>,
+      <varname>RootImagePolicy</varname>,
+      <varname>MountImagePolicy</varname>, and
+      <varname>ExtensionImagePolicy</varname> were added in version 254.</para>
+    </refsect2>
+    <refsect2>
+      <title>Socket Unit Objects</title>
+      <para><varname>ControlGroupId</varname> and
+      <varname>ExtensionDirectories</varname> were added in version 251.</para>
+      <para><varname>MemoryZSwapMax</varname> and
+      <varname>LogFilterPatterns</varname> were added in version 253.</para>
+      <para><varname>DelegateSubgroup</varname>,
+      <varname>DefaultStartupMemoryLow</varname>,
+      <varname>StartupMemoryLow</varname>,
+      <varname>StartupMemoryHigh</varname>,
+      <varname>StartupMemoryMax</varname>,
+      <varname>StartupMemorySwapMax</varname>,
+      <varname>StartupMemoryZSwapMax</varname>,
+      <varname>MemoryPressureWatch</varname>,
+      <varname>MemoryPressureThresholdUSec</varname>,
+      <varname>RootEphemeral</varname>,
+      <varname>ImportCredential</varname>,
+      <varname>MemoryKSM</varname>,
+      <varname>RootImagePolicy</varname>,
+      <varname>MountImagePolicy</varname>, and
+      <varname>ExtensionImagePolicy</varname> were added in version 254.</para>
+      <para><varname>PollLimitIntervalUSec</varname> and
+      <varname>PollLimitBurst</varname> were added in version 255.</para>
+    </refsect2>
+    <refsect2>
+      <title>Mount Unit Objects</title>
+      <para><varname>ControlGroupId</varname> and
+      <varname>ExtensionDirectories</varname> were added in version 251.</para>
+      <para><varname>MemoryZSwapMax</varname> and
+      <varname>LogFilterPatterns</varname> were added in version 253.</para>
+      <para><varname>DelegateSubgroup</varname>,
+      <varname>DefaultStartupMemoryLow</varname>,
+      <varname>StartupMemoryLow</varname>,
+      <varname>StartupMemoryHigh</varname>,
+      <varname>StartupMemoryMax</varname>,
+      <varname>StartupMemorySwapMax</varname>,
+      <varname>StartupMemoryZSwapMax</varname>,
+      <varname>MemoryPressureWatch</varname>,
+      <varname>MemoryPressureThresholdUSec</varname>,
+      <varname>RootEphemeral</varname>,
+      <varname>ImportCredential</varname>,
+      <varname>MemoryKSM</varname>,
+      <varname>RootImagePolicy</varname>,
+      <varname>MountImagePolicy</varname>, and
+      <varname>ExtensionImagePolicy</varname> were added in version 254.</para>
+    </refsect2>
+    <refsect2>
+      <title>Swap Unit Objects</title>
+      <para><varname>ControlGroupId</varname> and
+      <varname>ExtensionDirectories</varname> were added in version 251.</para>
+      <para><varname>MemoryZSwapMax</varname> and
+      <varname>LogFilterPatterns</varname> were added in version 253.</para>
+      <para><varname>DelegateSubgroup</varname>,
+      <varname>DefaultStartupMemoryLow</varname>,
+      <varname>StartupMemoryLow</varname>,
+      <varname>StartupMemoryHigh</varname>,
+      <varname>StartupMemoryMax</varname>,
+      <varname>StartupMemorySwapMax</varname>,
+      <varname>StartupMemoryZSwapMax</varname>,
+      <varname>MemoryPressureWatch</varname>,
+      <varname>MemoryPressureThresholdUSec</varname>,
+      <varname>RootEphemeral</varname>,
+      <varname>ImportCredential</varname>,
+      <varname>MemoryKSM</varname>,
+      <varname>RootImagePolicy</varname>,
+      <varname>MountImagePolicy</varname>, and
+      <varname>ExtensionImagePolicy</varname> were added in version 254.</para>
+    </refsect2>
+    <refsect2>
+      <title>Slice Unit Objects</title>
+      <para><varname>ControlGroupId</varname> was added in version 251.</para>
+      <para><varname>MemoryZSwapMax</varname> was added in version 253.</para>
+      <para><varname>DelegateSubgroup</varname>,
+      <varname>DefaultStartupMemoryLow</varname>,
+      <varname>StartupMemoryLow</varname>,
+      <varname>StartupMemoryHigh</varname>,
+      <varname>StartupMemoryMax</varname>,
+      <varname>StartupMemorySwapMax</varname>,
+      <varname>StartupMemoryZSwapMax</varname>,
+      <varname>MemoryPressureWatch</varname>, and
+      <varname>MemoryPressureThresholdUSec</varname> were added in version 254.</para>
+    </refsect2>
+    <refsect2>
+      <title>Scope Unit Objects</title>
+      <para><varname>ControlGroupId</varname> was added in version 251.</para>
+      <para><varname>OOMPolicy</varname> and
+      <varname>MemoryZSwapMax</varname> were added in version 253.</para>
+      <para><varname>DelegateSubgroup</varname>,
+      <varname>DefaultStartupMemoryLow</varname>,
+      <varname>StartupMemoryLow</varname>,
+      <varname>StartupMemoryHigh</varname>,
+      <varname>StartupMemoryMax</varname>,
+      <varname>StartupMemorySwapMax</varname>,
+      <varname>StartupMemoryZSwapMax</varname>,
+      <varname>MemoryPressureWatch</varname>, and
+      <varname>MemoryPressureThresholdUSec</varname> were added in version 254.</para>
+    </refsect2>
+    <refsect2>
+      <title>Job Objects</title>
+      <para><varname>ActivationDetails</varname> was added in version 252.</para>
+    </refsect2>
+  </refsect1>
 </refentry>

@@ -140,7 +140,9 @@
         <listitem><para>Turns off any status output by the tool
         itself. When this switch is used, the only output from nspawn
         will be the console output of the container OS
-        itself.</para></listitem>
+        itself.</para>
+
+        <xi:include href="version-info.xml" xpointer="v209"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -191,7 +193,9 @@
 
         <para>If disabled, no <filename>.nspawn</filename> file is read
         and no settings except the ones on the command line are in
-        effect.</para></listitem>
+        effect.</para>
+
+        <xi:include href="version-info.xml" xpointer="v226"/></listitem>
       </varlistentry>
 
     </variablelist>
@@ -240,7 +244,9 @@
 
         <para>Note that this switch leaves hostname, machine ID and
         all other settings that could identify the instance
-        unmodified.</para></listitem>
+        unmodified.</para>
+
+        <xi:include href="version-info.xml" xpointer="v219"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -261,6 +267,8 @@
         <para>With this option no modifications of the container image are retained. Use
         <option>--volatile=</option> (described below) for other mechanisms to restrict persistency of
         container images during runtime.</para>
+
+        <xi:include href="version-info.xml" xpointer="v219"/>
         </listitem>
       </varlistentry>
 
@@ -307,7 +315,9 @@
         <option>--verity-data=</option> (and optionally <option>--root-hash-sig=</option>) options.</para>
 
         <para>Any other partitions, such as foreign partitions or swap partitions are not mounted. May not be specified
-        together with <option>--directory=</option>, <option>--template=</option>.</para></listitem>
+        together with <option>--directory=</option>, <option>--template=</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v211"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -318,7 +328,9 @@
         policy is enforced when operating on the disk image specified via <option>--image=</option>, see
         above. If not specified defaults to
         <literal>root=verity+signed+encrypted+unprotected+absent:usr=verity+signed+encrypted+unprotected+absent:home=encrypted+unprotected+absent:srv=encrypted+unprotected+absent:esp=unprotected+absent:xbootldr=unprotected+absent:tmp=encrypted+unprotected+absent:var=encrypted+unprotected+absent</literal>,
-        i.e. all recognized file systems in the image are used, but not the swap partition.</para></listitem>
+        i.e. all recognized file systems in the image are used, but not the swap partition.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -327,7 +339,9 @@
         <listitem><para>Takes the path to an OCI runtime bundle to invoke, as specified in the <ulink
         url="https://github.com/opencontainers/runtime-spec/blob/master/spec.md">OCI Runtime Specification</ulink>. In
         this case no <filename>.nspawn</filename> file is loaded, and the root directory and various settings are read
-        from the OCI runtime JSON data (but data passed on the command line takes precedence).</para></listitem>
+        from the OCI runtime JSON data (but data passed on the command line takes precedence).</para>
+
+        <xi:include href="version-info.xml" xpointer="v242"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -392,7 +406,9 @@
         former are not symlinks into the latter) are not supported by <literal>--volatile=yes</literal> as
         container payload. The <option>overlay</option> option does not require any particular preparations
         in the OS, but do note that <literal>overlayfs</literal> behaviour differs from regular file systems
-        in a number of ways, and hence compatibility is limited.</para></listitem>
+        in a number of ways, and hence compatibility is limited.</para>
+
+        <xi:include href="version-info.xml" xpointer="v216"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -420,6 +436,8 @@
 
         <para>Also see the <varname>RootHash=</varname> option in
         <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v233"/>
         </listitem>
       </varlistentry>
 
@@ -429,7 +447,9 @@
         <listitem><para>Takes a PKCS7 signature of the <option>--root-hash=</option> option.
         The semantics are the same as for the <varname>RootHashSignature=</varname> option, see
         <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v246"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -440,7 +460,9 @@
         The integrity data must be matched by the root hash. If this option is not specified, but a file with the
         <filename>.verity</filename> suffix is found next to the image file, bearing otherwise the same name (except if
         the image has the <filename>.raw</filename> suffix, in which case the verity data file must not have it in its name),
-        the verity data is read from it and automatically used.</para></listitem>
+        the verity data is read from it and automatically used.</para>
+
+        <xi:include href="version-info.xml" xpointer="v246"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -456,7 +478,9 @@
         <para>This is for containers which have several bootable directories in them; for example, several
         <ulink url="https://ostree.readthedocs.io/en/latest/">OSTree</ulink> deployments. It emulates the
         behavior of the boot loader and the initrd which normally select which directory to mount as the root
-        and start the container's PID 1 in.</para></listitem>
+        and start the container's PID 1 in.</para>
+
+        <xi:include href="version-info.xml" xpointer="v233"/></listitem>
       </varlistentry>
     </variablelist>
 
@@ -480,6 +504,8 @@
         modified to run correctly as PID 1. Or in other words: this switch should be used for pretty much all commands,
         except when the command refers to an init or shell implementation, as these are generally capable of running
         correctly as PID 1. This option may not be combined with <option>--boot</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v229"/>
         </listitem>
       </varlistentry>
 
@@ -534,7 +560,9 @@
         <term><option>--chdir=</option></term>
 
         <listitem><para>Change to the specified working directory before invoking the process in the container. Expects
-        an absolute path in the container's file system namespace.</para></listitem>
+        an absolute path in the container's file system namespace.</para>
+
+        <xi:include href="version-info.xml" xpointer="v229"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -545,7 +573,9 @@
         may be used to override the default variables or to set additional variables. It may be used more
         than once to set multiple variables. When <literal>=</literal> and <replaceable>VALUE</replaceable>
         are omitted, the value of the variable with the same name in the program environment will be used.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v209"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -566,7 +596,9 @@
         <constant>SIGRTMIN+3</constant> triggers an orderly shutdown). If <option>--boot</option> is not used and this
         option is not specified the container's processes are terminated abruptly via <constant>SIGKILL</constant>. For
         a list of valid signals, see <citerefentry
-        project='man-pages'><refentrytitle>signal</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para></listitem>
+        project='man-pages'><refentrytitle>signal</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v220"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -579,7 +611,9 @@
         With option <option>yes</option> systemd-nspawn waits for the
         <literal>READY=1</literal> message from the init process in the container
         before sending its own to systemd. For more details about notifications
-        see <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para></listitem>
+        see <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v231"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -597,7 +631,9 @@
         container runtime performance – as long as these guarantees are not required or desirable, for
         example because any data written by the container is of temporary, redundant nature, or just an
         intermediary artifact that will be further processed and finalized by a later step in a
-        pipeline. Defaults to false.</para></listitem>
+        pipeline. Defaults to false.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
     </variablelist>
 
@@ -620,7 +656,9 @@
         with a random identifier in case <option>--ephemeral</option>
         mode is selected. If the root directory selected is the host's
         root directory the host's hostname is used as default
-        instead.</para></listitem>
+        instead.</para>
+
+        <xi:include href="version-info.xml" xpointer="v202"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -636,6 +674,8 @@
         exclusively. Note that regardless whether the container's hostname is initialized from the name set with
         <option>--hostname=</option> or the one set with <option>--machine=</option>, the container can later override
         its kernel hostname freely on its own as well.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/>
         </listitem>
       </varlistentry>
 
@@ -662,6 +702,8 @@
         <listitem><para>Make the container part of the specified slice, instead of the default
         <filename>machine.slice</filename>. This applies only if the machine is run in its own scope unit, i.e. if
         <option>--keep-unit</option> isn't used.</para>
+
+        <xi:include href="version-info.xml" xpointer="v206"/>
         </listitem>
       </varlistentry>
 
@@ -672,6 +714,8 @@
         machine is run in its own scope unit, i.e. if <option>--keep-unit</option> isn't used. Takes unit property
         assignments in the same format as <command>systemctl set-property</command>. This is useful to set memory
         limits and similar for the container.</para>
+
+        <xi:include href="version-info.xml" xpointer="v220"/>
         </listitem>
       </varlistentry>
 
@@ -687,7 +731,9 @@
         tools such as <citerefentry
         project='man-pages'><refentrytitle>ps</refentrytitle><manvolnum>1</manvolnum></citerefentry>.  If the container
         does not run a service manager, it is recommended to set this option to
-        <literal>no</literal>.</para></listitem>
+        <literal>no</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v209"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -703,7 +749,9 @@
         <para>Note that passing <option>--keep-unit</option> disables the effect of <option>--slice=</option> and
         <option>--property=</option>. Use <option>--keep-unit</option> and <option>--register=no</option> in
         combination to disable any kind of unit allocation or registration with
-        <command>systemd-machined</command>.</para></listitem>
+        <command>systemd-machined</command>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v209"/></listitem>
       </varlistentry>
     </variablelist>
 
@@ -781,7 +829,9 @@
         <para>Note that when user namespacing is used file ownership on disk reflects this, and all of the container's
         files and directories are owned by the container's effective user and group IDs. This means that copying files
         from and to the container image requires correction of the numeric UID/GID values, according to the UID/GID
-        shift applied.</para></listitem>
+        shift applied.</para>
+
+        <xi:include href="version-info.xml" xpointer="v220"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -806,7 +856,9 @@
 
         <para>The <option>--private-users-ownership=auto</option> option is implied if
         <option>--private-users=pick</option> is used. This option has no effect if user namespacing is not
-        used.</para></listitem>
+        used.</para>
+
+        <xi:include href="version-info.xml" xpointer="v230"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -823,6 +875,8 @@
         <option>-U</option>) on the file system by redoing the operation with the first UID of 0:</para>
 
         <programlisting>systemd-nspawn … --private-users=0 --private-users-ownership=chown</programlisting>
+
+        <xi:include href="version-info.xml" xpointer="v230"/>
         </listitem>
       </varlistentry>
 
@@ -875,6 +929,8 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
         <literal>ens1</literal> network interface has shown up. This is required since hardware probing is
         fully asynchronous, and network interfaces might be discovered only later during the boot process,
         after the container would normally be started without these explicit dependencies.</para>
+
+        <xi:include href="version-info.xml" xpointer="v209"/>
         </listitem>
       </varlistentry>
 
@@ -893,7 +949,9 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
 
         <para>As with <option>--network-interface=</option>, the underlying Ethernet network interface must
         already exist at the time the container is started, and thus similar unit file drop-ins as described
-        above might be useful.</para></listitem>
+        above might be useful.</para>
+
+        <xi:include href="version-info.xml" xpointer="v211"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -913,7 +971,9 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
 
         <para>As with <option>--network-interface=</option>, the underlying Ethernet network interface must
         already exist at the time the container is started, and thus similar unit file drop-ins as described
-        above might be useful.</para></listitem>
+        above might be useful.</para>
+
+        <xi:include href="version-info.xml" xpointer="v219"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -953,6 +1013,8 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
         host-side interface name independently of the container name — but might require a bit more
         additional configuration in case bridging in a fashion similar to <option>--network-bridge=</option>
         is desired.</para>
+
+        <xi:include href="version-info.xml" xpointer="v209"/>
         </listitem>
       </varlistentry>
 
@@ -968,7 +1030,9 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
         used multiple times, and allows configuration of the network
         interface names. Note that <option>--network-bridge=</option>
         has no effect on interfaces created with
-        <option>--network-veth-extra=</option>.</para></listitem>
+        <option>--network-veth-extra=</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v228"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -984,7 +1048,9 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
 
         <para>As with <option>--network-interface=</option>, the underlying bridge network interface must
         already exist at the time the container is started, and thus similar unit file drop-ins as described
-        above might be useful.</para></listitem>
+        above might be useful.</para>
+
+        <xi:include href="version-info.xml" xpointer="v209"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1013,6 +1079,8 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
         network interfaces. Using <option>--network-zone=</option> is hence in most cases fully automatic and
         sufficient to connect multiple local containers in a joined broadcast domain to the host, with further
         connectivity to the external network.</para>
+
+        <xi:include href="version-info.xml" xpointer="v230"/>
         </listitem>
       </varlistentry>
 
@@ -1030,7 +1098,9 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
         for example, <option>--network-namespace-path=/run/netns/foo</option>.
         Note that this option cannot be used together with other
         network-related options, such as <option>--private-network</option>
-        or <option>--network-interface=</option>.</para></listitem>
+        or <option>--network-interface=</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v236"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1049,7 +1119,9 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
         same port as the host port is implied. This option is only
         supported if private networking is used, such as with
         <option>--network-veth</option>, <option>--network-zone=</option>
-        <option>--network-bridge=</option>.</para></listitem>
+        <option>--network-bridge=</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v219"/></listitem>
       </varlistentry>
     </variablelist>
 
@@ -1084,7 +1156,9 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
 
         <para>This option sets the bounding set of capabilities which
         also limits the ambient capabilities as given with the
-        <option>--ambient-capability=</option>.</para></listitem>
+        <option>--ambient-capability=</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v186"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1100,7 +1174,9 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
 
         <para>This option sets the bounding set of capabilities which
         also limits the ambient capabilities as given with the
-        <option>--ambient-capability=</option>.</para></listitem>
+        <option>--ambient-capability=</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v209"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1121,7 +1197,9 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
 
         <para>If the special value of <literal>help</literal> is
         passed, the program will print known capability names and
-        exit.</para></listitem>
+        exit.</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1132,7 +1210,9 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
         on the payload code of the container cannot acquire new privileges, i.e. the "setuid" file bit as
         well as file system capabilities will not have an effect anymore. See <citerefentry
         project='man-pages'><refentrytitle>prctl</refentrytitle><manvolnum>2</manvolnum></citerefentry> for
-        details about this flag. </para></listitem>
+        details about this flag. </para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1148,7 +1228,9 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
         system call allow list (as opposed to a deny list!), and this command line option hence adds or
         removes entries from the default allow list, depending on the <literal>~</literal> prefix. Note that
         the applied system call filter is also altered implicitly if additional capabilities are passed using
-        the <command>--capabilities=</command>.</para></listitem>
+        the <command>--capabilities=</command>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v235"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1157,6 +1239,8 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
 
         <listitem><para>Sets the SELinux security context to be used
         to label processes in the container.</para>
+
+        <xi:include href="version-info.xml" xpointer="v209"/>
         </listitem>
       </varlistentry>
 
@@ -1167,6 +1251,8 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
         <listitem><para>Sets the SELinux security context to be used
         to label files in the virtual API file systems in the
         container.</para>
+
+        <xi:include href="version-info.xml" xpointer="v209"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -1198,7 +1284,9 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
         (i.e. <option>--private-users=</option> is used, see above), any limits set will be applied to the resource
         usage of the same user on all local containers as well as the host. This means particular care needs to be
         taken with these limits as they might be triggered by possibly less trusted code. Example:
-        <literal>--rlimit=RLIMIT_NOFILE=8192:16384</literal>.</para></listitem>
+        <literal>--rlimit=RLIMIT_NOFILE=8192:16384</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1208,7 +1296,9 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
         <filename>/proc/self/oom_score_adj</filename> which influences the preference with which this container is
         terminated when memory becomes scarce. For details see <citerefentry
         project='man-pages'><refentrytitle>proc</refentrytitle><manvolnum>5</manvolnum></citerefentry>. Takes an
-        integer in the range -1000…1000.</para></listitem>
+        integer in the range -1000…1000.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1217,7 +1307,9 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
         <listitem><para>Controls the CPU affinity of the container payload. Takes a comma separated list of CPU numbers
         or number ranges (the latter's start and end value separated by dashes). See <citerefentry
         project='man-pages'><refentrytitle>sched_setaffinity</refentrytitle><manvolnum>2</manvolnum></citerefentry> for
-        details.</para></listitem>
+        details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1230,7 +1322,9 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
         <literal>x86-64</literal> are supported. This is useful when
         running a 32-bit container on a 64-bit host. If this setting
         is not used, the personality reported in the container is the
-        same as the one reported on the host.</para></listitem>
+        same as the one reported on the host.</para>
+
+        <xi:include href="version-info.xml" xpointer="v209"/></listitem>
       </varlistentry>
     </variablelist>
 
@@ -1294,7 +1388,9 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
         bind mount anyway). Note that both if the file is bind mounted and if it is copied no further
         propagation of configuration is generally done after the one-time early initialization (this is
         because the file is usually updated through copying and renaming). Defaults to
-        <literal>auto</literal>.</para></listitem>
+        <literal>auto</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1314,7 +1410,9 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
         <literal>auto</literal> and the <filename>/etc/localtime</filename> file of the host is a symlink,
         then <literal>symlink</literal> mode is used, and <literal>copy</literal> otherwise, except if the
         image is read-only in which case <literal>bind</literal> is used instead. Defaults to
-        <literal>auto</literal>.</para></listitem>
+        <literal>auto</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1348,14 +1446,18 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
         <literal>auto</literal> is used.</para>
 
         <para>Note that <option>--link-journal=try-guest</option> is the default if the
-        <filename>systemd-nspawn@.service</filename> template unit file is used.</para></listitem>
+        <filename>systemd-nspawn@.service</filename> template unit file is used.</para>
+
+        <xi:include href="version-info.xml" xpointer="v187"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>-j</option></term>
 
         <listitem><para>Equivalent to
-        <option>--link-journal=try-guest</option>.</para></listitem>
+        <option>--link-journal=try-guest</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v187"/></listitem>
       </varlistentry>
 
     </variablelist>
@@ -1383,11 +1485,11 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
         multiple times for creating multiple independent bind mount points.</para>
 
         <para>Mount options are comma-separated. <option>rbind</option> and <option>norbind</option> control whether
-        to create a recursive or a regular bind mount. Defaults to "rbind". <option>noidmap</option>,
+        to create a recursive or a regular bind mount. Defaults to <option>rbind</option>. <option>noidmap</option>,
         <option>idmap</option>, and <option>rootidmap</option> control ID mapping.</para>
 
         <para>Using <option>idmap</option> or <option>rootidmap</option> requires support by the source filesystem
-        for user/group ID mapped mounts. Defaults to "noidmap". With <option>x</option> being the container's UID range
+        for user/group ID mapped mounts. Defaults to <option>noidmap</option>. With <option>x</option> being the container's UID range
         offset, <option>y</option> being the length of the container's UID range, and <option>p</option> being the
         owner UID of the bind mount source inode on the host:
 
@@ -1415,7 +1517,9 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
         directories continue to be owned by the relevant host users and groups, which do not exist in the container,
         and thus show up under the wildcard UID 65534 (nobody). If such bind mounts are created, it is recommended to
         make them read-only, using <option>--bind-ro=</option>. Alternatively you can use the "idmap" mount option to
-        map the filesystem IDs.</para></listitem>
+        map the filesystem IDs.</para>
+
+        <xi:include href="version-info.xml" xpointer="v198"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1467,7 +1571,9 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
         not detect existing accounts in other databases.</para>
 
         <para>This operation is only supported in combination with
-        <option>--private-users=</option>/<option>-U</option>.</para></listitem>
+        <option>--private-users=</option>/<option>-U</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v249"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1477,7 +1583,9 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
         (which must exist in the container) with a file node of the same type that is empty and has the most
         restrictive access mode supported. This is an effective way to mask files, directories and other file system
         objects from the container payload. This option may be used more than once in case all specified paths are
-        masked.</para></listitem>
+        masked.</para>
+
+        <xi:include href="version-info.xml" xpointer="v242"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1492,7 +1600,9 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
 
         <para>Note that this option cannot be used to replace the root file system of the container with a temporary
         file system. However, the <option>--volatile=</option> option described below provides similar
-        functionality, with a focus on implementing stateless operating system images.</para></listitem>
+        functionality, with a focus on implementing stateless operating system images.</para>
+
+        <xi:include href="version-info.xml" xpointer="v214"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1542,7 +1652,9 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
 
         <para>Note that this option cannot be used to replace the root file system of the container with an overlay
         file system. However, the <option>--volatile=</option> option described above provides similar functionality,
-        with a focus on implementing stateless operating system images.</para></listitem>
+        with a focus on implementing stateless operating system images.</para>
+
+        <xi:include href="version-info.xml" xpointer="v220"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect2>
@@ -1582,14 +1694,18 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
         passed file descriptor refers to a TTY of some form, APIs such as <constant>TIOCSTI</constant> may be
         used to synthesize input that might be used for escaping the container. Hence <option>pipe</option>
         mode should only be used if the payload is sufficiently trusted or when the standard
-        input/output/error output file descriptors are known safe, for example pipes.</para></listitem>
+        input/output/error output file descriptors are known safe, for example pipes.</para>
+
+        <xi:include href="version-info.xml" xpointer="v242"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>--pipe</option></term>
         <term><option>-P</option></term>
 
-        <listitem><para>Equivalent to <option>--console=pipe</option>.</para></listitem>
+        <listitem><para>Equivalent to <option>--console=pipe</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v242"/></listitem>
       </varlistentry>
     </variablelist>
 
@@ -1641,6 +1757,8 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
           container payload will recognize this as a first boot, and will invoke
           <filename>systemd-firstboot.service</filename>, which then reads the two passed credentials to
           configure the system's initial locale and root password.</para>
+
+          <xi:include href="version-info.xml" xpointer="v247"/>
           </listitem>
         </varlistentry>
       </variablelist>

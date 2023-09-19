@@ -161,6 +161,16 @@
   <xi:include href="libsystemd-pkgconfig.xml" />
 
   <refsect1>
+    <title>History</title>
+    <para><function>sd_bus_set_property()</function>,
+    <function>sd_bus_set_propertyv()</function>,
+    <function>sd_bus_get_property()</function>,
+    <function>sd_bus_get_property_trivial()</function>,
+    <function>sd_bus_get_property_string()</function>, and
+    <function>sd_bus_get_property_strv()</function> were added in version 246.</para>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
 
     <para>

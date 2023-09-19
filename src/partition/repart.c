@@ -68,9 +68,9 @@
 #include "string-util.h"
 #include "strv.h"
 #include "sync-util.h"
-#include "tmpfile-util.h"
 #include "terminal-util.h"
-#include "tpm-pcr.h"
+#include "tmpfile-util.h"
+#include "tpm2-pcr.h"
 #include "tpm2-util.h"
 #include "user-util.h"
 #include "utf8.h"
@@ -2195,7 +2195,7 @@ static int context_read_definitions(Context *context) {
 
                 assert_se(dp = p->siblings[VERITY_DATA]);
 
-                if (dp->minimize == MINIMIZE_OFF && !(p->copy_blocks_path || p->copy_blocks_auto))
+                if (dp->minimize == MINIMIZE_OFF && !(dp->copy_blocks_path || dp->copy_blocks_auto))
                         return log_syntax(NULL, LOG_ERR, p->definition_path, 1, SYNTHETIC_ERRNO(EINVAL),
                                           "Minimize= set for verity hash partition but data partition does "
                                           "not set CopyBlocks= or Minimize=");
@@ -2438,11 +2438,8 @@ static int context_load_partition_table(Context *context) {
         if (r < 0)
                 return log_error_errno(r, "Failed to get current GPT disk label UUID: %m");
 
-        r = sd_id128_from_string(disk_uuid_string, &disk_uuid);
-        if (r < 0)
-                return log_error_errno(r, "Failed to parse current GPT disk label UUID: %m");
-
-        if (sd_id128_is_null(disk_uuid)) {
+        r = id128_from_string_nonzero(disk_uuid_string, &disk_uuid);
+        if (r == -ENXIO) {
                 r = derive_uuid(context->seed, "disk-uuid", &disk_uuid);
                 if (r < 0)
                         return log_error_errno(r, "Failed to acquire disk GPT uuid: %m");
@@ -2450,7 +2447,8 @@ static int context_load_partition_table(Context *context) {
                 r = fdisk_set_disklabel_id(c);
                 if (r < 0)
                         return log_error_errno(r, "Failed to set GPT disk label: %m");
-        }
+        } else if (r < 0)
+                return log_error_errno(r, "Failed to parse current GPT disk label UUID: %m");
 
         r = fdisk_get_partitions(c, &t);
         if (r < 0)
@@ -4168,7 +4166,7 @@ static int partition_format_verity_sig(Context *context, Partition *p) {
         if (lseek(whole_fd, p->offset, SEEK_SET) == (off_t) -1)
                 return log_error_errno(errno, "Failed to seek to partition %s offset: %m", strna(hint));
 
-        r = loop_write(whole_fd, text, p->new_size, /*do_poll=*/ false);
+        r = loop_write(whole_fd, text, p->new_size);
         if (r < 0)
                 return log_error_errno(r, "Failed to write verity signature to partition %s: %m", strna(hint));
 
@@ -4400,11 +4398,9 @@ static int add_subvolume_path(const char *path, Set **subvolumes) {
         if (r < 0)
                 return log_error_errno(r, "Failed to stat source file '%s/%s': %m", strempty(arg_root), path);
 
-        r = set_ensure_put(subvolumes, &inode_hash_ops, st);
+        r = set_ensure_consume(subvolumes, &inode_hash_ops, TAKE_PTR(st));
         if (r < 0)
                 return log_oom();
-        if (r > 0)
-                TAKE_PTR(st);
 
         return 0;
 }
@@ -6837,7 +6833,7 @@ static int parse_argv(int argc, char *argv[]) {
                                        "A path to a loopback file must be specified when --split is used.");
 
         if (arg_tpm2_public_key_pcr_mask_use_default && arg_tpm2_public_key)
-                arg_tpm2_public_key_pcr_mask = INDEX_TO_MASK(uint32_t, TPM_PCR_INDEX_KERNEL_IMAGE);
+                arg_tpm2_public_key_pcr_mask = INDEX_TO_MASK(uint32_t, TPM2_PCR_KERNEL_BOOT);
 
         if (arg_tpm2_hash_pcr_values_use_default && !GREEDY_REALLOC_APPEND(
                         arg_tpm2_hash_pcr_values,

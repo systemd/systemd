@@ -83,7 +83,7 @@ static void socket_init(Unit *u) {
         assert(u->load_state == UNIT_STUB);
 
         s->backlog = SOMAXCONN_DELUXE;
-        s->timeout_usec = u->manager->default_timeout_start_usec;
+        s->timeout_usec = u->manager->defaults.timeout_start_usec;
         s->directory_mode = 0755;
         s->socket_mode = 0666;
 
@@ -94,22 +94,27 @@ static void socket_init(Unit *u) {
         s->ip_ttl = -1;
         s->mark = -1;
 
-        s->exec_context.std_output = u->manager->default_std_output;
-        s->exec_context.std_error = u->manager->default_std_error;
+        s->exec_context.std_output = u->manager->defaults.std_output;
+        s->exec_context.std_error = u->manager->defaults.std_error;
 
+        s->control_pid = PIDREF_NULL;
         s->control_command_id = _SOCKET_EXEC_COMMAND_INVALID;
 
         s->trigger_limit.interval = USEC_INFINITY;
         s->trigger_limit.burst = UINT_MAX;
+
+        s->poll_limit_interval = USEC_INFINITY;
+        s->poll_limit_burst = UINT_MAX;
 }
 
 static void socket_unwatch_control_pid(Socket *s) {
         assert(s);
 
-        if (s->control_pid <= 0)
+        if (!pidref_is_set(&s->control_pid))
                 return;
 
-        unit_unwatch_pid(UNIT(s), TAKE_PID(s->control_pid));
+        unit_unwatch_pid(UNIT(s), s->control_pid.pid);
+        pidref_done(&s->control_pid);
 }
 
 static void socket_cleanup_fd_list(SocketPort *p) {
@@ -305,17 +310,20 @@ static int socket_add_extras(Socket *s) {
          * off the queues, which it might not necessarily do. Moreover, while Accept=no services are supposed to
          * process whatever is queued in one go, and thus should normally never have to be started frequently. This is
          * different for Accept=yes where each connection is processed by a new service instance, and thus frequent
-         * service starts are typical. */
+         * service starts are typical.
+         *
+         * For the poll limit we follow a similar rule, but use 3/4th of the trigger limit parameters, to
+         * trigger this earlier. */
 
         if (s->trigger_limit.interval == USEC_INFINITY)
                 s->trigger_limit.interval = 2 * USEC_PER_SEC;
+        if (s->trigger_limit.burst == UINT_MAX)
+                s->trigger_limit.burst = s->accept ? 200 : 20;
 
-        if (s->trigger_limit.burst == UINT_MAX) {
-                if (s->accept)
-                        s->trigger_limit.burst = 200;
-                else
-                        s->trigger_limit.burst = 20;
-        }
+        if (s->poll_limit_interval == USEC_INFINITY)
+                s->poll_limit_interval = 2 * USEC_PER_SEC;
+        if (s->poll_limit_burst == UINT_MAX)
+                s->poll_limit_burst = s->accept ? 150 : 15;
 
         if (have_non_accept_socket(s)) {
 
@@ -616,10 +624,10 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                         "%sTimestamping: %s\n",
                         prefix, socket_timestamping_to_string(s->timestamping));
 
-        if (s->control_pid > 0)
+        if (pidref_is_set(&s->control_pid))
                 fprintf(f,
                         "%sControl PID: "PID_FMT"\n",
-                        prefix, s->control_pid);
+                        prefix, s->control_pid.pid);
 
         if (s->bind_to_device)
                 fprintf(f,
@@ -765,9 +773,13 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
 
         fprintf(f,
                 "%sTriggerLimitIntervalSec: %s\n"
-                "%sTriggerLimitBurst: %u\n",
+                "%sTriggerLimitBurst: %u\n"
+                "%sPollLimitIntervalSec: %s\n"
+                "%sPollLimitBurst: %u\n",
                 prefix, FORMAT_TIMESPAN(s->trigger_limit.interval, USEC_PER_SEC),
-                prefix, s->trigger_limit.burst);
+                prefix, s->trigger_limit.burst,
+                prefix, FORMAT_TIMESPAN(s->poll_limit_interval, USEC_PER_SEC),
+                prefix, s->poll_limit_burst);
 
         str = ip_protocol_to_name(s->socket_protocol);
         if (str)
@@ -1501,9 +1513,9 @@ static int socket_address_listen_in_cgroup(
                 const SocketAddress *address,
                 const char *label) {
 
+        _cleanup_(pidref_done) PidRef pid = PIDREF_NULL;
         _cleanup_close_pair_ int pair[2] = PIPE_EBADF;
         int fd, r;
-        pid_t pid;
 
         assert(s);
         assert(address);
@@ -1595,7 +1607,7 @@ static int socket_address_listen_in_cgroup(
         fd = receive_one_fd(pair[0], 0);
 
         /* We synchronously wait for the helper, as it shouldn't be slow */
-        r = wait_for_terminate_and_check("(sd-listen)", pid, WAIT_LOG_ABNORMAL);
+        r = wait_for_terminate_and_check("(sd-listen)", pid.pid, WAIT_LOG_ABNORMAL);
         if (r < 0) {
                 safe_close(fd);
                 return r;
@@ -1759,6 +1771,10 @@ static int socket_watch_fds(Socket *s) {
 
                         (void) sd_event_source_set_description(p->event_source, "socket-port-io");
                 }
+
+                r = sd_event_source_set_ratelimit(p->event_source, s->poll_limit_interval, s->poll_limit_burst);
+                if (r < 0)
+                        log_unit_debug_errno(UNIT(s), r, "Failed to set poll limit on I/O event source, ignoring: %m");
         }
 
         return 0;
@@ -1854,8 +1870,8 @@ static int socket_coldplug(Unit *u) {
         if (s->deserialized_state == s->state)
                 return 0;
 
-        if (s->control_pid > 0 &&
-            pid_is_unwaited(s->control_pid) &&
+        if (pidref_is_set(&s->control_pid) &&
+            pid_is_unwaited(s->control_pid.pid) &&
             IN_SET(s->deserialized_state,
                    SOCKET_START_PRE,
                    SOCKET_START_CHOWN,
@@ -1868,7 +1884,7 @@ static int socket_coldplug(Unit *u) {
                    SOCKET_FINAL_SIGKILL,
                    SOCKET_CLEANING)) {
 
-                r = unit_watch_pid(UNIT(s), s->control_pid, false);
+                r = unit_watch_pid(UNIT(s), s->control_pid.pid, /* exclusive= */ false);
                 if (r < 0)
                         return r;
 
@@ -1914,7 +1930,7 @@ static int socket_coldplug(Unit *u) {
         return 0;
 }
 
-static int socket_spawn(Socket *s, ExecCommand *c, pid_t *_pid) {
+static int socket_spawn(Socket *s, ExecCommand *c, PidRef *ret_pid) {
 
         _cleanup_(exec_params_clear) ExecParameters exec_params = {
                 .flags     = EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_APPLY_TTY_STDIN,
@@ -1923,12 +1939,13 @@ static int socket_spawn(Socket *s, ExecCommand *c, pid_t *_pid) {
                 .stderr_fd = -EBADF,
                 .exec_fd   = -EBADF,
         };
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         pid_t pid;
         int r;
 
         assert(s);
         assert(c);
-        assert(_pid);
+        assert(ret_pid);
 
         r = unit_prepare_exec(UNIT(s));
         if (r < 0)
@@ -1952,22 +1969,27 @@ static int socket_spawn(Socket *s, ExecCommand *c, pid_t *_pid) {
         if (r < 0)
                 return r;
 
-        r = unit_watch_pid(UNIT(s), pid, true);
+        r = pidref_set_pid(&pidref, pid);
         if (r < 0)
                 return r;
 
-        *_pid = pid;
+        r = unit_watch_pid(UNIT(s), pidref.pid, /* exclusive= */ true);
+        if (r < 0)
+                return r;
 
+        *ret_pid = TAKE_PIDREF(pidref);
         return 0;
 }
 
-static int socket_chown(Socket *s, pid_t *_pid) {
-        pid_t pid;
+static int socket_chown(Socket *s, PidRef *ret_pid) {
+        _cleanup_(pidref_done) PidRef pid = PIDREF_NULL;
         int r;
+
+        assert(s);
 
         r = socket_arm_timer(s, usec_add(now(CLOCK_MONOTONIC), s->timeout_usec));
         if (r < 0)
-                goto fail;
+                return r;
 
         /* We have to resolve the user names out-of-process, hence
          * let's fork here. It's messy, but well, what can we do? */
@@ -2021,16 +2043,12 @@ static int socket_chown(Socket *s, pid_t *_pid) {
                 _exit(EXIT_SUCCESS);
         }
 
-        r = unit_watch_pid(UNIT(s), pid, true);
+        r = unit_watch_pid(UNIT(s), pid.pid, /* exclusive= */ true);
         if (r < 0)
-                goto fail;
+                return r;
 
-        *_pid = pid;
+        *ret_pid = TAKE_PIDREF(pid);
         return 0;
-
-fail:
-        s->timer_event_source = sd_event_source_disable_unref(s->timer_event_source);
-        return r;
 }
 
 static void socket_enter_dead(Socket *s, SocketResult f) {
@@ -2069,6 +2087,8 @@ static void socket_enter_stop_post(Socket *s, SocketResult f) {
         s->control_command = s->exec_command[SOCKET_EXEC_STOP_POST];
 
         if (s->control_command) {
+                pidref_done(&s->control_pid);
+
                 r = socket_spawn(s, s->control_command, &s->control_pid);
                 if (r < 0)
                         goto fail;
@@ -2106,9 +2126,9 @@ static void socket_enter_signal(Socket *s, SocketState state, SocketResult f) {
                         UNIT(s),
                         &s->kill_context,
                         state_to_kill_operation(s, state),
-                        -1,
-                        s->control_pid,
-                        false);
+                        /* main_pid= */ NULL,
+                        &s->control_pid,
+                        /* main_pid_alien= */ false);
         if (r < 0)
                 goto fail;
 
@@ -2150,6 +2170,8 @@ static void socket_enter_stop_pre(Socket *s, SocketResult f) {
         s->control_command = s->exec_command[SOCKET_EXEC_STOP_PRE];
 
         if (s->control_command) {
+                pidref_done(&s->control_pid);
+
                 r = socket_spawn(s, s->control_command, &s->control_pid);
                 if (r < 0)
                         goto fail;
@@ -2196,6 +2218,8 @@ static void socket_enter_start_post(Socket *s) {
         s->control_command = s->exec_command[SOCKET_EXEC_START_POST];
 
         if (s->control_command) {
+                pidref_done(&s->control_pid);
+
                 r = socket_spawn(s, s->control_command, &s->control_pid);
                 if (r < 0) {
                         log_unit_warning_errno(UNIT(s), r, "Failed to run 'start-post' task: %m");
@@ -2257,6 +2281,8 @@ static void socket_enter_start_pre(Socket *s) {
         s->control_command = s->exec_command[SOCKET_EXEC_START_PRE];
 
         if (s->control_command) {
+                pidref_done(&s->control_pid);
+
                 r = socket_spawn(s, s->control_command, &s->control_pid);
                 if (r < 0) {
                         log_unit_warning_errno(UNIT(s), r, "Failed to run 'start-pre' task: %m");
@@ -2436,6 +2462,8 @@ static void socket_run_next(Socket *s) {
 
         s->control_command = s->control_command->command_next;
 
+        pidref_done(&s->control_pid);
+
         r = socket_spawn(s, s->control_command, &s->control_pid);
         if (r < 0)
                 goto fail;
@@ -2562,8 +2590,8 @@ static int socket_serialize(Unit *u, FILE *f, FDSet *fds) {
         (void) serialize_item_format(f, "n-accepted", "%u", s->n_accepted);
         (void) serialize_item_format(f, "n-refused", "%u", s->n_refused);
 
-        if (s->control_pid > 0)
-                (void) serialize_item_format(f, "control-pid", PID_FMT, s->control_pid);
+        if (pidref_is_set(&s->control_pid))
+                (void) serialize_item_format(f, "control-pid", PID_FMT, s->control_pid.pid);
 
         if (s->control_command_id >= 0)
                 (void) serialize_item(f, "control-command", socket_exec_command_to_string(s->control_command_id));
@@ -2644,12 +2672,10 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value, 
                 else
                         s->n_refused += k;
         } else if (streq(key, "control-pid")) {
-                pid_t pid;
-
-                if (parse_pid(value, &pid) < 0)
-                        log_unit_debug(u, "Failed to parse control-pid value: %s", value);
-                else
-                        s->control_pid = pid;
+                pidref_done(&s->control_pid);
+                r = pidref_set_pidstr(&s->control_pid, value);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to pin control PID '%s', ignoring: %m", value);
         } else if (streq(key, "control-command")) {
                 SocketExecCommand id;
 
@@ -2965,9 +2991,9 @@ static int socket_accept_do(Socket *s, int fd) {
 }
 
 static int socket_accept_in_cgroup(Socket *s, SocketPort *p, int fd) {
+        _cleanup_(pidref_done) PidRef pid = PIDREF_NULL;
         _cleanup_close_pair_ int pair[2] = PIPE_EBADF;
         int cfd, r;
-        pid_t pid;
 
         assert(s);
         assert(p);
@@ -3017,7 +3043,7 @@ static int socket_accept_in_cgroup(Socket *s, SocketPort *p, int fd) {
         cfd = receive_one_fd(pair[0], 0);
 
         /* We synchronously wait for the helper, as it shouldn't be slow */
-        r = wait_for_terminate_and_check("(sd-accept)", pid, WAIT_LOG_ABNORMAL);
+        r = wait_for_terminate_and_check("(sd-accept)", pid.pid, WAIT_LOG_ABNORMAL);
         if (r < 0) {
                 safe_close(cfd);
                 return r;
@@ -3089,10 +3115,10 @@ static void socket_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         assert(s);
         assert(pid >= 0);
 
-        if (pid != s->control_pid)
+        if (pid != s->control_pid.pid)
                 return;
 
-        s->control_pid = 0;
+        pidref_done(&s->control_pid);
 
         if (is_clean_exit(code, status, EXIT_CLEAN_COMMAND, NULL))
                 f = SOCKET_SUCCESS;
@@ -3365,10 +3391,6 @@ static void socket_trigger_notify(Unit *u, Unit *other) {
                 socket_set_state(s, SOCKET_RUNNING);
 }
 
-static int socket_kill(Unit *u, KillWho who, int signo, int code, int value, sd_bus_error *error) {
-        return unit_kill_common(u, who, signo, code, value, -1, SOCKET(u)->control_pid, error);
-}
-
 static int socket_get_timeout(Unit *u, usec_t *timeout) {
         Socket *s = SOCKET(u);
         usec_t t;
@@ -3397,12 +3419,8 @@ char *socket_fdname(Socket *s) {
         return s->fdname ?: UNIT(s)->id;
 }
 
-static int socket_control_pid(Unit *u) {
-        Socket *s = SOCKET(u);
-
-        assert(s);
-
-        return s->control_pid;
+static PidRef *socket_control_pid(Unit *u) {
+        return &ASSERT_PTR(SOCKET(u))->control_pid;
 }
 
 static int socket_clean(Unit *u, ExecCleanMask mask) {
@@ -3437,7 +3455,6 @@ static int socket_clean(Unit *u, ExecCleanMask mask) {
                 goto fail;
 
         socket_set_state(s, SOCKET_CLEANING);
-
         return 0;
 
 fail:
@@ -3555,7 +3572,6 @@ const UnitVTable socket_vtable = {
         .start = socket_start,
         .stop = socket_stop,
 
-        .kill = socket_kill,
         .clean = socket_clean,
         .can_clean = socket_can_clean,
 

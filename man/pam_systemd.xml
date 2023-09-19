@@ -3,7 +3,7 @@
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
-<refentry id="pam_systemd" conditional='HAVE_PAM'>
+<refentry id="pam_systemd" conditional='HAVE_PAM' xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>pam_systemd</title>
@@ -94,7 +94,9 @@
         environment variable (see below) takes precedence. One of <literal>user</literal>, <literal>greeter</literal>,
         <literal>lock-screen</literal> or <literal>background</literal>. See
         <citerefentry><refentrytitle>sd_session_get_class</refentrytitle><manvolnum>3</manvolnum></citerefentry> for
-        details about the session class.</para></listitem>
+        details about the session class.</para>
+
+        <xi:include href="version-info.xml" xpointer="v197"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -104,7 +106,9 @@
         environment variable (see below) takes precedence. One of <literal>unspecified</literal>,
         <literal>tty</literal>, <literal>x11</literal>, <literal>wayland</literal> or <literal>mir</literal>. See
         <citerefentry><refentrytitle>sd_session_get_type</refentrytitle><manvolnum>3</manvolnum></citerefentry> for
-        details about the session type.</para></listitem>
+        details about the session type.</para>
+
+        <xi:include href="version-info.xml" xpointer="v209"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -119,7 +123,9 @@
         Specification</ulink>. (However, note that the option only takes a single item, and not a colon-separated list
         like <varname>$XDG_CURRENT_DESKTOP</varname>.) See
         <citerefentry><refentrytitle>sd_session_get_desktop</refentrytitle><manvolnum>3</manvolnum></citerefentry> for
-        further details.</para></listitem>
+        further details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v240"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -135,7 +141,9 @@
         (i.e. usually contains the full set of capabilities). The default ambient set is set to
         <constant>CAP_WAKE_ALARM</constant> for regular users if the PAM session is associated with a local
         seat or if it is invoked for the <literal>systemd-user</literal> service. Otherwise defaults to the
-        empty set.</para></listitem>
+        empty set.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -203,7 +211,9 @@
         <term><varname>$LANG</varname></term>
 
         <listitem><para>If a JSON user record is known for the user logging in these variables are
-        initialized from the respective data in the record.</para></listitem>
+        initialized from the respective data in the record.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>
 
     </variablelist>
@@ -218,28 +228,36 @@
         <term><varname>$XDG_SESSION_TYPE</varname></term>
 
         <listitem><para>The session type. This may be used instead of <varname>type=</varname> on the module parameter
-        line, and is usually preferred.</para></listitem>
+        line, and is usually preferred.</para>
+
+        <xi:include href="version-info.xml" xpointer="v209"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>$XDG_SESSION_CLASS</varname></term>
 
         <listitem><para>The session class. This may be used instead of <varname>class=</varname> on the module parameter
-        line, and is usually preferred.</para></listitem>
+        line, and is usually preferred.</para>
+
+        <xi:include href="version-info.xml" xpointer="v209"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>$XDG_SESSION_DESKTOP</varname></term>
 
         <listitem><para>The desktop identifier. This may be used instead of <varname>desktop=</varname> on the module
-        parameter line, and is usually preferred.</para></listitem>
+        parameter line, and is usually preferred.</para>
+
+        <xi:include href="version-info.xml" xpointer="v209"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>$XDG_SEAT</varname></term>
 
         <listitem><para>The seat name the session shall be registered
-        for, if any.</para></listitem>
+        for, if any.</para>
+
+        <xi:include href="version-info.xml" xpointer="v209"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -247,7 +265,9 @@
 
         <listitem><para>The VT number the session shall be registered
         for, if any. (Only applies to seats with a VT available, such
-        as <literal>seat0</literal>)</para></listitem>
+        as <literal>seat0</literal>)</para>
+
+        <xi:include href="version-info.xml" xpointer="v209"/></listitem>
       </varlistentry>
     </variablelist>
 
@@ -277,31 +297,41 @@
       <varlistentry>
         <term><varname>systemd.memory_max=</varname></term>
 
-        <listitem><para>Sets unit <varname>MemoryMax=</varname>.</para></listitem>
+        <listitem><para>Sets unit <varname>MemoryMax=</varname>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>systemd.tasks_max=</varname></term>
 
-        <listitem><para>Sets unit <varname>TasksMax=</varname>.</para></listitem>
+        <listitem><para>Sets unit <varname>TasksMax=</varname>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>systemd.cpu_weight=</varname></term>
 
-        <listitem><para>Sets unit <varname>CPUWeight=</varname>.</para></listitem>
+        <listitem><para>Sets unit <varname>CPUWeight=</varname>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>systemd.io_weight=</varname></term>
 
-        <listitem><para>Sets unit <varname>IOWeight=</varname>.</para></listitem>
+        <listitem><para>Sets unit <varname>IOWeight=</varname>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>systemd.runtime_max_sec=</varname></term>
 
-        <listitem><para>Sets unit <varname>RuntimeMaxSec=</varname>.</para></listitem>
+        <listitem><para>Sets unit <varname>RuntimeMaxSec=</varname>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v244"/></listitem>
       </varlistentry>
     </variablelist>
 

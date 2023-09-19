@@ -12,6 +12,11 @@ if [ -d "$SRCDIR"/mkosi.kernel/ ]; then
     cd "$SRCDIR"
     mkdir -p "$BUILDDIR"
 
+    # Prevent a distro's custom installkernel script from being used.
+    if [ -x /sbin/installkernel ]; then
+        mount --bind /dev/null /sbin/installkernel
+    fi
+
     # Ensure fast incremental builds by fixating these values which usually change for each build.
     export KBUILD_BUILD_TIMESTAMP="Fri Jun  5 15:58:00 CEST 2015"
     export KBUILD_BUILD_HOST="mkosi"
@@ -30,7 +35,7 @@ if [ -d "$SRCDIR"/mkosi.kernel/ ]; then
     make O="$BUILDDIR" VERSION=99 INSTALL_MOD_PATH="$DESTDIR/usr" modules_install
     make O="$BUILDDIR" VERSION=99 INSTALL_PATH="$DESTDIR/usr/lib/modules/$KERNEL_RELEASE" install
     mkdir -p "$DESTDIR/usr/lib/kernel/selftests"
-    make -C tools/testing/selftests -j "$(nproc)" O="$BUILDDIR" VERSION=99 KSFT_INSTALL_PATH="$DESTDIR/usr/lib/kernel/selftests" SKIP_TARGETS="" install
+    make -C tools/testing/selftests -j "$(nproc)" O="$BUILDDIR" VERSION=99 KSFT_INSTALL_PATH="$DESTDIR/usr/lib/kernel/selftests" SKIP_TARGETS="hid" install
 
     mkdir -p "$DESTDIR"/usr/bin
     ln -sf /usr/lib/kernel/selftests/bpf/bpftool "$DESTDIR/usr/bin/bpftool"

@@ -234,6 +234,8 @@
         <term><varname>Description=</varname></term>
         <listitem>
           <para>A free-form description of the netdev.</para>
+
+        <xi:include href="version-info.xml" xpointer="v215"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -241,6 +243,8 @@
         <listitem>
           <para>The interface name used when creating the netdev.
           This setting is compulsory.</para>
+
+          <xi:include href="version-info.xml" xpointer="v211"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -249,6 +253,8 @@
           <para>The netdev kind. This setting is compulsory. See the
           <literal>Supported netdev kinds</literal> section for the
           valid keys.</para>
+
+          <xi:include href="version-info.xml" xpointer="v211"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -261,6 +267,8 @@
           corresponding
           <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>
           files.</para>
+
+          <xi:include href="version-info.xml" xpointer="v215"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -282,6 +290,8 @@
           will assign the persistent MAC address for the device, as <filename>99-default.link</filename>
           has <varname>MACAddressPolicy=persistent</varname>. So, it is also necessary to create a
           custom .link file for the device, if the MAC address assignment is not desired.</para>
+
+          <xi:include href="version-info.xml" xpointer="v215"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -302,6 +312,8 @@
           sent out by the root bridge and the designated bridges. Hello packets are
           used to communicate information about the topology throughout the entire
           bridged local area network.</para>
+
+          <xi:include href="version-info.xml" xpointer="v227"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -311,6 +323,8 @@
           If the last seen (received) hello packet is more than this number of
           seconds old, the bridge in question will start the takeover procedure
           in attempt to become the Root Bridge itself.</para>
+
+          <xi:include href="version-info.xml" xpointer="v227"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -318,6 +332,8 @@
         <listitem>
           <para>ForwardDelaySec specifies the number of seconds spent in each
           of the Listening and Learning states before the Forwarding state is entered.</para>
+
+          <xi:include href="version-info.xml" xpointer="v227"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -325,6 +341,8 @@
         <listitem>
           <para>This specifies the number of seconds a MAC Address will be kept in
           the forwarding database after having a packet received from this MAC Address.</para>
+
+          <xi:include href="version-info.xml" xpointer="v232"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -332,6 +350,8 @@
         <listitem>
           <para>The priority of the bridge. An integer between 0 and 65535. A lower value
           means higher priority. The bridge having the lowest priority will be elected as root bridge.</para>
+
+          <xi:include href="version-info.xml" xpointer="v232"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -342,6 +362,8 @@
           is performed between the specified bitmask and the exponentiation of 2^X, the
           lower nibble of the last octet of the MAC address. For example, a value of 8
           would allow forwarding of frames addressed to 01:80:C2:00:00:03 (802.1X PAE).</para>
+
+          <xi:include href="version-info.xml" xpointer="v235"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -349,6 +371,8 @@
         <listitem>
           <para>This specifies the default port VLAN ID of a newly attached bridge port.
           Set this to an integer in the range 1…4094 or <literal>none</literal> to disable the PVID.</para>
+
+          <xi:include href="version-info.xml" xpointer="v232"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -360,6 +384,8 @@
           multicast-aware switches to misbehave and disrupt forwarding of multicast packets.
           When unset, the kernel's default will be used.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v230"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -369,6 +395,8 @@
           If enabled, IGMP snooping monitors the Internet Group Management Protocol (IGMP) traffic
           between hosts and multicast routers. When unset, the kernel's default will be used.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v230"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -377,6 +405,8 @@
           <para>Takes a boolean. This setting controls the IFLA_BR_VLAN_FILTERING option in the kernel.
           If enabled, the bridge will be started in VLAN-filtering mode. When unset, the kernel's default will be used.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v231"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -386,6 +416,8 @@
           <option>802.1q</option> or,
           <option>802.1ad</option>, and defaults to unset and kernel's default is used.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -394,6 +426,8 @@
           <para>Takes a boolean. This enables the bridge's Spanning Tree Protocol (STP).
           When unset, the kernel's default will be used.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v232"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -402,6 +436,8 @@
           <para>Allows changing bridge's multicast Internet Group Management Protocol (IGMP) version.
           Takes an integer 2 or 3. When unset, the kernel's default will be used.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v243"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -420,6 +456,8 @@
         <listitem>
           <para>The VLAN ID to use. An integer in the range 0…4094.
           This setting is compulsory.</para>
+
+          <xi:include href="version-info.xml" xpointer="v211"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -427,6 +465,8 @@
         <listitem>
           <para>Allows setting the protocol used for the VLAN interface. Takes <literal>802.1q</literal> or,
           <literal>802.1ad</literal>, and defaults to unset and kernel's default is used.</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -436,6 +476,8 @@
           allows automatic learning of VLANs on a network.
           When unset, the kernel's default will be used.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v234"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -446,6 +488,8 @@
           for automatic configuration of VLAN information on switches. It was defined
           in the 802.1ak amendment to 802.1Q-2005. When unset, the kernel's default will be used.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v234"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -454,6 +498,8 @@
           <para>Takes a boolean. The VLAN loose binding mode, in which only the operational state is passed
           from the parent to the associated VLANs, but the VLAN device state is not changed.
           When unset, the kernel's default will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v234"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -461,6 +507,8 @@
         <listitem>
           <para>Takes a boolean. When enabled, the VLAN reorder header is used and VLAN interfaces behave
           like physical interfaces. When unset, the kernel's default will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v234"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -473,6 +521,8 @@
           1…4294967294, in the format <literal>from</literal>-<literal>to</literal>, e.g.,
           <literal>21-7 45-5</literal>. Note that <literal>from</literal> must be greater than or equal
           to <literal>to</literal>. When unset, the kernel's default will be used.</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -496,6 +546,8 @@
           <literal>passthru</literal>, and
           <literal>source</literal>.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v211"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -506,6 +558,8 @@
           hexadecimal. This option may appear more than once, in which case the lists are merged. If
           the empty string is assigned to this option, the list of hardware addresses defined prior
           to this is reset. Defaults to unset.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -513,6 +567,8 @@
         <listitem>
           <para>Specifies the length of the receive queue for broadcast/multicast packets. An unsigned
           integer in the range 0…4294967294. Defaults to unset.</para>
+
+          <xi:include href="version-info.xml" xpointer="v248"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -539,6 +595,8 @@
           <para>The IPVLAN mode to use. The supported options are
           <literal>L2</literal>,<literal>L3</literal> and <literal>L3S</literal>.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v219"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -547,6 +605,8 @@
           <para>The IPVLAN flags to use. The supported options are
           <literal>bridge</literal>,<literal>private</literal> and <literal>vepa</literal>.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v237"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -571,12 +631,16 @@
         <term><varname>VNI=</varname></term>
         <listitem>
           <para>The VXLAN Network Identifier (or VXLAN Segment ID). Takes a number in the range 1…16777215.</para>
+
+        <xi:include href="version-info.xml" xpointer="v243"/>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>Remote=</varname></term>
         <listitem>
           <para>Configures destination IP address.</para>
+
+        <xi:include href="version-info.xml" xpointer="v233"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -587,6 +651,8 @@
           <literal>ipv6_link_local</literal>, <literal>dhcp4</literal>, <literal>dhcp6</literal>, and
           <literal>slaac</literal>. If one of the special values is specified, an address which matches
           the corresponding type on the underlying interface will be used. Defaults to unset.</para>
+
+          <xi:include href="version-info.xml" xpointer="v233"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -594,12 +660,16 @@
         <listitem>
           <para>Configures VXLAN multicast group IP address. All members of a VXLAN must use the same
           multicast group address.</para>
+
+          <xi:include href="version-info.xml" xpointer="v243"/>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>TOS=</varname></term>
         <listitem>
           <para>The Type Of Service byte value for a vxlan interface.</para>
+
+        <xi:include href="version-info.xml" xpointer="v215"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -609,6 +679,8 @@
           Takes <literal>inherit</literal> or a number in the range 0…255. 0 is a special
           value meaning inherit the inner protocol's TTL value. <literal>inherit</literal>
           means that it will inherit the outer protocol's TTL value.</para>
+
+          <xi:include href="version-info.xml" xpointer="v215"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -616,6 +688,8 @@
         <listitem>
           <para>Takes a boolean. When true, enables dynamic MAC learning
           to discover remote MAC addresses.</para>
+
+          <xi:include href="version-info.xml" xpointer="v215"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -623,12 +697,16 @@
         <listitem>
           <para>The lifetime of Forwarding Database entry learnt by
           the kernel, in seconds.</para>
+
+          <xi:include href="version-info.xml" xpointer="v218"/>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>MaximumFDBEntries=</varname></term>
         <listitem>
           <para>Configures maximum number of FDB entries.</para>
+
+        <xi:include href="version-info.xml" xpointer="v228"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -639,6 +717,8 @@
           of remote Distributed Overlay Virtual Ethernet
           <ulink url="https://en.wikipedia.org/wiki/Distributed_Overlay_Virtual_Ethernet">
           (DOVE)</ulink> clients. Defaults to false.</para>
+
+          <xi:include href="version-info.xml" xpointer="v233"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -646,12 +726,16 @@
         <listitem>
           <para>Takes a boolean. When true, enables netlink LLADDR miss
           notifications.</para>
+
+          <xi:include href="version-info.xml" xpointer="v218"/>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>L3MissNotification=</varname></term>
         <listitem>
           <para>Takes a boolean. When true, enables netlink IP address miss notifications.</para>
+
+        <xi:include href="version-info.xml" xpointer="v218"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -659,36 +743,48 @@
         <listitem>
           <para>Takes a boolean. When true, route short circuiting is turned
           on.</para>
+
+          <xi:include href="version-info.xml" xpointer="v218"/>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>UDPChecksum=</varname></term>
         <listitem>
           <para>Takes a boolean. When true, transmitting UDP checksums when doing VXLAN/IPv4 is turned on.</para>
+
+        <xi:include href="version-info.xml" xpointer="v220"/>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>UDP6ZeroChecksumTx=</varname></term>
         <listitem>
           <para>Takes a boolean. When true, sending zero checksums in VXLAN/IPv6 is turned on.</para>
+
+        <xi:include href="version-info.xml" xpointer="v220"/>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>UDP6ZeroChecksumRx=</varname></term>
         <listitem>
           <para>Takes a boolean. When true, receiving zero checksums in VXLAN/IPv6 is turned on.</para>
+
+        <xi:include href="version-info.xml" xpointer="v220"/>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>RemoteChecksumTx=</varname></term>
         <listitem>
           <para>Takes a boolean. When true, remote transmit checksum offload of VXLAN is turned on.</para>
+
+        <xi:include href="version-info.xml" xpointer="v232"/>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>RemoteChecksumRx=</varname></term>
         <listitem>
           <para>Takes a boolean. When true, remote receive checksum offload in VXLAN is turned on.</para>
+
+        <xi:include href="version-info.xml" xpointer="v232"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -698,6 +794,8 @@
           across network peers based on VXLAN. For details about the Group Policy VXLAN, see the
           <ulink url="https://tools.ietf.org/html/draft-smith-vxlan-group-policy">
           VXLAN Group Policy </ulink> document. Defaults to false.</para>
+
+          <xi:include href="version-info.xml" xpointer="v224"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -708,6 +806,8 @@
           Header, see the <ulink url="https://tools.ietf.org/html/draft-ietf-nvo3-vxlan-gpe-07">
           Generic Protocol Extension for VXLAN </ulink> document. If destination port is not specified and
           Generic Protocol Extension is set then default port of 4790 is used. Defaults to false.</para>
+
+          <xi:include href="version-info.xml" xpointer="v243"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -715,6 +815,8 @@
         <listitem>
           <para>Configures the default destination UDP port. If the destination port is not specified then
           Linux kernel default will be used. Set to 4789 to get the IANA assigned value.</para>
+
+          <xi:include href="version-info.xml" xpointer="v229"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -723,6 +825,8 @@
           <para>Configures the source port range for the VXLAN. The kernel assigns the source UDP port based
           on the flow to help the receiver to do load balancing. When this option is not set, the normal
           range of local UDP ports is used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v229"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -731,6 +835,8 @@
           <para>Specifies the flow label to use in outgoing packets.
           The valid range is 0-1048575.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v234"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -740,6 +846,8 @@
           value from the IPv4 inner header. Takes a boolean value, or <literal>inherit</literal>. Set
           to <literal>inherit</literal> if the encapsulated protocol is IPv6. When unset, the kernel's
           default will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v243"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -748,6 +856,8 @@
           <para>Takes a boolean. When true, the vxlan interface is created without any underlying network
           interface. Defaults to false, which means that a .network file that requests this VXLAN interface
           using <varname>VXLAN=</varname> is required for the VXLAN to be created.</para>
+
+          <xi:include href="version-info.xml" xpointer="v247"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -766,18 +876,24 @@
         <listitem>
           <para>Specifies the Virtual Network Identifier (VNI) to use, a number between 0 and 16777215. This
           field is mandatory.</para>
+
+          <xi:include href="version-info.xml" xpointer="v234"/>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>Remote=</varname></term>
         <listitem>
           <para>Specifies the unicast destination IP address to use in outgoing packets.</para>
+
+        <xi:include href="version-info.xml" xpointer="v234"/>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>TOS=</varname></term>
         <listitem>
           <para>Specifies the TOS value to use in outgoing packets. Takes a number between 1 and 255.</para>
+
+        <xi:include href="version-info.xml" xpointer="v234"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -786,6 +902,8 @@
           <para>Accepts the same values as in the [VXLAN] section, except that when unset
           or set to 0, the kernel's default will be used, meaning that packet TTL will be set from
           <filename>/proc/sys/net/ipv4/ip_default_ttl</filename>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v234"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -793,18 +911,24 @@
         <listitem>
           <para>Takes a boolean. When true, specifies that UDP checksum is calculated for transmitted packets
           over IPv4.</para>
+
+          <xi:include href="version-info.xml" xpointer="v234"/>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>UDP6ZeroChecksumTx=</varname></term>
         <listitem>
           <para>Takes a boolean. When true, skip UDP checksum calculation for transmitted packets over IPv6.</para>
+
+        <xi:include href="version-info.xml" xpointer="v234"/>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>UDP6ZeroChecksumRx=</varname></term>
         <listitem>
           <para>Takes a boolean. When true, allows incoming UDP packets over IPv6 with zero checksum field.</para>
+
+        <xi:include href="version-info.xml" xpointer="v234"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -812,18 +936,24 @@
         <listitem>
           <para>Specifies destination port. Defaults to 6081. If not set or assigned the empty string, the default
           port of 6081 is used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v234"/>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>FlowLabel=</varname></term>
         <listitem>
           <para>Specifies the flow label to use in outgoing packets.</para>
+
+        <xi:include href="version-info.xml" xpointer="v234"/>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>IPDoNotFragment=</varname></term>
         <listitem>
           <para>Accepts the same key as in [VXLAN] section.</para>
+
+        <xi:include href="version-info.xml" xpointer="v243"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -831,6 +961,8 @@
         <listitem>
           <para>Takes a boolean. When true, inner Layer 3 protocol is set as Protocol Type in the GENEVE
           header instead of Ethernet. Defaults to false.</para>
+
+          <xi:include href="version-info.xml" xpointer="v254"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -848,6 +980,8 @@
         <term><varname>DestinationPort=</varname></term>
         <listitem>
           <para>Specifies the destination UDP port (in range 1…65535). This is mandatory.</para>
+
+        <xi:include href="version-info.xml" xpointer="v247"/>
         </listitem>
       </varlistentry>
 
@@ -856,6 +990,8 @@
         <listitem>
           <para>Specifies the L3 protocol. Takes one of <literal>ipv4</literal>, <literal>ipv6</literal>, <literal>mpls-uc</literal>
           or <literal>mpls-mc</literal>. This is mandatory.</para>
+
+        <xi:include href="version-info.xml" xpointer="v247"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -875,6 +1011,8 @@
           <para>Specifies the tunnel identifier. Takes an number in the range 1…4294967295. The value used
           must match the <literal>PeerTunnelId=</literal> value being used at the peer. This setting is
           compulsory.</para>
+
+          <xi:include href="version-info.xml" xpointer="v242"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -883,12 +1021,16 @@
           <para>Specifies the peer tunnel id. Takes a number in the range 1…4294967295. The value used must
           match the <literal>TunnelId=</literal> value being used at the peer. This setting is compulsory.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v242"/>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>Remote=</varname></term>
         <listitem>
           <para>Specifies the IP address of the remote peer. This setting is compulsory.</para>
+
+        <xi:include href="version-info.xml" xpointer="v242"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -903,6 +1045,8 @@
           addresses on a local or specified interface which is accessible to the remote address will be
           used. Similarly, if <literal>static</literal> or <literal>dynamic</literal> is set, then one
           of the static or dynamic addresses will be used. Defaults to <literal>auto</literal>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v242"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -910,6 +1054,8 @@
         <listitem>
           <para>Specifies the encapsulation type of the tunnel. Takes one of <literal>udp</literal> or
           <literal>ip</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v242"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -917,6 +1063,8 @@
         <listitem>
           <para>Specifies the UDP source port to be used for the tunnel. When UDP encapsulation is selected
           it's mandatory. Ignored when IP encapsulation is selected.</para>
+
+          <xi:include href="version-info.xml" xpointer="v242"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -924,6 +1072,8 @@
         <listitem>
           <para>Specifies destination port. When UDP encapsulation is selected it's mandatory. Ignored when IP
           encapsulation is selected.</para>
+
+          <xi:include href="version-info.xml" xpointer="v245"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -931,18 +1081,24 @@
         <listitem>
           <para>Takes a boolean. When true, specifies that UDP checksum is calculated for transmitted packets
           over IPv4.</para>
+
+          <xi:include href="version-info.xml" xpointer="v242"/>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>UDP6ZeroChecksumTx=</varname></term>
         <listitem>
           <para>Takes a boolean. When true, skip UDP checksum calculation for transmitted packets over IPv6.</para>
+
+        <xi:include href="version-info.xml" xpointer="v242"/>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>UDP6ZeroChecksumRx=</varname></term>
         <listitem>
           <para>Takes a boolean. When true, allows incoming UDP packets over IPv6 with zero checksum field.</para>
+
+        <xi:include href="version-info.xml" xpointer="v242"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -959,6 +1115,8 @@
         <term><varname>Name=</varname></term>
         <listitem>
           <para>Specifies the name of the session. This setting is compulsory.</para>
+
+        <xi:include href="version-info.xml" xpointer="v242"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -967,6 +1125,8 @@
           <para>Specifies the session identifier. Takes an number in the range 1…4294967295. The value used
           must match the <literal>SessionId=</literal> value being used at the peer. This setting is
           compulsory.</para>
+
+          <xi:include href="version-info.xml" xpointer="v242"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -975,12 +1135,16 @@
           <para>Specifies the peer session identifier. Takes an number in the range 1…4294967295.
           The value used must match the <literal>PeerSessionId=</literal> value being used at the peer.
           This setting is compulsory.</para>
+
+          <xi:include href="version-info.xml" xpointer="v242"/>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>Layer2SpecificHeader=</varname></term>
         <listitem>
           <para>Specifies layer2specific header type of the session. One of <literal>none</literal> or <literal>default</literal>. Defaults to <literal>default</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v242"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -999,12 +1163,16 @@
           <para>Specifies the port to be used for the MACsec transmit channel. The port is used to make
           secure channel identifier (SCI). Takes a value between 1 and 65535. Defaults to unset.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v243"/>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>Encrypt=</varname></term>
         <listitem>
           <para>Takes a boolean. When true, enable encryption. Defaults to unset.</para>
+
+        <xi:include href="version-info.xml" xpointer="v243"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -1022,6 +1190,8 @@
           <para>Specifies the port to be used for the MACsec receive channel. The port is used to make
           secure channel identifier (SCI). Takes a value between 1 and 65535. This option is
           compulsory, and is not set by default.</para>
+
+          <xi:include href="version-info.xml" xpointer="v243"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -1030,6 +1200,8 @@
           <para>Specifies the MAC address to be used for the MACsec receive channel. The MAC address
           used to make secure channel identifier (SCI). This setting is compulsory, and is not set by
           default.</para>
+
+          <xi:include href="version-info.xml" xpointer="v243"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -1049,6 +1221,8 @@
           the initialization vector (along with the secure channel identifier [SCI]). Takes a value
           between 1-4,294,967,295. Defaults to unset.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v243"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -1056,6 +1230,8 @@
         <listitem>
           <para>Specifies the identification for the key. Takes a number between 0-255. This option
           is compulsory, and is not set by default.</para>
+
+          <xi:include href="version-info.xml" xpointer="v243"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -1065,6 +1241,8 @@
           configured on the peer’s matching receive channel. This setting is compulsory, and is not set
           by default. Takes a 128-bit key encoded in a hexadecimal string, for example
           <literal>dffafc8d7b9a43d5b9a3dfbbf6a30c16</literal>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v243"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -1077,6 +1255,8 @@
           <literal>root:systemd-network</literal> with a <literal>0640</literal> file mode. If the path
           refers to an <constant>AF_UNIX</constant> stream socket in the file system a connection is made to
           it and the key read from it.</para>
+
+          <xi:include href="version-info.xml" xpointer="v243"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -1084,6 +1264,8 @@
         <listitem>
           <para>Takes a boolean. If enabled, then the security association is activated. Defaults to
           unset.</para>
+
+          <xi:include href="version-info.xml" xpointer="v243"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -1092,6 +1274,8 @@
           <para>Takes a boolean. If enabled, then the security association is used for encoding. Only
           one [MACsecTransmitAssociation] section can enable this option. When enabled,
           <varname>Activate=yes</varname> is implied. Defaults to unset.</para>
+
+          <xi:include href="version-info.xml" xpointer="v243"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -1109,42 +1293,56 @@
         <term><varname>Port=</varname></term>
         <listitem>
           <para>Accepts the same key as in [MACsecReceiveChannel] section.</para>
+
+        <xi:include href="version-info.xml" xpointer="v243"/>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>MACAddress=</varname></term>
         <listitem>
           <para>Accepts the same key as in [MACsecReceiveChannel] section.</para>
+
+        <xi:include href="version-info.xml" xpointer="v243"/>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>PacketNumber=</varname></term>
         <listitem>
           <para>Accepts the same key as in [MACsecTransmitAssociation] section.</para>
+
+        <xi:include href="version-info.xml" xpointer="v243"/>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>KeyId=</varname></term>
         <listitem>
           <para>Accepts the same key as in [MACsecTransmitAssociation] section.</para>
+
+        <xi:include href="version-info.xml" xpointer="v243"/>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>Key=</varname></term>
         <listitem>
           <para>Accepts the same key as in [MACsecTransmitAssociation] section.</para>
+
+        <xi:include href="version-info.xml" xpointer="v243"/>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>KeyFile=</varname></term>
         <listitem>
           <para>Accepts the same key as in [MACsecTransmitAssociation] section.</para>
+
+        <xi:include href="version-info.xml" xpointer="v243"/>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>Activate=</varname></term>
         <listitem>
           <para>Accepts the same key as in [MACsecTransmitAssociation] section.</para>
+
+        <xi:include href="version-info.xml" xpointer="v243"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -1175,6 +1373,8 @@
           also known as collect metadata mode, and most settings below like <varname>Local=</varname>
           or <varname>Remote=</varname> are ignored. This implies <varname>Independent=</varname>.
           Defaults to false.</para>
+
+          <xi:include href="version-info.xml" xpointer="v251"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -1187,6 +1387,8 @@
           of the special values except for <literal>any</literal> is specified, an address which
           matches the corresponding type on the underlying interface will be used. Defaults to
           <literal>any</literal>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v215"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -1194,6 +1396,8 @@
         <listitem>
           <para>The remote endpoint of the tunnel. Takes an IP address or the special value
           <literal>any</literal>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v215"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -1204,6 +1408,8 @@
           <ulink url="http://tools.ietf.org/html/rfc1349"> Type of
           Service in the Internet Protocol Suite </ulink> document.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v215"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -1214,6 +1420,8 @@
           packets inherit the TTL value. The default value for IPv4
           tunnels is 0 (inherit). The default value for IPv6 tunnels is
           64.</para>
+
+          <xi:include href="version-info.xml" xpointer="v215"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -1223,6 +1431,8 @@
           the tunnel.
           When <varname>IgnoreDontFragment=</varname> is enabled,
           defaults to false. Otherwise, defaults to true.</para>
+
+          <xi:include href="version-info.xml" xpointer="v215"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -1233,6 +1443,8 @@
           Note that if <varname>IgnoreDontFragment=</varname> is set to true,
           <varname>DiscoverPathMTU=</varname> cannot be set to true.
           Only applicable to GRE, GRETAP, and ERSPAN tunnels.</para>
+
+          <xi:include href="version-info.xml" xpointer="v254"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -1246,6 +1458,8 @@
           not been labeled.
           It can be configured to a value in the range 0…0xFFFFF, or be
           set to <literal>inherit</literal>, in which case the original flowlabel is used.</para>
+
+        <xi:include href="version-info.xml" xpointer="v223"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -1258,6 +1472,8 @@
           levels of service to be assigned to network traffic.
           Defaults to <literal>no</literal>.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v223"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -1271,6 +1487,8 @@
           (see <ulink url="https://tools.ietf.org/html/rfc2473#section-4.1.1"> RFC 2473</ulink>).
           The valid range is 0…255 and <literal>none</literal>. Defaults to 4.
         </para>
+
+          <xi:include href="version-info.xml" xpointer="v226"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -1284,6 +1502,8 @@
           See <ulink url="https://man7.org/linux/man-pages/man8/ip-xfrm.8.html">
           ip-xfrm — transform configuration</ulink> for details. It is only used for VTI/VTI6,
           GRE, GRETAP, and ERSPAN tunnels.</para>
+
+        <xi:include href="version-info.xml" xpointer="v231"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -1292,6 +1512,8 @@
           <para>The <varname>InputKey=</varname> parameter specifies the key to use for input.
           The format is same as <varname>Key=</varname>. It is only used for VTI/VTI6, GRE, GRETAP,
           and ERSPAN tunnels.</para>
+
+        <xi:include href="version-info.xml" xpointer="v231"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -1300,6 +1522,8 @@
           <para>The <varname>OutputKey=</varname> parameter specifies the key to use for output.
           The format is same as <varname>Key=</varname>. It is only used for VTI/VTI6, GRE, GRETAP,
           and ERSPAN tunnels.</para>
+
+        <xi:include href="version-info.xml" xpointer="v231"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -1311,6 +1535,8 @@
           <literal>ipip6</literal> for IPv4 over IPv6 or
           <literal>any</literal> for either.
           </para>
+
+        <xi:include href="version-info.xml" xpointer="v219"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -1320,6 +1546,8 @@
           device, and a .network file that requests this tunnel using <varname>Tunnel=</varname> is required
           for the tunnel to be created. When true, the tunnel is created independently of any network as
           "tunnel@NONE".</para>
+
+          <xi:include href="version-info.xml" xpointer="v235"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -1327,6 +1555,8 @@
         <listitem>
           <para>Takes a boolean. If set to <literal>yes</literal>, the loopback interface <literal>lo</literal>
           is used as the underlying device of the tunnel interface. Defaults to <literal>no</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v243"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -1335,6 +1565,8 @@
           <para>Takes a boolean. When true allows tunnel traffic on <varname>ip6tnl</varname> devices where the remote endpoint is a local host address.
           When unset, the kernel's default will be used.
           </para>
+
+        <xi:include href="version-info.xml" xpointer="v237"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -1344,6 +1576,8 @@
           Defaults to false. This takes effects only for IPIP, SIT, GRE, and GRETAP tunnels.
           For more detail information see
           <ulink url="https://lwn.net/Articles/614348">Foo over UDP</ulink></para>
+
+        <xi:include href="version-info.xml" xpointer="v240"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -1351,6 +1585,8 @@
         <listitem>
           <para>This setting specifies the UDP destination port for encapsulation.
           This field is mandatory when <varname>FooOverUDP=yes</varname>, and is not set by default.</para>
+
+          <xi:include href="version-info.xml" xpointer="v240"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -1358,12 +1594,16 @@
         <listitem>
           <para>This setting specifies the UDP source port for encapsulation. Defaults to <constant>0</constant>
           — that is, the source port for packets is left to the network stack to decide.</para>
+
+        <xi:include href="version-info.xml" xpointer="v240"/>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>Encapsulation=</varname></term>
         <listitem>
           <para>Accepts the same key as in the [FooOverUDP] section.</para>
+
+        <xi:include href="version-info.xml" xpointer="v240"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -1372,6 +1612,8 @@
           <para>Reconfigure the tunnel for <ulink url="https://tools.ietf.org/html/rfc5569">IPv6 Rapid
           Deployment</ulink>, also known as 6rd. The value is an ISP-specific IPv6 prefix with a non-zero length. Only
           applicable to SIT tunnels.</para>
+
+        <xi:include href="version-info.xml" xpointer="v240"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -1379,6 +1621,8 @@
         <listitem>
           <para>Takes a boolean. If set, configures the tunnel as Intra-Site Automatic Tunnel Addressing Protocol (ISATAP) tunnel.
           Only applicable to SIT tunnels. When unset, the kernel's default will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v240"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -1387,6 +1631,8 @@
           <para>Takes a boolean. If set to yes, then packets are serialized. Only applies for GRE,
           GRETAP, and ERSPAN tunnels. When unset, the kernel's default will be used.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v240"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -1394,6 +1640,8 @@
         <listitem>
           <para>Specifies the ERSPAN version number. Takes 0 for version 0 (a.k.a. type I), 1 for version 1
           (a.k.a. type II), or 2 for version 2 (a.k.a. type III). Defaults to 1.</para>
+
+          <xi:include href="version-info.xml" xpointer="v252"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -1402,6 +1650,8 @@
           <para>Specifies the ERSPAN v1 index field for the interface. Takes an integer in the range
           0…1048575, which is associated with the ERSPAN traffic's source port and direction. Only used when
           <varname>ERSPANVersion=1</varname>. Defaults to 0.</para>
+
+          <xi:include href="version-info.xml" xpointer="v240"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -1410,6 +1660,8 @@
           <para>Specifies the ERSPAN v2 mirrored traffic's direction. Takes <literal>ingress</literal> or
           <literal>egress</literal>. Only used when <varname>ERSPANVersion=2</varname>. Defaults to
           <literal>ingress</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v252"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -1417,6 +1669,8 @@
         <listitem>
           <para>Specifies an unique identifier of the ERSPAN v2 engine. Takes an integer in the range 0…63.
           Only used when <varname>ERSPANVersion=2</varname>. Defaults to 0.</para>
+
+          <xi:include href="version-info.xml" xpointer="v252"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -1443,6 +1697,8 @@
           url="https://lwn.net/Articles/615044">Generic UDP Encapsulation</ulink>. Defaults to
           <literal>FooOverUDP</literal>.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v240"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -1451,6 +1707,8 @@
           <para>Specifies the port number where the encapsulated packets will arrive. Those packets will be
           removed and manually fed back into the network stack with the encapsulation removed to be sent to
           the real destination. This option is mandatory.</para>
+
+          <xi:include href="version-info.xml" xpointer="v240"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -1458,6 +1716,8 @@
         <listitem>
           <para>Specifies the peer port number. Defaults to unset. Note that when peer port is set
           <literal>Peer=</literal> address is mandatory.</para>
+
+          <xi:include href="version-info.xml" xpointer="v243"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -1468,6 +1728,8 @@
           and is not set by default. Takes an IP protocol name such as <literal>gre</literal> or
           <literal>ipip</literal>, or an integer within the range 1…255. When
           <varname>Encapsulation=GenericUDPEncapsulation</varname>, this must not be specified.</para>
+
+        <xi:include href="version-info.xml" xpointer="v240"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -1475,12 +1737,16 @@
         <listitem>
           <para>Configures peer IP address. Note that when peer address is set <literal>PeerPort=</literal>
           is mandatory.</para>
+
+        <xi:include href="version-info.xml" xpointer="v243"/>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>Local=</varname></term>
         <listitem>
           <para>Configures local IP address.</para>
+
+        <xi:include href="version-info.xml" xpointer="v243"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -1499,6 +1765,8 @@
         <listitem>
           <para>The interface name used when creating the netdev.
           This setting is compulsory.</para>
+
+          <xi:include href="version-info.xml" xpointer="v215"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -1507,6 +1775,8 @@
           <para>The peer MACAddress, if not set, it is generated in
           the same way as the MAC address of the main
           interface.</para>
+
+          <xi:include href="version-info.xml" xpointer="v215"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -1525,6 +1795,8 @@
         <listitem>
           <para>The peer interface name used when creating the netdev.
           This setting is compulsory.</para>
+
+          <xi:include href="version-info.xml" xpointer="v236"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -1544,6 +1816,8 @@
         to use multiple file descriptors (queues) to parallelize
         packets sending and receiving. Defaults to
         <literal>no</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v215"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -1553,6 +1827,8 @@
         bytes and two protocol bytes). If disabled, it indicates that
         the packets will be pure IP packets. Defaults to
         <literal>no</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v215"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -1563,18 +1839,24 @@
         packets. This may increase throughput significantly.
         Defaults to
         <literal>no</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v223"/>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>User=</varname></term>
         <listitem><para>User to grant access to the
         <filename>/dev/net/tun</filename> device.</para>
+
+        <xi:include href="version-info.xml" xpointer="v215"/>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>Group=</varname></term>
         <listitem><para>Group to grant access to the
         <filename>/dev/net/tun</filename> device.</para>
+
+        <xi:include href="version-info.xml" xpointer="v215"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -1584,6 +1866,8 @@
           descriptor of the interface is kept open. This may be useful to keep the interface in running
           state, for example while the backing process is temporarily shutdown. Defaults to
           <literal>no</literal>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v252"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -1614,6 +1898,8 @@
           Note that because this information is secret, you may want to set
           the permissions of the .netdev file to be owned by <literal>root:systemd-network</literal>
           with a <literal>0640</literal> file mode.</para>
+
+          <xi:include href="version-info.xml" xpointer="v237"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -1625,6 +1911,8 @@
           e.g., owned by <literal>root:systemd-network</literal> with a <literal>0640</literal> file mode. If
           the path refers to an <constant>AF_UNIX</constant> stream socket in the file system a connection is
           made to it and the key read from it.</para>
+
+          <xi:include href="version-info.xml" xpointer="v242"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -1634,12 +1922,16 @@
           or <literal>auto</literal>. If <literal>auto</literal> is specified,
           the port is automatically generated based on interface name.
           Defaults to <literal>auto</literal>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v237"/>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>FirewallMark=</varname></term>
         <listitem>
           <para>Sets a firewall mark on outgoing WireGuard packets from this interface. Takes a number between 1 and 4294967295.</para>
+
+        <xi:include href="version-info.xml" xpointer="v243"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -1654,6 +1946,8 @@
           addresses specified in the <varname>AllowedIPs=</varname> setting will not be configured.
           Defaults to false. This setting will be ignored when the same setting is specified in the
           [WireGuardPeer] section.</para>
+
+          <xi:include href="version-info.xml" xpointer="v250"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -1663,6 +1957,8 @@
           <varname>AllowedIPs=</varname>. Takes an integer in the range 0…4294967295. Defaults to 0
           for IPv4 addresses, and 1024 for IPv6 addresses. This setting will be ignored when the same
           setting is specified in the [WireGuardPeer] section.</para>
+
+          <xi:include href="version-info.xml" xpointer="v250"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -1683,6 +1979,8 @@
           from a private key, and usually transmitted out of band to the
           author of the configuration file. This option is mandatory for this
           section.</para>
+
+        <xi:include href="version-info.xml" xpointer="v237"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -1696,6 +1994,8 @@
           Note that because this information is secret, you may want to set
           the permissions of the .netdev file to be owned by <literal>root:systemd-network</literal>
           with a <literal>0640</literal> file mode.</para>
+
+          <xi:include href="version-info.xml" xpointer="v237"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -1707,6 +2007,8 @@
           owned by <literal>root:systemd-network</literal> with a <literal>0640</literal> file mode. If the
           path refers to an <constant>AF_UNIX</constant> stream socket in the file system a connection is
           made to it and the key read from it.</para>
+
+          <xi:include href="version-info.xml" xpointer="v242"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -1725,6 +2027,8 @@
           the first place, an appropriate route needs to be added as well — either in the
           <literal>[Routes]</literal> section on the <literal>.network</literal> matching the wireguard
           interface, or externally to <filename>systemd-networkd</filename>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v237"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -1736,6 +2040,8 @@
           for IPv6 address. This endpoint will be updated automatically once to
           the most recent source IP address and port of correctly
           authenticated packets from the peer at configuration time.</para>
+
+          <xi:include href="version-info.xml" xpointer="v237"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -1750,6 +2056,8 @@
           interval of 25 seconds. If set to 0 or "off", this option is
           disabled. By default or when unspecified, this option is off.
           Most users will not need this.</para>
+
+          <xi:include href="version-info.xml" xpointer="v237"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -1762,6 +2070,8 @@
           <citerefentry><refentrytitle>networkd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
           or a number in the range 1…4294967295. Defaults to unset, and the value specified in the
           same setting in the [WireGuard] section will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v250"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -1771,6 +2081,8 @@
           <varname>AllowedIPs=</varname>. Takes an integer in the range 0…4294967295. Defaults to
           unset, and the value specified in the same setting in the [WireGuard] section will be used.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v250"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -1796,6 +2108,8 @@
           <literal>balance-tlb</literal>, and
           <literal>balance-alb</literal>.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v216"/>
         </listitem>
       </varlistentry>
 
@@ -1811,6 +2125,8 @@
           <literal>encap2+3</literal>, and
           <literal>encap3+4</literal>.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v216"/>
         </listitem>
       </varlistentry>
 
@@ -1824,6 +2140,8 @@
           and <literal>fast</literal>, which requests partner to
           transmit LACPDUs every second. The default value is
           <literal>slow</literal>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v216"/>
         </listitem>
       </varlistentry>
 
@@ -1834,6 +2152,8 @@
           Interface link monitoring will occur. A value of zero
           disables MII link monitoring. This value is rounded down to
           the nearest millisecond. The default value is 0.</para>
+
+          <xi:include href="version-info.xml" xpointer="v216"/>
         </listitem>
       </varlistentry>
 
@@ -1844,6 +2164,8 @@
           link up status has been detected. This value is rounded down
           to a multiple of <varname>MIIMonitorSec=</varname>. The default value is
           0.</para>
+
+          <xi:include href="version-info.xml" xpointer="v216"/>
         </listitem>
       </varlistentry>
 
@@ -1854,6 +2176,8 @@
           link down status has been detected. This value is rounded
           down to a multiple of <varname>MIIMonitorSec=</varname>. The default value is
           0.</para>
+
+          <xi:include href="version-info.xml" xpointer="v216"/>
         </listitem>
       </varlistentry>
 
@@ -1864,6 +2188,8 @@
           driver sends learning packets to each slave peer switch.
           The valid range is 1…0x7fffffff; the default value is 1. This option
           has an effect only for the balance-tlb and balance-alb modes.</para>
+
+          <xi:include href="version-info.xml" xpointer="v220"/>
         </listitem>
       </varlistentry>
 
@@ -1875,6 +2201,8 @@
           <literal>bandwidth</literal> and
           <literal>count</literal>.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v220"/>
         </listitem>
       </varlistentry>
 
@@ -1882,6 +2210,8 @@
         <term><varname>AdActorSystemPriority=</varname></term>
         <listitem>
           <para>Specifies the 802.3ad actor system priority. Takes a number in the range 1…65535.</para>
+
+        <xi:include href="version-info.xml" xpointer="v240"/>
         </listitem>
       </varlistentry>
 
@@ -1890,6 +2220,8 @@
         <listitem>
           <para>Specifies the 802.3ad user defined portion of the port key. Takes a number in the range
           0…1023.</para>
+
+          <xi:include href="version-info.xml" xpointer="v240"/>
         </listitem>
       </varlistentry>
 
@@ -1898,6 +2230,8 @@
         <listitem>
           <para>Specifies the 802.3ad system MAC address. This cannot be a null or multicast address.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v240"/>
         </listitem>
       </varlistentry>
 
@@ -1912,6 +2246,8 @@
           <literal>active</literal> and
           <literal>follow</literal>.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v220"/>
         </listitem>
       </varlistentry>
 
@@ -1927,6 +2263,8 @@
           <literal>backup</literal> and
           <literal>all</literal>.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v220"/>
         </listitem>
       </varlistentry>
 
@@ -1936,6 +2274,8 @@
           <para>Specifies the ARP link monitoring frequency. A value of 0 disables ARP monitoring. The
           default value is 0, and the default unit seconds.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v220"/>
         </listitem>
       </varlistentry>
 
@@ -1950,6 +2290,8 @@
           maximum number of targets that can be specified is 16. The
           default value is no IP addresses.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v220"/>
         </listitem>
       </varlistentry>
 
@@ -1963,6 +2305,8 @@
           <literal>any</literal> and
           <literal>all</literal>.
           </para>
+
+        <xi:include href="version-info.xml" xpointer="v220"/>
         </listitem>
       </varlistentry>
 
@@ -1978,6 +2322,8 @@
           <literal>better</literal> and
           <literal>failure</literal>.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v220"/>
         </listitem>
       </varlistentry>
 
@@ -1991,6 +2337,8 @@
           prevents the IGMP membership report from being issued in response
           to the failover event.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v220"/>
         </listitem>
       </varlistentry>
 
@@ -2002,6 +2350,8 @@
           random. The valid range is 0…65535. Defaults to 1. This option
           only has effect when in balance-rr mode.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v220"/>
         </listitem>
       </varlistentry>
 
@@ -2017,6 +2367,8 @@
           greater than 1. The valid range is 0…255. The default value is 1.
           These options affect only the active-backup mode.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v220"/>
         </listitem>
       </varlistentry>
 
@@ -2030,6 +2382,8 @@
           frames to be delivered. The default value is false (drop duplicate frames
           received on inactive ports).
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v220"/>
         </listitem>
       </varlistentry>
 
@@ -2039,6 +2393,8 @@
           <para>Takes a boolean. Specifies if dynamic shuffling of flows is enabled. Applies only
           for balance-tlb mode. Defaults to unset.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v240"/>
         </listitem>
       </varlistentry>
 
@@ -2048,6 +2404,8 @@
           <para>Specifies the minimum number of links that must be active before
           asserting carrier. The default value is 0.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v220"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -2069,6 +2427,8 @@
         <listitem>
           <para>Sets the ID/key of the xfrm interface which needs to be associated with a SA/policy.
           Can be decimal or hexadecimal, valid range is 1-0xffffffff. This is mandatory.</para>
+
+          <xi:include href="version-info.xml" xpointer="v243"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -2076,6 +2436,8 @@
         <listitem>
           <para>Takes a boolean. If false (the default), the xfrm interface must have an underlying device
           which can be used for hardware offloading.</para>
+
+          <xi:include href="version-info.xml" xpointer="v243"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -2095,6 +2457,8 @@
         <term><varname>Table=</varname></term>
         <listitem>
           <para>The numeric routing table identifier. This setting is compulsory.</para>
+
+        <xi:include href="version-info.xml" xpointer="v243"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -2115,6 +2479,8 @@
           connection with the mesh) or in client mode (searching for the most suitable internet connection
           in the mesh) or having the gateway support turned off entirely (which is the default setting).
           </para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -2123,6 +2489,8 @@
           <para>Takes a boolean value. Enables or disables aggregation of originator messages. Defaults to
            true.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v248"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -2130,18 +2498,24 @@
         <listitem>
           <para>Takes a boolean value. Enables or disables avoidance of loops on bridges. Defaults to true.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v248"/>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>DistributedArpTable=</varname></term>
         <listitem>
           <para>Takes a boolean value. Enables or disables the distributed ARP table. Defaults to true.</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><varname>Fragmentation=</varname></term>
         <listitem>
           <para>Takes a boolean value. Enables or disables fragmentation. Defaults to true.</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -2158,6 +2532,8 @@
           choose a value of 255 (maximum value) to avoid being chosen as a router by other nodes.
           The minimum value is 0.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v248"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -2167,6 +2543,8 @@
           batman-adv floods the network with its protocol information.
           See <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>
           for more information.</para>
+
+          <xi:include href="version-info.xml" xpointer="v248"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -2177,6 +2555,8 @@
           this node's internet connection download bandwidth in bits per second. Just enter any number
           suffixed with K, M, G or T (base 1000) and the batman-adv
           module will propagate the entered value in the mesh.</para>
+
+          <xi:include href="version-info.xml" xpointer="v248"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -2187,6 +2567,8 @@
           this node's internet connection upload bandwidth in bits per second. Just enter any number
           suffixed with K, M, G or T (base 1000) and the batman-adv
           module will propagate the entered value in the mesh.</para>
+
+          <xi:include href="version-info.xml" xpointer="v248"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -2196,6 +2578,8 @@
           of <citerefentry project='mankier'><refentrytitle>batctl</refentrytitle><manvolnum>8</manvolnum></citerefentry> to use. The algorithm
           cannot be changed after interface creation. Defaults to <literal>batman-v</literal>.
           </para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -2212,6 +2596,8 @@
         <listitem>
           <para>Takes an integer in the range 1…0xffff, except for 0x8000. Defaults to unset, and the
           kernel's default is used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v250"/>
         </listitem>
       </varlistentry>
 
@@ -2231,6 +2617,8 @@
           an MTU up to the maximal IP packet size of 64K, which reduces the number of IP packets needed
           for handling large UDP datagrams, TCP segments, etc and increases the performance for large
           messages.</para>
+
+          <xi:include href="version-info.xml" xpointer="v250"/>
         </listitem>
       </varlistentry>
 
@@ -2239,6 +2627,8 @@
         <listitem>
           <para>Takes an boolean value. When true, the kernel ignores multicast groups handled by
           userspace. Defaults to unset, and the kernel's default is used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v250"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -2255,6 +2645,8 @@
           <para>Specifies the name or index of the physical WLAN device (e.g. <literal>0</literal> or
           <literal>phy0</literal>). The list of the physical WLAN devices that exist on the host can be
           obtained by <command>iw phy</command> command. This option is mandatory.</para>
+
+        <xi:include href="version-info.xml" xpointer="v251"/>
         </listitem>
       </varlistentry>
 
@@ -2266,6 +2658,8 @@
           <literal>wds</literal>, <literal>monitor</literal>, <literal>mesh-point</literal>,
           <literal>p2p-client</literal>, <literal>p2p-go</literal>, <literal>p2p-device</literal>,
           <literal>ocb</literal>, and <literal>nan</literal>. This option is mandatory.</para>
+
+        <xi:include href="version-info.xml" xpointer="v251"/>
         </listitem>
       </varlistentry>
 
@@ -2275,6 +2669,8 @@
           <para>Enables the Wireless Distribution System (WDS) mode on the interface. The mode is also
           known as the <literal>4 address mode</literal>. Takes a boolean value. Defaults to unset, and
           the kernel's default will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v251"/>
         </listitem>
       </varlistentry>
     </variablelist>

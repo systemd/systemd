@@ -976,13 +976,12 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_UUID:
-                        r = sd_id128_from_string(optarg, &arg_uuid);
-                        if (r < 0)
-                                return log_error_errno(r, "Invalid UUID: %s", optarg);
-
-                        if (sd_id128_is_null(arg_uuid))
+                        r = id128_from_string_nonzero(optarg, &arg_uuid);
+                        if (r == -ENXIO)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Machine UUID may not be all zeroes.");
+                        if (r < 0)
+                                return log_error_errno(r, "Invalid UUID: %s", optarg);
 
                         arg_settings_mask |= SETTING_MACHINE_ID;
                         break;
@@ -2479,7 +2478,7 @@ static int setup_credentials(const char *root) {
                 if (fd < 0)
                         return log_error_errno(errno, "Failed to create credential file %s: %m", j);
 
-                r = loop_write(fd, arg_credentials[i].data, arg_credentials[i].size, /* do_poll= */ false);
+                r = loop_write(fd, arg_credentials[i].data, arg_credentials[i].size);
                 if (r < 0)
                         return log_error_errno(r, "Failed to write credential to file %s: %m", j);
 

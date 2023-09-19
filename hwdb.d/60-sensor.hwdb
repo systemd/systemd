@@ -395,6 +395,7 @@ sensor:modalias:acpi:KIOX000A*:dmi:bvnAmericanMegatrendsInternational,LLC.:bvrJP
 
 # T11 / Juno Tablet 2
 sensor:modalias:acpi:NSA2513*:dmi:*:svnDigitek:*
+sensor:modalias:acpi:NSA2513*:dmi:*:svnDefaultstring:*
  ACCEL_MOUNT_MATRIX=0, -1, 0; 1, 0, 0; 0, 0, 1
 
 #########################################
@@ -926,6 +927,12 @@ sensor:modalias:acpi:SMO8500*:dmi:*:rvnReeder:rnA8iW-Rev.A:*
  ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
 
 #########################################
+# RCA
+#########################################
+sensor:modalias:acpi:KIOX000A*:dmi:*:svnRCA:pnW101SA23T1:*
+ ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
+
+#########################################
 # Schneider
 #########################################
 
@@ -951,6 +958,10 @@ sensor:modalias:acpi:KIOX020A*:dmi:*:svnTECLAST:pnF6Pro:*
 
 # Teclast Tbook 11 (E5A6)
 sensor:modalias:acpi:KIOX000A*:dmi:*:svnTECLAST:pnTbooK11:*
+ ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
+
+# Teclast X3 Plus (G4K3)
+sensor:modalias:acpi:KIOX000A*:dmi:*svnTECLAST:pnX3Plus:*:skuG4K3_A1:*
  ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
 
 # Teclast X4 2-in-1 (G4M6)

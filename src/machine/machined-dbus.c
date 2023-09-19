@@ -219,6 +219,7 @@ static int method_list_machines(sd_bus_message *message, void *userdata, sd_bus_
 }
 
 static int method_create_or_register_machine(Manager *manager, sd_bus_message *message, bool read_network, Machine **_m, sd_bus_error *error) {
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         const char *name, *service, *class, *root_directory;
         const int32_t *netif = NULL;
         MachineClass c;
@@ -294,6 +295,10 @@ static int method_create_or_register_machine(Manager *manager, sd_bus_message *m
                         return r;
         }
 
+        r = pidref_set_pid(&pidref, leader);
+        if (r < 0)
+                return sd_bus_error_set_errnof(error, r, "Failed to pin process " PID_FMT ": %m", pidref.pid);
+
         if (hashmap_get(manager->machines, name))
                 return sd_bus_error_setf(error, BUS_ERROR_MACHINE_EXISTS, "Machine '%s' already exists", name);
 
@@ -301,7 +306,7 @@ static int method_create_or_register_machine(Manager *manager, sd_bus_message *m
         if (r < 0)
                 return r;
 
-        m->leader = leader;
+        m->leader = TAKE_PIDREF(pidref);
         m->class = c;
         m->id = id;
 
@@ -388,11 +393,11 @@ static int method_register_machine_internal(sd_bus_message *message, bool read_n
         if (r < 0)
                 return r;
 
-        r = cg_pid_get_unit(m->leader, &m->unit);
+        r = cg_pid_get_unit(m->leader.pid, &m->unit);
         if (r < 0) {
                 r = sd_bus_error_set_errnof(error, r,
                                             "Failed to determine unit of process "PID_FMT" : %m",
-                                            m->leader);
+                                            m->leader.pid);
                 goto fail;
         }
 

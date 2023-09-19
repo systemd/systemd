@@ -3,7 +3,7 @@
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
-<refentry id="systemd.net-naming-scheme">
+<refentry id="systemd.net-naming-scheme" xmlns:xi="http://www.w3.org/2001/XInclude">
   <refentryinfo>
     <title>systemd.net-naming-scheme</title>
     <productname>systemd</productname>
@@ -129,6 +129,8 @@
                 </tbody>
               </tgroup>
             </table>
+
+              <xi:include href="version-info.xml" xpointer="v243"/>
           </listitem>
         </varlistentry>
 
@@ -139,6 +141,8 @@
           devices. The name consists of the prefix concatenated with the label. This is only available for
           PCI devices.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v243"/>
           </listitem>
         </varlistentry>
 
@@ -149,6 +153,8 @@
           digits of the MAC address. It is available if the device has a fixed MAC address. Because this name
           is based on an attribute of the card itself, it remains "stable" when the device is moved (even
           between machines), but will change when the hardware is replaced.</para>
+
+          <xi:include href="version-info.xml" xpointer="v243"/>
           </listitem>
         </varlistentry>
 
@@ -239,6 +245,8 @@
 
           <para>In some configurations a parent PCI bridge of a given network controller may be associated
           with a slot. In such case we don't generate this device property to avoid possible naming conflicts.</para>
+
+          <xi:include href="version-info.xml" xpointer="v243"/>
           </listitem>
         </varlistentry>
 
@@ -307,6 +315,8 @@
 
           <para>For PCI, BCMA, and USB devices, the same rules as described above for slot naming are
           used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v243"/>
           </listitem>
         </varlistentry>
     </variablelist>
@@ -322,7 +332,9 @@
         <varlistentry>
           <term><constant>v238</constant></term>
 
-          <listitem><para>This is the naming scheme that was implemented in systemd 238.</para></listitem>
+          <listitem><para>This is the naming scheme that was implemented in systemd 238.</para>
+
+          <xi:include href="version-info.xml" xpointer="v243"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -343,6 +355,8 @@
           <para>Names are also generated for PCI devices where the PCI network controller device does not
           have an associated slot number itself, but one of its parents does. Previously those devices were
           not renamed and the kernel default was used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v243"/>
           </listitem>
         </varlistentry>
 
@@ -362,7 +376,9 @@
           configuration, even if they have been renamed already, if <constant>keep</constant> is not
           specified as the naming policy in the <filename index="false">.link</filename> file. See
           <citerefentry><refentrytitle>systemd.link</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-          for a description of <varname>NamePolicy=</varname>.</para></listitem>
+          for a description of <varname>NamePolicy=</varname>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v243"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -377,7 +393,9 @@
           <para>Note: when userspace does not set a MAC address for a bridge device, the kernel will
           initially assign a random address, and then change it when the first device is enslaved to the
           bridge. With this naming policy change, bridges get a persistent MAC address based on the bridge
-          name instead of the first enslaved device.</para></listitem>
+          name instead of the first enslaved device.</para>
+
+          <xi:include href="version-info.xml" xpointer="v243"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -387,7 +405,9 @@
           those devices were not renamed.</para>
 
           <para>Previously two-letter interface type prefix was prepended to
-          <varname>ID_NET_LABEL_ONBOARD=</varname>. This is not done anymore.</para></listitem>
+          <varname>ID_NET_LABEL_ONBOARD=</varname>. This is not done anymore.</para>
+
+          <xi:include href="version-info.xml" xpointer="v243"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -401,7 +421,9 @@
           on, for any interface name that would be longer than 15 characters the last 4 characters are set to
           a 24bit hash value of the full interface name. This way network interface name collisions between
           multiple similarly named containers (who only differ in container name suffix) should be less
-          likely (but still possible, since the 24bit hash value is very small).</para></listitem>
+          likely (but still possible, since the 24bit hash value is very small).</para>
+
+          <xi:include href="version-info.xml" xpointer="v245"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -411,7 +433,9 @@
           controllers, the same value of the <varname>ID_NET_NAME_SLOT</varname> property might be derived
           for those controllers. This would cause a naming conflict if the property is selected as the device
           name. Now, we detect this situation and don't produce the <varname>ID_NET_NAME_SLOT</varname>
-          property.</para></listitem>
+          property.</para>
+
+          <xi:include href="version-info.xml" xpointer="v247"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -431,6 +455,8 @@
           <para>The udev rule <varname>NAME=</varname> replaces <literal>:</literal>,
           <literal>/</literal>, and <literal>%</literal> with an underscore (<literal>_</literal>), and
           refuses strings which contain only numerics.</para>
+
+          <xi:include href="version-info.xml" xpointer="v249"/>
           </listitem>
         </varlistentry>
 
@@ -439,6 +465,8 @@
 
           <listitem><para>Added naming scheme for Xen netfront "vif" interfaces based on the guest side
           VIF number set from the Xen config (or the interface index in AWS EC2).</para>
+
+          <xi:include href="version-info.xml" xpointer="v250"/>
           </listitem>
         </varlistentry>
 
@@ -451,6 +479,8 @@
           this is relaxed and we will use slot information to generate the name based on it but only if
           the PCI device has multiple functions. This is safe because distinct function number is a part of
           the device name for multifunction devices.</para>
+
+          <xi:include href="version-info.xml" xpointer="v251"/>
           </listitem>
         </varlistentry>
 
@@ -458,6 +488,8 @@
           <term><constant>v252</constant></term>
 
           <listitem><para>Added naming scheme for platform devices with devicetree aliases.</para>
+
+          <xi:include href="version-info.xml" xpointer="v252"/>
           </listitem>
         </varlistentry>
 
@@ -465,6 +497,8 @@
           <term><constant>v253</constant></term>
 
           <listitem><para>Set <varname>ID_NET_NAME_PATH</varname> for usb devices not connected via a PCI bus.</para>
+
+          <xi:include href="version-info.xml" xpointer="v253"/>
           </listitem>
         </varlistentry>
 
@@ -476,6 +510,8 @@
           <para>The <literal>r<replaceable>slot</replaceable></literal> suffix was added to differentiate SR-IOV
           virtual device representors attached to a single physical device interface.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v254"/>
           </listitem>
         </varlistentry>
 

@@ -3,8 +3,9 @@
 
 typedef struct Mount Mount;
 
-#include "kill.h"
 #include "dynamic-user.h"
+#include "kill.h"
+#include "pidref.h"
 #include "unit.h"
 
 typedef enum MountExecCommand {
@@ -49,6 +50,8 @@ struct Mount {
         MountParameters parameters_proc_self_mountinfo;
         MountParameters parameters_fragment;
 
+        bool invalidated_state:1; /* Set when the 'state' of the mount unit may be outdated, and we need to
+                                   * re-read /proc/self/mountinfo. */
         bool from_proc_self_mountinfo:1;
         bool from_fragment:1;
 
@@ -81,7 +84,7 @@ struct Mount {
 
         ExecCommand* control_command;
         MountExecCommand control_command_id;
-        pid_t control_pid;
+        PidRef control_pid;
 
         sd_event_source *timer_event_source;
 
@@ -91,6 +94,8 @@ struct Mount {
 extern const UnitVTable mount_vtable;
 
 void mount_fd_event(Manager *m, int events);
+
+int mount_invalidate_state_by_path(Manager *manager, const char *path);
 
 const char* mount_exec_command_to_string(MountExecCommand i) _const_;
 MountExecCommand mount_exec_command_from_string(const char *s) _pure_;

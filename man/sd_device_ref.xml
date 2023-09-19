@@ -82,4 +82,10 @@
     <function>sd_device_unref()</function> always returns <constant>NULL</constant>.
     </para>
   </refsect1>
+<refsect1>
+    <title>History</title>
+    <para><function>sd_device_ref()</function>,
+    <function>sd_device_unref()</function>, and
+    <function>sd_device_unrefp()</function> were added in version 251.</para>
+  </refsect1>
 </refentry>

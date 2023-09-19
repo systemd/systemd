@@ -35,6 +35,7 @@
 #include "stat-util.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "umask-util.h"
 #include "unit-def.h"
 #include "unit-name.h"
 #include "user-util.h"
@@ -206,7 +207,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "bind-device",        no_argument,       NULL, ARG_BIND_DEVICE        },
                 { "list",               no_argument,       NULL, ARG_LIST               },
                 { "umount",             no_argument,       NULL, 'u'                    },
-                { "unmount",            no_argument,       NULL, 'u'                    },
+                { "unmount",            no_argument,       NULL, 'u'                    }, /* Compat spelling */
                 { "collect",            no_argument,       NULL, 'G'                    },
                 { "tmpfs",              no_argument,       NULL, 'T'                    },
                 {},
@@ -391,15 +392,12 @@ static int parse_argv(int argc, char *argv[]) {
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "At least one argument required.");
 
-                if (arg_transport != BUS_TRANSPORT_LOCAL) {
-                        int i;
-
-                        for (i = optind; i < argc; i++)
-                                if (!path_is_absolute(argv[i]) )
+                if (arg_transport != BUS_TRANSPORT_LOCAL)
+                        for (int i = optind; i < argc; i++)
+                                if (!path_is_absolute(argv[i]))
                                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                                "Path must be absolute when operating remotely: %s",
                                                                argv[i]);
-                }
         } else {
                 if (optind >= argc)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -407,7 +405,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 if (argc > optind+2)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "At most two arguments required.");
+                                               "More than two arguments are not allowed.");
 
                 if (arg_tmpfs) {
                         if (argc <= optind+1) {
@@ -509,7 +507,6 @@ static int transient_unit_set_properties(sd_bus_message *m, UnitType t, char **p
 }
 
 static int transient_mount_set_properties(sd_bus_message *m) {
-        _cleanup_free_ char *options = NULL;
         int r;
 
         assert(m);
@@ -530,20 +527,43 @@ static int transient_mount_set_properties(sd_bus_message *m) {
                         return r;
         }
 
+        _cleanup_free_ char *options = NULL;
+
         /* Prepend uid=…,gid=… if arg_uid is set */
         if (arg_uid != UID_INVALID) {
-                r = asprintf(&options,
-                             "uid=" UID_FMT ",gid=" GID_FMT "%s%s",
-                             arg_uid, arg_gid,
-                             arg_mount_options ? "," : "", strempty(arg_mount_options));
+                r = strextendf_with_separator(&options, ",",
+                                              "uid="UID_FMT",gid="GID_FMT, arg_uid, arg_gid);
                 if (r < 0)
-                        return -ENOMEM;
+                        return r;
         }
 
-        if (options || arg_mount_options) {
-                log_debug("Using mount options: %s", options ?: arg_mount_options);
+        /* Override the default for tmpfs mounts. The kernel sets the sticky bit on the root directory by
+         * default. This makes sense for the case when the user does 'mount -t tmpfs tmpfs /tmp', but less so
+         * for other directories.
+         *
+         * Let's also set some reasonable limits. We use the current umask, to match what a command to create
+         * directory would use, e.g. mkdir. */
+        if (arg_tmpfs) {
+                mode_t mask;
 
-                r = sd_bus_message_append(m, "(sv)", "Options", "s", options ?: arg_mount_options);
+                r = get_process_umask(0, &mask);
+                if (r < 0)
+                        return r;
+
+                assert((mask & ~0777) == 0);
+                r = strextendf_with_separator(&options, ",",
+                                              "mode=0%o,nodev,nosuid%s", 0777 & ~mask, NESTED_TMPFS_LIMITS);
+                if (r < 0)
+                        return r;
+        }
+
+        if (arg_mount_options)
+                if (!strextend_with_separator(&options, ",", arg_mount_options))
+                        return -ENOMEM;
+
+        if (options) {
+                log_debug("Using mount options: %s", options);
+                r = sd_bus_message_append(m, "(sv)", "Options", "s", options);
                 if (r < 0)
                         return r;
         } else
@@ -1028,10 +1048,10 @@ static int action_umount(
                 int argc,
                 char **argv) {
 
-        int i, r, r2 = 0;
+        int r, r2 = 0;
 
         if (arg_transport != BUS_TRANSPORT_LOCAL) {
-                for (i = optind; i < argc; i++) {
+                for (int i = optind; i < argc; i++) {
                         _cleanup_free_ char *p = NULL;
 
                         p = strdup(argv[i]);
@@ -1047,7 +1067,7 @@ static int action_umount(
                 return r2;
         }
 
-        for (i = optind; i < argc; i++) {
+        for (int i = optind; i < argc; i++) {
                 _cleanup_free_ char *u = NULL, *p = NULL;
                 struct stat st;
 
@@ -1411,7 +1431,6 @@ enum {
 static int list_devices(void) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         _cleanup_(table_unrefp) Table *table = NULL;
-        unsigned c;
         int r;
 
         r = sd_device_enumerator_new(&e);
@@ -1440,7 +1459,7 @@ static int list_devices(void) {
         table_set_header(table, arg_legend);
 
         FOREACH_DEVICE(e, d) {
-                for (c = 0; c < _COLUMN_MAX; c++) {
+                for (unsigned c = 0; c < _COLUMN_MAX; c++) {
                         const char *x = NULL;
 
                         switch (c) {

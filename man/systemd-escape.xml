@@ -65,7 +65,9 @@
         systemd, such as <literal>service</literal> or
         <literal>mount</literal>. May not be used in conjunction with
         <option>--template=</option>, <option>--unescape</option> or
-        <option>--mangle</option>.</para></listitem>
+        <option>--mangle</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v216"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -79,7 +81,9 @@
         part. May not be used in conjunction with
         <option>--suffix=</option>,
         <option>--instance</option> or
-        <option>--mangle</option>.</para></listitem>
+        <option>--mangle</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v216"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -91,7 +95,9 @@
         <literal>..</literal> path components. This is particularly useful for generating strings suitable for
         unescaping with the <literal>%f</literal> specifier in unit files, see
         <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v216"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -101,7 +107,9 @@
         <listitem><para>Instead of escaping the specified strings,
         undo the escaping, reversing the operation. May not be used in
         conjunction with <option>--suffix=</option> or
-        <option>--mangle</option>.</para></listitem>
+        <option>--mangle</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v216"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -113,7 +121,9 @@
         possibly automatically append an appropriate unit type suffix
         to the string. May not be used in conjunction with
         <option>--suffix=</option>, <option>--template=</option> or
-        <option>--unescape</option>.</para></listitem>
+        <option>--unescape</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v216"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -126,7 +136,9 @@
         like <filename>ssh.service</filename>.
         Must be used in conjunction with <option>--unescape</option>
         and may not be used in conjunction with
-        <option>--template</option>.</para></listitem>
+        <option>--template</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v240"/></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="help" />

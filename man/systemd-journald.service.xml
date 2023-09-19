@@ -3,7 +3,8 @@
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
-<refentry id="systemd-journald.service">
+<refentry id="systemd-journald.service"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>systemd-journald.service</title>
@@ -190,7 +191,9 @@ systemd-tmpfiles --create --prefix /var/log/journal</programlisting>
         <command>journalctl --flush</command> command to request flushing of the journal files, and wait for
         the operation to complete. See
         <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
-        details.</para></listitem>
+        details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v186"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -198,7 +201,9 @@ systemd-tmpfiles --create --prefix /var/log/journal</programlisting>
 
         <listitem><para>Request immediate rotation of the journal files. Use the <command>journalctl
         --rotate</command> command to request journal file rotation, and wait for the operation to
-        complete.</para></listitem>
+        complete.</para>
+
+        <xi:include href="version-info.xml" xpointer="v186"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -206,7 +211,9 @@ systemd-tmpfiles --create --prefix /var/log/journal</programlisting>
 
         <listitem><para>Request that all unwritten log data is written to disk. Use the <command>journalctl
         --sync</command> command to trigger journal synchronization, and wait for the operation to
-        complete.</para></listitem>
+        complete.</para>
+
+        <xi:include href="version-info.xml" xpointer="v228"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
@@ -233,6 +240,8 @@ systemd-tmpfiles --create --prefix /var/log/journal</programlisting>
         <para>See
         <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         for information about these settings.</para>
+
+        <xi:include href="version-info.xml" xpointer="v186"/>
         </listitem>
 
       </varlistentry>
@@ -281,7 +290,9 @@ systemd-tmpfiles --create --prefix /var/log/journal</programlisting>
 
         <listitem><para>Configure <command>systemd-journald</command> behavior. See
         <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v206"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -319,7 +330,9 @@ systemd-tmpfiles --create --prefix /var/log/journal</programlisting>
         archived journal files to limit disk use. See <varname>SystemMaxUse=</varname>
         and related settings in
         <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v206"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -334,7 +347,9 @@ systemd-tmpfiles --create --prefix /var/log/journal</programlisting>
         <command>systemd-journald</command> can listen for audit events using <citerefentry
         project='man-pages'><refentrytitle>netlink</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
         depending on whether <literal>systemd-journald-audit.socket</literal> is enabled or
-        not.</para></listitem>
+        not.</para>
+
+        <xi:include href="version-info.xml" xpointer="v228"/></listitem>
       </varlistentry>
     </variablelist>
 

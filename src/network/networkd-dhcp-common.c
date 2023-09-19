@@ -6,7 +6,7 @@
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "dhcp-identifier.h"
-#include "dhcp-internal.h"
+#include "dhcp-client-internal.h"
 #include "dhcp6-internal.h"
 #include "escape.h"
 #include "hexdecoct.h"
