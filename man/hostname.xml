@@ -56,7 +56,7 @@
     <para><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry> and the
     associated tools will obtain the hostname in the following ways:</para>
     <itemizedlist>
-      <listitem><para>If the kernel commandline parameter <varname>systemd.hostname=</varname> specifies a
+      <listitem><para>If the kernel command line parameter <varname>systemd.hostname=</varname> specifies a
       valid hostname,
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry> will use it
       to set the hostname during early boot, see
