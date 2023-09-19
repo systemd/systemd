@@ -1,5 +1,5 @@
 ---
-title: The File Descriptor Store
+title: File Descriptor Store
 category: Interfaces
 layout: default
 SPDX-License-Identifier: LGPL-2.1-or-later
@@ -8,9 +8,9 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 # The File Descriptor Store
 
 *TL;DR: The systemd service manager may optionally maintain a set of file
-descriptors for each service, that are under control of the service and that
-help making service restarts without losing connectivity or context easier to
-implement.*
+descriptors for each service. Those file descriptors are under control of the
+service. Storing file descriptors in the manager makes is easier to restart
+services without dropping connections or losing state.*
 
 Since its inception `systemd` has supported the *socket* *activation*
 mechanism: the service manager creates and listens on some sockets (and similar
@@ -32,12 +32,12 @@ maintains a duplicate of it (in the sense of UNIX
 also in possession of the service itself, and it may (and is expected to)
 invoke any operations on it that it likes.
 
-The primary use case of this logic is to permit services to restart seamlessly
+The primary use-case of this logic is to permit services to restart seamlessly
 (for example to update them to a newer version), without losing execution
 context, dropping pinned resources, terminating established connections or even
 just momentarily losing connectivity. In fact, as the file descriptors can be
-uploaded freely at any time during the service runtime, this can even be used to
-implement services that robustly handle abnormal termination and can recover
+uploaded freely at any time during the service runtime, this can even be used
+to implement services that robustly handle abnormal termination and can recover
 from that without losing pinned resources.
 
 Note that Linux supports the
@@ -58,7 +58,7 @@ permit the service to upload to the service manager to keep simultaneously.
 If set to values > 0, the fdstore is enabled. When invoked the service may now
 (asynchronously) upload file descriptors to the fdstore via the
 [`sd_pid_notify_with_fds()`](https://www.freedesktop.org/software/systemd/man/sd_pid_notify_with_fds.html)
-API call (or an equivalent reimplementation). When uploading the fds it is
+API call (or an equivalent re-implementation). When uploading the fds it is
 necessary to set the `FDSTORE=1` field in the message, to indicate what the fd
 is intended for. It's recommended to also set the `FDNAME=…` field to any
 string of choice, which may be used to identify the fd later.
@@ -98,20 +98,20 @@ updates, hence leaving two version of the service running at the same time is
 generally problematic. It also collides with the systemd service manager's
 general principle of guaranteeing a pristine execution environment, a pristine
 security context, and a pristine resource management context for freshly
-started services, without uncontrolled "left-overs" from previous runs. For
+started services, without uncontrolled "leftovers" from previous runs. For
 example: leaving processes from previous runs generally negatively affects
-lifecycle management (i.e. `KillMode=none` must be set), which disables large
+life-cycle management (i.e. `KillMode=none` must be set), which disables large
 parts of the service managers state tracking, resource management (as resource
 counters cannot start at zero during service activation anymore, since the old
 processes remaining skew them), security policies (as processes with possibly
 out-of-date security policies – SElinux, AppArmor, any LSM, seccomp, BPF — in
 effect remain), and similar.
 
-# File Descriptor Store Lifecycle
+# File Descriptor Store Life-cycle
 
 By default any file descriptor stored in the fdstore for which a `POLLHUP` or
 `POLLERR` is seen is automatically closed and removed from the fdstore. This
-behaviour can be turned off, by setting the `FDPOLL=0` field when uploading the
+behavior can be turned off, by setting the `FDPOLL=0` field when uploading the
 fd via `sd_notify_with_fds()`.
 
 The fdstore is automatically closed whenever the service is fully deactivated
@@ -119,7 +119,7 @@ and no jobs are queued for it anymore. This means that a restart job for a
 service will leave the fdstore intact, but a separate stop and start job for
 it — executed synchronously one after the other — will likely not.
 
-This behaviour can be modified via the
+This behavior can be modified via the
 [`FileDescriptorStorePreserve=`](https://www.freedesktop.org/software/systemd/man/systemd.service.html#FileDescriptorStorePreserve=)
 setting in service unit files. If set to `yes` the fdstore will be kept as long
 as the service definition is loaded into memory by the service manager, i.e. as
@@ -141,12 +141,12 @@ received, to make the service robust for code updates: if an old version
 uploaded an fd that the new version doesn't recognize anymore it's good idea to
 close it both in the service and in the fdstore.
 
-Note that storing a duplicate of an fd in the fdstore means the fd remains
-pinned even if the service closes it. This in particular means that peers on a
-connection socket uploaded this way will not receive an automatic `POLLHUP`
-event anymore if the service code issues `close()` on the socket. It must
-accompany it with an `FDSTOREREMOVE=1` notification to the service manager, so
-that the fd is comprehensively closed.
+Note that storing a duplicate of an fd in the fdstore means the resource pinned
+by the fd remains pinned even if the service closes its duplicate of the
+fd. This in particular means that peers on a connection socket uploaded this
+way will not receive an automatic `POLLHUP` event anymore if the service code
+issues `close()` on the socket. It must accompany it with an `FDSTOREREMOVE=1`
+notification to the service manager, so that the fd is comprehensively closed.
 
 # Access Control
 
@@ -175,8 +175,27 @@ interrupting connectivity or established connections and similar.
 This mechanism can be enabled either by making sure the service survives until
 the very end (i.e. by setting `DefaultDependencies=no` so that it keeps running
 for the whole system lifetime without being regularly deactivated at shutdown)
-or by setting `FileDescriptorStorePresever=yes` (and referencing the unit
+or by setting `FileDescriptorStorePreserve=yes` (and referencing the unit
 continuously).
+
+For further details see [Resource
+Pass-Through](https://www.freedesktop.org/software/systemd/man/systemd-soft-reboot.service.html#Resource%20Pass-Through).
+
+# initrd Transitions
+
+The fdstore may also be used to hand over file descriptor to resources from the
+initrd context to the main system. This is important as code running off the
+initrd should generally not continue to run after the initrd to host
+transition, since it pins the backing files from the initrd, and might run a
+slightly different version of things than the host.
+
+Any service that still runs during the initrd→host transition will have its
+fdstore passed over the transition, where it will be passed back to any queued
+services of the same name.
+
+The soft reboot cycle transition and the initrd→host transition are
+semantically very similar, hence similar rules apply, and in both cases it is
+recommended to use the fdstore if pinned resources shall be passed over.
 
 # Debugging
 
