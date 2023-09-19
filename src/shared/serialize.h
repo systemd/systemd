@@ -38,3 +38,4 @@ int deserialize_environment(const char *value, char ***environment);
 int deserialize_strv(char ***l, const char *value);
 
 int open_serialization_fd(const char *ident);
+int open_serialization_file(const char *ident, FILE **ret);
