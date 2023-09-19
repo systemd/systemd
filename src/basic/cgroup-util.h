@@ -176,13 +176,12 @@ typedef enum CGroupUnified {
  * generate paths with multiple adjacent / removed.
  */
 
-int cg_enumerate_processes(const char *controller, const char *path, FILE **_f);
-int cg_read_pid(FILE *f, pid_t *_pid);
-int cg_read_event(const char *controller, const char *path, const char *event,
-                  char **val);
+int cg_enumerate_processes(const char *controller, const char *path, FILE **ret);
+int cg_read_pid(FILE *f, pid_t *ret);
+int cg_read_event(const char *controller, const char *path, const char *event, char **ret);
 
-int cg_enumerate_subgroups(const char *controller, const char *path, DIR **_d);
-int cg_read_subgroup(DIR *d, char **fn);
+int cg_enumerate_subgroups(const char *controller, const char *path, DIR **ret);
+int cg_read_subgroup(DIR *d, char **ret);
 
 typedef enum CGroupFlags {
         CGROUP_SIGCONT     = 1 << 0,
