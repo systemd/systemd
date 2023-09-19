@@ -816,7 +816,7 @@ static void dns_transaction_cache_answer(DnsTransaction *t) {
                       t->answer_rcode,
                       t->answer,
                       DNS_PACKET_CD(t->received) ? t->received : NULL, /* only cache full packets with CD on,
-                                                                        * since our usecase for caching them
+                                                                        * since our use case for caching them
                                                                         * is "bypass" mode which is only
                                                                         * enabled for CD packets. */
                       t->answer_query_flags,

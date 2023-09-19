@@ -1825,7 +1825,7 @@ int partition_pick_mount_options(
          * anymore (since in some cases the kernel implementations will refuse mounting when corrupted,
          * read-only and "norecovery" is specified). But I think for the case of automatically determined
          * mount options for loopback devices this is the right choice, since otherwise using the same
-         * loopback file twice even in read-only mode, is going to fail badly sooner or later. The usecase of
+         * loopback file twice even in read-only mode, is going to fail badly sooner or later. The use case of
          * making reuse of the immutable images "just work" is more relevant to us than having read-only
          * access that actually modifies stuff work on such image files. Or to say this differently: if
          * people want their file systems to be fixed up they should just open them in writable mode, where

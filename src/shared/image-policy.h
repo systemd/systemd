@@ -54,7 +54,7 @@ struct ImagePolicy {
         PartitionPolicy policies[];          /* sorted by designator, hence suitable for binary search */
 };
 
-/* Default policies for various usecases */
+/* Default policies for various use cases */
 extern const ImagePolicy image_policy_allow;
 extern const ImagePolicy image_policy_deny;
 extern const ImagePolicy image_policy_ignore;

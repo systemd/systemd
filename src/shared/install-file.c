@@ -18,7 +18,7 @@ int fs_make_very_read_only(int fd) {
 
         assert(fd >= 0);
 
-        /* Tries to make the specified fd "comprehensively" read-only. Primary usecase for this is OS images,
+        /* Tries to make the specified fd "comprehensively" read-only. Primary use case for this is OS images,
          * i.e. either loopback files or larger directory hierarchies. Depending on the inode type and
          * backing file system this means something different:
          *

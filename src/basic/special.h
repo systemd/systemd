@@ -57,7 +57,7 @@
  * Rules regarding adding further high level targets like the above:
  *
  * - Be conservative, only add more of these when we really need
- *   them. We need strong usecases for further additions.
+ *   them. We need strong use cases for further additions.
  *
  * - When there can be multiple implementations running side-by-side,
  *   it needs to be a .target unit which can pull in all

@@ -42,7 +42,7 @@ assert_cc(offsetof(BaseBlock, type) == 28);
 assert_cc(offsetof(BaseBlock, root_cell_offset) == 36);
 
 /* All offsets are relative to the base block and technically point to a hive
- * cell struct. But for our usecase we don't need to bother about that one,
+ * cell struct. But for our use case we don't need to bother about that one,
  * so skip over the cell_size uint32_t. */
 #define HIVE_CELL_OFFSET (sizeof(BaseBlock) + 4)
 
