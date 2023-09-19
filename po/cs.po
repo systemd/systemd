@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2023-07-14 10:32+0100\n"
-"PO-Revision-Date: 2023-07-22 16:21+0000\n"
+"PO-Revision-Date: 2023-09-19 14:35+0000\n"
 "Last-Translator: Daniel Rusek <mail@asciiwolf.com>\n"
 "Language-Team: Czech <https://translate.fedoraproject.org/projects/systemd/"
 "master/cs/>\n"
@@ -18,7 +18,7 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=3; plural=(n==1 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 "
 "|| n%100>=20) ? 1 : 2);\n"
-"X-Generator: Weblate 4.18.2\n"
+"X-Generator: Weblate 5.0.2\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -120,11 +120,13 @@ msgstr "Pro změnu hesla domovského adresáře uživatele je vyžadováno ově�
 #, c-format
 msgid "Home of user %s is currently absent, please plug in the necessary storage device or backing file system."
 msgstr ""
+"Domovská složka uživatele %s v tuto chvíli není dostupná, připojte prosím "
+"potřebné úložné zařízení nebo záložní souborový systém."
 
 #: src/home/pam_systemd_home.c:292
 #, c-format
 msgid "Too frequent login attempts for user %s, try again later."
-msgstr ""
+msgstr "Příliš časté pokusy o přihlášení uživatele %s, zkuste to znovu později."
 
 #: src/home/pam_systemd_home.c:304
 msgid "Password: "
@@ -147,6 +149,8 @@ msgstr "Obnovovací klíč: "
 #, c-format
 msgid "Password/recovery key incorrect or not sufficient for authentication of user %s."
 msgstr ""
+"Heslo/obnovovací klíč jsou nesprávné nebo nedostatečné pro ověření uživatele "
+"%s."
 
 #: src/home/pam_systemd_home.c:332
 msgid "Sorry, reenter recovery key: "
@@ -155,59 +159,67 @@ msgstr "Je nám líto, zadejte obnovovací klíč znovu: "
 #: src/home/pam_systemd_home.c:352
 #, c-format
 msgid "Security token of user %s not inserted."
-msgstr ""
+msgstr "Bezpečnostní token uživatele %s není vložen."
 
 #: src/home/pam_systemd_home.c:353 src/home/pam_systemd_home.c:356
 msgid "Try again with password: "
-msgstr ""
+msgstr "Zkuste znovu s heslem: "
 
 #: src/home/pam_systemd_home.c:355
 #, c-format
 msgid "Password incorrect or not sufficient, and configured security token of user %s not inserted."
 msgstr ""
+"Nesprávné nebo nedostatečné heslo a není vložen nakonfigurovaný bezpečnostní "
+"token uživatele %s."
 
 #: src/home/pam_systemd_home.c:376
 msgid "Security token PIN: "
-msgstr ""
+msgstr "PIN bezpečnostního tokenu: "
 
 #: src/home/pam_systemd_home.c:393
 #, c-format
 msgid "Please authenticate physically on security token of user %s."
-msgstr ""
+msgstr "Ověřte se prosím fyzicky na bezpečnostním tokenu uživatele %s."
 
 #: src/home/pam_systemd_home.c:404
 #, c-format
 msgid "Please confirm presence on security token of user %s."
-msgstr ""
+msgstr "Potvrďte prosím přítomnost na bezpečnostním tokenu uživatele %s."
 
 #: src/home/pam_systemd_home.c:415
 #, c-format
 msgid "Please verify user on security token of user %s."
-msgstr ""
+msgstr "Ověřte prosím uživatele na bezpečnostním tokenu uživatele %s."
 
 #: src/home/pam_systemd_home.c:424
 msgid "Security token PIN is locked, please unlock it first. (Hint: Removal and re-insertion might suffice.)"
 msgstr ""
+"PIN bezpečnostního tokenu je uzamčen, nejprve jej prosím odemkněte. (Tip: "
+"Vyjmutí a opětovné vložení může stačit.)"
 
 #: src/home/pam_systemd_home.c:432
 #, c-format
 msgid "Security token PIN incorrect for user %s."
-msgstr ""
+msgstr "Nesprávný PIN bezpečnostního tokenu pro uživatele %s."
 
 #: src/home/pam_systemd_home.c:433 src/home/pam_systemd_home.c:452
 #: src/home/pam_systemd_home.c:471
 msgid "Sorry, retry security token PIN: "
-msgstr ""
+msgstr "Je nám líto, zkuste PIN bezpečnostního tokenu znovu: "
 
 #: src/home/pam_systemd_home.c:451
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
 msgstr ""
+"PIN bezpečnostního tokenu uživatele %s je nesprávný (zbývá jen několik "
+"pokusů!)"
 
 #: src/home/pam_systemd_home.c:470
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
 msgstr ""
+"PIN bezpečnostního tokenu uživatele %s je nesprávný (zbývá pouze jeden "
+"pokus!)"
 
 #: src/home/pam_systemd_home.c:616
 #, c-format
