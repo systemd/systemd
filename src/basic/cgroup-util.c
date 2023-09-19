@@ -73,8 +73,10 @@ int cg_read_pid(FILE *f, pid_t *ret) {
         errno = 0;
         if (fscanf(f, "%lu", &ul) != 1) {
 
-                if (feof(f))
+                if (feof(f)) {
+                        *ret = 0;
                         return 0;
+                }
 
                 return errno_or_else(EIO);
         }
@@ -219,6 +221,7 @@ int cg_read_subgroup(DIR *d, char **ret) {
                 return 1;
         }
 
+        *ret = NULL;
         return 0;
 }
 
