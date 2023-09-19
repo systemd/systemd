@@ -193,12 +193,12 @@ static int service_set_main_pidref(Service *s, PidRef *pidref) {
         if (pidref->pid == getpid_cached())
                 return -EINVAL;
 
-        if (s->main_pid.pid == pidref->pid && s->main_pid_known) {
+        if (pidref_equal(&s->main_pid, pidref) && s->main_pid_known) {
                 pidref_done(pidref);
                 return 0;
         }
 
-        if (s->main_pid.pid != pidref->pid) {
+        if (!pidref_equal(&s->main_pid, pidref)) {
                 service_unwatch_main_pid(s);
                 exec_status_start(&s->main_exec_status, pidref->pid);
         }
