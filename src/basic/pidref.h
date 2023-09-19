@@ -3,7 +3,7 @@
 
 #include "macro.h"
 
-/* An embeddable structure carrying a reference to a process. Supposed to be used when tracking processes continously. */
+/* An embeddable structure carrying a reference to a process. Supposed to be used when tracking processes continuously. */
 typedef struct PidRef {
         pid_t pid; /* always valid */
         int fd;    /* only valid if pidfd are available in the kernel, and we manage to get an fd */

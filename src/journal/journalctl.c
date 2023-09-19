@@ -737,7 +737,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (streq(optarg, "-"))
                                 /* An undocumented feature: we can read journal files from STDIN. We don't document
                                  * this though, since after all we only support this for mmap-able, seekable files, and
-                                 * not for example pipes which are probably the primary usecase for reading things from
+                                 * not for example pipes which are probably the primary use case for reading things from
                                  * STDIN. To avoid confusion we hence don't document this feature. */
                                 arg_file_stdin = true;
                         else {

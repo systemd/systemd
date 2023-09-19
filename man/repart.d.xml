@@ -512,7 +512,7 @@
         together the former is applied first. If a directory listed already exists no operation is executed
         (in particular, the ownership/access mode of the directories is left as is).</para>
 
-        <para>The primary usecase for this option is to create a minimal set of directories that may be
+        <para>The primary use case for this option is to create a minimal set of directories that may be
         mounted over by other partitions contained in the same disk image. For example, a disk image where
         the root file system is formatted at first boot might want to automatically pre-create
         <filename>/usr/</filename> in it this way, so that the <literal>usr</literal> partition may

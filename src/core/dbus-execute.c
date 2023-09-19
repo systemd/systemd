@@ -2453,7 +2453,7 @@ int bus_exec_context_set_transient_property(
                          * and we should not "lose precision" in our types on the way. That said, I am pretty sure
                          * actually encoding binary data as unit metadata is not a good idea. Hence we actually refuse
                          * any actual binary data, and only accept UTF-8. This allows us to eventually lift this
-                         * limitation, should a good, valid usecase arise. */
+                         * limitation, should a good, valid use case arise. */
 
                         r = sd_bus_message_read_array(message, 'y', &p, &sz);
                         if (r < 0)

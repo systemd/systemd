@@ -139,7 +139,7 @@ static bool is_root_cgroup(const char *path) {
          *
          * Note that checking for a container environment is kinda ugly, since in theory people could use cgtop from
          * inside a container where cgroup namespacing is turned off to watch the host system. However, that's mostly a
-         * theoretic usecase, and if people actually try all they'll lose is accounting for the top-level cgroup. Which
+         * theoretic use case, and if people actually try all they'll lose is accounting for the top-level cgroup. Which
          * isn't too bad. */
 
         if (detect_container() > 0)
