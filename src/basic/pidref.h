@@ -15,6 +15,18 @@ static inline bool pidref_is_set(const PidRef *pidref) {
         return pidref && pidref->pid > 0;
 }
 
+static inline bool pidref_equal(const PidRef *a, const PidRef *b) {
+
+        if (pidref_is_set(a)) {
+                if (!pidref_is_set(b))
+                        return false;
+
+                return a->pid == b->pid;
+        }
+
+        return !pidref_is_set(b);
+}
+
 int pidref_set_pid(PidRef *pidref, pid_t pid);
 int pidref_set_pidstr(PidRef *pidref, const char *pid);
 int pidref_set_pidfd(PidRef *pidref, int fd);
