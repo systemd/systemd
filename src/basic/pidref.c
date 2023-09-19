@@ -239,3 +239,18 @@ int pidref_sigqueue(PidRef *pidref, int sig, int value) {
 
         return -ESRCH;
 }
+
+static void pidref_hash_func(const PidRef *pidref, struct siphash *state) {
+        siphash24_compress(&pidref->pid, sizeof(pidref->pid), state);
+}
+
+static int pidref_compare_func(const PidRef *a, const PidRef *b) {
+        return CMP(a->pid, b->pid);
+}
+
+DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(
+                pidref_hash_ops,
+                PidRef,
+                pidref_hash_func,
+                pidref_compare_func,
+                pidref_free);
