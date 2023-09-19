@@ -3343,6 +3343,10 @@ void journal_file_reset_location(JournalFile *f) {
         f->current_monotonic = 0;
         zero(f->current_boot_id);
         f->current_xor_hash = 0;
+
+        /* Also reset the previous reading direction. Otherwise, next_beyond_location() may wrongly handle we
+         * already hit EOF. See issue #29216. */
+        f->last_direction = _DIRECTION_INVALID;
 }
 
 void journal_file_save_location(JournalFile *f, Object *o, uint64_t offset) {
@@ -3939,6 +3943,7 @@ int journal_file_open(
                                             MAX(MIN_COMPRESS_THRESHOLD, compress_threshold_bytes),
                 .strict_order = FLAGS_SET(file_flags, JOURNAL_STRICT_ORDER),
                 .newest_boot_id_prioq_idx = PRIOQ_IDX_NULL,
+                .last_direction = _DIRECTION_INVALID,
         };
 
         if (fname) {
