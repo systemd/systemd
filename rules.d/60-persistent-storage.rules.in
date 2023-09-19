@@ -152,9 +152,10 @@ ENV{ID_FS_USAGE}=="filesystem|other|crypto", ENV{ID_FS_LABEL_ENC}=="?*", SYMLINK
 # by-id (World Wide Name)
 ENV{ID_WWN_WITH_EXTENSION}=="?*", SYMLINK+="disk/by-id/wwn-$env{ID_WWN_WITH_EXTENSION}$env{.PART_SUFFIX}"
 
-# by-partlabel/by-partuuid links (partition metadata)
+# by-partlabel/by-pathlabel/by-partuuid links (partition metadata)
 ENV{ID_PART_ENTRY_UUID}=="?*", SYMLINK+="disk/by-partuuid/$env{ID_PART_ENTRY_UUID}"
 ENV{ID_PART_ENTRY_SCHEME}=="gpt", ENV{ID_PART_ENTRY_NAME}=="?*", SYMLINK+="disk/by-partlabel/$env{ID_PART_ENTRY_NAME}"
+ENV{ID_PART_ENTRY_SCHEME}=="gpt", ENV{ID_PART_ENTRY_NAME}=="?*", ENV{ID_PATH}=="?*", SYMLINK+="disk/by-pathlabel/$env{ID_PATH}/$env{ID_PART_ENTRY_NAME}"
 
 # by-diskseq link (if an app is told to open a path like this, they may parse
 # the diskseq number from the path, then issue BLKGETDISKSEQ to verify they really got
