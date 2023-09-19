@@ -170,7 +170,7 @@
     <para>The following options and settings are understood:</para>
 
     <refsect2>
-      <title>Commandline-only options</title>
+      <title>Command line-only options</title>
 
       <variablelist>
         <varlistentry>
@@ -178,7 +178,7 @@
 
           <listitem><para>Load configuration from the given config file. In general, settings specified in
           the config file have lower precedence than the settings specified via options. In cases where the
-          commandline option does not fully override the config file setting are explicitly mentioned in the
+          command line option does not fully override the config file setting are explicitly mentioned in the
           descriptions of individual options.</para>
 
           <xi:include href="version-info.xml" xpointer="v254"/></listitem>
@@ -243,7 +243,7 @@
           <term><option>--summary</option></term>
 
           <listitem><para>Print a summary of loaded config and exit. This is useful to check how the options
-          form the configuration file and the commandline are combined.</para>
+          form the configuration file and the command line are combined.</para>
 
           <xi:include href="version-info.xml" xpointer="v254"/></listitem>
         </varlistentry>
@@ -489,7 +489,7 @@
     <refsect2>
       <title>[PCRSignature:<replaceable>NAME</replaceable>] section</title>
 
-      <para>In the config file, those options are grouped by section. On the commandline, they
+      <para>In the config file, those options are grouped by section. On the command line, they
       must be specified in the same order. The sections specified in both sources are combined.
       </para>
 
@@ -498,7 +498,7 @@
           <term><varname>PCRPrivateKey=<replaceable>PATH</replaceable></varname></term>
           <term><option>--pcr-private-key=<replaceable>PATH</replaceable></option></term>
 
-          <listitem><para>A private key to use for signing PCR policies. On the commandline, this option may
+          <listitem><para>A private key to use for signing PCR policies. On the command line, this option may
           be specified more than once, in which case multiple signatures will be made.</para>
 
           <xi:include href="version-info.xml" xpointer="v253"/></listitem>
@@ -510,9 +510,9 @@
 
           <listitem><para>A public key to use for signing PCR policies.</para>
 
-          <para>On the commandline, this option may be specified more than once, similarly to the
+          <para>On the command line, this option may be specified more than once, similarly to the
           <option>--pcr-private-key=</option> option. If not present, the public keys will be extracted from
-          the private keys. On the commandline, if present, the this option must be specified the same number
+          the private keys. On the command line, if present, the this option must be specified the same number
           of times as the <option>--pcr-private-key=</option> option.</para>
 
           <xi:include href="version-info.xml" xpointer="v253"/></listitem>
@@ -528,7 +528,7 @@
           <citerefentry><refentrytitle>systemd-measure</refentrytitle><manvolnum>1</manvolnum></citerefentry>
           will be used.</para>
 
-          <para>On the commandline, when this argument is present, it must appear the same number of times as
+          <para>On the command line, when this argument is present, it must appear the same number of times as
           the <option>--pcr-private-key=</option> option. </para>
 
           <xi:include href="version-info.xml" xpointer="v253"/></listitem>
@@ -621,7 +621,7 @@ $ ukify -c ukify.conf build \
 
       <para>One "initrd" (<filename index='false'>early_cpio</filename>) is specified in the config file, and
       the other initrd (<filename index='false'>initramfs-6.0.9-300.fc37.x86_64.img</filename>) is specified
-      on the commandline. This may be useful for example when the first initrd contains microcode for the CPU
+      on the command line. This may be useful for example when the first initrd contains microcode for the CPU
       and does not need to be updated when the kernel version changes, unlike the actual initrd.</para>
     </example>
 

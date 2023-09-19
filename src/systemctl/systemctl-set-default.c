@@ -31,7 +31,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 
 static void emit_cmdline_warning(void) {
         if (arg_quiet || arg_root)
-                /* don't bother checking the commandline if we're operating on a container */
+                /* don't bother checking the command line if we're operating on a container */
                 return;
 
         _cleanup_free_ char *override = NULL;
@@ -41,7 +41,7 @@ static void emit_cmdline_warning(void) {
         if (r < 0)
                 log_debug_errno(r, "Failed to parse kernel command line, ignoring: %m");
         if (override)
-                log_notice("Note: found \"%s\" on the kernel commandline, which overrides the default unit.",
+                log_notice("Note: found \"%s\" on the kernel command line, which overrides the default unit.",
                            override);
 }
 

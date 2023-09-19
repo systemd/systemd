@@ -354,7 +354,7 @@ flags:   ...
       <varlistentry>
         <term><varname>COREDUMP_CONTAINER_CMDLINE=</varname></term>
 
-        <listitem><para>For processes running in a container, the commandline of the process spawning the
+        <listitem><para>For processes running in a container, the command line of the process spawning the
         container (the first parent process with a different mount namespace).</para>
 
         <xi:include href="version-info.xml" xpointer="v248"/></listitem>
