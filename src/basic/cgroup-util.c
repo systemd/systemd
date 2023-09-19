@@ -83,6 +83,8 @@ int cg_read_pid(FILE *f, pid_t *ret) {
 
         if (ul <= 0)
                 return -EIO;
+        if (ul > PID_T_MAX)
+                return -EIO;
 
         *ret = (pid_t) ul;
         return 1;
