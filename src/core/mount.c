@@ -203,7 +203,7 @@ static void mount_unwatch_control_pid(Mount *m) {
         if (!pidref_is_set(&m->control_pid))
                 return;
 
-        unit_unwatch_pid(UNIT(m), m->control_pid.pid);
+        unit_unwatch_pidref(UNIT(m), &m->control_pid);
         pidref_done(&m->control_pid);
 }
 
@@ -781,7 +781,7 @@ static int mount_coldplug(Unit *u) {
             pid_is_unwaited(m->control_pid.pid) &&
             MOUNT_STATE_WITH_PROCESS(m->deserialized_state)) {
 
-                r = unit_watch_pid(UNIT(m), m->control_pid.pid, /* exclusive= */ false);
+                r = unit_watch_pidref(UNIT(m), &m->control_pid, /* exclusive= */ false);
                 if (r < 0)
                         return r;
 
@@ -930,7 +930,7 @@ static int mount_spawn(Mount *m, ExecCommand *c, PidRef *ret_pid) {
         if (r < 0)
                 return r;
 
-        r = unit_watch_pid(UNIT(m), pidref.pid, /* exclusive= */ true);
+        r = unit_watch_pidref(UNIT(m), &pidref, /* exclusive= */ true);
         if (r < 0)
                 return r;
 

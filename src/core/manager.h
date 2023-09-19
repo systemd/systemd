@@ -242,14 +242,15 @@ struct Manager {
 
         sd_event *event;
 
-        /* This maps PIDs we care about to units that are interested in. We allow multiple units to be interested in
-         * the same PID and multiple PIDs to be relevant to the same unit. Since in most cases only a single unit will
-         * be interested in the same PID we use a somewhat special encoding here: the first unit interested in a PID is
-         * stored directly in the hashmap, keyed by the PID unmodified. If there are other units interested too they'll
-         * be stored in a NULL-terminated array, and keyed by the negative PID. This is safe as pid_t is signed and
-         * negative PIDs are not used for regular processes but process groups, which we don't care about in this
-         * context, but this allows us to use the negative range for our own purposes. */
-        Hashmap *watch_pids;  /* pid => unit as well as -pid => array of units */
+        /* This maps PIDs we care about to units that are interested in them. We allow multiple units to be
+         * interested in the same PID and multiple PIDs to be relevant to the same unit. Since in most cases
+         * only a single unit will be interested in the same PID though, we use a somewhat special structure
+         * here: the first unit interested in a PID is stored in the hashmap 'watch_pids', keyed by the
+         * PID. If there are other units interested too they'll be stored in a NULL-terminated array, stored
+         * in the hashmap 'watch_pids_more', keyed by the PID. Thus to go through the full list of units
+         * interested in a PID we must look into both hashmaps. */
+        Hashmap *watch_pids;            /* PidRef* → Unit* */
+        Hashmap *watch_pids_more;       /* PidRef* → NUL terminated array of Unit* */
 
         /* A set contains all units which cgroup should be refreshed after startup */
         Set *startup_units;
@@ -544,7 +545,7 @@ int manager_propagate_reload(Manager *m, Unit *unit, JobMode mode, sd_bus_error 
 
 void manager_clear_jobs(Manager *m);
 
-void manager_unwatch_pid(Manager *m, pid_t pid);
+void manager_unwatch_pidref(Manager *m, PidRef *pid);
 
 unsigned manager_dispatch_load_queue(Manager *m);
 

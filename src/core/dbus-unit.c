@@ -1439,7 +1439,6 @@ static int property_get_io_counter(
 }
 
 int bus_unit_method_attach_processes(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-
         _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
         _cleanup_set_free_ Set *pids = NULL;
         Unit *u = userdata;
@@ -1484,6 +1483,7 @@ int bus_unit_method_attach_processes(sd_bus_message *message, void *userdata, sd
         if (r < 0)
                 return r;
         for (;;) {
+                _cleanup_(pidref_freep) PidRef *pidref = NULL;
                 uid_t process_uid, sender_uid;
                 uint32_t upid;
                 pid_t pid;
@@ -1501,12 +1501,16 @@ int bus_unit_method_attach_processes(sd_bus_message *message, void *userdata, sd
                 } else
                         pid = (uid_t) upid;
 
+                r = pidref_new_from_pid(pid, &pidref);
+                if (r < 0)
+                        return r;
+
                 /* Filter out duplicates */
-                if (set_contains(pids, PID_TO_PTR(pid)))
+                if (set_contains(pids, pidref))
                         continue;
 
                 /* Check if this process is suitable for attaching to this unit */
-                r = unit_pid_attachable(u, pid, error);
+                r = unit_pid_attachable(u, pidref, error);
                 if (r < 0)
                         return r;
 
@@ -1518,7 +1522,7 @@ int bus_unit_method_attach_processes(sd_bus_message *message, void *userdata, sd
                 /* Let's validate security: if the sender is root, then all is OK. If the sender is any other unit,
                  * then the process' UID and the target unit's UID have to match the sender's UID */
                 if (sender_uid != 0 && sender_uid != getuid()) {
-                        r = get_process_uid(pid, &process_uid);
+                        r = get_process_uid(pidref->pid, &process_uid);
                         if (r < 0)
                                 return sd_bus_error_set_errnof(error, r, "Failed to retrieve process UID: %m");
 
@@ -1528,13 +1532,7 @@ int bus_unit_method_attach_processes(sd_bus_message *message, void *userdata, sd
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "Process " PID_FMT " not owned by target unit's UID. Refusing.", pid);
                 }
 
-                if (!pids) {
-                        pids = set_new(NULL);
-                        if (!pids)
-                                return -ENOMEM;
-                }
-
-                r = set_put(pids, PID_TO_PTR(pid));
+                r = set_ensure_consume(&pids, &pidref_hash_ops, TAKE_PTR(pidref));
                 if (r < 0)
                         return r;
         }

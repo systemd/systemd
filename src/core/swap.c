@@ -156,7 +156,7 @@ static void swap_unwatch_control_pid(Swap *s) {
         if (!pidref_is_set(&s->control_pid))
                 return;
 
-        unit_unwatch_pid(UNIT(s), s->control_pid.pid);
+        unit_unwatch_pidref(UNIT(s), &s->control_pid);
         pidref_done(&s->control_pid);
 }
 
@@ -560,7 +560,7 @@ static int swap_coldplug(Unit *u) {
             pid_is_unwaited(s->control_pid.pid) &&
             SWAP_STATE_WITH_PROCESS(new_state)) {
 
-                r = unit_watch_pid(UNIT(s), s->control_pid.pid, /* exclusive= */ false);
+                r = unit_watch_pidref(UNIT(s), &s->control_pid, /* exclusive= */ false);
                 if (r < 0)
                         return r;
 
@@ -673,7 +673,7 @@ static int swap_spawn(Swap *s, ExecCommand *c, PidRef *ret_pid) {
         if (r < 0)
                 return r;
 
-        r = unit_watch_pid(UNIT(s), pidref.pid, /* exclusive= */ true);
+        r = unit_watch_pidref(UNIT(s), &pidref, /* exclusive= */ true);
         if (r < 0)
                 return r;
 

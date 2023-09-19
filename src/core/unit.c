@@ -2834,117 +2834,168 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
         }
 }
 
-int unit_watch_pid(Unit *u, pid_t pid, bool exclusive) {
+int unit_watch_pidref(Unit *u, PidRef *pid, bool exclusive) {
+        _cleanup_(pidref_freep) PidRef *pid_dup = NULL;
         int r;
 
-        assert(u);
-        assert(pid_is_valid(pid));
+        /* Adds a specific PID to the set of PIDs this unit watches. */
 
-        /* Watch a specific PID */
+        assert(u);
+        assert(pidref_is_set(pid));
 
         /* Caller might be sure that this PID belongs to this unit only. Let's take this
          * opportunity to remove any stalled references to this PID as they can be created
          * easily (when watching a process which is not our direct child). */
         if (exclusive)
-                manager_unwatch_pid(u->manager, pid);
+                manager_unwatch_pidref(u->manager, pid);
 
-        r = set_ensure_allocated(&u->pids, NULL);
+        if (set_contains(u->pids, pid)) /* early exit if already being watched */
+                return 0;
+
+        r = pidref_dup(pid, &pid_dup);
         if (r < 0)
                 return r;
 
-        r = hashmap_ensure_allocated(&u->manager->watch_pids, NULL);
+        /* First, insert into the set of PIDs maintained by the unit */
+        r = set_ensure_put(&u->pids, &pidref_hash_ops, pid_dup);
         if (r < 0)
                 return r;
 
-        /* First try, let's add the unit keyed by "pid". */
-        r = hashmap_put(u->manager->watch_pids, PID_TO_PTR(pid), u);
-        if (r == -EEXIST)  {
-                Unit **array;
-                bool found = false;
-                size_t n = 0;
+        pid = TAKE_PTR(pid_dup); /* continue with our copy now that we have installed it properly in our set */
 
-                /* OK, the "pid" key is already assigned to a different unit. Let's see if the "-pid" key (which points
-                 * to an array of Units rather than just a Unit), lists us already. */
-
-                array = hashmap_get(u->manager->watch_pids, PID_TO_PTR(-pid));
-                if (array)
-                        for (; array[n]; n++)
-                                if (array[n] == u)
-                                        found = true;
-
-                if (!found) {
-                        Unit **new_array;
-
-                        /* Allocate a new array */
-                        new_array = new(Unit*, n + 2);
-                        if (!new_array)
-                                return -ENOMEM;
-
-                        memcpy_safe(new_array, array, sizeof(Unit*) * n);
-                        new_array[n] = u;
-                        new_array[n+1] = NULL;
-
-                        /* Add or replace the old array */
-                        r = hashmap_replace(u->manager->watch_pids, PID_TO_PTR(-pid), new_array);
-                        if (r < 0) {
-                                free(new_array);
-                                return r;
-                        }
-
-                        free(array);
-                }
-        } else if (r < 0)
+        /* Second, insert it into the simple global table, see if that works */
+        r = hashmap_ensure_put(&u->manager->watch_pids, &pidref_hash_ops, pid, u);
+        if (r != -EEXIST)
                 return r;
 
-        r = set_put(u->pids, PID_TO_PTR(pid));
+        /* OK, the key is already assigned to a different unit. That's fine, then add us via the second
+         * hashmap that points to an array. */
+
+        PidRef *old_pid = NULL;
+        Unit **array = hashmap_get2(u->manager->watch_pids_more, pid, (void**) &old_pid);
+
+        /* Count entries in array */
+        size_t n = 0;
+        for (; array && array[n]; n++)
+                ;
+
+        /* Allocate a new array */
+        _cleanup_free_ Unit **new_array = new(Unit*, n + 2);
+        if (!new_array)
+                return -ENOMEM;
+
+        /* Append us to the end */
+        memcpy_safe(new_array, array, sizeof(Unit*) * n);
+        new_array[n] = u;
+        new_array[n+1] = NULL;
+
+        /* Make sure the hashmap is allocated */
+        r = hashmap_ensure_allocated(&u->manager->watch_pids_more, &pidref_hash_ops);
         if (r < 0)
                 return r;
 
+        /* Add or replace the old array */
+        r = hashmap_replace(u->manager->watch_pids_more, old_pid ?: pid, new_array);
+        if (r < 0)
+                return r;
+
+        TAKE_PTR(new_array); /* Now part of the hash table */
+        free(array);         /* Which means we can now delete the old version */
         return 0;
 }
 
-void unit_unwatch_pid(Unit *u, pid_t pid) {
-        Unit **array;
+int unit_watch_pid(Unit *u, pid_t pid, bool exclusive) {
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        int r;
 
         assert(u);
         assert(pid_is_valid(pid));
 
-        /* First let's drop the unit in case it's keyed as "pid". */
-        (void) hashmap_remove_value(u->manager->watch_pids, PID_TO_PTR(pid), u);
+        r = pidref_set_pid(&pidref, pid);
+        if (r < 0)
+                return r;
 
-        /* Then, let's also drop the unit, in case it's in the array keyed by -pid */
-        array = hashmap_get(u->manager->watch_pids, PID_TO_PTR(-pid));
-        if (array) {
+        return unit_watch_pidref(u, &pidref, exclusive);
+}
+
+int unit_watch_pid_str(Unit *u, const char *s, bool exclusive) {
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        int r;
+
+        assert(u);
+        assert(s);
+
+        r = pidref_set_pidstr(&pidref, s);
+        if (r < 0)
+                return r;
+
+        return unit_watch_pidref(u, &pidref, exclusive);
+}
+
+void unit_unwatch_pidref(Unit *u, PidRef *pid) {
+        assert(u);
+        assert(pidref_is_set(pid));
+
+        /* Remove from the set we maintain for this unit. (And destroy the returned pid eventually) */
+        _cleanup_(pidref_freep) PidRef *pid1 = set_remove(u->pids, pid);
+        if (!pid1)
+                return; /* Early exit if this PID was never watched by us */
+
+        /* First let's drop the unit from the simple hash table, if it is included there */
+        PidRef *pid2 = NULL;
+        Unit *uu = hashmap_get2(u->manager->watch_pids, pid, (void**) &pid2);
+
+        /* Quick validation: iff we are in the watch_pids table then the PidRef object must be the same as in our local pids set */
+        assert((uu == u) == (pid1 == pid2));
+
+        if (uu == u)
+                /* OK, we are in the first table. Let's remove it there then, and we are done already. */
+                assert_se(hashmap_remove_value(u->manager->watch_pids, pid2, uu) == uu);
+        else {
+                /* We weren't in the first table, then let's consult the 2nd table that points to an array */
+                PidRef *pid3 = NULL;
+                Unit **array = hashmap_get2(u->manager->watch_pids_more, pid, (void**) &pid3);
+
                 /* Let's iterate through the array, dropping our own entry */
-
-                size_t m = 0;
-                for (size_t n = 0; array[n]; n++)
+                size_t m = 0, n = 0;
+                for (; array && array[n]; n++)
                         if (array[n] != u)
                                 array[m++] = array[n];
-                array[m] = NULL;
+                if (n == m)
+                        return; /* Not there */
+
+                array[m] = NULL; /* set trailing NULL marker on the new end */
 
                 if (m == 0) {
                         /* The array is now empty, remove the entire entry */
-                        assert_se(hashmap_remove(u->manager->watch_pids, PID_TO_PTR(-pid)) == array);
+                        assert_se(hashmap_remove_value(u->manager->watch_pids_more, pid3, array) == array);
                         free(array);
+                } else {
+                        /* The array is not empty, but let's make sure the entry is not keyed by the PidRef
+                         * we will delete, but by the PidRef object of the Unit that is now first in the
+                         * array. */
+
+                        PidRef *new_pid3 = ASSERT_PTR(set_get(array[0]->pids, pid));
+                        assert_se(hashmap_replace(u->manager->watch_pids_more, new_pid3, array) >= 0);
                 }
         }
+}
 
-        (void) set_remove(u->pids, PID_TO_PTR(pid));
+void unit_unwatch_pid(Unit *u, pid_t pid) {
+        return unit_unwatch_pidref(u, &PIDREF_MAKE_FROM_PID(pid));
 }
 
 void unit_unwatch_all_pids(Unit *u) {
         assert(u);
 
         while (!set_isempty(u->pids))
-                unit_unwatch_pid(u, PTR_TO_PID(set_first(u->pids)));
+                unit_unwatch_pidref(u, set_first(u->pids));
 
         u->pids = set_free(u->pids);
 }
 
 static void unit_tidy_watch_pids(Unit *u) {
-        PidRef *except1, *except2;
-        void *e;
+        PidRef *except1, *except2, *e;
 
         assert(u);
 
@@ -2954,14 +3005,11 @@ static void unit_tidy_watch_pids(Unit *u) {
         except2 = unit_control_pid(u);
 
         SET_FOREACH(e, u->pids) {
-                pid_t pid = PTR_TO_PID(e);
-
-                if ((pidref_is_set(except1) && pid == except1->pid) ||
-                    (pidref_is_set(except2) && pid == except2->pid))
+                if (pidref_equal(except1, e) || pidref_equal(except2, e))
                         continue;
 
-                if (!pid_is_unwaited(pid))
-                        unit_unwatch_pid(u, pid);
+                if (!pid_is_unwaited(e->pid))
+                        unit_unwatch_pidref(u, e);
         }
 }
 
@@ -5431,7 +5479,7 @@ int unit_fork_and_watch_rm_rf(Unit *u, char **paths, PidRef *ret_pid) {
                 _exit(ret);
         }
 
-        r = unit_watch_pid(u, pid.pid, /* exclusive= */ true);
+        r = unit_watch_pidref(u, &pid, /* exclusive= */ true);
         if (r < 0)
                 return r;
 
@@ -5880,7 +5928,7 @@ bool unit_needs_console(Unit *u) {
         return exec_context_may_touch_console(ec);
 }
 
-int unit_pid_attachable(Unit *u, pid_t pid, sd_bus_error *error) {
+int unit_pid_attachable(Unit *u, PidRef *pid, sd_bus_error *error) {
         int r;
 
         assert(u);
@@ -5889,21 +5937,21 @@ int unit_pid_attachable(Unit *u, pid_t pid, sd_bus_error *error) {
          * and not a kernel thread either */
 
         /* First, a simple range check */
-        if (!pid_is_valid(pid))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Process identifier " PID_FMT " is not valid.", pid);
+        if (!pidref_is_set(pid))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Process identifier is not valid.");
 
         /* Some extra safety check */
-        if (pid == 1 || pid == getpid_cached())
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Process " PID_FMT " is a manager process, refusing.", pid);
+        if (pid->pid == 1 || pid->pid == getpid_cached())
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Process " PID_FMT " is a manager process, refusing.", pid->pid);
 
         /* Don't even begin to bother with kernel threads */
-        r = is_kernel_thread(pid);
+        r = is_kernel_thread(pid->pid);
         if (r == -ESRCH)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_UNIX_PROCESS_ID_UNKNOWN, "Process with ID " PID_FMT " does not exist.", pid);
+                return sd_bus_error_setf(error, SD_BUS_ERROR_UNIX_PROCESS_ID_UNKNOWN, "Process with ID " PID_FMT " does not exist.", pid->pid);
         if (r < 0)
-                return sd_bus_error_set_errnof(error, r, "Failed to determine whether process " PID_FMT " is a kernel thread: %m", pid);
+                return sd_bus_error_set_errnof(error, r, "Failed to determine whether process " PID_FMT " is a kernel thread: %m", pid->pid);
         if (r > 0)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Process " PID_FMT " is a kernel thread, refusing.", pid);
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Process " PID_FMT " is a kernel thread, refusing.", pid->pid);
 
         return 0;
 }

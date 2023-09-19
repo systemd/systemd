@@ -155,7 +155,7 @@ static void service_unwatch_control_pid(Service *s) {
         if (!pidref_is_set(&s->control_pid))
                 return;
 
-        unit_unwatch_pid(UNIT(s), s->control_pid.pid);
+        unit_unwatch_pidref(UNIT(s), &s->control_pid);
         pidref_done(&s->control_pid);
 }
 
@@ -165,7 +165,7 @@ static void service_unwatch_main_pid(Service *s) {
         if (!pidref_is_set(&s->main_pid))
                 return;
 
-        unit_unwatch_pid(UNIT(s), s->main_pid.pid);
+        unit_unwatch_pidref(UNIT(s), &s->main_pid);
         pidref_done(&s->main_pid);
 }
 
@@ -1064,28 +1064,28 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
         cgroup_context_dump(UNIT(s), f, prefix);
 }
 
-static int service_is_suitable_main_pid(Service *s, pid_t pid, int prio) {
+static int service_is_suitable_main_pid(Service *s, PidRef *pid, int prio) {
         Unit *owner;
 
         assert(s);
-        assert(pid_is_valid(pid));
+        assert(pidref_is_set(pid));
 
         /* Checks whether the specified PID is suitable as main PID for this service. returns negative if not, 0 if the
          * PID is questionnable but should be accepted if the source of configuration is trusted. > 0 if the PID is
          * good */
 
-        if (pid == getpid_cached() || pid == 1)
-                return log_unit_full_errno(UNIT(s), prio, SYNTHETIC_ERRNO(EPERM), "New main PID "PID_FMT" is the manager, refusing.", pid);
+        if (pid->pid == getpid_cached() || pid->pid == 1)
+                return log_unit_full_errno(UNIT(s), prio, SYNTHETIC_ERRNO(EPERM), "New main PID "PID_FMT" is the manager, refusing.", pid->pid);
 
-        if (pid == s->control_pid.pid)
-                return log_unit_full_errno(UNIT(s), prio, SYNTHETIC_ERRNO(EPERM), "New main PID "PID_FMT" is the control process, refusing.", pid);
+        if (pidref_equal(pid, &s->control_pid))
+                return log_unit_full_errno(UNIT(s), prio, SYNTHETIC_ERRNO(EPERM), "New main PID "PID_FMT" is the control process, refusing.", pid->pid);
 
-        if (!pid_is_alive(pid))
-                return log_unit_full_errno(UNIT(s), prio, SYNTHETIC_ERRNO(ESRCH), "New main PID "PID_FMT" does not exist or is a zombie.", pid);
+        if (!pid_is_alive(pid->pid))
+                return log_unit_full_errno(UNIT(s), prio, SYNTHETIC_ERRNO(ESRCH), "New main PID "PID_FMT" does not exist or is a zombie.", pid->pid);
 
-        owner = manager_get_unit_by_pid(UNIT(s)->manager, pid);
+        owner = manager_get_unit_by_pidref(UNIT(s)->manager, pid);
         if (owner == UNIT(s)) {
-                log_unit_debug(UNIT(s), "New main PID "PID_FMT" belongs to service, we are happy.", pid);
+                log_unit_debug(UNIT(s), "New main PID "PID_FMT" belongs to service, we are happy.", pid->pid);
                 return 1; /* Yay, it's definitely a good PID */
         }
 
@@ -1098,7 +1098,6 @@ static int service_load_pid_file(Service *s, bool may_warn) {
         _cleanup_free_ char *k = NULL;
         _cleanup_close_ int fd = -EBADF;
         int r, prio;
-        pid_t pid;
 
         assert(s);
 
@@ -1128,18 +1127,14 @@ static int service_load_pid_file(Service *s, bool may_warn) {
                                             "Can't convert PID files %s O_PATH file descriptor to proper file descriptor: %m",
                                             s->pid_file);
 
-        r = parse_pid(k, &pid);
+        r = pidref_set_pidstr(&pidref, k);
         if (r < 0)
                 return log_unit_full_errno(UNIT(s), prio, r, "Failed to parse PID from file %s: %m", s->pid_file);
 
-        if (s->main_pid_known && pid == s->main_pid.pid)
+        if (s->main_pid_known && pidref_equal(&pidref, &s->main_pid))
                 return 0;
 
-        r = pidref_set_pid(&pidref, pid);
-        if (r < 0)
-                return log_unit_full_errno(UNIT(s), prio, r, "Failed to pin PID " PID_FMT ": %m", pid);
-
-        r = service_is_suitable_main_pid(s, pidref.pid, prio);
+        r = service_is_suitable_main_pid(s, &pidref, prio);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -1173,7 +1168,7 @@ static int service_load_pid_file(Service *s, bool may_warn) {
         if (r < 0)
                 return r;
 
-        r = unit_watch_pid(UNIT(s), s->main_pid.pid, /* exclusive= */ false);
+        r = unit_watch_pidref(UNIT(s), &s->main_pid, /* exclusive= */ false);
         if (r < 0) /* FIXME: we need to do something here */
                 return log_unit_warning_errno(UNIT(s), r, "Failed to watch PID "PID_FMT" for service: %m", s->main_pid.pid);
 
@@ -1181,7 +1176,7 @@ static int service_load_pid_file(Service *s, bool may_warn) {
 }
 
 static void service_search_main_pid(Service *s) {
-        pid_t pid = 0;
+        _cleanup_(pidref_done) PidRef pid = PIDREF_NULL;
         int r;
 
         assert(s);
@@ -1198,11 +1193,11 @@ static void service_search_main_pid(Service *s) {
         if (unit_search_main_pid(UNIT(s), &pid) < 0)
                 return;
 
-        log_unit_debug(UNIT(s), "Main PID guessed: "PID_FMT, pid);
-        if (service_set_main_pid(s, pid) < 0)
+        log_unit_debug(UNIT(s), "Main PID guessed: "PID_FMT, pid.pid);
+        if (service_set_main_pidref(s, &pid) < 0)
                 return;
 
-        r = unit_watch_pid(UNIT(s), s->main_pid.pid, /* exclusive= */ false);
+        r = unit_watch_pidref(UNIT(s), &s->main_pid, /* exclusive= */ false);
         if (r < 0)
                 /* FIXME: we need to do something here */
                 log_unit_warning_errno(UNIT(s), r, "Failed to watch PID "PID_FMT" from: %m", s->main_pid.pid);
@@ -1342,7 +1337,7 @@ static int service_coldplug(Unit *u) {
                     SERVICE_RELOAD, SERVICE_RELOAD_SIGNAL, SERVICE_RELOAD_NOTIFY,
                     SERVICE_STOP, SERVICE_STOP_WATCHDOG, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL, SERVICE_STOP_POST,
                     SERVICE_FINAL_WATCHDOG, SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL))) {
-                r = unit_watch_pid(UNIT(s), s->main_pid.pid, /* exclusive= */ false);
+                r = unit_watch_pidref(UNIT(s), &s->main_pid, /* exclusive= */ false);
                 if (r < 0)
                         return r;
         }
@@ -1355,7 +1350,7 @@ static int service_coldplug(Unit *u) {
                    SERVICE_STOP, SERVICE_STOP_WATCHDOG, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL, SERVICE_STOP_POST,
                    SERVICE_FINAL_WATCHDOG, SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL,
                    SERVICE_CLEANING)) {
-                r = unit_watch_pid(UNIT(s), s->control_pid.pid, /* exclusive= */ false);
+                r = unit_watch_pidref(UNIT(s), &s->control_pid, /* exclusive= */ false);
                 if (r < 0)
                         return r;
         }
@@ -1833,7 +1828,7 @@ static int service_spawn_internal(
         if (r < 0)
                 return r;
 
-        r = unit_watch_pid(UNIT(s), pidref.pid, /* exclusive= */ true);
+        r = unit_watch_pidref(UNIT(s), &pidref, /* exclusive= */ true);
         if (r < 0)
                 return r;
 
@@ -4399,28 +4394,29 @@ static void service_notify_message(
         /* Interpret MAINPID= */
         e = strv_find_startswith(tags, "MAINPID=");
         if (e && IN_SET(s->state, SERVICE_START, SERVICE_START_POST, SERVICE_RUNNING, SERVICE_RELOAD, SERVICE_RELOAD_SIGNAL, SERVICE_RELOAD_NOTIFY)) {
-                pid_t new_main_pid;
+                _cleanup_(pidref_done) PidRef new_main_pid = PIDREF_NULL;
 
-                if (parse_pid(e, &new_main_pid) < 0)
-                        log_unit_warning(u, "Failed to parse MAINPID= field in notification message, ignoring: %s", e);
-                else if (!s->main_pid_known || new_main_pid != s->main_pid.pid) {
+                r = pidref_set_pidstr(&new_main_pid, e);
+                if (r < 0)
+                        log_unit_warning_errno(u, r, "Failed to parse MAINPID=%s field in notification message, ignoring: %m", e);
+                else if (!s->main_pid_known || !pidref_equal(&new_main_pid, &s->main_pid)) {
 
-                        r = service_is_suitable_main_pid(s, new_main_pid, LOG_WARNING);
+                        r = service_is_suitable_main_pid(s, &new_main_pid, LOG_WARNING);
                         if (r == 0) {
                                 /* The new main PID is a bit suspicious, which is OK if the sender is privileged. */
 
                                 if (ucred->uid == 0) {
-                                        log_unit_debug(u, "New main PID "PID_FMT" does not belong to service, but we'll accept it as the request to change it came from a privileged process.", new_main_pid);
+                                        log_unit_debug(u, "New main PID "PID_FMT" does not belong to service, but we'll accept it as the request to change it came from a privileged process.", new_main_pid.pid);
                                         r = 1;
                                 } else
-                                        log_unit_debug(u, "New main PID "PID_FMT" does not belong to service, refusing.", new_main_pid);
+                                        log_unit_debug(u, "New main PID "PID_FMT" does not belong to service, refusing.", new_main_pid.pid);
                         }
                         if (r > 0) {
-                                (void) service_set_main_pid(s, new_main_pid);
+                                (void) service_set_main_pidref(s, &new_main_pid);
 
-                                r = unit_watch_pid(UNIT(s), new_main_pid, /* exclusive= */ false);
+                                r = unit_watch_pidref(UNIT(s), &s->main_pid, /* exclusive= */ false);
                                 if (r < 0)
-                                        log_unit_warning_errno(UNIT(s), r, "Failed to watch new main PID "PID_FMT" for service: %m", new_main_pid);
+                                        log_unit_warning_errno(UNIT(s), r, "Failed to watch new main PID "PID_FMT" for service: %m", s->main_pid.pid);
 
                                 notify_dbus = true;
                         }
@@ -4653,6 +4649,7 @@ static bool pick_up_pid_from_bus_name(Service *s) {
 }
 
 static int bus_name_pid_lookup_callback(sd_bus_message *reply, void *userdata, sd_bus_error *ret_error) {
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         const sd_bus_error *e;
         Unit *u = ASSERT_PTR(userdata);
         uint32_t pid;
@@ -4680,15 +4677,16 @@ static int bus_name_pid_lookup_callback(sd_bus_message *reply, void *userdata, s
                 return 1;
         }
 
-        if (!pid_is_valid(pid)) {
-                log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "GetConnectionUnixProcessID() returned invalid PID");
+        r = pidref_set_pid(&pidref, pid);
+        if (r < 0) {
+                log_debug_errno(r, "GetConnectionUnixProcessID() returned invalid PID: %m");
                 return 1;
         }
 
-        log_unit_debug(u, "D-Bus name %s is now owned by process " PID_FMT, s->bus_name, (pid_t) pid);
+        log_unit_debug(u, "D-Bus name %s is now owned by process " PID_FMT, s->bus_name, pidref.pid);
 
-        (void) service_set_main_pid(s, pid);
-        (void) unit_watch_pid(UNIT(s), pid, /* exclusive= */ false);
+        (void) service_set_main_pidref(s, &pidref);
+        (void) unit_watch_pidref(UNIT(s), &s->main_pid, /* exclusive= */ false);
         return 1;
 }
 
