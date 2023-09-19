@@ -8756,7 +8756,7 @@ CHANGES WITH 236:
 
         * The watchdog device PID 1 will ping may now be configured through the
           WatchdogDevice= configuration file setting, or by setting the
-          systemd.watchdog_service= kernel commandline option.
+          systemd.watchdog_service= kernel command line option.
 
         * systemd-resolved's gained support for registering DNS-SD services on
           the local network using MulticastDNS. Services may either be

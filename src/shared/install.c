@@ -2334,7 +2334,7 @@ int unit_file_unmask(
                 if (!unit_name_is_valid(*name, UNIT_NAME_ANY))
                         return -EINVAL;
 
-                /* If root_dir is set, we don't care about kernel commandline or generators.
+                /* If root_dir is set, we don't care about kernel command line or generators.
                  * But if it is not set, we need to check for interference. */
                 if (!root_dir) {
                         _cleanup_(install_info_clear) InstallInfo info = {

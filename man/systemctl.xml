@@ -1643,7 +1643,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           <listitem>
             <para>Shut down and reboot the system via <command>kexec</command>. This command will load a
             kexec kernel if one wasn't loaded yet or fail. A kernel may be loaded earlier by a separate step,
-            this is particularly useful if a custom initrd or additional kernel commandline options are
+            this is particularly useful if a custom initrd or additional kernel command line options are
             desired. The <option>--force</option> can be used to continue without a kexec kernel, i.e. to
             perform a normal reboot. The final reboot step is equivalent to
             <command>systemctl start kexec.target --job-mode=replace-irreversibly --no-block</command>.
