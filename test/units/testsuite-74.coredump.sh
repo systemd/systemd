@@ -74,6 +74,31 @@ rm -fv /run/systemd/coredump.conf.d/99-external.conf
 # Wait a bit for the coredumps to get processed
 timeout 30 bash -c "while [[ \$(coredumpctl list -q --no-legend $CORE_TEST_BIN | wc -l) -lt 4 ]]; do sleep 1; done"
 
+# Make sure we can forward crashes back to containers
+CONTAINER="testsuite-74-container"
+
+mkdir -p "/var/lib/machines/$CONTAINER"
+mkdir -p "/run/systemd/system/systemd-nspawn@$CONTAINER.service.d"
+# Bind-mounting /etc into the container kinda defeats the purpose of --volatile=,
+# but we need the ASan-related overrides scattered across /etc
+cat > "/run/systemd/system/systemd-nspawn@$CONTAINER.service.d/override.conf" << EOF
+[Service]
+ExecStart=
+ExecStart=systemd-nspawn --quiet --link-journal=try-guest --keep-unit --machine=%i --boot \
+                         --volatile=yes --directory=/ --bind-ro=/etc --inaccessible=/etc/machine-id
+EOF
+systemctl daemon-reload
+
+machinectl start "$CONTAINER"
+timeout 60 bash -xec "until systemd-run -M '$CONTAINER' -q --wait --pipe true; do sleep .5; done"
+
+[[ "$(systemd-run -M "$CONTAINER" -q --wait --pipe coredumpctl list -q --no-legend /usr/bin/sleep | wc -l)" -eq 0 ]]
+machinectl copy-to "$CONTAINER" "$MAKE_DUMP_SCRIPT"
+systemd-run -M "$CONTAINER" -q --wait --pipe "$MAKE_DUMP_SCRIPT" "/usr/bin/sleep" "SIGABRT"
+systemd-run -M "$CONTAINER" -q --wait --pipe "$MAKE_DUMP_SCRIPT" "/usr/bin/sleep" "SIGTRAP"
+# Wait a bit for the coredumps to get processed
+timeout 30 bash -c "while [[ \$(systemd-run -M $CONTAINER -q --wait --pipe coredumpctl list -q --no-legend /usr/bin/sleep | wc -l) -lt 2 ]]; do sleep 1; done"
+
 coredumpctl
 SYSTEMD_LOG_LEVEL=debug coredumpctl
 coredumpctl --help
@@ -89,7 +114,7 @@ coredumpctl --json=pretty | jq
 coredumpctl --json=off
 coredumpctl --root=/
 coredumpctl --directory=/var/log/journal
-coredumpctl --file="/var/log/journal/$(</etc/machine-id)/system.journal"
+coredumpctl --file="/var/log/journal/$(</etc/machine-id)"/*.journal
 coredumpctl --since=@0
 coredumpctl --since=yesterday --until=tomorrow
 # We should have a couple of externally stored coredumps
