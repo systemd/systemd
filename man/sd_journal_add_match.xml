@@ -163,9 +163,9 @@ int add_matches(sd_journal *j) {
 
   <refsect1>
     <title>History</title>
-    <para><function>sd_journal_add_disjunction()</function> was added in version 187.</para>
-    <para><function>sd_journal_add_match()</function> was added in version 187.</para>
-    <para><function>sd_journal_flush_matches()</function> was added in version 187.</para>
+    <para><function>sd_journal_add_match()</function>,
+    <function>sd_journal_add_disjunction()</function>, and
+    <function>sd_journal_flush_matches()</function> were added in version 187.</para>
     <para><function>sd_journal_add_conjunction()</function> was added in version 202.</para>
   </refsect1>
 

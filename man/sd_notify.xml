@@ -565,12 +565,12 @@ sd_notify_barrier(0, 5 * 1000000);
 
   <refsect1>
     <title>History</title>
-    <para><function>sd_pid_notify()</function> was added in version 219.</para>
-    <para><function>sd_pid_notify_with_fds()</function> was added in version 219.</para>
-    <para><function>sd_pid_notifyf()</function> was added in version 219.</para>
+    <para><function>sd_pid_notify()</function>,
+    <function>sd_pid_notifyf()</function>, and
+    <function>sd_pid_notify_with_fds()</function> were added in version 219.</para>
     <para><function>sd_notify_barrier()</function> was added in version 246.</para>
-    <para><function>sd_pid_notify_barrier()</function> was added in version 254.</para>
-    <para><function>sd_pid_notifyf_with_fds()</function> was added in version 254.</para>
+    <para><function>sd_pid_notifyf_with_fds()</function> and
+    <function>sd_pid_notify_barrier()</function> were added in version 254.</para>
   </refsect1>
 
   <refsect1>

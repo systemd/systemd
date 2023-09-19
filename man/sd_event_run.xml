@@ -143,8 +143,8 @@
 
   <refsect1>
     <title>History</title>
-    <para><function>sd_event_loop()</function> was added in version 220.</para>
-    <para><function>sd_event_run()</function> was added in version 220.</para>
+    <para><function>sd_event_run()</function> and
+    <function>sd_event_loop()</function> were added in version 220.</para>
   </refsect1>
 
   <refsect1>
