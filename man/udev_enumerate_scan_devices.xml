@@ -90,6 +90,15 @@
   </refsect1>
 
   <refsect1>
+    <title>History</title>
+    <para><function>udev_enumerate_scan_devices()</function>,
+    <function>udev_enumerate_scan_subsystems()</function>,
+    <function>udev_enumerate_get_list_entry()</function>,
+    <function>udev_enumerate_add_syspath()</function>, and
+    <function>udev_enumerate_get_udev()</function> were added in version 221.</para>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
 
     <para>

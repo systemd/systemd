@@ -171,6 +171,17 @@
   </refsect1>
 
   <refsect1>
+    <title>History</title>
+    <para><function>udev_device_new_from_syspath()</function>,
+    <function>udev_device_new_from_devnum()</function>,
+    <function>udev_device_new_from_subsystem_sysname()</function>,
+    <function>udev_device_new_from_device_id()</function>,
+    <function>udev_device_new_from_environment()</function>,
+    <function>udev_device_ref()</function>, and
+    <function>udev_device_unref()</function> were added in version 221.</para>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
 
     <para>
