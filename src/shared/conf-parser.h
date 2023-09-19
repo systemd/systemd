@@ -385,3 +385,94 @@ typedef enum ConfigParseStringFlags {
                                                                                \
                 return free_and_replace(*enums, xs);                           \
         }
+
+int config_parse_unsigned_bounded(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *name,
+                const char *value,
+                unsigned min,
+                unsigned max,
+                bool ignoring,
+                unsigned *ret);
+
+static inline int config_parse_uint32_bounded(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *name,
+                const char *value,
+                uint32_t min,
+                uint32_t max,
+                bool ignoring,
+                uint32_t *ret) {
+        unsigned t;
+        int r;
+
+        r = config_parse_unsigned_bounded(
+                        unit, filename, line, section, section_line, name, value,
+                        min, max, ignoring,
+                        &t);
+        if (r < 0)
+                return r;
+        assert(t <= UINT32_MAX);
+        *ret = t;
+        return 0;
+}
+
+static inline int config_parse_uint16_bounded(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *name,
+                const char *value,
+                uint16_t min,
+                uint16_t max,
+                bool ignoring,
+                uint16_t *ret) {
+        unsigned t;
+        int r;
+
+        r = config_parse_unsigned_bounded(
+                        unit, filename, line, section, section_line, name, value,
+                        min, max, ignoring,
+                        &t);
+        if (r < 0)
+                return r;
+        assert(t <= UINT16_MAX);
+        *ret = t;
+        return 0;
+}
+
+static inline int config_parse_uint8_bounded(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *name,
+                const char *value,
+                uint8_t min,
+                uint8_t max,
+                bool ignoring,
+                uint8_t *ret) {
+        unsigned t;
+        int r;
+
+        r = config_parse_unsigned_bounded(
+                        unit, filename, line, section, section_line, name, value,
+                        min, max, ignoring,
+                        &t);
+        if (r < 0)
+                return r;
+        assert(t <= UINT8_MAX);
+        *ret = t;
+        return 0;
+}

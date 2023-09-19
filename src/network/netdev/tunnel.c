@@ -25,7 +25,7 @@
 
 static const char* const ip6tnl_mode_table[_NETDEV_IP6_TNL_MODE_MAX] = {
         [NETDEV_IP6_TNL_MODE_IP6IP6] = "ip6ip6",
-        [NETDEV_IP6_TNL_MODE_IPIP6] = "ipip6",
+        [NETDEV_IP6_TNL_MODE_IPIP6]  = "ipip6",
         [NETDEV_IP6_TNL_MODE_ANYIP6] = "any",
 };
 
@@ -207,11 +207,9 @@ static int netdev_ipip_sit_fill_message_create(NetDev *netdev, Link *link, sd_ne
         assert(m);
 
         if (netdev->kind == NETDEV_KIND_IPIP)
-                t = IPIP(netdev);
+                t = ASSERT_PTR(IPIP(netdev));
         else
-                t = SIT(netdev);
-
-        assert(t);
+                t = ASSERT_PTR(SIT(netdev));
 
         if (t->external) {
                 r = sd_netlink_message_append_flag(m, IFLA_IPTUN_COLLECT_METADATA);
@@ -268,8 +266,8 @@ static int netdev_ipip_sit_fill_message_create(NetDev *netdev, Link *link, sd_ne
                         if (r < 0)
                                 return r;
 
-                        /* u16 is deliberate here, even though we're passing a netmask that can never be >128. The kernel is
-                         * expecting to receive the prefixlen as a u16.
+                        /* u16 is deliberate here, even though we're passing a netmask that can never be
+                         * >128. The kernel is expecting to receive the prefixlen as a u16.
                          */
                         r = sd_netlink_message_append_u16(m, IFLA_IPTUN_6RD_PREFIXLEN, t->sixrd_prefixlen);
                         if (r < 0)
@@ -304,19 +302,17 @@ static int netdev_gre_erspan_fill_message_create(NetDev *netdev, Link *link, sd_
 
         switch (netdev->kind) {
         case NETDEV_KIND_GRE:
-                t = GRE(netdev);
+                t = ASSERT_PTR(GRE(netdev));
                 break;
         case NETDEV_KIND_ERSPAN:
-                t = ERSPAN(netdev);
+                t = ASSERT_PTR(ERSPAN(netdev));
                 break;
         case NETDEV_KIND_GRETAP:
-                t = GRETAP(netdev);
+                t = ASSERT_PTR(GRETAP(netdev));
                 break;
         default:
                 assert_not_reached();
         }
-
-        assert(t);
 
         if (t->external) {
                 r = sd_netlink_message_append_flag(m, IFLA_GRE_COLLECT_METADATA);
@@ -441,10 +437,8 @@ static int netdev_gre_erspan_fill_message_create(NetDev *netdev, Link *link, sd_
 
 static int netdev_ip6gre_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
         union in_addr_union local;
-        uint32_t ikey = 0;
-        uint32_t okey = 0;
-        uint16_t iflags = 0;
-        uint16_t oflags = 0;
+        uint32_t ikey = 0, okey = 0;
+        uint16_t iflags = 0, oflags = 0;
         Tunnel *t;
         int r;
 
@@ -452,11 +446,9 @@ static int netdev_ip6gre_fill_message_create(NetDev *netdev, Link *link, sd_netl
         assert(m);
 
         if (netdev->kind == NETDEV_KIND_IP6GRE)
-                t = IP6GRE(netdev);
+                t = ASSERT_PTR(IP6GRE(netdev));
         else
-                t = IP6GRETAP(netdev);
-
-        assert(t);
+                t = ASSERT_PTR(IP6GRETAP(netdev));
 
         if (t->external) {
                 r = sd_netlink_message_append_flag(m, IFLA_GRE_COLLECT_METADATA);
@@ -544,11 +536,9 @@ static int netdev_vti_fill_message_create(NetDev *netdev, Link *link, sd_netlink
         assert(m);
 
         if (netdev->kind == NETDEV_KIND_VTI)
-                t = VTI(netdev);
+                t = ASSERT_PTR(VTI(netdev));
         else
-                t = VTI6(netdev);
-
-        assert(t);
+                t = ASSERT_PTR(VTI6(netdev));
 
         if (link || t->assign_to_loopback) {
                 r = sd_netlink_message_append_u32(m, IFLA_VTI_LINK, link ? link->ifindex : LOOPBACK_IFINDEX);
@@ -587,17 +577,13 @@ static int netdev_vti_fill_message_create(NetDev *netdev, Link *link, sd_netlink
 }
 
 static int netdev_ip6tnl_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
-        union in_addr_union local;
-        uint8_t proto;
-        Tunnel *t;
-        int r;
-
         assert(netdev);
         assert(m);
 
-        t = IP6TNL(netdev);
-
-        assert(t);
+        union in_addr_union local;
+        uint8_t proto;
+        Tunnel *t = ASSERT_PTR(IP6TNL(netdev));
+        int r;
 
         switch (t->ip6tnl_mode) {
         case NETDEV_IP6_TNL_MODE_IP6IP6:
@@ -673,13 +659,9 @@ static int netdev_ip6tnl_fill_message_create(NetDev *netdev, Link *link, sd_netl
 }
 
 static int netdev_tunnel_is_ready_to_create(NetDev *netdev, Link *link) {
-        Tunnel *t;
-
         assert(netdev);
 
-        t = TUNNEL(netdev);
-
-        assert(t);
+        Tunnel *t = ASSERT_PTR(TUNNEL(netdev));
 
         if (t->independent)
                 return true;
@@ -688,14 +670,10 @@ static int netdev_tunnel_is_ready_to_create(NetDev *netdev, Link *link) {
 }
 
 static int netdev_tunnel_verify(NetDev *netdev, const char *filename) {
-        Tunnel *t;
-
         assert(netdev);
         assert(filename);
 
-        t = TUNNEL(netdev);
-
-        assert(t);
+        Tunnel *t = ASSERT_PTR(TUNNEL(netdev));
 
         if (netdev->kind == NETDEV_KIND_IP6TNL &&
             t->ip6tnl_mode == _NETDEV_IP6_TNL_MODE_INVALID)
@@ -931,7 +909,8 @@ int config_parse_ipv6_flowlabel(
                 void *userdata) {
 
         Tunnel *t = ASSERT_PTR(userdata);
-        int k, r;
+        unsigned k;
+        int r;
 
         assert(filename);
         assert(rvalue);
@@ -942,21 +921,15 @@ int config_parse_ipv6_flowlabel(
                 return 0;
         }
 
-        r = safe_atoi(rvalue, &k);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse tunnel IPv6 flowlabel, ignoring assignment: %s", rvalue);
-                return 0;
-        }
-
-        if (k > 0xFFFFF) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Invalid tunnel IPv6 flowlabel, ignoring assignment: %s", rvalue);
-                return 0;
-        }
-
+        r = config_parse_unsigned_bounded(
+                        unit, filename, line, section, section_line, lvalue, rvalue,
+                        0, 0xFFFFF, true,
+                        &k);
+        if (r <= 0)
+                return r;
         t->ipv6_flowlabel = htobe32(k) & IP6_FLOWINFO_FLOWLABEL;
         t->flags &= ~IP6_TNL_F_USE_ORIG_FLOWLABEL;
+
         return 0;
 }
 
@@ -972,33 +945,26 @@ int config_parse_encap_limit(
                 void *data,
                 void *userdata) {
 
-        Tunnel *t = ASSERT_PTR(userdata);
-        int k, r;
-
         assert(filename);
         assert(rvalue);
 
+        Tunnel *t = ASSERT_PTR(userdata);
+        int r;
+
         if (streq(rvalue, "none")) {
-                t->flags |= IP6_TNL_F_IGN_ENCAP_LIMIT;
                 t->encap_limit = 0;
+                t->flags |= IP6_TNL_F_IGN_ENCAP_LIMIT;
                 return 0;
         }
 
-        r = safe_atoi(rvalue, &k);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse Tunnel Encapsulation Limit option, ignoring assignment: %s", rvalue);
-                return 0;
-        }
-
-        if (k > 255 || k < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Invalid Tunnel Encapsulation value, ignoring assignment: %d", k);
-                return 0;
-        }
-
-        t->encap_limit = k;
+        r = config_parse_uint8_bounded(
+                        unit, filename, line, section, section_line, lvalue, rvalue,
+                        0, UINT8_MAX, true,
+                        &t->encap_limit);
+        if (r <= 0)
+                return r;
         t->flags &= ~IP6_TNL_F_IGN_ENCAP_LIMIT;
+
         return 0;
 }
 
@@ -1051,32 +1017,21 @@ int config_parse_erspan_version(
                 void *data,
                 void *userdata) {
 
-        uint8_t n, *v = ASSERT_PTR(data);
-        int r;
-
         assert(filename);
         assert(lvalue);
         assert(rvalue);
+
+        uint8_t *v = ASSERT_PTR(data);
 
         if (isempty(rvalue)) {
                 *v = 1; /* defaults to 1 */
                 return 0;
         }
 
-        r = safe_atou8(rvalue, &n);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse erspan version \"%s\", ignoring: %m", rvalue);
-                return 0;
-        }
-        if (!IN_SET(n, 0, 1, 2)) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Invalid erspan version \"%s\", which must be 0, 1 or 2, ignoring.", rvalue);
-                return 0;
-        }
-
-        *v = n;
-        return 0;
+        return config_parse_uint8_bounded(
+                        unit, filename, line, section, section_line, lvalue, rvalue,
+                        0, 2, true,
+                        v);
 }
 
 int config_parse_erspan_index(
@@ -1091,32 +1046,21 @@ int config_parse_erspan_index(
                 void *data,
                 void *userdata) {
 
-        uint32_t n, *v = ASSERT_PTR(data);
-        int r;
-
         assert(filename);
         assert(lvalue);
         assert(rvalue);
+
+        uint32_t *v = ASSERT_PTR(data);
 
         if (isempty(rvalue)) {
                 *v = 0; /* defaults to 0 */
                 return 0;
         }
 
-        r = safe_atou32(rvalue, &n);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse erspan index \"%s\", ignoring: %m", rvalue);
-                return 0;
-        }
-        if (n >= 0x100000) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Invalid erspan index \"%s\", which must be less than 0x100000, ignoring.", rvalue);
-                return 0;
-        }
-
-        *v = n;
-        return 0;
+        return config_parse_uint32_bounded(
+                        unit, filename, line, section, section_line, lvalue, rvalue,
+                        0, 0x100000 - 1, true,
+                        v);
 }
 
 int config_parse_erspan_direction(
@@ -1131,11 +1075,11 @@ int config_parse_erspan_direction(
                 void *data,
                 void *userdata) {
 
-        uint8_t *v = ASSERT_PTR(data);
-
         assert(filename);
         assert(lvalue);
         assert(rvalue);
+
+        uint8_t *v = ASSERT_PTR(data);
 
         if (isempty(rvalue) || streq(rvalue, "ingress"))
                 *v = 0; /* defaults to ingress */
@@ -1160,42 +1104,25 @@ int config_parse_erspan_hwid(
                 void *data,
                 void *userdata) {
 
-        uint16_t n, *v = ASSERT_PTR(data);
-        int r;
-
         assert(filename);
         assert(lvalue);
         assert(rvalue);
+
+        uint16_t *v = ASSERT_PTR(data);
 
         if (isempty(rvalue)) {
                 *v = 0; /* defaults to 0 */
                 return 0;
         }
 
-        r = safe_atou16(rvalue, &n);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse erspan hwid \"%s\", ignoring: %m", rvalue);
-                return 0;
-        }
-        if (n >= 64) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Invalid erspan index \"%s\", which must be less than 64, ignoring.", rvalue);
-                return 0;
-        }
-
-        *v = n;
-        return 0;
+        return config_parse_uint16_bounded(
+                        unit, filename, line, section, section_line, lvalue, rvalue,
+                        0, 64 - 1, true,
+                        v);
 }
 
 static void netdev_tunnel_init(NetDev *netdev) {
-        Tunnel *t;
-
-        assert(netdev);
-
-        t = TUNNEL(netdev);
-
-        assert(t);
+        Tunnel *t = ASSERT_PTR(TUNNEL(netdev));
 
         t->local_type = _NETDEV_LOCAL_ADDRESS_TYPE_INVALID;
         t->pmtudisc = -1;

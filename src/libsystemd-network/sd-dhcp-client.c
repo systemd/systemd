@@ -401,8 +401,8 @@ int sd_dhcp_client_set_client_id(
          * the client-id. The caller is advised to account for that. */
         if ((type == ARPHRD_ETHER && data_len != ETH_ALEN) ||
             (type == ARPHRD_INFINIBAND && data_len != 8))
-                log_dhcp_client(client, "Changing client ID to hardware type %u with "
-                                "unexpected address length %zu",
+                log_dhcp_client(client,
+                                "Changing client ID to hardware type %u with unexpected address length %zu",
                                 type, data_len);
 
         client->client_id.type = type;
@@ -1563,10 +1563,9 @@ static int client_handle_offer(sd_dhcp_client *client, DHCPMessage *offer, size_
         }
 
         r = dhcp_option_parse(offer, len, dhcp_lease_parse_options, lease, NULL);
-        if (r != DHCP_OFFER) {
-                log_dhcp_client(client, "received message was not an OFFER, ignoring");
-                return -ENOMSG;
-        }
+        if (r != DHCP_OFFER)
+                return log_dhcp_client_errno(client, SYNTHETIC_ERRNO(ENOMSG),
+                                             "received message was not an OFFER, ignoring");
 
         lease->next_server = offer->siaddr;
         lease->address = offer->yiaddr;
@@ -1576,19 +1575,16 @@ static int client_handle_offer(sd_dhcp_client *client, DHCPMessage *offer, size_
 
         if (lease->address == 0 ||
             lease->server_address == 0 ||
-            lease->lifetime == 0) {
-                log_dhcp_client(client, "received lease lacks address, server address or lease lifetime, ignoring");
-                return -ENOMSG;
-        }
+            lease->lifetime == 0)
+                return log_dhcp_client_errno(client, SYNTHETIC_ERRNO(ENOMSG),
+                                             "received lease lacks address, server address or lease lifetime, ignoring");
 
         if (!lease->have_subnet_mask) {
                 r = dhcp_lease_set_default_subnet_mask(lease);
-                if (r < 0) {
-                        log_dhcp_client(client,
-                                        "received lease lacks subnet mask, "
-                                        "and a fallback one cannot be generated, ignoring");
-                        return -ENOMSG;
-                }
+                if (r < 0)
+                        return log_dhcp_client_errno(
+                                        client, SYNTHETIC_ERRNO(ENOMSG),
+                                        "received lease lacks subnet mask, and a fallback one cannot be generated, ignoring");
         }
 
         sd_dhcp_lease_unref(client->lease);
@@ -1611,14 +1607,13 @@ static int client_handle_forcerenew(sd_dhcp_client *client, DHCPMessage *force, 
 
 #if 0
         log_dhcp_client(client, "FORCERENEW");
-
         return 0;
 #else
         /* FIXME: Ignore FORCERENEW requests until we implement RFC3118 (Authentication for DHCP
          * Messages) and/or RFC6704 (Forcerenew Nonce Authentication), as unauthenticated FORCERENEW
          * requests causes a security issue (TALOS-2020-1142, CVE-2020-13529). */
-        log_dhcp_client(client, "Received FORCERENEW, ignoring.");
-        return -ENOMSG;
+        return log_dhcp_client_errno(client, SYNTHETIC_ERRNO(ENOMSG),
+                                     "Received FORCERENEW, ignoring.");
 #endif
 }
 
@@ -1657,15 +1652,13 @@ static int client_handle_ack(sd_dhcp_client *client, DHCPMessage *ack, size_t le
         }
 
         r = dhcp_option_parse(ack, len, dhcp_lease_parse_options, lease, &error_message);
-        if (r == DHCP_NAK) {
-                log_dhcp_client(client, "NAK: %s", strna(error_message));
-                return -EADDRNOTAVAIL;
-        }
+        if (r == DHCP_NAK)
+                return log_dhcp_client_errno(client, SYNTHETIC_ERRNO(EADDRNOTAVAIL),
+                                             "NAK: %s", strna(error_message));
 
-        if (r != DHCP_ACK) {
-                log_dhcp_client(client, "received message was not an ACK, ignoring");
-                return -ENOMSG;
-        }
+        if (r != DHCP_ACK)
+                return log_dhcp_client_errno(client, SYNTHETIC_ERRNO(ENOMSG),
+                                             "received message was not an ACK, ignoring");
 
         lease->next_server = ack->siaddr;
 
@@ -1673,20 +1666,16 @@ static int client_handle_ack(sd_dhcp_client *client, DHCPMessage *ack, size_t le
 
         if (lease->address == INADDR_ANY ||
             lease->server_address == INADDR_ANY ||
-            lease->lifetime == 0) {
-                log_dhcp_client(client, "received lease lacks address, server "
-                                "address or lease lifetime, ignoring");
-                return -ENOMSG;
-        }
+            lease->lifetime == 0)
+                return log_dhcp_client_errno(client, SYNTHETIC_ERRNO(ENOMSG),
+                                             "received lease lacks address, server address or lease lifetime, ignoring");
 
         if (lease->subnet_mask == INADDR_ANY) {
                 r = dhcp_lease_set_default_subnet_mask(lease);
-                if (r < 0) {
-                        log_dhcp_client(client,
-                                        "received lease lacks subnet mask, "
-                                        "and a fallback one cannot be generated, ignoring");
-                        return -ENOMSG;
-                }
+                if (r < 0)
+                        return log_dhcp_client_errno(
+                                        client, SYNTHETIC_ERRNO(ENOMSG),
+                                        "received lease lacks subnet mask, and a fallback one cannot be generated, ignoring");
         }
 
         r = SD_DHCP_CLIENT_EVENT_IP_ACQUIRE;
