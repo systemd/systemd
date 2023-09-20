@@ -383,15 +383,16 @@ GLIBC NSS:
         DynamicUser= setting in unit files.)
 
         To make use of these NSS modules, please add them to the "hosts:",
-        "passwd:" and "group:" lines in /etc/nsswitch.conf. The "resolve" module
-        should replace the glibc "dns" module in this file (and don't worry, it
-        chain-loads the "dns" module if it can't talk to resolved).
+        "passwd:", "group:", "shadow:" and "gshadow:" lines in
+        /etc/nsswitch.conf.
 
         The four modules should be used in the following order:
 
-                passwd: compat systemd
-                group: compat systemd
-                hosts: files mymachines resolve [!UNAVAIL=return] dns myhostname
+                passwd: files systemd
+                group: files [SUCCESS=merge] systemd
+                shadow: files systemd
+                gshadow: files systemd
+                hosts: mymachines resolve [!UNAVAIL=return] files myhostname dns
 
 SYSV INIT.D SCRIPTS:
         When calling "systemctl enable/disable/is-enabled" on a unit which is a
