@@ -2548,6 +2548,18 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>IPv6OnlyMode=</varname></term>
+        <listitem>
+          <para>When true, the DHCPv4 configuration will be delayed by the timespan provided by the DHCP
+          server and skip to configure dynamic IPv4 network connectivity if IPv6 connectivity is provided
+          within the timespan. See <ulink url="https://tools.ietf.org/html/rfc8925">RFC 8925</ulink>.
+          Defaults to false.</para>
+
+          <xi:include href="version-info.xml" xpointer="v255"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>FallbackLeaseLifetimeSec=</varname></term>
         <listitem>
           <para>Allows one to set DHCPv4 lease lifetime when DHCPv4 server does not send the lease

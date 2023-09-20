@@ -257,6 +257,7 @@ DHCPv4.InitialCongestionWindow,              config_parse_tcp_window,           
 DHCPv4.InitialAdvertisedReceiveWindow,       config_parse_tcp_window,                                  0,                             offsetof(Network, dhcp_advertised_receive_window)
 DHCPv4.FallbackLeaseLifetimeSec,             config_parse_dhcp_fallback_lease_lifetime,                0,                             0
 DHCPv4.Use6RD,                               config_parse_bool,                                        0,                             offsetof(Network, dhcp_use_6rd)
+DHCPv4.IPv6OnlyMode,                         config_parse_bool,                                        0,                             offsetof(Network, dhcp_ipv6_only_mode)
 DHCPv4.NetLabel,                             config_parse_string,                                      CONFIG_PARSE_STRING_SAFE,      offsetof(Network, dhcp_netlabel)
 DHCPv4.NFTSet,                               config_parse_nft_set,                                     0,                             offsetof(Network, dhcp_nft_set_context)
 DHCPv6.UseAddress,                           config_parse_bool,                                        0,                             offsetof(Network, dhcp6_use_address)

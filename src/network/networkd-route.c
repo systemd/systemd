@@ -1684,6 +1684,14 @@ static int process_route_one(
                 assert_not_reached();
         }
 
+        if (route->family == AF_INET6 && route->dst_prefixlen == 0) {
+                r = dhcp4_update_ipv6_connectivity(link);
+                if (r < 0) {
+                        log_link_warning_errno(link, r, "Failed to notify IPv6 connectivity to DHCPv4 client: %m");
+                        link_enter_failed(link);
+                }
+        }
+
         return 1;
 }
 
