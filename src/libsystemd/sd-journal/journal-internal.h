@@ -72,7 +72,7 @@ struct Directory {
 
 struct boot_id_newest_entry {
         sd_id128_t boot_id;
-        char ret;
+        int ret;
         sd_id128_t newest_machine_id;
         uint64_t newest_realtime_usec;
         struct boot_id_newest_entry *next;
