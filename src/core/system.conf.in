@@ -10,7 +10,7 @@
 # /etc/ if the original file is shipped in /usr/), or by creating "drop-ins" in
 # /etc/systemd/system.conf.d/ directory. The latter is generally recommended.
 # Defaults can be restored by simply deleting the main configuration file and
-# all drop-ins located in /etc.
+# all drop-ins located in /etc/.
 #
 # Use 'systemd-analyze cat-config systemd/system.conf' to display the full config.
 #
