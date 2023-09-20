@@ -240,6 +240,14 @@ struct VarlinkServer {
         bool exit_on_idle;
 };
 
+typedef struct VarlinkCollectContext VarlinkCollectContext;
+
+struct VarlinkCollectContext {
+        JsonVariant **parameters;
+        const char **error_id;
+        VarlinkReplyFlags *flags;
+};
+
 static const char* const varlink_state_table[_VARLINK_STATE_MAX] = {
         [VARLINK_IDLE_CLIENT]              = "idle-client",
         [VARLINK_AWAITING_REPLY]           = "awaiting-reply",
@@ -2079,6 +2087,136 @@ int varlink_callb(
                 return varlink_log_errno(v, r, "Failed to build json message: %m");
 
         return varlink_call(v, method, parameters, ret_parameters, ret_error_id, ret_flags);
+}
+
+static int collect_callback(
+                Varlink *v,
+                JsonVariant *parameters,
+                const char *error_id,
+                VarlinkReplyFlags flags,
+                void *userdata) {
+
+        VarlinkCollectContext *context;
+        int r;
+
+        assert(v);
+        assert(userdata);
+
+        context = userdata;
+
+        /* If we hit an error, drop all replies gathered so far and just return the error_id and flags*/
+        if (error_id) {
+                *(context->error_id) = error_id;
+                *(context->flags) = flags;
+                return 0;
+        }
+
+        r = json_variant_append_array(context->parameters, parameters);
+        if (r < 0)
+                return varlink_log_errno(v, r, "Failed to append JSON object to array: %m");
+
+        *(context->flags) = flags;
+
+        return 1;
+}
+
+int varlink_collect(
+                Varlink *v,
+                const char *method,
+                JsonVariant *parameters,
+                JsonVariant **ret_parameters,
+                const char **ret_error_id,
+                VarlinkReplyFlags *ret_flags) {
+
+        VarlinkCollectContext context = {};
+        int r;
+
+        assert_return(v, -EINVAL);
+        assert_return(method, -EINVAL);
+        assert_return(ret_parameters, -EINVAL);
+
+        if (v->state == VARLINK_DISCONNECTED)
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(ENOTCONN), "Not connected.");
+        if (v->state != VARLINK_IDLE_CLIENT)
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(EBUSY), "Connection busy.");
+
+        assert(v->n_pending == 0); /* n_pending can't be > 0 if we are in VARLINK_IDLE_CLIENT state */
+
+        /* If there was still a reply pinned from a previous call, now it's the time to get rid of it, so
+         * that we can assign a new reply shortly. */
+        varlink_clear_current(v);
+
+        r = varlink_bind_reply(v, collect_callback);
+        if (r < 0)
+                return varlink_log_errno(v, r, "Failed to bind collect callback");
+
+        context = (VarlinkCollectContext) {
+                        .parameters = ret_parameters,
+                        .error_id = ret_error_id,
+                        .flags = ret_flags
+        };
+
+        varlink_set_userdata(v, &context);
+        r = varlink_observe(v, method, parameters);
+        if (r < 0)
+                return varlink_log_errno(v, r, "Failed to collect varlink method: %m");
+
+        while (v->state == VARLINK_AWAITING_REPLY_MORE) {
+
+                r = varlink_process(v);
+                if (r < 0)
+                        return r;
+
+                /* If we get an error from any of the replies, return immediately */
+                if (*(context.error_id))
+                        return 0;
+
+                if (r > 0)
+                        continue;
+
+                r = varlink_wait(v, USEC_INFINITY);
+                if (r < 0)
+                        return r;
+        }
+
+        switch (v->state) {
+
+        case VARLINK_IDLE_CLIENT:
+                return 1;
+
+        case VARLINK_PENDING_DISCONNECT:
+        case VARLINK_DISCONNECTED:
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(ECONNRESET), "Connection was closed.");
+
+        case VARLINK_PENDING_TIMEOUT:
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(ETIME), "Connection timed out.");
+
+        default:
+                assert_not_reached();
+        }
+}
+
+int varlink_collectb(
+                Varlink *v,
+                const char *method,
+                JsonVariant **ret_parameters,
+                const char **ret_error_id,
+                VarlinkReplyFlags *ret_flags, ...) {
+
+        _cleanup_(json_variant_unrefp) JsonVariant *parameters = NULL;
+        va_list ap;
+        int r;
+
+        assert_return(v, -EINVAL);
+
+        va_start(ap, ret_flags);
+        r = json_buildv(&parameters, ap);
+        va_end(ap);
+
+        if (r < 0)
+                return varlink_log_errno(v, r, "Failed to build json message: %m");
+
+        return varlink_collect(v, method, parameters, ret_parameters, ret_error_id, ret_flags);
 }
 
 int varlink_reply(Varlink *v, JsonVariant *parameters) {
