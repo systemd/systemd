@@ -348,14 +348,18 @@ static void scope_enter_signal(Scope *s, ScopeState state, ScopeResult f) {
                                 /* main_pid= */ NULL,
                                 /* control_pid= */ NULL,
                                 /* main_pid_alien= */ false);
-                if (r < 0)
+                if (r < 0) {
+                        log_unit_warning_errno(UNIT(s), r, "Failed to kill processes: %m");
                         goto fail;
+                }
         }
 
         if (r > 0) {
                 r = scope_arm_timer(s, usec_add(now(CLOCK_MONOTONIC), s->timeout_stop_usec));
-                if (r < 0)
+                if (r < 0) {
+                        log_unit_warning_errno(UNIT(s), r, "Failed to install timer: %m");
                         goto fail;
+                }
 
                 scope_set_state(s, state);
         } else if (state == SCOPE_STOP_SIGTERM)
@@ -366,8 +370,6 @@ static void scope_enter_signal(Scope *s, ScopeState state, ScopeResult f) {
         return;
 
 fail:
-        log_unit_warning_errno(UNIT(s), r, "Failed to kill processes: %m");
-
         scope_enter_dead(s, SCOPE_FAILURE_RESOURCES);
 }
 
