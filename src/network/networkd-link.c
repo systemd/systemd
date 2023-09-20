@@ -1694,6 +1694,7 @@ void link_update_operstate(Link *link, bool also_update_master) {
         LinkOnlineState online_state;
         _cleanup_strv_free_ char **p = NULL;
         bool changed = false;
+        int r;
 
         assert(link);
 
@@ -1721,6 +1722,14 @@ void link_update_operstate(Link *link, bool also_update_master) {
         }
 
         link_get_address_states(link, &ipv4_address_state, &ipv6_address_state, &address_state);
+
+        if (ipv6_address_state == LINK_ADDRESS_STATE_ROUTABLE)
+                (void) sd_dhcp_client_ipv6_acquired(link->dhcp_client);
+        else {
+                r = dhcp4_start_full(link, /* set_ipv6_state = */ false);
+                if (r < 0)
+                        log_link_warning_errno(link, r, "Failed to start DHCPv4 client, ignoring: %m");
+        }
 
         /* Mapping of address and carrier state vs operational state
          *                                                     carrier state
