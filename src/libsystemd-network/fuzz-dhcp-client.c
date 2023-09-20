@@ -73,6 +73,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         res = sd_dhcp_client_start(client);
         assert_se(IN_SET(res, 0, -EINPROGRESS));
         client->xid = 2;
+        client->state = DHCP_STATE_SELECTING;
 
         (void) client_handle_offer(client, (DHCPMessage*) data, size);
 
