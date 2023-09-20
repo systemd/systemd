@@ -112,6 +112,11 @@ typedef enum DHCP6NTPSubOption {
         _DHCP6_NTP_SUBOPTION_INVALID            = -EINVAL,
 } DHCP6NTPSubOption;
 
+typedef enum DHCP6VendorSubOption {
+        DHCP6_VENDOR_SUBOPTION_BASE             = 1,
+        DHCP6_VENDOR_SUBOPTION_LAST             = 65535,
+} DHCP6VendorSubOption;
+
 /*
  * RFC 8415, RFC 5007 and RFC 7653 status codes:
  * https://www.iana.org/assignments/dhcpv6-parameters/dhcpv6-parameters.xhtml#dhcpv6-parameters-5
