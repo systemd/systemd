@@ -31,7 +31,8 @@ typedef struct JournalMetrics {
 
 typedef enum direction {
         DIRECTION_UP,
-        DIRECTION_DOWN
+        DIRECTION_DOWN,
+        _DIRECTION_INVALID = -EINVAL,
 } direction_t;
 
 typedef enum LocationType {
