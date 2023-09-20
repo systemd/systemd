@@ -1687,28 +1687,13 @@ static bool link_is_enslaved(Link *link) {
         return false;
 }
 
-static LinkAddressState address_state_from_scope(uint8_t scope) {
-        if (scope < RT_SCOPE_SITE)
-                /* universally accessible addresses found */
-                return LINK_ADDRESS_STATE_ROUTABLE;
-
-        if (scope < RT_SCOPE_HOST)
-                /* only link or site local addresses found */
-                return LINK_ADDRESS_STATE_DEGRADED;
-
-        /* no useful addresses found */
-        return LINK_ADDRESS_STATE_OFF;
-}
-
 void link_update_operstate(Link *link, bool also_update_master) {
         LinkOperationalState operstate;
         LinkCarrierState carrier_state;
         LinkAddressState ipv4_address_state, ipv6_address_state, address_state;
         LinkOnlineState online_state;
         _cleanup_strv_free_ char **p = NULL;
-        uint8_t ipv4_scope = RT_SCOPE_NOWHERE, ipv6_scope = RT_SCOPE_NOWHERE;
         bool changed = false;
-        Address *address;
 
         assert(link);
 
@@ -1735,20 +1720,7 @@ void link_update_operstate(Link *link, bool also_update_master) {
                 }
         }
 
-        SET_FOREACH(address, link->addresses) {
-                if (!address_is_ready(address))
-                        continue;
-
-                if (address->family == AF_INET)
-                        ipv4_scope = MIN(ipv4_scope, address->scope);
-
-                if (address->family == AF_INET6)
-                        ipv6_scope = MIN(ipv6_scope, address->scope);
-        }
-
-        ipv4_address_state = address_state_from_scope(ipv4_scope);
-        ipv6_address_state = address_state_from_scope(ipv6_scope);
-        address_state = address_state_from_scope(MIN(ipv4_scope, ipv6_scope));
+        link_get_address_states(link, &ipv4_address_state, &ipv6_address_state, &address_state);
 
         /* Mapping of address and carrier state vs operational state
          *                                                     carrier state
