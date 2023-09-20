@@ -2196,11 +2196,18 @@ fail:
 }
 
 static void service_enter_stop_by_notify(Service *s) {
+        int r;
+
         assert(s);
 
         (void) unit_enqueue_rewatch_pids(UNIT(s));
 
-        service_arm_timer(s, /* relative= */ true, s->timeout_stop_usec);
+        r = service_arm_timer(s, /* relative= */ true, s->timeout_stop_usec);
+        if (r < 0) {
+                log_unit_warning_errno(UNIT(s), r, "Failed to install timer: %m");
+                service_enter_signal(s, SERVICE_STOP_SIGTERM, SERVICE_FAILURE_RESOURCES);
+                return;
+        }
 
         /* The service told us it's stopping, so it's as if we SIGTERM'd it. */
         service_set_state(s, SERVICE_STOP_SIGTERM);
@@ -2259,6 +2266,8 @@ static bool service_good(Service *s) {
 }
 
 static void service_enter_running(Service *s, ServiceResult f) {
+        int r;
+
         assert(s);
 
         if (s->result == SERVICE_SUCCESS)
@@ -2277,7 +2286,13 @@ static void service_enter_running(Service *s, ServiceResult f) {
                         service_enter_stop_by_notify(s);
                 else {
                         service_set_state(s, SERVICE_RUNNING);
-                        service_arm_timer(s, /* relative= */ false, service_running_timeout(s));
+
+                        r = service_arm_timer(s, /* relative= */ false, service_running_timeout(s));
+                        if (r < 0) {
+                                log_unit_warning_errno(UNIT(s), r, "Failed to install timer: %m");
+                                service_enter_running(s, SERVICE_FAILURE_RESOURCES);
+                                return;
+                        }
                 }
 
         } else if (s->remain_after_exit)
@@ -2574,13 +2589,20 @@ static void service_enter_reload_by_notify(Service *s) {
 
         assert(s);
 
-        service_arm_timer(s, /* relative= */ true, s->timeout_start_usec);
+        r = service_arm_timer(s, /* relative= */ true, s->timeout_start_usec);
+        if (r < 0) {
+                log_unit_warning_errno(UNIT(s), r, "Failed to install timer: %m");
+                s->reload_result = SERVICE_FAILURE_RESOURCES;
+                service_enter_running(s, SERVICE_SUCCESS);
+                return;
+        }
+
         service_set_state(s, SERVICE_RELOAD_NOTIFY);
 
         /* service_enter_reload_by_notify is never called during a reload, thus no loops are possible. */
         r = manager_propagate_reload(UNIT(s)->manager, UNIT(s), JOB_FAIL, &error);
         if (r < 0)
-                log_unit_warning(UNIT(s), "Failed to schedule propagation of reload: %s", bus_error_message(&error, r));
+                log_unit_warning(UNIT(s), "Failed to schedule propagation of reload, ignoring: %s", bus_error_message(&error, r));
 }
 
 static void service_enter_reload(Service *s) {
@@ -2621,7 +2643,12 @@ static void service_enter_reload(Service *s) {
 
                 service_set_state(s, SERVICE_RELOAD);
         } else if (killed) {
-                service_arm_timer(s, /* relative= */ true, s->timeout_start_usec);
+                r = service_arm_timer(s, /* relative= */ true, s->timeout_start_usec);
+                if (r < 0) {
+                        log_unit_warning_errno(UNIT(s), r, "Failed to install timer: %m");
+                        goto fail;
+                }
+
                 service_set_state(s, SERVICE_RELOAD_SIGNAL);
         } else {
                 service_enter_running(s, SERVICE_SUCCESS);
