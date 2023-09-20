@@ -20,6 +20,7 @@
 #include "sd-id128.h"
 #include "sd-messages.h"
 
+#include "battery-capacity.h"
 #include "battery-util.h"
 #include "btrfs-util.h"
 #include "build.h"
@@ -41,7 +42,7 @@
 #include "os-util.h"
 #include "parse-util.h"
 #include "pretty-print.h"
-#include "sleep-util.h"
+#include "sleep-config.h"
 #include "special.h"
 #include "stdio-util.h"
 #include "string-util.h"

@@ -34,9 +34,11 @@ liblogind_core_sources += [logind_gperf_c]
 liblogind_core = static_library(
         'logind-core',
         liblogind_core_sources,
-        include_directories : includes,
+        include_directories : includes +
+                              sleep_includes,
         dependencies : [libacl,
                         userspace],
+        link_with : libsleep_core,
         build_by_default : false)
 
 loginctl_sources = files(
