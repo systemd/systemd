@@ -220,6 +220,7 @@ struct Network {
         struct in_addr dhcp_server_boot_server_address;
         char *dhcp_server_boot_server_name;
         char *dhcp_server_boot_filename;
+        usec_t dhcp_server_ipv6_only_preferred_usec;
 
         /* link-local addressing support */
         AddressFamily link_local;
