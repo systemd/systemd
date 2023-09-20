@@ -30,18 +30,46 @@ _SD_BEGIN_DECLARATIONS;
 typedef struct sd_dhcp6_lease sd_dhcp6_lease;
 
 int sd_dhcp6_lease_get_timestamp(sd_dhcp6_lease *lease, clockid_t clock, uint64_t *ret);
+int sd_dhcp6_lease_get_t1(sd_dhcp6_lease *lease, uint64_t *ret);
+int sd_dhcp6_lease_get_t1_timestamp(sd_dhcp6_lease *lease, clockid_t clock, uint64_t *ret);
+int sd_dhcp6_lease_get_t2(sd_dhcp6_lease *lease, uint64_t *ret);
+int sd_dhcp6_lease_get_t2_timestamp(sd_dhcp6_lease *lease, clockid_t clock, uint64_t *ret);
+int sd_dhcp6_lease_get_valid_lifetime(sd_dhcp6_lease *lease, uint64_t *ret);
+int sd_dhcp6_lease_get_valid_lifetime_timestamp(sd_dhcp6_lease *lease, clockid_t clock, uint64_t *ret);
 int sd_dhcp6_lease_get_server_address(sd_dhcp6_lease *lease, struct in6_addr *ret);
 
-void sd_dhcp6_lease_reset_address_iter(sd_dhcp6_lease *lease);
-int sd_dhcp6_lease_get_address(sd_dhcp6_lease *lease,
-                               struct in6_addr *addr,
-                               uint32_t *lifetime_preferred,
-                               uint32_t *lifetime_valid);
-void sd_dhcp6_lease_reset_pd_prefix_iter(sd_dhcp6_lease *lease);
-int sd_dhcp6_lease_get_pd(sd_dhcp6_lease *lease, struct in6_addr *prefix,
-                          uint8_t *prefix_len,
-                          uint32_t *lifetime_preferred,
-                          uint32_t *lifetime_valid);
+int sd_dhcp6_lease_address_iterator_reset(sd_dhcp6_lease *lease);
+int sd_dhcp6_lease_address_iterator_next(sd_dhcp6_lease *lease);
+int sd_dhcp6_lease_get_address(
+                sd_dhcp6_lease *lease,
+                struct in6_addr *ret);
+int sd_dhcp6_lease_get_address_lifetime(
+                sd_dhcp6_lease *lease,
+                uint64_t *ret_lifetime_preferred,
+                uint64_t *ret_lifetime_valid);
+int sd_dhcp6_lease_get_address_lifetime_timestamp(
+                sd_dhcp6_lease *lease,
+                clockid_t clock,
+                uint64_t *ret_lifetime_preferred,
+                uint64_t *ret_lifetime_valid);
+int sd_dhcp6_lease_has_address(sd_dhcp6_lease *lease);
+
+int sd_dhcp6_lease_pd_iterator_reset(sd_dhcp6_lease *lease);
+int sd_dhcp6_lease_pd_iterator_next(sd_dhcp6_lease *lease);
+int sd_dhcp6_lease_get_pd_prefix(
+                sd_dhcp6_lease *lease,
+                struct in6_addr *ret_prefix,
+                uint8_t *ret_prefix_length);
+int sd_dhcp6_lease_get_pd_lifetime(
+                sd_dhcp6_lease *lease,
+                uint64_t *ret_lifetime_preferred,
+                uint64_t *ret_lifetime_valid);
+int sd_dhcp6_lease_get_pd_lifetime_timestamp(
+                sd_dhcp6_lease *lease,
+                clockid_t clock,
+                uint64_t *ret_lifetime_preferred,
+                uint64_t *ret_lifetime_valid);
+int sd_dhcp6_lease_has_pd_prefix(sd_dhcp6_lease *lease);
 
 int sd_dhcp6_lease_get_dns(sd_dhcp6_lease *lease, const struct in6_addr **ret);
 int sd_dhcp6_lease_get_domains(sd_dhcp6_lease *lease, char ***ret);
