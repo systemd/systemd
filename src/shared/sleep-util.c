@@ -98,40 +98,6 @@ int parse_sleep_config(SleepConfig **ret_sleep_config) {
         return 0;
 }
 
-/* Return true if wakeup type is APM timer */
-int check_wakeup_type(void) {
-        static const char dmi_object_path[] = "/sys/firmware/dmi/entries/1-0/raw";
-        uint8_t wakeup_type_byte, tablesize;
-        _cleanup_free_ char *buf = NULL;
-        size_t bufsize;
-        int r;
-
-        /* implementation via dmi/entries */
-        r = read_full_virtual_file(dmi_object_path, &buf, &bufsize);
-        if (r < 0)
-                return log_debug_errno(r, "Unable to read %s: %m", dmi_object_path);
-        if (bufsize < 25)
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Only read %zu bytes from %s (expected 25)", bufsize, dmi_object_path);
-
-        /* index 1 stores the size of table */
-        tablesize = (uint8_t) buf[1];
-        if (tablesize < 25)
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Table size lesser than the index[0x18] where waketype byte is available.");
-
-        wakeup_type_byte = (uint8_t) buf[24];
-        /* 0 is Reserved and 8 is AC Power Restored. As per table 12 in
-         * https://www.dmtf.org/sites/default/files/standards/documents/DSP0134_3.4.0.pdf */
-        if (wakeup_type_byte >= 128)
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Expected value in range 0-127");
-
-        if (wakeup_type_byte == 3) {
-                log_debug("DMI BIOS System Information indicates wakeup type is APM Timer");
-                return true;
-        }
-
-        return false;
-}
-
 int can_sleep_state(char **requested_types) {
         _cleanup_free_ char *text = NULL;
         int r;
