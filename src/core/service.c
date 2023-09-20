@@ -4404,7 +4404,7 @@ static void service_notify_message(
                 _cleanup_free_ char *cc = NULL;
 
                 cc = strv_join(tags, ", ");
-                log_unit_debug(u, "Got notification message from PID "PID_FMT" (%s)", ucred->pid, isempty(cc) ? "n/a" : cc);
+                log_unit_debug(u, "Got notification message from PID "PID_FMT" (%s)", ucred->pid, empty_to_na(cc));
         }
 
         /* Interpret MAINPID= */
