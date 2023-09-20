@@ -26,7 +26,9 @@ struct DynamicUser {
 };
 
 int dynamic_user_serialize(Manager *m, FILE *f, FDSet *fds);
-void dynamic_user_deserialize_one(Manager *m, const char *value, FDSet *fds);
+int dynamic_user_serialize_one(DynamicUser *d, const char *key, FILE *f, FDSet *fds, int **fds_array, size_t *n_fds_array);
+void dynamic_user_deserialize_one(Manager *m, const char *value, FDSet *fds, int *fds_array, size_t n_fds_array, DynamicUser **ret);
+DynamicUser* dynamic_user_free(DynamicUser *d);
 void dynamic_user_vacuum(Manager *m, bool close_user);
 
 int dynamic_user_current(DynamicUser *d, uid_t *ret);
@@ -38,6 +40,9 @@ int dynamic_creds_realize(DynamicCreds *creds, char **suggested_paths, uid_t *ui
 
 DynamicCreds *dynamic_creds_unref(DynamicCreds *creds);
 DynamicCreds *dynamic_creds_destroy(DynamicCreds *creds);
+void dynamic_creds_done(DynamicCreds *creds);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(DynamicCreds*, dynamic_creds_unref);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DynamicCreds*, dynamic_creds_destroy);
+
+DynamicUser *dynamic_user_ref(DynamicUser *user);
