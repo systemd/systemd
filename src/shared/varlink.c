@@ -1828,6 +1828,162 @@ int varlink_callb(
         return varlink_call(v, method, parameters, ret_parameters, ret_error_id, ret_flags);
 }
 
+static int collect_callback(
+                Varlink *v,
+                JsonVariant *parameters,
+                const char *error_id,
+                VarlinkReplyFlags flags,
+                void *userdata) {
+
+        JsonVariant *arr = NULL;
+        int r;
+
+        assert(v);
+        assert(userdata);
+
+        /* If we hit an error, drop all replies gathered so far and just return the error_id and flags*/
+        if (error_id) {
+                r = json_variant_merge_objectb(userdata, JSON_BUILD_OBJECT(
+                                                        JSON_BUILD_PAIR_STRING("error", error_id),
+                                                        JSON_BUILD_PAIR_NULL("parameters"),
+                                                        JSON_BUILD_PAIR_UNSIGNED("flags", flags)));
+                if (r < 0)
+                        return varlink_log_errno(v, r, "Failed to merge JSON object: %m");
+
+                return 0;
+        }
+
+        arr = json_variant_by_key(*(JsonVariant**)userdata, "parameters");
+        r = json_variant_append_array(&arr, parameters);
+        if (r < 0)
+                return varlink_log_errno(v, r, "Failed to append JSON object to array: %m");
+
+        r = json_variant_merge_objectb(userdata, JSON_BUILD_OBJECT(JSON_BUILD_PAIR_VARIANT("parameters", arr)));
+        if (r < 0)
+                return varlink_log_errno(v, r, "Failed to merge JSON object: %m");
+
+        r = json_variant_merge_objectb(userdata, JSON_BUILD_OBJECT(JSON_BUILD_PAIR_UNSIGNED("flags", flags)));
+        if (r < 0)
+                return varlink_log_errno(v, r, "Failed to merge JSON object: %m");
+
+        return 1;
+}
+
+int varlink_collect(
+                Varlink *v,
+                const char *method,
+                JsonVariant *parameters,
+                JsonVariant **ret_parameters,
+                const char **ret_error_id,
+                VarlinkReplyFlags *ret_flags) {
+
+        _cleanup_(json_variant_unrefp) JsonVariant *m = NULL;
+        int r;
+
+        assert_return(v, -EINVAL);
+        assert_return(method, -EINVAL);
+        assert_return(ret_parameters, -EINVAL);
+
+        if (v->state == VARLINK_DISCONNECTED)
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(ENOTCONN), "Not connected.");
+        if (v->state != VARLINK_IDLE_CLIENT)
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(EBUSY), "Connection busy.");
+
+        assert(v->n_pending == 0); /* n_pending can't be > 0 if we are in VARLINK_IDLE_CLIENT state */
+
+        /* If there was still a reply pinned from a previous call, now it's the time to get rid of it, so
+         * that we can assign a new reply shortly. */
+        varlink_clear_current(v);
+
+        r = varlink_bind_reply(v, collect_callback);
+        if (r < 0)
+                return varlink_log_errno(v, r, "Failed to bind collect callback");
+
+        r = json_build(ret_parameters, JSON_BUILD_EMPTY_ARRAY);
+        if (r < 0)
+                return varlink_log_errno(v, r, "Failed to build JSON empty array: %m");
+
+        r = json_build(&m, JSON_BUILD_OBJECT(
+                                        JSON_BUILD_PAIR_VARIANT("parameters", *ret_parameters),
+                                        JSON_BUILD_PAIR_NULL("error"),
+                                        JSON_BUILD_PAIR_NULL("flags")));
+        if (r < 0)
+                return varlink_log_errno(v, r, "Failed to build JSON object: %m");
+
+        varlink_set_userdata(v, &m);
+        r = varlink_observe(v, method, parameters);
+        if (r < 0)
+                return varlink_log_errno(v, r, "Failed to collect varlink method: %m");
+
+        while (v->state == VARLINK_AWAITING_REPLY_MORE) {
+
+                r = varlink_process(v);
+                if (r < 0)
+                        return r;
+
+                /* If we get an error from any of the replies, return immediately */
+                if (json_variant_string(json_variant_by_key(m, "error"))) {
+                        if (ret_error_id)
+                                *ret_error_id = json_variant_string(json_variant_by_key(m, "error"));
+                        if (ret_flags)
+                                *ret_flags = json_variant_unsigned(json_variant_by_key(m, "flags"));
+                        return 0;
+                }
+
+                if (r > 0)
+                        continue;
+
+                r = varlink_wait(v, USEC_INFINITY);
+                if (r < 0)
+                        return r;
+        }
+
+        switch (v->state) {
+
+        case VARLINK_IDLE_CLIENT:
+                if (ret_parameters)
+                        *ret_parameters = json_variant_by_key(m, "parameters");
+                if (ret_error_id)
+                        *ret_error_id = json_variant_string(json_variant_by_key(m, "error"));
+                if (ret_flags)
+                        *ret_flags = json_variant_unsigned(json_variant_by_key(m, "flags"));
+                return 1;
+
+        case VARLINK_PENDING_DISCONNECT:
+        case VARLINK_DISCONNECTED:
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(ECONNRESET), "Connection was closed.");
+
+        case VARLINK_PENDING_TIMEOUT:
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(ETIME), "Connection timed out.");
+
+        default:
+                assert_not_reached();
+        }
+}
+
+int varlink_collectb(
+                Varlink *v,
+                const char *method,
+                JsonVariant **ret_parameters,
+                const char **ret_error_id,
+                VarlinkReplyFlags *ret_flags, ...) {
+
+        _cleanup_(json_variant_unrefp) JsonVariant *parameters = NULL;
+        va_list ap;
+        int r;
+
+        assert_return(v, -EINVAL);
+
+        va_start(ap, ret_flags);
+        r = json_buildv(&parameters, ap);
+        va_end(ap);
+
+        if (r < 0)
+                return varlink_log_errno(v, r, "Failed to build json message: %m");
+
+        return varlink_collect(v, method, parameters, ret_parameters, ret_error_id, ret_flags);
+}
+
 int varlink_reply(Varlink *v, JsonVariant *parameters) {
         _cleanup_(json_variant_unrefp) JsonVariant *m = NULL;
         int r;
