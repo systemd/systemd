@@ -351,6 +351,7 @@ int get_total_suspend_interval(Hashmap *last_capacity, usec_t *ret) {
 /* Return true if all batteries have acpi_btp support */
 int battery_trip_point_alarm_exists(void) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        bool has_battery = false;
         int r;
 
         r = battery_enumerator_new(&e);
@@ -358,19 +359,23 @@ int battery_trip_point_alarm_exists(void) {
                 return log_debug_errno(r, "Failed to initialize battery enumerator: %m");
 
         FOREACH_DEVICE(e, dev) {
-                int battery_alarm;
-                const char *s;
+                const char *alarm_attr;
+                int has_alarm;
 
-                r = sd_device_get_sysattr_value(dev, "alarm", &s);
-                if (r < 0)
-                        return log_device_debug_errno(dev, r, "Failed to read battery alarm: %m");
+                has_battery = true;
 
-                r = safe_atoi(s, &battery_alarm);
+                r = sd_device_get_sysattr_value(dev, "alarm", &alarm_attr);
                 if (r < 0)
-                        return log_device_debug_errno(dev, r, "Failed to parse battery alarm: %m");
-                if (battery_alarm <= 0)
+                        return log_device_debug_errno(dev, r, "Failed to read battery alarm attribute: %m");
+
+                r = safe_atoi(alarm_attr, &has_alarm);
+                if (r < 0)
+                        return log_device_debug_errno(dev, r,
+                                                      "Failed to parse battery alarm attribute '%s': %m",
+                                                      alarm_attr);
+                if (has_alarm <= 0)
                         return false;
         }
 
-        return true;
+        return has_battery;
 }
