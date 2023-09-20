@@ -76,34 +76,10 @@ static usec_t scope_running_timeout(Scope *s) {
                         delta);
 }
 
-static int scope_arm_timer(Scope *s, usec_t usec) {
-        int r;
-
+static int scope_arm_timer(Scope *s, bool relative, usec_t usec) {
         assert(s);
 
-        if (s->timer_event_source) {
-                r = sd_event_source_set_time(s->timer_event_source, usec);
-                if (r < 0)
-                        return r;
-
-                return sd_event_source_set_enabled(s->timer_event_source, SD_EVENT_ONESHOT);
-        }
-
-        if (usec == USEC_INFINITY)
-                return 0;
-
-        r = sd_event_add_time(
-                        UNIT(s)->manager->event,
-                        &s->timer_event_source,
-                        CLOCK_MONOTONIC,
-                        usec, 0,
-                        scope_dispatch_timer, s);
-        if (r < 0)
-                return r;
-
-        (void) sd_event_source_set_description(s->timer_event_source, "scope-timer");
-
-        return 0;
+        return unit_arm_timer(UNIT(s), &s->timer_event_source, relative, usec, scope_dispatch_timer);
 }
 
 static void scope_set_state(Scope *s, ScopeState state) {
@@ -260,7 +236,7 @@ static int scope_coldplug(Unit *u) {
         if (s->deserialized_state == s->state)
                 return 0;
 
-        r = scope_arm_timer(s, scope_coldplug_timeout(s));
+        r = scope_arm_timer(s, /* relative= */ false, scope_coldplug_timeout(s));
         if (r < 0)
                 return r;
 
@@ -355,7 +331,7 @@ static void scope_enter_signal(Scope *s, ScopeState state, ScopeResult f) {
         }
 
         if (r > 0) {
-                r = scope_arm_timer(s, usec_add(now(CLOCK_MONOTONIC), s->timeout_stop_usec));
+                r = scope_arm_timer(s, /* relative= */ true, s->timeout_stop_usec);
                 if (r < 0) {
                         log_unit_warning_errno(UNIT(s), r, "Failed to install timer: %m");
                         goto fail;
@@ -381,7 +357,7 @@ static int scope_enter_start_chown(Scope *s) {
         assert(s);
         assert(s->user);
 
-        r = scope_arm_timer(s, usec_add(now(CLOCK_MONOTONIC), u->manager->defaults.timeout_start_usec));
+        r = scope_arm_timer(s, /* relative= */ true, u->manager->defaults.timeout_start_usec);
         if (r < 0)
                 return r;
 
@@ -464,7 +440,7 @@ static int scope_enter_running(Scope *s) {
         scope_set_state(s, SCOPE_RUNNING);
 
         /* Set the maximum runtime timeout. */
-        scope_arm_timer(s, scope_running_timeout(s));
+        scope_arm_timer(s, /* relative= */ false, scope_running_timeout(s));
 
         /* On unified we use proper notifications hence we can unwatch the PIDs
          * we just attached to the scope. This can also be done on legacy as

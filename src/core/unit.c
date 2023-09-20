@@ -6276,6 +6276,49 @@ int unit_get_transitive_dependency_set(Unit *u, UnitDependencyAtom atom, Set **r
         return 0;
 }
 
+int unit_arm_timer(
+                Unit *u,
+                sd_event_source **source,
+                bool relative,
+                usec_t usec,
+                sd_event_time_handler_t handler) {
+
+        int r;
+
+        assert(u);
+        assert(source);
+        assert(handler);
+
+        if (*source) {
+                if (usec == USEC_INFINITY)
+                        return sd_event_source_set_enabled(*source, SD_EVENT_OFF);
+
+                r = (relative ? sd_event_source_set_time_relative : sd_event_source_set_time)(*source, usec);
+                if (r < 0)
+                        return r;
+
+                return sd_event_source_set_enabled(*source, SD_EVENT_ONESHOT);
+        }
+
+        if (usec == USEC_INFINITY)
+                return 0;
+
+        r = (relative ? sd_event_add_time_relative : sd_event_add_time)(
+                        u->manager->event,
+                        source,
+                        CLOCK_MONOTONIC,
+                        usec, 0,
+                        handler,
+                        u);
+        if (r < 0)
+                return r;
+
+        const char *d = strjoina(unit_type_to_string(u->type), "-timer");
+        (void) sd_event_source_set_description(*source, d);
+
+        return 0;
+}
+
 const ActivationDetailsVTable * const activation_details_vtable[_UNIT_TYPE_MAX] = {
         [UNIT_PATH] = &activation_details_path_vtable,
         [UNIT_TIMER] = &activation_details_timer_vtable,
