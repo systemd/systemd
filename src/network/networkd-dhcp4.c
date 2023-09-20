@@ -1538,6 +1538,12 @@ static int dhcp4_configure(Link *link) {
                                 return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to set request flag for 6rd: %m");
                 }
 
+                if (link->network->dhcp_ipv6_only_mode) {
+                        r = sd_dhcp_client_set_request_option(link->dhcp_client, SD_DHCP_OPTION_IPV6_ONLY_PREFERRED);
+                        if (r < 0)
+                                return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to set request flag for IPv6-only preferred option: %m");
+                }
+
                 SET_FOREACH(request_options, link->network->dhcp_request_options) {
                         uint32_t option = PTR_TO_UINT32(request_options);
 
@@ -1650,7 +1656,7 @@ int dhcp4_update_mac(Link *link) {
                 return r;
 
         if (restart) {
-                r = sd_dhcp_client_start(link->dhcp_client);
+                r = dhcp4_start(link);
                 if (r < 0)
                         return r;
         }
@@ -1658,10 +1664,35 @@ int dhcp4_update_mac(Link *link) {
         return 0;
 }
 
-int dhcp4_start(Link *link) {
+int dhcp4_update_ipv6_connectivity(Link *link) {
+        assert(link);
+
+        if (!link->network)
+                return 0;
+
+        if (!link->network->dhcp_ipv6_only_mode)
+                return 0;
+
+        if (!link->dhcp_client)
+                return 0;
+
+        /* If the client is running, set the current connectivity. */
+        if (sd_dhcp_client_is_running(link->dhcp_client))
+                return sd_dhcp_client_set_ipv6_connectivity(link->dhcp_client, link_has_ipv6_connectivity(link));
+
+        /* If the client has been already stopped or not started yet, let's check the current connectivity
+         * and start the client if necessary. */
+        if (link_has_ipv6_connectivity(link))
+                return 0;
+
+        return dhcp4_start_full(link, /* set_ipv6_connectivity = */ false);
+}
+
+int dhcp4_start_full(Link *link, bool set_ipv6_connectivity) {
         int r;
 
         assert(link);
+        assert(link->network);
 
         if (!link->dhcp_client)
                 return 0;
@@ -1675,6 +1706,12 @@ int dhcp4_start(Link *link) {
         r = sd_dhcp_client_start(link->dhcp_client);
         if (r < 0)
                 return r;
+
+        if (set_ipv6_connectivity) {
+                r = dhcp4_update_ipv6_connectivity(link);
+                if (r < 0)
+                        return r;
+        }
 
         return 1;
 }
