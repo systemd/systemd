@@ -1039,13 +1039,17 @@ static void mount_enter_signal(Mount *m, MountState state, MountResult f) {
                         /* main_pid= */ NULL,
                         &m->control_pid,
                         /* main_pid_alien= */ false);
-        if (r < 0)
+        if (r < 0) {
+                log_unit_warning_errno(UNIT(m), r, "Failed to kill processes: %m");
                 goto fail;
+        }
 
         if (r > 0) {
                 r = mount_arm_timer(m, usec_add(now(CLOCK_MONOTONIC), m->timeout_usec));
-                if (r < 0)
+                if (r < 0) {
+                        log_unit_warning_errno(UNIT(m), r, "Failed to install timer: %m");
                         goto fail;
+                }
 
                 mount_set_state(m, state);
         } else if (state == MOUNT_REMOUNTING_SIGTERM && m->kill_context.send_sigkill)
@@ -1060,7 +1064,6 @@ static void mount_enter_signal(Mount *m, MountState state, MountResult f) {
         return;
 
 fail:
-        log_unit_warning_errno(UNIT(m), r, "Failed to kill processes: %m");
         mount_enter_dead_or_mounted(m, MOUNT_FAILURE_RESOURCES);
 }
 
@@ -1084,21 +1087,24 @@ static void mount_enter_unmounting(Mount *m) {
                 r = exec_command_append(m->control_command, "-l", NULL);
         if (r >= 0 && m->force_unmount)
                 r = exec_command_append(m->control_command, "-f", NULL);
-        if (r < 0)
+        if (r < 0) {
+                log_unit_warning_errno(UNIT(m), r, "Failed to prepare umount command line: %m");
                 goto fail;
+        }
 
         mount_unwatch_control_pid(m);
 
         r = mount_spawn(m, m->control_command, &m->control_pid);
-        if (r < 0)
+        if (r < 0) {
+                log_unit_warning_errno(UNIT(m), r, "Failed to spawn 'umount' task: %m");
                 goto fail;
+        }
 
         mount_set_state(m, MOUNT_UNMOUNTING);
 
         return;
 
 fail:
-        log_unit_warning_errno(UNIT(m), r, "Failed to run 'umount' task: %m");
         mount_enter_dead_or_mounted(m, MOUNT_FAILURE_RESOURCES);
 }
 
@@ -1151,8 +1157,10 @@ static void mount_enter_mounting(Mount *m) {
                 _cleanup_free_ char *opts = NULL;
 
                 r = fstab_filter_options(p->options, "nofail\0" "noauto\0" "auto\0", NULL, NULL, NULL, &opts);
-                if (r < 0)
+                if (r < 0) {
+                        log_unit_warning_errno(UNIT(m), r, "Failed to filter /etc/fstab options: %m");
                         goto fail;
+                }
 
                 r = exec_command_set(m->control_command, MOUNT_PATH, p->what, m->where, NULL);
                 if (r >= 0 && m->sloppy_options)
@@ -1163,23 +1171,27 @@ static void mount_enter_mounting(Mount *m) {
                         r = exec_command_append(m->control_command, "-t", p->fstype, NULL);
                 if (r >= 0 && !isempty(opts))
                         r = exec_command_append(m->control_command, "-o", opts, NULL);
-        } else
-                r = -ENOENT;
-        if (r < 0)
+                if (r < 0) {
+                        log_unit_warning_errno(UNIT(m), r, "Failed to prepare mount command line: %m");
+                        goto fail;
+                }
+        } else {
+                r = log_unit_warning_errno(UNIT(m), SYNTHETIC_ERRNO(ENOENT), "No mount parameters to operate on.");
                 goto fail;
+        }
 
         mount_unwatch_control_pid(m);
 
         r = mount_spawn(m, m->control_command, &m->control_pid);
-        if (r < 0)
+        if (r < 0) {
+                log_unit_warning_errno(UNIT(m), r, "Failed to spawn 'mount' task: %m");
                 goto fail;
+        }
 
         mount_set_state(m, MOUNT_MOUNTING);
-
         return;
 
 fail:
-        log_unit_warning_errno(UNIT(m), r, "Failed to run 'mount' task: %m");
         mount_enter_dead_or_mounted(m, MOUNT_FAILURE_RESOURCES);
 }
 
@@ -1223,23 +1235,28 @@ static void mount_enter_remounting(Mount *m) {
                         r = exec_command_append(m->control_command, "-w", NULL);
                 if (r >= 0 && p->fstype)
                         r = exec_command_append(m->control_command, "-t", p->fstype, NULL);
-        } else
-                r = -ENOENT;
-        if (r < 0)
+                if (r < 0) {
+                        log_unit_warning_errno(UNIT(m), r, "Failed to prepare remount command line: %m");
+                        goto fail;
+                }
+
+        } else {
+                r = log_unit_warning_errno(UNIT(m), SYNTHETIC_ERRNO(ENOENT), "No mount parameters to operate on.");
                 goto fail;
+        }
 
         mount_unwatch_control_pid(m);
 
         r = mount_spawn(m, m->control_command, &m->control_pid);
-        if (r < 0)
+        if (r < 0) {
+                log_unit_warning_errno(UNIT(m), r, "Failed to spawn 'remount' task: %m");
                 goto fail;
+        }
 
         mount_set_state(m, MOUNT_REMOUNTING);
-
         return;
 
 fail:
-        log_unit_warning_errno(UNIT(m), r, "Failed to run 'remount' task: %m");
         mount_set_reload_result(m, MOUNT_FAILURE_RESOURCES);
         mount_enter_dead_or_mounted(m, MOUNT_SUCCESS);
 }
@@ -2241,18 +2258,21 @@ static int mount_clean(Unit *u, ExecCleanMask mask) {
         m->control_command_id = _MOUNT_EXEC_COMMAND_INVALID;
 
         r = mount_arm_timer(m, usec_add(now(CLOCK_MONOTONIC), m->exec_context.timeout_clean_usec));
-        if (r < 0)
+        if (r < 0) {
+                log_unit_warning_errno(u, r, "Failed to install timer: %m");
                 goto fail;
+        }
 
         r = unit_fork_and_watch_rm_rf(u, l, &m->control_pid);
-        if (r < 0)
+        if (r < 0) {
+                log_unit_warning_errno(u, r, "Failed to spawn cleaning task: %m");
                 goto fail;
+        }
 
         mount_set_state(m, MOUNT_CLEANING);
         return 0;
 
 fail:
-        log_unit_warning_errno(u, r, "Failed to initiate cleaning: %m");
         m->clean_result = MOUNT_FAILURE_RESOURCES;
         m->timer_event_source = sd_event_source_disable_unref(m->timer_event_source);
         return r;
