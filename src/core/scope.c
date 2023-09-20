@@ -29,7 +29,7 @@ static const UnitActiveState state_translation_table[_SCOPE_STATE_MAX] = {
         [SCOPE_ABANDONED] = UNIT_ACTIVE,
         [SCOPE_STOP_SIGTERM] = UNIT_DEACTIVATING,
         [SCOPE_STOP_SIGKILL] = UNIT_DEACTIVATING,
-        [SCOPE_FAILED] = UNIT_FAILED
+        [SCOPE_FAILED] = UNIT_FAILED,
 };
 
 static int scope_dispatch_timer(sd_event_source *source, usec_t usec, void *userdata);
@@ -119,7 +119,7 @@ static void scope_set_state(Scope *s, ScopeState state) {
         if (!IN_SET(state, SCOPE_STOP_SIGTERM, SCOPE_STOP_SIGKILL, SCOPE_START_CHOWN, SCOPE_RUNNING))
                 s->timer_event_source = sd_event_source_disable_unref(s->timer_event_source);
 
-        if (IN_SET(state, SCOPE_DEAD, SCOPE_FAILED)) {
+        if (!IN_SET(old_state, SCOPE_DEAD, SCOPE_FAILED) && IN_SET(state, SCOPE_DEAD, SCOPE_FAILED)) {
                 unit_unwatch_all_pids(UNIT(s));
                 unit_dequeue_rewatch_pids(UNIT(s));
         }
