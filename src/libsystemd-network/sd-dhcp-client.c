@@ -1579,13 +1579,10 @@ static int client_handle_offer(sd_dhcp_client *client, DHCPMessage *offer, size_
                 return log_dhcp_client_errno(client, SYNTHETIC_ERRNO(ENOMSG),
                                              "received lease lacks address, server address or lease lifetime, ignoring");
 
-        if (!lease->have_subnet_mask) {
-                r = dhcp_lease_set_default_subnet_mask(lease);
-                if (r < 0)
-                        return log_dhcp_client_errno(
-                                        client, SYNTHETIC_ERRNO(ENOMSG),
-                                        "received lease lacks subnet mask, and a fallback one cannot be generated, ignoring");
-        }
+        r = dhcp_lease_set_default_subnet_mask(lease);
+        if (r < 0)
+                return log_dhcp_client_errno(client, SYNTHETIC_ERRNO(ENOMSG),
+                                             "received lease lacks subnet mask, and a fallback one cannot be generated, ignoring.");
 
         sd_dhcp_lease_unref(client->lease);
         client->lease = TAKE_PTR(lease);
@@ -1684,13 +1681,10 @@ static int client_handle_ack(sd_dhcp_client *client, DHCPMessage *ack, size_t le
                 return log_dhcp_client_errno(client, SYNTHETIC_ERRNO(ENOMSG),
                                              "received lease lacks address, server address or lease lifetime, ignoring");
 
-        if (lease->subnet_mask == INADDR_ANY) {
-                r = dhcp_lease_set_default_subnet_mask(lease);
-                if (r < 0)
-                        return log_dhcp_client_errno(
-                                        client, SYNTHETIC_ERRNO(ENOMSG),
-                                        "received lease lacks subnet mask, and a fallback one cannot be generated, ignoring");
-        }
+        r = dhcp_lease_set_default_subnet_mask(lease);
+        if (r < 0)
+                return log_dhcp_client_errno(client, SYNTHETIC_ERRNO(ENOMSG),
+                                             "received lease lacks subnet mask, and a fallback one cannot be generated, ignoring.");
 
         r = SD_DHCP_CLIENT_EVENT_IP_ACQUIRE;
         if (client->lease) {

@@ -1490,6 +1490,9 @@ int dhcp_lease_set_default_subnet_mask(sd_dhcp_lease *lease) {
 
         assert(lease);
 
+        if (lease->have_subnet_mask)
+                return 0;
+
         if (lease->address == 0)
                 return -ENODATA;
 
