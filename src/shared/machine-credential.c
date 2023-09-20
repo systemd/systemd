@@ -3,7 +3,7 @@
 #include "alloc-util.h"
 #include "macro.h"
 #include "memory-util.h"
-#include "nspawn-creds.h"
+#include "machine-credential.h"
 
 static void credential_free(Credential *cred) {
         assert(cred);
