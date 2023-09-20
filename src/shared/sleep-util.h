@@ -68,7 +68,6 @@ int write_resume_config(dev_t devno, uint64_t offset, const char *device);
 int can_sleep(SleepOperation operation);
 int can_sleep_disk(char **types);
 int can_sleep_state(char **types);
-int check_wakeup_type(void);
 
 const char* sleep_operation_to_string(SleepOperation s) _const_;
 SleepOperation sleep_operation_from_string(const char *s) _pure_;
