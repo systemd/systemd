@@ -485,7 +485,7 @@ void link_check_ready(Link *link) {
                 }
 
                 if (link_dhcp6_enabled(link) && link->network->dhcp6_use_pd_prefix &&
-                    link->dhcp6_lease && dhcp6_lease_has_pd_prefix(link->dhcp6_lease)) {
+                    sd_dhcp6_lease_has_pd_prefix(link->dhcp6_lease)) {
                         if (!dhcp6_ready)
                                 return (void) log_link_debug(link, "%s(): DHCPv6 IA_PD prefix is assigned, but DHCPv6 protocol is not finished yet.", __func__);
                         if (!dhcp_pd_ready)
@@ -1749,6 +1749,9 @@ void link_update_operstate(Link *link, bool also_update_master) {
         ipv4_address_state = address_state_from_scope(ipv4_scope);
         ipv6_address_state = address_state_from_scope(ipv6_scope);
         address_state = address_state_from_scope(MIN(ipv4_scope, ipv6_scope));
+
+        if (ipv6_address_state == LINK_ADDRESS_STATE_ROUTABLE)
+                (void) sd_dhcp_client_ipv6_acquired(link->dhcp_client);
 
         /* Mapping of address and carrier state vs operational state
          *                                                     carrier state

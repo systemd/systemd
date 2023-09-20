@@ -7,6 +7,7 @@
 
 #include "sd-dhcp-client.h"
 
+#include "alloc-util.h"
 #include "dhcp-internal.h"
 #include "dhcp-protocol.h"
 #include "list.h"
@@ -34,6 +35,7 @@ struct sd_dhcp_lease {
         usec_t t2;
         usec_t lifetime;
         triple_timestamp timestamp;
+        usec_t ipv6_only_preferred_usec;
 
         /* each 0 if unset */
         be32_t address;
@@ -90,3 +92,6 @@ int dhcp_lease_insert_private_option(sd_dhcp_lease *lease, uint8_t tag, const vo
 int dhcp_lease_set_default_subnet_mask(sd_dhcp_lease *lease);
 
 int dhcp_lease_set_client_id(sd_dhcp_lease *lease, const void *client_id, size_t client_id_len);
+
+#define dhcp_lease_unref_and_replace(a, b)                              \
+        unref_and_replace_full(a, b, sd_dhcp_lease_ref, sd_dhcp_lease_unref)
