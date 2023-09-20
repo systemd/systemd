@@ -182,34 +182,10 @@ static void socket_done(Unit *u) {
         s->timer_event_source = sd_event_source_disable_unref(s->timer_event_source);
 }
 
-static int socket_arm_timer(Socket *s, usec_t usec) {
-        int r;
-
+static int socket_arm_timer(Socket *s, bool relative, usec_t usec) {
         assert(s);
 
-        if (s->timer_event_source) {
-                r = sd_event_source_set_time(s->timer_event_source, usec);
-                if (r < 0)
-                        return r;
-
-                return sd_event_source_set_enabled(s->timer_event_source, SD_EVENT_ONESHOT);
-        }
-
-        if (usec == USEC_INFINITY)
-                return 0;
-
-        r = sd_event_add_time(
-                        UNIT(s)->manager->event,
-                        &s->timer_event_source,
-                        CLOCK_MONOTONIC,
-                        usec, 0,
-                        socket_dispatch_timer, s);
-        if (r < 0)
-                return r;
-
-        (void) sd_event_source_set_description(s->timer_event_source, "socket-timer");
-
-        return 0;
+        return unit_arm_timer(UNIT(s), &s->timer_event_source, relative, usec, socket_dispatch_timer);
 }
 
 static bool have_non_accept_socket(Socket *s) {
@@ -1885,7 +1861,7 @@ static int socket_coldplug(Unit *u) {
                 if (r < 0)
                         return r;
 
-                r = socket_arm_timer(s, usec_add(u->state_change_timestamp.monotonic, s->timeout_usec));
+                r = socket_arm_timer(s, /* relative= */ false, usec_add(u->state_change_timestamp.monotonic, s->timeout_usec));
                 if (r < 0)
                         return r;
         }
@@ -1948,7 +1924,7 @@ static int socket_spawn(Socket *s, ExecCommand *c, PidRef *ret_pid) {
         if (r < 0)
                 return r;
 
-        r = socket_arm_timer(s, usec_add(now(CLOCK_MONOTONIC), s->timeout_usec));
+        r = socket_arm_timer(s, /* relative= */ true, s->timeout_usec);
         if (r < 0)
                 return r;
 
@@ -1984,7 +1960,7 @@ static int socket_chown(Socket *s, PidRef *ret_pid) {
 
         assert(s);
 
-        r = socket_arm_timer(s, usec_add(now(CLOCK_MONOTONIC), s->timeout_usec));
+        r = socket_arm_timer(s, /* relative= */ true, s->timeout_usec);
         if (r < 0)
                 return r;
 
@@ -2129,7 +2105,7 @@ static void socket_enter_signal(Socket *s, SocketState state, SocketResult f) {
         }
 
         if (r > 0) {
-                r = socket_arm_timer(s, usec_add(now(CLOCK_MONOTONIC), s->timeout_usec));
+                r = socket_arm_timer(s, /* relative= */ true, s->timeout_usec);
                 if (r < 0) {
                         log_unit_warning_errno(UNIT(s), r, "Failed to install timer: %m");
                         goto fail;
@@ -3430,7 +3406,7 @@ static int socket_clean(Unit *u, ExecCleanMask mask) {
         s->control_command = NULL;
         s->control_command_id = _SOCKET_EXEC_COMMAND_INVALID;
 
-        r = socket_arm_timer(s, usec_add(now(CLOCK_MONOTONIC), s->exec_context.timeout_clean_usec));
+        r = socket_arm_timer(s, /* relative= */ true, s->exec_context.timeout_clean_usec);
         if (r < 0) {
                 log_unit_warning_errno(u, r, "Failed to install timer: %m");
                 goto fail;
