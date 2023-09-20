@@ -155,6 +155,7 @@ struct Network {
         bool dhcp_use_timezone;
         bool dhcp_use_hostname;
         bool dhcp_use_6rd;
+        bool dhcp_ipv6_only_mode;
         bool dhcp_send_release;
         bool dhcp_send_decline;
         DHCPUseDomains dhcp_use_domains;
@@ -220,6 +221,7 @@ struct Network {
         struct in_addr dhcp_server_boot_server_address;
         char *dhcp_server_boot_server_name;
         char *dhcp_server_boot_filename;
+        usec_t dhcp_server_ipv6_only_preferred_usec;
 
         /* link-local addressing support */
         AddressFamily link_local;

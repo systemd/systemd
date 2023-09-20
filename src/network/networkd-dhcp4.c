@@ -1538,6 +1538,12 @@ static int dhcp4_configure(Link *link) {
                                 return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to set request flag for 6rd: %m");
                 }
 
+                if (link->network->dhcp_ipv6_only_mode) {
+                        r = sd_dhcp_client_set_request_option(link->dhcp_client, SD_DHCP_OPTION_IPV6_ONLY_PREFERRED);
+                        if (r < 0)
+                                return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to set request flag for IPv6-only preferred option: %m");
+                }
+
                 SET_FOREACH(request_options, link->network->dhcp_request_options) {
                         uint32_t option = PTR_TO_UINT32(request_options);
 
@@ -1623,6 +1629,18 @@ static int dhcp4_configure(Link *link) {
         return dhcp4_set_client_identifier(link);
 }
 
+static void dhcp4_set_ipv6_state(Link *link) {
+        LinkAddressState ipv6_address_state;
+
+        assert(link);
+        assert(link->dhcp_client);
+
+        link_get_address_states(link, NULL, &ipv6_address_state, NULL);
+
+        if (ipv6_address_state == LINK_ADDRESS_STATE_ROUTABLE)
+                (void) sd_dhcp_client_ipv6_acquired(link->dhcp_client);
+}
+
 int dhcp4_update_mac(Link *link) {
         bool restart;
         int r;
@@ -1653,12 +1671,14 @@ int dhcp4_update_mac(Link *link) {
                 r = sd_dhcp_client_start(link->dhcp_client);
                 if (r < 0)
                         return r;
+
+                dhcp4_set_ipv6_state(link);
         }
 
         return 0;
 }
 
-int dhcp4_start(Link *link) {
+int dhcp4_start_full(Link *link, bool set_ipv6_state) {
         int r;
 
         assert(link);
@@ -1675,6 +1695,9 @@ int dhcp4_start(Link *link) {
         r = sd_dhcp_client_start(link->dhcp_client);
         if (r < 0)
                 return r;
+
+        if (set_ipv6_state)
+                dhcp4_set_ipv6_state(link);
 
         return 1;
 }
