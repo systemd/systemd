@@ -52,6 +52,7 @@
 #include "networkd-nexthop.h"
 #include "networkd-queue.h"
 #include "networkd-radv.h"
+#include "networkd-route-util.h"
 #include "networkd-route.h"
 #include "networkd-routing-policy-rule.h"
 #include "networkd-setlink.h"
@@ -92,6 +93,32 @@ bool link_ipv6_enabled(Link *link) {
                 return true;
 
         return false;
+}
+
+bool link_has_ipv6_connectivity(Link *link) {
+        LinkAddressState ipv6_address_state;
+
+        assert(link);
+
+        link_get_address_states(link, NULL, &ipv6_address_state, NULL);
+
+        switch (ipv6_address_state) {
+        case LINK_ADDRESS_STATE_ROUTABLE:
+                /* If the interface has a routable IPv6 address, then we assume yes. */
+                return true;
+
+        case LINK_ADDRESS_STATE_DEGRADED:
+                /* If the interface has only degraded IPv6 address (mostly, link-local address), then let's check
+                 * there is an IPv6 default gateway. */
+                return link_has_default_gateway(link, AF_INET6);
+
+        case LINK_ADDRESS_STATE_OFF:
+                /* No IPv6 address. */
+                return false;
+
+        default:
+                assert_not_reached();
+        }
 }
 
 static bool link_is_ready_to_configure_one(Link *link, bool allow_unmanaged) {
