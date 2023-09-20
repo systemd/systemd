@@ -2104,6 +2104,8 @@ subdir('src/journal')
 subdir('src/libsystemd-network')
 # hwdb requires 'udev_link_with' and 'udev_rpath'
 subdir('src/udev')
+# systemd-logind and systemd-hibernate-resume requires 'libsleep_core'
+subdir('src/sleep')
 
 subdir('src/ac-power')
 subdir('src/analyze')
@@ -2171,7 +2173,6 @@ subdir('src/rpm')
 subdir('src/run')
 subdir('src/run-generator')
 subdir('src/shutdown')
-subdir('src/sleep')
 subdir('src/socket-activate')
 subdir('src/socket-proxy')
 subdir('src/stdio-bridge')
