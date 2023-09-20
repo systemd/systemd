@@ -1586,14 +1586,12 @@ static int client_handle_offer(sd_dhcp_client *client, DHCPMessage *offer, size_
                 return log_dhcp_client_errno(client, SYNTHETIC_ERRNO(ENOMSG),
                                              "received lease lacks subnet mask, and a fallback one cannot be generated, ignoring.");
 
-        sd_dhcp_lease_unref(client->lease);
-        client->lease = TAKE_PTR(lease);
+        dhcp_lease_unref_and_replace(client->lease, lease);
 
         if (client_notify(client, SD_DHCP_CLIENT_EVENT_SELECTING) < 0)
                 return -ENOMSG;
 
         log_dhcp_client(client, "OFFER");
-
         return 0;
 }
 
@@ -1693,20 +1691,16 @@ static int client_handle_ack(sd_dhcp_client *client, DHCPMessage *ack, size_t le
                 return log_dhcp_client_errno(client, SYNTHETIC_ERRNO(ENOMSG),
                                              "received lease lacks subnet mask, and a fallback one cannot be generated, ignoring.");
 
-        r = SD_DHCP_CLIENT_EVENT_IP_ACQUIRE;
-        if (client->lease) {
-                if (lease_equal(client->lease, lease))
-                        r = SD_DHCP_CLIENT_EVENT_RENEW;
-                else
-                        r = SD_DHCP_CLIENT_EVENT_IP_CHANGE;
+        if (!client->lease)
+                r = SD_DHCP_CLIENT_EVENT_IP_ACQUIRE;
+        else if (lease_equal(client->lease, lease))
+                r = SD_DHCP_CLIENT_EVENT_RENEW;
+        else
+                r = SD_DHCP_CLIENT_EVENT_IP_CHANGE;
 
-                client->lease = sd_dhcp_lease_unref(client->lease);
-        }
-
-        client->lease = TAKE_PTR(lease);
+        dhcp_lease_unref_and_replace(client->lease, lease);
 
         log_dhcp_client(client, "ACK");
-
         return r;
 }
 
