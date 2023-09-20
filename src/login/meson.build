@@ -34,9 +34,11 @@ liblogind_core_sources += [logind_gperf_c]
 liblogind_core = static_library(
         'logind-core',
         liblogind_core_sources,
-        include_directories : includes,
         dependencies : [libacl,
                         userspace],
+        include_directories : includes +
+                              sleep_includes,
+        link_with : libsleep_core,
         build_by_default : false)
 
 loginctl_sources = files(
@@ -50,6 +52,8 @@ executables += [
                 'dbus' : true,
                 'conditions' : ['ENABLE_LOGIND'],
                 'sources' : systemd_logind_sources,
+                'include_directories' : includes +
+                                        sleep_includes,
                 'link_with' : [
                         liblogind_core,
                         libshared,
@@ -88,6 +92,8 @@ executables += [
         },
         test_template + {
                 'sources' : files('test-login-tables.c'),
+                'include_directories' : includes +
+                                        sleep_includes,
                 'link_with' : [
                         liblogind_core,
                         libshared,
