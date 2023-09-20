@@ -506,7 +506,7 @@ static SocketPeer *socket_peer_free(SocketPeer *p) {
 
 DEFINE_TRIVIAL_REF_UNREF_FUNC(SocketPeer, socket_peer, socket_peer_free);
 
-int socket_acquire_peer(Socket *s, int fd, SocketPeer **p) {
+int socket_acquire_peer(Socket *s, int fd, SocketPeer **ret) {
         _cleanup_(socket_peer_unrefp) SocketPeer *remote = NULL;
         SocketPeer sa = {
                 .peer_salen = sizeof(union sockaddr_union),
@@ -515,22 +515,19 @@ int socket_acquire_peer(Socket *s, int fd, SocketPeer **p) {
 
         assert(fd >= 0);
         assert(s);
+        assert(ret);
 
         if (getpeername(fd, &sa.peer.sa, &sa.peer_salen) < 0)
-                return log_unit_error_errno(UNIT(s), errno, "getpeername failed: %m");
+                return log_unit_error_errno(UNIT(s), errno, "getpeername() failed: %m");
 
         if (!IN_SET(sa.peer.sa.sa_family, AF_INET, AF_INET6, AF_VSOCK)) {
-                *p = NULL;
+                *ret = NULL;
                 return 0;
         }
 
-        r = set_ensure_allocated(&s->peers_by_address, &peer_address_hash_ops);
-        if (r < 0)
-                return r;
-
         i = set_get(s->peers_by_address, &sa);
         if (i) {
-                *p = socket_peer_ref(i);
+                *ret = socket_peer_ref(i);
                 return 1;
         }
 
@@ -541,13 +538,13 @@ int socket_acquire_peer(Socket *s, int fd, SocketPeer **p) {
         remote->peer = sa.peer;
         remote->peer_salen = sa.peer_salen;
 
-        r = set_put(s->peers_by_address, remote);
+        r = set_ensure_put(&s->peers_by_address, &peer_address_hash_ops, remote);
         if (r < 0)
-                return r;
+                return log_unit_error_errno(UNIT(s), r, "Failed to insert peer info into hash table: %m");
 
         remote->socket = s;
 
-        *p = TAKE_PTR(remote);
+        *ret = TAKE_PTR(remote);
         return 1;
 }
 
