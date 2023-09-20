@@ -3579,6 +3579,18 @@ ServerAddress=192.168.0.1/24</programlisting>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>IPv6OnlyPreferredSec=</varname></term>
+
+        <listitem><para>Takes a timespan. Controls the
+        <ulink url="https://tools.ietf.org/html/rfc8925">RFC 8925</ulink> IPv6-Only Preferred option.
+        Specifies the DHCPv4 option to indicate that a host supports an IPv6-only mode and is willing to
+        forgo obtaining an IPv4 address if the network provides IPv6 connectivity. Defaults to unset, and not
+        send the option. The minimum allowed value is 300 seconds.</para></listitem>
+
+        <xi:include href="version-info.xml" xpointer="v255"/>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>SendOption=</varname></term>
         <listitem>
           <para>Send a raw option with value via DHCPv4 server. Takes a DHCP option number, data type
