@@ -291,6 +291,36 @@
       <para>If <option>--verbose</option> is used, <varname>$KERNEL_INSTALL_VERBOSE=1</varname> will be
       exported for plugins. They may output additional logs in this case.</para>
 
+      <para><varname>$KERNEL_INSTALL_IMAGE_TYPE=uki|pe|unknown</varname> is set for the plugins to specify the
+      type of the kernel image.</para>
+
+      <variablelist>
+        <varlistentry>
+          <term>uki</term>
+          <listitem>
+            <para>Unified kernel image.</para>
+
+            <xi:include href="version-info.xml" xpointer="v254"/>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>pe</term>
+          <listitem>
+            <para>PE binary.</para>
+
+            <xi:include href="version-info.xml" xpointer="v254"/>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term>unknown</term>
+          <listitem>
+            <para>Unknown type.</para>
+
+            <xi:include href="version-info.xml" xpointer="v254"/>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+
       <para><varname>$KERNEL_INSTALL_MACHINE_ID</varname> is set for the plugins to the desired machine-id to
       use. It's always a 128-bit ID. Normally it's read from <filename>/etc/machine-id</filename>, but it can
       also be overridden via <varname>$MACHINE_ID</varname> (see below). If not specified via these methods,
