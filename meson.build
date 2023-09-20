@@ -2197,6 +2197,7 @@ subdir('src/userdb')
 subdir('src/varlinkctl')
 subdir('src/vconsole')
 subdir('src/veritysetup')
+subdir('src/vmspawn')
 subdir('src/volatile-root')
 subdir('src/xdg-autostart-generator')
 
