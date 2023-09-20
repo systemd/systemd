@@ -701,9 +701,15 @@ static bool do_escape_mangle(const char *f, bool allow_globs, char *t) {
  *
  *  If @allow_globs, globs characters are preserved. Otherwise, they are escaped.
  */
-int unit_name_mangle_with_suffix(const char *name, const char *operation, UnitNameMangle flags, const char *suffix, char **ret) {
+int unit_name_mangle_with_suffix(
+                const char *name,
+                const char *operation,
+                UnitNameMangle flags,
+                const char *suffix,
+                char **ret) {
+
         _cleanup_free_ char *s = NULL;
-        bool mangled, suggest_escape = true;
+        bool mangled, suggest_escape = true, warn = flags & UNIT_NAME_MANGLE_WARN;
         int r;
 
         assert(name);
@@ -724,22 +730,29 @@ int unit_name_mangle_with_suffix(const char *name, const char *operation, UnitNa
         if (string_is_glob(name) && in_charset(name, VALID_CHARS_GLOB)) {
                 if (flags & UNIT_NAME_MANGLE_GLOB)
                         goto good;
-                log_full(flags & UNIT_NAME_MANGLE_WARN ? LOG_NOTICE : LOG_DEBUG,
+                log_full(warn ? LOG_NOTICE : LOG_DEBUG,
                          "Glob pattern passed%s%s, but globs are not supported for this.",
                          operation ? " " : "", strempty(operation));
                 suggest_escape = false;
         }
 
-        if (is_device_path(name)) {
-                r = unit_name_from_path(name, ".device", ret);
-                if (r >= 0)
-                        return 1;
-                if (r != -EINVAL)
-                        return r;
-        }
-
         if (path_is_absolute(name)) {
-                r = unit_name_from_path(name, ".mount", ret);
+                _cleanup_free_ char *t = NULL;
+                const char *n = name;
+
+                /* Skip leading /../ */
+                for (const char *m = n; (m = path_startswith(n, "/..")); )
+                        n = m - 1;
+
+                if (is_device_path(n)) {
+                        r = unit_name_from_path(n, ".device", ret);
+                        if (r >= 0)
+                                return 1;
+                        if (r != -EINVAL)
+                                return r;
+                }
+
+                r = unit_name_from_path(n, ".mount", ret);
                 if (r >= 0)
                         return 1;
                 if (r != -EINVAL)
@@ -752,7 +765,7 @@ int unit_name_mangle_with_suffix(const char *name, const char *operation, UnitNa
 
         mangled = do_escape_mangle(name, flags & UNIT_NAME_MANGLE_GLOB, s);
         if (mangled)
-                log_full(flags & UNIT_NAME_MANGLE_WARN ? LOG_NOTICE : LOG_DEBUG,
+                log_full(warn ? LOG_NOTICE : LOG_DEBUG,
                          "Invalid unit name \"%s\" escaped as \"%s\"%s.",
                          name, s,
                          suggest_escape ? " (maybe you should use systemd-escape?)" : "");
