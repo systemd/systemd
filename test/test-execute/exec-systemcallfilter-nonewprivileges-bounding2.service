@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=Test bounding set is right with SystemCallFilter and non-root user
+
+[Service]
+ExecStart=/bin/sh -x -c 'c=$$(capsh --print | grep "Bounding set "); test "$$c" = "Bounding set =cap_setpcap,cap_net_bind_service,cap_sys_admin"'
+Type=oneshot
+User=1
+SystemCallFilter=@system-service
+CapabilityBoundingSet=CAP_SYS_ADMIN CAP_SETPCAP CAP_NET_BIND_SERVICE
