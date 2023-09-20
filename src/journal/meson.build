@@ -180,7 +180,7 @@ executables += [
 
 if install_sysconfdir_samples
         install_data('journald.conf',
-                     install_dir : pkgsysconfdir)
+                     install_dir : pkgconfigfiledir)
 endif
 
 if get_option('create-log-dirs')
