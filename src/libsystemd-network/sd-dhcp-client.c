@@ -1602,6 +1602,20 @@ static int client_handle_offer(sd_dhcp_client *client, DHCPMessage *offer, size_
         return 0;
 }
 
+static int client_enter_requesting(sd_dhcp_client *client) {
+        assert(client);
+
+        client_set_state(client, DHCP_STATE_REQUESTING);
+        client->attempt = 0;
+
+        return event_reset_time_relative(client->event, &client->timeout_resend,
+                                         CLOCK_BOOTTIME,
+                                         0, 0,
+                                         client_timeout_resend, client,
+                                         client->event_priority, "dhcp4-resend-timer",
+                                         /* force_reset = */ true);
+}
+
 static int client_handle_forcerenew(sd_dhcp_client *client, DHCPMessage *force, size_t len) {
         int r;
 
@@ -1809,9 +1823,48 @@ static int client_set_lease_timeouts(sd_dhcp_client *client) {
         return 0;
 }
 
+static int client_enter_bound(sd_dhcp_client *client, int notify_event) {
+        int r;
+
+        assert(client);
+
+        if (IN_SET(client->state, DHCP_STATE_REQUESTING, DHCP_STATE_REBOOTING))
+                notify_event = SD_DHCP_CLIENT_EVENT_IP_ACQUIRE;
+
+        client->start_delay = 0;
+        (void) event_source_disable(client->timeout_resend);
+
+        client_set_state(client, DHCP_STATE_BOUND);
+        client->attempt = 0;
+
+        client->last_addr = client->lease->address;
+
+        r = client_set_lease_timeouts(client);
+        if (r < 0)
+                log_dhcp_client_errno(client, r, "could not set lease timeouts: %m");
+
+        r = dhcp_network_bind_udp_socket(client->ifindex, client->lease->address, client->port, client->ip_service_type);
+        if (r < 0)
+                return log_dhcp_client_errno(client, r, "could not bind UDP socket: %m");
+
+        client->receive_message = sd_event_source_disable_unref(client->receive_message);
+        close_and_replace(client->fd, r);
+        client_initialize_io_events(client, client_receive_message_udp);
+
+        if (IN_SET(client->state, DHCP_STATE_RENEWING, DHCP_STATE_REBINDING) &&
+            notify_event == SD_DHCP_CLIENT_EVENT_IP_ACQUIRE)
+                /* FIXME: hmm, maybe this is a bug... */
+                log_dhcp_client(client, "client_handle_ack() returned SD_DHCP_CLIENT_EVENT_IP_ACQUIRE while DHCP client is %s the address, skipping callback.",
+                                client->state == DHCP_STATE_RENEWING ? "renewing" : "rebinding");
+        else
+                client_notify(client, notify_event);
+
+        return 0;
+}
+
 static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message, int len) {
         DHCP_CLIENT_DONT_DESTROY(client);
-        int r, notify_event;
+        int r;
 
         assert(client);
         assert(client->event);
@@ -1826,14 +1879,7 @@ static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message, i
                 if (r < 0)
                         goto error;
 
-                client_set_state(client, DHCP_STATE_REQUESTING);
-                client->attempt = 0;
-
-                r = event_reset_time(client->event, &client->timeout_resend,
-                                     CLOCK_BOOTTIME,
-                                     0, 0,
-                                     client_timeout_resend, client,
-                                     client->event_priority, "dhcp4-resend-timer", true);
+                r = client_enter_requesting(client);
                 break;
 
         case DHCP_STATE_REBOOTING:
@@ -1865,44 +1911,7 @@ static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message, i
                 if (r < 0)
                         goto error;
 
-                if (IN_SET(client->state, DHCP_STATE_REQUESTING, DHCP_STATE_REBOOTING))
-                        notify_event = SD_DHCP_CLIENT_EVENT_IP_ACQUIRE;
-                else
-                        notify_event = r;
-
-                client->start_delay = 0;
-                (void) event_source_disable(client->timeout_resend);
-                client->receive_message = sd_event_source_disable_unref(client->receive_message);
-                client->fd = safe_close(client->fd);
-
-                client_set_state(client, DHCP_STATE_BOUND);
-                client->attempt = 0;
-
-                client->last_addr = client->lease->address;
-
-                r = client_set_lease_timeouts(client);
-                if (r < 0) {
-                        log_dhcp_client(client, "could not set lease timeouts");
-                        goto error;
-                }
-
-                r = dhcp_network_bind_udp_socket(client->ifindex, client->lease->address, client->port, client->ip_service_type);
-                if (r < 0) {
-                        log_dhcp_client(client, "could not bind UDP socket");
-                        goto error;
-                }
-
-                client->fd = r;
-
-                client_initialize_io_events(client, client_receive_message_udp);
-
-                if (IN_SET(client->state, DHCP_STATE_RENEWING, DHCP_STATE_REBINDING) &&
-                    notify_event == SD_DHCP_CLIENT_EVENT_IP_ACQUIRE)
-                        /* FIXME: hmm, maybe this is a bug... */
-                        log_dhcp_client(client, "client_handle_ack() returned SD_DHCP_CLIENT_EVENT_IP_ACQUIRE while DHCP client is %s the address, skipping callback.",
-                                        client->state == DHCP_STATE_RENEWING ? "renewing" : "rebinding");
-                else
-                        client_notify(client, notify_event);
+                r = client_enter_bound(client, r);
                 break;
 
         case DHCP_STATE_BOUND:
