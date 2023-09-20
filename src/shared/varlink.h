@@ -85,6 +85,10 @@ int varlink_sendb(Varlink *v, const char *method, ...);
 int varlink_call(Varlink *v, const char *method, JsonVariant *parameters, JsonVariant **ret_parameters, const char **ret_error_id, VarlinkReplyFlags *ret_flags);
 int varlink_callb(Varlink *v, const char *method, JsonVariant **ret_parameters, const char **ret_error_id, VarlinkReplyFlags *ret_flags, ...);
 
+/* Send method call and begin collecting all 'more' replies into an array, finishing when a final reply is sent */
+int varlink_collect(Varlink *v, const char *method, JsonVariant *parameters, JsonVariant **ret_parameters);
+int varlink_collectb(Varlink *v, const char *method, JsonVariant **ret_parameters, ...);
+
 /* Enqueue method call, expect a reply, which is eventually delivered to the reply callback */
 int varlink_invoke(Varlink *v, const char *method, JsonVariant *parameters);
 int varlink_invokeb(Varlink *v, const char *method, ...);
