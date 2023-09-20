@@ -97,16 +97,21 @@ int event_reset_time_relative(
                 const char *description,
                 bool force_reset) {
 
-        usec_t usec_now;
         int r;
 
         assert(e);
 
-        r = sd_event_now(e, clock, &usec_now);
-        if (r < 0)
-                return log_debug_errno(r, "sd-event: Failed to get the current time: %m");
+        if (usec > 0) {
+                usec_t usec_now;
 
-        return event_reset_time(e, s, clock, usec_add(usec_now, usec), accuracy, callback, userdata, priority, description, force_reset);
+                r = sd_event_now(e, clock, &usec_now);
+                if (r < 0)
+                        return log_debug_errno(r, "sd-event: Failed to get the current time: %m");
+
+                usec = usec_add(usec_now, usec);
+        }
+
+        return event_reset_time(e, s, clock, usec, accuracy, callback, userdata, priority, description, force_reset);
 }
 
 int event_add_time_change(sd_event *e, sd_event_source **ret, sd_event_io_handler_t callback, void *userdata) {
