@@ -28,6 +28,7 @@
 _SD_BEGIN_DECLARATIONS;
 
 typedef struct sd_dhcp6_lease sd_dhcp6_lease;
+typedef struct sd_dhcp6_option sd_dhcp6_option;
 
 int sd_dhcp6_lease_get_timestamp(sd_dhcp6_lease *lease, clockid_t clock, uint64_t *ret);
 int sd_dhcp6_lease_get_t1(sd_dhcp6_lease *lease, uint64_t *ret);
@@ -77,6 +78,7 @@ int sd_dhcp6_lease_get_ntp_addrs(sd_dhcp6_lease *lease, const struct in6_addr **
 int sd_dhcp6_lease_get_ntp_fqdn(sd_dhcp6_lease *lease, char ***ret);
 int sd_dhcp6_lease_get_fqdn(sd_dhcp6_lease *lease, const char **ret);
 int sd_dhcp6_lease_get_captive_portal(sd_dhcp6_lease *lease, const char **ret);
+int sd_dhcp6_lease_get_vendor_options(sd_dhcp6_lease *lease, sd_dhcp6_option ***ret);
 
 sd_dhcp6_lease *sd_dhcp6_lease_ref(sd_dhcp6_lease *lease);
 sd_dhcp6_lease *sd_dhcp6_lease_unref(sd_dhcp6_lease *lease);
