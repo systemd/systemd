@@ -87,6 +87,13 @@ int dhcp6_option_parse(
                 uint16_t *ret_option_code,
                 size_t *ret_option_data_len,
                 const uint8_t **ret_option_data);
+int dhcp6_parse_vendor_sub_option(
+                const uint8_t *buf,
+                size_t buflen,
+                size_t *offset,
+                uint16_t *ret_option_code,
+                size_t *ret_option_data_len,
+                const uint8_t **ret_option_data);
 int dhcp6_option_parse_status(const uint8_t *data, size_t data_len, char **ret_status_message);
 int dhcp6_option_parse_string(const uint8_t *data, size_t data_len, char **ret);
 int dhcp6_option_parse_ia(

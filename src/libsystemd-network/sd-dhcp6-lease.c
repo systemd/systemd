@@ -123,6 +123,18 @@ DHCP6IA *dhcp6_ia_free(DHCP6IA *ia) {
         return mfree(ia);
 }
 
+DHCP6VendorOption *dhcp6_vendor_sub_option_free(DHCP6VendorOption *option) {
+
+        if (!option)
+                return NULL;
+
+        if (option->data)
+                free(option->data);
+
+        free(option);
+        return NULL;
+}
+
 int dhcp6_lease_set_clientid(sd_dhcp6_lease *lease, const uint8_t *id, size_t len) {
         uint8_t *clientid = NULL;
 
@@ -473,6 +485,68 @@ int sd_dhcp6_lease_get_captive_portal(sd_dhcp6_lease *lease, const char **ret) {
         return 0;
 }
 
+int dhcp6_lease_add_vendor_sub_option(sd_dhcp6_lease *lease, const uint8_t *optval, size_t optlen) {
+        int r;
+
+        assert(lease);
+        assert(optval || optlen == 0);
+
+        for (size_t offset = 0; offset < optlen;) {
+                const uint8_t *subval;
+                size_t sublen;
+                uint16_t subopt;
+
+                r = dhcp6_parse_vendor_sub_option(optval, optlen, &offset, &subopt, &sublen, &subval);
+                if (r < 0)
+                        return r;
+
+                switch (subopt) {
+                        case DHCP6_VENDOR_SUBOPTION_BASE ... DHCP6_VENDOR_SUBOPTION_LAST:
+                                r = dhcp6_lease_insert_vendor_sub_option(lease, subopt, subval, sublen);
+                                if (r < 0)
+                                        return r;
+
+                        break;
+                }
+        }
+        return 0;
+}
+
+int dhcp6_lease_insert_vendor_sub_option(sd_dhcp6_lease *lease, uint16_t option_code, const void *data, size_t len) {
+        _cleanup_(dhcp6_vendor_sub_option_freep) DHCP6VendorOption *option = NULL;
+        DHCP6VendorOption *before = NULL;
+
+        assert(lease);
+
+        LIST_FOREACH(options, cur, lease->vendor_options) {
+                if (option_code < cur->option_code) {
+                        before = cur;
+                        break;
+                }
+                if (option_code == cur->option_code) {
+                        log_debug("Ignoring duplicated option, tagged %u.", option_code);
+                        return -EEXIST;
+                }
+        }
+
+        option = new(DHCP6VendorOption, 1);
+        if (!option)
+                return -ENOMEM;
+
+        *option = (DHCP6VendorOption) {
+                .option_code = option_code,
+                .length = len,
+        };
+
+        option->data = memdup(data, len);
+        if (!option->data) {
+                return -ENOMEM;
+        }
+
+        LIST_INSERT_BEFORE(options, lease->vendor_options, before, TAKE_PTR(option));
+        return 0;
+}
+
 static int dhcp6_lease_parse_message(
                 sd_dhcp6_client *client,
                 sd_dhcp6_lease *lease,
@@ -658,6 +732,13 @@ static int dhcp6_lease_parse_message(
 
                         irt = unaligned_read_be32(optval) * USEC_PER_SEC;
                         break;
+
+                case SD_DHCP6_OPTION_VENDOR_OPTS:
+                        r = dhcp6_lease_add_vendor_sub_option(lease, optval, optlen);
+                        if (r < 0)
+                                log_dhcp6_client_errno(client, r, "Failed to parse Vendor option, ignoring: %m");
+
+                        break;
                 }
         }
 
@@ -695,8 +776,14 @@ static int dhcp6_lease_parse_message(
 }
 
 static sd_dhcp6_lease *dhcp6_lease_free(sd_dhcp6_lease *lease) {
+        DHCP6VendorOption *dhcp6_option;
+
         if (!lease)
                 return NULL;
+
+        while ((dhcp6_option = LIST_POP(options, lease->vendor_options))) {
+                dhcp6_vendor_sub_option_free(dhcp6_option);
+        }
 
         free(lease->clientid);
         free(lease->serverid);

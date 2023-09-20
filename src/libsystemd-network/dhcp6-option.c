@@ -494,6 +494,41 @@ int dhcp6_option_parse(
         return 0;
 }
 
+int dhcp6_parse_vendor_sub_option(
+                const uint8_t *buf,
+                size_t buflen,
+                size_t *offset,
+                uint16_t *ret_option_code,
+                size_t *ret_option_data_len,
+                const uint8_t **ret_option_data) {
+
+        size_t len;
+
+        assert(buf);
+        assert(offset);
+        assert(ret_option_code);
+        assert(ret_option_data_len);
+        assert(ret_option_data);
+
+        if (buflen < offsetof(DHCP6Option, data))
+                return -EBADMSG;
+
+        if (*offset > buflen - offsetof(DHCP6Option, data))
+                return -EBADMSG;
+
+        len = unaligned_read_be16(buf + *offset + offsetof(DHCP6Option, len) + 4);
+
+        if (len > buflen - offsetof(DHCP6Option, data) - *offset)
+                return -EBADMSG;
+
+        *ret_option_code = unaligned_read_be16(buf + *offset + offsetof(DHCP6Option, code) + 4);
+        *ret_option_data_len = len;
+        *ret_option_data = len == 0 ? NULL : buf + *offset + offsetof(DHCP6Option, data) + 4;
+        *offset += offsetof(DHCP6Option, data) + len;
+
+        return 0;
+}
+
 int dhcp6_option_parse_status(const uint8_t *data, size_t data_len, char **ret_status_message) {
         DHCP6Status status;
 
