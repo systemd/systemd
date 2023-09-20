@@ -68,6 +68,16 @@ struct Directory {
         unsigned last_seen_generation;
 };
 
+#define BOOT_ID_TO_NEWEST_HASHTABLE_SIZE 1000
+
+struct boot_id_newest_entry {
+        sd_id128_t boot_id;
+        char ret;
+        sd_id128_t newest_machine_id;
+        uint64_t newest_realtime_usec;
+        struct boot_id_newest_entry *next;
+};
+
 struct sd_journal {
         int toplevel_fd;
 
@@ -124,6 +134,8 @@ struct sd_journal {
         Hashmap *directories_by_wd;
 
         Hashmap *errors;
+
+        struct boot_id_newest_entry *boot_id_newest_hashtable[BOOT_ID_TO_NEWEST_HASHTABLE_SIZE];
 };
 
 char *journal_make_match_string(sd_journal *j);

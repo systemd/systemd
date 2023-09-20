@@ -692,25 +692,39 @@ static int journal_file_verify_header(JournalFile *f) {
 }
 
 int journal_file_fstat(JournalFile *f) {
+        usec_t now_ut = now(CLOCK_MONOTONIC);
+
+        if(f->cache_fstat.done && now_ut - f->last_stat_usec < 1 * USEC_PER_SEC)
+                return f->cache_fstat.result;
+
+        f->cache_fstat.done = 1;
+
         int r;
 
         assert(f);
         assert(f->fd >= 0);
 
-        if (fstat(f->fd, &f->last_stat) < 0)
+        if (fstat(f->fd, &f->last_stat) < 0) {
+                f->cache_fstat.result = -errno;
                 return -errno;
+        }
 
-        f->last_stat_usec = now(CLOCK_MONOTONIC);
+        f->last_stat_usec = now_ut;
 
         /* Refuse dealing with files that aren't regular */
         r = stat_verify_regular(&f->last_stat);
-        if (r < 0)
+        if (r < 0) {
+                f->cache_fstat.result = r;
                 return r;
+        }
 
         /* Refuse appending to files that are already deleted */
-        if (f->last_stat.st_nlink <= 0)
+        if (f->last_stat.st_nlink <= 0) {
+                f->cache_fstat.result = -EIDRM;
                 return -EIDRM;
+        }
 
+        f->cache_fstat.result = 0;
         return 0;
 }
 

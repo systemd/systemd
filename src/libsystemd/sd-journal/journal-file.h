@@ -129,6 +129,11 @@ typedef struct JournalFile {
         uint64_t newest_realtime_usec;
         unsigned newest_boot_id_prioq_idx;
         usec_t newest_mtime;
+
+        struct {
+                char done;
+                int result;
+        } cache_fstat;
 } JournalFile;
 
 typedef enum JournalFileFlags {
