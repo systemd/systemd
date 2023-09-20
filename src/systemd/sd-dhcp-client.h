@@ -152,6 +152,7 @@ int sd_dhcp_client_start(sd_dhcp_client *client);
 int sd_dhcp_client_send_release(sd_dhcp_client *client);
 int sd_dhcp_client_send_decline(sd_dhcp_client *client);
 int sd_dhcp_client_send_renew(sd_dhcp_client *client);
+int sd_dhcp_client_ipv6_acquired(sd_dhcp_client *client);
 
 sd_dhcp_client *sd_dhcp_client_ref(sd_dhcp_client *client);
 sd_dhcp_client *sd_dhcp_client_unref(sd_dhcp_client *client);
