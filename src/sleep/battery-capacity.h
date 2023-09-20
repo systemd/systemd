@@ -12,4 +12,5 @@ int estimate_battery_discharge_rate_per_hour(
                 Hashmap *current_capacity,
                 usec_t before_timestamp,
                 usec_t after_timestamp);
+
 int battery_trip_point_alarm_exists(void);
