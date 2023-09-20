@@ -82,7 +82,7 @@ static void unmount_autofs(Automount *a) {
                 if (a->where) {
                         r = repeat_unmount(a->where, MNT_DETACH|UMOUNT_NOFOLLOW);
                         if (r < 0)
-                                log_error_errno(r, "Failed to unmount: %m");
+                                log_unit_error_errno(UNIT(a), r, "Failed to unmount: %m");
                 }
         }
 }
@@ -341,6 +341,7 @@ static void automount_enter_dead(Automount *a, AutomountResult f) {
 
 static int open_dev_autofs(Manager *m) {
         struct autofs_dev_ioctl param;
+        int r;
 
         assert(m);
 
@@ -354,9 +355,10 @@ static int open_dev_autofs(Manager *m) {
                 return log_error_errno(errno, "Failed to open /dev/autofs: %m");
 
         init_autofs_dev_ioctl(&param);
-        if (ioctl(m->dev_autofs_fd, AUTOFS_DEV_IOCTL_VERSION, &param) < 0) {
+        r = RET_NERRNO(ioctl(m->dev_autofs_fd, AUTOFS_DEV_IOCTL_VERSION, &param));
+        if (r < 0) {
                 m->dev_autofs_fd = safe_close(m->dev_autofs_fd);
-                return -errno;
+                return log_error_errno(r, "Failed to issue AUTOFS_DEV_IOCTL_VERSION ioctl: %m");
         }
 
         log_debug("Autofs kernel version %u.%u", param.ver_major, param.ver_minor);
@@ -556,8 +558,8 @@ static void automount_trigger_notify(Unit *u, Unit *other) {
 }
 
 static void automount_enter_waiting(Automount *a) {
+        _cleanup_close_pair_ int pipe_fd[2] = PIPE_EBADF;
         _cleanup_close_ int ioctl_fd = -EBADF;
-        int pipe_fd[2] = PIPE_EBADF;
         char name[STRLEN("systemd-") + DECIMAL_STR_MAX(pid_t) + 1];
         _cleanup_free_ char *options = NULL;
         bool mounted = false;
@@ -585,12 +587,14 @@ static void automount_enter_waiting(Automount *a) {
         }
 
         if (pipe2(pipe_fd, O_CLOEXEC) < 0) {
-                r = -errno;
+                r = log_unit_warning_errno(UNIT(a), errno, "Failed to allocate autofs pipe: %m");
                 goto fail;
         }
         r = fd_nonblock(pipe_fd[0], true);
-        if (r < 0)
+        if (r < 0) {
+                log_unit_warning_errno(UNIT(a), r, "Failed to make read side of pipe non-blocking: %m");
                 goto fail;
+        }
 
         if (asprintf(
                     &options,
@@ -599,12 +603,12 @@ static void automount_enter_waiting(Automount *a) {
                     getpgrp(),
                     isempty(a->extra_options) ? "" : ",",
                     strempty(a->extra_options)) < 0) {
-                r = -ENOMEM;
+                r = log_oom();
                 goto fail;
         }
 
         xsprintf(name, "systemd-"PID_FMT, getpid_cached());
-        r = mount_nofollow(name, a->where, "autofs", 0, options);
+        r = mount_nofollow_verbose(LOG_WARNING, name, a->where, "autofs", 0, options);
         if (r < 0)
                 goto fail;
 
@@ -613,46 +617,47 @@ static void automount_enter_waiting(Automount *a) {
         pipe_fd[1] = safe_close(pipe_fd[1]);
 
         if (stat(a->where, &st) < 0) {
-                r = -errno;
+                r = log_unit_warning_errno(UNIT(a), errno, "Failed to stat new automount point '%s': %m", a->where);
                 goto fail;
         }
 
         ioctl_fd = open_ioctl_fd(dev_autofs_fd, a->where, st.st_dev);
         if (ioctl_fd < 0) {
-                r = ioctl_fd;
+                r = log_unit_warning_errno(UNIT(a), ioctl_fd, "Failed to open automount ioctl fd for '%s': %m", a->where);
                 goto fail;
         }
 
         r = autofs_protocol(dev_autofs_fd, ioctl_fd);
-        if (r < 0)
+        if (r < 0) {
+                log_unit_warning_errno(UNIT(a), r, "Failed to validate autofs protocol for '%s': %m", a->where);
                 goto fail;
+        }
 
         r = autofs_set_timeout(dev_autofs_fd, ioctl_fd, a->timeout_idle_usec);
-        if (r < 0)
+        if (r < 0) {
+                log_unit_warning_errno(UNIT(a), r, "Failed to set autofs timeout for '%s': %m", a->where);
                 goto fail;
+        }
 
         r = sd_event_add_io(UNIT(a)->manager->event, &a->pipe_event_source, pipe_fd[0], EPOLLIN, automount_dispatch_io, a);
-        if (r < 0)
+        if (r < 0) {
+                log_unit_warning_errno(UNIT(a), r, "Failed to allocate IO event source for autofs mount '%s': %m", a->where);
                 goto fail;
+        }
 
         (void) sd_event_source_set_description(a->pipe_event_source, "automount-io");
 
-        a->pipe_fd = pipe_fd[0];
+        a->pipe_fd = TAKE_FD(pipe_fd[0]);
         a->dev_id = st.st_dev;
 
         automount_set_state(a, AUTOMOUNT_WAITING);
-
         return;
 
 fail:
-        log_unit_error_errno(UNIT(a), r, "Failed to initialize automounter: %m");
-
-        safe_close_pair(pipe_fd);
-
         if (mounted) {
                 r = repeat_unmount(a->where, MNT_DETACH|UMOUNT_NOFOLLOW);
                 if (r < 0)
-                        log_error_errno(r, "Failed to unmount, ignoring: %m");
+                        log_unit_warning_errno(UNIT(a), r, "Failed to unmount, ignoring: %m");
         }
 
         automount_enter_dead(a, AUTOMOUNT_FAILURE_RESOURCES);
