@@ -2,6 +2,7 @@
 
 #include <linux/nexthop.h>
 
+#include "dhcp6-internal.h"
 #include "dhcp-server-internal.h"
 #include "dhcp6-lease-internal.h"
 #include "dns-domain.h"
@@ -1044,6 +1045,31 @@ static int dhcp_server_append_json(Link *link, JsonVariant **v) {
         return json_append_one(v, "DHCPServer", w);
 }
 
+static int dhcp6_client_vendor_options_append_json(Link *link, JsonVariant **v) {
+        _cleanup_(json_variant_unrefp) JsonVariant *array = NULL;
+        int r;
+
+        assert(link);
+        assert(v);
+
+        if (!link->dhcp6_lease)
+                return 0;
+
+        LIST_FOREACH(options, option, link->dhcp6_lease->vendor_options) {
+                char key[STRLEN("VENDOR_SPECIFIC_SUB_OPTION_") + DECIMAL_STR_MAX(uint16_t)];
+
+                xsprintf(key, "VENDOR_SPECIFIC_SUB_OPTION_%" PRIu16, option->option_code);
+
+                r = json_variant_append_arrayb(
+                                &array,
+                                JSON_BUILD_OBJECT(
+                                               JSON_BUILD_PAIR_HEX(key, option->data, option->length)));
+                if (r < 0)
+                        return 0;
+        }
+        return json_append_one(v, "VendorSpecificOptions", array);
+}
+
 static int dhcp6_client_lease_append_json(Link *link, JsonVariant **v) {
         _cleanup_(json_variant_unrefp) JsonVariant *w = NULL;
         uint64_t lease_timestamp_usec;
@@ -1123,6 +1149,10 @@ static int dhcp6_client_append_json(Link *link, JsonVariant **v) {
                 return r;
 
         r = dhcp6_client_pd_append_json(link, &w);
+        if (r < 0)
+                return r;
+
+        r = dhcp6_client_vendor_options_append_json(link, &w);
         if (r < 0)
                 return r;
 
