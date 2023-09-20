@@ -1538,6 +1538,12 @@ static int dhcp4_configure(Link *link) {
                                 return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to set request flag for 6rd: %m");
                 }
 
+                if (link->network->dhcp_ipv6_only_mode) {
+                        r = sd_dhcp_client_set_request_option(link->dhcp_client, SD_DHCP_OPTION_IPV6_ONLY_PREFERRED);
+                        if (r < 0)
+                                return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to set request flag for IPv6-only preferred option: %m");
+                }
+
                 SET_FOREACH(request_options, link->network->dhcp_request_options) {
                         uint32_t option = PTR_TO_UINT32(request_options);
 

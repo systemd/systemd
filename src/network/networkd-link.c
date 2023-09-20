@@ -1750,6 +1750,9 @@ void link_update_operstate(Link *link, bool also_update_master) {
         ipv6_address_state = address_state_from_scope(ipv6_scope);
         address_state = address_state_from_scope(MIN(ipv4_scope, ipv6_scope));
 
+        if (ipv6_address_state == LINK_ADDRESS_STATE_ROUTABLE)
+                (void) sd_dhcp_client_ipv6_acquired(link->dhcp_client);
+
         /* Mapping of address and carrier state vs operational state
          *                                                     carrier state
          *                          | off | no-carrier | dormant | degraded-carrier | carrier  | enslaved
