@@ -145,6 +145,7 @@ typedef enum ManagerTestRunFlags {
         MANAGER_TEST_RUN_ENV_GENERATORS      = 1 << 2,  /* also run env generators  */
         MANAGER_TEST_RUN_GENERATORS          = 1 << 3,  /* also run unit generators */
         MANAGER_TEST_RUN_IGNORE_DEPENDENCIES = 1 << 4,  /* run while ignoring dependencies */
+        MANAGER_TEST_DONT_OPEN_EXECUTOR      = 1 << 5,  /* avoid trying to load sd-executor */
         MANAGER_TEST_FULL = MANAGER_TEST_RUN_BASIC | MANAGER_TEST_RUN_ENV_GENERATORS | MANAGER_TEST_RUN_GENERATORS,
 } ManagerTestRunFlags;
 
@@ -486,6 +487,11 @@ struct Manager {
         RateLimit dump_ratelimit;
 
         sd_event_source *memory_pressure_event_source;
+
+        /* Pin the systemd-executor binary, so that it never changes until re-exec, ensuring we don't have
+         * serialization/deserialization compatibility issues during upgrades. */
+        int executor_fd;
+        int executors_pool_socket[2];
 };
 
 static inline usec_t manager_default_timeout_abort_usec(Manager *m) {
@@ -516,6 +522,7 @@ Manager* manager_free(Manager *m);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
 
 int manager_startup(Manager *m, FILE *serialization, FDSet *fds, const char *root);
+int manager_setup_executors_pool_socket(Manager *m);
 
 Job *manager_get_job(Manager *m, uint32_t id);
 Unit *manager_get_unit(Manager *m, const char *name);
@@ -606,7 +613,6 @@ const char *manager_state_to_string(ManagerState m) _const_;
 ManagerState manager_state_from_string(const char *s) _pure_;
 
 const char *manager_get_confirm_spawn(Manager *m);
-bool manager_is_confirm_spawn_disabled(Manager *m);
 void manager_disable_confirm_spawn(void);
 
 const char *manager_timestamp_to_string(ManagerTimestamp m) _const_;
@@ -618,6 +624,11 @@ void manager_set_watchdog(Manager *m, WatchdogType t, usec_t timeout);
 void manager_override_watchdog(Manager *m, WatchdogType t, usec_t timeout);
 int manager_set_watchdog_pretimeout_governor(Manager *m, const char *governor);
 int manager_override_watchdog_pretimeout_governor(Manager *m, const char *governor);
+
+LogTarget manager_get_executor_log_target(Manager *m);
+
+int manager_spawn_workers(Manager *m);
+int manager_kill_workers(Manager *m);
 
 const char* oom_policy_to_string(OOMPolicy i) _const_;
 OOMPolicy oom_policy_from_string(const char *s) _pure_;

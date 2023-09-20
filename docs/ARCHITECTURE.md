@@ -201,3 +201,47 @@ can be found under various directories such as `factory/`, `modprobe.d/`, `netwo
 `tools/`, `coccinelle/`, `.github/`, `.semaphore/`, `.mkosi/` host various
 utilities and scripts that are used by maintainers and developers. They are not
 shipped or installed.
+
+# Service Manager Overview
+
+The Service Manager takes configuration in the form of unit files, credentials,
+kernel command line options and D-Bus commands, and based on those manages the
+system and spawns other processes. It runs in system mode as PID1, and in user
+mode with one instance per user session.
+
+When starting a unit requires forking a new process, configuration for the new
+process will be serialized and passed over to the new process, created via a
+`posix_spawn()` call. This is done in order to avoid excessive processing after
+a `fork()` but before an `exec()`, which is against glibc's best practices and
+can also result in a copy-on-write trap. The new process will start as the
+`systemd-executor` binary, which will deserialize the configuration and apply
+all the options (sandboxing, namespacing, cgroup, etc.) before exec'ing the
+configured executable.
+
+In order to reduce latency when starting a service and avoid paying the cost of
+loading and relocating the `systemd-executor` binary in the critical service
+startup code path, the service manager keeps a pool of workers ready in the
+`init-workers.scope` top level cgroup, waiting to receive work instructions and
+execute them. In case a worker process is not available for any reason, the
+manager falls back to directly spawning the `systemd-executor` binary via
+`posix_spawn()`.
+
+```
+
+            posix_spawn() ┌───────────┐
+           ┌─────────────►│sd-executor│
+           │              └───────────┘
+           │
+  ┌────┐   │posix_spawn() ┌───────────┐
+  │PID1├───┼─────────────►│sd-executor│
+  └────┘   │              └───────────┘
+           │
+           │posix_spawn() ┌───────────┐
+           └─────────────►│sd-executor│
+                          └───────────┘
+  <...>
+
+  ┌────┐    sendmsg()     ┌───────────┐execve() ┌────────┐
+  │PID1├─────────────────►│sd-executor├────────►│program │
+  └────┘     (memfd)      └───────────┘         └────────┘
+```
