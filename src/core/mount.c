@@ -191,34 +191,10 @@ static void mount_init(Unit *u) {
         u->ignore_on_isolate = true;
 }
 
-static int mount_arm_timer(Mount *m, usec_t usec) {
-        int r;
-
+static int mount_arm_timer(Mount *m, bool relative, usec_t usec) {
         assert(m);
 
-        if (usec == USEC_INFINITY)
-                return sd_event_source_set_enabled(m->timer_event_source, SD_EVENT_OFF);
-
-        if (m->timer_event_source) {
-                r = sd_event_source_set_time(m->timer_event_source, usec);
-                if (r < 0)
-                        return r;
-
-                return sd_event_source_set_enabled(m->timer_event_source, SD_EVENT_ONESHOT);
-        }
-
-        r = sd_event_add_time(
-                        UNIT(m)->manager->event,
-                        &m->timer_event_source,
-                        CLOCK_MONOTONIC,
-                        usec, 0,
-                        mount_dispatch_timer, m);
-        if (r < 0)
-                return r;
-
-        (void) sd_event_source_set_description(m->timer_event_source, "mount-timer");
-
-        return 0;
+        return unit_arm_timer(UNIT(m), &m->timer_event_source, relative, usec, mount_dispatch_timer);
 }
 
 static void mount_unwatch_control_pid(Mount *m) {
@@ -809,7 +785,7 @@ static int mount_coldplug(Unit *u) {
                 if (r < 0)
                         return r;
 
-                r = mount_arm_timer(m, usec_add(u->state_change_timestamp.monotonic, m->timeout_usec));
+                r = mount_arm_timer(m, /* relative= */ false, usec_add(u->state_change_timestamp.monotonic, m->timeout_usec));
                 if (r < 0)
                         return r;
         }
@@ -932,7 +908,7 @@ static int mount_spawn(Mount *m, ExecCommand *c, PidRef *ret_pid) {
         if (r < 0)
                 return r;
 
-        r = mount_arm_timer(m, usec_add(now(CLOCK_MONOTONIC), m->timeout_usec));
+        r = mount_arm_timer(m, /* relative= */ true, m->timeout_usec);
         if (r < 0)
                 return r;
 
@@ -1045,7 +1021,7 @@ static void mount_enter_signal(Mount *m, MountState state, MountResult f) {
         }
 
         if (r > 0) {
-                r = mount_arm_timer(m, usec_add(now(CLOCK_MONOTONIC), m->timeout_usec));
+                r = mount_arm_timer(m, /* relative= */ true, m->timeout_usec);
                 if (r < 0) {
                         log_unit_warning_errno(UNIT(m), r, "Failed to install timer: %m");
                         goto fail;
@@ -2257,7 +2233,7 @@ static int mount_clean(Unit *u, ExecCleanMask mask) {
         m->control_command = NULL;
         m->control_command_id = _MOUNT_EXEC_COMMAND_INVALID;
 
-        r = mount_arm_timer(m, usec_add(now(CLOCK_MONOTONIC), m->exec_context.timeout_clean_usec));
+        r = mount_arm_timer(m, /* relative= */ true, m->exec_context.timeout_clean_usec);
         if (r < 0) {
                 log_unit_warning_errno(u, r, "Failed to install timer: %m");
                 goto fail;

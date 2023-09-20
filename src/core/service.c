@@ -624,33 +624,9 @@ static usec_t service_running_timeout(Service *s) {
 }
 
 static int service_arm_timer(Service *s, bool relative, usec_t usec) {
-        int r;
-
         assert(s);
 
-        if (s->timer_event_source) {
-                r = (relative ? sd_event_source_set_time_relative : sd_event_source_set_time)(s->timer_event_source, usec);
-                if (r < 0)
-                        return r;
-
-                return sd_event_source_set_enabled(s->timer_event_source, SD_EVENT_ONESHOT);
-        }
-
-        if (usec == USEC_INFINITY)
-                return 0;
-
-        r = (relative ? sd_event_add_time_relative : sd_event_add_time)(
-                        UNIT(s)->manager->event,
-                        &s->timer_event_source,
-                        CLOCK_MONOTONIC,
-                        usec, 0,
-                        service_dispatch_timer, s);
-        if (r < 0)
-                return r;
-
-        (void) sd_event_source_set_description(s->timer_event_source, "service-timer");
-
-        return 0;
+        return unit_arm_timer(UNIT(s), &s->timer_event_source, relative, usec, service_dispatch_timer);
 }
 
 static int service_verify(Service *s) {
