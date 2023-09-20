@@ -53,6 +53,8 @@
         0x00, 0x02, 0x00, 0x00, 0xab, 0x11, 0x61, 0x77, 0x40, 0xde, 0x13, 0x42, 0xc3, 0xa2
 #define SERVER_ID_BYTES                                                 \
         0x00, 0x01, 0x00, 0x01, 0x19, 0x40, 0x5c, 0x53, 0x78, 0x2b, 0xcb, 0xb3, 0x6d, 0x53
+#define VENDOR_SUBOPTION_BYTES                                         \
+        0x01
 
 static const struct in6_addr local_address =
         { { { 0xfe, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, } } };
@@ -70,10 +72,18 @@ static const struct in6_addr ntp1 = { { { NTP1_BYTES } } };
 static const struct in6_addr ntp2 = { { { NTP2_BYTES } } };
 static const uint8_t client_id[] = { CLIENT_ID_BYTES };
 static const uint8_t server_id[] = { SERVER_ID_BYTES };
+static uint8_t vendor_suboption_data[] = { VENDOR_SUBOPTION_BYTES };
 static const struct ether_addr mac = {
         .ether_addr_octet = { 'A', 'B', 'C', '1', '2', '3' },
 };
 static int test_fd[2] = EBADF_PAIR;
+static sd_dhcp6_option vendor_suboption = {
+        .n_ref = 1,
+        .enterprise_identifier = 32,
+        .option = 247,
+        .data = vendor_suboption_data,
+        .length = 1,
+};
 static int test_ifindex = 42;
 static unsigned test_client_sent_message_count = 0;
 static sd_dhcp6_client *client_ref = NULL;
@@ -100,6 +110,7 @@ TEST(client_basic) {
         assert_se(sd_dhcp6_client_set_request_option(client, SD_DHCP6_OPTION_DNS_SERVER) >= 0);
         assert_se(sd_dhcp6_client_set_request_option(client, SD_DHCP6_OPTION_NTP_SERVER) >= 0);
         assert_se(sd_dhcp6_client_set_request_option(client, SD_DHCP6_OPTION_SNTP_SERVER) >= 0);
+        assert_se(sd_dhcp6_client_set_request_option(client, SD_DHCP6_OPTION_VENDOR_OPTS) >= 0);
         assert_se(sd_dhcp6_client_set_request_option(client, SD_DHCP6_OPTION_DOMAIN) >= 0);
         assert_se(sd_dhcp6_client_set_request_option(client, 10) == -EINVAL);
         assert_se(sd_dhcp6_client_set_request_option(client, SD_DHCP6_OPTION_NIS_SERVER) >= 0);
@@ -736,6 +747,9 @@ static const uint8_t msg_reply[] = {
         /* Client FQDN */
         0x00, SD_DHCP6_OPTION_CLIENT_FQDN, 0x00, 0x12,
         0x01, 0x06, 'c', 'l', 'i', 'e', 'n', 't', 0x03, 'l', 'a', 'b', 0x05, 'i', 'n', 't', 'r', 'a',
+        /* Vendor specific options */
+        0x00, SD_DHCP6_OPTION_VENDOR_OPTS, 0x00, 0x09,
+        0x00, 0x00, 0x00, 0x20, 0x00, 0xf7, 0x00, 0x01, VENDOR_SUBOPTION_BYTES,
 };
 
 static const uint8_t msg_advertise[] = {
@@ -815,6 +829,9 @@ static const uint8_t msg_advertise[] = {
         /* Client FQDN */
         0x00, SD_DHCP6_OPTION_CLIENT_FQDN, 0x00, 0x12,
         0x01, 0x06, 'c', 'l', 'i', 'e', 'n', 't', 0x03, 'l', 'a', 'b', 0x05, 'i', 'n', 't', 'r', 'a',
+        /* Vendor specific options */
+        0x00, SD_DHCP6_OPTION_VENDOR_OPTS, 0x00, 0x09,
+        0x00, 0x00, 0x00, 0x20, 0x00, 0xf7, 0x00, 0x01, VENDOR_SUBOPTION_BYTES,
 };
 
 static void test_client_verify_information_request(const DHCP6Message *msg, size_t len) {
@@ -855,6 +872,7 @@ static void test_client_verify_request(const DHCP6Message *msg, size_t len) {
 
 static void test_lease_common(sd_dhcp6_client *client) {
         sd_dhcp6_lease *lease;
+        sd_dhcp6_option **suboption;
         const struct in6_addr *addrs;
         const char *str;
         char **strv;
@@ -888,6 +906,11 @@ static void test_lease_common(sd_dhcp6_client *client) {
         assert_se(lease->sntp_count == 2);
         assert_se(in6_addr_equal(&lease->sntp[0], &sntp1));
         assert_se(in6_addr_equal(&lease->sntp[1], &sntp2));
+
+        assert_se(sd_dhcp6_lease_get_vendor_options(lease, &suboption) > 0);
+        assert_se((*suboption)->enterprise_identifier == vendor_suboption.enterprise_identifier);
+        assert_se((*suboption)->option == vendor_suboption.option);
+        assert_se(*(uint8_t*)(*suboption)->data == *(uint8_t*)vendor_suboption.data);
 }
 
 static void test_lease_managed(sd_dhcp6_client *client) {
