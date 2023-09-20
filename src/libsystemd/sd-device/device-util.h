@@ -7,6 +7,7 @@
 
 #include "sd-device.h"
 
+#include "alloc-util.h"
 #include "log.h"
 #include "macro.h"
 
