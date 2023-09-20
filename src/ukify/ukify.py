@@ -1523,7 +1523,7 @@ def finalize_options(opts):
     elif opts.linux or opts.initrd:
         raise ValueError('--linux/--initrd options cannot be used with positional arguments')
     else:
-        print("Assuming obsolete commandline syntax with no verb. Please use 'build'.")
+        print("Assuming obsolete command line syntax with no verb. Please use 'build'.")
         if opts.positional:
             opts.linux = pathlib.Path(opts.positional[0])
         # If we have initrds from parsing config files, append our positional args at the end
@@ -1543,8 +1543,8 @@ def finalize_options(opts):
     if opts.cmdline and opts.cmdline.startswith('@'):
         opts.cmdline = pathlib.Path(opts.cmdline[1:])
     elif opts.cmdline:
-        # Drop whitespace from the commandline. If we're reading from a file,
-        # we copy the contents verbatim. But configuration specified on the commandline
+        # Drop whitespace from the command line. If we're reading from a file,
+        # we copy the contents verbatim. But configuration specified on the command line
         # or in the config file may contain additional whitespace that has no meaning.
         opts.cmdline = ' '.join(opts.cmdline.split())
 
