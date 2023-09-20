@@ -798,9 +798,8 @@ int scsi_get_serial(struct scsi_id_device *dev_scsi, const char *devname,
                 fd = open(devname, O_RDONLY | O_NONBLOCK | O_CLOEXEC | O_NOCTTY);
                 if (fd >= 0 || errno != EBUSY)
                         break;
-                duration.tv_sec = 0;
-                duration.tv_nsec = (200 * 1000 * 1000) + (random_u32() % 100 * 1000 * 1000);
-                nanosleep(&duration, NULL);
+
+                usleep_safe(200U*USEC_PER_MSEC + random_u64_range(100U*USEC_PER_MSEC));
         }
         if (fd < 0)
                 return 1;
