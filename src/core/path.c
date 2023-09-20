@@ -530,23 +530,26 @@ static void path_enter_running(Path *p, char *trigger_path) {
         trigger = UNIT_TRIGGER(UNIT(p));
         if (!trigger) {
                 log_unit_error(UNIT(p), "Unit to trigger vanished.");
-                path_enter_dead(p, PATH_FAILURE_RESOURCES);
-                return;
+                goto fail;
         }
 
         details = activation_details_new(UNIT(p));
         if (!details) {
-                r = -ENOMEM;
+                log_oom();
                 goto fail;
         }
 
         r = free_and_strdup(&(ACTIVATION_DETAILS_PATH(details))->trigger_path_filename, trigger_path);
-        if (r < 0)
+        if (r < 0) {
+                log_oom();
                 goto fail;
+        }
 
         r = manager_add_job(UNIT(p)->manager, JOB_START, trigger, JOB_REPLACE, NULL, &error, &job);
-        if (r < 0)
+        if (r < 0) {
+                log_unit_warning(UNIT(p), "Failed to queue unit startup job: %s", bus_error_message(&error, r));
                 goto fail;
+        }
 
         job_set_activation_details(job, details);
 
@@ -556,7 +559,6 @@ static void path_enter_running(Path *p, char *trigger_path) {
         return;
 
 fail:
-        log_unit_warning(UNIT(p), "Failed to queue unit startup job: %s", bus_error_message(&error, r));
         path_enter_dead(p, PATH_FAILURE_RESOURCES);
 }
 
@@ -594,8 +596,11 @@ static void path_enter_waiting(Path *p, bool initial, bool from_trigger_notify) 
         }
 
         r = path_watch(p);
-        if (r < 0)
-                goto fail;
+        if (r < 0) {
+                log_unit_warning_errno(UNIT(p), r, "Failed to enter waiting state: %m");
+                path_enter_dead(p, PATH_FAILURE_RESOURCES);
+                return;
+        }
 
         /* Hmm, so now we have created inotify watches, but the file
          * might have appeared/been removed by now, so we must
@@ -608,11 +613,6 @@ static void path_enter_waiting(Path *p, bool initial, bool from_trigger_notify) 
         }
 
         path_set_state(p, PATH_WAITING);
-        return;
-
-fail:
-        log_unit_warning_errno(UNIT(p), r, "Failed to enter waiting state: %m");
-        path_enter_dead(p, PATH_FAILURE_RESOURCES);
 }
 
 static void path_mkdir(Path *p) {
