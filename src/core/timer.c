@@ -505,12 +505,16 @@ static void timer_enter_waiting(Timer *t, bool time_change) {
 
                 if (t->monotonic_event_source) {
                         r = sd_event_source_set_time(t->monotonic_event_source, t->next_elapse_monotonic_or_boottime);
-                        if (r < 0)
+                        if (r < 0) {
+                                log_unit_warning_errno(UNIT(t), r, "Failed to reschedule monotonic event source: %m");
                                 goto fail;
+                        }
 
                         r = sd_event_source_set_enabled(t->monotonic_event_source, SD_EVENT_ONESHOT);
-                        if (r < 0)
+                        if (r < 0) {
+                                log_unit_warning_errno(UNIT(t), r, "Failed to enable monotonic event source: %m");
                                 goto fail;
+                        }
                 } else {
 
                         r = sd_event_add_time(
@@ -519,8 +523,10 @@ static void timer_enter_waiting(Timer *t, bool time_change) {
                                         t->wake_system ? CLOCK_BOOTTIME_ALARM : CLOCK_MONOTONIC,
                                         t->next_elapse_monotonic_or_boottime, t->accuracy_usec,
                                         timer_dispatch, t);
-                        if (r < 0)
+                        if (r < 0) {
+                                log_unit_warning_errno(UNIT(t), r, "Failed to add monotonic event source: %m");
                                 goto fail;
+                        }
 
                         (void) sd_event_source_set_description(t->monotonic_event_source, "timer-monotonic");
                 }
@@ -528,8 +534,10 @@ static void timer_enter_waiting(Timer *t, bool time_change) {
         } else if (t->monotonic_event_source) {
 
                 r = sd_event_source_set_enabled(t->monotonic_event_source, SD_EVENT_OFF);
-                if (r < 0)
+                if (r < 0) {
+                        log_unit_warning_errno(UNIT(t), r, "Failed to disable monotonic event source: %m");
                         goto fail;
+                }
         }
 
         if (found_realtime) {
@@ -539,12 +547,16 @@ static void timer_enter_waiting(Timer *t, bool time_change) {
 
                 if (t->realtime_event_source) {
                         r = sd_event_source_set_time(t->realtime_event_source, t->next_elapse_realtime);
-                        if (r < 0)
+                        if (r < 0) {
+                                log_unit_warning_errno(UNIT(t), r, "Failed to reschedule realtime event source: %m");
                                 goto fail;
+                        }
 
                         r = sd_event_source_set_enabled(t->realtime_event_source, SD_EVENT_ONESHOT);
-                        if (r < 0)
+                        if (r < 0) {
+                                log_unit_warning_errno(UNIT(t), r, "Failed to enable realtime event source: %m");
                                 goto fail;
+                        }
                 } else {
                         r = sd_event_add_time(
                                         UNIT(t)->manager->event,
@@ -552,8 +564,10 @@ static void timer_enter_waiting(Timer *t, bool time_change) {
                                         t->wake_system ? CLOCK_REALTIME_ALARM : CLOCK_REALTIME,
                                         t->next_elapse_realtime, t->accuracy_usec,
                                         timer_dispatch, t);
-                        if (r < 0)
+                        if (r < 0) {
+                                log_unit_warning_errno(UNIT(t), r, "Failed to add realtime event source: %m");
                                 goto fail;
+                        }
 
                         (void) sd_event_source_set_description(t->realtime_event_source, "timer-realtime");
                 }
@@ -561,15 +575,16 @@ static void timer_enter_waiting(Timer *t, bool time_change) {
         } else if (t->realtime_event_source) {
 
                 r = sd_event_source_set_enabled(t->realtime_event_source, SD_EVENT_OFF);
-                if (r < 0)
+                if (r < 0) {
+                        log_unit_warning_errno(UNIT(t), r, "Failed to disable realtime event source: %m");
                         goto fail;
+                }
         }
 
         timer_set_state(t, TIMER_WAITING);
         return;
 
 fail:
-        log_unit_warning_errno(UNIT(t), r, "Failed to enter waiting state: %m");
         timer_enter_dead(t, TIMER_FAILURE_RESOURCES);
 }
 
@@ -595,13 +610,15 @@ static void timer_enter_running(Timer *t) {
 
         details = activation_details_new(UNIT(t));
         if (!details) {
-                r = -ENOMEM;
+                log_oom();
                 goto fail;
         }
 
         r = manager_add_job(UNIT(t)->manager, JOB_START, trigger, JOB_REPLACE, NULL, &error, &job);
-        if (r < 0)
+        if (r < 0) {
+                log_unit_warning(UNIT(t), "Failed to queue unit startup job: %s", bus_error_message(&error, r));
                 goto fail;
+        }
 
         dual_timestamp_get(&t->last_trigger);
         ACTIVATION_DETAILS_TIMER(details)->last_trigger = t->last_trigger;
@@ -615,7 +632,6 @@ static void timer_enter_running(Timer *t) {
         return;
 
 fail:
-        log_unit_warning(UNIT(t), "Failed to queue unit startup job: %s", bus_error_message(&error, r));
         timer_enter_dead(t, TIMER_FAILURE_RESOURCES);
 }
 
