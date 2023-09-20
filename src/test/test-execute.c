@@ -753,6 +753,18 @@ static void test_exec_systemcallfilter(Manager *m) {
         test(m, "exec-systemcallfilter-with-errno-in-allow-list.service", errno_from_name("EILSEQ"), CLD_EXITED);
         test(m, "exec-systemcallfilter-override-error-action.service", SIGSYS, CLD_KILLED);
         test(m, "exec-systemcallfilter-override-error-action2.service", errno_from_name("EILSEQ"), CLD_EXITED);
+
+        test(m, "exec-systemcallfilter-nonewprivileges.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_GROUP, CLD_EXITED);
+        test(m, "exec-systemcallfilter-nonewprivileges-protectclock.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_GROUP, CLD_EXITED);
+
+        r = find_executable("capsh", NULL);
+        if (r < 0) {
+                log_notice_errno(r, "Skipping %s, could not find capsh binary: %m", __func__);
+                return;
+        }
+
+        test(m, "exec-systemcallfilter-nonewprivileges-bounding1.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_GROUP, CLD_EXITED);
+        test(m, "exec-systemcallfilter-nonewprivileges-bounding2.service", MANAGER_IS_SYSTEM(m) ? 0 : EXIT_GROUP, CLD_EXITED);
 #endif
 }
 

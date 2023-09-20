@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=Test no_new_privs is unset for SystemCallFilter and non-root user
+
+[Service]
+ExecStart=/bin/sh -x -c 'c=$$(cat /proc/self/status | grep "NoNewPrivs:	"); test "$$c" = "NoNewPrivs:	0"'
+Type=oneshot
+User=1
+SystemCallFilter=@system-service
