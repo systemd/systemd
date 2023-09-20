@@ -90,6 +90,49 @@ int address_flags_to_string_alloc(uint32_t flags, int family, char **ret) {
         return 0;
 }
 
+static LinkAddressState address_state_from_scope(uint8_t scope) {
+        if (scope < RT_SCOPE_SITE)
+                /* universally accessible addresses found */
+                return LINK_ADDRESS_STATE_ROUTABLE;
+
+        if (scope < RT_SCOPE_HOST)
+                /* only link or site local addresses found */
+                return LINK_ADDRESS_STATE_DEGRADED;
+
+        /* no useful addresses found */
+        return LINK_ADDRESS_STATE_OFF;
+}
+
+void link_get_address_states(
+                Link *link,
+                LinkAddressState *ret_ipv4,
+                LinkAddressState *ret_ipv6,
+                LinkAddressState *ret_all) {
+
+        uint8_t ipv4_scope = RT_SCOPE_NOWHERE, ipv6_scope = RT_SCOPE_NOWHERE;
+        Address *address;
+
+        assert(link);
+
+        SET_FOREACH(address, link->addresses) {
+                if (!address_is_ready(address))
+                        continue;
+
+                if (address->family == AF_INET)
+                        ipv4_scope = MIN(ipv4_scope, address->scope);
+
+                if (address->family == AF_INET6)
+                        ipv6_scope = MIN(ipv6_scope, address->scope);
+        }
+
+        if (ret_ipv4)
+                *ret_ipv4 = address_state_from_scope(ipv4_scope);
+        if (ret_ipv6)
+                *ret_ipv6 = address_state_from_scope(ipv6_scope);
+        if (ret_all)
+                *ret_all = address_state_from_scope(MIN(ipv4_scope, ipv6_scope));
+}
+
 int address_new(Address **ret) {
         _cleanup_(address_freep) Address *address = NULL;
 

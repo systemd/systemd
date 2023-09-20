@@ -9,6 +9,7 @@
 #include "firewall-util.h"
 #include "hash-funcs.h"
 #include "in-addr-util.h"
+#include "network-util.h"
 #include "networkd-link.h"
 #include "networkd-util.h"
 #include "time-util.h"
@@ -73,6 +74,12 @@ const char* format_lifetime(char *buf, size_t l, usec_t lifetime_usec) _warn_unu
         format_lifetime((char[FORMAT_TIMESPAN_MAX+STRLEN("for ")]){}, FORMAT_TIMESPAN_MAX+STRLEN("for "), lifetime)
 
 int address_flags_to_string_alloc(uint32_t flags, int family, char **ret);
+
+void link_get_address_states(
+                Link *link,
+                LinkAddressState *ret_ipv4,
+                LinkAddressState *ret_ipv6,
+                LinkAddressState *ret_all);
 
 extern const struct hash_ops address_hash_ops;
 
