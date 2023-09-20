@@ -84,6 +84,7 @@ int sd_dhcp_server_set_static_lease(sd_dhcp_server *server, const struct in_addr
 
 int sd_dhcp_server_set_max_lease_time(sd_dhcp_server *server, uint64_t t);
 int sd_dhcp_server_set_default_lease_time(sd_dhcp_server *server, uint64_t t);
+int sd_dhcp_server_set_ipv6_only_preferred_usec(sd_dhcp_server *server, uint64_t t);
 
 int sd_dhcp_server_forcerenew(sd_dhcp_server *server);
 
