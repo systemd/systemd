@@ -1620,6 +1620,7 @@ static int process_route_one(
 
         _cleanup_(route_freep) Route *tmp = in;
         Route *route = NULL;
+        bool update_dhcp4;
         int r;
 
         assert(manager);
@@ -1627,6 +1628,8 @@ static int process_route_one(
         assert(IN_SET(type, RTM_NEWROUTE, RTM_DELROUTE));
 
         /* link may be NULL. This consumes 'in'. */
+
+        update_dhcp4 = link && tmp->family == AF_INET6 && tmp->dst_prefixlen == 0;
 
         (void) route_get(manager, link, tmp, &route);
 
@@ -1678,6 +1681,14 @@ static int process_route_one(
 
         default:
                 assert_not_reached();
+        }
+
+        if (update_dhcp4) {
+                r = dhcp4_update_ipv6_connectivity(link);
+                if (r < 0) {
+                        log_link_warning_errno(link, r, "Failed to notify IPv6 connectivity to DHCPv4 client: %m");
+                        link_enter_failed(link);
+                }
         }
 
         return 1;
