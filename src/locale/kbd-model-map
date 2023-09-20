@@ -52,7 +52,7 @@ es			es	pc105		-		terminate:ctrl_alt_bksp
 ro-cedilla		ro	pc105		cedilla		terminate:ctrl_alt_bksp
 ie			ie	pc105		-		terminate:ctrl_alt_bksp
 et			ee	pc105		-		terminate:ctrl_alt_bksp
-sk-qwerty		sk	pc105		-		terminate:ctrl_alt_bksp,qwerty
+sk-qwerty		sk	pc105		qwerty		terminate:ctrl_alt_bksp
 sk-qwertz		sk	pc105		-		terminate:ctrl_alt_bksp
 fr-latin9		fr	pc105		latin9		terminate:ctrl_alt_bksp
 fr_CH-latin1		ch	pc105		fr		terminate:ctrl_alt_bksp
