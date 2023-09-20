@@ -1640,6 +1640,20 @@ static int client_handle_offer(sd_dhcp_client *client, DHCPMessage *message, siz
         return 0;
 }
 
+static int client_enter_requesting(sd_dhcp_client *client) {
+        assert(client);
+
+        client_set_state(client, DHCP_STATE_REQUESTING);
+        client->attempt = 0;
+
+        return event_reset_time_relative(client->event, &client->timeout_resend,
+                                         CLOCK_BOOTTIME,
+                                         0, 0,
+                                         client_timeout_resend, client,
+                                         client->event_priority, "dhcp4-resend-timer",
+                                         /* force_reset = */ true);
+}
+
 static int client_handle_forcerenew(sd_dhcp_client *client, DHCPMessage *force, size_t len) {
         int r;
 
@@ -1861,14 +1875,7 @@ static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message, i
                 if (r < 0)
                         return 0; /* invalid message, let's ignore it */
 
-                client_set_state(client, DHCP_STATE_REQUESTING);
-                client->attempt = 0;
-
-                r = event_reset_time(client->event, &client->timeout_resend,
-                                     CLOCK_BOOTTIME,
-                                     0, 0,
-                                     client_timeout_resend, client,
-                                     client->event_priority, "dhcp4-resend-timer", true);
+                r = client_enter_requesting(client);
                 break;
 
         case DHCP_STATE_REBOOTING:
