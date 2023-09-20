@@ -1828,6 +1828,113 @@ int varlink_callb(
         return varlink_call(v, method, parameters, ret_parameters, ret_error_id, ret_flags);
 }
 
+static int collect_callback(
+                Varlink *v,
+                JsonVariant *parameters,
+                const char *error_id,
+                VarlinkReplyFlags flags,
+                void *userdata) {
+
+        int r;
+
+        assert(v);
+        assert(userdata);
+
+        if (error_id)
+                return 0;
+
+        r = json_variant_append_array(userdata, parameters);
+        if (r < 0)
+                return varlink_log_errno(v, r, "Failed to append JSON object to array: %m");
+
+        return 1;
+}
+
+int varlink_collect(
+                Varlink *v,
+                const char *method,
+                JsonVariant *parameters,
+                JsonVariant **ret) {
+
+        _cleanup_(json_variant_unrefp) JsonVariant *array = NULL;
+        int r;
+
+        assert_return(v, -EINVAL);
+        assert_return(method, -EINVAL);
+        assert_return(ret, -EINVAL);
+
+        if (v->state == VARLINK_DISCONNECTED)
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(ENOTCONN), "Not connected.");
+        if (v->state != VARLINK_IDLE_CLIENT)
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(EBUSY), "Connection busy.");
+
+        assert(v->n_pending == 0); /* n_pending can't be > 0 if we are in VARLINK_IDLE_CLIENT state */
+
+        /* If there was still a reply pinned from a previous call, now it's the time to get rid of it, so
+         * that we can assign a new reply shortly. */
+        varlink_clear_current(v);
+
+        r = varlink_bind_reply(v, collect_callback);
+        if (r < 0)
+                return varlink_log_errno(v, r, "Failed to bind collect callback");
+
+        varlink_set_userdata(v, &array);
+        r = varlink_observe(v, method, parameters);
+        if (r < 0)
+                return varlink_log_errno(v, r, "Failed to collect varlink method: %m");
+
+        while (v->state == VARLINK_AWAITING_REPLY_MORE) {
+
+                r = varlink_process(v);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        continue;
+
+                r = varlink_wait(v, USEC_INFINITY);
+                if (r < 0)
+                        return r;
+        }
+
+        switch (v->state) {
+
+        case VARLINK_IDLE_CLIENT:
+                *ret = TAKE_PTR(array);
+                return 1;
+
+        case VARLINK_PENDING_DISCONNECT:
+        case VARLINK_DISCONNECTED:
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(ECONNRESET), "Connection was closed.");
+
+        case VARLINK_PENDING_TIMEOUT:
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(ETIME), "Connection timed out.");
+
+        default:
+                assert_not_reached();
+        }
+}
+
+int varlink_collectb(
+                Varlink *v,
+                const char *method,
+                JsonVariant **ret_parameters, ...) {
+
+        _cleanup_(json_variant_unrefp) JsonVariant *parameters = NULL;
+        va_list ap;
+        int r;
+
+        assert_return(v, -EINVAL);
+
+        va_start(ap, ret_parameters);
+        r = json_buildv(&parameters, ap);
+        va_end(ap);
+
+        if (r < 0)
+                return varlink_log_errno(v, r, "Failed to build json message: %m");
+
+        return varlink_collect(v, method, parameters, ret_parameters);
+}
+
 int varlink_reply(Varlink *v, JsonVariant *parameters) {
         _cleanup_(json_variant_unrefp) JsonVariant *m = NULL;
         int r;
