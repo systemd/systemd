@@ -97,7 +97,6 @@ static int bus_path_set_transient_property(
 
                         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                                 _cleanup_free_ char *k = NULL;
-                                PathSpec *s;
 
                                 k = strdup(path);
                                 if (!k)
@@ -105,14 +104,16 @@ static int bus_path_set_transient_property(
 
                                 path_simplify(k);
 
-                                s = new0(PathSpec, 1);
+                                PathSpec *s = new(PathSpec, 1);
                                 if (!s)
                                         return -ENOMEM;
 
-                                s->unit = u;
-                                s->path = TAKE_PTR(k);
-                                s->type = t;
-                                s->inotify_fd = -EBADF;
+                                *s = (PathSpec) {
+                                        .unit = u,
+                                        .path = TAKE_PTR(k),
+                                        .type = t,
+                                        .inotify_fd = -EBADF,
+                                };
 
                                 LIST_PREPEND(spec, p->specs, s);
 
