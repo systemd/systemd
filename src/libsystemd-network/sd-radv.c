@@ -1132,7 +1132,8 @@ int sd_radv_pref64_prefix_set_prefix(
 
         r = pref64_prefix_length_to_plc(prefixlen, &prefixlen_code);
         if (r < 0)
-                return log_radv_errno(NULL, r,  "Unsupported PREF64 prefix length %u. Valid lengths are 32, 40, 48, 56, 64 and 96", prefixlen);
+                return log_radv_errno(NULL, r,
+                                      "Unsupported PREF64 prefix length %u. Valid lengths are 32, 40, 48, 56, 64 and 96", prefixlen);
 
         if (lifetime_usec == USEC_INFINITY || DIV_ROUND_UP(lifetime_usec, 8 * USEC_PER_SEC) >= UINT64_C(1) << 13)
                 return -EINVAL;

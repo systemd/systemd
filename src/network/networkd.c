@@ -87,7 +87,7 @@ static int run(int argc, char *argv[]) {
 
         r = manager_setup(m);
         if (r < 0)
-                return log_error_errno(r, "Could not setup manager: %m");
+                return log_error_errno(r, "Could not set up manager: %m");
 
         r = manager_parse_config_file(m);
         if (r < 0)
