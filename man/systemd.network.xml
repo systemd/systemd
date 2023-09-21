@@ -2548,6 +2548,18 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>IPv6OnlyMode=</varname></term>
+        <listitem>
+          <para>When true, the DHCPv4 configuration will be delayed by the timespan provided by the DHCP
+          server and skip to configure dynamic IPv4 network connectivity if IPv6 connectivity is provided
+          within the timespan. See <ulink url="https://tools.ietf.org/html/rfc8925">RFC 8925</ulink>.
+          Defaults to false.</para>
+
+          <xi:include href="version-info.xml" xpointer="v255"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>FallbackLeaseLifetimeSec=</varname></term>
         <listitem>
           <para>Allows one to set DHCPv4 lease lifetime when DHCPv4 server does not send the lease
@@ -3576,6 +3588,18 @@ ServerAddress=192.168.0.1/24</programlisting>
 
           <xi:include href="version-info.xml" xpointer="v251"/>
         </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>IPv6OnlyPreferredSec=</varname></term>
+
+        <listitem><para>Takes a timespan. Controls the
+        <ulink url="https://tools.ietf.org/html/rfc8925">RFC 8925</ulink> IPv6-Only Preferred option.
+        Specifies the DHCPv4 option to indicate that a host supports an IPv6-only mode and is willing to
+        forgo obtaining an IPv4 address if the network provides IPv6 connectivity. Defaults to unset, and not
+        send the option. The minimum allowed value is 300 seconds.</para></listitem>
+
+        <xi:include href="version-info.xml" xpointer="v255"/>
       </varlistentry>
 
       <varlistentry>

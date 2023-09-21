@@ -1793,6 +1793,14 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
                 if (req)
                         address_enter_removed(req->userdata);
 
+                if (address->family == AF_INET6) {
+                        r = dhcp4_update_ipv6_connectivity(link);
+                        if (r < 0) {
+                                log_link_warning_errno(link, r, "Failed to notify IPv6 connectivity to DHCPv4 client: %m");
+                                link_enter_failed(link);
+                        }
+                }
+
                 return 0;
         }
 
@@ -1878,6 +1886,14 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
         r = address_update(address);
         if (r < 0)
                 link_enter_failed(link);
+
+        if (address->family == AF_INET6) {
+                r = dhcp4_update_ipv6_connectivity(link);
+                if (r < 0) {
+                        log_link_warning_errno(link, r, "Failed to notify IPv6 connectivity to DHCPv4 client: %m");
+                        link_enter_failed(link);
+                }
+        }
 
         return 1;
 }

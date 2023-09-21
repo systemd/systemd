@@ -884,6 +884,14 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void
                         log_debug_errno(r, "Failed to parse 6rd option, ignoring: %m");
                 break;
 
+        case SD_DHCP_OPTION_IPV6_ONLY_PREFERRED:
+                r = lease_parse_be32_seconds(option, len, /* max_as_infinity = */ false, &lease->ipv6_only_preferred_usec);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to parse IPv6 only preferred option, ignoring: %m");
+                else if (lease->ipv6_only_preferred_usec < MIN_V6ONLY_WAIT_USEC)
+                        lease->ipv6_only_preferred_usec = MIN_V6ONLY_WAIT_USEC;
+                break;
+
         case SD_DHCP_OPTION_PRIVATE_BASE ... SD_DHCP_OPTION_PRIVATE_LAST:
                 r = dhcp_lease_insert_private_option(lease, code, option, len);
                 if (r < 0)
@@ -1489,6 +1497,9 @@ int dhcp_lease_set_default_subnet_mask(sd_dhcp_lease *lease) {
         int r;
 
         assert(lease);
+
+        if (lease->have_subnet_mask)
+                return 0;
 
         if (lease->address == 0)
                 return -ENODATA;
