@@ -3,9 +3,13 @@
 executables += [
         libexec_template + {
                 'name' : 'systemd-sleep',
-                'sources' : files('sleep.c'),
+                'sources' : files('sleep.c', 'battery.c'),
         },
 ]
+
+simple_tests += files(
+        'test-sleep-battery.c'
+)
 
 if install_sysconfdir_samples
         install_data('sleep.conf',
