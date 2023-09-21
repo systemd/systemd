@@ -753,13 +753,12 @@ static int boot_entry_load_unified(
 static int find_sections(
                 int fd,
                 const char *path,
-                char **ret_osrelease,
-                char **ret_cmdline) {
+                IMAGE_SECTION_HEADER **ret_sections,
+                PeHeader **ret_pe_header) {
 
-        _cleanup_free_ IMAGE_SECTION_HEADER *sections = NULL;
         _cleanup_free_ IMAGE_DOS_HEADER *dos_header = NULL;
-        _cleanup_free_ char *osrel = NULL, *cmdline = NULL;
-        _cleanup_free_ PeHeader *pe_header = NULL;
+        IMAGE_SECTION_HEADER *sections;
+        PeHeader *pe_header;
         int r;
 
         assert(fd >= 0);
@@ -773,21 +772,81 @@ static int find_sections(
         if (r < 0)
                 return log_warning_errno(r, "Failed to parse PE sections of '%s': %m", path);
 
-        if (!pe_is_uki(pe_header, sections))
-                return log_warning_errno(SYNTHETIC_ERRNO(EBADMSG), "Parsed PE file '%s' is not a UKI.", path);
+        if (ret_pe_header)
+                *ret_pe_header = TAKE_PTR(pe_header);
+        if (ret_sections)
+                *ret_sections = TAKE_PTR(sections);
 
-        r = pe_read_section_data(fd, pe_header, sections, ".osrel", PE_SECTION_SIZE_MAX, (void**) &osrel, NULL);
+        return 0;
+}
+
+static int find_cmdline_section(
+                int fd,
+                const char *path,
+                IMAGE_SECTION_HEADER *sections,
+                PeHeader *pe_header,
+                char **ret_cmdline) {
+
+        int r;
+        char *cmdline = NULL;
+
+        if (!ret_cmdline)
+                return 0;
+
+        r = pe_read_section_data(fd, pe_header, sections, ".cmdline", PE_SECTION_SIZE_MAX, (void**) &cmdline, NULL);
+        if (r == -ENXIO) /* cmdline is optional */
+                *ret_cmdline = NULL;
+        else if (r < 0)
+                return log_warning_errno(r, "Failed to read .cmdline section of '%s': %m", path);
+        else if (ret_cmdline)
+                *ret_cmdline = TAKE_PTR(cmdline);
+
+        return 0;
+}
+
+static int find_osrel_section(
+                int fd,
+                const char *path,
+                IMAGE_SECTION_HEADER *sections,
+                PeHeader *pe_header,
+                char **ret_osrelease) {
+
+        int r;
+
+        if (!ret_osrelease)
+                return 0;
+
+        r = pe_read_section_data(fd, pe_header, sections, ".osrel", PE_SECTION_SIZE_MAX, (void**) ret_osrelease, NULL);
         if (r < 0)
                 return log_warning_errno(r, "Failed to read .osrel section of '%s': %m", path);
 
-        r = pe_read_section_data(fd, pe_header, sections, ".cmdline", PE_SECTION_SIZE_MAX, (void**) &cmdline, NULL);
-        if (r < 0 && r != -ENXIO) /* cmdline is optional */
-                return log_warning_errno(r, "Failed to read .cmdline section of '%s': %m", path);
+        return 0;
+}
 
-        if (ret_osrelease)
-                *ret_osrelease = TAKE_PTR(osrel);
-        if (ret_cmdline)
-                *ret_cmdline = TAKE_PTR(cmdline);
+static int find_uki_sections(
+                int fd,
+                const char *path,
+                char **ret_osrelease,
+                char **ret_cmdline) {
+
+        _cleanup_free_ IMAGE_SECTION_HEADER *sections = NULL;
+        _cleanup_free_ PeHeader *pe_header = NULL;
+        int r;
+
+        r = find_sections(fd, path, &sections, &pe_header);
+        if (r < 0)
+                return r;
+
+        if (!pe_is_uki(pe_header, sections))
+                return log_warning_errno(SYNTHETIC_ERRNO(EBADMSG), "Parsed PE file '%s' is not a UKI.", path);
+
+        r = find_osrel_section(fd, path, sections, pe_header, ret_osrelease);
+        if (r < 0)
+                return r;
+
+        r = find_cmdline_section(fd, path, sections, pe_header, ret_cmdline);
+        if (r < 0)
+                return r;
 
         return 0;
 }
@@ -839,7 +898,7 @@ static int boot_entries_find_unified(
                 if (!j)
                         return log_oom();
 
-                if (find_sections(fd, j, &osrelease, &cmdline) < 0)
+                if (find_uki_sections(fd, j, &osrelease, &cmdline) < 0)
                         continue;
 
                 r = boot_entry_load_unified(root, j, osrelease, cmdline, config->entries + config->n_entries);
