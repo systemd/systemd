@@ -100,6 +100,17 @@ TEST(open_serialization_fd) {
         assert_se(write(fd, "test\n", 5) == 5);
 }
 
+TEST(open_serialization_file) {
+        _cleanup_fclose_ FILE *f = NULL;
+        int r;
+
+        r = open_serialization_file("test", &f);
+        assert_se(r >= 0);
+        assert_se(f);
+
+        assert_se(fwrite("test\n", 1, 5, f) == 5);
+}
+
 TEST(fd_move_above_stdio) {
         int original_stdin, new_fd;
 
