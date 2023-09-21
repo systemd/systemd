@@ -331,15 +331,14 @@ static int stack_directory_get_name(const char *slink, char **ret) {
         _cleanup_free_ char *s = NULL, *dirname = NULL;
         char name_enc[NAME_MAX+1];
         const char *name;
+        int r;
 
         assert(slink);
         assert(ret);
 
-        s = strdup(slink);
-        if (!s)
-                return -ENOMEM;
-
-        path_simplify(s);
+        r = path_simplify_alloc(slink, &s);
+        if (r < 0)
+                return r;
 
         if (!path_is_normalized(s))
                 return -EINVAL;

@@ -83,30 +83,26 @@ STATIC_DESTRUCTOR_REGISTER(arg_property, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_automount_property, strv_freep);
 
 static int parse_where(const char *input, char **ret_where) {
-        _cleanup_free_ char *where = NULL;
         int r;
 
         assert(input);
         assert(ret_where);
 
         if (arg_transport == BUS_TRANSPORT_LOCAL) {
-                r = chase(input, NULL, CHASE_NONEXISTENT, &where, NULL);
+                r = chase(input, NULL, CHASE_NONEXISTENT, ret_where, NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to make path %s absolute: %m", input);
         } else {
-                where = strdup(input);
-                if (!where)
-                        return log_oom();
-
-                path_simplify(where);
-
-                if (!path_is_absolute(where))
+                if (!path_is_absolute(input))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Path must be absolute when operating remotely: %s",
-                                               where);
+                                               input);
+
+                r = path_simplify_alloc(input, ret_where);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to simplify path %s: %m", input);
         }
 
-        *ret_where = TAKE_PTR(where);
         return 0;
 }
 
@@ -441,17 +437,16 @@ static int parse_argv(int argc, char *argv[]) {
                                 r = chase(u, NULL, 0, &arg_mount_what, NULL);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to make path %s absolute: %m", u);
+
                         } else {
-                                arg_mount_what = strdup(argv[optind]);
-                                if (!arg_mount_what)
-                                        return log_oom();
-
-                                path_simplify(arg_mount_what);
-
-                                if (!path_is_absolute(arg_mount_what))
+                                if (!path_is_absolute(argv[optind]))
                                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                                "Path must be absolute when operating remotely: %s",
-                                                               arg_mount_what);
+                                                               argv[optind]);
+
+                                r = path_simplify_alloc(argv[optind], &arg_mount_what);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to simplify path: %m");
                         }
                 }
 
@@ -1054,11 +1049,9 @@ static int action_umount(
                 for (int i = optind; i < argc; i++) {
                         _cleanup_free_ char *p = NULL;
 
-                        p = strdup(argv[i]);
-                        if (!p)
-                                return log_oom();
-
-                        path_simplify(p);
+                        r = path_simplify_alloc(argv[i], &p);
+                        if (r < 0)
+                                return r;
 
                         r = stop_mounts(bus, p);
                         if (r < 0)

@@ -285,6 +285,7 @@ InstallChangeType install_changes_add(
 
         _cleanup_free_ char *p = NULL, *s = NULL;
         InstallChange *c;
+        int r;
 
         assert(!changes == !n_changes);
         assert(INSTALL_CHANGE_TYPE_VALID(type));
@@ -303,21 +304,13 @@ InstallChangeType install_changes_add(
                 return -ENOMEM;
         *changes = c;
 
-        if (path) {
-                p = strdup(path);
-                if (!p)
-                        return -ENOMEM;
+        r = path_simplify_alloc(path, &p);
+        if (r < 0)
+                return r;
 
-                path_simplify(p);
-        }
-
-        if (source) {
-                s = strdup(source);
-                if (!s)
-                        return -ENOMEM;
-
-                path_simplify(s);
-        }
+        r = path_simplify_alloc(source, &s);
+        if (r < 0)
+                return r;
 
         c[(*n_changes)++] = (InstallChange) {
                 .type = type,

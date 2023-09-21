@@ -85,6 +85,22 @@ static inline char* path_simplify(char *path) {
         return path_simplify_full(path, 0);
 }
 
+static inline int path_simplify_alloc(const char *path, char **ret) {
+        assert(ret);
+
+        if (!path) {
+                *ret = NULL;
+                return 0;
+        }
+
+        char *t = strdup(path);
+        if (!t)
+                return -ENOMEM;
+
+        *ret = path_simplify(t);
+        return 0;
+}
+
 static inline bool path_equal_ptr(const char *a, const char *b) {
         return !!a == !!b && (!a || path_equal(a, b));
 }

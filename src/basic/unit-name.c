@@ -389,15 +389,14 @@ int unit_name_unescape(const char *f, char **ret) {
 int unit_name_path_escape(const char *f, char **ret) {
         _cleanup_free_ char *p = NULL;
         char *s;
+        int r;
 
         assert(f);
         assert(ret);
 
-        p = strdup(f);
-        if (!p)
-                return -ENOMEM;
-
-        path_simplify(p);
+        r = path_simplify_alloc(f, &p);
+        if (r < 0)
+                return r;
 
         if (empty_or_root(p))
                 s = strdup("-");

@@ -838,6 +838,7 @@ static int portable_changes_add(
 
         _cleanup_free_ char *p = NULL, *s = NULL;
         PortableChange *c;
+        int r;
 
         assert(path);
         assert(!changes == !n_changes);
@@ -855,19 +856,13 @@ static int portable_changes_add(
                 return -ENOMEM;
         *changes = c;
 
-        p = strdup(path);
-        if (!p)
-                return -ENOMEM;
+        r = path_simplify_alloc(path, &p);
+        if (r < 0)
+                return r;
 
-        path_simplify(p);
-
-        if (source) {
-                s = strdup(source);
-                if (!s)
-                        return -ENOMEM;
-
-                path_simplify(s);
-        }
+        r = path_simplify_alloc(source, &s);
+        if (r < 0)
+                return r;
 
         c[(*n_changes)++] = (PortableChange) {
                 .type_or_errno = type_or_errno,
