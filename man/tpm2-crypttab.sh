@@ -12,7 +12,7 @@ sudo /usr/lib/systemd/systemd-cryptsetup attach mytest /dev/sdXn - tpm2-device=a
 sudo bash -c 'echo "mytest /dev/sdXn - tpm2-device=auto" >>/etc/crypttab'
 
 # Depending on your distribution you may need to manually regenerate your initramfs 
-# to be able to use a FIDO2-Device to unlock the partition at boot. (https://unix.stackexchange.com/a/705809)
+# to be able to use a TPM2 security chip to unlock the partition at boot. (https://unix.stackexchange.com/a/705809)
 # On Fedora based systems:
 sudo dracut --regenerate-all --force
 # On Debian based systems:
