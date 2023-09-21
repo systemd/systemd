@@ -35,14 +35,14 @@ sd_ndisc_router *ndisc_router_new(size_t raw_size) {
         return rt;
 }
 
-int sd_ndisc_router_get_address(sd_ndisc_router *rt, struct in6_addr *ret_addr) {
+int sd_ndisc_router_get_address(sd_ndisc_router *rt, struct in6_addr *ret) {
         assert_return(rt, -EINVAL);
-        assert_return(ret_addr, -EINVAL);
+        assert_return(ret, -EINVAL);
 
         if (in6_addr_is_null(&rt->address))
                 return -ENODATA;
 
-        *ret_addr = rt->address;
+        *ret = rt->address;
         return 0;
 }
 
@@ -59,13 +59,13 @@ int sd_ndisc_router_get_timestamp(sd_ndisc_router *rt, clockid_t clock, uint64_t
         return 0;
 }
 
-int sd_ndisc_router_get_raw(sd_ndisc_router *rt, const void **ret, size_t *size) {
+int sd_ndisc_router_get_raw(sd_ndisc_router *rt, const void **ret, size_t *ret_size) {
         assert_return(rt, -EINVAL);
         assert_return(ret, -EINVAL);
-        assert_return(size, -EINVAL);
+        assert_return(ret_size, -EINVAL);
 
         *ret = NDISC_ROUTER_RAW(rt);
-        *size = rt->raw_size;
+        *ret_size = rt->raw_size;
 
         return 0;
 }
@@ -251,19 +251,19 @@ int sd_ndisc_router_get_icmp6_ratelimit(sd_ndisc_router *rt, uint32_t *ret) {
         return 0;
 }
 
-int sd_ndisc_router_get_flags(sd_ndisc_router *rt, uint64_t *ret_flags) {
+int sd_ndisc_router_get_flags(sd_ndisc_router *rt, uint64_t *ret) {
         assert_return(rt, -EINVAL);
-        assert_return(ret_flags, -EINVAL);
+        assert_return(ret, -EINVAL);
 
-        *ret_flags = rt->flags;
+        *ret = rt->flags;
         return 0;
 }
 
-int sd_ndisc_router_get_lifetime(sd_ndisc_router *rt, uint16_t *ret_lifetime) {
+int sd_ndisc_router_get_lifetime(sd_ndisc_router *rt, uint16_t *ret) {
         assert_return(rt, -EINVAL);
-        assert_return(ret_lifetime, -EINVAL);
+        assert_return(ret, -EINVAL);
 
-        *ret_lifetime = rt->lifetime;
+        *ret = rt->lifetime;
         return 0;
 }
 
@@ -341,12 +341,12 @@ int sd_ndisc_router_option_is_type(sd_ndisc_router *rt, uint8_t type) {
         return type == k;
 }
 
-int sd_ndisc_router_option_get_raw(sd_ndisc_router *rt, const void **ret, size_t *size) {
+int sd_ndisc_router_option_get_raw(sd_ndisc_router *rt, const void **ret, size_t *ret_size) {
         size_t length;
 
         assert_return(rt, -EINVAL);
         assert_return(ret, -EINVAL);
-        assert_return(size, -EINVAL);
+        assert_return(ret_size, -EINVAL);
 
         /* Note that this returns the full option, including the option header */
 
@@ -358,7 +358,7 @@ int sd_ndisc_router_option_get_raw(sd_ndisc_router *rt, const void **ret, size_t
                 return -EBADMSG;
 
         *ret = (uint8_t*) NDISC_ROUTER_RAW(rt) + rt->rindex;
-        *size = length;
+        *ret_size = length;
 
         return 0;
 }
@@ -442,18 +442,18 @@ int sd_ndisc_router_prefix_get_flags(sd_ndisc_router *rt, uint8_t *ret) {
         return 0;
 }
 
-int sd_ndisc_router_prefix_get_address(sd_ndisc_router *rt, struct in6_addr *ret_addr) {
+int sd_ndisc_router_prefix_get_address(sd_ndisc_router *rt, struct in6_addr *ret) {
         struct nd_opt_prefix_info *pi;
         int r;
 
         assert_return(rt, -EINVAL);
-        assert_return(ret_addr, -EINVAL);
+        assert_return(ret, -EINVAL);
 
         r = get_prefix_info(rt, &pi);
         if (r < 0)
                 return r;
 
-        *ret_addr = pi->nd_opt_pi_prefix;
+        *ret = pi->nd_opt_pi_prefix;
         return 0;
 }
 
@@ -517,19 +517,19 @@ int sd_ndisc_router_route_get_lifetime(sd_ndisc_router *rt, uint32_t *ret) {
         return 0;
 }
 
-int sd_ndisc_router_route_get_address(sd_ndisc_router *rt, struct in6_addr *ret_addr) {
+int sd_ndisc_router_route_get_address(sd_ndisc_router *rt, struct in6_addr *ret) {
         uint8_t *ri;
         int r;
 
         assert_return(rt, -EINVAL);
-        assert_return(ret_addr, -EINVAL);
+        assert_return(ret, -EINVAL);
 
         r = get_route_info(rt, &ri);
         if (r < 0)
                 return r;
 
-        zero(*ret_addr);
-        memcpy(ret_addr, ri + 8, NDISC_ROUTER_OPTION_LENGTH(rt) - 8);
+        zero(*ret);
+        memcpy(ret, ri + 8, NDISC_ROUTER_OPTION_LENGTH(rt) - 8);
 
         return 0;
 }
@@ -731,28 +731,29 @@ int sd_ndisc_router_dnssl_get_domains(sd_ndisc_router *rt, char ***ret) {
         return k;
 }
 
-int sd_ndisc_router_dnssl_get_lifetime(sd_ndisc_router *rt, uint32_t *ret_sec) {
+int sd_ndisc_router_dnssl_get_lifetime(sd_ndisc_router *rt, uint32_t *ret) {
         uint8_t *ri;
         int r;
 
         assert_return(rt, -EINVAL);
-        assert_return(ret_sec, -EINVAL);
+        assert_return(ret, -EINVAL);
 
         r = get_dnssl_info(rt, &ri);
         if (r < 0)
                 return r;
 
-        *ret_sec = be32toh(*(uint32_t*) (ri + 4));
+        *ret = be32toh(*(uint32_t*) (ri + 4));
         return 0;
 }
 
-int sd_ndisc_router_captive_portal_get_uri(sd_ndisc_router *rt, const char **ret_uri, size_t *ret_size) {
+int sd_ndisc_router_captive_portal_get_uri(sd_ndisc_router *rt, const char **ret, size_t *ret_size) {
         int r;
         const char *nd_opt_captive_portal;
         size_t length;
 
         assert_return(rt, -EINVAL);
-        assert_return(ret_uri, -EINVAL);
+        assert_return(ret, -EINVAL);
+        assert_return(ret_size, -EINVAL);
 
         r = sd_ndisc_router_option_is_type(rt, SD_NDISC_OPTION_CAPTIVE_PORTAL);
         if (r < 0)
@@ -777,12 +778,12 @@ int sd_ndisc_router_captive_portal_get_uri(sd_ndisc_router *rt, const char **ret
 
         /* Let's not return an empty buffer */
         if (size == 0) {
-                *ret_uri = NULL;
+                *ret = NULL;
                 *ret_size = 0;
                 return 0;
         }
 
-        *ret_uri = nd_opt_captive_portal + 2;
+        *ret = nd_opt_captive_portal + 2;
         *ret_size = size;
 
         return 0;
@@ -814,14 +815,14 @@ static int get_pref64_prefix_info(sd_ndisc_router *rt, struct nd_opt_prefix64_in
         return 0;
 }
 
-int sd_ndisc_router_prefix64_get_prefix(sd_ndisc_router *rt, struct in6_addr *ret_addr) {
+int sd_ndisc_router_prefix64_get_prefix(sd_ndisc_router *rt, struct in6_addr *ret) {
         struct nd_opt_prefix64_info *pi;
         struct in6_addr a = {};
         unsigned prefixlen;
         int r;
 
         assert_return(rt, -EINVAL);
-        assert_return(ret_addr, -EINVAL);
+        assert_return(ret, -EINVAL);
 
         r = get_pref64_prefix_info(rt, &pi);
         if (r < 0)
@@ -837,7 +838,7 @@ int sd_ndisc_router_prefix64_get_prefix(sd_ndisc_router *rt, struct in6_addr *re
         if (memcmp(&a, pi->prefix, sizeof(pi->prefix)) != 0)
                 return -EBADMSG;
 
-        *ret_addr = a;
+        *ret = a;
         return 0;
 }
 
