@@ -210,6 +210,14 @@ sensor:modalias:acpi:KIOX010A:*:dmi:*:svnAMI:*:skuH2M6:*
  ACCEL_LOCATION=display
 
 #########################################
+# BUSH
+#########################################
+
+# Bush Windows tablet
+sensor:modalias:acpi:KIOX000A*:dmi:*:svnBUSH*:pnBushWindowstablet:*
+ ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 1, 0, 0
+
+#########################################
 # Chuwi
 #########################################
 
