@@ -90,7 +90,11 @@ int fetch_batteries_capacity_by_name(Hashmap **ret) {
         return 0;
 }
 
-static int siphash24_compress_device_sysattr(sd_device *dev, const char *attr, struct siphash *state) {
+static int siphash24_compress_device_sysattr(
+                sd_device *dev,
+                const char *attr,
+                struct siphash *state) {
+
         const char *x;
         int r;
 
@@ -108,11 +112,16 @@ static int siphash24_compress_device_sysattr(sd_device *dev, const char *attr, s
         return 0;
 }
 
-static int siphash24_compress_id128(int (*getter)(sd_id128_t*), const char *name, struct siphash *state) {
+static int siphash24_compress_id128(
+                int (*getter)(sd_id128_t *ret),
+                const char *name,
+                struct siphash *state) {
+
         sd_id128_t id;
         int r;
 
         assert(getter);
+        assert(name);
         assert(state);
 
         r = getter(&id);
@@ -124,10 +133,9 @@ static int siphash24_compress_id128(int (*getter)(sd_id128_t*), const char *name
 }
 
 /* Read system and battery identifier from specific location and generate hash of it */
-static int get_system_battery_identifier_hash(sd_device *dev, uint64_t *ret) {
+static uint64_t system_battery_identifier_hash(sd_device *dev) {
         struct siphash state;
 
-        assert(ret);
         assert(dev);
 
         siphash24_init(&state, BATTERY_DISCHARGE_RATE_HASH_KEY.bytes);
@@ -138,8 +146,7 @@ static int get_system_battery_identifier_hash(sd_device *dev, uint64_t *ret) {
         (void) siphash24_compress_id128(sd_id128_get_machine, "machine", &state);
         (void) siphash24_compress_id128(id128_get_product, "product", &state);
 
-        *ret = siphash24_finalize(&state);
-        return 0;
+        return siphash24_finalize(&state);
 }
 
 /* Return success if battery percentage discharge rate per hour is in the range 1–199 */
@@ -162,9 +169,7 @@ static int get_battery_discharge_rate(sd_device *dev, int *ret) {
         if (!f)
                 return log_debug_errno(errno, "Failed to read discharge rate from " DISCHARGE_RATE_FILEPATH ": %m");
 
-        r = get_system_battery_identifier_hash(dev, &current_hash_id);
-        if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to generate system battery identifier hash: %m");
+        current_hash_id = system_battery_identifier_hash(dev);
 
         for (;;) {
                 _cleanup_free_ char *stored_hash_id = NULL, *stored_discharge_rate = NULL, *line = NULL;
@@ -272,9 +277,7 @@ int estimate_battery_discharge_rate_per_hour(
                         continue;
                 }
 
-                r = get_system_battery_identifier_hash(dev, &system_hash_id);
-                if (r < 0)
-                        return log_device_debug_errno(dev, r, "Failed to generate system battery identifier hash: %m");
+                system_hash_id = system_battery_identifier_hash(dev);
 
                 log_device_debug(dev,
                                  "%d%% was discharged in %s. Estimating discharge rate...",
