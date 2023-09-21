@@ -73,6 +73,8 @@ typedef struct BootConfig {
         BootEntry *entries;
         size_t n_entries;
 
+        LIST_HEAD(BootEntryAddon, global_addon_list);
+
         ssize_t default_entry;
         ssize_t selected_entry;
 
@@ -126,6 +128,7 @@ static inline const char* boot_entry_title(const BootEntry *entry) {
 
 int show_boot_entry(
                 const BootEntry *e,
+                BootEntryAddon *global_addons,
                 bool show_as_default,
                 bool show_as_selected,
                 bool show_reported);
