@@ -6,6 +6,7 @@
 
 #include "sd-dhcp-server.h"
 
+#include "dhcp-protocol.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "networkd-address.h"
@@ -402,6 +403,10 @@ static int dhcp4_server_configure(Link *link) {
                         return log_link_error_errno(link, r, "Failed to set default lease time for DHCPv4 server instance: %m");
         }
 
+        r = sd_dhcp_server_set_ipv6_only_preferred_usec(link->dhcp_server, link->network->dhcp_server_ipv6_only_preferred_usec);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Failed to set IPv6 only preferred time for DHCPv4 server instance: %m");
+
         r = sd_dhcp_server_set_boot_server_address(link->dhcp_server, &link->network->dhcp_server_boot_server_address);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to set boot server address for DHCPv4 server instance: %m");
@@ -724,5 +729,47 @@ int config_parse_dhcp_server_address(
 
         network->dhcp_server_address_in_addr = a.in;
         network->dhcp_server_address_prefixlen = prefixlen;
+        return 0;
+}
+
+int config_parse_dhcp_server_ipv6_only_preferred(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        usec_t t, *usec = ASSERT_PTR(data);
+        int r;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                *usec = 0;
+                return 0;
+        }
+
+        r = parse_sec(rvalue, &t);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse [%s] %s=, ignoring assignment: %s", section, lvalue, rvalue);
+                return 0;
+        }
+
+        if (t < MIN_V6ONLY_WAIT_USEC) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Invalid [%s] %s=, ignoring assignment: %s", section, lvalue, rvalue);
+                return 0;
+        }
+
+        *usec = t;
         return 0;
 }
