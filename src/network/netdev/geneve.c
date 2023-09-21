@@ -28,10 +28,9 @@ DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(geneve_df, GeneveDF, NETDEV_GENEVE_DF_YE
 DEFINE_CONFIG_PARSE_ENUM(config_parse_geneve_df, geneve_df, GeneveDF, "Failed to parse Geneve IPDoNotFragment= setting");
 
 static int netdev_geneve_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
-        assert(netdev);
         assert(m);
 
-        Geneve *v = ASSERT_PTR(GENEVE(netdev));
+        Geneve *v = GENEVE(netdev);
         int r;
 
         if (v->id <= GENEVE_VID_MAX) {
@@ -243,10 +242,9 @@ int config_parse_geneve_ttl(
 }
 
 static int netdev_geneve_verify(NetDev *netdev, const char *filename) {
-        assert(netdev);
         assert(filename);
 
-        Geneve *v = ASSERT_PTR(GENEVE(netdev));
+        Geneve *v = GENEVE(netdev);
 
         if (v->id > GENEVE_VID_MAX)
                 return log_netdev_warning_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
@@ -256,9 +254,7 @@ static int netdev_geneve_verify(NetDev *netdev, const char *filename) {
 }
 
 static void geneve_init(NetDev *netdev) {
-        assert(netdev);
-
-        Geneve *v = ASSERT_PTR(GENEVE(netdev));
+        Geneve *v = GENEVE(netdev);
 
         v->id = GENEVE_VID_MAX + 1;
         v->geneve_df = _NETDEV_GENEVE_DF_INVALID;

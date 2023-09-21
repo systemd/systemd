@@ -13,20 +13,13 @@
 DEFINE_CONFIG_PARSE_ENUM(config_parse_macvlan_mode, macvlan_mode, MacVlanMode, "Failed to parse macvlan mode");
 
 static int netdev_macvlan_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *req) {
-        MacVlan *m;
-        int r;
-
         assert(netdev);
-        assert(link);
         assert(netdev->ifname);
+        assert(link);
         assert(link->network);
 
-        if (netdev->kind == NETDEV_KIND_MACVLAN)
-                m = MACVLAN(netdev);
-        else
-                m = MACVTAP(netdev);
-
-        assert(m);
+        MacVlan *m = netdev->kind == NETDEV_KIND_MACVLAN ? MACVLAN(netdev) : MACVTAP(netdev);
+        int r;
 
         if (m->mode == NETDEV_MACVLAN_MODE_SOURCE && !set_isempty(m->match_source_mac)) {
                 const struct ether_addr *mac_addr;
@@ -103,32 +96,14 @@ int config_parse_macvlan_broadcast_queue_size(
                         &m->bc_queue_length);
 }
 
-static void macvlan_done(NetDev *n) {
-        MacVlan *m;
-
-        assert(n);
-
-        if (n->kind == NETDEV_KIND_MACVLAN)
-                m = MACVLAN(n);
-        else
-                m = MACVTAP(n);
-
-        assert(m);
+static void macvlan_done(NetDev *netdev) {
+        MacVlan *m = ASSERT_PTR(netdev)->kind == NETDEV_KIND_MACVLAN ? MACVLAN(netdev) : MACVTAP(netdev);
 
         set_free(m->match_source_mac);
 }
 
-static void macvlan_init(NetDev *n) {
-        MacVlan *m;
-
-        assert(n);
-
-        if (n->kind == NETDEV_KIND_MACVLAN)
-                m = MACVLAN(n);
-        else
-                m = MACVTAP(n);
-
-        assert(m);
+static void macvlan_init(NetDev *netdev) {
+        MacVlan *m = ASSERT_PTR(netdev)->kind == NETDEV_KIND_MACVLAN ? MACVLAN(netdev) : MACVTAP(netdev);
 
         m->mode = _NETDEV_MACVLAN_MODE_INVALID;
         m->bc_queue_length = UINT32_MAX;

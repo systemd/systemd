@@ -24,9 +24,7 @@ DEFINE_CONFIG_PARSE_ENUM(config_parse_fou_encap_type, fou_encap_type, FooOverUDP
                          "Failed to parse Encapsulation=");
 
 static int netdev_fill_fou_tunnel_message(NetDev *netdev, sd_netlink_message *m) {
-        assert(netdev);
-
-        FouTunnel *t = ASSERT_PTR(FOU(netdev));
+        FouTunnel *t = FOU(netdev);
         uint8_t encap_type;
         int r;
 
@@ -128,7 +126,6 @@ static int netdev_fou_tunnel_create(NetDev *netdev) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
-        assert(netdev);
         assert(FOU(netdev));
 
         r = netdev_create_fou_tunnel_message(netdev, &m);
@@ -220,10 +217,9 @@ int config_parse_fou_tunnel_address(
 }
 
 static int netdev_fou_tunnel_verify(NetDev *netdev, const char *filename) {
-        assert(netdev);
         assert(filename);
 
-        FouTunnel *t = ASSERT_PTR(FOU(netdev));
+        FouTunnel *t = FOU(netdev);
 
         switch (t->fou_encap_type) {
         case NETDEV_FOO_OVER_UDP_ENCAP_DIRECT:
@@ -254,13 +250,7 @@ static int netdev_fou_tunnel_verify(NetDev *netdev, const char *filename) {
 }
 
 static void fou_tunnel_init(NetDev *netdev) {
-        FouTunnel *t;
-
-        assert(netdev);
-
-        t = FOU(netdev);
-
-        assert(t);
+        FouTunnel *t = FOU(netdev);
 
         t->fou_encap_type = NETDEV_FOO_OVER_UDP_ENCAP_DIRECT;
 }

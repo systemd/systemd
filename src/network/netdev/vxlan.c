@@ -37,16 +37,11 @@ static int vxlan_get_local_address(VxLan *v, Link *link, int *ret_family, union 
 }
 
 static int netdev_vxlan_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
-        union in_addr_union local;
-        int local_family, r;
-        VxLan *v;
-
-        assert(netdev);
         assert(m);
 
-        v = VXLAN(netdev);
-
-        assert(v);
+        union in_addr_union local;
+        int local_family, r;
+        VxLan *v = VXLAN(netdev);
 
         if (v->vni <= VXLAN_VID_MAX) {
                 r = sd_netlink_message_append_u32(m, IFLA_VXLAN_ID, v->vni);
@@ -376,11 +371,9 @@ int config_parse_vxlan_ttl(
 }
 
 static int netdev_vxlan_verify(NetDev *netdev, const char *filename) {
-        VxLan *v = VXLAN(netdev);
-
-        assert(netdev);
-        assert(v);
         assert(filename);
+
+        VxLan *v = VXLAN(netdev);
 
         if (v->vni > VXLAN_VID_MAX)
                 return log_netdev_warning_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
@@ -409,13 +402,7 @@ static int netdev_vxlan_verify(NetDev *netdev, const char *filename) {
 }
 
 static int netdev_vxlan_is_ready_to_create(NetDev *netdev, Link *link) {
-        VxLan *v;
-
-        assert(netdev);
-
-        v = VXLAN(netdev);
-
-        assert(v);
+        VxLan *v = VXLAN(netdev);
 
         if (v->independent)
                 return true;
@@ -424,13 +411,7 @@ static int netdev_vxlan_is_ready_to_create(NetDev *netdev, Link *link) {
 }
 
 static void vxlan_init(NetDev *netdev) {
-        VxLan *v;
-
-        assert(netdev);
-
-        v = VXLAN(netdev);
-
-        assert(v);
+        VxLan *v = VXLAN(netdev);
 
         v->local_type = _NETDEV_LOCAL_ADDRESS_TYPE_INVALID;
         v->vni = VXLAN_VID_MAX + 1;

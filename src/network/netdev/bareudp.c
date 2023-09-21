@@ -21,10 +21,9 @@ DEFINE_CONFIG_PARSE_ENUM(config_parse_bare_udp_iftype, bare_udp_protocol, BareUD
                          "Failed to parse EtherType=");
 
 static int netdev_bare_udp_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
-        assert(netdev);
         assert(m);
 
-        BareUDP *u = ASSERT_PTR(BAREUDP(netdev));
+        BareUDP *u = BAREUDP(netdev);
         int r;
 
         r = sd_netlink_message_append_u16(m, IFLA_BAREUDP_ETHERTYPE, htobe16(u->iftype));
@@ -39,10 +38,9 @@ static int netdev_bare_udp_fill_message_create(NetDev *netdev, Link *link, sd_ne
 }
 
 static int netdev_bare_udp_verify(NetDev *netdev, const char *filename) {
-        assert(netdev);
         assert(filename);
 
-        BareUDP *u = ASSERT_PTR(BAREUDP(netdev));
+        BareUDP *u = BAREUDP(netdev);
 
         if (u->dest_port == 0)
                 return log_netdev_warning_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
@@ -56,9 +54,7 @@ static int netdev_bare_udp_verify(NetDev *netdev, const char *filename) {
 }
 
 static void bare_udp_init(NetDev *netdev) {
-        assert(netdev);
-
-        BareUDP *u = ASSERT_PTR(BAREUDP(netdev));
+        BareUDP *u = BAREUDP(netdev);
 
         u->iftype = _BARE_UDP_PROTOCOL_INVALID;
 }
