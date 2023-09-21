@@ -30,66 +30,6 @@ static int PTR_TO_CAPACITY(void *p) {
         return capacity;
 }
 
-int get_capacity_by_name(Hashmap *capacities_by_name, const char *name) {
-        void *p;
-
-        assert(capacities_by_name);
-        assert(name);
-
-        p = hashmap_get(capacities_by_name, name);
-        if (!p)
-                return -ENOENT;
-
-        return PTR_TO_CAPACITY(p);
-}
-
-/* Store current capacity of each battery before suspension and timestamp */
-int fetch_batteries_capacity_by_name(Hashmap **ret) {
-        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
-        _cleanup_hashmap_free_ Hashmap *batteries_capacity_by_name = NULL;
-        int r;
-
-        assert(ret);
-
-        batteries_capacity_by_name = hashmap_new(&string_hash_ops_free);
-        if (!batteries_capacity_by_name)
-                return log_oom_debug();
-
-        r = battery_enumerator_new(&e);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to initialize battery enumerator: %m");
-
-        FOREACH_DEVICE(e, dev) {
-                _cleanup_free_ char *battery_name_copy = NULL;
-                const char *battery_name;
-                int battery_capacity;
-
-                battery_capacity = r = battery_read_capacity_percentage(dev);
-                if (r < 0)
-                        continue;
-
-                r = sd_device_get_property_value(dev, "POWER_SUPPLY_NAME", &battery_name);
-                if (r < 0) {
-                        log_device_debug_errno(dev, r, "Failed to get POWER_SUPPLY_NAME property, ignoring: %m");
-                        continue;
-                }
-
-                battery_name_copy = strdup(battery_name);
-                if (!battery_name_copy)
-                        return log_oom_debug();
-
-                r = hashmap_put(batteries_capacity_by_name, battery_name_copy, CAPACITY_TO_PTR(battery_capacity));
-                if (r < 0)
-                        return log_device_debug_errno(dev, r, "Failed to store battery capacity: %m");
-
-                TAKE_PTR(battery_name_copy);
-        }
-
-        *ret = TAKE_PTR(batteries_capacity_by_name);
-
-        return 0;
-}
-
 static int siphash24_compress_device_sysattr(
                 sd_device *dev,
                 const char *attr,
@@ -232,6 +172,66 @@ static int put_battery_discharge_rate(int estimated_battery_discharge_rate, uint
         log_debug("Estimated discharge rate %d%% per hour successfully saved to %s", estimated_battery_discharge_rate, DISCHARGE_RATE_FILEPATH);
 
         return 0;
+}
+
+/* Store current capacity of each battery before suspension and timestamp */
+int fetch_batteries_capacity_by_name(Hashmap **ret) {
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        _cleanup_hashmap_free_ Hashmap *batteries_capacity_by_name = NULL;
+        int r;
+
+        assert(ret);
+
+        batteries_capacity_by_name = hashmap_new(&string_hash_ops_free);
+        if (!batteries_capacity_by_name)
+                return log_oom_debug();
+
+        r = battery_enumerator_new(&e);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to initialize battery enumerator: %m");
+
+        FOREACH_DEVICE(e, dev) {
+                _cleanup_free_ char *battery_name_copy = NULL;
+                const char *battery_name;
+                int battery_capacity;
+
+                battery_capacity = r = battery_read_capacity_percentage(dev);
+                if (r < 0)
+                        continue;
+
+                r = sd_device_get_property_value(dev, "POWER_SUPPLY_NAME", &battery_name);
+                if (r < 0) {
+                        log_device_debug_errno(dev, r, "Failed to get POWER_SUPPLY_NAME property, ignoring: %m");
+                        continue;
+                }
+
+                battery_name_copy = strdup(battery_name);
+                if (!battery_name_copy)
+                        return log_oom_debug();
+
+                r = hashmap_put(batteries_capacity_by_name, battery_name_copy, CAPACITY_TO_PTR(battery_capacity));
+                if (r < 0)
+                        return log_device_debug_errno(dev, r, "Failed to store battery capacity: %m");
+
+                TAKE_PTR(battery_name_copy);
+        }
+
+        *ret = TAKE_PTR(batteries_capacity_by_name);
+
+        return 0;
+}
+
+int get_capacity_by_name(Hashmap *capacities_by_name, const char *name) {
+        void *p;
+
+        assert(capacities_by_name);
+        assert(name);
+
+        p = hashmap_get(capacities_by_name, name);
+        if (!p)
+                return -ENOENT;
+
+        return PTR_TO_CAPACITY(p);
 }
 
 /* Estimate battery discharge rate using stored previous and current capacity over timestamp difference */
