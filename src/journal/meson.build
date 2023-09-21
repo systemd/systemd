@@ -185,7 +185,7 @@ endif
 
 if get_option('create-log-dirs')
         install_emptydir('/var/log/journal',
-                         install_mode : [ 'rwxr-xr-x', 'root', 'root' ])
+                         install_mode : 'rwxr-xr-x')
         if get_option('adm-group')
                 meson.add_install_script(
                         sh, '-c',

@@ -114,6 +114,6 @@ if conf.get('ENABLE_REMOTE') == 1 and conf.get('HAVE_MICROHTTPD') == 1
 
         if get_option('create-log-dirs')
                 install_emptydir('/var/log/journal/remote',
-                                 install_mode : [ 'rwxr-xr-x', 'root', 'root' ])
+                                 install_mode : 'rwxr-xr-x')
         endif
 endif
