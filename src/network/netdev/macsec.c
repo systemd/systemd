@@ -472,9 +472,7 @@ static int netdev_macsec_configure_transmit_association(NetDev *netdev, Transmit
 }
 
 static int netdev_macsec_configure(NetDev *netdev, Link *link) {
-        assert(netdev);
-
-        MACsec *s = ASSERT_PTR(MACSEC(netdev));
+        MACsec *s = MACSEC(netdev);
         TransmitAssociation *a;
         ReceiveChannel *c;
         int r;
@@ -495,10 +493,9 @@ static int netdev_macsec_configure(NetDev *netdev, Link *link) {
 }
 
 static int netdev_macsec_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
-        assert(netdev);
         assert(m);
 
-        MACsec *v = ASSERT_PTR(MACSEC(netdev));
+        MACsec *v = MACSEC(netdev);
         int r;
 
         if (v->port > 0) {
@@ -1118,6 +1115,8 @@ static int macsec_receive_association_verify(ReceiveAssociation *a) {
 }
 
 static int netdev_macsec_verify(NetDev *netdev, const char *filename) {
+        assert(filename);
+
         MACsec *v = MACSEC(netdev);
         TransmitAssociation *a;
         ReceiveAssociation *n;
@@ -1125,10 +1124,6 @@ static int netdev_macsec_verify(NetDev *netdev, const char *filename) {
         uint8_t an, encoding_an;
         bool use_for_encoding;
         int r;
-
-        assert(netdev);
-        assert(v);
-        assert(filename);
 
         ORDERED_HASHMAP_FOREACH(c, v->receive_channels_by_section) {
                 r = macsec_receive_channel_verify(c);
@@ -1184,30 +1179,18 @@ static int netdev_macsec_verify(NetDev *netdev, const char *filename) {
 }
 
 static void macsec_init(NetDev *netdev) {
-        MACsec *v;
-
-        assert(netdev);
-
-        v = MACSEC(netdev);
-
-        assert(v);
+        MACsec *v = MACSEC(netdev);
 
         v->encrypt = -1;
 }
 
 static void macsec_done(NetDev *netdev) {
-        MACsec *t;
+        MACsec *v = MACSEC(netdev);
 
-        assert(netdev);
-
-        t = MACSEC(netdev);
-
-        assert(t);
-
-        ordered_hashmap_free_with_destructor(t->receive_channels, macsec_receive_channel_free);
-        ordered_hashmap_free_with_destructor(t->receive_channels_by_section, macsec_receive_channel_free);
-        ordered_hashmap_free_with_destructor(t->transmit_associations_by_section, macsec_transmit_association_free);
-        ordered_hashmap_free_with_destructor(t->receive_associations_by_section, macsec_receive_association_free);
+        ordered_hashmap_free_with_destructor(v->receive_channels, macsec_receive_channel_free);
+        ordered_hashmap_free_with_destructor(v->receive_channels_by_section, macsec_receive_channel_free);
+        ordered_hashmap_free_with_destructor(v->transmit_associations_by_section, macsec_transmit_association_free);
+        ordered_hashmap_free_with_destructor(v->receive_associations_by_section, macsec_receive_association_free);
 }
 
 const NetDevVTable macsec_vtable = {

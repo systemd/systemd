@@ -46,9 +46,7 @@ static int netdev_bridge_set_handler(sd_netlink *rtnl, sd_netlink_message *m, Ne
 }
 
 static int netdev_bridge_post_create_message(NetDev *netdev, sd_netlink_message *req) {
-        assert(netdev);
-
-        Bridge *b = ASSERT_PTR(BRIDGE(netdev));
+        Bridge *b = BRIDGE(netdev);
         int r;
 
         r = sd_netlink_message_open_container(req, IFLA_LINKINFO);
@@ -232,7 +230,7 @@ int config_parse_bridge_port_priority(
 }
 
 static void bridge_init(NetDev *netdev) {
-        Bridge *b = ASSERT_PTR(BRIDGE(netdev));
+        Bridge *b = BRIDGE(netdev);
 
         b->mcast_querier = -1;
         b->mcast_snooping = -1;

@@ -199,17 +199,11 @@ static int tunnel_get_local_address(Tunnel *t, Link *link, union in_addr_union *
 }
 
 static int netdev_ipip_sit_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
-        union in_addr_union local;
-        Tunnel *t;
-        int r;
-
-        assert(netdev);
         assert(m);
 
-        if (netdev->kind == NETDEV_KIND_IPIP)
-                t = ASSERT_PTR(IPIP(netdev));
-        else
-                t = ASSERT_PTR(SIT(netdev));
+        union in_addr_union local;
+        Tunnel *t = ASSERT_PTR(netdev)->kind == NETDEV_KIND_IPIP ? IPIP(netdev) : SIT(netdev);
+        int r;
 
         if (t->external) {
                 r = sd_netlink_message_append_flag(m, IFLA_IPTUN_COLLECT_METADATA);
@@ -302,13 +296,13 @@ static int netdev_gre_erspan_fill_message_create(NetDev *netdev, Link *link, sd_
 
         switch (netdev->kind) {
         case NETDEV_KIND_GRE:
-                t = ASSERT_PTR(GRE(netdev));
+                t = GRE(netdev);
                 break;
         case NETDEV_KIND_ERSPAN:
-                t = ASSERT_PTR(ERSPAN(netdev));
+                t = ERSPAN(netdev);
                 break;
         case NETDEV_KIND_GRETAP:
-                t = ASSERT_PTR(GRETAP(netdev));
+                t = GRETAP(netdev);
                 break;
         default:
                 assert_not_reached();
@@ -446,9 +440,9 @@ static int netdev_ip6gre_fill_message_create(NetDev *netdev, Link *link, sd_netl
         assert(m);
 
         if (netdev->kind == NETDEV_KIND_IP6GRE)
-                t = ASSERT_PTR(IP6GRE(netdev));
+                t = IP6GRE(netdev);
         else
-                t = ASSERT_PTR(IP6GRETAP(netdev));
+                t = IP6GRETAP(netdev);
 
         if (t->external) {
                 r = sd_netlink_message_append_flag(m, IFLA_GRE_COLLECT_METADATA);
@@ -527,18 +521,13 @@ static int netdev_ip6gre_fill_message_create(NetDev *netdev, Link *link, sd_netl
 }
 
 static int netdev_vti_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
-        union in_addr_union local;
-        uint32_t ikey, okey;
-        Tunnel *t;
-        int r;
-
         assert(netdev);
         assert(m);
 
-        if (netdev->kind == NETDEV_KIND_VTI)
-                t = ASSERT_PTR(VTI(netdev));
-        else
-                t = ASSERT_PTR(VTI6(netdev));
+        union in_addr_union local;
+        uint32_t ikey, okey;
+        Tunnel *t = netdev->kind == NETDEV_KIND_VTI ? VTI(netdev) : VTI6(netdev);
+        int r;
 
         if (link || t->assign_to_loopback) {
                 r = sd_netlink_message_append_u32(m, IFLA_VTI_LINK, link ? link->ifindex : LOOPBACK_IFINDEX);
@@ -582,7 +571,7 @@ static int netdev_ip6tnl_fill_message_create(NetDev *netdev, Link *link, sd_netl
 
         union in_addr_union local;
         uint8_t proto;
-        Tunnel *t = ASSERT_PTR(IP6TNL(netdev));
+        Tunnel *t = IP6TNL(netdev);
         int r;
 
         switch (t->ip6tnl_mode) {

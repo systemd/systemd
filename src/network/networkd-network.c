@@ -209,8 +209,6 @@ int network_verify(Network *network) {
                                 else
                                         continue;
 
-                                assert(m);
-
                                 if (m->mode == NETDEV_MACVLAN_MODE_PASSTHRU)
                                         network->link_local = ADDRESS_FAMILY_NO;
 
