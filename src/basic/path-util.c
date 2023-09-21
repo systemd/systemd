@@ -345,7 +345,7 @@ char** path_strv_resolve_uniq(char **l, const char *root) {
 }
 
 char* path_simplify_full(char *path, PathSimplifyFlags flags) {
-        bool add_slash = false, keep_trailing_slash;
+        bool add_slash = false, keep_trailing_slash, absolute, beginning = true;
         char *f = ASSERT_PTR(path);
         int r;
 
@@ -354,6 +354,8 @@ char* path_simplify_full(char *path, PathSimplifyFlags flags) {
          *
          * ///foo//./bar/.   becomes /foo/bar
          * .//./foo//./bar/. becomes foo/bar
+         * /../foo/bar       becomes /foo/bar
+         * /../foo/bar/..    becomes /foo/bar/..
          */
 
         if (isempty(path))
@@ -361,8 +363,8 @@ char* path_simplify_full(char *path, PathSimplifyFlags flags) {
 
         keep_trailing_slash = FLAGS_SET(flags, PATH_SIMPLIFY_KEEP_TRAILING_SLASH) && endswith(path, "/");
 
-        if (path_is_absolute(path))
-                f++;
+        absolute = path_is_absolute(path);
+        f += absolute;  /* Keep leading /, if present. */
 
         for (const char *p = f;;) {
                 const char *e;
@@ -371,11 +373,17 @@ char* path_simplify_full(char *path, PathSimplifyFlags flags) {
                 if (r == 0)
                         break;
 
+                if (r > 0 && absolute && beginning && path_startswith(e, ".."))
+                        /* If we're at the beginning of an absolute path, we can safely skip ".." */
+                        continue;
+
+                beginning = false;
+
                 if (add_slash)
                         *f++ = '/';
 
                 if (r < 0) {
-                        /* if path is invalid, then refuse to simplify remaining part. */
+                        /* if path is invalid, then refuse to simplify the remaining part. */
                         memmove(f, p, strlen(p) + 1);
                         return path;
                 }

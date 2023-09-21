@@ -158,7 +158,7 @@ TEST(path_simplify) {
         test_path_simplify_one("///", "/", PATH_SIMPLIFY_KEEP_TRAILING_SLASH);
         test_path_simplify_one("///.//", "/", 0);
         test_path_simplify_one("///.//.///", "/", 0);
-        test_path_simplify_one("////.././///../.", "/../..", 0);
+        test_path_simplify_one("////.././///../.", "/", 0);
         test_path_simplify_one(".", ".", 0);
         test_path_simplify_one("./", ".", 0);
         test_path_simplify_one("./", "./", PATH_SIMPLIFY_KEEP_TRAILING_SLASH);
@@ -173,6 +173,46 @@ TEST(path_simplify) {
         test_path_simplify_one("..//./aaa///.//./.bbb/..///c.//d.dd///..eeee/..",
                                "../aaa/.bbb/../c./d.dd/..eeee/..", 0);
         test_path_simplify_one("abc///", "abc/", PATH_SIMPLIFY_KEEP_TRAILING_SLASH);
+
+        test_path_simplify_one("/../abc", "/abc", PATH_SIMPLIFY_KEEP_TRAILING_SLASH);
+        test_path_simplify_one("/../abc///", "/abc/", PATH_SIMPLIFY_KEEP_TRAILING_SLASH);
+        test_path_simplify_one("/../abc///", "/abc", 0);
+        test_path_simplify_one("/../abc", "/abc", PATH_SIMPLIFY_KEEP_TRAILING_SLASH);
+        test_path_simplify_one("/../abc///..", "/abc/..", PATH_SIMPLIFY_KEEP_TRAILING_SLASH);
+        test_path_simplify_one("/../abc///../", "/abc/../", PATH_SIMPLIFY_KEEP_TRAILING_SLASH);
+        test_path_simplify_one("/../abc///../", "/abc/..", 0);
+
+        test_path_simplify_one("/../../abc", "/abc", PATH_SIMPLIFY_KEEP_TRAILING_SLASH);
+        test_path_simplify_one("/../../abc///", "/abc/", PATH_SIMPLIFY_KEEP_TRAILING_SLASH);
+        test_path_simplify_one("/../../abc///", "/abc", 0);
+        test_path_simplify_one("/../../abc", "/abc", PATH_SIMPLIFY_KEEP_TRAILING_SLASH);
+        test_path_simplify_one("/../../abc///../..", "/abc/../..", PATH_SIMPLIFY_KEEP_TRAILING_SLASH);
+        test_path_simplify_one("/../../abc///../../", "/abc/../../", PATH_SIMPLIFY_KEEP_TRAILING_SLASH);
+        test_path_simplify_one("/../../abc///../../", "/abc/../..", 0);
+
+        test_path_simplify_one("/.././../abc", "/abc", PATH_SIMPLIFY_KEEP_TRAILING_SLASH);
+        test_path_simplify_one("/.././../abc///", "/abc/", PATH_SIMPLIFY_KEEP_TRAILING_SLASH);
+        test_path_simplify_one("/.././../abc///", "/abc", 0);
+        test_path_simplify_one("/.././../abc", "/abc", PATH_SIMPLIFY_KEEP_TRAILING_SLASH);
+        test_path_simplify_one("/.././../abc///../..", "/abc/../..", PATH_SIMPLIFY_KEEP_TRAILING_SLASH);
+        test_path_simplify_one("/.././../abc///../../", "/abc/../../", PATH_SIMPLIFY_KEEP_TRAILING_SLASH);
+        test_path_simplify_one("/.././../abc///../../", "/abc/../..", 0);
+
+        test_path_simplify_one("/./.././../abc", "/abc", PATH_SIMPLIFY_KEEP_TRAILING_SLASH);
+        test_path_simplify_one("/./.././../abc///", "/abc/", PATH_SIMPLIFY_KEEP_TRAILING_SLASH);
+        test_path_simplify_one("/./.././../abc///", "/abc", 0);
+        test_path_simplify_one("/./.././../abc", "/abc", PATH_SIMPLIFY_KEEP_TRAILING_SLASH);
+        test_path_simplify_one("/./.././../abc///../..", "/abc/../..", PATH_SIMPLIFY_KEEP_TRAILING_SLASH);
+        test_path_simplify_one("/./.././../abc///../../", "/abc/../../", PATH_SIMPLIFY_KEEP_TRAILING_SLASH);
+        test_path_simplify_one("/./.././../abc///../../", "/abc/../..", 0);
+
+        test_path_simplify_one("/.../abc", "/.../abc", PATH_SIMPLIFY_KEEP_TRAILING_SLASH);
+        test_path_simplify_one("/.../abc///", "/.../abc/", PATH_SIMPLIFY_KEEP_TRAILING_SLASH);
+        test_path_simplify_one("/.../abc///", "/.../abc", 0);
+        test_path_simplify_one("/.../abc", "/.../abc", PATH_SIMPLIFY_KEEP_TRAILING_SLASH);
+        test_path_simplify_one("/.../abc///...", "/.../abc/...", PATH_SIMPLIFY_KEEP_TRAILING_SLASH);
+        test_path_simplify_one("/.../abc///.../", "/.../abc/.../", PATH_SIMPLIFY_KEEP_TRAILING_SLASH);
+        test_path_simplify_one("/.../abc///.../", "/.../abc/...", 0);
 
         memset(foo, 'a', sizeof(foo) -1);
         char_array_0(foo);
