@@ -991,6 +991,11 @@ static int check_object(JournalFile *f, Object *o, uint64_t offset) {
                                                le64toh(o->entry.monotonic),
                                                offset);
 
+                if (sd_id128_is_null(o->entry.boot_id))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                               "Invalid object entry with an empty boot ID: %" PRIu64,
+                                               offset);
+
                 break;
         }
 
