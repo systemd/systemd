@@ -1387,13 +1387,147 @@ static void boot_entry_file_list(
                 *ret_status = status;
 }
 
+static int copy_cmdline(
+                char *cmdline,
+                char **ret) {
+
+        assert(ret);
+
+        _cleanup_free_ char *temp = *ret;
+
+        *ret = strnappend(temp, cmdline, strlen(cmdline));
+        if (temp)
+                free(temp);
+        temp = *ret;
+
+        *ret = strnappend(temp, " ", 1);
+        if (!*ret)
+                return log_oom();
+
+        return 0;
+}
+
+static void print_addon(
+                BootEntryAddon *addon,
+                const char *addon_str) {
+
+        printf("  %s: %s\n", addon_str, addon->location);
+        printf("      cmdline: %s%s\n", special_glyph(SPECIAL_GLYPH_TREE_RIGHT), addon->cmdline);
+}
+
+static int print_cmdline(const BootEntry *e) {
+
+        _cleanup_free_ char *final_cmdline = NULL;
+        int r;
+
+        assert(e);
+
+        if (!strv_isempty(e->options)) {
+                _cleanup_free_ char *t = NULL, *t2 = NULL;
+                _cleanup_strv_free_ char **ts = NULL;
+
+                t = strv_join(e->options, " ");
+                if (!t)
+                        return log_oom();
+
+                ts = strv_split_newlines(t);
+                if (!ts)
+                        return log_oom();
+
+                t2 = strv_join(ts, "\n              ");
+                if (!t2)
+                        return log_oom();
+
+                printf("  defCmdline: %s\n", t2);
+                r = copy_cmdline(t2, &final_cmdline);
+                if (r < 0)
+                        return r;
+        }
+
+        if (e->local_addon_list) {
+                LIST_FOREACH(addon_list, addon, e->local_addon_list) {
+                        /* Add space at the beginning of addon_str to align it correctly */
+                        print_addon(addon, " localAddon");
+                        copy_cmdline(addon->cmdline, &final_cmdline);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        if (final_cmdline)
+                printf(" finalCmdline: %s\n", final_cmdline);
+
+        return 0;
+}
+
+static int json_addon(
+                BootEntryAddon *addon,
+                const char *addon_str,
+                JsonVariant **array) {
+
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        int r;
+
+        r = json_variant_merge_objectb(
+                        &v, JSON_BUILD_OBJECT(
+                                JSON_BUILD_PAIR(addon_str, JSON_BUILD_STRING(addon->location)),
+                                JSON_BUILD_PAIR("cmdline", JSON_BUILD_STRING(addon->cmdline))));
+        if (r < 0)
+                return log_oom();
+
+        r = json_variant_append_array(array, v);
+        if (r < 0)
+                return log_oom();
+
+        return 0;
+}
+
+static int json_cmdline(
+                const BootEntry *e,
+                JsonVariant **v) {
+
+        _cleanup_free_ char *final_cmdline = NULL;
+        _cleanup_free_ char *def_cmdline = NULL;
+        _cleanup_(json_variant_unrefp) JsonVariant *addons_array = NULL;
+        int r;
+
+        assert(e);
+
+        if (!strv_isempty(e->options)) {
+                def_cmdline = strv_join(e->options, " ");
+                if (!def_cmdline)
+                        return log_oom();
+                final_cmdline = strnappend(def_cmdline, " ", 1);
+        }
+
+        if (e->local_addon_list) {
+                LIST_FOREACH(addon_list, addon, e->local_addon_list) {
+                        r = json_addon(addon, "localAddon", &addons_array);
+                        if (r < 0)
+                                return r;
+                        copy_cmdline(addon->cmdline, &final_cmdline);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        r = json_variant_merge_objectb(
+                v, JSON_BUILD_OBJECT(
+                                JSON_BUILD_PAIR_CONDITION(def_cmdline, "defCmdline", JSON_BUILD_STRING(def_cmdline)),
+                                JSON_BUILD_PAIR("addons", JSON_BUILD_VARIANT(addons_array)),
+                                JSON_BUILD_PAIR_CONDITION(final_cmdline, "finalCmdline", JSON_BUILD_STRING(final_cmdline))));
+        if (r < 0)
+                return log_oom();
+        return 0;
+}
+
 int show_boot_entry(
                 const BootEntry *e,
                 bool show_as_default,
                 bool show_as_selected,
                 bool show_reported) {
 
-        int status = 0;
+        int status = 0, r = 0;
 
         /* Returns 0 on success, negative on processing error, and positive if something is wrong with the
            boot entry itself. */
@@ -1472,24 +1606,9 @@ int show_boot_entry(
                                      *s,
                                      &status);
 
-        if (!strv_isempty(e->options)) {
-                _cleanup_free_ char *t = NULL, *t2 = NULL;
-                _cleanup_strv_free_ char **ts = NULL;
-
-                t = strv_join(e->options, " ");
-                if (!t)
-                        return log_oom();
-
-                ts = strv_split_newlines(t);
-                if (!ts)
-                        return log_oom();
-
-                t2 = strv_join(ts, "\n              ");
-                if (!t2)
-                        return log_oom();
-
-                printf("      options: %s\n", t2);
-        }
+        r = print_cmdline(e);
+        if (r < 0)
+                return r;
 
         if (e->device_tree)
                 boot_entry_file_list("devicetree", e->root, e->device_tree, &status);
@@ -1512,15 +1631,8 @@ int show_boot_entries(const BootConfig *config, JsonFormatFlags json_format) {
                 _cleanup_(json_variant_unrefp) JsonVariant *array = NULL;
 
                 for (size_t i = 0; i < config->n_entries; i++) {
-                        _cleanup_free_ char *opts = NULL;
                         const BootEntry *e = config->entries + i;
                         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
-
-                        if (!strv_isempty(e->options)) {
-                                opts = strv_join(e->options, " ");
-                                if (!opts)
-                                        return log_oom();
-                        }
 
                         r = json_variant_merge_objectb(
                                         &v, JSON_BUILD_OBJECT(
@@ -1534,12 +1646,15 @@ int show_boot_entries(const BootConfig *config, JsonFormatFlags json_format) {
                                                        JSON_BUILD_PAIR_CONDITION(e->version, "version", JSON_BUILD_STRING(e->version)),
                                                        JSON_BUILD_PAIR_CONDITION(e->machine_id, "machineId", JSON_BUILD_STRING(e->machine_id)),
                                                        JSON_BUILD_PAIR_CONDITION(e->architecture, "architecture", JSON_BUILD_STRING(e->architecture)),
-                                                       JSON_BUILD_PAIR_CONDITION(opts, "options", JSON_BUILD_STRING(opts)),
                                                        JSON_BUILD_PAIR_CONDITION(e->kernel, "linux", JSON_BUILD_STRING(e->kernel)),
                                                        JSON_BUILD_PAIR_CONDITION(e->efi, "efi", JSON_BUILD_STRING(e->efi)),
                                                        JSON_BUILD_PAIR_CONDITION(!strv_isempty(e->initrd), "initrd", JSON_BUILD_STRV(e->initrd)),
                                                        JSON_BUILD_PAIR_CONDITION(e->device_tree, "devicetree", JSON_BUILD_STRING(e->device_tree)),
                                                        JSON_BUILD_PAIR_CONDITION(!strv_isempty(e->device_tree_overlay), "devicetreeOverlay", JSON_BUILD_STRV(e->device_tree_overlay))));
+                        if (r < 0)
+                                return log_oom();
+
+                        r = json_cmdline(e, &v);
                         if (r < 0)
                                 return log_oom();
 
