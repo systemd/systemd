@@ -225,13 +225,12 @@ cancel:
 static int wireguard_set_interface(NetDev *netdev) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL;
         WireguardIPmask *mask_start = NULL;
-        WireguardPeer *peer_start;
         bool sent_once = false;
         uint32_t serial;
         Wireguard *w = WIREGUARD(netdev);
         int r;
 
-        for (peer_start = w->peers; peer_start || !sent_once; ) {
+        for (WireguardPeer *peer_start = w->peers; peer_start || !sent_once; ) {
                 uint16_t i = 0;
 
                 message = sd_netlink_message_unref(message);
