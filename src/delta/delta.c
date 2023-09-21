@@ -611,9 +611,7 @@ static int run(int argc, char *argv[]) {
         pager_open(arg_pager_flags);
 
         if (optind < argc) {
-                int i;
-
-                for (i = optind; i < argc; i++) {
+                for (int i = optind; i < argc; i++) {
                         path_simplify(argv[i]);
 
                         k = process_suffix_chop(argv[i]);
