@@ -92,14 +92,12 @@ static int l2tp_session_new_static(L2tpTunnel *t, const char *filename, unsigned
 }
 
 static int netdev_l2tp_create_message_tunnel(NetDev *netdev, union in_addr_union *local_address, sd_netlink_message **ret) {
+        assert(local_address);
+
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         uint16_t encap_type;
-        L2tpTunnel *t;
+        L2tpTunnel *t = L2TP(netdev);
         int r;
-
-        assert(netdev);
-        assert(local_address);
-        assert_se(t = L2TP(netdev));
 
         r = sd_genl_message_new(netdev->manager->genl, L2TP_GENL_NAME, L2TP_CMD_TUNNEL_CREATE, &m);
         if (r < 0)
@@ -278,13 +276,11 @@ static int link_get_l2tp_local_address(Link *link, L2tpTunnel *t, union in_addr_
 
 static int l2tp_get_local_address(NetDev *netdev, union in_addr_union *ret) {
         Link *link = NULL;
-        L2tpTunnel *t;
+        L2tpTunnel *t = L2TP(netdev);
         Address *a = NULL;
         int r;
 
-        assert(netdev);
         assert(netdev->manager);
-        assert_se(t = L2TP(netdev));
 
         if (t->local_ifname) {
                 r = link_get_by_name(netdev->manager, t->local_ifname, &link);
@@ -403,15 +399,10 @@ static int l2tp_create_session(NetDev *netdev, L2tpSession *session) {
 
 static int l2tp_create_tunnel_handler(sd_netlink *rtnl, sd_netlink_message *m, NetDev *netdev) {
         L2tpSession *session;
-        L2tpTunnel *t;
+        L2tpTunnel *t = L2TP(netdev);
         int r;
 
-        assert(netdev);
         assert(netdev->state != _NETDEV_STATE_INVALID);
-
-        t = L2TP(netdev);
-
-        assert(t);
 
         r = sd_netlink_message_get_errno(m);
         if (r == -EEXIST)
@@ -434,11 +425,8 @@ static int l2tp_create_tunnel_handler(sd_netlink *rtnl, sd_netlink_message *m, N
 static int l2tp_create_tunnel(NetDev *netdev) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         union in_addr_union local_address;
-        L2tpTunnel *t;
+        L2tpTunnel *t = L2TP(netdev);
         int r;
-
-        assert(netdev);
-        assert_se(t = L2TP(netdev));
 
         r = l2tp_get_local_address(netdev, &local_address);
         if (r < 0)
@@ -757,13 +745,7 @@ int config_parse_l2tp_session_name(
 }
 
 static void l2tp_tunnel_init(NetDev *netdev) {
-        L2tpTunnel *t;
-
-        assert(netdev);
-
-        t = L2TP(netdev);
-
-        assert(t);
+        L2tpTunnel *t = L2TP(netdev);
 
         t->l2tp_encap_type = NETDEV_L2TP_ENCAPTYPE_UDP;
         t->udp6_csum_rx = true;
@@ -797,15 +779,10 @@ static int l2tp_session_verify(L2tpSession *session) {
 }
 
 static int netdev_l2tp_tunnel_verify(NetDev *netdev, const char *filename) {
-        L2tpTunnel *t;
-        L2tpSession *session;
-
-        assert(netdev);
         assert(filename);
 
-        t = L2TP(netdev);
-
-        assert(t);
+        L2tpTunnel *t = L2TP(netdev);
+        L2tpSession *session;
 
         if (!IN_SET(t->family, AF_INET, AF_INET6))
                 return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
@@ -830,13 +807,7 @@ static int netdev_l2tp_tunnel_verify(NetDev *netdev, const char *filename) {
 }
 
 static void l2tp_tunnel_done(NetDev *netdev) {
-        L2tpTunnel *t;
-
-        assert(netdev);
-
-        t = L2TP(netdev);
-
-        assert(t);
+        L2tpTunnel *t = L2TP(netdev);
 
         ordered_hashmap_free_with_destructor(t->sessions_by_section, l2tp_session_free);
         free(t->local_ifname);

@@ -12,29 +12,18 @@ assert_cc((int) IP_OVER_INFINIBAND_MODE_DATAGRAM  == (int) IPOIB_MODE_DATAGRAM);
 assert_cc((int) IP_OVER_INFINIBAND_MODE_CONNECTED == (int) IPOIB_MODE_CONNECTED);
 
 static void netdev_ipoib_init(NetDev *netdev) {
-        IPoIB *ipoib;
-
-        assert(netdev);
-
-        ipoib = IPOIB(netdev);
-
-        assert(ipoib);
+        IPoIB *ipoib = IPOIB(netdev);
 
         ipoib->mode = _IP_OVER_INFINIBAND_MODE_INVALID;
         ipoib->umcast = -1;
 }
 
 static int netdev_ipoib_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
-        IPoIB *ipoib;
-        int r;
-
-        assert(netdev);
         assert(link);
         assert(m);
 
-        ipoib = IPOIB(netdev);
-
-        assert(ipoib);
+        IPoIB *ipoib = IPOIB(netdev);
+        int r;
 
         if (ipoib->pkey > 0) {
                 r = sd_netlink_message_append_u16(m, IFLA_IPOIB_PKEY, ipoib->pkey);

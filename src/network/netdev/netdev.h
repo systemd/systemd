@@ -182,14 +182,13 @@ extern const NetDevVTable * const netdev_vtable[_NETDEV_KIND_MAX];
 #define NETDEV_VTABLE(n) ((n)->kind != _NETDEV_KIND_INVALID ? netdev_vtable[(n)->kind] : NULL)
 
 /* For casting a netdev into the various netdev kinds */
-#define DEFINE_NETDEV_CAST(UPPERCASE, MixedCase)                            \
-        static inline MixedCase* UPPERCASE(NetDev *n) {                     \
-                if (_unlikely_(!n ||                                        \
-                               n->kind != NETDEV_KIND_##UPPERCASE) ||       \
-                               n->state == _NETDEV_STATE_INVALID)           \
-                        return NULL;                                        \
-                                                                            \
-                return (MixedCase*) n;                                      \
+#define DEFINE_NETDEV_CAST(UPPERCASE, MixedCase)                        \
+        static inline MixedCase* UPPERCASE(NetDev *n) {                 \
+                assert(n);                                              \
+                assert(n->kind == NETDEV_KIND_##UPPERCASE);             \
+                assert(n->state < _NETDEV_STATE_MAX);                   \
+                                                                        \
+                return (MixedCase*) n;                                  \
         }
 
 /* For casting the various netdev kinds into a netdev */

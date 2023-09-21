@@ -16,9 +16,7 @@
 #include "string-util.h"
 
 static void batadv_init(NetDev *n) {
-        BatmanAdvanced *b;
-
-        b = BATADV(n);
+        BatmanAdvanced *b = BATADV(n);
 
         /* Set defaults */
         b->aggregation            = true;
@@ -115,10 +113,8 @@ static int netdev_batman_set_handler(sd_netlink *rtnl, sd_netlink_message *m, Ne
 }
 
 static int netdev_batadv_post_create_message(NetDev *netdev, sd_netlink_message *message) {
-        BatmanAdvanced *b;
+        BatmanAdvanced *b = BATADV(netdev);
         int r;
-
-        assert_se(b = BATADV(netdev));
 
         r = sd_netlink_message_append_u32(message, BATADV_ATTR_MESH_IFINDEX, netdev->ifindex);
         if (r < 0)
@@ -188,14 +184,10 @@ static int netdev_batadv_post_create(NetDev *netdev, Link *link) {
 }
 
 static int netdev_batadv_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
-        BatmanAdvanced *b;
-        int r;
-
-        assert(netdev);
         assert(m);
 
-        b = BATADV(netdev);
-        assert(b);
+        BatmanAdvanced *b = BATADV(netdev);
+        int r;
 
         r = sd_netlink_message_append_string(m, IFLA_BATADV_ALGO_NAME, batadv_routing_algorithm_kernel_to_string(b->routing_algorithm));
         if (r < 0)

@@ -6,16 +6,11 @@
 #include "vxcan.h"
 
 static int netdev_vxcan_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
-        VxCan *v;
-        int r;
-
-        assert(netdev);
         assert(!link);
         assert(m);
 
-        v = VXCAN(netdev);
-
-        assert(v);
+        VxCan *v = VXCAN(netdev);
+        int r;
 
         r = sd_netlink_message_open_container(m, VXCAN_INFO_PEER);
         if (r < 0)
@@ -35,14 +30,9 @@ static int netdev_vxcan_fill_message_create(NetDev *netdev, Link *link, sd_netli
 }
 
 static int netdev_vxcan_verify(NetDev *netdev, const char *filename) {
-        VxCan *v;
-
-        assert(netdev);
         assert(filename);
 
-        v = VXCAN(netdev);
-
-        assert(v);
+        VxCan *v = VXCAN(netdev);
 
         if (!v->ifname_peer)
                 return log_netdev_warning_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
@@ -51,14 +41,8 @@ static int netdev_vxcan_verify(NetDev *netdev, const char *filename) {
         return 0;
 }
 
-static void vxcan_done(NetDev *n) {
-        VxCan *v;
-
-        assert(n);
-
-        v = VXCAN(n);
-
-        assert(v);
+static void vxcan_done(NetDev *netdev) {
+        VxCan *v = VXCAN(netdev);
 
         free(v->ifname_peer);
 }

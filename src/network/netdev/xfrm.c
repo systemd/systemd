@@ -6,10 +6,9 @@
 #include "xfrm.h"
 
 static int xfrm_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *message) {
-        assert(netdev);
         assert(message);
 
-        Xfrm *x = ASSERT_PTR(XFRM(netdev));
+        Xfrm *x = XFRM(netdev);
         int r;
 
         assert(link || x->independent);
@@ -26,10 +25,9 @@ static int xfrm_fill_message_create(NetDev *netdev, Link *link, sd_netlink_messa
 }
 
 static int xfrm_verify(NetDev *netdev, const char *filename) {
-        assert(netdev);
         assert(filename);
 
-        Xfrm *x = ASSERT_PTR(XFRM(netdev));
+        Xfrm *x = XFRM(netdev);
 
         if (x->if_id == 0)
                 return log_netdev_warning_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
