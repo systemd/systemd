@@ -77,3 +77,5 @@ int setenv_systemd_exec_pid(bool update_only);
 int getenv_path_list(const char *name, char ***ret_paths);
 
 int getenv_steal_erase(const char *name, char **ret);
+
+int set_full_environment(char **env);

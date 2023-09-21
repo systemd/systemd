@@ -2269,8 +2269,8 @@ static int bus_unit_set_transient_property(
                         return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "The slice property is only available for units with control groups.");
                 if (u->type == UNIT_SLICE)
                         return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Slice may not be set for slice units.");
-                if (unit_has_name(u, SPECIAL_INIT_SCOPE))
-                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Cannot set slice for init.scope");
+                if (unit_has_name(u, SPECIAL_INIT_SCOPE) || unit_has_name(u, SPECIAL_INIT_WORKERS_SCOPE))
+                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Cannot set slice for init.scope and init-workers.scope");
 
                 r = sd_bus_message_read(message, "s", &s);
                 if (r < 0)
