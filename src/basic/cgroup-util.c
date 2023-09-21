@@ -947,6 +947,7 @@ int cg_is_empty_recursive(const char *controller, const char *path) {
 
 int cg_split_spec(const char *spec, char **ret_controller, char **ret_path) {
         _cleanup_free_ char *controller = NULL, *path = NULL;
+        int r;
 
         assert(spec);
 
@@ -955,11 +956,9 @@ int cg_split_spec(const char *spec, char **ret_controller, char **ret_path) {
                         return -EINVAL;
 
                 if (ret_path) {
-                        path = strdup(spec);
-                        if (!path)
-                                return -ENOMEM;
-
-                        path_simplify(path);
+                        r = path_simplify_alloc(spec, &path);
+                        if (r < 0)
+                                return r;
                 }
 
         } else {
@@ -1006,22 +1005,14 @@ int cg_split_spec(const char *spec, char **ret_controller, char **ret_path) {
 
 int cg_mangle_path(const char *path, char **result) {
         _cleanup_free_ char *c = NULL, *p = NULL;
-        char *t;
         int r;
 
         assert(path);
         assert(result);
 
         /* First, check if it already is a filesystem path */
-        if (path_startswith(path, "/sys/fs/cgroup")) {
-
-                t = strdup(path);
-                if (!t)
-                        return -ENOMEM;
-
-                *result = path_simplify(t);
-                return 0;
-        }
+        if (path_startswith(path, "/sys/fs/cgroup"))
+                return path_simplify_alloc(path, result);
 
         /* Otherwise, treat it as cg spec */
         r = cg_split_spec(path, &c, &p);

@@ -232,11 +232,9 @@ int device_set_syspath(sd_device *device, const char *_syspath, bool verify) {
                                                "sd-device: Syspath '%s' is not a subdirectory of /sys",
                                                _syspath);
 
-                syspath = strdup(_syspath);
-                if (!syspath)
-                        return log_oom_debug();
-
-                path_simplify(syspath);
+                r = path_simplify_alloc(_syspath, &syspath);
+                if (r < 0)
+                        return r;
         }
 
         assert_se(devpath = startswith(syspath, "/sys"));

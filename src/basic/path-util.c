@@ -132,11 +132,9 @@ int path_make_relative(const char *from, const char *to, char **ret) {
                                         return -ENOMEM;
                         } else {
                                 /* 'to' is inside of 'from'. */
-                                result = strdup(t);
-                                if (!result)
-                                        return -ENOMEM;
-
-                                path_simplify(result);
+                                r = path_simplify_alloc(t, &result);
+                                if (r < 0)
+                                        return r;
 
                                 if (!path_is_valid(result))
                                         return -EINVAL;
@@ -346,7 +344,7 @@ char** path_strv_resolve_uniq(char **l, const char *root) {
 
 char* path_simplify_full(char *path, PathSimplifyFlags flags) {
         bool add_slash = false, keep_trailing_slash, absolute, beginning = true;
-        char *f = ASSERT_PTR(path);
+        char *f = path;
         int r;
 
         /* Removes redundant inner and trailing slashes. Also removes unnecessary dots.
