@@ -57,6 +57,7 @@ static void boot_entry_free(BootEntry *entry) {
         free(entry->machine_id);
         free(entry->architecture);
         strv_free(entry->options);
+        LIST_CLEAR(addon_list, entry->local_addon_list, free);
         free(entry->kernel);
         free(entry->efi);
         strv_free(entry->initrd);
@@ -839,6 +840,104 @@ static int find_uki_sections(
         return 0;
 }
 
+static int find_addon_sections(
+                int fd,
+                const char *path,
+                char **ret_cmdline) {
+
+        _cleanup_free_ IMAGE_SECTION_HEADER *sections = NULL;
+        _cleanup_free_ PeHeader *pe_header = NULL;
+        int r;
+
+        r = find_sections(fd, path, &sections, &pe_header);
+        if (r < 0)
+                return r;
+
+        r = find_cmdline_section(fd, path, sections, pe_header, ret_cmdline);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+static int boot_entries_find_unified_addons(
+                BootConfig *config,
+                const char *root,
+                const char *addon_dir,
+                BootEntryAddon **addons) {
+
+        _cleanup_closedir_ DIR *d = NULL;
+        _cleanup_free_ char *full = NULL;
+        int r;
+
+        assert(addons);
+
+        r = chase_and_opendir(addon_dir, root, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, &full, &d);
+        if (r == -ENOENT)
+                return 0;
+        if (r < 0)
+                return log_error_errno(r, "Failed to open '%s/%s': %m", root, addon_dir);
+
+        LIST_HEAD_INIT(*addons);
+        FOREACH_DIRENT(de, d, return log_error_errno(errno, "Failed to read %s: %m", full)) {
+                _cleanup_free_ char *j = NULL, *cmdline = NULL;
+                _cleanup_close_ int fd = -EBADF;
+                BootEntryAddon *addon = NULL;
+
+                if (!dirent_is_file(de))
+                        continue;
+
+                if (!endswith_no_case(de->d_name, ".addon.efi"))
+                        continue;
+
+                fd = openat(dirfd(d), de->d_name, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOFOLLOW|O_NOCTTY);
+                if (fd < 0) {
+                        log_warning_errno(errno, "Failed to open %s/%s, ignoring: %m", full, de->d_name);
+                        continue;
+                }
+
+                r = config_check_inode_relevant_and_unseen(config, fd, de->d_name);
+                if (r < 0)
+                        return r;
+                if (r == 0) /* inode already seen or otherwise not relevant */
+                        continue;
+
+                j = path_join(full, de->d_name);
+                if (!j)
+                        return log_oom();
+
+                if (find_addon_sections(fd, j, &cmdline) < 0)
+                        continue;
+
+                addon = new(BootEntryAddon, 1);
+                if (!addon)
+                        return log_oom();
+
+                addon->location = strdup(j);
+                addon->cmdline = TAKE_PTR(cmdline);
+                LIST_INIT(addon_list, addon);
+                LIST_APPEND(addon_list, *addons, addon);
+        }
+        return 0;
+}
+
+static int boot_entries_find_unified_local_addons(
+                BootConfig *config,
+                const char *root,
+                const char *d_name,
+                BootEntry *ret) {
+
+        _cleanup_free_ char *addon_dir = NULL;
+
+        assert(ret);
+
+        addon_dir = strnappend(d_name, ".extra.d", 9);
+        if (!addon_dir)
+                return log_oom();
+
+        return boot_entries_find_unified_addons(config, root, addon_dir, &ret->local_addon_list);
+}
+
 static int boot_entries_find_unified(
                 BootConfig *config,
                 const char *root,
@@ -890,6 +989,11 @@ static int boot_entries_find_unified(
                         continue;
 
                 r = boot_entry_load_unified(root, j, osrelease, cmdline, config->entries + config->n_entries);
+                if (r < 0)
+                        continue;
+
+                /* look for .efi.extra.d */
+                r = boot_entries_find_unified_local_addons(config, full, de->d_name, config->entries + config->n_entries);
                 if (r < 0)
                         continue;
 
