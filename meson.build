@@ -1783,8 +1783,7 @@ if have and efi_arch == 'x64' and cc.links('''
         efi_cpu_family_alt = 'x86'
 endif
 
-want_ukify = get_option('ukify').require(
-        python_39 and conf.get('ENABLE_BOOTLOADER') == 1,
+want_ukify = get_option('ukify').require(python_39).disabled(),
         error_message : 'Python >= 3.9 and -Dbootloader=true required').allowed()
 conf.set10('ENABLE_UKIFY', want_ukify)
 
