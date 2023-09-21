@@ -10,7 +10,7 @@
 #include "tests.h"
 
 TEST(parse_sleep_config) {
-        _cleanup_(free_sleep_configp) SleepConfig *sleep_config = NULL;
+        _cleanup_(sleep_config_freep) SleepConfig *sleep_config = NULL;
 
         assert_se(parse_sleep_config(&sleep_config) == 0);
 
