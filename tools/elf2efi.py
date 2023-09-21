@@ -482,7 +482,7 @@ def elf2efi(args: argparse.Namespace):
         "EM_X86_64": 0x8664,
     }.get(elf["e_machine"])
     if pe_arch is None:
-        raise RuntimeError(f"Unuspported ELF arch {elf['e_machine']}")
+        raise RuntimeError(f"Unsupported ELF arch {elf['e_machine']}")
 
     coff = PeCoffHeader()
     opt = PeOptionalHeader32() if elf.elfclass == 32 else PeOptionalHeader32Plus()
