@@ -608,7 +608,7 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int run(int argc, char *argv[]) {
-        _cleanup_(free_sleep_configp) SleepConfig *sleep_config = NULL;
+        _cleanup_(sleep_config_freep) SleepConfig *sleep_config = NULL;
         int r;
 
         log_setup();
