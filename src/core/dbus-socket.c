@@ -391,11 +391,9 @@ static int bus_socket_set_transient_property(
                                 if (!path_is_absolute(a) || !path_is_valid(a))
                                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid socket path: %s", a);
 
-                                p->path = strdup(a);
-                                if (!p->path)
-                                        return log_oom();
-
-                                path_simplify(p->path);
+                                r = path_simplify_alloc(a, &p->path);
+                                if (r < 0)
+                                        return r;
 
                         } else if (streq(t, "Netlink")) {
                                 r = socket_address_parse_netlink(&p->address, a);
