@@ -189,10 +189,10 @@ static int ndisc_handle_datagram(sd_ndisc *nd, sd_ndisc_router *rt) {
         if (r < 0)
                 return r;
 
-        log_ndisc(nd, "Received Router Advertisement: flags %s preference %s lifetime %" PRIu16 " sec",
+        log_ndisc(nd, "Received Router Advertisement: flags %s preference %s lifetime %s",
                   rt->flags & ND_RA_FLAG_MANAGED ? "MANAGED" : rt->flags & ND_RA_FLAG_OTHER ? "OTHER" : "none",
                   rt->preference == SD_NDISC_PREFERENCE_HIGH ? "high" : rt->preference == SD_NDISC_PREFERENCE_LOW ? "low" : "medium",
-                  rt->lifetime);
+                  FORMAT_TIMESPAN(rt->lifetime_usec, USEC_PER_SEC));
 
         ndisc_callback(nd, SD_NDISC_EVENT_ROUTER, rt);
         return 0;

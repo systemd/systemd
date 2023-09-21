@@ -28,9 +28,9 @@ static sd_ndisc *test_timeout_nd;
 static void router_dump(sd_ndisc_router *rt) {
         struct in6_addr addr;
         uint8_t hop_limit;
-        uint64_t t, flags;
+        usec_t t, lifetime;
+        uint64_t flags;
         uint32_t mtu;
-        uint16_t lifetime;
         unsigned preference;
         int r;
 
@@ -62,7 +62,8 @@ static void router_dump(sd_ndisc_router *rt) {
                  preference == SD_NDISC_PREFERENCE_HIGH ? "high" : "medium");
 
         assert_se(sd_ndisc_router_get_lifetime(rt, &lifetime) >= 0);
-        log_info("Lifetime: %" PRIu16, lifetime);
+        assert_se(sd_ndisc_router_get_lifetime_timestamp(rt, CLOCK_REALTIME, &t) >= 0);
+        log_info("Lifetime: %s (%s)", FORMAT_TIMESPAN(lifetime, USEC_PER_SEC), FORMAT_TIMESTAMP(t));
 
         if (sd_ndisc_router_get_mtu(rt, &mtu) < 0)
                 log_info("No MTU set");
@@ -99,16 +100,17 @@ static void router_dump(sd_ndisc_router *rt) {
                 }
 
                 case SD_NDISC_OPTION_PREFIX_INFORMATION: {
-                        uint32_t lifetime_valid, lifetime_preferred;
                         unsigned prefix_len;
                         uint8_t pfl;
                         struct in6_addr a;
 
-                        assert_se(sd_ndisc_router_prefix_get_valid_lifetime(rt, &lifetime_valid) >= 0);
-                        log_info("Valid Lifetime: %" PRIu32, lifetime_valid);
+                        assert_se(sd_ndisc_router_prefix_get_valid_lifetime(rt, &lifetime) >= 0);
+                        assert_se(sd_ndisc_router_prefix_get_valid_lifetime_timestamp(rt, CLOCK_REALTIME, &t) >= 0);
+                        log_info("Valid Lifetime: %s (%s)", FORMAT_TIMESPAN(lifetime, USEC_PER_SEC), FORMAT_TIMESTAMP(t));
 
-                        assert_se(sd_ndisc_router_prefix_get_preferred_lifetime(rt, &lifetime_preferred) >= 0);
-                        log_info("Preferred Lifetime: %" PRIu32, lifetime_preferred);
+                        assert_se(sd_ndisc_router_prefix_get_preferred_lifetime(rt, &lifetime) >= 0);
+                        assert_se(sd_ndisc_router_prefix_get_preferred_lifetime_timestamp(rt, CLOCK_REALTIME, &t) >= 0);
+                        log_info("Preferred Lifetime: %s (%s)", FORMAT_TIMESPAN(lifetime, USEC_PER_SEC), FORMAT_TIMESTAMP(t));
 
                         assert_se(sd_ndisc_router_prefix_get_flags(rt, &pfl) >= 0);
                         log_info("Flags: <%s|%s>",
@@ -126,7 +128,6 @@ static void router_dump(sd_ndisc_router *rt) {
 
                 case SD_NDISC_OPTION_RDNSS: {
                         const struct in6_addr *a;
-                        uint32_t lt;
                         int n, i;
 
                         n = sd_ndisc_router_rdnss_get_addresses(rt, &a);
@@ -135,14 +136,14 @@ static void router_dump(sd_ndisc_router *rt) {
                         for (i = 0; i < n; i++)
                                 log_info("DNS: %s", IN6_ADDR_TO_STRING(a + i));
 
-                        assert_se(sd_ndisc_router_rdnss_get_lifetime(rt, &lt) >= 0);
-                        log_info("Lifetime: %" PRIu32, lt);
+                        assert_se(sd_ndisc_router_rdnss_get_lifetime(rt, &lifetime) >= 0);
+                        assert_se(sd_ndisc_router_rdnss_get_lifetime_timestamp(rt, CLOCK_REALTIME, &t) >= 0);
+                        log_info("Lifetime: %s (%s)", FORMAT_TIMESPAN(lifetime, USEC_PER_SEC), FORMAT_TIMESTAMP(t));
                         break;
                 }
 
                 case SD_NDISC_OPTION_DNSSL: {
                         _cleanup_strv_free_ char **l = NULL;
-                        uint32_t lt;
                         int n, i;
 
                         n = sd_ndisc_router_dnssl_get_domains(rt, &l);
@@ -151,8 +152,9 @@ static void router_dump(sd_ndisc_router *rt) {
                         for (i = 0; i < n; i++)
                                 log_info("Domain: %s", l[i]);
 
-                        assert_se(sd_ndisc_router_dnssl_get_lifetime(rt, &lt) >= 0);
-                        log_info("Lifetime: %" PRIu32, lt);
+                        assert_se(sd_ndisc_router_dnssl_get_lifetime(rt, &lifetime) >= 0);
+                        assert_se(sd_ndisc_router_dnssl_get_lifetime_timestamp(rt, CLOCK_REALTIME, &t) >= 0);
+                        log_info("Lifetime: %s (%s)", FORMAT_TIMESPAN(lifetime, USEC_PER_SEC), FORMAT_TIMESTAMP(t));
                         break;
                 }}
 
