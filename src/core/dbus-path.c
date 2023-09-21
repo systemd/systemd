@@ -98,11 +98,9 @@ static int bus_path_set_transient_property(
                         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                                 _cleanup_free_ char *k = NULL;
 
-                                k = strdup(path);
-                                if (!k)
-                                        return -ENOMEM;
-
-                                path_simplify(k);
+                                r = path_simplify_alloc(path, &k);
+                                if (r < 0)
+                                        return r;
 
                                 PathSpec *s = new(PathSpec, 1);
                                 if (!s)
