@@ -22,10 +22,32 @@
 #include "strv.h"
 #include "time-util.h"
 
-int parse_sleep_config(SleepConfig **ret_sleep_config) {
-        _cleanup_(free_sleep_configp) SleepConfig *sc = NULL;
-        int allow_suspend = -1, allow_hibernate = -1,
-            allow_s2h = -1, allow_hybrid_sleep = -1;
+static const char* const sleep_operation_table[_SLEEP_OPERATION_MAX] = {
+        [SLEEP_SUSPEND]                = "suspend",
+        [SLEEP_HIBERNATE]              = "hibernate",
+        [SLEEP_HYBRID_SLEEP]           = "hybrid-sleep",
+        [SLEEP_SUSPEND_THEN_HIBERNATE] = "suspend-then-hibernate",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(sleep_operation, SleepOperation);
+
+SleepConfig* sleep_config_free(SleepConfig *sc) {
+        if (!sc)
+                return NULL;
+
+        for (SleepOperation i = 0; i < _SLEEP_OPERATION_CONFIG_MAX; i++) {
+                strv_free(sc->modes[i]);
+                strv_free(sc->states[i]);
+        }
+
+        return mfree(sc);
+}
+
+int parse_sleep_config(SleepConfig **ret) {
+        _cleanup_(sleep_config_freep) SleepConfig *sc = NULL;
+        int allow_suspend = -1, allow_hibernate = -1, allow_s2h = -1, allow_hybrid_sleep = -1;
+
+        assert(ret);
 
         sc = new(SleepConfig, 1);
         if (!sc)
@@ -83,7 +105,7 @@ int parse_sleep_config(SleepConfig **ret_sleep_config) {
             || !sc->states[SLEEP_HIBERNATE] || !sc->modes[SLEEP_HYBRID_SLEEP] || !sc->states[SLEEP_HYBRID_SLEEP])
                 return log_oom();
 
-        *ret_sleep_config = TAKE_PTR(sc);
+        *ret = TAKE_PTR(sc);
 
         return 0;
 }
@@ -227,7 +249,7 @@ static int can_sleep_internal(
 }
 
 int can_sleep(SleepOperation operation) {
-        _cleanup_(free_sleep_configp) SleepConfig *sleep_config = NULL;
+        _cleanup_(sleep_config_freep) SleepConfig *sleep_config = NULL;
         int r;
 
         r = parse_sleep_config(&sleep_config);
@@ -236,24 +258,3 @@ int can_sleep(SleepOperation operation) {
 
         return can_sleep_internal(sleep_config, operation, true);
 }
-
-SleepConfig* free_sleep_config(SleepConfig *sc) {
-        if (!sc)
-                return NULL;
-
-        for (SleepOperation i = 0; i < _SLEEP_OPERATION_MAX; i++) {
-                strv_free(sc->modes[i]);
-                strv_free(sc->states[i]);
-        }
-
-        return mfree(sc);
-}
-
-static const char* const sleep_operation_table[_SLEEP_OPERATION_MAX] = {
-        [SLEEP_SUSPEND]                = "suspend",
-        [SLEEP_HIBERNATE]              = "hibernate",
-        [SLEEP_HYBRID_SLEEP]           = "hybrid-sleep",
-        [SLEEP_SUSPEND_THEN_HIBERNATE] = "suspend-then-hibernate",
-};
-
-DEFINE_STRING_TABLE_LOOKUP(sleep_operation, SleepOperation);
