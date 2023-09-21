@@ -2510,6 +2510,8 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
+        sd_journal_enable_fast_query(j);
+
         switch (arg_action) {
 
         case ACTION_NEW_ID128:

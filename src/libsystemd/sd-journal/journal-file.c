@@ -697,10 +697,12 @@ int journal_file_fstat(JournalFile *f) {
         assert(f);
         assert(f->fd >= 0);
 
-        if (fstat(f->fd, &f->last_stat) < 0)
-                return -errno;
+        if(!f->last_stat_usec || !f->cache_fstat) {
+                if (fstat(f->fd, &f->last_stat) < 0)
+                        return -errno;
 
-        f->last_stat_usec = now(CLOCK_MONOTONIC);
+                f->last_stat_usec = now(CLOCK_MONOTONIC);
+        }
 
         /* Refuse dealing with files that aren't regular */
         r = stat_verify_regular(&f->last_stat);
