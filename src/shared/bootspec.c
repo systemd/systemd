@@ -446,6 +446,7 @@ void boot_config_free(BootConfig *config) {
         for (size_t i = 0; i < config->n_entries; i++)
                 boot_entry_free(config->entries + i);
         free(config->entries);
+        LIST_CLEAR(addon_list, config->global_addon_list, boot_entry_addon_free);
 
         set_free(config->inodes_seen);
 }
@@ -937,6 +938,23 @@ static int boot_entries_find_unified_addons(
         return 0;
 }
 
+static int boot_entries_find_unified_global_addons(
+                BootConfig *config,
+                const char *root,
+                const char *d_name) {
+
+        int r;
+        _cleanup_closedir_ DIR *d = NULL;
+
+        r = chase_and_opendir(root, NULL, CHASE_PROHIBIT_SYMLINKS, NULL, &d);
+        if (r == -ENOENT)
+                return 0;
+        if (r < 0)
+                return log_error_errno(r, "Failed to open '%s/%s': %m", root, d_name);
+
+        return boot_entries_find_unified_addons(config, dirfd(d), d_name, root, &config->global_addon_list);
+}
+
 static int boot_entries_find_unified_local_addons(
                 BootConfig *config,
                 int d_fd,
@@ -1230,6 +1248,7 @@ int boot_config_load(
         int r;
 
         assert(config);
+        LIST_HEAD_INIT(config->global_addon_list);
 
         if (esp_path) {
                 r = boot_loader_read_conf_path(config, esp_path, "/loader/loader.conf");
@@ -1241,6 +1260,10 @@ int boot_config_load(
                         return r;
 
                 r = boot_entries_find_unified(config, esp_path, "/EFI/Linux/");
+                if (r < 0)
+                        return r;
+
+                r = boot_entries_find_unified_global_addons(config, esp_path, "/loader/addons/");
                 if (r < 0)
                         return r;
         }
@@ -1412,7 +1435,9 @@ static void print_addon(
         printf("      cmdline: %s%s\n", special_glyph(SPECIAL_GLYPH_TREE_RIGHT), addon->cmdline);
 }
 
-static int print_cmdline(const BootEntry *e) {
+static int print_cmdline(
+                const BootEntry *e,
+                BootEntryAddon *global_list) {
 
         _cleanup_free_ char *final_cmdline = NULL;
 
@@ -1436,6 +1461,12 @@ static int print_cmdline(const BootEntry *e) {
 
                 printf("  defCmdline: %s\n", t2);
                 if (!strextend(&final_cmdline, t2, " "))
+                        return log_oom();
+        }
+
+        LIST_FOREACH(addon_list, addon, global_list) {
+                print_addon(addon, "globalAddon");
+                if (!strextend(&final_cmdline, addon->cmdline, " "))
                         return log_oom();
         }
 
@@ -1469,7 +1500,10 @@ static int json_addon(
         return 0;
 }
 
-static int json_cmdline(const BootEntry *e, JsonVariant **v) {
+static int json_cmdline(
+                const BootEntry *e,
+                BootEntryAddon *global_list,
+                JsonVariant **v) {
 
         _cleanup_free_ char *final_cmdline = NULL, *def_cmdline = NULL;
         _cleanup_(json_variant_unrefp) JsonVariant *addons_array = NULL;
@@ -1483,6 +1517,14 @@ static int json_cmdline(const BootEntry *e, JsonVariant **v) {
                         return log_oom();
                 final_cmdline = strjoin(def_cmdline, " ");
                 if (!final_cmdline)
+                        return log_oom();
+        }
+
+        LIST_FOREACH(addon_list, addon, global_list) {
+                r = json_addon(addon, "globalAddon", &addons_array);
+                if (r < 0)
+                        return r;
+                if (!strextend(&final_cmdline, addon->cmdline, " "))
                         return log_oom();
         }
 
@@ -1506,6 +1548,7 @@ static int json_cmdline(const BootEntry *e, JsonVariant **v) {
 
 int show_boot_entry(
                 const BootEntry *e,
+                BootEntryAddon *global_addons,
                 bool show_as_default,
                 bool show_as_selected,
                 bool show_reported) {
@@ -1589,7 +1632,7 @@ int show_boot_entry(
                                      *s,
                                      &status);
 
-        r = print_cmdline(e);
+        r = print_cmdline(e, global_addons);
         if (r < 0)
                 return r;
 
@@ -1637,7 +1680,7 @@ int show_boot_entries(const BootConfig *config, JsonFormatFlags json_format) {
                         if (r < 0)
                                 return log_oom();
 
-                        r = json_cmdline(e, &v);
+                        r = json_cmdline(e, config->global_addon_list, &v);
                         if (r < 0)
                                 return log_oom();
 
@@ -1666,6 +1709,7 @@ int show_boot_entries(const BootConfig *config, JsonFormatFlags json_format) {
                 for (size_t n = 0; n < config->n_entries; n++) {
                         r = show_boot_entry(
                                         config->entries + n,
+                                        config->global_addon_list,
                                         /* show_as_default= */  n == (size_t) config->default_entry,
                                         /* show_as_selected= */ n == (size_t) config->selected_entry,
                                         /* show_discovered= */  true);
