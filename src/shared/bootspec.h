@@ -20,6 +20,21 @@ typedef enum BootEntryType {
         _BOOT_ENTRY_TYPE_INVALID = -EINVAL,
 } BootEntryType;
 
+typedef struct BootEntryAddon {
+        char *location;
+        char *cmdline;
+} BootEntryAddon;
+
+typedef struct BootEntryAddonArray {
+        BootEntryAddon *arr;
+        size_t size;
+} BootEntryAddonArray;
+
+BootEntryAddon* boot_entry_addon_free(BootEntryAddon *t);
+DEFINE_TRIVIAL_CLEANUP_FUNC(BootEntryAddon*, boot_entry_addon_free);
+
+#define BOOT_ENTRY_ADDON_ARRAY_SIZE 10
+
 typedef struct BootEntry {
         BootEntryType type;
         bool reported_by_loader;
@@ -34,6 +49,7 @@ typedef struct BootEntry {
         char *machine_id;
         char *architecture;
         char **options;
+        BootEntryAddonArray local_addons;
         char *kernel;        /* linux is #defined to 1, yikes! */
         char *efi;
         char **initrd;
