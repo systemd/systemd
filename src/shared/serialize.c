@@ -5,7 +5,9 @@
 #include "alloc-util.h"
 #include "env-util.h"
 #include "escape.h"
+#include "fd-util.h"
 #include "fileio.h"
+#include "hexdecoct.h"
 #include "memfd-util.h"
 #include "missing_mman.h"
 #include "missing_syscall.h"
@@ -97,7 +99,7 @@ int serialize_item_format(FILE *f, const char *key, const char *format, ...) {
         return 1;
 }
 
-int serialize_fd(FILE *f, FDSet *fds, const char *key, int fd) {
+int serialize_fd_full(FILE *f, FDSet *fds, bool store_index, const char *key, int fd) {
         int copy;
 
         assert(f);
@@ -110,7 +112,7 @@ int serialize_fd(FILE *f, FDSet *fds, const char *key, int fd) {
         if (copy < 0)
                 return log_error_errno(copy, "Failed to add file descriptor to serialization set: %m");
 
-        return serialize_item_format(f, key, "%i", copy);
+        return serialize_item_format(f, key, "%i", store_index ? (int)(fdset_size(fds) - 1) : copy);
 }
 
 int serialize_usec(FILE *f, const char *key, usec_t usec) {
@@ -147,6 +149,73 @@ int serialize_strv(FILE *f, const char *key, char **l) {
         }
 
         return ret;
+}
+
+int serialize_item_hexmem(FILE *f, const char *key, const void *p, size_t l) {
+        _cleanup_free_ char *encoded = NULL;
+        int r;
+
+        assert(f);
+        assert(key);
+        assert(p || l == 0);
+
+        if (l == 0)
+                return 0;
+
+        encoded = hexmem(p, l);
+        if (!encoded)
+                return log_oom_debug();
+
+        r = serialize_item(f, key, encoded);
+        if (r < 0)
+                return r;
+
+        return 1;
+}
+
+
+int serialize_item_base64mem(FILE *f, const char *key, const void *p, size_t l) {
+        _cleanup_free_ char *encoded = NULL;
+        ssize_t len;
+        int r;
+
+        assert(f);
+        assert(key);
+        assert(p || l == 0);
+
+        if (l == 0)
+                return 0;
+
+        len = base64mem(p, l, &encoded);
+        if (len <= 0)
+                return log_oom_debug();
+
+        r = serialize_item(f, key, encoded);
+        if (r < 0)
+                return r;
+
+        return 1;
+}
+
+int serialize_string_set(FILE *f, const char *key, Set *s) {
+        _cleanup_free_ char *serialized = NULL;
+        int r;
+
+        assert(f);
+        assert(key);
+
+        if (set_isempty(s))
+                return 0;
+
+        r = set_strjoin(s, " ", /* wrap_with_separator= */ false, &serialized);
+        if (r < 0)
+                return r;
+
+        r = serialize_item(f, key, serialized);
+        if (r < 0)
+                return r;
+
+        return 1;
 }
 
 int deserialize_read_line(FILE *f, char **ret) {
@@ -255,6 +324,42 @@ int deserialize_environment(const char *value, char ***list) {
         return 0;
 }
 
+int deserialize_fd(const char *value, FDSet *fds, bool store_index) {
+        int fd, r;
+
+        assert(value);
+        assert(fds);
+
+        if (!store_index) {
+                fd = parse_fd(value);
+                if (fd < 0)
+                        return log_debug_errno(fd, "Failed to parse FD out of value: %s", value);
+
+                if (!fdset_contains(fds, fd))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "FD %d not in fdset.", fd);
+
+                r = fdset_remove(fds, fd);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to remove value=%d from fdset", fd);
+        } else {
+                size_t i;
+
+                r = safe_atozu(value, &i);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to parse FD index out of value: %s", value);
+
+                if (i >= fdset_size(fds))
+                        return log_debug_errno(SYNTHETIC_ERRNO(ERANGE), "FD index %zu not in fd array.", i);
+
+                /* Can't remove from the set, or the order will change */
+                FDSET_FOREACH(fd, fds)
+                        if (i-- == 0)
+                                break;
+        }
+
+        return fd;
+}
+
 int open_serialization_fd(const char *ident) {
         int fd;
 
@@ -272,4 +377,23 @@ int open_serialization_fd(const char *ident) {
                 log_debug("Serializing %s to memfd.", ident);
 
         return fd;
+}
+
+int open_serialization_file(const char *ident, FILE **ret) {
+        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_close_ int fd;
+
+        assert(ret);
+
+        fd = open_serialization_fd(ident);
+        if (fd < 0)
+                return fd;
+
+        f = take_fdopen(&fd, "w+");
+        if (!f)
+                return -errno;
+
+        *ret = TAKE_PTR(f);
+
+        return 0;
 }
