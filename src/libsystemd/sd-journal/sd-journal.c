@@ -469,47 +469,64 @@ static struct boot_id_newest_entry **boot_id_to_newest_realtime_usec_get_slot(sd
 static int compare_boot_ids(sd_journal *j, sd_id128_t a, sd_id128_t b) {
         assert(j);
 
-        struct boot_id_newest_entry **ae, **be;
+        if(j->fast_query) {
+                struct boot_id_newest_entry **ae, **be;
 
-        ae = boot_id_to_newest_realtime_usec_get_slot(j, a);
-        be = boot_id_to_newest_realtime_usec_get_slot(j, b);
+                ae = boot_id_to_newest_realtime_usec_get_slot(j, a);
+                be = boot_id_to_newest_realtime_usec_get_slot(j, b);
 
-        if(!(*ae)) {
-                *ae = calloc(1, sizeof(struct boot_id_newest_entry));
-                assert(*ae);
-                (*ae)->boot_id = a;
-                JournalFile *f;
-                (*ae)->ret = journal_file_find_newest_for_boot_id(j, a, &f);
-                if((*ae)->ret >= 0) {
-                        (*ae)->newest_realtime_usec = f->newest_realtime_usec;
-                        (*ae)->newest_machine_id = f->newest_machine_id;
+                if (!(*ae)) {
+                        *ae = calloc(1, sizeof(struct boot_id_newest_entry));
+                        assert(*ae);
+                        (*ae)->boot_id = a;
+                        JournalFile *f;
+                        (*ae)->ret = journal_file_find_newest_for_boot_id(j, a, &f);
+                        if ((*ae)->ret >= 0) {
+                                (*ae)->newest_realtime_usec = f->newest_realtime_usec;
+                                (*ae)->newest_machine_id = f->newest_machine_id;
+                        }
                 }
-        }
 
-        if(!(*be)) {
-                *be = calloc(1, sizeof(struct boot_id_newest_entry));
-                assert(*be);
-                (*be)->boot_id = b;
-                JournalFile *f;
-                (*be)->ret = journal_file_find_newest_for_boot_id(j, b, &f);
-                if((*ae)->ret >= 0) {
-                        (*be)->newest_realtime_usec = f->newest_realtime_usec;
-                        (*be)->newest_machine_id = f->newest_machine_id;
+                if (!(*be)) {
+                        *be = calloc(1, sizeof(struct boot_id_newest_entry));
+                        assert(*be);
+                        (*be)->boot_id = b;
+                        JournalFile *f;
+                        (*be)->ret = journal_file_find_newest_for_boot_id(j, b, &f);
+                        if ((*ae)->ret >= 0) {
+                                (*be)->newest_realtime_usec = f->newest_realtime_usec;
+                                (*be)->newest_machine_id = f->newest_machine_id;
+                        }
                 }
+
+                struct boot_id_newest_entry *x = *ae, *y = *be;
+
+                if (x->ret < 0 || y->ret < 0)
+                        return 0;
+
+                /* Only compare the boot id timestamps if they originate from the same machine. If they are from different machines, then we timestamps of the boot ids might be as off as the timestamps on the entries and hence not useful for comparing. */
+                if (!sd_id128_equal(x->newest_machine_id, y->newest_machine_id))
+                        return 0;
+
+                return CMP(x->newest_realtime_usec, y->newest_realtime_usec);
         }
+        else {
+                JournalFile *x, *y;
 
-        struct boot_id_newest_entry *x = *ae, *y = *be;
+                /* Try to find the newest open journal file for the two boot ids */
+                if (journal_file_find_newest_for_boot_id(j, a, &x) < 0 ||
+                    journal_file_find_newest_for_boot_id(j, b, &y) < 0)
+                        return 0;
 
-        if(x->ret < 0 || y->ret < 0)
-                return 0;
+                /* Only compare the boot id timestamps if they originate from the same machine. If they are from
+                 * different machines, then we timestamps of the boot ids might be as off as the timestamps on the
+                 * entries and hence not useful for comparing. */
 
-        /* Only compare the boot id timestamps if they originate from the same machine. If they are from
-         * different machines, then we timestamps of the boot ids might be as off as the timestamps on the
-         * entries and hence not useful for comparing. */
-        if (!sd_id128_equal(x->newest_machine_id, y->newest_machine_id))
-                return 0;
+                if (!sd_id128_equal(x->newest_machine_id, y->newest_machine_id))
+                        return 0;
 
-        return CMP(x->newest_realtime_usec, y->newest_realtime_usec);
+                return CMP(x->newest_realtime_usec, y->newest_realtime_usec);
+        }
 }
 
 static int compare_with_location(
@@ -973,6 +990,8 @@ static int real_journal_next(sd_journal *j, direction_t direction) {
         for (unsigned i = 0; i < n_files; i++) {
                 JournalFile *f = (JournalFile *)files[i];
                 bool found;
+
+                f->cache_fstat = j->fast_query;
 
                 r = next_beyond_location(j, f, direction);
                 if (r < 0) {
@@ -1501,6 +1520,8 @@ static int add_any_file(
                 log_debug_errno(r, "Failed to open journal file %s: %m", path ?: "from fd");
                 goto error;
         }
+
+        f->cache_fstat = j->fast_query;
 
         /* journal_file_dump(f); */
 
@@ -2120,6 +2141,11 @@ _public_ int sd_journal_open_namespace(sd_journal **ret, const char *namespace, 
 
 _public_ int sd_journal_open(sd_journal **ret, int flags) {
         return sd_journal_open_namespace(ret, NULL, flags);
+}
+
+_public_ void sd_journal_enable_fast_query(sd_journal *j) {
+        assert(j);
+        j->fast_query = 1;
 }
 
 #define OPEN_CONTAINER_ALLOWED_FLAGS                    \

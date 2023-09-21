@@ -68,6 +68,7 @@ typedef struct JournalFile {
         bool close_fd:1;
         bool archive:1;
         bool strict_order:1;
+        bool cache_fstat:1;
 
         direction_t last_direction;
         LocationType location_type;
@@ -129,11 +130,6 @@ typedef struct JournalFile {
         uint64_t newest_realtime_usec;
         unsigned newest_boot_id_prioq_idx;
         usec_t newest_mtime;
-
-        struct {
-                char done;
-                int result;
-        } cache_fstat;
 } JournalFile;
 
 typedef enum JournalFileFlags {

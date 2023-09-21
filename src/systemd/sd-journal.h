@@ -91,6 +91,7 @@ int sd_journal_open_files(sd_journal **ret, const char **paths, int flags);
 int sd_journal_open_files_fd(sd_journal **ret, int fds[], unsigned n_fds, int flags);
 int sd_journal_open_container(sd_journal **ret, const char *machine, int flags) _sd_deprecated_;
 void sd_journal_close(sd_journal *j);
+void sd_journal_enable_fast_query(sd_journal *j);
 
 int sd_journal_previous(sd_journal *j);
 int sd_journal_next(sd_journal *j);
