@@ -10,6 +10,7 @@
 #include "hashmap.h"
 #include "io-util.h"
 #include "list.h"
+#include "path-util.h"
 #include "process-util.h"
 #include "selinux-util.h"
 #include "serialize.h"
@@ -193,6 +194,8 @@ struct Varlink {
         sd_event_source *time_event_source;
         sd_event_source *quit_event_source;
         sd_event_source *defer_event_source;
+
+        pid_t exec_pid;
 };
 
 typedef struct VarlinkServerSocket VarlinkServerSocket;
@@ -404,6 +407,143 @@ int varlink_connect_address(Varlink **ret, const char *address) {
         return 0;
 }
 
+int varlink_connect_exec(Varlink **ret, const char *_command, char **_argv) {
+        _cleanup_close_pair_ int pair[2] = PIPE_EBADF;
+        _cleanup_(sigkill_waitp) pid_t pid = 0;
+        _cleanup_free_ char *command = NULL;
+        _cleanup_strv_free_ char **argv = NULL;
+        int r;
+
+        assert_return(ret, -EINVAL);
+        assert_return(_command, -EINVAL);
+
+        /* Copy the strings, in case they point into our own argv[], which we'll invalidate shortly because
+         * we rename the child process */
+        command = strdup(_command);
+        if (!command)
+                return -ENOMEM;
+
+        if (strv_isempty(_argv))
+                argv = strv_new(command);
+        else
+                argv = strv_copy(_argv);
+        if (!argv)
+                return -ENOMEM;
+
+        log_debug("Forking off Varlink child process '%s'.", command);
+
+        if (socketpair(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0, pair) < 0)
+                return log_debug_errno(errno, "Failed to allocate AF_UNIX socket pair: %m");
+
+        r = safe_fork_full(
+                        "(sd-vlexec)",
+                        /* stdio_fds= */ NULL,
+                        /* except_fds= */ (int[]) { pair[1] },
+                        /* n_except_fds= */ 1,
+                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG|FORK_REOPEN_LOG|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE,
+                        &pid);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to spawn process: %m");
+        if (r == 0) {
+                char spid[DECIMAL_STR_MAX(pid_t)+1];
+                const char *setenv_list[] = {
+                        "LISTEN_FDS", "1",
+                        "LISTEN_PID", spid,
+                        "LISTEN_FDNAMES", "varlink",
+                        NULL, NULL,
+                };
+                /* Child */
+
+                pair[0] = -EBADF;
+
+                r = move_fd(pair[1], 3, /* cloexec= */ false);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to move file descriptor to 3: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                xsprintf(spid, PID_FMT, pid);
+
+                STRV_FOREACH_PAIR(a, b, setenv_list) {
+                        if (setenv(*a, *b, /* override= */ true) < 0) {
+                                log_debug_errno(errno, "Failed to set environment variable '%s': %m", *a);
+                                _exit(EXIT_FAILURE);
+                        }
+                }
+
+                execvp(command, argv);
+                log_debug_errno(r, "Failed to invoke process '%s': %m", command);
+                _exit(EXIT_FAILURE);
+        }
+
+        pair[1] = safe_close(pair[1]);
+
+        Varlink *v;
+        r = varlink_new(&v);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to create varlink object: %m");
+
+        v->fd = TAKE_FD(pair[0]);
+        v->af = AF_UNIX;
+        v->exec_pid = TAKE_PID(pid);
+        varlink_set_state(v, VARLINK_IDLE_CLIENT);
+
+        *ret = v;
+        return 0;
+}
+
+int varlink_connect_url(Varlink **ret, const char *url) {
+        _cleanup_free_ char *c = NULL;
+        const char *p;
+        bool exec;
+
+        assert_return(ret, -EINVAL);
+        assert_return(url, -EINVAL);
+
+        // FIXME: Add support for vsock:, ssh-exec:, ssh-unix: URL schemes here. (The latter with OpenSSH
+        // 9.4's -W switch for referencing remote AF_UNIX sockets.)
+
+        /* The Varlink URL scheme is a bit underdefined. We support only the unix: transport for now, plus an
+         * exec: transport we made up ourselves. Strictly speaking this shouldn't even be called URL, since
+         * it has nothing to do with Internet URLs by RFC. */
+
+        p = startswith(url, "unix:");
+        if (p)
+                exec = false;
+        else {
+                p = startswith(url, "exec:");
+                if (!p)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EPROTONOSUPPORT), "URL scheme not supported.");
+
+                exec = true;
+        }
+
+        /* The varlink.org reference C library supports more than just file system paths. We might want to
+         * support that one day too. For now simply refuse that. */
+        if (p[strcspn(p, ";?#")] != '\0')
+                return log_debug_errno(SYNTHETIC_ERRNO(EPROTONOSUPPORT), "URL parameterization with ';', '?', '#' not supported.");
+
+        if (exec || p[0] != '@') { /* no validity checks for abstract namespace */
+
+                if (!path_is_absolute(p))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Specified path not absolute, refusing.");
+
+                c = strdup(p);
+                if (!c)
+                        return log_oom_debug();
+
+                path_simplify(c);
+
+                if (!path_is_normalized(c))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Specified path is not normalized, refusing.");
+        }
+
+        if (exec)
+                return varlink_connect_exec(ret, c ?: p, NULL);
+
+        return varlink_connect_address(ret, c ?: p);
+}
+
 int varlink_connect_fd(Varlink **ret, int fd) {
         Varlink *v;
         int r;
@@ -482,6 +622,11 @@ static void varlink_clear(Varlink *v) {
         v->output_queue_tail = NULL;
 
         v->event = sd_event_unref(v->event);
+
+        if (v->exec_pid > 0) {
+                sigterm_wait(v->exec_pid);
+                v->exec_pid = 0;
+        }
 }
 
 static Varlink* varlink_destroy(Varlink *v) {
