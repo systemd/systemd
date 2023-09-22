@@ -147,10 +147,6 @@ if get_option('mode') == 'developer' and get_option('debug')
 endif
 
 efi_c_ld_args = [
-        # We only support bfd. gold is going away, lld has issues with LTO on x86
-        # and mold does not support linker scripts.
-        '-fuse-ld=bfd',
-
         '-lgcc',
         '-nostdlib',
         '-static-pie',
@@ -170,9 +166,10 @@ efi_c_ld_args = [
         '-z', 'separate-code',
 ]
 
-# On CentOS 8 the nopack-relative-relocs linker flag is not supported, and we get:
-#   /usr/bin/ld.bfd: warning: -z nopack-relative-relocs ignored
-efi_c_ld_args += cc.get_supported_link_arguments('-Wl,-z,nopack-relative-relocs')
+efi_c_ld_args += cc.get_supported_link_arguments(
+        # binutils >= 2.38
+        '-Wl,-z,nopack-relative-relocs',
+)
 
 # efi_c_args is explicitly passed to targets so that they can override distro-provided flags
 # that should not be used for EFI binaries.
@@ -213,10 +210,34 @@ efi_arch_c_args = {
 efi_arch_c_ld_args = {
         # libgcc is not compiled with -fshort-wchar, but it does not use it anyways,
         # so it's fine to link against it.
-        'arm'    : ['-Wl,--no-wchar-size-warning'],
+        'arm'    : cc.get_supported_link_arguments('-Wl,--no-wchar-size-warning'),
         'x86_64' : ['-m64'],
         'x86'    : ['-m32'],
 }
+
+linker_sanity_code = 'void a(void) {}; void _start(void) { a(); }'
+linker_sanity_args = ['-nostdlib', '-Wl,--fatal-warnings']
+if not cc.links(linker_sanity_code,
+                name : 'linker supports -static-pie',
+                args : [linker_sanity_args, '-static-pie'])
+        error('Linker does not support -static-pie.')
+endif
+
+# https://github.com/llvm/llvm-project/issues/67152
+if not cc.links(linker_sanity_code,
+                name : 'linker supports LTO with -nostdlib',
+                args : [linker_sanity_args, '-flto'])
+        efi_c_args += '-fno-lto'
+        efi_c_ld_args += '-fno-lto'
+endif
+
+# https://github.com/llvm/llvm-project/issues/61101
+if efi_cpu_family_alt == 'x86' and not cc.links(linker_sanity_code,
+                name : 'linker supports LTO with -nostdlib (x86)',
+                args : [linker_sanity_args, '-flto', '-m32'])
+        efi_arch_c_args += { 'x86' : efi_arch_c_args['x86'] + '-fno-lto' }
+        efi_arch_c_ld_args += { 'x86' : efi_arch_c_ld_args['x86'] + '-fno-lto' }
+endif
 
 ############################################################
 
@@ -315,7 +336,6 @@ foreach archspec : efi_archspecs
                 'include_directories' : efi_includes,
                 'c_args' : archspec['c_args'],
                 'link_args' : archspec['link_args'],
-                'link_with' : libefi,
                 'gnu_symbol_visibility' : 'hidden',
                 'override_options' : efi_override_options,
                 'pie' : true,
@@ -324,12 +344,14 @@ foreach archspec : efi_archspecs
         efi_elf_binaries += executable(
                 'systemd-boot' + archspec['arch'],
                 sources : [systemd_boot_sources, version_h],
+                link_with : libefi,
                 name_suffix : 'elf',
                 kwargs : kwargs)
 
         efi_elf_binaries += executable(
                 'linux' + archspec['arch'],
                 sources : [stub_sources, version_h],
+                link_with : libefi,
                 name_suffix : 'elf.stub',
                 kwargs : kwargs)
 
