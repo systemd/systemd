@@ -27,7 +27,7 @@
   <refsynopsisdiv>
     <para><filename>systemd-cryptsetup@.service</filename></para>
     <para><filename>system-systemd\x2dcryptsetup.slice</filename></para>
-    <para><filename>/usr/lib/systemd/systemd-cryptsetup</filename></para>
+    <para><filename>systemd-cryptsetup</filename></para>
   </refsynopsisdiv>
 
   <refsect1>

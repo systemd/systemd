@@ -5,7 +5,7 @@
 sudo systemd-cryptenroll --tpm2-device=auto --tpm2-pcrs=7 /dev/sdXn
 
 # Test: Let's run systemd-cryptsetup to test if this worked.
-sudo /usr/lib/systemd/systemd-cryptsetup attach mytest /dev/sdXn - tpm2-device=auto
+sudo systemd-cryptsetup attach mytest /dev/sdXn - tpm2-device=auto
 
 # If that worked, let's now add the same line persistently to /etc/crypttab,
 # for the future. We don't want to use the (unstable) /dev/sdX name, so let's
@@ -16,7 +16,7 @@ udevadm info -q -r symlink /dev/sdXn
 sudo bash -c 'echo "mytest /dev/disk/by-uuid/... - tpm2-device=auto" >>/etc/crypttab'
 
 # And now let's check that automatic unlocking works:
-sudo /usr/lib/systemd/systemd-cryptsetup detach mytest
+sudo systemd-cryptsetup detach mytest
 sudo systemctl daemon-reload
 sudo systemctl start cryptsetup.target
 systemctl is-active systemd-cryptsetup@mytest.service
