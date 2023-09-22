@@ -440,6 +440,10 @@ executables += [
                 'dependencies' : threads,
         },
         test_template + {
+                'sources' : files('test-varlink-idl.c'),
+                'dependencies' : threads,
+        },
+        test_template + {
                 'sources' : files('test-watchdog.c'),
                 'type' : 'unsafe',
         },
