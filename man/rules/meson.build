@@ -1245,6 +1245,7 @@ manpages = [
   ['systemd-user-runtime-dir', 'user-runtime-dir@.service'],
   ''],
  ['userdbctl', '1', [], 'ENABLE_USERDB'],
+ ['varlinkctl', '1', [], ''],
  ['vconsole.conf', '5', [], 'ENABLE_VCONSOLE'],
  ['veritytab', '5', [], 'HAVE_LIBCRYPTSETUP']
 ]
