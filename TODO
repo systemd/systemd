@@ -386,6 +386,10 @@ Features:
 
 * udevd: extend memory pressure logic: also kill any idle worker processes
 
+* udevadm: make property querying with udevadm nicer:
+  - add a shortcut for 'udevadm info --query=property --property='
+  - do not enable the pager for property queries like this
+
 * SIGRTMIN+18 and memory pressure handling should still be added to: hostnamed,
   localed, oomd, timedated.
 
