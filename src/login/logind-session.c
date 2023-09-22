@@ -170,7 +170,7 @@ void session_set_user(Session *s, User *u) {
         user_update_last_session_timer(u);
 }
 
-int session_set_leader(Session *s, pid_t pid) {
+int session_set_leader(Session *s, pid_t pid, int pidfd) {
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         int r;
 
@@ -182,9 +182,15 @@ int session_set_leader(Session *s, pid_t pid) {
         if (s->leader.pid == pid)
                 return 0;
 
-        r = pidref_set_pid(&pidref, pid);
-        if (r < 0)
-                return r;
+        if (pidfd >= 0) {
+                r = pidref_set_pidfd(&pidref, pidfd);
+                if (r < 0)
+                        return r;
+        } else {
+                r = pidref_set_pid(&pidref, pid);
+                if (r < 0)
+                        return r;
+        }
 
         r = hashmap_put(s->manager->sessions_by_leader, PID_TO_PTR(pidref.pid), s);
         if (r < 0)
@@ -529,7 +535,7 @@ int session_load(Session *s) {
                 if (r < 0)
                         log_debug_errno(r, "Failed to parse leader PID of session: %s", leader);
                 else {
-                        r = session_set_leader(s, pid);
+                        r = session_set_leader(s, pid, -EBADF /* pidfd */);
                         if (r < 0)
                                 log_warning_errno(r, "Failed to set session leader PID, ignoring: %m");
                 }
@@ -884,6 +890,7 @@ int session_stop(Session *s, bool force) {
                 return 0;
 
         s->timer_event_source = sd_event_source_unref(s->timer_event_source);
+        s->leader_pidfd_event_source = sd_event_source_unref(s->leader_pidfd_event_source);
 
         if (s->seat)
                 seat_evict_position(s->seat, s);
@@ -921,6 +928,7 @@ int session_finalize(Session *s) {
                            LOG_MESSAGE("Removed session %s.", s->id));
 
         s->timer_event_source = sd_event_source_unref(s->timer_event_source);
+        s->leader_pidfd_event_source = sd_event_source_unref(s->leader_pidfd_event_source);
 
         if (s->seat)
                 seat_evict_position(s->seat, s);
@@ -944,6 +952,8 @@ int session_finalize(Session *s) {
 
                 seat_save(s->seat);
         }
+
+        s->leader.fd = safe_close(s->leader.fd);
 
         user_save(s->user);
         user_send_changed(s->user, "Display", NULL);
@@ -1242,6 +1252,14 @@ bool session_may_gc(Session *s, bool drop_not_started) {
                         return false;
         }
 
+        if (s->leader.fd >= 0) {
+                r = pidfd_is_alive(s->leader.fd);
+                if (r < 0)
+                        log_debug_errno(r, "Unable to determine if leader PID " PID_FMT " is still alive, assuming not.", s->leader.pid);
+                if (r > 0)
+                        return false;
+        }
+
         if (s->scope_job) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
 
@@ -1282,7 +1300,7 @@ SessionState session_get_state(Session *s) {
         if (s->stopping || s->timer_event_source)
                 return SESSION_CLOSING;
 
-        if (s->scope_job || s->fifo_fd < 0)
+        if (s->scope_job || (s->leader.fd < 0 && s->fifo_fd < 0))
                 return SESSION_OPENING;
 
         if (session_is_active(s))
