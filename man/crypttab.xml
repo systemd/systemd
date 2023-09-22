@@ -855,7 +855,7 @@ external   /dev/sda3       keyfile:LABEL=keydev keyfile-timeout=10s,cipher=xchac
       <citerefentry><refentrytitle>systemd-cryptenroll</refentrytitle><manvolnum>1</manvolnum></citerefentry>
       to add it in the LUKS2 volume:</para>
 
-<programlisting><xi:include href="yubikey-crypttab.sh" parse="text" /></programlisting>
+      <programlisting><xi:include href="yubikey-crypttab.sh" parse="text" /></programlisting>
 
       <para>A few notes on the above:</para>
 
@@ -875,7 +875,7 @@ external   /dev/sda3       keyfile:LABEL=keydev keyfile-timeout=10s,cipher=xchac
       set up a FIDO2 security token for this purpose for a LUKS2 volume, using
       <citerefentry><refentrytitle>systemd-cryptenroll</refentrytitle><manvolnum>1</manvolnum></citerefentry>:</para>
 
-<programlisting><xi:include href="fido2-crypttab.sh" parse="text" /></programlisting>
+      <programlisting><xi:include href="fido2-crypttab.sh" parse="text" /></programlisting>
     </example>
 
     <example>
@@ -886,7 +886,7 @@ external   /dev/sda3       keyfile:LABEL=keydev keyfile-timeout=10s,cipher=xchac
       using
       <citerefentry><refentrytitle>systemd-cryptenroll</refentrytitle><manvolnum>1</manvolnum></citerefentry>:</para>
 
-<programlisting><xi:include href="tpm2-crypttab.sh" parse="text" /></programlisting>
+      <programlisting><xi:include href="tpm2-crypttab.sh" parse="text" /></programlisting>
     </example>
   </refsect1>
 
