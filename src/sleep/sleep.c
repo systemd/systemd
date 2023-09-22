@@ -189,12 +189,15 @@ static int check_wakeup_type(void) {
         if (r < 0)
                 return log_debug_errno(r, "Unable to read %s: %m", dmi_object_path);
         if (bufsize < 25)
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Only read %zu bytes from %s (expected 25)", bufsize, dmi_object_path);
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Only read %zu bytes from %s (expected 25)",
+                                       bufsize, dmi_object_path);
 
         /* index 1 stores the size of table */
         tablesize = (uint8_t) buf[1];
         if (tablesize < 25)
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Table size lesser than the index[0x18] where waketype byte is available.");
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Table size less than the index[0x18] where waketype byte is available.");
 
         wakeup_type_byte = (uint8_t) buf[24];
         /* 0 is Reserved and 8 is AC Power Restored. As per table 12 in
