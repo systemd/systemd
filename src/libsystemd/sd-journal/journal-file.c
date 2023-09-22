@@ -623,9 +623,35 @@ static int journal_file_verify_header(JournalFile *f) {
                         return -ENODATA;
         }
 
-        if (JOURNAL_HEADER_CONTAINS(f->header, tail_entry_offset))
-                if (!offset_is_valid(le64toh(f->header->tail_entry_offset), header_size, tail_object_offset))
+        if (JOURNAL_HEADER_CONTAINS(f->header, tail_entry_offset)) {
+                uint64_t offset = le64toh(f->header->tail_entry_offset);
+
+                if (!offset_is_valid(offset, header_size, tail_object_offset))
                         return -ENODATA;
+
+                if (offset > 0) {
+                        /* When there is an entry object, then these fields must be filled. */
+                        if (sd_id128_is_null(f->header->tail_entry_boot_id))
+                                return -ENODATA;
+                        if (!VALID_REALTIME(le64toh(f->header->head_entry_realtime)))
+                                return -ENODATA;
+                        if (!VALID_REALTIME(le64toh(f->header->tail_entry_realtime)))
+                                return -ENODATA;
+                        if (!VALID_MONOTONIC(le64toh(f->header->tail_entry_realtime)))
+                                return -ENODATA;
+                } else {
+                        /* Otherwise, the fields must be zero. */
+                        if (JOURNAL_HEADER_TAIL_ENTRY_BOOT_ID(f->header) &&
+                            !sd_id128_is_null(f->header->tail_entry_boot_id))
+                                return -ENODATA;
+                        if (f->header->head_entry_realtime != 0)
+                                return -ENODATA;
+                        if (f->header->tail_entry_realtime != 0)
+                                return -ENODATA;
+                        if (f->header->tail_entry_realtime != 0)
+                                return -ENODATA;
+                }
+        }
 
         /* Verify number of objects */
         uint64_t n_objects = le64toh(f->header->n_objects);
