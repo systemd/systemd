@@ -563,7 +563,6 @@ run_qemu() {
         kernel_params+=(
             "oops=panic"
             "panic=1"
-            "softlockup_panic=1"
             "systemd.wants=end.service"
         )
     fi
