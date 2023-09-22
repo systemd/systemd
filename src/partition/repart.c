@@ -7344,6 +7344,9 @@ static int run(int argc, char *argv[]) {
                 return r;
 
         r = find_root(context);
+        if (r == -ENODEV)
+                return 76; /* Special return value which means "Root block device not found, so not doing
+                            * anything". This isn't really an error when called at boot. */
         if (r < 0)
                 return r;
 
