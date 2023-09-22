@@ -361,6 +361,7 @@ foreach efi_elf_binary : efi_elf_binaries
                         '--efi-minor=1',
                         '--subsystem=10',
                         '--minimum-sections=' + minimum_sections,
+                        '--copy-sections=.sbat,.sdmagic,.osrel',
                         '@INPUT@',
                         '@OUTPUT@',
                 ])

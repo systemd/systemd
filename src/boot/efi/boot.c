@@ -26,14 +26,15 @@
 #include "vmm.h"
 
 /* Magic string for recognizing our own binaries */
-_used_ _section_(".sdmagic") static const char magic[] =
-        "#### LoaderInfo: systemd-boot " GIT_VERSION " ####";
+#define SD_MAGIC "#### LoaderInfo: systemd-boot " GIT_VERSION " ####"
+DECLARE_NOALLOC_SECTION(".sdmagic", SD_MAGIC);
 
 /* Makes systemd-boot available from \EFI\Linux\ for testing purposes. */
-_used_ _section_(".osrel") static const char osrel[] =
-        "ID=systemd-boot\n"
-        "VERSION=\"" GIT_VERSION "\"\n"
-        "NAME=\"systemd-boot " GIT_VERSION "\"\n";
+DECLARE_NOALLOC_SECTION(
+                ".osrel",
+                "ID=systemd-boot\n"
+                "VERSION=\"" GIT_VERSION "\"\n"
+                "NAME=\"systemd-boot " GIT_VERSION "\"\n");
 
 DECLARE_SBAT(SBAT_BOOT_SECTION_TEXT);
 
@@ -1890,14 +1891,14 @@ static bool is_sd_boot(EFI_FILE *root_dir, const char16_t *loader_path) {
         assert(loader_path);
 
         err = pe_file_locate_sections(root_dir, loader_path, sections, &offset, &size);
-        if (err != EFI_SUCCESS || size != sizeof(magic))
+        if (err != EFI_SUCCESS || size != sizeof(SD_MAGIC))
                 return false;
 
         err = file_read(root_dir, loader_path, offset, size, &content, &read);
         if (err != EFI_SUCCESS || size != read)
                 return false;
 
-        return memcmp(content, magic, sizeof(magic)) == 0;
+        return memcmp(content, SD_MAGIC, sizeof(SD_MAGIC)) == 0;
 }
 
 static ConfigEntry *config_entry_add_loader_auto(

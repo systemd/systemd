@@ -21,7 +21,7 @@
 #include "vmm.h"
 
 /* magic string to find in the binary image */
-_used_ _section_(".sdmagic") static const char magic[] = "#### LoaderInfo: systemd-stub " GIT_VERSION " ####";
+DECLARE_NOALLOC_SECTION(".sdmagic", "#### LoaderInfo: systemd-stub " GIT_VERSION " ####");
 
 DECLARE_SBAT(SBAT_STUB_SECTION_TEXT);
 
