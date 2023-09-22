@@ -153,7 +153,6 @@ simple_tests += files(
         'test-sigbus.c',
         'test-signal-util.c',
         'test-siphash24.c',
-        'test-sleep.c',
         'test-socket-netlink.c',
         'test-socket-util.c',
         'test-specifier.c',
