@@ -5,6 +5,7 @@
 
 #include "json.h"
 #include "time-util.h"
+#include "varlink-idl.h"
 
 /* A minimal Varlink implementation. We only implement the minimal, obvious bits here though. No validation,
  * no introspection, no name service, just the stuff actually needed.
@@ -152,6 +153,11 @@ int varlink_server_bind_method_many_internal(VarlinkServer *s, ...);
 #define varlink_server_bind_method_many(s, ...) varlink_server_bind_method_many_internal(s, __VA_ARGS__, NULL)
 int varlink_server_bind_connect(VarlinkServer *s, VarlinkConnect connect);
 int varlink_server_bind_disconnect(VarlinkServer *s, VarlinkDisconnect disconnect);
+
+/* Add interface definition */
+int varlink_server_add_interface(VarlinkServer *s, const VarlinkInterface *interface);
+int varlink_server_add_interface_many_internal(VarlinkServer *s, ...);
+#define varlink_server_add_interface_many(s, ...) varlink_server_add_interface_many_internal(s, __VA_ARGS__, NULL)
 
 void* varlink_server_set_userdata(VarlinkServer *s, void *userdata);
 void* varlink_server_get_userdata(VarlinkServer *s);

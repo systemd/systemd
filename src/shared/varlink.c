@@ -211,6 +211,7 @@ struct VarlinkServer {
         LIST_HEAD(VarlinkServerSocket, sockets);
 
         Hashmap *methods;
+        Hashmap *interfaces;
         VarlinkConnect connect_callback;
         VarlinkDisconnect disconnect_callback;
 
@@ -2486,6 +2487,7 @@ static VarlinkServer* varlink_server_destroy(VarlinkServer *s) {
                 free(m);
 
         hashmap_free(s->methods);
+        hashmap_free(s->interfaces);
         hashmap_free(s->by_uid);
 
         sd_event_unref(s->event);
@@ -2959,6 +2961,38 @@ int varlink_server_bind_disconnect(VarlinkServer *s, VarlinkDisconnect callback)
 
         s->disconnect_callback = callback;
         return 0;
+}
+
+int varlink_server_add_interface(VarlinkServer *s, const VarlinkInterface *interface) {
+        assert_return(s, -EINVAL);
+        assert_return(interface, -EINVAL);
+        assert_return(interface->name, -EINVAL);
+
+        if (hashmap_contains(s->interfaces, interface->name))
+                return log_debug_errno(SYNTHETIC_ERRNO(EEXIST), "Duplicate registration of interface '%s'.", interface->name);
+
+        return hashmap_ensure_put(&s->interfaces, &string_hash_ops, interface->name, (void*) interface);
+}
+
+int varlink_server_add_interface_many_internal(VarlinkServer *s, ...) {
+        va_list ap;
+        int r = 0;
+
+        assert_return(s, -EINVAL);
+
+        va_start(ap, s);
+        for (;;) {
+                const VarlinkInterface *interface = va_arg(ap, const VarlinkInterface*);
+                if (!interface)
+                        break;
+
+                r = varlink_server_add_interface(s, interface);
+                if (r < 0)
+                        break;
+        }
+        va_end(ap);
+
+        return r;
 }
 
 unsigned varlink_server_connections_max(VarlinkServer *s) {
