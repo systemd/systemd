@@ -354,9 +354,9 @@ static void test_sequence_numbers_one(void) {
 
         assert_se(two->file->header->state == STATE_ONLINE);
         assert_se(!sd_id128_equal(two->file->header->file_id, one->file->header->file_id));
-        assert_se(sd_id128_equal(one->file->header->machine_id, one->file->header->machine_id));
-        assert_se(sd_id128_equal(one->file->header->tail_entry_boot_id, one->file->header->tail_entry_boot_id));
-        assert_se(sd_id128_equal(one->file->header->seqnum_id, one->file->header->seqnum_id));
+        assert_se(sd_id128_equal(two->file->header->machine_id, one->file->header->machine_id));
+        assert_se(sd_id128_is_null(two->file->header->tail_entry_boot_id)); /* Not written yet. */
+        assert_se(sd_id128_equal(two->file->header->seqnum_id, one->file->header->seqnum_id));
 
         append_number(two, 3, &seqnum);
         printf("seqnum=%"PRIu64"\n", seqnum);
@@ -364,6 +364,9 @@ static void test_sequence_numbers_one(void) {
         append_number(two, 4, &seqnum);
         printf("seqnum=%"PRIu64"\n", seqnum);
         assert_se(seqnum == 4);
+
+        /* Verify tail_entry_boot_id. */
+        assert_se(sd_id128_equal(two->file->header->tail_entry_boot_id, one->file->header->tail_entry_boot_id));
 
         test_close(two);
 
