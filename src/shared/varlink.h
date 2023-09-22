@@ -71,6 +71,8 @@ sd_event *varlink_get_event(Varlink *v);
 int varlink_process(Varlink *v);
 int varlink_wait(Varlink *v, usec_t timeout);
 
+int varlink_is_idle(Varlink *v);
+
 int varlink_flush(Varlink *v);
 int varlink_close(Varlink *v);
 
