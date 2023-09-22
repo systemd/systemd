@@ -245,6 +245,12 @@ def align_down(x: int, align: int) -> int:
     return x & ~(align - 1)
 
 
+def next_section_address(sections: typing.List[PeSection]) -> int:
+    return align_to(
+        sections[-1].VirtualAddress + sections[-1].VirtualSize, SECTION_ALIGNMENT
+    )
+
+
 def iter_copy_sections(elf: ELFFile) -> typing.Iterator[PeSection]:
     pe_s = None
 
@@ -484,11 +490,9 @@ def convert_elf_relocations(
     pe_reloc_s = PeSection()
     pe_reloc_s.Name = b".reloc"
     pe_reloc_s.data = data
+    pe_reloc_s.VirtualAddress = next_section_address(sections)
     pe_reloc_s.VirtualSize = len(data)
     pe_reloc_s.SizeOfRawData = align_to(len(data), FILE_ALIGNMENT)
-    pe_reloc_s.VirtualAddress = align_to(
-        sections[-1].VirtualAddress + sections[-1].VirtualSize, SECTION_ALIGNMENT
-    )
     # CNT_INITIALIZED_DATA|MEM_READ|MEM_DISCARDABLE
     pe_reloc_s.Characteristics = 0x42000040
 
@@ -575,9 +579,8 @@ def elf2efi(args: argparse.Namespace):
     opt.MinorSubsystemVersion = args.efi_minor
     opt.Subsystem = args.subsystem
     opt.Magic = 0x10B if elf.elfclass == 32 else 0x20B
-    opt.SizeOfImage = align_to(
-        sections[-1].VirtualAddress + sections[-1].VirtualSize, SECTION_ALIGNMENT
-    )
+    opt.SizeOfImage = next_section_address(sections)
+
     # DYNAMIC_BASE|NX_COMPAT|HIGH_ENTROPY_VA or DYNAMIC_BASE|NX_COMPAT
     opt.DllCharacteristics = 0x160 if elf.elfclass == 64 else 0x140
 
