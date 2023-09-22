@@ -5,6 +5,7 @@
 #include "mkdir.h"
 #include "user-util.h"
 #include "varlink.h"
+#include "varlink-io.systemd.UserDatabase.h"
 
 typedef struct LookupParameters {
         const char *user_name;
@@ -391,6 +392,10 @@ int manager_varlink_init(Manager *m) {
                 return log_error_errno(r, "Failed to allocate varlink server object: %m");
 
         varlink_server_set_userdata(s, m);
+
+        r = varlink_server_add_interface(s, &vl_interface_io_systemd_UserDatabase);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add UserDatabase interface to varlink server: %m");
 
         r = varlink_server_bind_method_many(
                         s,
