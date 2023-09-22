@@ -1282,6 +1282,15 @@ int varlink_wait(Varlink *v, usec_t timeout) {
         return 1;
 }
 
+int varlink_is_idle(Varlink *v) {
+        assert_return(v, -EINVAL);
+
+        /* Returns true if there's nothing pending on the connection anymore, i.e. we processed all incoming
+         * or outgoing messages fully, or finished disconnection */
+
+        return IN_SET(v->state, VARLINK_DISCONNECTED, VARLINK_IDLE_CLIENT, VARLINK_IDLE_SERVER);
+}
+
 int varlink_get_fd(Varlink *v) {
 
         assert_return(v, -EINVAL);
