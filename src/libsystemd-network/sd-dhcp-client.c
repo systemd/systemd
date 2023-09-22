@@ -1546,9 +1546,19 @@ static int client_timeout_t1(sd_event_source *s, uint64_t usec, void *userdata) 
         return client_initialize_time_events(client);
 }
 
-static int client_handle_offer(sd_dhcp_client *client, DHCPMessage *offer, size_t len) {
+static int client_parse_message(
+                sd_dhcp_client *client,
+                DHCPMessage *message,
+                size_t len,
+                sd_dhcp_lease **ret) {
+
         _cleanup_(sd_dhcp_lease_unrefp) sd_dhcp_lease *lease = NULL;
+        _cleanup_free_ char *error_message = NULL;
         int r;
+
+        assert(client);
+        assert(message);
+        assert(ret);
 
         r = dhcp_lease_new(&lease);
         if (r < 0)
@@ -1562,40 +1572,87 @@ static int client_handle_offer(sd_dhcp_client *client, DHCPMessage *offer, size_
                         return r;
         }
 
-        r = dhcp_option_parse(offer, len, dhcp_lease_parse_options, lease, NULL);
-        if (r != DHCP_OFFER)
-                return log_dhcp_client_errno(client, SYNTHETIC_ERRNO(ENOMSG),
-                                             "received message was not an OFFER, ignoring");
+        r = dhcp_option_parse(message, len, dhcp_lease_parse_options, lease, &error_message);
+        if (r < 0)
+                return log_dhcp_client_errno(client, r, "Failed to parse DHCP options, ignoring: %m");
 
-        lease->next_server = offer->siaddr;
-        lease->address = offer->yiaddr;
+        switch (client->state) {
+        case DHCP_STATE_SELECTING:
+                if (r != DHCP_OFFER)
+                        return log_dhcp_client_errno(client, SYNTHETIC_ERRNO(ENOMSG),
+                                                     "received message was not an OFFER, ignoring.");
 
-        if (lease->lifetime == 0 && client->fallback_lease_lifetime > 0)
-                lease->lifetime = client->fallback_lease_lifetime;
+                if (lease->lifetime == 0 && client->fallback_lease_lifetime > 0)
+                        lease->lifetime = client->fallback_lease_lifetime;
+
+                break;
+
+        case DHCP_STATE_REBOOTING:
+        case DHCP_STATE_REQUESTING:
+        case DHCP_STATE_RENEWING:
+        case DHCP_STATE_REBINDING:
+                if (r == DHCP_NAK)
+                        return log_dhcp_client_errno(client, SYNTHETIC_ERRNO(EADDRNOTAVAIL),
+                                                     "NAK: %s", strna(error_message));
+                if (r != DHCP_ACK)
+                        return log_dhcp_client_errno(client, SYNTHETIC_ERRNO(ENOMSG),
+                                                     "received message was not an ACK, ignoring.");
+                break;
+
+        default:
+                assert_not_reached();
+        }
+
+        lease->next_server = message->siaddr;
+        lease->address = message->yiaddr;
 
         if (lease->address == 0 ||
             lease->server_address == 0 ||
             lease->lifetime == 0)
                 return log_dhcp_client_errno(client, SYNTHETIC_ERRNO(ENOMSG),
-                                             "received lease lacks address, server address or lease lifetime, ignoring");
+                                             "received lease lacks address, server address or lease lifetime, ignoring.");
 
-        if (!lease->have_subnet_mask) {
-                r = dhcp_lease_set_default_subnet_mask(lease);
-                if (r < 0)
-                        return log_dhcp_client_errno(
-                                        client, SYNTHETIC_ERRNO(ENOMSG),
-                                        "received lease lacks subnet mask, and a fallback one cannot be generated, ignoring");
-        }
+        r = dhcp_lease_set_default_subnet_mask(lease);
+        if (r < 0)
+                return log_dhcp_client_errno(client, SYNTHETIC_ERRNO(ENOMSG),
+                                             "received lease lacks subnet mask, and a fallback one cannot be generated, ignoring.");
 
-        sd_dhcp_lease_unref(client->lease);
-        client->lease = TAKE_PTR(lease);
+        *ret = TAKE_PTR(lease);
+        return 0;
+}
+
+static int client_handle_offer(sd_dhcp_client *client, DHCPMessage *message, size_t len) {
+        _cleanup_(sd_dhcp_lease_unrefp) sd_dhcp_lease *lease = NULL;
+        int r;
+
+        assert(client);
+        assert(message);
+
+        r = client_parse_message(client, message, len, &lease);
+        if (r < 0)
+                return r;
+
+        dhcp_lease_unref_and_replace(client->lease, lease);
 
         if (client_notify(client, SD_DHCP_CLIENT_EVENT_SELECTING) < 0)
                 return -ENOMSG;
 
         log_dhcp_client(client, "OFFER");
-
         return 0;
+}
+
+static int client_enter_requesting(sd_dhcp_client *client) {
+        assert(client);
+
+        client_set_state(client, DHCP_STATE_REQUESTING);
+        client->attempt = 0;
+
+        return event_reset_time_relative(client->event, &client->timeout_resend,
+                                         CLOCK_BOOTTIME,
+                                         0, 0,
+                                         client_timeout_resend, client,
+                                         client->event_priority, "dhcp4-resend-timer",
+                                         /* force_reset = */ true);
 }
 
 static int client_handle_forcerenew(sd_dhcp_client *client, DHCPMessage *force, size_t len) {
@@ -1634,64 +1691,27 @@ static bool lease_equal(const sd_dhcp_lease *a, const sd_dhcp_lease *b) {
         return true;
 }
 
-static int client_handle_ack(sd_dhcp_client *client, DHCPMessage *ack, size_t len) {
+static int client_handle_ack(sd_dhcp_client *client, DHCPMessage *message, size_t len) {
         _cleanup_(sd_dhcp_lease_unrefp) sd_dhcp_lease *lease = NULL;
-        _cleanup_free_ char *error_message = NULL;
         int r;
 
-        r = dhcp_lease_new(&lease);
+        assert(client);
+        assert(message);
+
+        r = client_parse_message(client, message, len, &lease);
         if (r < 0)
                 return r;
 
-        if (client->client_id_len > 0) {
-                r = dhcp_lease_set_client_id(lease,
-                                             (uint8_t *) &client->client_id,
-                                             client->client_id_len);
-                if (r < 0)
-                        return r;
-        }
+        if (!client->lease)
+                r = SD_DHCP_CLIENT_EVENT_IP_ACQUIRE;
+        else if (lease_equal(client->lease, lease))
+                r = SD_DHCP_CLIENT_EVENT_RENEW;
+        else
+                r = SD_DHCP_CLIENT_EVENT_IP_CHANGE;
 
-        r = dhcp_option_parse(ack, len, dhcp_lease_parse_options, lease, &error_message);
-        if (r == DHCP_NAK)
-                return log_dhcp_client_errno(client, SYNTHETIC_ERRNO(EADDRNOTAVAIL),
-                                             "NAK: %s", strna(error_message));
-
-        if (r != DHCP_ACK)
-                return log_dhcp_client_errno(client, SYNTHETIC_ERRNO(ENOMSG),
-                                             "received message was not an ACK, ignoring");
-
-        lease->next_server = ack->siaddr;
-
-        lease->address = ack->yiaddr;
-
-        if (lease->address == INADDR_ANY ||
-            lease->server_address == INADDR_ANY ||
-            lease->lifetime == 0)
-                return log_dhcp_client_errno(client, SYNTHETIC_ERRNO(ENOMSG),
-                                             "received lease lacks address, server address or lease lifetime, ignoring");
-
-        if (lease->subnet_mask == INADDR_ANY) {
-                r = dhcp_lease_set_default_subnet_mask(lease);
-                if (r < 0)
-                        return log_dhcp_client_errno(
-                                        client, SYNTHETIC_ERRNO(ENOMSG),
-                                        "received lease lacks subnet mask, and a fallback one cannot be generated, ignoring");
-        }
-
-        r = SD_DHCP_CLIENT_EVENT_IP_ACQUIRE;
-        if (client->lease) {
-                if (lease_equal(client->lease, lease))
-                        r = SD_DHCP_CLIENT_EVENT_RENEW;
-                else
-                        r = SD_DHCP_CLIENT_EVENT_IP_CHANGE;
-
-                client->lease = sd_dhcp_lease_unref(client->lease);
-        }
-
-        client->lease = TAKE_PTR(lease);
+        dhcp_lease_unref_and_replace(client->lease, lease);
 
         log_dhcp_client(client, "ACK");
-
         return r;
 }
 
@@ -1798,9 +1818,48 @@ static int client_set_lease_timeouts(sd_dhcp_client *client) {
         return 0;
 }
 
+static int client_enter_bound(sd_dhcp_client *client, int notify_event) {
+        int r;
+
+        assert(client);
+
+        if (IN_SET(client->state, DHCP_STATE_REQUESTING, DHCP_STATE_REBOOTING))
+                notify_event = SD_DHCP_CLIENT_EVENT_IP_ACQUIRE;
+
+        client->start_delay = 0;
+        (void) event_source_disable(client->timeout_resend);
+
+        client_set_state(client, DHCP_STATE_BOUND);
+        client->attempt = 0;
+
+        client->last_addr = client->lease->address;
+
+        r = client_set_lease_timeouts(client);
+        if (r < 0)
+                log_dhcp_client_errno(client, r, "could not set lease timeouts: %m");
+
+        r = dhcp_network_bind_udp_socket(client->ifindex, client->lease->address, client->port, client->ip_service_type);
+        if (r < 0)
+                return log_dhcp_client_errno(client, r, "could not bind UDP socket: %m");
+
+        client->receive_message = sd_event_source_disable_unref(client->receive_message);
+        close_and_replace(client->fd, r);
+        client_initialize_io_events(client, client_receive_message_udp);
+
+        if (IN_SET(client->state, DHCP_STATE_RENEWING, DHCP_STATE_REBINDING) &&
+            notify_event == SD_DHCP_CLIENT_EVENT_IP_ACQUIRE)
+                /* FIXME: hmm, maybe this is a bug... */
+                log_dhcp_client(client, "client_handle_ack() returned SD_DHCP_CLIENT_EVENT_IP_ACQUIRE while DHCP client is %s the address, skipping callback.",
+                                client->state == DHCP_STATE_RENEWING ? "renewing" : "rebinding");
+        else
+                client_notify(client, notify_event);
+
+        return 0;
+}
+
 static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message, int len) {
         DHCP_CLIENT_DONT_DESTROY(client);
-        int r, notify_event;
+        int r;
 
         assert(client);
         assert(client->event);
@@ -1810,19 +1869,12 @@ static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message, i
         case DHCP_STATE_SELECTING:
 
                 r = client_handle_offer(client, message, len);
-                if (r == -ENOMSG)
-                        return 0; /* invalid message, let's ignore it */
-                if (r < 0)
+                if (ERRNO_IS_NEG_RESOURCE(r))
                         goto error;
+                if (r < 0)
+                        return 0; /* invalid message, let's ignore it */
 
-                client_set_state(client, DHCP_STATE_REQUESTING);
-                client->attempt = 0;
-
-                r = event_reset_time(client->event, &client->timeout_resend,
-                                     CLOCK_BOOTTIME,
-                                     0, 0,
-                                     client_timeout_resend, client,
-                                     client->event_priority, "dhcp4-resend-timer", true);
+                r = client_enter_requesting(client);
                 break;
 
         case DHCP_STATE_REBOOTING:
@@ -1831,8 +1883,8 @@ static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message, i
         case DHCP_STATE_REBINDING:
 
                 r = client_handle_ack(client, message, len);
-                if (r == -ENOMSG)
-                        return 0; /* invalid message, let's ignore it */
+                if (ERRNO_IS_NEG_RESOURCE(r))
+                        goto error;
                 if (r == -EADDRNOTAVAIL) {
                         /* got a NAK, let's restart the client */
                         client_notify(client, SD_DHCP_CLIENT_EVENT_EXPIRED);
@@ -1852,46 +1904,9 @@ static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message, i
                         return 0;
                 }
                 if (r < 0)
-                        goto error;
+                        return 0; /* invalid message, let's ignore it */
 
-                if (IN_SET(client->state, DHCP_STATE_REQUESTING, DHCP_STATE_REBOOTING))
-                        notify_event = SD_DHCP_CLIENT_EVENT_IP_ACQUIRE;
-                else
-                        notify_event = r;
-
-                client->start_delay = 0;
-                (void) event_source_disable(client->timeout_resend);
-                client->receive_message = sd_event_source_disable_unref(client->receive_message);
-                client->fd = safe_close(client->fd);
-
-                client_set_state(client, DHCP_STATE_BOUND);
-                client->attempt = 0;
-
-                client->last_addr = client->lease->address;
-
-                r = client_set_lease_timeouts(client);
-                if (r < 0) {
-                        log_dhcp_client(client, "could not set lease timeouts");
-                        goto error;
-                }
-
-                r = dhcp_network_bind_udp_socket(client->ifindex, client->lease->address, client->port, client->ip_service_type);
-                if (r < 0) {
-                        log_dhcp_client(client, "could not bind UDP socket");
-                        goto error;
-                }
-
-                client->fd = r;
-
-                client_initialize_io_events(client, client_receive_message_udp);
-
-                if (IN_SET(client->state, DHCP_STATE_RENEWING, DHCP_STATE_REBINDING) &&
-                    notify_event == SD_DHCP_CLIENT_EVENT_IP_ACQUIRE)
-                        /* FIXME: hmm, maybe this is a bug... */
-                        log_dhcp_client(client, "client_handle_ack() returned SD_DHCP_CLIENT_EVENT_IP_ACQUIRE while DHCP client is %s the address, skipping callback.",
-                                        client->state == DHCP_STATE_RENEWING ? "renewing" : "rebinding");
-                else
-                        client_notify(client, notify_event);
+                r = client_enter_bound(client, r);
                 break;
 
         case DHCP_STATE_BOUND:
