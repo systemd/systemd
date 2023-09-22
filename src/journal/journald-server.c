@@ -57,6 +57,7 @@
 #include "syslog-util.h"
 #include "uid-alloc-range.h"
 #include "user-util.h"
+#include "varlink-io.systemd.Journal.h"
 
 #define USER_JOURNALS_MAX 1024
 
@@ -2224,6 +2225,10 @@ static int server_open_varlink(Server *s, const char *socket, int fd) {
                 return r;
 
         varlink_server_set_userdata(s->varlink_server, s);
+
+        r = varlink_server_add_interface(s->varlink_server, &vl_interface_io_systemd_Journal);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add Journal interface to varlink server: %m");
 
         r = varlink_server_bind_method_many(
                         s->varlink_server,
