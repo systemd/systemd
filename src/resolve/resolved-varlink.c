@@ -528,7 +528,7 @@ static int vl_method_resolve_address(Varlink *link, JsonVariant *parameters, Var
         return 1;
 }
 
-static int vl_method_subscribe_dns_resolves(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+static int vl_method_subscribe_query_results(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
         Manager *m;
         int r;
 
@@ -701,7 +701,7 @@ static int varlink_monitor_server_init(Manager *m) {
 
         r = varlink_server_bind_method_many(
                         server,
-                        "io.systemd.Resolve.Monitor.SubscribeQueryResults", vl_method_subscribe_dns_resolves,
+                        "io.systemd.Resolve.Monitor.SubscribeQueryResults", vl_method_subscribe_query_results,
                         "io.systemd.Resolve.Monitor.DumpCache", vl_method_dump_cache,
                         "io.systemd.Resolve.Monitor.DumpServerState", vl_method_dump_server_state,
                         "io.systemd.Resolve.Monitor.DumpStatistics", vl_method_dump_statistics,
