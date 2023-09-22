@@ -37,7 +37,6 @@ HibernateLocation* hibernate_location_free(HibernateLocation *hl);
 DEFINE_TRIVIAL_CLEANUP_FUNC(HibernateLocation*, hibernate_location_free);
 
 int read_fiemap(int fd, struct fiemap **ret);
-int parse_sleep_config(SleepConfig **sleep_config);
 int find_hibernate_location(HibernateLocation **ret_hibernate_location);
 int write_resume_config(dev_t devno, uint64_t offset, const char *device);
 bool enough_swap_for_hibernation(void);

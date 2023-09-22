@@ -34,6 +34,8 @@ typedef struct SleepConfig {
 SleepConfig* sleep_config_free(SleepConfig *sc);
 DEFINE_TRIVIAL_CLEANUP_FUNC(SleepConfig*, sleep_config_free);
 
+int parse_sleep_config(SleepConfig **sleep_config);
+
 int can_sleep(SleepOperation operation);
 int can_sleep_disk(char **types);
 int can_sleep_state(char **types);
