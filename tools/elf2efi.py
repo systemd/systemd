@@ -333,6 +333,32 @@ def convert_sections(elf: ELFFile, opt: PeOptionalHeader) -> typing.List[PeSecti
     return sections
 
 
+def copy_sections(
+    elf: ELFFile,
+    opt: PeOptionalHeader,
+    input_names: str,
+    sections: typing.List[PeSection],
+):
+    for name in input_names.split(","):
+        elf_s = elf.get_section_by_name(name)
+        if not elf_s:
+            continue
+        if elf_s.data_alignment > 1 and SECTION_ALIGNMENT % elf_s.data_alignment != 0:
+            raise RuntimeError(f"ELF section {name} is not aligned.")
+        if elf_s["sh_flags"] & (SH_FLAGS.SHF_EXECINSTR | SH_FLAGS.SHF_WRITE) != 0:
+            raise RuntimeError(f"ELF section {name} is not read-only data.")
+
+        pe_s = PeSection()
+        pe_s.Name = name.encode()
+        pe_s.data = elf_s.data()
+        pe_s.VirtualAddress = next_section_address(sections)
+        pe_s.VirtualSize = len(elf_s.data())
+        pe_s.SizeOfRawData = align_to(len(elf_s.data()), FILE_ALIGNMENT)
+        pe_s.Characteristics = PE_CHARACTERISTICS_R
+        opt.SizeOfInitializedData += pe_s.VirtualSize
+        sections.append(pe_s)
+
+
 def apply_elf_relative_relocation(
     reloc: ElfRelocation,
     image_base: int,
@@ -561,6 +587,7 @@ def elf2efi(args: argparse.Namespace):
         opt.ImageBase = (0x100000000 + opt.ImageBase) & 0x1FFFF0000
 
     sections = convert_sections(elf, opt)
+    copy_sections(elf, opt, args.copy_sections, sections)
     pe_reloc_s = convert_elf_relocations(elf, opt, sections, args.minimum_sections)
 
     coff.Machine = pe_arch
@@ -646,6 +673,12 @@ def main():
         type=int,
         default=0,
         help="Minimum number of sections to leave space for",
+    )
+    parser.add_argument(
+        "--copy-sections",
+        type=str,
+        default="",
+        help="Copy these sections if found",
     )
 
     elf2efi(parser.parse_args())
