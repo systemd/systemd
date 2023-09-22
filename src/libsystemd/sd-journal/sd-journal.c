@@ -2445,14 +2445,6 @@ static int journal_file_read_tail_timestamp(sd_journal *j, JournalFile *f) {
                         mo = le64toh(f->header->tail_entry_monotonic);
                         rt = le64toh(f->header->tail_entry_realtime);
                         id = f->header->tail_entry_boot_id;
-
-                        /* Some superficial checking if what we read makes sense. Note that we only do this
-                         * when reading the timestamps from the Header object, but not when reading them from
-                         * the most recent entry object, because in that case journal_file_move_to_object()
-                         * already validated them. */
-                        if (!VALID_MONOTONIC(mo) || !VALID_REALTIME(rt))
-                                return -ENODATA;
-
                 } else {
                         /* Otherwise let's find the last entry manually (this possibly means traversing the
                          * chain of entry arrays, till the end */
