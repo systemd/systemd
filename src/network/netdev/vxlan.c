@@ -14,8 +14,8 @@
 #include "vxlan.h"
 
 static const char* const df_table[_NETDEV_VXLAN_DF_MAX] = {
-        [NETDEV_VXLAN_DF_NO] = "no",
-        [NETDEV_VXLAN_DF_YES] = "yes",
+        [NETDEV_VXLAN_DF_NO]      = "no",
+        [NETDEV_VXLAN_DF_YES]     = "yes",
         [NETDEV_VXLAN_DF_INHERIT] = "inherit",
 };
 
@@ -37,16 +37,11 @@ static int vxlan_get_local_address(VxLan *v, Link *link, int *ret_family, union 
 }
 
 static int netdev_vxlan_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
-        union in_addr_union local;
-        int local_family, r;
-        VxLan *v;
-
-        assert(netdev);
         assert(m);
 
-        v = VXLAN(netdev);
-
-        assert(v);
+        union in_addr_union local;
+        int local_family, r;
+        VxLan *v = VXLAN(netdev);
 
         if (v->vni <= VXLAN_VID_MAX) {
                 r = sd_netlink_message_append_u32(m, IFLA_VXLAN_ID, v->vni);
@@ -286,25 +281,18 @@ int config_parse_port_range(
                 void *data,
                 void *userdata) {
 
-        VxLan *v = userdata;
-        uint16_t low, high;
-        int r;
-
         assert(filename);
         assert(lvalue);
         assert(rvalue);
         assert(data);
 
-        r = parse_ip_port_range(rvalue, &low, &high);
-        if (r < 0) {
+        VxLan *v = ASSERT_PTR(userdata);
+        int r;
+
+        r = parse_ip_port_range(rvalue, &v->port_range.low, &v->port_range.high);
+        if (r < 0)
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to parse VXLAN port range '%s'. Port should be greater than 0 and less than 65535.", rvalue);
-                return 0;
-        }
-
-        v->port_range.low = low;
-        v->port_range.high = high;
-
         return 0;
 }
 
@@ -358,43 +346,34 @@ int config_parse_vxlan_ttl(
                 void *data,
                 void *userdata) {
 
-        VxLan *v = userdata;
-        unsigned f;
-        int r;
-
         assert(filename);
         assert(lvalue);
         assert(rvalue);
         assert(data);
 
-        if (streq(rvalue, "inherit"))
+        VxLan *v = ASSERT_PTR(userdata);
+        int r;
+
+        if (streq(rvalue, "inherit")) {
                 v->inherit = true;
-        else {
-                r = safe_atou(rvalue, &f);
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Failed to parse VXLAN TTL '%s', ignoring assignment: %m", rvalue);
-                        return 0;
-                }
-
-                if (f > 255) {
-                        log_syntax(unit, LOG_WARNING, filename, line, 0,
-                                   "Invalid VXLAN TTL '%s'. TTL must be <= 255. Ignoring assignment.", rvalue);
-                        return 0;
-                }
-
-                v->ttl = f;
+                v->ttl = 0;  /* unset the unused ttl field for clarity */
+                return 0;
         }
 
+        r = config_parse_unsigned_bounded(
+                        unit, filename, line, section, section_line, lvalue, rvalue,
+                        0, UINT8_MAX, true,
+                        &v->ttl);
+        if (r <= 0)
+                return r;
+        v->inherit = false;
         return 0;
 }
 
 static int netdev_vxlan_verify(NetDev *netdev, const char *filename) {
-        VxLan *v = VXLAN(netdev);
-
-        assert(netdev);
-        assert(v);
         assert(filename);
+
+        VxLan *v = VXLAN(netdev);
 
         if (v->vni > VXLAN_VID_MAX)
                 return log_netdev_warning_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
@@ -423,13 +402,7 @@ static int netdev_vxlan_verify(NetDev *netdev, const char *filename) {
 }
 
 static int netdev_vxlan_is_ready_to_create(NetDev *netdev, Link *link) {
-        VxLan *v;
-
-        assert(netdev);
-
-        v = VXLAN(netdev);
-
-        assert(v);
+        VxLan *v = VXLAN(netdev);
 
         if (v->independent)
                 return true;
@@ -438,13 +411,7 @@ static int netdev_vxlan_is_ready_to_create(NetDev *netdev, Link *link) {
 }
 
 static void vxlan_init(NetDev *netdev) {
-        VxLan *v;
-
-        assert(netdev);
-
-        v = VXLAN(netdev);
-
-        assert(v);
+        VxLan *v = VXLAN(netdev);
 
         v->local_type = _NETDEV_LOCAL_ADDRESS_TYPE_INVALID;
         v->vni = VXLAN_VID_MAX + 1;

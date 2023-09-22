@@ -24,11 +24,9 @@ DEFINE_CONFIG_PARSE_ENUM(config_parse_fou_encap_type, fou_encap_type, FooOverUDP
                          "Failed to parse Encapsulation=");
 
 static int netdev_fill_fou_tunnel_message(NetDev *netdev, sd_netlink_message *m) {
-        FouTunnel *t;
+        FouTunnel *t = FOU(netdev);
         uint8_t encap_type;
         int r;
-
-        assert_se(t = FOU(netdev));
 
         r = sd_netlink_message_append_u16(m, FOU_ATTR_PORT, htobe16(t->port));
         if (r < 0)
@@ -128,7 +126,6 @@ static int netdev_fou_tunnel_create(NetDev *netdev) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
-        assert(netdev);
         assert(FOU(netdev));
 
         r = netdev_create_fou_tunnel_message(netdev, &m);
@@ -156,37 +153,32 @@ int config_parse_ip_protocol(
                 void *data,
                 void *userdata) {
 
-        uint8_t *ret = ASSERT_PTR(data);
-        unsigned protocol;
-        /* linux/fou.h defines the netlink field as one byte, so we need to reject protocols numbers that
-         * don't fit in one byte. */
-        int r;
-
         assert(filename);
         assert(section);
         assert(lvalue);
         assert(rvalue);
 
-        r = parse_ip_protocol(rvalue);
-        if (r >= 0)
-                protocol = r;
-        else {
-                r = safe_atou(rvalue, &protocol);
-                if (r < 0)
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Failed to parse IP protocol '%s' for FooOverUDP tunnel, "
-                                   "ignoring assignment: %m", rvalue);
+        uint8_t *proto = ASSERT_PTR(data);
+        int r;
+
+        r = parse_ip_protocol_full(rvalue, /* relaxed= */ true);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse '%s=%s', ignoring: %m",
+                           lvalue, rvalue);
                 return 0;
         }
 
-        if (protocol > UINT8_MAX) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "IP protocol '%s' for FooOverUDP tunnel out of range, "
-                           "ignoring assignment: %m", rvalue);
+        if (r > UINT8_MAX) {
+                /* linux/fou.h defines the netlink field as one byte, so we need to reject
+                 * protocols numbers that don't fit in one byte. */
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Invalid '%s=%s', allowed range is 0..255, ignoring.",
+                           lvalue, rvalue);
                 return 0;
         }
 
-        *ret = protocol;
+        *proto = r;
         return 0;
 }
 
@@ -225,14 +217,9 @@ int config_parse_fou_tunnel_address(
 }
 
 static int netdev_fou_tunnel_verify(NetDev *netdev, const char *filename) {
-        FouTunnel *t;
-
-        assert(netdev);
         assert(filename);
 
-        t = FOU(netdev);
-
-        assert(t);
+        FouTunnel *t = FOU(netdev);
 
         switch (t->fou_encap_type) {
         case NETDEV_FOO_OVER_UDP_ENCAP_DIRECT:
@@ -263,13 +250,7 @@ static int netdev_fou_tunnel_verify(NetDev *netdev, const char *filename) {
 }
 
 static void fou_tunnel_init(NetDev *netdev) {
-        FouTunnel *t;
-
-        assert(netdev);
-
-        t = FOU(netdev);
-
-        assert(t);
+        FouTunnel *t = FOU(netdev);
 
         t->fou_encap_type = NETDEV_FOO_OVER_UDP_ENCAP_DIRECT;
 }

@@ -356,13 +356,11 @@ static int netdev_macsec_configure_receive_association(NetDev *netdev, ReceiveAs
 }
 
 static int macsec_receive_channel_handler(sd_netlink *rtnl, sd_netlink_message *m, ReceiveChannel *c) {
-        NetDev *netdev;
-        int r;
-
         assert(c);
         assert(c->macsec);
 
-        netdev = NETDEV(c->macsec);
+        NetDev *netdev = ASSERT_PTR(NETDEV(c->macsec));
+        int r;
 
         assert(netdev->state != _NETDEV_STATE_INVALID);
 
@@ -474,14 +472,10 @@ static int netdev_macsec_configure_transmit_association(NetDev *netdev, Transmit
 }
 
 static int netdev_macsec_configure(NetDev *netdev, Link *link) {
+        MACsec *s = MACSEC(netdev);
         TransmitAssociation *a;
         ReceiveChannel *c;
-        MACsec *s;
         int r;
-
-        assert(netdev);
-        s = MACSEC(netdev);
-        assert(s);
 
         ORDERED_HASHMAP_FOREACH(a, s->transmit_associations_by_section) {
                 r = netdev_macsec_configure_transmit_association(netdev, a);
@@ -499,15 +493,10 @@ static int netdev_macsec_configure(NetDev *netdev, Link *link) {
 }
 
 static int netdev_macsec_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
-        MACsec *v;
-        int r;
-
-        assert(netdev);
         assert(m);
 
-        v = MACSEC(netdev);
-
-        assert(v);
+        MACsec *v = MACSEC(netdev);
+        int r;
 
         if (v->port > 0) {
                 r = sd_netlink_message_append_u16(m, IFLA_MACSEC_PORT, v->port);
@@ -540,18 +529,18 @@ int config_parse_macsec_port(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(macsec_receive_association_free_or_set_invalidp) ReceiveAssociation *b = NULL;
-        _cleanup_(macsec_receive_channel_free_or_set_invalidp) ReceiveChannel *c = NULL;
-        MACsec *s = userdata;
-        uint16_t port;
-        void *dest;
-        int r;
-
         assert(filename);
         assert(section);
         assert(lvalue);
         assert(rvalue);
         assert(data);
+
+        MACsec *s = ASSERT_PTR(userdata);
+        _cleanup_(macsec_receive_association_free_or_set_invalidp) ReceiveAssociation *b = NULL;
+        _cleanup_(macsec_receive_channel_free_or_set_invalidp) ReceiveChannel *c = NULL;
+        uint16_t port;
+        void *dest;
+        int r;
 
         /* This parses port used to make Secure Channel Identifier (SCI) */
 
@@ -601,16 +590,16 @@ int config_parse_macsec_hw_address(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(macsec_receive_association_free_or_set_invalidp) ReceiveAssociation *b = NULL;
-        _cleanup_(macsec_receive_channel_free_or_set_invalidp) ReceiveChannel *c = NULL;
-        MACsec *s = userdata;
-        int r;
-
         assert(filename);
         assert(section);
         assert(lvalue);
         assert(rvalue);
         assert(data);
+
+        MACsec *s = ASSERT_PTR(userdata);
+        _cleanup_(macsec_receive_association_free_or_set_invalidp) ReceiveAssociation *b = NULL;
+        _cleanup_(macsec_receive_channel_free_or_set_invalidp) ReceiveChannel *c = NULL;
+        int r;
 
         if (streq(section, "MACsecReceiveChannel"))
                 r = macsec_receive_channel_new_static(s, filename, section_line, &c);
@@ -645,17 +634,17 @@ int config_parse_macsec_packet_number(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(macsec_transmit_association_free_or_set_invalidp) TransmitAssociation *a = NULL;
-        _cleanup_(macsec_receive_association_free_or_set_invalidp) ReceiveAssociation *b = NULL;
-        MACsec *s = userdata;
-        uint32_t val, *dest;
-        int r;
-
         assert(filename);
         assert(section);
         assert(lvalue);
         assert(rvalue);
         assert(data);
+
+        MACsec *s = ASSERT_PTR(userdata);
+        _cleanup_(macsec_transmit_association_free_or_set_invalidp) TransmitAssociation *a = NULL;
+        _cleanup_(macsec_receive_association_free_or_set_invalidp) ReceiveAssociation *b = NULL;
+        uint32_t val, *dest;
+        int r;
 
         if (streq(section, "MACsecTransmitAssociation"))
                 r = macsec_transmit_association_new_static(s, filename, section_line, &a);
@@ -1126,6 +1115,8 @@ static int macsec_receive_association_verify(ReceiveAssociation *a) {
 }
 
 static int netdev_macsec_verify(NetDev *netdev, const char *filename) {
+        assert(filename);
+
         MACsec *v = MACSEC(netdev);
         TransmitAssociation *a;
         ReceiveAssociation *n;
@@ -1133,10 +1124,6 @@ static int netdev_macsec_verify(NetDev *netdev, const char *filename) {
         uint8_t an, encoding_an;
         bool use_for_encoding;
         int r;
-
-        assert(netdev);
-        assert(v);
-        assert(filename);
 
         ORDERED_HASHMAP_FOREACH(c, v->receive_channels_by_section) {
                 r = macsec_receive_channel_verify(c);
@@ -1192,30 +1179,18 @@ static int netdev_macsec_verify(NetDev *netdev, const char *filename) {
 }
 
 static void macsec_init(NetDev *netdev) {
-        MACsec *v;
-
-        assert(netdev);
-
-        v = MACSEC(netdev);
-
-        assert(v);
+        MACsec *v = MACSEC(netdev);
 
         v->encrypt = -1;
 }
 
 static void macsec_done(NetDev *netdev) {
-        MACsec *t;
+        MACsec *v = MACSEC(netdev);
 
-        assert(netdev);
-
-        t = MACSEC(netdev);
-
-        assert(t);
-
-        ordered_hashmap_free_with_destructor(t->receive_channels, macsec_receive_channel_free);
-        ordered_hashmap_free_with_destructor(t->receive_channels_by_section, macsec_receive_channel_free);
-        ordered_hashmap_free_with_destructor(t->transmit_associations_by_section, macsec_transmit_association_free);
-        ordered_hashmap_free_with_destructor(t->receive_associations_by_section, macsec_receive_association_free);
+        ordered_hashmap_free_with_destructor(v->receive_channels, macsec_receive_channel_free);
+        ordered_hashmap_free_with_destructor(v->receive_channels_by_section, macsec_receive_channel_free);
+        ordered_hashmap_free_with_destructor(v->transmit_associations_by_section, macsec_transmit_association_free);
+        ordered_hashmap_free_with_destructor(v->receive_associations_by_section, macsec_receive_association_free);
 }
 
 const NetDevVTable macsec_vtable = {

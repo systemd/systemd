@@ -30,10 +30,11 @@ int parse_fd(const char *t);
 #define SAFE_ATO_MASK_FLAGS(base) ((base) & ~SAFE_ATO_ALL_FLAGS)
 
 int safe_atou_full(const char *s, unsigned base, unsigned *ret_u);
-
 static inline int safe_atou(const char *s, unsigned *ret_u) {
         return safe_atou_full(s, 0, ret_u);
 }
+
+int safe_atou_bounded(const char *s, unsigned min, unsigned max, unsigned *ret);
 
 int safe_atoi(const char *s, int *ret_i);
 int safe_atolli(const char *s, long long int *ret_i);
