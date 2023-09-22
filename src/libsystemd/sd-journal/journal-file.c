@@ -2299,6 +2299,7 @@ static int journal_file_append_entry_internal(
         assert(f->header);
         assert(ts);
         assert(boot_id);
+        assert(!sd_id128_is_null(*boot_id));
         assert(items || n_items == 0);
 
         if (f->strict_order) {
@@ -2528,7 +2529,10 @@ int journal_file_append_entry(
                 ts = &_ts;
         }
 
-        if (!boot_id) {
+        if (boot_id) {
+                if (sd_id128_is_null(*boot_id))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "Empty boot ID, refusing entry.");
+        } else {
                 r = sd_id128_get_boot(&_boot_id);
                 if (r < 0)
                         return r;
