@@ -2997,6 +2997,7 @@ static int dump_server_state(JsonVariant *server) {
                 const char *server_name;
                 const char *type;
                 const char *ifname;
+                int ifindex;
                 const char *verified_feature_level;
                 const char *possible_feature_level;
                 const char *dnssec_mode;
@@ -3009,7 +3010,9 @@ static int dump_server_state(JsonVariant *server) {
                 bool packet_rrsig_missing;
                 bool packet_invalid;
                 bool packet_do_off;
-        } server_state = {};
+        } server_state = {
+                .ifindex = -1,
+        };
 
         int r;
 
@@ -3017,6 +3020,7 @@ static int dump_server_state(JsonVariant *server) {
                 { "Server",                     JSON_VARIANT_STRING,    json_dispatch_const_string,  offsetof(struct server_state, server_name),                JSON_MANDATORY },
                 { "Type",                       JSON_VARIANT_STRING,    json_dispatch_const_string,  offsetof(struct server_state, type),                       JSON_MANDATORY },
                 { "Interface",                  JSON_VARIANT_STRING,    json_dispatch_const_string,  offsetof(struct server_state, ifname),                     0              },
+                { "InterfaceIndex",             JSON_VARIANT_INTEGER,   json_dispatch_int,           offsetof(struct server_state, ifindex),                    0              },
                 { "VerifiedFeatureLevel",       JSON_VARIANT_STRING,    json_dispatch_const_string,  offsetof(struct server_state, verified_feature_level),     0              },
                 { "PossibleFeatureLevel",       JSON_VARIANT_STRING,    json_dispatch_const_string,  offsetof(struct server_state, possible_feature_level),     0              },
                 { "DNSSECMode",                 JSON_VARIANT_STRING,    json_dispatch_const_string,  offsetof(struct server_state, dnssec_mode),                JSON_MANDATORY },
@@ -3032,7 +3036,7 @@ static int dump_server_state(JsonVariant *server) {
                 {},
         };
 
-        r = json_dispatch(server, dispatch_table, NULL, JSON_LOG, &server_state);
+        r = json_dispatch(server, dispatch_table, NULL, JSON_LOG|JSON_PERMISSIVE, &server_state);
         if (r < 0)
                 return r;
 
@@ -3059,8 +3063,15 @@ static int dump_server_state(JsonVariant *server) {
         if (server_state.ifname) {
                 r = table_add_many(table,
                                    TABLE_FIELD, "Interface",
-                                   TABLE_SET_ALIGN_PERCENT, 100,
                                    TABLE_STRING, server_state.ifname);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        if (server_state.ifindex >= 0) {
+                r = table_add_many(table,
+                                   TABLE_FIELD, "Interface Index",
+                                   TABLE_INT, server_state.ifindex);
                 if (r < 0)
                         return table_log_add_error(r);
         }
