@@ -34,6 +34,7 @@
 #include "locale-util.h"
 #include "login-util.h"
 #include "macro.h"
+#include "missing_syscall.h"
 #include "pam-util.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -803,7 +804,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         uint64_t default_capability_bounding_set = UINT64_MAX, default_capability_ambient_set = UINT64_MAX;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
-        int session_fd = -EBADF, existing, r;
+        int session_fd = -EBADF, pidfd = -EBADF, existing, r;
         bool debug = false, remote;
         uint32_t vtnr = 0;
         uid_t original_uid;
@@ -945,6 +946,10 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         if (!IN_SET(r, PAM_SUCCESS, PAM_NO_MODULE_DATA))
                 return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get PAM systemd.runtime_max_sec data: @PAMERR@");
 
+        pidfd = pidfd_open(getpid_cached(), 0);
+        if (pidfd < 0 && !ERRNO_IS_NOT_SUPPORTED(r))
+                return pam_syslog_errno(handle, LOG_ERR, -errno, "Failed to obtain pidfd for the current process: %m");
+
         /* Talk to logind over the message bus */
         r = pam_acquire_bus_connection(handle, "pam-systemd", &bus, &d);
         if (r != PAM_SUCCESS)
@@ -963,24 +968,47 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                          "memory_max=%s tasks_max=%s cpu_weight=%s io_weight=%s runtime_max_sec=%s",
                          strna(memory_max), strna(tasks_max), strna(cpu_weight), strna(io_weight), strna(runtime_max_sec));
 
-        r = bus_message_new_method_call(bus, &m, bus_login_mgr, "CreateSession");
-        if (r < 0)
-                return pam_bus_log_create_error(handle, r);
+        if (pidfd >= 0) {
+                r = bus_message_new_method_call(bus, &m, bus_login_mgr, "CreateSessionWithPIDFD");
+                if (r < 0)
+                        return pam_bus_log_create_error(handle, r);
 
-        r = sd_bus_message_append(m, "uusssssussbss",
-                        (uint32_t) ur->uid,
-                        0,
-                        service,
-                        type,
-                        class,
-                        desktop,
-                        seat,
-                        vtnr,
-                        tty,
-                        display,
-                        remote,
-                        remote_user,
-                        remote_host);
+                r = sd_bus_message_append(m, "uhsssssussbsst",
+                                          (uint32_t) ur->uid,
+                                          pidfd,
+                                          service,
+                                          type,
+                                          class,
+                                          desktop,
+                                          seat,
+                                          vtnr,
+                                          tty,
+                                          display,
+                                          remote,
+                                          remote_user,
+                                          remote_host,
+                                          0);
+        } else {
+                r = bus_message_new_method_call(bus, &m, bus_login_mgr, "CreateSession");
+                if (r < 0)
+                        return pam_bus_log_create_error(handle, r);
+
+                r = sd_bus_message_append(m, "uusssssussbss",
+                                          (uint32_t) ur->uid,
+                                          0,
+                                          service,
+                                          type,
+                                          class,
+                                          desktop,
+                                          seat,
+                                          vtnr,
+                                          tty,
+                                          display,
+                                          remote,
+                                          remote_user,
+                                          remote_host);
+        }
+
         if (r < 0)
                 return pam_bus_log_create_error(handle, r);
 

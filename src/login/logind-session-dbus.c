@@ -806,6 +806,16 @@ static bool session_ready(Session *s) {
                 !s->user->service_job;
 }
 
+static int session_dispatch_leader_pidfd(sd_event_source *es, int fd, uint32_t revents, void *userdata) {
+        Session *s = ASSERT_PTR(userdata);
+
+        assert(s->leader.fd == fd);
+        session_stop(s, /* force= */ false);
+        log_error("pidfd dispatch");
+
+        return 1;
+}
+
 int session_send_create_reply(Session *s, sd_bus_error *error) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *c = NULL;
         _cleanup_close_ int fifo_fd = -EBADF;
@@ -829,6 +839,22 @@ int session_send_create_reply(Session *s, sd_bus_error *error) {
         fifo_fd = session_create_fifo(s);
         if (fifo_fd < 0)
                 return fifo_fd;
+
+        if (s->leader.fd >= 0) {
+                int r;
+
+                if (!s->leader_pidfd_event_source) {
+                        r = sd_event_add_io(s->manager->event, &s->leader_pidfd_event_source, s->leader.fd, EPOLLIN, session_dispatch_leader_pidfd, s);
+                        if (r < 0)
+                                return r;
+
+                        r = sd_event_source_set_priority(s->leader_pidfd_event_source, SD_EVENT_PRIORITY_IMPORTANT);
+                        if (r < 0)
+                                return r;
+
+                        (void) sd_event_source_set_description(s->leader_pidfd_event_source, "session-pidfd");
+                }
+        }
 
         /* Update the session state file before we notify the client about the result. */
         session_save(s);
