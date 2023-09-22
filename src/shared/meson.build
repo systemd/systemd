@@ -165,6 +165,8 @@ shared_sources = files(
         'userdb.c',
         'varlink.c',
         'varlink-idl.c',
+        'varlink-io.systemd.c',
+        'varlink-org.varlink.service.c',
         'verb-log-control.c',
         'verbs.c',
         'vlan-util.c',
