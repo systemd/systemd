@@ -22,7 +22,9 @@
 
   <refsynopsisdiv>
     <cmdsynopsis>
-      <command>systemd-cryptenroll <arg choice="opt" rep="repeat">OPTIONS</arg> <arg choice="opt">DEVICE</arg></command>
+      <command>systemd-cryptenroll</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="opt">DEVICE</arg>
     </cmdsynopsis>
   </refsynopsisdiv>
 
@@ -543,6 +545,14 @@
     <title>Exit status</title>
 
     <para>On success, 0 is returned, a non-zero failure code otherwise.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <para><citerefentry><refentrytitle>crypttab</refentrytitle><manvolnum>5</manvolnum></citerefentry> and
+    <citerefentry><refentrytitle>systemd-measure</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    contain various examples employing <command>systemd-cryptenroll</command>.</para>
   </refsect1>
 
   <refsect1>
