@@ -190,7 +190,9 @@
         <citerefentry><refentrytitle>systemd-soft-reboot.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>),
         in case the service is configured to survive it.</para>
 
-        <xi:include href="system-only.xml" xpointer="singular"/></listitem>
+        <xi:include href="system-only.xml" xpointer="singular"/>
+
+        <xi:include href="version-info.xml" xpointer="v233"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -350,7 +352,9 @@
 
         <para>In order to allow propagating mounts at runtime in a safe manner, <filename>/run/systemd/propagate</filename>
         on the host will be used to set up new mounts, and <filename>/run/host/incoming/</filename> in the private namespace
-        will be used as an intermediate step to store them before being moved to the final mount point.</para></listitem>
+        will be used as an intermediate step to store them before being moved to the final mount point.</para>
+
+        <xi:include href="version-info.xml" xpointer="v233"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -440,7 +444,9 @@
         <varname>InaccessiblePaths=</varname>, or under <filename>/home/</filename> and other protected
         directories if <varname>ProtectHome=yes</varname> is
         specified. <varname>TemporaryFileSystem=</varname> with <literal>:ro</literal> or
-        <varname>ProtectHome=tmpfs</varname> should be used instead.</para></listitem>
+        <varname>ProtectHome=tmpfs</varname> should be used instead.</para>
+
+        <xi:include href="version-info.xml" xpointer="v233"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -674,7 +680,9 @@
         owned by the dynamic user/group that are not subject to the lifecycle and access guarantees of the
         service. Note that this option is currently incompatible with D-Bus policies, thus a service using
         this option may currently not allocate a D-Bus service name (note that this does not affect calling
-        into other D-Bus services). Defaults to off.</para></listitem>
+        into other D-Bus services). Defaults to off.</para>
+
+        <xi:include href="version-info.xml" xpointer="v232"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -779,7 +787,9 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         give it some capabilities. Note that in this case option <constant>keep-caps</constant> is automatically added
         to <varname>SecureBits=</varname> to retain the capabilities over the user
         change. <varname>AmbientCapabilities=</varname> does not affect commands prefixed with
-        <literal>+</literal>.</para></listitem>
+        <literal>+</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v229"/></listitem>
       </varlistentry>
 
     </variablelist>
@@ -819,7 +829,9 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         <citerefentry
         project='man-pages'><refentrytitle>crontab</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd-run</refentrytitle><manvolnum>1</manvolnum></citerefentry>, or
-        arbitrary IPC services.</para></listitem>
+        arbitrary IPC services.</para>
+
+        <xi:include href="version-info.xml" xpointer="v187"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -856,7 +868,9 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         non-overridden context. This does not affect commands prefixed with <literal>+</literal>. See
         <citerefentry
         project='die-net'><refentrytitle>setexeccon</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-        for details.</para></listitem>
+        for details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v209"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -866,6 +880,8 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         this profile when started. Profiles must already be loaded in the kernel, or the unit will fail. If
         prefixed by <literal>-</literal>, all errors will be ignored. This setting has no effect if AppArmor
         is not enabled. This setting does not affect commands prefixed with <literal>+</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v210"/>
         </listitem>
       </varlistentry>
 
@@ -881,7 +897,9 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
 
         <para>The value may be prefixed by <literal>-</literal>, in which case all errors will be ignored. An empty
         value may be specified to unset previous assignments. This does not affect commands prefixed with
-        <literal>+</literal>.</para></listitem>
+        <literal>+</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v218"/></listitem>
       </varlistentry>
 
     </variablelist>
@@ -1146,7 +1164,9 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         <option>inherit</option> is selected the unique invocation ID for the unit (see below) is added as a protected
         key by the name <literal>invocation_id</literal> to the newly created session keyring. Defaults to
         <option>private</option> for services of the system service manager and to <option>inherit</option> for
-        non-service units and for services of the user service manager.</para></listitem>
+        non-service units and for services of the user service manager.</para>
+
+        <xi:include href="version-info.xml" xpointer="v235"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1191,7 +1211,9 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         feature is useful when running 32-bit services on a 64-bit host system. If not specified, the
         personality is left unmodified and thus reflects the personality of the host system's kernel. This
         option is not useful on architectures for which only one native word width was ever available, such
-        as <constant>m68k</constant> (32-bit only) or <constant>alpha</constant> (64-bit only).</para></listitem>
+        as <constant>m68k</constant> (32-bit only) or <constant>alpha</constant> (64-bit only).</para>
+
+        <xi:include href="version-info.xml" xpointer="v209"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1360,7 +1382,9 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         <varname>ReadWritePaths=</varname> may be used to exclude specific directories from being made read-only. This
         setting is implied if <varname>DynamicUser=</varname> is set. This setting cannot ensure protection in all
         cases. In general it has the same limitations as <varname>ReadOnlyPaths=</varname>, see below. Defaults to
-        off.</para></listitem>
+        off.</para>
+
+        <xi:include href="version-info.xml" xpointer="v214"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1387,7 +1411,9 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         <varname>DynamicUser=</varname> is set. This setting cannot ensure protection in all cases. In
         general it has the same limitations as <varname>ReadOnlyPaths=</varname>, see below.</para>
 
-        <xi:include href="system-or-user-ns.xml" xpointer="singular"/></listitem>
+        <xi:include href="system-or-user-ns.xml" xpointer="singular"/>
+
+        <xi:include href="version-info.xml" xpointer="v214"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1529,7 +1555,9 @@ StateDirectory=aaa/bbb ccc</programlisting>
         <programlisting>RuntimeDirectory=foo:bar foo:baz</programlisting>
         the service manager creates <filename index='false'>/run/foo</filename> (if it does not exist), and
         <filename index='false'>/run/bar</filename> plus <filename index='false'>/run/baz</filename> as symlinks to
-        <filename index='false'>/run/foo</filename>.</para></listitem>
+        <filename index='false'>/run/foo</filename>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v211"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1544,7 +1572,9 @@ StateDirectory=aaa/bbb ccc</programlisting>
         <varname>ConfigurationDirectory=</varname>, respectively, as an octal number. Defaults to
         <constant>0755</constant>. See "Permissions" in <citerefentry
         project='man-pages'><refentrytitle>path_resolution</refentrytitle><manvolnum>7</manvolnum></citerefentry> for a
-        discussion of the meaning of permission bits.</para></listitem>
+        discussion of the meaning of permission bits.</para>
+
+        <xi:include href="version-info.xml" xpointer="v234"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1558,7 +1588,9 @@ StateDirectory=aaa/bbb ccc</programlisting>
         foo.service</command>. If set to <option>yes</option>, then the directories are not removed when the service is
         stopped. Note that since the runtime directory <filename>/run/</filename> is a mount point of
         <literal>tmpfs</literal>, then for system services the directories specified in
-        <varname>RuntimeDirectory=</varname> are removed when the system is rebooted.</para></listitem>
+        <varname>RuntimeDirectory=</varname> are removed when the system is rebooted.</para>
+
+        <xi:include href="version-info.xml" xpointer="v235"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1643,7 +1675,9 @@ NoExecPaths=/
 ExecPaths=/usr/sbin/my_daemon /usr/lib /usr/lib64
 </programlisting></para>
 
-        <xi:include href="system-or-user-ns.xml" xpointer="plural"/></listitem>
+        <xi:include href="system-or-user-ns.xml" xpointer="plural"/>
+
+        <xi:include href="version-info.xml" xpointer="v231"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1737,7 +1771,9 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         <para>When access to some but not all devices must be possible, the <varname>DeviceAllow=</varname>
         setting might be used instead. See
         <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v209"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1897,7 +1933,9 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
 
         <para>Note that the implementation of this setting might be impossible (for example if user namespaces are not
         available), and the unit should be written in a way that does not solely rely on this setting for
-        security.</para></listitem>
+        security.</para>
+
+        <xi:include href="version-info.xml" xpointer="v232"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1968,7 +2006,9 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         inaccessible. If <varname>ProtectKernelTunables=</varname> is set,
         <varname>MountAPIVFS=yes</varname> is implied.</para>
 
-        <xi:include href="system-or-user-ns.xml" xpointer="singular"/></listitem>
+        <xi:include href="system-or-user-ns.xml" xpointer="singular"/>
+
+        <xi:include href="version-info.xml" xpointer="v232"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1989,7 +2029,9 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         but the unit doesn't have the <constant>CAP_SYS_ADMIN</constant> capability (e.g. services for
         which <varname>User=</varname> is set), <varname>NoNewPrivileges=yes</varname> is implied.</para>
 
-        <xi:include href="system-or-user-ns.xml" xpointer="singular"/></listitem>
+        <xi:include href="system-or-user-ns.xml" xpointer="singular"/>
+
+        <xi:include href="version-info.xml" xpointer="v232"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -2025,7 +2067,9 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         above. Defaults to off. If <varname>ProtectControlGroups=</varname> is set, <varname>MountAPIVFS=yes</varname>
         is implied.</para>
 
-        <xi:include href="system-only.xml" xpointer="singular"/></listitem>
+        <xi:include href="system-only.xml" xpointer="singular"/>
+
+        <xi:include href="version-info.xml" xpointer="v232"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -2060,7 +2104,9 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         <constant>AF_UNIX</constant> address family should be included in the configured allow list as it is frequently
         used for local communication, including for
         <citerefentry><refentrytitle>syslog</refentrytitle><manvolnum>2</manvolnum></citerefentry>
-        logging.</para></listitem>
+        logging.</para>
+
+        <xi:include href="version-info.xml" xpointer="v211"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -2195,7 +2241,9 @@ RestrictNamespaces=cgroup net</programlisting>
         If the second line is prefixed with <literal>~</literal>, e.g.,
         <programlisting>RestrictNamespaces=cgroup ipc
 RestrictNamespaces=~cgroup net</programlisting>
-        then, only <constant>ipc</constant> is set.</para></listitem>
+        then, only <constant>ipc</constant> is set.</para>
+
+        <xi:include href="version-info.xml" xpointer="v233"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -2207,7 +2255,9 @@ RestrictNamespaces=~cgroup net</programlisting>
         <varname>Personality=</varname> directive. This may be useful to improve security, because odd personality
         emulations may be poorly tested and source of vulnerabilities. If running in user mode, or in system mode, but
         without the <constant>CAP_SYS_ADMIN</constant> capability (e.g. setting <varname>User=</varname>),
-        <varname>NoNewPrivileges=yes</varname> is implied.</para></listitem>
+        <varname>NoNewPrivileges=yes</varname> is implied.</para>
+
+        <xi:include href="version-info.xml" xpointer="v235"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -2239,7 +2289,9 @@ RestrictNamespaces=~cgroup net</programlisting>
         restrictions of this option. Specifically, it is recommended to combine this option with
         <varname>SystemCallArchitectures=native</varname> or similar. If running in user mode, or in system
         mode, but without the <constant>CAP_SYS_ADMIN</constant> capability (e.g. setting
-        <varname>User=</varname>), <varname>NoNewPrivileges=yes</varname> is implied.</para></listitem>
+        <varname>User=</varname>), <varname>NoNewPrivileges=yes</varname> is implied.</para>
+
+        <xi:include href="version-info.xml" xpointer="v231"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -2254,7 +2306,9 @@ RestrictNamespaces=~cgroup net</programlisting>
         <varname>NoNewPrivileges=yes</varname> is implied. Realtime scheduling policies may be used to monopolize CPU
         time for longer periods of time, and may hence be used to lock up or otherwise trigger Denial-of-Service
         situations on the system. It is hence recommended to restrict access to realtime scheduling to the few programs
-        that actually require them. Defaults to off.</para></listitem>
+        that actually require them. Defaults to off.</para>
+
+        <xi:include href="version-info.xml" xpointer="v231"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -2287,7 +2341,9 @@ RestrictNamespaces=~cgroup net</programlisting>
         multiple units use the same user or group the IPC objects are removed when the last of these units is
         stopped. This setting is implied if <varname>DynamicUser=</varname> is set.</para>
 
-        <xi:include href="system-only.xml" xpointer="singular"/></listitem>
+        <xi:include href="system-only.xml" xpointer="singular"/>
+
+        <xi:include href="version-info.xml" xpointer="v232"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -2586,7 +2642,9 @@ SystemCallErrorNumber=EPERM</programlisting>
         <varname>PrivateDevices=</varname>, <varname>ProtectSystem=</varname>, <varname>ProtectHome=</varname>,
         <varname>ProtectKernelTunables=</varname>, <varname>ProtectControlGroups=</varname>,
         <varname>ProtectKernelLogs=</varname>, <varname>ProtectClock=</varname>, <varname>ReadOnlyPaths=</varname>,
-        <varname>InaccessiblePaths=</varname> and <varname>ReadWritePaths=</varname>.</para></listitem>
+        <varname>InaccessiblePaths=</varname> and <varname>ReadWritePaths=</varname>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v187"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -2599,7 +2657,9 @@ SystemCallErrorNumber=EPERM</programlisting>
         project='man-pages'><refentrytitle>errno</refentrytitle><manvolnum>3</manvolnum></citerefentry> for a
         full list of error codes. When this setting is not used, or when the empty string or the special
         setting <literal>kill</literal> is assigned, the process will be terminated immediately when the
-        filter is triggered.</para></listitem>
+        filter is triggered.</para>
+
+        <xi:include href="version-info.xml" xpointer="v209"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -2631,7 +2691,9 @@ SystemCallErrorNumber=EPERM</programlisting>
         <para>System call architectures may also be restricted system-wide via the
         <varname>SystemCallArchitectures=</varname> option in the global configuration. See
         <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
-        details.</para></listitem>
+        details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v209"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -2781,7 +2843,9 @@ SystemCallErrorNumber=EPERM</programlisting>
         <para>
         See <citerefentry
         project='man-pages'><refentrytitle>environ</refentrytitle><manvolnum>7</manvolnum></citerefentry> for details
-        about environment variables.</para></listitem>
+        about environment variables.</para>
+
+        <xi:include href="version-info.xml" xpointer="v228"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -2805,7 +2869,9 @@ SystemCallErrorNumber=EPERM</programlisting>
         <para>See "Environment Variables in Spawned Processes" below for a description of how those
         settings combine to form the inherited environment. See <citerefentry
         project='man-pages'><refentrytitle>environ</refentrytitle><manvolnum>7</manvolnum></citerefentry> for general
-        information about environment variables.</para></listitem>
+        information about environment variables.</para>
+
+        <xi:include href="version-info.xml" xpointer="v235"/></listitem>
       </varlistentry>
 
     </variablelist>
@@ -3392,7 +3458,9 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
         consumers.</para>
 
         <para>For further information see <ulink url="https://systemd.io/CREDENTIALS">System and Service
-        Credentials</ulink> documentation.</para></listitem>
+        Credentials</ulink> documentation.</para>
+
+        <xi:include href="version-info.xml" xpointer="v247"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -3449,7 +3517,9 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
         <varname>SetCredential=</varname>. As such, <varname>SetCredential=</varname> will act as default if
         no credentials are found by any of the former. In this case not being able to retrieve the credential
         from the path specified in <varname>LoadCredential=</varname> or
-        <varname>LoadCredentialEncrypted=</varname> is not considered fatal.</para></listitem>
+        <varname>LoadCredentialEncrypted=</varname> is not considered fatal.</para>
+
+        <xi:include href="version-info.xml" xpointer="v247"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
@@ -3489,7 +3559,9 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
          utmp/wtmp logic. If <literal>user</literal> is set, first an <constant>INIT_PROCESS</constant> entry, then a
          <constant>LOGIN_PROCESS</constant> entry and finally a <constant>USER_PROCESS</constant> entry is
          generated. In this case, the invoked process may be any process that is suitable to be run as session
-         leader. Defaults to <literal>init</literal>.</para></listitem>
+         leader. Defaults to <literal>init</literal>.</para>
+
+         <xi:include href="version-info.xml" xpointer="v225"/></listitem>
       </varlistentry>
 
     </variablelist>
@@ -3562,7 +3634,9 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
           <literal><filename>/usr/local/sbin</filename>:<filename>/usr/local/bin</filename>:<filename>/usr/sbin</filename>:<filename>/usr/bin</filename></literal>
           in the system manager. In case of the user manager, a different path may be configured by the
           distribution. It is recommended to not rely on the order of entries, and have only one program
-          with a given name in <varname>$PATH</varname>.</para></listitem>
+          with a given name in <varname>$PATH</varname>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v208"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -3573,7 +3647,9 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
           or on the kernel command line (see
           <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry> and
           <citerefentry><refentrytitle>kernel-command-line</refentrytitle><manvolnum>7</manvolnum></citerefentry>).
-          </para></listitem>
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v208"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -3587,7 +3663,9 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
           <varname>User=</varname> set, which includes user
           <command>systemd</command> instances. See
           <citerefentry project='die-net'><refentrytitle>passwd</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-          </para></listitem>
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v208"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -3597,7 +3675,9 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
           as 32 character hexadecimal string. A new ID is assigned each time the unit changes from an inactive state into
           an activating or active state, and may be used to identify this specific runtime cycle, in particular in data
           stored offline, such as the journal. The same ID is passed to all processes run as part of the
-          unit.</para></listitem>
+          unit.</para>
+
+          <xi:include href="version-info.xml" xpointer="v232"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -3607,7 +3687,9 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
           services run by the user <command>systemd</command> instance, as well as any system services that use
           <varname>PAMName=</varname> with a PAM stack that includes <command>pam_systemd</command>. See below and
           <citerefentry><refentrytitle>pam_systemd</refentrytitle><manvolnum>8</manvolnum></citerefentry> for more
-          information.</para></listitem>
+          information.</para>
+
+          <xi:include href="version-info.xml" xpointer="v208"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -3621,6 +3703,8 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
           <varname>RuntimeDirectory=</varname>, <varname>StateDirectory=</varname>,
           <varname>CacheDirectory=</varname>, <varname>LogsDirectory=</varname>, and
           <varname>ConfigurationDirectory=</varname> when those settings are used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v244"/>
           </listitem>
         </varlistentry>
 
@@ -3631,7 +3715,9 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
           <varname>ImportCredential=</varname>/<varname>LoadCredential=</varname>/<varname>SetCredential=</varname>.
           The directory is marked read-only and is placed in unswappable memory (if supported and permitted),
           and is only accessible to the UID associated with the unit via <varname>User=</varname> or
-          <varname>DynamicUser=</varname> (and the superuser).</para></listitem>
+          <varname>DynamicUser=</varname> (and the superuser).</para>
+
+          <xi:include href="version-info.xml" xpointer="v247"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -3639,14 +3725,18 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
 
           <listitem><para>The PID of the unit's main process if it is
           known. This is only set for control processes as invoked by
-          <varname>ExecReload=</varname> and similar.</para></listitem>
+          <varname>ExecReload=</varname> and similar.</para>
+
+          <xi:include href="version-info.xml" xpointer="v209"/></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><varname>$MANAGERPID</varname></term>
 
           <listitem><para>The PID of the user <command>systemd</command>
-          instance, set for processes spawned by it.</para></listitem>
+          instance, set for processes spawned by it.</para>
+
+          <xi:include href="version-info.xml" xpointer="v208"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -3657,7 +3747,9 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
           <listitem><para>Information about file descriptors passed to a
           service for socket activation. See
           <citerefentry><refentrytitle>sd_listen_fds</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
-          </para></listitem>
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v208"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -3665,7 +3757,9 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
 
           <listitem><para>The socket <function>sd_notify()</function> talks to. See
           <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
-          </para></listitem>
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v229"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -3674,7 +3768,9 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
 
           <listitem><para>Information about watchdog keep-alive notifications. See
           <citerefentry><refentrytitle>sd_watchdog_enabled</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
-          </para></listitem>
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v229"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -3698,14 +3794,18 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
           <varname>StandardOutput=tty</varname>, or
           <varname>StandardError=tty</varname>). See
           <citerefentry project='man-pages'><refentrytitle>termcap</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-          </para></listitem>
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v209"/></listitem>
         </varlistentry>
 
         <varlistentry>
           <term><varname>$LOG_NAMESPACE</varname></term>
 
           <listitem><para>Contains the name of the selected logging namespace when the
-          <varname>LogNamespace=</varname> service setting is used.</para></listitem>
+          <varname>LogNamespace=</varname> service setting is used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -3731,7 +3831,9 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
           protocol to the native journal protocol (using
           <citerefentry><refentrytitle>sd_journal_print</refentrytitle><manvolnum>3</manvolnum></citerefentry> and other
           functions) if their standard output or standard error output is connected to the journal anyway, thus enabling
-          delivery of structured metadata along with logged messages.</para></listitem>
+          delivery of structured metadata along with logged messages.</para>
+
+          <xi:include href="version-info.xml" xpointer="v231"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -3798,7 +3900,9 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
           though this variable is available in both <varname>ExecStop=</varname> and <varname>ExecStopPost=</varname>, it
           is usually a better choice to place monitoring tools in the latter, as the former is only invoked for services
           that managed to start up correctly, and the latter covers both services that failed during their start-up and
-          those which failed during their runtime.</para></listitem>
+          those which failed during their runtime.</para>
+
+          <xi:include href="version-info.xml" xpointer="v232"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -3914,7 +4018,9 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
                 </row>
               </tbody>
             </tgroup>
-          </table></listitem>
+          </table>
+
+            <xi:include href="version-info.xml" xpointer="v232"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -3952,7 +4058,9 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
           <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
           for details. Service code may use this environment variable to automatically generate a PID file at
           the location configured in the unit file. This field is set to an absolute path in the file
-          system.</para></listitem>
+          system.</para>
+
+          <xi:include href="version-info.xml" xpointer="v242"/></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -3998,12 +4106,12 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
         <varlistentry>
           <term><varname>$FDSTORE</varname></term>
 
-          <listitem><para>If the file descriptor store is enabled for a service
-          (i.e. <varname>FileDescriptorStoreMax=</varname> is set to a non-zero value, see
+          <listitem><para>The maximum number of file descriptors that may be stored in the manager for the
+          service. This variable is set when the file descriptor store is enabled for the service, i.e.
+          <varname>FileDescriptorStoreMax=</varname> is set to a non-zero value (see
           <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-          for details), this environment variable will be set to the maximum number of permitted entries, as
-          per the setting. Applications may check this environment variable before sending file descriptors
-          to the service manager via <function>sd_pid_notify_with_fds()</function> (see
+          for details). Applications may check this environment variable before sending file descriptors to
+          the service manager via <function>sd_pid_notify_with_fds()</function> (see
           <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry> for
           details).</para>
 

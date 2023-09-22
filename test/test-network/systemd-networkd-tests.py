@@ -2383,6 +2383,10 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
             flag2: str,
             flag3: str,
             flag4: str,
+            ip4_null_16: str,
+            ip4_null_24: str,
+            ip6_null_73: str,
+            ip6_null_74: str,
     ):
         output = check_output('ip address show dev dummy98')
         print(output)
@@ -2442,9 +2446,14 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertIn(f'inet6 2001:db8:0:f106::2/64 scope global{flag4}', output)
 
         # null address
-        self.assertRegex(output, r'inet [0-9]*.[0-9]*.0.1/16 brd [0-9]*.[0-9]*.255.255 scope global subnet16')
-        self.assertRegex(output, r'inet [0-9]*.[0-9]*.[0-9]*.1/24 brd [0-9]*.[0-9]*.[0-9]*.255 scope global subnet24')
-        self.assertRegex(output, r'inet6 [0-9a-f:]*:1/73 scope global')
+        self.assertTrue(ip4_null_16.endswith('.0.1'))
+        prefix16 = ip4_null_16[:-len('.0.1')]
+        self.assertTrue(ip4_null_24.endswith('.1'))
+        prefix24 = ip4_null_24[:-len('.1')]
+        self.assertIn(f'inet {ip4_null_16}/16 brd {prefix16}.255.255 scope global subnet16', output)
+        self.assertIn(f'inet {ip4_null_24}/24 brd {prefix24}.255 scope global subnet24', output)
+        self.assertIn(f'inet6 {ip6_null_73}/73 scope global', output)
+        self.assertIn(f'inet6 {ip6_null_74}/74 scope global', output)
 
         # invalid sections
         self.assertNotIn('10.4.4.1', output)
@@ -2469,6 +2478,29 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.setup_nftset('ifindex', 'iface_index')
 
         self.wait_online(['dummy98:routable'])
+
+        ip4_null_16 = None
+        ip4_null_24 = None
+        output = check_output('ip -4 --json address show dev dummy98')
+        for i in json.loads(output)[0]['addr_info']:
+            if i['label'] == 'subnet16':
+                ip4_null_16 = i['local']
+            elif i['label'] == 'subnet24':
+                ip4_null_24 = i['local']
+        self.assertTrue(ip4_null_16.endswith('.0.1'))
+        self.assertTrue(ip4_null_24.endswith('.1'))
+
+        ip6_null_73 = None
+        ip6_null_74 = None
+        output = check_output('ip -6 --json address show dev dummy98')
+        for i in json.loads(output)[0]['addr_info']:
+            if i['prefixlen'] == 73:
+                ip6_null_73 = i['local']
+            elif i['prefixlen'] == 74:
+                ip6_null_74 = i['local']
+        self.assertTrue(ip6_null_73.endswith(':1'))
+        self.assertTrue(ip6_null_74.endswith(':1'))
+
         self.verify_address_static(
             label1='label1',
             label2='label2',
@@ -2493,6 +2525,10 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
             flag2='',
             flag3=' noprefixroute',
             flag4=' home mngtmpaddr',
+            ip4_null_16=ip4_null_16,
+            ip4_null_24=ip4_null_24,
+            ip6_null_73=ip6_null_73,
+            ip6_null_74=ip6_null_74,
         )
         # nft set
         self.check_nftset('addr4', r'10\.10\.1\.1')
@@ -2528,6 +2564,10 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
             flag2=' noprefixroute',
             flag3=' home mngtmpaddr',
             flag4=' noprefixroute',
+            ip4_null_16=ip4_null_16,
+            ip4_null_24=ip4_null_24,
+            ip6_null_73=ip6_null_73,
+            ip6_null_74=ip6_null_74,
         )
 
         networkctl_reconfigure('dummy98')
@@ -2556,6 +2596,10 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
             flag2=' noprefixroute',
             flag3=' home mngtmpaddr',
             flag4=' noprefixroute',
+            ip4_null_16=ip4_null_16,
+            ip4_null_24=ip4_null_24,
+            ip6_null_73=ip6_null_73,
+            ip6_null_74=ip6_null_74,
         )
 
         # Tests for #20891.
@@ -2594,6 +2638,10 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
             flag2=' noprefixroute',
             flag3=' home mngtmpaddr',
             flag4=' noprefixroute',
+            ip4_null_16=ip4_null_16,
+            ip4_null_24=ip4_null_24,
+            ip6_null_73=ip6_null_73,
+            ip6_null_74=ip6_null_74,
         )
 
         # test for ENOBUFS issue #17012 (with reload)
@@ -2610,34 +2658,6 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         output = check_output('ip -4 address show dev dummy98')
         for i in range(1, 254):
             self.assertIn(f'inet 10.3.3.{i}/16 brd 10.3.255.255', output)
-
-    def test_address_null(self):
-        copy_network_unit('25-address-null.network', '12-dummy.netdev')
-        start_networkd()
-
-        self.wait_online(['dummy98:routable'])
-
-        output = check_output('ip address show dev dummy98 scope global')
-        print(output)
-
-        ipv4_address_16 = re.findall(r'inet 172.[0-9]*.0.1/16 brd 172.[0-9]*.255.255', output)
-        self.assertEqual(len(ipv4_address_16), 1)
-        ipv4_address_24 = re.findall(r'inet 192.168.[0-9]*.1/24 brd 192.168.[0-9]*.255', output)
-        self.assertEqual(len(ipv4_address_24), 1)
-        ipv4_address_30 = re.findall(r'inet 192.168.[0-9]*.[0-9]*/30 brd 192.168.[0-9]*.[0-9]*', output)
-        self.assertEqual(len(ipv4_address_30), 1)
-        ipv6_address = re.findall(r'inet6 fd[0-9a-f:]*/64', output)
-        self.assertEqual(len(ipv6_address), 1)
-
-        networkctl_reconfigure('dummy98')
-        self.wait_online(['dummy98:routable'])
-
-        output = check_output('ip address show dev dummy98 scope global')
-        print(output)
-        self.assertIn(ipv4_address_16[0], output)
-        self.assertIn(ipv4_address_24[0], output)
-        self.assertIn(ipv4_address_30[0], output)
-        self.assertIn(ipv6_address[0], output)
 
     def test_address_ipv4acd(self):
         check_output('ip netns add ns99')
@@ -4934,6 +4954,29 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
 
         output = check_output(*networkctl_cmd, '-n', '0', 'status', 'veth-peer', env=env)
         self.assertRegex(output, "Offered DHCP leases: 192.168.5.[0-9]*")
+
+    def test_dhcp_server_null_server_address(self):
+        copy_network_unit('25-veth.netdev', '25-dhcp-client.network', '25-dhcp-server-null-server-address.network')
+        start_networkd()
+        self.wait_online(['veth99:routable', 'veth-peer:routable'])
+
+        output = check_output('ip --json address show dev veth-peer')
+        server_address = json.loads(output)[0]['addr_info'][0]['local']
+        print(server_address)
+
+        output = check_output('ip --json address show dev veth99')
+        client_address = json.loads(output)[0]['addr_info'][0]['local']
+        print(client_address)
+
+        output = check_output(*networkctl_cmd, '-n', '0', 'status', 'veth99', env=env)
+        print(output)
+        self.assertRegex(output, rf'Address: {client_address} \(DHCP4 via {server_address}\)')
+        self.assertIn(f'Gateway: {server_address}', output)
+        self.assertIn(f'DNS: {server_address}', output)
+        self.assertIn(f'NTP: {server_address}', output)
+
+        output = check_output(*networkctl_cmd, '-n', '0', 'status', 'veth-peer', env=env)
+        self.assertIn(f'Offered DHCP leases: {client_address}', output)
 
     def test_dhcp_server_with_uplink(self):
         copy_network_unit('25-veth.netdev', '25-dhcp-client.network', '25-dhcp-server-downstream.network',

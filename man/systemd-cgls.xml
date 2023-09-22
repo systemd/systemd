@@ -71,6 +71,8 @@
         <term><option>--full</option></term>
 
         <listitem><para>Do not ellipsize process tree members.</para>
+
+        <xi:include href="version-info.xml" xpointer="v198"/>
         </listitem>
       </varlistentry>
 
@@ -106,7 +108,9 @@
 
         <listitem><para>Limit control groups shown to the part
         corresponding to the container
-        <replaceable>MACHINE</replaceable>.</para></listitem>
+        <replaceable>MACHINE</replaceable>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v203"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -115,7 +119,9 @@
 
         <listitem><para>Controls whether to include information about extended attributes of the listed
         control groups in the output. With the long option, expects a boolean value. Defaults to no.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -123,7 +129,9 @@
         <term><option>--cgroup-id=</option></term>
 
         <listitem><para>Controls whether to include the numeric ID of the listed control groups in the
-        output. With the long option, expects a boolean value. Defaults to no.</para></listitem>
+        output. With the long option, expects a boolean value. Defaults to no.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="help" />

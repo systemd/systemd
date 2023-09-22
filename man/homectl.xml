@@ -139,7 +139,9 @@
         <literal>short</literal> all superfluous whitespace is suppressed. If <literal>off</literal> (the
         default) the user information is not shown in JSON format but in a friendly human readable formatting
         instead. The <option>-j</option> option picks <literal>pretty</literal> when run interactively and
-        <literal>short</literal> otherwise.</para></listitem>
+        <literal>short</literal> otherwise.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -338,7 +340,7 @@
         user, including <option>--email=</option>, <option>--timezone=</option> and
         <option>--language=</option>.</para>
 
-        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -808,7 +810,9 @@
         <para>Note that <command>homectl</command> uses bytes for key size, like
         <filename>/proc/crypto</filename>, but <citerefentry
         project='man-pages'><refentrytitle>cryptsetup</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-        uses bits.</para></listitem>
+        uses bits.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -881,7 +885,9 @@
         directory of the share. The <option>--cifs-extra-mount-options=</option> setting allows specifying
         additional mount options when mounting the share, see <citerefentry
         project='man-pages'><refentrytitle>mount.cifs</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-        for details.</para></listitem>
+        for details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>
 
       <varlistentry>

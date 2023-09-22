@@ -251,7 +251,9 @@
         to take over suspend and hibernation handling, and to use their own configuration
         mechanisms. If a low-level inhibitor lock is taken, logind will not take any
         action when that key or switch is triggered and the <varname>Handle*=</varname>
-        settings are irrelevant.</para></listitem>
+        settings are irrelevant.</para>
+
+        <xi:include href="version-info.xml" xpointer="v184"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -280,7 +282,9 @@
         This means that when <command>systemd-logind</command> is handling events by
         itself (no low level inhibitor locks are taken by another application), the lid
         switch does not respect suspend blockers by default, but the power and sleep keys
-        do.</para></listitem>
+        do.</para>
+
+        <xi:include href="version-info.xml" xpointer="v190"/></listitem>
       </varlistentry>
 
       <varlistentry>

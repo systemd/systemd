@@ -17,6 +17,7 @@
 #include "proto/device-path.h"
 #include "proto/simple-text-io.h"
 #include "random-seed.h"
+#include "sbat.h"
 #include "secure-boot.h"
 #include "shim.h"
 #include "ticks.h"
@@ -33,6 +34,8 @@ _used_ _section_(".osrel") static const char osrel[] =
         "ID=systemd-boot\n"
         "VERSION=\"" GIT_VERSION "\"\n"
         "NAME=\"systemd-boot " GIT_VERSION "\"\n";
+
+DECLARE_SBAT(SBAT_BOOT_SECTION_TEXT);
 
 typedef enum LoaderType {
         LOADER_UNDEFINED,
@@ -2388,7 +2391,9 @@ static EFI_STATUS image_start(
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Error loading %ls: %m", entry->loader);
 
-        if (entry->devicetree) {
+        /* DTBs are loaded by the kernel before ExitBootServices, and they can be used to map and assign
+         * arbitrary memory ranges, so skip it when secure boot is enabled as the DTB here is unverified. */
+        if (entry->devicetree && !secure_boot_enabled()) {
                 err = devicetree_install(&dtstate, image_root, entry->devicetree);
                 if (err != EFI_SUCCESS)
                         return log_error_status(err, "Error loading %ls: %m", entry->devicetree);

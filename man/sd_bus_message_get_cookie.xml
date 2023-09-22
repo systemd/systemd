@@ -96,8 +96,8 @@
 
   <refsect1>
     <title>History</title>
-    <para><function>sd_bus_message_get_cookie()</function> was added in version 209.</para>
-    <para><function>sd_bus_message_get_reply_cookie()</function> was added in version 209.</para>
+    <para><function>sd_bus_message_get_cookie()</function> and
+    <function>sd_bus_message_get_reply_cookie()</function> were added in version 209.</para>
   </refsect1>
 
   <refsect1>

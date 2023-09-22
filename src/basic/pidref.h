@@ -3,7 +3,7 @@
 
 #include "macro.h"
 
-/* An embeddable structure carrying a reference to a process. Supposed to be used when tracking processes continously. */
+/* An embeddable structure carrying a reference to a process. Supposed to be used when tracking processes continuously. */
 typedef struct PidRef {
         pid_t pid; /* always valid */
         int fd;    /* only valid if pidfd are available in the kernel, and we manage to get an fd */
@@ -13,6 +13,18 @@ typedef struct PidRef {
 
 static inline bool pidref_is_set(const PidRef *pidref) {
         return pidref && pidref->pid > 0;
+}
+
+static inline bool pidref_equal(const PidRef *a, const PidRef *b) {
+
+        if (pidref_is_set(a)) {
+                if (!pidref_is_set(b))
+                        return false;
+
+                return a->pid == b->pid;
+        }
+
+        return !pidref_is_set(b);
 }
 
 int pidref_set_pid(PidRef *pidref, pid_t pid);
@@ -25,5 +37,6 @@ void pidref_done(PidRef *pidref);
 
 int pidref_kill(PidRef *pidref, int sig);
 int pidref_kill_and_sigcont(PidRef *pidref, int sig);
+int pidref_sigqueue(PidRef *pidfref, int sig, int value);
 
 #define TAKE_PIDREF(p) TAKE_GENERIC((p), PidRef, PIDREF_NULL)

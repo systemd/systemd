@@ -1276,7 +1276,7 @@ static bool should_parse_proc_cmdline(void) {
         if (getpid_cached() == 1)
                 return true;
 
-        /* Otherwise, parse the commandline if invoked directly by systemd. */
+        /* Otherwise, parse the command line if invoked directly by systemd. */
         return invoked_by_systemd();
 }
 

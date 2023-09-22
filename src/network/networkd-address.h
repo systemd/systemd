@@ -7,7 +7,9 @@
 
 #include "conf-parser.h"
 #include "firewall-util.h"
+#include "hash-funcs.h"
 #include "in-addr-util.h"
+#include "network-util.h"
 #include "networkd-link.h"
 #include "networkd-util.h"
 #include "time-util.h"
@@ -73,7 +75,16 @@ const char* format_lifetime(char *buf, size_t l, usec_t lifetime_usec) _warn_unu
 
 int address_flags_to_string_alloc(uint32_t flags, int family, char **ret);
 
+void link_get_address_states(
+                Link *link,
+                LinkAddressState *ret_ipv4,
+                LinkAddressState *ret_ipv6,
+                LinkAddressState *ret_all);
+
+extern const struct hash_ops address_hash_ops;
+
 int address_new(Address **ret);
+int address_new_static(Network *network, const char *filename, unsigned section_line, Address **ret);
 Address* address_free(Address *address);
 int address_get(Link *link, const Address *in, Address **ret);
 int address_get_harder(Link *link, const Address *in, Address **ret);
@@ -115,6 +126,7 @@ int link_request_static_addresses(Link *link);
 
 int manager_rtnl_process_address(sd_netlink *nl, sd_netlink_message *message, Manager *m);
 
+int address_section_verify(Address *address);
 int network_drop_invalid_addresses(Network *network);
 
 DEFINE_NETWORK_CONFIG_STATE_FUNCTIONS(Address, address);

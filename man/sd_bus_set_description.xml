@@ -239,17 +239,17 @@
 
   <refsect1>
     <title>History</title>
-    <para><function>sd_bus_get_allow_interactive_authorization()</function> was added in version 240.</para>
-    <para><function>sd_bus_get_description()</function> was added in version 240.</para>
-    <para><function>sd_bus_set_allow_interactive_authorization()</function> was added in version 240.</para>
-    <para><function>sd_bus_set_anonymous()</function> was added in version 240.</para>
-    <para><function>sd_bus_set_description()</function> was added in version 240.</para>
-    <para><function>sd_bus_set_trusted()</function> was added in version 240.</para>
-    <para><function>sd_bus_get_scope()</function> was added in version 246.</para>
-    <para><function>sd_bus_get_tid()</function> was added in version 246.</para>
-    <para><function>sd_bus_get_unique_name()</function> was added in version 246.</para>
-    <para><function>sd_bus_is_anonymous()</function> was added in version 246.</para>
-    <para><function>sd_bus_is_trusted()</function> was added in version 246.</para>
+    <para><function>sd_bus_set_description()</function>,
+    <function>sd_bus_get_description()</function>,
+    <function>sd_bus_set_anonymous()</function>,
+    <function>sd_bus_set_trusted()</function>,
+    <function>sd_bus_set_allow_interactive_authorization()</function>, and
+    <function>sd_bus_get_allow_interactive_authorization()</function> were added in version 240.</para>
+    <para><function>sd_bus_is_anonymous()</function>,
+    <function>sd_bus_is_trusted()</function>,
+    <function>sd_bus_get_scope()</function>,
+    <function>sd_bus_get_tid()</function>, and
+    <function>sd_bus_get_unique_name()</function> were added in version 246.</para>
   </refsect1>
 
   <refsect1>

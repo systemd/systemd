@@ -98,6 +98,8 @@
           <para>A whitespace-separated list of shell-style globs matching the device name, as exposed
           by the udev property <literal>INTERFACE</literal>, or device's alternative names. If the
           list is prefixed with a "!", the test is inverted.</para>
+
+          <xi:include href="version-info.xml" xpointer="v211"/>
         </listitem>
       </varlistentry>
 
@@ -157,6 +159,8 @@
         <term><varname>MACAddress=</varname></term>
         <listitem>
           <para>The hardware address to set for the device.</para>
+
+        <xi:include href="version-info.xml" xpointer="v218"/>
         </listitem>
       </varlistentry>
 
@@ -344,6 +348,8 @@
         <term><varname>Description=</varname></term>
         <listitem>
           <para>A description of the device. This is only used for presentation purposes.</para>
+
+        <xi:include href="version-info.xml" xpointer="v211"/>
         </listitem>
       </varlistentry>
 
@@ -365,6 +371,8 @@
 
           <para>See the [DHCPv4] or [DHCPv6] sections below for further configuration options for the
           DHCP client support.</para>
+
+          <xi:include href="version-info.xml" xpointer="v211"/>
         </listitem>
       </varlistentry>
 
@@ -645,6 +653,8 @@ Table=1234</programlisting></para>
           10.0.0.0/8 for IPv4, and fd00::/8 for IPv6. This functionality is useful to manage a large
           number of dynamically created network interfaces with the same network configuration and
           automatic address range assignment.</para>
+
+          <xi:include href="version-info.xml" xpointer="v211"/>
         </listitem>
       </varlistentry>
 
@@ -655,6 +665,8 @@ Table=1234</programlisting></para>
           <citerefentry project='man-pages'><refentrytitle>inet_pton</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
           This is a short-hand for a [Route] section only containing a <varname>Gateway=</varname> key.
           This option may be specified more than once.</para>
+
+          <xi:include href="version-info.xml" xpointer="v211"/>
         </listitem>
       </varlistentry>
 
@@ -673,6 +685,8 @@ Table=1234</programlisting></para>
           assigned, then the all previous assignments are cleared. This setting is read by
           <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v211"/>
         </listitem>
       </varlistentry>
 
@@ -996,6 +1010,8 @@ Table=1234</programlisting></para>
           to. See
           <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v211"/>
         </listitem>
       </varlistentry>
 
@@ -1015,6 +1031,8 @@ Table=1234</programlisting></para>
           VXLAN, or Xfrm to be created on the link. See
           <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
           This option may be specified more than once.</para>
+
+          <xi:include href="version-info.xml" xpointer="v211"/>
         </listitem>
       </varlistentry>
 
@@ -1128,7 +1146,7 @@ Table=1234</programlisting></para>
           <para>As in the [Network] section. This setting is mandatory. Each [Address] section can
           contain one <varname>Address=</varname> setting.</para>
 
-          <xi:include href="version-info.xml" xpointer="v215"/>
+          <xi:include href="version-info.xml" xpointer="v211"/>
         </listitem>
       </varlistentry>
 
@@ -1150,6 +1168,8 @@ Table=1234</programlisting></para>
           If set to true, then the IPv4 broadcast address will be derived from the
           <varname>Address=</varname> setting. If set to false, then the broadcast address will not be
           set. Defaults to true, except for wireguard interfaces, where it default to false.</para>
+
+          <xi:include href="version-info.xml" xpointer="v211"/>
         </listitem>
       </varlistentry>
 
@@ -1158,6 +1178,8 @@ Table=1234</programlisting></para>
         <listitem>
           <para>Specifies the label for the IPv4 address. The label must be a 7-bit ASCII string with
           a length of 1…15 characters. Defaults to unset.</para>
+
+          <xi:include href="version-info.xml" xpointer="v211"/>
         </listitem>
       </varlistentry>
 
@@ -1183,6 +1205,7 @@ Table=1234</programlisting></para>
           the network, even through a gateway), <literal>link</literal> (only valid on this device,
           will not traverse a gateway) or <literal>host</literal> (only valid within the device itself,
           e.g. 127.0.0.1) or an integer in the range 0…255. Defaults to <literal>global</literal>.
+          IPv4 only - IPv6 scope is automatically assigned by the kernel and cannot be set manually.
           </para>
 
         <xi:include href="version-info.xml" xpointer="v235"/>
@@ -1196,6 +1219,8 @@ Table=1234</programlisting></para>
           address, taking the configured prefix length into account. Takes an unsigned integer in the
           range 0…4294967295. When unset or set to 0, the kernel's default value is used. This
           setting will be ignored when <varname>AddPrefixRoute=</varname> is false.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/>
         </listitem>
       </varlistentry>
 
@@ -1765,7 +1790,7 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
           <literal>_ipv6ra</literal>. If <literal>_dhcp4</literal> or <literal>_ipv6ra</literal> is
           set, then the gateway address provided by DHCPv4 or IPv6 RA is used.</para>
 
-        <xi:include href="version-info.xml" xpointer="v215"/>
+        <xi:include href="version-info.xml" xpointer="v211"/>
         </listitem>
       </varlistentry>
 
@@ -1777,7 +1802,7 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
           can insert the route in the kernel table without it being complained about. Defaults to
           <literal>no</literal>.</para>
 
-          <xi:include href="version-info.xml" xpointer="v242"/>
+          <xi:include href="version-info.xml" xpointer="v234"/>
         </listitem>
       </varlistentry>
 
@@ -1786,6 +1811,8 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
         <listitem>
           <para>The destination prefix of the route. Possibly followed by a slash and the prefix
           length. If omitted, a full-length host route is assumed.</para>
+
+          <xi:include href="version-info.xml" xpointer="v211"/>
         </listitem>
       </varlistentry>
 
@@ -1889,7 +1916,7 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
           <literal>anycast</literal>, or <literal>nat</literal>, then <literal>local</literal> is used.
           In other cases, defaults to <literal>main</literal>.</para>
 
-          <xi:include href="version-info.xml" xpointer="v244"/>
+          <xi:include href="version-info.xml" xpointer="v230"/>
         </listitem>
       </varlistentry>
 
@@ -1931,6 +1958,8 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
           is generated. If <literal>throw</literal>, route lookup in the current routing table will
           fail and the route selection process will return to Routing Policy Database (RPDB). Defaults
           to <literal>unicast</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v235"/>
         </listitem>
       </varlistentry>
 
@@ -2077,6 +2106,8 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
           hostname must consist only of 7-bit ASCII lower-case characters and no spaces or dots, and be
           formatted as a valid DNS domain name. Otherwise, the hostname is not sent even if this option
           is true.</para>
+
+          <xi:include href="version-info.xml" xpointer="v215"/>
         </listitem>
       </varlistentry>
 
@@ -2086,6 +2117,8 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
           <para>Use this value for the hostname which is sent to the DHCP server, instead of machine's
           hostname. Note that the specified hostname must consist only of 7-bit ASCII lower-case
           characters and no spaces or dots, and be formatted as a valid DNS domain name.</para>
+
+          <xi:include href="version-info.xml" xpointer="v223"/>
         </listitem>
       </varlistentry>
 
@@ -2116,6 +2149,8 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
           DUID, is used. IAID can be configured by <varname>IAID=</varname>. DUID can be configured by
           <varname>DUIDType=</varname> and <varname>DUIDRawData=</varname>. Defaults to
           <option>duid</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v220"/>
         </listitem>
       </varlistentry>
 
@@ -2123,6 +2158,8 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
         <term><varname>VendorClassIdentifier=</varname></term>
         <listitem>
           <para>The vendor class identifier used to identify vendor type and configuration.</para>
+
+        <xi:include href="version-info.xml" xpointer="v216"/>
         </listitem>
       </varlistentry>
 
@@ -2134,6 +2171,8 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
           represents the user class of which the client is a member. Each class sets an identifying
           string of information to be used by the DHCP service to classify clients. Takes a
           whitespace-separated list of strings.</para>
+
+          <xi:include href="version-info.xml" xpointer="v239"/>
         </listitem>
       </varlistentry>
 
@@ -2143,6 +2182,8 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
           <para>Override the global <varname>DUIDType=</varname> setting for this network. See
           <citerefentry><refentrytitle>networkd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
           for a description of possible values.</para>
+
+        <xi:include href="version-info.xml" xpointer="v230"/>
         </listitem>
       </varlistentry>
 
@@ -2152,6 +2193,8 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
           <para>Override the global <varname>DUIDRawData=</varname> setting for this network. See
           <citerefentry><refentrytitle>networkd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
           for a description of possible values.</para>
+
+        <xi:include href="version-info.xml" xpointer="v230"/>
         </listitem>
       </varlistentry>
 
@@ -2160,6 +2203,8 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
         <listitem>
           <para>The DHCP Identity Association Identifier (IAID) for the interface, a 32-bit unsigned
           integer.</para>
+
+          <xi:include href="version-info.xml" xpointer="v230"/>
         </listitem>
       </varlistentry>
 
@@ -2184,6 +2229,8 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
           Windows, in order to reduce the ability to fingerprint and recognize installations. This
           means DHCP request sizes will grow and lease data will be more comprehensive than normally,
           though most of the requested data is not actually used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v235"/>
         </listitem>
       </varlistentry>
 
@@ -2241,6 +2288,8 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
           sent from the DHCPv4 client. When <literal>CS6</literal> (network control) or
           <literal>CS4</literal> (realtime), the corresponding service type will be set. Defaults to
           <literal>CS6</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v244"/>
         </listitem>
       </varlistentry>
 
@@ -2281,6 +2330,8 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
           <para>This corresponds to the <option>nameserver</option> option in
           <citerefentry project='man-pages'><refentrytitle>resolv.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v211"/>
         </listitem>
       </varlistentry>
 
@@ -2300,6 +2351,8 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
         <listitem>
           <para>When true (the default), the NTP servers received from the DHCP server will be used by
           <filename>systemd-timesyncd.service</filename>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v220"/>
         </listitem>
       </varlistentry>
 
@@ -2344,6 +2397,8 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
           <para>Note, some drivers will reset the interfaces if the MTU is changed. For such
           interfaces, please try to use <varname>IgnoreCarrierLoss=</varname> with a short timespan,
           e.g. <literal>3 seconds</literal>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v211"/>
         </listitem>
       </varlistentry>
 
@@ -2352,6 +2407,8 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
         <listitem>
           <para>When true (the default), the hostname received from the DHCP server will be set as the
           transient hostname of the system.</para>
+
+          <xi:include href="version-info.xml" xpointer="v211"/>
         </listitem>
       </varlistentry>
 
@@ -2373,6 +2430,8 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
           <para>When set to true, this setting corresponds to the <option>domain</option> option in
           <citerefentry project='man-pages'><refentrytitle>resolv.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v216"/>
         </listitem>
       </varlistentry>
 
@@ -2386,6 +2445,8 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
           own address, the scope will be set to <option>host</option>. Otherwise if the gateway is null
           (a direct route), a <option>link</option> scope will be used. For anything else, scope
           defaults to <option>global</option>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v215"/>
         </listitem>
       </varlistentry>
 
@@ -2395,6 +2456,8 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
           <para>Set the routing metric for routes specified by the DHCP server (including the prefix
           route added for the specified prefix). Takes an unsigned integer in the range 0…4294967295.
           Defaults to 1024.</para>
+
+          <xi:include href="version-info.xml" xpointer="v217"/>
         </listitem>
       </varlistentry>
 
@@ -2409,6 +2472,8 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
 
           <para>When used in combination with <varname>VRF=</varname>, the VRF's routing table is
           used when this parameter is not specified.</para>
+
+          <xi:include href="version-info.xml" xpointer="v232"/>
         </listitem>
       </varlistentry>
 
@@ -2464,7 +2529,9 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
       <varlistentry>
         <term><varname>UseTimezone=</varname></term>
         <listitem><para>When true, the timezone received from the DHCP server will be set as timezone
-        of the local system. Defaults to false.</para></listitem>
+        of the local system. Defaults to false.</para>
+
+        <xi:include href="version-info.xml" xpointer="v226"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -2500,6 +2567,8 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
           This is necessary for devices that cannot receive RAW packets, or that cannot receive packets
           at all before an IP address has been configured. On the other hand, this must not be enabled
           on networks where broadcasts are filtered out.</para>
+
+          <xi:include href="version-info.xml" xpointer="v216"/>
         </listitem>
       </varlistentry>
 
@@ -2520,6 +2589,8 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
         <term><varname>ListenPort=</varname></term>
         <listitem>
           <para>Set the port from which the DHCP client packets originate.</para>
+
+        <xi:include href="version-info.xml" xpointer="v233"/>
         </listitem>
       </varlistentry>
 
@@ -2614,6 +2685,8 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
         <term><varname>RequestOptions=</varname></term>
         <listitem>
           <para>As in the [DHCPv4] section.</para>
+
+        <xi:include href="version-info.xml" xpointer="v246"/>
         </listitem>
       </varlistentry>
 
@@ -2748,6 +2821,8 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
         <term><varname>SendRelease=</varname></term>
         <listitem>
           <para>As in the [DHCPv4] section.</para>
+
+        <xi:include href="version-info.xml" xpointer="v243"/>
         </listitem>
       </varlistentry>
 
@@ -2815,6 +2890,8 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
           <ulink url="https://tools.ietf.org/html/rfc4291#section-2.5.4">RFC 4291</ulink>, section
           2.5.4), in which case the allowed value is hexadecimal, from 0 to 0x7fffffffffffffff
           inclusive.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/>
         </listitem>
       </varlistentry>
 
@@ -2825,6 +2902,8 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
           is enabled, the delegated prefixes are distributed through the IPv6 Router Advertisement.
           This setting will be ignored when the <varname>DHCPPrefixDelegation=</varname> setting is
           enabled on the upstream interface. Defaults to yes.</para>
+
+        <xi:include href="version-info.xml" xpointer="v247"/>
         </listitem>
       </varlistentry>
 
@@ -2836,6 +2915,8 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
           interface), the EUI-64 algorithm will be used by default to form an interface identifier from
           the delegated prefixes. See also <varname>Token=</varname> setting below. Defaults to yes.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/>
         </listitem>
       </varlistentry>
 
@@ -2846,6 +2927,8 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
           delegated prefix. This accepts the same syntax as <varname>Token=</varname> in the
           [IPv6AcceptRA] section. If <varname>Assign=</varname> is set to false, then this setting will
           be ignored. Defaults to unset, which means the EUI-64 algorithm will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/>
         </listitem>
       </varlistentry>
 
@@ -2853,6 +2936,8 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
         <term><varname>ManageTemporaryAddress=</varname></term>
         <listitem>
           <para>As in the [Address] section, but defaults to true.</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/>
         </listitem>
       </varlistentry>
 
@@ -2862,6 +2947,8 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
           <para>The metric of the route to the delegated prefix subnet. Takes an unsigned integer in
           the range 0…4294967295. When set to 0, the kernel's default value is used. Defaults to 256.
           </para>
+
+          <xi:include href="version-info.xml" xpointer="v249"/>
         </listitem>
       </varlistentry>
 
@@ -2999,6 +3086,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
 
           <para>This corresponds to the <option>nameserver</option> option in <citerefentry
           project='man-pages'><refentrytitle>resolv.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v231"/>
         </listitem>
       </varlistentry>
 
@@ -3019,6 +3108,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
 
           <para>When set to true, this setting corresponds to the <option>domain</option> option in <citerefentry
           project='man-pages'><refentrytitle>resolv.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v231"/>
         </listitem>
       </varlistentry>
 
@@ -3276,12 +3367,43 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
 
       <varlistentry>
         <term><varname>ServerAddress=</varname></term>
-        <listitem><para>Specifies server address for the DHCP server. Takes an IPv4 address with prefix
-        length, for example 192.168.0.1/24. This setting may be useful when the link on
-        which the DHCP server is running has multiple static addresses. When unset, one of static addresses
-        in the link will be automatically selected. Defaults to unset.</para>
+        <listitem>
+          <para>Specifies the server address for the DHCP server. Takes an IPv4 address with prefix length
+          separated with a slash, e.g. <literal>192.168.0.1/24</literal>. Defaults to unset, and one of
+          static IPv4 addresses configured in [Network] or [Address] section will be automatically selected.
+          This setting may be useful when the interface on which the DHCP server is running has multiple
+          static IPv4 addresses.</para>
+          <para>This implies <varname>Address=</varname> in [Network] or [Address] section with the same
+          address and prefix length. That is,
+          <programlisting>[Network]
+DHCPServer=yes
+Address=192.168.0.1/24
+Address=192.168.0.2/24
+[DHCPServer]
+ServerAddress=192.168.0.1/24</programlisting>
+          or
+          <programlisting>[Network]
+DHCPServer=yes
+[Address]
+Address=192.168.0.1/24
+[Address]
+Address=192.168.0.2/24
+[DHCPServer]
+ServerAddress=192.168.0.1/24</programlisting>
+          are equivalent to the following.
+          <programlisting>[Network]
+DHCPServer=yes
+Address=192.168.0.2/24
+[DHCPServer]
+ServerAddress=192.168.0.1/24</programlisting>
+          </para>
+          <para>Since version 255, like the <varname>Address=</varname> setting in [Network] or [Address]
+          section, this also supports a null address, e.g. <literal>0.0.0.0/24</literal>, and an unused
+          address will be automatically selected. For more details about the automatic address selection,
+          see <varname>Address=</varname> setting in [Network] section in the above.</para>
 
-        <xi:include href="version-info.xml" xpointer="v249"/></listitem>
+          <xi:include href="version-info.xml" xpointer="v249"/>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
@@ -3377,7 +3499,9 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         <listitem><para>Similar to the <varname>EmitDNS=</varname> and <varname>DNS=</varname> settings
         described above, these settings configure whether and what server information for the indicate
         protocol shall be emitted as part of the DHCP lease. The same syntax, propagation semantics and
-        defaults apply as for <varname>EmitDNS=</varname> and <varname>DNS=</varname>.</para></listitem>
+        defaults apply as for <varname>EmitDNS=</varname> and <varname>DNS=</varname>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v226"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -3391,7 +3515,9 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         the router option. When the <varname>EmitRouter=</varname> setting is disabled, the
         <varname>Router=</varname> setting will be ignored. The <varname>EmitRouter=</varname> setting
         defaults to true, and the <varname>Router=</varname> setting defaults to unset.
-        </para></listitem>
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v230"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -3543,7 +3669,9 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
       <varlistentry>
         <term><varname>MACAddress=</varname></term>
 
-        <listitem><para>The hardware address of a device to match. This key is mandatory.</para></listitem>
+        <listitem><para>The hardware address of a device to match. This key is mandatory.</para>
+
+        <xi:include href="version-info.xml" xpointer="v249"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -3577,7 +3705,9 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         <varname>OtherInformation=</varname> is set to
         <literal>true</literal>. Both settings default to
         <literal>false</literal>, which means that a DHCPv6 server is not being
-        used.</para></listitem>
+        used.</para>
+
+        <xi:include href="version-info.xml" xpointer="v235"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -3586,6 +3716,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         <listitem><para>Takes a timespan. Configures the IPv6 router lifetime in seconds. The value must be 0
         seconds, or between 4 seconds and 9000 seconds. When set to 0, the host is not acting as a router.
         Defaults to 1800 seconds (30 minutes).</para>
+
+        <xi:include href="version-info.xml" xpointer="v235"/>
         </listitem>
       </varlistentry>
 
@@ -3610,7 +3742,9 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         <literal>default</literal> added as synonyms for
         <literal>medium</literal> just to make configuration easier. See
         <ulink url="https://tools.ietf.org/html/rfc4191">RFC 4191</ulink>
-        for details. Defaults to <literal>medium</literal>.</para></listitem>
+        for details. Defaults to <literal>medium</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v235"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -3648,7 +3782,9 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         read from the [Network] section. If the [Network] section does not contain any DNS servers
         either, DNS servers from the uplink interface specified in <varname>UplinkInterface=</varname>
         will be used. When <varname>EmitDNS=</varname> is false, no DNS server information is sent in
-        Router Advertisement messages. <varname>EmitDNS=</varname> defaults to true.</para></listitem>
+        Router Advertisement messages. <varname>EmitDNS=</varname> defaults to true.</para>
+
+        <xi:include href="version-info.xml" xpointer="v235"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -3661,7 +3797,9 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         search domains either, DNS search domains from the uplink interface specified in
         <varname>UplinkInterface=</varname> will be used. When <varname>EmitDomains=</varname> is false,
         no DNS search domain information is sent in Router Advertisement messages.
-        <varname>EmitDomains=</varname> defaults to true.</para></listitem>
+        <varname>EmitDomains=</varname> defaults to true.</para>
+
+        <xi:include href="version-info.xml" xpointer="v235"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -3669,7 +3807,9 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
 
         <listitem><para>Lifetime in seconds for the DNS server addresses listed in
         <varname>DNS=</varname> and search domains listed in <varname>Domains=</varname>. Defaults to
-        3600 seconds (one hour).</para></listitem>
+        3600 seconds (one hour).</para>
+
+        <xi:include href="version-info.xml" xpointer="v235"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -4019,6 +4159,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           <term><varname>MACAddress=</varname></term>
           <listitem>
             <para>As in the [Network] section. This key is mandatory.</para>
+
+          <xi:include href="version-info.xml" xpointer="v219"/>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -4093,6 +4235,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           <term><varname>VLANId=</varname></term>
           <listitem>
             <para>The VLAN ID for the new entry. Valid ranges are 0 (no VLAN) to 4094. Optional, defaults to 0.</para>
+
+          <xi:include href="version-info.xml" xpointer="v247"/>
           </listitem>
         </varlistentry>
       </variablelist>
@@ -4324,6 +4468,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         <listitem>
           <para>Specifies the parent Queueing Discipline (qdisc). Takes one of <literal>clsact</literal>
           or <literal>ingress</literal>. This is mandatory.</para>
+
+        <xi:include href="version-info.xml" xpointer="v244"/>
         </listitem>
       </varlistentry>
 
@@ -5302,7 +5448,7 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           Kilobytes, Megabytes, or Gigabytes, respectively, to the base of 1024. Defaults to unset and
           kernel's default is used.</para>
 
-          <xi:include href="version-info.xml" xpointer="v246"/>
+          <xi:include href="version-info.xml" xpointer="v245"/>
         </listitem>
       </varlistentry>
 
@@ -5590,6 +5736,8 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           <listitem>
             <para>The VLAN ID allowed on the port. This can be either a single ID or a range M-N. Takes
             an integer in the range 1…4094.</para>
+
+            <xi:include href="version-info.xml" xpointer="v231"/>
           </listitem>
         </varlistentry>
         <varlistentry>

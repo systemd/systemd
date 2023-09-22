@@ -193,13 +193,13 @@
 
   <refsect1>
     <title>History</title>
-    <para><function>sd_bus_get_bus_id()</function> was added in version 246.</para>
-    <para><function>sd_bus_is_bus_client()</function> was added in version 246.</para>
-    <para><function>sd_bus_is_monitor()</function> was added in version 246.</para>
-    <para><function>sd_bus_is_server()</function> was added in version 246.</para>
-    <para><function>sd_bus_set_bus_client()</function> was added in version 246.</para>
-    <para><function>sd_bus_set_monitor()</function> was added in version 246.</para>
-    <para><function>sd_bus_set_server()</function> was added in version 246.</para>
+    <para><function>sd_bus_set_server()</function>,
+    <function>sd_bus_is_server()</function>,
+    <function>sd_bus_get_bus_id()</function>,
+    <function>sd_bus_set_bus_client()</function>,
+    <function>sd_bus_is_bus_client()</function>,
+    <function>sd_bus_set_monitor()</function>, and
+    <function>sd_bus_is_monitor()</function> were added in version 246.</para>
   </refsect1>
 
   <refsect1>

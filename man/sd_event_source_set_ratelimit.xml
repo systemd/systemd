@@ -164,9 +164,9 @@
 
   <refsect1>
     <title>History</title>
-    <para><function>sd_event_source_get_ratelimit()</function> was added in version 248.</para>
-    <para><function>sd_event_source_is_ratelimited()</function> was added in version 248.</para>
-    <para><function>sd_event_source_set_ratelimit()</function> was added in version 248.</para>
+    <para><function>sd_event_source_set_ratelimit()</function>,
+    <function>sd_event_source_get_ratelimit()</function>, and
+    <function>sd_event_source_is_ratelimited()</function> were added in version 248.</para>
     <para><function>sd_event_source_set_ratelimit_expire_callback()</function> was added in version 250.</para>
     <para><function>sd_event_source_leave_ratelimit()</function> was added in version 254.</para>
   </refsect1>

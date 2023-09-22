@@ -133,18 +133,57 @@ Deprecations and removals:
 
 Features:
 
+* enumerate virtiofs devices during boot-up in a generator, and synthesize
+  mounts for rootfs, /usr/, /home/, /srv/ and some others from it, depending on
+  the "tag".
+
+* automatically mount one virtiofs during early boot phase to /run/host/,
+  similar to how we do that for nspawn, based on some clear tag.
+
+* make systemd-pcrphase accessible via varlink so that clients can measure
+  things reasonably freely, and get a proper entry in the TPM event log we
+  maintain, correctly synchronized
+
+* add some service that makes an atomic snapshot of PCR state and event log up
+  to that point available, possibly even with quote by the TPM.
+
+* encode type1 entries in some UKI section to add additional entries to the
+  menu.
+
+* extend the various CLI tools we have that output JSON already to also read
+  their command to execute from JSON in varlink format, so that you can fork
+  them off and talk to them fully via varlink.
+
+* add a "varlinkctl" tool that allows interacting with varlink services from
+  the shell. In particular add a "--exec=" switch, which allows specifying a
+  binary to invoke to which to talk via stdin/stdout
+
+* make tools that speak varlink over stdin/stdout trivially sockect
+  activatable. i.e. once bootctl, kernel-install, systemd-measure and similar
+  speak varlink make them available via a .socket unit with Accept=yes, so that
+  they can be talked to via IPC out-of-process
+
+* beef up .service units that are socket activated with Accept=yes with options
+  AllowPeerUser= + AllowPeerGroup= to allow trivially simple access control
+  when invoked via socket as IPC services
+
+* when systemd-sysext learns mutable /usr/ (and systemd-confext mutable /etc/)
+  then allow them to store the result in a .v/ versioned subdir, for some basic
+  snapshot logic
+
+* add a new PE binary section ".mokkeys" or so which sd-stub will insert into
+  Mok keyring, by overriding/extending whatever shim sets in the EFI
+  var. Benefit: we can extend the kernel module keyring at ukify time,
+  i.e. without recompiling the kernel, taking an upstrem OS' kernel and adding
+  a local key to it.
+
 * PidRef conversion work:
   - pid_is_unwaited() → pidref_is_unwaited()
   - pid_is_alive() → pidref_is_alive()
   - unit_watch_pid() → unit_watch_pidref()
-  - unit_kill_common()
-  - unit_kill_context()
-  - service_set_main_pid()
-  - actually wait for POLLIN on piref's pidfd in service logic
-  - unit_main_pid() + unit_control_pid()
+  - actually wait for POLLIN on pidref's pidfd in service logic
   - exec_spawn()
   - serialization of control/main pid in service, socket, mount, swap units
-  - unit_fork_and_watch_rm_rf()
   - cg_pid_get_unit()
   - openpt_allocate_in_namespace()
   - scope dbus PIDs property needs to gain PIDFDs companion
@@ -457,11 +496,11 @@ Features:
 
 * add a new EFI tool "sd-fetch" or so. It looks in a PE section ".url" for an
   URL, then downloads the file from it using UEFI HTTP APIs, and executes it.
-  Usecase: provide a minimal ESP with sd-boot and a couple of these sd-fetch
+  Use case: provide a minimal ESP with sd-boot and a couple of these sd-fetch
   binaries in place of UKIs, and download them on-the-fly.
 
 * maybe: systemd-loop-generator that sets up loopback devices if requested via kernel
-  cmdline. usecase: include encrypted/verity root fs in UKI.
+  cmdline. use case: include encrypted/verity root fs in UKI.
 
 * systemd-gpt-auto-generator: add kernel cmdline option to override block
   device to dissect. also support dissecting a regular file. useccase: include
@@ -534,7 +573,7 @@ Features:
     subsequent boots?
 
 * provide an API (probably IPC) to apps to encrypt/decrypt
-  credentials. usecase: allow bluez bluetooth daemon to pass pairings to initrd
+  credentials. use case: allow bluez bluetooth daemon to pass pairings to initrd
   that way, without shelling out to our tools.
 
 * revisit default PCR bindings in cryptenroll and systemd-creds. Currently they
@@ -592,7 +631,7 @@ Features:
 
 * systemd-repart: in addition to the existing "factory reset" mode (which
   simply empties existing partitions marked for that). add a mode where
-  partitions marked for it are entirely removed. Usecase: remove secondary OS
+  partitions marked for it are entirely removed. Use case: remove secondary OS
   copy, and redundant partitions entirely, and recreate them anew.
 
 * systemd-boot: maybe add support for collapsing menu entries of the same OS
@@ -638,7 +677,7 @@ Features:
 * add support for asymmetric LUKS2 TPM based encryption. i.e. allow preparing
   an encrypted image on some host given a public key belonging to a specific
   other host, so that only hosts possessing the private key in the TPM2 chip
-  can decrypt the volume key and activate the volume. Usecase: systemd-confext
+  can decrypt the volume key and activate the volume. Use case: systemd-confext
   for a central orchestrator to generate confext images securely that can only
   be activated on one specific host (which can be used for installing a bunch
   of creds in /etc/credstore/ for example). Extending on this: allow binding
@@ -651,7 +690,7 @@ Features:
   current system state, i.e. a combination of PCR information, local system
   time and TPM clock, running services, recent high-priority log
   messages/coredumps, system load/PSI, signed by the local TPM chip, to form an
-  enhanced remote attestation quote. Usecase: a simple orchestrator could use
+  enhanced remote attestation quote. Use case: a simple orchestrator could use
   this: have the report tool upload these reports every 3min somewhere. Then
   have the orchestrator collect these reports centrally over a 3min time
   window, and use them to determine what which node should now start/stop what,
@@ -706,7 +745,7 @@ Features:
 * Add "purpose" flag to partition flags in discoverable partition spec that
   indicate if partition is intended for sysext, for portable service, for
   booting and so on. Then, when dissecting DDI allow specifying a purpose to
-  use as additional search condition. Usecase: images that combined a sysext
+  use as additional search condition. Use case: images that combined a sysext
   partition with a portable service partition in one.
 
 * On boot, auto-generate an asymmetric key pair from the TPM,
@@ -822,7 +861,7 @@ Features:
     usr=
   • systemd-homed: when initializing, look for a credential
     systemd.homed.register or so with JSON user records to automatically
-    register if not registered yet.  Usecase: deploy a system, and add an
+    register if not registered yet.  Use case: deploy a system, and add an
     account one can directly log into.
   • in gpt-auto-generator: check partition uuids against such uuids supplied via
     sd-stub credentials. That way, we can support parallel OS installations with
@@ -848,7 +887,7 @@ Features:
 
 * sd-boot: instead of unconditionally deriving the ESP to search boot loader
   spec entries in from the paths of sd-boot binary, let's optionally allow it
-  to be configured on sd-boot cmdline + efi var. Usecase: embed sd-boot in the
+  to be configured on sd-boot cmdline + efi var. Use case: embed sd-boot in the
   UEFI firmware (for example, ovmf supports that via qemu cmdline option), and
   use it to load stuff from the ESP.
 
@@ -888,7 +927,7 @@ Features:
 * homed/userdb: maybe define a "companion" dir for home directories where apps
   can safely put privileged stuff in. Would not be writable by the user, but
   still conceptually belong to the user. Would be included in user's quota if
-  possible, even if files are not owned by UID of user. Usecase: container
+  possible, even if files are not owned by UID of user. Use case: container
   images that owned by arbitrary UIDs, and are owned/managed by the users, but
   are not directly belonging to the user's UID. Goal: we shouldn't place more
   privileged dirs inside of unprivileged dirs, and thus containers really
@@ -993,7 +1032,7 @@ Features:
   look for right in the sd-boot binary. i.e. take inspiration from sd-stub
   logic: allow combining sd-boot via ukify with kernels to enumerate, .conf
   files, drivers, keys to enroll and so on. Then, add whatever we find that way
-  to the menu. Usecase: allow building a single PE image you can boot into via
+  to the menu. Use case: allow building a single PE image you can boot into via
   UEFI HTTP boot.
 
 * maybe add a new UEFI stub binary "sd-http". It works similar to sd-stub, but
@@ -1014,7 +1053,7 @@ Features:
 * maybe add a generator that reads /proc/cmdline, looks for
   systemd.pull-raw-portable=, systemd-pull-raw-sysext= and similar switches
   that take a URL as parameter. It then generates service units for
-  systemd-pull calls that download these URLs if not installed yet. usecase:
+  systemd-pull calls that download these URLs if not installed yet. Use case:
   invoke a VM or nspawn container in a way it automatically deploys/runs these
   images as OS payloads. i.e. have a generic OS image you can point to any
   payload you like, which is then downloaded, securely verified and run.
@@ -1113,9 +1152,9 @@ Features:
 
 * add tiny service that decrypts encrypted user records passed via initrd
   credential logic and drops them into /run where nss-systemd can pick them up,
-  similar to /run/host/userdb/. Usecase: drop a root user JSON record there,
+  similar to /run/host/userdb/. Use case: drop a root user JSON record there,
   and use it in the initrd to log in as root with locally selected password,
-  for debugging purposes. Other usecase: boot into qemu with regular user
+  for debugging purposes. Other use case: boot into qemu with regular user
   mounted from host. maybe put this in systemd-user-sessions.service?
 
 * drop dependency on libcap, replace by direct syscalls based on
@@ -1223,7 +1262,7 @@ Features:
   the resulting fd to the service program via socket activation proto.
 
 * Add a concept of ListenStream=anonymous to socket units: listen on a socket
-  that is deleted in the fs. Usecase would be with ConnectSocket= above.
+  that is deleted in the fs. Use case would be with ConnectSocket= above.
 
 * importd: support image signature verification with PKCS#7 + OpenBSD signify
   logic, as alternative to crummy gpg
@@ -1513,7 +1552,7 @@ Features:
   else. Similar, ManagerSlice= should exist so that PID1's own scope unit could
   be moved somewhere else too. Finally machined and logind should get similar
   options so that it is possible to move user session scopes and machines to a
-  different slice too by default. Usecase: people who want to put resources on
+  different slice too by default. Use case: people who want to put resources on
   the entire system, with the exception of one specific service. See:
   https://lists.freedesktop.org/archives/systemd-devel/2018-February/040369.html
 
@@ -1813,7 +1852,7 @@ Features:
   - generate better errors when people try to set transient properties
     that are not supported...
     https://lists.freedesktop.org/archives/systemd-devel/2015-February/028076.html
-  - maybe introduce WantsMountsFor=? Usecase:
+  - maybe introduce WantsMountsFor=? Use case:
     https://lists.freedesktop.org/archives/systemd-devel/2015-January/027729.html
   - recreate systemd's D-Bus private socket file on SIGUSR2
   - move PAM code into its own binary
@@ -1885,7 +1924,7 @@ Features:
 * BootLoaderSpec: Define a way how an installer can figure out whether a BLS
   compliant boot loader is installed.
 
-* think about requeuing jobs when daemon-reload is issued? usecase:
+* think about requeuing jobs when daemon-reload is issued? use case:
   the initrd issues a reload after fstab from the host is accessible
   and we might want to requeue the mounts local-fs acquired through
   that automatically.

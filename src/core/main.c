@@ -780,7 +780,7 @@ static void set_manager_settings(Manager *m) {
         if (r < 0)
                 log_warning_errno(r, "Failed to set watchdog pretimeout governor to '%s', ignoring: %m", arg_watchdog_pretimeout_governor);
 
-        manager_set_show_status(m, arg_show_status, "commandline");
+        manager_set_show_status(m, arg_show_status, "command line");
         m->status_unit_format = arg_status_unit_format;
 }
 
@@ -2130,15 +2130,15 @@ static void log_execution_mode(bool *ret_first_boot) {
                         _cleanup_free_ char *id_text = NULL;
 
                         /* Let's check whether we are in first boot. First, check if an override was
-                         * specified on the kernel commandline. If yes, we honour that. */
+                         * specified on the kernel command line. If yes, we honour that. */
 
                         r = proc_cmdline_get_bool("systemd.condition-first-boot", /* flags = */ 0, &first_boot);
                         if (r < 0)
-                                log_debug_errno(r, "Failed to parse systemd.condition-first-boot= kernel commandline argument, ignoring: %m");
+                                log_debug_errno(r, "Failed to parse systemd.condition-first-boot= kernel command line argument, ignoring: %m");
 
                         if (r > 0)
                                 log_full(first_boot ? LOG_INFO : LOG_DEBUG,
-                                         "Kernel commandline argument says we are %s first boot.",
+                                         "Kernel command line argument says we are %s first boot.",
                                          first_boot ? "in" : "not in");
                         else {
                                 /* Second, perform autodetection. We use /etc/machine-id as flag file for
@@ -2991,7 +2991,7 @@ int main(int argc, char *argv[]) {
 
         r = parse_argv(argc, argv);
         if (r < 0) {
-                error_message = "Failed to parse commandline arguments";
+                error_message = "Failed to parse command line arguments";
                 goto finish;
         }
 
@@ -3181,7 +3181,19 @@ finish:
 #endif
 
 #if HAS_FEATURE_ADDRESS_SANITIZER
-        __lsan_do_leak_check();
+        /* At this stage we most likely don't have stdio/stderr open, so the following
+         * LSan check would not print any actionable information and would just crash
+         * PID 1. To make this a bit more helpful, let's try to open /dev/console,
+         * and if we succeed redirect LSan's report there. */
+        if (getpid_cached() == 1) {
+                _cleanup_close_ int tty_fd = -EBADF;
+
+                tty_fd = open_terminal("/dev/console", O_WRONLY|O_NOCTTY|O_CLOEXEC);
+                if (tty_fd >= 0)
+                        __sanitizer_set_report_fd((void*) (intptr_t) tty_fd);
+
+                __lsan_do_leak_check();
+        }
 #endif
 
         if (r < 0)

@@ -1783,9 +1783,7 @@ if have and efi_arch == 'x64' and cc.links('''
         efi_cpu_family_alt = 'x86'
 endif
 
-want_ukify = get_option('ukify').require(
-        python_39 and conf.get('ENABLE_BOOTLOADER') == 1,
-        error_message : 'Python >= 3.9 and -Dbootloader=true required').allowed()
+want_ukify = get_option('ukify').require(python_39, error_message : 'Python >= 3.9 required').allowed()
 conf.set10('ENABLE_UKIFY', want_ukify)
 
 ############################################################
@@ -1808,26 +1806,13 @@ xml_helper_py = find_program('tools/xml_helper.py')
 ############################################################
 
 version_tag = get_option('version-tag')
-# Check that we have either .git/ (a normal clone) or a .git file (a work-tree) and that we don't
-# get confused if a tarball is extracted in a higher-level git repository.
-if version_tag == '' and git.found() and fs.exists(project_source_root / '.git')
-        # If the working tree has no tags (CI builds), the first git-describe will fail
-        # and we fall back to project_version-commitid instead.
-        version_cmd = '''(git -C "$1" describe --abbrev=7 --dirty=^ 2>/dev/null ||
-                          echo "$2-$(git -C "$1" describe --always --abbrev=7)") |
-                         sed 's/^v//; s/-rc/~rc/' '''
-else
-        version_cmd = '''echo "$2" '''
-endif
-
 version_h = vcs_tag(
         input : 'src/version/version.h.in',
         output : 'version.h',
-        # TODO: Use 'sh' variable with meson >= 0.63.0
-        command: ['sh', '-euc', version_cmd,
-                  '_',
+        command: [project_source_root / 'tools/meson-vcs-tag.sh',
                   project_source_root,
-                  version_tag == '' ? meson.project_version() : version_tag,
+                  meson.project_version(),
+                  version_tag,
                  ])
 
 shared_lib_tag = get_option('shared-lib-tag')

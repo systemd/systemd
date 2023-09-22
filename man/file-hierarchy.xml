@@ -68,7 +68,7 @@
         systems that run on physical or emulated hardware that
         requires boot loaders.</para>
 
-        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v215"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -92,7 +92,7 @@
         back to defaults if configuration is
         missing.</para>
 
-        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v215"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -111,7 +111,7 @@
         environment variable, or via the home directory field of the
         user database.</para>
 
-        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v215"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -122,7 +122,7 @@
         may log in even without <filename>/home/</filename> being
         available and mounted.</para>
 
-        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v215"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -134,7 +134,7 @@
         available or writable only very late during
         boot.</para>
 
-        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v215"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -158,7 +158,7 @@
         and similar calls. For more details, see <ulink url="https://systemd.io/TEMPORARY_DIRECTORIES">Using
         /tmp/ and /var/tmp/ Safely</ulink>.</para>
 
-        <xi:include href="version-info.xml" xpointer="v239"/>
+        <xi:include href="version-info.xml" xpointer="v215"/>
         </listitem>
       </varlistentry>
 
@@ -175,7 +175,7 @@
         socket files, and similar. This directory is flushed on boot, and generally writable for privileged
         programs only. Always writable.</para>
 
-        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v215"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -185,7 +185,7 @@
         when <filename>/var/log/</filename> might not be accessible
         yet.</para>
 
-        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v215"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -200,7 +200,7 @@
         url="https://standards.freedesktop.org/basedir-spec/basedir-spec-latest.html">XDG
         Base Directory Specification</ulink>.</para>
 
-        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v215"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
@@ -218,7 +218,7 @@
         by the administrator, except when installing or removing
         vendor-supplied packages.</para>
 
-        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v215"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -230,7 +230,7 @@
         binaries); these should be placed in a subdirectory of
         <filename>/usr/lib/</filename> instead.</para>
 
-        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v215"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -238,7 +238,7 @@
         <listitem><para>C and C++ API header files of system
         libraries.</para>
 
-        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v215"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -252,7 +252,7 @@
         directory, use <varname>$libdir</varname> (see below),
         instead.</para>
 
-        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v215"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -271,7 +271,7 @@
         system, invoke:
         <programlisting># systemd-path system-library-arch</programlisting></para>
 
-        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v215"/></listitem>
 
       </varlistentry>
 
@@ -283,7 +283,7 @@
         of files stored below this directory is subject to
         specifications that ensure interoperability.</para>
 
-        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v215"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -291,7 +291,7 @@
         <listitem><para>Documentation for the operating system or
         system packages.</para>
 
-        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v215"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -304,7 +304,7 @@
         defaults and to populate the local configuration with
         defaults.</para>
 
-        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v215"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -315,7 +315,7 @@
         versions of files in the variable, persistent data directory
         <filename>/var/</filename>.</para>
 
-        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v215"/></listitem>
 
       </varlistentry>
     </variablelist>
@@ -335,7 +335,7 @@
         late during boot. Components that are required to operate during early boot hence shall not
         unconditionally rely on this directory.</para>
 
-        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v215"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -346,7 +346,7 @@
         programs, except for increased runtimes necessary to rebuild
         these caches.</para>
 
-        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v215"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -354,7 +354,7 @@
         <listitem><para>Persistent system data. System components may
         place private data in this directory.</para>
 
-        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v215"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -367,7 +367,7 @@
         <citerefentry><refentrytitle>sd_journal_print</refentrytitle><manvolnum>3</manvolnum></citerefentry>
         calls.</para>
 
-        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v215"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -375,7 +375,7 @@
         <listitem><para>Persistent system spool data, such as printer
         or mail queues.</para>
 
-        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v215"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -398,7 +398,7 @@
         and similar calls should be used. For further details about this directory, see <ulink
         url="https://systemd.io/TEMPORARY_DIRECTORIES">Using /tmp/ and /var/tmp/ Safely</ulink>.</para>
 
-        <xi:include href="version-info.xml" xpointer="v239"/>
+        <xi:include href="version-info.xml" xpointer="v215"/>
         </listitem>
       </varlistentry>
 
@@ -421,7 +421,7 @@
         special purpose virtual file systems might be mounted below
         this directory.</para>
 
-        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v215"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -441,7 +441,7 @@
         directories are not world-writable and hence not vulnerable to
         security-sensitive name clashes.</para>
 
-        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v215"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -454,7 +454,7 @@
         A number of special purpose virtual file systems might be
         mounted below this directory.</para>
 
-        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v215"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -466,7 +466,7 @@
         files. In sandboxed/containerized setups, this directory is
         generally mounted read-only.</para>
 
-        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v215"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -479,7 +479,7 @@
         of special purpose virtual file systems might be mounted below
         this directory.</para>
 
-        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v215"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -520,7 +520,7 @@
         binaries referencing these legacy paths correctly find their
         binaries.</para>
 
-        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v215"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -531,7 +531,7 @@
         referencing this legacy path correctly find their
         resources.</para>
 
-        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v215"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -544,7 +544,7 @@
         whose ABI places the dynamic loader in this
         path.</para>
 
-        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v215"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -555,7 +555,7 @@
         this legacy path correctly find their runtime
         data.</para>
 
-        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v215"/></listitem>
       </varlistentry>
 
     </variablelist>
@@ -583,7 +583,7 @@
         <varname>$XDG_CACHE_HOME</varname> set, it should use the directory specified in it instead of this
         directory.</para>
 
-        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v215"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -594,7 +594,7 @@
         directory be missing. If an application finds <varname>$XDG_CONFIG_HOME</varname> set, it should use
         the directory specified in it instead of this directory.</para>
 
-        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v215"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -607,7 +607,7 @@
         problematic if the home directory is shared between multiple hosts with different
         architectures.</para>
 
-        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v215"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -616,7 +616,7 @@
         <listitem><para>Static, private vendor data that is compatible with all
         architectures.</para>
 
-        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v215"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -626,7 +626,7 @@
         defined on <ulink url="https://wiki.debian.org/Multiarch/Tuples">Multiarch Architecture Specifiers
         (Tuples)</ulink> list.</para>
 
-        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v215"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -637,7 +637,7 @@
         ensure interoperability. If an application finds <varname>$XDG_DATA_HOME</varname> set, it should use
         the directory specified in it instead of this directory.</para>
 
-        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v215"/></listitem>
       </varlistentry>
 
       <varlistentry>

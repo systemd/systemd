@@ -115,7 +115,9 @@
         <term><command>unlock-sessions</command></term>
 
         <listitem><para>Activates/deactivates the screen lock on all
-        current sessions supporting it. </para></listitem>
+        current sessions supporting it. </para>
+
+        <xi:include href="version-info.xml" xpointer="v188"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -348,6 +350,8 @@
         <term><option>--full</option></term>
 
         <listitem><para>Do not ellipsize process tree entries.</para>
+
+        <xi:include href="version-info.xml" xpointer="v198"/>
         </listitem>
       </varlistentry>
 

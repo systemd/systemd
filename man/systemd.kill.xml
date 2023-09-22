@@ -135,7 +135,7 @@
         after sending the signal configured with
         <varname>KillSignal=</varname>. This is useful to indicate to
         shells and shell-like programs that their connection has been
-        severed. Takes a boolean value. Defaults to "no".
+        severed. Takes a boolean value. Defaults to <literal>no</literal>.
         </para>
 
         <xi:include href="version-info.xml" xpointer="v207"/></listitem>
@@ -151,7 +151,7 @@
         <varname>KillMode=</varname> of <constant>control-group</constant>
         or <constant>mixed</constant> service will not restart if
         processes from prior services exist within the control group.
-        Takes a boolean value. Defaults to "yes".
+        Takes a boolean value. Defaults to <literal>yes</literal>.
         </para>
 
         <xi:include href="version-info.xml" xpointer="v187"/></listitem>

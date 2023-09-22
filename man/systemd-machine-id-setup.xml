@@ -87,7 +87,7 @@
         given alternate <replaceable>root</replaceable> path, including the path for
         <filename>/etc/machine-id</filename> itself.</para>
 
-        <xi:include href="version-info.xml" xpointer="v249"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v212"/></listitem>
       </varlistentry>
 
       <varlistentry>

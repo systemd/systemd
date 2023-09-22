@@ -217,16 +217,16 @@
 
   <refsect1>
     <title>History</title>
-    <para><function>sd_bus_track_add_name()</function> was added in version 232.</para>
-    <para><function>sd_bus_track_add_sender()</function> was added in version 232.</para>
-    <para><function>sd_bus_track_contains()</function> was added in version 232.</para>
-    <para><function>sd_bus_track_count()</function> was added in version 232.</para>
-    <para><function>sd_bus_track_count_name()</function> was added in version 232.</para>
-    <para><function>sd_bus_track_count_sender()</function> was added in version 232.</para>
-    <para><function>sd_bus_track_first()</function> was added in version 232.</para>
-    <para><function>sd_bus_track_next()</function> was added in version 232.</para>
-    <para><function>sd_bus_track_remove_name()</function> was added in version 232.</para>
-    <para><function>sd_bus_track_remove_sender()</function> was added in version 232.</para>
+    <para><function>sd_bus_track_add_name()</function>,
+    <function>sd_bus_track_add_sender()</function>,
+    <function>sd_bus_track_remove_name()</function>,
+    <function>sd_bus_track_remove_sender()</function>,
+    <function>sd_bus_track_count()</function>,
+    <function>sd_bus_track_count_name()</function>,
+    <function>sd_bus_track_count_sender()</function>,
+    <function>sd_bus_track_contains()</function>,
+    <function>sd_bus_track_first()</function>, and
+    <function>sd_bus_track_next()</function> were added in version 232.</para>
   </refsect1>
 
   <refsect1>
