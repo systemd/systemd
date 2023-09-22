@@ -1,9 +1,44 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+libsleep_core_sources = files(
+        'battery-capacity.c',
+        'hibernate-util.c'
+        'sleep-config.c'
+)
+
+libsleep_core = static_library(
+        'sleep-core',
+        sources,
+        include_directories : includes,
+        dependencies : userspace,
+        build_by_default : false)
+
+sleep_includes = [includes, include_directories('.')]
+
+sleep_test_template = test_template + {
+        'link_with' : [
+                libsleep_core,
+                libshared,
+        ],
+}
+
 executables += [
         libexec_template + {
                 'name' : 'systemd-sleep',
                 'sources' : files('sleep.c'),
+                'link_with' : [
+                        libsleep_core,
+                        libshared,
+                ],
+        },
+        sleep_test_template + {
+                'sources' : files('test-sleep-config.c'),
+        },
+        sleep_test_template + {
+                'sources' : files('test-fiemap.c'),
+        },
+        sleep_test_template + {
+                'sources' : files('test-battery-capacity.c'),
         },
 ]
 
