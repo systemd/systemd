@@ -187,6 +187,8 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(VarlinkServer *, varlink_server_unref);
 #define VARLINK_ERROR_DISCONNECTED "io.systemd.Disconnected"
 #define VARLINK_ERROR_TIMEOUT "io.systemd.TimedOut"
 #define VARLINK_ERROR_PROTOCOL "io.systemd.Protocol"
+
+/* This one we invented, and use for generically propagating system errors (errno) to clients */
 #define VARLINK_ERROR_SYSTEM "io.systemd.System"
 
 /* These are errors defined in the Varlink spec */
