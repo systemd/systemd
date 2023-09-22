@@ -31,5 +31,7 @@ Type=oneshot
 RemainAfterExit=yes
 ExecStart={{BINDIR}}/systemd-repart --dry-run=no
 
+# The tool returns 76 if it can't find the root block device
+SuccessExitStatus=76
 # The tool returns 77 if there's no existing GPT partition table
 SuccessExitStatus=77
