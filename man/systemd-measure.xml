@@ -294,7 +294,7 @@ $ openssl rsa -pubout -in tpm2-pcr-private.pem -out tpm2-pcr-public.pem
 
      <para>And then unlock the device with the signature:</para>
 
-     <programlisting># /usr/lib/systemd/systemd-cryptsetup attach \
+     <programlisting># systemd-cryptsetup attach \
      volume5 /dev/sda5 - \
      tpm2-device=auto,tpm2-signature=/path/to/tpm2-pcr-signature.json</programlisting>
 
