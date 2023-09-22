@@ -15,6 +15,22 @@ udevadm info -q -r symlink /dev/sdXn
 # Now add the line using the by-uuid symlink to /etc/crypttab:
 sudo bash -c 'echo "mytest /dev/disk/by-uuid/... - tpm2-device=auto" >>/etc/crypttab'
 
+# And now let's check that automatic unlocking works:
+sudo /usr/lib/systemd/systemd-cryptsetup detach mytest
+sudo systemctl daemon-reload
+sudo systemctl start cryptsetup.target
+systemctl is-active systemd-cryptsetup@mytest.service
+
+# Once we have the device which will be unlocked automatically, we can use it.
+# Usually we would create a file system and add it to /etc/fstab:
+sudo mkfs.ext4 /dev/mapper/mytest
+# This prints a 'Filesystem UUID', which we can use as a stable name:
+sudo bash -c 'echo "/dev/disk/by-uuid/... /var/mytest ext4 defaults,x-systemd.mkdir 0 2" >>/etc/fstab'
+# And now let's check that the mounting works:
+sudo systemctl daemon-reload
+sudo systemctl start /var/mytest
+systemctl status /var/mytest
+
 # Depending on your distribution and encryption setup, you may need to manually
 # regenerate your initramfs to be able to use a TPM2 security chip to unlock
 # the partition during early boot.
