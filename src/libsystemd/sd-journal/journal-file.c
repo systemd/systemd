@@ -2298,6 +2298,7 @@ static int journal_file_append_entry_internal(
         assert(f);
         assert(f->header);
         assert(ts);
+        assert(boot_id);
         assert(items || n_items == 0);
 
         if (f->strict_order) {
@@ -2318,7 +2319,7 @@ static int journal_file_append_entry_internal(
                                                "timestamp %" PRIu64 ", refusing entry.",
                                                ts->realtime, le64toh(f->header->tail_entry_realtime));
 
-                if ((!boot_id || sd_id128_equal(*boot_id, f->header->tail_entry_boot_id)) &&
+                if (sd_id128_equal(*boot_id, f->header->tail_entry_boot_id) &&
                     ts->monotonic < le64toh(f->header->tail_entry_monotonic))
                         return log_debug_errno(
                                         SYNTHETIC_ERRNO(ENOTNAM),
@@ -2358,9 +2359,7 @@ static int journal_file_append_entry_internal(
         o->entry.realtime = htole64(ts->realtime);
         o->entry.monotonic = htole64(ts->monotonic);
         o->entry.xor_hash = htole64(xor_hash);
-        if (boot_id)
-                f->header->tail_entry_boot_id = *boot_id;
-        o->entry.boot_id = f->header->tail_entry_boot_id;
+        o->entry.boot_id = f->header->tail_entry_boot_id = *boot_id;
 
         for (size_t i = 0; i < n_items; i++)
                 write_entry_item(f, o, i, &items[i]);
