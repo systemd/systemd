@@ -24,13 +24,17 @@ sudo systemd-cryptenroll --pkcs11-token-uri=auto /dev/sdXn
 sudo /usr/lib/systemd/systemd-cryptsetup attach mytest /dev/sdXn - pkcs11-uri=auto
 
 # If that worked, let's now add the same line persistently to /etc/crypttab,
-# for the future.
-sudo bash -c 'echo "mytest /dev/sdXn - pkcs11-uri=auto" >>/etc/crypttab'
+# for the future. We don't want to use the (unstable) /dev/sdX name, so let's
+# figure out a stable link:
+udevadm info -q -r symlink /dev/sdXn
 
-# Depending on your distribution and encryption setup, you may need
-# to manually regenerate your initramfs to be able to use a
-# Yubikey / PKCS#11 Token to unlock the partition during early boot.
-# More information at https://unix.stackexchange.com/a/705809
+# Now add the line using the by-uuid symlink to /etc/crypttab:
+sudo bash -c 'echo "mytest /dev/disk/by-uuid/... - pkcs11-uri=auto" >>/etc/crypttab'
+
+# Depending on your distribution and encryption setup, you may need to manually
+# regenerate your initramfs to be able to use a Yubikey / PKCS#11 token to
+# unlock the partition during early boot.
+# More information at https://unix.stackexchange.com/a/705809.
 # On Fedora based systems:
 sudo dracut --force
 # On Debian based systems:

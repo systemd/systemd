@@ -390,6 +390,10 @@ Features:
 
 * udevd: extend memory pressure logic: also kill any idle worker processes
 
+* udevadm: to make symlink querying with udevadm nicer:
+  - do not enable the pager for queries like 'udevadm info -q -r symlink'
+  - add mode with newlines instead of spaces (for grep)?
+
 * SIGRTMIN+18 and memory pressure handling should still be added to: hostnamed,
   localed, oomd, timedated.
 
