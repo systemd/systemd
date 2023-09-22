@@ -1106,6 +1106,7 @@ int dns_server_dump_state_to_json(DnsServer *server, JsonVariant **ret) {
                                         JSON_BUILD_PAIR_STRING("Server", strna(dns_server_string_full(server))),
                                         JSON_BUILD_PAIR_STRING("Type", strna(dns_server_type_to_string(server->type))),
                                         JSON_BUILD_PAIR_CONDITION(server->type == DNS_SERVER_LINK, "Interface", JSON_BUILD_STRING(server->link ? server->link->ifname : NULL)),
+                                        JSON_BUILD_PAIR_CONDITION(server->type == DNS_SERVER_LINK, "InterfaceIndex", JSON_BUILD_UNSIGNED(server->link ? server->link->ifindex : 0)),
                                         JSON_BUILD_PAIR_STRING("VerifiedFeatureLevel", strna(dns_server_feature_level_to_string(server->verified_feature_level))),
                                         JSON_BUILD_PAIR_STRING("PossibleFeatureLevel", strna(dns_server_feature_level_to_string(server->possible_feature_level))),
                                         JSON_BUILD_PAIR_STRING("DNSSECMode", strna(dnssec_mode_to_string(dns_server_get_dnssec_mode(server)))),
