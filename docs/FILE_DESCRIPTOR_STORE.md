@@ -183,11 +183,12 @@ Pass-Through](https://www.freedesktop.org/software/systemd/man/systemd-soft-rebo
 
 # initrd Transitions
 
-The fdstore may also be used to hand over file descriptor to resources from the
-initrd context to the main system. This is important as code running off the
-initrd should generally not continue to run after the initrd to host
-transition, since it pins the backing files from the initrd, and might run a
-slightly different version of things than the host.
+The fdstore may also be used to pass file descriptors for resources from the
+initrd context to the main system. Restarting all processes after the
+transition is important as code running in the initrd should generally not
+continue to run after the switch to the host file system, since that pins
+backing files from the initrd, and the initrd might contain different versions
+of programs than the host.
 
 Any service that still runs during the initrd→host transition will have its
 fdstore passed over the transition, where it will be passed back to any queued
