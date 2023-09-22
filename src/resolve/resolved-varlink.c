@@ -5,6 +5,8 @@
 #include "resolved-dns-synthesize.h"
 #include "resolved-varlink.h"
 #include "socket-netlink.h"
+#include "varlink-io.systemd.Resolve.h"
+#include "varlink-io.systemd.Resolve.Monitor.h"
 
 typedef struct LookupParameters {
         int ifindex;
@@ -699,6 +701,10 @@ static int varlink_monitor_server_init(Manager *m) {
 
         varlink_server_set_userdata(server, m);
 
+        r = varlink_server_add_interface(server, &vl_interface_io_systemd_Resolve_Monitor);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add Resolve.Monitor interface to varlink server: %m");
+
         r = varlink_server_bind_method_many(
                         server,
                         "io.systemd.Resolve.Monitor.SubscribeQueryResults", vl_method_subscribe_query_results,
@@ -740,6 +746,10 @@ static int varlink_main_server_init(Manager *m) {
                 return log_error_errno(r, "Failed to allocate varlink server object: %m");
 
         varlink_server_set_userdata(s, m);
+
+        r = varlink_server_add_interface(s, &vl_interface_io_systemd_Resolve);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add Resolve interface to varlink server: %m");
 
         r = varlink_server_bind_method_many(
                         s,
