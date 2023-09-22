@@ -133,6 +133,24 @@ Deprecations and removals:
 
 Features:
 
+* Varlinkification of the following command line tools, to open them up to
+  other programs via IPC:
+  - bootctl
+  - journalctl (allowing journal read access via IPC)
+  - coredumpcl
+  - systemd-bless-boot
+  - systemd-measure
+  - systemd-creds (allowing clients to encrypt credentials locally)
+  - systemd-cryptenroll (to allow UIs to enroll FIDO2 keys and such)
+  - systemd-dissect
+  - systemd-sysext
+  - systemd-sysupdate
+  - systemd-analyze
+  - kernel-install
+
+* Varlink: add glue code to allow varlink clients to be authenticated via
+  Polkit by passing client pidfd over.
+
 * in the service manager, pick up ERRNO= + BUSERROR= + VARLINKERROR= error
   identifiers, and store them along with the exit status of a server and report
   via "systemctl status".
@@ -144,32 +162,15 @@ Features:
 * automatically mount one virtiofs during early boot phase to /run/host/,
   similar to how we do that for nspawn, based on some clear tag.
 
-* make systemd-pcrextend accessible via varlink so that clients can measure
-  things reasonably freely, and get a proper entry in the TPM event log we
-  maintain, correctly synchronized
-
 * add some service that makes an atomic snapshot of PCR state and event log up
   to that point available, possibly even with quote by the TPM.
 
 * encode type1 entries in some UKI section to add additional entries to the
   menu.
 
-* extend the various CLI tools we have that output JSON already to also read
-  their command to execute from JSON in varlink format, so that you can fork
-  them off and talk to them fully via varlink.
-
-* add a "varlinkctl" tool that allows interacting with varlink services from
-  the shell. In particular add a "--exec=" switch, which allows specifying a
-  binary to invoke to which to talk via stdin/stdout
-
-* make tools that speak varlink over stdin/stdout trivially sockect
-  activatable. i.e. once bootctl, kernel-install, systemd-measure and similar
-  speak varlink make them available via a .socket unit with Accept=yes, so that
-  they can be talked to via IPC out-of-process
-
-* beef up .service units that are socket activated with Accept=yes with options
-  AllowPeerUser= + AllowPeerGroup= to allow trivially simple access control
-  when invoked via socket as IPC services
+* Add ACL-based access management to .socket units. i.e. add AllowPeerUser= +
+  AllowPeerGroup= that installs additional user/group ACL entries on AF_UNIX
+  sockets.
 
 * when systemd-sysext learns mutable /usr/ (and systemd-confext mutable /etc/)
   then allow them to store the result in a .v/ versioned subdir, for some basic
@@ -901,8 +902,6 @@ Features:
   1. There should be a var= kernel cmdline option, matching root= and usr=
   2. systemd-gpt-auto-generator should auto-mount /var if it finds it on disk
   3. mount.x-initrd mount option in fstab should be implied for /var
-
-* implement varlink introspection
 
 * make persistent restarts easier by adding a new setting OpenPersistentFile=
   or so, which allows opening one or more files that is "persistent" across
