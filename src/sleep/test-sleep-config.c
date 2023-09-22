@@ -1,23 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <fcntl.h>
-#include <inttypes.h>
-#include <linux/fiemap.h>
-#include <stdio.h>
-#include <sys/types.h>
-#include <unistd.h>
-
 #include "efivars.h"
 #include "errno-util.h"
-#include "fd-util.h"
 #include "log.h"
-#include "memory-util.h"
-#include "sleep-util.h"
+#include "sleep-config.h"
 #include "strv.h"
 #include "tests.h"
 
 TEST(parse_sleep_config) {
-        _cleanup_(free_sleep_configp) SleepConfig *sleep_config = NULL;
+        _cleanup_(sleep_config_freep) SleepConfig *sleep_config = NULL;
 
         assert_se(parse_sleep_config(&sleep_config) == 0);
 
@@ -39,47 +30,6 @@ TEST(parse_sleep_config) {
         log_debug("           states: %s", his);
         log_debug("  hybrid modes: %s", hym);
         log_debug("        states: %s", hys);
-}
-
-static int test_fiemap_one(const char *path) {
-        _cleanup_free_ struct fiemap *fiemap = NULL;
-        _cleanup_close_ int fd = -EBADF;
-        int r;
-
-        log_info("/* %s */", __func__);
-
-        fd = open(path, O_RDONLY | O_CLOEXEC | O_NONBLOCK);
-        if (fd < 0)
-                return log_error_errno(errno, "failed to open %s: %m", path);
-        r = read_fiemap(fd, &fiemap);
-        if (r == -EOPNOTSUPP)
-                exit(log_tests_skipped("Not supported"));
-        if (r < 0)
-                return log_error_errno(r, "Unable to read extent map for '%s': %m", path);
-        log_info("extent map information for %s:", path);
-        log_info("\t start: %" PRIu64, (uint64_t) fiemap->fm_start);
-        log_info("\t length: %" PRIu64, (uint64_t) fiemap->fm_length);
-        log_info("\t flags: %" PRIu32, fiemap->fm_flags);
-        log_info("\t number of mapped extents: %" PRIu32, fiemap->fm_mapped_extents);
-        log_info("\t extent count: %" PRIu32, fiemap->fm_extent_count);
-        if (fiemap->fm_extent_count > 0)
-                log_info("\t first extent location: %" PRIu64,
-                         (uint64_t) (fiemap->fm_extents[0].fe_physical / page_size()));
-
-        return 0;
-}
-
-TEST_RET(fiemap) {
-        int r = 0;
-
-        assert_se(test_fiemap_one(saved_argv[0]) == 0);
-        for (int i = 1; i < saved_argc; i++) {
-                int k = test_fiemap_one(saved_argv[i]);
-                if (r == 0)
-                        r = k;
-        }
-
-        return r;
 }
 
 TEST(sleep) {
@@ -115,33 +65,6 @@ TEST(sleep) {
         log_info("Hybrid-sleep configured and possible: %s", r >= 0 ? yes_no(r) : STRERROR(r));
         r = can_sleep(SLEEP_SUSPEND_THEN_HIBERNATE);
         log_info("Suspend-then-Hibernate configured and possible: %s", r >= 0 ? yes_no(r) : STRERROR(r));
-}
-
-TEST(fetch_batteries_capacity_by_name) {
-        _cleanup_hashmap_free_ Hashmap *capacity = NULL;
-        int r;
-
-        assert_se(fetch_batteries_capacity_by_name(&capacity) >= 0);
-        log_debug("fetch_batteries_capacity_by_name: %u entries", hashmap_size(capacity));
-
-        const char *name;
-        void *cap;
-        HASHMAP_FOREACH_KEY(cap, name, capacity) {
-                assert(cap);  /* Anything non-null is fine. */
-                log_info("Battery %s: capacity = %i", name, get_capacity_by_name(capacity, name));
-        }
-
-        for (int i = 0; i < 2; i++) {
-                usec_t interval;
-
-                if (i > 0)
-                        sleep(1);
-
-                r = get_total_suspend_interval(capacity, &interval);
-                assert_se(r >= 0 || r == -ENOENT);
-                log_info("%d: get_total_suspend_interval: %s", i,
-                         r < 0 ? STRERROR(r) : FORMAT_TIMESPAN(interval, USEC_PER_SEC));
-        }
 }
 
 static int intro(void) {
