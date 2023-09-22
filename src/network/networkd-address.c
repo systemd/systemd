@@ -1669,7 +1669,7 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
         uint16_t type;
         Address *address = NULL;
         Request *req = NULL;
-        bool is_new = false;
+        bool is_new = false, update_dhcp4;
         int ifindex, r;
 
         assert(rtnl);
@@ -1778,6 +1778,8 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
                 assert_not_reached();
         }
 
+        update_dhcp4 = tmp->family == AF_INET6;
+
         /* Then, find the managed Address and Request objects corresponding to the received address. */
         (void) address_get(link, tmp, &address);
         (void) address_get_request(link, tmp, &req);
@@ -1792,6 +1794,14 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
 
                 if (req)
                         address_enter_removed(req->userdata);
+
+                if (update_dhcp4) {
+                        r = dhcp4_update_ipv6_connectivity(link);
+                        if (r < 0) {
+                                log_link_warning_errno(link, r, "Failed to notify IPv6 connectivity to DHCPv4 client: %m");
+                                link_enter_failed(link);
+                        }
+                }
 
                 return 0;
         }
@@ -1878,6 +1888,14 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
         r = address_update(address);
         if (r < 0)
                 link_enter_failed(link);
+
+        if (update_dhcp4) {
+                r = dhcp4_update_ipv6_connectivity(link);
+                if (r < 0) {
+                        log_link_warning_errno(link, r, "Failed to notify IPv6 connectivity to DHCPv4 client: %m");
+                        link_enter_failed(link);
+                }
+        }
 
         return 1;
 }
