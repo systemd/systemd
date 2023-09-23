@@ -140,6 +140,19 @@
 
         <xi:include href="version-info.xml" xpointer="v215"/></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>ForwardToContainers=</varname></term>
+
+        <listitem><para>If true, when a process crashes in a container,
+        forward the coredump back to that container. This requires that
+        <command>systemd-coredump</command> is available in the container.
+        Takes a boolean argument, which defaults to <literal>no</literal>.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/>
+        </listitem>
+      </varlistentry>
     </variablelist>
 
     <para>The defaults for all values are listed as comments in the
