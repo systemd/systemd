@@ -1309,14 +1309,15 @@ static int discover_next_boot(
         return 1;
 }
 
-static int find_boot_by_id(sd_journal *j) {
+static int journal_find_boot_by_id(sd_journal *j, sd_id128_t boot_id) {
         int r;
 
         assert(j);
+        assert(!sd_id128_is_null(boot_id));
 
         sd_journal_flush_matches(j);
 
-        r = add_match_boot_id(j, arg_boot_id);
+        r = add_match_boot_id(j, boot_id);
         if (r < 0)
                 return r;
 
@@ -1336,13 +1337,16 @@ static int find_boot_by_id(sd_journal *j) {
         return r > 0;
 }
 
-static int find_boot_by_offset(sd_journal *j) {
-        bool advance_older, skip_once;
+static int journal_find_boot_by_offset(sd_journal *j, int offset, sd_id128_t *ret) {
+        bool advance_older;
         int r;
+
+        assert(j);
+        assert(ret);
 
         /* Adjust for the asymmetry that offset 0 is the last (and current) boot, while 1 is considered the
          * (chronological) first boot in the journal. */
-        advance_older = skip_once = arg_boot_offset <= 0;
+        advance_older = offset <= 0;
 
         if (advance_older)
                 r = sd_journal_seek_tail(j); /* seek to newest */
@@ -1357,26 +1361,27 @@ static int find_boot_by_offset(sd_journal *j) {
          * journal. The next invocation of _previous()/_next() will hence position us at the newest/oldest
          * entry we have. */
 
-        int offset = arg_boot_offset;
-        sd_id128_t previous_boot_id = SD_ID128_NULL;
-        for (;;) {
+        sd_id128_t boot_id = SD_ID128_NULL;
+        for (int off = !advance_older; ; off += advance_older ? -1 : 1) {
                 BootId boot;
 
-                r = discover_next_boot(j, previous_boot_id, advance_older, &boot);
-                if (r <= 0)
+                r = discover_next_boot(j, boot_id, advance_older, &boot);
+                if (r < 0)
                         return r;
-
-                previous_boot_id = boot.id;
-
-                if (!skip_once)
-                        offset += advance_older ? 1 : -1;
-                skip_once = false;
-
-                if (offset == 0) {
-                        arg_boot_id = boot.id;
-                        return true;
+                if (r == 0) {
+                        *ret = SD_ID128_NULL;
+                        return false;
                 }
+
+                boot_id = boot.id;
+                log_debug("Found boot ID %s by offset %i", SD_ID128_TO_STRING(boot_id), off);
+
+                if (off == offset)
+                        break;
         }
+
+        *ret = boot_id;
+        return true;
 }
 
 static int get_boots(sd_journal *j, BootId **ret_boots, size_t *ret_n_boots) {
@@ -1488,7 +1493,7 @@ static int add_boot(sd_journal *j) {
                 return add_match_this_boot(j, arg_machine);
 
         if (sd_id128_is_null(arg_boot_id)) {
-                r = find_boot_by_offset(j);
+                r = journal_find_boot_by_offset(j, arg_boot_offset, &arg_boot_id);
                 if (r < 0)
                         return log_error_errno(r, "Failed to find journal entry from the specified boot offset (%+i): %m",
                                                arg_boot_offset);
@@ -1497,7 +1502,7 @@ static int add_boot(sd_journal *j) {
                                                "No journal boot entry found from the specified boot offset (%+i).",
                                                arg_boot_offset);
         } else {
-                r = find_boot_by_id(j);
+                r = journal_find_boot_by_id(j, arg_boot_id);
                 if (r < 0)
                         return log_error_errno(r, "Failed to find journal entry from the specified boot ID (%s): %m",
                                                SD_ID128_TO_STRING(arg_boot_id));
