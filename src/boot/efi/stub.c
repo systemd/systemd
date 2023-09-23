@@ -255,26 +255,35 @@ static EFI_STATUS load_addons_from_dir(
 }
 
 static void cmdline_append_and_measure_addons(
-                char16_t *cmdline,
+                char16_t *cmdline_global,
+                char16_t *cmdline_uki,
                 char16_t **cmdline_append,
                 bool *ret_parameters_measured) {
 
-        _cleanup_free_ char16_t *tmp = NULL;
+        _cleanup_free_ char16_t *tmp = NULL, *merged = NULL;
         bool m = false;
 
         assert(ret_parameters_measured);
         assert(cmdline_append);
 
-        mangle_stub_cmdline(cmdline);
-
-        if (isempty(cmdline))
+        if (isempty(cmdline_global) && isempty(cmdline_uki))
                 return;
 
-        (void) tpm_log_load_options(cmdline, &m);
+        merged = xasprintf("%ls%ls%ls",
+                           strempty(cmdline_global),
+                           isempty(cmdline_global) || isempty(cmdline_uki) ? u"" : u" ",
+                           strempty(cmdline_uki));
+
+        mangle_stub_cmdline(merged);
+
+        if (isempty(merged))
+                return;
+
+        (void) tpm_log_load_options(merged, &m);
         *ret_parameters_measured = m;
 
         tmp = TAKE_PTR(*cmdline_append);
-        *cmdline_append = xasprintf("%ls%ls%ls", strempty(tmp), isempty(tmp) ? u"" : u" ", cmdline);
+        *cmdline_append = xasprintf("%ls%ls%ls", strempty(tmp), isempty(tmp) ? u"" : u" ", merged);
 }
 
 static void dtb_install_addons(
@@ -601,13 +610,10 @@ static EFI_STATUS run(EFI_HANDLE image) {
         }
 
         /* If we have any extra command line to add via PE addons, load them now and append, and
-         * measure the additions separately, after the embedded options, but before the smbios ones,
+         * measure the additions together, after the embedded options, but before the smbios ones,
          * so that the order is reversed from "most hardcoded" to "most dynamic". The global addons are
          * loaded first, and the image-specific ones later, for the same reason. */
-        cmdline_append_and_measure_addons(cmdline_addons_global, &cmdline, &m);
-        parameters_measured = parameters_measured < 0 ? m : (parameters_measured && m);
-
-        cmdline_append_and_measure_addons(cmdline_addons_uki, &cmdline, &m);
+        cmdline_append_and_measure_addons(cmdline_addons_global, cmdline_addons_uki, &cmdline, &m);
         parameters_measured = parameters_measured < 0 ? m : (parameters_measured && m);
 
         /* SMBIOS OEM Strings data is controlled by the host admin and not covered
