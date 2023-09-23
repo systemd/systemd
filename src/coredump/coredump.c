@@ -157,6 +157,7 @@ static DEFINE_CONFIG_PARSE_ENUM(config_parse_coredump_storage, coredump_storage,
 
 static CoredumpStorage arg_storage = COREDUMP_STORAGE_EXTERNAL;
 static bool arg_compress = true;
+static bool arg_forward_to_containers = false;
 static uint64_t arg_process_size_max = PROCESS_SIZE_MAX;
 static uint64_t arg_external_size_max = EXTERNAL_SIZE_MAX;
 static uint64_t arg_journal_size_max = JOURNAL_SIZE_MAX;
@@ -165,13 +166,14 @@ static uint64_t arg_max_use = UINT64_MAX;
 
 static int parse_config(void) {
         static const ConfigTableItem items[] = {
-                { "Coredump", "Storage",          config_parse_coredump_storage,     0, &arg_storage           },
-                { "Coredump", "Compress",         config_parse_bool,                 0, &arg_compress          },
-                { "Coredump", "ProcessSizeMax",   config_parse_iec_uint64,           0, &arg_process_size_max  },
-                { "Coredump", "ExternalSizeMax",  config_parse_iec_uint64_infinity,  0, &arg_external_size_max },
-                { "Coredump", "JournalSizeMax",   config_parse_iec_size,             0, &arg_journal_size_max  },
-                { "Coredump", "KeepFree",         config_parse_iec_uint64,           0, &arg_keep_free         },
-                { "Coredump", "MaxUse",           config_parse_iec_uint64,           0, &arg_max_use           },
+                { "Coredump", "Storage",              config_parse_coredump_storage,     0, &arg_storage               },
+                { "Coredump", "Compress",             config_parse_bool,                 0, &arg_compress              },
+                { "Coredump", "ProcessSizeMax",       config_parse_iec_uint64,           0, &arg_process_size_max      },
+                { "Coredump", "ExternalSizeMax",      config_parse_iec_uint64_infinity,  0, &arg_external_size_max     },
+                { "Coredump", "JournalSizeMax",       config_parse_iec_size,             0, &arg_journal_size_max      },
+                { "Coredump", "KeepFree",             config_parse_iec_uint64,           0, &arg_keep_free             },
+                { "Coredump", "MaxUse",               config_parse_iec_uint64,           0, &arg_max_use               },
+                { "Coredump", "ForwardToContainers",  config_parse_bool,                 0, &arg_forward_to_containers },
                 {}
         };
 
@@ -1521,7 +1523,7 @@ static int process_kernel(int argc, char* argv[]) {
                 /* OK, now we know it's not the journal, hence we can make use of it now. */
                 log_set_target_and_open(LOG_TARGET_JOURNAL_OR_KMSG);
 
-        if (!in_same_namespace(getpid_cached(), context.pid, NAMESPACE_PID)) {
+        if (arg_forward_to_containers && !in_same_namespace(getpid_cached(), context.pid, NAMESPACE_PID)) {
                 /* If this fails, fallback to the old behavior so that
                  * there is still some record of the crash. */
                 r = forward_coredump_to_container(&context);
