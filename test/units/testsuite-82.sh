@@ -20,8 +20,10 @@ if [ -f /run/testsuite82.touch3 ]; then
     read -r x <&5
     test "$x" = "oinkoink"
 
-    # Check that the surviving service is still around
+    # Check that the surviving services are still around
     test "$(systemctl show -P ActiveState testsuite-82-survive.service)" = "active"
+    test "$(systemctl show -P ActiveState testsuite-82-survive-argv.service)" = "active"
+    test "$(systemctl show -P ActiveState testsuite-82-nosurvive-sigterm.service)" != "active"
     test "$(systemctl show -P ActiveState testsuite-82-nosurvive.service)" != "active"
 
     # All succeeded, exit cleanly now
@@ -43,8 +45,10 @@ elif [ -f /run/testsuite82.touch2 ]; then
     systemd-notify --fd=3 --pid=parent 3<"$T"
     rm "$T"
 
-    # Check that the surviving service is still around
+    # Check that the surviving services are still around
     test "$(systemctl show -P ActiveState testsuite-82-survive.service)" = "active"
+    test "$(systemctl show -P ActiveState testsuite-82-survive-argv.service)" = "active"
+    test "$(systemctl show -P ActiveState testsuite-82-nosurvive-sigterm.service)" != "active"
     test "$(systemctl show -P ActiveState testsuite-82-nosurvive.service)" != "active"
 
     # Test that we really are in the new overlayfs root fs
@@ -88,8 +92,10 @@ elif [ -f /run/testsuite82.touch ]; then
     systemd-notify --fd=3 --pid=parent 3<"$T"
     rm "$T"
 
-    # Check that the surviving service is still around
+    # Check that the surviving services are still around
     test "$(systemctl show -P ActiveState testsuite-82-survive.service)" = "active"
+    test "$(systemctl show -P ActiveState testsuite-82-survive-argv.service)" = "active"
+    test "$(systemctl show -P ActiveState testsuite-82-nosurvive-sigterm.service)" != "active"
     test "$(systemctl show -P ActiveState testsuite-82-nosurvive.service)" != "active"
 
     # This time we test the /run/nextroot/ root switching logic. (We synthesize a new rootfs from the old via overlayfs)
@@ -129,8 +135,41 @@ else
     systemd-notify --fd=3 --pid=parent 3<"$T"
     rm "$T"
 
-    # Configure this transient unit to survive the soft reboot - it will not conflict with shutdown.target
-    # and it will be ignored on the isolate that happens in the next boot.
+    survive_sigterm="/dev/shm/survive-sigterm-$RANDOM.sh"
+    cat >"$survive_sigterm" <<EOF
+#!/bin/bash
+trap "" TERM
+systemd-notify --ready
+rm "$survive_sigterm"
+exec sleep infinity
+EOF
+    chmod +x "$survive_sigterm"
+
+    survive_argv="/dev/shm/survive-argv-$RANDOM.sh"
+    cat >"$survive_argv" <<EOF
+#!/bin/bash
+systemd-notify --ready
+rm "$survive_argv"
+exec -a @sleep sleep infinity
+EOF
+    chmod +x "$survive_argv"
+    # This sets DefaultDependencies=no so that they remain running until the very end, and
+    # IgnoreOnIsolate=yes so that they aren't stopped via the "testsuite.target" isolation we do on next boot,
+    # and will be killed by the final sigterm/sigkill spree.
+    systemd-run -p Type=notify -p DefaultDependencies=no -p IgnoreOnIsolate=yes --unit=testsuite-82-nosurvive-sigterm.service "$survive_sigterm"
+    systemd-run -p Type=exec -p DefaultDependencies=no -p IgnoreOnIsolate=yes --unit=testsuite-82-nosurvive.service sleep infinity
+
+    # Configure these transient units to survive the soft reboot - they will not conflict with shutdown.target
+    # and it will be ignored on the isolate that happens in the next boot. The first will use argv[0][0] =
+    # '@', and the second will use SurviveFinalKillSignal=yes. Both should survive.
+    systemd-run -p Type=notify --unit=testsuite-82-survive-argv.service \
+        --property SurviveFinalKillSignal=no \
+        --property IgnoreOnIsolate=yes \
+        --property DefaultDependencies=no \
+        --property After=basic.target \
+        --property "Conflicts=reboot.target kexec.target poweroff.target halt.target emergency.target rescue.target" \
+        --property "Before=reboot.target kexec.target poweroff.target halt.target emergency.target rescue.target" \
+         "$survive_argv"
     systemd-run -p Type=exec --unit=testsuite-82-survive.service \
         --property SurviveFinalKillSignal=yes \
         --property IgnoreOnIsolate=yes \
@@ -139,7 +178,6 @@ else
         --property "Conflicts=reboot.target kexec.target poweroff.target halt.target emergency.target rescue.target" \
         --property "Before=reboot.target kexec.target poweroff.target halt.target emergency.target rescue.target" \
         sleep infinity
-    systemd-run -p Type=exec --unit=testsuite-82-nosurvive.service sleep infinity
 
     # Check that we can set up an inhibitor, and that busctl monitor sees the
     # PrepareForShutdownWithMetadata signal and that it says 'soft-reboot'.
