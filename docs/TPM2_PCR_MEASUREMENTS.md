@@ -77,12 +77,11 @@ PE section order, as per the UKI specification, see above.
 
 ### PCR 12, `EV_IPL`, "Kernel Command Line"
 
-Might happen up to four times, for kernel command lines from:
+Might happen up to three times, for kernel command lines from:
 
  1. Passed cmdline
- 2. System cmdline add-ons (one measurement covering all add-ons combined)
- 3. Per-UKI cmdline add-ons (one measurement covering all add-ons combined)
- 2. SMBIOS cmdline
+ 2. System and per-UKI cmdline add-ons (one measurement covering all add-ons combined)
+ 3. SMBIOS cmdline
 
 → **Description** in the event log record is the literal kernel command line in
 UTF-16.
