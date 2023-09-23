@@ -2487,20 +2487,20 @@ static int run(int argc, char *argv[]) {
         }
 
         if (arg_directory)
-                r = sd_journal_open_directory(&j, arg_directory, arg_journal_type);
+                r = sd_journal_open_directory(&j, arg_directory, arg_journal_type | SD_JOURNAL_FAST_QUERY);
         else if (arg_root)
-                r = sd_journal_open_directory(&j, arg_root, arg_journal_type | SD_JOURNAL_OS_ROOT);
+                r = sd_journal_open_directory(&j, arg_root, arg_journal_type | SD_JOURNAL_OS_ROOT | SD_JOURNAL_FAST_QUERY);
         else if (arg_file_stdin)
-                r = sd_journal_open_files_fd(&j, (int[]) { STDIN_FILENO }, 1, 0);
+                r = sd_journal_open_files_fd(&j, (int[]) { STDIN_FILENO }, 1, SD_JOURNAL_FAST_QUERY);
         else if (arg_file)
-                r = sd_journal_open_files(&j, (const char**) arg_file, 0);
+                r = sd_journal_open_files(&j, (const char**) arg_file, SD_JOURNAL_FAST_QUERY);
         else if (arg_machine)
-                r = journal_open_machine(&j, arg_machine);
+                r = journal_open_machine(&j, arg_machine, SD_JOURNAL_FAST_QUERY);
         else
                 r = sd_journal_open_namespace(
                                 &j,
                                 arg_namespace,
-                                (arg_merge ? 0 : SD_JOURNAL_LOCAL_ONLY) |
+                                (arg_merge ? 0 : SD_JOURNAL_LOCAL_ONLY) | SD_JOURNAL_FAST_QUERY |
                                 arg_namespace_flags | arg_journal_type);
         if (r < 0)
                 return log_error_errno(r, "Failed to open %s: %m", arg_directory ?: arg_file ? "files" : "journal");
@@ -2509,8 +2509,6 @@ static int run(int argc, char *argv[]) {
                                           !(arg_journal_type == SD_JOURNAL_CURRENT_USER || arg_user_units));
         if (r < 0)
                 return r;
-
-        sd_journal_enable_fast_query(j);
 
         switch (arg_action) {
 

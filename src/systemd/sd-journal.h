@@ -72,6 +72,7 @@ enum {
         SD_JOURNAL_ALL_NAMESPACES            = 1 << 5, /* Show all namespaces, not just the default or specified one */
         SD_JOURNAL_INCLUDE_DEFAULT_NAMESPACE = 1 << 6, /* Show default namespace in addition to specified one */
         SD_JOURNAL_TAKE_DIRECTORY_FD         = 1 << 7, /* sd_journal_open_directory_fd() will take ownership of the provided file descriptor. */
+        SD_JOURNAL_FAST_QUERY                = 1 << 8, /* cache fstat() calls */
 
         SD_JOURNAL_SYSTEM_ONLY _sd_deprecated_ = SD_JOURNAL_SYSTEM /* old name */
 };
@@ -91,7 +92,6 @@ int sd_journal_open_files(sd_journal **ret, const char **paths, int flags);
 int sd_journal_open_files_fd(sd_journal **ret, int fds[], unsigned n_fds, int flags);
 int sd_journal_open_container(sd_journal **ret, const char *machine, int flags) _sd_deprecated_;
 void sd_journal_close(sd_journal *j);
-void sd_journal_enable_fast_query(sd_journal *j);
 
 int sd_journal_previous(sd_journal *j);
 int sd_journal_next(sd_journal *j);

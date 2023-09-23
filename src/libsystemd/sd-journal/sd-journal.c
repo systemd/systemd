@@ -469,7 +469,7 @@ static struct boot_id_newest_entry **boot_id_to_newest_realtime_usec_get_slot(sd
 static int compare_boot_ids(sd_journal *j, sd_id128_t a, sd_id128_t b) {
         assert(j);
 
-        if(j->fast_query) {
+        if(j->flags & SD_JOURNAL_FAST_QUERY) {
                 struct boot_id_newest_entry **ae, **be;
 
                 ae = boot_id_to_newest_realtime_usec_get_slot(j, a);
@@ -991,7 +991,7 @@ static int real_journal_next(sd_journal *j, direction_t direction) {
                 JournalFile *f = (JournalFile *)files[i];
                 bool found;
 
-                f->cache_fstat = j->fast_query;
+                f->cache_fstat = (j->flags & SD_JOURNAL_FAST_QUERY) ? 1 : 0;
 
                 r = next_beyond_location(j, f, direction);
                 if (r < 0) {
@@ -1521,7 +1521,7 @@ static int add_any_file(
                 goto error;
         }
 
-        f->cache_fstat = j->fast_query;
+        f->cache_fstat = (j->flags & SD_JOURNAL_FAST_QUERY) ? 1 : 0;
 
         /* journal_file_dump(f); */
 
@@ -2118,6 +2118,7 @@ static sd_journal *journal_new(int flags, const char *path, const char *namespac
          SD_JOURNAL_SYSTEM |                            \
          SD_JOURNAL_CURRENT_USER |                      \
          SD_JOURNAL_ALL_NAMESPACES |                    \
+         SD_JOURNAL_FAST_QUERY |                        \
          SD_JOURNAL_INCLUDE_DEFAULT_NAMESPACE)
 
 _public_ int sd_journal_open_namespace(sd_journal **ret, const char *namespace, int flags) {
@@ -2141,11 +2142,6 @@ _public_ int sd_journal_open_namespace(sd_journal **ret, const char *namespace, 
 
 _public_ int sd_journal_open(sd_journal **ret, int flags) {
         return sd_journal_open_namespace(ret, NULL, flags);
-}
-
-_public_ void sd_journal_enable_fast_query(sd_journal *j) {
-        assert(j);
-        j->fast_query = 1;
 }
 
 #define OPEN_CONTAINER_ALLOWED_FLAGS                    \
