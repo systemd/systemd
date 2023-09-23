@@ -1852,13 +1852,10 @@ static int discover_next_boot(
         sd_journal_flush_matches(j);
 
         do {
-                if (advance_older)
-                        r = sd_journal_previous(j);
-                else
-                        r = sd_journal_next(j);
+                r = sd_journal_step_one(j, !advance_older);
                 if (r < 0)
                         return r;
-                else if (r == 0) {
+                if (r == 0) {
                         *ret = (BootId) {};
                         return 0; /* End of journal, yay. */
                 }
@@ -1893,13 +1890,10 @@ static int discover_next_boot(
         if (r < 0)
                 return r;
 
-        if (advance_older)
-                r = sd_journal_next(j);
-        else
-                r = sd_journal_previous(j);
+        r = sd_journal_step_one(j, advance_older);
         if (r < 0)
                 return r;
-        else if (r == 0)
+        if (r == 0)
                 return log_debug_errno(SYNTHETIC_ERRNO(ENODATA),
                                        "Whoopsie! We found a boot ID but can't read its last entry."); /* This shouldn't happen. We just came from this very boot ID. */
 
