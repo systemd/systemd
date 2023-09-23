@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
+#include <getopt.h>
 #include <mntent.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
@@ -12,6 +13,7 @@
 
 #include "alloc-util.h"
 #include "ask-password-api.h"
+#include "build.h"
 #include "cryptsetup-fido2.h"
 #include "cryptsetup-keyfile.h"
 #include "cryptsetup-pkcs11.h"
@@ -127,7 +129,6 @@ PassphraseType passphrase_type_from_string(const char *s);
 DEFINE_STRING_TABLE_LOOKUP(passphrase_type, PassphraseType);
 
 /* Options Debian's crypttab knows we don't:
-
     check=
     checkargs=
     noearly
@@ -501,7 +502,7 @@ static int parse_one_option(const char *option) {
         return 0;
 }
 
-static int parse_options(const char *options) {
+static int parse_crypt_config(const char *options) {
         assert(options);
 
         for (;;) {
@@ -2025,19 +2026,60 @@ static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
 
-        r = terminal_urlify_man("systemd-cryptsetup@.service", "8", &link);
+        r = terminal_urlify_man("systemd-cryptsetup", "8", &link);
         if (r < 0)
                 return log_oom();
 
-        printf("%s attach VOLUME SOURCEDEVICE [KEY-FILE] [OPTIONS]\n"
-               "%s detach VOLUME\n\n"
-               "Attaches or detaches an encrypted block device.\n"
-               "\nSee the %s for details.\n",
+        printf("%1$s attach VOLUME SOURCE-DEVICE [KEY-FILE] [CONFIG]\n"
+               "%1$s detach VOLUME\n\n"
+               "%2$sAttach or detach an encrypted block device.%3$s\n\n"
+               "  -h --help            Show this help\n"
+               "     --version         Show package version\n"
+               "\nSee the %4$s for details.\n",
                program_invocation_short_name,
-               program_invocation_short_name,
+               ansi_highlight(),
+               ansi_normal(),
                link);
 
         return 0;
+}
+
+static int parse_argv(int argc, char *argv[]) {
+        enum {
+                ARG_VERSION = 0x100,
+        };
+
+        static const struct option options[] = {
+                { "help",                         no_argument,       NULL, 'h'                       },
+                { "version",                      no_argument,       NULL, ARG_VERSION               },
+                {}
+        };
+
+        int c;
+
+        assert(argc >= 0);
+        assert(argv);
+
+        if (argv_looks_like_help(argc, argv))
+                return help();
+
+        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
+                switch (c) {
+
+                case 'h':
+                        return help();
+
+                case ARG_VERSION:
+                        return version();
+
+                case '?':
+                        return -EINVAL;
+
+                default:
+                        assert_not_reached();
+                }
+
+        return 1;
 }
 
 static uint32_t determine_flags(void) {
@@ -2086,25 +2128,24 @@ static int run(int argc, char *argv[]) {
         const char *verb;
         int r;
 
-        if (argv_looks_like_help(argc, argv))
-                return help();
-
-        if (argc < 3)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "This program requires at least two arguments.");
-
         log_setup();
-
-        cryptsetup_enable_logging(NULL);
 
         umask(0022);
 
-        verb = argv[1];
+        r = parse_argv(argc, argv);
+        if (r <= 0)
+                return r;
+
+        cryptsetup_enable_logging(NULL);
+
+        if (argc - optind < 2)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "This program requires at least two arguments.");
+        verb = ASSERT_PTR(argv[optind]);
 
         if (streq(verb, "attach")) {
                 _unused_ _cleanup_(remove_and_erasep) const char *destroy_key_file = NULL;
                 _cleanup_(erase_and_freep) void *key_data = NULL;
-                const char *volume, *source, *key_file, *options;
                 crypt_status_info status;
                 size_t key_data_size = 0;
                 uint32_t flags = 0;
@@ -2112,15 +2153,15 @@ static int run(int argc, char *argv[]) {
                 usec_t until;
                 PassphraseType passphrase_type = PASSPHRASE_NONE;
 
-                /* Arguments: systemd-cryptsetup attach VOLUME SOURCE-DEVICE [KEY-FILE] [OPTIONS] */
+                /* Arguments: systemd-cryptsetup attach VOLUME SOURCE-DEVICE [KEY-FILE] [CONFIG] */
 
-                if (argc < 4)
+                if (argc - optind < 3)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "attach requires at least two arguments.");
 
-                volume = argv[2];
-                source = argv[3];
-                key_file = mangle_none(argc >= 5 ? argv[4] : NULL);
-                options = mangle_none(argc >= 6 ? argv[5] : NULL);
+                const char *volume = ASSERT_PTR(argv[optind + 1]),
+                           *source = ASSERT_PTR(argv[optind + 2]),
+                           *key_file = argc - optind >= 4 ? mangle_none(argv[optind + 3]) : NULL,
+                           *config = argc - optind >= 5 ? mangle_none(argv[optind + 4]) : NULL;
 
                 if (!filename_is_valid(volume))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Volume name '%s' is not valid.", volume);
@@ -2130,8 +2171,8 @@ static int run(int argc, char *argv[]) {
                         key_file = NULL;
                 }
 
-                if (options) {
-                        r = parse_options(options);
+                if (config) {
+                        r = parse_crypt_config(config);
                         if (r < 0)
                                 return r;
                 }
@@ -2313,9 +2354,7 @@ static int run(int argc, char *argv[]) {
                         return log_error_errno(SYNTHETIC_ERRNO(EPERM), "Too many attempts to activate; giving up.");
 
         } else if (streq(verb, "detach")) {
-                const char *volume;
-
-                volume = argv[2];
+                const char *volume = ASSERT_PTR(argv[optind + 1]);
 
                 if (!filename_is_valid(volume))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Volume name '%s' is not valid.", volume);
