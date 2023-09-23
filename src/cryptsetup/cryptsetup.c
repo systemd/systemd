@@ -2156,6 +2156,8 @@ static int run(int argc, char *argv[]) {
 
                 if (argc - optind < 3)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "attach requires at least two arguments.");
+                if (argc - optind >= 6)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "attach does not accept more than four arguments.");
 
                 const char *volume = ASSERT_PTR(argv[optind + 1]),
                            *source = ASSERT_PTR(argv[optind + 2]),
@@ -2354,6 +2356,9 @@ static int run(int argc, char *argv[]) {
 
         } else if (streq(verb, "detach")) {
                 const char *volume = ASSERT_PTR(argv[optind + 1]);
+
+                if (argc - optind >= 3)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "attach does not accept more than one argument.");
 
                 if (!filename_is_valid(volume))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Volume name '%s' is not valid.", volume);
