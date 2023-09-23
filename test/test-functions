@@ -3311,6 +3311,9 @@ test_run() {
     local test_id="${1:?}"
     mount_initdir
 
+    # Reset the boot counter, if present
+    rm -f "${initdir:?}/var/tmp/.systemd_reboot_count"
+
     if ! get_bool "${TEST_NO_QEMU:=}"; then
         if run_qemu "$test_id"; then
             check_result_qemu || { echo "qemu test failed"; return 1; }
