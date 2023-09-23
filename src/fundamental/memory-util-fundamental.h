@@ -70,3 +70,39 @@ static inline void erase_varp(struct VarEraser *e) {
                 .p = (ptr),                                             \
                 .size = (sz),                                           \
         }
+
+typedef void (*free_array_func_t)(void *p, size_t n);
+
+/* An automatic _cleanup_-like logic for destroy arrays (i.e. pointers + size) when leaving scope */
+typedef struct ArrayCleanup {
+        void **parray;
+        size_t *pn;
+        free_array_func_t pfunc;
+} ArrayCleanup;
+
+static inline void array_cleanup(const ArrayCleanup *c) {
+        assert(c);
+
+        assert(!c->parray == !c->pn);
+
+        if (!c->parray)
+                return;
+
+        if (*c->parray) {
+                assert(c->pfunc);
+                c->pfunc(*c->parray, *c->pn);
+                *c->parray = NULL;
+        }
+
+        *c->pn = 0;
+}
+
+#define CLEANUP_ARRAY(array, n, func)                                   \
+        _cleanup_(array_cleanup) _unused_ const ArrayCleanup CONCATENATE(_cleanup_array_, UNIQ) = { \
+                .parray = (void**) &(array),                            \
+                .pn = &(n),                                             \
+                .pfunc = (free_array_func_t) ({                         \
+                                void (*_f)(typeof(array[0]) *a, size_t b) = func; \
+                                _f;                                     \
+                        }),                                             \
+        }
