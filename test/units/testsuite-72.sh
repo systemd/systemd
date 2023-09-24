@@ -50,6 +50,9 @@ new_version() {
     # Create a random "UKI" payload
     echo $RANDOM >"/var/tmp/72-source/uki-$2.efi"
 
+    # Create a random extra payload
+    echo $RANDOM >"/var/tmp/72-source/uki-extra-$2.efi"
+
     # Create tarball of a directory
     mkdir -p "/var/tmp/72-source/dir-$2"
     echo $RANDOM >"/var/tmp/72-source/dir-$2/foo.txt"
@@ -86,6 +89,10 @@ verify_version() {
 
     # Check the UKI
     cmp "/var/tmp/72-source/uki-$3.efi" "/var/tmp/72-xbootldr/EFI/Linux/uki_$3+3-0.efi"
+    test -z "$(ls -A /var/tmp/72-esp/EFI/Linux)"
+
+    # Check the extra efi
+    cmp "/var/tmp/72-source/uki-extra-$3.efi" "/var/tmp/72-xbootldr/EFI/Linux/uki_$3.efi.extra.d/extra.addon.efi"
     test -z "$(ls -A /var/tmp/72-esp/EFI/Linux)"
 
     # Check the directories
@@ -185,6 +192,21 @@ TriesDone=0
 InstancesMax=2
 EOF
 
+    cat >/var/tmp/72-defs/05-fifth.conf <<EOF
+[Source]
+Type=regular-file
+Path=/var/tmp/72-source
+MatchPattern=uki-extra-@v.efi
+
+[Target]
+Type=regular-file
+Path=/EFI/Linux
+PathRelativeTo=boot
+MatchPattern=uki_@v.efi.extra.d/extra.addon.efi
+Mode=0444
+InstancesMax=2
+EOF
+
     rm -rf /var/tmp/72-esp /var/tmp/72-xbootldr
     mkdir -p /var/tmp/72-esp/EFI/Linux /var/tmp/72-xbootldr/EFI/Linux
 
@@ -206,6 +228,8 @@ EOF
     update_now
     verify_version "$blockdev" "$sector_size" v3 1 3
     test ! -f "/var/tmp/72-xbootldr/EFI/Linux/uki_v1+3-0.efi"
+    test ! -f "/var/tmp/72-xbootldr/EFI/Linux/uki_v1.efi.extra.d/extra.addon.efi"
+    test ! -d "/var/tmp/72-xbootldr/EFI/Linux/uki_v1.efi.extra.d"
 
     # Create fourth version, and update through a file:// URL. This should be
     # almost as good as testing HTTP, but is simpler for us to set up. file:// is
