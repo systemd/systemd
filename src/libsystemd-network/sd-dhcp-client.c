@@ -1592,10 +1592,9 @@ static int client_parse_message(
         case DHCP_STATE_RENEWING:
         case DHCP_STATE_REBINDING:
                 if (r == DHCP_NAK) {
-                        if ((client->lease != NULL) &&
-                            (client->lease->server_address != lease->server_address))
+                        if (client->lease && client->lease->server_address == lease->server_address)
                                     return log_dhcp_client_errno(client, SYNTHETIC_ERRNO(ENOMSG),
-                                                                 "NAK: %s from other server",
+                                                                 "NAK: %s from other server, ignoring.",
                                                                  strna(error_message));
                         return log_dhcp_client_errno(client, SYNTHETIC_ERRNO(EADDRNOTAVAIL),
                                                      "NAK: %s", strna(error_message));
