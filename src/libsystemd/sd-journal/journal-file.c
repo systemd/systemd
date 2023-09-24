@@ -3351,10 +3351,8 @@ int journal_file_move_to_entry_by_monotonic(
         assert(f);
 
         r = find_data_object_by_boot_id(f, boot_id, &o, NULL);
-        if (r < 0)
+        if (r <= 0)
                 return r;
-        if (r == 0)
-                return -ENOENT;
 
         return generic_array_bisect_plus_one(
                         f,
@@ -3546,10 +3544,8 @@ int journal_file_move_to_entry_by_monotonic_for_data(
 
         /* First, seek by time */
         r = find_data_object_by_boot_id(f, boot_id, &o, &b);
-        if (r < 0)
+        if (r <= 0)
                 return r;
-        if (r == 0)
-                return -ENOENT;
 
         r = generic_array_bisect_plus_one(f,
                                           le64toh(o->data.entry_offset),

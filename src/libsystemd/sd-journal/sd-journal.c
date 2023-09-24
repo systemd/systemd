@@ -667,7 +667,7 @@ static int find_location_for_match(
                         return journal_file_move_to_entry_by_seqnum_for_data(f, d, j->current_location.seqnum, direction, ret, offset);
                 if (j->current_location.monotonic_set) {
                         r = journal_file_move_to_entry_by_monotonic_for_data(f, d, j->current_location.boot_id, j->current_location.monotonic, direction, ret, offset);
-                        if (r != -ENOENT)
+                        if (r != 0)
                                 return r;
 
                         /* The data object might have been invalidated. */
@@ -762,7 +762,7 @@ static int find_location_with_matches(
                         return journal_file_move_to_entry_by_seqnum(f, j->current_location.seqnum, direction, ret, offset);
                 if (j->current_location.monotonic_set) {
                         r = journal_file_move_to_entry_by_monotonic(f, j->current_location.boot_id, j->current_location.monotonic, direction, ret, offset);
-                        if (r != -ENOENT)
+                        if (r != 0)
                                 return r;
                 }
                 if (j->current_location.realtime_set)
