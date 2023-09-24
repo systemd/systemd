@@ -12,6 +12,7 @@
 #include "gpt.h"
 #include "hexdecoct.h"
 #include "install-file.h"
+#include "mkdir.h"
 #include "parse-helpers.h"
 #include "parse-util.h"
 #include "process-util.h"
@@ -713,6 +714,8 @@ int transfer_vacuum(
                         if (r < 0 && r != -ENOENT)
                                 return log_error_errno(r, "Failed to make room, deleting '%s' failed: %m", oldest->path);
 
+                        (void) rmdir_parents(oldest->path, t->target.path);
+
                         break;
 
                 case RESOURCE_PARTITION: {
@@ -836,12 +839,16 @@ int transfer_acquire_instance(Transfer *t, Instance *i) {
 
         if (RESOURCE_IS_FILESYSTEM(t->target.type)) {
 
-                if (!filename_is_valid(formatted_pattern))
+                if (!path_is_valid_full(formatted_pattern, /* accept_dot_dot = */ false))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Formatted pattern is not suitable as file name, refusing: %s", formatted_pattern);
 
                 t->final_path = path_join(t->target.path, formatted_pattern);
                 if (!t->final_path)
                         return log_oom();
+
+                r = mkdir_parents(t->final_path, 0755);
+                if (r < 0)
+                        return log_error_errno(r, "Cannot create target directory: %m");
 
                 r = tempfn_random(t->final_path, "sysupdate", &t->temporary_path);
                 if (r < 0)
