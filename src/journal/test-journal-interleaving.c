@@ -20,6 +20,7 @@
 /* This program tests skipping around in a multi-file journal. */
 
 static bool arg_keep = false;
+static dual_timestamp previous_ts = {};
 
 _noreturn_ static void log_assert_errno(const char *text, int error, const char *file, unsigned line, const char *func) {
         log_internal(LOG_CRIT, error, file, line, func,
@@ -34,15 +35,23 @@ _noreturn_ static void log_assert_errno(const char *text, int error, const char 
                         log_assert_errno(#expr, -_r_, PROJECT_FILE, __LINE__, __func__); \
         } while (false)
 
-static ManagedJournalFile *test_open(const char *name) {
+static ManagedJournalFile *test_open_internal(const char *name, JournalFileFlags flags) {
         _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
         ManagedJournalFile *f;
 
         m = mmap_cache_new();
         assert_se(m != NULL);
 
-        assert_ret(managed_journal_file_open(-1, name, O_RDWR|O_CREAT, JOURNAL_COMPRESS, 0644, UINT64_MAX, NULL, m, NULL, NULL, &f));
+        assert_ret(managed_journal_file_open(-1, name, O_RDWR|O_CREAT, flags, 0644, UINT64_MAX, NULL, m, NULL, NULL, &f));
         return f;
+}
+
+static ManagedJournalFile *test_open(const char *name) {
+        return test_open_internal(name, JOURNAL_COMPRESS);
+}
+
+static ManagedJournalFile *test_open_strict(const char *name) {
+        return test_open_internal(name, JOURNAL_COMPRESS | JOURNAL_STRICT_ORDER);
 }
 
 static void test_close(ManagedJournalFile *f) {
@@ -52,7 +61,6 @@ static void test_close(ManagedJournalFile *f) {
 static void append_number(ManagedJournalFile *f, int n, const sd_id128_t *boot_id, uint64_t *seqnum) {
         _cleanup_free_ char *p = NULL, *q = NULL;
         dual_timestamp ts;
-        static dual_timestamp previous_ts = {};
         struct iovec iovec[2];
         size_t n_iov = 0;
 
@@ -75,6 +83,22 @@ static void append_number(ManagedJournalFile *f, int n, const sd_id128_t *boot_i
         }
 
         assert_ret(journal_file_append_entry(f->file, &ts, boot_id, iovec, n_iov, seqnum, NULL, NULL, NULL));
+}
+
+static void append_unreferenced_data(ManagedJournalFile *f, const sd_id128_t *boot_id) {
+        _cleanup_free_ char *q = NULL;
+        dual_timestamp ts;
+        struct iovec iovec;
+
+        assert(boot_id);
+
+        ts.monotonic = usec_sub_unsigned(previous_ts.monotonic, 10);
+        ts.realtime = usec_sub_unsigned(previous_ts.realtime, 10);
+
+        assert_se(q = strjoin("_BOOT_ID=", SD_ID128_TO_STRING(*boot_id)));
+        iovec = IOVEC_MAKE_STRING(q);
+
+        assert_se(journal_file_append_entry(f->file, &ts, boot_id, &iovec, 1, NULL, NULL, NULL, NULL) == -EREMCHG);
 }
 
 static void test_check_number(sd_journal *j, int n) {
@@ -165,6 +189,37 @@ static void setup_interleaved(void) {
         append_number(f3, 6, &id, NULL);
         append_number(f1, 7, &id, NULL);
         append_number(f2, 8, &id, NULL);
+        append_number(f3, 9, &id, NULL);
+        test_close(f1);
+        test_close(f2);
+        test_close(f3);
+}
+
+static void setup_unreferenced_data(void) {
+        ManagedJournalFile *f1, *f2, *f3;
+        sd_id128_t id;
+
+        /* For issue #29275. */
+
+        f1 = test_open_strict("one.journal");
+        f2 = test_open_strict("two.journal");
+        f3 = test_open_strict("three.journal");
+        assert_se(sd_id128_randomize(&id) >= 0);
+        log_info("boot_id: %s", SD_ID128_TO_STRING(id));
+        append_number(f1, 1, &id, NULL);
+        append_number(f1, 2, &id, NULL);
+        append_number(f1, 3, &id, NULL);
+        assert_se(sd_id128_randomize(&id) >= 0);
+        log_info("boot_id: %s", SD_ID128_TO_STRING(id));
+        append_unreferenced_data(f1, &id);
+        append_number(f2, 4, &id, NULL);
+        append_number(f2, 5, &id, NULL);
+        append_number(f2, 6, &id, NULL);
+        assert_se(sd_id128_randomize(&id) >= 0);
+        log_info("boot_id: %s", SD_ID128_TO_STRING(id));
+        append_unreferenced_data(f2, &id);
+        append_number(f3, 7, &id, NULL);
+        append_number(f3, 8, &id, NULL);
         append_number(f3, 9, &id, NULL);
         test_close(f1);
         test_close(f2);
@@ -388,6 +443,7 @@ static void test_boot_id_one(void (*setup)(void), size_t n_boots_expected) {
 
 TEST(boot_id) {
         test_boot_id_one(setup_sequential, 3);
+        test_boot_id_one(setup_unreferenced_data, 3);
 }
 
 static void test_sequence_numbers_one(void) {
