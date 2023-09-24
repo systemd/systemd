@@ -2315,14 +2315,14 @@ static int journal_file_append_entry_internal(
                  * journal files and start anew. */
 
                 if (ts->realtime < le64toh(f->header->tail_entry_realtime))
-                        return log_debug_errno(SYNTHETIC_ERRNO(EREMCHG),
+                        return log_error_errno(SYNTHETIC_ERRNO(EREMCHG),
                                                "Realtime timestamp %" PRIu64 " smaller than previous realtime "
                                                "timestamp %" PRIu64 ", refusing entry.",
                                                ts->realtime, le64toh(f->header->tail_entry_realtime));
 
                 if (sd_id128_equal(*boot_id, f->header->tail_entry_boot_id) &&
                     ts->monotonic < le64toh(f->header->tail_entry_monotonic))
-                        return log_debug_errno(
+                        return log_error_errno(
                                         SYNTHETIC_ERRNO(ENOTNAM),
                                         "Monotonic timestamp %" PRIu64
                                         " smaller than previous monotonic timestamp %" PRIu64
@@ -2341,7 +2341,7 @@ static int journal_file_append_entry_internal(
                         if (le64toh(f->header->n_entries) == 0)
                                 f->header->seqnum_id = *seqnum_id; /* Caller has one, and file so far has no entries, then copy the one from the caller */
                         else
-                                return log_debug_errno(SYNTHETIC_ERRNO(EILSEQ),
+                                return log_error_errno(SYNTHETIC_ERRNO(EILSEQ),
                                                        "Sequence number IDs don't match, refusing entry.");
                 }
         }
@@ -2517,11 +2517,11 @@ int journal_file_append_entry(
 
         if (ts) {
                 if (!VALID_REALTIME(ts->realtime))
-                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
                                                "Invalid realtime timestamp %" PRIu64 ", refusing entry.",
                                                ts->realtime);
                 if (!VALID_MONOTONIC(ts->monotonic))
-                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
                                                "Invalid monotomic timestamp %" PRIu64 ", refusing entry.",
                                                ts->monotonic);
         } else {
@@ -2531,7 +2531,7 @@ int journal_file_append_entry(
 
         if (boot_id) {
                 if (sd_id128_is_null(*boot_id))
-                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "Empty boot ID, refusing entry.");
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Empty boot ID, refusing entry.");
         } else {
                 r = sd_id128_get_boot(&_boot_id);
                 if (r < 0)
@@ -3190,8 +3190,10 @@ static int generic_array_bisect_plus_one(
         assert(f);
         assert(test_object);
 
-        if (n <= 0)
+        if (n <= 0) {
+                log_debug("%s: %s: n == 0", f->path, __func__);
                 return 0;
+        }
 
         /* This bisects the array in object 'first', but first checks an extra. */
         r = test_object(f, extra, needle);
@@ -3210,6 +3212,8 @@ static int generic_array_bisect_plus_one(
         }
 
         r = generic_array_bisect(f, first, n-1, needle, test_object, direction, ret_object, ret_offset, NULL);
+        if (r >= 0)
+                log_debug("%s: %s: generic_array_bisect(): %i", f->path, __func__, r);
         if (r != 0)
                 return r;
 
@@ -3392,6 +3396,8 @@ int journal_file_move_to_entry_by_monotonic(
         assert(f);
 
         r = find_data_object_by_boot_id(f, boot_id, &o, NULL);
+        if (r >= 0)
+                log_debug("%s: %s: find_data_object_by_boot_id(%s): %i", f->path, __func__, SD_ID128_TO_STRING(boot_id), r);
         if (r <= 0)
                 return r;
 
@@ -3464,8 +3470,10 @@ int journal_file_next_entry(
         /* FIXME: fix return value assignment. */
 
         n = le64toh(READ_NOW(f->header->n_entries));
-        if (n <= 0)
+        if (n <= 0) {
+                log_debug("%s: %s: n_entries == 0", f->path, __func__);
                 return 0;
+        }
 
         /* When the input offset 'p' is zero, return the first (or last on DIRECTION_UP) entry. */
         if (p == 0)

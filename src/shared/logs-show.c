@@ -828,7 +828,7 @@ static int output_export(
                 "__MONOTONIC_TIMESTAMP=" USEC_FMT "\n"
                 "__SEQNUM=%" PRIu64 "\n"
                 "__SEQNUM_ID=%s\n"
-                "_BOOT_ID=%s\n",
+                "_BOOT_ID(from header)=%s\n",
                 cursor,
                 realtime,
                 monotonic,
@@ -841,8 +841,10 @@ static int output_export(
                 const char *c;
 
                 /* We already printed the boot id from the data in the header, hence let's suppress it here */
+                /*
                 if (memory_startswith(data, length, "_BOOT_ID="))
                         continue;
+                */
 
                 c = memchr(data, '=', length);
                 if (!c)
@@ -1743,6 +1745,7 @@ int add_match_boot_id(sd_journal *j, sd_id128_t id) {
         assert(!sd_id128_is_null(id));
 
         sd_id128_to_string(id, stpcpy(match, "_BOOT_ID="));
+        log_debug("%s(): match=%s", __func__, match);
         return sd_journal_add_match(j, match, strlen(match));
 }
 
@@ -1835,6 +1838,7 @@ static int discover_next_boot(
                 bool advance_older,
                 BootId *ret) {
 
+        usec_t monotonic;
         BootId boot;
         int r;
 
@@ -1861,7 +1865,7 @@ static int discover_next_boot(
                         return 0; /* End of journal, yay. */
                 }
 
-                r = sd_journal_get_monotonic_usec(j, NULL, &boot.id);
+                r = sd_journal_get_monotonic_usec(j, &monotonic, &boot.id);
                 if (r < 0)
                         return r;
 
@@ -1893,6 +1897,8 @@ static int discover_next_boot(
 
                 /* Ouch, the entry has _BOOT_ID= field with an unmatching boot ID. Ignoring the entry. */
         }
+
+        log_debug("%s(): found new boot: ID=%s, monotonic=%"PRIu64, __func__, SD_ID128_TO_STRING(boot.id), monotonic);
 
         r = sd_journal_get_realtime_usec(j, &boot.first_usec);
         if (r < 0)
@@ -1932,6 +1938,12 @@ static int discover_next_boot(
                 /* Ouch, the entry is broken. The boot_id in the entry object does not match with the
                  * _BOOT_ID= field data. Ignoring the entry, and move to the next entry. */
         }
+
+        sd_id128_t id;
+        r = sd_journal_get_monotonic_usec(j, &monotonic, &id);
+        if (r < 0)
+                return r;
+        log_debug("%s(): found the last monotonic for %s: boot: ID=%s, monotonic=%"PRIu64, __func__, SD_ID128_TO_STRING(boot.id), SD_ID128_TO_STRING(id), monotonic);
 
         r = sd_journal_get_realtime_usec(j, &boot.last_usec);
         if (r < 0)

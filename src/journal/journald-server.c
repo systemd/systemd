@@ -691,7 +691,7 @@ void server_rotate(Server *s) {
         void *k;
         int r;
 
-        log_debug("Rotating...");
+        log_error("Rotating...");
 
         /* First, rotate the system journal (either in its runtime flavour or in its runtime flavour) */
         (void) server_do_rotate(s, &s->runtime_journal, "runtime", /* seal= */ false, /* uid= */ 0);
