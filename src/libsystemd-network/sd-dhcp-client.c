@@ -1591,9 +1591,14 @@ static int client_parse_message(
         case DHCP_STATE_REQUESTING:
         case DHCP_STATE_RENEWING:
         case DHCP_STATE_REBINDING:
-                if (r == DHCP_NAK)
+                if (r == DHCP_NAK) {
+                        if (client->lease && client->lease->server_address == lease->server_address)
+                                    return log_dhcp_client_errno(client, SYNTHETIC_ERRNO(ENOMSG),
+                                                                 "NAK from unexpected server, ignoring: %s",
+                                                                 strna(error_message));
                         return log_dhcp_client_errno(client, SYNTHETIC_ERRNO(EADDRNOTAVAIL),
                                                      "NAK: %s", strna(error_message));
+                }
                 if (r != DHCP_ACK)
                         return log_dhcp_client_errno(client, SYNTHETIC_ERRNO(ENOMSG),
                                                      "received message was not an ACK, ignoring.");
