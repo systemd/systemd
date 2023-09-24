@@ -69,6 +69,7 @@ static int run(int argc, char **argv) {
         uint8_t desc[HID_MAX_DESCRIPTOR_SIZE];
         ssize_t desc_len;
         int r;
+        ssize_t count = 0;
 
         log_set_target(LOG_TARGET_AUTO);
         udev_parse_config();
@@ -93,6 +94,7 @@ static int run(int argc, char **argv) {
         if (r < 0)
                 return log_device_error_errno(device, r, "Failed to get parent HID device: %m");
 
+repeat:
         r = sd_device_get_syspath(hid_device, &sys_path);
         if (r < 0)
                 return log_device_error_errno(hid_device, r, "Failed to get syspath for HID device: %m");
@@ -102,9 +104,18 @@ static int run(int argc, char **argv) {
                 return log_oom();
 
         fd = open(desc_path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC | O_NOCTTY);
-        if (fd < 0)
+        if (fd < 0) {
+                if (errno == ENOENT && count < 1) {
+                        count++;
+                        hid_device = sd_device_unref(hid_device);
+                        hid_device = sd_device_ref(device);
+                        if (hid_device == NULL)
+                                return log_device_error_errno(device, ENOMEM, "Failed to get HID device: %m");
+                        goto repeat;
+                }
                 return log_device_error_errno(hid_device, errno,
                                               "Failed to open report descriptor at '%s': %m", desc_path);
+        }
 
         desc_len = read(fd, desc, sizeof(desc));
         if (desc_len < 0)
