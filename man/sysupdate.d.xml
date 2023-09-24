@@ -539,6 +539,11 @@
         wildcard, so that a version identifier may be extracted from the filename. All other wildcards are
         optional.</para>
 
+        <para>If the source type is <constant>regular-file</constant> or <constant>directory</constant>, the
+        pattern may contain slash characters. In this case it will match the file or directory in
+        corresponding subdirectory. For example <literal>MatchPattern=foo_@v/bar.efi</literal> will match
+        <literal>bar.efi</literal> in directory <literal>foo_1</literal>. </para>
+
         <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
     </variablelist>
@@ -618,6 +623,12 @@
         <para>This pattern is both used for matching existing installed versions and for determining the name
         of new versions to install. If multiple patterns are specified, the first specified is used for
         naming newly installed versions.</para>
+
+        <para>If the target type is <constant>regular-file</constant> or <constant>directory</constant>, the
+        pattern may contain slash characters. In this case it will match the file or directory in
+        corresponding subdirectory. For example <literal>MatchPattern=foo_@v/bar.efi</literal> will match
+        <literal>bar.efi</literal> in directory <literal>foo_1</literal>. Directories in the path will be
+        created when file is installed. Empty directories will be removed when file is removed.</para>
 
         <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
