@@ -23,6 +23,7 @@ typedef enum PatternElementType {
         PATTERN_READ_ONLY,
         PATTERN_GROWFS,
         PATTERN_SHA256SUM,
+        PATTERN_SLASH,
         _PATTERN_ELEMENT_TYPE_MAX,
         _PATTERN_ELEMENT_TYPE_INVALID = -EINVAL,
 } PatternElementType;
@@ -82,7 +83,7 @@ static bool valid_char(char x) {
         if ((unsigned) x < ' ' || x >= 127)
                 return false;
 
-        return !IN_SET(x, '$', '*', '?', '[', ']', '!', '\\', '/', '|');
+        return !IN_SET(x, '$', '*', '?', '[', ']', '!', '\\', '|');
 }
 
 static int pattern_split(
@@ -90,7 +91,7 @@ static int pattern_split(
                 PatternElement **ret) {
 
         _cleanup_(pattern_element_free_allp) PatternElement *first = NULL;
-        bool at = false, last_literal = true;
+        bool at = false, last_literal = true, last_slash = false;
         PatternElement *last = NULL;
         uint64_t mask_found = 0;
         size_t l, k = 0;
@@ -123,7 +124,7 @@ static int pattern_split(
 
                         /* We insist that two pattern field markers are separated by some literal string that
                          * we can use to separate the fields when parsing. */
-                        if (!last_literal)
+                        if ((!last_literal) && (!last_slash))
                                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Found two pattern field markers without separating literal.");
 
                         if (ret) {
@@ -139,8 +140,26 @@ static int pattern_split(
                         }
 
                         mask_found |= bit;
-                        last_literal = at = false;
+                        last_slash = last_literal = at = false;
                         continue;
+                }
+
+                if (*e == '/') {
+                        if (ret) {
+                                PatternElement *z;
+
+                                z = malloc(offsetof(PatternElement, literal));
+                                if (!z)
+                                        return -ENOMEM;
+
+                                z->type = PATTERN_SLASH;
+                                LIST_INSERT_AFTER(elements, first, last, z);
+                                last = z;
+                        }
+
+                        last_literal = false;
+                        last_slash = true;
+                        continue ;
                 }
 
                 if (!valid_char(*e))
@@ -150,6 +169,7 @@ static int pattern_split(
                                         (unsigned) *e);
 
                 last_literal = true;
+                last_slash = false;
 
                 if (!ret)
                         continue;
@@ -202,6 +222,17 @@ int pattern_match(const char *pattern, const char *s, InstanceMetadata *ret) {
         LIST_FOREACH(elements, e, elements) {
                 _cleanup_free_ char *t = NULL;
                 const char *n;
+
+                if (e->type == PATTERN_SLASH) {
+                        if (*p == '/') {
+                                ++p;
+                                continue;
+                        } else if (*p == '\0') {
+                                goto retry;
+                        } else {
+                                goto nope;
+                        }
+                }
 
                 if (e->type == PATTERN_LITERAL) {
                         const char *k;
@@ -399,13 +430,19 @@ int pattern_match(const char *pattern, const char *s, InstanceMetadata *ret) {
                 found = (InstanceMetadata) INSTANCE_METADATA_NULL;
         }
 
-        return true;
+        return 1;
 
 nope:
         if (ret)
                 *ret = (InstanceMetadata) INSTANCE_METADATA_NULL;
 
         return false;
+
+retry:
+        if (ret)
+                *ret = (InstanceMetadata) INSTANCE_METADATA_NULL;
+
+        return 2;
 }
 
 int pattern_match_many(char **patterns, const char *s, InstanceMetadata *ret) {
@@ -422,14 +459,14 @@ int pattern_match_many(char **patterns, const char *s, InstanceMetadata *ret) {
                                 found = (InstanceMetadata) INSTANCE_METADATA_NULL;
                         }
 
-                        return true;
+                        return r;
                 }
         }
 
         if (ret)
                 *ret = (InstanceMetadata) INSTANCE_METADATA_NULL;
 
-        return false;
+        return 0;
 }
 
 int pattern_valid(const char *pattern) {
@@ -464,6 +501,12 @@ int pattern_format(
         LIST_FOREACH(elements, e, elements) {
 
                 switch (e->type) {
+
+                case PATTERN_SLASH:
+                        if (!strextend(&j, "/"))
+                                return -ENOMEM;
+
+                        break;
 
                 case PATTERN_LITERAL:
                         if (!strextend(&j, e->literal))
