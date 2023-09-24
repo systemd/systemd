@@ -16,5 +16,11 @@ executables += [
                         'hibernate-resume.c',
                         'hibernate-resume-config.c',
                 ),
+                'include_directories' : includes +
+                                        sleep_includes,
+                'link_with' : [
+                        libshared,
+                        libsleep_core,
+                ],
         },
 ]
