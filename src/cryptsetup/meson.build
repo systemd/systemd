@@ -16,8 +16,9 @@ if conf.get('HAVE_TPM2') == 1
 endif
 
 executables += [
-        libexec_template + {
+        executable_template + {
                 'name' : 'systemd-cryptsetup',
+                'public' : true,
                 'conditions' : ['HAVE_LIBCRYPTSETUP'],
                 'sources' : systemd_cryptsetup_sources,
                 'dependencies' : [
@@ -32,3 +33,9 @@ executables += [
                 'sources' : files('cryptsetup-generator.c'),
         },
 ]
+
+if conf.get('HAVE_LIBCRYPTSETUP') == 1
+        meson.add_install_script(sh, '-c',
+                                 ln_s.format(bindir / 'systemd-cryptsetup',
+                                             libexecdir / 'systemd-cryptsetup'))
+endif
