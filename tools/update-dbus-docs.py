@@ -140,21 +140,14 @@ def print_interface(iface, *, prefix, file, print_boring, only_interface, declar
 
         print(f'''{prefix}}};''', file=file)
 
-def document_has_elem_with_text(document, elem, item_repr):
-    predicate = f".//{elem}[. = '{item_repr}']"
-
-    # Ignore mentions in the History section
-    history = document.find(".//refsect1[title = 'History']")
-    history_mentions = history.findall(predicate) if history else []
-
-    for loc in document.findall(predicate):
-        if loc in history_mentions:
-            continue
-        return True
-    return False
-
-def check_documented(document, declarations, stats):
+def check_documented(document, declarations, stats, interface, missing_version):
     missing = []
+
+    sections = document.findall("refsect1")
+    history_section = document.find("refsect1[title = 'History']")
+    if history_section is not None:
+        sections.remove(history_section)
+
     for klass, items in declarations.items():
         stats['total'] += len(items)
 
@@ -171,10 +164,14 @@ def check_documented(document, declarations, stats):
             else:
                 assert False, (klass, item)
 
-            if not document_has_elem_with_text(document, elem, item_repr):
+            predicate = f".//{elem}[. = '{item_repr}']"
+            if not any(section.find(predicate) is not None for section in sections):
                 if arguments.print_errors:
                     print(f'{klass} {item} is not documented :(')
                 missing.append((klass, item))
+
+            if history_section is None or history_section.find(predicate) is None:
+                missing_version.append(f"{interface}.{item_repr}")
 
     stats['missing'] += len(missing)
 
@@ -202,7 +199,7 @@ def xml_to_text(destination, xml, *, only_interface=None):
 
     return file.getvalue(), declarations, interfaces
 
-def subst_output(document, programlisting, stats):
+def subst_output(document, programlisting, stats, missing_version):
     executable = programlisting.get('executable', None)
     if executable is None:
         # Not our thing
@@ -229,7 +226,7 @@ def subst_output(document, programlisting, stats):
     programlisting.text = '\n' + new_text + '    '
 
     if declarations:
-        missing = check_documented(document, declarations, stats)
+        missing = check_documented(document, declarations, stats, interface, missing_version)
         parent = programlisting.getparent()
 
         # delete old comments
@@ -282,7 +279,7 @@ def subst_output(document, programlisting, stats):
             comment.tail = programlisting.tail
             parent.insert(parent.index(programlisting) + 1, comment)
 
-def process(page):
+def process(page, missing_version):
     src = open(page).read()
     xml = etree.fromstring(src, parser=xml_parser())
 
@@ -294,7 +291,7 @@ def process(page):
 
     pls = xml.findall('.//programlisting')
     for pl in pls:
-        subst_output(xml, pl, stats)
+        subst_output(xml, pl, stats, missing_version)
 
     out_text = etree.tostring(xml, encoding='unicode')
     # massage format to avoid some lxml whitespace handling idiosyncrasies
@@ -332,7 +329,17 @@ def main():
     if not os.path.exists(f'{arguments.build_dir}/systemd'):
         sys.exit(f"{arguments.build_dir}/systemd doesn't exist. Use --build-dir=.")
 
-    stats = {page.split('/')[-1] : process(page) for page in arguments.pages}
+    missing_version = []
+    stats = {page.split('/')[-1] : process(page, missing_version) for page in arguments.pages}
+
+    ignore_list = open(os.path.join(os.path.dirname(__file__), 'dbus_ignorelist')).read().split()
+    missing_version = [x for x in missing_version if x not in ignore_list]
+
+    for missing in missing_version:
+        print(f"{RED}Missing version information for {missing}{RESET}")
+
+    if missing_version:
+        sys.exit(1)
 
     # Let's print all statistics at the end
     mlen = max(len(page) for page in stats)
