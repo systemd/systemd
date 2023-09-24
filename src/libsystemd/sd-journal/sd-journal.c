@@ -560,6 +560,11 @@ static int next_for_match(
                         hash = m->hash;
 
                 r = journal_file_find_data_object_with_hash(f, m->data, m->size, hash, &d, NULL);
+                if (r >= 0) {
+                        _cleanup_free_ char *s = NULL;
+                        s = memdup_suffix0(m->data, m->size);
+                        log_debug("%s: %s: journal_file_find_data_object_with_hash(data: %s, hash: %"PRIx64"): %i", f->path, __func__, strna(s), hash, r);
+                }
                 if (r <= 0)
                         return r;
 
@@ -654,6 +659,11 @@ static int find_location_for_match(
                         hash = m->hash;
 
                 r = journal_file_find_data_object_with_hash(f, m->data, m->size, hash, &d, &dp);
+                if (r >= 0) {
+                        _cleanup_free_ char *s = NULL;
+                        s = memdup_suffix0(m->data, m->size);
+                        log_debug("%s: %s: journal_file_find_data_object_with_hash(data: %s, hash: %"PRIx64"): %i", f->path, __func__, strna(s), hash, r);
+                }
                 if (r <= 0)
                         return r;
 
@@ -754,23 +764,35 @@ static int find_location_with_matches(
         if (!j->level0) {
                 /* No matches is simple */
 
-                if (j->current_location.type == LOCATION_HEAD)
+                if (j->current_location.type == LOCATION_HEAD) {
+                        log_debug("%s: %s: head", f->path, __func__);
                         return direction == DIRECTION_DOWN ? journal_file_next_entry(f, 0, DIRECTION_DOWN, ret, offset) : 0;
-                if (j->current_location.type == LOCATION_TAIL)
+                }
+                if (j->current_location.type == LOCATION_TAIL) {
+                        log_debug("%s: %s: tail", f->path, __func__);
                         return direction == DIRECTION_UP ? journal_file_next_entry(f, 0, DIRECTION_UP, ret, offset) : 0;
-                if (j->current_location.seqnum_set && sd_id128_equal(j->current_location.seqnum_id, f->header->seqnum_id))
+                }
+                if (j->current_location.seqnum_set && sd_id128_equal(j->current_location.seqnum_id, f->header->seqnum_id)) {
+                        log_debug("%s: %s: seqnum", f->path, __func__);
                         return journal_file_move_to_entry_by_seqnum(f, j->current_location.seqnum, direction, ret, offset);
+                }
                 if (j->current_location.monotonic_set) {
+                        log_debug("%s: %s: monotonic", f->path, __func__);
                         r = journal_file_move_to_entry_by_monotonic(f, j->current_location.boot_id, j->current_location.monotonic, direction, ret, offset);
                         if (r != 0)
                                 return r;
                 }
-                if (j->current_location.realtime_set)
+                if (j->current_location.realtime_set) {
+                        log_debug("%s: %s: realtime", f->path, __func__);
                         return journal_file_move_to_entry_by_realtime(f, j->current_location.realtime, direction, ret, offset);
+                }
 
+                log_debug("%s: %s: next", f->path, __func__);
                 return journal_file_next_entry(f, 0, direction, ret, offset);
-        } else
+        } else {
+                log_debug("%s: %s: match", f->path, __func__);
                 return find_location_for_match(j, j->level0, f, direction, ret, offset);
+        }
 }
 
 static int next_with_matches(
@@ -787,8 +809,12 @@ static int next_with_matches(
 
         /* No matches is easy. We simple advance the file
          * pointer by one. */
-        if (!j->level0)
-                return journal_file_next_entry(f, f->current_offset, direction, ret, offset);
+        if (!j->level0) {
+                int r = journal_file_next_entry(f, f->current_offset, direction, ret, offset);
+                if (r >= 0)
+                        log_debug("%s: %s: journal_file_next_entry(): %i", f->path, __func__, r);
+                return r;
+        }
 
         /* If we have a match then we look for the next matching entry
          * with an offset at least one step larger */
@@ -825,6 +851,8 @@ static int next_beyond_location(sd_journal *j, JournalFile *f, direction_t direc
                  * candidate entry. */
                 if (f->location_type != LOCATION_SEEK) {
                         r = next_with_matches(j, f, direction, &c, &cp);
+                        if (r >= 0)
+                                log_debug("%s: %s: next_with_matches(1): %i", f->path, __func__, r);
                         if (r <= 0)
                                 return r;
 
@@ -834,6 +862,8 @@ static int next_beyond_location(sd_journal *j, JournalFile *f, direction_t direc
                 f->last_direction = direction;
 
                 r = find_location_with_matches(j, f, direction, &c, &cp);
+                if (r >= 0)
+                        log_debug("%s: %s: find_location_with_matches(): %i", f->path, __func__, r);
                 if (r <= 0)
                         return r;
 
@@ -849,10 +879,16 @@ static int next_beyond_location(sd_journal *j, JournalFile *f, direction_t direc
         for (;;) {
                 bool found;
 
+                log_debug("%s: %s: saved_location(offset=%"PRIu64", seqnum=%"PRIu64", monotonic=%"PRIu64", boot_id=%s), current_location(seqnum=%"PRIu64", monotonic=%"PRIu64", boot_id=%s)",
+                          f->path, __func__,
+                          f->current_offset, f->current_seqnum, f->current_monotonic, SD_ID128_TO_STRING(f->current_boot_id),
+                          j->current_location.seqnum, j->current_location.monotonic, SD_ID128_TO_STRING(j->current_location.boot_id));
+
                 if (j->current_location.type == LOCATION_DISCRETE) {
                         int k;
 
                         k = compare_with_location(j, f, &j->current_location, j->current_file);
+                        log_debug("%s: %s: compare_with_location(): %i", f->path, __func__, k);
 
                         found = direction == DIRECTION_DOWN ? k > 0 : k < 0;
                 } else
@@ -862,6 +898,8 @@ static int next_beyond_location(sd_journal *j, JournalFile *f, direction_t direc
                         return 1;
 
                 r = next_with_matches(j, f, direction, &c, &cp);
+                if (r >= 0)
+                        log_debug("%s: %s: next_with_matches(2): %i", f->path, __func__, r);
                 if (r <= 0)
                         return r;
 
