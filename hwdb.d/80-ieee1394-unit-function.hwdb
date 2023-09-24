@@ -629,6 +629,16 @@ ieee1394:ven0000022Emo00800007sp0000A02Dver00010001
  IEEE1394_UNIT_FUNCTION_AUDIO=1
  IEEE1394_UNIT_FUNCTION_VIDEO=0
 
+# Please take an extra care since the vendor ID (0x0030E0) is for Oxford Semiconductor Ltd. and the
+# model ID (0x00f970) is commonly in the other OXFW970 models.
+ieee1394:node:ven0x0030e0mo0x00f970units0x00a02d:0x010001
+ieee1394:ven000030E0mo0000F970sp0000A02Dver00010001
+ ID_VENDOR_FROM_DATABASE=Miglia Technology
+ ID_MODEL_FROM_DATABASE=Harmony Audio
+ IEEE1394_UNIT_FUNCTION_MIDI=0
+ IEEE1394_UNIT_FUNCTION_AUDIO=1
+ IEEE1394_UNIT_FUNCTION_VIDEO=0
+
 #
 # TC Applied Technologies. Digital Interface Communication Engine (DICE).
 #
