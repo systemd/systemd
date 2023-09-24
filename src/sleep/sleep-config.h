@@ -24,8 +24,9 @@ SleepOperation sleep_operation_from_string(const char *s) _pure_;
 
 typedef struct SleepConfig {
         bool allow[_SLEEP_OPERATION_MAX];
-        char **modes[_SLEEP_OPERATION_CONFIG_MAX];
+
         char **states[_SLEEP_OPERATION_CONFIG_MAX];
+        char **modes[_SLEEP_OPERATION_CONFIG_MAX]; /* Power mode after writing hibernation image */
 
         usec_t hibernate_delay_usec;
         usec_t suspend_estimation_usec;
