@@ -29,6 +29,11 @@ static const char16_t * const log_level_table[] = {
 };
 
 void freeze(void) {
+#if QEMU_DEBUG_EXIT && (defined(__i386__) || defined(__x86_64__))
+        BS->Stall(5 * 1000 * 1000);
+        outb(0x501, 0x1);
+#endif
+
         for (;;)
                 BS->Stall(60 * 1000 * 1000);
 }

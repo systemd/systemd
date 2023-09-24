@@ -442,6 +442,8 @@ option('dbus', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'd
 
 option('bootloader', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'sd-boot/stub and userspace tools')
+option('qemu-debug-exit', type : 'feature',
+       description : 'exit qemu if fatal error occurs in bootloader (developer mode only)')
 option('sbat-distro', type : 'string', value : 'auto',
        description : 'SBAT distribution ID, e.g. fedora, or auto for autodetection')
 option('sbat-distro-generation', type : 'integer', value : 1,
