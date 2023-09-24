@@ -116,6 +116,7 @@ static void linux_efi_handover(EFI_HANDLE parent, uintptr_t kernel, BootParams *
         /* Note in EFI mixed mode this now points to the correct 32-bit handover entry point, allowing a 64-bit
          * kernel to be booted from a 32-bit sd-stub. */
 
+        log_info("Starting kernel using EFI handover protocol.");
         handover_f handover = (handover_f) kernel;
         handover(parent, ST, params);
 }
@@ -218,7 +219,6 @@ EFI_STATUS linux_exec_efi_handover(
         boot_params->hdr.ramdisk_size = initrd_length;
         boot_params->ext_ramdisk_size = ((uint64_t) initrd_length) >> 32;
 
-        log_wait();
         linux_efi_handover(parent, (uintptr_t) linux_buffer, boot_params);
         return EFI_LOAD_ERROR;
 }

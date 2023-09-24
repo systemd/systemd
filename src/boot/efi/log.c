@@ -1,13 +1,39 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "device-path-util.h"
 #include "log.h"
 #include "proto/rng.h"
 #include "proto/simple-text-io.h"
 #include "util.h"
+#include "vmm.h"
 
-static unsigned log_count = 0;
+LogLevel max_log_level = LOG_WARNING;
+static const char *log_identity;
+
+static const int32_t log_colors[] = {
+        [LOG_FATAL]   = EFI_TEXT_ATTR(EFI_LIGHTRED, EFI_BLACK),
+        [LOG_ERROR]   = EFI_TEXT_ATTR(EFI_LIGHTRED, EFI_BLACK),
+        [LOG_WARNING] = EFI_TEXT_ATTR(EFI_YELLOW, EFI_BLACK),
+        [LOG_INFO]    = EFI_TEXT_ATTR(EFI_LIGHTGRAY, EFI_BLACK),
+        [LOG_DEBUG]   = EFI_TEXT_ATTR(EFI_BROWN, EFI_BLACK),
+        [LOG_TRACE]   = EFI_TEXT_ATTR(EFI_BROWN, EFI_BLACK),
+};
+
+static const char16_t * const log_level_table[] = {
+        [LOG_FATAL]   = u"fatal",
+        [LOG_ERROR]   = u"error",
+        [LOG_WARNING] = u"warning",
+        [LOG_INFO]    = u"info",
+        [LOG_DEBUG]   = u"debug",
+        [LOG_TRACE]   = u"trace",
+};
 
 void freeze(void) {
+#if QEMU_DEBUG_EXIT && (defined(__i386__) || defined(__x86_64__))
+        BS->Stall(5 * 1000 * 1000);
+        outb(0x501, 0x1);
+#endif
+
         for (;;)
                 BS->Stall(60 * 1000 * 1000);
 }
@@ -15,7 +41,7 @@ void freeze(void) {
 _noreturn_ static void panic(const char16_t *message) {
         if (ST->ConOut->Mode->CursorColumn > 0)
                 ST->ConOut->OutputString(ST->ConOut, (char16_t *) u"\r\n");
-        ST->ConOut->SetAttribute(ST->ConOut, EFI_TEXT_ATTR(EFI_LIGHTRED, EFI_BLACK));
+        ST->ConOut->SetAttribute(ST->ConOut, log_colors[LOG_FATAL]);
         ST->ConOut->OutputString(ST->ConOut, (char16_t *) message);
         freeze();
 }
@@ -28,28 +54,91 @@ void efi_assert(const char *expr, const char *file, unsigned line, const char *f
                 panic(u"systemd-boot: Nested assertion failure, halting.");
 
         asserting = true;
-        log_error("systemd-boot: Assertion '%s' failed at %s:%u@%s, halting.", expr, file, line, function);
+        log_internal(LOG_FATAL,
+                     EFI_INVALID_PARAMETER,
+                     file,
+                     line,
+                     function,
+                     "Assertion '%s' failed, halting.",
+                     expr);
         freeze();
 }
 
-EFI_STATUS log_internal(EFI_STATUS status, const char *format, ...) {
+#if defined(__i386__) || defined(__x86_64__)
+enum {
+        DEBUGCON_PORT = 0x402,
+        DEBUGCON_MAGIC = 0xe9,
+};
+
+static bool debugcon_check(void) {
+        return in_hypervisor() && inb(DEBUGCON_PORT) == DEBUGCON_MAGIC;
+}
+
+static void debugcon_out(const char16_t *msg) {
+        assert(msg);
+
+        for (; *msg != '\0'; msg++)
+                outb(DEBUGCON_PORT, *msg >= CHAR_MAX ? '?' : *msg);
+}
+
+#else
+static bool debugcon_check(void) {
+        return false;
+}
+static void debugcon_out(const char16_t *msg) {
+}
+#endif
+
+EFI_STATUS log_internal(
+                LogLevel level,
+                EFI_STATUS status,
+                const char *file,
+                unsigned line,
+                const char *function,
+                const char *format,
+                ...) {
+
         assert(format);
 
-        int32_t attr = ST->ConOut->Mode->Attribute;
-
-        if (ST->ConOut->Mode->CursorColumn > 0)
-                ST->ConOut->OutputString(ST->ConOut, (char16_t *) u"\r\n");
-        ST->ConOut->SetAttribute(ST->ConOut, EFI_TEXT_ATTR(EFI_LIGHTRED, EFI_BLACK));
+        EFI_TIME time = {};
+        (void) RT->GetTime(&time, NULL);
+        _cleanup_free_ char16_t *prefix = xasprintf_status(
+                        status,
+                        "[%s %4u-%02u-%02u %02u:%02u:%02u %s:%u] ",
+                        log_identity,
+                        time.Year,
+                        time.Month,
+                        time.Day,
+                        time.Hour,
+                        time.Minute,
+                        time.Second,
+                        file,
+                        line);
 
         va_list ap;
         va_start(ap, format);
-        vprintf_status(status, format, ap);
+        _cleanup_free_ char16_t *msg = xvasprintf_status(status, format, ap);
         va_end(ap);
 
+        /* Always log to debugcon if available. */
+        if (FLAGS_SET(max_log_level, LOG_DEBUGCON_FLAG)) {
+                debugcon_out(prefix);
+                debugcon_out(msg);
+                debugcon_out(u"\n");
+
+                if (level > (max_log_level & ~LOG_DEBUGCON_FLAG))
+                        return status;
+        }
+
+        int32_t attr = ST->ConOut->Mode->Attribute;
+        if (ST->ConOut->Mode->CursorColumn > 0)
+                ST->ConOut->OutputString(ST->ConOut, (char16_t *) u"\r\n");
+        ST->ConOut->SetAttribute(ST->ConOut, log_colors[level]);
+        ST->ConOut->OutputString(ST->ConOut, prefix);
+        ST->ConOut->OutputString(ST->ConOut, msg);
         ST->ConOut->OutputString(ST->ConOut, (char16_t *) u"\r\n");
         ST->ConOut->SetAttribute(ST->ConOut, attr);
 
-        log_count++;
         return status;
 }
 
@@ -58,16 +147,42 @@ void log_hexdump(const char16_t *prefix, const void *data, size_t size) {
         /* Debugging helper — please keep this around, even if not used */
 
         _cleanup_free_ char16_t *hex = hexdump(data, size);
-        log_internal(EFI_SUCCESS, "%ls[%zu]: %ls", prefix, size, hex);
+        log_debug("%ls[%zu]: %ls", prefix, size, hex);
+}
+
+void log_device_path(const char16_t *prefix, const EFI_DEVICE_PATH *dp) {
+        _cleanup_free_ char16_t *str = NULL;
+        EFI_STATUS err;
+
+        err = device_path_to_str(dp, &str);
+        if (err == EFI_SUCCESS)
+                log_debug("%ls: %ls", prefix, str);
+        else
+                log_error_status(err, "%ls: %m", prefix);
 }
 #endif
 
-void log_wait(void) {
-        if (log_count == 0)
-                return;
+static void set_log_level(const char16_t *level) {
+        for (unsigned i = 0; i < ELEMENTSOF(log_level_table); i++) 
+                if (strcaseeq16(level, log_level_table[i])) {
+                        max_log_level = i;
+                        return;
+                }
+}
 
-        BS->Stall(MIN(4u, log_count) * 2500 * 1000);
-        log_count = 0;
+void log_init(const char *identity) {
+        log_identity = identity;
+
+        /* By using the UEFI shell environment variable namespace one can easily set the logging
+         * level from the EFI shell with "set SYSTEMD_BOOT_LOG_LEVEL debug", which is much nicer
+         * than having to write out a GUID with "setvar". */
+
+        _cleanup_free_ char16_t *level = NULL;
+        if (efivar_get(MAKE_GUID_PTR(EFI_SHELL_VARIABLE), u"SYSTEMD_BOOT_LOG_LEVEL", &level) == EFI_SUCCESS)
+                set_log_level(level);
+
+        if (debugcon_check())
+                max_log_level |= LOG_DEBUGCON_FLAG;
 }
 
 _used_ intptr_t __stack_chk_guard = (intptr_t) 0x70f6967de78acae3;

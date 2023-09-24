@@ -52,6 +52,8 @@ endif
 
 efi_conf = configuration_data()
 efi_conf.set10('ENABLE_TPM', get_option('tpm'))
+efi_conf.set10('QEMU_DEBUG_EXIT',
+        get_option('qemu-debug-exit').require(conf.get('BUILD_MODE_DEVELOPER') == 1).allowed())
 
 foreach ctype : ['color-normal', 'color-entry', 'color-highlight', 'color-edit']
         c = get_option('efi-' + ctype).split(',')

@@ -530,6 +530,30 @@
     url="https://systemd.io/BOOT_LOADER_INTERFACE">Boot Loader Interface</ulink>.</para>
   </refsect1>
 
+  <refsect1 id='uefi-shell-variables'>
+    <title>UEFI Shell Variables</title>
+
+    <para>The following <emphasis>UEFI Shell</emphasis> variables (vendor UUID
+    <literal>158def5a-f656-419c-b027-7a3192c079d2</literal>) are defined. They may be set using
+    <citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>7</manvolnum></citerefentry>, or
+    from within a running UEFI Shell by using <command>set VARIABLE VALUE</command> for setting and
+    <command>set -d VARIABLE</command> for deleting.</para>
+
+    <variablelist class='efi-variables'>
+      <varlistentry>
+        <term><varname>SYSTEMD_BOOT_LOG_LEVEL</varname></term>
+        <listitem>
+          <para>Logging level to use. One of <literal>fatal</literal>, <literal>error</literal>,
+          <literal>warning</literal> (default), <literal>info</literal>, <literal>debug</literal> or
+          <literal>trace</literal>.</para>
+
+          <para>Note that all log messages will be sent to a QEMU debugcon on port 0x402 if run
+          under a VM regardless of the current log level.</para>
+      </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
   <refsect1>
     <title>Boot Counting</title>
 

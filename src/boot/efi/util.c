@@ -87,7 +87,6 @@ EFI_STATUS efivar_set_uint64_le(const EFI_GUID *vendor, const char16_t *name, ui
 EFI_STATUS efivar_get(const EFI_GUID *vendor, const char16_t *name, char16_t **ret) {
         _cleanup_free_ char16_t *buf = NULL;
         EFI_STATUS err;
-        char16_t *val;
         size_t size;
 
         assert(vendor);
@@ -110,13 +109,7 @@ EFI_STATUS efivar_get(const EFI_GUID *vendor, const char16_t *name, char16_t **r
                 return EFI_SUCCESS;
         }
 
-        /* Make sure a terminating NUL is available at the end */
-        val = xmalloc(size + sizeof(char16_t));
-
-        memcpy(val, buf, size);
-        val[size / sizeof(char16_t) - 1] = 0; /* NUL terminate */
-
-        *ret = val;
+        *ret = xstrndup16(buf, size / sizeof(char16_t));
         return EFI_SUCCESS;
 }
 
@@ -390,7 +383,6 @@ void print_at(size_t x, size_t y, size_t attr, const char16_t *str) {
 }
 
 void clear_screen(size_t attr) {
-        log_wait();
         ST->ConOut->SetAttribute(ST->ConOut, attr);
         ST->ConOut->ClearScreen(ST->ConOut);
 }
@@ -574,16 +566,6 @@ __attribute__((noinline)) void notify_debugger(const char *identity, volatile bo
 }
 
 #if defined(__i386__) || defined(__x86_64__)
-static uint8_t inb(uint16_t port) {
-        uint8_t value;
-        asm volatile("inb %1, %0" : "=a"(value) : "Nd"(port));
-        return value;
-}
-
-static void outb(uint16_t port, uint8_t value) {
-        asm volatile("outb %0, %1" : : "a"(value), "Nd"(port));
-}
-
 void beep(unsigned beep_count) {
         enum {
                 PITCH                = 500,

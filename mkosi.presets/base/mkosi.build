@@ -144,6 +144,7 @@ if [ ! -f "$BUILDDIR"/build.ninja ]; then
         -D glib=enabled
         -D dbus=enabled
         -D bootloader=enabled
+        -D qemu-debug-exit=enabled
         -D kernel-install=true
         -D analyze=true
         -D bpf-framework=enabled

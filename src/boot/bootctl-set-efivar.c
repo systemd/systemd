@@ -80,6 +80,23 @@ static int parse_loader_entry_target_arg(const char *arg1, char16_t **ret_target
         return 0;
 }
 
+static int parse_log_level(const char *arg1, char16_t **ret_level, size_t *ret_level_size) {
+        assert(arg1);
+        assert(ret_level);
+        assert(ret_level_size);
+
+        if (!STR_IN_SET(arg1, "fatal", "error", "warning", "info", "debug", "trace"))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unsupported log level: %s", arg1);
+
+        char16_t *encoded = utf8_to_utf16(arg1, strlen(arg1));
+        if (!encoded)
+                return log_oom();
+
+        *ret_level = encoded;
+        *ret_level_size = char16_strlen(encoded) * 2 + 2;
+        return 0;
+}
+
 int verb_set_efivar(int argc, char *argv[], void *userdata) {
         int r;
 
@@ -126,6 +143,9 @@ int verb_set_efivar(int argc, char *argv[], void *userdata) {
         } else if (streq(argv[0], "set-timeout-oneshot")) {
                 variable = EFI_LOADER_VARIABLE(LoaderConfigTimeoutOneShot);
                 arg_parser = parse_timeout;
+        } else if (streq(argv[0], "set-log-level")) {
+                variable = EFI_SHELL_VARIABLE(SYSTEMD_BOOT_LOG_LEVEL);
+                arg_parser = parse_log_level;
         } else
                 assert_not_reached();
 
