@@ -20,7 +20,7 @@ ConditionPathExists=/proc/pressure/io
 ConditionPathExists=/proc/pressure/memory
 
 [Socket]
-ListenStream=/run/systemd/oom/io.system.ManagedOOM
+ListenStream=/run/systemd/oom/io.systemd.ManagedOOM
 SocketMode=0666
 
 [Install]
