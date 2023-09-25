@@ -2348,8 +2348,11 @@ static int dns_packet_extract_answer(DnsPacket *p, DnsAnswer **ret_answer) {
                 } else {
                         DnsAnswerFlags flags = 0;
 
-                        if (p->protocol == DNS_PROTOCOL_MDNS && !cache_flush)
-                                flags |= DNS_ANSWER_SHARED_OWNER;
+                        if (p->protocol == DNS_PROTOCOL_MDNS) {
+                                flags |= DNS_ANSWER_MDNS;
+                                if (!cache_flush)
+                                        flags |= DNS_ANSWER_SHARED_OWNER;
+                        }
 
                         /* According to RFC 4795, section 2.9. only the RRs from the Answer section shall be
                          * cached. Hence mark only those RRs as cacheable by default, but not the ones from
