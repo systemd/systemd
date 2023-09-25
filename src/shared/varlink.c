@@ -3123,6 +3123,34 @@ void* varlink_server_get_userdata(VarlinkServer *s) {
         return s->userdata;
 }
 
+int varlink_server_loop_auto(VarlinkServer *server) {
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        int r;
+
+        assert_return(server, -EINVAL);
+        assert_return(!server->event, -EBUSY);
+
+        /* Runs a Varlink service event loop populated with a passed fd. Exits on the last connection. */
+
+        r = sd_event_new(&event);
+        if (r < 0)
+                return r;
+
+        r = varlink_server_set_exit_on_idle(server, true);
+        if (r < 0)
+                return r;
+
+        r = varlink_server_attach_event(server, event, 0);
+        if (r < 0)
+                return r;
+
+        r = varlink_server_listen_auto(server);
+        if (r < 0)
+                return r;
+
+        return sd_event_loop(event);
+}
+
 static VarlinkServerSocket* varlink_server_socket_destroy(VarlinkServerSocket *ss) {
         if (!ss)
                 return NULL;

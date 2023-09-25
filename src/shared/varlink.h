@@ -169,6 +169,8 @@ int varlink_server_attach_event(VarlinkServer *v, sd_event *e, int64_t priority)
 int varlink_server_detach_event(VarlinkServer *v);
 sd_event *varlink_server_get_event(VarlinkServer *v);
 
+int varlink_server_loop_auto(VarlinkServer *server);
+
 int varlink_server_shutdown(VarlinkServer *server);
 
 int varlink_server_set_exit_on_idle(VarlinkServer *s, bool b);
