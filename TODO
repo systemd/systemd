@@ -140,7 +140,7 @@ Features:
 * automatically mount one virtiofs during early boot phase to /run/host/,
   similar to how we do that for nspawn, based on some clear tag.
 
-* make systemd-pcrphase accessible via varlink so that clients can measure
+* make systemd-pcrextend accessible via varlink so that clients can measure
   things reasonably freely, and get a proper entry in the TPM event log we
   maintain, correctly synchronized
 
