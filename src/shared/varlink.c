@@ -3,6 +3,8 @@
 #include <malloc.h>
 #include <poll.h>
 
+#include <sd-daemon.h>
+
 #include "alloc-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
@@ -3059,6 +3061,49 @@ int varlink_server_listen_address(VarlinkServer *s, const char *address, mode_t 
         LIST_PREPEND(sockets, s->sockets, TAKE_PTR(ss));
         TAKE_FD(fd);
         return 0;
+}
+
+int varlink_server_listen_auto(VarlinkServer *s) {
+        _cleanup_strv_free_ char **names = NULL;
+        int r, n = 0;
+
+        assert_return(s, -EINVAL);
+
+        /* Adds a all passed fds marked as "varlink" to our varlink server. These fds can either refer to a
+         * listening socket or to a connection socket.
+         *
+         * See https://varlink.org/#activation for the environment variables this is backed by and the
+         * recommended "varlink" identifier in $LISTEN_FDNAMES. */
+
+        r = sd_listen_fds_with_names(/* unset_environment= */ false, &names);
+        if (r < 0)
+                return r;
+
+        for (int i = 0; i < r; i++) {
+                int b, fd;
+                socklen_t l = sizeof(b);
+
+                if (!streq(names[i], "varlink"))
+                        continue;
+
+                fd = SD_LISTEN_FDS_START + i;
+
+                if (getsockopt(fd, SOL_SOCKET, SO_ACCEPTCONN, &b, &l) < 0)
+                        return -errno;
+
+                assert(l == sizeof(b));
+
+                if (b) /* Listening socket? */
+                        r = varlink_server_listen_fd(s, fd);
+                else /* Otherwise assume connection socket */
+                        r = varlink_server_add_connection(s, fd, NULL);
+                if (r < 0)
+                        return r;
+
+                n++;
+        }
+
+        return n;
 }
 
 void* varlink_server_set_userdata(VarlinkServer *s, void *userdata) {
