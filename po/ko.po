@@ -9,7 +9,7 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2023-07-14 10:32+0100\n"
-"PO-Revision-Date: 2023-07-17 11:20+0000\n"
+"PO-Revision-Date: 2023-09-25 03:36+0000\n"
 "Last-Translator: 김인수 <simmon@nplob.com>\n"
 "Language-Team: Korean <https://translate.fedoraproject.org/projects/systemd/"
 "master/ko/>\n"
@@ -18,7 +18,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
-"X-Generator: Weblate 4.18.2\n"
+"X-Generator: Weblate 5.0.2\n"
 "X-Poedit-SourceCharset: UTF-8\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
@@ -931,19 +931,19 @@ msgstr "네트워크 시간 동기화의 활성화 여부를 제어하려면 인
 
 #: src/core/dbus-unit.c:364
 msgid "Authentication is required to start '$(unit)'."
-msgstr "'$(unit)' 서비스 유닛을 시작하려면 인증이 필요합니다."
+msgstr "인증은 '$(unit)'을 시작하는데 필요합니다."
 
 #: src/core/dbus-unit.c:365
 msgid "Authentication is required to stop '$(unit)'."
-msgstr "'$(unit)' 서비스 유닛을 멈추려면 인증이 필요합니다."
+msgstr "인증은 '$(unit)'을 멈추는데 필요합니다."
 
 #: src/core/dbus-unit.c:366
 msgid "Authentication is required to reload '$(unit)'."
-msgstr "'$(unit)' 서비스 유닛을 다시 불러오려면 인증이 필요합니다."
+msgstr "인증은 '$(unit)'을 다시 불러오는데 필요합니다."
 
 #: src/core/dbus-unit.c:367 src/core/dbus-unit.c:368
 msgid "Authentication is required to restart '$(unit)'."
-msgstr "'$(unit)' 서비스 유닛을 다시 시작하려면 인증이 필요합니다."
+msgstr "인증은 '$(unit)'을 다시 시작하는데 필요합니다."
 
 #: src/core/dbus-unit.c:565
 msgid "Authentication is required to send a UNIX signal to the processes of '$(unit)'."
@@ -951,11 +951,11 @@ msgstr "'$(unit)'의 처리에 유닉스 신호를 전송하려면 인증이 필
 
 #: src/core/dbus-unit.c:595
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
-msgstr "'$(unit)' 서비스 유닛의 \"실패\" 상태를 되돌리려면 인증이 필요합니다."
+msgstr "인증은 '$(unit)'의 \"실패\"를 되돌리는데 필요합니다."
 
 #: src/core/dbus-unit.c:627
 msgid "Authentication is required to set properties on '$(unit)'."
-msgstr "'$(unit)' 서비스 유닛 속성을 설정하려면 인증이 필요합니다."
+msgstr "인증은 '$(unit)'의 속성을 설정하는데 필요합니다."
 
 #: src/core/dbus-unit.c:728
 msgid "Authentication is required to delete files and directories associated with '$(unit)'."
