@@ -4159,6 +4159,9 @@ static int partition_format_verity_sig(Context *context, Partition *p) {
         if (r < 0)
                 return log_error_errno(r, "Failed to format verity signature JSON object: %m");
 
+        if (strlen(text)+1 > p->new_size)
+                return log_error_errno(SYNTHETIC_ERRNO(E2BIG), "Verity signature too long for partition: %m");
+
         r = strgrowpad0(&text, p->new_size);
         if (r < 0)
                 return log_error_errno(r, "Failed to pad string to %s", FORMAT_BYTES(p->new_size));
