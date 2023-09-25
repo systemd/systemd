@@ -36,7 +36,7 @@ exec-runtime=foo tmp-dir=foo var-tmp-dir=foo netns-socket-0=0 netns-socket-1=0 i
 exec-runtime=systemd-resolved.service tmp-dir=/tmp/systemd-private-a0d7e38d0d2043da90d3313a435b56a7-systemd-resolved.service-9RLwQC var-tmp-dir=/var/tmp/systemd-private-a0d7e38d0d2043da90d3313a435b56a7-systemd-resolved.service-lH60S6
 exec-runtime=systemd-logind.service tmp-dir=/tmp/systemd-private-a0d7e38d0d2043da90d3313a435b56a7-systemd-logind.service-U3Mkrl var-tmp-dir=/var/tmp/systemd-private-a0d7e38d0d2043da90d3313a435b56a7-systemd-logind.service-bLqCAv
 exec-runtime=dbus-broker.service tmp-dir=/tmp/systemd-private-a0d7e38d0d2043da90d3313a435b56a7-dbus-broker.service-tjqGny var-tmp-dir=/var/tmp/systemd-private-a0d7e38d0d2043da90d3313a435b56a7-dbus-broker.service-enN2wt
-varlink-server-socket-address=/run/systemd/io.system.ManagedOOM varlink-server-socket-fd=43
+varlink-server-socket-address=/run/systemd/io.systemd.ManagedOOM varlink-server-socket-fd=43
 varlink-server-socket-address=/run/systemd/userdb/io.systemd.DynamicUser varlink-server-socket-fd=44
 
 systemd-udevd-control.socket
