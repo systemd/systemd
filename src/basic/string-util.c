@@ -627,14 +627,23 @@ char* strshorten(char *s, size_t l) {
 }
 
 int strgrowpad0(char **s, size_t l) {
+        size_t sz;
+
         assert(s);
+
+        if (*s) {
+                sz = strlen(*s) + 1;
+                if (sz >= l) /* never shrink */
+                        return 0;
+        } else
+                sz = 0;
 
         char *q = realloc(*s, l);
         if (!q)
                 return -ENOMEM;
+
         *s = q;
 
-        size_t sz = strlen(*s);
         memzero(*s + sz, l - sz);
         return 0;
 }
