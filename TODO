@@ -133,9 +133,13 @@ Deprecations and removals:
 
 Features:
 
+* in the service manager, pick up ERRNO= + BUSERROR= + VARLINKERROR= error
+  identifiers, and store them along with the exit status of a server and report
+  via "systemctl status".
+
 * enumerate virtiofs devices during boot-up in a generator, and synthesize
   mounts for rootfs, /usr/, /home/, /srv/ and some others from it, depending on
-  the "tag".
+  the "tag". (waits for: https://gitlab.com/virtio-fs/virtiofsd/-/issues/128)
 
 * automatically mount one virtiofs during early boot phase to /run/host/,
   similar to how we do that for nspawn, based on some clear tag.
