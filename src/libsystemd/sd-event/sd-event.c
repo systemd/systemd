@@ -1572,7 +1572,7 @@ static int child_exit_callback(sd_event_source *s, const siginfo_t *si, void *us
         return sd_event_exit(sd_event_source_get_event(s), PTR_TO_INT(userdata));
 }
 
-static bool shall_use_pidfd(void) {
+bool shall_use_pidfd(void) {
         /* Mostly relevant for debugging, i.e. this is used in test-event.c to test the event loop once with and once without pidfd */
         return getenv_bool_secure("SYSTEMD_PIDFD") != 0;
 }

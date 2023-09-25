@@ -8,6 +8,7 @@
 #include "device-monitor-private.h"
 #include "device-private.h"
 #include "device-util.h"
+#include "dirent-util.h"
 #include "errno-list.h"
 #include "event-util.h"
 #include "fd-util.h"
@@ -18,7 +19,9 @@
 #include "limits-util.h"
 #include "list.h"
 #include "mkdir.h"
+#include "parse-util.h"
 #include "process-util.h"
+#include "sd-event.h"
 #include "selinux-util.h"
 #include "signal-util.h"
 #include "socket-util.h"
@@ -399,6 +402,9 @@ static int worker_spawn(Manager *manager, Event *event) {
                         .log_level = manager->log_level,
                         .blockdev_read_only = manager->blockdev_read_only,
                 };
+
+                if (shall_use_pidfd())
+                        manager->workers = hashmap_free(manager->workers);
 
                 /* Worker process */
                 r = udev_worker_main(&w, event->dev);
@@ -833,6 +839,40 @@ static int on_worker(sd_event_source *s, int fd, uint32_t revents, void *userdat
         return 1;
 }
 
+static int get_unused_fd_num(uint64_t *ret) {
+        struct rlimit rl;
+        _cleanup_closedir_ DIR *d = NULL;
+
+        if (getrlimit(RLIMIT_NOFILE, &rl) < 0)
+                return -errno;
+
+        d = opendir("/proc/self/fd");
+        if (!d) {
+                if (errno == ENOENT && proc_mounted() == 0)
+                        return -ENOSYS;
+
+                return -errno;
+        }
+
+        FOREACH_DIRENT(de, d, return -errno) {
+                int fd;
+
+                if (!IN_SET(de->d_type, DT_LNK, DT_UNKNOWN))
+                        continue;
+
+                fd = parse_fd(de->d_name);
+                if (fd < 0)
+                        return fd;
+                if (fd == dirfd(d))
+                        continue;
+
+                rl.rlim_cur--;
+        }
+
+        *ret = rl.rlim_cur;
+        return 0;
+}
+
 static void manager_set_default_children_max(Manager *manager) {
         uint64_t cpu_limit, mem_limit, cpu_count = 1;
         int r;
@@ -852,6 +892,19 @@ static void manager_set_default_children_max(Manager *manager) {
         mem_limit = MAX(physical_memory() / (128*1024*1024), UINT64_C(10));
 
         manager->children_max = MIN3(cpu_limit, mem_limit, WORKER_NUM_MAX);
+
+        if (shall_use_pidfd()) {
+                uint64_t fds_limit = 0;
+
+                r = get_unused_fd_num(&fds_limit);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to determine number of unused FDs, ignoring: %m");
+                else
+                        /* preserve fds for the timerfd for timeouts of workers and the
+                         * other usage during event handling */
+                        manager->children_max = MIN(manager->children_max, fds_limit - 2);
+        }
+
         log_debug("Set children_max to %u", manager->children_max);
 }
 
@@ -1256,8 +1309,6 @@ int manager_init(Manager *manager, int fd_ctrl, int fd_uevent) {
 int manager_main(Manager *manager) {
         int fd_worker, r;
 
-        manager_set_default_children_max(manager);
-
         /* unnamed socket from workers to the main daemon */
         r = socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, manager->worker_watch);
         if (r < 0)
@@ -1355,6 +1406,8 @@ int manager_main(Manager *manager) {
         r = udev_rules_apply_static_dev_perms(manager->rules);
         if (r < 0)
                 log_warning_errno(r, "Failed to apply permissions on static device nodes, ignoring: %m");
+
+        manager_set_default_children_max(manager);
 
         notify_ready(manager);
 
