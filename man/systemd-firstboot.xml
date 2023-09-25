@@ -37,7 +37,7 @@
     <para><command>systemd-firstboot</command> initializes basic system settings interactively during the
     first boot, or non-interactively on an offline system image. The service is started during boot if
     <varname>ConditionFirstBoot=yes</varname> is met, which essentially means that <filename>/etc/</filename>
-    is empty, see
+    is unpopulated, see
     <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
     details.</para>
 
