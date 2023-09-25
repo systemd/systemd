@@ -46,7 +46,6 @@ typedef enum VarlinkServerFlags {
         VARLINK_SERVER_MYSELF_ONLY      = 1 << 1, /* Only accessible by our own UID */
         VARLINK_SERVER_ACCOUNT_UID      = 1 << 2, /* Do per user accounting */
         VARLINK_SERVER_INHERIT_USERDATA = 1 << 3, /* Initialize Varlink connection userdata from VarlinkServer userdata */
-
         _VARLINK_SERVER_FLAGS_ALL = (1 << 4) - 1,
 } VarlinkServerFlags;
 
@@ -184,6 +183,15 @@ int varlink_server_set_connections_max(VarlinkServer *s, unsigned m);
 unsigned varlink_server_current_connections(VarlinkServer *s);
 
 int varlink_server_set_description(VarlinkServer *s, const char *description);
+
+typedef enum VarlinkInvocationFlags {
+        VARLINK_ALLOW_LISTEN                     = 1 << 0,
+        VARLINK_ALLOW_ACCEPT                     = 1 << 1,
+        _VARLINK_SERVER_INVOCATION_FLAGS_MAX     = (1 << 2) - 1,
+        _VARLINK_SERVER_INVOCATION_FLAGS_INVALID = -EINVAL,
+} VarlinkInvocationFlags;
+
+int varlink_invocation(VarlinkInvocationFlags flags);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Varlink *, varlink_unref);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Varlink *, varlink_close_unref);
