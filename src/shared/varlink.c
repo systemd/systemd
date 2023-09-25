@@ -234,6 +234,8 @@ struct VarlinkServer {
 
         unsigned connections_max;
         unsigned connections_per_uid_max;
+
+        bool exit_on_idle;
 };
 
 static const char* const varlink_state_table[_VARLINK_STATE_MAX] = {
@@ -273,6 +275,7 @@ DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(varlink_state, VarlinkState);
         log_debug("%s: " fmt, varlink_server_description(s), ##__VA_ARGS__)
 
 static int varlink_format_queue(Varlink *v);
+static void varlink_server_test_exit_on_idle(VarlinkServer *s);
 
 static const char *varlink_description(Varlink *v) {
         return (v ? v->description : NULL) ?: "varlink";
@@ -1654,6 +1657,7 @@ static void varlink_detach_server(Varlink *v) {
         if (saved_server->disconnect_callback)
                 saved_server->disconnect_callback(saved_server, v, saved_server->userdata);
 
+        varlink_server_test_exit_on_idle(saved_server);
         varlink_server_unref(saved_server);
         varlink_unref(v);
 }
@@ -3098,9 +3102,23 @@ int varlink_server_shutdown(VarlinkServer *s) {
         return 0;
 }
 
+static void varlink_server_test_exit_on_idle(VarlinkServer *s) {
+        assert(s);
+
+        if (s->exit_on_idle && s->event && s->n_connections == 0)
+                (void) sd_event_exit(s->event, 0);
+}
+
+int varlink_server_set_exit_on_idle(VarlinkServer *s, bool b) {
+        assert_return(s, -EINVAL);
+
+        s->exit_on_idle = b;
+        varlink_server_test_exit_on_idle(s);
+        return 0;
+}
+
 static int varlink_server_add_socket_event_source(VarlinkServer *s, VarlinkServerSocket *ss, int64_t priority) {
         _cleanup_(sd_event_source_unrefp) sd_event_source *es = NULL;
-
         int r;
 
         assert(s);
