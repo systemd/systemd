@@ -2840,10 +2840,6 @@ static int generic_array_get(
                          * disk properly, let's see if the next one might work for us instead. */
                         log_debug_errno(r, "Entry item %" PRIu64 " is bad, skipping over it.", i);
 
-                        r = journal_file_move_to_object(f, OBJECT_ENTRY_ARRAY, a, &o);
-                        if (r < 0)
-                                return r;
-
                 } while (bump_array_index(&i, direction, k) > 0);
 
                 r = bump_entry_array(f, o, a, first, direction, &a);
