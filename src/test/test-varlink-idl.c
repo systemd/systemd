@@ -10,6 +10,7 @@
 #include "varlink-io.systemd.h"
 #include "varlink-io.systemd.Journal.h"
 #include "varlink-io.systemd.ManagedOOM.h"
+#include "varlink-io.systemd.PCRExtend.h"
 #include "varlink-io.systemd.Resolve.Monitor.h"
 #include "varlink-io.systemd.Resolve.h"
 #include "varlink-io.systemd.UserDatabase.h"
@@ -133,6 +134,8 @@ TEST(parse_format) {
         test_parse_format_one(&vl_interface_io_systemd_oom);
         print_separator();
         test_parse_format_one(&vl_interface_io_systemd);
+        print_separator();
+        test_parse_format_one(&vl_interface_io_systemd_PCRExtend);
         print_separator();
         test_parse_format_one(&vl_interface_xyz_test);
 }
