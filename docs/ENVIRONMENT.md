@@ -536,7 +536,7 @@ SYSTEMD_HOME_DEBUG_SUFFIX=foo \
 * `$SYSTEMD_CATALOG_SOURCES` – path to the catalog database input source
   directory to use for `journalctl --update-catalog`.
 
-`systemd-pcrphase`, `systemd-cryptsetup`:
+`systemd-pcrextend`, `systemd-cryptsetup`:
 
 * `$SYSTEMD_FORCE_MEASURE=1` — If set, force measuring of resources (which are
   marked for measurement) even if not booted on a kernel equipped with
