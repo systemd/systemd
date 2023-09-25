@@ -23,7 +23,7 @@
     <refname>systemd-pcrmachine.service</refname>
     <refname>systemd-pcrfs-root.service</refname>
     <refname>systemd-pcrfs@.service</refname>
-    <refname>systemd-pcrphase</refname>
+    <refname>systemd-pcrextend</refname>
     <refpurpose>Measure boot phase into TPM2 PCR 11, machine ID and file system identity into PCR 15</refpurpose>
   </refnamediv>
 
@@ -34,7 +34,7 @@
     <para><filename>systemd-pcrmachine.service</filename></para>
     <para><filename>systemd-pcrfs-root.service</filename></para>
     <para><filename>systemd-pcrfs@.service</filename></para>
-    <para><filename>/usr/lib/systemd/systemd-pcrphase</filename> <optional><replaceable>STRING</replaceable></optional></para>
+    <para><filename>/usr/lib/systemd/systemd-pcrextend</filename> <optional><replaceable>STRING</replaceable></optional></para>
   </refsynopsisdiv>
 
   <refsect1>
@@ -134,7 +134,7 @@
   <refsect1>
     <title>Options</title>
 
-    <para>The <filename>/usr/lib/systemd/system-pcrphase</filename> executable may also be invoked from the
+    <para>The <filename>/usr/lib/systemd/system-pcrextend</filename> executable may also be invoked from the
     command line, where it expects the word to extend into PCR 11, as well as the following switches:</para>
 
     <variablelist>
@@ -146,6 +146,15 @@
         them.</para>
 
         <xi:include href="version-info.xml" xpointer="v252"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--pcr=</option></term>
+
+        <listitem><para>Takes the index of the PCR to extend. If <option>--machine-id</option> or
+        <option>--file-system=</option> are specified defaults to 15, otherwise defaults to 11.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -192,6 +201,30 @@
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
 
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Files</title>
+
+    <variablelist>
+      <varlistentry>
+        <term><filename>/var/log/systemd/tpm2-measure.log</filename></term>
+
+        <listitem><para>Measurements are logged into an event log file maintained in
+        <filename>/var/log/systemd/tpm2-measure.log</filename>, which contains a <ulink
+        url="https://www.rfc-editor.org/rfc/rfc7464.html">JSON-SEQ</ulink> series of objects that follow the
+        general structure of the <ulink
+        url="https://trustedcomputinggroup.org/resource/canonical-event-log-format/">TCG Common Event Log
+        Format (CEL-JSON)</ulink> event objects (but lack the <literal>recnum</literal>
+        field).</para>
+
+        <para>A <constant>LOCK_EX</constant> BSD file lock (<citerefentry
+        project='man-pages'><refentrytitle>flock</refentrytitle><manvolnum>2</manvolnum></citerefentry>) on
+        the log file is acquired while the measurement is made and the file is updated. Thus, applications
+        that intend to acquire a consistent quote from the TPM with the associated snapshot of the event log
+        should acquire a <constant>LOCK_SH</constant> lock while doing so.</para></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
