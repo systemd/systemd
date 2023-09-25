@@ -623,9 +623,35 @@ static int journal_file_verify_header(JournalFile *f) {
                         return -ENODATA;
         }
 
-        if (JOURNAL_HEADER_CONTAINS(f->header, tail_entry_offset))
-                if (!offset_is_valid(le64toh(f->header->tail_entry_offset), header_size, tail_object_offset))
+        if (JOURNAL_HEADER_CONTAINS(f->header, tail_entry_offset)) {
+                uint64_t offset = le64toh(f->header->tail_entry_offset);
+
+                if (!offset_is_valid(offset, header_size, tail_object_offset))
                         return -ENODATA;
+
+                if (offset > 0) {
+                        /* When there is an entry object, then these fields must be filled. */
+                        if (sd_id128_is_null(f->header->tail_entry_boot_id))
+                                return -ENODATA;
+                        if (!VALID_REALTIME(le64toh(f->header->head_entry_realtime)))
+                                return -ENODATA;
+                        if (!VALID_REALTIME(le64toh(f->header->tail_entry_realtime)))
+                                return -ENODATA;
+                        if (!VALID_MONOTONIC(le64toh(f->header->tail_entry_realtime)))
+                                return -ENODATA;
+                } else {
+                        /* Otherwise, the fields must be zero. */
+                        if (JOURNAL_HEADER_TAIL_ENTRY_BOOT_ID(f->header) &&
+                            !sd_id128_is_null(f->header->tail_entry_boot_id))
+                                return -ENODATA;
+                        if (f->header->head_entry_realtime != 0)
+                                return -ENODATA;
+                        if (f->header->tail_entry_realtime != 0)
+                                return -ENODATA;
+                        if (f->header->tail_entry_realtime != 0)
+                                return -ENODATA;
+                }
+        }
 
         /* Verify number of objects */
         uint64_t n_objects = le64toh(f->header->n_objects);
@@ -2272,6 +2298,8 @@ static int journal_file_append_entry_internal(
         assert(f);
         assert(f->header);
         assert(ts);
+        assert(boot_id);
+        assert(!sd_id128_is_null(*boot_id));
         assert(items || n_items == 0);
 
         if (f->strict_order) {
@@ -2292,7 +2320,7 @@ static int journal_file_append_entry_internal(
                                                "timestamp %" PRIu64 ", refusing entry.",
                                                ts->realtime, le64toh(f->header->tail_entry_realtime));
 
-                if ((!boot_id || sd_id128_equal(*boot_id, f->header->tail_entry_boot_id)) &&
+                if (sd_id128_equal(*boot_id, f->header->tail_entry_boot_id) &&
                     ts->monotonic < le64toh(f->header->tail_entry_monotonic))
                         return log_debug_errno(
                                         SYNTHETIC_ERRNO(ENOTNAM),
@@ -2332,9 +2360,7 @@ static int journal_file_append_entry_internal(
         o->entry.realtime = htole64(ts->realtime);
         o->entry.monotonic = htole64(ts->monotonic);
         o->entry.xor_hash = htole64(xor_hash);
-        if (boot_id)
-                f->header->tail_entry_boot_id = *boot_id;
-        o->entry.boot_id = f->header->tail_entry_boot_id;
+        o->entry.boot_id = f->header->tail_entry_boot_id = *boot_id;
 
         for (size_t i = 0; i < n_items; i++)
                 write_entry_item(f, o, i, &items[i]);
@@ -2503,7 +2529,10 @@ int journal_file_append_entry(
                 ts = &_ts;
         }
 
-        if (!boot_id) {
+        if (boot_id) {
+                if (sd_id128_is_null(*boot_id))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "Empty boot ID, refusing entry.");
+        } else {
                 r = sd_id128_get_boot(&_boot_id);
                 if (r < 0)
                         return r;
@@ -2667,32 +2696,40 @@ static int bump_array_index(uint64_t *i, direction_t direction, uint64_t n) {
         return 1;
 }
 
-static int bump_entry_array(
+static int move_to_next_entry_array(
                 JournalFile *f,
-                Object *o,
-                uint64_t offset,
-                uint64_t first,
+                Object *o,       /* the current entry array object. */
+                uint64_t offset, /* the offset of 'o'. */
+                uint64_t first,  /* the starting point of the chain */
                 direction_t direction,
-                uint64_t *ret) {
+                Object **ret_object,
+                uint64_t *ret_offset) {
 
-        uint64_t p, q = 0;
         int r;
 
         assert(f);
-        assert(offset);
-        assert(ret);
+        assert(offset > 0);
 
         if (direction == DIRECTION_DOWN) {
                 assert(o);
-                *ret = le64toh(o->entry_array.next_entry_array_offset);
-                return 0;
+                assert(o->object.type == OBJECT_ENTRY_ARRAY);
+
+                offset = le64toh(o->entry_array.next_entry_array_offset);
+
+                if (ret_object) {
+                        r = journal_file_move_to_object(f, OBJECT_ENTRY_ARRAY, offset, ret_object);
+                        if (r < 0)
+                                return r;
+                }
+                if (ret_offset)
+                        *ret_offset = offset;
+
         }
 
         /* Entry array chains are a singly linked list, so to find the previous array in the chain, we have
          * to start iterating from the top. */
 
-        p = first;
-
+        uint64_t p = first, q = 0;
         while (p > 0 && p != offset) {
                 r = journal_file_move_to_object(f, OBJECT_ENTRY_ARRAY, p, &o);
                 if (r < 0)
@@ -2707,7 +2744,10 @@ static int bump_entry_array(
         if (p == 0)
                 return -EBADMSG;
 
-        *ret = q;
+        if (ret_object)
+                *ret_object = o;
+        if (ret_offset)
+                *ret_offset = q;
 
         return 0;
 }
@@ -2751,12 +2791,22 @@ static int generic_array_get(
                         /* If there's corruption and we're going upwards, move back to the previous entry
                          * array and start iterating entries from there. */
 
-                        r = bump_entry_array(f, NULL, a, first, DIRECTION_UP, &a);
+                        r = move_to_next_entry_array(f, NULL, a, first, DIRECTION_UP, &o, &a);
                         if (r < 0)
                                 return r;
 
-                        i = UINT64_MAX;
+                        k = journal_file_entry_array_n_items(f, o);
 
+                        if (t < k) {
+                                if (ci) {
+                                        log_debug("Broken chain cache entry for first=%"PRIu64", removing the cache entry.", first);
+                                        free(ordered_hashmap_remove(f->chain_cache, &first));
+                                }
+                                return 0;
+                        }
+
+                        i = k - 1;
+                        t -= k;
                         break;
                 }
                 if (r < 0)
@@ -2766,6 +2816,7 @@ static int generic_array_get(
                 if (i < k)
                         break;
 
+                /* The index is larger than the number of elements in the array. Let's move to the next array. */
                 i -= k;
                 t += k;
                 a = le64toh(o->entry_array.next_entry_array_offset);
@@ -2775,20 +2826,6 @@ static int generic_array_get(
          * direction). */
 
         while (a > 0) {
-                /* In the first iteration of the while loop, we reuse i, k and o from the previous while
-                 * loop. */
-                if (i == UINT64_MAX) {
-                        r = journal_file_move_to_object(f, OBJECT_ENTRY_ARRAY, a, &o);
-                        if (r < 0)
-                                return r;
-
-                        k = journal_file_entry_array_n_items(f, o);
-                        if (k == 0)
-                                break;
-
-                        i = direction == DIRECTION_DOWN ? 0 : k - 1;
-                }
-
                 do {
                         uint64_t p;
 
@@ -2811,18 +2848,37 @@ static int generic_array_get(
                          * disk properly, let's see if the next one might work for us instead. */
                         log_debug_errno(r, "Entry item %" PRIu64 " is bad, skipping over it.", i);
 
-                        r = journal_file_move_to_object(f, OBJECT_ENTRY_ARRAY, a, &o);
-                        if (r < 0)
-                                return r;
-
                 } while (bump_array_index(&i, direction, k) > 0);
 
-                r = bump_entry_array(f, o, a, first, direction, &a);
+                /* All entries tried in the above do-while loop are broken. Let's move to the next (or previous) array. */
+
+                if (direction == DIRECTION_DOWN)
+                        t += k;
+
+                r = move_to_next_entry_array(f, o, a, first, direction, &o, &a);
                 if (r < 0)
                         return r;
 
-                t += k;
-                i = UINT64_MAX;
+                k = journal_file_entry_array_n_items(f, o);
+
+                if (direction == DIRECTION_DOWN) {
+                        if (k == 0)
+                                return 0;
+
+                        i = 0;
+
+                } else {
+                        if (t < k) {
+                                if (ci) {
+                                        log_debug("Broken chain cache entry for first=%"PRIu64", removing the cache entry.", first);
+                                        free(ordered_hashmap_remove(f->chain_cache, &first));
+                                }
+                                return 0;
+                        }
+
+                        i = k - 1;
+                        t -= k;
+                }
         }
 
         return 0;
@@ -3322,10 +3378,8 @@ int journal_file_move_to_entry_by_monotonic(
         assert(f);
 
         r = find_data_object_by_boot_id(f, boot_id, &o, NULL);
-        if (r < 0)
+        if (r <= 0)
                 return r;
-        if (r == 0)
-                return -ENOENT;
 
         return generic_array_bisect_plus_one(
                         f,
@@ -3517,10 +3571,8 @@ int journal_file_move_to_entry_by_monotonic_for_data(
 
         /* First, seek by time */
         r = find_data_object_by_boot_id(f, boot_id, &o, &b);
-        if (r < 0)
+        if (r <= 0)
                 return r;
-        if (r == 0)
-                return -ENOENT;
 
         r = generic_array_bisect_plus_one(f,
                                           le64toh(o->data.entry_offset),
