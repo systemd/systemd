@@ -149,6 +149,15 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--pcr=</option></term>
+
+        <listitem><para>Takes the index of the PCR to extend. If <option>--machine-id</option> or
+        <option>--file-system=</option> are specified defaults to 15, otherwise defaults to 11.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--tpm2-device=</option><replaceable>PATH</replaceable></term>
 
         <listitem><para>Controls which TPM2 device to use. Expects a device node path referring to the TPM2
