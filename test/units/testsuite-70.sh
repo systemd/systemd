@@ -5,7 +5,7 @@ set -o pipefail
 
 SD_CRYPTSETUP="/usr/lib/systemd/systemd-cryptsetup"
 SD_MEASURE="/usr/lib/systemd/systemd-measure"
-SD_PCRPHASE="/usr/lib/systemd/systemd-pcrphase"
+SD_PCREXTEND="/usr/lib/systemd/systemd-pcrextend"
 export SYSTEMD_LOG_LEVEL=debug
 
 cryptsetup_has_token_plugin_support() {
@@ -249,12 +249,12 @@ else
     echo "$SD_MEASURE or PCR sysfs files not found, skipping signed PCR policy test case"
 fi
 
-if [[ -x "$SD_PCRPHASE" ]] && tpm_has_pcr sha256 11 && tpm_has_pcr sha256 15; then
+if [[ -x "$SD_PCREXTEND" ]] && tpm_has_pcr sha256 11 && tpm_has_pcr sha256 15; then
     # Let's measure the machine ID
     tpm2_pcrread sha256:15 -Q -o /tmp/oldpcr15
     mv /etc/machine-id /etc/machine-id.save
     echo 994013bf23864ee7992eab39a96dd3bb >/etc/machine-id
-    SYSTEMD_FORCE_MEASURE=1 "$SD_PCRPHASE" --machine-id
+    SYSTEMD_FORCE_MEASURE=1 "$SD_PCREXTEND" --machine-id
     mv /etc/machine-id.save /etc/machine-id
     tpm2_pcrread sha256:15 -Q -o /tmp/newpcr15
 
@@ -270,7 +270,7 @@ if [[ -x "$SD_PCRPHASE" ]] && tpm_has_pcr sha256 11 && tpm_has_pcr sha256 15; th
 
     # And similar for the boot phase measurement into PCR 11
     tpm2_pcrread sha256:11 -Q -o /tmp/oldpcr11
-    SYSTEMD_FORCE_MEASURE=1 "$SD_PCRPHASE" foobar
+    SYSTEMD_FORCE_MEASURE=1 "$SD_PCREXTEND" foobar
     tpm2_pcrread sha256:11 -Q -o /tmp/newpcr11
 
     diff /tmp/newpcr11 \
@@ -284,7 +284,7 @@ if [[ -x "$SD_PCRPHASE" ]] && tpm_has_pcr sha256 11 && tpm_has_pcr sha256 15; th
 
     rm -f /tmp/oldpcr11 /tmp/newpcr11
 else
-    echo "$SD_PCRPHASE or PCR sysfs files not found, skipping PCR extension test case"
+    echo "$SD_PCREXTEND or PCR sysfs files not found, skipping PCR extension test case"
 fi
 
 # Ensure that sandboxing doesn't stop creds from being accessible

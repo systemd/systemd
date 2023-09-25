@@ -35,14 +35,14 @@ static int help(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *link = NULL;
         int r;
 
-        r = terminal_urlify_man("systemd-pcrphase", "8", &link);
+        r = terminal_urlify_man("systemd-pcrextend", "8", &link);
         if (r < 0)
                 return log_oom();
 
         printf("%1$s  [OPTIONS...] WORD\n"
                "%1$s  [OPTIONS...] --file-system=PATH\n"
                "%1$s  [OPTIONS...] --machine-id\n"
-               "\n%5$sMeasure boot phase into TPM2 PCR 11.%6$s\n"
+               "\n%5$sExtend a TPM2 PCR with boot phase, machine ID, or file system ID.%6$s\n"
                "\n%3$sOptions:%4$s\n"
                "  -h --help              Show this help\n"
                "     --version           Print version\n"

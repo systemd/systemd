@@ -23,7 +23,7 @@
     <refname>systemd-pcrmachine.service</refname>
     <refname>systemd-pcrfs-root.service</refname>
     <refname>systemd-pcrfs@.service</refname>
-    <refname>systemd-pcrphase</refname>
+    <refname>systemd-pcrextend</refname>
     <refpurpose>Measure boot phase into TPM2 PCR 11, machine ID and file system identity into PCR 15</refpurpose>
   </refnamediv>
 
@@ -34,7 +34,7 @@
     <para><filename>systemd-pcrmachine.service</filename></para>
     <para><filename>systemd-pcrfs-root.service</filename></para>
     <para><filename>systemd-pcrfs@.service</filename></para>
-    <para><filename>/usr/lib/systemd/systemd-pcrphase</filename> <optional><replaceable>STRING</replaceable></optional></para>
+    <para><filename>/usr/lib/systemd/systemd-pcrextend</filename> <optional><replaceable>STRING</replaceable></optional></para>
   </refsynopsisdiv>
 
   <refsect1>
@@ -134,7 +134,7 @@
   <refsect1>
     <title>Options</title>
 
-    <para>The <filename>/usr/lib/systemd/system-pcrphase</filename> executable may also be invoked from the
+    <para>The <filename>/usr/lib/systemd/system-pcrextend</filename> executable may also be invoked from the
     command line, where it expects the word to extend into PCR 11, as well as the following switches:</para>
 
     <variablelist>
