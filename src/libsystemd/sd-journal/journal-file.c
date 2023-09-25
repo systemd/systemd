@@ -2696,32 +2696,40 @@ static int bump_array_index(uint64_t *i, direction_t direction, uint64_t n) {
         return 1;
 }
 
-static int bump_entry_array(
+static int move_to_next_entry_array(
                 JournalFile *f,
-                Object *o,
-                uint64_t offset,
-                uint64_t first,
+                Object *o,       /* the current entry array object. */
+                uint64_t offset, /* the offset of 'o'. */
+                uint64_t first,  /* the starting point of the chain */
                 direction_t direction,
-                uint64_t *ret) {
+                Object **ret_object,
+                uint64_t *ret_offset) {
 
-        uint64_t p, q = 0;
         int r;
 
         assert(f);
-        assert(offset);
-        assert(ret);
+        assert(offset > 0);
 
         if (direction == DIRECTION_DOWN) {
                 assert(o);
-                *ret = le64toh(o->entry_array.next_entry_array_offset);
-                return 0;
+                assert(o->object.type == OBJECT_ENTRY_ARRAY);
+
+                offset = le64toh(o->entry_array.next_entry_array_offset);
+
+                if (ret_object) {
+                        r = journal_file_move_to_object(f, OBJECT_ENTRY_ARRAY, offset, ret_object);
+                        if (r < 0)
+                                return r;
+                }
+                if (ret_offset)
+                        *ret_offset = offset;
+
         }
 
         /* Entry array chains are a singly linked list, so to find the previous array in the chain, we have
          * to start iterating from the top. */
 
-        p = first;
-
+        uint64_t p = first, q = 0;
         while (p > 0 && p != offset) {
                 r = journal_file_move_to_object(f, OBJECT_ENTRY_ARRAY, p, &o);
                 if (r < 0)
@@ -2736,7 +2744,10 @@ static int bump_entry_array(
         if (p == 0)
                 return -EBADMSG;
 
-        *ret = q;
+        if (ret_object)
+                *ret_object = o;
+        if (ret_offset)
+                *ret_offset = q;
 
         return 0;
 }
@@ -2780,11 +2791,7 @@ static int generic_array_get(
                         /* If there's corruption and we're going upwards, move back to the previous entry
                          * array and start iterating entries from there. */
 
-                        r = bump_entry_array(f, NULL, a, first, DIRECTION_UP, &a);
-                        if (r < 0)
-                                return r;
-
-                        r = journal_file_move_to_object(f, OBJECT_ENTRY_ARRAY, a, &o);
+                        r = move_to_next_entry_array(f, NULL, a, first, DIRECTION_UP, &o, &a);
                         if (r < 0)
                                 return r;
 
@@ -2847,11 +2854,7 @@ static int generic_array_get(
                 if (direction == DIRECTION_DOWN)
                         t += k;
 
-                r = bump_entry_array(f, o, a, first, direction, &a);
-                if (r < 0)
-                        return r;
-
-                r = journal_file_move_to_object(f, OBJECT_ENTRY_ARRAY, a, &o);
+                r = move_to_next_entry_array(f, o, a, first, direction, &o, &a);
                 if (r < 0)
                         return r;
 
