@@ -87,7 +87,7 @@ static int dns_trust_anchor_add_builtin_positive(DnsTrustAnchor *d) {
         if (!key)
                 return -ENOMEM;
 
-        answer = dns_answer_new(2);
+        answer = dns_answer_new(2, false);
         if (!answer)
                 return -ENOMEM;
 

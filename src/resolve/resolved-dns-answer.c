@@ -67,7 +67,7 @@ static int dns_answer_reserve_internal(DnsAnswer *a, size_t n) {
         return ordered_set_reserve(a->items, n * 2);
 }
 
-DnsAnswer *dns_answer_new(size_t n) {
+DnsAnswer *dns_answer_new(size_t n, bool mdns) {
         _cleanup_ordered_set_free_ OrderedSet *s = NULL;
         _cleanup_(dns_answer_unrefp) DnsAnswer *a = NULL;
 
@@ -85,6 +85,7 @@ DnsAnswer *dns_answer_new(size_t n) {
         *a = (DnsAnswer) {
                 .n_ref = 1,
                 .items = TAKE_PTR(s),
+                .mdns = mdns,
         };
 
         if (dns_answer_reserve_internal(a, n) < 0)
@@ -181,11 +182,19 @@ int dns_answer_add(
 
         exist = ordered_set_get(a->items, &tmp);
         if (exist) {
-                /* There's already an RR of the same RRset in place! Let's see if the TTLs more or less
-                 * match. We don't really care if they match precisely, but we do care whether one is 0 and
-                 * the other is not. See RFC 2181, Section 5.2. */
-                if ((rr->ttl == 0) != (exist->rr->ttl == 0))
-                        return -EINVAL;
+                /* There's already an RR of the same RRset in place! Let's see if the TTLs more or
+                 * less match. RFC 2181, Section 5.2 suggests clients should reject RRsets
+                 * containing RRs with differing TTLs. We are more tolerant of this situation except
+                 * if one RR has a zero TTL and the other a nonzero TTL. In mDNS, zero TTLs are
+                 * special, so we must error in that case. */
+                if ((rr->ttl == 0) != (exist->rr->ttl == 0)) {
+                        log_debug("Attempting to merge RRs with zero TTL and nonzero TTL: %s %s",
+                                  dns_resource_record_to_string(rr),
+                                  dns_resource_record_to_string(exist->rr));
+                        if (a->mdns) {
+                                return -EINVAL;
+                        }
+                }
 
                 /* Entry already exists, keep the entry with the higher TTL. */
                 if (rr->ttl > exist->rr->ttl) {
@@ -448,6 +457,10 @@ int dns_answer_merge(DnsAnswer *a, DnsAnswer *b, DnsAnswer **ret) {
                 return 0;
         }
 
+        if (a->mdns != b->mdns) {
+                return -EINVAL;
+        }
+
         if (dns_answer_size(a) <= 0) {
                 *ret = dns_answer_ref(b);
                 return 0;
@@ -458,7 +471,7 @@ int dns_answer_merge(DnsAnswer *a, DnsAnswer *b, DnsAnswer **ret) {
                 return 0;
         }
 
-        k = dns_answer_new(dns_answer_size(a) + dns_answer_size(b));
+        k = dns_answer_new(dns_answer_size(a) + dns_answer_size(b), a->mdns);
         if (!k)
                 return -ENOMEM;
 
@@ -668,7 +681,7 @@ int dns_answer_reserve(DnsAnswer **a, size_t n_free) {
         if (!*a) {
                 DnsAnswer *n;
 
-                n = dns_answer_new(n_free);
+                n = dns_answer_new(n_free, (*a)->mdns);
                 if (!n)
                         return -ENOMEM;
 
@@ -698,7 +711,7 @@ int dns_answer_reserve_or_clone(DnsAnswer **a, size_t n_free) {
 
         ns = saturate_add(ns, n_free, UINT16_MAX);
 
-        n = dns_answer_new(ns);
+        n = dns_answer_new(ns, (*a)->mdns);
         if (!n)
                 return -ENOMEM;
 
