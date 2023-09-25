@@ -170,6 +170,8 @@ sd_event *varlink_server_get_event(VarlinkServer *v);
 
 int varlink_server_shutdown(VarlinkServer *server);
 
+int varlink_server_set_exit_on_idle(VarlinkServer *s, bool b);
+
 unsigned varlink_server_connections_max(VarlinkServer *s);
 unsigned varlink_server_connections_per_uid_max(VarlinkServer *s);
 
