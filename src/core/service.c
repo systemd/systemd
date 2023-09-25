@@ -306,7 +306,6 @@ static void service_start_watchdog(Service *s) {
 
 usec_t service_restart_usec_next(Service *s) {
         unsigned n_restarts_next;
-        usec_t value;
 
         assert(s);
 
@@ -320,26 +319,23 @@ usec_t service_restart_usec_next(Service *s) {
             s->restart_usec == 0 ||
             s->restart_max_delay_usec == USEC_INFINITY ||
             s->restart_usec >= s->restart_max_delay_usec)
-                value = s->restart_usec;
-        else if (n_restarts_next > s->restart_steps)
-                value = s->restart_max_delay_usec;
-        else {
-                /* Enforced in service_verify() and above */
-                assert(s->restart_max_delay_usec > s->restart_usec);
+                return s->restart_usec;
 
-                /* r_i / r_0 = (r_n / r_0) ^ (i / n)
-                 * where,
-                 *   r_0 : initial restart usec (s->restart_usec),
-                 *   r_i : i-th restart usec (value),
-                 *   r_n : maximum restart usec (s->restart_max_delay_usec),
-                 *   i : index of the next step (n_restarts_next - 1)
-                 *   n : num maximum steps (s->restart_steps) */
-                value = (usec_t) (s->restart_usec * powl((long double) s->restart_max_delay_usec / s->restart_usec,
-                                                         (long double) (n_restarts_next - 1) / s->restart_steps));
-        }
+        if (n_restarts_next > s->restart_steps)
+                return s->restart_max_delay_usec;
 
-        log_unit_debug(UNIT(s), "Next restart interval calculated as: %s", FORMAT_TIMESPAN(value, 0));
-        return value;
+        /* Enforced in service_verify() and above */
+        assert(s->restart_max_delay_usec > s->restart_usec);
+
+        /* r_i / r_0 = (r_n / r_0) ^ (i / n)
+         * where,
+         *   r_0 : initial restart usec (s->restart_usec),
+         *   r_i : i-th restart usec (value),
+         *   r_n : maximum restart usec (s->restart_max_delay_usec),
+         *   i : index of the next step (n_restarts_next - 1)
+         *   n : num maximum steps (s->restart_steps) */
+        return (usec_t) (s->restart_usec * powl((long double) s->restart_max_delay_usec / s->restart_usec,
+                                                (long double) (n_restarts_next - 1) / s->restart_steps));
 }
 
 static void service_extend_event_source_timeout(Service *s, sd_event_source *source, usec_t extended) {
@@ -2026,6 +2022,8 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
         }
 
         if (allow_restart) {
+                usec_t restart_usec_next;
+
                 /* We make two state changes here: one that maps to the high-level UNIT_INACTIVE/UNIT_FAILED
                  * state (i.e. a state indicating deactivation), and then one that that maps to the
                  * high-level UNIT_STARTING state (i.e. a state indicating activation). We do this so that
@@ -2036,9 +2034,13 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
                 if (s->restart_mode != SERVICE_RESTART_MODE_DIRECT)
                         service_set_state(s, restart_state);
 
-                r = service_arm_timer(s, /* relative= */ true, service_restart_usec_next(s));
+                restart_usec_next = service_restart_usec_next(s);
+
+                r = service_arm_timer(s, /* relative= */ true, restart_usec_next);
                 if (r < 0)
                         goto fail;
+
+                log_unit_debug(UNIT(s), "Next restart interval calculated as: %s", FORMAT_TIMESPAN(restart_usec_next, 0));
 
                 service_set_state(s, SERVICE_AUTO_RESTART);
         } else {
