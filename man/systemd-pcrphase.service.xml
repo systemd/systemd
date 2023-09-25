@@ -205,6 +205,30 @@
   </refsect1>
 
   <refsect1>
+    <title>Files</title>
+
+    <variablelist>
+      <varlistentry>
+        <term><filename>/var/log/systemd/tpm2-measure.log</filename></term>
+
+        <listitem><para>Measurements are logged into an event log file maintained in
+        <filename>/var/log/systemd/tpm2-measure.log</filename>, which contains a <ulink
+        url="https://www.rfc-editor.org/rfc/rfc7464.html">JSON-SEQ</ulink> series of objects that follow the
+        general structure of the <ulink
+        url="https://trustedcomputinggroup.org/resource/canonical-event-log-format/">TCG Common Event Log
+        Format (CEL-JSON)</ulink> event objects (but lack the <literal>recnum</literal>
+        field).</para>
+
+        <para>A <constant>LOCK_EX</constant> BSD file lock (<citerefentry
+        project='man-pages'><refentrytitle>flock</refentrytitle><manvolnum>2</manvolnum></citerefentry>) on
+        the log file is acquired while the measurement is made and the file is updated. Thus, applications
+        that intend to acquire a consistent quote from the TPM with the associated snapshot of the event log
+        should acquire a <constant>LOCK_SH</constant> lock while doing so.</para></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
