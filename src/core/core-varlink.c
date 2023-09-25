@@ -234,7 +234,7 @@ static int vl_method_subscribe_managed_oom_cgroups(
         /* We only take one subscriber for this method so return an error if there's already an existing one.
          * This shouldn't happen since systemd-oomd is the only client of this method. */
         if (FLAGS_SET(flags, VARLINK_METHOD_MORE) && m->managed_oom_varlink)
-                return varlink_error(link, VARLINK_ERROR_SUBSCRIPTION_TAKEN, NULL);
+                return varlink_error(link, "io.systemd.ManagedOOM.SubscriptionTaken", NULL);
 
         r = build_managed_oom_cgroups_json(m, &v);
         if (r < 0)
