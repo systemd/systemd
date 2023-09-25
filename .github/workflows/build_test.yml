@@ -26,10 +26,10 @@ jobs:
       matrix:
         env:
           - { COMPILER: "gcc",   COMPILER_VERSION: "11", LINKER: "bfd",  CRYPTOLIB: "gcrypt"  }
-          - { COMPILER: "gcc",   COMPILER_VERSION: "13", LINKER: "gold", CRYPTOLIB: "openssl" }
-          - { COMPILER: "clang", COMPILER_VERSION: "14", LINKER: "mold", CRYPTOLIB: "gcrypt"  }
-          - { COMPILER: "clang", COMPILER_VERSION: "15", LINKER: "lld",  CRYPTOLIB: "openssl" }
-          - { COMPILER: "clang", COMPILER_VERSION: "16", LINKER: "bfd",  CRYPTOLIB: "auto"    }
+          - { COMPILER: "gcc",   COMPILER_VERSION: "13", LINKER: "mold", CRYPTOLIB: "openssl" }
+          - { COMPILER: "clang", COMPILER_VERSION: "14", LINKER: "bfd",  CRYPTOLIB: "gcrypt"  }
+          - { COMPILER: "clang", COMPILER_VERSION: "15", LINKER: "mold", CRYPTOLIB: "openssl" }
+          - { COMPILER: "clang", COMPILER_VERSION: "17", LINKER: "lld",  CRYPTOLIB: "auto"    }
     env: ${{ matrix.env }}
     steps:
       - name: Repository checkout
