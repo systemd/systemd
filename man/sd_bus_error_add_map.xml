@@ -35,20 +35,15 @@
         …
 } sd_bus_error_map;</funcsynopsisinfo>
 
-    </funcsynopsis>
+      <funcsynopsisinfo><constant>SD_BUS_ERROR_MAP(<replaceable>name</replaceable>, <replaceable>code</replaceable>)</constant></funcsynopsisinfo>
 
-      <para>
-        <constant>SD_BUS_ERROR_MAP(<replaceable>name</replaceable>, <replaceable>code</replaceable>)</constant>
-      </para>
-      <para>
-        <constant>SD_BUS_ERROR_MAP_END</constant>
-      </para>
+      <funcsynopsisinfo><constant>SD_BUS_ERROR_MAP_END</constant></funcsynopsisinfo>
 
       <funcprototype>
         <funcdef>int <function>sd_bus_error_add_map</function></funcdef>
         <paramdef>const sd_bus_error_map *<parameter>map</parameter></paramdef>
       </funcprototype>
-
+    </funcsynopsis>
   </refsynopsisdiv>
 
   <refsect1>
