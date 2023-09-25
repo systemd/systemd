@@ -62,13 +62,13 @@
         <paramdef>uid_t <parameter>uid</parameter></paramdef>
         <paramdef>char **<parameter>session</parameter></paramdef>
       </funcprototype>
-    </funcsynopsis>
 
-    <funcprototype>
-       <funcdef>int <function>sd_uid_get_login_time</function></funcdef>
-       <paramdef>uid_t <parameter>uid</parameter></paramdef>
-       <paramdef>uint64_t *<parameter>usec</parameter></paramdef>
-    </funcprototype>
+      <funcprototype>
+        <funcdef>int <function>sd_uid_get_login_time</function></funcdef>
+        <paramdef>uid_t <parameter>uid</parameter></paramdef>
+        <paramdef>uint64_t *<parameter>usec</parameter></paramdef>
+      </funcprototype>
+    </funcsynopsis>
   </refsynopsisdiv>
 
   <refsect1>
