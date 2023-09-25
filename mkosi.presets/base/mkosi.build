@@ -9,6 +9,9 @@ if [ "${container:-}" != "mkosi" ]; then
     exec mkosi-chroot "$SCRIPT" "$@"
 fi
 
+# Run commands as the user invoking mkosi.
+SU="setpriv --reuid=${MKOSI_UID:-0} --regid=${MKOSI_GID:-0} --clear-groups"
+
 # We don't want to install our build of systemd in the base image, but use it as an extra tree for the
 # initrd and system images, so override DESTDIR to store it in the output directory so we can reference it as
 # an extra tree in the initrd and system image builds.
@@ -203,10 +206,10 @@ if [ ! -f "$BUILDDIR"/build.ninja ]; then
         )
     fi
 
-    ( set -x; meson setup "$BUILDDIR" "${CONFIGURE_OPTS[@]}" )
+    ( set -x; $SU meson setup "$BUILDDIR" "$SRCDIR" "${CONFIGURE_OPTS[@]}" )
 fi
 
-( set -x; ninja -C "$BUILDDIR" "$@" )
+( set -x; $SU ninja -C "$BUILDDIR" "$@" )
 if [ "$WITH_TESTS" = 1 ]; then
     if [ -n "$SANITIZERS" ]; then
         export ASAN_OPTIONS="$MKOSI_ASAN_OPTIONS"
