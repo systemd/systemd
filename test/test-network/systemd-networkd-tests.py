@@ -4941,7 +4941,7 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
         tear_down_common()
 
     def test_dhcp_server(self):
-        copy_network_unit('25-veth.netdev', '25-dhcp-client.network', '25-dhcp-server.network')
+        copy_network_unit('25-veth.netdev', '25-dhcp-client-test-hostname.network', '25-dhcp-server.network')
         start_networkd()
         self.wait_online(['veth99:routable', 'veth-peer:routable'])
 
@@ -4951,6 +4951,26 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
         self.assertIn('Gateway: 192.168.5.3', output)
         self.assertRegex(output, 'DNS: 192.168.5.1\n *192.168.5.10')
         self.assertRegex(output, 'NTP: 192.168.5.1\n *192.168.5.11')
+
+        output = check_output(*networkctl_cmd, '-n', '0', 'status', 'veth-peer', env=env)
+        print(output)
+        self.assertRegex(output, r'Offered DHCP leases: 192.168.5.[0-9]* \(to IAID:0x7ec6b6c/DUID, "test-hostname"\), expires in [0-9]*min [0-9]*s')
+
+    def test_dhcp_server_lease_no_hostname(self):
+        copy_network_unit('25-veth.netdev', '25-dhcp-client-no-hostname.network', '25-dhcp-server.network')
+        start_networkd()
+        self.wait_online(['veth99:routable', 'veth-peer:routable'])
+
+        output = check_output(*networkctl_cmd, '-n', '0', 'status', 'veth99', env=env)
+        print(output)
+        self.assertRegex(output, r'Address: 192.168.5.[0-9]* \(DHCP4 via 192.168.5.1\)')
+        self.assertIn('Gateway: 192.168.5.3', output)
+        self.assertRegex(output, 'DNS: 192.168.5.1\n *192.168.5.10')
+        self.assertRegex(output, 'NTP: 192.168.5.1\n *192.168.5.11')
+
+        output = check_output(*networkctl_cmd, '-n', '0', 'status', 'veth-peer', env=env)
+        print(output)
+        self.assertRegex(output, r'Offered DHCP leases: 192.168.5.[0-9]* \(to IAID:0x7ec6b6c/DUID\), expires in [0-9]*min [0-9]*s')
 
         output = check_output(*networkctl_cmd, '-n', '0', 'status', 'veth-peer', env=env)
         self.assertRegex(output, "Offered DHCP leases: 192.168.5.[0-9]*")
@@ -5012,6 +5032,10 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
         self.assertIn('Address: 10.1.1.200 (DHCP4 via 10.1.1.1)', output)
         self.assertIn('DHCP4 Client ID: 12:34:56:78:9a:bc', output)
 
+        output = check_output(*networkctl_cmd, '-n', '0', 'status', 'veth-peer', env=env)
+        print(output)
+        self.assertNotIn(output, 'Offered DHCP leases')
+
     def test_dhcp_server_static_lease_default_client_id(self):
         copy_network_unit('25-veth.netdev', '25-dhcp-client.network', '25-dhcp-server-static-lease.network')
         start_networkd()
@@ -5021,6 +5045,10 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
         print(output)
         self.assertIn('Address: 10.1.1.200 (DHCP4 via 10.1.1.1)', output)
         self.assertRegex(output, 'DHCP4 Client ID: IAID:[0-9a-z]*/DUID')
+
+        output = check_output(*networkctl_cmd, '-n', '0', 'status', 'veth-peer', env=env)
+        print(output)
+        self.assertNotIn(output, 'Offered DHCP leases')
 
 class NetworkdDHCPServerRelayAgentTests(unittest.TestCase, Utilities):
 
