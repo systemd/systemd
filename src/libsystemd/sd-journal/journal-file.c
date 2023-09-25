@@ -2815,7 +2815,16 @@ static int generic_array_get(
                         if (k == 0)
                                 break;
 
-                        i = direction == DIRECTION_DOWN ? 0 : k - 1;
+                        if (direction == DIRECTION_DOWN)
+                                i = 0;
+                        else {
+                                /* We moved to the previous array. The total must be decreased. */
+                                if (t < k)
+                                        return -EBADMSG; /* chain cache is broken ? */
+
+                                i = k - 1;
+                                t -= k;
+                        }
                 }
 
                 do {
@@ -2842,7 +2851,10 @@ static int generic_array_get(
 
                 } while (bump_array_index(&i, direction, k) > 0);
 
-                t += k;
+                if (direction == DIRECTION_DOWN)
+                        /* We are going to the next array, the total must be incremented. */
+                        t += k;
+
                 i = UINT64_MAX;
         }
 
