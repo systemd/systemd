@@ -200,5 +200,4 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(VarlinkServer *, varlink_server_unref);
 #define VARLINK_ERROR_INVALID_PARAMETER "org.varlink.service.InvalidParameter"
 
 /* These are errors we came up with and squatted the namespace with */
-#define VARLINK_ERROR_SUBSCRIPTION_TAKEN "org.varlink.service.SubscriptionTaken"
 #define VARLINK_ERROR_PERMISSION_DENIED "org.varlink.service.PermissionDenied"
