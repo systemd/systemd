@@ -147,6 +147,7 @@ VarlinkServer *varlink_server_unref(VarlinkServer *s);
 /* Add addresses or fds to listen on */
 int varlink_server_listen_address(VarlinkServer *s, const char *address, mode_t mode);
 int varlink_server_listen_fd(VarlinkServer *s, int fd);
+int varlink_server_listen_auto(VarlinkServer *s);
 int varlink_server_add_connection(VarlinkServer *s, int fd, Varlink **ret);
 
 /* Bind callbacks */
