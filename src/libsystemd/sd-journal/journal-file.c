@@ -2784,8 +2784,21 @@ static int generic_array_get(
                         if (r < 0)
                                 return r;
 
-                        i = UINT64_MAX;
+                        r = journal_file_move_to_object(f, OBJECT_ENTRY_ARRAY, a, &o);
+                        if (r < 0)
+                                return r;
 
+                        k = journal_file_entry_array_n_items(f, o);
+                        if (t < k) {
+                                if (ci) {
+                                        log_debug("Broken chain cache entry for first=%"PRIu64", removing the cache entry.", first);
+                                        free(ordered_hashmap_remove(f->chain_cache, &first));
+                                }
+                                return 0;
+                        }
+
+                        i = k - 1;
+                        t -= k;
                         break;
                 }
                 if (r < 0)
@@ -2795,6 +2808,7 @@ static int generic_array_get(
                 if (i < k)
                         break;
 
+                /* The index is larger than the number of elements in the array. Let's move to the next array. */
                 i -= k;
                 t += k;
                 a = le64toh(o->entry_array.next_entry_array_offset);
@@ -2804,20 +2818,6 @@ static int generic_array_get(
          * direction). */
 
         while (a > 0) {
-                /* In the first iteration of the while loop, we reuse i, k and o from the previous while
-                 * loop. */
-                if (i == UINT64_MAX) {
-                        r = journal_file_move_to_object(f, OBJECT_ENTRY_ARRAY, a, &o);
-                        if (r < 0)
-                                return r;
-
-                        k = journal_file_entry_array_n_items(f, o);
-                        if (k == 0)
-                                break;
-
-                        i = direction == DIRECTION_DOWN ? 0 : k - 1;
-                }
-
                 do {
                         uint64_t p;
 
@@ -2842,12 +2842,35 @@ static int generic_array_get(
 
                 } while (bump_array_index(&i, direction, k) > 0);
 
+                /* All entries tried in the above do-while loop are broken. Let's move to the next (or previous) array. */
+
+                if (direction == DIRECTION_DOWN)
+                        t += k;
+
                 r = bump_entry_array(f, o, a, first, direction, &a);
                 if (r < 0)
                         return r;
 
-                t += k;
-                i = UINT64_MAX;
+                r = journal_file_move_to_object(f, OBJECT_ENTRY_ARRAY, a, &o);
+                if (r < 0)
+                        return r;
+
+                k = journal_file_entry_array_n_items(f, o);
+                if (k == 0)
+                        return 0;
+
+                if (direction == DIRECTION_UP) {
+                        if (t < k) {
+                                if (ci) {
+                                        log_debug("Broken chain cache entry for first=%"PRIu64", removing the cache entry.", first);
+                                        free(ordered_hashmap_remove(f->chain_cache, &first));
+                                }
+                                return 0;
+                        }
+                        t -= k;
+                }
+
+                i = direction == DIRECTION_DOWN ? 0 : k - 1;
         }
 
         return 0;
