@@ -28,38 +28,59 @@ _systemd_dissect() {
     local cur=${COMP_WORDS[COMP_CWORD]} prev_1=${COMP_WORDS[COMP_CWORD-1]} prev_2=${COMP_WORDS[COMP_CWORD-2]} words cword
     local -A OPTS=(
         [STANDALONE]='-h --help --version
+                     --discover
                      --no-pager
                      --no-legend
                      -r --read-only
                      --mkdir
-                     --rmdir'
+                     --rmdir
+                     --in-memory'
         [ARG]='-m --mount -M
                -u --umount -U
                -l --list
+               --mtree
+               --with
                -x --copy-from
                -a --copy-to
+               --validate
                --fsck
                --growfs
                --discard
                --root-hash
                --root-hash-sig
                --verity-data
-               --json'
+               --image-policy
+               --json
+               --loop-ref
+               --mtree-hash'
     )
 
     _init_completion || return
 
+    if __contains_word "$prev_1" ${OPTS[STANDALONE]}; then
+        case $prev_1 in
+            -h|--help|--version|--discover)
+                return 0
+                ;;
+        esac
+    fi
+
+    if [[ "$cur" = -* ]]; then
+        COMPREPLY=( $(compgen -W '${OPTS[*]}' -- "$cur") )
+        return 0
+    fi
+
     if __contains_word "$prev_1" ${OPTS[ARG]}; then
         case $prev_1 in
-            -l|--list|-m|--mount|-M|-x|--copy-from|-a|--copy-to|--verity-data)
+            -l|--list|--mtree|-m|--mount|-M|-x|--copy-from|-a|--copy-to|--verity-data|--validate|--with)
                 comps=$(compgen -A file -- "$cur")
                 compopt -o filenames
                 ;;
             -u|--umount|-U)
-                comps=$(compgen -A directory -- "$cur" )
+                comps=$(compgen -A directory -- "$cur")
                 compopt -o dirnames
                 ;;
-            --fsck|--growfs)
+            --fsck|--growfs|--mtree-hash)
                 comps='yes no'
                 ;;
             --discard)
@@ -80,20 +101,19 @@ _systemd_dissect() {
     if __contains_word "$prev_2" ${OPTS[ARG]}; then
         case $prev_2 in
             -m|--mount|-M)
-                comps=$(compgen -A directory -- "$cur" )
+                comps=$(compgen -A directory -- "$cur")
                 compopt -o dirnames
                 ;;
+            --with)
+                comps=$(compgen -A command -- "$cur")
+                compopt -o filenames
+                ;;
             *)
-                comps=$(compgen -A file -- "$cur" )
+                comps=$(compgen -A file -- "$cur")
                 compopt -o filenames
                 ;;
         esac
         COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
-        return 0
-    fi
-
-    if [[ "$cur" = -* ]]; then
-        COMPREPLY=( $(compgen -W '${OPTS[*]}' -- "$cur") )
         return 0
     fi
 
