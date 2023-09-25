@@ -370,13 +370,13 @@ int dns_zone_lookup(DnsZone *z, DnsResourceKey *key, int ifindex, DnsAnswer **re
                 goto return_empty;
 
         if (n_answer > 0) {
-                answer = dns_answer_new(n_answer);
+                answer = dns_answer_new(n_answer, false);
                 if (!answer)
                         return -ENOMEM;
         }
 
         if (need_soa) {
-                soa = dns_answer_new(1);
+                soa = dns_answer_new(1, false);
                 if (!soa)
                         return -ENOMEM;
         }
