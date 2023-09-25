@@ -3540,3 +3540,38 @@ int varlink_server_deserialize_one(VarlinkServer *s, const char *value, FDSet *f
         LIST_PREPEND(sockets, s->sockets, TAKE_PTR(ss));
         return 0;
 }
+
+int varlink_invocation(VarlinkInvocationFlags flags) {
+        _cleanup_strv_free_ char **names = NULL;
+        int r, b;
+        socklen_t l = sizeof(b);
+
+        /* Returns true if this is a "pure" varlink server invocation, i.e. with one fd passed. */
+
+        r = sd_listen_fds_with_names(/* unset_environment= */ false, &names);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return false;
+        if (r > 1)
+                return -ETOOMANYREFS;
+
+        if (!strv_equal(names, STRV_MAKE("varlink")))
+                return false;
+
+        if (FLAGS_SET(flags, VARLINK_ALLOW_LISTEN|VARLINK_ALLOW_ACCEPT)) /* Both flags set? Then allow everything */
+                return true;
+
+        if ((flags & (VARLINK_ALLOW_LISTEN|VARLINK_ALLOW_ACCEPT)) == 0) /* Neither is set, then fail */
+                return -EISCONN;
+
+        if (getsockopt(SD_LISTEN_FDS_START, SOL_SOCKET, SO_ACCEPTCONN, &b, &l) < 0)
+                return -errno;
+
+        assert(l == sizeof(b));
+
+        if (!FLAGS_SET(flags, b ? VARLINK_ALLOW_LISTEN : VARLINK_ALLOW_ACCEPT))
+                return -EISCONN;
+
+        return true;
+}
