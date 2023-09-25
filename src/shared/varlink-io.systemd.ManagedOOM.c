@@ -13,8 +13,11 @@ static VARLINK_DEFINE_METHOD(
                 SubscribeManagedOOMCGroups,
                 VARLINK_DEFINE_OUTPUT_BY_TYPE(cgroups, ControlGroup, VARLINK_ARRAY));
 
+static VARLINK_DEFINE_ERROR(SubscriptionTaken);
+
 VARLINK_DEFINE_INTERFACE(
                 io_systemd_ManagedOOM,
                 "io.systemd.ManagedOOM",
                 &vl_method_SubscribeManagedOOMCGroups,
-                &vl_type_ControlGroup);
+                &vl_type_ControlGroup,
+                &vl_error_SubscriptionTaken);
