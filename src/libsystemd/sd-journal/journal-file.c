@@ -2903,8 +2903,8 @@ enum {
 
 static int generic_array_bisect_one(
                 JournalFile *f,
-                uint64_t a, /* offset of entry array object. */
-                uint64_t i, /* index of the entry item we will test. */
+                Object *array, /* entry array object */
+                uint64_t i,    /* index of the entry item in the array we will test. */
                 uint64_t needle,
                 int (*test_object)(JournalFile *f, uint64_t p, uint64_t needle),
                 direction_t direction,
@@ -2912,20 +2912,16 @@ static int generic_array_bisect_one(
                 uint64_t *right,   /* The index of the left boundary in the array. */
                 uint64_t *ret_offset) {
 
-        Object *array;
         uint64_t p;
         int r;
 
         assert(f);
+        assert(array);
         assert(test_object);
         assert(left);
         assert(right);
         assert(*left <= i);
         assert(i <= *right);
-
-        r = journal_file_move_to_object(f, OBJECT_ENTRY_ARRAY, a, &array);
-        if (r < 0)
-                return r;
 
         p = journal_file_entry_array_item(f, array, i);
         if (p <= 0)
@@ -3031,7 +3027,7 @@ static int generic_array_bisect(
                         return 0;
 
                 right--;
-                r = generic_array_bisect_one(f, a, right, needle, test_object, direction, &left, &right, &lp);
+                r = generic_array_bisect_one(f, array, right, needle, test_object, direction, &left, &right, &lp);
                 if (r == -ENOANO) {
                         n = right;
                         continue;
@@ -3046,13 +3042,13 @@ static int generic_array_bisect(
                          * neighbors of the last index we looked at. */
 
                         if (last_index > 0 && last_index - 1 < right) {
-                                r = generic_array_bisect_one(f, a, last_index - 1, needle, test_object, direction, &left, &right, NULL);
+                                r = generic_array_bisect_one(f, array, last_index - 1, needle, test_object, direction, &left, &right, NULL);
                                 if (r < 0 && r != -ENOANO)
                                         return r;
                         }
 
                         if (last_index < right) {
-                                r = generic_array_bisect_one(f, a, last_index + 1, needle, test_object, direction, &left, &right, NULL);
+                                r = generic_array_bisect_one(f, array, last_index + 1, needle, test_object, direction, &left, &right, NULL);
                                 if (r < 0 && r != -ENOANO)
                                         return r;
                         }
@@ -3069,7 +3065,7 @@ static int generic_array_bisect(
                                 assert(left < right);
                                 i = (left + right) / 2;
 
-                                r = generic_array_bisect_one(f, a, i, needle, test_object, direction, &left, &right, NULL);
+                                r = generic_array_bisect_one(f, array, i, needle, test_object, direction, &left, &right, NULL);
                                 if (r < 0 && r != -ENOANO)
                                         return r;
                         }
@@ -3100,10 +3096,6 @@ static int generic_array_bisect(
 found:
         if (subtract_one && t == 0 && i == 0)
                 return 0;
-
-        r = journal_file_move_to_object(f, OBJECT_ENTRY_ARRAY, a, &array);
-        if (r < 0)
-                return r;
 
         p = journal_file_entry_array_item(f, array, 0);
         if (p <= 0)
