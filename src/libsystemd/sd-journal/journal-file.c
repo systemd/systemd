@@ -2815,7 +2815,15 @@ static int generic_array_get(
                         if (k == 0)
                                 break;
 
-                        i = direction == DIRECTION_DOWN ? 0 : k - 1;
+                        if (direction == DIRECTION_DOWN)
+                                i = 0;
+                        else {
+                                if (t < k)
+                                        return -EBADMSG; /* chain cache is broken ? */
+
+                                i = k - 1;
+                                t -= k;
+                        }
                 }
 
                 do {
@@ -2842,7 +2850,9 @@ static int generic_array_get(
 
                 } while (bump_array_index(&i, direction, k) > 0);
 
-                t += k;
+                if (direction == DIRECTION_DOWN)
+                        t += k;
+
                 i = UINT64_MAX;
         }
 
