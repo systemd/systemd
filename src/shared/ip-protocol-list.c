@@ -37,33 +37,40 @@ int ip_protocol_from_name(const char *name) {
         return sc->id;
 }
 
-int parse_ip_protocol(const char *s) {
-        _cleanup_free_ char *str = NULL;
-        int i, r;
+int parse_ip_protocol_full(const char *s, bool relaxed) {
+        int r, p;
 
         assert(s);
 
         if (isempty(s))
                 return IPPROTO_IP;
 
-        /* Do not use strdupa() here, as the input string may come from *
-         * command line or config files. */
-        str = strdup(s);
-        if (!str)
-                return -ENOMEM;
-
-        i = ip_protocol_from_name(ascii_strlower(str));
-        if (i >= 0)
-                return i;
-
-        r = safe_atoi(str, &i);
-        if (r < 0)
+        /* People commonly use lowercase protocol names, which we can look up very quickly, so let's try that
+         * first. */
+        r = ip_protocol_from_name(s);
+        if (r >= 0)
                 return r;
 
-        if (!ip_protocol_to_name(i))
-                return -EINVAL;
+        /* Do not use strdupa() here, as the input string may come from command line or config files. */
+        _cleanup_free_ char *t = strdup(s);
+        if (!t)
+                return -ENOMEM;
 
-        return i;
+        r = ip_protocol_from_name(ascii_strlower(t));
+        if (r >= 0)
+                return r;
+
+        r = safe_atoi(t, &p);
+        if (r < 0)
+                return r;
+        if (p < 0)
+                return -ERANGE;
+
+        /* If @relaxed, we don't check that we have a name for the protocol. */
+        if (!relaxed && !ip_protocol_to_name(p))
+                return -EPROTONOSUPPORT;
+
+        return p;
 }
 
 const char *ip_protocol_to_tcp_udp(int id) {

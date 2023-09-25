@@ -425,6 +425,21 @@ int safe_atou_full(const char *s, unsigned base, unsigned *ret_u) {
         return 0;
 }
 
+int safe_atou_bounded(const char *s, unsigned min, unsigned max, unsigned *ret) {
+        unsigned v;
+        int r;
+
+        r = safe_atou(s, &v);
+        if (r < 0)
+                return r;
+
+        if (v < min || v > max)
+                return -ERANGE;
+
+        *ret = v;
+        return 0;
+}
+
 int safe_atoi(const char *s, int *ret_i) {
         unsigned base = 0;
         char *x = NULL;

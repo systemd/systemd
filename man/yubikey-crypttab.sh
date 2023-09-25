@@ -26,3 +26,12 @@ sudo /usr/lib/systemd/systemd-cryptsetup attach mytest /dev/sdXn - pkcs11-uri=au
 # If that worked, let's now add the same line persistently to /etc/crypttab,
 # for the future.
 sudo bash -c 'echo "mytest /dev/sdXn - pkcs11-uri=auto" >>/etc/crypttab'
+
+# Depending on your distribution and encryption setup, you may need
+# to manually regenerate your initramfs to be able to use a
+# Yubikey / PKCS#11 Token to unlock the partition during early boot.
+# More information at https://unix.stackexchange.com/a/705809
+# On Fedora based systems:
+sudo dracut --force
+# On Debian based systems:
+sudo update-initramfs -u

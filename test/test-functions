@@ -379,7 +379,12 @@ qemu_setup_swtpm_socket() {
     swtpm socket --tpm2 --tpmstate dir="$state_dir" --ctrl type=unixio,path="$state_dir/sock" &
     pid=$!
     if ! kill -0 "$pid"; then
-        echo >&2 "Failed to setup swtpm socket"
+        derror "Failed to start swtpm"
+        return 1
+    fi
+
+    if ! timeout 5 bash -c "until [[ -S $state_dir/sock ]]; do sleep .5; done"; then
+        derror "Failed to setup swtpm socket"
         return 1
     fi
 
@@ -563,7 +568,6 @@ run_qemu() {
         kernel_params+=(
             "oops=panic"
             "panic=1"
-            "softlockup_panic=1"
             "systemd.wants=end.service"
         )
     fi

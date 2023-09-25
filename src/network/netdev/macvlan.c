@@ -13,20 +13,13 @@
 DEFINE_CONFIG_PARSE_ENUM(config_parse_macvlan_mode, macvlan_mode, MacVlanMode, "Failed to parse macvlan mode");
 
 static int netdev_macvlan_fill_message_create(NetDev *netdev, Link *link, sd_netlink_message *req) {
-        MacVlan *m;
-        int r;
-
         assert(netdev);
-        assert(link);
         assert(netdev->ifname);
+        assert(link);
         assert(link->network);
 
-        if (netdev->kind == NETDEV_KIND_MACVLAN)
-                m = MACVLAN(netdev);
-        else
-                m = MACVTAP(netdev);
-
-        assert(m);
+        MacVlan *m = netdev->kind == NETDEV_KIND_MACVLAN ? MACVLAN(netdev) : MACVTAP(netdev);
+        int r;
 
         if (m->mode == NETDEV_MACVLAN_MODE_SOURCE && !set_isempty(m->match_source_mac)) {
                 const struct ether_addr *mac_addr;
@@ -84,64 +77,33 @@ int config_parse_macvlan_broadcast_queue_size(
                 void *data,
                 void *userdata) {
 
-        MacVlan *m = ASSERT_PTR(userdata);
-        uint32_t v;
-        int r;
-
         assert(filename);
         assert(section);
         assert(lvalue);
         assert(rvalue);
         assert(data);
 
+        MacVlan *m = ASSERT_PTR(userdata);
+
         if (isempty(rvalue)) {
                 m->bc_queue_length = UINT32_MAX;
                 return 0;
         }
 
-        r = safe_atou32(rvalue, &v);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse BroadcastMulticastQueueLength=%s, ignoring assignment: %m", rvalue);
-                return 0;
-        }
-
-        if (v == UINT32_MAX) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Invalid BroadcastMulticastQueueLength=%s, ignoring assignment: %m", rvalue);
-                return 0;
-        }
-
-        m->bc_queue_length = v;
-        return 0;
+        return config_parse_uint32_bounded(
+                        unit, filename, line, section, section_line, lvalue, rvalue,
+                        0, UINT32_MAX - 1, true,
+                        &m->bc_queue_length);
 }
 
-static void macvlan_done(NetDev *n) {
-        MacVlan *m;
-
-        assert(n);
-
-        if (n->kind == NETDEV_KIND_MACVLAN)
-                m = MACVLAN(n);
-        else
-                m = MACVTAP(n);
-
-        assert(m);
+static void macvlan_done(NetDev *netdev) {
+        MacVlan *m = ASSERT_PTR(netdev)->kind == NETDEV_KIND_MACVLAN ? MACVLAN(netdev) : MACVTAP(netdev);
 
         set_free(m->match_source_mac);
 }
 
-static void macvlan_init(NetDev *n) {
-        MacVlan *m;
-
-        assert(n);
-
-        if (n->kind == NETDEV_KIND_MACVLAN)
-                m = MACVLAN(n);
-        else
-                m = MACVTAP(n);
-
-        assert(m);
+static void macvlan_init(NetDev *netdev) {
+        MacVlan *m = ASSERT_PTR(netdev)->kind == NETDEV_KIND_MACVLAN ? MACVLAN(netdev) : MACVTAP(netdev);
 
         m->mode = _NETDEV_MACVLAN_MODE_INVALID;
         m->bc_queue_length = UINT32_MAX;
