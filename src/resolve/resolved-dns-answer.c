@@ -181,12 +181,6 @@ int dns_answer_add(
 
         exist = ordered_set_get(a->items, &tmp);
         if (exist) {
-                /* There's already an RR of the same RRset in place! Let's see if the TTLs more or less
-                 * match. We don't really care if they match precisely, but we do care whether one is 0 and
-                 * the other is not. See RFC 2181, Section 5.2. */
-                if ((rr->ttl == 0) != (exist->rr->ttl == 0))
-                        return -EINVAL;
-
                 /* Entry already exists, keep the entry with the higher TTL. */
                 if (rr->ttl > exist->rr->ttl) {
                         DNS_RR_REPLACE(exist->rr, dns_resource_record_ref(rr));
