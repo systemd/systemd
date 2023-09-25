@@ -2628,11 +2628,12 @@ int journal_file_append_entry(
 }
 
 typedef struct ChainCacheItem {
-        uint64_t first; /* the array at the beginning of the chain */
-        uint64_t array; /* the cached array */
-        uint64_t begin; /* the first item in the cached array */
-        uint64_t total; /* the total number of items in all arrays before this one in the chain */
-        uint64_t last_index; /* the last index we looked at, to optimize locality when bisecting */
+        uint64_t first; /* The offset of the entry array object at the beginning of the chain,
+                         * i.e., le64toh(f->header->entry_array_offset), or le64toh(o->data.entry_offset). */
+        uint64_t array; /* The offset of the cached entry array object. */
+        uint64_t begin; /* The offset of the first item in the cached array. */
+        uint64_t total; /* The total number of items in all arrays before the cached one in the chain. */
+        uint64_t last_index; /* The last index we looked at in the cached array, to optimize locality when bisecting. */
 } ChainCacheItem;
 
 static void chain_cache_put(
@@ -2744,11 +2745,11 @@ static int bump_entry_array(
 
 static int generic_array_get(
                 JournalFile *f,
-                uint64_t first,
-                uint64_t i,
+                uint64_t first,         /* The offset of the first entry array object in the chain. */
+                uint64_t i,             /* The index of the target object counted from the beginning of the entry array chain. */
                 direction_t direction,
-                Object **ret_object,
-                uint64_t *ret_offset) {
+                Object **ret_object,    /* The found object. */
+                uint64_t *ret_offset) { /* The offset of the found object. */
 
         uint64_t a, t = 0, k;
         ChainCacheItem *ci;
@@ -2794,6 +2795,7 @@ static int generic_array_get(
                 if (i < k)
                         break;
 
+                /* The index is larger than the number of elements in the array. Let's move to the next array. */
                 i -= k;
                 t += k;
                 a = le64toh(o->entry_array.next_entry_array_offset);
@@ -2803,8 +2805,6 @@ static int generic_array_get(
          * direction). */
 
         while (a > 0) {
-                /* In the first iteration of the while loop, we reuse i, k and o from the previous while
-                 * loop. */
                 if (i == UINT64_MAX) {
                         r = bump_entry_array(f, o, a, first, direction, &a);
                         if (r <= 0)
@@ -2852,6 +2852,8 @@ static int generic_array_get(
                         log_debug_errno(r, "Entry item %" PRIu64 " is bad, skipping over it.", i);
 
                 } while (bump_array_index(&i, direction, k) > 0);
+
+                /* All entries tried in the above do-while loop are broken. Let's move to the next (or previous) array. */
 
                 if (direction == DIRECTION_DOWN)
                         t += k;
@@ -2906,8 +2908,8 @@ static int generic_array_bisect_one(
                 uint64_t needle,
                 int (*test_object)(JournalFile *f, uint64_t p, uint64_t needle),
                 direction_t direction,
-                uint64_t *left,
-                uint64_t *right,
+                uint64_t *left,    /* The index of the right boundary in the array. */
+                uint64_t *right,   /* The index of the left boundary in the array. */
                 uint64_t *ret_offset) {
 
         Object *array;
@@ -2939,6 +2941,10 @@ static int generic_array_bisect_one(
                 return r;
 
         if (r == TEST_FOUND)
+                /* There may be multiple entries that match with the needle. When the direction is down, we
+                 * need to find the first matching entry, hence the right boundary can be moved, but the left
+                 * one cannot. Similarly, when the direction is up, we need to find the last matching entry,
+                 * hence the left boundary can be moved, but the right one cannot. */
                 r = direction == DIRECTION_DOWN ? TEST_RIGHT : TEST_LEFT;
 
         if (r == TEST_RIGHT)
@@ -2954,27 +2960,30 @@ static int generic_array_bisect_one(
 
 static int generic_array_bisect(
                 JournalFile *f,
-                uint64_t first,
-                uint64_t n,
-                uint64_t needle,
-                int (*test_object)(JournalFile *f, uint64_t p, uint64_t needle),
+                uint64_t first,  /* The offset of the first entry array object in the chain. */
+                uint64_t n,      /* The total number of the elements in the chain of the entry array. */
+                uint64_t needle, /* The target value (e.g. seqnum, monotonic, realtime, ...). */
+                int (*test_object)(JournalFile *f,
+                                   uint64_t p, /* the offset of the (data or entry) object that will be tested. */
+                                   uint64_t needle),
                 direction_t direction,
-                Object **ret_object,
-                uint64_t *ret_offset,
-                uint64_t *ret_idx) {
+                Object **ret_object,  /* The found object. */
+                uint64_t *ret_offset, /* The offset of the found object. */
+                uint64_t *ret_idx) {  /* The index of the found object counted from the beginning of the entry array chain. */
 
         /* Given an entry array chain, this function finds the object "closest" to the given needle in the
          * chain, taking into account the provided direction. A function can be provided to determine how
          * an object is matched against the given needle.
          *
          * Given a journal file, the offset of an object and the needle, the test_object() function should
-         * return TEST_LEFT if the needle is located earlier in the entry array chain, TEST_LEFT if the
-         * needle is located later in the entry array chain and TEST_FOUND if the object matches the needle.
+         * return TEST_RIGHT if the needle is located earlier in the entry array chain, TEST_LEFT if the
+         * needle is located later in the entry array chain, and TEST_FOUND if the object matches the needle.
          * If test_object() returns TEST_FOUND for a specific object, that object's information will be used
          * to populate the return values of this function. If test_object() never returns TEST_FOUND, the
          * return values are populated with the details of one of the objects closest to the needle. If the
          * direction is DIRECTION_UP, the earlier object is used. Otherwise, the later object is used.
-         */
+         * If there are multiple objects that test_object() return TEST_FOUND for, then the first matching
+         * object returned when direction is DIRECTION_DOWN. Otherwise the last object is returned. */
 
         uint64_t a, p, t = 0, i = 0, last_p = 0, last_index = UINT64_MAX;
         bool subtract_one = false;
@@ -3030,6 +3039,7 @@ static int generic_array_bisect(
                 if (r < 0)
                         return r;
 
+                /* The expected entry should be in this array, (or the last entry of the previous array). */
                 if (r == TEST_RIGHT) {
                         /* If we cached the last index we looked at, let's try to not to jump too wildly
                          * around and see if we can limit the range to look at early to the immediate
@@ -3064,6 +3074,8 @@ static int generic_array_bisect(
                                         return r;
                         }
                 }
+
+                /* Not found in this array (or the last entry of this array should be returned), go to the next array. */
 
                 if (k >= n) {
                         if (direction == DIRECTION_UP) {
