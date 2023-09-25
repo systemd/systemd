@@ -181,11 +181,23 @@ int dns_answer_add(
 
         exist = ordered_set_get(a->items, &tmp);
         if (exist) {
-                /* There's already an RR of the same RRset in place! Let's see if the TTLs more or less
-                 * match. We don't really care if they match precisely, but we do care whether one is 0 and
-                 * the other is not. See RFC 2181, Section 5.2. */
-                if ((rr->ttl == 0) != (exist->rr->ttl == 0))
-                        return -EINVAL;
+                /* There's already an RR of the same RRset in place! Let's see if the TTLs more or
+                 * less match. RFC 2181, Section 5.2 suggests clients should reject RRsets
+                 * containing RRs with differing TTLs. We are more tolerant of this situation except
+                 * if one RR has a zero TTL and the other a nonzero TTL. In mDNS, zero TTLs are
+                 * special, so we must error in that case. */
+                if ((rr->ttl == 0) != (exist->rr->ttl == 0)) {
+                        if ((exist->flags | flags) & DNS_ANSWER_REFUSE_TTL_NO_MATCH)
+                                return log_debug_errno(
+                                                SYNTHETIC_ERRNO(EINVAL),
+                                                "Refusing to merge RRs with zero TTL and non-zero TTL: %s vs. %s",
+                                                dns_resource_record_to_string(rr),
+                                                dns_resource_record_to_string(exist->rr));
+
+                        log_debug("Merging RRs with zero TTL and non-zero TTL (not RFC 2181/5.2 compliant): %s vs. %s",
+                                  dns_resource_record_to_string(rr),
+                                  dns_resource_record_to_string(exist->rr));
+                }
 
                 /* Entry already exists, keep the entry with the higher TTL. */
                 if (rr->ttl > exist->rr->ttl) {
