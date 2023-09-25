@@ -137,6 +137,9 @@ is a cool character which looks pretty in the ps output... 😎
 Note that your code should only modify `argv[0][0]` and leave the comm name
 (i.e. `/proc/self/comm`) of your process untouched.
 
+Since systemd v255, alternatively the `SurviveFinalKillSignal=yes` unit option
+can be set, and provides the equivalent functionality to modifying `argv[0][0]`.
+
 ## To which technologies does this apply?
 
 These recommendations apply to those storage daemons which need to stay around
