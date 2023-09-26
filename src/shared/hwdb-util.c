@@ -193,7 +193,7 @@ static int trie_insert(struct trie *trie, struct trie_node *node, const char *se
 
         for (size_t i = 0;; i++) {
                 size_t p;
-                uint8_t c;
+                char c;
                 struct trie_node *child;
 
                 for (p = 0; (c = trie->strings->buf[node->prefix_off + p]); p++) {
