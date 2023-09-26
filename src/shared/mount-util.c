@@ -797,6 +797,98 @@ int mount_option_mangle(
         return 0;
 }
 
+static int mount_in_namespace_new(
+                const char *chased_src_path,
+                int chased_src_fd,
+                struct stat *chased_src_st,
+                const char *dest,
+                int pidns_fd,
+                int mntns_fd,
+                int root_fd,
+                bool read_only,
+                bool make_file_or_directory) {
+
+        _cleanup_close_pair_ int errno_pipe_fd[2] = PIPE_EBADF;
+        _cleanup_close_ int new_mount_fd = -EBADF;
+        pid_t child;
+        int r;
+
+        assert(chased_src_path);
+        assert(chased_src_fd >= 0);
+        assert(chased_src_st);
+        assert(dest);
+        assert(pidns_fd >= 0);
+        assert(mntns_fd >= 0);
+        assert(root_fd >= 0);
+
+        new_mount_fd = open_tree(
+                        chased_src_fd,
+                        "",
+                        OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC|AT_SYMLINK_NOFOLLOW|AT_EMPTY_PATH);
+        if (new_mount_fd < 0)
+                return log_debug_errno(
+                                errno,
+                                "Failed to open mount point \"%s\": %m",
+                                chased_src_path);
+
+        if (read_only) {
+                if (mount_setattr(new_mount_fd, "", AT_EMPTY_PATH,
+                                &(struct mount_attr) {
+                                        .attr_set = MOUNT_ATTR_RDONLY,
+                                }, MOUNT_ATTR_SIZE_VER0) < 0)
+                        return log_debug_errno(
+                                        errno,
+                                        "Failed to set mount flags for \"%s\": %m",
+                                        chased_src_path);
+        }
+
+        if (pipe2(errno_pipe_fd, O_CLOEXEC|O_NONBLOCK) < 0)
+                return log_debug_errno(errno, "Failed to create pipe: %m");
+
+        r = namespace_fork("(sd-bindmnt)",
+                           "(sd-bindmnt-inner)",
+                           /* except_fds= */ NULL,
+                           /* n_except_fds= */ 0,
+                           FORK_RESET_SIGNALS|FORK_DEATHSIG,
+                           pidns_fd,
+                           mntns_fd,
+                           /* netns_fd= */ -1,
+                           /* userns_fd= */ -1,
+                           root_fd,
+                           &child);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to fork off: %m");
+        if (r == 0) {
+                errno_pipe_fd[0] = safe_close(errno_pipe_fd[0]);
+
+                if (make_file_or_directory)
+                        (void) mkdir_p(dest, 0755);
+
+                if (move_mount(new_mount_fd, "", -EBADF, dest, MOVE_MOUNT_F_EMPTY_PATH) < 0) {
+                        (void) write(errno_pipe_fd[1], &errno, sizeof(errno));
+                        errno_pipe_fd[1] = safe_close(errno_pipe_fd[1]);
+
+                        _exit(EXIT_FAILURE);
+                }
+
+                _exit(EXIT_SUCCESS);
+        }
+
+        errno_pipe_fd[1] = safe_close(errno_pipe_fd[1]);
+
+        r = wait_for_terminate_and_check("(sd-bindmnt)", child, 0);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to wait for child: %m");
+        if (r != EXIT_SUCCESS) {
+                if (read(errno_pipe_fd[0], &r, sizeof(r)) == sizeof(r))
+                        return log_debug_errno(r, "Failed to mount: %m");
+
+                return log_debug_errno(r, "Child failed.");
+        }
+
+        return 0;
+}
+
 static int mount_in_namespace(
                 pid_t target,
                 const char *propagate_path,
@@ -855,6 +947,17 @@ static int mount_in_namespace(
                 return log_debug_errno(errno, "Failed to stat() resolved source path %s: %m", src);
         if (S_ISLNK(st.st_mode)) /* This shouldn't really happen, given that we just chased the symlinks above, but let's better be safe… */
                 return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Source directory %s can't be a symbolic link", src);
+
+        if (!is_image && ms_nosymfollow_supported() > 0) /* Shortcut if we can use the new mount API */
+                return mount_in_namespace_new(chased_src_path,
+                                              chased_src_fd,
+                                              &st,
+                                              dest,
+                                              pidns_fd,
+                                              mntns_fd,
+                                              root_fd,
+                                              read_only,
+                                              make_file_or_directory);
 
         /* Our goal is to install a new bind mount into the container,
            possibly read-only. This is irritatingly complex
