@@ -5,6 +5,6 @@ modules += [
                 'name' : 'nss_myhostname',
                 'conditions' : ['ENABLE_NSS_MYHOSTNAME'],
                 'sources' : files('nss-myhostname.c'),
-                'link_depends' : files('nss-myhostname.sym'),
+                'version-script' : meson.current_source_dir() / 'nss-myhostname.sym',
         },
 ]

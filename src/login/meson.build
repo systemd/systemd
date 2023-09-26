@@ -112,7 +112,7 @@ modules += [
                         'HAVE_PAM',
                 ],
                 'sources' : files('pam_systemd.c'),
-                'link_depends' : files('pam_systemd.sym'),
+                'version-script' : meson.current_source_dir() / 'pam_systemd.sym',
         },
 ]
 

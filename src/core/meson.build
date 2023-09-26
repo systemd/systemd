@@ -117,6 +117,7 @@ libcore = shared_library(
         c_args : ['-fvisibility=default'],
         link_args : ['-shared',
                      '-Wl,--version-script=' + libshared_sym_path],
+        link_depends : libshared_sym_path,
         link_with : libshared,
         dependencies : [libacl,
                         libapparmor,
