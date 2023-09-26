@@ -3,7 +3,6 @@
 set -ex
 set -o pipefail
 
-SD_CRYPTSETUP="/usr/lib/systemd/systemd-cryptsetup"
 SD_MEASURE="/usr/lib/systemd/systemd-measure"
 SD_PCREXTEND="/usr/lib/systemd/systemd-pcrextend"
 export SYSTEMD_LOG_LEVEL=debug
@@ -29,10 +28,10 @@ tpm_check_failure_with_wrong_pin() {
 
     # We need to be careful not to trigger DA lockout; allow 2 failures
     tpm2_dictionarylockout -s -n 2
-    (! PIN=$badpin "$SD_CRYPTSETUP" attach test-volume "$testimg" - tpm2-device=auto,headless=1)
+    (! PIN=$badpin systemd-cryptsetup attach test-volume "$testimg" - tpm2-device=auto,headless=1)
     # Verify the correct PIN works, to be sure the failure wasn't a DA lockout
-    PIN=$goodpin "$SD_CRYPTSETUP" attach test-volume "$testimg" - tpm2-device=auto,headless=1
-    "$SD_CRYPTSETUP" detach test-volume
+    PIN=$goodpin systemd-cryptsetup attach test-volume "$testimg" - tpm2-device=auto,headless=1
+    systemd-cryptsetup detach test-volume
     # Clear/reset the DA lockout counter
     tpm2_dictionarylockout -c
 }
@@ -50,18 +49,18 @@ systemd-cryptenroll --unlock-key-file=/tmp/passphrase --tpm2-device=auto "$img"
 
 # Enroll unlock with default PCR policy
 PASSWORD=passphrase systemd-cryptenroll --tpm2-device=auto "$img"
-"$SD_CRYPTSETUP" attach test-volume "$img" - tpm2-device=auto,headless=1
-"$SD_CRYPTSETUP" detach test-volume
+systemd-cryptsetup attach test-volume "$img" - tpm2-device=auto,headless=1
+systemd-cryptsetup detach test-volume
 
 # Check with wrong PCR
 tpm2_pcrextend 7:sha256=0000000000000000000000000000000000000000000000000000000000000000
-(! "$SD_CRYPTSETUP" attach test-volume "$img" - tpm2-device=auto,headless=1)
+(! systemd-cryptsetup attach test-volume "$img" - tpm2-device=auto,headless=1)
 
 # Enroll unlock with PCR+PIN policy
 systemd-cryptenroll --wipe-slot=tpm2 "$img"
 PASSWORD=passphrase NEWPIN=123456 systemd-cryptenroll --tpm2-device=auto --tpm2-with-pin=true "$img"
-PIN=123456 "$SD_CRYPTSETUP" attach test-volume "$img" - tpm2-device=auto,headless=1
-"$SD_CRYPTSETUP" detach test-volume
+PIN=123456 systemd-cryptsetup attach test-volume "$img" - tpm2-device=auto,headless=1
+systemd-cryptsetup detach test-volume
 
 # Check failure with wrong PIN; try a few times to make sure we avoid DA lockout
 for _ in {0..3}; do
@@ -70,8 +69,8 @@ done
 
 # Check LUKS2 token plugin unlock (i.e. without specifying tpm2-device=auto)
 if cryptsetup_has_token_plugin_support; then
-    PIN=123456 "$SD_CRYPTSETUP" attach test-volume "$img" - headless=1
-    "$SD_CRYPTSETUP" detach test-volume
+    PIN=123456 systemd-cryptsetup attach test-volume "$img" - headless=1
+    systemd-cryptsetup detach test-volume
 
     # Check failure with wrong PIN
     for _ in {0..3}; do
@@ -83,39 +82,39 @@ fi
 
 # Check failure with wrong PCR (and correct PIN)
 tpm2_pcrextend 7:sha256=0000000000000000000000000000000000000000000000000000000000000000
-(! PIN=123456 "$SD_CRYPTSETUP" attach test-volume "$img" - tpm2-device=auto,headless=1)
+(! PIN=123456 systemd-cryptsetup attach test-volume "$img" - tpm2-device=auto,headless=1)
 
 # Enroll unlock with PCR 0+7
 systemd-cryptenroll --wipe-slot=tpm2 "$img"
 PASSWORD=passphrase systemd-cryptenroll --tpm2-device=auto --tpm2-pcrs=0+7 "$img"
-"$SD_CRYPTSETUP" attach test-volume "$img" - tpm2-device=auto,headless=1
-"$SD_CRYPTSETUP" detach test-volume
+systemd-cryptsetup attach test-volume "$img" - tpm2-device=auto,headless=1
+systemd-cryptsetup detach test-volume
 
 # Check with wrong PCR 0
 tpm2_pcrextend 0:sha256=0000000000000000000000000000000000000000000000000000000000000000
-(! "$SD_CRYPTSETUP" attach test-volume "$img" - tpm2-device=auto,headless=1)
+(! systemd-cryptsetup attach test-volume "$img" - tpm2-device=auto,headless=1)
 
 if tpm_has_pcr sha256 12; then
     # Enroll using an explict PCR value (that does match current PCR value)
     systemd-cryptenroll --wipe-slot=tpm2 "$img"
     EXPECTED_PCR_VALUE=$(cat /sys/class/tpm/tpm0/pcr-sha256/12)
     PASSWORD=passphrase systemd-cryptenroll --tpm2-device=auto --tpm2-pcrs="12:sha256=$EXPECTED_PCR_VALUE" "$img"
-    "$SD_CRYPTSETUP" attach test-volume "$img" - tpm2-device=auto,headless=1
-    "$SD_CRYPTSETUP" detach test-volume
+    systemd-cryptsetup attach test-volume "$img" - tpm2-device=auto,headless=1
+    systemd-cryptsetup detach test-volume
 
     # Same as above plus more PCRs without the value or alg specified
     systemd-cryptenroll --wipe-slot=tpm2 "$img"
     EXPECTED_PCR_VALUE=$(cat /sys/class/tpm/tpm0/pcr-sha256/12)
     PASSWORD=passphrase systemd-cryptenroll --tpm2-device=auto --tpm2-pcrs="1,12:sha256=$EXPECTED_PCR_VALUE,3" "$img"
-    "$SD_CRYPTSETUP" attach test-volume "$img" - tpm2-device=auto,headless=1
-    "$SD_CRYPTSETUP" detach test-volume
+    systemd-cryptsetup attach test-volume "$img" - tpm2-device=auto,headless=1
+    systemd-cryptsetup detach test-volume
 
     # Same as above plus more PCRs with hash alg specified but hash value not specified
     systemd-cryptenroll --wipe-slot=tpm2 "$img"
     EXPECTED_PCR_VALUE=$(cat /sys/class/tpm/tpm0/pcr-sha256/12)
     PASSWORD=passphrase systemd-cryptenroll --tpm2-device=auto --tpm2-pcrs="1:sha256,12:sha256=$EXPECTED_PCR_VALUE,3" "$img"
-    "$SD_CRYPTSETUP" attach test-volume "$img" - tpm2-device=auto,headless=1
-    "$SD_CRYPTSETUP" detach test-volume
+    systemd-cryptsetup attach test-volume "$img" - tpm2-device=auto,headless=1
+    systemd-cryptsetup detach test-volume
 
     # Now the interesting part, enrolling using a hash value that doesn't match the current PCR value
     systemd-cryptenroll --wipe-slot=tpm2 "$img"
@@ -123,10 +122,10 @@ if tpm_has_pcr sha256 12; then
     CURRENT_PCR_VALUE=$(cat /sys/class/tpm/tpm0/pcr-sha256/12)
     EXPECTED_PCR_VALUE=$(cat /tmp/pcr.dat /tmp/pcr.dat | openssl dgst -sha256 -r | cut -d ' ' -f 1)
     PASSWORD=passphrase systemd-cryptenroll --tpm2-device=auto --tpm2-pcrs="12:sha256=$EXPECTED_PCR_VALUE" "$img"
-    (! "$SD_CRYPTSETUP" attach test-volume "$img" - tpm2-device=auto,headless=1)
+    (! systemd-cryptsetup attach test-volume "$img" - tpm2-device=auto,headless=1)
     tpm2_pcrextend "12:sha256=$CURRENT_PCR_VALUE"
-    "$SD_CRYPTSETUP" attach test-volume "$img" - tpm2-device=auto,headless=1
-    "$SD_CRYPTSETUP" detach test-volume
+    systemd-cryptsetup attach test-volume "$img" - tpm2-device=auto,headless=1
+    systemd-cryptsetup detach test-volume
 
     rm -f /tmp/pcr.dat
 fi
@@ -208,24 +207,24 @@ if [[ -x "$SD_MEASURE" ]] && tpm_has_pcr sha1 11 && tpm_has_pcr sha256 11; then
     systemd-cryptenroll --unlock-key-file=/tmp/passphrase --tpm2-device=auto --tpm2-public-key="/tmp/pcrsign-public.pem" --tpm2-signature="/tmp/pcrsign.sig2" "$img"
 
     # Check if we can activate that (without the token module stuff)
-    SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=0 "$SD_CRYPTSETUP" attach test-volume2 "$img" - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig2",headless=1
-    SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=0 "$SD_CRYPTSETUP" detach test-volume2
+    SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=0 systemd-cryptsetup attach test-volume2 "$img" - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig2",headless=1
+    SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=0 systemd-cryptsetup detach test-volume2
 
     # Check if we can activate that (and a second time with the token module stuff enabled)
-    SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=1 "$SD_CRYPTSETUP" attach test-volume2 "$img" - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig2",headless=1
-    SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=1 "$SD_CRYPTSETUP" detach test-volume2
+    SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=1 systemd-cryptsetup attach test-volume2 "$img" - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig2",headless=1
+    SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=1 systemd-cryptsetup detach test-volume2
 
     # After extending the PCR things should fail
     tpm2_pcrextend 11:sha256=0000000000000000000000000000000000000000000000000000000000000000
-    (! SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=0 "$SD_CRYPTSETUP" attach test-volume2 "$img" - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig2",headless=1)
-    (! SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=1 "$SD_CRYPTSETUP" attach test-volume2 "$img" - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig2",headless=1)
+    (! SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=0 systemd-cryptsetup attach test-volume2 "$img" - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig2",headless=1)
+    (! SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=1 systemd-cryptsetup attach test-volume2 "$img" - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig2",headless=1)
 
     # But once we sign the current PCRs, we should be able to unlock again
     "$SD_MEASURE" sign --current "${MEASURE_BANKS[@]}" --private-key="/tmp/pcrsign-private.pem" --public-key="/tmp/pcrsign-public.pem" --phase=: >"/tmp/pcrsign.sig3"
-    SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=0 "$SD_CRYPTSETUP" attach test-volume2 "$img" - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig3",headless=1
-    "$SD_CRYPTSETUP" detach test-volume2
-    SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=1 "$SD_CRYPTSETUP" attach test-volume2 "$img" - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig3",headless=1
-    "$SD_CRYPTSETUP" detach test-volume2
+    SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=0 systemd-cryptsetup attach test-volume2 "$img" - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig3",headless=1
+    systemd-cryptsetup detach test-volume2
+    SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=1 systemd-cryptsetup attach test-volume2 "$img" - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig3",headless=1
+    systemd-cryptsetup detach test-volume2
 
     # Test --append mode and de-duplication. With the same parameters signing should not add a new entry
     "$SD_MEASURE" sign --current "${MEASURE_BANKS[@]}" --private-key="/tmp/pcrsign-private.pem" --public-key="/tmp/pcrsign-public.pem" --phase=: --append="/tmp/pcrsign.sig3" >"/tmp/pcrsign.sig4"
@@ -236,8 +235,8 @@ if [[ -x "$SD_MEASURE" ]] && tpm_has_pcr sha1 11 && tpm_has_pcr sha256 11; then
     (! cmp "/tmp/pcrsign.sig4" "/tmp/pcrsign.sig5")
 
     # Should still be good to unlock, given the old entry still exists
-    SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=0 "$SD_CRYPTSETUP" attach test-volume2 "$img" - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig5",headless=1
-    "$SD_CRYPTSETUP" detach test-volume2
+    SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE=0 systemd-cryptsetup attach test-volume2 "$img" - tpm2-device=auto,tpm2-signature="/tmp/pcrsign.sig5",headless=1
+    systemd-cryptsetup detach test-volume2
 
     # Adding both signatures once more should not change anything, due to the deduplication
     "$SD_MEASURE" sign --current "${MEASURE_BANKS[@]}" --private-key="/tmp/pcrsign-private.pem" --public-key="/tmp/pcrsign-public.pem" --phase=: --append="/tmp/pcrsign.sig5" >"/tmp/pcrsign.sig6"
