@@ -2752,7 +2752,7 @@ static int generic_array_get(
 
         uint64_t a, t = 0, k;
         ChainCacheItem *ci;
-        Object *o;
+        Object *o = NULL;
         int r;
 
         assert(f);
@@ -2781,12 +2781,7 @@ static int generic_array_get(
                         /* If there's corruption and we're going upwards, move back to the previous entry
                          * array and start iterating entries from there. */
 
-                        r = bump_entry_array(f, NULL, a, first, DIRECTION_UP, &a);
-                        if (r <= 0)
-                                return r;
-
                         i = UINT64_MAX;
-
                         break;
                 }
                 if (r < 0)
@@ -2808,6 +2803,10 @@ static int generic_array_get(
                 /* In the first iteration of the while loop, we reuse i, k and o from the previous while
                  * loop. */
                 if (i == UINT64_MAX) {
+                        r = bump_entry_array(f, o, a, first, direction, &a);
+                        if (r <= 0)
+                                return r;
+
                         r = journal_file_move_to_object(f, OBJECT_ENTRY_ARRAY, a, &o);
                         if (r < 0)
                                 return r;
@@ -2842,10 +2841,6 @@ static int generic_array_get(
                         log_debug_errno(r, "Entry item %" PRIu64 " is bad, skipping over it.", i);
 
                 } while (bump_array_index(&i, direction, k) > 0);
-
-                r = bump_entry_array(f, o, a, first, direction, &a);
-                if (r <= 0)
-                        return r;
 
                 t += k;
                 i = UINT64_MAX;
