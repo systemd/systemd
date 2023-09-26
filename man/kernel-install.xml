@@ -42,6 +42,15 @@
       <arg choice="plain">inspect</arg>
       <arg choice="opt"><replaceable>KERNEL-IMAGE</replaceable></arg>
     </cmdsynopsis>
+    <para>For compatibility with kernel <filename>Makefile</filename> invocations:</para>
+    <cmdsynopsis>
+      <command>installkernel</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">VERSION</arg>
+      <arg choice="plain">VMLINUZ</arg>
+      <arg choice="opt">MAP</arg>
+      <arg choice="opt">INSTALLATION-DIR</arg>
+    </cmdsynopsis>
   </refsynopsisdiv>
 
   <refsect1>
@@ -185,8 +194,13 @@
           <xi:include href="version-info.xml" xpointer="v251"/>
         </listitem>
       </varlistentry>
-
     </variablelist>
+
+    <para>When invoked as <command>installkernel</command>, this program accepts arguments as specified by
+    the kernel's <filename>Makefile</filename>'s <command>install</command> command. The
+    <parameter>VERSION</parameter> and <parameter>VMLINUZ</parameter> parameters specify the kernel version
+    and the kernel binary. The other two parameters (<parameter>MAP</parameter> and
+    <parameter>INSTALLATION-DIR</parameter>) are ignored.</para>
   </refsect1>
 
   <refsect1>
