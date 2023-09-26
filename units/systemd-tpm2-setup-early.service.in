@@ -1,0 +1,23 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=TPM2 SRK Setup (Early)
+Documentation=man:systemd-tpm2-setup.service(8)
+DefaultDependencies=no
+Conflicts=shutdown.target
+Before=sysinit.target shutdown.target
+ConditionSecurity=tpm2
+ConditionPathExists=/sys/firmware/efi/efivars/StubPcrKernelImage-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f
+ConditionPathExists=!/run/systemd/tpm2-srk.pem
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart={{LIBEXECDIR}}/systemd-tpm2-setup --early=yes
