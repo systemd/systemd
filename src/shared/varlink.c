@@ -463,8 +463,6 @@ static void varlink_clear(Varlink *v) {
         v->input_control_buffer = mfree(v->input_control_buffer);
         v->input_control_buffer_size = 0;
 
-        varlink_clear_current(v);
-
         close_many(v->output_fds, v->n_output_fds);
         v->output_fds = mfree(v->output_fds);
         v->n_output_fds = 0;
