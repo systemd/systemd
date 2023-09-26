@@ -384,8 +384,26 @@ static int server_system_journal_open(
 
                 fn = strjoina(s->runtime_storage.path, "/system.journal");
 
-                if (s->system_journal && !relinquish_requested) {
+                if (!s->system_journal || relinquish_requested) {
 
+                        /* OK, we really need the runtime journal, so create it if necessary. */
+
+                        (void) mkdir_parents(s->runtime_storage.path, 0755);
+                        (void) mkdir(s->runtime_storage.path, 0750);
+
+                        r = server_open_journal(
+                                        s,
+                                        /* reliably= */ true,
+                                        fn,
+                                        O_RDWR|O_CREAT,
+                                        /* seal= */ false,
+                                        &s->runtime_storage.metrics,
+                                        &s->runtime_journal);
+                        if (r < 0)
+                                return log_ratelimit_warning_errno(r, JOURNAL_LOG_RATELIMIT,
+                                                                   "Failed to open runtime journal: %m");
+
+                } else if (!server_flushed_flag_is_set(s)) {
                         /* Try to open the runtime journal, but only if it already exists, so that we can
                          * flush it into the system journal */
 
@@ -404,25 +422,6 @@ static int server_system_journal_open(
 
                                 r = 0;
                         }
-
-                } else {
-
-                        /* OK, we really need the runtime journal, so create it if necessary. */
-
-                        (void) mkdir_parents(s->runtime_storage.path, 0755);
-                        (void) mkdir(s->runtime_storage.path, 0750);
-
-                        r = server_open_journal(
-                                        s,
-                                        /* reliably= */ true,
-                                        fn,
-                                        O_RDWR|O_CREAT,
-                                        /* seal= */ false,
-                                        &s->runtime_storage.metrics,
-                                        &s->runtime_journal);
-                        if (r < 0)
-                                return log_ratelimit_warning_errno(r, JOURNAL_LOG_RATELIMIT,
-                                                                   "Failed to open runtime journal: %m");
                 }
 
                 if (s->runtime_journal) {
