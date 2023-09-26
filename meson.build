@@ -1788,6 +1788,7 @@ conf.set10('ENABLE_UKIFY', want_ukify)
 
 ############################################################
 
+check_version_history_py = find_program('tools/check-version-history.py')
 elf2efi_py = find_program('tools/elf2efi.py')
 export_dbus_interfaces_py = find_program('tools/dbus_exporter.py')
 generate_gperfs = find_program('tools/generate-gperfs.py')

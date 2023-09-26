@@ -229,6 +229,11 @@ if conf.get('BUILD_MODE_DEVELOPER') == 1
              suite : 'dist',
              args : ['--build-dir', project_build_root, '--test', dbus_docs],
              depends : dbus_programs)
+
+        test('check-version-history',
+             check_version_history_py,
+             suite : 'dist',
+             args : source_xml_files)
 endif
 
 update_man_rules = custom_target(
