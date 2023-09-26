@@ -5,6 +5,7 @@
 
 #include "json.h"
 #include "time-util.h"
+#include "varlink-idl.h"
 
 /* A minimal Varlink implementation. We only implement the minimal, obvious bits here though. No validation,
  * no introspection, no name service, just the stuff actually needed.
@@ -45,7 +46,6 @@ typedef enum VarlinkServerFlags {
         VARLINK_SERVER_MYSELF_ONLY      = 1 << 1, /* Only accessible by our own UID */
         VARLINK_SERVER_ACCOUNT_UID      = 1 << 2, /* Do per user accounting */
         VARLINK_SERVER_INHERIT_USERDATA = 1 << 3, /* Initialize Varlink connection userdata from VarlinkServer userdata */
-
         _VARLINK_SERVER_FLAGS_ALL = (1 << 4) - 1,
 } VarlinkServerFlags;
 
@@ -55,6 +55,8 @@ typedef int (*VarlinkConnect)(VarlinkServer *server, Varlink *link, void *userda
 typedef void (*VarlinkDisconnect)(VarlinkServer *server, Varlink *link, void *userdata);
 
 int varlink_connect_address(Varlink **ret, const char *address);
+int varlink_connect_exec(Varlink **ret, const char *command, char **argv);
+int varlink_connect_url(Varlink **ret, const char *url);
 int varlink_connect_fd(Varlink **ret, int fd);
 
 Varlink* varlink_ref(Varlink *link);
@@ -70,6 +72,8 @@ sd_event *varlink_get_event(Varlink *v);
 
 int varlink_process(Varlink *v);
 int varlink_wait(Varlink *v, usec_t timeout);
+
+int varlink_is_idle(Varlink *v);
 
 int varlink_flush(Varlink *v);
 int varlink_close(Varlink *v);
@@ -142,6 +146,7 @@ VarlinkServer *varlink_server_unref(VarlinkServer *s);
 /* Add addresses or fds to listen on */
 int varlink_server_listen_address(VarlinkServer *s, const char *address, mode_t mode);
 int varlink_server_listen_fd(VarlinkServer *s, int fd);
+int varlink_server_listen_auto(VarlinkServer *s);
 int varlink_server_add_connection(VarlinkServer *s, int fd, Varlink **ret);
 
 /* Bind callbacks */
@@ -151,6 +156,11 @@ int varlink_server_bind_method_many_internal(VarlinkServer *s, ...);
 int varlink_server_bind_connect(VarlinkServer *s, VarlinkConnect connect);
 int varlink_server_bind_disconnect(VarlinkServer *s, VarlinkDisconnect disconnect);
 
+/* Add interface definition */
+int varlink_server_add_interface(VarlinkServer *s, const VarlinkInterface *interface);
+int varlink_server_add_interface_many_internal(VarlinkServer *s, ...);
+#define varlink_server_add_interface_many(s, ...) varlink_server_add_interface_many_internal(s, __VA_ARGS__, NULL)
+
 void* varlink_server_set_userdata(VarlinkServer *s, void *userdata);
 void* varlink_server_get_userdata(VarlinkServer *s);
 
@@ -158,7 +168,11 @@ int varlink_server_attach_event(VarlinkServer *v, sd_event *e, int64_t priority)
 int varlink_server_detach_event(VarlinkServer *v);
 sd_event *varlink_server_get_event(VarlinkServer *v);
 
+int varlink_server_loop_auto(VarlinkServer *server);
+
 int varlink_server_shutdown(VarlinkServer *server);
+
+int varlink_server_set_exit_on_idle(VarlinkServer *s, bool b);
 
 unsigned varlink_server_connections_max(VarlinkServer *s);
 unsigned varlink_server_connections_per_uid_max(VarlinkServer *s);
@@ -170,6 +184,15 @@ unsigned varlink_server_current_connections(VarlinkServer *s);
 
 int varlink_server_set_description(VarlinkServer *s, const char *description);
 
+typedef enum VarlinkInvocationFlags {
+        VARLINK_ALLOW_LISTEN = 1 << 0,
+        VARLINK_ALLOW_ACCEPT = 1 << 1,
+        _VARLINK_SERVER_INVOCATION_FLAGS_MAX = (1 << 2) - 1,
+        _VARLINK_SERVER_INVOCATION_FLAGS_INVALID = -EINVAL,
+} VarlinkInvocationFlags;
+
+int varlink_invocation(VarlinkInvocationFlags flags);
+
 DEFINE_TRIVIAL_CLEANUP_FUNC(Varlink *, varlink_unref);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Varlink *, varlink_close_unref);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Varlink *, varlink_flush_close_unref);
@@ -179,6 +202,8 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(VarlinkServer *, varlink_server_unref);
 #define VARLINK_ERROR_DISCONNECTED "io.systemd.Disconnected"
 #define VARLINK_ERROR_TIMEOUT "io.systemd.TimedOut"
 #define VARLINK_ERROR_PROTOCOL "io.systemd.Protocol"
+
+/* This one we invented, and use for generically propagating system errors (errno) to clients */
 #define VARLINK_ERROR_SYSTEM "io.systemd.System"
 
 /* These are errors defined in the Varlink spec */
@@ -188,5 +213,4 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(VarlinkServer *, varlink_server_unref);
 #define VARLINK_ERROR_INVALID_PARAMETER "org.varlink.service.InvalidParameter"
 
 /* These are errors we came up with and squatted the namespace with */
-#define VARLINK_ERROR_SUBSCRIPTION_TAKEN "org.varlink.service.SubscriptionTaken"
 #define VARLINK_ERROR_PERMISSION_DENIED "org.varlink.service.PermissionDenied"
