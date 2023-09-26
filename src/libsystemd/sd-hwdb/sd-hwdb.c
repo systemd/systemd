@@ -225,12 +225,12 @@ static int trie_search_f(sd_hwdb *hwdb, const char *search) {
                 size_t p = 0;
 
                 if (node->prefix_off) {
-                        char c;
+                        uint8_t c;
 
                         for (; (c = trie_string(hwdb, node->prefix_off)[p]); p++) {
                                 if (IN_SET(c, '*', '?', '['))
                                         return trie_fnmatch_f(hwdb, node, p, &buf, search + i + p);
-                                if (c != search[i + p])
+                                if (c != (uint8_t)search[i + p])
                                         return 0;
                         }
                         i += p;
