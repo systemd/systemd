@@ -138,7 +138,8 @@ int verb_enable(int argc, char *argv[], void *userdata) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 bool expect_carries_install_info = false;
                 bool send_runtime = true, send_force = true, send_preset_mode = false;
-                const char *method;
+                const char *method, *warn_trigger_operation = NULL;
+                bool warn_trigger_ignore_masked;
                 sd_bus *bus;
 
                 if (STR_IN_SET(verb, "mask", "unmask")) {
@@ -170,6 +171,9 @@ int verb_enable(int argc, char *argv[], void *userdata) {
                         method = "DisableUnitFilesWithFlagsAndInstallInfo";
                         expect_carries_install_info = true;
                         send_force = false;
+
+                        warn_trigger_operation = "Disabling";
+                        warn_trigger_ignore_masked = true;
                 } else if (streq(verb, "reenable")) {
                         method = "ReenableUnitFiles";
                         expect_carries_install_info = true;
@@ -185,9 +189,12 @@ int verb_enable(int argc, char *argv[], void *userdata) {
 
                         expect_carries_install_info = true;
                         ignore_carries_install_info = true;
-                } else if (streq(verb, "mask"))
+                } else if (streq(verb, "mask")) {
                         method = "MaskUnitFiles";
-                else if (streq(verb, "unmask")) {
+
+                        warn_trigger_operation = "Masking";
+                        warn_trigger_ignore_masked = false;
+                } else if (streq(verb, "unmask")) {
                         method = "UnmaskUnitFiles";
                         send_force = false;
                 } else if (streq(verb, "revert")) {
@@ -245,6 +252,10 @@ int verb_enable(int argc, char *argv[], void *userdata) {
                         if (r < 0)
                                 return r;
                 }
+
+                if (warn_trigger_operation && !arg_quiet && !arg_no_warn)
+                        STRV_FOREACH(unit, names)
+                                warn_triggering_units(bus, *unit, warn_trigger_operation, warn_trigger_ignore_masked);
         }
 
         if (carries_install_info == 0 && !ignore_carries_install_info)
