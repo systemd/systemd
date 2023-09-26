@@ -98,6 +98,7 @@ if [ ! -f "$BUILDDIR"/build.ninja ]; then
         -D portabled=true
         -D sysext=true
         -D userdb=true
+        -D bpfd=true
         -D homed=enabled
         -D networkd=true
         -D timedated=true
