@@ -267,7 +267,8 @@ int verb_enable(int argc, char *argv[], void *userdata) {
                 /* If some of the units are disabled in user scope but still enabled in global scope,
                  * we emit a warning for that. */
 
-                _cleanup_strv_free_ char **enabled_in_global_scope = NULL;
+                /* No strv_free here, strings are owned by 'names' */
+                _cleanup_free_ char **enabled_in_global_scope = NULL;
 
                 STRV_FOREACH(name, names) {
                         UnitFileState state;
@@ -279,24 +280,24 @@ int verb_enable(int argc, char *argv[], void *userdata) {
                                 return log_error_errno(r, "Failed to get unit file state for %s: %m", *name);
 
                         if (IN_SET(state, UNIT_FILE_ENABLED, UNIT_FILE_ENABLED_RUNTIME)) {
-                                r = strv_extend(&enabled_in_global_scope, *name);
+                                r = strv_push(&enabled_in_global_scope, *name);
                                 if (r < 0)
                                         return log_oom();
                         }
                 }
 
                 if (!strv_isempty(enabled_in_global_scope)) {
-                        _cleanup_free_ char *units = NULL;
+                        _cleanup_free_ char *joined = NULL;
 
-                        units = strv_join(enabled_in_global_scope, ", ");
-                        if (!units)
+                        joined = strv_join(enabled_in_global_scope, ", ");
+                        if (!joined)
                                 return log_oom();
 
                         log_notice("The following unit files have been enabled in global scope. This means\n"
                                    "they will still be started automatically after a successful disablement\n"
                                    "in user scope:\n"
                                    "%s",
-                                   units);
+                                   joined);
                 }
         }
 
