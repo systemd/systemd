@@ -51,6 +51,31 @@ static const char *verb_to_job_type(const char *verb) {
        return "start";
 }
 
+static void warn_triggering_units_for_stopped(sd_bus *bus, const char *unit) {
+        _cleanup_strv_free_ char **triggered_by = NULL;
+        _cleanup_free_ char *joined = NULL;
+        int r;
+
+        assert(bus);
+        assert(unit);
+
+        r = get_active_triggering_units(bus, unit, /* ignore_masked = */ true, &triggered_by);
+        if (r < 0) {
+                log_warning_errno(r,
+                                  "Failed to check if unit '%s' can be triggered by other units, ignoring: %m",
+                                  unit);
+                return;
+        }
+
+        joined = strv_join(triggered_by, ", ");
+        if (!joined)
+                return (void) log_oom();
+
+        log_warning("Stopping '%s', but it can still be activated by:\n"
+                    "%s",
+                    unit, joined);
+}
+
 static int start_unit_one(
                 sd_bus *bus,
                 const char *method,    /* When using classic per-job bus methods */
@@ -393,8 +418,8 @@ int verb_start(int argc, char *argv[], void *userdata) {
                 /* When stopping units, warn if they can still be triggered by
                  * another active unit (socket, path, timer) */
                 if (!arg_quiet)
-                        STRV_FOREACH(name, stopped_units)
-                                (void) check_triggering_units(bus, *name);
+                        STRV_FOREACH(unit, stopped_units)
+                                warn_triggering_units_for_stopped(bus, *unit);
         }
 
         if (arg_wait) {
