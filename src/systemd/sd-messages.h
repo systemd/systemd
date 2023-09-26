@@ -272,6 +272,9 @@ _SD_BEGIN_DECLARATIONS;
 #define SD_MESSAGE_PORTABLE_DETACHED                  SD_ID128_MAKE(76,c5,c7,54,d6,28,49,0d,8e,cb,a4,c9,d0,42,11,2b)
 #define SD_MESSAGE_PORTABLE_DETACHED_STR              SD_ID128_MAKE_STR(76,c5,c7,54,d6,28,49,0d,8e,cb,a4,c9,d0,42,11,2b)
 
+#define SD_MESSAGE_BPFD_LOG                            SD_ID128_MAKE(8f,f4,78,c2,0d,67,49,0c,b8,93,d2,9d,c5,5c,3f,37)
+#define SD_MESSAGE_BPFD_LOG_STR                        SD_ID128_MAKE_STR(8f,f4,78,c2,0d,67,49,0c,b8,93,d2,9d,c5,5c,3f,37)
+
 _SD_END_DECLARATIONS;
 
 #endif

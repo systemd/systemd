@@ -1589,6 +1589,7 @@ conf.set10('ENABLE_VMSPAWN', feature.allowed())
 foreach term : ['analyze',
                 'backlight',
                 'binfmt',
+                'bpfd',
                 'compat-mutable-uid-boundaries',
                 'coredump',
                 'efi',
@@ -2162,6 +2163,7 @@ subdir('src/battery-check')
 subdir('src/binfmt')
 subdir('src/boot')
 subdir('src/boot/efi')
+subdir('src/bpf')
 subdir('src/busctl')
 subdir('src/cgls')
 subdir('src/cgroups-agent')
@@ -2822,6 +2824,7 @@ foreach tuple : [
         ['binfmt'],
         ['bootloader'],
         ['bpf-framework',          conf.get('BPF_FRAMEWORK') == 1],
+        ['bpfd'],
         ['coredump'],
         ['efi'],
         ['environment.d'],
