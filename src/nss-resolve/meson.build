@@ -5,7 +5,7 @@ modules += [
                 'name' : 'nss_resolve',
                 'conditions' : ['ENABLE_NSS_RESOLVE'],
                 'sources' : files('nss-resolve.c'),
-                'link_depends' : files('nss-resolve.sym'),
+                'version-script' : meson.current_source_dir() / 'nss-resolve.sym',
                 'include_directories' : includes +
                                         include_directories('../resolve'),
         },
