@@ -61,6 +61,30 @@ static int normalize_names(char **names) {
         return 0;
 }
 
+static void warn_triggering_units_for_masked(sd_bus *bus, const char *unit) {
+        _cleanup_strv_free_ char **triggered_by = NULL;
+        _cleanup_free_ char *joined = NULL;
+        int r;
+
+        assert(bus);
+        assert(unit);
+
+        r = get_active_triggering_units(bus, unit, /* ignore_masked = */ false, &triggered_by);
+        if (r < 0) {
+                log_warning_errno(r,
+                                  "Failed to get triggering units for '%s', ignoring: %m", *unit);
+                return;
+        }
+
+        joined = strv_join(triggered_by, ", ");
+        if (!joined)
+                return (void) log_oom();
+
+        log_warning("Masking '%s', but it's triggering units are still loaded:\n"
+                    "%s",
+                    unit, joined);
+}
+
 int verb_enable(int argc, char *argv[], void *userdata) {
         _cleanup_strv_free_ char **names = NULL;
         const char *verb = argv[0];
@@ -245,6 +269,10 @@ int verb_enable(int argc, char *argv[], void *userdata) {
                         if (r < 0)
                                 return r;
                 }
+
+                if (streq(verb, "mask") && !arg_quiet && !arg_no_warn)
+                        STRV_FOREACH(unit, names)
+                                warn_triggering_units_for_masked(bus, *unit);
         }
 
         if (carries_install_info == 0 && !ignore_carries_install_info)
