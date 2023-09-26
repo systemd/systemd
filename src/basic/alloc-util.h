@@ -254,4 +254,24 @@ static inline void free_many_charp(char **c, size_t n) {
         free_many((void**) c, n);
 }
 
+static inline void *realloc0(void *p, size_t new_size) {
+        size_t old_size;
+        void *q;
+
+        /* Like realloc(), but initializes anything appended to zero */
+
+        old_size = MALLOC_SIZEOF_SAFE(p);
+
+        q = realloc(p, new_size);
+        if (!q)
+                return NULL;
+
+        new_size = MALLOC_SIZEOF_SAFE(q); /* Update with actually allocated space */
+
+        if (new_size > old_size)
+                memset((uint8_t*) q + old_size, 0, new_size - old_size);
+
+        return q;
+}
+
 #include "memory-util.h"

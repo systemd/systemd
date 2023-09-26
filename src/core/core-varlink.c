@@ -5,6 +5,8 @@
 #include "strv.h"
 #include "user-util.h"
 #include "varlink.h"
+#include "varlink-io.systemd.UserDatabase.h"
+#include "varlink-io.systemd.ManagedOOM.h"
 
 typedef struct LookupParameters {
         const char *user_name;
@@ -232,7 +234,7 @@ static int vl_method_subscribe_managed_oom_cgroups(
         /* We only take one subscriber for this method so return an error if there's already an existing one.
          * This shouldn't happen since systemd-oomd is the only client of this method. */
         if (FLAGS_SET(flags, VARLINK_METHOD_MORE) && m->managed_oom_varlink)
-                return varlink_error(link, VARLINK_ERROR_SUBSCRIPTION_TAKEN, NULL);
+                return varlink_error(link, "io.systemd.ManagedOOM.SubscriptionTaken", NULL);
 
         r = build_managed_oom_cgroups_json(m, &v);
         if (r < 0)
@@ -599,6 +601,13 @@ int manager_setup_varlink_server(Manager *m, VarlinkServer **ret) {
                 return log_debug_errno(r, "Failed to allocate varlink server object: %m");
 
         varlink_server_set_userdata(s, m);
+
+        r = varlink_server_add_interface_many(
+                        s,
+                        &vl_interface_io_systemd_UserDatabase,
+                        &vl_interface_io_systemd_ManagedOOM);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add interfaces to varlink server: %m");
 
         r = varlink_server_bind_method_many(
                         s,

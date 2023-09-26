@@ -3,6 +3,8 @@
 #include <malloc.h>
 #include <poll.h>
 
+#include <sd-daemon.h>
+
 #include "alloc-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
@@ -10,6 +12,7 @@
 #include "hashmap.h"
 #include "io-util.h"
 #include "list.h"
+#include "path-util.h"
 #include "process-util.h"
 #include "selinux-util.h"
 #include "serialize.h"
@@ -23,6 +26,9 @@
 #include "user-util.h"
 #include "varlink.h"
 #include "varlink-internal.h"
+#include "varlink-org.varlink.service.h"
+#include "varlink-io.systemd.h"
+#include "version.h"
 
 #define VARLINK_DEFAULT_CONNECTIONS_MAX 4096U
 #define VARLINK_DEFAULT_CONNECTIONS_PER_UID_MAX 1024U
@@ -162,6 +168,7 @@ struct Varlink {
         VarlinkReply reply_callback;
 
         JsonVariant *current;
+        VarlinkSymbol *current_method;
 
         struct ucred ucred;
         bool ucred_acquired:1;
@@ -189,6 +196,8 @@ struct Varlink {
         sd_event_source *time_event_source;
         sd_event_source *quit_event_source;
         sd_event_source *defer_event_source;
+
+        pid_t exec_pid;
 };
 
 typedef struct VarlinkServerSocket VarlinkServerSocket;
@@ -210,7 +219,9 @@ struct VarlinkServer {
 
         LIST_HEAD(VarlinkServerSocket, sockets);
 
-        Hashmap *methods;
+        Hashmap *methods;              /* Fully qualified symbol name of a method → VarlinkMethod */
+        Hashmap *interfaces;           /* Fully qualified interface name → VarlinkInterface* */
+        Hashmap *symbols;              /* Fully qualified symbol name of methord/error → VarlinkSymbol* */
         VarlinkConnect connect_callback;
         VarlinkDisconnect disconnect_callback;
 
@@ -218,13 +229,15 @@ struct VarlinkServer {
         int64_t event_priority;
 
         unsigned n_connections;
-        Hashmap *by_uid;
+        Hashmap *by_uid;               /* UID_TO_PTR(uid) → UINT_TO_PTR(n_connections) */
 
         void *userdata;
         char *description;
 
         unsigned connections_max;
         unsigned connections_per_uid_max;
+
+        bool exit_on_idle;
 };
 
 static const char* const varlink_state_table[_VARLINK_STATE_MAX] = {
@@ -264,6 +277,7 @@ DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(varlink_state, VarlinkState);
         log_debug("%s: " fmt, varlink_server_description(s), ##__VA_ARGS__)
 
 static int varlink_format_queue(Varlink *v);
+static void varlink_server_test_exit_on_idle(VarlinkServer *s);
 
 static const char *varlink_description(Varlink *v) {
         return (v ? v->description : NULL) ?: "varlink";
@@ -398,6 +412,143 @@ int varlink_connect_address(Varlink **ret, const char *address) {
         return 0;
 }
 
+int varlink_connect_exec(Varlink **ret, const char *_command, char **_argv) {
+        _cleanup_close_pair_ int pair[2] = PIPE_EBADF;
+        _cleanup_(sigkill_waitp) pid_t pid = 0;
+        _cleanup_free_ char *command = NULL;
+        _cleanup_strv_free_ char **argv = NULL;
+        int r;
+
+        assert_return(ret, -EINVAL);
+        assert_return(_command, -EINVAL);
+
+        /* Copy the strings, in case they point into our own argv[], which we'll invalidate shortly because
+         * we rename the child process */
+        command = strdup(_command);
+        if (!command)
+                return -ENOMEM;
+
+        if (strv_isempty(_argv))
+                argv = strv_new(command);
+        else
+                argv = strv_copy(_argv);
+        if (!argv)
+                return -ENOMEM;
+
+        log_debug("Forking off Varlink child process '%s'.", command);
+
+        if (socketpair(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0, pair) < 0)
+                return log_debug_errno(errno, "Failed to allocate AF_UNIX socket pair: %m");
+
+        r = safe_fork_full(
+                        "(sd-vlexec)",
+                        /* stdio_fds= */ NULL,
+                        /* except_fds= */ (int[]) { pair[1] },
+                        /* n_except_fds= */ 1,
+                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG|FORK_REOPEN_LOG|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE,
+                        &pid);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to spawn process: %m");
+        if (r == 0) {
+                char spid[DECIMAL_STR_MAX(pid_t)+1];
+                const char *setenv_list[] = {
+                        "LISTEN_FDS", "1",
+                        "LISTEN_PID", spid,
+                        "LISTEN_FDNAMES", "varlink",
+                        NULL, NULL,
+                };
+                /* Child */
+
+                pair[0] = -EBADF;
+
+                r = move_fd(pair[1], 3, /* cloexec= */ false);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to move file descriptor to 3: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                xsprintf(spid, PID_FMT, pid);
+
+                STRV_FOREACH_PAIR(a, b, setenv_list) {
+                        if (setenv(*a, *b, /* override= */ true) < 0) {
+                                log_debug_errno(errno, "Failed to set environment variable '%s': %m", *a);
+                                _exit(EXIT_FAILURE);
+                        }
+                }
+
+                execvp(command, argv);
+                log_debug_errno(r, "Failed to invoke process '%s': %m", command);
+                _exit(EXIT_FAILURE);
+        }
+
+        pair[1] = safe_close(pair[1]);
+
+        Varlink *v;
+        r = varlink_new(&v);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to create varlink object: %m");
+
+        v->fd = TAKE_FD(pair[0]);
+        v->af = AF_UNIX;
+        v->exec_pid = TAKE_PID(pid);
+        varlink_set_state(v, VARLINK_IDLE_CLIENT);
+
+        *ret = v;
+        return 0;
+}
+
+int varlink_connect_url(Varlink **ret, const char *url) {
+        _cleanup_free_ char *c = NULL;
+        const char *p;
+        bool exec;
+
+        assert_return(ret, -EINVAL);
+        assert_return(url, -EINVAL);
+
+        // FIXME: Add support for vsock:, ssh-exec:, ssh-unix: URL schemes here. (The latter with OpenSSH
+        // 9.4's -W switch for referencing remote AF_UNIX sockets.)
+
+        /* The Varlink URL scheme is a bit underdefined. We support only the unix: transport for now, plus an
+         * exec: transport we made up ourselves. Strictly speaking this shouldn't even be called URL, since
+         * it has nothing to do with Internet URLs by RFC. */
+
+        p = startswith(url, "unix:");
+        if (p)
+                exec = false;
+        else {
+                p = startswith(url, "exec:");
+                if (!p)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EPROTONOSUPPORT), "URL scheme not supported.");
+
+                exec = true;
+        }
+
+        /* The varlink.org reference C library supports more than just file system paths. We might want to
+         * support that one day too. For now simply refuse that. */
+        if (p[strcspn(p, ";?#")] != '\0')
+                return log_debug_errno(SYNTHETIC_ERRNO(EPROTONOSUPPORT), "URL parameterization with ';', '?', '#' not supported.");
+
+        if (exec || p[0] != '@') { /* no validity checks for abstract namespace */
+
+                if (!path_is_absolute(p))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Specified path not absolute, refusing.");
+
+                c = strdup(p);
+                if (!c)
+                        return log_oom_debug();
+
+                path_simplify(c);
+
+                if (!path_is_normalized(c))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Specified path is not normalized, refusing.");
+        }
+
+        if (exec)
+                return varlink_connect_exec(ret, c ?: p, NULL);
+
+        return varlink_connect_address(ret, c ?: p);
+}
+
 int varlink_connect_fd(Varlink **ret, int fd) {
         Varlink *v;
         int r;
@@ -442,6 +593,7 @@ static void varlink_clear_current(Varlink *v) {
 
         /* Clears the currently processed incoming message */
         v->current = json_variant_unref(v->current);
+        v->current_method = NULL;
 
         close_many(v->input_fds, v->n_input_fds);
         v->input_fds = mfree(v->input_fds);
@@ -463,8 +615,6 @@ static void varlink_clear(Varlink *v) {
         v->input_control_buffer = mfree(v->input_control_buffer);
         v->input_control_buffer_size = 0;
 
-        varlink_clear_current(v);
-
         close_many(v->output_fds, v->n_output_fds);
         v->output_fds = mfree(v->output_fds);
         v->n_output_fds = 0;
@@ -477,6 +627,11 @@ static void varlink_clear(Varlink *v) {
         v->output_queue_tail = NULL;
 
         v->event = sd_event_unref(v->event);
+
+        if (v->exec_pid > 0) {
+                sigterm_wait(v->exec_pid);
+                v->exec_pid = 0;
+        }
 }
 
 static Varlink* varlink_destroy(Varlink *v) {
@@ -989,10 +1144,84 @@ invalid:
         return 1;
 }
 
+static int generic_method_get_info(
+                Varlink *link,
+                JsonVariant *parameters,
+                VarlinkMethodFlags flags,
+                void *userdata) {
+
+        _cleanup_strv_free_ char **interfaces = NULL;
+        _cleanup_free_ char *product = NULL;
+        int r;
+
+        assert(link);
+
+        if (json_variant_elements(parameters) != 0)
+                return varlink_errorb(link, VARLINK_ERROR_INVALID_PARAMETER,
+                                      JSON_BUILD_OBJECT(
+                                                      JSON_BUILD_PAIR_VARIANT("parameter", json_variant_by_index(parameters, 0))));
+
+        product = strjoin("systemd (", program_invocation_short_name, ")");
+        if (!product)
+                return -ENOMEM;
+
+        VarlinkInterface *interface;
+        HASHMAP_FOREACH(interface, ASSERT_PTR(link->server)->interfaces) {
+                r = strv_extend(&interfaces, interface->name);
+                if (r < 0)
+                        return r;
+        }
+
+        strv_sort(interfaces);
+
+        return varlink_replyb(link, JSON_BUILD_OBJECT(
+                                              JSON_BUILD_PAIR_STRING("vendor", "The systemd Project"),
+                                              JSON_BUILD_PAIR_STRING("product", product),
+                                              JSON_BUILD_PAIR_STRING("version", STRINGIFY(PROJECT_VERSION) " (" GIT_VERSION ")"),
+                                              JSON_BUILD_PAIR_STRING("url", "https://systemd.io/"),
+                                              JSON_BUILD_PAIR_STRV("interfaces", interfaces)));
+}
+
+static int generic_method_get_interface_description(
+                Varlink *link,
+                JsonVariant *parameters,
+                VarlinkMethodFlags flags,
+                void *userdata) {
+
+        static const struct JsonDispatch dispatch_table[] = {
+                { "interface",  JSON_VARIANT_STRING, json_dispatch_const_string, 0, JSON_MANDATORY },
+                {}
+        };
+        _cleanup_free_ char *text = NULL;
+        const VarlinkInterface *interface;
+        const char *name = NULL;
+        int r;
+
+        assert(link);
+
+        r = json_dispatch(parameters, dispatch_table, NULL, 0, &name);
+        if (r < 0)
+                return r;
+
+        interface = hashmap_get(ASSERT_PTR(link->server)->interfaces, name);
+        if (!interface)
+                return varlink_errorb(link, VARLINK_ERROR_INTERFACE_NOT_FOUND,
+                                      JSON_BUILD_OBJECT(
+                                                      JSON_BUILD_PAIR_STRING("interface", name)));
+
+        r = varlink_idl_format(interface, &text);
+        if (r < 0)
+                return r;
+
+        return varlink_replyb(link,
+                           JSON_BUILD_OBJECT(
+                                           JSON_BUILD_PAIR_STRING("description", text)));
+}
+
 static int varlink_dispatch_method(Varlink *v) {
         _cleanup_(json_variant_unrefp) JsonVariant *parameters = NULL;
         VarlinkMethodFlags flags = 0;
-        const char *method = NULL, *error;
+        const char *method = NULL;
         JsonVariant *e;
         VarlinkMethod callback;
         const char *k;
@@ -1065,37 +1294,51 @@ static int varlink_dispatch_method(Varlink *v) {
 
         assert(v->server);
 
-        if (STR_IN_SET(method, "org.varlink.service.GetInfo", "org.varlink.service.GetInterface")) {
-                /* For now, we don't implement a single of varlink's own methods */
-                callback = NULL;
-                error = VARLINK_ERROR_METHOD_NOT_IMPLEMENTED;
-        } else if (startswith(method, "org.varlink.service.")) {
-                callback = NULL;
-                error = VARLINK_ERROR_METHOD_NOT_FOUND;
-        } else {
-                callback = hashmap_get(v->server->methods, method);
-                error = VARLINK_ERROR_METHOD_NOT_FOUND;
+        /* First consult user supplied method implementations */
+        callback = hashmap_get(v->server->methods, method);
+        if (!callback) {
+                if (streq(method, "org.varlink.service.GetInfo"))
+                        callback = generic_method_get_info;
+                else if (streq(method, "org.varlink.service.GetInterfaceDescription"))
+                        callback = generic_method_get_interface_description;
         }
 
         if (callback) {
-                r = callback(v, parameters, flags, v->userdata);
-                if (r < 0) {
-                        log_debug_errno(r, "Callback for %s returned error: %m", method);
+                bool invalid = false;
 
-                        /* We got an error back from the callback. Propagate it to the client if the method call remains unanswered. */
-                        if (!FLAGS_SET(flags, VARLINK_METHOD_ONEWAY)) {
-                                r = varlink_error_errno(v, r);
-                                if (r < 0)
-                                        return r;
+                v->current_method = hashmap_get(v->server->symbols, method);
+                if (!v->current_method)
+                        log_debug("No interface description defined for method '%s', not validating.", method);
+                else {
+                        const char *bad_field;
+
+                        r = varlink_idl_validate_method_call(v->current_method, parameters, &bad_field);
+                        if (r < 0) {
+                                log_debug_errno(r, "Parameters for method %s() didn't pass validation on field '%s': %m", method, strna(bad_field));
+                                r = varlink_errorb(v, VARLINK_ERROR_INVALID_PARAMETER, JSON_BUILD_OBJECT(JSON_BUILD_PAIR_STRING("parameter", bad_field)));
+                                invalid = true;
+                        }
+                }
+
+                if (!invalid) {
+                        r = callback(v, parameters, flags, v->userdata);
+                        if (r < 0) {
+                                log_debug_errno(r, "Callback for %s returned error: %m", method);
+
+                                /* We got an error back from the callback. Propagate it to the client if the method call remains unanswered. */
+                                if (!FLAGS_SET(flags, VARLINK_METHOD_ONEWAY)) {
+                                        r = varlink_error_errno(v, r);
+                                        if (r < 0)
+                                                return r;
+                                }
                         }
                 }
         } else if (!FLAGS_SET(flags, VARLINK_METHOD_ONEWAY)) {
-                assert(error);
-
-                r = varlink_errorb(v, error, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("method", JSON_BUILD_STRING(method))));
+                r = varlink_errorb(v, VARLINK_ERROR_METHOD_NOT_FOUND, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("method", JSON_BUILD_STRING(method))));
                 if (r < 0)
                         return r;
-        }
+        } else
+                r = 0;
 
         switch (v->state) {
 
@@ -1115,7 +1358,6 @@ static int varlink_dispatch_method(Varlink *v) {
 
         default:
                 assert_not_reached();
-
         }
 
         return r;
@@ -1284,6 +1526,15 @@ int varlink_wait(Varlink *v, usec_t timeout) {
         return 1;
 }
 
+int varlink_is_idle(Varlink *v) {
+        assert_return(v, -EINVAL);
+
+        /* Returns true if there's nothing pending on the connection anymore, i.e. we processed all incoming
+         * or outgoing messages fully, or finished disconnection */
+
+        return IN_SET(v->state, VARLINK_DISCONNECTED, VARLINK_IDLE_CLIENT, VARLINK_IDLE_SERVER);
+}
+
 int varlink_get_fd(Varlink *v) {
 
         assert_return(v, -EINVAL);
@@ -1408,6 +1659,7 @@ static void varlink_detach_server(Varlink *v) {
         if (saved_server->disconnect_callback)
                 saved_server->disconnect_callback(saved_server, v, saved_server->userdata);
 
+        varlink_server_test_exit_on_idle(saved_server);
         varlink_server_unref(saved_server);
         varlink_unref(v);
 }
@@ -1851,6 +2103,14 @@ int varlink_reply(Varlink *v, JsonVariant *parameters) {
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to build json message: %m");
 
+        if (v->current_method) {
+                const char *bad_field = NULL;
+
+                r = varlink_idl_validate_method_reply(v->current_method, parameters, &bad_field);
+                if (r < 0)
+                        log_debug_errno(r, "Return parameters for method reply %s() didn't pass validation on field '%s', ignoring: %m", v->current_method->name, strna(bad_field));
+        }
+
         r = varlink_enqueue_json(v, m);
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to enqueue json message: %m");
@@ -1916,6 +2176,17 @@ int varlink_error(Varlink *v, const char *error_id, JsonVariant *parameters) {
                                        JSON_BUILD_PAIR("parameters", JSON_BUILD_VARIANT(parameters))));
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to build json message: %m");
+
+        VarlinkSymbol *symbol = hashmap_get(v->server->symbols, error_id);
+        if (!symbol)
+                log_debug("No interface description defined for error '%s', not validating.", error_id);
+        else {
+                const char *bad_field = NULL;
+
+                r = varlink_idl_validate_method_reply(symbol, parameters, &bad_field);
+                if (r < 0)
+                        log_debug_errno(r, "Parameters for error %s didn't pass validation on field '%s', ignoring: %m", error_id, strna(bad_field));
+        }
 
         r = varlink_enqueue_json(v, m);
         if (r < 0)
@@ -2017,6 +2288,14 @@ int varlink_notify(Varlink *v, JsonVariant *parameters) {
                                        JSON_BUILD_PAIR("continues", JSON_BUILD_BOOLEAN(true))));
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to build json message: %m");
+
+        if (v->current_method) {
+                const char *bad_field = NULL;
+
+                r = varlink_idl_validate_method_reply(v->current_method, parameters, &bad_field);
+                if (r < 0)
+                        log_debug_errno(r, "Return parameters for method reply %s() didn't pass validation on field '%s', ignoring: %m", v->current_method->name, strna(bad_field));
+        }
 
         r = varlink_enqueue_json(v, m);
         if (r < 0)
@@ -2447,7 +2726,8 @@ int varlink_set_allow_fd_passing_output(Varlink *v, bool b) {
 }
 
 int varlink_server_new(VarlinkServer **ret, VarlinkServerFlags flags) {
-        VarlinkServer *s;
+        _cleanup_(varlink_server_unrefp) VarlinkServer *s = NULL;
+        int r;
 
         assert_return(ret, -EINVAL);
         assert_return((flags & ~_VARLINK_SERVER_FLAGS_ALL) == 0, -EINVAL);
@@ -2463,7 +2743,14 @@ int varlink_server_new(VarlinkServer **ret, VarlinkServerFlags flags) {
                 .connections_per_uid_max = varlink_server_connections_per_uid_max(NULL),
         };
 
-        *ret = s;
+        r = varlink_server_add_interface_many(
+                        s,
+                        &vl_interface_io_systemd,
+                        &vl_interface_org_varlink_service);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(s);
         return 0;
 }
 
@@ -2479,6 +2766,8 @@ static VarlinkServer* varlink_server_destroy(VarlinkServer *s) {
                 free(m);
 
         hashmap_free(s->methods);
+        hashmap_free(s->interfaces);
+        hashmap_free(s->symbols);
         hashmap_free(s->by_uid);
 
         sd_event_unref(s->event);
@@ -2774,6 +3063,49 @@ int varlink_server_listen_address(VarlinkServer *s, const char *address, mode_t 
         return 0;
 }
 
+int varlink_server_listen_auto(VarlinkServer *s) {
+        _cleanup_strv_free_ char **names = NULL;
+        int r, n = 0;
+
+        assert_return(s, -EINVAL);
+
+        /* Adds a all passed fds marked as "varlink" to our varlink server. These fds can either refer to a
+         * listening socket or to a connection socket.
+         *
+         * See https://varlink.org/#activation for the environment variables this is backed by and the
+         * recommended "varlink" identifier in $LISTEN_FDNAMES. */
+
+        r = sd_listen_fds_with_names(/* unset_environment= */ false, &names);
+        if (r < 0)
+                return r;
+
+        for (int i = 0; i < r; i++) {
+                int b, fd;
+                socklen_t l = sizeof(b);
+
+                if (!streq(names[i], "varlink"))
+                        continue;
+
+                fd = SD_LISTEN_FDS_START + i;
+
+                if (getsockopt(fd, SOL_SOCKET, SO_ACCEPTCONN, &b, &l) < 0)
+                        return -errno;
+
+                assert(l == sizeof(b));
+
+                if (b) /* Listening socket? */
+                        r = varlink_server_listen_fd(s, fd);
+                else /* Otherwise assume connection socket */
+                        r = varlink_server_add_connection(s, fd, NULL);
+                if (r < 0)
+                        return r;
+
+                n++;
+        }
+
+        return n;
+}
+
 void* varlink_server_set_userdata(VarlinkServer *s, void *userdata) {
         void *ret;
 
@@ -2789,6 +3121,34 @@ void* varlink_server_get_userdata(VarlinkServer *s) {
         assert_return(s, NULL);
 
         return s->userdata;
+}
+
+int varlink_server_loop_auto(VarlinkServer *server) {
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        int r;
+
+        assert_return(server, -EINVAL);
+        assert_return(!server->event, -EBUSY);
+
+        /* Runs a Varlink service event loop populated with a passed fd. Exits on the last connection. */
+
+        r = sd_event_new(&event);
+        if (r < 0)
+                return r;
+
+        r = varlink_server_set_exit_on_idle(server, true);
+        if (r < 0)
+                return r;
+
+        r = varlink_server_attach_event(server, event, 0);
+        if (r < 0)
+                return r;
+
+        r = varlink_server_listen_auto(server);
+        if (r < 0)
+                return r;
+
+        return sd_event_loop(event);
 }
 
 static VarlinkServerSocket* varlink_server_socket_destroy(VarlinkServerSocket *ss) {
@@ -2815,9 +3175,23 @@ int varlink_server_shutdown(VarlinkServer *s) {
         return 0;
 }
 
+static void varlink_server_test_exit_on_idle(VarlinkServer *s) {
+        assert(s);
+
+        if (s->exit_on_idle && s->event && s->n_connections == 0)
+                (void) sd_event_exit(s->event, 0);
+}
+
+int varlink_server_set_exit_on_idle(VarlinkServer *s, bool b) {
+        assert_return(s, -EINVAL);
+
+        s->exit_on_idle = b;
+        varlink_server_test_exit_on_idle(s);
+        return 0;
+}
+
 static int varlink_server_add_socket_event_source(VarlinkServer *s, VarlinkServerSocket *ss, int64_t priority) {
         _cleanup_(sd_event_source_unrefp) sd_event_source *es = NULL;
-
         int r;
 
         assert(s);
@@ -2882,6 +3256,22 @@ sd_event *varlink_server_get_event(VarlinkServer *s) {
         return s->event;
 }
 
+static bool varlink_symbol_in_interface(const char *method, const char *interface) {
+        const char *p;
+
+        assert(method);
+        assert(interface);
+
+        p = startswith(method, interface);
+        if (!p)
+                return false;
+
+        if (*p != '.')
+                return false;
+
+        return !strchr(p+1, '.');
+}
+
 int varlink_server_bind_method(VarlinkServer *s, const char *method, VarlinkMethod callback) {
         _cleanup_free_ char *m = NULL;
         int r;
@@ -2890,7 +3280,8 @@ int varlink_server_bind_method(VarlinkServer *s, const char *method, VarlinkMeth
         assert_return(method, -EINVAL);
         assert_return(callback, -EINVAL);
 
-        if (startswith(method, "org.varlink.service."))
+        if (varlink_symbol_in_interface(method, "org.varlink.service") ||
+            varlink_symbol_in_interface(method, "io.systemd"))
                 return log_debug_errno(SYNTHETIC_ERRNO(EEXIST), "Cannot bind server to '%s'.", method);
 
         m = strdup(method);
@@ -2952,6 +3343,63 @@ int varlink_server_bind_disconnect(VarlinkServer *s, VarlinkDisconnect callback)
 
         s->disconnect_callback = callback;
         return 0;
+}
+
+int varlink_server_add_interface(VarlinkServer *s, const VarlinkInterface *interface) {
+        int r;
+
+        assert_return(s, -EINVAL);
+        assert_return(interface, -EINVAL);
+        assert_return(interface->name, -EINVAL);
+
+        if (hashmap_contains(s->interfaces, interface->name))
+                return log_debug_errno(SYNTHETIC_ERRNO(EEXIST), "Duplicate registration of interface '%s'.", interface->name);
+
+        r = hashmap_ensure_put(&s->interfaces, &string_hash_ops, interface->name, (void*) interface);
+        if (r < 0)
+                return r;
+
+        for (const VarlinkSymbol *const*symbol = interface->symbols; *symbol; symbol++) {
+                _cleanup_free_ char *j = NULL;
+
+                /* We only ever want to validate method calls/replies and errors against the interface
+                 * definitions, hence don't bother with the type symbols */
+                if (!IN_SET((*symbol)->symbol_type, VARLINK_METHOD, VARLINK_ERROR))
+                        continue;
+
+                j = strjoin(interface->name, ".", (*symbol)->name);
+                if (!j)
+                        return -ENOMEM;
+
+                r = hashmap_ensure_put(&s->symbols, &string_hash_ops_free, j, (void*) *symbol);
+                if (r < 0)
+                        return r;
+
+                TAKE_PTR(j);
+        }
+
+        return 0;
+}
+
+int varlink_server_add_interface_many_internal(VarlinkServer *s, ...) {
+        va_list ap;
+        int r = 0;
+
+        assert_return(s, -EINVAL);
+
+        va_start(ap, s);
+        for (;;) {
+                const VarlinkInterface *interface = va_arg(ap, const VarlinkInterface*);
+                if (!interface)
+                        break;
+
+                r = varlink_server_add_interface(s, interface);
+                if (r < 0)
+                        break;
+        }
+        va_end(ap);
+
+        return r;
 }
 
 unsigned varlink_server_connections_max(VarlinkServer *s) {
@@ -3091,4 +3539,39 @@ int varlink_server_deserialize_one(VarlinkServer *s, const char *value, FDSet *f
 
         LIST_PREPEND(sockets, s->sockets, TAKE_PTR(ss));
         return 0;
+}
+
+int varlink_invocation(VarlinkInvocationFlags flags) {
+        _cleanup_strv_free_ char **names = NULL;
+        int r, b;
+        socklen_t l = sizeof(b);
+
+        /* Returns true if this is a "pure" varlink server invocation, i.e. with one fd passed. */
+
+        r = sd_listen_fds_with_names(/* unset_environment= */ false, &names);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return false;
+        if (r > 1)
+                return -ETOOMANYREFS;
+
+        if (!strv_equal(names, STRV_MAKE("varlink")))
+                return false;
+
+        if (FLAGS_SET(flags, VARLINK_ALLOW_LISTEN|VARLINK_ALLOW_ACCEPT)) /* Both flags set? Then allow everything */
+                return true;
+
+        if ((flags & (VARLINK_ALLOW_LISTEN|VARLINK_ALLOW_ACCEPT)) == 0) /* Neither is set, then fail */
+                return -EISCONN;
+
+        if (getsockopt(SD_LISTEN_FDS_START, SOL_SOCKET, SO_ACCEPTCONN, &b, &l) < 0)
+                return -errno;
+
+        assert(l == sizeof(b));
+
+        if (!FLAGS_SET(flags, b ? VARLINK_ALLOW_LISTEN : VARLINK_ALLOW_ACCEPT))
+                return -EISCONN;
+
+        return true;
 }
