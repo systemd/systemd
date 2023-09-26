@@ -201,7 +201,7 @@ static int trie_insert(struct trie *trie, struct trie_node *node, const char *se
                         _cleanup_free_ char *s = NULL;
                         ssize_t off;
 
-                        if (c == search[i + p])
+                        if (c == (uint8_t)search[i + p])
                                 continue;
 
                         /* split node */
