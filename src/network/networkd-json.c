@@ -22,13 +22,6 @@
 #include "user-util.h"
 #include "wifi-util.h"
 
-static int json_append_one(JsonVariant **v, const char *name, JsonVariant *w) {
-        assert(v);
-        assert(name);
-
-        return json_variant_merge_objectb(v, JSON_BUILD_OBJECT(JSON_BUILD_PAIR_VARIANT_NON_NULL(name, w)));
-}
-
 static int address_build_json(Address *address, JsonVariant **ret) {
         _cleanup_free_ char *scope = NULL, *flags = NULL, *state = NULL;
         int r;
@@ -87,7 +80,7 @@ static int addresses_append_json(Set *addresses, JsonVariant **v) {
                         return r;
         }
 
-        return json_append_one(v, "Addresses", array);
+        return json_variant_merge_pair(v, "Addresses", array);
 }
 
 static int neighbor_build_json(Neighbor *n, JsonVariant **ret) {
@@ -128,7 +121,7 @@ static int neighbors_append_json(Set *neighbors, JsonVariant **v) {
                         return r;
         }
 
-        return json_append_one(v, "Neighbors", array);
+        return json_variant_merge_pair(v, "Neighbors", array);
 }
 
 static int nexthop_group_build_json(NextHop *nexthop, JsonVariant **ret) {
@@ -209,7 +202,7 @@ static int nexthops_append_json(Set *nexthops, JsonVariant **v) {
                         return r;
         }
 
-        return json_append_one(v, "NextHops", array);
+        return json_variant_merge_pair(v, "NextHops", array);
 }
 
 static int route_build_json(Route *route, JsonVariant **ret) {
@@ -291,7 +284,7 @@ static int routes_append_json(Set *routes, JsonVariant **v) {
                         return r;
         }
 
-        return json_append_one(v, "Routes", array);
+        return json_variant_merge_pair(v, "Routes", array);
 }
 
 static int routing_policy_rule_build_json(RoutingPolicyRule *rule, JsonVariant **ret) {
@@ -370,7 +363,7 @@ static int routing_policy_rules_append_json(Set *rules, JsonVariant **v) {
                         return r;
         }
 
-        return json_append_one(v, "RoutingPolicyRules", array);
+        return json_variant_merge_pair(v, "RoutingPolicyRules", array);
 }
 
 static int network_append_json(Network *network, JsonVariant **v) {
@@ -529,7 +522,7 @@ static int dns_append_json(Link *link, JsonVariant **v) {
                 }
         }
 
-        return json_append_one(v, "DNS", array);
+        return json_variant_merge_pair(v, "DNS", array);
 }
 
 static int server_append_json_one_addr(int family, const union in_addr_union *a, NetworkConfigSource s, const union in_addr_union *p, JsonVariant **array) {
@@ -653,7 +646,7 @@ static int ntp_append_json(Link *link, JsonVariant **v) {
                 }
         }
 
-        return json_append_one(v, "NTP", array);
+        return json_variant_merge_pair(v, "NTP", array);
 }
 
 static int sip_append_json(Link *link, JsonVariant **v) {
@@ -686,7 +679,7 @@ static int sip_append_json(Link *link, JsonVariant **v) {
                         return r;
         }
 
-        return json_append_one(v, "SIP", array);
+        return json_variant_merge_pair(v, "SIP", array);
 }
 
 static int domain_append_json(int family, const char *domain, NetworkConfigSource s, const union in_addr_union *p, JsonVariant **array) {
@@ -782,7 +775,7 @@ static int domains_append_json(Link *link, bool is_route, JsonVariant **v) {
                 }
         }
 
-        return json_append_one(v, is_route ? "RouteDomains" : "SearchDomains", array);
+        return json_variant_merge_pair(v, is_route ? "RouteDomains" : "SearchDomains", array);
 }
 
 static int nta_append_json(const char *nta, NetworkConfigSource s, JsonVariant **array) {
@@ -820,7 +813,7 @@ static int ntas_append_json(Link *link, JsonVariant **v) {
                         return r;
         }
 
-        return json_append_one(v, "DNSSECNegativeTrustAnchors", array);
+        return json_variant_merge_pair(v, "DNSSECNegativeTrustAnchors", array);
 }
 
 static int dns_misc_append_json(Link *link, JsonVariant **v) {
@@ -904,7 +897,7 @@ static int dns_misc_append_json(Link *link, JsonVariant **v) {
                         return r;
         }
 
-        return json_append_one(v, "DNSSettings", array);
+        return json_variant_merge_pair(v, "DNSSettings", array);
 }
 
 static int captive_portal_append_json(Link *link, JsonVariant **v) {
@@ -943,11 +936,11 @@ static int pref64_append_json(Link *link, JsonVariant **v) {
                         return r;
         }
 
-        r = json_append_one(&w, "PREF64", array);
+        r = json_variant_merge_pair(&w, "PREF64", array);
         if (r < 0)
                 return r;
 
-        return json_append_one(v, "NDisc", w);
+        return json_variant_merge_pair(v, "NDisc", w);
 }
 
 static int dhcp_server_offered_leases_append_json(Link *link, JsonVariant **v) {
@@ -979,7 +972,7 @@ static int dhcp_server_offered_leases_append_json(Link *link, JsonVariant **v) {
                         return r;
         }
 
-        return json_append_one(v, "Leases", array);
+        return json_variant_merge_pair(v, "Leases", array);
 }
 
 static int dhcp_server_static_leases_append_json(Link *link, JsonVariant **v) {
@@ -1012,7 +1005,7 @@ static int dhcp_server_static_leases_append_json(Link *link, JsonVariant **v) {
                         return r;
         }
 
-        return json_append_one(v, "StaticLeases", array);
+        return json_variant_merge_pair(v, "StaticLeases", array);
 }
 
 static int dhcp_server_append_json(Link *link, JsonVariant **v) {
@@ -1040,7 +1033,7 @@ static int dhcp_server_append_json(Link *link, JsonVariant **v) {
         if (r < 0)
                 return r;
 
-        return json_append_one(v, "DHCPServer", w);
+        return json_variant_merge_pair(v, "DHCPServer", w);
 }
 
 static int dhcp6_client_lease_append_json(Link *link, JsonVariant **v) {
@@ -1073,7 +1066,7 @@ static int dhcp6_client_lease_append_json(Link *link, JsonVariant **v) {
         if (r < 0)
                 return r;
 
-        return json_append_one(v, "Lease", w);
+        return json_variant_merge_pair(v, "Lease", w);
 }
 
 static int dhcp6_client_pd_append_json(Link *link, JsonVariant **v) {
@@ -1111,7 +1104,7 @@ static int dhcp6_client_pd_append_json(Link *link, JsonVariant **v) {
                         return r;
         }
 
-        return json_append_one(v, "Prefixes", array);
+        return json_variant_merge_pair(v, "Prefixes", array);
 }
 
 static int dhcp6_client_append_json(Link *link, JsonVariant **v) {
@@ -1132,7 +1125,7 @@ static int dhcp6_client_append_json(Link *link, JsonVariant **v) {
         if (r < 0)
                 return r;
 
-        return json_append_one(v, "DHCPv6Client", w);
+        return json_variant_merge_pair(v, "DHCPv6Client", w);
 }
 
 static int dhcp_client_lease_append_json(Link *link, JsonVariant **v) {
@@ -1165,7 +1158,7 @@ static int dhcp_client_lease_append_json(Link *link, JsonVariant **v) {
         if (r < 0)
                 return r;
 
-        return json_append_one(v, "Lease", w);
+        return json_variant_merge_pair(v, "Lease", w);
 }
 
 static int dhcp_client_pd_append_json(Link *link, JsonVariant **v) {
@@ -1201,7 +1194,7 @@ static int dhcp_client_pd_append_json(Link *link, JsonVariant **v) {
         if (r < 0)
                 return r;
 
-        return json_append_one(v, "6rdPrefix", array);
+        return json_variant_merge_pair(v, "6rdPrefix", array);
 }
 
 static int dhcp_client_append_json(Link *link, JsonVariant **v) {
@@ -1222,7 +1215,7 @@ static int dhcp_client_append_json(Link *link, JsonVariant **v) {
         if (r < 0)
                 return r;
 
-        return json_append_one(v, "DHCPv4Client", w);
+        return json_variant_merge_pair(v, "DHCPv4Client", w);
 }
 
 int link_build_json(Link *link, JsonVariant **ret) {
@@ -1381,7 +1374,7 @@ static int links_append_json(Manager *manager, JsonVariant **v) {
                         return r;
         }
 
-        return json_append_one(v, "Interfaces", array);
+        return json_variant_merge_pair(v, "Interfaces", array);
 }
 
 int manager_build_json(Manager *manager, JsonVariant **ret) {
