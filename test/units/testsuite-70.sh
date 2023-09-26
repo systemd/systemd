@@ -372,4 +372,10 @@ systemd-cryptenroll --tpm2-pcrs=boot-loader-code+boot-loader-config "$img"
 (! systemd-cryptenroll --wipe-slot=10240000 "$img")
 (! systemd-cryptenroll --fido2-device=auto --unlock-fido2-device=auto "$img")
 
+# Run this, just to get sanitizer coverage. The tools should be idempotent, hence run the multiple times.
+/usr/lib/systemd/systemd-tpm2-setup --early=yes
+/usr/lib/systemd/systemd-tpm2-setup --early=yes
+/usr/lib/systemd/systemd-tpm2-setup --early=no
+/usr/lib/systemd/systemd-tpm2-setup --early=no
+
 touch /testok
