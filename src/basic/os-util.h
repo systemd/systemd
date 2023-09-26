@@ -50,6 +50,10 @@ int load_extension_release_pairs(const char *root, ImageClass image_class, const
 static inline int load_os_release_pairs(const char *root, char ***ret) {
         return load_extension_release_pairs(root, _IMAGE_CLASS_INVALID, NULL, false, ret);
 }
+int load_extension_release_pairs_at(int rfd, ImageClass image_class, const char *extension, bool relax_extension_release_check, char ***ret);
+static inline int load_os_release_pairs_at(int rfd, char ***ret) {
+        return load_extension_release_pairs_at(rfd, _IMAGE_CLASS_INVALID, NULL, false, ret);
+}
 int load_os_release_pairs_with_prefix(const char *root, const char *prefix, char ***ret);
 
 int os_release_support_ended(const char *support_end, bool quiet, usec_t *ret_eol);
