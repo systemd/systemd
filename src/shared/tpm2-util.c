@@ -148,7 +148,7 @@ int dlopen_tpm2(void) {
                         DLSYM_ARG(Tss2_MU_TPMT_PUBLIC_Marshal));
 }
 
-static void Esys_Freep(void *p) {
+void Esys_Freep(void *p) {
         if (*(void**) p)
                 sym_Esys_Free(*(void**) p);
 }
@@ -1175,7 +1175,7 @@ static int tpm2_get_srk(
 }
 
 /* Get the SRK, creating one if needed. Returns 0 on success, or < 0 on error. */
-static int tpm2_get_or_create_srk(
+int tpm2_get_or_create_srk(
                 Tpm2Context *c,
                 const Tpm2Handle *session,
                 TPM2B_PUBLIC **ret_public,
@@ -1189,7 +1189,7 @@ static int tpm2_get_or_create_srk(
         if (r < 0)
                 return r;
         if (r == 1)
-                return 0;
+                return 0; /* 0 → SRK already set up */
 
         /* No SRK, create and persist one */
         TPM2B_PUBLIC template = { .size = sizeof(TPMT_PUBLIC), };
@@ -1223,7 +1223,7 @@ static int tpm2_get_or_create_srk(
                 /* This should never happen. */
                 return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "SRK we just persisted couldn't be found.");
 
-        return 0;
+        return 1; /* > 0 → SRK newly set up */
 }
 
 /* Utility functions for TPMS_PCR_SELECTION. */

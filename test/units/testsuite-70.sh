@@ -5,6 +5,7 @@ set -o pipefail
 
 SD_MEASURE="/usr/lib/systemd/systemd-measure"
 SD_PCREXTEND="/usr/lib/systemd/systemd-pcrextend"
+SD_TPM2SETUP="/usr/lib/systemd/systemd-tpm2-setup"
 export SYSTEMD_LOG_LEVEL=debug
 
 cryptsetup_has_token_plugin_support() {
@@ -371,5 +372,13 @@ systemd-cryptenroll --tpm2-pcrs=boot-loader-code+boot-loader-config "$img"
 (! systemd-cryptenroll --wipe-slot "$img")
 (! systemd-cryptenroll --wipe-slot=10240000 "$img")
 (! systemd-cryptenroll --fido2-device=auto --unlock-fido2-device=auto "$img")
+
+# Run this, just to get sanitizer coverage. The tools should be idempotent, hence run the multiple times.
+if [[ -x "$SD_TPM2SETUP" ]]; then
+    "$SD_TPM2SETUP" --early=yes
+    "$SD_TPM2SETUP" --early=yes
+    "$SD_TPM2SETUP" --early=no
+    "$SD_TPM2SETUP" --early=no
+fi
 
 touch /testok
