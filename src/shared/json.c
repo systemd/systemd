@@ -2104,6 +2104,13 @@ int json_variant_merge_objectb(JsonVariant **v, ...) {
         return json_variant_merge_object(v, w);
 }
 
+int json_variant_merge_pair(JsonVariant **v, const char *name, JsonVariant *w) {
+        assert(v);
+        assert(name);
+
+        return json_variant_merge_objectb(v, JSON_BUILD_OBJECT(JSON_BUILD_PAIR_VARIANT_NON_NULL(name, w)));
+}
+
 int json_variant_append_array(JsonVariant **v, JsonVariant *element) {
         _cleanup_(json_variant_unrefp) JsonVariant *nv = NULL;
         bool blank;
