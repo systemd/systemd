@@ -225,6 +225,7 @@ if conf.get('ENABLE_RESOLVE') == 1
                                  ln_s.format(bindir / 'resolvectl',
                                              sbindir / 'resolvconf'))
 
+        # symlink for backwards compatibility after rename
         meson.add_install_script(sh, '-c',
                                  ln_s.format(bindir / 'resolvectl',
                                              bindir / 'systemd-resolve'))

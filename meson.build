@@ -226,7 +226,7 @@ conf.set_quoted('SYSTEMCTL_BINARY_PATH',                      bindir / 'systemct
 conf.set_quoted('SYSTEMD_BINARY_PATH',                        libexecdir / 'systemd')
 conf.set_quoted('SYSTEMD_CATALOG_DIR',                        catalogdir)
 conf.set_quoted('SYSTEMD_CGROUPS_AGENT_PATH',                 libexecdir / 'systemd-cgroups-agent')
-conf.set_quoted('SYSTEMD_CRYPTSETUP_PATH',                    libexecdir / 'systemd-cryptsetup')
+conf.set_quoted('SYSTEMD_CRYPTSETUP_PATH',                    bindir / 'systemd-cryptsetup')
 conf.set_quoted('SYSTEMD_EXPORT_PATH',                        libexecdir / 'systemd-export')
 conf.set_quoted('SYSTEMD_FSCK_PATH',                          libexecdir / 'systemd-fsck')
 conf.set_quoted('SYSTEMD_GROWFS_PATH',                        libexecdir / 'systemd-growfs')
@@ -2417,6 +2417,7 @@ ukify = custom_target(
 if want_ukify
         public_programs += ukify
 
+        # symlink for backwards compatibility after rename
         meson.add_install_script(sh, '-c',
                                  ln_s.format(bindir / 'ukify',
                                              libexecdir / 'ukify'))
