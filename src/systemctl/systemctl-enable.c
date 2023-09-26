@@ -245,6 +245,10 @@ int verb_enable(int argc, char *argv[], void *userdata) {
                         if (r < 0)
                                 return r;
                 }
+
+                if (streq(verb, "mask") && !arg_quiet && !arg_no_warn)
+                        STRV_FOREACH(unit, names)
+                                warn_triggering_units(bus, *unit, "Masking", /* ignore_masked = */ false);
         }
 
         if (carries_install_info == 0 && !ignore_carries_install_info)
