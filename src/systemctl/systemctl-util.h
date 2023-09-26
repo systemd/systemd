@@ -26,7 +26,8 @@ int get_sub_state_one_unit(sd_bus *bus, const char *unit, char **ret_sub_state);
 int get_unit_list(sd_bus *bus, const char *machine, char **patterns, UnitInfo **unit_infos, int c, sd_bus_message **ret_reply);
 int expand_unit_names(sd_bus *bus, char **names, const char* suffix, char ***ret, bool *ret_expanded);
 
-int check_triggering_units(sd_bus *bus, const char *unit);
+int get_active_triggering_units(sd_bus *bus, const char *unit, bool ignore_masked, char ***ret);
+void warn_triggering_units(sd_bus *bus, const char *unit, const char *operation, bool ignore_masked);
 
 int need_daemon_reload(sd_bus *bus, const char *unit);
 
