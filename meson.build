@@ -2365,17 +2365,20 @@ foreach dict : modules
 
         kwargs = {}
         foreach key, val : dict
-                if key in ['name', 'conditions']
+                if key in ['name', 'conditions', 'version-script']
                         continue
                 endif
                 kwargs += { key : val }
         endforeach
 
-        sym = meson.current_source_dir() / '@0@'.format(dict.get('link_depends')[0])
         kwargs += {
                 'link_args' : [
                         kwargs.get('link_args', []),
-                        '-Wl,--version-script=' + sym,
+                        '-Wl,--version-script=' + dict.get('version-script'),
+                ],
+                'link_depends' : [
+                        kwargs.get('link_depends', []),
+                        dict.get('version-script'),
                 ],
         }
         foreach key, val : module_additional_kwargs

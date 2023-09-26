@@ -123,7 +123,7 @@ modules += [
                         libpam,
                         threads,
                 ],
-                'link_depends' : files('pam_systemd_home.sym'),
+                'version-script' : meson.current_source_dir() / 'pam_systemd_home.sym',
         },
 ]
 

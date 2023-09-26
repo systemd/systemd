@@ -315,7 +315,7 @@ libshared_deps = [threads,
                   libxz,
                   libzstd]
 
-libshared_sym_path = '@0@/libshared.sym'.format(meson.current_source_dir())
+libshared_sym_path = meson.current_source_dir() / 'libshared.sym'
 libshared_build_dir = meson.current_build_dir()
 
 libshared_static = static_library(
@@ -333,6 +333,7 @@ libshared = shared_library(
         c_args : ['-fvisibility=default'],
         link_args : ['-shared',
                      '-Wl,--version-script=' + libshared_sym_path],
+        link_depends : libshared_sym_path,
         link_whole : [libshared_static,
                       libbasic,
                       libbasic_gcrypt,
