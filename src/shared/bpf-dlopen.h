@@ -5,6 +5,7 @@
 
 #include <bpf/bpf.h>
 #include <bpf/libbpf.h>
+#include <bpf/btf.h>
 
 #include "bpf-compat.h"
 
@@ -28,6 +29,15 @@ extern void (*sym_bpf_object__destroy_skeleton)(struct bpf_object_skeleton *);
 extern const char* (*sym_bpf_program__name)(const struct bpf_program *);
 extern libbpf_print_fn_t (*sym_libbpf_set_print)(libbpf_print_fn_t);
 extern long (*sym_libbpf_get_error)(const void *);
+extern int (*sym_bpf_prog_get_next_id)(__u32, __u32 *);
+extern int (*sym_bpf_map_get_next_id)(__u32, __u32 *);
+extern int (*sym_bpf_prog_get_fd_by_id)(__u32);
+extern int (*sym_bpf_map_get_fd_by_id)(__u32);
+extern int (*sym_bpf_obj_get_info_by_fd)(int, void *, __u32 *);
+extern struct btf* (*sym_btf__load_from_kernel_by_id)(__u32);
+extern const struct btf_type* (*sym_btf__type_by_id)(const struct btf *, __u32);
+extern const char* (*sym_btf__name_by_offset)(const struct btf *, __u32);
+extern void (*sym_btf__free)(struct btf *);
 
 #endif
 

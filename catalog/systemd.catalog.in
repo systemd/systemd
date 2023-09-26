@@ -748,3 +748,14 @@ Compatibility support for System V services in systemd is deprecated. Please
 make sure to update the package in question to provide proper, native systemd
 unit files. Contact vendor if necesssary. Compatibility support for System V
 services is deprecated and will be removed soon.
+
+-- 8ff478c20d67490cb893d29dc55c3f37
+Subject: bpfd data has been logged
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+bpfd has logged information about attached BPF programs and maps.
+
+Periodically, bpfd will gather data about all currently attached BPF programs
+and maps and then log it to journald. This includes prog/map names, prog/map
+types, memlock, and prog run statistics.
