@@ -3820,6 +3820,10 @@ int unit_coldplug(Unit *u) {
                         r = q;
         }
 
+        CGroupContext *c = unit_get_cgroup_context(u);
+        if (c)
+                cgroup_modify_nft_set(u, /* add = */ true);
+
         return r;
 }
 
@@ -5132,6 +5136,41 @@ PidRef* unit_main_pid(Unit *u) {
         return NULL;
 }
 
+static void unit_modify_user_nft_set(Unit *u, bool add, NFTSetSource source, uint32_t element) {
+        int r;
+
+        assert(u);
+
+        if (!MANAGER_IS_SYSTEM(u->manager))
+                return;
+
+        CGroupContext *c;
+        c = unit_get_cgroup_context(u);
+        if (!c)
+                return;
+
+        if (!u->manager->fw_ctx) {
+                r = fw_ctx_new_full(&u->manager->fw_ctx, /* init_tables= */ false);
+                if (r < 0)
+                        return;
+
+                assert(u->manager->fw_ctx);
+        }
+
+        FOREACH_ARRAY(nft_set, c->nft_set_context.sets, c->nft_set_context.n_sets) {
+                if (nft_set->source != source)
+                        continue;
+
+                r = nft_set_element_modify_any(u->manager->fw_ctx, add, nft_set->nfproto, nft_set->table, nft_set->set, &element, sizeof(element));
+                if (r < 0)
+                        log_warning_errno(r, "Failed to %s NFT set: family %s, table %s, set %s, ID %u, ignoring: %m",
+                                          add? "add" : "delete", nfproto_to_string(nft_set->nfproto), nft_set->table, nft_set->set, element);
+                else
+                        log_debug("%s NFT set: family %s, table %s, set %s, ID %u",
+                                  add? "Added" : "Deleted", nfproto_to_string(nft_set->nfproto), nft_set->table, nft_set->set, element);
+        }
+}
+
 static void unit_unref_uid_internal(
                 Unit *u,
                 uid_t *ref_uid,
@@ -5158,10 +5197,18 @@ static void unit_unref_uid_internal(
 }
 
 static void unit_unref_uid(Unit *u, bool destroy_now) {
+        assert(u);
+
+        unit_modify_user_nft_set(u, /* add = */ false, NFT_SET_SOURCE_USER, u->ref_uid);
+
         unit_unref_uid_internal(u, &u->ref_uid, destroy_now, manager_unref_uid);
 }
 
 static void unit_unref_gid(Unit *u, bool destroy_now) {
+        assert(u);
+
+        unit_modify_user_nft_set(u, /* add = */ false, NFT_SET_SOURCE_GROUP, u->ref_gid);
+
         unit_unref_uid_internal(u, (uid_t*) &u->ref_gid, destroy_now, manager_unref_gid);
 }
 
@@ -5255,6 +5302,9 @@ int unit_ref_uid_gid(Unit *u, uid_t uid, gid_t gid) {
         r = unit_ref_uid_gid_internal(u, uid, gid, c ? c->remove_ipc : false);
         if (r < 0)
                 return log_unit_warning_errno(u, r, "Couldn't add UID/GID reference to unit, proceeding without: %m");
+
+        unit_modify_user_nft_set(u, /* add = */ true, NFT_SET_SOURCE_USER, uid);
+        unit_modify_user_nft_set(u, /* add = */ true, NFT_SET_SOURCE_GROUP, gid);
 
         return r;
 }
