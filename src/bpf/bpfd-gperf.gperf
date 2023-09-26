@@ -1,0 +1,21 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+%{
+#if __GNUC__ >= 7
+_Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"")
+#endif
+#include <stddef.h>
+#include "conf-parser.h"
+#include "bpfd-conf.h"
+%}
+struct ConfigPerfItem;
+%null_strings
+%language=ANSI-C
+%define slot-name section_and_lvalue
+%define hash-function-name bpfd_gperf_hash
+%define lookup-function-name bpfd_gperf_lookup
+%readonly-tables
+%omit-struct-type
+%struct-type
+%includes
+%%
+BPF.LogProgramsAndMaps, config_parse_bool, 0, offsetof(Manager, enable_logging)
