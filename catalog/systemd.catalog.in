@@ -794,3 +794,14 @@ the TPM.
 
 Automatic SRK enrollment on TPMs in such scenarios is not supported. In order to unset the PIN/password
 protection on the owner hierarchy issue a command like the following: 'tpm2_changeauth -c o -p <OLDPW> ""'.
+
+-- 8ff478c20d67490cb893d29dc55c3f37
+Subject: bpfd data has been logged
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+bpfd has logged information about attached BPF programs and maps.
+
+Periodically, bpfd will gather data about all currently attached BPF programs
+and maps and then log it to journald. This includes program/map names, program/map
+types, memlock, and program run statistics.

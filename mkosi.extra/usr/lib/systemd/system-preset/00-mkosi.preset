@@ -39,3 +39,5 @@ enable autorelabel.service
 disable iscsi.service
 disable iscsid.socket
 disable iscsiuio.socket
+
+enable systemd-bpfd.service
