@@ -420,7 +420,7 @@ int verb_start(int argc, char *argv[], void *userdata) {
 
                 /* When stopping units, warn if they can still be triggered by
                  * another active unit (socket, path, timer) */
-                if (!arg_quiet)
+                if (!arg_quiet && !arg_no_warn)
                         STRV_FOREACH(unit, stopped_units)
                                 warn_triggering_units_for_stopped(bus, *unit);
         }

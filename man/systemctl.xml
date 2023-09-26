@@ -443,6 +443,10 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             It will <emphasis>not</emphasis> fail if any of the commands configured to stop the unit
             (<varname>ExecStop=</varname>, etc.) fail, because the manager will still forcibly terminate the
             unit.</para>
+
+            <para>If a unit that gets stopped can still be triggered by other units, a warning containing
+            the names of the triggering units is shown. <option>--no-warn</option> can be used to suppress
+            the warning.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -2233,7 +2237,10 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             </listitem>
             <listitem>
               <para>when using <command>disable</command> combined with <option>--user</option> on units
-              that are enabled in global scope.</para>
+              that are enabled in global scope,</para>
+            </listitem>
+            <listitem>
+              <para>when a <command>stop</command>-ped unit can still be triggered by other units.</para>
             </listitem>
           </itemizedlist>
           </para>
