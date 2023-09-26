@@ -609,7 +609,6 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pn*[pP][aA][vV][iI][lL][iI][oO
  KEYBOARD_KEY_d9=unknown
  KEYBOARD_KEY_d2=sysrq                                  # Fn+Print = SYSRQ
 
-
 # Pavilion gaming 15-dk1* (lid keys)
 evdev:atkbd:dmi:bvn*:bvr*:bd*:br*:efr*:svnHP:pnHPPavilionGamingLaptop15-dk1*:*
   KEYBOARD_KEY_d7=unknown
