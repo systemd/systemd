@@ -185,8 +185,27 @@
           <xi:include href="version-info.xml" xpointer="v251"/>
         </listitem>
       </varlistentry>
-
     </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Compatibility with the kernel build system</title>
+
+    <cmdsynopsis>
+      <command>installkernel</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">VERSION</arg>
+      <arg choice="plain">VMLINUZ</arg>
+      <arg choice="opt">MAP</arg>
+      <arg choice="opt">INSTALLATION-DIR</arg>
+    </cmdsynopsis>
+
+    <para>When invoked as <command>installkernel</command>, this program accepts arguments as specified by
+    the kernel build system's <command>make install</command> command. The <parameter>VERSION</parameter> and
+    <parameter>VMLINUZ</parameter> parameters specify the kernel version and the kernel binary. The other two
+    parameters (<parameter>MAP</parameter> and <parameter>INSTALLATION-DIR</parameter>) are currently
+    ignored.
+    </para>
   </refsect1>
 
   <refsect1>
