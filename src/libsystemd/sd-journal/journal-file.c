@@ -2788,6 +2788,9 @@ static int generic_array_get(
                         return r;
 
                 k = journal_file_entry_array_n_items(f, o);
+                if (k == 0)
+                        return 0;
+
                 if (i < k)
                         break;
 
