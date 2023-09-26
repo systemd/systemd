@@ -1083,6 +1083,9 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             <option>--user</option> mode, in which case the directories are below the user's home directory
             however.</para>
 
+            <para>If a unit that gets masked but it's triggering units are not, a warning containing the names
+            of the triggering units is shown. <option>--no-warn</option> can be used to suppress the warning.</para>
+
             <xi:include href="version-info.xml" xpointer="v238"/>
           </listitem>
         </varlistentry>
@@ -2240,7 +2243,10 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
               that are enabled in global scope,</para>
             </listitem>
             <listitem>
-              <para>when a <command>stop</command>-ped unit can still be triggered by other units.</para>
+              <para>when a <command>stop</command>-ped unit can still be triggered by other units,</para>
+            </listitem>
+            <listitem>
+              <para>when a <command>mask</command>-ed unit still has active triggering units.</para>
             </listitem>
           </itemizedlist>
           </para>
