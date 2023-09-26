@@ -2682,10 +2682,6 @@ static int varlink_server_create_listen_fd_socket(VarlinkServer *s, int fd, Varl
         assert(fd >= 0);
         assert(ret_ss);
 
-        r = fd_nonblock(fd, true);
-        if (r < 0)
-                return r;
-
         ss = new(VarlinkServerSocket, 1);
         if (!ss)
                 return log_oom_debug();
@@ -2715,6 +2711,14 @@ int varlink_server_listen_fd(VarlinkServer *s, int fd) {
 
         assert_return(s, -EINVAL);
         assert_return(fd >= 0, -EBADF);
+
+        r = fd_nonblock(fd, true);
+        if (r < 0)
+                return r;
+
+        r = fd_cloexec(fd, true);
+        if (r < 0)
+                return r;
 
         r = varlink_server_create_listen_fd_socket(s, fd, &ss);
         if (r < 0)

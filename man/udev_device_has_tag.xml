@@ -153,6 +153,20 @@
   </refsect1>
 
   <refsect1>
+    <title>History</title>
+    <para><function>udev_device_get_devlinks_list_entry()</function>,
+    <function>udev_device_get_properties_list_entry()</function>,
+    <function>udev_device_get_tags_list_entry()</function>,
+    <function>udev_device_get_sysattr_list_entry()</function>,
+    <function>udev_device_get_property_value()</function>,
+    <function>udev_device_has_tag()</function>,
+    <function>udev_device_get_sysattr_value()</function>, and
+    <function>udev_device_set_sysattr_value()</function> were added in version 221.</para>
+    <para><function>udev_device_has_current_tag()</function> and
+    <function>udev_device_get_current_tags_list_entry()</function> were added in version 247.</para>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
 
     <para>

@@ -702,8 +702,6 @@ node /org/freedesktop/systemd1 {
 
     <!--property ServiceWatchdogs is not documented!-->
 
-    <!--property SystemState is not documented!-->
-
     <!--property ExitCode is not documented!-->
 
     <!--property DefaultTimerAccuracyUSec is not documented!-->
@@ -1795,6 +1793,52 @@ node /org/freedesktop/systemd1 {
       access to the unit. It's read from the unit file when it is loaded and cached until the service manager
       is reloaded. This property contains an empty string if SELinux is not used or if no label could be read
       (for example because the unit is not backed by a file on disk).</para>
+
+      <para><varname>SystemState</varname> contains the current state of the system manager. The possible
+      values are:</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><literal>initializing</literal></term>
+
+          <listitem><para>The system is booting, and <filename>basic.target</filename> has not been reached
+          yet.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><literal>starting</literal></term>
+
+          <listitem><para>The system is booting, and <filename>basic.target</filename> has been reached.
+          </para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><literal>running</literal></term>
+
+          <listitem><para>The system has finished booting, and no units are in the failed state.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><literal>degraded</literal></term>
+
+          <listitem><para>The system has finished booting, but some units are in the failed state.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><literal>maintenance</literal></term>
+
+          <listitem><para>The system has finished booting, but it has been put in rescue or maintenance
+          mode.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><literal>stopping</literal></term>
+
+          <listitem><para>The system is shutting down.</para></listitem>
+        </varlistentry>
+      </variablelist>
     </refsect2>
 
     <refsect2>

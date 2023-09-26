@@ -2151,7 +2151,7 @@ static void log_execution_mode(bool *ret_first_boot) {
                                 r = read_one_line_file("/etc/machine-id", &id_text);
                                 if (r < 0 || streq(id_text, "uninitialized")) {
                                         if (r < 0 && r != -ENOENT)
-                                                log_warning_errno(r, "Unexpected error while reading /etc/machine-id, ignoring: %m");
+                                                log_warning_errno(r, "Unexpected error while reading /etc/machine-id, assuming first boot: %m");
 
                                         first_boot = true;
                                         log_info("Detected first boot.");

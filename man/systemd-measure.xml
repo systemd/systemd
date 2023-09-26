@@ -191,7 +191,8 @@
         <listitem><para>Controls which boot phases to calculate expected PCR 11 values for. This takes a
         series of colon-separated strings that encode boot "paths" for entering a specific phase of the boot
         process. Each of the specified strings is measured by the
-        <filename>systemd-pcrphase-initrd.service</filename> and
+        <filename>systemd-pcrphase-initrd.service</filename>,
+        <filename>systemd-pcrphase-sysinit.service</filename>, and
         <citerefentry><refentrytitle>systemd-pcrphase.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         into PCR 11 during different milestones of the boot process. This switch may be specified multiple
         times to calculate PCR values for multiple boot phases at once. If not used defaults to

@@ -79,6 +79,14 @@
   </refsect1>
 
   <refsect1>
+    <title>History</title>
+    <para><function>udev_monitor_filter_update()</function>,
+    <function>udev_monitor_filter_remove()</function>,
+    <function>udev_monitor_filter_add_match_subsystem_devtype()</function>, and
+    <function>udev_monitor_filter_add_match_tag()</function> were added in version 221.</para>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
 
     <para>

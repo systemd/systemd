@@ -1381,6 +1381,9 @@ install_systemd() {
     if [[ -n "$TEST_SYSTEMD_LOG_LEVEL" ]]; then
         echo DefaultEnvironment=SYSTEMD_LOG_LEVEL="$TEST_SYSTEMD_LOG_LEVEL" >>"$initdir/etc/systemd/system.conf.d/99-log-level.conf"
     fi
+    # Enable debug logging for user instances as well
+    mkdir -p "$initdir/etc/systemd/user.conf.d/"
+    echo -ne "[Manager]\nLogLevel=debug\n" >"$initdir/etc/systemd/user.conf.d/10-log-level.conf"
     # Store coredumps in journal
     mkdir -p "$initdir/etc/systemd/coredump.conf.d/"
     echo -ne "[Coredump]\nStorage=journal\n" >"$initdir/etc/systemd/coredump.conf.d/10-storage-journal.conf"
