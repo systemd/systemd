@@ -623,9 +623,35 @@ static int journal_file_verify_header(JournalFile *f) {
                         return -ENODATA;
         }
 
-        if (JOURNAL_HEADER_CONTAINS(f->header, tail_entry_offset))
-                if (!offset_is_valid(le64toh(f->header->tail_entry_offset), header_size, tail_object_offset))
+        if (JOURNAL_HEADER_CONTAINS(f->header, tail_entry_offset)) {
+                uint64_t offset = le64toh(f->header->tail_entry_offset);
+
+                if (!offset_is_valid(offset, header_size, tail_object_offset))
                         return -ENODATA;
+
+                if (offset > 0) {
+                        /* When there is an entry object, then these fields must be filled. */
+                        if (sd_id128_is_null(f->header->tail_entry_boot_id))
+                                return -ENODATA;
+                        if (!VALID_REALTIME(le64toh(f->header->head_entry_realtime)))
+                                return -ENODATA;
+                        if (!VALID_REALTIME(le64toh(f->header->tail_entry_realtime)))
+                                return -ENODATA;
+                        if (!VALID_MONOTONIC(le64toh(f->header->tail_entry_realtime)))
+                                return -ENODATA;
+                } else {
+                        /* Otherwise, the fields must be zero. */
+                        if (JOURNAL_HEADER_TAIL_ENTRY_BOOT_ID(f->header) &&
+                            !sd_id128_is_null(f->header->tail_entry_boot_id))
+                                return -ENODATA;
+                        if (f->header->head_entry_realtime != 0)
+                                return -ENODATA;
+                        if (f->header->tail_entry_realtime != 0)
+                                return -ENODATA;
+                        if (f->header->tail_entry_realtime != 0)
+                                return -ENODATA;
+                }
+        }
 
         /* Verify number of objects */
         uint64_t n_objects = le64toh(f->header->n_objects);
@@ -2272,6 +2298,8 @@ static int journal_file_append_entry_internal(
         assert(f);
         assert(f->header);
         assert(ts);
+        assert(boot_id);
+        assert(!sd_id128_is_null(*boot_id));
         assert(items || n_items == 0);
 
         if (f->strict_order) {
@@ -2292,7 +2320,7 @@ static int journal_file_append_entry_internal(
                                                "timestamp %" PRIu64 ", refusing entry.",
                                                ts->realtime, le64toh(f->header->tail_entry_realtime));
 
-                if ((!boot_id || sd_id128_equal(*boot_id, f->header->tail_entry_boot_id)) &&
+                if (sd_id128_equal(*boot_id, f->header->tail_entry_boot_id) &&
                     ts->monotonic < le64toh(f->header->tail_entry_monotonic))
                         return log_debug_errno(
                                         SYNTHETIC_ERRNO(ENOTNAM),
@@ -2332,9 +2360,7 @@ static int journal_file_append_entry_internal(
         o->entry.realtime = htole64(ts->realtime);
         o->entry.monotonic = htole64(ts->monotonic);
         o->entry.xor_hash = htole64(xor_hash);
-        if (boot_id)
-                f->header->tail_entry_boot_id = *boot_id;
-        o->entry.boot_id = f->header->tail_entry_boot_id;
+        o->entry.boot_id = f->header->tail_entry_boot_id = *boot_id;
 
         for (size_t i = 0; i < n_items; i++)
                 write_entry_item(f, o, i, &items[i]);
@@ -2503,7 +2529,10 @@ int journal_file_append_entry(
                 ts = &_ts;
         }
 
-        if (!boot_id) {
+        if (boot_id) {
+                if (sd_id128_is_null(*boot_id))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "Empty boot ID, refusing entry.");
+        } else {
                 r = sd_id128_get_boot(&_boot_id);
                 if (r < 0)
                         return r;
@@ -3322,10 +3351,8 @@ int journal_file_move_to_entry_by_monotonic(
         assert(f);
 
         r = find_data_object_by_boot_id(f, boot_id, &o, NULL);
-        if (r < 0)
+        if (r <= 0)
                 return r;
-        if (r == 0)
-                return -ENOENT;
 
         return generic_array_bisect_plus_one(
                         f,
@@ -3517,10 +3544,8 @@ int journal_file_move_to_entry_by_monotonic_for_data(
 
         /* First, seek by time */
         r = find_data_object_by_boot_id(f, boot_id, &o, &b);
-        if (r < 0)
+        if (r <= 0)
                 return r;
-        if (r == 0)
-                return -ENOENT;
 
         r = generic_array_bisect_plus_one(f,
                                           le64toh(o->data.entry_offset),
