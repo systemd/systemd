@@ -624,25 +624,31 @@ static int unit_find_template_path(
         return r;
 }
 
-int unit_is_masked(sd_bus *bus, LookupPaths *lp, const char *name) {
+int unit_is_masked(sd_bus *bus, const char *unit) {
         _cleanup_free_ char *load_state = NULL;
         int r;
 
-        if (unit_name_is_valid(name, UNIT_NAME_TEMPLATE)) {
-                _cleanup_free_ char *path = NULL;
+        assert(bus);
+        assert(unit);
 
-                /* A template cannot be loaded, but it can be still masked, so
-                 * we need to use a different method. */
+        if (unit_name_is_valid(unit, UNIT_NAME_TEMPLATE)) {
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+                const char *state;
 
-                r = unit_file_find_path(lp, name, &path);
+                r = bus_call_method(bus, bus_systemd_mgr, "GetUnitFileState", &error, &reply, "s", unit);
                 if (r < 0)
-                        return r;
-                if (r == 0)
-                        return false;
-                return null_or_empty_path(path);
+                        return log_debug_errno(r, "Failed to get UnitFileState for '%s': %s",
+                                               unit, bus_error_message(&error, r));
+
+                r = sd_bus_message_read(reply, "s", &state);
+                if (r < 0)
+                        return bus_log_parse_error_debug(r);
+
+                return STR_IN_SET(state, "masked", "masked-runtime");
         }
 
-        r = unit_load_state(bus, name, &load_state);
+        r = unit_load_state(bus, unit, &load_state);
         if (r < 0)
                 return r;
 
