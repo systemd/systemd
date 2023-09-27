@@ -1836,7 +1836,6 @@ static int discover_next_boot(
                 bool advance_older,
                 BootId *ret) {
 
-        BootId boot;
         int r;
 
         assert(j);
@@ -1853,7 +1852,9 @@ static int discover_next_boot(
          * we can actually advance to a *different* boot. */
         sd_journal_flush_matches(j);
 
-        do {
+        for (;;) {
+                BootId boot;
+
                 r = sd_journal_step_one(j, !advance_older);
                 if (r < 0)
                         return r;
@@ -1874,38 +1875,73 @@ static int discover_next_boot(
                  * speed things up, but let's not trust that it is complete, and hence, manually advance as
                  * necessary. */
 
-        } while (sd_id128_equal(boot.id, previous_boot_id));
+                if (!sd_id128_is_null(previous_boot_id) && sd_id128_equal(boot.id, previous_boot_id))
+                        continue;
 
-        r = sd_journal_get_realtime_usec(j, &boot.first_usec);
-        if (r < 0)
-                return r;
+                previous_boot_id = boot.id;
 
-        /* Now seek to the last occurrence of this boot ID. */
-        r = add_match_boot_id(j, boot.id);
-        if (r < 0)
-                return r;
+                /* Yay, we found a new boot ID from the entry object. Let's check there exist corresponding
+                 * entries matching with the _BOOT_ID= data. */
 
-        if (advance_older)
-                r = sd_journal_seek_head(j);
-        else
-                r = sd_journal_seek_tail(j);
-        if (r < 0)
-                return r;
+                r = add_match_boot_id(j, boot.id);
+                if (r < 0)
+                        return r;
 
-        r = sd_journal_step_one(j, advance_older);
-        if (r < 0)
-                return r;
-        if (r == 0)
-                return log_debug_errno(SYNTHETIC_ERRNO(ENODATA),
-                                       "Whoopsie! We found a boot ID but can't read its last entry."); /* This shouldn't happen. We just came from this very boot ID. */
+                /* First, seek to the first (or the last when we are going upwards) occurrence of this boot ID.
+                 * You may think this is redundant. Yes, that's redundant unless the journal is corrupted.
+                 * But when the journal is corrupted, especially, badly 'truncated', then the below may fail.
+                 * See https://github.com/systemd/systemd/pull/29334#issuecomment-1736567951. */
+                if (advance_older)
+                        r = sd_journal_seek_tail(j);
+                else
+                        r = sd_journal_seek_head(j);
+                if (r < 0)
+                        return r;
 
-        r = sd_journal_get_realtime_usec(j, &boot.last_usec);
-        if (r < 0)
-                return r;
+                r = sd_journal_step_one(j, 0);
+                if (r < 0)
+                        return r;
+                if (r == 0) {
+                        log_debug("Whoopsie! We found a boot ID %s but can't read its first entry. "
+                                  "The journal seems to be corrupted. Ignoring the boot ID.",
+                                  SD_ID128_TO_STRING(boot.id));
 
-        sd_journal_flush_matches(j);
-        *ret = boot;
-        return 1;
+                        sd_journal_flush_matches(j);
+                        continue;
+                }
+
+                r = sd_journal_get_realtime_usec(j, &boot.first_usec);
+                if (r < 0)
+                        return r;
+
+                /* Next, seek to the last occurrence of this boot ID. */
+                if (advance_older)
+                        r = sd_journal_seek_head(j);
+                else
+                        r = sd_journal_seek_tail(j);
+                if (r < 0)
+                        return r;
+
+                r = sd_journal_step_one(j, 0);
+                if (r < 0)
+                        return r;
+                if (r == 0) {
+                        log_debug("Whoopsie! We found a boot ID %s but can't read its last entry. "
+                                  "The journal seems to be corrupted. Ignoring the boot ID.",
+                                  SD_ID128_TO_STRING(boot.id));
+
+                        sd_journal_flush_matches(j);
+                        continue;
+                }
+
+                r = sd_journal_get_realtime_usec(j, &boot.last_usec);
+                if (r < 0)
+                        return r;
+
+                sd_journal_flush_matches(j);
+                *ret = boot;
+                return 1;
+        }
 }
 
 int journal_find_boot_by_id(sd_journal *j, sd_id128_t boot_id) {
