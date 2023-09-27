@@ -351,7 +351,7 @@ static int run(int argc, char *argv[]) {
         length = strlen(word);
 
         /* Skip logic if sd-stub is not used, after all PCR 11 might have a very different purpose then. */
-        r = efi_stub_measured(LOG_ERR);
+        r = efi_measured_uki(LOG_ERR);
         if (r < 0)
                 return r;
         if (r == 0) {
