@@ -3539,7 +3539,7 @@ int journal_file_move_to_entry_by_monotonic_for_data(
                 uint64_t *ret_offset) {
 
         uint64_t z, entry_offset, entry_array_offset, n_entries;
-        Object *o;
+        Object *o, *entry;
         int r;
 
         assert(f);
@@ -3567,10 +3567,12 @@ int journal_file_move_to_entry_by_monotonic_for_data(
         if (r <= 0)
                 return r;
 
-        /* And now, continue seeking until we find an entry that
-         * exists in both bisection arrays */
+        /* And now, continue seeking until we find an entry that exists in both bisection arrays. */
         for (;;) {
-                uint64_t p, q;
+                uint64_t p;
+
+                /* The journal entry found by the above bisect_plus_one() may not have the specified data,
+                 * that is, it may not be linked in the data object. So, we need to check that. */
 
                 r = generic_array_bisect_plus_one(f,
                                                   entry_offset,
@@ -3579,9 +3581,15 @@ int journal_file_move_to_entry_by_monotonic_for_data(
                                                   z,
                                                   test_object_offset,
                                                   direction,
-                                                  NULL, &p);
+                                                  ret_object ? &entry : NULL, &p);
                 if (r <= 0)
                         return r;
+                if (p == z)
+                        break; /* The journal entry has the specified data. Yay! */
+
+                /* If the entry does not have the data, then move to the next (or previous, depends on the
+                 * 'direction') entry linked to the data object. But, the next entry may be in another boot.
+                 * So, we need to check that the entry has the matching boot ID. */
 
                 r = generic_array_bisect_plus_one(f,
                                                   le64toh(o->data.entry_offset),
@@ -3590,26 +3598,20 @@ int journal_file_move_to_entry_by_monotonic_for_data(
                                                   p,
                                                   test_object_offset,
                                                   direction,
-                                                  NULL, &q);
-
+                                                  ret_object ? &entry : NULL, &z);
                 if (r <= 0)
                         return r;
+                if (p == z)
+                        break; /* The journal entry has the specified boot ID. Yay! */
 
-                if (p == q) {
-                        if (ret_object) {
-                                r = journal_file_move_to_object(f, OBJECT_ENTRY, q, ret_object);
-                                if (r < 0)
-                                        return r;
-                        }
-
-                        if (ret_offset)
-                                *ret_offset = q;
-
-                        return 1;
-                }
-
-                z = q;
+                /* If not, let's try to the next entry... */
         }
+
+        if (ret_object)
+                *ret_object = entry;
+        if (ret_offset)
+                *ret_offset = z;
+        return 1;
 }
 
 int journal_file_move_to_entry_by_seqnum_for_data(
