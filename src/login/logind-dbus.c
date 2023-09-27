@@ -1923,7 +1923,7 @@ static int method_do_shutdown_or_sleep(
                                          "There's already a shutdown or sleep operation in progress");
 
         if (a->sleep_operation >= 0) {
-                r = can_sleep(a->sleep_operation);
+                r = sleep_supported(a->sleep_operation);
                 if (r == -ENOSPC)
                         return sd_bus_error_set(error, BUS_ERROR_SLEEP_VERB_NOT_SUPPORTED,
                                                 "Not enough suitable swap space for hibernation available on compatible block devices and file systems");
@@ -2394,8 +2394,8 @@ static int method_can_shutdown_or_sleep(
         assert(a);
 
         if (a->sleep_operation >= 0) {
-                r = can_sleep(a->sleep_operation);
-                if (IN_SET(r,  0, -ENOSPC))
+                r = sleep_supported(a->sleep_operation);
+                if (IN_SET(r, 0, -ENOSPC))
                         return sd_bus_reply_method_return(message, "s", "na");
                 if (r < 0)
                         return r;
