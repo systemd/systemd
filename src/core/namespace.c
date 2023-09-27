@@ -909,6 +909,18 @@ add_symlink:
         return 0;
 }
 
+static char *settle_runtime_dir(void) {
+        char *runtime_dir;
+
+        if (geteuid() == 0)
+                return strdup("/run/");
+
+        if (asprintf(&runtime_dir, "/run/user/" UID_FMT, geteuid()) < 0)
+                return NULL;
+
+        return runtime_dir;
+}
+
 static int mount_private_dev(MountEntry *m) {
         static const char devnodes[] =
                 "/dev/null\0"
@@ -918,12 +930,20 @@ static int mount_private_dev(MountEntry *m) {
                 "/dev/urandom\0"
                 "/dev/tty\0";
 
-        char temporary_mount[] = "/tmp/namespace-dev-XXXXXX";
+        _cleanup_free_ char *runtime_dir = NULL, *temporary_mount = NULL;
         const char *dev = NULL, *devpts = NULL, *devshm = NULL, *devhugepages = NULL, *devmqueue = NULL, *devlog = NULL, *devptmx = NULL;
         bool can_mknod = true;
         int r;
 
         assert(m);
+
+        runtime_dir = settle_runtime_dir();
+        if (!runtime_dir)
+                return log_oom_debug();
+
+        temporary_mount = path_join(runtime_dir, "systemd/namespace-dev-XXXXXX");
+        if (!temporary_mount)
+                return log_oom_debug();
 
         if (!mkdtemp(temporary_mount))
                 return log_debug_errno(errno, "Failed to create temporary directory '%s': %m", temporary_mount);
@@ -1379,8 +1399,7 @@ static int apply_one_mount(
         switch (m->mode) {
 
         case INACCESSIBLE: {
-                _cleanup_free_ char *tmp = NULL;
-                const char *runtime_dir;
+                _cleanup_free_ char *runtime_dir = NULL;
                 struct stat target;
 
                 /* First, get rid of everything that is below if there
@@ -1396,14 +1415,9 @@ static int apply_one_mount(
                                                mount_entry_path(m));
                 }
 
-                if (geteuid() == 0)
-                        runtime_dir = "/run";
-                else {
-                        if (asprintf(&tmp, "/run/user/" UID_FMT, geteuid()) < 0)
-                                return -ENOMEM;
-
-                        runtime_dir = tmp;
-                }
+                runtime_dir = settle_runtime_dir();
+                if (!runtime_dir)
+                        return log_oom_debug();
 
                 r = mode_to_inaccessible_node(runtime_dir, target.st_mode, &inaccessible);
                 if (r < 0)
