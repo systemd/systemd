@@ -2638,11 +2638,15 @@ _public_ int sd_journal_get_data(sd_journal *j, const char *field, const void **
                 size_t l;
 
                 p = journal_file_entry_item_object_offset(f, o, i);
+                if (p == 0) {
+                        log_trace("Entry item %"PRIu64" data object (offset=%"PRIu64") is bad, skipping over it.", i, p);
+                        continue;
+                }
                 r = journal_file_data_payload(f, NULL, p, field, field_length, j->data_threshold, &d, &l);
                 if (r == 0)
                         continue;
                 if (IN_SET(r, -EADDRNOTAVAIL, -EBADMSG)) {
-                        log_debug_errno(r, "Entry item %"PRIu64" data object is bad, skipping over it: %m", i);
+                        log_debug_errno(r, "Entry item %"PRIu64" data object (offset=%"PRIu64") is bad, skipping over it: %m", i, p);
                         continue;
                 }
                 if (r < 0)
