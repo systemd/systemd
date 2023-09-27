@@ -317,6 +317,7 @@ FILTERED_NAMES=(
     "255.255.255.255.in-addr.arpa"
     "0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa"
     "hello.invalid"
+    "hello.alt"
 )
 
 for name in "${FILTERED_NAMES[@]}"; do
