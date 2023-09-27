@@ -133,6 +133,15 @@ Deprecations and removals:
 
 Features:
 
+* add new "systemd-ssh-generator", which allows basic ssh config via
+  credentials (host key). It generates sshd.socket for IP, but also
+  sshd-vsock.socket for listening on AF_VSOCK when running in a VM, and
+  sshd-unix.socket on AF_UNIX when running in a container. It also generates a
+  matching sshd.service file with a host key passed in on the cmdline via
+  credentials. Then, add a ssh_config drop-in that matches some suitable
+  hostname pattern and has a ProxyCommand set that allows connecting to any
+  local VM/container that way without any networking configured.
+
 * in the service manager, pick up ERRNO= + BUSERROR= + VARLINKERROR= error
   identifiers, and store them along with the exit status of a server and report
   via "systemctl status".
