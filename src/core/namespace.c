@@ -918,7 +918,7 @@ static int mount_private_dev(MountEntry *m) {
                 "/dev/urandom\0"
                 "/dev/tty\0";
 
-        char temporary_mount[] = "/tmp/namespace-dev-XXXXXX";
+        char temporary_mount[] = "/run/systemd/namespace-dev-XXXXXX";
         const char *dev = NULL, *devpts = NULL, *devshm = NULL, *devhugepages = NULL, *devmqueue = NULL, *devlog = NULL, *devptmx = NULL;
         bool can_mknod = true;
         int r;
@@ -994,6 +994,11 @@ static int mount_private_dev(MountEntry *m) {
         r = dev_setup(temporary_mount, UID_INVALID, GID_INVALID);
         if (r < 0)
                 log_debug_errno(r, "Failed to set up basic device tree at '%s', ignoring: %m", temporary_mount);
+
+        /* Make the bind mount read-only. */
+        r = mount_nofollow_verbose(LOG_DEBUG, NULL, dev, NULL, MS_REMOUNT|MS_BIND|MS_RDONLY, NULL);
+        if (r < 0)
+                return r;
 
         /* Create the /dev directory if missing. It is more likely to be missing when the service is started
          * with RootDirectory. This is consistent with mount units creating the mount points when missing. */
