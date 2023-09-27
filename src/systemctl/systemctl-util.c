@@ -624,25 +624,14 @@ static int unit_find_template_path(
         return r;
 }
 
-int unit_is_masked(sd_bus *bus, LookupPaths *lp, const char *name) {
+int unit_is_masked(sd_bus *bus, const char *unit) {
         _cleanup_free_ char *load_state = NULL;
         int r;
 
-        if (unit_name_is_valid(name, UNIT_NAME_TEMPLATE)) {
-                _cleanup_free_ char *path = NULL;
+        assert(bus);
+        assert(unit);
 
-                /* A template cannot be loaded, but it can be still masked, so
-                 * we need to use a different method. */
-
-                r = unit_file_find_path(lp, name, &path);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        return false;
-                return null_or_empty_path(path);
-        }
-
-        r = unit_load_state(bus, name, &load_state);
+        r = unit_load_state(bus, unit, &load_state);
         if (r < 0)
                 return r;
 
