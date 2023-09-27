@@ -3909,7 +3909,8 @@ int verity_dissect_and_mount(
                 const char *required_host_os_release_id,
                 const char *required_host_os_release_version_id,
                 const char *required_host_os_release_sysext_level,
-                const char *required_sysext_scope) {
+                const char *required_sysext_scope,
+                DissectedImage **ret_image) {
 
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(dissected_image_unrefp) DissectedImage *dissected_image = NULL;
@@ -3919,7 +3920,6 @@ int verity_dissect_and_mount(
         int r;
 
         assert(src);
-        assert(dest);
 
         relax_extension_release_check = mount_options_relax_extension_release_checks(options);
 
@@ -3976,12 +3976,14 @@ int verity_dissect_and_mount(
         if (r < 0)
                 return log_debug_errno(r, "Failed to decrypt dissected image: %m");
 
-        r = mkdir_p_label(dest, 0755);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to create destination directory %s: %m", dest);
-        r = umount_recursive(dest, 0);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to umount under destination directory %s: %m", dest);
+        if (dest) {
+                r = mkdir_p_label(dest, 0755);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to create destination directory %s: %m", dest);
+                r = umount_recursive(dest, 0);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to umount under destination directory %s: %m", dest);
+        }
 
         r = dissected_image_mount(
                         dissected_image,
@@ -4008,9 +4010,35 @@ int verity_dissect_and_mount(
 
                 assert(!isempty(required_host_os_release_id));
 
-                r = load_extension_release_pairs(dest, IMAGE_SYSEXT, dissected_image->image_name, relax_extension_release_check, &extension_release);
+                if (dest)
+                        r = load_extension_release_pairs(
+                                        dest,
+                                        IMAGE_SYSEXT,
+                                        dissected_image->image_name,
+                                        relax_extension_release_check,
+                                        &extension_release);
+                else
+                        r = load_extension_release_pairs_at(
+                                        dissected_image->partitions[PARTITION_ROOT].fsmount_fd,
+                                        IMAGE_SYSEXT,
+                                        dissected_image->image_name,
+                                        relax_extension_release_check,
+                                        &extension_release);
                 if (r == -ENOENT) {
-                        r = load_extension_release_pairs(dest, IMAGE_CONFEXT, dissected_image->image_name, relax_extension_release_check, &extension_release);
+                        if (dest)
+                                r = load_extension_release_pairs(
+                                                dest,
+                                                IMAGE_CONFEXT,
+                                                dissected_image->image_name,
+                                                relax_extension_release_check,
+                                                &extension_release);
+                        else
+                                r = load_extension_release_pairs_at(
+                                                dissected_image->partitions[PARTITION_ROOT].fsmount_fd,
+                                                IMAGE_CONFEXT,
+                                                dissected_image->image_name,
+                                                relax_extension_release_check,
+                                                &extension_release);
                         if (r >= 0)
                                 class = IMAGE_CONFEXT;
                 }
@@ -4034,6 +4062,9 @@ int verity_dissect_and_mount(
         r = dissected_image_relinquish(dissected_image);
         if (r < 0)
                 return log_debug_errno(r, "Failed to relinquish dissected image: %m");
+
+        if (ret_image)
+                *ret_image = TAKE_PTR(dissected_image);
 
         return 0;
 }

@@ -1286,7 +1286,8 @@ static int mount_image(
                         host_os_release_id,
                         host_os_release_version_id,
                         host_os_release_level,
-                        NULL);
+                        /* required_sysext_scope= */ NULL,
+                        /* ret_image= */ NULL);
         if (r == -ENOENT && m->ignore)
                 return 0;
         if (r == -ESTALE && host_os_release_id)
