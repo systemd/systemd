@@ -35,7 +35,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(SleepConfig*, sleep_config_free);
 
 int parse_sleep_config(SleepConfig **sleep_config);
 
-int can_sleep(SleepOperation operation);
+int sleep_supported(SleepOperation operation);
 
 /* Only for test-sleep-config */
 int sleep_state_supported(char * const *states);
