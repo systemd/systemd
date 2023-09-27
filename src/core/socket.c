@@ -2437,7 +2437,6 @@ static void socket_enter_running(Socket *s, int cfd_in) {
                 unit_add_to_dbus_queue(UNIT(s));
         }
 
-        TAKE_FD(cfd);
         return;
 
 refuse:
