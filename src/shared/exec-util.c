@@ -12,6 +12,7 @@
 #include "env-file.h"
 #include "env-util.h"
 #include "errno-util.h"
+#include "escape.h"
 #include "exec-util.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -136,6 +137,11 @@ static int do_execute(
                         fd = open_serialization_fd(bn);
                         if (fd < 0)
                                 return log_error_errno(fd, "Failed to open serialization file: %m");
+                }
+
+                if (DEBUG_LOGGING) {
+                        _cleanup_free_ char *args = quote_command_line(strv_skip(argv, 1), SHELL_ESCAPE_EMPTY);
+                        log_debug("About to execute %s %s", t, strnull(args));
                 }
 
                 r = do_spawn(t, argv, fd, &pid, FLAGS_SET(flags, EXEC_DIR_SET_SYSTEMD_EXEC_PID));
