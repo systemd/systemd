@@ -5,11 +5,11 @@
 
 #include "devnum-util.h"
 #include "hibernate-resume-config.h"
+#include "hibernate-util.h"
 #include "initrd-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "parse-util.h"
-#include "sleep-util.h"
 #include "static-destruct.h"
 
 HibernateInfo arg_info = {};
