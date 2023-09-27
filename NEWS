@@ -4692,7 +4692,7 @@ CHANGES WITH 247:
           packages have not retriggered devices once the udev package (or any
           auxiliary package installing additional udev rules) is updated. We
           intend to work with major distributions to change this, so that
-          "udevadm trigger -a change" is issued on such upgrades, ensuring that
+          "udevadm trigger -c change" is issued on such upgrades, ensuring that
           the updated ruleset is applied to the devices already discovered, so
           that (asynchronously) after the upgrade completed the udev database
           is consistent with the updated rule set. This means udev rules must
