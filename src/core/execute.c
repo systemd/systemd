@@ -3307,6 +3307,7 @@ static int apply_mount_namespace(
                         extension_dir,
                         root_dir || root_image ? params->notify_socket : NULL,
                         host_os_release_stage,
+                        params->runtime_scope,
                         error_path);
 
         /* If we couldn't set up the namespace this is probably due to a missing capability. setup_namespace() reports

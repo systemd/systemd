@@ -206,6 +206,7 @@ TEST(protect_kernel_logs) {
                                     NULL,
                                     NULL,
                                     NULL,
+                                    RUNTIME_SCOPE_SYSTEM,
                                     NULL);
                 assert_se(r == 0);
 
