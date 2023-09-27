@@ -238,7 +238,7 @@ int efi_stub_get_features(uint64_t *ret) {
         return 0;
 }
 
-int efi_stub_measured(int log_level) {
+int efi_measured_uki(int log_level) {
         _cleanup_free_ char *pcr_string = NULL;
         unsigned pcr_nr;
         int r;
