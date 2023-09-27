@@ -96,6 +96,10 @@ static int slice_verify(Slice *s) {
         if (r < 0)
                 return log_unit_error_errno(UNIT(s), r, "Failed to determine parent slice: %m");
 
+        /* If recursive errors are to be ignored, the parent slice should not be verified */
+        if (UNIT(s)->manager && FLAGS_SET(UNIT(s)->manager->test_run_flags, MANAGER_TEST_RUN_IGNORE_DEPENDENCIES))
+                return 0;
+
         if (parent ? !unit_has_name(UNIT_GET_SLICE(UNIT(s)), parent) : !!UNIT_GET_SLICE(UNIT(s)))
                 return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "Located outside of parent slice. Refusing.");
 
