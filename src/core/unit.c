@@ -3786,7 +3786,7 @@ int unit_add_blockdev_dependency(Unit *u, const char *what, UnitDependencyMask m
 }
 
 int unit_coldplug(Unit *u) {
-        int r = 0, q;
+        int r = 0;
 
         assert(u);
 
@@ -3796,29 +3796,18 @@ int unit_coldplug(Unit *u) {
 
         u->coldplugged = true;
 
-        STRV_FOREACH(i, u->deserialized_refs) {
-                q = bus_unit_track_add_name(u, *i);
-                if (q < 0 && r >= 0)
-                        r = q;
-        }
+        STRV_FOREACH(i, u->deserialized_refs)
+                RET_GATHER(r, bus_unit_track_add_name(u, *i));
+
         u->deserialized_refs = strv_free(u->deserialized_refs);
 
-        if (UNIT_VTABLE(u)->coldplug) {
-                q = UNIT_VTABLE(u)->coldplug(u);
-                if (q < 0 && r >= 0)
-                        r = q;
-        }
+        if (UNIT_VTABLE(u)->coldplug)
+                RET_GATHER(r, UNIT_VTABLE(u)->coldplug(u));
 
-        if (u->job) {
-                q = job_coldplug(u->job);
-                if (q < 0 && r >= 0)
-                        r = q;
-        }
-        if (u->nop_job) {
-                q = job_coldplug(u->nop_job);
-                if (q < 0 && r >= 0)
-                        r = q;
-        }
+        if (u->job)
+                RET_GATHER(r, job_coldplug(u->job));
+        if (u->nop_job)
+                RET_GATHER(r, job_coldplug(u->nop_job));
 
         CGroupContext *c = unit_get_cgroup_context(u);
         if (c)
