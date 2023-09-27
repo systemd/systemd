@@ -2543,6 +2543,7 @@ static int method_enable_unit_files_generic(
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
         r = call(m->runtime_scope, flags, NULL, l, &changes, &n_changes);
+        m->unit_file_state_outdated = m->unit_file_state_outdated || n_changes > 0; /* See comments for this variable in manager.h */
         if (r < 0)
                 return install_error(error, r, changes, n_changes);
 
@@ -2615,6 +2616,7 @@ static int method_preset_unit_files_with_mode(sd_bus_message *message, void *use
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
         r = unit_file_preset(m->runtime_scope, flags, NULL, l, preset_mode, &changes, &n_changes);
+        m->unit_file_state_outdated = m->unit_file_state_outdated || n_changes > 0; /* See comments for this variable in manager.h */
         if (r < 0)
                 return install_error(error, r, changes, n_changes);
 
@@ -2668,6 +2670,7 @@ static int method_disable_unit_files_generic(
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
         r = call(m->runtime_scope, flags, NULL, l, &changes, &n_changes);
+        m->unit_file_state_outdated = m->unit_file_state_outdated || n_changes > 0; /* See comments for this variable in manager.h */
         if (r < 0)
                 return install_error(error, r, changes, n_changes);
 
@@ -2710,6 +2713,7 @@ static int method_revert_unit_files(sd_bus_message *message, void *userdata, sd_
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
         r = unit_file_revert(m->runtime_scope, NULL, l, &changes, &n_changes);
+        m->unit_file_state_outdated = m->unit_file_state_outdated || n_changes > 0; /* See comments for this variable in manager.h */
         if (r < 0)
                 return install_error(error, r, changes, n_changes);
 
@@ -2782,6 +2786,7 @@ static int method_preset_all_unit_files(sd_bus_message *message, void *userdata,
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
         r = unit_file_preset_all(m->runtime_scope, flags, NULL, preset_mode, &changes, &n_changes);
+        m->unit_file_state_outdated = m->unit_file_state_outdated || n_changes > 0; /* See comments for this variable in manager.h */
         if (r < 0)
                 return install_error(error, r, changes, n_changes);
 
@@ -2821,6 +2826,7 @@ static int method_add_dependency_unit_files(sd_bus_message *message, void *userd
                 return -EINVAL;
 
         r = unit_file_add_dependency(m->runtime_scope, flags, NULL, l, target, dep, &changes, &n_changes);
+        m->unit_file_state_outdated = m->unit_file_state_outdated || n_changes > 0; /* See comments for this variable in manager.h */
         if (r < 0)
                 return install_error(error, r, changes, n_changes);
 
