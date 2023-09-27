@@ -1479,11 +1479,67 @@
           <term><varname>ConditionSecurity=</varname></term>
 
           <listitem><para><varname>ConditionSecurity=</varname> may be used to check whether the given
-          security technology is enabled on the system. Currently, the recognized values are
-          <literal>selinux</literal>, <literal>apparmor</literal>, <literal>tomoyo</literal>,
-          <literal>ima</literal>, <literal>smack</literal>, <literal>audit</literal>,
-          <literal>uefi-secureboot</literal>, <literal>tpm2</literal> and <literal>cvm</literal>.
-          The test may be negated by prepending an exclamation mark.</para>
+          security technology is enabled on the system. Currently, the following values are recognized:</para>
+
+          <table>
+            <title>Recognized security technologies</title>
+
+            <tgroup cols='2'>
+              <colspec colname='value'/>
+              <colspec colname='description'/>
+
+              <thead>
+                <row>
+                  <entry>Value</entry>
+                  <entry>Description</entry>
+                </row>
+              </thead>
+              <tbody>
+                <row>
+                  <entry>selinux</entry>
+                  <entry>SELinux MAC</entry>
+                </row>
+                <row>
+                  <entry>apparmor</entry>
+                  <entry>AppArmor MAC</entry>
+                </row>
+                <row>
+                  <entry>tomoyo</entry>
+                  <entry>Tomoyo MAC</entry>
+                </row>
+                <row>
+                  <entry>smack</entry>
+                  <entry>SMACK MAC</entry>
+                </row>
+                <row>
+                  <entry>ima</entry>
+                  <entry>Integrity Measurement Architecture (IMA)</entry>
+                </row>
+                <row>
+                  <entry>audit</entry>
+                  <entry>Linux Audit Framework</entry>
+                </row>
+                <row>
+                  <entry>uefi-secureboot</entry>
+                  <entry>UEFI SecureBoot</entry>
+                </row>
+                <row>
+                  <entry>tpm2</entry>
+                  <entry>Trusted Platform Module 2.0 (TPM2)</entry>
+                </row>
+                <row>
+                  <entry>cvm</entry>
+                  <entry>Confidential virtual machine (SEV/TDX)</entry>
+                </row>
+                <row>
+                  <entry>measured-uki</entry>
+                  <entry>Unified Kernel Image with PCR 11 Measurements, as per <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry>. <xi:include href="version-info.xml" xpointer="v255"/></entry>
+                </row>
+              </tbody>
+            </tgroup>
+          </table>
+
+          <para>The test may be negated by prepending an exclamation mark.</para>
 
           <xi:include href="version-info.xml" xpointer="v244"/>
           </listitem>
