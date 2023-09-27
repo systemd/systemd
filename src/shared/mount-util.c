@@ -875,7 +875,17 @@ static int mount_in_namespace_legacy(
         mount_tmp_created = true;
 
         if (is_image)
-                r = verity_dissect_and_mount(chased_src_fd, chased_src_path, mount_tmp, options, image_policy, NULL, NULL, NULL, NULL);
+                r = verity_dissect_and_mount(
+                                chased_src_fd,
+                                chased_src_path,
+                                mount_tmp,
+                                options,
+                                image_policy,
+                                /* required_host_os_release_id= */ NULL,
+                                /* required_host_os_release_version_id= */ NULL,
+                                /* required_host_os_release_sysext_level= */ NULL,
+                                /* required_sysext_scope= */ NULL,
+                                /* ret_image= */ NULL);
         else
                 r = mount_follow_verbose(LOG_DEBUG, FORMAT_PROC_FD_PATH(chased_src_fd), mount_tmp, NULL, MS_BIND, NULL);
         if (r < 0)

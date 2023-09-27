@@ -3909,7 +3909,8 @@ int verity_dissect_and_mount(
                 const char *required_host_os_release_id,
                 const char *required_host_os_release_version_id,
                 const char *required_host_os_release_sysext_level,
-                const char *required_sysext_scope) {
+                const char *required_sysext_scope,
+                DissectedImage **ret_image) {
 
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(dissected_image_unrefp) DissectedImage *dissected_image = NULL;
@@ -3919,7 +3920,9 @@ int verity_dissect_and_mount(
         int r;
 
         assert(src);
-        assert(dest);
+        /* Verifying release metadata requires mounted image for now, so ensure the check is skipped when
+         * opening an image without mounting it immediately (i.e.: 'dest' is NULL). */
+        assert(!required_host_os_release_id || dest);
 
         relax_extension_release_check = mount_options_relax_extension_release_checks(options);
 
@@ -3976,12 +3979,14 @@ int verity_dissect_and_mount(
         if (r < 0)
                 return log_debug_errno(r, "Failed to decrypt dissected image: %m");
 
-        r = mkdir_p_label(dest, 0755);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to create destination directory %s: %m", dest);
-        r = umount_recursive(dest, 0);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to umount under destination directory %s: %m", dest);
+        if (dest) {
+                r = mkdir_p_label(dest, 0755);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to create destination directory %s: %m", dest);
+                r = umount_recursive(dest, 0);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to umount under destination directory %s: %m", dest);
+        }
 
         r = dissected_image_mount(
                         dissected_image,
@@ -4034,6 +4039,9 @@ int verity_dissect_and_mount(
         r = dissected_image_relinquish(dissected_image);
         if (r < 0)
                 return log_debug_errno(r, "Failed to relinquish dissected image: %m");
+
+        if (ret_image)
+                *ret_image = TAKE_PTR(dissected_image);
 
         return 0;
 }
