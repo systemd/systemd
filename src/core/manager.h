@@ -288,6 +288,12 @@ struct Manager {
         Set *unit_path_cache;
         uint64_t unit_cache_timestamp_hash;
 
+        /* We don't have support for atomically enabling/disabling units, and unit_file_state might become
+         * outdated if such operations failed half-way. Therefore, we set this flag if changes to unit files
+         * are made, and reset it after daemon-reload. If set, we report that daemon-reload is needed through
+         * unit's NeedDaemonReload property. */
+        bool unit_file_state_outdated;
+
         char **transient_environment;  /* The environment, as determined from config files, kernel cmdline and environment generators */
         char **client_environment;     /* Environment variables created by clients through the bus API */
 
