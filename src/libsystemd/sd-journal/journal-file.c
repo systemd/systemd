@@ -2628,11 +2628,12 @@ int journal_file_append_entry(
 }
 
 typedef struct ChainCacheItem {
-        uint64_t first; /* the array at the beginning of the chain */
-        uint64_t array; /* the cached array */
-        uint64_t begin; /* the first item in the cached array */
-        uint64_t total; /* the total number of items in all arrays before this one in the chain */
-        uint64_t last_index; /* the last index we looked at, to optimize locality when bisecting */
+        uint64_t first; /* The offset of the entry array object at the beginning of the chain,
+                         * i.e., le64toh(f->header->entry_array_offset), or le64toh(o->data.entry_offset). */
+        uint64_t array; /* The offset of the cached entry array object. */
+        uint64_t begin; /* The offset of the first item in the cached array. */
+        uint64_t total; /* The total number of items in all arrays before the cached one in the chain. */
+        uint64_t last_index; /* The last index we looked at in the cached array, to optimize locality when bisecting. */
 } ChainCacheItem;
 
 static void chain_cache_put(
@@ -2744,11 +2745,11 @@ static int bump_entry_array(
 
 static int generic_array_get(
                 JournalFile *f,
-                uint64_t first,
-                uint64_t i,
+                uint64_t first,         /* The offset of the first entry array object in the chain. */
+                uint64_t i,             /* The index of the target object counted from the beginning of the entry array chain. */
                 direction_t direction,
-                Object **ret_object,
-                uint64_t *ret_offset) {
+                Object **ret_object,    /* The found object. */
+                uint64_t *ret_offset) { /* The offset of the found object. */
 
         uint64_t a, t = 0, k;
         ChainCacheItem *ci;
@@ -2794,6 +2795,7 @@ static int generic_array_get(
                 if (i < k)
                         break;
 
+                /* The index is larger than the number of elements in the array. Let's move to the next array. */
                 i -= k;
                 t += k;
                 a = le64toh(o->entry_array.next_entry_array_offset);
@@ -2803,8 +2805,6 @@ static int generic_array_get(
          * direction). */
 
         while (a > 0) {
-                /* In the first iteration of the while loop, we reuse i, k and o from the previous while
-                 * loop. */
                 if (i == UINT64_MAX) {
                         r = bump_entry_array(f, o, a, first, direction, &a);
                         if (r <= 0)
@@ -2853,6 +2853,8 @@ static int generic_array_get(
                         log_debug_errno(r, "Entry item %" PRIu64 " is bad, skipping over it.", i);
 
                 } while (bump_array_index(&i, direction, k) > 0);
+
+                /* All entries tried in the above do-while loop are broken. Let's move to the next (or previous) array. */
 
                 if (direction == DIRECTION_DOWN)
                         /* We are going to the next array, the total must be incremented. */
