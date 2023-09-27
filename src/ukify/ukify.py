@@ -858,7 +858,8 @@ def generate_key_cert_pair(
 ) -> tuple[bytes]:
 
     from cryptography import x509
-    import cryptography.hazmat.primitives as hp
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric import rsa
 
     # We use a keylength of 2048 bits. That is what Microsoft documents as
     # supported/expected:
@@ -866,7 +867,7 @@ def generate_key_cert_pair(
 
     now = datetime.datetime.utcnow()
 
-    key = hp.asymmetric.rsa.generate_private_key(
+    key = rsa.generate_private_key(
         public_exponent=65537,
         key_size=keylength,
     )
@@ -892,32 +893,33 @@ def generate_key_cert_pair(
     )
 
     cert_pem = cert.public_bytes(
-        encoding=hp.serialization.Encoding.PEM,
+        encoding=.Encoding.PEM,
     )
     key_pem = key.private_bytes(
-        encoding=hp.serialization.Encoding.PEM,
-        format=hp.serialization.PrivateFormat.TraditionalOpenSSL,
-        encryption_algorithm=hp.serialization.NoEncryption(),
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.TraditionalOpenSSL,
+        encryption_algorithm=serialization.NoEncryption(),
     )
 
     return key_pem, cert_pem
 
 
 def generate_priv_pub_key_pair(keylength : int = 2048) -> tuple[bytes]:
-    import cryptography.hazmat.primitives as hp
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric import rsa
 
-    key = hp.asymmetric.rsa.generate_private_key(
+    key = rsa.generate_private_key(
         public_exponent=65537,
         key_size=keylength,
     )
     priv_key_pem = key.private_bytes(
-        encoding=hp.serialization.Encoding.PEM,
-        format=hp.serialization.PrivateFormat.TraditionalOpenSSL,
-        encryption_algorithm=hp.serialization.NoEncryption(),
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.TraditionalOpenSSL,
+        encryption_algorithm=serialization.NoEncryption(),
     )
     pub_key_pem = key.public_key().public_bytes(
-        encoding=hp.serialization.Encoding.PEM,
-        format=hp.serialization.PublicFormat.SubjectPublicKeyInfo,
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo,
     )
 
     return priv_key_pem, pub_key_pem
