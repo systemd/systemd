@@ -823,7 +823,7 @@ static int measure_volume_key(
                 return 0;
         }
 
-        r = efi_stub_measured(LOG_WARNING);
+        r = efi_measured_uki(LOG_WARNING);
         if (r < 0)
                 return r;
         if (r == 0) {
