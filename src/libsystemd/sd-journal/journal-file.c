@@ -2866,37 +2866,6 @@ static int generic_array_get(
         return 0;
 }
 
-static int generic_array_get_plus_one(
-                JournalFile *f,
-                uint64_t extra,
-                uint64_t first,
-                uint64_t i,
-                direction_t direction,
-                Object **ret_object,
-                uint64_t *ret_offset) {
-
-        int r;
-
-        assert(f);
-
-        /* FIXME: fix return value assignment on success. */
-
-        if (i == 0) {
-                r = journal_file_move_to_object(f, OBJECT_ENTRY, extra, ret_object);
-                if (IN_SET(r, -EADDRNOTAVAIL, -EBADMSG))
-                        return generic_array_get(f, first, 0, direction, ret_object, ret_offset);
-                if (r < 0)
-                        return r;
-
-                if (ret_offset)
-                        *ret_offset = extra;
-
-                return 1;
-        }
-
-        return generic_array_get(f, first, i - 1, direction, ret_object, ret_offset);
-}
-
 enum {
         TEST_FOUND,
         TEST_LEFT,
@@ -3470,39 +3439,67 @@ int journal_file_next_entry(
         return 1;
 }
 
-int journal_file_next_entry_for_data(
+int journal_file_move_to_entry_for_data(
                 JournalFile *f,
                 Object *d,
                 direction_t direction,
                 Object **ret_object,
                 uint64_t *ret_offset) {
 
-        uint64_t i, n, ofs;
-        int r;
+        uint64_t extra, first, n;
+        int r = 0;
 
         assert(f);
         assert(d);
         assert(d->object.type == OBJECT_DATA);
+        assert(IN_SET(direction, DIRECTION_DOWN, DIRECTION_UP));
 
         /* FIXME: fix return value assignment. */
 
-        n = le64toh(READ_NOW(d->data.n_entries));
+        /* This returns the first (when the direction is down, otherwise the last) entry linked to the
+         * specified data object. */
+
+        n = le64toh(d->data.n_entries);
         if (n <= 0)
-                return n;
+                return 0;
+        n--; /* n_entries is the number of entries linked to the data object, including the 'extra' entry. */
 
-        i = direction == DIRECTION_DOWN ? 0 : n - 1;
+        extra = le64toh(d->data.entry_offset);
+        first = le64toh(d->data.entry_array_offset);
 
-        r = generic_array_get_plus_one(f,
-                                       le64toh(d->data.entry_offset),
-                                       le64toh(d->data.entry_array_offset),
-                                       i,
-                                       direction,
-                                       ret_object, &ofs);
-        if (r <= 0)
-                return r;
+        if (direction == DIRECTION_DOWN && extra > 0) {
+                /* When we are going downwards, first try to read the extra entry. */
+                r = journal_file_move_to_object(f, OBJECT_ENTRY, extra, ret_object);
+                if (r >= 0)
+                        goto use_extra;
+                if (!IN_SET(r, -EADDRNOTAVAIL, -EBADMSG))
+                        return r;
+        }
 
+        if (n > 0) {
+                /* DIRECTION_DOWN : The extra entry is broken, falling back to the entries in the array.
+                 * DIRECTION_UP   : Try to find a valid entry in the array from the tail. */
+                r = generic_array_get(f,
+                                      first,
+                                      direction == DIRECTION_DOWN ? 0 : n - 1,
+                                      direction,
+                                      ret_object, ret_offset);
+                if (!IN_SET(r, 0, -EADDRNOTAVAIL, -EBADMSG))
+                        return r; /* found or critical error. */
+        }
+
+        if (direction == DIRECTION_UP && extra > 0) {
+                /* No valid entry exists in the chained array, falling back to the extra entry. */
+                r = journal_file_move_to_object(f, OBJECT_ENTRY, extra, ret_object);
+                if (r >= 0)
+                        goto use_extra;
+        }
+
+        return r;
+
+use_extra:
         if (ret_offset)
-                *ret_offset = ofs;
+                *ret_offset = extra;
 
         return 1;
 }
@@ -4464,12 +4461,7 @@ int journal_file_get_cutoff_monotonic_usec(JournalFile *f, sd_id128_t boot_id, u
                 if (r < 0)
                         return r;
 
-                r = generic_array_get_plus_one(f,
-                                               le64toh(o->data.entry_offset),
-                                               le64toh(o->data.entry_array_offset),
-                                               le64toh(o->data.n_entries) - 1,
-                                               DIRECTION_UP,
-                                               &o, NULL);
+                r = journal_file_move_to_entry_for_data(f, o, DIRECTION_UP, &o, NULL);
                 if (r <= 0)
                         return r;
 
