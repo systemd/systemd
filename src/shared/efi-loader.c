@@ -238,10 +238,14 @@ int efi_stub_get_features(uint64_t *ret) {
         return 0;
 }
 
-int efi_stub_measured(int log_level) {
+int efi_measured_uki(int log_level) {
         _cleanup_free_ char *pcr_string = NULL;
+        static int cached = -1;
         unsigned pcr_nr;
         int r;
+
+        if (cached >= 0)
+                return cached;
 
         /* Checks if we are booted on a kernel with sd-stub which measured the kernel into PCR 11. Or in
          * other words, if we are running on a TPM enabled UKI.
@@ -253,16 +257,16 @@ int efi_stub_measured(int log_level) {
         r = getenv_bool_secure("SYSTEMD_FORCE_MEASURE"); /* Give user a chance to override the variable test,
                                                           * for debugging purposes */
         if (r >= 0)
-                return r;
+                return (cached = r);
         if (r != -ENXIO)
                 log_debug_errno(r, "Failed to parse $SYSTEMD_FORCE_MEASURE, ignoring: %m");
 
         if (!is_efi_boot())
-                return 0;
+                return (cached = 0);
 
         r = efi_get_variable_string(EFI_LOADER_VARIABLE(StubPcrKernelImage), &pcr_string);
         if (r == -ENOENT)
-                return 0;
+                return (cached = 0);
         if (r < 0)
                 return log_full_errno(log_level, r,
                                       "Failed to get StubPcrKernelImage EFI variable: %m");
@@ -276,7 +280,7 @@ int efi_stub_measured(int log_level) {
                                       "Kernel stub measured kernel image into PCR %u, which is different than expected %i.",
                                       pcr_nr, TPM2_PCR_KERNEL_BOOT);
 
-        return 1;
+        return (cached = 1);
 }
 
 int efi_loader_get_config_timeout_one_shot(usec_t *ret) {

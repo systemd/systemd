@@ -28,6 +28,7 @@
 #include "cpu-set-util.h"
 #include "creds-util.h"
 #include "efi-api.h"
+#include "efi-loader.h"
 #include "env-file.h"
 #include "env-util.h"
 #include "extract-word.h"
@@ -692,6 +693,8 @@ static int condition_test_security(Condition *c, char **env) {
                 return has_tpm2();
         if (streq(c->parameter, "cvm"))
                 return detect_confidential_virtualization() > 0;
+        if (streq(c->parameter, "measured-uki"))
+                return efi_measured_uki(LOG_DEBUG);
 
         return false;
 }
