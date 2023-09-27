@@ -3375,7 +3375,8 @@ int journal_file_next_entry(
                 Object **ret_object,
                 uint64_t *ret_offset) {
 
-        uint64_t i, n, ofs;
+        uint64_t i, n, q;
+        Object *o;
         int r;
 
         assert(f);
@@ -3387,38 +3388,53 @@ int journal_file_next_entry(
         if (n <= 0)
                 return 0;
 
+        /* When the input offset 'p' is zero, return the first (or last on DIRECTION_UP) entry. */
         if (p == 0)
-                i = direction == DIRECTION_DOWN ? 0 : n - 1;
-        else {
-                r = generic_array_bisect(f,
+                return generic_array_get(f,
                                          le64toh(f->header->entry_array_offset),
-                                         le64toh(f->header->n_entries),
-                                         p,
-                                         test_object_offset,
-                                         DIRECTION_DOWN,
-                                         NULL, NULL,
-                                         &i);
-                if (r <= 0)
-                        return r;
+                                         direction == DIRECTION_DOWN ? 0 : n - 1,
+                                         direction,
+                                         ret_object, ret_offset);
 
-                r = bump_array_index(&i, direction, n);
-                if (r <= 0)
-                        return r;
-        }
+        /* Otherwise, first the nearest entry object. */
+        r = generic_array_bisect(f,
+                                 le64toh(f->header->entry_array_offset),
+                                 le64toh(f->header->n_entries),
+                                 p,
+                                 test_object_offset,
+                                 direction,
+                                 ret_object ? &o : NULL, &q, &i);
+        if (r <= 0)
+                return r;
+
+        assert(direction == DIRECTION_DOWN ? p <= q : q <= p);
+
+        /* If the input offset 'p' points to an entry object, generic_array_bisect() should provides
+         * the same offset, and the index needs to be shifted. Otherwise, use the found object as is,
+         * as it is the nearest entry object from the input offset 'p'. */
+
+        if (p != q)
+                goto found;
+
+        r = bump_array_index(&i, direction, n);
+        if (r <= 0)
+                return r;
 
         /* And jump to it */
-        r = generic_array_get(f, le64toh(f->header->entry_array_offset), i, direction, ret_object, &ofs);
+        r = generic_array_get(f, le64toh(f->header->entry_array_offset), i, direction, ret_object ? &o : NULL, &q);
         if (r <= 0)
                 return r;
 
         /* Ensure our array is properly ordered. */
-        if (p > 0 && !check_properly_ordered(ofs, p, direction))
+        if (!check_properly_ordered(q, p, direction))
                 return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                       "%s: entry array not properly ordered at entry %" PRIu64,
+                                       "%s: entry array not properly ordered at entry index %" PRIu64,
                                        f->path, i);
-
+found:
+        if (ret_object)
+                *ret_object = o;
         if (ret_offset)
-                *ret_offset = ofs;
+                *ret_offset = q;
 
         return 1;
 }
