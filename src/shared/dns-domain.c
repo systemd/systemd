@@ -1413,5 +1413,9 @@ bool dns_name_dont_resolve(const char *name) {
         if (dns_name_endswith(name, "invalid") > 0)
                 return true;
 
+        /* Never respond to some of the domains listed in RFC9476 */
+        if (dns_name_endswith(name, "alt") > 0)
+                return true;
+
         return false;
 }
