@@ -3519,7 +3519,7 @@ int journal_file_move_to_entry_by_monotonic_for_data(
                 Object **ret_object,
                 uint64_t *ret_offset) {
 
-        uint64_t b, z, entry_offset, entry_array_offset, n_entries;
+        uint64_t z, entry_offset, entry_array_offset, n_entries;
         Object *o;
         int r;
 
@@ -3533,7 +3533,7 @@ int journal_file_move_to_entry_by_monotonic_for_data(
         n_entries = le64toh(READ_NOW(d->data.n_entries));
 
         /* First, seek by time */
-        r = find_data_object_by_boot_id(f, boot_id, &o, &b);
+        r = find_data_object_by_boot_id(f, boot_id, &o, NULL);
         if (r <= 0)
                 return r;
 
@@ -3548,13 +3548,7 @@ int journal_file_move_to_entry_by_monotonic_for_data(
         if (r <= 0)
                 return r;
 
-        /* And now, continue seeking until we find an entry that
-         * exists in both bisection arrays */
-
-        r = journal_file_move_to_object(f, OBJECT_DATA, b, &o);
-        if (r < 0)
-                return r;
-
+        /* And now, continue seeking until we find an entry that exists in both bisection arrays. */
         for (;;) {
                 uint64_t p, q;
 
