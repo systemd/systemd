@@ -4,30 +4,6 @@
 #include <linux/fiemap.h>
 #include <sys/types.h>
 
-#include "time-util.h"
-
-#define DEFAULT_SUSPEND_ESTIMATION_USEC (1 * USEC_PER_HOUR)
-
-typedef enum SleepOperation {
-        SLEEP_SUSPEND,
-        SLEEP_HIBERNATE,
-        SLEEP_HYBRID_SLEEP,
-        SLEEP_SUSPEND_THEN_HIBERNATE,
-        _SLEEP_OPERATION_MAX,
-        _SLEEP_OPERATION_INVALID = -EINVAL,
-} SleepOperation;
-
-typedef struct SleepConfig {
-        bool allow[_SLEEP_OPERATION_MAX];
-        char **modes[_SLEEP_OPERATION_MAX];
-        char **states[_SLEEP_OPERATION_MAX];
-        usec_t hibernate_delay_usec;
-        usec_t suspend_estimation_usec;
-} SleepConfig;
-
-SleepConfig* free_sleep_config(SleepConfig *sc);
-DEFINE_TRIVIAL_CLEANUP_FUNC(SleepConfig*, free_sleep_config);
-
 typedef enum SwapType {
         SWAP_BLOCK,
         SWAP_FILE,
@@ -61,13 +37,6 @@ HibernateLocation* hibernate_location_free(HibernateLocation *hl);
 DEFINE_TRIVIAL_CLEANUP_FUNC(HibernateLocation*, hibernate_location_free);
 
 int read_fiemap(int fd, struct fiemap **ret);
-int parse_sleep_config(SleepConfig **sleep_config);
 int find_hibernate_location(HibernateLocation **ret_hibernate_location);
 int write_resume_config(dev_t devno, uint64_t offset, const char *device);
-
-int can_sleep(SleepOperation operation);
-int can_sleep_disk(char **types);
-int can_sleep_state(char **types);
-
-const char* sleep_operation_to_string(SleepOperation s) _const_;
-SleepOperation sleep_operation_from_string(const char *s) _pure_;
+bool enough_swap_for_hibernation(void);
