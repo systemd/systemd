@@ -401,6 +401,18 @@ int load_extension_release_pairs(const char *root, ImageClass image_class, const
         return load_env_file_pairs_fd(fd, p, ret);
 }
 
+int load_extension_release_pairs_at(int rfd, ImageClass image_class, const char *extension, bool relax_extension_release_check, char ***ret) {
+        _cleanup_close_ int fd = -EBADF;
+        _cleanup_free_ char *p = NULL;
+        int r;
+
+        r = open_extension_release_at(rfd, image_class, extension, relax_extension_release_check, &p, &fd);
+        if (r < 0)
+                return r;
+
+        return load_env_file_pairs_fd(fd, p, ret);
+}
+
 int os_release_support_ended(const char *support_end, bool quiet, usec_t *ret_eol) {
         _cleanup_free_ char *_support_end_alloc = NULL;
         int r;
