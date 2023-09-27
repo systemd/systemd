@@ -1037,6 +1037,19 @@ class ConfigItem:
             setattr(namespace, dest, value)
 
     @staticmethod
+    def config_set(
+            namespace: argparse.Namespace,
+            group: Optional[str],
+            dest: str,
+            value: Any,
+    ) -> None:
+        "Set namespace.<dest> to value only if it was None"
+
+        assert not group
+
+        setattr(namespace, dest, value)
+
+    @staticmethod
     def config_set_group(
             namespace: argparse.Namespace,
             group: Optional[str],
@@ -1300,6 +1313,7 @@ CONFIG_ITEMS = [
         default = '/etc/pki/pesign',
         help = 'required by --signtool=pesign. Path to nss certificate database directory for PE signing. Default is /etc/pki/pesign',
         config_key = 'UKI/SecureBootCertificateDir',
+        config_push = ConfigItem.config_set
     ),
     ConfigItem(
         '--secureboot-certificate-name',
@@ -1314,6 +1328,7 @@ CONFIG_ITEMS = [
         default = 365 * 10,
         help = "period of validity (in days) for a certificate created by 'genkey'",
         config_key = 'UKI/SecureBootCertificateValidity',
+        config_push = ConfigItem.config_set
     ),
 
     ConfigItem(
