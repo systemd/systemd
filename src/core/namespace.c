@@ -918,12 +918,21 @@ static int mount_private_dev(MountEntry *m) {
                 "/dev/urandom\0"
                 "/dev/tty\0";
 
-        char temporary_mount[] = "/tmp/namespace-dev-XXXXXX";
+        _cleanup_free_ char *temporary_mount = NULL;
         const char *dev = NULL, *devpts = NULL, *devshm = NULL, *devhugepages = NULL, *devmqueue = NULL, *devlog = NULL, *devptmx = NULL;
         bool can_mknod = true;
         int r;
 
         assert(m);
+
+        if (geteuid() == 0) {
+                temporary_mount = strdup("/run/systemd/namespace-dev-XXXXXX");
+                if (!temporary_mount)
+                        return -ENOMEM;
+        } else {
+                if (asprintf(&temporary_mount, "/run/user/" UID_FMT "/systemd/namespace-dev-XXXXXX", geteuid()) < 0)
+                        return -ENOMEM;
+        }
 
         if (!mkdtemp(temporary_mount))
                 return log_debug_errno(errno, "Failed to create temporary directory '%s': %m", temporary_mount);
