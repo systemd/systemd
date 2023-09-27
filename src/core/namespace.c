@@ -918,7 +918,7 @@ static int mount_private_dev(MountEntry *m) {
                 "/dev/urandom\0"
                 "/dev/tty\0";
 
-        char temporary_mount[] = "/tmp/namespace-dev-XXXXXX";
+        char temporary_mount[] = "/run/systemd/namespace-dev-XXXXXX";
         const char *dev = NULL, *devpts = NULL, *devshm = NULL, *devhugepages = NULL, *devmqueue = NULL, *devlog = NULL, *devptmx = NULL;
         bool can_mknod = true;
         int r;
