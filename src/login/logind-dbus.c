@@ -46,7 +46,7 @@
 #include "process-util.h"
 #include "reboot-util.h"
 #include "selinux-util.h"
-#include "sleep-util.h"
+#include "sleep-config.h"
 #include "special.h"
 #include "serialize.h"
 #include "stdio-util.h"

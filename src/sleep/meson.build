@@ -3,7 +3,16 @@
 executables += [
         libexec_template + {
                 'name' : 'systemd-sleep',
-                'sources' : files('sleep.c'),
+                'sources' : files(
+                        'sleep.c',
+                        'battery-capacity.c',
+                ),
+        },
+        test_template + {
+                'sources' : files(
+                        'test-battery-capacity.c',
+                        'battery-capacity.c',
+                ),
         },
 ]
 
