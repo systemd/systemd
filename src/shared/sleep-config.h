@@ -3,8 +3,6 @@
 
 #include "time-util.h"
 
-#define DEFAULT_SUSPEND_ESTIMATION_USEC (1 * USEC_PER_HOUR)
-
 typedef enum SleepOperation {
         SLEEP_SUSPEND,
         SLEEP_HIBERNATE,
@@ -38,5 +36,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(SleepConfig*, sleep_config_free);
 int parse_sleep_config(SleepConfig **sleep_config);
 
 int can_sleep(SleepOperation operation);
-int can_sleep_disk(char **types);
-int can_sleep_state(char **types);
+
+/* Only for test-sleep-config */
+int sleep_state_supported(char **states);
+int sleep_mode_supported(char **modes);
