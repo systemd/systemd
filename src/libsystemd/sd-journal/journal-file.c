@@ -3520,7 +3520,7 @@ int journal_file_move_to_entry_by_monotonic_for_data(
                 uint64_t *ret_offset) {
 
         uint64_t z, entry_offset, entry_array_offset, n_entries;
-        Object *o;
+        Object *o, *entry;
         int r;
 
         assert(f);
@@ -3550,7 +3550,7 @@ int journal_file_move_to_entry_by_monotonic_for_data(
 
         /* And now, continue seeking until we find an entry that exists in both bisection arrays. */
         for (;;) {
-                uint64_t p, q;
+                uint64_t p;
 
                 r = generic_array_bisect_plus_one(f,
                                                   entry_offset,
@@ -3559,9 +3559,11 @@ int journal_file_move_to_entry_by_monotonic_for_data(
                                                   z,
                                                   test_object_offset,
                                                   direction,
-                                                  NULL, &p);
+                                                  ret_object ? &entry : NULL, &p);
                 if (r <= 0)
                         return r;
+                if (p == z)
+                        break;
 
                 r = generic_array_bisect_plus_one(f,
                                                   le64toh(o->data.entry_offset),
@@ -3570,26 +3572,18 @@ int journal_file_move_to_entry_by_monotonic_for_data(
                                                   p,
                                                   test_object_offset,
                                                   direction,
-                                                  NULL, &q);
-
+                                                  ret_object ? &entry : NULL, &z);
                 if (r <= 0)
                         return r;
-
-                if (p == q) {
-                        if (ret_object) {
-                                r = journal_file_move_to_object(f, OBJECT_ENTRY, q, ret_object);
-                                if (r < 0)
-                                        return r;
-                        }
-
-                        if (ret_offset)
-                                *ret_offset = q;
-
-                        return 1;
-                }
-
-                z = q;
+                if (p == z)
+                        break;
         }
+
+        if (ret_object)
+                *ret_object = entry;
+        if (ret_offset)
+                *ret_offset = z;
+        return 1;
 }
 
 int journal_file_move_to_entry_by_seqnum_for_data(
