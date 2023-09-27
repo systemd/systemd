@@ -11643,6 +11643,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>RootImagePolicy</varname>,
       <varname>MountImagePolicy</varname>, and
       <varname>ExtensionImagePolicy</varname> were added in version 254.</para>
+      <para><varname>NFTSet</varname> was added in version 255.</para>
     </refsect2>
     <refsect2>
       <title>Socket Unit Objects</title>
@@ -11665,8 +11666,9 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>RootImagePolicy</varname>,
       <varname>MountImagePolicy</varname>, and
       <varname>ExtensionImagePolicy</varname> were added in version 254.</para>
-      <para><varname>PollLimitIntervalUSec</varname> and
-      <varname>PollLimitBurst</varname> were added in version 255.</para>
+      <para><varname>PollLimitIntervalUSec</varname>,
+      <varname>PollLimitBurst</varname>, and
+      <varname>NFTSet</varname> were added in version 255.</para>
     </refsect2>
     <refsect2>
       <title>Mount Unit Objects</title>
@@ -11689,6 +11691,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>RootImagePolicy</varname>,
       <varname>MountImagePolicy</varname>, and
       <varname>ExtensionImagePolicy</varname> were added in version 254.</para>
+      <para><varname>NFTSet</varname> was added in version 255.</para>
     </refsect2>
     <refsect2>
       <title>Swap Unit Objects</title>
@@ -11711,6 +11714,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>RootImagePolicy</varname>,
       <varname>MountImagePolicy</varname>, and
       <varname>ExtensionImagePolicy</varname> were added in version 254.</para>
+      <para><varname>NFTSet</varname> was added in version 255.</para>
     </refsect2>
     <refsect2>
       <title>Slice Unit Objects</title>
@@ -11725,6 +11729,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>StartupMemoryZSwapMax</varname>,
       <varname>MemoryPressureWatch</varname>, and
       <varname>MemoryPressureThresholdUSec</varname> were added in version 254.</para>
+      <para><varname>NFTSet</varname> was added in version 255.</para>
     </refsect2>
     <refsect2>
       <title>Scope Unit Objects</title>
@@ -11740,6 +11745,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>StartupMemoryZSwapMax</varname>,
       <varname>MemoryPressureWatch</varname>, and
       <varname>MemoryPressureThresholdUSec</varname> were added in version 254.</para>
+      <para><varname>NFTSet</varname> was added in version 255.</para>
     </refsect2>
     <refsect2>
       <title>Job Objects</title>
