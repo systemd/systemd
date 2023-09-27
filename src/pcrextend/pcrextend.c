@@ -21,6 +21,8 @@
 #include "pretty-print.h"
 #include "tpm2-pcr.h"
 #include "tpm2-util.h"
+#include "varlink.h"
+#include "varlink-io.systemd.PCRExtend.h"
 
 static bool arg_graceful = false;
 static char *arg_tpm2_device = NULL;
@@ -28,10 +30,13 @@ static char **arg_banks = NULL;
 static char *arg_file_system = NULL;
 static bool arg_machine_id = false;
 static unsigned arg_pcr_index = UINT_MAX;
+static bool arg_varlink = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_banks, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_device, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_file_system, freep);
+
+#define EXTENSION_STRING_SAFE_LIMIT 1024
 
 static int help(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *link = NULL;
@@ -165,7 +170,12 @@ static int parse_argv(int argc, char *argv[]) {
         if (arg_file_system && arg_machine_id)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--file-system= and --machine-id may not be combined.");
 
-        if (arg_pcr_index == UINT_MAX)
+        r = varlink_invocation(VARLINK_ALLOW_ACCEPT);
+        if (r < 0)
+                return log_error_errno(r, "Failed to check if invoked in Varlink mode: %m");
+        if (r > 0)
+                arg_varlink = true;
+        else if (arg_pcr_index == UINT_MAX)
                 arg_pcr_index = (arg_file_system || arg_machine_id) ?
                         TPM2_PCR_SYSTEM_IDENTITY : /* → PCR 15 */
                         TPM2_PCR_KERNEL_BOOT; /* → PCR 11 */
@@ -257,10 +267,119 @@ static int get_file_system_word(
         return 0;
 }
 
+static int extend_now(unsigned pcr, const void *data, size_t size, Tpm2UserspaceEventType event) {
+        _cleanup_(tpm2_context_unrefp) Tpm2Context *c = NULL;
+        int r;
+
+        r = tpm2_context_new(arg_tpm2_device, &c);
+        if (r < 0)
+                return r;
+
+        r = determine_banks(c, pcr);
+        if (r < 0)
+                return r;
+        if (strv_isempty(arg_banks)) /* Still none? */
+                return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "Found a TPM2 without enabled PCR banks. Can't operate.");
+
+        _cleanup_free_ char *joined_banks = NULL;
+        joined_banks = strv_join(arg_banks, ", ");
+        if (!joined_banks)
+                return log_oom();
+
+        _cleanup_free_ char *safe = NULL;
+        if (size > EXTENSION_STRING_SAFE_LIMIT) {
+                safe = cescape_length(data, EXTENSION_STRING_SAFE_LIMIT);
+                if (!safe)
+                        return log_oom();
+
+                if (!strextend(&safe, "..."))
+                        return log_oom();
+        } else {
+                safe = cescape_length(data, size);
+                if (!safe)
+                        return log_oom();
+        }
+
+        log_debug("Measuring '%s' into PCR index %u, banks %s.", safe, pcr, joined_banks);
+
+        r = tpm2_extend_bytes(c, arg_banks, pcr, data, size, NULL, 0, event, safe);
+        if (r < 0)
+                return r;
+
+        log_struct(LOG_INFO,
+                   "MESSAGE_ID=" SD_MESSAGE_TPM_PCR_EXTEND_STR,
+                   LOG_MESSAGE("Extended PCR index %u with '%s' (banks %s).", pcr, safe, joined_banks),
+                   "MEASURING=%s", safe,
+                   "PCR=%u", pcr,
+                   "BANKS=%s", joined_banks);
+
+        return 0;
+}
+
+typedef struct MethodExtendParameters {
+        unsigned pcr;
+        const char *text;
+        void *data;
+        size_t data_size;
+} MethodExtendParameters;
+
+static int json_dispatch_binary_data(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
+        MethodExtendParameters *p = ASSERT_PTR(userdata);
+        _cleanup_free_ void *d = NULL;
+        size_t l;
+        int r;
+
+        r = json_variant_unbase64(variant, &d, &l);
+        if (r < 0)
+                return json_log(variant, flags, r, "JSON variant is not a base64 string.");
+
+        free_and_replace(p->data, d);
+        p->data_size = l;
+
+        return 0;
+}
+
+static int vl_method_extend(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+
+        static const JsonDispatch dispatch_table[] = {
+                { "pcr",  JSON_VARIANT_UNSIGNED, json_dispatch_uint,         offsetof(MethodExtendParameters, pcr),  JSON_MANDATORY },
+                { "text", JSON_VARIANT_STRING,   json_dispatch_const_string, offsetof(MethodExtendParameters, text), 0              },
+                { "data", JSON_VARIANT_STRING,   json_dispatch_binary_data,  0,                                      0              },
+                {}
+        };
+        MethodExtendParameters p = {
+                .pcr = UINT_MAX,
+        };
+        int r;
+
+        assert(link);
+
+        r = json_dispatch(parameters, dispatch_table, NULL, 0, &p);
+        if (r < 0)
+                return r;
+
+        if (!TPM2_PCR_INDEX_VALID(p.pcr))
+                return varlink_errorb(link, VARLINK_ERROR_INVALID_PARAMETER, JSON_BUILD_OBJECT(JSON_BUILD_PAIR_STRING("parameter", "pcr")));
+
+        if (p.text) {
+                /* Specifying both the text string and the binary data is not allowed */
+                if (p.data)
+                        return varlink_errorb(link, VARLINK_ERROR_INVALID_PARAMETER, JSON_BUILD_OBJECT(JSON_BUILD_PAIR_STRING("parameter", "data")));
+
+                r = extend_now(p.pcr, p.text, strlen(p.text), _TPM2_USERSPACE_EVENT_TYPE_INVALID);
+        } else if (p.data)
+                r = extend_now(p.pcr, p.data, p.data_size, _TPM2_USERSPACE_EVENT_TYPE_INVALID);
+        else
+                return varlink_errorb(link, VARLINK_ERROR_INVALID_PARAMETER, JSON_BUILD_OBJECT(JSON_BUILD_PAIR_STRING("parameter", "text")));
+        if (r < 0)
+                return r;
+
+        return varlink_reply(link, NULL);
+}
+
 static int run(int argc, char *argv[]) {
-        _cleanup_free_ char *joined = NULL, *word = NULL;
+        _cleanup_free_ char *word = NULL;
         Tpm2UserspaceEventType event;
-        size_t length;
         int r;
 
         log_setup();
@@ -268,6 +387,30 @@ static int run(int argc, char *argv[]) {
         r = parse_argv(argc, argv);
         if (r <= 0)
                 return r;
+
+        if (arg_varlink) {
+                _cleanup_(varlink_server_unrefp) VarlinkServer *varlink_server = NULL;
+
+                /* Invocation as Varlink service */
+
+                r = varlink_server_new(&varlink_server, VARLINK_SERVER_ROOT_ONLY);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to allocate Varlink server: %m");
+
+                r = varlink_server_add_interface(varlink_server, &vl_interface_io_systemd_PCRExtend);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add Varlink interface: %m");
+
+                r = varlink_server_bind_method(varlink_server, "io.systemd.PCRExtend.Extend", vl_method_extend);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to bind Varlink method: %m");
+
+                r = varlink_server_loop_auto(varlink_server);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to run Varlink event loop: %m");
+
+                return EXIT_SUCCESS;
+        }
 
         if (arg_file_system) {
                 _cleanup_free_ char *normalized = NULL, *normalized_escaped = NULL;
@@ -348,8 +491,6 @@ static int run(int argc, char *argv[]) {
                 return EXIT_SUCCESS;
         }
 
-        length = strlen(word);
-
         /* Skip logic if sd-stub is not used, after all PCR 11 might have a very different purpose then. */
         r = efi_measured_uki(LOG_ERR);
         if (r < 0)
@@ -359,33 +500,9 @@ static int run(int argc, char *argv[]) {
                 return EXIT_SUCCESS;
         }
 
-        _cleanup_(tpm2_context_unrefp) Tpm2Context *c = NULL;
-        r = tpm2_context_new(arg_tpm2_device, &c);
+        r = extend_now(arg_pcr_index, word, strlen(word), event);
         if (r < 0)
                 return r;
-
-        r = determine_banks(c, arg_pcr_index);
-        if (r < 0)
-                return r;
-        if (strv_isempty(arg_banks)) /* Still none? */
-                return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "Found a TPM2 without enabled PCR banks. Can't operate.");
-
-        joined = strv_join(arg_banks, ", ");
-        if (!joined)
-                return log_oom();
-
-        log_debug("Measuring '%s' into PCR index %u, banks %s.", word, arg_pcr_index, joined);
-
-        r = tpm2_extend_bytes(c, arg_banks, arg_pcr_index, word, length, NULL, 0, event, word);
-        if (r < 0)
-                return r;
-
-        log_struct(LOG_INFO,
-                   "MESSAGE_ID=" SD_MESSAGE_TPM_PCR_EXTEND_STR,
-                   LOG_MESSAGE("Extended PCR index %u with '%s' (banks %s).", arg_pcr_index, word, joined),
-                   "MEASURING=%s", word,
-                   "PCR=%u", arg_pcr_index,
-                   "BANKS=%s", joined);
 
         return EXIT_SUCCESS;
 }
