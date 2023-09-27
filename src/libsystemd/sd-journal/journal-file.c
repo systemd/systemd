@@ -3203,7 +3203,6 @@ static int generic_array_bisect_plus_one(
                 uint64_t *ret_offset) {
 
         int r;
-        bool step_back = false;
 
         assert(f);
         assert(test_object);
@@ -3211,38 +3210,30 @@ static int generic_array_bisect_plus_one(
         if (n <= 0)
                 return 0;
 
-        /* This bisects the array in object 'first', but first checks
-         * an extra  */
+        /* This bisects the array in object 'first', but first checks an extra. */
         r = test_object(f, extra, needle);
         if (r < 0)
                 return r;
 
-        if (r == TEST_FOUND)
-                r = direction == DIRECTION_DOWN ? TEST_RIGHT : TEST_LEFT;
-
-        /* if we are looking with DIRECTION_UP then we need to first
-           see if in the actual array there is a matching entry, and
-           return the last one of that. But if there isn't any we need
-           to return this one. Hence remember this, and return it
-           below. */
-        if (r == TEST_LEFT)
-                step_back = direction == DIRECTION_UP;
-
-        if (r == TEST_RIGHT) {
-                if (direction == DIRECTION_DOWN)
-                        goto found;
-                else
+        /* If we are looking with DIRECTION_UP then we need to first see if in the actual array there is a
+         * matching entry, and return the last one of that. But if there isn't any we need to return this
+         * one. Hence remember this, and return it below. */
+        if (direction == DIRECTION_DOWN) {
+                if (IN_SET(r, TEST_FOUND, TEST_RIGHT))
+                        goto use_extra;
+        } else {
+                if (r == TEST_RIGHT)
                         return 0;
         }
 
         r = generic_array_bisect(f, first, n-1, needle, test_object, direction, ret_object, ret_offset, NULL);
+        if (r != 0)
+                return r;
 
-        if (r == 0 && step_back)
-                goto found;
+        if (direction == DIRECTION_DOWN)
+                return 0;
 
-        return r;
-
-found:
+use_extra:
         if (ret_object) {
                 r = journal_file_move_to_object(f, OBJECT_ENTRY, extra, ret_object);
                 if (r < 0)
