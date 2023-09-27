@@ -163,7 +163,13 @@ static int dns_trust_anchor_add_builtin_negative(DnsTrustAnchor *d) {
                 "private\0"
 
                 /* Defined by RFC 8375. The most official choice. */
-                "home.arpa\0";
+                "home.arpa\0"
+
+                /* RFC 8880 says because the 'ipv4only.arpa' zone has to
+                 * be an insecure delegation, DNSSEC cannot be used to
+                 * protect these answers from tampering by malicious
+                 * devices on the path */
+                "ipv4only.arpa\0";
 
         int r;
 
