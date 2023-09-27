@@ -620,33 +620,9 @@ static usec_t service_running_timeout(Service *s) {
 }
 
 static int service_arm_timer(Service *s, bool relative, usec_t usec) {
-        int r;
-
         assert(s);
 
-        if (s->timer_event_source) {
-                r = (relative ? sd_event_source_set_time_relative : sd_event_source_set_time)(s->timer_event_source, usec);
-                if (r < 0)
-                        return r;
-
-                return sd_event_source_set_enabled(s->timer_event_source, SD_EVENT_ONESHOT);
-        }
-
-        if (usec == USEC_INFINITY)
-                return 0;
-
-        r = (relative ? sd_event_add_time_relative : sd_event_add_time)(
-                        UNIT(s)->manager->event,
-                        &s->timer_event_source,
-                        CLOCK_MONOTONIC,
-                        usec, 0,
-                        service_dispatch_timer, s);
-        if (r < 0)
-                return r;
-
-        (void) sd_event_source_set_description(s->timer_event_source, "service-timer");
-
-        return 0;
+        return unit_arm_timer(UNIT(s), &s->timer_event_source, relative, usec, service_dispatch_timer);
 }
 
 static int service_verify(Service *s) {
@@ -2037,8 +2013,11 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
                 restart_usec_next = service_restart_usec_next(s);
 
                 r = service_arm_timer(s, /* relative= */ true, restart_usec_next);
-                if (r < 0)
-                        goto fail;
+                if (r < 0) {
+                        log_unit_warning_errno(UNIT(s), r, "Failed to install restart timer: %m");
+                        service_enter_dead(s, SERVICE_FAILURE_RESOURCES, /* allow_restart= */ false);
+                        return;
+                }
 
                 log_unit_debug(UNIT(s), "Next restart interval calculated as: %s", FORMAT_TIMESPAN(restart_usec_next, 0));
 
@@ -2082,12 +2061,6 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
 
         /* Reset TTY ownership if necessary */
         exec_context_revert_tty(&s->exec_context);
-
-        return;
-
-fail:
-        log_unit_warning_errno(UNIT(s), r, "Failed to run install restart timer: %m");
-        service_enter_dead(s, SERVICE_FAILURE_RESOURCES, false);
 }
 
 static void service_enter_stop_post(Service *s, ServiceResult f) {
@@ -2110,18 +2083,15 @@ static void service_enter_stop_post(Service *s, ServiceResult f) {
                                   s->timeout_stop_usec,
                                   EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_APPLY_TTY_STDIN|EXEC_IS_CONTROL|EXEC_SETENV_RESULT|EXEC_CONTROL_CGROUP,
                                   &s->control_pid);
-                if (r < 0)
-                        goto fail;
+                if (r < 0) {
+                        log_unit_warning_errno(UNIT(s), r, "Failed to spawn 'stop-post' task: %m");
+                        service_enter_signal(s, SERVICE_FINAL_SIGTERM, SERVICE_FAILURE_RESOURCES);
+                        return;
+                }
 
                 service_set_state(s, SERVICE_STOP_POST);
         } else
                 service_enter_signal(s, SERVICE_FINAL_SIGTERM, SERVICE_SUCCESS);
-
-        return;
-
-fail:
-        log_unit_warning_errno(UNIT(s), r, "Failed to run 'stop-post' task: %m");
-        service_enter_signal(s, SERVICE_FINAL_SIGTERM, SERVICE_FAILURE_RESOURCES);
 }
 
 static int state_to_kill_operation(Service *s, ServiceState state) {
@@ -2171,14 +2141,18 @@ static void service_enter_signal(Service *s, ServiceState state, ServiceResult f
                         &s->main_pid,
                         &s->control_pid,
                         s->main_pid_alien);
-        if (r < 0)
+        if (r < 0) {
+                log_unit_warning_errno(UNIT(s), r, "Failed to kill processes: %m");
                 goto fail;
+        }
 
         if (r > 0) {
                 r = service_arm_timer(s, /* relative= */ true,
                                       kill_operation == KILL_WATCHDOG ? service_timeout_abort_usec(s) : s->timeout_stop_usec);
-                if (r < 0)
+                if (r < 0) {
+                        log_unit_warning_errno(UNIT(s), r, "Failed to install timer: %m");
                         goto fail;
+                }
 
                 service_set_state(s, state);
         } else if (IN_SET(state, SERVICE_STOP_WATCHDOG, SERVICE_STOP_SIGTERM) && s->kill_context.send_sigkill)
@@ -2188,25 +2162,30 @@ static void service_enter_signal(Service *s, ServiceState state, ServiceResult f
         else if (IN_SET(state, SERVICE_FINAL_WATCHDOG, SERVICE_FINAL_SIGTERM) && s->kill_context.send_sigkill)
                 service_enter_signal(s, SERVICE_FINAL_SIGKILL, SERVICE_SUCCESS);
         else
-                service_enter_dead(s, SERVICE_SUCCESS, true);
+                service_enter_dead(s, SERVICE_SUCCESS, /* allow_restart= */ true);
 
         return;
 
 fail:
-        log_unit_warning_errno(UNIT(s), r, "Failed to kill processes: %m");
-
         if (IN_SET(state, SERVICE_STOP_WATCHDOG, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL))
                 service_enter_stop_post(s, SERVICE_FAILURE_RESOURCES);
         else
-                service_enter_dead(s, SERVICE_FAILURE_RESOURCES, true);
+                service_enter_dead(s, SERVICE_FAILURE_RESOURCES, /* allow_restart= */ true);
 }
 
 static void service_enter_stop_by_notify(Service *s) {
+        int r;
+
         assert(s);
 
         (void) unit_enqueue_rewatch_pids(UNIT(s));
 
-        service_arm_timer(s, /* relative= */ true, s->timeout_stop_usec);
+        r = service_arm_timer(s, /* relative= */ true, s->timeout_stop_usec);
+        if (r < 0) {
+                log_unit_warning_errno(UNIT(s), r, "Failed to install timer: %m");
+                service_enter_signal(s, SERVICE_STOP_SIGTERM, SERVICE_FAILURE_RESOURCES);
+                return;
+        }
 
         /* The service told us it's stopping, so it's as if we SIGTERM'd it. */
         service_set_state(s, SERVICE_STOP_SIGTERM);
@@ -2233,18 +2212,15 @@ static void service_enter_stop(Service *s, ServiceResult f) {
                                   s->timeout_stop_usec,
                                   EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_IS_CONTROL|EXEC_SETENV_RESULT|EXEC_CONTROL_CGROUP,
                                   &s->control_pid);
-                if (r < 0)
-                        goto fail;
+                if (r < 0) {
+                        log_unit_warning_errno(UNIT(s), r, "Failed to spawn 'stop' task: %m");
+                        service_enter_signal(s, SERVICE_STOP_SIGTERM, SERVICE_FAILURE_RESOURCES);
+                        return;
+                }
 
                 service_set_state(s, SERVICE_STOP);
         } else
                 service_enter_signal(s, SERVICE_STOP_SIGTERM, SERVICE_SUCCESS);
-
-        return;
-
-fail:
-        log_unit_warning_errno(UNIT(s), r, "Failed to run 'stop' task: %m");
-        service_enter_signal(s, SERVICE_STOP_SIGTERM, SERVICE_FAILURE_RESOURCES);
 }
 
 static bool service_good(Service *s) {
@@ -2268,6 +2244,8 @@ static bool service_good(Service *s) {
 }
 
 static void service_enter_running(Service *s, ServiceResult f) {
+        int r;
+
         assert(s);
 
         if (s->result == SERVICE_SUCCESS)
@@ -2286,7 +2264,13 @@ static void service_enter_running(Service *s, ServiceResult f) {
                         service_enter_stop_by_notify(s);
                 else {
                         service_set_state(s, SERVICE_RUNNING);
-                        service_arm_timer(s, /* relative= */ false, service_running_timeout(s));
+
+                        r = service_arm_timer(s, /* relative= */ false, service_running_timeout(s));
+                        if (r < 0) {
+                                log_unit_warning_errno(UNIT(s), r, "Failed to install timer: %m");
+                                service_enter_running(s, SERVICE_FAILURE_RESOURCES);
+                                return;
+                        }
                 }
 
         } else if (s->remain_after_exit)
@@ -2312,18 +2296,15 @@ static void service_enter_start_post(Service *s) {
                                   s->timeout_start_usec,
                                   EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_IS_CONTROL|EXEC_CONTROL_CGROUP,
                                   &s->control_pid);
-                if (r < 0)
-                        goto fail;
+                if (r < 0) {
+                        log_unit_warning_errno(UNIT(s), r, "Failed to spawn 'start-post' task: %m");
+                        service_enter_stop(s, SERVICE_FAILURE_RESOURCES);
+                        return;
+                }
 
                 service_set_state(s, SERVICE_START_POST);
         } else
                 service_enter_running(s, SERVICE_SUCCESS);
-
-        return;
-
-fail:
-        log_unit_warning_errno(UNIT(s), r, "Failed to run 'start-post' task: %m");
-        service_enter_stop(s, SERVICE_FAILURE_RESOURCES);
 }
 
 static void service_kill_control_process(Service *s) {
@@ -2425,8 +2406,10 @@ static void service_enter_start(Service *s) {
                           timeout,
                           EXEC_PASS_FDS|EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_APPLY_TTY_STDIN|EXEC_SET_WATCHDOG|EXEC_WRITE_CREDENTIALS|EXEC_SETENV_MONITOR_RESULT,
                           &pidref);
-        if (r < 0)
+        if (r < 0) {
+                log_unit_warning_errno(UNIT(s), r, "Failed to spawn 'start' task: %m");
                 goto fail;
+        }
 
         if (IN_SET(s->type, SERVICE_SIMPLE, SERVICE_IDLE)) {
                 /* For simple services we immediately start
@@ -2459,7 +2442,6 @@ static void service_enter_start(Service *s) {
         return;
 
 fail:
-        log_unit_warning_errno(UNIT(s), r, "Failed to run 'start' task: %m");
         service_enter_signal(s, SERVICE_STOP_SIGTERM, SERVICE_FAILURE_RESOURCES);
 }
 
@@ -2484,8 +2466,10 @@ static void service_enter_start_pre(Service *s) {
                                   s->timeout_start_usec,
                                   EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_IS_CONTROL|EXEC_APPLY_TTY_STDIN|EXEC_SETENV_MONITOR_RESULT|EXEC_WRITE_CREDENTIALS,
                                   &s->control_pid);
-                if (r < 0)
+                if (r < 0) {
+                        log_unit_warning_errno(UNIT(s), r, "Failed to spawn 'start-pre' task: %m");
                         goto fail;
+                }
 
                 service_set_state(s, SERVICE_START_PRE);
         } else
@@ -2494,8 +2478,7 @@ static void service_enter_start_pre(Service *s) {
         return;
 
 fail:
-        log_unit_warning_errno(UNIT(s), r, "Failed to run 'start-pre' task: %m");
-        service_enter_dead(s, SERVICE_FAILURE_RESOURCES, true);
+        service_enter_dead(s, SERVICE_FAILURE_RESOURCES, /* allow_restart= */ true);
 }
 
 static void service_enter_condition(Service *s) {
@@ -2521,8 +2504,10 @@ static void service_enter_condition(Service *s) {
                                   EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_IS_CONTROL|EXEC_APPLY_TTY_STDIN,
                                   &s->control_pid);
 
-                if (r < 0)
+                if (r < 0) {
+                        log_unit_warning_errno(UNIT(s), r, "Failed to spawn 'exec-condition' task: %m");
                         goto fail;
+                }
 
                 service_set_state(s, SERVICE_CONDITION);
         } else
@@ -2531,8 +2516,7 @@ static void service_enter_condition(Service *s) {
         return;
 
 fail:
-        log_unit_warning_errno(UNIT(s), r, "Failed to run 'exec-condition' task: %m");
-        service_enter_dead(s, SERVICE_FAILURE_RESOURCES, true);
+        service_enter_dead(s, SERVICE_FAILURE_RESOURCES, /* allow_restart= */ true);
 }
 
 static void service_enter_restart(Service *s) {
@@ -2550,8 +2534,11 @@ static void service_enter_restart(Service *s) {
         /* Any units that are bound to this service must also be restarted. We use JOB_START for ourselves
          * but then set JOB_RESTART_DEPENDENCIES which will enqueue JOB_RESTART for those dependency jobs. */
         r = manager_add_job(UNIT(s)->manager, JOB_START, UNIT(s), JOB_RESTART_DEPENDENCIES, NULL, &error, NULL);
-        if (r < 0)
-                goto fail;
+        if (r < 0) {
+                log_unit_warning(UNIT(s), "Failed to schedule restart job: %s", bus_error_message(&error, r));
+                service_enter_dead(s, SERVICE_FAILURE_RESOURCES, /* allow_restart= */ false);
+                return;
+        }
 
         /* Count the jobs we enqueue for restarting. This counter is maintained as long as the unit isn't
          * fully stopped, i.e. as long as it remains up or remains in auto-start states. The user can reset
@@ -2572,11 +2559,6 @@ static void service_enter_restart(Service *s) {
 
         /* Notify clients about changed restart counter */
         unit_add_to_dbus_queue(UNIT(s));
-        return;
-
-fail:
-        log_unit_warning(UNIT(s), "Failed to schedule restart job: %s", bus_error_message(&error, r));
-        service_enter_dead(s, SERVICE_FAILURE_RESOURCES, false);
 }
 
 static void service_enter_reload_by_notify(Service *s) {
@@ -2585,13 +2567,20 @@ static void service_enter_reload_by_notify(Service *s) {
 
         assert(s);
 
-        service_arm_timer(s, /* relative= */ true, s->timeout_start_usec);
+        r = service_arm_timer(s, /* relative= */ true, s->timeout_start_usec);
+        if (r < 0) {
+                log_unit_warning_errno(UNIT(s), r, "Failed to install timer: %m");
+                s->reload_result = SERVICE_FAILURE_RESOURCES;
+                service_enter_running(s, SERVICE_SUCCESS);
+                return;
+        }
+
         service_set_state(s, SERVICE_RELOAD_NOTIFY);
 
         /* service_enter_reload_by_notify is never called during a reload, thus no loops are possible. */
         r = manager_propagate_reload(UNIT(s)->manager, UNIT(s), JOB_FAIL, &error);
         if (r < 0)
-                log_unit_warning(UNIT(s), "Failed to schedule propagation of reload: %s", bus_error_message(&error, r));
+                log_unit_warning(UNIT(s), "Failed to schedule propagation of reload, ignoring: %s", bus_error_message(&error, r));
 }
 
 static void service_enter_reload(Service *s) {
@@ -2626,13 +2615,18 @@ static void service_enter_reload(Service *s) {
                                   EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_IS_CONTROL|EXEC_CONTROL_CGROUP,
                                   &s->control_pid);
                 if (r < 0) {
-                        log_unit_warning_errno(UNIT(s), r, "Failed to run 'reload' task: %m");
+                        log_unit_warning_errno(UNIT(s), r, "Failed to spawn 'reload' task: %m");
                         goto fail;
                 }
 
                 service_set_state(s, SERVICE_RELOAD);
         } else if (killed) {
-                service_arm_timer(s, /* relative= */ true, s->timeout_start_usec);
+                r = service_arm_timer(s, /* relative= */ true, s->timeout_start_usec);
+                if (r < 0) {
+                        log_unit_warning_errno(UNIT(s), r, "Failed to install timer: %m");
+                        goto fail;
+                }
+
                 service_set_state(s, SERVICE_RELOAD_SIGNAL);
         } else {
                 service_enter_running(s, SERVICE_SUCCESS);
@@ -2681,23 +2675,19 @@ static void service_run_next_control(Service *s) {
                           (IN_SET(s->control_command_id, SERVICE_EXEC_START_PRE, SERVICE_EXEC_START) ? EXEC_SETENV_MONITOR_RESULT : 0)|
                           (IN_SET(s->control_command_id, SERVICE_EXEC_START_POST, SERVICE_EXEC_RELOAD, SERVICE_EXEC_STOP, SERVICE_EXEC_STOP_POST) ? EXEC_CONTROL_CGROUP : 0),
                           &s->control_pid);
-        if (r < 0)
-                goto fail;
+        if (r < 0) {
+                log_unit_warning_errno(UNIT(s), r, "Failed to spawn next control task: %m");
 
-        return;
-
-fail:
-        log_unit_warning_errno(UNIT(s), r, "Failed to run next control task: %m");
-
-        if (IN_SET(s->state, SERVICE_CONDITION, SERVICE_START_PRE, SERVICE_START_POST, SERVICE_STOP))
-                service_enter_signal(s, SERVICE_STOP_SIGTERM, SERVICE_FAILURE_RESOURCES);
-        else if (s->state == SERVICE_STOP_POST)
-                service_enter_dead(s, SERVICE_FAILURE_RESOURCES, true);
-        else if (s->state == SERVICE_RELOAD) {
-                s->reload_result = SERVICE_FAILURE_RESOURCES;
-                service_enter_running(s, SERVICE_SUCCESS);
-        } else
-                service_enter_stop(s, SERVICE_FAILURE_RESOURCES);
+                if (IN_SET(s->state, SERVICE_CONDITION, SERVICE_START_PRE, SERVICE_START_POST, SERVICE_STOP))
+                        service_enter_signal(s, SERVICE_STOP_SIGTERM, SERVICE_FAILURE_RESOURCES);
+                else if (s->state == SERVICE_STOP_POST)
+                        service_enter_dead(s, SERVICE_FAILURE_RESOURCES, /* allow_restart= */ true);
+                else if (s->state == SERVICE_RELOAD) {
+                        s->reload_result = SERVICE_FAILURE_RESOURCES;
+                        service_enter_running(s, SERVICE_SUCCESS);
+                } else
+                        service_enter_stop(s, SERVICE_FAILURE_RESOURCES);
+        }
 }
 
 static void service_run_next_main(Service *s) {
@@ -2717,15 +2707,13 @@ static void service_run_next_main(Service *s) {
                           s->timeout_start_usec,
                           EXEC_PASS_FDS|EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_APPLY_TTY_STDIN|EXEC_SET_WATCHDOG|EXEC_SETENV_MONITOR_RESULT|EXEC_WRITE_CREDENTIALS,
                           &pidref);
-        if (r < 0)
-                goto fail;
+        if (r < 0) {
+                log_unit_warning_errno(UNIT(s), r, "Failed to spawn next main task: %m");
+                service_enter_stop(s, SERVICE_FAILURE_RESOURCES);
+                return;
+        }
 
         (void) service_set_main_pidref(s, &pidref);
-        return;
-
-fail:
-        log_unit_warning_errno(UNIT(s), r, "Failed to run next main task: %m");
-        service_enter_stop(s, SERVICE_FAILURE_RESOURCES);
 }
 
 static int service_start(Unit *u) {
@@ -3487,18 +3475,17 @@ static int service_watch_pid_file(Service *s) {
         log_unit_debug(UNIT(s), "Setting watch for PID file %s", s->pid_file_pathspec->path);
 
         r = path_spec_watch(s->pid_file_pathspec, service_dispatch_inotify_io);
-        if (r < 0)
-                goto fail;
+        if (r < 0) {
+                log_unit_error_errno(UNIT(s), r, "Failed to set a watch for PID file %s: %m", s->pid_file_pathspec->path);
+                service_unwatch_pid_file(s);
+                return r;
+        }
 
         /* the pidfile might have appeared just before we set the watch */
         log_unit_debug(UNIT(s), "Trying to read PID file %s in case it changed", s->pid_file_pathspec->path);
         service_retry_pid_file(s);
 
         return 0;
-fail:
-        log_unit_error_errno(UNIT(s), r, "Failed to set a watch for PID file %s: %m", s->pid_file_pathspec->path);
-        service_unwatch_pid_file(s);
-        return r;
 }
 
 static int service_demand_pid_file(Service *s) {
@@ -4929,18 +4916,21 @@ static int service_clean(Unit *u, ExecCleanMask mask) {
         s->control_command_id = _SERVICE_EXEC_COMMAND_INVALID;
 
         r = service_arm_timer(s, /* relative= */ true, s->exec_context.timeout_clean_usec);
-        if (r < 0)
+        if (r < 0) {
+                log_unit_warning_errno(u, r, "Failed to install timer: %m");
                 goto fail;
+        }
 
         r = unit_fork_and_watch_rm_rf(u, l, &s->control_pid);
-        if (r < 0)
+        if (r < 0) {
+                log_unit_warning_errno(u, r, "Failed to spawn cleaning task: %m");
                 goto fail;
+        }
 
         service_set_state(s, SERVICE_CLEANING);
         return 0;
 
 fail:
-        log_unit_warning_errno(u, r, "Failed to initiate cleaning: %m");
         s->clean_result = SERVICE_FAILURE_RESOURCES;
         s->timer_event_source = sd_event_source_disable_unref(s->timer_event_source);
         return r;
