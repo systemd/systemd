@@ -6,19 +6,21 @@
 # Gabor Kelemen <kelemeng at gnome dot hu>, 2015, 2016.
 # Balázs Úr <urbalazs at gmail dot com>, 2016.
 # Balázs Meskó <meskobalazs@mailbox.org>, 2022.
+# Balázs Úr <balazs@urbalazs.hu>, 2023.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2023-07-14 10:32+0100\n"
-"PO-Revision-Date: 2022-08-09 20:19+0000\n"
-"Last-Translator: Balázs Meskó <meskobalazs@mailbox.org>\n"
-"Language-Team: Hungarian <https://translate.fedoraproject.org/projects/systemd/master/hu/>\n"
+"PO-Revision-Date: 2023-09-27 01:36+0000\n"
+"Last-Translator: Balázs Úr <balazs@urbalazs.hu>\n"
+"Language-Team: Hungarian <https://translate.fedoraproject.org/projects/"
+"systemd/master/hu/>\n"
 "Language: hu\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.13\n"
+"X-Generator: Weblate 5.0.2\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -26,7 +28,9 @@ msgstr "Jelmondat visszaküldése a rendszernek"
 
 #: src/core/org.freedesktop.systemd1.policy.in:23
 msgid "Authentication is required to send the entered passphrase back to the system."
-msgstr "Hitelesítés szükséges a bevitt jelmondat visszaküldéséhez a rendszernek."
+msgstr ""
+"Hitelesítés szükséges a megadott jelmondatnak a rendszernek való "
+"visszaküldéséhez."
 
 #: src/core/org.freedesktop.systemd1.policy.in:33
 msgid "Manage system services or other units"
@@ -62,12 +66,13 @@ msgstr "Hitelesítés szükséges a systemd állapotának újratöltéséhez."
 
 #: src/core/org.freedesktop.systemd1.policy.in:74
 msgid "Dump the systemd state without rate limits"
-msgstr ""
+msgstr "A systemd állapotának kiírása sebességkorlátok nélkül"
 
 #: src/core/org.freedesktop.systemd1.policy.in:75
-#, fuzzy
 msgid "Authentication is required to dump the systemd state without rate limits."
-msgstr "Hitelesítés szükséges a systemd állapotának újratöltéséhez."
+msgstr ""
+"Hitelesítés szükséges a systemd állapotának sebességkorlátok nélküli "
+"kiírásához."
 
 #: src/home/org.freedesktop.home1.policy:13
 msgid "Create a home area"
@@ -91,7 +96,9 @@ msgstr "Saját terület hitelesítő adatainak ellenőrzése"
 
 #: src/home/org.freedesktop.home1.policy:34
 msgid "Authentication is required to check credentials against a user's home area."
-msgstr "Hitelesítés szükséges a hitelesítő adatok a felhasználó saját területével való összevetéséhez."
+msgstr ""
+"Hitelesítés szükséges a hitelesítő adatoknak a felhasználó saját területével "
+"való összevetéséhez."
 
 #: src/home/org.freedesktop.home1.policy:43
 msgid "Update a home area"
@@ -111,156 +118,178 @@ msgstr "Hitelesítés szükséges a felhasználó saját területének átméret
 
 #: src/home/org.freedesktop.home1.policy:63
 msgid "Change password of a home area"
-msgstr "Saját terület hitelesítő adatainak módosítása"
+msgstr "Saját terület jelszavának megváltoztatása"
 
 #: src/home/org.freedesktop.home1.policy:64
 msgid "Authentication is required to change the password of a user's home area."
-msgstr "Hitelesítés szükséges a felhasználó saját területének jelszavának módosításához."
+msgstr ""
+"Hitelesítés szükséges a felhasználó saját területe jelszavának "
+"megváltoztatásához."
 
 #: src/home/pam_systemd_home.c:287
 #, c-format
 msgid "Home of user %s is currently absent, please plug in the necessary storage device or backing file system."
 msgstr ""
+"%s felhasználó saját mappája jelenleg hiányzik, csatlakoztassa a szükséges "
+"tárolóeszközt vagy a biztonsági mentési fájlrendszert."
 
 #: src/home/pam_systemd_home.c:292
 #, c-format
 msgid "Too frequent login attempts for user %s, try again later."
 msgstr ""
+"Túl gyakori bejelentkezési kísérletek %s felhasználónál, próbálja újra "
+"később."
 
 #: src/home/pam_systemd_home.c:304
 msgid "Password: "
-msgstr ""
+msgstr "Jelszó: "
 
 #: src/home/pam_systemd_home.c:306
 #, c-format
 msgid "Password incorrect or not sufficient for authentication of user %s."
-msgstr ""
+msgstr "A jelszó helytelen vagy nem elegendő %s felhasználó hitelesítéséhez."
 
 #: src/home/pam_systemd_home.c:307
 msgid "Sorry, try again: "
-msgstr ""
+msgstr "Elnézést, próbálja újra: "
 
 #: src/home/pam_systemd_home.c:329
 msgid "Recovery key: "
-msgstr ""
+msgstr "Helyreállítási kulcs: "
 
 #: src/home/pam_systemd_home.c:331
 #, c-format
 msgid "Password/recovery key incorrect or not sufficient for authentication of user %s."
 msgstr ""
+"A jelszó vagy a helyreállítási kulcs helytelen vagy nem elegendő %s "
+"felhasználó hitelesítéséhez."
 
 #: src/home/pam_systemd_home.c:332
 msgid "Sorry, reenter recovery key: "
-msgstr ""
+msgstr "Elnézést, adja meg újra a helyreállítási kulcsot: "
 
 #: src/home/pam_systemd_home.c:352
 #, c-format
 msgid "Security token of user %s not inserted."
-msgstr ""
+msgstr "%s felhasználó biztonsági tokenje nincs behelyezve."
 
 #: src/home/pam_systemd_home.c:353 src/home/pam_systemd_home.c:356
 msgid "Try again with password: "
-msgstr ""
+msgstr "Próbálja újra jelszóval: "
 
 #: src/home/pam_systemd_home.c:355
 #, c-format
 msgid "Password incorrect or not sufficient, and configured security token of user %s not inserted."
 msgstr ""
+"A jelszó helytelen vagy nem elegendő, és %s felhasználó beállított "
+"biztonsági tokenje nincs behelyezve."
 
 #: src/home/pam_systemd_home.c:376
 msgid "Security token PIN: "
-msgstr ""
+msgstr "Biztonsági token PIN-kódja: "
 
 #: src/home/pam_systemd_home.c:393
 #, c-format
 msgid "Please authenticate physically on security token of user %s."
-msgstr ""
+msgstr "Hitelesítsen fizikailag %s felhasználó biztonsági tokenjén."
 
 #: src/home/pam_systemd_home.c:404
 #, c-format
 msgid "Please confirm presence on security token of user %s."
-msgstr ""
+msgstr "Erősítse meg a jelenlétet %s felhasználó biztonsági tokenjén."
 
 #: src/home/pam_systemd_home.c:415
 #, c-format
 msgid "Please verify user on security token of user %s."
-msgstr ""
+msgstr "Ellenőrizze a felhasználót %s felhasználó biztonsági tokenjén."
 
 #: src/home/pam_systemd_home.c:424
 msgid "Security token PIN is locked, please unlock it first. (Hint: Removal and re-insertion might suffice.)"
 msgstr ""
+"A biztonsági token PIN-kódja zárolva van, először oldja fel (tipp: az "
+"eltávolítás és az ismételt behelyezés elegendő lehet)."
 
 #: src/home/pam_systemd_home.c:432
 #, c-format
 msgid "Security token PIN incorrect for user %s."
-msgstr ""
+msgstr "A biztonsági token PIN-kódja helytelen %s felhasználónál."
 
 #: src/home/pam_systemd_home.c:433 src/home/pam_systemd_home.c:452
 #: src/home/pam_systemd_home.c:471
 msgid "Sorry, retry security token PIN: "
-msgstr ""
+msgstr "Elnézést, próbálja újra a biztonsági token PIN-kódját: "
 
 #: src/home/pam_systemd_home.c:451
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
 msgstr ""
+"%s felhasználó biztonsági tokenjének PIN-kódja helytelen (már csak néhány "
+"próbálkozás maradt!)"
 
 #: src/home/pam_systemd_home.c:470
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
 msgstr ""
+"%s felhasználó biztonsági tokenjének PIN-kódja helytelen (már egy "
+"próbálkozás maradt!)"
 
 #: src/home/pam_systemd_home.c:616
 #, c-format
 msgid "Home of user %s is currently not active, please log in locally first."
 msgstr ""
+"%s felhasználó saját mappája jelenleg nem aktív, először jelentkezzen be "
+"helyileg."
 
 #: src/home/pam_systemd_home.c:618
 #, c-format
 msgid "Home of user %s is currently locked, please unlock locally first."
 msgstr ""
+"%s felhasználó saját mappája jelenleg zárolva van, először oldja fel "
+"helyileg."
 
 #: src/home/pam_systemd_home.c:645
 #, c-format
 msgid "Too many unsuccessful login attempts for user %s, refusing."
 msgstr ""
+"Túl sok sikertelen bejelentkezési kísérlet %s felhasználónál, elutasítás."
 
 #: src/home/pam_systemd_home.c:868
 msgid "User record is blocked, prohibiting access."
-msgstr ""
+msgstr "A felhasználói bejegyzés tiltva van, a hozzáférés megtiltása."
 
 #: src/home/pam_systemd_home.c:872
 msgid "User record is not valid yet, prohibiting access."
-msgstr ""
+msgstr "A felhasználói bejegyzés még nem érvényes, a hozzáférés megtiltása."
 
 #: src/home/pam_systemd_home.c:876
 msgid "User record is not valid anymore, prohibiting access."
-msgstr ""
+msgstr "A felhasználói bejegyzés már nem érvényes, a hozzáférés megtiltása."
 
 #: src/home/pam_systemd_home.c:881 src/home/pam_systemd_home.c:932
 msgid "User record not valid, prohibiting access."
-msgstr ""
+msgstr "A felhasználói bejegyzés nem érvényes, a hozzáférés megtiltása."
 
 #: src/home/pam_systemd_home.c:893
 #, c-format
 msgid "Too many logins, try again in %s."
-msgstr ""
+msgstr "Túl sok bejelentkezés, próbálja újra %s múlva."
 
 #: src/home/pam_systemd_home.c:904
 msgid "Password change required."
-msgstr ""
+msgstr "Jelszóváltoztatás szükséges."
 
 #: src/home/pam_systemd_home.c:908
 msgid "Password expired, change required."
-msgstr ""
+msgstr "A jelszó lejárt, változtatás szükséges."
 
 #: src/home/pam_systemd_home.c:914
 msgid "Password is expired, but can't change, refusing login."
 msgstr ""
+"A jelszó lejárt, de nem lehet megváltoztatni, a bejelentkezés elutasítása."
 
 #: src/home/pam_systemd_home.c:918
 msgid "Password will expire soon, please change."
-msgstr ""
+msgstr "A jelszó hamarosan lejár, változtassa meg."
 
 #: src/hostname/org.freedesktop.hostname1.policy:20
 msgid "Set hostname"
@@ -296,22 +325,19 @@ msgstr "Hitelesítés szükséges a termék UUID-jának lekéréséhez."
 
 #: src/hostname/org.freedesktop.hostname1.policy:61
 msgid "Get hardware serial number"
-msgstr ""
+msgstr "Hardver sorozatszámának lekérése"
 
 #: src/hostname/org.freedesktop.hostname1.policy:62
-#, fuzzy
 msgid "Authentication is required to get hardware serial number."
-msgstr "Hitelesítés szükséges a rendszeridő beállításához."
+msgstr "Hitelesítés szükséges a hardver sorozatszámának lekéréséhez."
 
 #: src/hostname/org.freedesktop.hostname1.policy:71
-#, fuzzy
 msgid "Get system description"
-msgstr "Rendszer időzónájának beállítása"
+msgstr "Rendszer leírásának lekérése"
 
 #: src/hostname/org.freedesktop.hostname1.policy:72
-#, fuzzy
 msgid "Authentication is required to get system description."
-msgstr "Hitelesítés szükséges a rendszer időzónájának beállításához."
+msgstr "Hitelesítés szükséges a rendszer leírásának lekéréséhez."
 
 #: src/import/org.freedesktop.import1.policy:22
 msgid "Import a VM or container image"
@@ -319,7 +345,7 @@ msgstr "VM vagy konténer lemezképének importálása"
 
 #: src/import/org.freedesktop.import1.policy:23
 msgid "Authentication is required to import a VM or container image"
-msgstr "Hitelesítés szükséges a VM vagy konténer lemezképének importálásához"
+msgstr "Hitelesítés szükséges a VM vagy konténer lemezképének importálásához."
 
 #: src/import/org.freedesktop.import1.policy:32
 msgid "Export a VM or container image"
@@ -327,7 +353,7 @@ msgstr "VM vagy konténer lemezképének exportálása"
 
 #: src/import/org.freedesktop.import1.policy:33
 msgid "Authentication is required to export a VM or container image"
-msgstr "Hitelesítés szükséges a VM vagy konténer lemezképének exportálásához"
+msgstr "Hitelesítés szükséges a VM vagy konténer lemezképének exportálásához."
 
 #: src/import/org.freedesktop.import1.policy:42
 msgid "Download a VM or container image"
@@ -335,7 +361,7 @@ msgstr "VM vagy konténer lemezképének letöltése"
 
 #: src/import/org.freedesktop.import1.policy:43
 msgid "Authentication is required to download a VM or container image"
-msgstr "Hitelesítés szükséges a VM vagy konténer lemezképének letöltéséhez"
+msgstr "Hitelesítés szükséges a VM vagy konténer lemezképének letöltéséhez."
 
 #: src/locale/org.freedesktop.locale1.policy:22
 msgid "Set system locale"
@@ -343,7 +369,7 @@ msgstr "Rendszer területi beállításának megadása"
 
 #: src/locale/org.freedesktop.locale1.policy:23
 msgid "Authentication is required to set the system locale."
-msgstr "Hitelesítés szükséges a rendszer területi beállításainak megadásához."
+msgstr "Hitelesítés szükséges a rendszer területi beállításának megadásához."
 
 #: src/locale/org.freedesktop.locale1.policy:33
 msgid "Set system keyboard settings"
@@ -475,19 +501,24 @@ msgstr "Hitelesítés szükséges a rendszer kikapcsolásához."
 
 #: src/login/org.freedesktop.login1.policy:180
 msgid "Power off the system while other users are logged in"
-msgstr "A rendszer kikapcsolása miközben be vannak jelentkezve más felhasználók"
+msgstr ""
+"A rendszer kikapcsolása, miközben más felhasználók be vannak jelentkezve"
 
 #: src/login/org.freedesktop.login1.policy:181
 msgid "Authentication is required to power off the system while other users are logged in."
-msgstr "Hitelesítés szükséges a rendszer kikapcsolásához miközben be vannak jelentkezve más felhasználók."
+msgstr ""
+"Hitelesítés szükséges a rendszer kikapcsolásához, miközben más felhasználók "
+"be vannak jelentkezve."
 
 #: src/login/org.freedesktop.login1.policy:191
 msgid "Power off the system while an application is inhibiting this"
-msgstr "A rendszer kikapcsolása miközben egy alkalmazás ennek meggátlását kérte"
+msgstr "A rendszer kikapcsolása, miközben egy alkalmazás meggátolja azt"
 
 #: src/login/org.freedesktop.login1.policy:192
 msgid "Authentication is required to power off the system while an application is inhibiting this."
-msgstr "Hitelesítés szükséges a rendszer kikapcsolásához miközben egy alkalmazás ennek meggátlását kérte."
+msgstr ""
+"Hitelesítés szükséges a rendszer kikapcsolásához, miközben egy alkalmazás "
+"meggátolja azt."
 
 #: src/login/org.freedesktop.login1.policy:202
 msgid "Reboot the system"
@@ -499,19 +530,24 @@ msgstr "Hitelesítés szükséges a rendszer újraindításához."
 
 #: src/login/org.freedesktop.login1.policy:213
 msgid "Reboot the system while other users are logged in"
-msgstr "A rendszer újraindítása miközben be vannak jelentkezve más felhasználók"
+msgstr ""
+"A rendszer újraindítása, miközben más felhasználók be vannak jelentkezve"
 
 #: src/login/org.freedesktop.login1.policy:214
 msgid "Authentication is required to reboot the system while other users are logged in."
-msgstr "Hitelesítés szükséges a rendszer újraindításához miközben be vannak jelentkezve más felhasználók."
+msgstr ""
+"Hitelesítés szükséges a rendszer újraindításához, miközben más felhasználók "
+"be vannak jelentkezve."
 
 #: src/login/org.freedesktop.login1.policy:224
 msgid "Reboot the system while an application is inhibiting this"
-msgstr "A rendszer újraindítása miközben egy alkalmazás ennek meggátlását kérte"
+msgstr "A rendszer újraindítása, miközben egy alkalmazás meggátolja azt"
 
 #: src/login/org.freedesktop.login1.policy:225
 msgid "Authentication is required to reboot the system while an application is inhibiting this."
-msgstr "Hitelesítés szükséges a rendszer újraindításához miközben egy alkalmazás ennek meggátlását kérte."
+msgstr ""
+"Hitelesítés szükséges a rendszer újraindításához, miközben egy alkalmazás "
+"meggátolja azt."
 
 #: src/login/org.freedesktop.login1.policy:235
 msgid "Halt the system"
@@ -523,19 +559,23 @@ msgstr "Hitelesítés szükséges a rendszer leállításához."
 
 #: src/login/org.freedesktop.login1.policy:246
 msgid "Halt the system while other users are logged in"
-msgstr "A rendszer leállítása miközben más felhasználók be vannak jelentkezve"
+msgstr "A rendszer leállítása, miközben más felhasználók be vannak jelentkezve"
 
 #: src/login/org.freedesktop.login1.policy:247
 msgid "Authentication is required to halt the system while other users are logged in."
-msgstr "Hitelesítés szükséges a rendszer leállításához miközben más felhasználók be vannak jelentkezve."
+msgstr ""
+"Hitelesítés szükséges a rendszer leállításához, miközben más felhasználók be "
+"vannak jelentkezve."
 
 #: src/login/org.freedesktop.login1.policy:257
 msgid "Halt the system while an application is inhibiting this"
-msgstr "A rendszer leállítása miközben egy alkalmazás ennek meggátlását kérte"
+msgstr "A rendszer leállítása, miközben egy alkalmazás meggátolja azt"
 
 #: src/login/org.freedesktop.login1.policy:258
 msgid "Authentication is required to halt the system while an application is inhibiting this."
-msgstr "Hitelesítés szükséges a rendszer leállításához miközben egy alkalmazás ennek meggátlását kérte."
+msgstr ""
+"Hitelesítés szükséges a rendszer leállításához, miközben egy alkalmazás "
+"meggátolja azt."
 
 #: src/login/org.freedesktop.login1.policy:268
 msgid "Suspend the system"
@@ -547,19 +587,24 @@ msgstr "Hitelesítés szükséges a rendszer felfüggesztéséhez."
 
 #: src/login/org.freedesktop.login1.policy:278
 msgid "Suspend the system while other users are logged in"
-msgstr "A rendszer felfüggesztése mialatt be vannak jelentkezve más felhasználók"
+msgstr ""
+"A rendszer felfüggesztése, miközben más felhasználók be vannak jelentkezve"
 
 #: src/login/org.freedesktop.login1.policy:279
 msgid "Authentication is required to suspend the system while other users are logged in."
-msgstr "Hitelesítés szükséges a rendszer felfüggesztéséhez miközben be vannak jelentkezve más felhasználók."
+msgstr ""
+"Hitelesítés szükséges a rendszer felfüggesztéséhez, miközben más "
+"felhasználók be vannak jelentkezve."
 
 #: src/login/org.freedesktop.login1.policy:289
 msgid "Suspend the system while an application is inhibiting this"
-msgstr "A rendszer felfüggesztése miközben egy alkalmazás ennek meggátlását kérte"
+msgstr "A rendszer felfüggesztése, miközben egy alkalmazás meggátolja azt"
 
 #: src/login/org.freedesktop.login1.policy:290
 msgid "Authentication is required to suspend the system while an application is inhibiting this."
-msgstr "Hitelesítés szükséges a rendszer felfüggesztéséhez miközben egy alkalmazás ennek meggátlását kérte."
+msgstr ""
+"Hitelesítés szükséges a rendszer felfüggesztéséhez, miközben egy alkalmazás "
+"meggátolja azt."
 
 #: src/login/org.freedesktop.login1.policy:300
 msgid "Hibernate the system"
@@ -571,19 +616,23 @@ msgstr "Hitelesítés szükséges a rendszer hibernálásához."
 
 #: src/login/org.freedesktop.login1.policy:310
 msgid "Hibernate the system while other users are logged in"
-msgstr "A rendszer hibernálása miközben be vannak jelentkezve más felhasználók"
+msgstr "A rendszer hibernálása, miközben más felhasználók be vannak jelentkezve"
 
 #: src/login/org.freedesktop.login1.policy:311
 msgid "Authentication is required to hibernate the system while other users are logged in."
-msgstr "Hitelesítés szükséges a rendszer hibernálásához miközben be vannak jelentkezve más felhasználók."
+msgstr ""
+"Hitelesítés szükséges a rendszer hibernálásához, miközben más felhasználók "
+"be vannak jelentkezve."
 
 #: src/login/org.freedesktop.login1.policy:321
 msgid "Hibernate the system while an application is inhibiting this"
-msgstr "A rendszer hibernálása miközben egy alkalmazás ennek meggátlását kérte"
+msgstr "A rendszer hibernálása, miközben egy alkalmazás meggátolja azt"
 
 #: src/login/org.freedesktop.login1.policy:322
 msgid "Authentication is required to hibernate the system while an application is inhibiting this."
-msgstr "Hitelesítés szükséges a rendszer hibernálásához miközben egy alkalmazás ennek meggátlását kérte."
+msgstr ""
+"Hitelesítés szükséges a rendszer hibernálásához, miközben egy alkalmazás "
+"meggátolja azt."
 
 #: src/login/org.freedesktop.login1.policy:332
 msgid "Manage active sessions, users and seats"
@@ -603,19 +652,25 @@ msgstr "Hitelesítés szükséges az aktív munkamenetek zárolásához vagy fel
 
 #: src/login/org.freedesktop.login1.policy:352
 msgid "Set the reboot \"reason\" in the kernel"
-msgstr "Az újraindítás „okának” beállítása a kernelben"
+msgstr "Az újraindítás „okának” beállítása a rendszermagban"
 
 #: src/login/org.freedesktop.login1.policy:353
 msgid "Authentication is required to set the reboot \"reason\" in the kernel."
-msgstr "Hitelesítés szükséges a rendszer újraindítási „okának” beállításához a kernelben."
+msgstr ""
+"Hitelesítés szükséges a rendszer újraindítási „okának” beállításához a "
+"rendszermagban."
 
 #: src/login/org.freedesktop.login1.policy:363
 msgid "Indicate to the firmware to boot to setup interface"
-msgstr "Jelzés a firmware számára, hogy a beállítófelületet indítsa el rendszerindításkor"
+msgstr ""
+"Jelzés a belső vezérlőprogram számára, hogy a beállítófelületet indítsa el "
+"rendszerindításkor"
 
 #: src/login/org.freedesktop.login1.policy:364
 msgid "Authentication is required to indicate to the firmware to boot to setup interface."
-msgstr "Hitelesítés szükséges, hogy a firmware a beállítófelületet indítsa el rendszerindításkor."
+msgstr ""
+"Hitelesítés szükséges annak jelzéséhez, hogy a belső vezérlőprogram a "
+"beállítófelületet indítsa el rendszerindításkor."
 
 #: src/login/org.freedesktop.login1.policy:374
 msgid "Indicate to the boot loader to boot to the boot loader menu"
@@ -623,7 +678,9 @@ msgstr "Jelzés a rendszerbetöltő számára, hogy a rendszerbetöltő menüt i
 
 #: src/login/org.freedesktop.login1.policy:375
 msgid "Authentication is required to indicate to the boot loader to boot to the boot loader menu."
-msgstr "Hitelesítés szükséges, hogy a firmware a rendszerbetöltő menüt indítsa el rendszerindításkor."
+msgstr ""
+"Hitelesítés szükséges annak jelzéséhez, hogy a rendszerbetöltő a "
+"rendszerbetöltő menüt indítsa el rendszerindításkor."
 
 #: src/login/org.freedesktop.login1.policy:385
 msgid "Indicate to the boot loader to boot a specific entry"
@@ -631,7 +688,9 @@ msgstr "Jelzés a rendszerbetöltő számára, hogy egy adott bejegyzést indít
 
 #: src/login/org.freedesktop.login1.policy:386
 msgid "Authentication is required to indicate to the boot loader to boot into a specific boot loader entry."
-msgstr "Hitelesítés szükséges, hogy a rendszerbetöltő egy adott bejegyzést indítson el rendszerindításkor."
+msgstr ""
+"Hitelesítés szükséges annak jelzéséhez, hogy a rendszerbetöltő egy adott "
+"rendszerbetöltő-bejegyzést indítson el rendszerindításkor."
 
 #: src/login/org.freedesktop.login1.policy:396
 msgid "Set a wall message"
@@ -639,15 +698,15 @@ msgstr "Falüzenet beállítása"
 
 #: src/login/org.freedesktop.login1.policy:397
 msgid "Authentication is required to set a wall message"
-msgstr "Hitelesítés szükséges a falüzenet beállításához"
+msgstr "Hitelesítés szükséges a falüzenet beállításához."
 
 #: src/login/org.freedesktop.login1.policy:406
 msgid "Change Session"
-msgstr "Munkamenet módosítása"
+msgstr "Munkamenet megváltoztatása"
 
 #: src/login/org.freedesktop.login1.policy:407
 msgid "Authentication is required to change the virtual terminal."
-msgstr "Hitelesítés szükséges a virtuális terminál módosításához."
+msgstr "Hitelesítés szükséges a virtuális terminál megváltoztatásához."
 
 #: src/machine/org.freedesktop.machine1.policy:22
 msgid "Log into a local container"
@@ -663,7 +722,7 @@ msgstr "Bejelentkezés a helyi gépre"
 
 #: src/machine/org.freedesktop.machine1.policy:33
 msgid "Authentication is required to log into the local host."
-msgstr "Hitelesítés szükséges a helyi gépre történtő bejelentkezéshez."
+msgstr "Hitelesítés szükséges a helyi gépre történő bejelentkezéshez."
 
 #: src/machine/org.freedesktop.machine1.policy:42
 msgid "Acquire a shell in a local container"
@@ -671,7 +730,8 @@ msgstr "Parancsértelmező elérése helyi konténerben"
 
 #: src/machine/org.freedesktop.machine1.policy:43
 msgid "Authentication is required to acquire a shell in a local container."
-msgstr "Hitelesítés szükséges a parancsértelmező eléréséhez helyi konténerben."
+msgstr ""
+"Hitelesítés szükséges a parancsértelmező helyi konténerben való eléréséhez."
 
 #: src/machine/org.freedesktop.machine1.policy:53
 msgid "Acquire a shell on the local host"
@@ -679,7 +739,7 @@ msgstr "Parancsértelmező elérése a helyi gépen"
 
 #: src/machine/org.freedesktop.machine1.policy:54
 msgid "Authentication is required to acquire a shell on the local host."
-msgstr "Hitelesítés szükséges a parancsértelmező eléréséhez a helyi gépen."
+msgstr "Hitelesítés szükséges a parancsértelmező helyi gépen való eléréséhez."
 
 #: src/machine/org.freedesktop.machine1.policy:64
 msgid "Acquire a pseudo TTY in a local container"
@@ -687,19 +747,20 @@ msgstr "Pszeudoterminál elérése helyi konténerben"
 
 #: src/machine/org.freedesktop.machine1.policy:65
 msgid "Authentication is required to acquire a pseudo TTY in a local container."
-msgstr "Hitelesítés szükséges a pszeudoterminál eléréséhez helyi konténerben."
+msgstr ""
+"Hitelesítés szükséges a pszeudoterminál helyi konténerben való eléréséhez."
 
 #: src/machine/org.freedesktop.machine1.policy:74
 msgid "Acquire a pseudo TTY on the local host"
-msgstr "Pszeudoterminál elérése helyi gépen"
+msgstr "Pszeudoterminál elérése a helyi gépen"
 
 #: src/machine/org.freedesktop.machine1.policy:75
 msgid "Authentication is required to acquire a pseudo TTY on the local host."
-msgstr "Hitelesítés szükséges a pszeudoterminál eléréséhez a helyi gépen."
+msgstr "Hitelesítés szükséges a pszeudoterminál helyi gépen való eléréséhez."
 
 #: src/machine/org.freedesktop.machine1.policy:84
 msgid "Manage local virtual machines and containers"
-msgstr "Virtuális gépek és konténerek kezelése"
+msgstr "Helyi virtuális gépek és konténerek kezelése"
 
 #: src/machine/org.freedesktop.machine1.policy:85
 msgid "Authentication is required to manage local virtual machines and containers."
@@ -734,72 +795,74 @@ msgstr "Hitelesítés szükséges a DNS-kiszolgálók beállításához."
 #: src/network/org.freedesktop.network1.policy:44
 #: src/resolve/org.freedesktop.resolve1.policy:55
 msgid "Set domains"
-msgstr "Domainek beállítása"
+msgstr "Tartományok beállítása"
 
 #: src/network/org.freedesktop.network1.policy:45
 #: src/resolve/org.freedesktop.resolve1.policy:56
 msgid "Authentication is required to set domains."
-msgstr "Hitelesítés szükséges a domainek beállításához."
+msgstr "Hitelesítés szükséges a tartományok beállításához."
 
 #: src/network/org.freedesktop.network1.policy:55
 #: src/resolve/org.freedesktop.resolve1.policy:66
 msgid "Set default route"
-msgstr "Alapértelmezett hálózati útvonal beállítása"
+msgstr "Alapértelmezett útválasztás beállítása"
 
 #: src/network/org.freedesktop.network1.policy:56
 #: src/resolve/org.freedesktop.resolve1.policy:67
 msgid "Authentication is required to set default route."
-msgstr "Hitelesítés szükséges az alapértelmezett hálózati útvonal beállításához."
+msgstr "Hitelesítés szükséges az alapértelmezett útválasztás beállításához."
 
 #: src/network/org.freedesktop.network1.policy:66
 #: src/resolve/org.freedesktop.resolve1.policy:77
 msgid "Enable/disable LLMNR"
-msgstr "LLMNR engedélyezése/letiltása"
+msgstr "LLMNR engedélyezése vagy letiltása"
 
 #: src/network/org.freedesktop.network1.policy:67
 #: src/resolve/org.freedesktop.resolve1.policy:78
 msgid "Authentication is required to enable or disable LLMNR."
-msgstr "Hitelesítés szükséges az LLMNR engedélyezéséhez vagy kikapcsolásához."
+msgstr "Hitelesítés szükséges az LLMNR engedélyezéséhez vagy letiltásához."
 
 #: src/network/org.freedesktop.network1.policy:77
 #: src/resolve/org.freedesktop.resolve1.policy:88
 msgid "Enable/disable multicast DNS"
-msgstr "Multicast DNS engedélyezése/letiltása"
+msgstr "Csoportcímes DNS engedélyezése vagy letiltása"
 
 #: src/network/org.freedesktop.network1.policy:78
 #: src/resolve/org.freedesktop.resolve1.policy:89
 msgid "Authentication is required to enable or disable multicast DNS."
-msgstr "Hitelesítés szükséges a multicast DNS engedélyezéséhez vagy kikapcsolásához."
+msgstr ""
+"Hitelesítés szükséges a csoportcímes DNS engedélyezéséhez vagy letiltásához."
 
 #: src/network/org.freedesktop.network1.policy:88
 #: src/resolve/org.freedesktop.resolve1.policy:99
 msgid "Enable/disable DNS over TLS"
-msgstr "TLS feletti DNS engedélyezése/letiltása"
+msgstr "TLS feletti DNS engedélyezése vagy letiltása"
 
 #: src/network/org.freedesktop.network1.policy:89
 #: src/resolve/org.freedesktop.resolve1.policy:100
 msgid "Authentication is required to enable or disable DNS over TLS."
-msgstr "Hitelesítés szükséges a TLS feletti DNS engedélyezéséhez vagy kikapcsolásához."
+msgstr ""
+"Hitelesítés szükséges a TLS feletti DNS engedélyezéséhez vagy letiltásához."
 
 #: src/network/org.freedesktop.network1.policy:99
 #: src/resolve/org.freedesktop.resolve1.policy:110
 msgid "Enable/disable DNSSEC"
-msgstr "DNSSEC engedélyezése/letiltása"
+msgstr "DNSSEC engedélyezése vagy letiltása"
 
 #: src/network/org.freedesktop.network1.policy:100
 #: src/resolve/org.freedesktop.resolve1.policy:111
 msgid "Authentication is required to enable or disable DNSSEC."
-msgstr "Hitelesítés szükséges a DNSSEC engedélyezéséhez vagy kikapcsolásához."
+msgstr "Hitelesítés szükséges a DNSSEC engedélyezéséhez vagy letiltásához."
 
 #: src/network/org.freedesktop.network1.policy:110
 #: src/resolve/org.freedesktop.resolve1.policy:121
 msgid "Set DNSSEC Negative Trust Anchors"
-msgstr "DNSSEC Negative Trust Anchor beállítása"
+msgstr "DNSSEC negatív bizalmi horgony beállítása"
 
 #: src/network/org.freedesktop.network1.policy:111
 #: src/resolve/org.freedesktop.resolve1.policy:122
 msgid "Authentication is required to set DNSSEC Negative Trust Anchors."
-msgstr "Hitelestés szükséges a DNSSEC Negative Trust Anchor beállításához."
+msgstr "Hitelestés szükséges a DNSSEC negatív bizalmi horgony beállításához."
 
 #: src/network/org.freedesktop.network1.policy:121
 msgid "Revert NTP settings"
@@ -827,11 +890,11 @@ msgstr "Hitelesítés szükséges a kényszerített megújítási üzenetet kül
 
 #: src/network/org.freedesktop.network1.policy:154
 msgid "Renew dynamic addresses"
-msgstr "Dinamikus címke megújítása"
+msgstr "Dinamikus címek megújítása"
 
 #: src/network/org.freedesktop.network1.policy:155
 msgid "Authentication is required to renew dynamic addresses."
-msgstr "Hitelesítés szükséges a dinamikus címke megújításához."
+msgstr "Hitelesítés szükséges a dinamikus címek megújításához."
 
 #: src/network/org.freedesktop.network1.policy:165
 msgid "Reload network settings"
@@ -879,15 +942,16 @@ msgstr "DNS-SD szolgáltatás regisztrálása"
 
 #: src/resolve/org.freedesktop.resolve1.policy:23
 msgid "Authentication is required to register a DNS-SD service"
-msgstr "Hitelesítés szükséges a DNS-SD szolgáltatás regisztrálásához"
+msgstr "Hitelesítés szükséges a DNS-SD szolgáltatás regisztrálásához."
 
 #: src/resolve/org.freedesktop.resolve1.policy:33
 msgid "Unregister a DNS-SD service"
-msgstr "DNS-SD szolgáltatás kiregisztrálása"
+msgstr "DNS-SD szolgáltatás regisztrációjának törlése"
 
 #: src/resolve/org.freedesktop.resolve1.policy:34
 msgid "Authentication is required to unregister a DNS-SD service"
-msgstr "Hitelesítés szükséges a DNS-SD szolgáltatás kiregisztrálásához"
+msgstr ""
+"Hitelesítés szükséges a DNS-SD szolgáltatás regisztrációjának törléséhez."
 
 #: src/resolve/org.freedesktop.resolve1.policy:132
 msgid "Revert name resolution settings"
@@ -919,7 +983,9 @@ msgstr "Az RTC beállítása helyi időzónára vagy UTC-re"
 
 #: src/timedate/org.freedesktop.timedate1.policy:44
 msgid "Authentication is required to control whether the RTC stores the local or UTC time."
-msgstr "Hitelesítés szükséges az RTC beállításához a helyi időzóna vagy UTC tárolására."
+msgstr ""
+"Hitelesítés szükséges annak vezérléséhez, hogy az RTC a helyi vagy az UTC "
+"időt tárolja."
 
 #: src/timedate/org.freedesktop.timedate1.policy:53
 msgid "Turn network time synchronization on or off"
@@ -927,43 +993,54 @@ msgstr "Hálózati időszinkronizáció be- vagy kikapcsolása"
 
 #: src/timedate/org.freedesktop.timedate1.policy:54
 msgid "Authentication is required to control whether network time synchronization shall be enabled."
-msgstr "Hitelesítés szükséges a hálózati időszinkronizáció engedélyezéséhez."
+msgstr ""
+"Hitelesítés szükséges annak vezérléséhez, hogy a hálózati időszinkronizáció "
+"engedélyezve legyen."
 
 #: src/core/dbus-unit.c:364
 msgid "Authentication is required to start '$(unit)'."
-msgstr "Hitelesítés szükséges a következő elindításához: „$(unit)”."
+msgstr "Hitelesítés szükséges a(z) „$(unit)” elindításához."
 
 #: src/core/dbus-unit.c:365
 msgid "Authentication is required to stop '$(unit)'."
-msgstr "Hitelesítés szükséges a következő leállításához: „$(unit)”."
+msgstr "Hitelesítés szükséges a(z) „$(unit)” leállításához."
 
 #: src/core/dbus-unit.c:366
 msgid "Authentication is required to reload '$(unit)'."
-msgstr "Hitelesítés szükséges a következő újratöltéséhez: „$(unit)”."
+msgstr "Hitelesítés szükséges a(z) „$(unit)” újratöltéséhez."
 
 #: src/core/dbus-unit.c:367 src/core/dbus-unit.c:368
 msgid "Authentication is required to restart '$(unit)'."
-msgstr "Hitelesítés szükséges a következő újraindításához: „$(unit)”."
+msgstr "Hitelesítés szükséges a(z) „$(unit)” újraindításához."
 
 #: src/core/dbus-unit.c:565
 msgid "Authentication is required to send a UNIX signal to the processes of '$(unit)'."
-msgstr "Hitelesítés szükséges a UNIX szignál elküldéséhez a következő folyamatai számára: „$(unit)”."
+msgstr ""
+"Hitelesítés szükséges a(z) „$(unit)” folyamatainak történő UNIX szignál "
+"küldéséhez."
 
 #: src/core/dbus-unit.c:595
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
-msgstr "Hitelesítés szükséges a következő „sikertelen” állapotának törléséhez: „$(unit)”."
+msgstr ""
+"Hitelesítés szükséges a(z) „$(unit)” „failed” állapotának visszaállításához."
 
 #: src/core/dbus-unit.c:627
 msgid "Authentication is required to set properties on '$(unit)'."
-msgstr "Hitelesítés szükséges a következő tulajdonságainak beállításához: „$(unit)”."
+msgstr ""
+"Hitelesítés szükséges a(z) „$(unit)” egységen lévő tulajdonságok "
+"beállításához."
 
 #: src/core/dbus-unit.c:728
 msgid "Authentication is required to delete files and directories associated with '$(unit)'."
-msgstr "Hitelesítés szükséges a következővel kapcsolatos fájlok és könyvtárak törléséhez: „$(unit)”."
+msgstr ""
+"Hitelesítés szükséges a(z) „$(unit)” egységhez hozzárendelt fájlok és "
+"könyvtárak törléséhez."
 
 #: src/core/dbus-unit.c:776
 msgid "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
-msgstr "Hitelesítés szükséges a következő egység folyamatainak befagyasztásához: „$(unit)”."
+msgstr ""
+"Hitelesítés szükséges a(z) „$(unit)” egység folyamatainak lefagyasztásához "
+"vagy kiolvasztásához."
 
 #~ msgid "Authentication is required to kill '$(unit)'."
 #~ msgstr "Hitelesítés szükséges a következő kilövéséhez: „$(unit)”."
