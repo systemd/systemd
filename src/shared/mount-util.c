@@ -1028,6 +1028,7 @@ static int mount_in_namespace(
                 const ImagePolicy *image_policy,
                 bool is_image) {
 
+        _cleanup_(dissected_image_unrefp) DissectedImage *img = NULL;
         _cleanup_close_pair_ int errno_pipe_fd[2] = PIPE_EBADF;
         _cleanup_close_ int mntns_fd = -EBADF, root_fd = -EBADF, pidns_fd = -EBADF, chased_src_fd = -EBADF,
                             new_mount_fd = -EBADF;
@@ -1064,7 +1065,7 @@ static int mount_in_namespace(
         if (S_ISLNK(st.st_mode)) /* This shouldn't really happen, given that we just chased the symlinks above, but let's better be safe… */
                 return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Source directory %s can't be a symbolic link", src);
 
-        if (is_image || mount_new_api_supported()) /* Fallback if we can't use the new mount API */
+        if (mount_new_api_supported()) /* Fallback if we can't use the new mount API */
                 return mount_in_namespace_legacy(
                                 chased_src_path,
                                 chased_src_fd,
@@ -1081,17 +1082,36 @@ static int mount_in_namespace(
                                 image_policy,
                                 is_image);
 
-        new_mount_fd = open_tree(
-                        chased_src_fd,
-                        "",
-                        OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC|AT_SYMLINK_NOFOLLOW|AT_EMPTY_PATH);
-        if (new_mount_fd < 0)
-                return log_debug_errno(
-                                errno,
-                                "Failed to open mount point \"%s\": %m",
-                                chased_src_path);
+        if (is_image) {
+                r = verity_dissect_and_mount(
+                                chased_src_fd,
+                                chased_src_path,
+                                /* dest= */ NULL,
+                                options,
+                                image_policy,
+                                /* required_host_os_release_id= */ NULL,
+                                /* required_host_os_release_version_id= */ NULL,
+                                /* required_host_os_release_sysext_level= */ NULL,
+                                /* required_sysext_scope */ NULL,
+                                &img);
+                if (r < 0)
+                        return log_debug_errno(
+                                        r,
+                                        "Failed to dissect and mount image %s: %m",
+                                        chased_src_path);
+        } else {
+                new_mount_fd = open_tree(
+                                chased_src_fd,
+                                "",
+                                OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC|AT_SYMLINK_NOFOLLOW|AT_EMPTY_PATH);
+                if (new_mount_fd < 0)
+                        return log_debug_errno(
+                                        errno,
+                                        "Failed to open mount point \"%s\": %m",
+                                        chased_src_path);
+        }
 
-        if (read_only) {
+        if (read_only && new_mount_fd >= 0) {
                 if (mount_setattr(new_mount_fd, "", AT_EMPTY_PATH,
                                 &(struct mount_attr) {
                                         .attr_set = MOUNT_ATTR_RDONLY,
@@ -1121,11 +1141,31 @@ static int mount_in_namespace(
         if (r == 0) {
                 errno_pipe_fd[0] = safe_close(errno_pipe_fd[0]);
 
-                if (make_file_or_directory)
-                        (void) mkdir_p(dest, 0755);
+                if (img) {
+                        if (make_file_or_directory)
+                                (void) mkdir_p(dest, 0755);
 
-                if (move_mount(new_mount_fd, "", -EBADF, dest, MOVE_MOUNT_F_EMPTY_PATH) < 0) {
-                        (void) write(errno_pipe_fd[1], &errno, sizeof(errno));
+                        r = dissected_image_mount(
+                                        img,
+                                        dest,
+                                        /* uid_shift= */ UID_INVALID,
+                                        /* uid_range= */ UID_INVALID,
+                                        /* userns_fd= */ -EBADF,
+                                        /* flags= */ read_only ? DISSECT_IMAGE_READ_ONLY : 0);
+                } else {
+                        if (make_file_or_directory) {
+                                (void) mkdir_parents(dest, 0755);
+                                (void) make_mount_point_inode_from_stat(&st, dest, 0700);
+                        }
+
+                        r = RET_NERRNO(move_mount(new_mount_fd,
+                                                  "",
+                                                  -EBADF,
+                                                  dest,
+                                                  MOVE_MOUNT_F_EMPTY_PATH));
+                }
+                if (r < 0) {
+                        (void) write(errno_pipe_fd[1], &r, sizeof(r));
                         errno_pipe_fd[1] = safe_close(errno_pipe_fd[1]);
 
                         _exit(EXIT_FAILURE);
