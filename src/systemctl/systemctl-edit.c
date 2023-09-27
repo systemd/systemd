@@ -318,7 +318,6 @@ int verb_edit(int argc, char *argv[], void *userdata) {
                 .remove_parent = !arg_full,
                 .overwrite_with_origin = true,
         };
-        _cleanup_(lookup_paths_free) LookupPaths lp = {};
         _cleanup_strv_free_ char **names = NULL;
         sd_bus *bus;
         int r;
@@ -328,10 +327,6 @@ int verb_edit(int argc, char *argv[], void *userdata) {
 
         if (arg_transport != BUS_TRANSPORT_LOCAL)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot edit units remotely.");
-
-        r = lookup_paths_init_or_warn(&lp, arg_runtime_scope, 0, arg_root);
-        if (r < 0)
-                return r;
 
         r = mac_init();
         if (r < 0)
@@ -348,7 +343,7 @@ int verb_edit(int argc, char *argv[], void *userdata) {
                 return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "No units matched the specified patterns.");
 
         STRV_FOREACH(tmp, names) {
-                r = unit_is_masked(bus, &lp, *tmp);
+                r = unit_is_masked(bus, *tmp);
                 if (r < 0)
                         return r;
                 if (r > 0)
