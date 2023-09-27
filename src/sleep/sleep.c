@@ -20,6 +20,7 @@
 #include "sd-id128.h"
 #include "sd-messages.h"
 
+#include "battery-capacity.h"
 #include "battery-util.h"
 #include "btrfs-util.h"
 #include "build.h"
