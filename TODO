@@ -186,6 +186,14 @@ Features:
   AllowPeerUser= + AllowPeerGroup= to allow trivially simple access control
   when invoked via socket as IPC services
 
+* systemd-tpm2-setup should probably have a factory reset logic, i.e. when some
+  kernel command line option is set we reset the TPM (equivalent of tpm2_clear
+  -c owner?).
+
+* systemd-tpm2-setup should support a mode where we refuse booting if the SRK
+  changed. (Must be opt-in, to not break systems which are supposed to be
+  migratable between PCs)
+
 * when systemd-sysext learns mutable /usr/ (and systemd-confext mutable /etc/)
   then allow them to store the result in a .v/ versioned subdir, for some basic
   snapshot logic
