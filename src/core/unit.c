@@ -3858,9 +3858,13 @@ static bool fragment_mtime_newer(const char *path, usec_t mtime, bool path_maske
 }
 
 bool unit_need_daemon_reload(Unit *u) {
-        _cleanup_strv_free_ char **t = NULL;
+        _cleanup_strv_free_ char **dropins = NULL;
 
         assert(u);
+        assert(u->manager);
+
+        if (u->manager->unit_file_state_outdated)
+                return true;
 
         /* For unit files, we allow masking… */
         if (fragment_mtime_newer(u->fragment_path, u->fragment_mtime,
@@ -3872,8 +3876,8 @@ bool unit_need_daemon_reload(Unit *u) {
                 return true;
 
         if (u->load_state == UNIT_LOADED)
-                (void) unit_find_dropin_paths(u, &t);
-        if (!strv_equal(u->dropin_paths, t))
+                (void) unit_find_dropin_paths(u, &dropins);
+        if (!strv_equal(u->dropin_paths, dropins))
                 return true;
 
         /* … any drop-ins that are masked are simply omitted from the list. */
