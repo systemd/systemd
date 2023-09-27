@@ -138,7 +138,8 @@ int verb_enable(int argc, char *argv[], void *userdata) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 bool expect_carries_install_info = false;
                 bool send_runtime = true, send_force = true, send_preset_mode = false;
-                const char *method;
+                const char *method, *warn_trigger_operation = NULL;
+                bool warn_trigger_ignore_masked;
                 sd_bus *bus;
 
                 if (STR_IN_SET(verb, "mask", "unmask")) {
@@ -170,6 +171,9 @@ int verb_enable(int argc, char *argv[], void *userdata) {
                         method = "DisableUnitFilesWithFlagsAndInstallInfo";
                         expect_carries_install_info = true;
                         send_force = false;
+
+                        warn_trigger_operation = "Disabling";
+                        warn_trigger_ignore_mask = true;
                 } else if (streq(verb, "reenable")) {
                         method = "ReenableUnitFiles";
                         expect_carries_install_info = true;
@@ -185,9 +189,12 @@ int verb_enable(int argc, char *argv[], void *userdata) {
 
                         expect_carries_install_info = true;
                         ignore_carries_install_info = true;
-                } else if (streq(verb, "mask"))
+                } else if (streq(verb, "mask")) {
                         method = "MaskUnitFiles";
-                else if (streq(verb, "unmask")) {
+
+                        warn_trigger_operation = "Masking";
+                        warn_trigger_ignore_mask = false;
+                } else if (streq(verb, "unmask")) {
                         method = "UnmaskUnitFiles";
                         send_force = false;
                 } else if (streq(verb, "revert")) {
@@ -245,6 +252,10 @@ int verb_enable(int argc, char *argv[], void *userdata) {
                         if (r < 0)
                                 return r;
                 }
+
+                if (warn_trigger_operation && !arg_quiet && !arg_no_warn)
+                        STRV_FOREACH(unit, names)
+                                warn_triggering_units(bus, *unit, warn_trigger_operation, warn_trigger_ignore_mask);
         }
 
         if (carries_install_info == 0 && !ignore_carries_install_info)
@@ -254,7 +265,7 @@ int verb_enable(int argc, char *argv[], void *userdata) {
                            " \n" /* trick: the space is needed so that the line does not get stripped from output */
                            "Possible reasons for having this kind of units are:\n"
                            "%1$s A unit may be statically enabled by being symlinked from another unit's\n"
-                           "  .wants/ or .requires/ directory.\n"
+                           "  .wants/, .requires/, or .upholds/ directory.\n"
                            "%1$s A unit's purpose may be to act as a helper for some other unit which has\n"
                            "  a requirement dependency on it.\n"
                            "%1$s A unit may be started when needed via activation (socket, path, timer,\n"
@@ -267,7 +278,8 @@ int verb_enable(int argc, char *argv[], void *userdata) {
                 /* If some of the units are disabled in user scope but still enabled in global scope,
                  * we emit a warning for that. */
 
-                _cleanup_strv_free_ char **enabled_in_global_scope = NULL;
+                /* No strv_free here, strings are owned by 'names' */
+                _cleanup_free_ char **enabled_in_global_scope = NULL;
 
                 STRV_FOREACH(name, names) {
                         UnitFileState state;
@@ -279,24 +291,24 @@ int verb_enable(int argc, char *argv[], void *userdata) {
                                 return log_error_errno(r, "Failed to get unit file state for %s: %m", *name);
 
                         if (IN_SET(state, UNIT_FILE_ENABLED, UNIT_FILE_ENABLED_RUNTIME)) {
-                                r = strv_extend(&enabled_in_global_scope, *name);
+                                r = strv_push(&enabled_in_global_scope, *name);
                                 if (r < 0)
                                         return log_oom();
                         }
                 }
 
                 if (!strv_isempty(enabled_in_global_scope)) {
-                        _cleanup_free_ char *units = NULL;
+                        _cleanup_free_ char *joined = NULL;
 
-                        units = strv_join(enabled_in_global_scope, ", ");
-                        if (!units)
+                        joined = strv_join(enabled_in_global_scope, ", ");
+                        if (!joined)
                                 return log_oom();
 
                         log_notice("The following unit files have been enabled in global scope. This means\n"
                                    "they will still be started automatically after a successful disablement\n"
                                    "in user scope:\n"
                                    "%s",
-                                   units);
+                                   joined);
                 }
         }
 
