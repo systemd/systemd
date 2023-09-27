@@ -22,6 +22,8 @@
 #include "strv.h"
 #include "time-util.h"
 
+#define DEFAULT_SUSPEND_ESTIMATION_USEC (1 * USEC_PER_HOUR)
+
 static const char* const sleep_operation_table[_SLEEP_OPERATION_MAX] = {
         [SLEEP_SUSPEND]                = "suspend",
         [SLEEP_HIBERNATE]              = "hibernate",
@@ -110,59 +112,57 @@ int parse_sleep_config(SleepConfig **ret) {
         return 0;
 }
 
-int can_sleep_state(char **requested_types) {
-        _cleanup_free_ char *text = NULL;
+int sleep_state_supported(char **states) {
+        _cleanup_free_ char *supported_sysfs = NULL;
+        const char *found;
         int r;
 
-        if (strv_isempty(requested_types))
-                return true;
+        if (strv_isempty(states))
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOMSG), "No sleep state configured.");
 
-        /* If /sys is read-only we cannot sleep */
-        if (access("/sys/power/state", W_OK) < 0) {
-                log_debug_errno(errno, "/sys/power/state is not writable, cannot sleep: %m");
-                return false;
-        }
+        if (access("/sys/power/state", W_OK) < 0)
+                return log_debug_errno(errno, "/sys/power/state is not writable: %m");
 
-        r = read_one_line_file("/sys/power/state", &text);
-        if (r < 0) {
-                log_debug_errno(r, "Failed to read /sys/power/state, cannot sleep: %m");
-                return false;
-        }
+        r = read_one_line_file("/sys/power/state", &supported_sysfs);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to read /sys/power/state: %m");
 
-        const char *found;
-        r = string_contains_word_strv(text, NULL, requested_types, &found);
+        r = string_contains_word_strv(supported_sysfs, NULL, states, &found);
         if (r < 0)
                 return log_debug_errno(r, "Failed to parse /sys/power/state: %m");
-        if (r > 0)
-                log_debug("Sleep mode \"%s\" is supported by the kernel.", found);
-        else if (DEBUG_LOGGING) {
-                _cleanup_free_ char *t = strv_join(requested_types, "/");
-                log_debug("Sleep mode %s not supported by the kernel, sorry.", strnull(t));
+        if (r > 0) {
+                log_debug("Sleep state '%s' is supported by kernel.", found);
+                return true;
         }
-        return r;
+
+        if (DEBUG_LOGGING) {
+                _cleanup_free_ char *joined = strv_join(states, " ");
+                log_debug("None of the configured sleep states are supported by kernel: %s", strnull(joined));
+        }
+        return false;
 }
 
-int can_sleep_disk(char **types) {
-        _cleanup_free_ char *text = NULL;
+int sleep_mode_supported(char **modes) {
+        _cleanup_free_ char *supported_sysfs = NULL;
         int r;
 
-        if (strv_isempty(types))
+        /* Unlike state, kernel has its own default choice if not configured */
+        if (strv_isempty(modes)) {
+                log_debug("No sleep mode configured, using kernel default.");
                 return true;
-
-        /* If /sys is read-only we cannot sleep */
-        if (access("/sys/power/disk", W_OK) < 0) {
-                log_debug_errno(errno, "/sys/power/disk is not writable: %m");
-                return false;
         }
 
-        r = read_one_line_file("/sys/power/disk", &text);
-        if (r < 0) {
-                log_debug_errno(r, "Couldn't read /sys/power/disk: %m");
-                return false;
-        }
+        if (access("/sys/power/disk", W_OK) < 0)
+                return log_debug_errno(errno, "/sys/power/disk is not writable: %m");
 
-        for (const char *p = text;;) {
+        r = read_one_line_file("/sys/power/disk", &supported_sysfs);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to read /sys/power/disk: %m");
+
+        for (const char *p = supported_sysfs;;) {
                 _cleanup_free_ char *word = NULL;
+                char *mode;
+                size_t l;
 
                 r = extract_first_word(&p, &word, NULL, 0);
                 if (r < 0)
@@ -170,22 +170,23 @@ int can_sleep_disk(char **types) {
                 if (r == 0)
                         break;
 
-                char *s = word;
-                size_t l = strlen(s);
-                if (s[0] == '[' && s[l-1] == ']') {
-                        s[l-1] = '\0';
-                        s++;
+                mode = word;
+                l = strlen(word);
+
+                if (mode[0] == '[' && mode[l - 1] == ']') {
+                        mode[l - 1] = '\0';
+                        mode++;
                 }
 
-                if (strv_contains(types, s)) {
-                        log_debug("Disk sleep mode \"%s\" is supported by the kernel.", s);
+                if (strv_contains(modes, mode)) {
+                        log_debug("Disk sleep mode '%s' is supported by kernel.", mode);
                         return true;
                 }
         }
 
         if (DEBUG_LOGGING) {
-                _cleanup_free_ char *t = strv_join(types, "/");
-                log_debug("Disk sleep mode %s not supported by the kernel, sorry.", strnull(t));
+                _cleanup_free_ char *joined = strv_join(modes, " ");
+                log_debug("None of the configured hibernation power modes are supported by kernel: %s", strnull(joined));
         }
         return false;
 }
@@ -235,8 +236,8 @@ static int can_sleep_internal(
         if (operation == SLEEP_SUSPEND_THEN_HIBERNATE)
                 return can_s2h(sleep_config);
 
-        if (can_sleep_state(sleep_config->states[operation]) <= 0 ||
-            can_sleep_disk(sleep_config->modes[operation]) <= 0)
+        if (sleep_state_supported(sleep_config->states[operation]) <= 0 ||
+            sleep_mode_supported(sleep_config->modes[operation]) <= 0)
                 return false;
 
         if (operation == SLEEP_SUSPEND)
