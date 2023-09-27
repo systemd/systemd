@@ -3107,7 +3107,6 @@ static int generic_array_bisect_plus_one(
                 uint64_t *ret_offset) {
 
         int r;
-        bool step_back = false;
 
         assert(f);
         assert(test_object);
@@ -3115,38 +3114,52 @@ static int generic_array_bisect_plus_one(
         if (n <= 0)
                 return 0;
 
-        /* This bisects the array in object 'first', but first checks
-         * an extra  */
+        /* This bisects the array in object 'first', but first checks an extra. */
         r = test_object(f, extra, needle);
         if (r < 0)
                 return r;
 
-        if (r == TEST_FOUND)
-                r = direction == DIRECTION_DOWN ? TEST_RIGHT : TEST_LEFT;
+        if (direction == DIRECTION_DOWN) {
+                /* If we are going downwards, then we need to return the first object that passes the test.
+                 * When there is no object that passes the test, we need to return the first object that
+                 * test_object() returns TEST_RIGHT for. */
+                if (IN_SET(r,
+                           TEST_FOUND,  /* The 'extra' object passes the test. Hence, this is the first
+                                         * object that passes the test. */
+                           TEST_RIGHT)) /* The 'extra' object is the first object that test_object() returns
+                                         * TEST_RIGHT for, and no object exists even in the chained arrays
+                                         * that passes the test. */
+                        goto use_extra; /* The 'extra' object is exactly the one we are looking for. It is
+                                         * not necessary to bisect the chained arrays. */
 
-        /* if we are looking with DIRECTION_UP then we need to first
-           see if in the actual array there is a matching entry, and
-           return the last one of that. But if there isn't any we need
-           to return this one. Hence remember this, and return it
-           below. */
-        if (r == TEST_LEFT)
-                step_back = direction == DIRECTION_UP;
+                /* Otherwise, the 'extra' object is not the one we are looking for. Search in the arrays. */
 
-        if (r == TEST_RIGHT) {
-                if (direction == DIRECTION_DOWN)
-                        goto found;
-                else
-                        return 0;
+        } else {
+                /* If we are going upwards, then we need to return the last object that passes the test.
+                 * When there is no object that passes the test, we need to return the the last object that
+                 * test_object() returns TEST_LEFT for. */
+                if (r == TEST_RIGHT)
+                        return 0; /* Not only the 'extra' object, but also all objects in the chained arrays
+                                   * will never get TEST_FOUND or TEST_LEFT. The object we are looking for
+                                   * does not exist. */
+
+                /* Even if the 'extra' object passes the test, there may be multiple objects in the arrays
+                 * that also pass the test. Hence, we need to bisect the arrays for finding the last matching
+                 * object. */
         }
 
         r = generic_array_bisect(f, first, n-1, needle, test_object, direction, ret_object, ret_offset, NULL);
+        if (r != 0)
+                return r; /* When > 0, the found object is the first (or last, when DIRECTION_UP) object.
+                           * Hence, return the found object now. */
 
-        if (r == 0 && step_back)
-                goto found;
+        /* No matching object found in the chained arrays.
+         * DIRECTION_DOWN : the 'extra' object neither matches the condition. There is no matching object.
+         * DIRECTION_UP   : the 'extra' object matches the condition. So, return it. */
+        if (direction == DIRECTION_DOWN)
+                return 0;
 
-        return r;
-
-found:
+use_extra:
         if (ret_object) {
                 r = journal_file_move_to_object(f, OBJECT_ENTRY, extra, ret_object);
                 if (r < 0)
