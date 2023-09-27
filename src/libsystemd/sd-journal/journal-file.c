@@ -3104,8 +3104,7 @@ static int generic_array_bisect_plus_one(
                 int (*test_object)(JournalFile *f, uint64_t p, uint64_t needle),
                 direction_t direction,
                 Object **ret_object,
-                uint64_t *ret_offset,
-                uint64_t *ret_idx) {
+                uint64_t *ret_offset) {
 
         int r;
         bool step_back = false;
@@ -3140,13 +3139,10 @@ static int generic_array_bisect_plus_one(
                         return 0;
         }
 
-        r = generic_array_bisect(f, first, n-1, needle, test_object, direction, ret_object, ret_offset, ret_idx);
+        r = generic_array_bisect(f, first, n-1, needle, test_object, direction, ret_object, ret_offset, NULL);
 
         if (r == 0 && step_back)
                 goto found;
-
-        if (r > 0 && ret_idx)
-                (*ret_idx)++;
 
         return r;
 
@@ -3159,9 +3155,6 @@ found:
 
         if (ret_offset)
                 *ret_offset = extra;
-
-        if (ret_idx)
-                *ret_idx = 0;
 
         return 1;
 }
@@ -3340,7 +3333,7 @@ int journal_file_move_to_entry_by_monotonic(
                         monotonic,
                         test_object_monotonic,
                         direction,
-                        ret_object, ret_offset, NULL);
+                        ret_object, ret_offset);
 }
 
 void journal_file_reset_location(JournalFile *f) {
@@ -3523,7 +3516,7 @@ int journal_file_move_to_entry_by_offset_for_data(
                         p,
                         test_object_offset,
                         direction,
-                        ret, ret_offset, NULL);
+                        ret, ret_offset);
 }
 
 int journal_file_move_to_entry_by_monotonic_for_data(
@@ -3560,7 +3553,7 @@ int journal_file_move_to_entry_by_monotonic_for_data(
                                           monotonic,
                                           test_object_monotonic,
                                           direction,
-                                          NULL, &z, NULL);
+                                          NULL, &z);
         if (r <= 0)
                 return r;
 
@@ -3581,7 +3574,7 @@ int journal_file_move_to_entry_by_monotonic_for_data(
                                                   z,
                                                   test_object_offset,
                                                   direction,
-                                                  NULL, &p, NULL);
+                                                  NULL, &p);
                 if (r <= 0)
                         return r;
 
@@ -3592,7 +3585,7 @@ int journal_file_move_to_entry_by_monotonic_for_data(
                                                   p,
                                                   test_object_offset,
                                                   direction,
-                                                  NULL, &q, NULL);
+                                                  NULL, &q);
 
                 if (r <= 0)
                         return r;
@@ -3634,7 +3627,7 @@ int journal_file_move_to_entry_by_seqnum_for_data(
                         seqnum,
                         test_object_seqnum,
                         direction,
-                        ret_object, ret_offset, NULL);
+                        ret_object, ret_offset);
 }
 
 int journal_file_move_to_entry_by_realtime_for_data(
@@ -3656,7 +3649,7 @@ int journal_file_move_to_entry_by_realtime_for_data(
                         realtime,
                         test_object_realtime,
                         direction,
-                        ret, ret_offset, NULL);
+                        ret, ret_offset);
 }
 
 void journal_file_dump(JournalFile *f) {
