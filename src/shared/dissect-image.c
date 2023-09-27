@@ -3909,7 +3909,8 @@ int verity_dissect_and_mount(
                 const char *required_host_os_release_id,
                 const char *required_host_os_release_version_id,
                 const char *required_host_os_release_sysext_level,
-                const char *required_sysext_scope) {
+                const char *required_sysext_scope,
+                DissectedImage **ret_image) {
 
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(dissected_image_unrefp) DissectedImage *dissected_image = NULL;
@@ -3919,7 +3920,6 @@ int verity_dissect_and_mount(
         int r;
 
         assert(src);
-        assert(dest);
 
         relax_extension_release_check = mount_options_relax_extension_release_checks(options);
 
@@ -3976,12 +3976,14 @@ int verity_dissect_and_mount(
         if (r < 0)
                 return log_debug_errno(r, "Failed to decrypt dissected image: %m");
 
-        r = mkdir_p_label(dest, 0755);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to create destination directory %s: %m", dest);
-        r = umount_recursive(dest, 0);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to umount under destination directory %s: %m", dest);
+        if (dest) {
+                r = mkdir_p_label(dest, 0755);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to create destination directory %s: %m", dest);
+                r = umount_recursive(dest, 0);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to umount under destination directory %s: %m", dest);
+        }
 
         r = dissected_image_mount(
                         dissected_image,
@@ -4001,8 +4003,10 @@ int verity_dissect_and_mount(
          * extension-release.d/ content. Return -EINVAL if there's any mismatch.
          * First, check the distro ID. If that matches, then check the new SYSEXT_LEVEL value if
          * available, or else fallback to VERSION_ID. If neither is present (eg: rolling release),
-         * then a simple match on the ID will be performed. */
-        if (required_host_os_release_id) {
+         * then a simple match on the ID will be performed.
+         * Verifying release metadata requires mounted image for now, so skip when doing it in 2
+         * steps (i.e.: no 'dest' is specified). */
+        if (dest && required_host_os_release_id) {
                 _cleanup_strv_free_ char **extension_release = NULL;
                 ImageClass class = IMAGE_SYSEXT;
 
@@ -4034,6 +4038,9 @@ int verity_dissect_and_mount(
         r = dissected_image_relinquish(dissected_image);
         if (r < 0)
                 return log_debug_errno(r, "Failed to relinquish dissected image: %m");
+
+        if (ret_image)
+                *ret_image = TAKE_PTR(dissected_image);
 
         return 0;
 }
