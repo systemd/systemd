@@ -875,21 +875,21 @@ int journal_file_verify(
         }
 
         m = mmap_cache_fd_cache(f->cache_fd);
-        cache_data_fd = mmap_cache_add_fd(m, data_fd, PROT_READ|PROT_WRITE);
-        if (!cache_data_fd) {
-                r = log_oom();
+        r = mmap_cache_add_fd(m, data_fd, PROT_READ|PROT_WRITE, &cache_data_fd);
+        if (r < 0) {
+                log_error_errno(r, "Failed to cache data file: %m");
                 goto fail;
         }
 
-        cache_entry_fd = mmap_cache_add_fd(m, entry_fd, PROT_READ|PROT_WRITE);
-        if (!cache_entry_fd) {
-                r = log_oom();
+        r = mmap_cache_add_fd(m, entry_fd, PROT_READ|PROT_WRITE, &cache_entry_fd);
+        if (r < 0) {
+                log_error_errno(r, "Failed to cache entry file: %m");
                 goto fail;
         }
 
-        cache_entry_array_fd = mmap_cache_add_fd(m, entry_array_fd, PROT_READ|PROT_WRITE);
-        if (!cache_entry_array_fd) {
-                r = log_oom();
+        r = mmap_cache_add_fd(m, entry_array_fd, PROT_READ|PROT_WRITE, &cache_entry_array_fd);
+        if (r < 0) {
+                log_error_errno(r, "Failed to cache entry array file: %m");
                 goto fail;
         }
 
