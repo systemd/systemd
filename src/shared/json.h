@@ -211,6 +211,10 @@ int json_variant_set_field_unsigned(JsonVariant **v, const char *field, uint64_t
 int json_variant_set_field_boolean(JsonVariant **v, const char *field, bool b);
 int json_variant_set_field_strv(JsonVariant **v, const char *field, char **l);
 
+static inline int json_variant_set_field_non_null(JsonVariant **v, const char *field, JsonVariant *value) {
+        return value && !json_variant_is_null(value) ? json_variant_set_field(v, field, value) : 0;
+}
+
 JsonVariant *json_variant_find(JsonVariant *haystack, JsonVariant *needle);
 
 int json_variant_append_array(JsonVariant **v, JsonVariant *element);
@@ -219,7 +223,6 @@ int json_variant_append_array_nodup(JsonVariant **v, JsonVariant *element);
 
 int json_variant_merge_object(JsonVariant **v, JsonVariant *m);
 int json_variant_merge_objectb(JsonVariant **v, ...);
-int json_variant_merge_pair(JsonVariant **v, const char *name, JsonVariant *w);
 
 int json_variant_strv(JsonVariant *v, char ***ret);
 
