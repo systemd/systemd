@@ -455,23 +455,79 @@ static int journal_file_find_newest_for_boot_id(
         }
 }
 
-static int compare_boot_ids(sd_journal *j, sd_id128_t a, sd_id128_t b) {
-        JournalFile *x, *y;
+static struct boot_id_newest_entry **boot_id_to_newest_realtime_usec_get_slot(sd_journal *j, sd_id128_t boot_id) {
+        (void)j;
 
+        unsigned slot = (boot_id.qwords[0] | boot_id.qwords[1]) % BOOT_ID_TO_NEWEST_HASHTABLE_SIZE;
+        struct boot_id_newest_entry **e = &j->boot_id_newest_hashtable[slot];
+
+        while(*e && !sd_id128_equal(boot_id, (*e)->boot_id))
+                e = &((*e)->next);
+
+        return e;
+}
+
+static int compare_boot_ids(sd_journal *j, sd_id128_t a, sd_id128_t b) {
         assert(j);
 
-        /* Try to find the newest open journal file for the two boot ids */
-        if (journal_file_find_newest_for_boot_id(j, a, &x) < 0 ||
-            journal_file_find_newest_for_boot_id(j, b, &y) < 0)
-                return 0;
+        if (j->flags & SD_JOURNAL_CACHE_FILES_NEWEST_TIMESTAMPS) {
+                struct boot_id_newest_entry **ae, **be;
 
-        /* Only compare the boot id timestamps if they originate from the same machine. If they are from
-         * different machines, then we timestamps of the boot ids might be as off as the timestamps on the
-         * entries and hence not useful for comparing. */
-        if (!sd_id128_equal(x->newest_machine_id, y->newest_machine_id))
-                return 0;
+                ae = boot_id_to_newest_realtime_usec_get_slot(j, a);
+                be = boot_id_to_newest_realtime_usec_get_slot(j, b);
 
-        return CMP(x->newest_realtime_usec, y->newest_realtime_usec);
+                if (!(*ae)) {
+                        *ae = calloc(1, sizeof(struct boot_id_newest_entry));
+                        assert(*ae);
+                        (*ae)->boot_id = a;
+                        JournalFile *f;
+                        (*ae)->ret = journal_file_find_newest_for_boot_id(j, a, &f);
+                        if ((*ae)->ret >= 0) {
+                                (*ae)->newest_realtime_usec = f->newest_realtime_usec;
+                                (*ae)->newest_machine_id = f->newest_machine_id;
+                        }
+                }
+
+                if (!(*be)) {
+                        *be = calloc(1, sizeof(struct boot_id_newest_entry));
+                        assert(*be);
+                        (*be)->boot_id = b;
+                        JournalFile *f;
+                        (*be)->ret = journal_file_find_newest_for_boot_id(j, b, &f);
+                        if ((*ae)->ret >= 0) {
+                                (*be)->newest_realtime_usec = f->newest_realtime_usec;
+                                (*be)->newest_machine_id = f->newest_machine_id;
+                        }
+                }
+
+                struct boot_id_newest_entry *x = *ae, *y = *be;
+
+                if (x->ret < 0 || y->ret < 0)
+                        return 0;
+
+                /* Only compare the boot id timestamps if they originate from the same machine. If they are from different machines, then we timestamps of the boot ids might be as off as the timestamps on the entries and hence not useful for comparing. */
+                if (!sd_id128_equal(x->newest_machine_id, y->newest_machine_id))
+                        return 0;
+
+                return CMP(x->newest_realtime_usec, y->newest_realtime_usec);
+        }
+        else {
+                JournalFile *x, *y;
+
+                /* Try to find the newest open journal file for the two boot ids */
+                if (journal_file_find_newest_for_boot_id(j, a, &x) < 0 ||
+                    journal_file_find_newest_for_boot_id(j, b, &y) < 0)
+                        return 0;
+
+                /* Only compare the boot id timestamps if they originate from the same machine. If they are from
+                 * different machines, then we timestamps of the boot ids might be as off as the timestamps on the
+                 * entries and hence not useful for comparing. */
+
+                if (!sd_id128_equal(x->newest_machine_id, y->newest_machine_id))
+                        return 0;
+
+                return CMP(x->newest_realtime_usec, y->newest_realtime_usec);
+        }
 }
 
 static int compare_with_location(
@@ -2059,6 +2115,7 @@ static sd_journal *journal_new(int flags, const char *path, const char *namespac
          SD_JOURNAL_SYSTEM |                            \
          SD_JOURNAL_CURRENT_USER |                      \
          SD_JOURNAL_ALL_NAMESPACES |                    \
+         SD_JOURNAL_CACHE_FILES_NEWEST_TIMESTAMPS |     \
          SD_JOURNAL_INCLUDE_DEFAULT_NAMESPACE)
 
 _public_ int sd_journal_open_namespace(sd_journal **ret, const char *namespace, int flags) {
@@ -2085,7 +2142,8 @@ _public_ int sd_journal_open(sd_journal **ret, int flags) {
 }
 
 #define OPEN_CONTAINER_ALLOWED_FLAGS                    \
-        (SD_JOURNAL_LOCAL_ONLY | SD_JOURNAL_SYSTEM)
+        (SD_JOURNAL_CACHE_FILES_NEWEST_TIMESTAMPS |     \
+         SD_JOURNAL_LOCAL_ONLY | SD_JOURNAL_SYSTEM)
 
 _public_ int sd_journal_open_container(sd_journal **ret, const char *machine, int flags) {
         _cleanup_free_ char *root = NULL, *class = NULL;
@@ -2128,7 +2186,8 @@ _public_ int sd_journal_open_container(sd_journal **ret, const char *machine, in
 }
 
 #define OPEN_DIRECTORY_ALLOWED_FLAGS                    \
-        (SD_JOURNAL_OS_ROOT |                           \
+        (SD_JOURNAL_CACHE_FILES_NEWEST_TIMESTAMPS |     \
+         SD_JOURNAL_OS_ROOT |                           \
          SD_JOURNAL_SYSTEM | SD_JOURNAL_CURRENT_USER )
 
 _public_ int sd_journal_open_directory(sd_journal **ret, const char *path, int flags) {
@@ -2154,12 +2213,15 @@ _public_ int sd_journal_open_directory(sd_journal **ret, const char *path, int f
         return 0;
 }
 
+#define OPEN_FILES_ALLOWED_FLAGS                        \
+        SD_JOURNAL_CACHE_FILES_NEWEST_TIMESTAMPS
+
 _public_ int sd_journal_open_files(sd_journal **ret, const char **paths, int flags) {
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
         int r;
 
         assert_return(ret, -EINVAL);
-        assert_return(flags == 0, -EINVAL);
+        assert_return((flags & ~OPEN_FILES_ALLOWED_FLAGS) == 0, -EINVAL);
 
         j = journal_new(flags, NULL, NULL);
         if (!j)
@@ -2179,6 +2241,7 @@ _public_ int sd_journal_open_files(sd_journal **ret, const char **paths, int fla
 
 #define OPEN_DIRECTORY_FD_ALLOWED_FLAGS                 \
         (SD_JOURNAL_OS_ROOT |                           \
+         SD_JOURNAL_CACHE_FILES_NEWEST_TIMESTAMPS |     \
          SD_JOURNAL_SYSTEM |                            \
          SD_JOURNAL_CURRENT_USER |                      \
          SD_JOURNAL_TAKE_DIRECTORY_FD)
@@ -2219,6 +2282,9 @@ _public_ int sd_journal_open_directory_fd(sd_journal **ret, int fd, int flags) {
         return 0;
 }
 
+#define OPEN_FILES_FD_ALLOWED_FLAGS                     \
+        SD_JOURNAL_CACHE_FILES_NEWEST_TIMESTAMPS
+
 _public_ int sd_journal_open_files_fd(sd_journal **ret, int fds[], unsigned n_fds, int flags) {
         JournalFile *f;
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
@@ -2226,7 +2292,7 @@ _public_ int sd_journal_open_files_fd(sd_journal **ret, int fds[], unsigned n_fd
 
         assert_return(ret, -EINVAL);
         assert_return(n_fds > 0, -EBADF);
-        assert_return(flags == 0, -EINVAL);
+        assert_return((flags & ~OPEN_FILES_FD_ALLOWED_FLAGS) == 0, -EINVAL);
 
         j = journal_new(flags, NULL, NULL);
         if (!j)
@@ -2311,6 +2377,16 @@ _public_ void sd_journal_close(sd_journal *j) {
         free(j->namespace);
         free(j->unique_field);
         free(j->fields_buffer);
+
+        for(unsigned i = 0 ; i < BOOT_ID_TO_NEWEST_HASHTABLE_SIZE ;i++) {
+                struct boot_id_newest_entry *e = j->boot_id_newest_hashtable[i];
+                while(e) {
+                        struct boot_id_newest_entry *next = e->next;
+                        free(e);
+                        e = next;
+                }
+        }
+
         free(j);
 }
 
@@ -2403,6 +2479,9 @@ static int journal_file_read_tail_timestamp(sd_journal *j, JournalFile *f) {
         assert(f);
         assert(f->header);
 
+        if ((j->flags & SD_JOURNAL_CACHE_FILES_NEWEST_TIMESTAMPS) && f->have_tail_timestamp)
+                return 0;
+
         /* Tries to read the timestamp of the most recently written entry. */
 
         r = journal_file_fstat(f);
@@ -2472,6 +2551,7 @@ static int journal_file_read_tail_timestamp(sd_journal *j, JournalFile *f) {
         f->newest_realtime_usec = rt;
         f->newest_machine_id = f->header->machine_id;
         f->newest_mtime = timespec_load(&f->last_stat.st_mtim);
+        f->have_tail_timestamp = 1;
 
         r = journal_file_reshuffle_newest_by_boot_id(j, f);
         if (r < 0)
