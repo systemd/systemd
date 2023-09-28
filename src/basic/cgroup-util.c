@@ -2247,6 +2247,25 @@ int cg_hybrid_unified(void) {
         return r == CGROUP_UNIFIED_SYSTEMD && !unified_systemd_v232;
 }
 
+int cg_is_delegated(const char *controller, const char *path) {
+        int r;
+
+        assert(path);
+
+        r = cg_get_xattr_bool(controller, path, "trusted.delegate");
+        if (ERRNO_IS_NEG_XATTR_ABSENT(r)) {
+                /* If the trusted xattr isn't set (preferred), then check the
+                 * untrusted one. Under the assumption that whoever is trusted
+                 * enough to own the cgroup, is also trusted enough to decide
+                 * if it is delegated or not this should be safe. */
+                r = cg_get_xattr_bool(controller, path, "user.name");
+                if (ERRNO_IS_NEG_XATTR_ABSENT(r))
+                        return false;
+        }
+
+        return r;
+}
+
 const uint64_t cgroup_io_limit_defaults[_CGROUP_IO_LIMIT_TYPE_MAX] = {
         [CGROUP_IO_RBPS_MAX]    = CGROUP_LIMIT_MAX,
         [CGROUP_IO_WBPS_MAX]    = CGROUP_LIMIT_MAX,
