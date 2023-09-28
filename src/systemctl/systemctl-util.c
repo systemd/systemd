@@ -315,26 +315,33 @@ int expand_unit_names(sd_bus *bus, char **names, const char* suffix, char ***ret
         return 0;
 }
 
-int check_triggering_units(sd_bus *bus, const char *unit) {
+int get_active_triggering_units(sd_bus *bus, const char *unit, bool ignore_masked, char ***ret) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_free_ char *n = NULL, *dbus_path = NULL, *load_state = NULL;
-        _cleanup_strv_free_ char **triggered_by = NULL;
+        _cleanup_strv_free_ char **triggered_by = NULL, **active = NULL;
+        _cleanup_free_ char *name = NULL, *dbus_path = NULL;
         int r;
 
-        r = unit_name_mangle(unit, 0, &n);
-        if (r < 0)
-                return log_error_errno(r, "Failed to mangle unit name: %m");
+        assert(bus);
+        assert(unit);
+        assert(ret);
 
-        r = unit_load_state(bus, n, &load_state);
+        r = unit_name_mangle(unit, 0, &name);
         if (r < 0)
                 return r;
 
-        if (streq(load_state, "masked"))
-                return 0;
+        if (ignore_masked) {
+                r = unit_is_masked(bus, name);
+                if (r < 0)
+                        return r;
+                if (r > 0) {
+                        *ret = NULL;
+                        return 0;
+                }
+        }
 
-        dbus_path = unit_dbus_path_from_name(n);
+        dbus_path = unit_dbus_path_from_name(name);
         if (!dbus_path)
-                return log_oom();
+                return -ENOMEM;
 
         r = sd_bus_get_property_strv(
                         bus,
@@ -345,9 +352,9 @@ int check_triggering_units(sd_bus *bus, const char *unit) {
                         &error,
                         &triggered_by);
         if (r < 0)
-                return log_error_errno(r, "Failed to get triggered by array of %s: %s", n, bus_error_message(&error, r));
+                return log_debug_errno(r, "Failed to get TriggeredBy property of unit '%s': %s",
+                                       name, bus_error_message(&error, r));
 
-        bool first = true;
         STRV_FOREACH(i, triggered_by) {
                 UnitActiveState active_state;
 
@@ -358,15 +365,41 @@ int check_triggering_units(sd_bus *bus, const char *unit) {
                 if (!IN_SET(active_state, UNIT_ACTIVE, UNIT_RELOADING))
                         continue;
 
-                if (first) {
-                        log_warning("Warning: Stopping %s, but it can still be activated by:", n);
-                        first = false;
-                }
-
-                log_warning("  %s", *i);
+                r = strv_extend(&active, *i);
+                if (r < 0)
+                        return r;
         }
 
+        *ret = TAKE_PTR(active);
         return 0;
+}
+
+void warn_triggering_units(sd_bus *bus, const char *unit, const char *operation, bool ignore_masked) {
+        _cleanup_strv_free_ char **triggered_by = NULL;
+        _cleanup_free_ char *joined = NULL;
+        int r;
+
+        assert(bus);
+        assert(unit);
+        assert(operation);
+
+        r = get_active_triggering_units(bus, unit, ignore_masked, &triggered_by);
+        if (r < 0) {
+                log_warning_errno(r,
+                                  "Failed to get triggering units for '%s', ignoring: %m", unit);
+                return;
+        }
+
+        if (strv_isempty(triggered_by))
+                return;
+
+        joined = strv_join(triggered_by, ", ");
+        if (!joined)
+                return (void) log_oom();
+
+        log_warning("%s '%s', but its triggering units are still active:\n"
+                    "%s",
+                    operation, unit, joined);
 }
 
 int need_daemon_reload(sd_bus *bus, const char *unit) {
@@ -624,25 +657,31 @@ static int unit_find_template_path(
         return r;
 }
 
-int unit_is_masked(sd_bus *bus, LookupPaths *lp, const char *name) {
+int unit_is_masked(sd_bus *bus, const char *unit) {
         _cleanup_free_ char *load_state = NULL;
         int r;
 
-        if (unit_name_is_valid(name, UNIT_NAME_TEMPLATE)) {
-                _cleanup_free_ char *path = NULL;
+        assert(bus);
+        assert(unit);
 
-                /* A template cannot be loaded, but it can be still masked, so
-                 * we need to use a different method. */
+        if (unit_name_is_valid(unit, UNIT_NAME_TEMPLATE)) {
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+                const char *state;
 
-                r = unit_file_find_path(lp, name, &path);
+                r = bus_call_method(bus, bus_systemd_mgr, "GetUnitFileState", &error, &reply, "s", unit);
                 if (r < 0)
-                        return r;
-                if (r == 0)
-                        return false;
-                return null_or_empty_path(path);
+                        return log_debug_errno(r, "Failed to get UnitFileState for '%s': %s",
+                                               unit, bus_error_message(&error, r));
+
+                r = sd_bus_message_read(reply, "s", &state);
+                if (r < 0)
+                        return bus_log_parse_error_debug(r);
+
+                return STR_IN_SET(state, "masked", "masked-runtime");
         }
 
-        r = unit_load_state(bus, name, &load_state);
+        r = unit_load_state(bus, unit, &load_state);
         if (r < 0)
                 return r;
 
