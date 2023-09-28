@@ -797,12 +797,16 @@ int mount_option_mangle(
         return 0;
 }
 
-static int mount_in_namespace(
-                pid_t target,
+static int mount_in_namespace_legacy(
+                const char *chased_src_path,
+                int chased_src_fd,
+                struct stat *chased_src_st,
                 const char *propagate_path,
                 const char *incoming_path,
-                const char *src,
                 const char *dest,
+                int pidns_fd,
+                int mntns_fd,
+                int root_fd,
                 bool read_only,
                 bool make_file_or_directory,
                 const MountOptions *options,
@@ -810,51 +814,28 @@ static int mount_in_namespace(
                 bool is_image) {
 
         _cleanup_close_pair_ int errno_pipe_fd[2] = PIPE_EBADF;
-        _cleanup_close_ int mntns_fd = -EBADF, root_fd = -EBADF, pidns_fd = -EBADF, chased_src_fd = -EBADF;
         char mount_slave[] = "/tmp/propagate.XXXXXX", *mount_tmp, *mount_outside, *p;
         bool mount_slave_created = false, mount_slave_mounted = false,
                 mount_tmp_created = false, mount_tmp_mounted = false,
                 mount_outside_created = false, mount_outside_mounted = false;
-        _cleanup_free_ char *chased_src_path = NULL;
-        struct stat st;
         pid_t child;
         int r;
 
-        assert(target > 0);
+        assert(chased_src_path);
+        assert(chased_src_fd >= 0);
+        assert(chased_src_st);
         assert(propagate_path);
         assert(incoming_path);
-        assert(src);
         assert(dest);
+        assert(pidns_fd >= 0);
+        assert(mntns_fd >= 0);
+        assert(root_fd >= 0);
         assert(!options || is_image);
-
-        r = namespace_open(target, &pidns_fd, &mntns_fd, NULL, NULL, &root_fd);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to retrieve FDs of the target process' namespace: %m");
-
-        r = in_same_namespace(target, 0, NAMESPACE_MOUNT);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to determine if mount namespaces are equal: %m");
-        /* We can't add new mounts at runtime if the process wasn't started in a namespace */
-        if (r > 0)
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to activate bind mount in target, not running in a mount namespace");
-
-        /* One day, when bind mounting /proc/self/fd/n works across namespace boundaries we should rework
-         * this logic to make use of it... */
 
         p = strjoina(propagate_path, "/");
         r = laccess(p, F_OK);
         if (r < 0)
                 return log_debug_errno(r == -ENOENT ? SYNTHETIC_ERRNO(EOPNOTSUPP) : r, "Target does not allow propagation of mount points");
-
-        r = chase(src, NULL, 0, &chased_src_path, &chased_src_fd);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to resolve source path of %s: %m", src);
-        log_debug("Chased source path of %s to %s", src, chased_src_path);
-
-        if (fstat(chased_src_fd, &st) < 0)
-                return log_debug_errno(errno, "Failed to stat() resolved source path %s: %m", src);
-        if (S_ISLNK(st.st_mode)) /* This shouldn't really happen, given that we just chased the symlinks above, but let's better be safe… */
-                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Source directory %s can't be a symbolic link", src);
 
         /* Our goal is to install a new bind mount into the container,
            possibly read-only. This is irritatingly complex
@@ -885,7 +866,7 @@ static int mount_in_namespace(
         if (is_image)
                 r = mkdir_p(mount_tmp, 0700);
         else
-                r = make_mount_point_inode_from_stat(&st, mount_tmp, 0700);
+                r = make_mount_point_inode_from_stat(chased_src_st, mount_tmp, 0700);
         if (r < 0) {
                 log_debug_errno(r, "Failed to create temporary mount point %s: %m", mount_tmp);
                 goto finish;
@@ -894,7 +875,7 @@ static int mount_in_namespace(
         mount_tmp_created = true;
 
         if (is_image)
-                r = verity_dissect_and_mount(chased_src_fd, chased_src_path, mount_tmp, options, image_policy, NULL, NULL, NULL, NULL);
+                r = verity_dissect_and_mount(chased_src_fd, chased_src_path, mount_tmp, options, image_policy, NULL, NULL, NULL, NULL, NULL);
         else
                 r = mount_follow_verbose(LOG_DEBUG, FORMAT_PROC_FD_PATH(chased_src_fd), mount_tmp, NULL, MS_BIND, NULL);
         if (r < 0)
@@ -913,7 +894,7 @@ static int mount_in_namespace(
          * right-away. */
 
         mount_outside = strjoina(propagate_path, "/XXXXXX");
-        if (is_image || S_ISDIR(st.st_mode))
+        if (is_image || S_ISDIR(chased_src_st->st_mode))
                 r = mkdtemp(mount_outside) ? 0 : -errno;
         else {
                 r = mkostemp_safe(mount_outside);
@@ -933,7 +914,7 @@ static int mount_in_namespace(
         mount_outside_mounted = true;
         mount_tmp_mounted = false;
 
-        if (is_image || S_ISDIR(st.st_mode))
+        if (is_image || S_ISDIR(chased_src_st->st_mode))
                 (void) rmdir(mount_tmp);
         else
                 (void) unlink(mount_tmp);
@@ -962,7 +943,7 @@ static int mount_in_namespace(
                 if (make_file_or_directory) {
                         if (!is_image) {
                                 (void) mkdir_parents(dest, 0755);
-                                (void) make_mount_point_inode_from_stat(&st, dest, 0700);
+                                (void) make_mount_point_inode_from_stat(chased_src_st, dest, 0700);
                         } else
                                 (void) mkdir_p(dest, 0755);
                 }
@@ -1012,7 +993,7 @@ finish:
         if (mount_outside_mounted)
                 (void) umount_verbose(LOG_DEBUG, mount_outside, UMOUNT_NOFOLLOW);
         if (mount_outside_created) {
-                if (is_image || S_ISDIR(st.st_mode))
+                if (is_image || S_ISDIR(chased_src_st->st_mode))
                         (void) rmdir(mount_outside);
                 else
                         (void) unlink(mount_outside);
@@ -1021,7 +1002,7 @@ finish:
         if (mount_tmp_mounted)
                 (void) umount_verbose(LOG_DEBUG, mount_tmp, UMOUNT_NOFOLLOW);
         if (mount_tmp_created) {
-                if (is_image || S_ISDIR(st.st_mode))
+                if (is_image || S_ISDIR(chased_src_st->st_mode))
                         (void) rmdir(mount_tmp);
                 else
                         (void) unlink(mount_tmp);
@@ -1033,6 +1014,179 @@ finish:
                 (void) rmdir(mount_slave);
 
         return r;
+}
+
+static int mount_in_namespace(
+                pid_t target,
+                const char *propagate_path,
+                const char *incoming_path,
+                const char *src,
+                const char *dest,
+                bool read_only,
+                bool make_file_or_directory,
+                const MountOptions *options,
+                const ImagePolicy *image_policy,
+                bool is_image) {
+
+        _cleanup_(dissected_image_unrefp) DissectedImage *img = NULL;
+        _cleanup_close_pair_ int errno_pipe_fd[2] = PIPE_EBADF;
+        _cleanup_close_ int mntns_fd = -EBADF, root_fd = -EBADF, pidns_fd = -EBADF, chased_src_fd = -EBADF,
+                            new_mount_fd = -EBADF;
+        _cleanup_free_ char *chased_src_path = NULL;
+        struct stat st;
+        pid_t child;
+        int r;
+
+        assert(target > 0);
+        assert(propagate_path);
+        assert(incoming_path);
+        assert(src);
+        assert(dest);
+        assert(!options || is_image);
+
+        r = namespace_open(target, &pidns_fd, &mntns_fd, NULL, NULL, &root_fd);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to retrieve FDs of the target process' namespace: %m");
+
+        r = in_same_namespace(target, 0, NAMESPACE_MOUNT);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to determine if mount namespaces are equal: %m");
+        /* We can't add new mounts at runtime if the process wasn't started in a namespace */
+        if (r > 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to activate bind mount in target, not running in a mount namespace");
+
+        r = chase(src, NULL, 0, &chased_src_path, &chased_src_fd);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to resolve source path of %s: %m", src);
+        log_debug("Chased source path of %s to %s", src, chased_src_path);
+
+        if (fstat(chased_src_fd, &st) < 0)
+                return log_debug_errno(errno, "Failed to stat() resolved source path %s: %m", src);
+        if (S_ISLNK(st.st_mode)) /* This shouldn't really happen, given that we just chased the symlinks above, but let's better be safe… */
+                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Source directory %s can't be a symbolic link", src);
+
+        if (mount_new_api_supported()) /* Fallback if we can't use the new mount API */
+                return mount_in_namespace_legacy(
+                                chased_src_path,
+                                chased_src_fd,
+                                &st,
+                                propagate_path,
+                                incoming_path,
+                                dest,
+                                pidns_fd,
+                                mntns_fd,
+                                root_fd,
+                                read_only,
+                                make_file_or_directory,
+                                options,
+                                image_policy,
+                                is_image);
+
+        if (is_image) {
+                r = verity_dissect_and_mount(
+                                chased_src_fd,
+                                chased_src_path,
+                                /* dest= */ NULL,
+                                options,
+                                image_policy,
+                                /* required_host_os_release_id= */ NULL,
+                                /* required_host_os_release_version_id= */ NULL,
+                                /* required_host_os_release_sysext_level= */ NULL,
+                                /* required_sysext_scope */ NULL,
+                                &img);
+                if (r < 0)
+                        return log_debug_errno(
+                                        r,
+                                        "Failed to dissect and mount image %s: %m",
+                                        chased_src_path);
+        } else {
+                new_mount_fd = open_tree(
+                                chased_src_fd,
+                                "",
+                                OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC|AT_SYMLINK_NOFOLLOW|AT_EMPTY_PATH);
+                if (new_mount_fd < 0)
+                        return log_debug_errno(
+                                        errno,
+                                        "Failed to open mount point \"%s\": %m",
+                                        chased_src_path);
+        }
+
+        if (read_only && new_mount_fd >= 0) {
+                if (mount_setattr(new_mount_fd, "", AT_EMPTY_PATH,
+                                &(struct mount_attr) {
+                                        .attr_set = MOUNT_ATTR_RDONLY,
+                                }, MOUNT_ATTR_SIZE_VER0) < 0)
+                        return log_debug_errno(
+                                        errno,
+                                        "Failed to set mount flags for \"%s\": %m",
+                                        chased_src_path);
+        }
+
+        if (pipe2(errno_pipe_fd, O_CLOEXEC|O_NONBLOCK) < 0)
+                return log_debug_errno(errno, "Failed to create pipe: %m");
+
+        r = namespace_fork("(sd-bindmnt)",
+                           "(sd-bindmnt-inner)",
+                           /* except_fds= */ NULL,
+                           /* n_except_fds= */ 0,
+                           FORK_RESET_SIGNALS|FORK_DEATHSIG,
+                           pidns_fd,
+                           mntns_fd,
+                           /* netns_fd= */ -1,
+                           /* userns_fd= */ -1,
+                           root_fd,
+                           &child);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to fork off: %m");
+        if (r == 0) {
+                errno_pipe_fd[0] = safe_close(errno_pipe_fd[0]);
+
+                if (img) {
+                        if (make_file_or_directory)
+                                (void) mkdir_p(dest, 0755);
+
+                        r = dissected_image_mount(
+                                        img,
+                                        dest,
+                                        /* uid_shift= */ UID_INVALID,
+                                        /* uid_range= */ UID_INVALID,
+                                        /* userns_fd= */ -EBADF,
+                                        /* flags= */ read_only ? DISSECT_IMAGE_READ_ONLY : 0);
+                } else {
+                        if (make_file_or_directory) {
+                                (void) mkdir_parents(dest, 0755);
+                                (void) make_mount_point_inode_from_stat(&st, dest, 0700);
+                        }
+
+                        r = RET_NERRNO(move_mount(new_mount_fd,
+                                                  "",
+                                                  -EBADF,
+                                                  dest,
+                                                  MOVE_MOUNT_F_EMPTY_PATH));
+                }
+                if (r < 0) {
+                        (void) write(errno_pipe_fd[1], &r, sizeof(r));
+                        errno_pipe_fd[1] = safe_close(errno_pipe_fd[1]);
+
+                        _exit(EXIT_FAILURE);
+                }
+
+                _exit(EXIT_SUCCESS);
+        }
+
+        errno_pipe_fd[1] = safe_close(errno_pipe_fd[1]);
+
+        r = wait_for_terminate_and_check("(sd-bindmnt)", child, 0);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to wait for child: %m");
+        if (r != EXIT_SUCCESS) {
+                if (read(errno_pipe_fd[0], &r, sizeof(r)) == sizeof(r))
+                        return log_debug_errno(r, "Failed to mount: %m");
+
+                return log_debug_errno(SYNTHETIC_ERRNO(EPROTO), "Child failed.");
+        }
+
+        return 0;
 }
 
 int bind_mount_in_namespace(
@@ -1459,4 +1613,89 @@ int mount_credentials_fs(const char *path, size_t size, bool ro) {
                         "tmpfs",
                         credentials_fs_mount_flags(ro),
                         opts);
+}
+
+int make_fsmount(
+                int error_log_level,
+                const char *what,
+                const char *type,
+                unsigned long flags,
+                const char *options,
+                int userns_fd) {
+
+        _cleanup_close_ int fs_fd = -EBADF, mnt_fd = -EBADF;
+        _cleanup_free_ char *o = NULL;
+        unsigned long f;
+        int r;
+
+        assert(type);
+        assert(what);
+
+        r = mount_option_mangle(options, flags, &f, &o);
+        if (r < 0)
+                return log_full_errno(
+                                error_log_level, r, "Failed to mangle mount options %s: %m",
+                                strempty(options));
+
+        if (DEBUG_LOGGING) {
+                _cleanup_free_ char *fl = NULL;
+                (void) mount_flags_to_string(f, &fl);
+
+                log_debug("Creating mount fd for %s (%s) (%s \"%s\")...",
+                        strna(what), strna(type), strnull(fl), strempty(o));
+        }
+
+        fs_fd = fsopen(type, FSOPEN_CLOEXEC);
+        if (fs_fd < 0)
+                return log_full_errno(error_log_level, errno, "Failed to open superblock for \"%s\": %m", type);
+
+        if (fsconfig(fs_fd, FSCONFIG_SET_STRING, "source", what, 0) < 0)
+                return log_full_errno(error_log_level, errno, "Failed to set mount source for \"%s\" to \"%s\": %m", type, what);
+
+        if (FLAGS_SET(f, MS_RDONLY))
+                if (fsconfig(fs_fd, FSCONFIG_SET_FLAG, "ro", NULL, 0) < 0)
+                        return log_full_errno(error_log_level, errno, "Failed to set read only mount flag for \"%s\": %m", type);
+
+        for (const char *p = o;;) {
+                _cleanup_free_ char *word = NULL;
+                char *eq;
+
+                r = extract_first_word(&p, &word, ",", EXTRACT_KEEP_QUOTE);
+                if (r < 0)
+                        return log_full_errno(error_log_level, r, "Failed to parse mount option string \"%s\": %m", o);
+                if (r == 0)
+                        break;
+
+                eq = strchr(word, '=');
+                if (eq) {
+                        *eq = 0;
+                        eq++;
+
+                        if (fsconfig(fs_fd, FSCONFIG_SET_STRING, word, eq, 0) < 0)
+                                return log_full_errno(error_log_level, errno, "Failed to set mount option \"%s=%s\" for \"%s\": %m", word, eq, type);
+                } else {
+                        if (fsconfig(fs_fd, FSCONFIG_SET_FLAG, word, NULL, 0) < 0)
+                                return log_full_errno(error_log_level, errno, "Failed to set mount flag \"%s\" for \"%s\": %m", word, type);
+                }
+        }
+
+        if (fsconfig(fs_fd, FSCONFIG_CMD_CREATE, NULL, NULL, 0) < 0)
+                return log_full_errno(error_log_level, errno, "Failed to realize fs fd for \"%s\" (\"%s\"): %m", what, type);
+
+        mnt_fd = fsmount(fs_fd, FSMOUNT_CLOEXEC, 0);
+        if (mnt_fd < 0)
+                return log_full_errno(error_log_level, errno, "Failed to create mount fd for \"%s\" (\"%s\"): %m", what, type);
+
+        if (mount_setattr(mnt_fd, "", AT_EMPTY_PATH|AT_RECURSIVE,
+                          &(struct mount_attr) {
+                                  .attr_set = ms_flags_to_mount_attr(f) | (userns_fd >= 0 ? MOUNT_ATTR_IDMAP : 0),
+                                  .userns_fd = userns_fd,
+                          }, MOUNT_ATTR_SIZE_VER0) < 0)
+                return log_full_errno(error_log_level,
+                                      errno,
+                                      "Failed to set mount flags for \"%s\" (\"%s\"): %m",
+                                      what,
+                                      type);
+
+        return TAKE_FD(mnt_fd);
 }
