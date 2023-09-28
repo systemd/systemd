@@ -258,6 +258,13 @@ def iter_copy_sections(elf: ELFFile) -> typing.Iterator[PeSection]:
     # manually, so that we can easily strip unwanted sections. We try to only discard things we know
     # about so that there are no surprises.
 
+    relro = None
+    for elf_seg in elf.iter_segments():
+        if elf_seg["p_type"] == "PT_LOAD" and elf_seg["p_align"] != SECTION_ALIGNMENT:
+            raise RuntimeError("ELF segments are not properly aligned.")
+        elif elf_seg["p_type"] == "PT_GNU_RELRO":
+            relro = elf_seg
+
     for elf_s in elf.iter_sections():
         if (
             elf_s["sh_flags"] & SH_FLAGS.SHF_ALLOC == 0
@@ -273,6 +280,10 @@ def iter_copy_sections(elf: ELFFile) -> typing.Iterator[PeSection]:
         elif elf_s["sh_flags"] & SH_FLAGS.SHF_WRITE:
             rwx = PE_CHARACTERISTICS_RW
         else:
+            rwx = PE_CHARACTERISTICS_R
+
+        # PE images are always relro.
+        if relro and relro.section_in_segment(elf_s):
             rwx = PE_CHARACTERISTICS_R
 
         if pe_s and pe_s.Characteristics != rwx:
