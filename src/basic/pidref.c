@@ -68,11 +68,7 @@ int pidref_set_pidfd(PidRef *pidref, int fd) {
                 if (r < 0)
                         return r;
 
-                *pidref = (PidRef) {
-                        .fd = -EBADF,
-                        .pid = pid,
-                };
-
+                *pidref = PIDREF_MAKE_FROM_PID(pid);
                 return 0;
         }
 
@@ -116,6 +112,78 @@ void pidref_done(PidRef *pidref) {
         *pidref = (PidRef) {
                 .fd = safe_close(pidref->fd),
         };
+}
+
+PidRef *pidref_free(PidRef *pidref) {
+        /* Regularly, this is an embedded structure. But sometimes we want it on the heap too */
+        if (!pidref)
+                return NULL;
+
+        pidref_done(pidref);
+        return mfree(pidref);
+}
+
+int pidref_dup(const PidRef *pidref, PidRef **ret) {
+        _cleanup_close_ int dup_fd = -EBADF;
+        pid_t dup_pid = 0;
+
+        assert(ret);
+
+        /* Allocates a new PidRef on the heap, making it a copy of the specified pidref. This does not try to
+         * acquire a pidfd if we don't have one yet!
+         *
+         * If NULL is passed we'll generate a PidRef that refers to no process. This makes it easy to copy
+         * pidref fields that might or might not reference a process yet. */
+
+        if (pidref) {
+                if (pidref->fd >= 0) {
+                        dup_fd = fcntl(pidref->fd, F_DUPFD_CLOEXEC, 3);
+                        if (dup_fd < 0) {
+                                if (!ERRNO_IS_RESOURCE(errno))
+                                        return -errno;
+
+                                dup_fd = -EBADF;
+                        }
+                }
+
+                if (pidref->pid > 0)
+                        dup_pid = pidref->pid;
+        }
+
+        PidRef *dup_pidref = new(PidRef, 1);
+        if (!dup_pidref)
+                return -ENOMEM;
+
+        *dup_pidref = (PidRef) {
+                .fd = TAKE_FD(dup_fd),
+                .pid = dup_pid,
+        };
+
+        *ret = TAKE_PTR(dup_pidref);
+        return 0;
+}
+
+int pidref_new_from_pid(pid_t pid, PidRef **ret) {
+        _cleanup_(pidref_freep) PidRef *n = 0;
+        int r;
+
+        assert(ret);
+
+        if (pid < 0)
+                return -ESRCH;
+
+        n = new(PidRef, 1);
+        if (!n)
+                return -ENOMEM;
+
+        *n = PIDREF_NULL;
+
+        r = pidref_set_pid(n, pid);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(n);
+        return 0;
 }
 
 int pidref_kill(PidRef *pidref, int sig) {
@@ -171,3 +239,38 @@ int pidref_sigqueue(PidRef *pidref, int sig, int value) {
 
         return -ESRCH;
 }
+
+int pidref_verify(PidRef *pidref) {
+        int r;
+
+        /* This is a helper that is supposed to be called after reading information from procfs via a
+         * PidRef. It ensures that the PID we track still matches the PIDFD we pin. If this value differs
+         * after a procfs read, we might have read the data from a recycled PID. */
+
+        if (!pidref_is_set(pidref))
+                return -ESRCH;
+
+        if (pidref->fd < 0)
+                return 0; /* If we don't have a pidfd we cannot validate it, hence we assume it's all OK → return 0 */
+
+        r = pidfd_verify_pid(pidref->fd, pidref->pid);
+        if (r < 0)
+                return r;
+
+        return 1; /* We have a pidfd and it still points to the PID we have, hence all is *really* OK → return 1 */
+}
+
+static void pidref_hash_func(const PidRef *pidref, struct siphash *state) {
+        siphash24_compress(&pidref->pid, sizeof(pidref->pid), state);
+}
+
+static int pidref_compare_func(const PidRef *a, const PidRef *b) {
+        return CMP(a->pid, b->pid);
+}
+
+DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(
+                pidref_hash_ops,
+                PidRef,
+                pidref_hash_func,
+                pidref_compare_func,
+                pidref_free);

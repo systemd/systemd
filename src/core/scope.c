@@ -266,10 +266,10 @@ static int scope_coldplug(Unit *u) {
 
         if (!IN_SET(s->deserialized_state, SCOPE_DEAD, SCOPE_FAILED)) {
                 if (u->pids) {
-                        void *pidp;
+                        PidRef *pid;
 
-                        SET_FOREACH(pidp, u->pids) {
-                                r = unit_watch_pid(u, PTR_TO_PID(pidp), false);
+                        SET_FOREACH(pid, u->pids) {
+                                r = unit_watch_pidref(u, pid, /* exclusive= */ false);
                                 if (r < 0 && r != -EEXIST)
                                         return r;
                         }
@@ -420,7 +420,7 @@ static int scope_enter_start_chown(Scope *s) {
                 _exit(EXIT_SUCCESS);
         }
 
-        r = unit_watch_pid(UNIT(s), pidref.pid, /* exclusive= */ true);
+        r = unit_watch_pidref(UNIT(s), &pidref, /* exclusive= */ true);
         if (r < 0)
                 goto fail;
 
@@ -555,7 +555,7 @@ static int scope_get_timeout(Unit *u, usec_t *timeout) {
 
 static int scope_serialize(Unit *u, FILE *f, FDSet *fds) {
         Scope *s = SCOPE(u);
-        void *pidp;
+        PidRef *pid;
 
         assert(s);
         assert(f);
@@ -567,8 +567,8 @@ static int scope_serialize(Unit *u, FILE *f, FDSet *fds) {
         if (s->controller)
                 (void) serialize_item(f, "controller", s->controller);
 
-        SET_FOREACH(pidp, u->pids)
-                serialize_item_format(f, "pids", PID_FMT, PTR_TO_PID(pidp));
+        SET_FOREACH(pid, u->pids)
+                serialize_item_format(f, "pids", PID_FMT, pid->pid);
 
         return 0;
 }
@@ -606,15 +606,10 @@ static int scope_deserialize_item(Unit *u, const char *key, const char *value, F
                         return log_oom();
 
         } else if (streq(key, "pids")) {
-                pid_t pid;
 
-                if (parse_pid(value, &pid) < 0)
-                        log_unit_debug(u, "Failed to parse pids value: %s", value);
-                else {
-                        r = set_ensure_put(&u->pids, NULL, PID_TO_PTR(pid));
-                        if (r < 0)
-                                return r;
-                }
+                r = unit_watch_pid_str(u, value, /* exclusive= */ false);
+                if (r < 0)
+                        log_unit_debug(u, "Failed to parse pids value, ignoring: %s", value);
         } else
                 log_unit_debug(u, "Unknown serialization key: %s", key);
 
