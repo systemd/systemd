@@ -62,7 +62,6 @@ struct MMapCache {
         Hashmap *fds;
 
         LIST_HEAD(Window, unused);
-        Window *last_unused;
 
         Context contexts[MMAP_CACHE_MAX_CONTEXTS];
 };
@@ -100,12 +99,8 @@ static void window_unlink(Window *w) {
         if (w->fd)
                 LIST_REMOVE(by_fd, w->fd->windows, w);
 
-        if (w->in_unused) {
-                if (w->cache->last_unused == w)
-                        w->cache->last_unused = w->unused_prev;
-
+        if (w->in_unused)
                 LIST_REMOVE(unused, w->cache->unused, w);
-        }
 
         LIST_FOREACH(by_window, c, w->contexts) {
                 assert(c->window == w);
@@ -161,7 +156,7 @@ static Window *window_add(MMapCache *m, MMapFileDescriptor *f, bool keep_always,
         assert(m);
         assert(f);
 
-        if (!m->last_unused || m->n_windows <= WINDOWS_MIN) {
+        if (!m->unused || m->n_windows <= WINDOWS_MIN) {
 
                 /* Allocate a new window */
                 w = new(Window, 1);
@@ -171,7 +166,7 @@ static Window *window_add(MMapCache *m, MMapFileDescriptor *f, bool keep_always,
         } else {
 
                 /* Reuse an existing one */
-                w = m->last_unused;
+                w = m->unused;
                 window_unlink(w);
         }
 
@@ -208,9 +203,6 @@ static void context_detach_window(MMapCache *m, Context *c) {
                 window_free(w);
 #else
                 LIST_PREPEND(unused, m->unused, w);
-                if (!m->last_unused)
-                        m->last_unused = w;
-
                 w->in_unused = true;
 #endif
         }
@@ -228,10 +220,7 @@ static void context_attach_window(MMapCache *m, Context *c, Window *w) {
 
         if (w->in_unused) {
                 /* Used again? */
-                if (m->last_unused == w)
-                        m->last_unused = w->unused_prev;
                 LIST_REMOVE(unused, m->unused, w);
-
                 w->in_unused = false;
         }
 
