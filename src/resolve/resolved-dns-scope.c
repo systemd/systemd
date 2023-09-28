@@ -1455,7 +1455,7 @@ int dns_scope_announce(DnsScope *scope, bool goodbye) {
                         size++;
         }
 
-        answer = dns_answer_new(size + set_size(types));
+        answer = dns_answer_new(size + set_size(types), true);
         if (!answer)
                 return log_oom();
 

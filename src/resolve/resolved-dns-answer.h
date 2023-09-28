@@ -39,9 +39,10 @@ struct DnsAnswerItem {
 struct DnsAnswer {
         unsigned n_ref;
         OrderedSet *items;
+        bool mdns;
 };
 
-DnsAnswer *dns_answer_new(size_t n);
+DnsAnswer *dns_answer_new(size_t n, bool mdns);
 DnsAnswer *dns_answer_ref(DnsAnswer *a);
 DnsAnswer *dns_answer_unref(DnsAnswer *a);
 

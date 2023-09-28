@@ -2253,7 +2253,7 @@ static int dns_packet_extract_answer(DnsPacket *p, DnsAnswer **ret_answer) {
         if (n == 0)
                 return 0;
 
-        answer = dns_answer_new(n);
+        answer = dns_answer_new(n, p->protocol == DNS_PROTOCOL_MDNS);
         if (!answer)
                 return -ENOMEM;
 
