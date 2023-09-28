@@ -1425,7 +1425,7 @@ int show_journal_entry(
         if (n_columns <= 0)
                 n_columns = columns();
 
-        if(output_funcs[mode] != output_short) {
+        if (output_funcs[mode] != output_short) {
                 // output_short will fill display_ts and boot_id for us
                 // for all other output methods, we need this.
                 // However, this is about 40% of the execution time
