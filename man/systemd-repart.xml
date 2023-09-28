@@ -276,6 +276,9 @@
         so that the tool operates on the configuration and machine ID stored in the root file system later
         transitioned into itself.</para>
 
+        <para>See <option>--copy-source=</option> for a more restricted option that only affects
+        <varname>CopyFiles=</varname>.</para>
+
         <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>
 
@@ -500,6 +503,44 @@
         <xi:include href="version-info.xml" xpointer="v255"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--copy-source=</option><replaceable>PATH</replaceable></term>
+        <term><option>-s</option> <replaceable>PATH</replaceable></term>
+
+        <listitem><para>Specifies a source directory all <varname>CopyFiles=</varname> source paths shall be
+        relative to.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--make-ddi=</option><replaceable>TYPE</replaceable></term>
+
+        <listitem><para>Takes one of <literal>sysext</literal>, <literal>confext</literal> or
+        <literal>portable</literal>. Generates a Discoverable Disk Image (DDI) for a system extension
+        (sysext), configuration extension (sysext) or portable service. The generated image will consist of a
+        signed Verity <literal>erofs</literal> file system as root partition.</para>
+
+        <para>This option implies <option>--empty=create</option> and <option>--size=auto</option>. If
+        <option>--copy-source=</option> is not specified it will default to the current working
+        directory.</para>
+
+        <para>The private key and certificate for signing the DDI must be specified via
+        <option>--private-key=</option> and <option>--certificate=</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-S</option></term>
+        <term><option>-C</option></term>
+        <term><option>-P</option></term>
+
+        <listitem><para>Shortcuts for <option>--make-ddi=sysext</option>,
+        <option>--make-ddi=confext</option>, <option>--make-ddi=portable</option>,
+        respectively.</para></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
       <xi:include href="standard-options.xml" xpointer="no-pager" />
@@ -512,6 +553,32 @@
     <title>Exit status</title>
 
     <para>On success, 0 is returned, a non-zero failure code otherwise.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Example</title>
+
+    <example>
+      <title>Generate a configuration extension image</title>
+
+      <para>The following creates a configuration extension DDI (confext) for an
+      <filename>/etc/motd</filename> update.</para>
+
+      <programlisting>mkdir tree tree/etc tree/etc/extension-release.d
+echo "Hello World" > tree/etc/motd
+cat > tree/etc/extension-release.d/extension-release.my-motd &lt;&lt;EOF
+ID=fedora
+VERSION_ID=38
+IMAGE_ID=my-motd
+IMAGE_VERSION=7
+EOF
+systemd-repart -C --private-key=privkey.pem --certificate=cert.crt -s tree/ /var/lib/confexts/my-motd.confext.raw
+systemd-confext refresh</programlisting>
+
+      <para>The DDI generated that way may be applied to the system with
+      <citerefentry><refentrytitle>systemd-confext</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+    </example>
+
   </refsect1>
 
   <refsect1>
