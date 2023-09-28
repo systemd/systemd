@@ -22,6 +22,7 @@ typedef enum DnsAnswerFlags {
         DNS_ANSWER_SECTION_ANSWER     = 1 << 5, /* When parsing: RR originates from answer section */
         DNS_ANSWER_SECTION_AUTHORITY  = 1 << 6, /* When parsing: RR originates from authority section */
         DNS_ANSWER_SECTION_ADDITIONAL = 1 << 7, /* When parsing: RR originates from additional section */
+        DNS_ANSWER_MDNS               = 1 << 8, /* RR came from mDNS */
 
         DNS_ANSWER_MASK_SECTIONS      = DNS_ANSWER_SECTION_ANSWER|
                                         DNS_ANSWER_SECTION_AUTHORITY|
