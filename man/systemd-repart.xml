@@ -516,6 +516,47 @@
         <xi:include href="version-info.xml" xpointer="v255"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--make-ddi=</option><replaceable>TYPE</replaceable></term>
+
+        <listitem><para>Takes one of <literal>sysext</literal>, <literal>confext</literal> or
+        <literal>portable</literal>. Generates a Discoverable Disk Image (DDI) for a system extension
+        (sysext, see
+        <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        for details), configuration extension (confext) or <ulink
+        url="https://systemd.io/PORTABLE_SERVICES">portable service</ulink>. The generated image will consist
+        of a signed Verity <literal>erofs</literal> file system as root partition. In this mode of operation
+        the partition definitions in <filename>/usr/lib/repart.d/*.conf</filename> and related directories
+        are not read, and <option>--definitions=</option> is not supported, as appropriate definitions for
+        the selected DDI class will be chosen automatically.</para>
+
+        <para>Must be used in conjunction with <option>--copy-source=</option> to specify the file hierarchy
+        to populate the DDI with. The specified directory should contain an <filename>etc/</filename>
+        subdirectory if <literal>confext</literal> is selected. If <literal>sysext</literal> is selected it
+        should contain either a <filename>usr/</filename> or <filename>opt/</filename> directory, or both. If
+        <literal>portable</literal> is used a full OS file hierarchy can be provided.</para>
+
+        <para>This option implies <option>--empty=create</option>, <option>--size=auto</option> and
+        <option>--seed=random</option> (the latter two can be overriden).</para>
+
+        <para>The private key and certificate for signing the DDI must be specified via
+        <option>--private-key=</option> and <option>--certificate=</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-S</option></term>
+        <term><option>-C</option></term>
+        <term><option>-P</option></term>
+
+        <listitem><para>Shortcuts for <option>--make-ddi=sysext</option>,
+        <option>--make-ddi=confext</option>, <option>--make-ddi=portable</option>,
+        respectively.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
       <xi:include href="standard-options.xml" xpointer="no-pager" />
@@ -531,12 +572,40 @@
   </refsect1>
 
   <refsect1>
+    <title>Example</title>
+
+    <example>
+      <title>Generate a configuration extension image</title>
+
+      <para>The following creates a configuration extension DDI (confext) for an
+      <filename>/etc/motd</filename> update.</para>
+
+      <programlisting>mkdir tree tree/etc tree/etc/extension-release.d
+echo "Hello World" > tree/etc/motd
+cat > tree/etc/extension-release.d/extension-release.my-motd &lt;&lt;EOF
+ID=fedora
+VERSION_ID=38
+IMAGE_ID=my-motd
+IMAGE_VERSION=7
+EOF
+systemd-repart -C --private-key=privkey.pem --certificate=cert.crt -s tree/ /var/lib/confexts/my-motd.confext.raw
+systemd-confext refresh</programlisting>
+
+      <para>The DDI generated that way may be applied to the system with
+      <citerefentry><refentrytitle>systemd-confext</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+    </example>
+
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>repart.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd-cryptenroll</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>systemd-cryptenroll</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>portablectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     </para>
   </refsect1>
 
