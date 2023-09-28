@@ -1074,3 +1074,17 @@ int getenv_steal_erase(const char *name, char **ret) {
 
         return 1;
 }
+
+int set_full_environment(char **env) {
+        int r;
+
+        clearenv();
+
+        STRV_FOREACH(e, env) {
+                r = putenv(*e);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
