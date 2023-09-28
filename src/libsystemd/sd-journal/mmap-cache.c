@@ -88,27 +88,27 @@ MMapCache* mmap_cache_new(void) {
         return m;
 }
 
-static void window_unlink(Window *w) {
-
+static Window* window_unlink(Window *w) {
         assert(w);
+
+        MMapCache *m = mmap_cache_fd_cache(w->fd);
 
         if (w->ptr)
                 munmap(w->ptr, w->size);
 
-        if (w->fd)
-                LIST_REMOVE(by_fd, w->fd->windows, w);
-
         if (w->in_unused) {
-                if (w->cache->last_unused == w)
-                        w->cache->last_unused = w->unused_prev;
+                if (m->last_unused == w)
+                        m->last_unused = w->unused_prev;
 
-                LIST_REMOVE(unused, w->cache->unused, w);
+                LIST_REMOVE(unused, m->unused, w);
         }
 
         LIST_FOREACH(by_window, c, w->contexts) {
                 assert(c->window == w);
                 c->window = NULL;
         }
+
+        return LIST_REMOVE(by_fd, w->fd->windows, w);
 }
 
 static void window_invalidate(Window *w) {
@@ -127,12 +127,14 @@ static void window_invalidate(Window *w) {
         w->invalidated = true;
 }
 
-static void window_free(Window *w) {
-        assert(w);
+static Window* window_free(Window *w) {
+        if (!w)
+                return NULL;
 
         window_unlink(w);
         w->cache->n_windows--;
-        free(w);
+
+        return mfree(w);
 }
 
 static bool window_matches(Window *w, uint64_t offset, size_t size) {
@@ -166,12 +168,9 @@ static Window *window_add(MMapCache *m, MMapFileDescriptor *f, bool keep_always,
                 if (!w)
                         return NULL;
                 m->n_windows++;
-        } else {
-
+        } else
                 /* Reuse an existing one */
-                w = m->last_unused;
-                window_unlink(w);
-        }
+                w = window_unlink(m->last_unused);
 
         *w = (Window) {
                 .cache = m,
@@ -238,16 +237,18 @@ static void context_attach_window(MMapCache *m, Context *c, Window *w) {
         LIST_PREPEND(by_window, w->contexts, c);
 }
 
-static MMapCache *mmap_cache_free(MMapCache *m) {
-        assert(m);
+static MMapCache* mmap_cache_free(MMapCache *m) {
+        if (!m)
+                return NULL;
 
-        for (int i = 0; i < MMAP_CACHE_MAX_CONTEXTS; i++)
-                context_detach_window(m, &m->contexts[i]);
+        /* All windows are owned by fds, and each fd takes a reference of MMapCache. So, when this is called,
+         * all fds are already freed, and hence there is no window. */
 
+        assert(hashmap_isempty(m->fds));
         hashmap_free(m->fds);
 
-        while (m->unused)
-                window_free(m->unused);
+        assert(!m->unused);
+        assert(m->n_windows == 0);
 
         return mfree(m);
 }
@@ -581,9 +582,9 @@ int mmap_cache_add_fd(MMapCache *m, int fd, int prot, MMapFileDescriptor **ret) 
         return 1;
 }
 
-void mmap_cache_fd_free(MMapFileDescriptor *f) {
-        assert(f);
-        assert(f->cache);
+MMapFileDescriptor* mmap_cache_fd_free(MMapFileDescriptor *f) {
+        if (!f)
+                return NULL;
 
         /* Make sure that any queued SIGBUS are first dispatched, so
          * that we don't end up with a SIGBUS entry we cannot relate
@@ -594,16 +595,15 @@ void mmap_cache_fd_free(MMapFileDescriptor *f) {
         while (f->windows)
                 window_free(f->windows);
 
-        if (f->cache) {
-                assert_se(hashmap_remove(f->cache->fds, FD_TO_PTR(f->fd)));
-                f->cache = mmap_cache_unref(f->cache);
-        }
+        assert_se(hashmap_remove(f->cache->fds, FD_TO_PTR(f->fd)) == f);
 
-        free(f);
+        /* Unref the cache at the end. Otherwise, the assertions in mmap_cache_free() may be triggered. */
+        f->cache = mmap_cache_unref(f->cache);
+
+        return mfree(f);
 }
 
 MMapCache* mmap_cache_fd_cache(MMapFileDescriptor *f) {
         assert(f);
-
-        return f->cache;
+        return ASSERT_PTR(f->cache);
 }
