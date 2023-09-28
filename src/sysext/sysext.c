@@ -591,13 +591,13 @@ static int merge_subprocess(Hashmap *images, const char *workspace) {
         /* Let's create the workspace if it's missing */
         r = mkdir_p(workspace, 0700);
         if (r < 0)
-                return log_error_errno(r, "Failed to create /run/systemd/sysext: %m");
+                return log_error_errno(r, "Failed to create '%s': %m", workspace);
 
         /* Let's mount a tmpfs to our workspace. This way we don't need to clean up the inodes we mount over,
          * but let the kernel do that entirely automatically, once our namespace dies. Note that this file
          * system won't be visible to anyone but us, since we opened our own namespace and then made the
          * /run/ hierarchy (which our workspace is contained in) MS_SLAVE, see above. */
-        r = mount_nofollow_verbose(LOG_ERR, "sysext", workspace, "tmpfs", 0, "mode=0700");
+        r = mount_nofollow_verbose(LOG_ERR, image_class_info[arg_image_class].short_identifier, workspace, "tmpfs", 0, "mode=0700");
         if (r < 0)
                 return r;
 
