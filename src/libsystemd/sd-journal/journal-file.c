@@ -4099,11 +4099,9 @@ int journal_file_open(
                 newly_created = f->last_stat.st_size == 0 && journal_file_writable(f);
         }
 
-        f->cache_fd = mmap_cache_add_fd(mmap_cache, f->fd, mmap_prot_from_open_flags(open_flags));
-        if (!f->cache_fd) {
-                r = -ENOMEM;
+        r = mmap_cache_add_fd(mmap_cache, f->fd, mmap_prot_from_open_flags(open_flags), &f->cache_fd);
+        if (r < 0)
                 goto fail;
-        }
 
         if (newly_created) {
                 (void) journal_file_warn_btrfs(f);
