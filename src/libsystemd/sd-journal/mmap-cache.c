@@ -77,11 +77,14 @@ struct MMapCache {
 MMapCache* mmap_cache_new(void) {
         MMapCache *m;
 
-        m = new0(MMapCache, 1);
+        m = new(MMapCache, 1);
         if (!m)
                 return NULL;
 
-        m->n_ref = 1;
+        *m = (MMapCache) {
+                .n_ref = 1,
+        };
+
         return m;
 }
 
