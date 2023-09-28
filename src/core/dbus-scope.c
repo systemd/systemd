@@ -92,6 +92,7 @@ static int bus_scope_set_transient_property(
                         return r;
 
                 for (;;) {
+                        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
                         uint32_t upid;
                         pid_t pid;
 
@@ -114,12 +115,16 @@ static int bus_scope_set_transient_property(
                         } else
                                 pid = (uid_t) upid;
 
-                        r = unit_pid_attachable(u, pid, error);
+                        r = pidref_set_pid(&pidref, pid);
+                        if (r < 0)
+                                return r;
+
+                        r = unit_pid_attachable(u, &pidref, error);
                         if (r < 0)
                                 return r;
 
                         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                                r = unit_watch_pid(u, pid, false);
+                                r = unit_watch_pidref(u, &pidref, /* exclusive= */ false);
                                 if (r < 0 && r != -EEXIST)
                                         return r;
                         }
