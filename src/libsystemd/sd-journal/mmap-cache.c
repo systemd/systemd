@@ -55,7 +55,9 @@ struct MMapCache {
         unsigned n_ref;
         unsigned n_windows;
 
-        unsigned n_context_cache_hit, n_window_list_hit, n_missed;
+        unsigned n_context_cache_hit;
+        unsigned n_window_list_hit;
+        unsigned n_missed;
 
         Hashmap *fds;
 
@@ -118,10 +120,8 @@ static void window_invalidate(Window *w) {
         if (w->invalidated)
                 return;
 
-        /* Replace the window with anonymous pages. This is useful
-         * when we hit a SIGBUS and want to make sure the file cannot
-         * trigger any further SIGBUS, possibly overrunning the sigbus
-         * queue. */
+        /* Replace the window with anonymous pages. This is useful when we hit a SIGBUS and want to make sure
+         * the file cannot trigger any further SIGBUS, possibly overrunning the sigbus queue. */
 
         assert_se(mmap(w->ptr, w->size, w->fd->prot, MAP_PRIVATE|MAP_ANONYMOUS|MAP_FIXED, -1, 0) == w->ptr);
         w->invalidated = true;
@@ -201,8 +201,7 @@ static void context_detach_window(MMapCache *m, Context *c) {
         if (!w->contexts && !w->keep_always) {
                 /* Not used anymore? */
 #if ENABLE_DEBUG_MMAP_CACHE
-                /* Unmap unused windows immediately to expose use-after-unmap
-                 * by SIGSEGV. */
+                /* Unmap unused windows immediately to expose use-after-unmap by SIGSEGV. */
                 window_free(w);
 #else
                 LIST_PREPEND(unused, m->unused, w);
@@ -403,9 +402,8 @@ static int add_mmap(
         }
 
         if (st) {
-                /* Memory maps that are larger then the files
-                   underneath have undefined behavior. Hence, clamp
-                   things to the file size if we know it */
+                /* Memory maps that are larger then the files underneath have undefined behavior. Hence,
+                 * clamp things to the file size if we know it */
 
                 if (woffset >= (uint64_t) st->st_size)
                         return -EADDRNOTAVAIL;
@@ -473,7 +471,8 @@ int mmap_cache_fd_get(
 void mmap_cache_stats_log_debug(MMapCache *m) {
         assert(m);
 
-        log_debug("mmap cache statistics: %u context cache hit, %u window list hit, %u miss", m->n_context_cache_hit, m->n_window_list_hit, m->n_missed);
+        log_debug("mmap cache statistics: %u context cache hit, %u window list hit, %u miss",
+                  m->n_context_cache_hit, m->n_window_list_hit, m->n_missed);
 }
 
 static void mmap_cache_process_sigbus(MMapCache *m) {
@@ -483,8 +482,7 @@ static void mmap_cache_process_sigbus(MMapCache *m) {
 
         assert(m);
 
-        /* Iterate through all triggered pages and mark their files as
-         * invalidated */
+        /* Iterate through all triggered pages and mark their files as invalidated. */
         for (;;) {
                 bool ours;
                 void *addr;
@@ -511,17 +509,16 @@ static void mmap_cache_process_sigbus(MMapCache *m) {
                                 break;
                 }
 
-                /* Didn't find a matching window, give up */
+                /* Didn't find a matching window, give up. */
                 if (!ours) {
                         log_error("Unknown SIGBUS page, aborting.");
                         abort();
                 }
         }
 
-        /* The list of triggered pages is now empty. Now, let's remap
-         * all windows of the triggered file to anonymous maps, so
-         * that no page of the file in question is triggered again, so
-         * that we can be sure not to hit the queue size limit. */
+        /* The list of triggered pages is now empty. Now, let's remap all windows of the triggered file to
+         * anonymous maps, so that no page of the file in question is triggered again, so that we can be sure
+         * not to hit the queue size limit. */
         if (_likely_(!found))
                 return;
 
@@ -586,9 +583,8 @@ MMapFileDescriptor* mmap_cache_fd_free(MMapFileDescriptor *f) {
         if (!f)
                 return NULL;
 
-        /* Make sure that any queued SIGBUS are first dispatched, so
-         * that we don't end up with a SIGBUS entry we cannot relate
-         * to any existing memory map */
+        /* Make sure that any queued SIGBUS are first dispatched, so that we don't end up with a SIGBUS entry
+         * we cannot relate to any existing memory map. */
 
         mmap_cache_process_sigbus(f->cache);
 
