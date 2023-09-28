@@ -65,7 +65,7 @@ static int match_modalias_recurse_dir_cb(
         return RECURSE_DIR_LEAVE_DIRECTORY;
 }
 
-static bool has_virtio_rng(void) {
+static bool has_virtio_feature(const char *name, char **modaliases) {
         int r;
 
         /* Directory traversal might be slow, hence let's do a cheap check first if it's even worth it */
@@ -76,56 +76,34 @@ static bool has_virtio_rng(void) {
                         AT_FDCWD,
                         "/sys/devices/pci0000:00",
                         /* statx_mask= */ 0,
-                        /* n_depth_max= */ 2,
+                        /* n_depth_max= */ 3,
                         RECURSE_DIR_ENSURE_TYPE,
                         match_modalias_recurse_dir_cb,
-                        STRV_MAKE("pci:v00001AF4d00001005", "pci:v00001AF4d00001044"));
+                        modaliases);
         if (r < 0)
-                log_debug_errno(r, "Failed to determine whether host has virtio-rng device, ignoring: %m");
+                log_debug_errno(r, "Failed to determine whether host has %s device, ignoring: %m", name);
 
         return r > 0;
+}
+
+static bool has_virtio_rng(void) {
+        return has_virtio_feature("virtio-rng", STRV_MAKE("pci:v00001AF4d00001005", "pci:v00001AF4d00001044"));
 }
 
 static bool has_virtio_console(void) {
-        int r;
-
-        /* Directory traversal might be slow, hence let's do a cheap check first if it's even worth it */
-        if (detect_vm() == VIRTUALIZATION_NONE)
-                return false;
-
-        r = recurse_dir_at(
-                        AT_FDCWD,
-                        "/sys/devices/pci0000:00",
-                        /* statx_mask= */ 0,
-                        /* n_depth_max= */ 3,
-                        RECURSE_DIR_ENSURE_TYPE,
-                        match_modalias_recurse_dir_cb,
-                        STRV_MAKE("virtio:d00000003v", "virtio:d0000000Bv"));
-        if (r < 0)
-                log_debug_errno(r, "Failed to determine whether host has virtio-console device, ignoring: %m");
-
-        return r > 0;
+        return has_virtio_feature("virtio-console", STRV_MAKE("virtio:d00000003v", "virtio:d0000000Bv"));
 }
 
 static bool has_virtio_vsock(void) {
-        int r;
+        return has_virtio_feature("virtio-vsock", STRV_MAKE("virtio:d00000013v"));
+}
 
-        /* Directory traversal might be slow, hence let's do a cheap check first if it's even worth it */
-        if (detect_vm() == VIRTUALIZATION_NONE)
-                return false;
+static bool has_virtiofs(void) {
+        return has_virtio_feature("virtiofs", STRV_MAKE("virtio:d0000001Av"));
+}
 
-        r = recurse_dir_at(
-                        AT_FDCWD,
-                        "/sys/devices/pci0000:00",
-                        /* statx_mask= */ 0,
-                        /* n_depth_max= */ 3,
-                        RECURSE_DIR_ENSURE_TYPE,
-                        match_modalias_recurse_dir_cb,
-                        STRV_MAKE("virtio:d00000013v"));
-        if (r < 0)
-                log_debug_errno(r, "Failed to determine whether host has virtio-vsock device, ignoring: %m");
-
-        return r > 0;
+static bool has_virtio_pci(void) {
+        return has_virtio_feature("virtio-pci", STRV_MAKE("pci:v00001AF4d"));
 }
 
 static bool in_qemu(void) {
@@ -167,6 +145,15 @@ int kmod_setup(void) {
 
                 /* Make sure we can send sd-notify messages over vsock as early as possible. */
                 { "vmw_vsock_virtio_transport", NULL,                        false, false, has_virtio_vsock   },
+
+                /* We can't wait for specific virtiofs tags to show up as device nodes so we have to load the
+                 * virtiofs and virtio_pci modules early to make sure the virtiofs tags are found when
+                 * sysroot.mount is started.
+                 *
+                 * TODO: Remove these again once https://gitlab.com/virtio-fs/virtiofsd/-/issues/128 is
+                 * resolved and the kernel fix is widely available. */
+                { "virtiofs",                   "/sys/module/virtiofs",      false, false, has_virtiofs       },
+                { "virtio_pci",                 "/sys/module/virtio_pci",    false, false, has_virtio_pci     },
 
                 /* qemu_fw_cfg would be loaded by udev later, but we want to import credentials from it super early */
                 { "qemu_fw_cfg",                "/sys/firmware/qemu_fw_cfg", false, false, in_qemu            },
