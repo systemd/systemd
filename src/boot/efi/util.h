@@ -6,8 +6,8 @@
 #include "proto/file-io.h"
 #include "string-util-fundamental.h"
 
-/* This is provided by linker script. */
-extern uint8_t __ImageBase;
+/* This is provided by the linker. */
+extern uint8_t __executable_start[];
 
 static inline void free(void *p) {
         if (!p)

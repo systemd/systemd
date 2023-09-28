@@ -81,7 +81,7 @@ void __stack_chk_guard_init(void) {
                 (void) rng->GetRNG(rng, NULL, sizeof(__stack_chk_guard), (void *) &__stack_chk_guard);
         else
                 /* Better than no extra entropy. */
-                __stack_chk_guard ^= (intptr_t) &__ImageBase;
+                __stack_chk_guard ^= (intptr_t) __executable_start;
 }
 #endif
 

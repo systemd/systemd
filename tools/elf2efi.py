@@ -39,7 +39,7 @@ from ctypes import (
 )
 
 from elftools.elf.constants import SH_FLAGS
-from elftools.elf.elffile import ELFFile, Section as ELFSection
+from elftools.elf.elffile import ELFFile
 from elftools.elf.enums import (
     ENUM_DT_FLAGS_1,
     ENUM_RELOC_TYPE_AARCH64,
@@ -204,6 +204,30 @@ assert sizeof(PeCoffHeader) == 20
 assert sizeof(PeOptionalHeader32) == 224
 assert sizeof(PeOptionalHeader32Plus) == 240
 
+PE_CHARACTERISTICS_RX = 0x60000020  # CNT_CODE|MEM_READ|MEM_EXECUTE
+PE_CHARACTERISTICS_RW = 0xC0000040  # CNT_INITIALIZED_DATA|MEM_READ|MEM_WRITE
+PE_CHARACTERISTICS_R = 0x40000040  # CNT_INITIALIZED_DATA|MEM_READ
+
+IGNORE_SECTIONS = [
+    ".eh_frame",
+    ".eh_frame_hdr",
+    ".ARM.exidx",
+]
+
+IGNORE_SECTION_TYPES = [
+    "SHT_DYNAMIC",
+    "SHT_DYNSYM",
+    "SHT_GNU_ATTRIBUTES",
+    "SHT_GNU_HASH",
+    "SHT_HASH",
+    "SHT_NOTE",
+    "SHT_REL",
+    "SHT_RELA",
+    "SHT_RELR",
+    "SHT_STRTAB",
+    "SHT_SYMTAB",
+]
+
 # EFI mandates 4KiB memory pages.
 SECTION_ALIGNMENT = 4096
 FILE_ALIGNMENT = 512
@@ -217,79 +241,78 @@ def align_to(x: int, align: int) -> int:
     return (x + align - 1) & ~(align - 1)
 
 
-def use_section(elf_s: ELFSection) -> bool:
-    # These sections are either needed during conversion to PE or are otherwise not needed
-    # in the final PE image.
-    IGNORE_SECTIONS = [
-        ".ARM.exidx",
-        ".dynamic",
-        ".dynstr",
-        ".dynsym",
-        ".eh_frame_hdr",
-        ".eh_frame",
-        ".gnu.hash",
-        ".hash",
-        ".note.gnu.build-id",
-        ".rel.dyn",
-        ".rela.dyn",
-    ]
-
-    # Known sections we care about and want to be in the final PE.
-    COPY_SECTIONS = [
-        ".data",
-        ".osrel",
-        ".rodata",
-        ".sbat",
-        ".sdmagic",
-        ".text",
-    ]
-
-    # By only dealing with allocating sections we effectively filter out debug sections.
-    if not elf_s["sh_flags"] & SH_FLAGS.SHF_ALLOC:
-        return False
-
-    if elf_s.name in IGNORE_SECTIONS:
-        return False
-
-    # For paranoia we only handle sections we know of. Any new sections that come up should
-    # be added to IGNORE_SECTIONS/COPY_SECTIONS and/or the linker script.
-    if elf_s.name not in COPY_SECTIONS:
-        raise RuntimeError(f"Unknown section {elf_s.name}, refusing.")
-
-    if elf_s["sh_addr"] % SECTION_ALIGNMENT != 0:
-        raise RuntimeError(f"Section {elf_s.name} is not aligned.")
-    if len(elf_s.name) > 8:
-        raise RuntimeError(f"ELF section name {elf_s.name} too long.")
-
-    return True
+def align_down(x: int, align: int) -> int:
+    return x & ~(align - 1)
 
 
-def convert_elf_section(elf_s: ELFSection) -> PeSection:
-    pe_s = PeSection()
-    pe_s.Name = elf_s.name.encode()
-    pe_s.VirtualSize = elf_s.data_size
-    pe_s.VirtualAddress = elf_s["sh_addr"]
-    pe_s.SizeOfRawData = align_to(elf_s.data_size, FILE_ALIGNMENT)
-    pe_s.data = bytearray(elf_s.data())
+def iter_copy_sections(elf: ELFFile) -> typing.Iterator[PeSection]:
+    pe_s = None
 
-    if elf_s["sh_flags"] & SH_FLAGS.SHF_EXECINSTR:
-        pe_s.Characteristics = 0x60000020  # CNT_CODE|MEM_READ|MEM_EXECUTE
-    elif elf_s["sh_flags"] & SH_FLAGS.SHF_WRITE:
-        pe_s.Characteristics = 0xC0000040  # CNT_INITIALIZED_DATA|MEM_READ|MEM_WRITE
-    else:
-        pe_s.Characteristics = 0x40000040  # CNT_INITIALIZED_DATA|MEM_READ
-
-    return pe_s
-
-
-def copy_sections(elf: ELFFile, opt: PeOptionalHeader) -> typing.List[PeSection]:
-    sections = []
+    # This is essentially the same as copying by ELF load segments, except that we assemble them
+    # manually, so that we can easily strip unwanted sections. We try to only discard things we know
+    # about so that there are no surprises.
 
     for elf_s in elf.iter_sections():
-        if not use_section(elf_s):
+        if (
+            elf_s["sh_flags"] & SH_FLAGS.SHF_ALLOC == 0
+            or elf_s["sh_type"] in IGNORE_SECTION_TYPES
+            or elf_s.name in IGNORE_SECTIONS
+        ):
             continue
+        if elf_s["sh_type"] not in ["SHT_PROGBITS", "SHT_NOBITS"]:
+            raise RuntimeError(f"Unknown section {elf_s.name}.")
 
-        pe_s = convert_elf_section(elf_s)
+        if elf_s["sh_flags"] & SH_FLAGS.SHF_EXECINSTR:
+            rwx = PE_CHARACTERISTICS_RX
+        elif elf_s["sh_flags"] & SH_FLAGS.SHF_WRITE:
+            rwx = PE_CHARACTERISTICS_RW
+        else:
+            rwx = PE_CHARACTERISTICS_R
+
+        if pe_s and pe_s.Characteristics != rwx:
+            yield pe_s
+            pe_s = None
+
+        if pe_s:
+            # Insert padding to properly align the section.
+            pad_len = elf_s["sh_addr"] - pe_s.VirtualAddress - len(pe_s.data)
+            pe_s.data += bytearray(pad_len) + elf_s.data()
+        else:
+            pe_s = PeSection()
+            pe_s.VirtualAddress = elf_s["sh_addr"]
+            pe_s.Characteristics = rwx
+            pe_s.data = elf_s.data()
+
+    if pe_s:
+        yield pe_s
+
+
+def convert_sections(elf: ELFFile, opt: PeOptionalHeader) -> typing.List[PeSection]:
+    last_vma = 0
+    sections = []
+
+    for pe_s in iter_copy_sections(elf):
+        # Truncate the VMA to the nearest page and insert appropriate padding. This should not
+        # cause any overlap as this is pretty much how ELF *segments* are loaded/mmapped anyways.
+        # The ELF sections inside should also be properly aligned as we reuse the ELF VMA layout
+        # for the PE image.
+        vma = pe_s.VirtualAddress
+        pe_s.VirtualAddress = align_down(vma, SECTION_ALIGNMENT)
+        pe_s.data = bytearray(vma - pe_s.VirtualAddress) + pe_s.data
+
+        pe_s.VirtualSize = len(pe_s.data)
+        pe_s.SizeOfRawData = align_to(len(pe_s.data), FILE_ALIGNMENT)
+        pe_s.Name = {
+            PE_CHARACTERISTICS_RX: b".text",
+            PE_CHARACTERISTICS_RW: b".data",
+            PE_CHARACTERISTICS_R: b".rodata",
+        }[pe_s.Characteristics]
+
+        # This can happen if not building with `-z separate-code`.
+        if pe_s.VirtualAddress < last_vma:
+            raise RuntimeError("Overlapping PE sections.")
+        last_vma = pe_s.VirtualAddress + pe_s.VirtualSize
+
         if pe_s.Name == b".text":
             opt.BaseOfCode = pe_s.VirtualAddress
             opt.SizeOfCode += pe_s.VirtualSize
@@ -333,7 +356,7 @@ def apply_elf_relative_relocation(
 def convert_elf_reloc_table(
     elf: ELFFile,
     elf_reloc_table: ElfRelocationTable,
-    image_base: int,
+    elf_image_base: int,
     sections: typing.List[PeSection],
     pe_reloc_blocks: typing.Dict[int, PeRelocationBlock],
 ):
@@ -361,7 +384,7 @@ def convert_elf_reloc_table(
 
         if reloc["r_info_type"] == RELATIVE_RELOC:
             apply_elf_relative_relocation(
-                reloc, image_base, sections, elf.elfclass // 8
+                reloc, elf_image_base, sections, elf.elfclass // 8
             )
 
             # Now that the ELF relocation has been applied, we can create a PE relocation.
@@ -381,7 +404,10 @@ def convert_elf_reloc_table(
 
 
 def convert_elf_relocations(
-    elf: ELFFile, opt: PeOptionalHeader, sections: typing.List[PeSection]
+    elf: ELFFile,
+    opt: PeOptionalHeader,
+    sections: typing.List[PeSection],
+    minimum_sections: int,
 ) -> typing.Optional[PeSection]:
     dynamic = elf.get_section_by_name(".dynamic")
     if dynamic is None:
@@ -391,13 +417,41 @@ def convert_elf_relocations(
     if not flags_tag["d_val"] & ENUM_DT_FLAGS_1["DF_1_PIE"]:
         raise RuntimeError("ELF file is not a PIE.")
 
+    opt.SizeOfHeaders = align_to(
+        PE_OFFSET
+        + len(PE_MAGIC)
+        + sizeof(PeCoffHeader)
+        + sizeof(opt)
+        + sizeof(PeSection) * max(len(sections) + 1, minimum_sections),
+        FILE_ALIGNMENT,
+    )
+
+    # We use the basic VMA layout from the ELF image in the PE image. This could cause the first
+    # section to overlap the PE image headers during runtime at VMA 0. We can simply apply a fixed
+    # offset relative to the PE image base when applying/converting ELF relocations. Afterwards we
+    # just have to apply the offset to the PE addresses so that the PE relocations work correctly on
+    # the ELF portions of the image.
+    segment_offset = 0
+    if sections[0].VirtualAddress < opt.SizeOfHeaders:
+        segment_offset = align_to(
+            opt.SizeOfHeaders - sections[0].VirtualAddress, SECTION_ALIGNMENT
+        )
+
+    opt.AddressOfEntryPoint = elf["e_entry"] + segment_offset
+    opt.BaseOfCode += segment_offset
+    if isinstance(opt, PeOptionalHeader32):
+        opt.BaseOfData += segment_offset
+
     pe_reloc_blocks: typing.Dict[int, PeRelocationBlock] = {}
     for reloc_type, reloc_table in dynamic.get_relocation_tables().items():
         if reloc_type not in ["REL", "RELA"]:
             raise RuntimeError("Unsupported relocation type {elf_reloc_type}.")
         convert_elf_reloc_table(
-            elf, reloc_table, opt.ImageBase, sections, pe_reloc_blocks
+            elf, reloc_table, opt.ImageBase + segment_offset, sections, pe_reloc_blocks
         )
+
+    for pe_s in sections:
+        pe_s.VirtualAddress += segment_offset
 
     if len(pe_reloc_blocks) == 0:
         return None
@@ -413,6 +467,7 @@ def convert_elf_relocations(
             n_relocs += 1
             block.entries.append(PeRelocationEntry())
 
+        block.PageRVA += segment_offset
         block.BlockSize = (
             sizeof(PeRelocationBlock) + sizeof(PeRelocationEntry) * n_relocs
         )
@@ -495,8 +550,8 @@ def elf2efi(args: argparse.Namespace):
     else:
         opt.ImageBase = (0x100000000 + opt.ImageBase) & 0x1FFFF0000
 
-    sections = copy_sections(elf, opt)
-    pe_reloc_s = convert_elf_relocations(elf, opt, sections)
+    sections = convert_sections(elf, opt)
+    pe_reloc_s = convert_elf_relocations(elf, opt, sections, args.minimum_sections)
 
     coff.Machine = pe_arch
     coff.NumberOfSections = len(sections)
@@ -506,7 +561,6 @@ def elf2efi(args: argparse.Namespace):
     # and (32BIT_MACHINE or LARGE_ADDRESS_AWARE)
     coff.Characteristics = 0x30E if elf.elfclass == 32 else 0x22E
 
-    opt.AddressOfEntryPoint = elf["e_entry"]
     opt.SectionAlignment = SECTION_ALIGNMENT
     opt.FileAlignment = FILE_ALIGNMENT
     opt.MajorImageVersion = args.version_major
@@ -517,15 +571,6 @@ def elf2efi(args: argparse.Namespace):
     opt.Magic = 0x10B if elf.elfclass == 32 else 0x20B
     opt.SizeOfImage = align_to(
         sections[-1].VirtualAddress + sections[-1].VirtualSize, SECTION_ALIGNMENT
-    )
-
-    opt.SizeOfHeaders = align_to(
-        PE_OFFSET
-        + len(PE_MAGIC)
-        + sizeof(PeCoffHeader)
-        + coff.SizeOfOptionalHeader
-        + sizeof(PeSection) * max(coff.NumberOfSections, args.minimum_sections),
-        FILE_ALIGNMENT,
     )
     # DYNAMIC_BASE|NX_COMPAT|HIGH_ENTROPY_VA or DYNAMIC_BASE|NX_COMPAT
     opt.DllCharacteristics = 0x160 if elf.elfclass == 64 else 0x140
