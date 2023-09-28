@@ -167,7 +167,7 @@ efi_c_ld_args = [
 
         '-z', 'noexecstack',
         '-z', 'norelro',
-        '-T' + elf2efi_lds,
+        '-z', 'separate-code',
 ]
 
 # On CentOS 8 the nopack-relative-relocs linker flag is not supported, and we get:
@@ -316,7 +316,6 @@ foreach archspec : efi_archspecs
                 'c_args' : archspec['c_args'],
                 'link_args' : archspec['link_args'],
                 'link_with' : libefi,
-                'link_depends' : elf2efi_lds,
                 'gnu_symbol_visibility' : 'hidden',
                 'override_options' : efi_override_options,
                 'pie' : true,
