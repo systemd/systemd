@@ -1852,7 +1852,7 @@ static int discover_next_boot(
          * we can actually advance to a *different* boot. */
         sd_journal_flush_matches(j);
 
-        do {
+        for (;;) {
                 r = sd_journal_step_one(j, !advance_older);
                 if (r < 0)
                         return r;
@@ -1873,7 +1873,26 @@ static int discover_next_boot(
                  * speed things up, but let's not trust that it is complete, and hence, manually advance as
                  * necessary. */
 
-        } while (sd_id128_equal(boot.id, previous_boot_id));
+                if (sd_id128_equal(boot.id, previous_boot_id))
+                        continue;
+
+                /* Check the entry contains a matching _BOOT_ID= field data. */
+
+                char expected[STRLEN("_BOOT_ID=") + SD_ID128_STRING_MAX];
+                const void *data;
+                size_t sz;
+                r = sd_journal_get_data(j, "_BOOT_ID", &data, &sz);
+                if (IN_SET(r, -EADDRNOTAVAIL, -EBADMSG, -ENOENT))
+                        continue; /* The entry does not have _BOOT_ID= field. */
+                if (r < 0)
+                        return r;
+
+                sd_id128_to_string(boot.id, stpcpy(expected, "_BOOT_ID="));
+                if (memcmp_nn(data, sz, expected, strlen(expected)) == 0)
+                        break;
+
+                /* Ouch, the entry has _BOOT_ID= field with an unmatching boot ID. Ignoring the entry. */
+        }
 
         r = sd_journal_get_realtime_usec(j, &boot.first_usec);
         if (r < 0)
@@ -1891,12 +1910,28 @@ static int discover_next_boot(
         if (r < 0)
                 return r;
 
-        r = sd_journal_step_one(j, advance_older);
-        if (r < 0)
-                return r;
-        if (r == 0)
-                return log_debug_errno(SYNTHETIC_ERRNO(ENODATA),
-                                       "Whoopsie! We found a boot ID but can't read its last entry."); /* This shouldn't happen. We just came from this very boot ID. */
+        for (;;) {
+                sd_id128_t id;
+
+                r = sd_journal_step_one(j, advance_older);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        /* This shouldn't happen. We just came from this very boot ID. */
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENODATA),
+                                               "Whoopsie! We found a boot ID %s but can't read its last entry.",
+                                               SD_ID128_TO_STRING(boot.id));
+
+                r = sd_journal_get_monotonic_usec(j, NULL, &id);
+                if (r < 0)
+                        return r;
+
+                if (sd_id128_equal(boot.id, id))
+                        break;
+
+                /* Ouch, the entry is broken. The boot_id in the entry object does not match with the
+                 * _BOOT_ID= field data. Ignoring the entry, and move to the next entry. */
+        }
 
         r = sd_journal_get_realtime_usec(j, &boot.last_usec);
         if (r < 0)
