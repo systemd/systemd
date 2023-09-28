@@ -1024,6 +1024,20 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>SurviveFinalKillSignal=</varname></term>
+
+        <listitem><para>Takes a boolean argument. Defaults to <option>no</option>. If <option>yes</option>,
+        processes belonging to this unit will not be sent the final <literal>SIGTERM</literal> and
+        <literal>SIGKILL</literal> signals during the final phase of the system shutdown process.
+        This functionality replaces the older mechanism that allowed a program to set
+        <literal>argv[0][0] = '@'</literal> as described at
+        <ulink url="https://systemd.io/ROOT_STORAGE_DAEMONS">systemd and Storage Daemons for the Root File
+        System</ulink>, which however continues to be supported.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>CollectMode=</varname></term>
 
         <listitem><para>Tweaks the "garbage collection" algorithm for this unit. Takes one of <option>inactive</option>
