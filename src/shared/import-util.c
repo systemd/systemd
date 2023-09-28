@@ -167,6 +167,8 @@ int raw_strip_suffixes(const char *p, char **ret) {
                 ".xz\0"
                 ".gz\0"
                 ".bz2\0"
+                ".sysext.raw\0"
+                ".confext.raw\0"
                 ".raw\0"
                 ".qcow2\0"
                 ".img\0"
