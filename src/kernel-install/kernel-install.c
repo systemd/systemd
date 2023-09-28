@@ -1127,10 +1127,11 @@ static int help(void) {
         printf("%1$s [OPTIONS...] COMMAND ...\n\n"
                "%2$sAdd and remove kernel and initrd images to and from /boot%3$s\n"
                "\nUsage:\n"
-               "  %1$s [OPTIONS...] add KERNEL-VERSION KERNEL-IMAGE [INITRD-FILE...]\n"
-               "  %1$s [OPTIONS...] remove KERNEL-VERSION\n"
-               "  %1$s [OPTIONS...] inspect [KERNEL-IMAGE]\n"
-               "\nOptions:\n"
+               "  kernel-install [OPTIONS...] add KERNEL-VERSION KERNEL-IMAGE [INITRD-FILE...]\n"
+               "  kernel-install [OPTIONS...] remove KERNEL-VERSION\n"
+               "  kernel-install [OPTIONS...] inspect [KERNEL-IMAGE]\n"
+               "\n"
+               "Options:\n"
                "  -h --help              Show this help\n"
                "     --version           Show package version\n"
                "  -v --verbose           Increase verbosity\n"
@@ -1140,7 +1141,12 @@ static int help(void) {
                "                         Create $BOOT/ENTRY-TOKEN/ directory\n"
                "     --entry-token=machine-id|os-id|os-image-id|auto|literal:…\n"
                "                         Entry token to use for this installation\n"
-               "\nSee the %4$s for details.\n",
+               "\n"
+               "This program may also be invoked as 'installkernel':\n"
+               "  installkernel  [OPTIONS...] VERSION VMLINUZ [MAP] [INSTALLATION-DIR]\n"
+               "(The optional arguments are passed by kernel build system, but ignored.)\n"
+               "\n"
+               "See the %4$s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
                ansi_normal(),
