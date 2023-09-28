@@ -256,16 +256,6 @@ static MMapCache* mmap_cache_free(MMapCache *m) {
 
 DEFINE_TRIVIAL_REF_UNREF_FUNC(MMapCache, mmap_cache, mmap_cache_free);
 
-static int make_room(MMapCache *m) {
-        assert(m);
-
-        if (!m->last_unused)
-                return 0;
-
-        window_free(m->last_unused);
-        return 1;
-}
-
 static int try_context(
                 MMapFileDescriptor *f,
                 Context *c,
@@ -337,30 +327,27 @@ static int find_mmap(
         return 1;
 }
 
-static int mmap_try_harder(MMapFileDescriptor *f, void *addr, int flags, uint64_t offset, size_t size, void **res) {
-        void *ptr;
+static int mmap_try_harder(MMapFileDescriptor *f, void *addr, int flags, uint64_t offset, size_t size, void **ret) {
+        MMapCache *m = mmap_cache_fd_cache(f);
 
-        assert(f);
-        assert(res);
+        assert(ret);
 
         for (;;) {
-                int r;
+                void *ptr;
 
                 ptr = mmap(addr, size, f->prot, flags, f->fd, offset);
-                if (ptr != MAP_FAILED)
-                        break;
+                if (ptr != MAP_FAILED) {
+                        *ret = ptr;
+                        return 0;
+                }
                 if (errno != ENOMEM)
                         return negative_errno();
 
-                r = make_room(f->cache);
-                if (r < 0)
-                        return r;
-                if (r == 0)
+                if (!m->unused)
                         return -ENOMEM;
-        }
 
-        *res = ptr;
-        return 0;
+                window_free(m->unused);
+        }
 }
 
 static int add_mmap(
