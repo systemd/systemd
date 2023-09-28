@@ -674,6 +674,25 @@ bool mount_propagation_flag_is_valid(unsigned long flag) {
         return IN_SET(flag, 0, MS_SHARED, MS_PRIVATE, MS_SLAVE);
 }
 
+bool mount_new_api_supported(void) {
+        _cleanup_close_ int fsfd = -EBADF;
+        static int cache = -1;
+
+        if (cache >= 0)
+                return cache;
+
+        fsfd = fsopen("tmpfs", FSOPEN_CLOEXEC);
+        if (fsfd < 0) {
+                if (ERRNO_IS_NOT_SUPPORTED(errno))
+                        return (cache = false);
+
+                log_debug_errno(errno, "Failed to open superblock context for tmpfs: %m");
+                return false;
+        }
+
+        return (cache = true);
+}
+
 unsigned long ms_nosymfollow_supported(void) {
         _cleanup_close_ int fsfd = -EBADF, mntfd = -EBADF;
         static int cache = -1;
