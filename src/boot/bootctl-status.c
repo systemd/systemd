@@ -420,6 +420,16 @@ int verb_status(int argc, char *argv[], void *userdata) {
                        (s & TPM2_SUPPORT_DRIVER) ? "driver only, firmware unavailable" : "no",
                        ansi_normal());
 
+                k = efi_measured_uki(LOG_DEBUG);
+                if (k > 0)
+                        printf("  Measured UKI: %syes%s\n", ansi_highlight_green(), ansi_normal());
+                else if (k == 0)
+                        printf("  Measured UKI: no\n");
+                else {
+                        errno = -k;
+                        printf("  Measured UKI: %sfailed%s (%m)\n", ansi_highlight_red(), ansi_normal());
+                }
+
                 k = efi_get_reboot_to_firmware();
                 if (k > 0)
                         printf("  Boot into FW: %sactive%s\n", ansi_highlight_yellow(), ansi_normal());
