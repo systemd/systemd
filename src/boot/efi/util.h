@@ -52,6 +52,11 @@ static inline void *xrealloc(void *p, size_t old_size, size_t new_size) {
         return t;
 }
 
+_malloc_ _alloc_(2) _returns_nonnull_ _warn_unused_result_
+static inline void* xmemdup(const void *p, size_t l) {
+        return memcpy(xmalloc(l), p, l);
+}
+
 #define xnew(type, n) ((type *) xmalloc_multiply(sizeof(type), (n)))
 
 typedef struct {
