@@ -551,6 +551,8 @@ int mmap_cache_add_fd(MMapCache *m, int fd, int prot, MMapFileDescriptor **ret) 
 
         existing = hashmap_get(m->fds, FD_TO_PTR(fd));
         if (existing) {
+                if (existing->prot != prot)
+                        return -EEXIST;
                 if (ret)
                         *ret = existing;
                 return 0;
