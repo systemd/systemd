@@ -348,7 +348,6 @@ def apply_elf_relative_relocation(
         addend = target.data[addend_offset : addend_offset + addend_size]
         addend = int.from_bytes(addend, byteorder="little")
 
-    # This currently assumes that the ELF file has an image base of 0.
     value = (image_base + addend).to_bytes(addend_size, byteorder="little")
     target.data[addend_offset : addend_offset + addend_size] = value
 
@@ -416,6 +415,13 @@ def convert_elf_relocations(
     [flags_tag] = dynamic.iter_tags("DT_FLAGS_1")
     if not flags_tag["d_val"] & ENUM_DT_FLAGS_1["DF_1_PIE"]:
         raise RuntimeError("ELF file is not a PIE.")
+
+    # This checks that the ELF image base is 0.
+    symtab = elf.get_section_by_name(".symtab")
+    if symtab:
+        exe_start = symtab.get_symbol_by_name("__executable_start")
+        if exe_start and exe_start[0]["st_value"] != 0:
+            raise RuntimeError("Unexpected ELF image base.")
 
     opt.SizeOfHeaders = align_to(
         PE_OFFSET
