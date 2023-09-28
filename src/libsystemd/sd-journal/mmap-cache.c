@@ -392,18 +392,16 @@ static int add_mmap(
                 return r;
 
         w = window_add(f->cache, f, keep_always, woffset, wsize, d);
-        if (!w)
-                goto outofmem;
+        if (!w) {
+                (void) munmap(d, wsize);
+                return -ENOMEM;
+        }
 
         context_attach_window(f->cache, c, w);
 
         *ret = (uint8_t*) w->ptr + (offset - w->offset);
 
         return 1;
-
-outofmem:
-        (void) munmap(d, wsize);
-        return -ENOMEM;
 }
 
 int mmap_cache_fd_get(
