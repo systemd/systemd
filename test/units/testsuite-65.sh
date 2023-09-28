@@ -236,6 +236,18 @@ set -e
 rm /tmp/testfile.service
 rm /tmp/testfile2.service
 
+cat <<EOF >/tmp/sample.service
+[Unit]
+Description = A Sample Service
+
+[Service]
+ExecStart = echo hello
+Slice=support.slice
+EOF
+
+# Zero exit status since no additional dependencies are recursively loaded when the unit file is loaded
+systemd-analyze verify --recursive-errors=no /tmp/sample.service
+
 cat <<EOF >/tmp/testfile.service
 [Service]
 ExecStart = echo hello
