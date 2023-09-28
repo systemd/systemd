@@ -1727,6 +1727,9 @@ save_journal() {
         dest="${TESTDIR:?}/system.journal"
     fi
 
+    rm -rf /var/tmp/saved-journal
+    cp -a ${1:?} /var/tmp/saved-journal
+
     for j in "${1:?}"/*; do
         if get_bool "$save"; then
             if [ "$SYSTEMD_JOURNAL_REMOTE" = "" ]; then

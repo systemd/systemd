@@ -25,6 +25,7 @@ get_last_timestamp() {
 # Issue: #29275, second part
 # Now let's check if the boot entries are in the correct/expected order
 index=0
+journalctl --header
 SYSTEMD_LOG_LEVEL=debug journalctl --list-boots
 journalctl --list-boots -o json | jq -r '.[] | [.index, .boot_id, .first_entry, .last_entry] | @tsv' |
     while read -r offset boot_id first_ts last_ts; do
