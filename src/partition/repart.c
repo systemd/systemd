@@ -6806,6 +6806,10 @@ static int parse_argv(int argc, char *argv[]) {
         else if (dry_run >= 0)
                 arg_dry_run = dry_run;
 
+        /* Disable pager once we are not just reviewing, but doing things. */
+        if (!arg_dry_run)
+                arg_pager_flags |= PAGER_DISABLE;
+
         if (arg_empty == EMPTY_CREATE && (arg_size == UINT64_MAX && !arg_size_auto))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "If --empty=create is specified, --size= must be specified, too.");
