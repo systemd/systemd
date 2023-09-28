@@ -273,15 +273,13 @@ static int status_binaries(const char *esp_path, sd_id128_t partition) {
         printf("\n");
 
         r = enumerate_binaries(esp_path, "EFI/systemd", NULL, &last, &is_first);
-        if (r < 0) {
-                printf("\n");
-                return r;
-        }
+        if (r < 0)
+                goto fail;
 
         k = enumerate_binaries(esp_path, "EFI/BOOT", "boot", &last, &is_first);
         if (k < 0) {
-                printf("\n");
-                return k;
+                r = k;
+                goto fail;
         }
 
         if (last) /* let's output the last entry now, since now we know that there will be no more, and can draw the tree glyph properly */
@@ -296,6 +294,11 @@ static int status_binaries(const char *esp_path, sd_id128_t partition) {
 
         printf("\n");
         return 0;
+
+fail:
+        errno = -r;
+        printf("         File: (can't access: %m)\n\n");
+        return r;
 }
 
 static void read_efi_var(const char *variable, char **ret) {
