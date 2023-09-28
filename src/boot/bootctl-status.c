@@ -410,9 +410,15 @@ int verb_status(int argc, char *argv[], void *userdata) {
                 printf("%sSystem:%s\n", ansi_underline(), ansi_normal());
                 printf("      Firmware: %s%s (%s)%s\n", ansi_highlight(), strna(fw_type), strna(fw_info), ansi_normal());
                 printf(" Firmware Arch: %s\n", get_efi_arch());
-                printf("   Secure Boot: %sd (%s)\n",
-                       enable_disable(IN_SET(secure, SECURE_BOOT_USER, SECURE_BOOT_DEPLOYED)),
-                       secure_boot_mode_to_string(secure));
+                printf("   Secure Boot: %s%s%s",
+                       IN_SET(secure, SECURE_BOOT_USER, SECURE_BOOT_DEPLOYED) ? ansi_highlight_green() : ansi_normal(),
+                       enabled_disabled(IN_SET(secure, SECURE_BOOT_USER, SECURE_BOOT_DEPLOYED)),
+                       ansi_normal());
+
+                if (secure != SECURE_BOOT_DISABLED)
+                        printf(" (%s)\n", secure_boot_mode_to_string(secure));
+                else
+                        printf("\n");
 
                 s = tpm2_support();
                 printf("  TPM2 Support: %s%s%s\n",
