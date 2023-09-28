@@ -150,11 +150,9 @@ static bool window_matches_fd(Window *w, MMapFileDescriptor *f, uint64_t offset,
                 window_matches(w, offset, size);
 }
 
-static Window *window_add(MMapCache *m, MMapFileDescriptor *f, bool keep_always, uint64_t offset, size_t size, void *ptr) {
+static Window *window_add(MMapFileDescriptor *f, bool keep_always, uint64_t offset, size_t size, void *ptr) {
+        MMapCache *m = mmap_cache_fd_cache(f);
         Window *w;
-
-        assert(m);
-        assert(f);
 
         if (!m->unused || m->n_windows <= WINDOWS_MIN) {
 
@@ -391,7 +389,7 @@ static int add_mmap(
         if (r < 0)
                 return r;
 
-        w = window_add(f->cache, f, keep_always, woffset, wsize, d);
+        w = window_add(f, keep_always, woffset, wsize, d);
         if (!w) {
                 (void) munmap(d, wsize);
                 return -ENOMEM;
