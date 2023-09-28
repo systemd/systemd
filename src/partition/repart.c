@@ -161,6 +161,8 @@ static ImagePolicy *arg_image_policy = NULL;
 static Architecture arg_architecture = _ARCHITECTURE_INVALID;
 static int arg_offline = -1;
 static char **arg_copy_from = NULL;
+static char *arg_make_ddi = NULL;
+static char *arg_copy_source = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
@@ -174,6 +176,8 @@ STATIC_DESTRUCTOR_REGISTER(arg_tpm2_public_key, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_filter_partitions, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_copy_from, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_make_ddi, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_copy_source, freep);
 
 typedef struct FreeArea FreeArea;
 
@@ -1431,6 +1435,16 @@ static int config_parse_copy_files(
         r = path_simplify_and_warn(resolved_source, PATH_CHECK_ABSOLUTE, unit, filename, line, lvalue);
         if (r < 0)
                 return 0;
+
+        if (arg_copy_source) {
+                _cleanup_free_ char *j = NULL;
+
+                j = path_join(arg_copy_source, resolved_source);
+                if (!j)
+                        return log_oom();
+
+                free_and_replace(resolved_source, j);
+        }
 
         r = specifier_printf(target, PATH_MAX-1, system_and_tmp_specifier_table, arg_root, NULL, &resolved_target);
         if (r < 0) {
@@ -6368,7 +6382,11 @@ static int help(void) {
                "     --sector-size=SIZE   Set the logical sector size for the image\n"
                "     --architecture=ARCH  Set the generic architecture for the image\n"
                "     --offline=BOOL       Whether to build the image offline\n"
+               "  -s --copy-source=PATH   Specify the primary source tree to copy files from\n"
                "     --copy-from=IMAGE    Copy partitions from the given image(s)\n"
+               "  -S --make-ddi=sysext    Make a system extension DDI\n"
+               "  -C --make-ddi=confext   Make a configuration extension DDI\n"
+               "  -P --make-ddi=portable  Make a portable service DDI\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -6413,6 +6431,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_ARCHITECTURE,
                 ARG_OFFLINE,
                 ARG_COPY_FROM,
+                ARG_MAKE_DDI,
+                ARG_COPY_SOURCE,
         };
 
         static const struct option options[] = {
@@ -6448,6 +6468,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "architecture",         required_argument, NULL, ARG_ARCHITECTURE         },
                 { "offline",              required_argument, NULL, ARG_OFFLINE              },
                 { "copy-from",            required_argument, NULL, ARG_COPY_FROM            },
+                { "make-ddi",             required_argument, NULL, ARG_MAKE_DDI             },
+                { "copy-source",          required_argument, NULL, 's'                      },
                 {}
         };
 
@@ -6456,7 +6478,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hSCPs:", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -6784,6 +6806,39 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
+                case ARG_MAKE_DDI:
+                        if (!filename_is_valid(optarg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid DDI type: %s", optarg);
+
+                        r = free_and_strdup_warn(&arg_make_ddi, optarg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case 'S':
+                        r = free_and_strdup_warn(&arg_make_ddi, "sysext");
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case 'C':
+                        r = free_and_strdup_warn(&arg_make_ddi, "confext");
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case 'P':
+                        r = free_and_strdup_warn(&arg_make_ddi, "portable");
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case 's':
+                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_copy_source);
+                        if (r < 0)
+                                return r;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -6794,6 +6849,43 @@ static int parse_argv(int argc, char *argv[]) {
         if (argc - optind > 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Expected at most one argument, the path to the block device.");
+
+        if (arg_make_ddi) {
+                if (arg_definitions)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Combination of --make-ddi= and --definitions= is not supported.");
+                if (arg_factory_reset > 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Combination of --make-ddi= and --factory-reset= is not supported.");
+                if (arg_size != UINT64_MAX)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Combination of --make-ddi= and --size= is not supported.");
+                if (arg_image || arg_root)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Combination of --make-ddi= and --image=/--root= is not supported.");
+
+                if (!arg_copy_source) {
+                        r = safe_getcwd(&arg_copy_source);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to determine current working directory: %m");
+                }
+
+                r = dir_is_empty(arg_copy_source, /* ignore_hidden_or_backup= */ false);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to determine if '%s' is empty: %m", arg_copy_source);
+                if (r > 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "Source directory '%s' is empty, refusing to create empty image.", arg_copy_source);
+
+                _cleanup_free_ char *d = strjoin("/usr/lib/systemd/repart/definitions/", arg_make_ddi, ".repart.d/");
+                if (!d)
+                        return log_oom();
+
+                if (access(d, F_OK) < 0)
+                        return log_error_errno(errno, "DDI type '%s' is not defined ('%s' is not accessible): %m", arg_make_ddi, d);
+
+                if (strv_consume(&arg_definitions, TAKE_PTR(d)) < 0)
+                        return log_oom();
+
+                arg_size_auto = true;
+                arg_dry_run = false;
+                arg_empty = EMPTY_CREATE;
+        }
 
         if (arg_factory_reset > 0 && IN_SET(arg_empty, EMPTY_FORCE, EMPTY_REQUIRE, EMPTY_CREATE))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
