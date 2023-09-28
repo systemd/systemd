@@ -182,34 +182,10 @@ static void socket_done(Unit *u) {
         s->timer_event_source = sd_event_source_disable_unref(s->timer_event_source);
 }
 
-static int socket_arm_timer(Socket *s, usec_t usec) {
-        int r;
-
+static int socket_arm_timer(Socket *s, bool relative, usec_t usec) {
         assert(s);
 
-        if (s->timer_event_source) {
-                r = sd_event_source_set_time(s->timer_event_source, usec);
-                if (r < 0)
-                        return r;
-
-                return sd_event_source_set_enabled(s->timer_event_source, SD_EVENT_ONESHOT);
-        }
-
-        if (usec == USEC_INFINITY)
-                return 0;
-
-        r = sd_event_add_time(
-                        UNIT(s)->manager->event,
-                        &s->timer_event_source,
-                        CLOCK_MONOTONIC,
-                        usec, 0,
-                        socket_dispatch_timer, s);
-        if (r < 0)
-                return r;
-
-        (void) sd_event_source_set_description(s->timer_event_source, "socket-timer");
-
-        return 0;
+        return unit_arm_timer(UNIT(s), &s->timer_event_source, relative, usec, socket_dispatch_timer);
 }
 
 static bool have_non_accept_socket(Socket *s) {
@@ -506,7 +482,7 @@ static SocketPeer *socket_peer_free(SocketPeer *p) {
 
 DEFINE_TRIVIAL_REF_UNREF_FUNC(SocketPeer, socket_peer, socket_peer_free);
 
-int socket_acquire_peer(Socket *s, int fd, SocketPeer **p) {
+int socket_acquire_peer(Socket *s, int fd, SocketPeer **ret) {
         _cleanup_(socket_peer_unrefp) SocketPeer *remote = NULL;
         SocketPeer sa = {
                 .peer_salen = sizeof(union sockaddr_union),
@@ -515,22 +491,19 @@ int socket_acquire_peer(Socket *s, int fd, SocketPeer **p) {
 
         assert(fd >= 0);
         assert(s);
+        assert(ret);
 
         if (getpeername(fd, &sa.peer.sa, &sa.peer_salen) < 0)
-                return log_unit_error_errno(UNIT(s), errno, "getpeername failed: %m");
+                return log_unit_error_errno(UNIT(s), errno, "getpeername() failed: %m");
 
         if (!IN_SET(sa.peer.sa.sa_family, AF_INET, AF_INET6, AF_VSOCK)) {
-                *p = NULL;
+                *ret = NULL;
                 return 0;
         }
 
-        r = set_ensure_allocated(&s->peers_by_address, &peer_address_hash_ops);
-        if (r < 0)
-                return r;
-
         i = set_get(s->peers_by_address, &sa);
         if (i) {
-                *p = socket_peer_ref(i);
+                *ret = socket_peer_ref(i);
                 return 1;
         }
 
@@ -541,13 +514,13 @@ int socket_acquire_peer(Socket *s, int fd, SocketPeer **p) {
         remote->peer = sa.peer;
         remote->peer_salen = sa.peer_salen;
 
-        r = set_put(s->peers_by_address, remote);
+        r = set_ensure_put(&s->peers_by_address, &peer_address_hash_ops, remote);
         if (r < 0)
-                return r;
+                return log_unit_error_errno(UNIT(s), r, "Failed to insert peer info into hash table: %m");
 
         remote->socket = s;
 
-        *p = TAKE_PTR(remote);
+        *ret = TAKE_PTR(remote);
         return 1;
 }
 
@@ -1896,7 +1869,7 @@ static int socket_coldplug(Unit *u) {
                 if (r < 0)
                         return r;
 
-                r = socket_arm_timer(s, usec_add(u->state_change_timestamp.monotonic, s->timeout_usec));
+                r = socket_arm_timer(s, /* relative= */ false, usec_add(u->state_change_timestamp.monotonic, s->timeout_usec));
                 if (r < 0)
                         return r;
         }
@@ -1959,7 +1932,7 @@ static int socket_spawn(Socket *s, ExecCommand *c, PidRef *ret_pid) {
         if (r < 0)
                 return r;
 
-        r = socket_arm_timer(s, usec_add(now(CLOCK_MONOTONIC), s->timeout_usec));
+        r = socket_arm_timer(s, /* relative= */ true, s->timeout_usec);
         if (r < 0)
                 return r;
 
@@ -1995,7 +1968,7 @@ static int socket_chown(Socket *s, PidRef *ret_pid) {
 
         assert(s);
 
-        r = socket_arm_timer(s, usec_add(now(CLOCK_MONOTONIC), s->timeout_usec));
+        r = socket_arm_timer(s, /* relative= */ true, s->timeout_usec);
         if (r < 0)
                 return r;
 
@@ -2098,18 +2071,15 @@ static void socket_enter_stop_post(Socket *s, SocketResult f) {
                 pidref_done(&s->control_pid);
 
                 r = socket_spawn(s, s->control_command, &s->control_pid);
-                if (r < 0)
-                        goto fail;
+                if (r < 0) {
+                        log_unit_warning_errno(UNIT(s), r, "Failed to spawn 'stop-post' task: %m");
+                        socket_enter_signal(s, SOCKET_FINAL_SIGTERM, SOCKET_FAILURE_RESOURCES);
+                        return;
+                }
 
                 socket_set_state(s, SOCKET_STOP_POST);
         } else
                 socket_enter_signal(s, SOCKET_FINAL_SIGTERM, SOCKET_SUCCESS);
-
-        return;
-
-fail:
-        log_unit_warning_errno(UNIT(s), r, "Failed to run 'stop-post' task: %m");
-        socket_enter_signal(s, SOCKET_FINAL_SIGTERM, SOCKET_FAILURE_RESOURCES);
 }
 
 static int state_to_kill_operation(Socket *s, SocketState state) {
@@ -2137,13 +2107,17 @@ static void socket_enter_signal(Socket *s, SocketState state, SocketResult f) {
                         /* main_pid= */ NULL,
                         &s->control_pid,
                         /* main_pid_alien= */ false);
-        if (r < 0)
+        if (r < 0) {
+                log_unit_warning_errno(UNIT(s), r, "Failed to kill processes: %m");
                 goto fail;
+        }
 
         if (r > 0) {
-                r = socket_arm_timer(s, usec_add(now(CLOCK_MONOTONIC), s->timeout_usec));
-                if (r < 0)
+                r = socket_arm_timer(s, /* relative= */ true, s->timeout_usec);
+                if (r < 0) {
+                        log_unit_warning_errno(UNIT(s), r, "Failed to install timer: %m");
                         goto fail;
+                }
 
                 socket_set_state(s, state);
         } else if (state == SOCKET_STOP_PRE_SIGTERM)
@@ -2158,8 +2132,6 @@ static void socket_enter_signal(Socket *s, SocketState state, SocketResult f) {
         return;
 
 fail:
-        log_unit_warning_errno(UNIT(s), r, "Failed to kill processes: %m");
-
         if (IN_SET(state, SOCKET_STOP_PRE_SIGTERM, SOCKET_STOP_PRE_SIGKILL))
                 socket_enter_stop_post(s, SOCKET_FAILURE_RESOURCES);
         else
@@ -2181,18 +2153,15 @@ static void socket_enter_stop_pre(Socket *s, SocketResult f) {
                 pidref_done(&s->control_pid);
 
                 r = socket_spawn(s, s->control_command, &s->control_pid);
-                if (r < 0)
-                        goto fail;
+                if (r < 0) {
+                        log_unit_warning_errno(UNIT(s), r, "Failed to spawn 'stop-pre' task: %m");
+                        socket_enter_stop_post(s, SOCKET_FAILURE_RESOURCES);
+                        return;
+                }
 
                 socket_set_state(s, SOCKET_STOP_PRE);
         } else
                 socket_enter_stop_post(s, SOCKET_SUCCESS);
-
-        return;
-
-fail:
-        log_unit_warning_errno(UNIT(s), r, "Failed to run 'stop-pre' task: %m");
-        socket_enter_stop_post(s, SOCKET_FAILURE_RESOURCES);
 }
 
 static void socket_enter_listening(Socket *s) {
@@ -2207,14 +2176,11 @@ static void socket_enter_listening(Socket *s) {
         r = socket_watch_fds(s);
         if (r < 0) {
                 log_unit_warning_errno(UNIT(s), r, "Failed to watch sockets: %m");
-                goto fail;
+                socket_enter_stop_pre(s, SOCKET_FAILURE_RESOURCES);
+                return;
         }
 
         socket_set_state(s, SOCKET_LISTENING);
-        return;
-
-fail:
-        socket_enter_stop_pre(s, SOCKET_FAILURE_RESOURCES);
 }
 
 static void socket_enter_start_post(Socket *s) {
@@ -2230,18 +2196,14 @@ static void socket_enter_start_post(Socket *s) {
 
                 r = socket_spawn(s, s->control_command, &s->control_pid);
                 if (r < 0) {
-                        log_unit_warning_errno(UNIT(s), r, "Failed to run 'start-post' task: %m");
-                        goto fail;
+                        log_unit_warning_errno(UNIT(s), r, "Failed to spawn 'start-post' task: %m");
+                        socket_enter_stop_pre(s, SOCKET_FAILURE_RESOURCES);
+                        return;
                 }
 
                 socket_set_state(s, SOCKET_START_POST);
         } else
                 socket_enter_listening(s);
-
-        return;
-
-fail:
-        socket_enter_stop_pre(s, SOCKET_FAILURE_RESOURCES);
 }
 
 static void socket_enter_start_chown(Socket *s) {
@@ -2263,7 +2225,7 @@ static void socket_enter_start_chown(Socket *s) {
 
                 r = socket_chown(s, &s->control_pid);
                 if (r < 0) {
-                        log_unit_warning_errno(UNIT(s), r, "Failed to fork 'start-chown' task: %m");
+                        log_unit_warning_errno(UNIT(s), r, "Failed to spawn 'start-chown' task: %m");
                         goto fail;
                 }
 
@@ -2293,18 +2255,14 @@ static void socket_enter_start_pre(Socket *s) {
 
                 r = socket_spawn(s, s->control_command, &s->control_pid);
                 if (r < 0) {
-                        log_unit_warning_errno(UNIT(s), r, "Failed to run 'start-pre' task: %m");
-                        goto fail;
+                        log_unit_warning_errno(UNIT(s), r, "Failed to spawn 'start-pre' task: %m");
+                        socket_enter_dead(s, SOCKET_FAILURE_RESOURCES);
+                        return;
                 }
 
                 socket_set_state(s, SOCKET_START_PRE);
         } else
                 socket_enter_start_chown(s);
-
-        return;
-
-fail:
-        socket_enter_dead(s, SOCKET_FAILURE_RESOURCES);
 }
 
 static void flush_ports(Socket *s) {
@@ -2350,7 +2308,7 @@ static void socket_enter_running(Socket *s, int cfd_in) {
                 goto refuse;
         }
 
-        if (cfd < 0) {
+        if (cfd < 0) { /* Accept=no case */
                 bool pending = false;
                 Unit *other;
 
@@ -2363,18 +2321,18 @@ static void socket_enter_running(Socket *s, int cfd_in) {
 
                 if (!pending) {
                         if (!UNIT_ISSET(s->service)) {
-                                r = log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOENT),
-                                                         "Service to activate vanished, refusing activation.");
+                                r = log_unit_warning_errno(UNIT(s), SYNTHETIC_ERRNO(ENOENT),
+                                                           "Service to activate vanished, refusing activation.");
                                 goto fail;
                         }
 
                         r = manager_add_job(UNIT(s)->manager, JOB_START, UNIT_DEREF(s->service), JOB_REPLACE, NULL, &error, NULL);
                         if (r < 0)
-                                goto fail;
+                                goto queue_error;
                 }
 
                 socket_set_state(s, SOCKET_RUNNING);
-        } else {
+        } else { /* Accept=yes case */
                 _cleanup_(socket_peer_unrefp) SocketPeer *p = NULL;
                 Unit *service;
 
@@ -2408,13 +2366,17 @@ static void socket_enter_running(Socket *s, int cfd_in) {
                 if (r < 0) {
                         if (ERRNO_IS_DISCONNECT(r))
                                 return;
+
+                        log_unit_warning_errno(UNIT(s), r, "Failed to load connection service unit: %m");
                         goto fail;
                 }
 
                 r = unit_add_two_dependencies(UNIT(s), UNIT_BEFORE, UNIT_TRIGGERS, service,
                                               false, UNIT_DEPENDENCY_IMPLICIT);
-                if (r < 0)
+                if (r < 0) {
+                        log_unit_warning_errno(UNIT(s), r, "Failed to add Before=/Triggers= dependencies on connection unit: %m");
                         goto fail;
+                }
 
                 s->n_accepted++;
 
@@ -2422,6 +2384,8 @@ static void socket_enter_running(Socket *s, int cfd_in) {
                 if (r < 0) {
                         if (ERRNO_IS_DISCONNECT(r))
                                 return;
+
+                        log_unit_warning_errno(UNIT(s), r, "Failed to set socket on service: %m");
                         goto fail;
                 }
 
@@ -2433,21 +2397,20 @@ static void socket_enter_running(Socket *s, int cfd_in) {
                         /* We failed to activate the new service, but it still exists. Let's make sure the
                          * service closes and forgets the connection fd again, immediately. */
                         service_release_socket_fd(SERVICE(service));
-                        goto fail;
+                        goto queue_error;
                 }
 
                 /* Notify clients about changed counters */
                 unit_add_to_dbus_queue(UNIT(s));
         }
 
-        TAKE_FD(cfd);
         return;
 
 refuse:
         s->n_refused++;
         return;
 
-fail:
+queue_error:
         if (ERRNO_IS_RESOURCE(r))
                 log_unit_warning(UNIT(s), "Failed to queue service startup job: %s",
                                  bus_error_message(&error, r));
@@ -2456,6 +2419,7 @@ fail:
                                  cfd >= 0 ? "template" : "non-template",
                                  bus_error_message(&error, r));
 
+fail:
         socket_enter_stop_pre(s, SOCKET_FAILURE_RESOURCES);
 }
 
@@ -2473,20 +2437,16 @@ static void socket_run_next(Socket *s) {
         pidref_done(&s->control_pid);
 
         r = socket_spawn(s, s->control_command, &s->control_pid);
-        if (r < 0)
-                goto fail;
+        if (r < 0) {
+                log_unit_warning_errno(UNIT(s), r, "Failed to spawn next task: %m");
 
-        return;
-
-fail:
-        log_unit_warning_errno(UNIT(s), r, "Failed to run next task: %m");
-
-        if (s->state == SOCKET_START_POST)
-                socket_enter_stop_pre(s, SOCKET_FAILURE_RESOURCES);
-        else if (s->state == SOCKET_STOP_POST)
-                socket_enter_dead(s, SOCKET_FAILURE_RESOURCES);
-        else
-                socket_enter_signal(s, SOCKET_FINAL_SIGTERM, SOCKET_FAILURE_RESOURCES);
+                if (s->state == SOCKET_START_POST)
+                        socket_enter_stop_pre(s, SOCKET_FAILURE_RESOURCES);
+                else if (s->state == SOCKET_STOP_POST)
+                        socket_enter_dead(s, SOCKET_FAILURE_RESOURCES);
+                else
+                        socket_enter_signal(s, SOCKET_FINAL_SIGTERM, SOCKET_FAILURE_RESOURCES);
+        }
 }
 
 static int socket_start(Unit *u) {
@@ -3454,19 +3414,22 @@ static int socket_clean(Unit *u, ExecCleanMask mask) {
         s->control_command = NULL;
         s->control_command_id = _SOCKET_EXEC_COMMAND_INVALID;
 
-        r = socket_arm_timer(s, usec_add(now(CLOCK_MONOTONIC), s->exec_context.timeout_clean_usec));
-        if (r < 0)
+        r = socket_arm_timer(s, /* relative= */ true, s->exec_context.timeout_clean_usec);
+        if (r < 0) {
+                log_unit_warning_errno(u, r, "Failed to install timer: %m");
                 goto fail;
+        }
 
         r = unit_fork_and_watch_rm_rf(u, l, &s->control_pid);
-        if (r < 0)
+        if (r < 0) {
+                log_unit_warning_errno(u, r, "Failed to spawn cleaning task: %m");
                 goto fail;
+        }
 
         socket_set_state(s, SOCKET_CLEANING);
         return 0;
 
 fail:
-        log_unit_warning_errno(u, r, "Failed to initiate cleaning: %m");
         s->clean_result = SOCKET_FAILURE_RESOURCES;
         s->timer_event_source = sd_event_source_disable_unref(s->timer_event_source);
         return r;
