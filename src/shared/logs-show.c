@@ -412,13 +412,14 @@ static int output_timestamp_realtime(
 
                         /* No usec in strftime, need to append */
                         if (mode == OUTPUT_SHORT_ISO_PRECISE) {
+                                assert(ELEMENTSOF(buf) - tail >= 7);
                                 snprintf(buf + tail, ELEMENTSOF(buf) - tail, ".%06"PRI_USEC, display_ts->realtime % USEC_PER_SEC);
                                 tail += 7;
                         }
 
-                        int8_t h = tm.tm_gmtoff / 60 / 60;
-                        int8_t m = labs((tm.tm_gmtoff / 60) % 60);
-                        snprintf(buf + tail, ELEMENTSOF(buf) - tail, "%+03"PRId8":%02"PRId8, h, m);
+                        int h = tm.tm_gmtoff / 60 / 60;
+                        int m = labs((tm.tm_gmtoff / 60) % 60);
+                        snprintf(buf + tail, ELEMENTSOF(buf) - tail, "%+03d:%02d", h, m);
                         break;
                 }
 
