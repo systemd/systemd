@@ -6756,7 +6756,7 @@ static int parse_argv(int argc, char *argv[]) {
 
         if (argc - optind > 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Expected at most one argument, the path to the block device.");
+                                       "Expected at most one argument, the path to the block device or image file.");
 
         if (arg_empty == EMPTY_UNSET) /* default to refuse mode, if not otherwise specified */
                 arg_empty = EMPTY_REFUSE;
@@ -6804,11 +6804,11 @@ static int parse_argv(int argc, char *argv[]) {
 
         if (IN_SET(arg_empty, EMPTY_FORCE, EMPTY_REQUIRE, EMPTY_CREATE) && !arg_node && !arg_image)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "A path to a device node or loopback file must be specified when --empty=force, --empty=require or --empty=create are used.");
+                                       "A path to a device node or image file must be specified when --make-ddi=, --empty=force, --empty=require or --empty=create are used.");
 
         if (arg_split && !arg_node)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "A path to a loopback file must be specified when --split is used.");
+                                       "A path to an image file must be specified when --split is used.");
 
         if (arg_tpm2_pcr_mask == UINT32_MAX)
                 arg_tpm2_pcr_mask = TPM2_PCR_MASK_DEFAULT;
