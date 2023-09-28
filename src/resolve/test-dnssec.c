@@ -167,7 +167,7 @@ TEST(dnssec_verify_rfc8080_ed25519_example1) {
         assert_se(dnssec_key_match_rrsig(mx->key, rrsig) > 0);
         assert_se(dnssec_rrsig_match_dnskey(rrsig, dnskey, false) > 0);
 
-        answer = dns_answer_new(1);
+        answer = dns_answer_new(1, false);
         assert_se(answer);
         assert_se(dns_answer_add(answer, mx, 0, DNS_ANSWER_AUTHENTICATED, NULL) >= 0);
 
@@ -259,7 +259,7 @@ TEST(dnssec_verify_rfc8080_ed25519_example2) {
         assert_se(dnssec_key_match_rrsig(mx->key, rrsig) > 0);
         assert_se(dnssec_rrsig_match_dnskey(rrsig, dnskey, false) > 0);
 
-        answer = dns_answer_new(1);
+        answer = dns_answer_new(1, false);
         assert_se(answer);
         assert_se(dns_answer_add(answer, mx, 0, DNS_ANSWER_AUTHENTICATED, NULL) >= 0);
 
@@ -350,7 +350,7 @@ TEST(dnssec_verify_rfc6605_example1) {
         assert_se(dnssec_key_match_rrsig(a->key, rrsig) > 0);
         assert_se(dnssec_rrsig_match_dnskey(rrsig, dnskey, false) > 0);
 
-        answer = dns_answer_new(1);
+        answer = dns_answer_new(1, false);
         assert_se(answer);
         assert_se(dns_answer_add(answer, a, 0, DNS_ANSWER_AUTHENTICATED, NULL) >= 0);
 
@@ -445,7 +445,7 @@ TEST(dnssec_verify_rfc6605_example2) {
         assert_se(dnssec_key_match_rrsig(a->key, rrsig) > 0);
         assert_se(dnssec_rrsig_match_dnskey(rrsig, dnskey, false) > 0);
 
-        answer = dns_answer_new(1);
+        answer = dns_answer_new(1, false);
         assert_se(answer);
         assert_se(dns_answer_add(answer, a, 0, DNS_ANSWER_AUTHENTICATED, NULL) >= 0);
 
@@ -523,7 +523,7 @@ TEST(dnssec_verify_rrset) {
         assert_se(dnssec_key_match_rrsig(a->key, rrsig) > 0);
         assert_se(dnssec_rrsig_match_dnskey(rrsig, dnskey, false) > 0);
 
-        answer = dns_answer_new(1);
+        answer = dns_answer_new(1, false);
         assert_se(answer);
         assert_se(dns_answer_add(answer, a, 0, DNS_ANSWER_AUTHENTICATED, NULL) >= 0);
 
@@ -614,7 +614,7 @@ TEST(dnssec_verify_rrset2) {
         assert_se(dnssec_key_match_rrsig(nsec->key, rrsig) > 0);
         assert_se(dnssec_rrsig_match_dnskey(rrsig, dnskey, false) > 0);
 
-        answer = dns_answer_new(1);
+        answer = dns_answer_new(1, false);
         assert_se(answer);
         assert_se(dns_answer_add(answer, nsec, 0, DNS_ANSWER_AUTHENTICATED, NULL) >= 0);
 
@@ -740,7 +740,7 @@ TEST(dnssec_verify_rrset3) {
         assert_se(dnssec_key_match_rrsig(mx4->key, rrsig) > 0);
         assert_se(dnssec_rrsig_match_dnskey(rrsig, dnskey, false) > 0);
 
-        answer = dns_answer_new(4);
+        answer = dns_answer_new(4, false);
         assert_se(answer);
         assert_se(dns_answer_add(answer, mx1, 0, DNS_ANSWER_AUTHENTICATED, NULL) >= 0);
         assert_se(dns_answer_add(answer, mx2, 0, DNS_ANSWER_AUTHENTICATED, NULL) >= 0);

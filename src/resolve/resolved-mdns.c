@@ -308,7 +308,7 @@ static int mdns_scope_process_query(DnsScope *s, DnsPacket *p) {
                         if (r < 0)
                                 return log_debug_errno(r, "Failed to reserve space in answer");
                 } else {
-                        full_answer = dns_answer_new(dns_answer_size(answer));
+                        full_answer = dns_answer_new(dns_answer_size(answer), true);
                         if (!full_answer)
                                 return log_oom();
                 }
