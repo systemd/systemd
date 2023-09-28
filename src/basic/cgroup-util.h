@@ -209,6 +209,8 @@ int cg_rmdir(const char *controller, const char *path);
 
 int cg_is_threaded(const char *controller, const char *path);
 
+int cg_is_delegated(const char *controller, const char *path);
+
 typedef enum  {
         CG_KEY_MODE_GRACEFUL = 1 << 0,
 } CGroupKeyMode;
