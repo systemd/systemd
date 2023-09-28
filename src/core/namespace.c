@@ -1812,6 +1812,39 @@ static int create_symlinks_from_tuples(const char *root, char **strv_symlinks) {
         return 0;
 }
 
+static void mount_entry_path_debug_string(const char *root, MountEntry *m, char **error_path) {
+        assert(m);
+
+        /* Create a string suitable for debugging logs, stripping for example the local working directory.
+         * For example, with a BindPaths=/var/bar that does not exist on the host:
+         *
+         * Before:
+         *  foo.service: Failed to set up mount namespacing: /run/systemd/unit-root/var/bar: No such file or directory
+         * After:
+         *  foo.service: Failed to set up mount namespacing: /var/bar: No such file or directory
+         *
+         * Note that this is an error path, so no OOM check is done on purpose. */
+
+        if (!error_path)
+                return;
+
+        if (!mount_entry_path(m)) {
+                *error_path = NULL;
+                return;
+        }
+
+        if (root) {
+                char *e = startswith(mount_entry_path(m), root);
+                if (e) {
+                        *error_path = strdup(e);
+                        return;
+                }
+        }
+
+        *error_path = strdup(mount_entry_path(m));
+        return;
+}
+
 static int apply_mounts(
                 const char *root,
                 const ImagePolicy *mount_image_policy,
@@ -1857,8 +1890,7 @@ static int apply_mounts(
                         /* ExtensionImages/Directories are first opened in the propagate directory, not in the root_directory */
                         r = follow_symlink(!IN_SET(m->mode, EXTENSION_IMAGES, EXTENSION_DIRECTORIES) ? root : NULL, m);
                         if (r < 0) {
-                                if (error_path && mount_entry_path(m))
-                                        *error_path = strdup(mount_entry_path(m));
+                                mount_entry_path_debug_string(root, m, error_path);
                                 return r;
                         }
                         if (r == 0) {
@@ -1872,8 +1904,7 @@ static int apply_mounts(
 
                         r = apply_one_mount(root, m, mount_image_policy, extension_image_policy, ns_info);
                         if (r < 0) {
-                                if (error_path && mount_entry_path(m))
-                                        *error_path = strdup(mount_entry_path(m));
+                                mount_entry_path_debug_string(root, m, error_path);
                                 return r;
                         }
 
@@ -1906,8 +1937,7 @@ static int apply_mounts(
         for (MountEntry *m = mounts; m < mounts + *n_mounts; ++m) {
                 r = make_read_only(m, deny_list, proc_self_mountinfo);
                 if (r < 0) {
-                        if (error_path && mount_entry_path(m))
-                                *error_path = strdup(mount_entry_path(m));
+                        mount_entry_path_debug_string(root, m, error_path);
                         return r;
                 }
         }
@@ -1921,8 +1951,7 @@ static int apply_mounts(
         for (MountEntry *m = mounts; m < mounts + *n_mounts; ++m) {
                 r = make_noexec(m, deny_list, proc_self_mountinfo);
                 if (r < 0) {
-                        if (error_path && mount_entry_path(m))
-                                *error_path = strdup(mount_entry_path(m));
+                        mount_entry_path_debug_string(root, m, error_path);
                         return r;
                 }
         }
@@ -1932,8 +1961,7 @@ static int apply_mounts(
                 for (MountEntry *m = mounts; m < mounts + *n_mounts; ++m) {
                         r = make_nosuid(m, proc_self_mountinfo);
                         if (r < 0) {
-                                if (error_path && mount_entry_path(m))
-                                        *error_path = strdup(mount_entry_path(m));
+                                mount_entry_path_debug_string(root, m, error_path);
                                 return r;
                         }
                 }
