@@ -478,17 +478,29 @@ void mmap_cache_stats_log_debug(MMapCache *m) {
         log_debug("mmap cache statistics: %u context cache hit, %u window list hit, %u miss", m->n_context_cache_hit, m->n_window_list_hit, m->n_missed);
 }
 
+static bool process_sigbus_one(MMapCache *m, void *addr) {
+        assert(m);
+
+        MMapFileDescriptor *f;
+        HASHMAP_FOREACH(f, m->fds)
+                LIST_FOREACH(by_fd, w, f->windows)
+                if ((uint8_t*) addr >= (uint8_t*) w->ptr &&
+                    (uint8_t*) addr < (uint8_t*) w->ptr + w->size) {
+                        f->sigbus = true;
+                        return true;
+                }
+
+        return false;
+}
+
 static void mmap_cache_process_sigbus(MMapCache *m) {
         bool found = false;
-        MMapFileDescriptor *f;
         int r;
 
         assert(m);
 
-        /* Iterate through all triggered pages and mark their files as
-         * invalidated */
+        /* Iterate through all triggered pages and mark their files as invalidated */
         for (;;) {
-                bool ours;
                 void *addr;
 
                 r = sigbus_pop(&addr);
@@ -499,34 +511,22 @@ static void mmap_cache_process_sigbus(MMapCache *m) {
                         abort();
                 }
 
-                ours = false;
-                HASHMAP_FOREACH(f, m->fds) {
-                        LIST_FOREACH(by_fd, w, f->windows) {
-                                if ((uint8_t*) addr >= (uint8_t*) w->ptr &&
-                                    (uint8_t*) addr < (uint8_t*) w->ptr + w->size) {
-                                        found = ours = f->sigbus = true;
-                                        break;
-                                }
-                        }
-
-                        if (ours)
-                                break;
-                }
-
-                /* Didn't find a matching window, give up */
-                if (!ours) {
+                if (!process_sigbus_one(m, addr)) {
+                        /* Didn't find a matching window, give up */
                         log_error("Unknown SIGBUS page, aborting.");
                         abort();
                 }
+
+                found = true;
         }
 
-        /* The list of triggered pages is now empty. Now, let's remap
-         * all windows of the triggered file to anonymous maps, so
-         * that no page of the file in question is triggered again, so
-         * that we can be sure not to hit the queue size limit. */
+        /* The list of triggered pages is now empty. Now, let's remap all windows of the triggered file to
+         * anonymous maps, so that no page of the file in question is triggered again, so that we can be sure
+         * not to hit the queue size limit. */
         if (_likely_(!found))
                 return;
 
+        MMapFileDescriptor *f;
         HASHMAP_FOREACH(f, m->fds) {
                 if (!f->sigbus)
                         continue;
