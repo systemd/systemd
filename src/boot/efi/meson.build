@@ -162,7 +162,7 @@ efi_c_ld_args = [
         '-z', 'max-page-size=4096',
 
         '-z', 'noexecstack',
-        '-z', 'norelro',
+        '-z', 'relro',
         '-z', 'separate-code',
 ]
 
