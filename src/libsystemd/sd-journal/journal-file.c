@@ -838,9 +838,9 @@ static int journal_file_move_to(
         assert(f);
         assert(ret);
 
-        /* This function may clear, overwrite, or alter previously cached entries. After this function has
-         * been called, all objects except for one obtained by this function are invalidated and must be
-         * re-read before use. */
+        /* This function may clear, overwrite, or alter previously cached entries with the same type. After
+         * this function has been called, all previously read objects with the same type may be invalidated,
+         * hence must be re-read before use. */
 
         if (size <= 0)
                 return -EINVAL;
@@ -1088,9 +1088,9 @@ int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset
 
         assert(f);
 
-        /* Even if this function fails, it may clear, overwrite, or alter previously cached entries. After
-         * this function has been called, all objects except for one obtained by this function are
-         * invalidated and must be re-read before use.. */
+        /* Even if this function fails, it may clear, overwrite, or alter previously cached entries with the
+         * same type. After this function has been called, all previously read objects with the same type may
+         * be invalidated, hence must be re-read before use. */
 
         /* Objects may only be located at multiple of 64 bit */
         if (!VALID64(offset))
@@ -4341,7 +4341,7 @@ int journal_file_copy_entry(
                 r = journal_file_data_payload(from, NULL, q, NULL, 0, 0, &data, &l);
                 if (IN_SET(r, -EADDRNOTAVAIL, -EBADMSG)) {
                         log_debug_errno(r, "Entry item %"PRIu64" data object is bad, skipping over it: %m", i);
-                        goto next;
+                        continue;
                 }
                 if (r < 0)
                         return r;
@@ -4363,13 +4363,6 @@ int journal_file_copy_entry(
                         .object_offset = h,
                         .hash = le64toh(u->data.hash),
                 };
-
-        next:
-                /* The above journal_file_data_payload() may clear or overwrite cached object. Hence, we need
-                 * to re-read the object from the cache. */
-                r = journal_file_move_to_object(from, OBJECT_ENTRY, p, &o);
-                if (r < 0)
-                        return r;
         }
 
         if (m == 0)

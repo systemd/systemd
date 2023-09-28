@@ -2640,10 +2640,10 @@ _public_ int sd_journal_get_data(sd_journal *j, const char *field, const void **
                 p = journal_file_entry_item_object_offset(f, o, i);
                 r = journal_file_data_payload(f, NULL, p, field, field_length, j->data_threshold, &d, &l);
                 if (r == 0)
-                        goto next;
+                        continue;
                 if (IN_SET(r, -EADDRNOTAVAIL, -EBADMSG)) {
                         log_debug_errno(r, "Entry item %"PRIu64" data object is bad, skipping over it: %m", i);
-                        goto next;
+                        continue;
                 }
                 if (r < 0)
                         return r;
@@ -2652,12 +2652,6 @@ _public_ int sd_journal_get_data(sd_journal *j, const char *field, const void **
                 *size = l;
 
                 return 0;
-
-        next:
-                /* journal_file_data_payload() may clear or overwrite cached object. */
-                r = journal_file_move_to_object(f, OBJECT_ENTRY, f->current_offset, &o);
-                if (r < 0)
-                        return r;
         }
 
         return -ENOENT;
@@ -2693,7 +2687,7 @@ _public_ int sd_journal_enumerate_data(sd_journal *j, const void **data, size_t 
                 r = journal_file_data_payload(f, NULL, p, NULL, 0, j->data_threshold, &d, &l);
                 if (IN_SET(r, -EADDRNOTAVAIL, -EBADMSG)) {
                         log_debug_errno(r, "Entry item %"PRIu64" data object is bad, skipping over it: %m", j->current_field);
-                        goto next;
+                        continue;
                 }
                 if (r < 0)
                         return r;
@@ -2705,12 +2699,6 @@ _public_ int sd_journal_enumerate_data(sd_journal *j, const void **data, size_t 
                 j->current_field++;
 
                 return 1;
-
-        next:
-                /* journal_file_data_payload() may clear or overwrite cached object. */
-                r = journal_file_move_to_object(f, OBJECT_ENTRY, f->current_offset, &o);
-                if (r < 0)
-                        return r;
         }
 
         return 0;
