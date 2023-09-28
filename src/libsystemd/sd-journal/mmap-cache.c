@@ -541,34 +541,42 @@ bool mmap_cache_fd_got_sigbus(MMapFileDescriptor *f) {
         return f->sigbus;
 }
 
-MMapFileDescriptor* mmap_cache_add_fd(MMapCache *m, int fd, int prot) {
-        MMapFileDescriptor *f;
+int mmap_cache_add_fd(MMapCache *m, int fd, int prot, MMapFileDescriptor **ret) {
+        _cleanup_free_ MMapFileDescriptor *f = NULL;
+        MMapFileDescriptor *existing;
         int r;
 
         assert(m);
         assert(fd >= 0);
 
-        f = hashmap_get(m->fds, FD_TO_PTR(fd));
-        if (f)
-                return f;
+        existing = hashmap_get(m->fds, FD_TO_PTR(fd));
+        if (existing) {
+                if (ret)
+                        *ret = existing;
+                return 0;
+        }
 
-        r = hashmap_ensure_allocated(&m->fds, NULL);
-        if (r < 0)
-                return NULL;
-
-        f = new0(MMapFileDescriptor, 1);
+        f = new(MMapFileDescriptor, 1);
         if (!f)
-                return NULL;
+                return -ENOMEM;
 
-        r = hashmap_put(m->fds, FD_TO_PTR(fd), f);
+        *f = (MMapFileDescriptor) {
+                .fd = fd,
+                .prot = prot,
+        };
+
+        r = hashmap_ensure_put(&m->fds, NULL, FD_TO_PTR(fd), f);
         if (r < 0)
-                return mfree(f);
+                return r;
+        assert(r > 0);
 
         f->cache = mmap_cache_ref(m);
-        f->fd = fd;
-        f->prot = prot;
 
-        return f;
+        if (ret)
+                *ret = f;
+
+        TAKE_PTR(f);
+        return 1;
 }
 
 void mmap_cache_fd_free(MMapFileDescriptor *f) {
