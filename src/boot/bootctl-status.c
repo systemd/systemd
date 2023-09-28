@@ -273,15 +273,13 @@ static int status_binaries(const char *esp_path, sd_id128_t partition) {
         printf("\n");
 
         r = enumerate_binaries(esp_path, "EFI/systemd", NULL, &last, &is_first);
-        if (r < 0) {
-                printf("\n");
-                return r;
-        }
+        if (r < 0)
+                goto fail;
 
         k = enumerate_binaries(esp_path, "EFI/BOOT", "boot", &last, &is_first);
         if (k < 0) {
-                printf("\n");
-                return k;
+                r = k;
+                goto fail;
         }
 
         if (last) /* let's output the last entry now, since now we know that there will be no more, and can draw the tree glyph properly */
@@ -296,6 +294,11 @@ static int status_binaries(const char *esp_path, sd_id128_t partition) {
 
         printf("\n");
         return 0;
+
+fail:
+        errno = -r;
+        printf("         File: (can't access: %m)\n\n");
+        return r;
 }
 
 static void read_efi_var(const char *variable, char **ret) {
@@ -407,9 +410,15 @@ int verb_status(int argc, char *argv[], void *userdata) {
                 printf("%sSystem:%s\n", ansi_underline(), ansi_normal());
                 printf("      Firmware: %s%s (%s)%s\n", ansi_highlight(), strna(fw_type), strna(fw_info), ansi_normal());
                 printf(" Firmware Arch: %s\n", get_efi_arch());
-                printf("   Secure Boot: %sd (%s)\n",
-                       enable_disable(IN_SET(secure, SECURE_BOOT_USER, SECURE_BOOT_DEPLOYED)),
-                       secure_boot_mode_to_string(secure));
+                printf("   Secure Boot: %s%s%s",
+                       IN_SET(secure, SECURE_BOOT_USER, SECURE_BOOT_DEPLOYED) ? ansi_highlight_green() : ansi_normal(),
+                       enabled_disabled(IN_SET(secure, SECURE_BOOT_USER, SECURE_BOOT_DEPLOYED)),
+                       ansi_normal());
+
+                if (secure != SECURE_BOOT_DISABLED)
+                        printf(" (%s)\n", secure_boot_mode_to_string(secure));
+                else
+                        printf("\n");
 
                 s = tpm2_support();
                 printf("  TPM2 Support: %s%s%s\n",
@@ -419,6 +428,16 @@ int verb_status(int argc, char *argv[], void *userdata) {
                        (s & TPM2_SUPPORT_FIRMWARE) ? "firmware only, driver unavailable" :
                        (s & TPM2_SUPPORT_DRIVER) ? "driver only, firmware unavailable" : "no",
                        ansi_normal());
+
+                k = efi_measured_uki(LOG_DEBUG);
+                if (k > 0)
+                        printf("  Measured UKI: %syes%s\n", ansi_highlight_green(), ansi_normal());
+                else if (k == 0)
+                        printf("  Measured UKI: no\n");
+                else {
+                        errno = -k;
+                        printf("  Measured UKI: %sfailed%s (%m)\n", ansi_highlight_red(), ansi_normal());
+                }
 
                 k = efi_get_reboot_to_firmware();
                 if (k > 0)
