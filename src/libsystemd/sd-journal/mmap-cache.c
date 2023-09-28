@@ -127,12 +127,14 @@ static void window_invalidate(Window *w) {
         w->invalidated = true;
 }
 
-static void window_free(Window *w) {
-        assert(w);
+static Window* window_free(Window *w) {
+        if (!w)
+                return NULL;
 
         window_unlink(w);
         w->cache->n_windows--;
-        free(w);
+
+        return mfree(w);
 }
 
 static bool window_matches(Window *w, uint64_t offset, size_t size) {
@@ -238,11 +240,12 @@ static void context_attach_window(MMapCache *m, Context *c, Window *w) {
         LIST_PREPEND(by_window, w->contexts, c);
 }
 
-static MMapCache *mmap_cache_free(MMapCache *m) {
-        assert(m);
+static MMapCache* mmap_cache_free(MMapCache *m) {
+        if (!m)
+                return NULL;
 
-        for (int i = 0; i < MMAP_CACHE_MAX_CONTEXTS; i++)
-                context_detach_window(m, &m->contexts[i]);
+        FOREACH_ARRAY(c, m->contexts, MMAP_CACHE_MAX_CONTEXTS)
+                context_detach_window(m, c);
 
         hashmap_free(m->fds);
 
@@ -581,9 +584,9 @@ int mmap_cache_add_fd(MMapCache *m, int fd, int prot, MMapFileDescriptor **ret) 
         return 1;
 }
 
-void mmap_cache_fd_free(MMapFileDescriptor *f) {
-        assert(f);
-        assert(f->cache);
+MMapFileDescriptor* mmap_cache_fd_free(MMapFileDescriptor *f) {
+        if (!f)
+                return NULL;
 
         /* Make sure that any queued SIGBUS are first dispatched, so
          * that we don't end up with a SIGBUS entry we cannot relate
@@ -594,12 +597,10 @@ void mmap_cache_fd_free(MMapFileDescriptor *f) {
         while (f->windows)
                 window_free(f->windows);
 
-        if (f->cache) {
-                assert_se(hashmap_remove(f->cache->fds, FD_TO_PTR(f->fd)));
-                f->cache = mmap_cache_unref(f->cache);
-        }
+        assert_se(hashmap_remove(f->cache->fds, FD_TO_PTR(f->fd)) == f);
+        f->cache = mmap_cache_unref(f->cache);
 
-        free(f);
+        return mfree(f);
 }
 
 MMapCache* mmap_cache_fd_cache(MMapFileDescriptor *f) {
