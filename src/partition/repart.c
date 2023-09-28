@@ -3356,6 +3356,9 @@ static int context_wipe_and_discard(Context *context) {
 
         assert(context);
 
+        if (arg_empty == EMPTY_CREATE) /* If we just created the image, no need to wipe */
+                return 0;
+
         /* Wipe and discard the contents of all partitions we are about to create. We skip the discarding if
          * we were supposed to start from scratch anyway, as in that case we just discard the whole block
          * device in one go early on. */
@@ -5420,7 +5423,8 @@ static int context_write_partition_table(Context *context) {
 
         log_info("Applying changes.");
 
-        if (context->from_scratch) {
+        if (context->from_scratch && arg_empty != EMPTY_CREATE) {
+                /* Erase everything if we operate from scratch, except if the image was just created anyway, and thus is definitely empty. */
                 r = context_wipe_range(context, 0, context->total);
                 if (r < 0)
                         return r;
