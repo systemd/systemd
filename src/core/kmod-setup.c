@@ -168,6 +168,15 @@ int kmod_setup(void) {
                 /* Make sure we can send sd-notify messages over vsock as early as possible. */
                 { "vmw_vsock_virtio_transport", NULL,                        false, false, has_virtio_vsock   },
 
+                /* We can't wait for specific virtiofs tags to show up as device nodes so we have to load the
+                 * virtiofs and virtio_pci modules early to make sure the virtiofs tags are found when
+                 * sysroot.mount is started.
+                 *
+                 * TODO: Remove these again once https://gitlab.com/virtio-fs/virtiofsd/-/issues/128 is
+                 * resolved and the kernel fix is widely available. */
+                { "virtiofs",                   "/sys/module/virtiofs",      false, false, NULL               },
+                { "virtio_pci",                 "/sys/module/virtio_pci",    false, false, NULL               },
+
                 /* qemu_fw_cfg would be loaded by udev later, but we want to import credentials from it super early */
                 { "qemu_fw_cfg",                "/sys/firmware/qemu_fw_cfg", false, false, in_qemu            },
 
