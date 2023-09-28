@@ -674,6 +674,21 @@ bool mount_propagation_flag_is_valid(unsigned long flag) {
         return IN_SET(flag, 0, MS_SHARED, MS_PRIVATE, MS_SLAVE);
 }
 
+bool mount_new_api_supported(void) {
+        static int cache = -1;
+        int r;
+
+        if (cache >= 0)
+                return cache;
+
+        /* This is the newer API among the ones we use, so use it as boundary */
+        r = RET_NERRNO(mount_setattr(-EBADF, NULL, 0, NULL, 0));
+        if (r == 0 || ERRNO_IS_NOT_SUPPORTED(r)) /* This should return an error if it is working properly */
+                return (cache = false);
+
+        return (cache = true);
+}
+
 unsigned long ms_nosymfollow_supported(void) {
         _cleanup_close_ int fsfd = -EBADF, mntfd = -EBADF;
         static int cache = -1;
@@ -682,6 +697,9 @@ unsigned long ms_nosymfollow_supported(void) {
 
         if (cache >= 0)
                 return cache ? MS_NOSYMFOLLOW : 0;
+
+        if (!mount_new_api_supported)
+                goto not_supported;
 
         /* Checks if MS_NOSYMFOLLOW is supported (which was added in 5.10). We use the new mount API's
          * mount_setattr() call for that, which was added in 5.12, which is close enough. */
