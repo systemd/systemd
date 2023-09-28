@@ -276,7 +276,6 @@ static int try_context(
 
         assert(f);
         assert(f->cache);
-        assert(f->cache->n_ref > 0);
         assert(c);
         assert(size > 0);
         assert(ret);
@@ -314,7 +313,6 @@ static int find_mmap(
 
         assert(f);
         assert(f->cache);
-        assert(f->cache->n_ref > 0);
         assert(c);
         assert(size > 0);
 
@@ -381,7 +379,6 @@ static int add_mmap(
 
         assert(f);
         assert(f->cache);
-        assert(f->cache->n_ref > 0);
         assert(c);
         assert(size > 0);
         assert(ret);
@@ -447,10 +444,9 @@ int mmap_cache_fd_get(
 
         assert(f);
         assert(f->cache);
-        assert(f->cache->n_ref > 0);
+        assert(context < MMAP_CACHE_MAX_CONTEXTS);
         assert(size > 0);
         assert(ret);
-        assert(context < MMAP_CACHE_MAX_CONTEXTS);
 
         c = &f->cache->contexts[context];
 
@@ -603,6 +599,5 @@ MMapFileDescriptor* mmap_cache_fd_free(MMapFileDescriptor *f) {
 
 MMapCache* mmap_cache_fd_cache(MMapFileDescriptor *f) {
         assert(f);
-
-        return f->cache;
+        return ASSERT_PTR(f->cache);
 }
