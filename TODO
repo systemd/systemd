@@ -133,6 +133,12 @@ Deprecations and removals:
 
 Features:
 
+* in pid1: move out all cgroup state settings from Unit into a new object
+  CGroupState or so which is allocated when we realize the unit into a cgroup,
+  and then remains referenced by it. The new object should also carry an fd to
+  the realized cgroup, to pin it (and later execute all cgroup operations over,
+  once we drop cgroupv1 compat).
+
 * add new "systemd-ssh-generator", which allows basic ssh config via
   credentials (host key). It generates sshd.socket for IP, but also
   sshd-vsock.socket for listening on AF_VSOCK when running in a VM, and
