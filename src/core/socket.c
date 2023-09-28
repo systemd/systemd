@@ -113,7 +113,7 @@ static void socket_unwatch_control_pid(Socket *s) {
         if (!pidref_is_set(&s->control_pid))
                 return;
 
-        unit_unwatch_pid(UNIT(s), s->control_pid.pid);
+        unit_unwatch_pidref(UNIT(s), &s->control_pid);
         pidref_done(&s->control_pid);
 }
 
@@ -1865,7 +1865,7 @@ static int socket_coldplug(Unit *u) {
                    SOCKET_FINAL_SIGKILL,
                    SOCKET_CLEANING)) {
 
-                r = unit_watch_pid(UNIT(s), s->control_pid.pid, /* exclusive= */ false);
+                r = unit_watch_pidref(UNIT(s), &s->control_pid, /* exclusive= */ false);
                 if (r < 0)
                         return r;
 
@@ -1954,7 +1954,7 @@ static int socket_spawn(Socket *s, ExecCommand *c, PidRef *ret_pid) {
         if (r < 0)
                 return r;
 
-        r = unit_watch_pid(UNIT(s), pidref.pid, /* exclusive= */ true);
+        r = unit_watch_pidref(UNIT(s), &pidref, /* exclusive= */ true);
         if (r < 0)
                 return r;
 
@@ -2024,7 +2024,7 @@ static int socket_chown(Socket *s, PidRef *ret_pid) {
                 _exit(EXIT_SUCCESS);
         }
 
-        r = unit_watch_pid(UNIT(s), pid.pid, /* exclusive= */ true);
+        r = unit_watch_pidref(UNIT(s), &pid, /* exclusive= */ true);
         if (r < 0)
                 return r;
 

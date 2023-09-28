@@ -11,6 +11,10 @@ typedef struct PidRef {
 
 #define PIDREF_NULL (PidRef) { .fd = -EBADF }
 
+/* Turns a pid_t into a PidRef structure on-the-fly *without* acquiring a pidfd for it. (As opposed to
+ * pidref_set_pid() which does so *with* acquiring one, see below) */
+#define PIDREF_MAKE_FROM_PID(x) (PidRef) { .pid = (x), .fd = -EBADF }
+
 static inline bool pidref_is_set(const PidRef *pidref) {
         return pidref && pidref->pid > 0;
 }
@@ -27,6 +31,8 @@ static inline bool pidref_equal(const PidRef *a, const PidRef *b) {
         return !pidref_is_set(b);
 }
 
+/* This turns a pid_t into a PidRef structure, and acquires a pidfd for it, if possible. (As opposed to
+ * PIDREF_MAKE_FROM_PID() above, which does not acquire a pidfd.) */
 int pidref_set_pid(PidRef *pidref, pid_t pid);
 int pidref_set_pidstr(PidRef *pidref, const char *pid);
 int pidref_set_pidfd(PidRef *pidref, int fd);
@@ -34,9 +40,19 @@ int pidref_set_pidfd_take(PidRef *pidref, int fd); /* takes ownership of the pas
 int pidref_set_pidfd_consume(PidRef *pidref, int fd); /* takes ownership of the passed pidfd in both success and failure */
 
 void pidref_done(PidRef *pidref);
+PidRef *pidref_free(PidRef *pidref);
+DEFINE_TRIVIAL_CLEANUP_FUNC(PidRef*, pidref_free);
+
+int pidref_dup(const PidRef *pidref, PidRef **ret);
+
+int pidref_new_from_pid(pid_t pid, PidRef **ret);
 
 int pidref_kill(PidRef *pidref, int sig);
 int pidref_kill_and_sigcont(PidRef *pidref, int sig);
 int pidref_sigqueue(PidRef *pidfref, int sig, int value);
 
+int pidref_verify(PidRef *pidref);
+
 #define TAKE_PIDREF(p) TAKE_GENERIC((p), PidRef, PIDREF_NULL)
+
+extern const struct hash_ops pidref_hash_ops; /* Has destructor call for pidref_free(), i.e. expects heap allocated PidRef as keys */
