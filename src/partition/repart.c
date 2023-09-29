@@ -108,12 +108,13 @@
  * waste 3K per partition, which is probably fine. */
 
 static enum {
+        EMPTY_UNSET,    /* no choice has been made yet */
         EMPTY_REFUSE,   /* refuse empty disks, never create a partition table */
         EMPTY_ALLOW,    /* allow empty disks, create partition table if necessary */
         EMPTY_REQUIRE,  /* require an empty disk, create a partition table */
         EMPTY_FORCE,    /* make disk empty, erase everything, create a partition table always */
         EMPTY_CREATE,   /* create disk as loopback file, create a partition table always */
-} arg_empty = EMPTY_REFUSE;
+} arg_empty = EMPTY_UNSET;
 
 typedef enum FilterPartitionType {
         FILTER_PARTITIONS_NONE,
@@ -161,6 +162,8 @@ static ImagePolicy *arg_image_policy = NULL;
 static Architecture arg_architecture = _ARCHITECTURE_INVALID;
 static int arg_offline = -1;
 static char **arg_copy_from = NULL;
+static char *arg_copy_source = NULL;
+static char *arg_make_ddi = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
@@ -174,6 +177,8 @@ STATIC_DESTRUCTOR_REGISTER(arg_tpm2_public_key, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_filter_partitions, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_copy_from, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_copy_source, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_make_ddi, freep);
 
 typedef struct FreeArea FreeArea;
 
@@ -2416,6 +2421,9 @@ static int context_load_partition_table(Context *context) {
                 /* Always reinitiaize the disk, don't consider what there was on the disk before */
                 from_scratch = true;
                 break;
+
+        case EMPTY_UNSET:
+                assert_not_reached();
         }
 
         if (from_scratch) {
@@ -3356,6 +3364,9 @@ static int context_wipe_and_discard(Context *context) {
 
         assert(context);
 
+        if (arg_empty == EMPTY_CREATE) /* If we just created the image, no need to wipe */
+                return 0;
+
         /* Wipe and discard the contents of all partitions we are about to create. We skip the discarding if
          * we were supposed to start from scratch anyway, as in that case we just discard the whole block
          * device in one go early on. */
@@ -4267,11 +4278,11 @@ static int add_exclude_path(const char *path, Hashmap **denylist, DenyType type)
         if (!st)
                 return log_oom();
 
-        r = chase_and_stat(path, arg_root, CHASE_PREFIX_ROOT, NULL, st);
+        r = chase_and_stat(path, arg_copy_source, CHASE_PREFIX_ROOT, NULL, st);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
-                return log_error_errno(r, "Failed to stat source file '%s/%s': %m", strempty(arg_root), path);
+                return log_error_errno(r, "Failed to stat source file '%s/%s': %m", strempty(arg_copy_source), path);
 
         r = hashmap_ensure_put(denylist, &inode_hash_ops, st, INT_TO_PTR(type));
         if (r == -EEXIST)
@@ -4395,11 +4406,11 @@ static int add_subvolume_path(const char *path, Set **subvolumes) {
         if (!st)
                 return log_oom();
 
-        r = chase_and_stat(path, arg_root, CHASE_PREFIX_ROOT, NULL, st);
+        r = chase_and_stat(path, arg_copy_source, CHASE_PREFIX_ROOT, NULL, st);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
-                return log_error_errno(r, "Failed to stat source file '%s/%s': %m", strempty(arg_root), path);
+                return log_error_errno(r, "Failed to stat source file '%s/%s': %m", strempty(arg_copy_source), path);
 
         r = set_ensure_consume(subvolumes, &inode_hash_ops, TAKE_PTR(st));
         if (r < 0)
@@ -4462,9 +4473,9 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
                 if (rfd < 0)
                         return rfd;
 
-                sfd = chase_and_open(*source, arg_root, CHASE_PREFIX_ROOT, O_PATH|O_DIRECTORY|O_CLOEXEC|O_NOCTTY, NULL);
+                sfd = chase_and_open(*source, arg_copy_source, CHASE_PREFIX_ROOT, O_PATH|O_DIRECTORY|O_CLOEXEC|O_NOCTTY, NULL);
                 if (sfd < 0)
-                        return log_error_errno(sfd, "Failed to open source file '%s%s': %m", strempty(arg_root), *source);
+                        return log_error_errno(sfd, "Failed to open source file '%s%s': %m", strempty(arg_copy_source), *source);
 
                 (void) copy_xattr(sfd, NULL, rfd, NULL, COPY_ALL_XATTRS);
                 (void) copy_access(sfd, rfd);
@@ -4486,9 +4497,13 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
                 if (r < 0)
                         return r;
 
-                sfd = chase_and_open(*source, arg_root, CHASE_PREFIX_ROOT, O_CLOEXEC|O_NOCTTY, NULL);
+                sfd = chase_and_open(*source, arg_copy_source, CHASE_PREFIX_ROOT, O_CLOEXEC|O_NOCTTY, NULL);
+                if (sfd == -ENOENT) {
+                        log_notice_errno(sfd, "Failed to open source file '%s%s', skipping: %m", strempty(arg_copy_source), *source);
+                        continue;
+                }
                 if (sfd < 0)
-                        return log_error_errno(sfd, "Failed to open source file '%s%s': %m", strempty(arg_root), *source);
+                        return log_error_errno(sfd, "Failed to open source file '%s%s': %m", strempty(arg_copy_source), *source);
 
                 r = fd_verify_regular(sfd);
                 if (r < 0) {
@@ -4534,7 +4549,7 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
                                                 denylist, subvolumes_by_source_inode);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to copy '%s%s' to '%s%s': %m",
-                                                       strempty(arg_root), *source, strempty(root), *target);
+                                                       strempty(arg_copy_source), *source, strempty(root), *target);
                 } else {
                         _cleanup_free_ char *dn = NULL, *fn = NULL;
 
@@ -4565,7 +4580,7 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
 
                         r = copy_bytes(sfd, tfd, UINT64_MAX, COPY_REFLINK|COPY_HOLES|COPY_SIGINT|COPY_TRUNCATE);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to copy '%s' to '%s%s': %m", *source, strempty(arg_root), *target);
+                                return log_error_errno(r, "Failed to copy '%s' to '%s%s': %m", *source, strempty(arg_copy_source), *target);
 
                         (void) copy_xattr(sfd, NULL, tfd, NULL, COPY_ALL_XATTRS);
                         (void) copy_access(sfd, tfd);
@@ -5420,7 +5435,8 @@ static int context_write_partition_table(Context *context) {
 
         log_info("Applying changes.");
 
-        if (context->from_scratch) {
+        if (context->from_scratch && arg_empty != EMPTY_CREATE) {
+                /* Erase everything if we operate from scratch, except if the image was just created anyway, and thus is definitely empty. */
                 r = context_wipe_range(context, 0, context->total);
                 if (r < 0)
                         return r;
@@ -6364,7 +6380,11 @@ static int help(void) {
                "     --sector-size=SIZE   Set the logical sector size for the image\n"
                "     --architecture=ARCH  Set the generic architecture for the image\n"
                "     --offline=BOOL       Whether to build the image offline\n"
+               "  -s --copy-source=PATH   Specify the primary source tree to copy files from\n"
                "     --copy-from=IMAGE    Copy partitions from the given image(s)\n"
+               "  -S --make-ddi=sysext    Make a system extension DDI\n"
+               "  -C --make-ddi=confext   Make a configuration extension DDI\n"
+               "  -P --make-ddi=portable  Make a portable service DDI\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -6409,6 +6429,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_ARCHITECTURE,
                 ARG_OFFLINE,
                 ARG_COPY_FROM,
+                ARG_MAKE_DDI,
         };
 
         static const struct option options[] = {
@@ -6444,15 +6465,17 @@ static int parse_argv(int argc, char *argv[]) {
                 { "architecture",         required_argument, NULL, ARG_ARCHITECTURE         },
                 { "offline",              required_argument, NULL, ARG_OFFLINE              },
                 { "copy-from",            required_argument, NULL, ARG_COPY_FROM            },
+                { "copy-source",          required_argument, NULL, 's'                      },
+                { "make-ddi",             required_argument, NULL, ARG_MAKE_DDI             },
                 {}
         };
 
-        int c, r, dry_run = -1;
+        int c, r;
 
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hs:SCP", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -6477,7 +6500,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_EMPTY:
-                        if (isempty(optarg) || streq(optarg, "refuse"))
+                        if (isempty(optarg))
+                                arg_empty = EMPTY_UNSET;
+                        else if (streq(optarg, "refuse"))
                                 arg_empty = EMPTY_REFUSE;
                         else if (streq(optarg, "allow"))
                                 arg_empty = EMPTY_ALLOW;
@@ -6485,14 +6510,9 @@ static int parse_argv(int argc, char *argv[]) {
                                 arg_empty = EMPTY_REQUIRE;
                         else if (streq(optarg, "force"))
                                 arg_empty = EMPTY_FORCE;
-                        else if (streq(optarg, "create")) {
+                        else if (streq(optarg, "create"))
                                 arg_empty = EMPTY_CREATE;
-
-                                if (dry_run < 0)
-                                        dry_run = false; /* Imply --dry-run=no if we create the loopback file
-                                                          * anew. After all we cannot really break anyone's
-                                                          * partition tables that way. */
-                        } else
+                        else
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Failed to parse --empty= parameter: %s", optarg);
                         break;
@@ -6780,6 +6800,39 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
+                case 's':
+                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_copy_source);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_MAKE_DDI:
+                        if (!filename_is_valid(optarg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid DDI type: %s", optarg);
+
+                        r = free_and_strdup_warn(&arg_make_ddi, optarg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case 'S':
+                        r = free_and_strdup_warn(&arg_make_ddi, "sysext");
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case 'C':
+                        r = free_and_strdup_warn(&arg_make_ddi, "confext");
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case 'P':
+                        r = free_and_strdup_warn(&arg_make_ddi, "portable");
+                        if (r < 0)
+                                return r;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -6789,7 +6842,39 @@ static int parse_argv(int argc, char *argv[]) {
 
         if (argc - optind > 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Expected at most one argument, the path to the block device.");
+                                       "Expected at most one argument, the path to the block device or image file.");
+
+        if (arg_make_ddi) {
+                if (arg_definitions)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Combination of --make-ddi= and --definitions= is not supported.");
+                if (!IN_SET(arg_empty, EMPTY_UNSET, EMPTY_CREATE))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Combination of --make-ddi= and --empty= is not supported.");
+
+                /* Imply automatic sizing in DDI mode */
+                if (arg_size == UINT64_MAX && !arg_size_auto)
+                        arg_size_auto = true;
+
+                if (!arg_copy_source)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No --copy-source= specified, refusing.");
+
+                r = dir_is_empty(arg_copy_source, /* ignore_hidden_or_backup= */ false);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to determine if '%s' is empty: %m", arg_copy_source);
+                if (r > 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "Source directory '%s' is empty, refusing to create empty image.", arg_copy_source);
+
+                if (sd_id128_is_null(arg_seed) && !arg_randomize) {
+                        /* We don't want that /etc/machin-id leaks into any image built this way, hence let's
+                         * randomize it if not specified explicitly */
+                        log_notice("No seed value specified, randomizing generated UUIDs, resulting image will not be reproducible.");
+                        arg_randomize = true;
+                }
+
+                arg_empty = EMPTY_CREATE;
+        }
+
+        if (arg_empty == EMPTY_UNSET) /* default to refuse mode, if not otherwise specified */
+                arg_empty = EMPTY_REFUSE;
 
         if (arg_factory_reset > 0 && IN_SET(arg_empty, EMPTY_FORCE, EMPTY_REQUIRE, EMPTY_CREATE))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -6799,10 +6884,15 @@ static int parse_argv(int argc, char *argv[]) {
                 arg_dry_run = true; /* When --can-factory-reset is specified we don't make changes, hence
                                      * non-dry-run mode makes no sense. Thus, imply dry run mode so that we
                                      * open things strictly read-only. */
-        else if (dry_run >= 0)
-                arg_dry_run = dry_run;
+        else if (arg_empty == EMPTY_CREATE)
+                arg_dry_run = false; /* Imply --dry-run=no if we create the loopback file anew. After all we
+                                      * cannot really break anyone's partition tables that way. */
 
-        if (arg_empty == EMPTY_CREATE && (arg_size == UINT64_MAX && !arg_size_auto))
+        /* Disable pager once we are not just reviewing, but doing things. */
+        if (!arg_dry_run)
+                arg_pager_flags |= PAGER_DISABLE;
+
+        if (arg_empty == EMPTY_CREATE && arg_size == UINT64_MAX && !arg_size_auto)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "If --empty=create is specified, --size= must be specified, too.");
 
@@ -6829,11 +6919,11 @@ static int parse_argv(int argc, char *argv[]) {
 
         if (IN_SET(arg_empty, EMPTY_FORCE, EMPTY_REQUIRE, EMPTY_CREATE) && !arg_node && !arg_image)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "A path to a device node or loopback file must be specified when --empty=force, --empty=require or --empty=create are used.");
+                                       "A path to a device node or image file must be specified when --make-ddi=, --empty=force, --empty=require or --empty=create are used.");
 
         if (arg_split && !arg_node)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "A path to a loopback file must be specified when --split is used.");
+                                       "A path to an image file must be specified when --split is used.");
 
         if (arg_tpm2_public_key_pcr_mask_use_default && arg_tpm2_public_key)
                 arg_tpm2_public_key_pcr_mask = INDEX_TO_MASK(uint32_t, TPM2_PCR_KERNEL_BOOT);
@@ -7332,6 +7422,13 @@ static int run(int argc, char *argv[]) {
                 }
         }
 
+        if (!arg_copy_source && arg_root) {
+                /* If no explicit copy source is specified, then use --root=/--image= */
+                arg_copy_source = strdup(arg_root);
+                if (!arg_copy_source)
+                        return log_oom();
+        }
+
         context = context_new(arg_seed);
         if (!context)
                 return log_oom();
@@ -7340,7 +7437,22 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        strv_uniq(arg_definitions);
+        if (arg_make_ddi) {
+                _cleanup_free_ char *d = NULL, *dp = NULL;
+                assert(!arg_definitions);
+
+                d = strjoin(arg_make_ddi, ".repart.d/");
+                if (!d)
+                        return log_oom();
+
+                r = search_and_access(d, F_OK, arg_root, CONF_PATHS_USR_STRV("systemd/repart/definitions"), &dp);
+                if (r < 0)
+                        return log_error_errno(errno, "DDI type '%s' is not defined: %m", arg_make_ddi);
+
+                if (strv_consume(&arg_definitions, TAKE_PTR(dp)) < 0)
+                        return log_oom();
+        } else
+                strv_uniq(arg_definitions);
 
         r = context_read_definitions(context);
         if (r < 0)
