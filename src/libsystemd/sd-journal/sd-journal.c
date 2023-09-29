@@ -2142,7 +2142,8 @@ _public_ int sd_journal_open(sd_journal **ret, int flags) {
 }
 
 #define OPEN_CONTAINER_ALLOWED_FLAGS                    \
-        (SD_JOURNAL_LOCAL_ONLY | SD_JOURNAL_SYSTEM)
+        (SD_JOURNAL_FAST_QUERY |                        \
+         SD_JOURNAL_LOCAL_ONLY | SD_JOURNAL_SYSTEM)
 
 _public_ int sd_journal_open_container(sd_journal **ret, const char *machine, int flags) {
         _cleanup_free_ char *root = NULL, *class = NULL;
@@ -2185,7 +2186,8 @@ _public_ int sd_journal_open_container(sd_journal **ret, const char *machine, in
 }
 
 #define OPEN_DIRECTORY_ALLOWED_FLAGS                    \
-        (SD_JOURNAL_OS_ROOT |                           \
+        (SD_JOURNAL_FAST_QUERY |                        \
+         SD_JOURNAL_OS_ROOT |                           \
          SD_JOURNAL_SYSTEM | SD_JOURNAL_CURRENT_USER )
 
 _public_ int sd_journal_open_directory(sd_journal **ret, const char *path, int flags) {
@@ -2211,12 +2213,15 @@ _public_ int sd_journal_open_directory(sd_journal **ret, const char *path, int f
         return 0;
 }
 
+#define OPEN_FILES_ALLOWED_FLAGS                        \
+        SD_JOURNAL_FAST_QUERY
+
 _public_ int sd_journal_open_files(sd_journal **ret, const char **paths, int flags) {
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
         int r;
 
         assert_return(ret, -EINVAL);
-        assert_return(flags == 0, -EINVAL);
+        assert_return((flags & ~OPEN_FILES_ALLOWED_FLAGS) == 0, -EINVAL);
 
         j = journal_new(flags, NULL, NULL);
         if (!j)
@@ -2236,6 +2241,7 @@ _public_ int sd_journal_open_files(sd_journal **ret, const char **paths, int fla
 
 #define OPEN_DIRECTORY_FD_ALLOWED_FLAGS                 \
         (SD_JOURNAL_OS_ROOT |                           \
+         SD_JOURNAL_FAST_QUERY |                        \
          SD_JOURNAL_SYSTEM |                            \
          SD_JOURNAL_CURRENT_USER |                      \
          SD_JOURNAL_TAKE_DIRECTORY_FD)
@@ -2276,6 +2282,9 @@ _public_ int sd_journal_open_directory_fd(sd_journal **ret, int fd, int flags) {
         return 0;
 }
 
+#define OPEN_FILES_FD_ALLOWED_FLAGS                     \
+        SD_JOURNAL_FAST_QUERY
+
 _public_ int sd_journal_open_files_fd(sd_journal **ret, int fds[], unsigned n_fds, int flags) {
         JournalFile *f;
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
@@ -2283,7 +2292,7 @@ _public_ int sd_journal_open_files_fd(sd_journal **ret, int fds[], unsigned n_fd
 
         assert_return(ret, -EINVAL);
         assert_return(n_fds > 0, -EBADF);
-        assert_return(flags == 0, -EINVAL);
+        assert_return((flags & ~OPEN_FILES_FD_ALLOWED_FLAGS) == 0, -EINVAL);
 
         j = journal_new(flags, NULL, NULL);
         if (!j)
