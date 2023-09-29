@@ -1828,6 +1828,116 @@ int varlink_callb(
         return varlink_call(v, method, parameters, ret_parameters, ret_error_id, ret_flags);
 }
 
+static int collect_callback(
+                Varlink *v,
+                JsonVariant *parameters,
+                const char *error_id,
+                VarlinkReplyFlags flags,
+                void *userdata) {
+
+        int r;
+
+        assert(v);
+
+        if (error_id) {
+                bool disconnect;
+
+                disconnect = streq(error_id, VARLINK_ERROR_DISCONNECTED);
+                if (disconnect)
+                        log_info("Disconnected.");
+                else
+                        log_error("Varlink error: %s", error_id);
+
+                (void) sd_event_exit(ASSERT_PTR(varlink_get_event(v)), disconnect ? EXIT_SUCCESS : EXIT_FAILURE);
+                return 0;
+        }
+
+        r = json_variant_append_array(userdata, parameters);
+        if (r < 0)
+                return log_error_errno(r, "Failed to append JSON object to array: %m");
+
+        return 1;
+}
+
+int varlink_collect(
+                Varlink *v,
+                const char *method,
+                JsonVariant *parameters,
+                JsonVariant **ret_parameters) {
+
+        JsonVariant *array = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        int r;
+
+        assert_return(v, -EINVAL);
+        assert_return(method, -EINVAL);
+
+        if (v->state == VARLINK_DISCONNECTED)
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(ENOTCONN), "Not connected.");
+        if (v->state != VARLINK_IDLE_CLIENT)
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(EBUSY), "Connection busy.");
+
+        assert(v->n_pending == 0); /* n_pending can't be > 0 if we are in VARLINK_IDLE_CLIENT state */
+
+        r = varlink_sanitize_parameters(&parameters);
+        if (r < 0)
+                return varlink_log_errno(v, r, "Failed to sanitize parameters: %m");
+
+        r = sd_event_default(&event);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get event loop: %m");
+
+        r = sd_event_set_signal_exit(event, true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enable exit on SIGINT/SIGTERM: %m");
+
+        varlink_set_userdata(v, &array);
+
+        r = varlink_attach_event(v, event, SD_EVENT_PRIORITY_NORMAL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to attach varlink connection to event loop: %m");
+
+        r = varlink_bind_reply(v, collect_callback);
+        if (r < 0)
+                return log_error_errno(r, "Failed to bind reply callback: %m");
+
+        r = varlink_observe(v, method, parameters);
+        if (r < 0)
+                return log_error_errno(r, "Failed to issue method call: %m");
+
+        while (v->state == VARLINK_AWAITING_REPLY_MORE) {
+                r = sd_event_run(event, UINT64_MAX);
+                if (r < 0) {
+                        return log_error_errno(r, "Failed to run event loop: %m");
+                }
+        }
+
+        *ret_parameters = TAKE_PTR(array);
+
+        return 0;
+}
+
+int varlink_collectb(
+                Varlink *v,
+                const char *method,
+                JsonVariant **ret_parameters,...) {
+
+        _cleanup_(json_variant_unrefp) JsonVariant *parameters = NULL;
+        va_list ap;
+        int r;
+
+        assert_return(v, -EINVAL);
+
+        va_start(ap, ret_parameters);
+        r = json_buildv(&parameters, ap);
+        va_end(ap);
+
+        if (r < 0)
+                return varlink_log_errno(v, r, "Failed to build json message: %m");
+
+        return varlink_collect(v, method, parameters, ret_parameters);
+}
+
 int varlink_reply(Varlink *v, JsonVariant *parameters) {
         _cleanup_(json_variant_unrefp) JsonVariant *m = NULL;
         int r;

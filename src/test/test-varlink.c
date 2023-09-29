@@ -268,13 +268,14 @@ static int block_fd_handler(sd_event_source *s, int fd, uint32_t revents, void *
 int main(int argc, char *argv[]) {
         _cleanup_(sd_event_source_unrefp) sd_event_source *block_event = NULL;
         _cleanup_(varlink_server_unrefp) VarlinkServer *s = NULL;
-        _cleanup_(varlink_flush_close_unrefp) Varlink *c = NULL;
+        _cleanup_(varlink_flush_close_unrefp) Varlink *c, *d = NULL;
         _cleanup_(rm_rf_physical_and_freep) char *tmpdir = NULL;
-        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        _cleanup_(json_variant_unrefp) JsonVariant *k, *o, *v = NULL;
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
         _cleanup_close_pair_ int block_fds[2] = PIPE_EBADF;
         pthread_t t;
         const char *sp;
+        int x = 0;
 
         log_set_max_level(LOG_DEBUG);
         log_open();
@@ -300,12 +301,23 @@ int main(int argc, char *argv[]) {
         assert_se(varlink_server_attach_event(s, e, 0) >= 0);
         assert_se(varlink_server_set_connections_max(s, OVERLOAD_CONNECTIONS) >= 0);
 
+        assert_se(json_build(&v, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("a", JSON_BUILD_INTEGER(7)),
+                                                   JSON_BUILD_PAIR("b", JSON_BUILD_INTEGER(22)))) >= 0);
+
+        assert_se(varlink_connect_address(&d, sp) >= 0);
+        assert_se(varlink_set_description(d, "collect-client") >= 0);
+
+        assert_se(varlink_collect(d, "io.test.DoSomething", v, &o) >= 0);
+        assert_se(!json_variant_is_blank_array(o));
+        JSON_VARIANT_ARRAY_FOREACH(k, o) {
+                assert_se(json_variant_integer(json_variant_by_key(k, "sum")) == 7 + 22);
+                x++;
+        }
+        assert_se(x == 1);
+
         assert_se(varlink_connect_address(&c, sp) >= 0);
         assert_se(varlink_set_description(c, "main-client") >= 0);
         assert_se(varlink_bind_reply(c, reply) >= 0);
-
-        assert_se(json_build(&v, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("a", JSON_BUILD_INTEGER(7)),
-                                                   JSON_BUILD_PAIR("b", JSON_BUILD_INTEGER(22)))) >= 0);
 
         assert_se(varlink_invoke(c, "io.test.DoSomething", v) >= 0);
 
