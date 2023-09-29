@@ -677,36 +677,66 @@ static int method_list_inhibitors(sd_bus_message *message, void *userdata, sd_bu
         return sd_bus_send(NULL, reply, NULL);
 }
 
-static int method_create_session(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        const char *service, *type, *class, *cseat, *tty, *display, *remote_user, *remote_host, *desktop;
+static int create_session(
+                sd_bus_message *message,
+                void *userdata,
+                sd_bus_error *error,
+                uid_t uid,
+                pid_t pid,
+                int pidfd,
+                const char *service,
+                const char *type,
+                const char *class,
+                const char *desktop,
+                const char *cseat,
+                uint32_t vtnr,
+                const char *tty,
+                const char *display,
+                int remote,
+                const char *remote_user,
+                const char *remote_host,
+                uint64_t flags) {
         _cleanup_free_ char *id = NULL;
         Session *session = NULL;
         uint32_t audit_id = 0;
         Manager *m = ASSERT_PTR(userdata);
         User *user = NULL;
         Seat *seat = NULL;
-        pid_t leader;
-        uid_t uid;
-        int remote;
-        uint32_t vtnr = 0;
+        pid_t leader = 0;
         SessionType t;
         SessionClass c;
         int r;
 
         assert(message);
 
-        assert_cc(sizeof(pid_t) == sizeof(uint32_t));
-        assert_cc(sizeof(uid_t) == sizeof(uint32_t));
-
-        r = sd_bus_message_read(message, "uusssssussbss",
-                                &uid, &leader, &service, &type, &class, &desktop, &cseat,
-                                &vtnr, &tty, &display, &remote, &remote_user, &remote_host);
-        if (r < 0)
-                return r;
-
         if (!uid_is_valid(uid))
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid UID");
-        if (leader < 0 || leader == 1 || leader == getpid_cached())
+
+        if (flags != 0)
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Flags must be zero.");
+
+        if (pidfd >= 0) {
+                r = pidfd_get_pid(pidfd, &leader);
+                if (r < 0)
+                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Failed to get PID from PID fd");
+        } else if (pid == 0) {
+                _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
+
+                r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_PID, &creds);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_creds_get_pid(creds, &leader);
+                if (r < 0)
+                        return r;
+        } else  {
+                assert(pid > 0);
+                leader = pid;
+        }
+
+        assert(leader > 0);
+
+        if (leader == 1 || leader == getpid_cached())
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid leader PID");
 
         if (isempty(type))
@@ -805,18 +835,6 @@ static int method_create_session(sd_bus_message *message, void *userdata, sd_bus
                         c = SESSION_USER;
         }
 
-        if (leader == 0) {
-                _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
-
-                r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_PID, &creds);
-                if (r < 0)
-                        return r;
-
-                r = sd_bus_creds_get_pid(creds, (pid_t*) &leader);
-                if (r < 0)
-                        return r;
-        }
-
         /* Check if we are already in a logind session. Or if we are in user@.service
          * which is a special PAM session that avoids creating a logind session. */
         r = manager_get_user_by_pid(m, leader, NULL);
@@ -890,7 +908,7 @@ static int method_create_session(sd_bus_message *message, void *userdata, sd_bus
                 goto fail;
 
         session_set_user(session, user);
-        r = session_set_leader(session, leader);
+        r = session_set_leader(session, leader, pidfd);
         if (r < 0)
                 goto fail;
 
@@ -982,6 +1000,48 @@ fail:
                 user_add_to_gc_queue(user);
 
         return r;
+}
+
+static int method_create_session(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        const char *service, *type, *class, *cseat, *tty, *display, *remote_user, *remote_host, *desktop;
+        pid_t leader;
+        uid_t uid;
+        int remote;
+        uint32_t vtnr = 0;
+        int r;
+
+        assert(message);
+
+        assert_cc(sizeof(pid_t) == sizeof(uint32_t));
+        assert_cc(sizeof(uid_t) == sizeof(uint32_t));
+
+        r = sd_bus_message_read(message, "uusssssussbss",
+                                &uid, &leader, &service, &type, &class, &desktop, &cseat,
+                                &vtnr, &tty, &display, &remote, &remote_user, &remote_host);
+        if (r < 0)
+                return r;
+
+        return create_session(message, userdata, error,
+                              uid, leader, -EBADF /* pidfd= */, service, type, class, desktop, cseat, vtnr, tty, display, remote, remote_user, remote_host, 0 /* flags */);
+}
+
+static int method_create_session_pidfd(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        const char *service, *type, *class, *cseat, *tty, *display, *remote_user, *remote_host, *desktop;
+        int leaderfd = -EBADF;
+        uid_t uid;
+        int remote;
+        uint32_t vtnr = 0;
+        uint64_t flags;
+        int r;
+
+        r = sd_bus_message_read(message, "uhsssssussbsst",
+                                &uid, &leaderfd, &service, &type, &class, &desktop, &cseat,
+                                &vtnr, &tty, &display, &remote, &remote_user, &remote_host, &flags);
+        if (r < 0)
+                return r;
+
+        return create_session(message, userdata, error,
+                              uid, 0 /* pid */, leaderfd, service, type, class, desktop, cseat, vtnr, tty, display, remote, remote_user, remote_host, flags);
 }
 
 static int method_release_session(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -3470,6 +3530,32 @@ static const sd_bus_vtable manager_vtable[] = {
                                               "u", vtnr,
                                               "b", existing),
                                 method_create_session,
+                                0),
+        SD_BUS_METHOD_WITH_ARGS("CreateSessionWithPIDFD",
+                                SD_BUS_ARGS("u", uid,
+                                            "h", pidfd,
+                                            "s", service,
+                                            "s", type,
+                                            "s", class,
+                                            "s", desktop,
+                                            "s", seat_id,
+                                            "u", vtnr,
+                                            "s", tty,
+                                            "s", display,
+                                            "b", remote,
+                                            "s", remote_user,
+                                            "s", remote_host,
+                                            "t", flags,
+                                            "a(sv)", properties),
+                                SD_BUS_RESULT("s", session_id,
+                                              "o", object_path,
+                                              "s", runtime_path,
+                                              "h", fifo_fd,
+                                              "u", uid,
+                                              "s", seat_id,
+                                              "u", vtnr,
+                                              "b", existing),
+                                method_create_session_pidfd,
                                 0),
         SD_BUS_METHOD_WITH_ARGS("ReleaseSession",
                                 SD_BUS_ARGS("s", session_id),
