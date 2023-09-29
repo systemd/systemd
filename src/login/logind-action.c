@@ -213,7 +213,7 @@ int manager_handle_action(
         else
                 supported = true;
 
-        if (!supported && IN_SET(handle, HANDLE_HIBERNATE, HANDLE_HYBRID_SLEEP, HANDLE_SUSPEND_THEN_HIBERNATE)) {
+        if (!supported && HANDLE_ACTION_IS_SLEEP(handle) && handle != HANDLE_SUSPEND) {
                 supported = can_sleep(SLEEP_SUSPEND) > 0;
                 if (supported) {
                         log_notice("Requested %s operation is not supported, using regular suspend instead.",
