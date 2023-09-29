@@ -6,14 +6,18 @@
 typedef enum HandleAction {
         HANDLE_IGNORE,
         HANDLE_POWEROFF,
+        _HANDLE_ACTION_SHUTDOWN_FIRST = HANDLE_POWEROFF,
         HANDLE_REBOOT,
         HANDLE_HALT,
         HANDLE_KEXEC,
         HANDLE_SOFT_REBOOT,
+        _HANDLE_ACTION_SHUTDOWN_LAST = HANDLE_SOFT_REBOOT,
         HANDLE_SUSPEND,
+        _HANDLE_ACTION_SLEEP_FIRST = HANDLE_SUSPEND,
         HANDLE_HIBERNATE,
         HANDLE_HYBRID_SLEEP,
         HANDLE_SUSPEND_THEN_HIBERNATE,
+        _HANDLE_ACTION_SLEEP_LAST = HANDLE_SUSPEND_THEN_HIBERNATE,
         HANDLE_LOCK,
         HANDLE_FACTORY_RESET,
         _HANDLE_ACTION_MAX,
@@ -28,6 +32,14 @@ typedef struct HandleActionData HandleActionData;
 
 static inline bool handle_action_valid(HandleAction a) {
         return a >= 0 && a < _HANDLE_ACTION_MAX;
+}
+
+static inline bool HANDLE_ACTION_IS_SHUTDOWN(HandleAction a) {
+        return a >= _HANDLE_ACTION_SHUTDOWN_FIRST && a <= _HANDLE_ACTION_SHUTDOWN_LAST;
+}
+
+static inline bool HANDLE_ACTION_IS_SLEEP(HandleAction a) {
+        return a >= _HANDLE_ACTION_SLEEP_FIRST && a <= _HANDLE_ACTION_SLEEP_LAST;
 }
 
 struct HandleActionData {

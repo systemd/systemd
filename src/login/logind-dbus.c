@@ -2259,8 +2259,8 @@ static int method_schedule_shutdown(sd_bus_message *message, void *userdata, sd_
         }
 
         handle = handle_action_from_string(type);
-        if (!IN_SET(handle, HANDLE_POWEROFF, HANDLE_REBOOT, HANDLE_SOFT_REBOOT, HANDLE_HALT, HANDLE_KEXEC))
-                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Unsupported shutdown type");
+        if (!HANDLE_ACTION_IS_SHUTDOWN(handle))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unsupported shutdown type: %s", type);
 
         a = handle_action_lookup(handle);
         assert(a);
