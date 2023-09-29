@@ -227,6 +227,10 @@ struct CGroupContext {
          * triggers, nor triggers for non-memory pressure. We might add that later. */
 
         NFTSetContext nft_set_context;
+
+        /* Forward coredumps for processes that crash within this cgroup.
+         * Requires 'delegate' to also be true. */
+        bool coredump_receive;
 };
 
 /* Used when querying IP accounting data */
