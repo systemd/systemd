@@ -16,6 +16,7 @@ test_require_bin mksquashfs veritysetup sfdisk
 
 test_append_files() {
     instmods squashfs =squashfs
+    instmods erofs =erofs
     instmods dm_verity =md
     install_dmevent
     generate_module_dependencies
@@ -26,6 +27,7 @@ test_append_files() {
     fi
     inst_binary mksquashfs
     inst_binary unsquashfs
+    inst_binary mkfs.erofs
     install_verity_minimal
 }
 
