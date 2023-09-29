@@ -123,6 +123,8 @@ typedef struct _packed_ _IMAGE_SECTION_HEADER {
         le32_t Characteristics;
 } IMAGE_SECTION_HEADER;
 
+#define IMAGE_SUBSYSTEM_EFI_APPLICATION 10
+
 bool pe_header_is_64bit(const PeHeader *h);
 
 #define PE_HEADER_OPTIONAL_FIELD(h, field)                           \
