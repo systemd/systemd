@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <linux/mount.h>
 #include <mntent.h>
 #include <stdio.h>
 #include <sys/stat.h>
@@ -10,6 +11,10 @@
 #include "dissect-image.h"
 #include "errno-util.h"
 #include "macro.h"
+
+#ifndef MOVE_MOUNT_BENEATH
+#define MOVE_MOUNT_BENEATH 0x00000200
+#endif
 
 int repeat_unmount(const char *path, int flags);
 

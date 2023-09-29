@@ -1310,11 +1310,14 @@ node /org/freedesktop/systemd1 {
       <function>TryRestartUnit()</function> or <function>ReloadOrTryRestartUnit()</function> for the marked
       units.</para>
 
-      <para><function>BindMountUnit()</function> can be used to bind mount new files or directories into
-      a running service mount namespace.</para>
+      <para><function>BindMountUnit()</function> can be used to bind mount new files or directories into a
+      running service mount namespace. If the kernel supports it, the mount will be applied beneath the
+      mount point, which will be lazy umounted afterwards, atomically replacing the previous mount, if any.
+      </para>
 
       <para><function>MountImageUnit()</function> can be used to mount new images into a running service
-      mount namespace.</para>
+      mount namespace. If the kernel supports it, the mount will be applied beneath the mount point, which
+      will be lazy umounted afterwards, atomically replacing the previous mount, if any.</para>
 
       <para><function>KillUnit()</function> may be used to kill (i.e. send a signal to) all processes of a
       unit. It takes the unit <varname>name</varname>, an enum <varname>who</varname> and a UNIX
