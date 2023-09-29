@@ -1155,7 +1155,7 @@ static int mount_in_namespace(
                         (void) mkdir_parents(dest, 0755);
 
                 if (img) {
-                        DissectImageFlags f = 0;
+                        DissectImageFlags f = DISSECT_IMAGE_MOUNT_BENEATH;
 
                         if (make_file_or_directory)
                                 f |= DISSECT_IMAGE_MKDIR;
@@ -1178,7 +1178,15 @@ static int mount_in_namespace(
                                                   "",
                                                   -EBADF,
                                                   dest,
-                                                  MOVE_MOUNT_F_EMPTY_PATH));
+                                                  MOVE_MOUNT_F_EMPTY_PATH|MOVE_MOUNT_BENEATH));
+                        if (r == -EINVAL) /* Fallback if mount_beneath is not supported */
+                                r = RET_NERRNO(move_mount(new_mount_fd,
+                                                          "",
+                                                          -EBADF,
+                                                          dest,
+                                                          MOVE_MOUNT_F_EMPTY_PATH));
+                        else if (r >= 0) /* If it is, now remove the old mount */
+                                r = RET_NERRNO(umount2(dest, UMOUNT_NOFOLLOW|MNT_DETACH));
                 }
                 if (r < 0) {
                         (void) write(errno_pipe_fd[1], &r, sizeof(r));
