@@ -613,36 +613,36 @@ if command -v nft >/dev/null; then
     run systemd-run --scope -u test-nft.scope -p 'NFTSet=cgroup:inet:sd_test:c' nft list set inet sd_test c
     grep -qF "test-nft.scope" "$RUN_OUT"
 
+    mkdir -p /run/systemd/system
     # socket
     {
         echo "[Socket]"
         echo "ListenStream=12345"
         echo "BindToDevice=lo"
         echo "NFTSet=cgroup:inet:sd_test:c"
-    } >/etc/systemd/system/test-nft.socket
+    } >/run/systemd/system/test-nft.socket
     {
         echo "[Service]"
         echo "ExecStart=/usr/bin/sleep 10000"
-    } >/etc/systemd/system/test-nft.service
+    } >/run/systemd/system/test-nft.service
     systemctl daemon-reload
     systemctl start test-nft.socket
     systemctl status test-nft.socket
     run nft list set inet sd_test c
     grep -qF "test-nft.socket" "$RUN_OUT"
     systemctl stop test-nft.socket
-    rm /etc/systemd/system/test-nft.{socket,service}
+    rm -f /run/systemd/system/test-nft.{socket,service}
 
     # slice
-    mkdir /etc/systemd/system/system.slice.d
+    mkdir /run/systemd/system/system.slice.d
     {
         echo "[Slice]"
         echo "NFTSet=cgroup:inet:sd_test:c"
-    } >/etc/systemd/system/system.slice.d/00-test-nft.conf
+    } >/run/systemd/system/system.slice.d/00-test-nft.conf
     systemctl daemon-reload
     run nft list set inet sd_test c
     grep -qF "system.slice" "$RUN_OUT"
-    rm /etc/systemd/system/system.slice.d/00-test-nft.conf
-    rmdir /etc/systemd/system/system.slice.d
+    rm -rf /run/systemd/system/system.slice.d
 
     nft flush ruleset
 else
