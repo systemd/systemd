@@ -2,9 +2,12 @@
 
 #include <getopt.h>
 #include <stdlib.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
 #include "architecture.h"
 #include "build.h"
+#include "copy.h"
 #include "creds-util.h"
 #include "escape.h"
 #include "fileio.h"
@@ -13,8 +16,11 @@
 #include "main-func.h"
 #include "pager.h"
 #include "path-util.h"
+#include "parse-argument.h"
 #include "pretty-print.h"
+#include "process-util.h"
 #include "strv.h"
+#include "tmpfile-util.h"
 #include "vmspawn-creds.h"
 #include "vmspawn-settings.h"
 #include "vmspawn-util.h"
@@ -25,11 +31,14 @@ static ConfigFeature arg_qemu_kvm = CONFIG_FEATURE_AUTO;
 static QemuFirmware arg_qemu_firmware = QEMU_FIRMWARE_UEFI;
 static char* arg_qemu_smp = NULL;
 static char* arg_qemu_mem = NULL;
+static char* arg_image = NULL;
 static bool arg_qemu_gui = false;
+static bool arg_qemu_cdrom = false;
 static Credential *arg_credentials = NULL;
 static size_t arg_n_credentials = 0;
 static SettingsMask arg_settings_mask = 0;
 
+STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_qemu_smp, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_qemu_mem, freep);
 
@@ -48,11 +57,15 @@ static int help(void) {
                "  -h --help                 Show this help\n"
                "     --version              Print version string\n"
                "     --no-pager             Do not pipe output into a pager\n\n"
+               "%3$sImage:%4$s\n"
+               "  -i --image=PATH           Root file system disk image (or device node) for\n"
+               "                            the virtual machine\n"
                "%3$sHost Configuration:%4$s\n"
                "     --qemu-smp=SMP         Configure guest's SMP settings\n"
                "     --qemu-mem=MEM         Configure guest's RAM size\n"
                "     --qemu-kvm=auto|enabled|disabled\n"
                "                            Configure whether to use KVM or not\n"
+               "     --qemu-cdrom           Attach the image as a CD-ROM to the virtual machine\n"
                "     --qemu-firmware=direct|uefi|bios\n"
                "                            Set qemu firmware to use\n"
                "     --qemu-gui             Start QEMU in graphical mode\n"
@@ -80,6 +93,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_QEMU_SMP,
                 ARG_QEMU_MEM,
                 ARG_QEMU_KVM,
+                ARG_QEMU_CDROM,
                 ARG_QEMU_FIRMWARE,
                 ARG_QEMU_GUI,
                 ARG_SET_CREDENTIAL,
@@ -90,9 +104,11 @@ static int parse_argv(int argc, char *argv[]) {
                 { "help",            no_argument,       NULL, 'h'                 },
                 { "version",         no_argument,       NULL, ARG_VERSION         },
                 { "no-pager",        no_argument,       NULL, ARG_NO_PAGER        },
+                { "image",           required_argument, NULL, 'i'                 },
                 { "qemu-smp",        optional_argument, NULL, ARG_QEMU_SMP        },
                 { "qemu-mem",        optional_argument, NULL, ARG_QEMU_MEM        },
                 { "qemu-kvm",        optional_argument, NULL, ARG_QEMU_KVM        },
+                { "qemu-cdrom",      no_argument,       NULL, ARG_QEMU_CDROM      },
                 { "qemu-firmware",   optional_argument, NULL, ARG_QEMU_FIRMWARE   },
                 { "qemu-gui",        no_argument,       NULL, ARG_QEMU_GUI        },
                 { "set-credential",  required_argument, NULL, ARG_SET_CREDENTIAL  },
@@ -106,13 +122,21 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argv);
 
         optind = 0;
-        while ((c = getopt_long(argc, argv, "+h", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "+hi:", options, NULL)) >= 0)
                 switch (c) {
                 case 'h':
                         return help();
 
                 case ARG_VERSION:
                         return version();
+
+                case 'i':
+                        r = parse_path_argument(optarg, false, &arg_image);
+                        if (r < 0)
+                                return r;
+
+                        arg_settings_mask |= SETTING_DIRECTORY;
+                        break;
 
                 case ARG_NO_PAGER:
                         arg_pager_flags |= PAGER_DISABLE;
@@ -134,6 +158,10 @@ static int parse_argv(int argc, char *argv[]) {
                         r = parse_config_feature(optarg, &arg_qemu_kvm);
                         if (r < 0)
                                 return r;
+                        break;
+
+                case ARG_QEMU_CDROM:
+                        arg_qemu_cdrom = true;
                         break;
 
                 case ARG_QEMU_FIRMWARE:
@@ -257,7 +285,7 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-static int build_cmdline(char *** ret_cmdline) {
+static int run_virtual_machine(void) {
         int r;
         const char* accel = "tcg";
         _cleanup_strv_free_ char **cmdline = NULL;
@@ -294,7 +322,7 @@ static int build_cmdline(char *** ret_cmdline) {
                 qemu_binary,
                 "-machine", machine,
                 "-smp", smp,
-                "-mem", mem,
+                "-m", mem,
                 "-object", "rng-random,filename=/dev/urandom,id=rng0",
                 "-device", "virtio-rng-pci,rng=rng0,id=rng-device0",
                 "-nic", "user,model=virtio-net-pci"
@@ -336,36 +364,93 @@ static int build_cmdline(char *** ret_cmdline) {
                 strv_extendf(&cmdline, "if=pflash,format=raw,readonly=on,file=%s", firmware_path);
         }
 
-        *ret_cmdline = TAKE_PTR(cmdline);
+        if (arg_qemu_firmware == QEMU_FIRMWARE_UEFI && fw_supports_sb) {
+                const char* ovmf_vars_from = NULL;
+                r = find_ovmf_vars(&ovmf_vars_from);
+                if (r < 0)
+                        return r;
+
+                _cleanup_free_ char* ovmf_vars_to = NULL;
+                r = tempfn_random_child(NULL, "vmspawn-", &ovmf_vars_to);
+                if (r < 0)
+                        return r;
+
+                _cleanup_close_ int source_fd = -EBADF, target_fd = -EBADF;
+                source_fd = open(ovmf_vars_from, O_RDONLY|O_CLOEXEC);
+                if (source_fd < 0)
+                        return log_error_errno(source_fd, "Failed to open OVMF vars file %s: %m", ovmf_vars_from);
+
+                target_fd = open(ovmf_vars_to, O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC, 0600);
+                if (target_fd < 0)
+                        return log_error_errno(errno, "Failed to create regular file for OVMF vars at %s: %m", ovmf_vars_to);
+
+                r = copy_bytes(source_fd, target_fd, UINT64_MAX, COPY_REFLINK);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to copy bytes from %s to %s: %m", ovmf_vars_from, ovmf_vars_to);
+
+                /* These aren't always available so don't raise an error if they fail */
+                (void) copy_xattr(source_fd, NULL, target_fd, NULL, 0);
+                (void) copy_access(source_fd, target_fd);
+                (void) copy_times(source_fd, target_fd, 0);
+
+                FOREACH_STRING(s,
+                                "-global", "ICH9-LPC.disable_s3=1",
+                                "-global", "driver=cfi.pflash01,property=secure,value=on",
+                                "-drive")
+                        strv_extend(&cmdline, s);
+                strv_extendf(&cmdline, "file=%s,if=pflash,format=raw", ovmf_vars_to);
+        }
+
+        strv_extend(&cmdline, "-drive");
+        strv_extendf(&cmdline, "if=none,id=mkosi,file=%s,format=raw", arg_image);
+        strv_extend(&cmdline, "-device");
+        strv_extend(&cmdline, "virtio-scsi-pci,id=scsi");
+        strv_extend(&cmdline, "-device");
+        strv_extendf(&cmdline, "scsi-%s,drive=mkosi,bootindex=1", arg_qemu_cdrom ? "cd" : "hd");
+
+        int child_status;
+        pid_t child_pid, pid;
+        pid = safe_fork(qemu_binary, 0, &child_pid);
+        if (pid == 0) {
+                /* set TERM and LANG if they are missing */
+                r = setenv("TERM", "vt220", 0);
+                if (r < 0)
+                        log_oom();
+
+                r = setenv("LANG", "C.UTF-8", 0);
+                if (r < 0)
+                        log_oom();
+
+                r = execve(qemu_binary, cmdline, environ);
+                log_error_errno(r, "failed to execve %s: %m", qemu_binary);
+                _exit(r);
+        } else {
+                wait(&child_status);
+                int exit_status = WEXITSTATUS(child_status);
+                if (exit_status != 0) {
+                        log_error("qemu process exited with code %d", exit_status);
+                        return exit_status;
+                }
+        }
+
         return 0;
 }
 
 static int run(int argc, char *argv[]) {
         int r, ret = EXIT_SUCCESS;
-        _cleanup_strv_free_ char** cmdline = NULL;
 
         r = parse_argv(argc, argv);
-        printf("parse_argv(argc, argv) = %d\n", r);
         if (r <= 0)
                 goto finish;
 
-        r = build_cmdline(&cmdline);
-        if (r < 0)
+        if (!arg_image) {
+                log_error("missing required argument -i/--image, quitting");
                 goto finish;
-
-        // print as a literal cmdline
-        STRV_FOREACH(part, cmdline) {
-                printf("%s ", *part);
-        }
-        putchar('\n');
-
-        // print as an array
-        for (unsigned i = 0; i < strv_length(cmdline); i++) {
-                printf("cmdline[%u] = \"%s\"\n", i, cmdline[i]);
         }
 
-        // run(cmdline, stdin=sys.stdin, stdout=sys.stdout, env=os.environ, log=False)
-
+        r = run_virtual_machine();
+        if (r != 0)
+                goto finish;
 finish:
         credential_free_all(arg_credentials, arg_n_credentials);
 

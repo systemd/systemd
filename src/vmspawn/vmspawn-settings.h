@@ -21,6 +21,7 @@ typedef enum QemuFirmware {
 } QemuFirmware;
 
 typedef enum SettingsMask {
+        SETTING_DIRECTORY         = UINT64_C(1) << 26,
         SETTING_CREDENTIALS       = UINT64_C(1) << 30,
         _SETTING_FORCE_ENUM_WIDTH = UINT64_MAX
 } SettingsMask;

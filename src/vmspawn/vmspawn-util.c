@@ -24,7 +24,7 @@ bool qemu_check_kvm_support(bool log) {
         case EPERM:
                 _fallthrough_;
         case EACCES:
-                log_warning_errno(errno, "/dev/kvm not found. Not using KVM acceleration.");
+                log_warning_errno(errno, "Permission denied to access /dev/kvm. Not using KVM acceleration.");
                 break;
         }
 
@@ -163,5 +163,37 @@ int find_qemu_binary(char **ret_qemu_binary) {
         if (r == 0)
                 return 0;
 
+        return -ENOENT;
+}
+
+int find_ovmf_vars(const char** ret_ovmf_vars) {
+#ifdef __x86_64__
+        #define OVMF_VARS_LOCATIONS "/usr/share/ovmf/x64/OVMF_VARS.fd"
+#elif defined(__i386__)
+        #define OVMF_VARS_LOCATIONS "/usr/share/edk2/ovmf-ia32/OVMF_VARS.fd", "/usr/share/OVMF/OVMF32_VARS_4M.fd"
+#elif defined(__arm__)
+        #define OVMF_VARS_LOCATIONS "/usr/share/AAVMF/AAVMF32_VARS.fd"
+#elif defined(__aarch64__)
+        #define OVMF_VARS_LOCATIONS "/usr/share/AAVMF/AAVMF_VARS.fd"
+#endif
+
+#define GENERIC_OVMF_VARS_LOCATIONS \
+        "/usr/share/edk2/ovmf/OVMF_VARS.fd", \
+        "/usr/share/edk2-ovmf/OVMF_VARS.fd", \
+        "/usr/share/qemu/OVMF_VARS.fd", \
+        "/usr/share/ovmf/OVMF_VARS.fd", \
+        "/usr/share/OVMF/OVMF_VARS.fd"
+
+        FOREACH_STRING(location, OVMF_VARS_LOCATIONS , GENERIC_OVMF_VARS_LOCATIONS) {
+                _cleanup_close_ int fd = -EBADF;
+                fd = open(location, O_CLOEXEC | O_RDONLY);
+                if (fd >= 0) {
+                        if (ret_ovmf_vars)
+                                *ret_ovmf_vars = location;
+                        return 0;
+                }
+        }
+
+        log_error("Couldn't find OVMF UEFI variables file.");
         return -ENOENT;
 }
