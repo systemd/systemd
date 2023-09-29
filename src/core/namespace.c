@@ -909,6 +909,18 @@ add_symlink:
         return 0;
 }
 
+static char *settle_runtime_dir(void) {
+        char *runtime_dir;
+
+        if (geteuid() == 0)
+                return strdup("/run/");
+
+        if (asprintf(&runtime_dir, "/run/user/" UID_FMT, geteuid()) < 0)
+                return NULL;
+
+        return runtime_dir;
+}
+
 static int mount_private_dev(MountEntry *m) {
         static const char devnodes[] =
                 "/dev/null\0"
@@ -918,12 +930,20 @@ static int mount_private_dev(MountEntry *m) {
                 "/dev/urandom\0"
                 "/dev/tty\0";
 
-        char temporary_mount[] = "/tmp/namespace-dev-XXXXXX";
+        _cleanup_free_ char *runtime_dir = NULL, *temporary_mount = NULL;
         const char *dev = NULL, *devpts = NULL, *devshm = NULL, *devhugepages = NULL, *devmqueue = NULL, *devlog = NULL, *devptmx = NULL;
         bool can_mknod = true;
         int r;
 
         assert(m);
+
+        runtime_dir = settle_runtime_dir();
+        if (!runtime_dir)
+                return log_oom_debug();
+
+        temporary_mount = path_join(runtime_dir, "systemd/namespace-dev-XXXXXX");
+        if (!temporary_mount)
+                return log_oom_debug();
 
         if (!mkdtemp(temporary_mount))
                 return log_debug_errno(errno, "Failed to create temporary directory '%s': %m", temporary_mount);
@@ -994,6 +1014,11 @@ static int mount_private_dev(MountEntry *m) {
         r = dev_setup(temporary_mount, UID_INVALID, GID_INVALID);
         if (r < 0)
                 log_debug_errno(r, "Failed to set up basic device tree at '%s', ignoring: %m", temporary_mount);
+
+        /* Make the bind mount read-only. */
+        r = mount_nofollow_verbose(LOG_DEBUG, NULL, dev, NULL, MS_REMOUNT|MS_BIND|MS_RDONLY, NULL);
+        if (r < 0)
+                return r;
 
         /* Create the /dev directory if missing. It is more likely to be missing when the service is started
          * with RootDirectory. This is consistent with mount units creating the mount points when missing. */
@@ -1374,8 +1399,7 @@ static int apply_one_mount(
         switch (m->mode) {
 
         case INACCESSIBLE: {
-                _cleanup_free_ char *tmp = NULL;
-                const char *runtime_dir;
+                _cleanup_free_ char *runtime_dir = NULL;
                 struct stat target;
 
                 /* First, get rid of everything that is below if there
@@ -1391,14 +1415,9 @@ static int apply_one_mount(
                                                mount_entry_path(m));
                 }
 
-                if (geteuid() == 0)
-                        runtime_dir = "/run";
-                else {
-                        if (asprintf(&tmp, "/run/user/" UID_FMT, geteuid()) < 0)
-                                return -ENOMEM;
-
-                        runtime_dir = tmp;
-                }
+                runtime_dir = settle_runtime_dir();
+                if (!runtime_dir)
+                        return log_oom_debug();
 
                 r = mode_to_inaccessible_node(runtime_dir, target.st_mode, &inaccessible);
                 if (r < 0)
