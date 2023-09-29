@@ -314,7 +314,7 @@ static int mdns_scope_process_query(DnsScope *s, DnsPacket *p) {
                 }
 
                 DNS_ANSWER_FOREACH_ITEM(item, answer) {
-                        DnsAnswerFlags flags = item->flags;
+                        DnsAnswerFlags flags = item->flags | DNS_ANSWER_REFUSE_TTL_NO_MATCH;
                         /* The cache-flush bit must not be set in legacy unicast responses.
                          * See section 6.7 of RFC 6762. */
                         if (legacy_query)
