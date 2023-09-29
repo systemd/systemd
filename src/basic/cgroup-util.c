@@ -2287,6 +2287,18 @@ int cg_is_delegated(const char *path) {
         return r;
 }
 
+int cg_has_coredump_receive(const char *path) {
+        int r;
+
+        assert(path);
+
+        r = cg_get_xattr_bool(path, "user.coredump_receive");
+        if (ERRNO_IS_NEG_XATTR_ABSENT(r))
+                return false;
+
+        return r;
+}
+
 const uint64_t cgroup_io_limit_defaults[_CGROUP_IO_LIMIT_TYPE_MAX] = {
         [CGROUP_IO_RBPS_MAX]    = CGROUP_LIMIT_MAX,
         [CGROUP_IO_WBPS_MAX]    = CGROUP_LIMIT_MAX,
