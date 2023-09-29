@@ -575,8 +575,7 @@ static const ImagePolicy *pick_image_policy(const Image *img) {
 }
 
 static int merge_subprocess(Hashmap *images, const char *workspace) {
-        _cleanup_free_ char *host_os_release_id = NULL, *host_os_release_version_id = NULL, *host_os_release_sysext_level = NULL,
-            *host_os_release_confext_level = NULL, *buf = NULL;
+        _cleanup_free_ char *host_os_release_id = NULL, *host_os_release_version_id = NULL, *host_os_release_api_level = NULL, *buf = NULL;
         _cleanup_strv_free_ char **extensions = NULL, **paths = NULL;
         size_t n_extensions = 0;
         unsigned n_ignored = 0;
@@ -603,13 +602,11 @@ static int merge_subprocess(Hashmap *images, const char *workspace) {
                 return r;
 
         /* Acquire host OS release info, so that we can compare it with the extension's data */
-        char **host_os_release_level = (arg_image_class == IMAGE_CONFEXT) ? &host_os_release_confext_level : &host_os_release_sysext_level;
         r = parse_os_release(
                         arg_root,
                         "ID", &host_os_release_id,
                         "VERSION_ID", &host_os_release_version_id,
-                        image_class_info[arg_image_class].level_env,
-                        host_os_release_level);
+                        image_class_info[arg_image_class].level_env, &host_os_release_api_level);
         if (r < 0)
                 return log_error_errno(r, "Failed to acquire 'os-release' data of OS tree '%s': %m", empty_to_root(arg_root));
         if (isempty(host_os_release_id))
@@ -741,7 +738,7 @@ static int merge_subprocess(Hashmap *images, const char *workspace) {
                                         img->name,
                                         host_os_release_id,
                                         host_os_release_version_id,
-                                        host_os_release_sysext_level,
+                                        host_os_release_api_level,
                                         in_initrd() ? "initrd" : "system",
                                         img->extension_release,
                                         arg_image_class);
