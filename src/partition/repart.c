@@ -108,12 +108,13 @@
  * waste 3K per partition, which is probably fine. */
 
 static enum {
+        EMPTY_UNSET,    /* no choice has been made yet */
         EMPTY_REFUSE,   /* refuse empty disks, never create a partition table */
         EMPTY_ALLOW,    /* allow empty disks, create partition table if necessary */
         EMPTY_REQUIRE,  /* require an empty disk, create a partition table */
         EMPTY_FORCE,    /* make disk empty, erase everything, create a partition table always */
         EMPTY_CREATE,   /* create disk as loopback file, create a partition table always */
-} arg_empty = EMPTY_REFUSE;
+} arg_empty = EMPTY_UNSET;
 
 typedef enum FilterPartitionType {
         FILTER_PARTITIONS_NONE,
@@ -2416,6 +2417,9 @@ static int context_load_partition_table(Context *context) {
                 /* Always reinitiaize the disk, don't consider what there was on the disk before */
                 from_scratch = true;
                 break;
+
+        case EMPTY_UNSET:
+                assert_not_reached();
         }
 
         if (from_scratch) {
@@ -6481,7 +6485,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_EMPTY:
-                        if (isempty(optarg) || streq(optarg, "refuse"))
+                        if (isempty(optarg))
+                                arg_empty = EMPTY_UNSET;
+                        else if (streq(optarg, "refuse"))
                                 arg_empty = EMPTY_REFUSE;
                         else if (streq(optarg, "allow"))
                                 arg_empty = EMPTY_ALLOW;
@@ -6794,6 +6800,9 @@ static int parse_argv(int argc, char *argv[]) {
         if (argc - optind > 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Expected at most one argument, the path to the block device.");
+
+        if (arg_empty == EMPTY_UNSET) /* default to refuse mode, if not otherwise specified */
+                arg_empty = EMPTY_REFUSE;
 
         if (arg_factory_reset > 0 && IN_SET(arg_empty, EMPTY_FORCE, EMPTY_REQUIRE, EMPTY_CREATE))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
