@@ -162,6 +162,7 @@ static ImagePolicy *arg_image_policy = NULL;
 static Architecture arg_architecture = _ARCHITECTURE_INVALID;
 static int arg_offline = -1;
 static char **arg_copy_from = NULL;
+static char *arg_copy_source = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
@@ -175,6 +176,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_tpm2_public_key, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_filter_partitions, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_copy_from, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_copy_source, freep);
 
 typedef struct FreeArea FreeArea;
 
@@ -4274,11 +4276,11 @@ static int add_exclude_path(const char *path, Hashmap **denylist, DenyType type)
         if (!st)
                 return log_oom();
 
-        r = chase_and_stat(path, arg_root, CHASE_PREFIX_ROOT, NULL, st);
+        r = chase_and_stat(path, arg_copy_source, CHASE_PREFIX_ROOT, NULL, st);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
-                return log_error_errno(r, "Failed to stat source file '%s/%s': %m", strempty(arg_root), path);
+                return log_error_errno(r, "Failed to stat source file '%s/%s': %m", strempty(arg_copy_source), path);
 
         r = hashmap_ensure_put(denylist, &inode_hash_ops, st, INT_TO_PTR(type));
         if (r == -EEXIST)
@@ -4402,11 +4404,11 @@ static int add_subvolume_path(const char *path, Set **subvolumes) {
         if (!st)
                 return log_oom();
 
-        r = chase_and_stat(path, arg_root, CHASE_PREFIX_ROOT, NULL, st);
+        r = chase_and_stat(path, arg_copy_source, CHASE_PREFIX_ROOT, NULL, st);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
-                return log_error_errno(r, "Failed to stat source file '%s/%s': %m", strempty(arg_root), path);
+                return log_error_errno(r, "Failed to stat source file '%s/%s': %m", strempty(arg_copy_source), path);
 
         r = set_ensure_consume(subvolumes, &inode_hash_ops, TAKE_PTR(st));
         if (r < 0)
@@ -4469,9 +4471,9 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
                 if (rfd < 0)
                         return rfd;
 
-                sfd = chase_and_open(*source, arg_root, CHASE_PREFIX_ROOT, O_PATH|O_DIRECTORY|O_CLOEXEC|O_NOCTTY, NULL);
+                sfd = chase_and_open(*source, arg_copy_source, CHASE_PREFIX_ROOT, O_PATH|O_DIRECTORY|O_CLOEXEC|O_NOCTTY, NULL);
                 if (sfd < 0)
-                        return log_error_errno(sfd, "Failed to open source file '%s%s': %m", strempty(arg_root), *source);
+                        return log_error_errno(sfd, "Failed to open source file '%s%s': %m", strempty(arg_copy_source), *source);
 
                 (void) copy_xattr(sfd, NULL, rfd, NULL, COPY_ALL_XATTRS);
                 (void) copy_access(sfd, rfd);
@@ -4493,9 +4495,9 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
                 if (r < 0)
                         return r;
 
-                sfd = chase_and_open(*source, arg_root, CHASE_PREFIX_ROOT, O_CLOEXEC|O_NOCTTY, NULL);
+                sfd = chase_and_open(*source, arg_copy_source, CHASE_PREFIX_ROOT, O_CLOEXEC|O_NOCTTY, NULL);
                 if (sfd < 0)
-                        return log_error_errno(sfd, "Failed to open source file '%s%s': %m", strempty(arg_root), *source);
+                        return log_error_errno(sfd, "Failed to open source file '%s%s': %m", strempty(arg_copy_source), *source);
 
                 r = fd_verify_regular(sfd);
                 if (r < 0) {
@@ -4541,7 +4543,7 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
                                                 denylist, subvolumes_by_source_inode);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to copy '%s%s' to '%s%s': %m",
-                                                       strempty(arg_root), *source, strempty(root), *target);
+                                                       strempty(arg_copy_source), *source, strempty(root), *target);
                 } else {
                         _cleanup_free_ char *dn = NULL, *fn = NULL;
 
@@ -4572,7 +4574,7 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
 
                         r = copy_bytes(sfd, tfd, UINT64_MAX, COPY_REFLINK|COPY_HOLES|COPY_SIGINT|COPY_TRUNCATE);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to copy '%s' to '%s%s': %m", *source, strempty(arg_root), *target);
+                                return log_error_errno(r, "Failed to copy '%s' to '%s%s': %m", *source, strempty(arg_copy_source), *target);
 
                         (void) copy_xattr(sfd, NULL, tfd, NULL, COPY_ALL_XATTRS);
                         (void) copy_access(sfd, tfd);
@@ -6372,6 +6374,7 @@ static int help(void) {
                "     --sector-size=SIZE   Set the logical sector size for the image\n"
                "     --architecture=ARCH  Set the generic architecture for the image\n"
                "     --offline=BOOL       Whether to build the image offline\n"
+               "  -s --copy-source=PATH   Specify the primary source tree to copy files from\n"
                "     --copy-from=IMAGE    Copy partitions from the given image(s)\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
@@ -6417,6 +6420,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_ARCHITECTURE,
                 ARG_OFFLINE,
                 ARG_COPY_FROM,
+                ARG_COPY_SOURCE,
         };
 
         static const struct option options[] = {
@@ -6452,6 +6456,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "architecture",         required_argument, NULL, ARG_ARCHITECTURE         },
                 { "offline",              required_argument, NULL, ARG_OFFLINE              },
                 { "copy-from",            required_argument, NULL, ARG_COPY_FROM            },
+                { "copy-source",          required_argument, NULL, 's'                      },
                 {}
         };
 
@@ -6460,7 +6465,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hs:", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -6784,6 +6789,12 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
                 }
+
+                case 's':
+                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_copy_source);
+                        if (r < 0)
+                                return r;
+                        break;
 
                 case '?':
                         return -EINVAL;
@@ -7343,6 +7354,13 @@ static int run(int argc, char *argv[]) {
                          * allocated here, and thus to increase its backing file we know what to do */
                         node_is_our_loop = true;
                 }
+        }
+
+        if (!arg_copy_source && arg_root) {
+                /* If no explicit copy source is specified, then use --root=/--image= */
+                arg_copy_source = strdup(arg_root);
+                if (!arg_copy_source)
+                        return log_oom();
         }
 
         context = context_new(arg_seed);

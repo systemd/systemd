@@ -276,6 +276,9 @@
         so that the tool operates on the configuration and machine ID stored in the root file system later
         transitioned into itself.</para>
 
+        <para>See <option>--copy-source=</option> for a more restricted option that only affects
+        <varname>CopyFiles=</varname>.</para>
+
         <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>
 
@@ -496,6 +499,19 @@
         destination partition table. These definitions can be combined with partition definitions read from
         regular partition definition files. The synthesized definitions take precedence over the definitions
         read from partition definition files.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--copy-source=</option><replaceable>PATH</replaceable></term>
+        <term><option>-s</option> <replaceable>PATH</replaceable></term>
+
+        <listitem><para>Specifies a source directory all <varname>CopyFiles=</varname> source paths shall be
+        considered relative to. This is similar to <option>--root=</option>, but exclusively applies to the
+        <varname>CopyFiles=</varname> setting. If <option>--root=</option> and
+        <option>--copy-source=</option> are used in combination the former applies as usual, except for
+        <varname>CopyFiles=</varname> where the latter takes precedence.</para>
 
         <xi:include href="version-info.xml" xpointer="v255"/></listitem>
       </varlistentry>
