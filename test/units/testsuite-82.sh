@@ -97,7 +97,8 @@ elif [ -f /run/testsuite82.touch ]; then
     test "$x" = "wuffwuff"
 
     # Check that we got a PrepareForShutdownWithMetadata signal with the right type
-    test "$(jq .payload.data[1].type.data </run/testsuite82.signal)" = "\"soft-reboot\""
+    cat /run/testsuite82.signal
+    test "$(jq -r '.payload.data[1].type.data' </run/testsuite82.signal)" = "soft-reboot"
 
     # Upload another entry
     T="/dev/shm/fdstore.$RANDOM"
@@ -194,9 +195,9 @@ EOF
 
     # Check that we can set up an inhibitor, and that busctl monitor sees the
     # PrepareForShutdownWithMetadata signal and that it says 'soft-reboot'.
-    systemd-run --unit busctl.service --property StandardOutput=file:/run/testsuite82.signal \
+    systemd-run --unit busctl.service -p Type=exec --property StandardOutput=file:/run/testsuite82.signal \
         busctl monitor --json=pretty --match 'sender=org.freedesktop.login1,path=/org/freedesktop/login1,interface=org.freedesktop.login1.Manager,member=PrepareForShutdownWithMetadata,type=signal'
-    systemd-run --unit inhibit.service \
+    systemd-run --unit inhibit.service -p Type=exec \
         systemd-inhibit --what=shutdown --who=test --why=test --mode=delay \
             sleep infinity
 
