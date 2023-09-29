@@ -1155,7 +1155,7 @@ static int mount_in_namespace(
                         (void) mkdir_parents(dest, 0755);
 
                 if (img) {
-                        DissectImageFlags f = 0;
+                        DissectImageFlags f = DISSECT_IMAGE_TRY_ATOMIC_MOUNT_EXCHANGE;
 
                         if (make_file_or_directory)
                                 f |= DISSECT_IMAGE_MKDIR;
@@ -1174,11 +1174,31 @@ static int mount_in_namespace(
                         if (make_file_or_directory)
                                 (void) make_mount_point_inode_from_stat(&st, dest, 0700);
 
-                        r = RET_NERRNO(move_mount(new_mount_fd,
-                                                  "",
-                                                  -EBADF,
-                                                  dest,
-                                                  MOVE_MOUNT_F_EMPTY_PATH));
+                        /* First, try to mount beneath an existing mount point, and if that works, umount
+                         * the old mount, which is now at the top. This will ensure we can atomically
+                         * replace a mount. If this is not supported (minimum kernel v6.5), or if there is
+                         * no mount on the mountpoint, we get -EINVAl and then we fallback to normal
+                         * mounting. */
+
+                        r = RET_NERRNO(move_mount(
+                                        new_mount_fd,
+                                        /* from_path= */ "",
+                                        /* to_fd= */ -EBADF,
+                                        dest,
+                                        MOVE_MOUNT_F_EMPTY_PATH|MOVE_MOUNT_BENEATH));
+                        if (r == -EINVAL) { /* Fallback if mount_beneath is not supported */
+                                log_debug_errno(
+                                                r,
+                                                "Failed to mount beneath '%s', falling back to overmount.",
+                                                dest);
+                                r = RET_NERRNO(move_mount(
+                                                new_mount_fd,
+                                                /* from_path= */ "",
+                                                /* to_fd= */ -EBADF,
+                                                dest,
+                                                MOVE_MOUNT_F_EMPTY_PATH));
+                        } else if (r >= 0) /* If it is, now remove the old mount */
+                                r = umount_verbose(LOG_DEBUG, dest, UMOUNT_NOFOLLOW|MNT_DETACH);
                 }
                 if (r < 0) {
                         (void) write(errno_pipe_fd[1], &r, sizeof(r));
