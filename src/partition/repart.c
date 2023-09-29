@@ -6455,7 +6455,7 @@ static int parse_argv(int argc, char *argv[]) {
                 {}
         };
 
-        int c, r, dry_run = -1;
+        int c, r;
 
         assert(argc >= 0);
         assert(argv);
@@ -6495,14 +6495,9 @@ static int parse_argv(int argc, char *argv[]) {
                                 arg_empty = EMPTY_REQUIRE;
                         else if (streq(optarg, "force"))
                                 arg_empty = EMPTY_FORCE;
-                        else if (streq(optarg, "create")) {
+                        else if (streq(optarg, "create"))
                                 arg_empty = EMPTY_CREATE;
-
-                                if (dry_run < 0)
-                                        dry_run = false; /* Imply --dry-run=no if we create the loopback file
-                                                          * anew. After all we cannot really break anyone's
-                                                          * partition tables that way. */
-                        } else
+                        else
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Failed to parse --empty= parameter: %s", optarg);
                         break;
@@ -6812,8 +6807,9 @@ static int parse_argv(int argc, char *argv[]) {
                 arg_dry_run = true; /* When --can-factory-reset is specified we don't make changes, hence
                                      * non-dry-run mode makes no sense. Thus, imply dry run mode so that we
                                      * open things strictly read-only. */
-        else if (dry_run >= 0)
-                arg_dry_run = dry_run;
+        else if (arg_empty == EMPTY_CREATE)
+                arg_dry_run = false; /* Imply --dry-run=no if we create the loopback file anew. After all we
+                                      * cannot really break anyone's partition tables that way. */
 
         /* Disable pager once we are not just reviewing, but doing things. */
         if (!arg_dry_run)
