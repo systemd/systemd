@@ -7,7 +7,7 @@ set -o pipefail
 . "$(dirname "$0")"/util.sh
 
 get_first_boot_id() {
-    journalctl -b "${1:?}" -o json | jq -sr '.[0]._BOOT_ID'
+    journalctl -b "${1:?}" -o json -n +1 | jq -r '._BOOT_ID'
 }
 
 get_last_boot_id() {
@@ -15,7 +15,7 @@ get_last_boot_id() {
 }
 
 get_first_timestamp() {
-    journalctl -b "${1:?}" -o json | jq -sr '.[0].__REALTIME_TIMESTAMP'
+    journalctl -b "${1:?}" -o json -n +1 | jq -r '.__REALTIME_TIMESTAMP'
 }
 
 get_last_timestamp() {
