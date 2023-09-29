@@ -2499,7 +2499,7 @@ int unit_attach_pids_to_cgroup(Unit *u, Set *pids, const char *suffix_path) {
         _cleanup_free_ char *joined = NULL;
         CGroupMask delegated_mask;
         const char *p;
-        void *pidp;
+        PidRef *pid;
         int ret, r;
 
         assert(u);
@@ -2533,17 +2533,25 @@ int unit_attach_pids_to_cgroup(Unit *u, Set *pids, const char *suffix_path) {
         delegated_mask = unit_get_delegate_mask(u);
 
         ret = 0;
-        SET_FOREACH(pidp, pids) {
-                pid_t pid = PTR_TO_PID(pidp);
+        SET_FOREACH(pid, pids) {
+
+                /* Unfortunately we cannot add pids by pidfd to a cgroup. Hence we have to use PIDs instead,
+                 * which of course is racy. Let's shorten the race a bit though, and re-validate the PID
+                 * before we use it */
+                r = pidref_verify(pid);
+                if (r < 0) {
+                        log_unit_info_errno(u, r, "PID " PID_FMT " vanished before we could move it to target cgroup '%s', skipping: %m", pid->pid, empty_to_root(p));
+                        continue;
+                }
 
                 /* First, attach the PID to the main cgroup hierarchy */
-                r = cg_attach(SYSTEMD_CGROUP_CONTROLLER, p, pid);
+                r = cg_attach(SYSTEMD_CGROUP_CONTROLLER, p, pid->pid);
                 if (r < 0) {
                         bool again = MANAGER_IS_USER(u->manager) && ERRNO_IS_PRIVILEGE(r);
 
                         log_unit_full_errno(u, again ? LOG_DEBUG : LOG_INFO,  r,
                                             "Couldn't move process "PID_FMT" to%s requested cgroup '%s': %m",
-                                            pid, again ? " directly" : "", empty_to_root(p));
+                                            pid->pid, again ? " directly" : "", empty_to_root(p));
 
                         if (again) {
                                 int z;
@@ -2553,9 +2561,9 @@ int unit_attach_pids_to_cgroup(Unit *u, Set *pids, const char *suffix_path) {
                                  * Since it's more privileged it might be able to move the process across the
                                  * leaves of a subtree whose top node is not owned by us. */
 
-                                z = unit_attach_pid_to_cgroup_via_bus(u, pid, suffix_path);
+                                z = unit_attach_pid_to_cgroup_via_bus(u, pid->pid, suffix_path);
                                 if (z < 0)
-                                        log_unit_info_errno(u, z, "Couldn't move process "PID_FMT" to requested cgroup '%s' (directly or via the system bus): %m", pid, empty_to_root(p));
+                                        log_unit_info_errno(u, z, "Couldn't move process "PID_FMT" to requested cgroup '%s' (directly or via the system bus): %m", pid->pid, empty_to_root(p));
                                 else {
                                         if (ret >= 0)
                                                 ret++; /* Count successful additions */
@@ -2588,12 +2596,12 @@ int unit_attach_pids_to_cgroup(Unit *u, Set *pids, const char *suffix_path) {
 
                         /* If this controller is delegated and realized, honour the caller's request for the cgroup suffix. */
                         if (delegated_mask & u->cgroup_realized_mask & bit) {
-                                r = cg_attach(cgroup_controller_to_string(c), p, pid);
+                                r = cg_attach(cgroup_controller_to_string(c), p, pid->pid);
                                 if (r >= 0)
                                         continue; /* Success! */
 
                                 log_unit_debug_errno(u, r, "Failed to attach PID " PID_FMT " to requested cgroup %s in controller %s, falling back to unit's cgroup: %m",
-                                                     pid, empty_to_root(p), cgroup_controller_to_string(c));
+                                                     pid->pid, empty_to_root(p), cgroup_controller_to_string(c));
                         }
 
                         /* So this controller is either not delegate or realized, or something else weird happened. In
@@ -2603,10 +2611,10 @@ int unit_attach_pids_to_cgroup(Unit *u, Set *pids, const char *suffix_path) {
                         if (!realized)
                                 continue; /* Not even realized in the root slice? Then let's not bother */
 
-                        r = cg_attach(cgroup_controller_to_string(c), realized, pid);
+                        r = cg_attach(cgroup_controller_to_string(c), realized, pid->pid);
                         if (r < 0)
                                 log_unit_debug_errno(u, r, "Failed to attach PID " PID_FMT " to realized cgroup %s in controller %s, ignoring: %m",
-                                                     pid, realized, cgroup_controller_to_string(c));
+                                                     pid->pid, realized, cgroup_controller_to_string(c));
                 }
         }
 
@@ -3049,9 +3057,9 @@ void unit_prune_cgroup(Unit *u) {
         u->bpf_device_control_installed = bpf_program_free(u->bpf_device_control_installed);
 }
 
-int unit_search_main_pid(Unit *u, pid_t *ret) {
+int unit_search_main_pid(Unit *u, PidRef *ret) {
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        pid_t pid = 0, npid;
         int r;
 
         assert(u);
@@ -3064,25 +3072,33 @@ int unit_search_main_pid(Unit *u, pid_t *ret) {
         if (r < 0)
                 return r;
 
-        while (cg_read_pid(f, &npid) > 0)  {
+        for (;;) {
+                _cleanup_(pidref_done) PidRef npidref = PIDREF_NULL;
 
-                if (npid == pid)
+                r = cg_read_pidref(f, &npidref);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                if (pidref_equal(&pidref, &npidref)) /* seen already, cgroupfs reports duplicates! */
                         continue;
 
-                if (pid_is_my_child(npid) == 0)
+                if (pid_is_my_child(npidref.pid) == 0) /* ignore processes further down the tree */
                         continue;
 
-                if (pid != 0)
-                        /* Dang, there's more than one daemonized PID
-                        in this group, so we don't know what process
-                        is the main process. */
-
+                if (pidref_is_set(&pidref) != 0)
+                        /* Dang, there's more than one daemonized PID in this group, so we don't know what
+                         * process is the main process. */
                         return -ENODATA;
 
-                pid = npid;
+                pidref = TAKE_PIDREF(npidref);
         }
 
-        *ret = pid;
+        if (!pidref_is_set(&pidref))
+                return -ENODATA;
+
+        *ret = TAKE_PIDREF(pidref);
         return 0;
 }
 
@@ -3096,43 +3112,44 @@ static int unit_watch_pids_in_path(Unit *u, const char *path) {
 
         r = cg_enumerate_processes(SYSTEMD_CGROUP_CONTROLLER, path, &f);
         if (r < 0)
-                ret = r;
+                RET_GATHER(ret, r);
         else {
-                pid_t pid;
+                for (;;) {
+                        _cleanup_(pidref_done) PidRef pid = PIDREF_NULL;
 
-                while ((r = cg_read_pid(f, &pid)) > 0) {
-                        r = unit_watch_pid(u, pid, false);
-                        if (r < 0 && ret >= 0)
-                                ret = r;
+                        r = cg_read_pidref(f, &pid);
+                        if (r == 0)
+                                break;
+                        if (r < 0) {
+                                RET_GATHER(ret, r);
+                                break;
+                        }
+
+                        RET_GATHER(ret, unit_watch_pidref(u, &pid, /* exclusive= */ false));
                 }
-
-                if (r < 0 && ret >= 0)
-                        ret = r;
         }
 
         r = cg_enumerate_subgroups(SYSTEMD_CGROUP_CONTROLLER, path, &d);
-        if (r < 0) {
-                if (ret >= 0)
-                        ret = r;
-        } else {
-                char *fn;
+        if (r < 0)
+                RET_GATHER(ret, r);
+        else {
+                for (;;) {
+                        _cleanup_free_ char *fn = NULL, *p = NULL;
 
-                while ((r = cg_read_subgroup(d, &fn)) > 0) {
-                        _cleanup_free_ char *p = NULL;
+                        r = cg_read_subgroup(d, &fn);
+                        if (r == 0)
+                                break;
+                        if (r < 0) {
+                                RET_GATHER(ret, r);
+                                break;
+                        }
 
                         p = path_join(empty_to_root(path), fn);
-                        free(fn);
-
                         if (!p)
                                 return -ENOMEM;
 
-                        r = unit_watch_pids_in_path(u, p);
-                        if (r < 0 && ret >= 0)
-                                ret = r;
+                        RET_GATHER(ret, unit_watch_pids_in_path(u, p));
                 }
-
-                if (r < 0 && ret >= 0)
-                        ret = r;
         }
 
         return ret;
@@ -3762,48 +3779,75 @@ Unit* manager_get_unit_by_cgroup(Manager *m, const char *cgroup) {
         }
 }
 
-Unit *manager_get_unit_by_pid_cgroup(Manager *m, pid_t pid) {
+Unit *manager_get_unit_by_pidref_cgroup(Manager *m, PidRef *pid) {
         _cleanup_free_ char *cgroup = NULL;
 
         assert(m);
 
-        if (!pid_is_valid(pid))
+        if (!pidref_is_set(pid))
                 return NULL;
 
-        if (cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, pid, &cgroup) < 0)
+        if (cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, pid->pid, &cgroup) < 0)
                 return NULL;
 
         return manager_get_unit_by_cgroup(m, cgroup);
 }
 
-Unit *manager_get_unit_by_pid(Manager *m, pid_t pid) {
+Unit *manager_get_unit_by_pidref_watching(Manager *m, PidRef *pid) {
         Unit *u, **array;
 
         assert(m);
 
-        /* Note that a process might be owned by multiple units, we return only one here, which is good enough for most
-         * cases, though not strictly correct. We prefer the one reported by cgroup membership, as that's the most
-         * relevant one as children of the process will be assigned to that one, too, before all else. */
-
-        if (!pid_is_valid(pid))
+        if (!pidref_is_set(pid))
                 return NULL;
 
-        if (pid == getpid_cached())
-                return hashmap_get(m->units, SPECIAL_INIT_SCOPE);
-
-        u = manager_get_unit_by_pid_cgroup(m, pid);
+        u = hashmap_get(m->watch_pids, pid);
         if (u)
                 return u;
 
-        u = hashmap_get(m->watch_pids, PID_TO_PTR(pid));
-        if (u)
-                return u;
-
-        array = hashmap_get(m->watch_pids, PID_TO_PTR(-pid));
+        array = hashmap_get(m->watch_pids_more, pid);
         if (array)
                 return array[0];
 
         return NULL;
+}
+
+Unit *manager_get_unit_by_pidref(Manager *m, PidRef *pid) {
+        Unit *u;
+
+        assert(m);
+
+        /* Note that a process might be owned by multiple units, we return only one here, which is good
+         * enough for most cases, though not strictly correct. We prefer the one reported by cgroup
+         * membership, as that's the most relevant one as children of the process will be assigned to that
+         * one, too, before all else. */
+
+        if (!pidref_is_set(pid))
+                return NULL;
+
+        if (pid->pid == getpid_cached())
+                return hashmap_get(m->units, SPECIAL_INIT_SCOPE);
+        if (pid->pid == 1)
+                return NULL;
+
+        u = manager_get_unit_by_pidref_cgroup(m, pid);
+        if (u)
+                return u;
+
+        u = manager_get_unit_by_pidref_watching(m, pid);
+        if (u)
+                return u;
+
+        return NULL;
+}
+
+Unit *manager_get_unit_by_pid(Manager *m, pid_t pid) {
+        assert(m);
+
+        if (!pid_is_valid(pid))
+                return NULL;
+
+        return manager_get_unit_by_pidref(m, &PIDREF_MAKE_FROM_PID(pid));
 }
 
 int manager_notify_cgroup_empty(Manager *m, const char *cgroup) {
