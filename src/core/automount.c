@@ -581,13 +581,11 @@ static void automount_enter_waiting(Automount *a) {
         unit_warn_if_dir_nonempty(UNIT(a), a->where);
 
         dev_autofs_fd = open_dev_autofs(UNIT(a)->manager);
-        if (dev_autofs_fd < 0) {
-                r = dev_autofs_fd;
+        if (dev_autofs_fd < 0)
                 goto fail;
-        }
 
         if (pipe2(pipe_fd, O_CLOEXEC) < 0) {
-                r = log_unit_warning_errno(UNIT(a), errno, "Failed to allocate autofs pipe: %m");
+                log_unit_warning_errno(UNIT(a), errno, "Failed to allocate autofs pipe: %m");
                 goto fail;
         }
         r = fd_nonblock(pipe_fd[0], true);
@@ -603,7 +601,7 @@ static void automount_enter_waiting(Automount *a) {
                     getpgrp(),
                     isempty(a->extra_options) ? "" : ",",
                     strempty(a->extra_options)) < 0) {
-                r = log_oom();
+                log_oom();
                 goto fail;
         }
 
@@ -617,13 +615,13 @@ static void automount_enter_waiting(Automount *a) {
         pipe_fd[1] = safe_close(pipe_fd[1]);
 
         if (stat(a->where, &st) < 0) {
-                r = log_unit_warning_errno(UNIT(a), errno, "Failed to stat new automount point '%s': %m", a->where);
+                log_unit_warning_errno(UNIT(a), errno, "Failed to stat new automount point '%s': %m", a->where);
                 goto fail;
         }
 
         ioctl_fd = open_ioctl_fd(dev_autofs_fd, a->where, st.st_dev);
         if (ioctl_fd < 0) {
-                r = log_unit_warning_errno(UNIT(a), ioctl_fd, "Failed to open automount ioctl fd for '%s': %m", a->where);
+                log_unit_warning_errno(UNIT(a), ioctl_fd, "Failed to open automount ioctl fd for '%s': %m", a->where);
                 goto fail;
         }
 
