@@ -56,36 +56,37 @@ struct DissectedPartition {
         })
 
 typedef enum DissectImageFlags {
-        DISSECT_IMAGE_DEVICE_READ_ONLY         = 1 << 0,  /* Make device read-only */
-        DISSECT_IMAGE_DISCARD_ON_LOOP          = 1 << 1,  /* Turn on "discard" if on a loop device and file system supports it */
-        DISSECT_IMAGE_DISCARD                  = 1 << 2,  /* Turn on "discard" if file system supports it, on all block devices */
-        DISSECT_IMAGE_DISCARD_ON_CRYPTO        = 1 << 3,  /* Turn on "discard" also on crypto devices */
-        DISSECT_IMAGE_DISCARD_ANY              = DISSECT_IMAGE_DISCARD_ON_LOOP |
-                                                 DISSECT_IMAGE_DISCARD |
-                                                 DISSECT_IMAGE_DISCARD_ON_CRYPTO,
-        DISSECT_IMAGE_GPT_ONLY                 = 1 << 4,  /* Only recognize images with GPT partition tables */
-        DISSECT_IMAGE_GENERIC_ROOT             = 1 << 5,  /* If no partition table or only single generic partition, assume it's the root fs */
-        DISSECT_IMAGE_MOUNT_ROOT_ONLY          = 1 << 6,  /* Mount only the root and /usr partitions */
-        DISSECT_IMAGE_MOUNT_NON_ROOT_ONLY      = 1 << 7,  /* Mount only the non-root and non-/usr partitions */
-        DISSECT_IMAGE_VALIDATE_OS              = 1 << 8,  /* Refuse mounting images that aren't identifiable as OS images */
-        DISSECT_IMAGE_VALIDATE_OS_EXT          = 1 << 9,  /* Refuse mounting images that aren't identifiable as OS extension images */
-        DISSECT_IMAGE_RELAX_VAR_CHECK          = 1 << 10, /* Don't insist that the UUID of /var is hashed from /etc/machine-id */
-        DISSECT_IMAGE_FSCK                     = 1 << 11, /* File system check the partition before mounting (no effect when combined with DISSECT_IMAGE_READ_ONLY) */
-        DISSECT_IMAGE_NO_PARTITION_TABLE       = 1 << 12, /* Only recognize single file system images */
-        DISSECT_IMAGE_VERITY_SHARE             = 1 << 13, /* When activating a verity device, reuse existing one if already open */
-        DISSECT_IMAGE_MKDIR                    = 1 << 14, /* Make top-level directory to mount right before mounting, if missing */
-        DISSECT_IMAGE_USR_NO_ROOT              = 1 << 15, /* If no root fs is in the image, but /usr is, then allow this (so that we can mount the rootfs as tmpfs or so */
-        DISSECT_IMAGE_REQUIRE_ROOT             = 1 << 16, /* Don't accept disks without root partition (or at least /usr partition if DISSECT_IMAGE_USR_NO_ROOT is set) */
-        DISSECT_IMAGE_MOUNT_READ_ONLY          = 1 << 17, /* Make mounts read-only */
-        DISSECT_IMAGE_READ_ONLY                = DISSECT_IMAGE_DEVICE_READ_ONLY |
-                                                 DISSECT_IMAGE_MOUNT_READ_ONLY,
-        DISSECT_IMAGE_GROWFS                   = 1 << 18, /* Grow file systems in partitions marked for that to the size of the partitions after mount */
-        DISSECT_IMAGE_MOUNT_IDMAPPED           = 1 << 19, /* Mount mounts with kernel 5.12-style userns ID mapping, if file system type doesn't support uid=/gid= */
-        DISSECT_IMAGE_ADD_PARTITION_DEVICES    = 1 << 20, /* Create partition devices via BLKPG_ADD_PARTITION */
-        DISSECT_IMAGE_PIN_PARTITION_DEVICES    = 1 << 21, /* Open dissected partitions and decrypted partitions and pin them by fd */
-        DISSECT_IMAGE_RELAX_EXTENSION_CHECK    = 1 << 22, /* Don't insist that the extension-release file name matches the image name */
-        DISSECT_IMAGE_DISKSEQ_DEVNODE          = 1 << 23, /* Prefer /dev/disk/by-diskseq/… device nodes */
-        DISSECT_IMAGE_ALLOW_EMPTY              = 1 << 24, /* Allow that no usable partitions is present */
+        DISSECT_IMAGE_DEVICE_READ_ONLY          = 1 << 0,  /* Make device read-only */
+        DISSECT_IMAGE_DISCARD_ON_LOOP           = 1 << 1,  /* Turn on "discard" if on a loop device and file system supports it */
+        DISSECT_IMAGE_DISCARD                   = 1 << 2,  /* Turn on "discard" if file system supports it, on all block devices */
+        DISSECT_IMAGE_DISCARD_ON_CRYPTO         = 1 << 3,  /* Turn on "discard" also on crypto devices */
+        DISSECT_IMAGE_DISCARD_ANY               = DISSECT_IMAGE_DISCARD_ON_LOOP |
+                                                  DISSECT_IMAGE_DISCARD |
+                                                  DISSECT_IMAGE_DISCARD_ON_CRYPTO,
+        DISSECT_IMAGE_GPT_ONLY                  = 1 << 4,  /* Only recognize images with GPT partition tables */
+        DISSECT_IMAGE_GENERIC_ROOT              = 1 << 5,  /* If no partition table or only single generic partition, assume it's the root fs */
+        DISSECT_IMAGE_MOUNT_ROOT_ONLY           = 1 << 6,  /* Mount only the root and /usr partitions */
+        DISSECT_IMAGE_MOUNT_NON_ROOT_ONLY       = 1 << 7,  /* Mount only the non-root and non-/usr partitions */
+        DISSECT_IMAGE_VALIDATE_OS               = 1 << 8,  /* Refuse mounting images that aren't identifiable as OS images */
+        DISSECT_IMAGE_VALIDATE_OS_EXT           = 1 << 9,  /* Refuse mounting images that aren't identifiable as OS extension images */
+        DISSECT_IMAGE_RELAX_VAR_CHECK           = 1 << 10, /* Don't insist that the UUID of /var is hashed from /etc/machine-id */
+        DISSECT_IMAGE_FSCK                      = 1 << 11, /* File system check the partition before mounting (no effect when combined with DISSECT_IMAGE_READ_ONLY) */
+        DISSECT_IMAGE_NO_PARTITION_TABLE        = 1 << 12, /* Only recognize single file system images */
+        DISSECT_IMAGE_VERITY_SHARE              = 1 << 13, /* When activating a verity device, reuse existing one if already open */
+        DISSECT_IMAGE_MKDIR                     = 1 << 14, /* Make top-level directory to mount right before mounting, if missing */
+        DISSECT_IMAGE_USR_NO_ROOT               = 1 << 15, /* If no root fs is in the image, but /usr is, then allow this (so that we can mount the rootfs as tmpfs or so */
+        DISSECT_IMAGE_REQUIRE_ROOT              = 1 << 16, /* Don't accept disks without root partition (or at least /usr partition if DISSECT_IMAGE_USR_NO_ROOT is set) */
+        DISSECT_IMAGE_MOUNT_READ_ONLY           = 1 << 17, /* Make mounts read-only */
+        DISSECT_IMAGE_READ_ONLY                 = DISSECT_IMAGE_DEVICE_READ_ONLY |
+                                                  DISSECT_IMAGE_MOUNT_READ_ONLY,
+        DISSECT_IMAGE_GROWFS                    = 1 << 18, /* Grow file systems in partitions marked for that to the size of the partitions after mount */
+        DISSECT_IMAGE_MOUNT_IDMAPPED            = 1 << 19, /* Mount mounts with kernel 5.12-style userns ID mapping, if file system type doesn't support uid=/gid= */
+        DISSECT_IMAGE_ADD_PARTITION_DEVICES     = 1 << 20, /* Create partition devices via BLKPG_ADD_PARTITION */
+        DISSECT_IMAGE_PIN_PARTITION_DEVICES     = 1 << 21, /* Open dissected partitions and decrypted partitions and pin them by fd */
+        DISSECT_IMAGE_RELAX_EXTENSION_CHECK     = 1 << 22, /* Don't insist that the extension-release file name matches the image name */
+        DISSECT_IMAGE_DISKSEQ_DEVNODE           = 1 << 23, /* Prefer /dev/disk/by-diskseq/… device nodes */
+        DISSECT_IMAGE_ALLOW_EMPTY               = 1 << 24, /* Allow that no usable partitions is present */
+        DISSECT_IMAGE_TRY_ATOMIC_MOUNT_EXCHANGE = 1 << 25, /* Try to mount the image beneath the specified mountpoint, rather than on top of it, and then umount the top */
 } DissectImageFlags;
 
 struct DissectedImage {

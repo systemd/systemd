@@ -363,6 +363,11 @@ ExecStart=/bin/sh -c ' \\
 EOF
 systemctl start testservice-50d.service
 
+# Mount twice to exercise mount-beneath (on kernel 6.5+, on older kernels it will just overmount)
+mkdir -p /tmp/wrong/foo
+mksquashfs /tmp/wrong/foo /tmp/wrong.raw
+systemctl mount-image --mkdir testservice-50d.service /tmp/wrong.raw /tmp/img
+test "$(systemctl show -P SubState testservice-50d.service)" = "running"
 systemctl mount-image --mkdir testservice-50d.service "${image}.raw" /tmp/img root:nosuid
 
 while systemctl show -P SubState testservice-50d.service | grep -q running

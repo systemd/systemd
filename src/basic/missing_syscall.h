@@ -539,6 +539,10 @@ static inline int missing_open_tree(
 
 /* ======================================================================= */
 
+#ifndef MOVE_MOUNT_BENEATH
+#define MOVE_MOUNT_BENEATH 0x00000200
+#endif
+
 #if !HAVE_MOVE_MOUNT
 
 #ifndef MOVE_MOUNT_F_EMPTY_PATH
