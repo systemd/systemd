@@ -741,7 +741,7 @@ int generator_write_cryptsetup_unit_section(
         fprintf(f,
                 "\n"
                 "DefaultDependencies=no\n"
-                "After=cryptsetup-pre.target systemd-udevd-kernel.socket\n"
+                "After=cryptsetup-pre.target systemd-udevd-kernel.socket systemd-tpm2-setup-early.service\n"
                 "Before=blockdev@dev-mapper-%%i.target\n"
                 "Wants=blockdev@dev-mapper-%%i.target\n"
                 "IgnoreOnIsolate=true\n");
