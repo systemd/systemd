@@ -3,6 +3,19 @@
 set -ex
 set -o pipefail
 
+at_exit() {
+    # Since the soft-reboot drops the enqueued end.service, we won't shutdown
+    # the test VM if the test fails and have to wait for the watchdog to kill
+    # us (which may take quite a long time). Let's just forcibly kill the machine
+    # instead to save CI resources.
+    if [[ $? -ne 0 ]]; then
+        echo >&2 "Test failed, shutting down the machine..."
+        systemctl poweroff -ff
+    fi
+}
+
+trap at_exit EXIT
+
 systemd-analyze log-level debug
 
 export SYSTEMD_LOG_LEVEL=debug
