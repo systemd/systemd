@@ -730,6 +730,46 @@ int umount_verbose(
         return 0;
 }
 
+int mount_beneath_graceful(int fsmount_fd, const char *dest, bool mount_beneath) {
+        int r;
+
+        assert(fsmount_fd >= 0);
+        assert(dest);
+
+        /* First, try to mount beneath an existing mount point, and if that works, umount the old mount,
+         * which is now at the top. This will ensure we can atomically replace a mount. Note that this works
+         * also in the case where there are submounts down the tree. Mount propagation is allowed but
+         * restricted to layouts that don't end up propagation the new mount on top of the mount stack.  If
+         * this is not supported (minimum kernel v6.5), or if there is no mount on the mountpoint, we get
+         * -EINVAL and then we fallback to normal mounting. */
+
+        r = RET_NERRNO(move_mount(
+                        fsmount_fd,
+                        /* from_path= */ "",
+                        /* to_fd= */ -EBADF,
+                        dest,
+                        MOVE_MOUNT_F_EMPTY_PATH | (mount_beneath ? MOVE_MOUNT_BENEATH : 0)));
+        if (mount_beneath) {
+                if (r == -EINVAL) { /* Fallback if mount_beneath is not supported */
+                        log_debug_errno(
+                                        r,
+                                        "Failed to mount beneath '%s', falling back to overmount",
+                                        dest);
+                        return RET_NERRNO(move_mount(
+                                        fsmount_fd,
+                                        /* from_path= */ "",
+                                        /* to_fd= */ -EBADF,
+                                        dest,
+                                        MOVE_MOUNT_F_EMPTY_PATH));
+                }
+
+                if (r >= 0) /* If it is, now remove the old mount */
+                        return umount_verbose(LOG_DEBUG, dest, UMOUNT_NOFOLLOW|MNT_DETACH);
+        }
+
+        return r;
+}
+
 int mount_option_mangle(
                 const char *options,
                 unsigned long mount_flags,
@@ -1155,7 +1195,7 @@ static int mount_in_namespace(
                         (void) mkdir_parents(dest, 0755);
 
                 if (img) {
-                        DissectImageFlags f = 0;
+                        DissectImageFlags f = DISSECT_IMAGE_TRY_ATOMIC_MOUNT_EXCHANGE;
 
                         if (make_file_or_directory)
                                 f |= DISSECT_IMAGE_MKDIR;
@@ -1174,11 +1214,7 @@ static int mount_in_namespace(
                         if (make_file_or_directory)
                                 (void) make_mount_point_inode_from_stat(&st, dest, 0700);
 
-                        r = RET_NERRNO(move_mount(new_mount_fd,
-                                                  "",
-                                                  -EBADF,
-                                                  dest,
-                                                  MOVE_MOUNT_F_EMPTY_PATH));
+                        r = mount_beneath_graceful(new_mount_fd, dest, /* mount_beneath= */ true);
                 }
                 if (r < 0) {
                         (void) write(errno_pipe_fd[1], &r, sizeof(r));

@@ -68,6 +68,8 @@ int umount_verbose(
                 const char *where,
                 int flags);
 
+int mount_beneath_graceful(int fsmount_fd, const char *dest, bool mount_beneath);
+
 int mount_option_mangle(
                 const char *options,
                 unsigned long mount_flags,
