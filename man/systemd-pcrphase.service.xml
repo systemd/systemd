@@ -209,10 +209,10 @@
 
     <variablelist>
       <varlistentry>
-        <term><filename>/var/log/systemd/tpm2-measure.log</filename></term>
+        <term><filename>/run/log/systemd/tpm2-measure.log</filename></term>
 
         <listitem><para>Measurements are logged into an event log file maintained in
-        <filename>/var/log/systemd/tpm2-measure.log</filename>, which contains a <ulink
+        <filename>/run/log/systemd/tpm2-measure.log</filename>, which contains a <ulink
         url="https://www.rfc-editor.org/rfc/rfc7464.html">JSON-SEQ</ulink> series of objects that follow the
         general structure of the <ulink
         url="https://trustedcomputinggroup.org/resource/canonical-event-log-format/">TCG Common Event Log
