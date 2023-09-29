@@ -19,7 +19,7 @@ typedef struct Window Window;
 typedef struct Context Context;
 
 struct Window {
-        MMapCache *cache;
+        MMapFileDescriptor *fd;
 
         bool invalidated:1;
         bool keep_always:1;
@@ -29,9 +29,7 @@ struct Window {
         uint64_t offset;
         size_t size;
 
-        MMapFileDescriptor *fd;
-
-        LIST_FIELDS(Window, by_fd);
+        LIST_FIELDS(Window, windows);
         LIST_FIELDS(Window, unused);
 
         LIST_HEAD(Context, contexts);
@@ -110,7 +108,7 @@ static Window* window_unlink(Window *w) {
                 c->window = NULL;
         }
 
-        return LIST_REMOVE(by_fd, w->fd->windows, w);
+        return LIST_REMOVE(windows, w->fd->windows, w);
 }
 
 static void window_invalidate(Window *w) {
@@ -132,7 +130,7 @@ static Window* window_free(Window *w) {
                 return NULL;
 
         window_unlink(w);
-        w->cache->n_windows--;
+        w->fd->cache->n_windows--;
 
         return mfree(w);
 }
@@ -162,14 +160,13 @@ static Window* window_add(MMapFileDescriptor *f, uint64_t offset, size_t size, v
                 w = window_unlink(m->last_unused);
 
         *w = (Window) {
-                .cache = m,
                 .fd = f,
                 .offset = offset,
                 .size = size,
                 .ptr = ptr,
         };
 
-        return LIST_PREPEND(by_fd, f->windows, w);
+        return LIST_PREPEND(windows, f->windows, w);
 }
 
 static void context_detach_window(MMapCache *m, Context *c) {
@@ -357,7 +354,7 @@ int mmap_cache_fd_get(
         context_detach_window(m, c);
 
         /* Search for a matching mmap */
-        LIST_FOREACH(by_fd, i, f->windows)
+        LIST_FOREACH(windows, i, f->windows)
                 if (window_matches(i, f, offset, size)) {
                         m->n_window_list_hit++;
                         w = i;
@@ -407,7 +404,7 @@ static void mmap_cache_process_sigbus(MMapCache *m) {
 
                 ours = false;
                 HASHMAP_FOREACH(f, m->fds) {
-                        LIST_FOREACH(by_fd, w, f->windows) {
+                        LIST_FOREACH(windows, w, f->windows) {
                                 if ((uint8_t*) addr >= (uint8_t*) w->ptr &&
                                     (uint8_t*) addr < (uint8_t*) w->ptr + w->size) {
                                         found = ours = f->sigbus = true;
@@ -436,7 +433,7 @@ static void mmap_cache_process_sigbus(MMapCache *m) {
                 if (!f->sigbus)
                         continue;
 
-                LIST_FOREACH(by_fd, w, f->windows)
+                LIST_FOREACH(windows, w, f->windows)
                         window_invalidate(w);
         }
 }
