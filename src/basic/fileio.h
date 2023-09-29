@@ -129,8 +129,12 @@ static inline int fopen_unlocked(const char *path, const char *mode, FILE **ret)
 
 int fdopen_independent(int fd, const char *mode, FILE **ret);
 
-int search_and_fopen(const char *path, const char *mode, const char *root, const char **search, FILE **ret, char **ret_path);
-int search_and_fopen_nulstr(const char *path, const char *mode, const char *root, const char *search, FILE **ret, char **ret_path);
+int search_and_open(const char *path, int mode, const char *root, char **search, int *ret_fd, char **ret_path);
+static inline int search_and_access(const char *path, int mode, const char *root, char**search, char **ret_path) {
+        return search_and_open(path, mode, root, search, NULL, ret_path);
+}
+int search_and_fopen(const char *path, const char *mode, const char *root, const char **search, FILE **ret_file, char **ret_path);
+int search_and_fopen_nulstr(const char *path, const char *mode, const char *root, const char *search, FILE **ret_file, char **ret_path);
 
 int fflush_and_check(FILE *f);
 int fflush_sync_and_check(FILE *f);
