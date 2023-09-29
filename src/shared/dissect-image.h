@@ -84,6 +84,7 @@ typedef enum DissectImageFlags {
         DISSECT_IMAGE_RELAX_EXTENSION_CHECK    = 1 << 22, /* Don't insist that the extension-release file name matches the image name */
         DISSECT_IMAGE_DISKSEQ_DEVNODE          = 1 << 23, /* Prefer /dev/disk/by-diskseq/… device nodes */
         DISSECT_IMAGE_ALLOW_EMPTY              = 1 << 24, /* Allow that no usable partitions is present */
+        DISSECT_IMAGE_MOUNT_BENEATH            = 1 << 25, /* Mount the image beneath the specified directory, rather than on top of it */
 } DissectImageFlags;
 
 struct DissectedImage {

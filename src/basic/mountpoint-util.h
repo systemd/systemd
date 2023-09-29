@@ -5,6 +5,10 @@
 #include <stdbool.h>
 #include <sys/types.h>
 
+#ifndef MOVE_MOUNT_BENEATH
+#define MOVE_MOUNT_BENEATH 0x00000200
+#endif
+
 /* The limit used for /dev itself. 4MB should be enough since device nodes and symlinks don't
  * consume any space and udev isn't supposed to create regular file either. There's no limit on the
  * max number of inodes since such limit is hard to guess especially on large storage array
