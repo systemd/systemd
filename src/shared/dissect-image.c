@@ -2005,10 +2005,40 @@ static int mount_partition(
 
         if (p) {
                 if (m->fsmount_fd >= 0) {
-                        /* Case #1: Attach existing fsmount fd to the file system */
+                        bool mount_beneath = FLAGS_SET(flags, DISSECT_IMAGE_TRY_ATOMIC_MOUNT_EXCHANGE);
 
-                        if (move_mount(m->fsmount_fd, "", -EBADF, p, MOVE_MOUNT_F_EMPTY_PATH) < 0)
-                                return -errno;
+                        /* Case #1: Attach existing fsmount fd to the file system. First, try to mount
+                         * beneath an existing mount point, and if that works, umount the old mount, which
+                         * is now at the top. This will ensure we can atomically replace a mount. Note that
+                         * this works also in the case where there are submounts down the tree. Mount
+                         * propagation is allowed but restricted to layouts that don't end up propagation
+                         * the new mount on top of the mount stack.  If this is not supported (minimum
+                         * kernel v6.5), or if there is no mount on the mountpoint, we get -EINVAl and then
+                         * we fallback to normal mounting. */
+
+                        r = RET_NERRNO(move_mount(
+                                        m->fsmount_fd,
+                                        /* from_path= */ "",
+                                        /* to_fd= */ -EBADF,
+                                        p,
+                                        MOVE_MOUNT_F_EMPTY_PATH | (mount_beneath ? MOVE_MOUNT_BENEATH : 0)));
+                        if (mount_beneath) {
+                                if (r == -EINVAL) { /* Fallback if mount_beneath is not supported */
+                                        log_debug_errno(
+                                                        r,
+                                                        "Failed to mount beneath '%s', falling back to overmount.",
+                                                        p);
+                                        r = RET_NERRNO(move_mount(
+                                                        m->fsmount_fd,
+                                                        /* from_path= */ "",
+                                                        /* to_fd= */ -EBADF,
+                                                        p,
+                                                        MOVE_MOUNT_F_EMPTY_PATH));
+                                } else if (r >= 0) /* If it is, now remove the old mount */
+                                        r = umount_verbose(LOG_DEBUG, p, UMOUNT_NOFOLLOW|MNT_DETACH);
+                        }
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to mount image on '%s': %m", p);
 
                 } else {
                         assert(node);
