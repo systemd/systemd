@@ -212,6 +212,8 @@ int cg_is_threaded(const char *path);
 
 int cg_is_delegated(const char *path);
 
+int cg_has_coredump_receive(const char *path);
+
 typedef enum  {
         CG_KEY_MODE_GRACEFUL = 1 << 0,
 } CGroupKeyMode;
