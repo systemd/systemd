@@ -1,7 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-home_includes = [includes, include_directories('.')]
-
 systemd_homework_sources = files(
         'home-util.c',
         'homework-cifs.c',
