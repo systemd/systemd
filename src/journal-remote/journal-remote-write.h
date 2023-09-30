@@ -7,7 +7,7 @@
 typedef struct RemoteServer RemoteServer;
 
 typedef struct Writer {
-        ManagedJournalFile *journal;
+        JournalFile *journal;
         JournalMetrics metrics;
         char *output;          /* directory where we write, for vacuuming */
 
