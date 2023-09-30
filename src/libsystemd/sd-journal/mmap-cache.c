@@ -18,9 +18,9 @@
 typedef struct Window Window;
 
 typedef enum WindowFlags {
-        WINDOW_KEEP_ALWAYS  = 1u << (MMAP_CACHE_MAX_CONTEXTS + 0),
-        WINDOW_IN_UNUSED    = 1u << (MMAP_CACHE_MAX_CONTEXTS + 1),
-        WINDOW_INVALIDATED  = 1u << (MMAP_CACHE_MAX_CONTEXTS + 2),
+        WINDOW_KEEP_ALWAYS  = 1u << (_MMAP_CACHE_CATEGORY_MAX + 0),
+        WINDOW_IN_UNUSED    = 1u << (_MMAP_CACHE_CATEGORY_MAX + 1),
+        WINDOW_INVALIDATED  = 1u << (_MMAP_CACHE_CATEGORY_MAX + 2),
 
         _WINDOW_USED_MASK   = WINDOW_IN_UNUSED - 1, /* The mask contains all bits that indicate the windows
                                                      * is currently in use. Covers the all the object types
@@ -56,7 +56,7 @@ struct MMapCache {
         unsigned n_ref;
         unsigned n_windows;
 
-        unsigned n_context_cache_hit;
+        unsigned n_category_cache_hit;
         unsigned n_window_list_hit;
         unsigned n_missed;
 
@@ -65,7 +65,7 @@ struct MMapCache {
         LIST_HEAD(Window, unused);
         Window *last_unused;
 
-        Window *windows_by_context[MMAP_CACHE_MAX_CONTEXTS];
+        Window *windows_by_category[_MMAP_CACHE_CATEGORY_MAX];
 };
 
 #define WINDOWS_MIN 64
@@ -105,9 +105,9 @@ static Window* window_unlink(Window *w) {
                 LIST_REMOVE(unused, m->unused, w);
         }
 
-        for (unsigned i = 0; i < MMAP_CACHE_MAX_CONTEXTS; i++)
+        for (unsigned i = 0; i < _MMAP_CACHE_CATEGORY_MAX; i++)
                 if (FLAGS_SET(w->flags, 1u << i))
-                        assert_se(TAKE_PTR(m->windows_by_context[i]) == w);
+                        assert_se(TAKE_PTR(m->windows_by_category[i]) == w);
 
         return LIST_REMOVE(windows, w->fd->windows, w);
 }
@@ -170,13 +170,13 @@ static Window* window_add(MMapFileDescriptor *f, uint64_t offset, size_t size, v
         return LIST_PREPEND(windows, f->windows, w);
 }
 
-static void context_detach_window(MMapCache *m, unsigned c) {
+static void category_detach_window(MMapCache *m, MMapCacheCategory c) {
         Window *w;
 
         assert(m);
-        assert(c < MMAP_CACHE_MAX_CONTEXTS);
+        assert(c >= 0 && c < _MMAP_CACHE_CATEGORY_MAX);
 
-        w = TAKE_PTR(m->windows_by_context[c]);
+        w = TAKE_PTR(m->windows_by_category[c]);
         if (!w)
                 return; /* Nothing attached. */
 
@@ -197,15 +197,15 @@ static void context_detach_window(MMapCache *m, unsigned c) {
         }
 }
 
-static void context_attach_window(MMapCache *m, unsigned c, Window *w) {
+static void category_attach_window(MMapCache *m, MMapCacheCategory c, Window *w) {
         assert(m);
-        assert(c < MMAP_CACHE_MAX_CONTEXTS);
+        assert(c >= 0 && c < _MMAP_CACHE_CATEGORY_MAX);
         assert(w);
 
-        if (m->windows_by_context[c] == w)
+        if (m->windows_by_category[c] == w)
                 return; /* Already attached. */
 
-        context_detach_window(m, c);
+        category_detach_window(m, c);
 
         if (FLAGS_SET(w->flags, WINDOW_IN_UNUSED)) {
                 /* Used again? */
@@ -215,7 +215,7 @@ static void context_attach_window(MMapCache *m, unsigned c, Window *w) {
                 w->flags &= ~WINDOW_IN_UNUSED;
         }
 
-        m->windows_by_context[c] = w;
+        m->windows_by_category[c] = w;
         w->flags |= (1u << c);
 }
 
@@ -322,7 +322,7 @@ static int add_mmap(
 
 int mmap_cache_fd_get(
                 MMapFileDescriptor *f,
-                unsigned c,
+                MMapCacheCategory c,
                 bool keep_always,
                 uint64_t offset,
                 size_t size,
@@ -334,21 +334,21 @@ int mmap_cache_fd_get(
         int r;
 
         assert(size > 0);
-        assert(c < MMAP_CACHE_MAX_CONTEXTS);
+        assert(c >= 0 && c < _MMAP_CACHE_CATEGORY_MAX);
         assert(ret);
 
         if (f->sigbus)
                 return -EIO;
 
-        /* Check whether the current context is the right one already */
-        if (window_matches(m->windows_by_context[c], f, offset, size)) {
-                m->n_context_cache_hit++;
-                w = m->windows_by_context[c];
+        /* Check whether the current category is the right one already */
+        if (window_matches(m->windows_by_category[c], f, offset, size)) {
+                m->n_category_cache_hit++;
+                w = m->windows_by_category[c];
                 goto found;
         }
 
         /* Drop the reference to the window, since it's unnecessary now */
-        context_detach_window(m, c);
+        category_detach_window(m, c);
 
         /* Search for a matching mmap */
         LIST_FOREACH(windows, i, f->windows)
@@ -369,7 +369,7 @@ found:
         if (keep_always)
                 w->flags |= WINDOW_KEEP_ALWAYS;
 
-        context_attach_window(m, c, w);
+        category_attach_window(m, c, w);
         *ret = (uint8_t*) w->ptr + (offset - w->offset);
         return 0;
 }
@@ -377,8 +377,8 @@ found:
 void mmap_cache_stats_log_debug(MMapCache *m) {
         assert(m);
 
-        log_debug("mmap cache statistics: %u context cache hit, %u window list hit, %u miss",
-                  m->n_context_cache_hit, m->n_window_list_hit, m->n_missed);
+        log_debug("mmap cache statistics: %u category cache hit, %u window list hit, %u miss",
+                  m->n_category_cache_hit, m->n_window_list_hit, m->n_missed);
 }
 
 static void mmap_cache_process_sigbus(MMapCache *m) {
