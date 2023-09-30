@@ -14,6 +14,7 @@
 #include "btrfs-util.h"
 #include "device-util.h"
 #include "devnum-util.h"
+#include "efivars.h"
 #include "env-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
@@ -408,38 +409,51 @@ int find_suitable_hibernate_device_full(HibernateDevice *ret_device, uint64_t *r
         return resume_config_devno > 0;
 }
 
-bool enough_swap_for_hibernation(void) {
+static int get_proc_meminfo_active(unsigned long long *ret) {
         _cleanup_free_ char *active_str = NULL;
         unsigned long long active;
-        uint64_t size, used;
         int r;
 
-        if (getenv_bool("SYSTEMD_BYPASS_HIBERNATION_MEMORY_CHECK") > 0)
-                return true;
+        r = get_proc_field("/proc/meminfo", "Active(anon)", WHITESPACE, &active_str);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to retrieve Active(anon) from /proc/meminfo: %m");
+
+        r = safe_atollu(active_str, &active);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to parse Active(anon) '%s' from /proc/meminfo: %m", active_str);
+
+        *ret = active;
+        return 0;
+}
+
+HibernateSafety hibernate_is_safe(void) {
+        unsigned long long active;
+        uint64_t size, used;
+        bool resume_set;
+        int r;
 
         r = find_suitable_hibernate_device_full(NULL, &size, &used);
         if (r < 0)
                 return false;
+        resume_set = r > 0;
 
-        r = get_proc_field("/proc/meminfo", "Active(anon)", WHITESPACE, &active_str);
-        if (r < 0) {
-                log_debug_errno(r, "Failed to retrieve Active(anon) from /proc/meminfo: %m");
-                return false;
+        if (!resume_set && !is_efi_boot()) {
+                log_debug("Not EFI booted and resume= is not set. Hibernation is not safe.");
+                return HIBERNATE_UNSAFE_RESUME;
         }
 
-        r = safe_atollu(active_str, &active);
-        if (r < 0) {
-                log_debug_errno(r,
-                                "Failed to parse Active(anon) '%s' from /proc/meminfo, assuming no enough space: %m",
-                                active_str);
-                return false;
-        }
+        if (getenv_bool("SYSTEMD_BYPASS_HIBERNATION_MEMORY_CHECK") > 0)
+                return HIBERNATE_SAFE;
+
+        r = get_proc_meminfo_active(&active);
+        if (r < 0)
+                return HIBERNATE_UNSAFE_SWAP_SPACE;
 
         r = active <= (size - used) * HIBERNATION_SWAP_THRESHOLD;
         log_debug("Detected %s swap for hibernation: Active(anon)=%llu kB, size=%" PRIu64 " kB, used=%" PRIu64 " kB, threshold=%.2g%%",
                   r > 0 ? "enough" : "not enough", active, size, used, 100 * HIBERNATION_SWAP_THRESHOLD);
 
-        return r;
+        return r > 0 ? HIBERNATE_SAFE : HIBERNATE_UNSAFE_SWAP_SPACE;
 }
 
 int write_resume_config(dev_t devno, uint64_t offset, const char *device) {
