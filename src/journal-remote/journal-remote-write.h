@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "journal-file.h"
 #include "journal-importer.h"
-#include "managed-journal-file.h"
 
 typedef struct RemoteServer RemoteServer;
 
