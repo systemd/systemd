@@ -3190,20 +3190,14 @@ _public_ int sd_journal_enumerate_unique(
                         continue;
                 }
 
-                /* We do not use OBJECT_DATA context here, but OBJECT_UNUSED
-                 * instead, so that we can look at this data object at the same
-                 * time as one on another file */
-                r = journal_file_move_to_object(j->unique_file, OBJECT_UNUSED, j->unique_offset, &o);
+                r = journal_file_move_to_object(j->unique_file, OBJECT_DATA, j->unique_offset, &o);
                 if (r < 0)
                         return r;
 
-                /* Let's do the type check by hand, since we used 0 context above. */
-                if (o->object.type != OBJECT_DATA)
-                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                               "%s:offset " OFSfmt ": object has type %d, expected %d",
-                                               j->unique_file->path,
-                                               j->unique_offset,
-                                               o->object.type, OBJECT_DATA);
+                /* Let's pin the data object, so we can look at it at the same time as one on another file. */
+                r = journal_file_pin_object(j->unique_file, o);
+                if (r < 0)
+                        return r;
 
                 r = journal_file_data_payload(j->unique_file, o, j->unique_offset, NULL, 0,
                                               j->data_threshold, &odata, &ol);
