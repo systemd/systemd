@@ -254,6 +254,7 @@ typedef struct Partition {
         MinimizeMode minimize;
         uint64_t verity_data_block_size;
         uint64_t verity_hash_block_size;
+        uint64_t fs_sector_size;
 
         uint64_t gpt_flags;
         int no_auto;
@@ -367,6 +368,7 @@ static Partition *partition_new(void) {
                 .growfs = -1,
                 .verity_data_block_size = UINT64_MAX,
                 .verity_hash_block_size = UINT64_MAX,
+                .fs_sector_size = UINT64_MAX,
         };
 
         return p;
@@ -1683,6 +1685,7 @@ static int partition_read_definition(Partition *p, const char *path, const char 
                 { "Partition", "Subvolumes",               config_parse_make_dirs,     0, &p->subvolumes              },
                 { "Partition", "VerityDataBlockSizeBytes", config_parse_block_size,    0, &p->verity_data_block_size  },
                 { "Partition", "VerityHashBlockSizeBytes", config_parse_block_size,    0, &p->verity_hash_block_size  },
+                { "Partition", "FSSectorSizeBytes",        config_parse_block_size,    0, &p->fs_sector_size          },
                 {}
         };
         int r;
@@ -3635,7 +3638,7 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
         const char *node = partition_target_path(target);
         struct crypt_params_luks2 luks_params = {
                 .label = strempty(ASSERT_PTR(p)->new_label),
-                .sector_size = ASSERT_PTR(context)->fs_sector_size,
+                .sector_size = ASSERT_PTR(p)->fs_sector_size == UINT64_MAX ? ASSERT_PTR(context)->fs_sector_size : p->fs_sector_size,
                 .data_device = offline ? node : NULL,
         };
         struct crypt_params_reencrypt reencrypt_params = {
@@ -4754,7 +4757,8 @@ static int context_mkfs(Context *context) {
 
                 r = make_filesystem(partition_target_path(t), p->format, strempty(p->new_label), root,
                                     p->fs_uuid, arg_discard, /* quiet = */ false,
-                                    context->fs_sector_size, extra_mkfs_options);
+                                    p->fs_sector_size == UINT64_MAX ? context->fs_sector_size : p->fs_sector_size,
+                                    extra_mkfs_options);
                 if (r < 0)
                         return r;
 
@@ -6110,7 +6114,7 @@ static int context_minimize(Context *context) {
                                     root,
                                     fs_uuid,
                                     arg_discard, /* quiet = */ false,
-                                    context->fs_sector_size,
+                                    p->fs_sector_size == UINT64_MAX ? context->fs_sector_size : p->fs_sector_size,
                                     extra_mkfs_options);
                 if (r < 0)
                         return r;
@@ -6191,7 +6195,7 @@ static int context_minimize(Context *context) {
                                     p->fs_uuid,
                                     arg_discard,
                                     /* quiet = */ false,
-                                    context->fs_sector_size,
+                                    p->fs_sector_size == UINT64_MAX ? context->fs_sector_size : p->fs_sector_size,
                                     extra_mkfs_options);
                 if (r < 0)
                         return r;

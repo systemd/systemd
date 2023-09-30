@@ -727,6 +727,17 @@
 
         <xi:include href="version-info.xml" xpointer="v253"/></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>FSSectorSizeBytes=</varname></term>
+
+        <listitem><para>Configures the file system sector size. Must be between 512 and 4096 bytes and must
+        be a power of 2. Defaults to the underlying block device sector size, or 4K if systemd-repart is
+        not operating on a block device.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 

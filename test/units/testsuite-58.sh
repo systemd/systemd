@@ -1145,6 +1145,8 @@ Format       = vfat
 SizeMinBytes = 128M
 SizeMaxBytes = 128M
 
+FSSectorSizeBytes = 512
+
 # Sufficient for testing
 CopyFiles    = /etc:/
 EOF
