@@ -32,6 +32,7 @@
 #include "fileio.h"
 #include "format-util.h"
 #include "fs-util.h"
+#include "hibernate-util.h"
 #include "logind-action.h"
 #include "logind-dbus.h"
 #include "logind-polkit.h"
@@ -1924,15 +1925,18 @@ static int method_do_shutdown_or_sleep(
 
         if (a->sleep_operation >= 0) {
                 r = sleep_supported(a->sleep_operation);
-                if (r == -ENOSPC)
+                if (r < 0)
+                        return r;
+                if (r == HIBERNATE_UNSAFE_RESUME)
+                        return sd_bus_error_set(error, BUS_ERROR_SLEEP_VERB_NOT_SUPPORTED,
+                                                "Not EFI booted and resume= is not set. No available method to resume from hibernation.");
+                if (r == HIBERNATE_UNSAFE_SWAP_SPACE)
                         return sd_bus_error_set(error, BUS_ERROR_SLEEP_VERB_NOT_SUPPORTED,
                                                 "Not enough suitable swap space for hibernation available on compatible block devices and file systems");
                 if (r == 0)
                         return sd_bus_error_setf(error, BUS_ERROR_SLEEP_VERB_NOT_SUPPORTED,
                                                  "Sleep verb \"%s\" not supported",
                                                  sleep_operation_to_string(a->sleep_operation));
-                if (r < 0)
-                        return r;
         }
 
         r = verify_shutdown_creds(m, message, a, flags, error);
@@ -2395,10 +2399,10 @@ static int method_can_shutdown_or_sleep(
 
         if (a->sleep_operation >= 0) {
                 r = sleep_supported(a->sleep_operation);
-                if (IN_SET(r, 0, -ENOSPC))
-                        return sd_bus_reply_method_return(message, "s", "na");
                 if (r < 0)
                         return r;
+                if (IN_SET(r, 0, HIBERNATE_UNSAFE_RESUME, HIBERNATE_UNSAFE_SWAP_SPACE))
+                        return sd_bus_reply_method_return(message, "s", "na");
         }
 
         r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_EUID, &creds);
