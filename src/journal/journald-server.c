@@ -30,6 +30,7 @@
 #include "initrd-util.h"
 #include "io-util.h"
 #include "journal-authenticate.h"
+#include "journal-file-util.h"
 #include "journal-internal.h"
 #include "journal-vacuum.h"
 #include "journald-audit.h"

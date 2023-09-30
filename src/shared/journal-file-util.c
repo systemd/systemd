@@ -9,7 +9,7 @@
 #include "fd-util.h"
 #include "format-util.h"
 #include "journal-authenticate.h"
-#include "managed-journal-file.h"
+#include "journal-file-util.h"
 #include "path-util.h"
 #include "random-util.h"
 #include "set.h"

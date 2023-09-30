@@ -6,9 +6,9 @@
 #include "chattr-util.h"
 #include "io-util.h"
 #include "journal-authenticate.h"
+#include "journal-file-util.h"
 #include "journal-vacuum.h"
 #include "log.h"
-#include "managed-journal-file.h"
 #include "rm-rf.h"
 #include "tests.h"
 
