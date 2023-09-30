@@ -98,8 +98,8 @@ struct Server {
         sd_event_source *idle_event_source;
         struct sigrtmin18_info sigrtmin18_info;
 
-        ManagedJournalFile *runtime_journal;
-        ManagedJournalFile *system_journal;
+        JournalFile *runtime_journal;
+        JournalFile *system_journal;
         OrderedHashmap *user_journals;
 
         SeqnumData *seqnum;

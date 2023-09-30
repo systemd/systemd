@@ -60,7 +60,7 @@ static void verify_contents(sd_journal *j, unsigned skip) {
 
 static void run_test(void) {
         _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
-        ManagedJournalFile *one, *two, *three;
+        JournalFile *one, *two, *three;
         char t[] = "/var/tmp/journal-stream-XXXXXX";
         unsigned i;
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
@@ -76,9 +76,9 @@ static void run_test(void) {
         assert_se(chdir(t) >= 0);
         (void) chattr_path(t, FS_NOCOW_FL, FS_NOCOW_FL, NULL);
 
-        assert_se(managed_journal_file_open(-1, "one.journal", O_RDWR|O_CREAT, JOURNAL_COMPRESS, 0666, UINT64_MAX, NULL, m, NULL, &one) == 0);
-        assert_se(managed_journal_file_open(-1, "two.journal", O_RDWR|O_CREAT, JOURNAL_COMPRESS, 0666, UINT64_MAX, NULL, m, NULL, &two) == 0);
-        assert_se(managed_journal_file_open(-1, "three.journal", O_RDWR|O_CREAT, JOURNAL_COMPRESS, 0666, UINT64_MAX, NULL, m, NULL, &three) == 0);
+        assert_se(journal_file_open(-1, "one.journal", O_RDWR|O_CREAT, JOURNAL_COMPRESS, 0666, UINT64_MAX, NULL, m, NULL, &one) == 0);
+        assert_se(journal_file_open(-1, "two.journal", O_RDWR|O_CREAT, JOURNAL_COMPRESS, 0666, UINT64_MAX, NULL, m, NULL, &two) == 0);
+        assert_se(journal_file_open(-1, "three.journal", O_RDWR|O_CREAT, JOURNAL_COMPRESS, 0666, UINT64_MAX, NULL, m, NULL, &three) == 0);
 
         for (i = 0; i < N_ENTRIES; i++) {
                 char *p, *q;
@@ -103,21 +103,21 @@ static void run_test(void) {
                 iovec[1] = IOVEC_MAKE(q, strlen(q));
 
                 if (i % 10 == 0)
-                        assert_se(journal_file_append_entry(three->file, &ts, NULL, iovec, 2, NULL, NULL, NULL, NULL) == 0);
+                        assert_se(journal_file_append_entry(three, &ts, NULL, iovec, 2, NULL, NULL, NULL, NULL) == 0);
                 else {
                         if (i % 3 == 0)
-                                assert_se(journal_file_append_entry(two->file, &ts, NULL, iovec, 2, NULL, NULL, NULL, NULL) == 0);
+                                assert_se(journal_file_append_entry(two, &ts, NULL, iovec, 2, NULL, NULL, NULL, NULL) == 0);
 
-                        assert_se(journal_file_append_entry(one->file, &ts, NULL, iovec, 2, NULL, NULL, NULL, NULL) == 0);
+                        assert_se(journal_file_append_entry(one, &ts, NULL, iovec, 2, NULL, NULL, NULL, NULL) == 0);
                 }
 
                 free(p);
                 free(q);
         }
 
-        (void) managed_journal_file_close(one);
-        (void) managed_journal_file_close(two);
-        (void) managed_journal_file_close(three);
+        (void) journal_file_offline_close(one);
+        (void) journal_file_offline_close(two);
+        (void) journal_file_offline_close(three);
 
         assert_se(sd_journal_open_directory(&j, t, 0) >= 0);
 
@@ -177,7 +177,7 @@ static void run_test(void) {
 
 int main(int argc, char *argv[]) {
 
-        /* managed_journal_file_open() requires a valid machine id */
+        /* journal_file_open() requires a valid machine id */
         if (access("/etc/machine-id", F_OK) != 0)
                 return log_tests_skipped("/etc/machine-id not found");
 
