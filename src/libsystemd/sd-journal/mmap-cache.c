@@ -379,6 +379,49 @@ found:
         return 0;
 }
 
+int mmap_cache_fd_pin(
+                MMapFileDescriptor *f,
+                MMapCacheContext c,
+                void *addr,
+                size_t size) {
+
+        MMapCache *m = mmap_cache_fd_cache(f);
+        Window *w;
+
+        assert(addr);
+        assert(c >= 0 && c < _MMAP_CACHE_CONTEXT_MAX);
+        assert(size > 0);
+
+        if (f->sigbus)
+                return -EIO;
+
+        /* Check if the current context is the right one. */
+        if (window_matches_by_addr(m->windows_by_context[c], f, addr, size)) {
+                m->n_context_cache_hit++;
+                w = m->windows_by_context[c];
+                goto found;
+        }
+
+        /* Search for a matching mmap. */
+        LIST_FOREACH(windows, i, f->windows)
+                if (window_matches_by_addr(i, f, addr, size)) {
+                        m->n_window_list_hit++;
+                        w = i;
+                        goto found;
+                }
+
+        m->n_missed++;
+        return -EADDRNOTAVAIL; /* Not found. */
+
+found:
+        if (FLAGS_SET(w->flags, WINDOW_KEEP_ALWAYS))
+                return 0; /* The window will never unmapped. */
+
+        /* Attach the window to the 'pinning' context. */
+        context_attach_window(m, MMAP_CACHE_CONTEXT_PIN, w);
+        return 1;
+}
+
 void mmap_cache_stats_log_debug(MMapCache *m) {
         assert(m);
 
