@@ -34,7 +34,7 @@ TEST(parse_sleep_config) {
         log_debug("        states: %s", hys);
 }
 
-TEST(sleep) {
+TEST(sleep_supported) {
         _cleanup_strv_free_ char
                 **standby = strv_new("standby"),
                 **mem = strv_new("mem"),
@@ -49,23 +49,23 @@ TEST(sleep) {
         printf("Secure boot: %sd\n", enable_disable(is_efi_secure_boot()));
 
         log_info("/= individual sleep modes =/");
-        log_info("Standby configured: %s", yes_no(can_sleep_state(standby) > 0));
-        log_info("Suspend configured: %s", yes_no(can_sleep_state(mem) > 0));
-        log_info("Hibernate configured: %s", yes_no(can_sleep_state(disk) > 0));
-        log_info("Hibernate+Suspend (Hybrid-Sleep) configured: %s", yes_no(can_sleep_disk(suspend) > 0));
-        log_info("Hibernate+Reboot configured: %s", yes_no(can_sleep_disk(reboot) > 0));
-        log_info("Hibernate+Platform configured: %s", yes_no(can_sleep_disk(platform) > 0));
-        log_info("Hibernate+Shutdown configured: %s", yes_no(can_sleep_disk(shutdown) > 0));
-        log_info("Freeze configured: %s", yes_no(can_sleep_state(freeze) > 0));
+        log_info("Standby configured: %s", yes_no(sleep_state_supported(standby) > 0));
+        log_info("Suspend configured: %s", yes_no(sleep_state_supported(mem) > 0));
+        log_info("Hibernate configured: %s", yes_no(sleep_state_supported(disk) > 0));
+        log_info("Hibernate+Suspend (Hybrid-Sleep) configured: %s", yes_no(sleep_mode_supported(suspend) > 0));
+        log_info("Hibernate+Reboot configured: %s", yes_no(sleep_mode_supported(reboot) > 0));
+        log_info("Hibernate+Platform configured: %s", yes_no(sleep_mode_supported(platform) > 0));
+        log_info("Hibernate+Shutdown configured: %s", yes_no(sleep_mode_supported(shutdown) > 0));
+        log_info("Freeze configured: %s", yes_no(sleep_state_supported(freeze) > 0));
 
         log_info("/= high-level sleep verbs =/");
-        r = can_sleep(SLEEP_SUSPEND);
+        r = sleep_supported(SLEEP_SUSPEND);
         log_info("Suspend configured and possible: %s", r >= 0 ? yes_no(r) : STRERROR(r));
-        r = can_sleep(SLEEP_HIBERNATE);
+        r = sleep_supported(SLEEP_HIBERNATE);
         log_info("Hibernation configured and possible: %s", r >= 0 ? yes_no(r) : STRERROR(r));
-        r = can_sleep(SLEEP_HYBRID_SLEEP);
+        r = sleep_supported(SLEEP_HYBRID_SLEEP);
         log_info("Hybrid-sleep configured and possible: %s", r >= 0 ? yes_no(r) : STRERROR(r));
-        r = can_sleep(SLEEP_SUSPEND_THEN_HIBERNATE);
+        r = sleep_supported(SLEEP_SUSPEND_THEN_HIBERNATE);
         log_info("Suspend-then-Hibernate configured and possible: %s", r >= 0 ? yes_no(r) : STRERROR(r));
 }
 

@@ -54,7 +54,7 @@
 
 static SleepOperation arg_operation = _SLEEP_OPERATION_INVALID;
 
-static int write_efi_hibernate_location(const HibernateLocation *hibernate_location, bool required) {
+static int write_efi_hibernate_location(const HibernateDevice *hibernate_device, bool required) {
         int log_level = required ? LOG_ERR : LOG_DEBUG;
 
 #if ENABLE_EFI
@@ -67,27 +67,26 @@ static int write_efi_hibernate_location(const HibernateLocation *hibernate_locat
         struct utsname uts = {};
         int r, log_level_ignore = required ? LOG_WARNING : LOG_DEBUG;
 
-        assert(hibernate_location);
-        assert(hibernate_location->swap);
+        assert(hibernate_device);
 
         if (!is_efi_boot())
                 return log_full_errno(log_level, SYNTHETIC_ERRNO(EOPNOTSUPP),
                                       "Not an EFI boot, passing HibernateLocation via EFI variable is not possible.");
 
-        r = sd_device_new_from_devnum(&device, 'b', hibernate_location->devno);
+        r = sd_device_new_from_devnum(&device, 'b', hibernate_device->devno);
         if (r < 0)
                 return log_full_errno(log_level, r, "Failed to create sd-device object for '%s': %m",
-                                      hibernate_location->swap->path);
+                                      hibernate_device->path);
 
         r = sd_device_get_property_value(device, "ID_FS_UUID", &uuid_str);
         if (r < 0)
                 return log_full_errno(log_level, r, "Failed to get filesystem UUID for device '%s': %m",
-                                      hibernate_location->swap->path);
+                                      hibernate_device->path);
 
         r = sd_id128_from_string(uuid_str, &uuid);
         if (r < 0)
                 return log_full_errno(log_level, r, "Failed to parse ID_FS_UUID '%s' for device '%s': %m",
-                                      uuid_str, hibernate_location->swap->path);
+                                      uuid_str, hibernate_device->path);
 
         if (uname(&uts) < 0)
                 log_full_errno(log_level_ignore, errno, "Failed to get kernel info, ignoring: %m");
@@ -102,7 +101,7 @@ static int write_efi_hibernate_location(const HibernateLocation *hibernate_locat
 
         r = json_build(&v, JSON_BUILD_OBJECT(
                                JSON_BUILD_PAIR_UUID("uuid", uuid),
-                               JSON_BUILD_PAIR_UNSIGNED("offset", hibernate_location->offset),
+                               JSON_BUILD_PAIR_UNSIGNED("offset", hibernate_device->offset),
                                JSON_BUILD_PAIR_CONDITION(!isempty(uts.release), "kernelVersion", JSON_BUILD_STRING(uts.release)),
                                JSON_BUILD_PAIR_CONDITION(id, "osReleaseId", JSON_BUILD_STRING(id)),
                                JSON_BUILD_PAIR_CONDITION(image_id, "osReleaseImageId", JSON_BUILD_STRING(image_id)),
@@ -125,14 +124,6 @@ static int write_efi_hibernate_location(const HibernateLocation *hibernate_locat
         return log_full_errno(log_level, SYNTHETIC_ERRNO(EOPNOTSUPP),
                               "EFI support not enabled, passing HibernateLocation via EFI variable is not possible.");
 #endif
-}
-
-static int write_kernel_hibernate_location(const HibernateLocation *hibernate_location) {
-        assert(hibernate_location);
-        assert(hibernate_location->swap);
-        assert(IN_SET(hibernate_location->swap->type, SWAP_BLOCK, SWAP_FILE));
-
-        return write_resume_config(hibernate_location->devno, hibernate_location->offset, hibernate_location->swap->path);
 }
 
 static int write_mode(char **modes) {
@@ -266,7 +257,7 @@ static int execute(
                 NULL
         };
 
-        _cleanup_(hibernate_location_freep) HibernateLocation *hibernate_location = NULL;
+        _cleanup_(hibernate_device_done) HibernateDevice hibernate_device = {};
         _cleanup_fclose_ FILE *f = NULL;
         char **modes, **states;
         int r;
@@ -296,19 +287,19 @@ static int execute(
         if (!strv_isempty(modes)) {
                 bool resume_set;
 
-                r = find_hibernate_location(&hibernate_location);
+                r = find_suitable_hibernate_device(&hibernate_device);
                 if (r < 0)
                         return log_error_errno(r, "Failed to find location to hibernate to: %m");
                 resume_set = r > 0;
 
-                r = write_efi_hibernate_location(hibernate_location, !resume_set);
+                r = write_efi_hibernate_location(&hibernate_device, !resume_set);
                 if (!resume_set) {
                         if (r == -EOPNOTSUPP)
                                 return log_error_errno(r, "No valid 'resume=' option found, refusing to hibernate.");
                         if (r < 0)
                                 return r;
 
-                        r = write_kernel_hibernate_location(hibernate_location);
+                        r = write_resume_config(hibernate_device.devno, hibernate_device.offset, hibernate_device.path);
                         if (r < 0) {
                                 if (is_efi_boot())
                                         (void) efi_set_variable(EFI_SYSTEMD_VARIABLE(HibernateLocation), NULL, 0);
