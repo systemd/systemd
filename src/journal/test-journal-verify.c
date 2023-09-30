@@ -79,7 +79,7 @@ static int run_test(const char *verification_key, ssize_t max_iterations) {
         m = mmap_cache_new();
         assert_se(m != NULL);
 
-        /* managed_journal_file_open requires a valid machine id */
+        /* managed_journal_file_open() requires a valid machine id */
         if (sd_id128_get_machine(NULL) < 0)
                 return log_tests_skipped("No valid machine ID found");
 
@@ -100,7 +100,6 @@ static int run_test(const char *verification_key, ssize_t max_iterations) {
                                 /* compress_threshold_bytes= */ UINT64_MAX,
                                 /* metrics= */ NULL,
                                 m,
-                                /* deferred_closes= */ NULL,
                                 /* template= */ NULL,
                                 &df) == 0);
 
