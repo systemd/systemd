@@ -88,7 +88,6 @@ static int open_output(RemoteServer *s, Writer *w, const char* host) {
                         &w->metrics,
                         w->mmap,
                         NULL,
-                        NULL,
                         &w->journal);
         if (r < 0)
                 return log_error_errno(r, "Failed to open output journal %s: %m", filename);
