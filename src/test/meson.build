@@ -402,29 +402,6 @@ executables += [
                 'link_with' : libbasic,
         },
         test_template + {
-                'sources' : files('test-tables.c'),
-                'link_with' : [
-                        libcore,
-                        libjournal_core,
-                        libshared,
-                        libudevd_core,
-                ],
-                'dependencies' : [
-                        libblkid,
-                        liblz4,
-                        libmount,
-                        libseccomp,
-                        libselinux,
-                        libxz,
-                        threads,
-                ],
-                'include_directories' : [
-                        core_includes,
-                        journal_includes,
-                        udev_includes,
-                ],
-        },
-        test_template + {
                 'sources' : files('test-time-util.c'),
                 'timeout' : 120,
         },
@@ -569,6 +546,9 @@ executables += [
                 'sources' : files('test-socket-bind.c'),
                 'dependencies' : libdl,
                 'conditions' : ['BPF_FRAMEWORK'],
+        },
+        core_test_template + {
+                'sources' : files('test-tables.c'),
         },
         core_test_template + {
                 'sources' : files('test-unit-name.c'),
