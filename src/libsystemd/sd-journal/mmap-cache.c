@@ -19,8 +19,8 @@ typedef struct Window Window;
 typedef struct Context Context;
 
 typedef enum WindowFlag {
-        WINDOW_KEEP_ALWAYS  = 1u << (MMAP_CACHE_MAX_CONTEXTS + 0),
-        WINDOW_INVALIDATED  = 1u << (MMAP_CACHE_MAX_CONTEXTS + 1),
+        WINDOW_KEEP_ALWAYS  = 1u << (_MMAP_CACHE_CONTEXT_MAX + 0),
+        WINDOW_INVALIDATED  = 1u << (_MMAP_CACHE_CONTEXT_MAX + 1),
 
         _WINDOW_UNUSED_MASK = WINDOW_INVALIDATED - 1,
 } WindowFlag;
@@ -63,7 +63,7 @@ struct MMapCache {
         LIST_HEAD(Window, unused);
         Window *last_unused;
 
-        Window *windows_by_context[MMAP_CACHE_MAX_CONTEXTS];
+        Window *windows_by_context[_MMAP_CACHE_CONTEXT_MAX];
 };
 
 #define WINDOWS_MIN 64
@@ -102,7 +102,7 @@ static Window* window_unlink(Window *w) {
                         m->last_unused = w->unused_prev;
                 LIST_REMOVE(unused, m->unused, w);
         } else {
-                for (unsigned i = 0; i < MMAP_CACHE_MAX_CONTEXTS; i++)
+                for (unsigned i = 0; i < _MMAP_CACHE_CONTEXT_MAX; i++)
                         if (FLAGS_SET(w->flags, 1u << i))
                                 assert_se(TAKE_PTR(m->windows_by_context[i]) == w);
         }
@@ -168,11 +168,11 @@ static Window* window_add(MMapFileDescriptor *f, uint64_t offset, size_t size, v
         return LIST_PREPEND(windows, f->windows, w);
 }
 
-static void context_detach_window(MMapCache *m, unsigned c) {
+static void context_detach_window(MMapCache *m, MMapCacheContext c) {
         Window *w;
 
         assert(m);
-        assert(c < MMAP_CACHE_MAX_CONTEXTS);
+        assert(c >= 0 && c < _MMAP_CACHE_CONTEXT_MAX);
 
         w = TAKE_PTR(m->windows_by_context[c]);
         if (!w)
@@ -194,9 +194,9 @@ static void context_detach_window(MMapCache *m, unsigned c) {
         }
 }
 
-static void context_attach_window(MMapCache *m, unsigned c, Window *w) {
+static void context_attach_window(MMapCache *m, MMapCacheContext c, Window *w) {
         assert(m);
-        assert(c < MMAP_CACHE_MAX_CONTEXTS);
+        assert(c >= 0 && c < _MMAP_CACHE_CONTEXT_MAX);
         assert(w);
 
         if (m->windows_by_context[c] == w)
@@ -309,7 +309,7 @@ static int add_mmap(
 
 int mmap_cache_fd_get(
                 MMapFileDescriptor *f,
-                unsigned c,
+                MMapCacheContext c,
                 bool keep_always,
                 uint64_t offset,
                 size_t size,
@@ -321,7 +321,7 @@ int mmap_cache_fd_get(
         int r;
 
         assert(size > 0);
-        assert(c < MMAP_CACHE_MAX_CONTEXTS);
+        assert(c >= 0 && c < _MMAP_CACHE_CONTEXT_MAX);
         assert(ret);
 
         if (f->sigbus)
