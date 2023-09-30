@@ -18,6 +18,7 @@ typedef enum MMapCacheContext {
         MMAP_CACHE_CONTEXT_ENTRY_ARRAY,
         MMAP_CACHE_CONTEXT_TAG,
         MMAP_CACHE_CONTEXT_HEADER, /* for reading file header */
+        MMAP_CACHE_CONTEXT_PIN,    /* for temporary pinning a object */
         _MMAP_CACHE_CONTEXT_MAX,
         _MMAP_CACHE_CONTEXT_INVALID = -EINVAL,
 } MMapCacheContext;
@@ -35,6 +36,13 @@ int mmap_cache_fd_get(
         size_t size,
         struct stat *st,
         void **ret);
+
+int mmap_cache_fd_pin(
+        MMapFileDescriptor *f,
+        MMapCacheContext c,
+        void *addr,
+        size_t size);
+
 int mmap_cache_add_fd(MMapCache *m, int fd, int prot, MMapFileDescriptor **ret);
 MMapCache* mmap_cache_fd_cache(MMapFileDescriptor *f);
 MMapFileDescriptor* mmap_cache_fd_free(MMapFileDescriptor *f);
