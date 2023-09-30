@@ -3098,24 +3098,30 @@ found:
         return 1;
 }
 
-static int generic_array_bisect_plus_one(
+static int generic_array_bisect_for_data(
                 JournalFile *f,
-                uint64_t extra,
-                uint64_t first,
-                uint64_t n,
+                Object *d,
                 uint64_t needle,
                 int (*test_object)(JournalFile *f, uint64_t p, uint64_t needle),
                 direction_t direction,
                 Object **ret_object,
                 uint64_t *ret_offset) {
 
+        uint64_t extra, first, n;
         int r;
 
         assert(f);
+        assert(d);
+        assert(d->object.type == OBJECT_DATA);
         assert(test_object);
 
+        n = le64toh(d->data.n_entries);
         if (n <= 0)
                 return 0;
+        n--; /* n_entries is the number of entries linked to the data object, including the 'extra' entry. */
+
+        extra = le64toh(d->data.entry_offset);
+        first = le64toh(d->data.entry_array_offset);
 
         /* This bisects the array in object 'first', but first checks an extra. */
         r = test_object(f, extra, needle);
@@ -3151,7 +3157,7 @@ static int generic_array_bisect_plus_one(
                  * object. */
         }
 
-        r = generic_array_bisect(f, first, n-1, needle, test_object, direction, ret_object, ret_offset, NULL);
+        r = generic_array_bisect(f, first, n, needle, test_object, direction, ret_object, ret_offset, NULL);
         if (r != 0)
                 return r; /* When > 0, the found object is the first (or last, when DIRECTION_UP) object.
                            * Hence, return the found object now. */
@@ -3341,11 +3347,9 @@ int journal_file_move_to_entry_by_monotonic(
         if (r <= 0)
                 return r;
 
-        return generic_array_bisect_plus_one(
+        return generic_array_bisect_for_data(
                         f,
-                        le64toh(o->data.entry_offset),
-                        le64toh(o->data.entry_array_offset),
-                        le64toh(o->data.n_entries),
+                        o,
                         monotonic,
                         test_object_monotonic,
                         direction,
@@ -3540,11 +3544,9 @@ int journal_file_move_to_entry_by_offset_for_data(
         assert(d);
         assert(d->object.type == OBJECT_DATA);
 
-        return generic_array_bisect_plus_one(
+        return generic_array_bisect_for_data(
                         f,
-                        le64toh(d->data.entry_offset),
-                        le64toh(d->data.entry_array_offset),
-                        le64toh(d->data.n_entries),
+                        d,
                         p,
                         test_object_offset,
                         direction,
@@ -3560,28 +3562,26 @@ int journal_file_move_to_entry_by_monotonic_for_data(
                 Object **ret_object,
                 uint64_t *ret_offset) {
 
-        uint64_t z, entry_offset, entry_array_offset, n_entries;
         Object *o, *entry;
+        uint64_t z;
         int r;
 
         assert(f);
         assert(d);
         assert(d->object.type == OBJECT_DATA);
 
-        /* Save all the required data before the data object gets invalidated. */
-        entry_offset = le64toh(READ_NOW(d->data.entry_offset));
-        entry_array_offset = le64toh(READ_NOW(d->data.entry_array_offset));
-        n_entries = le64toh(READ_NOW(d->data.n_entries));
+        /* First, pin the given data object, before reading the _BOOT_ID= data object below. */
+        r = journal_file_pin_object(f, d);
+        if (r < 0)
+                return r;
 
-        /* First, seek by time */
+        /* Then, read a data object for _BOOT_ID= and seek by time. */
         r = find_data_object_by_boot_id(f, boot_id, &o, NULL);
         if (r <= 0)
                 return r;
 
-        r = generic_array_bisect_plus_one(f,
-                                          le64toh(o->data.entry_offset),
-                                          le64toh(o->data.entry_array_offset),
-                                          le64toh(o->data.n_entries),
+        r = generic_array_bisect_for_data(f,
+                                          o,
                                           monotonic,
                                           test_object_monotonic,
                                           direction,
@@ -3596,14 +3596,8 @@ int journal_file_move_to_entry_by_monotonic_for_data(
                 /* The journal entry found by the above bisect_plus_one() may not have the specified data,
                  * that is, it may not be linked in the data object. So, we need to check that. */
 
-                r = generic_array_bisect_plus_one(f,
-                                                  entry_offset,
-                                                  entry_array_offset,
-                                                  n_entries,
-                                                  z,
-                                                  test_object_offset,
-                                                  direction,
-                                                  ret_object ? &entry : NULL, &p);
+                r = journal_file_move_to_entry_by_offset_for_data(
+                                f, d, z, direction, ret_object ? &entry : NULL, &p);
                 if (r <= 0)
                         return r;
                 if (p == z)
@@ -3613,14 +3607,8 @@ int journal_file_move_to_entry_by_monotonic_for_data(
                  * 'direction') entry linked to the data object. But, the next entry may be in another boot.
                  * So, we need to check that the entry has the matching boot ID. */
 
-                r = generic_array_bisect_plus_one(f,
-                                                  le64toh(o->data.entry_offset),
-                                                  le64toh(o->data.entry_array_offset),
-                                                  le64toh(o->data.n_entries),
-                                                  p,
-                                                  test_object_offset,
-                                                  direction,
-                                                  ret_object ? &entry : NULL, &z);
+                r = journal_file_move_to_entry_by_offset_for_data(
+                                f, o, p, direction, ret_object ? &entry : NULL, &z);
                 if (r <= 0)
                         return r;
                 if (p == z)
@@ -3648,11 +3636,9 @@ int journal_file_move_to_entry_by_seqnum_for_data(
         assert(d);
         assert(d->object.type == OBJECT_DATA);
 
-        return generic_array_bisect_plus_one(
+        return generic_array_bisect_for_data(
                         f,
-                        le64toh(d->data.entry_offset),
-                        le64toh(d->data.entry_array_offset),
-                        le64toh(d->data.n_entries),
+                        d,
                         seqnum,
                         test_object_seqnum,
                         direction,
@@ -3670,11 +3656,9 @@ int journal_file_move_to_entry_by_realtime_for_data(
         assert(d);
         assert(d->object.type == OBJECT_DATA);
 
-        return generic_array_bisect_plus_one(
+        return generic_array_bisect_for_data(
                         f,
-                        le64toh(d->data.entry_offset),
-                        le64toh(d->data.entry_array_offset),
-                        le64toh(d->data.n_entries),
+                        d,
                         realtime,
                         test_object_realtime,
                         direction,
