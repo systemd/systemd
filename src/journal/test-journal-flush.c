@@ -7,9 +7,9 @@
 
 #include "alloc-util.h"
 #include "chattr-util.h"
+#include "journal-file-util.h"
 #include "journal-internal.h"
 #include "macro.h"
-#include "managed-journal-file.h"
 #include "path-util.h"
 #include "rm-rf.h"
 #include "string-util.h"
