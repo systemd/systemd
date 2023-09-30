@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <errno.h>
 #include <fcntl.h>
 
 #include "btrfs-util.h"
@@ -18,7 +19,7 @@ int main(int argc, char *argv[]) {
 
         fd = open(argv[1], O_RDONLY|O_CLOEXEC|O_NOCTTY);
         if (fd < 0) {
-                log_error_errno(fd, "Failed to open '%s': %m", argv[1]);
+                log_error_errno(errno, "Failed to open '%s': %m", argv[1]);
                 return EXIT_FAILURE;
         }
 
