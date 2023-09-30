@@ -3,7 +3,6 @@
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "journal-remote-parse.h"
-#include "journald-native.h"
 #include "parse-util.h"
 #include "string-util.h"
 
