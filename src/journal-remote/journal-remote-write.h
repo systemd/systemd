@@ -1,13 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "journal-file.h"
 #include "journal-importer.h"
-#include "managed-journal-file.h"
 
 typedef struct RemoteServer RemoteServer;
 
 typedef struct Writer {
-        ManagedJournalFile *journal;
+        JournalFile *journal;
         JournalMetrics metrics;
         char *output;          /* directory where we write, for vacuuming */
 
