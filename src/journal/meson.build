@@ -12,7 +12,6 @@ sources = files(
         'journald-stream.c',
         'journald-syslog.c',
         'journald-wall.c',
-        'managed-journal-file.c',
 )
 
 sources += custom_target(
