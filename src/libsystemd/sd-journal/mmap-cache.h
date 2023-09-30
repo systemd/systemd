@@ -1,14 +1,27 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <errno.h>
 #include <stdbool.h>
 #include <sys/stat.h>
 
-/* One context per object type, plus one of the header, plus one "additional" one */
-#define MMAP_CACHE_MAX_CONTEXTS 9
-
 typedef struct MMapCache MMapCache;
 typedef struct MMapFileDescriptor MMapFileDescriptor;
+
+typedef enum MMapCacheContext {
+        MMAP_CACHE_CONTEXT_ANY,
+        MMAP_CACHE_CONTEXT_DATA,
+        MMAP_CACHE_CONTEXT_FIELD,
+        MMAP_CACHE_CONTEXT_ENTRY,
+        MMAP_CACHE_CONTEXT_DATA_HASH_TABLE,
+        MMAP_CACHE_CONTEXT_FIELD_HASH_TABLE,
+        MMAP_CACHE_CONTEXT_ENTRY_ARRAY,
+        MMAP_CACHE_CONTEXT_TAG,
+        MMAP_CACHE_CONTEXT_HEADER, /* for reading file header */
+        MMAP_CACHE_CONTEXT_PIN,    /* for temporary pinning a object */
+        _MMAP_CACHE_CONTEXT_MAX,
+        _MMAP_CACHE_CONTEXT_INVALID = -EINVAL,
+} MMapCacheContext;
 
 MMapCache* mmap_cache_new(void);
 MMapCache* mmap_cache_ref(MMapCache *m);
@@ -17,15 +30,22 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(MMapCache*, mmap_cache_unref);
 
 int mmap_cache_fd_get(
         MMapFileDescriptor *f,
-        unsigned context,
+        MMapCacheContext c,
         bool keep_always,
         uint64_t offset,
         size_t size,
         struct stat *st,
         void **ret);
-MMapFileDescriptor* mmap_cache_add_fd(MMapCache *m, int fd, int prot);
+
+int mmap_cache_fd_pin(
+        MMapFileDescriptor *f,
+        MMapCacheContext c,
+        void *addr,
+        size_t size);
+
+int mmap_cache_add_fd(MMapCache *m, int fd, int prot, MMapFileDescriptor **ret);
 MMapCache* mmap_cache_fd_cache(MMapFileDescriptor *f);
-void mmap_cache_fd_free(MMapFileDescriptor *f);
+MMapFileDescriptor* mmap_cache_fd_free(MMapFileDescriptor *f);
 
 void mmap_cache_stats_log_debug(MMapCache *m);
 
