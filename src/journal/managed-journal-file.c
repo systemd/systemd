@@ -421,14 +421,11 @@ int managed_journal_file_open(
                 uint64_t compress_threshold_bytes,
                 JournalMetrics *metrics,
                 MMapCache *mmap_cache,
-                Set *deferred_closes,
                 ManagedJournalFile *template,
                 ManagedJournalFile **ret) {
 
         _cleanup_free_ ManagedJournalFile *f = NULL;
         int r;
-
-        set_clear_with_destructor(deferred_closes, managed_journal_file_close);
 
         f = new0(ManagedJournalFile, 1);
         if (!f)
@@ -489,6 +486,8 @@ int managed_journal_file_rotate(
         if (r < 0)
                 return r;
 
+        set_clear_with_destructor(deferred_closes, managed_journal_file_close);
+
         r = managed_journal_file_open(
                         /* fd= */ -1,
                         path,
@@ -498,7 +497,6 @@ int managed_journal_file_rotate(
                         compress_threshold_bytes,
                         /* metrics= */ NULL,
                         mmap_cache,
-                        deferred_closes,
                         /* template= */ *f,
                         &new_file);
 
@@ -516,7 +514,6 @@ int managed_journal_file_open_reliably(
                 uint64_t compress_threshold_bytes,
                 JournalMetrics *metrics,
                 MMapCache *mmap_cache,
-                Set *deferred_closes,
                 ManagedJournalFile *template,
                 ManagedJournalFile **ret) {
 
@@ -532,7 +529,6 @@ int managed_journal_file_open_reliably(
                         compress_threshold_bytes,
                         metrics,
                         mmap_cache,
-                        deferred_closes,
                         template,
                         ret);
         if (!IN_SET(r,
@@ -565,7 +561,7 @@ int managed_journal_file_open_reliably(
                 r = managed_journal_file_open(-1, fname,
                                               (open_flags & ~(O_ACCMODE|O_CREAT|O_EXCL)) | O_RDONLY,
                                               file_flags, 0, compress_threshold_bytes, NULL,
-                                              mmap_cache, deferred_closes, NULL, &old_file);
+                                              mmap_cache, NULL, &old_file);
                 if (r < 0)
                         log_debug_errno(r, "Failed to continue sequence from file %s, ignoring: %m", fname);
                 else
@@ -577,5 +573,5 @@ int managed_journal_file_open_reliably(
                 return r;
 
         return managed_journal_file_open(-1, fname, open_flags, file_flags, mode, compress_threshold_bytes, metrics,
-                                         mmap_cache, deferred_closes, template, ret);
+                                         mmap_cache, template, ret);
 }
