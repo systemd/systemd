@@ -318,12 +318,9 @@ curl --location \
      "https://go.microsoft.com/fwlink/p/?linkid=321192" -o ms-db-2011.der \
      "https://go.microsoft.com/fwlink/p/?linkid=321185" -o ms-kek-2011.der \
      "https://go.microsoft.com/fwlink/p/?linkid=321194" -o ms-uefi-db-2011.der \
-     "https://go.microsoft.com/fwlink/p/?linkid=2239775" -o ms-kek-2023.base64 \
-     "https://go.microsoft.com/fwlink/p/?linkid=2239776" -o ms-db-2023.base64 \
-     "https://go.microsoft.com/fwlink/p/?linkid=2239872" -o ms-uefi-db-2023.base64
-for key in ms-*.base64; do
-  base64 -d "${key}" >"${key%base64}der"
-done
+     "https://go.microsoft.com/fwlink/p/?linkid=2239776" -o ms-db-2023.der \
+     "https://go.microsoft.com/fwlink/p/?linkid=2239775" -o ms-kek-2023.der \
+     "https://go.microsoft.com/fwlink/p/?linkid=2239872" -o ms-uefi-db-2023.der
 for key in ms-*.der; do
   sbsiglist --owner 77fa9abd-0359-4d32-bd60-28f4e78f784b --type x509 --output "${key%der}esl" "${key}"
 done
