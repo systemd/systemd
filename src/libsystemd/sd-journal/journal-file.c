@@ -1128,6 +1128,16 @@ int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset
         return 0;
 }
 
+int journal_file_pin_object(JournalFile *f, Object *o) {
+        assert(f);
+        assert(o);
+
+        /* This attaches the mmap window that provides the object to the 'pinning' context. So, reading
+         * another object with the same type will not invalidate the object, untill this function is called
+         * for another object. */
+        return mmap_cache_fd_pin(f->cache_fd, type_to_context(o->object.type), o, le64toh(o->object.size));
+}
+
 int journal_file_read_object_header(JournalFile *f, ObjectType type, uint64_t offset, Object *ret) {
         ssize_t n;
         Object o;
