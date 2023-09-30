@@ -655,7 +655,7 @@ static int server_archive_offline_user_journals(Server *s) {
                                 s->compress.threshold_bytes,
                                 &s->system_storage.metrics,
                                 s->mmap,
-                                s->deferred_closes,
+                                /* deferred_closes= */ NULL,
                                 /* template= */ NULL,
                                 &f);
                 if (r < 0) {
