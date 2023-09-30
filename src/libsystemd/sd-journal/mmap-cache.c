@@ -144,6 +144,16 @@ static bool window_matches(Window *w, MMapFileDescriptor *f, uint64_t offset, si
                 offset + size <= w->offset + w->size;
 }
 
+static bool window_matches_by_addr(Window *w, MMapFileDescriptor *f, void *addr, size_t size) {
+        assert(size > 0);
+
+        return
+                w &&
+                f == w->fd &&
+                (uint8_t*) addr >= (uint8_t*) w->ptr &&
+                (uint8_t*) addr + size <= (uint8_t*) w->ptr + w->size;
+}
+
 static Window* window_add(MMapFileDescriptor *f, uint64_t offset, size_t size, void *ptr) {
         MMapCache *m = mmap_cache_fd_cache(f);
         Window *w;
@@ -398,13 +408,11 @@ static void mmap_cache_process_sigbus(MMapCache *m) {
 
                 ours = false;
                 HASHMAP_FOREACH(f, m->fds) {
-                        LIST_FOREACH(windows, w, f->windows) {
-                                if ((uint8_t*) addr >= (uint8_t*) w->ptr &&
-                                    (uint8_t*) addr < (uint8_t*) w->ptr + w->size) {
+                        LIST_FOREACH(windows, w, f->windows)
+                                if (window_matches_by_addr(w, f, addr, 1)) {
                                         found = ours = f->sigbus = true;
                                         break;
                                 }
-                        }
 
                         if (ours)
                                 break;
