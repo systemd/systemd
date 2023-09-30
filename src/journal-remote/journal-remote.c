@@ -17,7 +17,6 @@
 #include "journal-file-util.h"
 #include "journal-remote-write.h"
 #include "journal-remote.h"
-#include "journald-native.h"
 #include "macro.h"
 #include "parse-util.h"
 #include "parse-helpers.h"

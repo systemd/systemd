@@ -2098,8 +2098,6 @@ module_additional_kwargs = {
 
 # systemd-analyze requires 'libcore'
 subdir('src/core')
-# systemd-journal-remote requires 'libjournal_core'
-subdir('src/journal')
 # systemd-networkd requires 'libsystemd_network'
 subdir('src/libsystemd-network')
 # hwdb requires 'udev_link_with' and 'udev_rpath'
@@ -2140,6 +2138,7 @@ subdir('src/id128')
 subdir('src/import')
 subdir('src/initctl')
 subdir('src/integritysetup')
+subdir('src/journal')
 subdir('src/journal-remote')
 subdir('src/kernel-install')
 subdir('src/locale')
