@@ -30,7 +30,7 @@ static void test_journal_flush(int argc, char *argv[]) {
 
         assert_se(fn = path_join(dn, "test.journal"));
 
-        r = managed_journal_file_open(-1, fn, O_CREAT|O_RDWR, 0, 0644, 0, NULL, m, NULL, NULL, &new_journal);
+        r = managed_journal_file_open(-1, fn, O_CREAT|O_RDWR, 0, 0644, 0, NULL, m, NULL, &new_journal);
         assert_se(r >= 0);
 
         if (argc > 1)

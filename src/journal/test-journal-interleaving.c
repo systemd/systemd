@@ -42,7 +42,7 @@ static ManagedJournalFile *test_open_internal(const char *name, JournalFileFlags
         m = mmap_cache_new();
         assert_se(m != NULL);
 
-        assert_ret(managed_journal_file_open(-1, name, O_RDWR|O_CREAT, flags, 0644, UINT64_MAX, NULL, m, NULL, NULL, &f));
+        assert_ret(managed_journal_file_open(-1, name, O_RDWR|O_CREAT, flags, 0644, UINT64_MAX, NULL, m, NULL, &f));
         return f;
 }
 
@@ -459,7 +459,7 @@ static void test_sequence_numbers_one(void) {
         mkdtemp_chdir_chattr(t);
 
         assert_se(managed_journal_file_open(-1, "one.journal", O_RDWR|O_CREAT, JOURNAL_COMPRESS, 0644,
-                                            UINT64_MAX, NULL, m, NULL, NULL, &one) == 0);
+                                            UINT64_MAX, NULL, m, NULL, &one) == 0);
 
         append_number(one, 1, NULL, &seqnum);
         printf("seqnum=%"PRIu64"\n", seqnum);
@@ -476,7 +476,7 @@ static void test_sequence_numbers_one(void) {
         memcpy(&seqnum_id, &one->file->header->seqnum_id, sizeof(sd_id128_t));
 
         assert_se(managed_journal_file_open(-1, "two.journal", O_RDWR|O_CREAT, JOURNAL_COMPRESS, 0644,
-                                            UINT64_MAX, NULL, m, NULL, one, &two) == 0);
+                                            UINT64_MAX, NULL, m, one, &two) == 0);
 
         assert_se(two->file->header->state == STATE_ONLINE);
         assert_se(!sd_id128_equal(two->file->header->file_id, one->file->header->file_id));
@@ -513,7 +513,7 @@ static void test_sequence_numbers_one(void) {
                 seqnum = 0;
 
                 assert_se(managed_journal_file_open(-1, "two.journal", O_RDWR, JOURNAL_COMPRESS, 0,
-                                                    UINT64_MAX, NULL, m, NULL, NULL, &two) == 0);
+                                                    UINT64_MAX, NULL, m, NULL, &two) == 0);
 
                 assert_se(sd_id128_equal(two->file->header->seqnum_id, seqnum_id));
 
@@ -547,7 +547,7 @@ TEST(sequence_numbers) {
 }
 
 static int intro(void) {
-        /* managed_journal_file_open requires a valid machine id */
+        /* managed_journal_file_open() requires a valid machine id */
         if (access("/etc/machine-id", F_OK) != 0)
                 return log_tests_skipped("/etc/machine-id not found");
 

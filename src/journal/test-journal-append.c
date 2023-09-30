@@ -70,7 +70,6 @@ static int journal_corrupt_and_append(uint64_t start_offset, uint64_t step) {
                                 /* compress_threshold_bytes= */ UINT64_MAX,
                                 /* metrics= */ NULL,
                                 mmap_cache,
-                                /* deferred_closes= */ NULL,
                                 /* template= */ NULL,
                                 &mj);
         if (r < 0)
@@ -124,7 +123,6 @@ static int journal_corrupt_and_append(uint64_t start_offset, uint64_t step) {
                                         /* compress_threshold_bytes= */ UINT64_MAX,
                                         /* metrics= */ NULL,
                                         mmap_cache,
-                                        /* deferred_closes= */ NULL,
                                         /* template= */ NULL,
                                         &mj);
                 if (r < 0) {
