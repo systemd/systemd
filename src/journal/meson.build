@@ -28,8 +28,6 @@ libjournal_core = static_library(
                        userspace],
         build_by_default : false)
 
-journal_includes = [includes, include_directories('.')]
-
 if get_option('link-journalctl-shared')
         journalctl_link_with = [libshared]
 else
@@ -117,6 +115,12 @@ executables += [
                         libselinux,
                         libxz,
                         threads,
+                ],
+        },
+        journal_test_template + {
+                'sources' : files('test-journald-tables.c'),
+                'dependencies' : [
+                        libselinux,
                 ],
         },
         journal_fuzz_template + {

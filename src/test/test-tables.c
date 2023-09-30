@@ -14,13 +14,12 @@
 #include "import-util.h"
 #include "install.h"
 #include "job.h"
-#include "journald-server.h"
 #include "kill.h"
-#include "link-config.h"
 #include "locale-util.h"
 #include "log.h"
 #include "logs-show.h"
 #include "mount.h"
+#include "netif-naming-scheme.h"
 #include "path.h"
 #include "process-util.h"
 #include "resolve-util.h"
@@ -72,7 +71,6 @@ int main(int argc, char **argv) {
         test_table(kill_who, KILL_WHO);
         test_table(locale_variable, VARIABLE_LC);
         test_table(log_target, LOG_TARGET);
-        test_table(mac_address_policy, MAC_ADDRESS_POLICY);
         test_table(managed_oom_mode, MANAGED_OOM_MODE);
         test_table(managed_oom_preference, MANAGED_OOM_PREFERENCE);
         test_table(manager_state, MANAGER_STATE);
@@ -107,8 +105,6 @@ int main(int argc, char **argv) {
         test_table(socket_exec_command, SOCKET_EXEC_COMMAND);
         test_table(socket_result, SOCKET_RESULT);
         test_table(socket_state, SOCKET_STATE);
-        test_table(split_mode, SPLIT);
-        test_table(storage, STORAGE);
         test_table(swap_exec_command, SWAP_EXEC_COMMAND);
         test_table(swap_result, SWAP_RESULT);
         test_table(swap_state, SWAP_STATE);
