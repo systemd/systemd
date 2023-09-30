@@ -172,6 +172,10 @@ simple_tests += files(
         'sd-device/test-sd-device-monitor.c',
         'sd-device/test-sd-device.c',
         'sd-event/test-event.c',
+        'sd-journal/test-journal-flush.c',
+        'sd-journal/test-journal-interleaving.c',
+        'sd-journal/test-journal-stream.c',
+        'sd-journal/test-journal.c',
         'sd-login/test-login.c',
         'sd-netlink/test-netlink.c',
 )
@@ -233,6 +237,14 @@ libsystemd_tests += [
                 'sources' : files('sd-bus/test-bus-watch-bind.c'),
                 'dependencies' : threads,
                 'timeout' : 120,
+        },
+        {
+                'sources' : files('sd-journal/test-journal-append.c'),
+                'type' : 'manual',
+        },
+        {
+                'sources' : files('sd-journal/test-journal-verify.c'),
+                'timeout' : 90,
         },
         {
                 'sources' : files('sd-resolve/test-resolve.c'),

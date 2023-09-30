@@ -103,11 +103,7 @@ executables += [
                 ],
         },
         journal_test_template + {
-                'sources' : files('test-journal-append.c'),
-                'type' : 'manual',
-        },
-        journal_test_template + {
-                'sources' : files('test-journal-config.c'),
+                'sources' : files('test-journald-config.c'),
                 'dependencies' : [
                         liblz4,
                         libselinux,
@@ -115,29 +111,13 @@ executables += [
                 ],
         },
         journal_test_template + {
-                'sources' : files('test-journal-flush.c'),
-        },
-        journal_test_template + {
-                'sources' : files('test-journal-interleaving.c'),
-        },
-        journal_test_template + {
-                'sources' : files('test-journal-stream.c'),
-        },
-        journal_test_template + {
-                'sources' : files('test-journal-syslog.c'),
+                'sources' : files('test-journald-syslog.c'),
                 'dependencies' : [
                         liblz4,
                         libselinux,
                         libxz,
                         threads,
                 ],
-        },
-        journal_test_template + {
-                'sources' : files('test-journal-verify.c'),
-                'timeout' : 90,
-        },
-        journal_test_template + {
-                'sources' : files('test-journal.c'),
         },
         journal_fuzz_template + {
                 'sources' : files(
