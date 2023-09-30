@@ -71,7 +71,7 @@ static int run_test(const char *verification_key, ssize_t max_iterations) {
         char t[] = "/var/tmp/journal-XXXXXX";
         struct stat st;
         JournalFile *f;
-        ManagedJournalFile *df;
+        JournalFile *df;
         usec_t from = 0, to = 0, total = 0;
         uint64_t start, end;
         int r;
@@ -79,7 +79,7 @@ static int run_test(const char *verification_key, ssize_t max_iterations) {
         m = mmap_cache_new();
         assert_se(m != NULL);
 
-        /* managed_journal_file_open() requires a valid machine id */
+        /* journal_file_open() requires a valid machine id */
         if (sd_id128_get_machine(NULL) < 0)
                 return log_tests_skipped("No valid machine ID found");
 
@@ -91,7 +91,7 @@ static int run_test(const char *verification_key, ssize_t max_iterations) {
 
         log_info("Generating a test journal");
 
-        assert_se(managed_journal_file_open(
+        assert_se(journal_file_open(
                                 /* fd= */ -1,
                                 "test.journal",
                                 O_RDWR|O_CREAT,
@@ -112,7 +112,7 @@ static int run_test(const char *verification_key, ssize_t max_iterations) {
                 assert_se(asprintf(&test, "RANDOM=%li", random() % RANDOM_RANGE));
                 iovec = IOVEC_MAKE_STRING(test);
                 assert_se(journal_file_append_entry(
-                                        df->file,
+                                        df,
                                         &ts,
                                         /* boot_id= */ NULL,
                                         &iovec,
@@ -123,7 +123,7 @@ static int run_test(const char *verification_key, ssize_t max_iterations) {
                                         /* ret_offset= */ NULL) == 0);
         }
 
-        (void) managed_journal_file_close(df);
+        (void) journal_file_offline_close(df);
 
         log_info("Verifying with key: %s", strna(verification_key));
 

@@ -79,7 +79,7 @@ static int open_output(RemoteServer *s, Writer *w, const char* host) {
                 assert_not_reached();
         }
 
-        r = managed_journal_file_open_reliably(
+        r = journal_file_open_reliably(
                         filename,
                         O_RDWR|O_CREAT,
                         s->file_flags,
@@ -92,7 +92,7 @@ static int open_output(RemoteServer *s, Writer *w, const char* host) {
         if (r < 0)
                 return log_error_errno(r, "Failed to open output journal %s: %m", filename);
 
-        log_debug("Opened output file %s", w->journal->file->path);
+        log_debug("Opened output file %s", w->journal->path);
         return 0;
 }
 
