@@ -55,7 +55,9 @@ struct MMapCache {
         unsigned n_ref;
         unsigned n_windows;
 
-        unsigned n_context_cache_hit, n_window_list_hit, n_missed;
+        unsigned n_context_cache_hit;
+        unsigned n_window_list_hit;
+        unsigned n_missed;
 
         Hashmap *fds;
 
@@ -77,35 +79,38 @@ struct MMapCache {
 MMapCache* mmap_cache_new(void) {
         MMapCache *m;
 
-        m = new0(MMapCache, 1);
+        m = new(MMapCache, 1);
         if (!m)
                 return NULL;
 
-        m->n_ref = 1;
+        *m = (MMapCache) {
+                .n_ref = 1,
+        };
+
         return m;
 }
 
-static void window_unlink(Window *w) {
-
+static Window* window_unlink(Window *w) {
         assert(w);
+
+        MMapCache *m = mmap_cache_fd_cache(w->fd);
 
         if (w->ptr)
                 munmap(w->ptr, w->size);
 
-        if (w->fd)
-                LIST_REMOVE(by_fd, w->fd->windows, w);
-
         if (w->in_unused) {
-                if (w->cache->last_unused == w)
-                        w->cache->last_unused = w->unused_prev;
+                if (m->last_unused == w)
+                        m->last_unused = w->unused_prev;
 
-                LIST_REMOVE(unused, w->cache->unused, w);
+                LIST_REMOVE(unused, m->unused, w);
         }
 
         LIST_FOREACH(by_window, c, w->contexts) {
                 assert(c->window == w);
                 c->window = NULL;
         }
+
+        return LIST_REMOVE(by_fd, w->fd->windows, w);
 }
 
 static void window_invalidate(Window *w) {
@@ -115,21 +120,21 @@ static void window_invalidate(Window *w) {
         if (w->invalidated)
                 return;
 
-        /* Replace the window with anonymous pages. This is useful
-         * when we hit a SIGBUS and want to make sure the file cannot
-         * trigger any further SIGBUS, possibly overrunning the sigbus
-         * queue. */
+        /* Replace the window with anonymous pages. This is useful when we hit a SIGBUS and want to make sure
+         * the file cannot trigger any further SIGBUS, possibly overrunning the sigbus queue. */
 
         assert_se(mmap(w->ptr, w->size, w->fd->prot, MAP_PRIVATE|MAP_ANONYMOUS|MAP_FIXED, -1, 0) == w->ptr);
         w->invalidated = true;
 }
 
-static void window_free(Window *w) {
-        assert(w);
+static Window* window_free(Window *w) {
+        if (!w)
+                return NULL;
 
         window_unlink(w);
         w->cache->n_windows--;
-        free(w);
+
+        return mfree(w);
 }
 
 static bool window_matches(Window *w, uint64_t offset, size_t size) {
@@ -163,12 +168,9 @@ static Window *window_add(MMapCache *m, MMapFileDescriptor *f, bool keep_always,
                 if (!w)
                         return NULL;
                 m->n_windows++;
-        } else {
-
+        } else
                 /* Reuse an existing one */
-                w = m->last_unused;
-                window_unlink(w);
-        }
+                w = window_unlink(m->last_unused);
 
         *w = (Window) {
                 .cache = m,
@@ -199,8 +201,7 @@ static void context_detach_window(MMapCache *m, Context *c) {
         if (!w->contexts && !w->keep_always) {
                 /* Not used anymore? */
 #if ENABLE_DEBUG_MMAP_CACHE
-                /* Unmap unused windows immediately to expose use-after-unmap
-                 * by SIGSEGV. */
+                /* Unmap unused windows immediately to expose use-after-unmap by SIGSEGV. */
                 window_free(w);
 #else
                 LIST_PREPEND(unused, m->unused, w);
@@ -235,16 +236,18 @@ static void context_attach_window(MMapCache *m, Context *c, Window *w) {
         LIST_PREPEND(by_window, w->contexts, c);
 }
 
-static MMapCache *mmap_cache_free(MMapCache *m) {
-        assert(m);
+static MMapCache* mmap_cache_free(MMapCache *m) {
+        if (!m)
+                return NULL;
 
-        for (int i = 0; i < MMAP_CACHE_MAX_CONTEXTS; i++)
-                context_detach_window(m, &m->contexts[i]);
+        /* All windows are owned by fds, and each fd takes a reference of MMapCache. So, when this is called,
+         * all fds are already freed, and hence there is no window. */
 
+        assert(hashmap_isempty(m->fds));
         hashmap_free(m->fds);
 
-        while (m->unused)
-                window_free(m->unused);
+        assert(!m->unused);
+        assert(m->n_windows == 0);
 
         return mfree(m);
 }
@@ -399,9 +402,8 @@ static int add_mmap(
         }
 
         if (st) {
-                /* Memory maps that are larger then the files
-                   underneath have undefined behavior. Hence, clamp
-                   things to the file size if we know it */
+                /* Memory maps that are larger then the files underneath have undefined behavior. Hence,
+                 * clamp things to the file size if we know it */
 
                 if (woffset >= (uint64_t) st->st_size)
                         return -EADDRNOTAVAIL;
@@ -469,7 +471,8 @@ int mmap_cache_fd_get(
 void mmap_cache_stats_log_debug(MMapCache *m) {
         assert(m);
 
-        log_debug("mmap cache statistics: %u context cache hit, %u window list hit, %u miss", m->n_context_cache_hit, m->n_window_list_hit, m->n_missed);
+        log_debug("mmap cache statistics: %u context cache hit, %u window list hit, %u miss",
+                  m->n_context_cache_hit, m->n_window_list_hit, m->n_missed);
 }
 
 static void mmap_cache_process_sigbus(MMapCache *m) {
@@ -479,8 +482,7 @@ static void mmap_cache_process_sigbus(MMapCache *m) {
 
         assert(m);
 
-        /* Iterate through all triggered pages and mark their files as
-         * invalidated */
+        /* Iterate through all triggered pages and mark their files as invalidated. */
         for (;;) {
                 bool ours;
                 void *addr;
@@ -507,17 +509,16 @@ static void mmap_cache_process_sigbus(MMapCache *m) {
                                 break;
                 }
 
-                /* Didn't find a matching window, give up */
+                /* Didn't find a matching window, give up. */
                 if (!ours) {
                         log_error("Unknown SIGBUS page, aborting.");
                         abort();
                 }
         }
 
-        /* The list of triggered pages is now empty. Now, let's remap
-         * all windows of the triggered file to anonymous maps, so
-         * that no page of the file in question is triggered again, so
-         * that we can be sure not to hit the queue size limit. */
+        /* The list of triggered pages is now empty. Now, let's remap all windows of the triggered file to
+         * anonymous maps, so that no page of the file in question is triggered again, so that we can be sure
+         * not to hit the queue size limit. */
         if (_likely_(!found))
                 return;
 
@@ -538,59 +539,67 @@ bool mmap_cache_fd_got_sigbus(MMapFileDescriptor *f) {
         return f->sigbus;
 }
 
-MMapFileDescriptor* mmap_cache_add_fd(MMapCache *m, int fd, int prot) {
-        MMapFileDescriptor *f;
+int mmap_cache_add_fd(MMapCache *m, int fd, int prot, MMapFileDescriptor **ret) {
+        _cleanup_free_ MMapFileDescriptor *f = NULL;
+        MMapFileDescriptor *existing;
         int r;
 
         assert(m);
         assert(fd >= 0);
 
-        f = hashmap_get(m->fds, FD_TO_PTR(fd));
-        if (f)
-                return f;
+        existing = hashmap_get(m->fds, FD_TO_PTR(fd));
+        if (existing) {
+                if (existing->prot != prot)
+                        return -EEXIST;
+                if (ret)
+                        *ret = existing;
+                return 0;
+        }
 
-        r = hashmap_ensure_allocated(&m->fds, NULL);
+        f = new(MMapFileDescriptor, 1);
+        if (!f)
+                return -ENOMEM;
+
+        *f = (MMapFileDescriptor) {
+                .fd = fd,
+                .prot = prot,
+        };
+
+        r = hashmap_ensure_put(&m->fds, NULL, FD_TO_PTR(fd), f);
         if (r < 0)
-                return NULL;
+                return r;
+        assert(r > 0);
 
-        f = new0(MMapFileDescriptor, 1);
+        f->cache = mmap_cache_ref(m);
+
+        if (ret)
+                *ret = f;
+
+        TAKE_PTR(f);
+        return 1;
+}
+
+MMapFileDescriptor* mmap_cache_fd_free(MMapFileDescriptor *f) {
         if (!f)
                 return NULL;
 
-        r = hashmap_put(m->fds, FD_TO_PTR(fd), f);
-        if (r < 0)
-                return mfree(f);
-
-        f->cache = mmap_cache_ref(m);
-        f->fd = fd;
-        f->prot = prot;
-
-        return f;
-}
-
-void mmap_cache_fd_free(MMapFileDescriptor *f) {
-        assert(f);
-        assert(f->cache);
-
-        /* Make sure that any queued SIGBUS are first dispatched, so
-         * that we don't end up with a SIGBUS entry we cannot relate
-         * to any existing memory map */
+        /* Make sure that any queued SIGBUS are first dispatched, so that we don't end up with a SIGBUS entry
+         * we cannot relate to any existing memory map. */
 
         mmap_cache_process_sigbus(f->cache);
 
         while (f->windows)
                 window_free(f->windows);
 
-        if (f->cache) {
-                assert_se(hashmap_remove(f->cache->fds, FD_TO_PTR(f->fd)));
-                f->cache = mmap_cache_unref(f->cache);
-        }
+        assert_se(hashmap_remove(f->cache->fds, FD_TO_PTR(f->fd)) == f);
 
-        free(f);
+        /* Unref the cache at the end. Otherwise, the assertions in mmap_cache_free() may be triggered. */
+        f->cache = mmap_cache_unref(f->cache);
+
+        return mfree(f);
 }
 
 MMapCache* mmap_cache_fd_cache(MMapFileDescriptor *f) {
         assert(f);
-
-        return f->cache;
+        return ASSERT_PTR(f->cache);
 }
