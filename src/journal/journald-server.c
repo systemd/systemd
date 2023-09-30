@@ -238,7 +238,7 @@ void server_space_usage_message(Server *s, JournalStorage *storage) {
                               NULL);
 }
 
-static void server_add_acls(ManagedJournalFile *f, uid_t uid) {
+static void server_add_acls(JournalFile *f, uid_t uid) {
         assert(f);
 
 #if HAVE_ACL
@@ -247,10 +247,10 @@ static void server_add_acls(ManagedJournalFile *f, uid_t uid) {
         if (uid_for_system_journal(uid))
                 return;
 
-        r = fd_add_uid_acl_permission(f->file->fd, uid, ACL_READ);
+        r = fd_add_uid_acl_permission(f->fd, uid, ACL_READ);
         if (r < 0)
                 log_ratelimit_warning_errno(r, JOURNAL_LOG_RATELIMIT,
-                                            "Failed to set ACL on %s, ignoring: %m", f->file->path);
+                                            "Failed to set ACL on %s, ignoring: %m", f->path);
 #endif
 }
 
@@ -261,9 +261,9 @@ static int server_open_journal(
                 int open_flags,
                 bool seal,
                 JournalMetrics *metrics,
-                ManagedJournalFile **ret) {
+                JournalFile **ret) {
 
-        _cleanup_(managed_journal_file_closep) ManagedJournalFile *f = NULL;
+        _cleanup_(journal_file_offline_closep) JournalFile *f = NULL;
         JournalFileFlags file_flags;
         int r;
 
@@ -276,10 +276,10 @@ static int server_open_journal(
                 (seal ? JOURNAL_SEAL : 0) |
                 JOURNAL_STRICT_ORDER;
 
-        set_clear_with_destructor(s->deferred_closes, managed_journal_file_close);
+        set_clear_with_destructor(s->deferred_closes, journal_file_offline_close);
 
         if (reliably)
-                r = managed_journal_file_open_reliably(
+                r = journal_file_open_reliably(
                                 fname,
                                 open_flags,
                                 file_flags,
@@ -290,7 +290,7 @@ static int server_open_journal(
                                 /* template= */ NULL,
                                 &f);
         else
-                r = managed_journal_file_open(
+                r = journal_file_open(
                                 /* fd= */ -1,
                                 fname,
                                 open_flags,
@@ -304,7 +304,7 @@ static int server_open_journal(
         if (r < 0)
                 return r;
 
-        r = journal_file_enable_post_change_timer(f->file, s->event, POST_CHANGE_TIMER_INTERVAL_USEC);
+        r = journal_file_enable_post_change_timer(f, s->event, POST_CHANGE_TIMER_INTERVAL_USEC);
         if (r < 0)
                 return r;
 
@@ -434,8 +434,8 @@ static int server_system_journal_open(
         return r;
 }
 
-static int server_find_user_journal(Server *s, uid_t uid, ManagedJournalFile **ret) {
-        _cleanup_(managed_journal_file_closep) ManagedJournalFile *f = NULL;
+static int server_find_user_journal(Server *s, uid_t uid, JournalFile **ret) {
+        _cleanup_(journal_file_offline_closep) JournalFile *f = NULL;
         _cleanup_free_ char *p = NULL;
         int r;
 
@@ -450,10 +450,10 @@ static int server_find_user_journal(Server *s, uid_t uid, ManagedJournalFile **r
 
         /* Too many open? Then let's close one (or more) */
         while (ordered_hashmap_size(s->user_journals) >= USER_JOURNALS_MAX) {
-                ManagedJournalFile *first;
+                JournalFile *first;
 
                 assert_se(first = ordered_hashmap_steal_first(s->user_journals));
-                (void) managed_journal_file_close(first);
+                (void) journal_file_offline_close(first);
         }
 
         r = server_open_journal(
@@ -478,7 +478,7 @@ found:
         return 0;
 }
 
-static ManagedJournalFile* server_find_journal(Server *s, uid_t uid) {
+static JournalFile* server_find_journal(Server *s, uid_t uid) {
         int r;
 
         assert(s);
@@ -507,7 +507,7 @@ static ManagedJournalFile* server_find_journal(Server *s, uid_t uid) {
                 return NULL;
 
         if (!uid_for_system_journal(uid)) {
-                ManagedJournalFile *f = NULL;
+                JournalFile *f = NULL;
 
                 r = server_find_user_journal(s, uid, &f);
                 if (r >= 0)
@@ -521,7 +521,7 @@ static ManagedJournalFile* server_find_journal(Server *s, uid_t uid) {
 
 static int server_do_rotate(
                 Server *s,
-                ManagedJournalFile **f,
+                JournalFile **f,
                 const char* name,
                 bool seal,
                 uint32_t uid) {
@@ -539,11 +539,11 @@ static int server_do_rotate(
                 (seal ? JOURNAL_SEAL : 0) |
                 JOURNAL_STRICT_ORDER;
 
-        r = managed_journal_file_rotate(f, s->mmap, file_flags, s->compress.threshold_bytes, s->deferred_closes);
+        r = journal_file_rotate(f, s->mmap, file_flags, s->compress.threshold_bytes, s->deferred_closes);
         if (r < 0) {
                 if (*f)
                         return log_ratelimit_error_errno(r, JOURNAL_LOG_RATELIMIT,
-                                                         "Failed to rotate %s: %m", (*f)->file->path);
+                                                         "Failed to rotate %s: %m", (*f)->path);
                 else
                         return log_ratelimit_error_errno(r, JOURNAL_LOG_RATELIMIT,
                                                          "Failed to create new %s journal: %m", name);
@@ -554,15 +554,15 @@ static int server_do_rotate(
 }
 
 static void server_process_deferred_closes(Server *s) {
-        ManagedJournalFile *f;
+        JournalFile *f;
 
         /* Perform any deferred closes which aren't still offlining. */
         SET_FOREACH(f, s->deferred_closes) {
-                if (managed_journal_file_is_offlining(f))
+                if (journal_file_is_offlining(f))
                         continue;
 
                 (void) set_remove(s->deferred_closes, f);
-                (void) managed_journal_file_close(f);
+                (void) journal_file_offline_close(f);
         }
 }
 
@@ -578,10 +578,10 @@ static void server_vacuum_deferred_closes(Server *s) {
 
         /* And now, let's close some more until we reach the limit again. */
         while (set_size(s->deferred_closes) >= DEFERRED_CLOSES_MAX) {
-                ManagedJournalFile *f;
+                JournalFile *f;
 
                 assert_se(f = set_steal_first(s->deferred_closes));
-                managed_journal_file_close(f);
+                journal_file_offline_close(f);
         }
 }
 
@@ -604,7 +604,7 @@ static int server_archive_offline_user_journals(Server *s) {
                 _cleanup_free_ char *full = NULL;
                 _cleanup_close_ int fd = -EBADF;
                 struct dirent *de;
-                ManagedJournalFile *f;
+                JournalFile *f;
                 uid_t uid;
 
                 errno = 0;
@@ -645,7 +645,7 @@ static int server_archive_offline_user_journals(Server *s) {
                 server_vacuum_deferred_closes(s);
 
                 /* Open the file briefly, so that we can archive it */
-                r = managed_journal_file_open(
+                r = journal_file_open(
                                 fd,
                                 full,
                                 O_RDWR,
@@ -673,20 +673,20 @@ static int server_archive_offline_user_journals(Server *s) {
                         continue;
                 }
 
-                TAKE_FD(fd); /* Donated to managed_journal_file_open() */
+                TAKE_FD(fd); /* Donated to journal_file_open() */
 
-                r = journal_file_archive(f->file, NULL);
+                r = journal_file_archive(f, NULL);
                 if (r < 0)
                         log_debug_errno(r, "Failed to archive journal file '%s', ignoring: %m", full);
 
-                managed_journal_file_initiate_close(TAKE_PTR(f), s->deferred_closes);
+                journal_file_initiate_close(TAKE_PTR(f), s->deferred_closes);
         }
 
         return 0;
 }
 
 void server_rotate(Server *s) {
-        ManagedJournalFile *f;
+        JournalFile *f;
         void *k;
         int r;
 
@@ -715,18 +715,18 @@ void server_rotate(Server *s) {
 }
 
 void server_sync(Server *s) {
-        ManagedJournalFile *f;
+        JournalFile *f;
         int r;
 
         if (s->system_journal) {
-                r = managed_journal_file_set_offline(s->system_journal, false);
+                r = journal_file_set_offline(s->system_journal, false);
                 if (r < 0)
                         log_ratelimit_warning_errno(r, JOURNAL_LOG_RATELIMIT,
                                                     "Failed to sync system journal, ignoring: %m");
         }
 
         ORDERED_HASHMAP_FOREACH(f, s->user_journals) {
-                r = managed_journal_file_set_offline(f, false);
+                r = journal_file_set_offline(f, false);
                 if (r < 0)
                         log_ratelimit_warning_errno(r, JOURNAL_LOG_RATELIMIT,
                                                     "Failed to sync user journal, ignoring: %m");
@@ -900,7 +900,7 @@ static void server_write_to_journal(
 
         bool vacuumed = false, rotate = false;
         struct dual_timestamp ts;
-        ManagedJournalFile *f;
+        JournalFile *f;
         int r;
 
         assert(s);
@@ -927,9 +927,9 @@ static void server_write_to_journal(
                 if (!f)
                         return;
 
-                if (journal_file_rotate_suggested(f->file, s->max_file_usec, LOG_DEBUG)) {
+                if (journal_file_rotate_suggested(f, s->max_file_usec, LOG_DEBUG)) {
                         log_debug("%s: Journal header limits reached or header out-of-date, rotating.",
-                                  f->file->path);
+                                  f->path);
                         rotate = true;
                 }
         }
@@ -947,7 +947,7 @@ static void server_write_to_journal(
         s->last_realtime_clock = ts.realtime;
 
         r = journal_file_append_entry(
-                        f->file,
+                        f,
                         &ts,
                         /* boot_id= */ NULL,
                         iovec, n,
@@ -960,9 +960,9 @@ static void server_write_to_journal(
                 return;
         }
 
-        log_debug_errno(r, "Failed to write entry to %s (%zu items, %zu bytes): %m", f->file->path, n, IOVEC_TOTAL_SIZE(iovec, n));
+        log_debug_errno(r, "Failed to write entry to %s (%zu items, %zu bytes): %m", f->path, n, IOVEC_TOTAL_SIZE(iovec, n));
 
-        if (!shall_try_append_again(f->file, r))
+        if (!shall_try_append_again(f, r))
                 return;
         if (vacuumed) {
                 log_ratelimit_warning_errno(r, JOURNAL_LOG_RATELIMIT,
@@ -979,7 +979,7 @@ static void server_write_to_journal(
 
         log_debug_errno(r, "Retrying write.");
         r = journal_file_append_entry(
-                        f->file,
+                        f,
                         &ts,
                         /* boot_id= */ NULL,
                         iovec, n,
@@ -990,7 +990,7 @@ static void server_write_to_journal(
         if (r < 0)
                 log_ratelimit_error_errno(r, FAILED_TO_WRITE_ENTRY_RATELIMIT,
                                           "Failed to write entry to %s (%zu items, %zu bytes) despite vacuuming, ignoring: %m",
-                                          f->file->path, n, IOVEC_TOTAL_SIZE(iovec, n));
+                                          f->path, n, IOVEC_TOTAL_SIZE(iovec, n));
         else
                 server_schedule_sync(s, priority);
 }
@@ -1300,7 +1300,7 @@ int server_flush_to_var(Server *s, bool require_flag_file) {
 
                 r = journal_file_copy_entry(
                                 f,
-                                s->system_journal->file,
+                                s->system_journal,
                                 o,
                                 f->current_offset,
                                 &s->seqnum->seqnum,
@@ -1308,7 +1308,7 @@ int server_flush_to_var(Server *s, bool require_flag_file) {
                 if (r >= 0)
                         continue;
 
-                if (!shall_try_append_again(s->system_journal->file, r)) {
+                if (!shall_try_append_again(s->system_journal, r)) {
                         log_ratelimit_error_errno(r, JOURNAL_LOG_RATELIMIT, "Can't write entry: %m");
                         goto finish;
                 }
@@ -1328,7 +1328,7 @@ int server_flush_to_var(Server *s, bool require_flag_file) {
                 log_debug("Retrying write.");
                 r = journal_file_copy_entry(
                                 f,
-                                s->system_journal->file,
+                                s->system_journal,
                                 o,
                                 f->current_offset,
                                 &s->seqnum->seqnum,
@@ -1343,9 +1343,9 @@ int server_flush_to_var(Server *s, bool require_flag_file) {
 
 finish:
         if (s->system_journal)
-                journal_file_post_change(s->system_journal->file);
+                journal_file_post_change(s->system_journal);
 
-        s->runtime_journal = managed_journal_file_close(s->runtime_journal);
+        s->runtime_journal = journal_file_offline_close(s->runtime_journal);
 
         if (r >= 0)
                 (void) rm_rf(s->runtime_storage.path, REMOVE_ROOT);
@@ -1386,9 +1386,9 @@ static int server_relinquish_var(Server *s) {
 
         (void) server_system_journal_open(s, /* flush_requested */ false, /* relinquish_requested=*/ true);
 
-        s->system_journal = managed_journal_file_close(s->system_journal);
-        ordered_hashmap_clear_with_destructor(s->user_journals, managed_journal_file_close);
-        set_clear_with_destructor(s->deferred_closes, managed_journal_file_close);
+        s->system_journal = journal_file_offline_close(s->system_journal);
+        ordered_hashmap_clear_with_destructor(s->user_journals, journal_file_offline_close);
+        set_clear_with_destructor(s->deferred_closes, journal_file_offline_close);
 
         fn = strjoina(s->runtime_directory, "/flushed");
         if (unlink(fn) < 0 && errno != ENOENT)
@@ -2405,12 +2405,12 @@ static int server_memory_pressure(sd_event_source *es, void *userdata) {
 
         /* Let's also close all user files (but keep the system/runtime one open) */
         for (;;) {
-                ManagedJournalFile *first = ordered_hashmap_steal_first(s->user_journals);
+                JournalFile *first = ordered_hashmap_steal_first(s->user_journals);
 
                 if (!first)
                         break;
 
-                (void) managed_journal_file_close(first);
+                (void) journal_file_offline_close(first);
         }
 
         sd_event_trim_memory();
@@ -2713,16 +2713,16 @@ int server_init(Server *s, const char *namespace) {
 
 void server_maybe_append_tags(Server *s) {
 #if HAVE_GCRYPT
-        ManagedJournalFile *f;
+        JournalFile *f;
         usec_t n;
 
         n = now(CLOCK_REALTIME);
 
         if (s->system_journal)
-                journal_file_maybe_append_tag(s->system_journal->file, n);
+                journal_file_maybe_append_tag(s->system_journal, n);
 
         ORDERED_HASHMAP_FOREACH(f, s->user_journals)
-                journal_file_maybe_append_tag(f->file, n);
+                journal_file_maybe_append_tag(f, n);
 #endif
 }
 
@@ -2732,17 +2732,17 @@ void server_done(Server *s) {
         free(s->namespace);
         free(s->namespace_field);
 
-        set_free_with_destructor(s->deferred_closes, managed_journal_file_close);
+        set_free_with_destructor(s->deferred_closes, journal_file_offline_close);
 
         while (s->stdout_streams)
                 stdout_stream_free(s->stdout_streams);
 
         client_context_flush_all(s);
 
-        (void) managed_journal_file_close(s->system_journal);
-        (void) managed_journal_file_close(s->runtime_journal);
+        (void) journal_file_offline_close(s->system_journal);
+        (void) journal_file_offline_close(s->runtime_journal);
 
-        ordered_hashmap_free_with_destructor(s->user_journals, managed_journal_file_close);
+        ordered_hashmap_free_with_destructor(s->user_journals, journal_file_offline_close);
 
         varlink_server_unref(s->varlink_server);
 
