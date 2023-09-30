@@ -246,8 +246,8 @@ static int sleep_supported_internal(
             sleep_mode_supported(sleep_config->modes[operation]) <= 0))
                 return false;
 
-        if (IN_SET(operation, SLEEP_HIBERNATE, SLEEP_HYBRID_SLEEP) && !enough_swap_for_hibernation())
-                return -ENOSPC;
+        if (IN_SET(operation, SLEEP_HIBERNATE, SLEEP_HYBRID_SLEEP))
+                return hibernate_is_safe();
 
         return true;
 }
