@@ -3,12 +3,12 @@
 
 #include "journal-file.h"
 
-typedef struct {
-        JournalFile *file;
-} ManagedJournalFile;
+int journal_file_set_offline(JournalFile *f, bool wait);
+bool journal_file_is_offlining(JournalFile *f);
+JournalFile* journal_file_offline_close(JournalFile *f);
+DEFINE_TRIVIAL_CLEANUP_FUNC(JournalFile*, journal_file_offline_close);
 
-int managed_journal_file_open(
-                int fd,
+int journal_file_open_reliably(
                 const char *fname,
                 int open_flags,
                 JournalFileFlags file_flags,
@@ -16,24 +16,13 @@ int managed_journal_file_open(
                 uint64_t compress_threshold_bytes,
                 JournalMetrics *metrics,
                 MMapCache *mmap_cache,
-                ManagedJournalFile *template,
-                ManagedJournalFile **ret);
+                JournalFile *template,
+                JournalFile **ret);
 
-int managed_journal_file_set_offline(ManagedJournalFile *f, bool wait);
-bool managed_journal_file_is_offlining(ManagedJournalFile *f);
-ManagedJournalFile* managed_journal_file_close(ManagedJournalFile *f);
-DEFINE_TRIVIAL_CLEANUP_FUNC(ManagedJournalFile*, managed_journal_file_close);
-
-int managed_journal_file_open_reliably(
-                const char *fname,
-                int open_flags,
-                JournalFileFlags file_flags,
-                mode_t mode,
-                uint64_t compress_threshold_bytes,
-                JournalMetrics *metrics,
+JournalFile* journal_file_initiate_close(JournalFile *f, Set *deferred_closes);
+int journal_file_rotate(
+                JournalFile **f,
                 MMapCache *mmap_cache,
-                ManagedJournalFile *template,
-                ManagedJournalFile **ret);
-
-ManagedJournalFile* managed_journal_file_initiate_close(ManagedJournalFile *f, Set *deferred_closes);
-int managed_journal_file_rotate(ManagedJournalFile **f, MMapCache *mmap_cache, JournalFileFlags file_flags, uint64_t compress_threshold_bytes, Set *deferred_closes);
+                JournalFileFlags file_flags,
+                uint64_t compress_threshold_bytes,
+                Set *deferred_closes);
