@@ -16,7 +16,6 @@ int managed_journal_file_open(
                 uint64_t compress_threshold_bytes,
                 JournalMetrics *metrics,
                 MMapCache *mmap_cache,
-                Set *deferred_closes,
                 ManagedJournalFile *template,
                 ManagedJournalFile **ret);
 
@@ -33,7 +32,6 @@ int managed_journal_file_open_reliably(
                 uint64_t compress_threshold_bytes,
                 JournalMetrics *metrics,
                 MMapCache *mmap_cache,
-                Set *deferred_closes,
                 ManagedJournalFile *template,
                 ManagedJournalFile **ret);
 

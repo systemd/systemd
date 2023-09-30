@@ -276,6 +276,8 @@ static int server_open_journal(
                 (seal ? JOURNAL_SEAL : 0) |
                 JOURNAL_STRICT_ORDER;
 
+        set_clear_with_destructor(s->deferred_closes, managed_journal_file_close);
+
         if (reliably)
                 r = managed_journal_file_open_reliably(
                                 fname,
@@ -285,7 +287,6 @@ static int server_open_journal(
                                 s->compress.threshold_bytes,
                                 metrics,
                                 s->mmap,
-                                s->deferred_closes,
                                 /* template= */ NULL,
                                 &f);
         else
@@ -298,7 +299,6 @@ static int server_open_journal(
                                 s->compress.threshold_bytes,
                                 metrics,
                                 s->mmap,
-                                s->deferred_closes,
                                 /* template= */ NULL,
                                 &f);
         if (r < 0)
@@ -655,7 +655,6 @@ static int server_archive_offline_user_journals(Server *s) {
                                 s->compress.threshold_bytes,
                                 &s->system_storage.metrics,
                                 s->mmap,
-                                /* deferred_closes= */ NULL,
                                 /* template= */ NULL,
                                 &f);
                 if (r < 0) {
