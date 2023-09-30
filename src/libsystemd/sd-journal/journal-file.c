@@ -88,9 +88,6 @@
 /* Reread fstat() of the file for detecting deletions at least this often */
 #define LAST_STAT_REFRESH_USEC (5*USEC_PER_SEC)
 
-/* The mmap context to use for the header we pick as one above the last defined typed */
-#define CONTEXT_HEADER _OBJECT_TYPE_MAX
-
 /* Longest hash chain to rotate after */
 #define HASH_CHAIN_DEPTH_MAX 100
 
@@ -821,13 +818,6 @@ static int journal_file_allocate(JournalFile *f, uint64_t offset, uint64_t size)
         return journal_file_fstat(f);
 }
 
-static unsigned type_to_context(ObjectType type) {
-        /* One context for each type, plus one catch-all for the rest */
-        assert_cc(_OBJECT_TYPE_MAX <= MMAP_CACHE_MAX_CONTEXTS);
-        assert_cc(CONTEXT_HEADER < MMAP_CACHE_MAX_CONTEXTS);
-        return type > OBJECT_UNUSED && type < _OBJECT_TYPE_MAX ? type : 0;
-}
-
 static int journal_file_move_to(
                 JournalFile *f,
                 ObjectType type,
@@ -864,7 +854,7 @@ static int journal_file_move_to(
                         return -EADDRNOTAVAIL;
         }
 
-        return mmap_cache_fd_get(f->cache_fd, type_to_context(type), keep_always, offset, size, &f->last_stat, ret);
+        return mmap_cache_fd_get(f->cache_fd, type_to_category(type), keep_always, offset, size, &f->last_stat, ret);
 }
 
 static uint64_t minimum_header_size(JournalFile *f, Object *o) {
@@ -4086,7 +4076,7 @@ int journal_file_open(
                 goto fail;
         }
 
-        r = mmap_cache_fd_get(f->cache_fd, CONTEXT_HEADER, true, 0, PAGE_ALIGN(sizeof(Header)), &f->last_stat, &h);
+        r = mmap_cache_fd_get(f->cache_fd, MMAP_CACHE_CATEGORY_HEADER, true, 0, PAGE_ALIGN(sizeof(Header)), &f->last_stat, &h);
         if (r == -EINVAL) {
                 /* Some file systems (jffs2 or p9fs) don't support mmap() properly (or only read-only
                  * mmap()), and return EINVAL in that case. Let's propagate that as a more recognizable error
