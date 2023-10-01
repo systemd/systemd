@@ -1,12 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "analyze.h"
 #include "analyze-time-data.h"
+#include "analyze.h"
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-map-properties.h"
 #include "bus-unit-util.h"
+#include "memory-util.h"
 #include "special.h"
+#include "strv.h"
 
 static void subtract_timestamp(usec_t *a, usec_t b) {
         assert(a);
@@ -215,22 +217,40 @@ int pretty_boot_time(sd_bus *bus, char **ret) {
         return 0;
 }
 
+void related_units_free(RelatedUnits *r) {
+        if (!r)
+                return;
+
+        strv_free_erase(r->after);
+        strv_free_erase(r->requires);
+        strv_free_erase(r->requisite);
+        strv_free_erase(r->wants);
+        strv_free_erase(r->conflicts);
+}
+
 UnitTimes* unit_times_free_array(UnitTimes *t) {
         if (!t)
                 return NULL;
 
-        for (UnitTimes *p = t; p->has_data; p++)
+        for (UnitTimes *p = t; p->has_data; p++) {
+                related_units_free(&p->related);
                 free(p->name);
+        }
 
         return mfree(t);
 }
 
 int acquire_time_data(sd_bus *bus, bool require_finished, UnitTimes **out) {
         static const struct bus_properties_map property_map[] = {
-                { "InactiveExitTimestampMonotonic",  "t", NULL, offsetof(UnitTimes, activating)   },
-                { "ActiveEnterTimestampMonotonic",   "t", NULL, offsetof(UnitTimes, activated)    },
-                { "ActiveExitTimestampMonotonic",    "t", NULL, offsetof(UnitTimes, deactivating) },
-                { "InactiveEnterTimestampMonotonic", "t", NULL, offsetof(UnitTimes, deactivated)  },
+                { "InactiveExitTimestampMonotonic",  "t",  NULL, offsetof(UnitTimes, activating) },
+                { "ActiveEnterTimestampMonotonic",   "t",  NULL, offsetof(UnitTimes, activated) },
+                { "ActiveExitTimestampMonotonic",    "t",  NULL, offsetof(UnitTimes, deactivating) },
+                { "InactiveEnterTimestampMonotonic", "t",  NULL, offsetof(UnitTimes, deactivated) },
+                { "After",                           "as", NULL, offsetof(UnitTimes, related.after) },
+                { "Requires",                        "as", NULL, offsetof(UnitTimes, related.requires) },
+                { "Requisite",                       "as", NULL, offsetof(UnitTimes, related.requisite) },
+                { "Wants",                           "as", NULL, offsetof(UnitTimes, related.wants) },
+                { "Conflicts",                       "as", NULL, offsetof(UnitTimes, related.conflicts) },
                 {},
         };
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
@@ -262,6 +282,7 @@ int acquire_time_data(sd_bus *bus, bool require_finished, UnitTimes **out) {
                 unit_times[c + 1].has_data = false;
                 t = &unit_times[c];
                 t->name = NULL;
+                zero(t->related);
 
                 assert_cc(sizeof(usec_t) == sizeof(uint64_t));
 
