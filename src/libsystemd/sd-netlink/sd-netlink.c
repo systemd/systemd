@@ -215,7 +215,6 @@ static int process_timeout(sd_netlink *nl) {
                 return r;
 
         assert_se(prioq_pop(nl->reply_callbacks_prioq) == c);
-        c->timeout = 0;
         hashmap_remove(nl->reply_callbacks, UINT32_TO_PTR(c->serial));
 
         slot = container_of(c, sd_netlink_slot, reply_callback);
@@ -248,10 +247,8 @@ static int process_reply(sd_netlink *nl, sd_netlink_message *m) {
         if (!c)
                 return 0;
 
-        if (c->timeout != 0) {
+        if (c->timeout != USEC_INFINITY)
                 prioq_remove(nl->reply_callbacks_prioq, c, &c->prioq_idx);
-                c->timeout = 0;
-        }
 
         r = sd_netlink_message_get_type(m, &type);
         if (r < 0)
@@ -380,12 +377,28 @@ int sd_netlink_process(sd_netlink *nl, sd_netlink_message **ret) {
         return r;
 }
 
-static usec_t calc_elapse(uint64_t usec) {
-        if (usec == UINT64_MAX)
-                return 0;
+static usec_t timespan_to_timestamp(usec_t usec) {
+        static bool default_timeout_set = false;
+        static usec_t default_timeout;
+        int r;
 
-        if (usec == 0)
-                usec = NETLINK_DEFAULT_TIMEOUT_USEC;
+        if (usec == 0) {
+                if (!default_timeout_set) {
+                        const char *e;
+
+                        default_timeout_set = true;
+                        default_timeout = NETLINK_DEFAULT_TIMEOUT_USEC;
+
+                        e = getenv("SYSTEMD_NETLINK_DEFAULT_TIMEOUT");
+                        if (e) {
+                                r = parse_sec(e, &default_timeout);
+                                if (r < 0)
+                                        log_debug_errno(r, "sd-netlink: Failed to parse $SYSTEMD_NETLINK_DEFAULT_TIMEOUT environment variable, ignoring: %m");
+                        }
+                }
+
+                usec = default_timeout;
+        }
 
         return usec_add(now(CLOCK_MONOTONIC), usec);
 }
@@ -442,12 +455,6 @@ int sd_netlink_wait(sd_netlink *nl, uint64_t timeout_usec) {
 static int timeout_compare(const void *a, const void *b) {
         const struct reply_callback *x = a, *y = b;
 
-        if (x->timeout != 0 && y->timeout == 0)
-                return -1;
-
-        if (x->timeout == 0 && y->timeout != 0)
-                return 1;
-
         return CMP(x->timeout, y->timeout);
 }
 
@@ -487,7 +494,7 @@ int sd_netlink_call_async(
                 return r;
 
         slot->reply_callback.callback = callback;
-        slot->reply_callback.timeout = calc_elapse(usec);
+        slot->reply_callback.timeout = timespan_to_timestamp(usec);
 
         k = sd_netlink_send(nl, m, &slot->reply_callback.serial);
         if (k < 0)
@@ -497,7 +504,7 @@ int sd_netlink_call_async(
         if (r < 0)
                 return r;
 
-        if (slot->reply_callback.timeout != 0) {
+        if (slot->reply_callback.timeout != USEC_INFINITY) {
                 r = prioq_put(nl->reply_callbacks_prioq, &slot->reply_callback, &slot->reply_callback.prioq_idx);
                 if (r < 0) {
                         (void) hashmap_remove(nl->reply_callbacks, UINT32_TO_PTR(slot->reply_callback.serial));
@@ -528,7 +535,7 @@ int sd_netlink_read(
         assert_return(nl, -EINVAL);
         assert_return(!netlink_pid_changed(nl), -ECHILD);
 
-        timeout = calc_elapse(usec);
+        timeout = timespan_to_timestamp(usec);
 
         for (;;) {
                 _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
@@ -567,7 +574,7 @@ int sd_netlink_read(
                         /* received message, so try to process straight away */
                         continue;
 
-                if (timeout > 0) {
+                if (timeout != USEC_INFINITY) {
                         usec_t n;
 
                         n = now(CLOCK_MONOTONIC);
