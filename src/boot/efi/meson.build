@@ -153,9 +153,14 @@ efi_c_ld_args = [
         '-Wl,--entry=efi_main',
         '-Wl,--fatal-warnings',
 
-        # These flags should be passed by -static-pie, but seem to be missing sometimes.
-        '-Wl,--no-dynamic-linker',
-        '-z', 'text',
+        # These flags should be passed by -static-pie, but for whatever reason the flag translation
+        # is not enabled on all architectures. Not passing `-static` would just allow the linker to
+        # use dynamic libraries, (which we can't/don't use anyway). But if `-pie` is missing and the
+        # gcc build does not default to `-pie` we get a regular (no-pie) binary that will be
+        # rightfully rejected by elf2efi. Note that meson also passes `-pie` to the linker driver,
+        # but it is overridden by our `-static-pie`. We also need to pass these directly to the
+        # linker as `-static`+`-pie` seem to get translated differently.
+        '-Wl,-static,-pie,--no-dynamic-linker,-z,text',
 
         # EFI has 4KiB pages.
         '-z', 'common-page-size=4096',
