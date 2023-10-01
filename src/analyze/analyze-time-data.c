@@ -1,12 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "analyze.h"
 #include "analyze-time-data.h"
+#include "analyze.h"
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-map-properties.h"
 #include "bus-unit-util.h"
+#include "memory-util.h"
 #include "special.h"
+#include "strv.h"
 
 static void subtract_timestamp(usec_t *a, usec_t b) {
         assert(a);
@@ -215,22 +217,43 @@ int pretty_boot_time(sd_bus *bus, char **ret) {
         return 0;
 }
 
+void unit_times_clear(UnitTimes *t) {
+        if (!t)
+                return;
+
+        FOREACH_ARRAY(d, t->deps, ELEMENTSOF(t->deps))
+                *d = strv_free(*d);
+
+        t->name = mfree(t->name);
+}
+
 UnitTimes* unit_times_free_array(UnitTimes *t) {
         if (!t)
                 return NULL;
 
         for (UnitTimes *p = t; p->has_data; p++)
-                free(p->name);
+                unit_times_clear(p);
 
         return mfree(t);
 }
 
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(UnitTimes*, unit_times_clear, NULL);
+
+#define UNIT_TIMES_DEP_FIELD(f) (offsetof(UnitTimes, deps) + (f * sizeof(char **)))
+
 int acquire_time_data(sd_bus *bus, bool require_finished, UnitTimes **out) {
         static const struct bus_properties_map property_map[] = {
-                { "InactiveExitTimestampMonotonic",  "t", NULL, offsetof(UnitTimes, activating)   },
-                { "ActiveEnterTimestampMonotonic",   "t", NULL, offsetof(UnitTimes, activated)    },
-                { "ActiveExitTimestampMonotonic",    "t", NULL, offsetof(UnitTimes, deactivating) },
-                { "InactiveEnterTimestampMonotonic", "t", NULL, offsetof(UnitTimes, deactivated)  },
+                { "InactiveExitTimestampMonotonic",  "t",  NULL, offsetof(UnitTimes, activating) },
+                { "ActiveEnterTimestampMonotonic",   "t",  NULL, offsetof(UnitTimes, activated) },
+                { "ActiveExitTimestampMonotonic",    "t",  NULL, offsetof(UnitTimes, deactivating) },
+                { "InactiveEnterTimestampMonotonic", "t",  NULL, offsetof(UnitTimes, deactivated) },
+                { "After",                           "as", NULL, UNIT_TIMES_DEP_FIELD(UNIT_AFTER) },
+                { "Before",                          "as", NULL, UNIT_TIMES_DEP_FIELD(UNIT_BEFORE) },
+                { "Requires",                        "as", NULL, UNIT_TIMES_DEP_FIELD(UNIT_REQUIRES) },
+                { "Requisite",                       "as", NULL, UNIT_TIMES_DEP_FIELD(UNIT_REQUISITE) },
+                { "Wants",                           "as", NULL, UNIT_TIMES_DEP_FIELD(UNIT_WANTS) },
+                { "Conflicts",                       "as", NULL, UNIT_TIMES_DEP_FIELD(UNIT_CONFLICTS) },
+                { "Upholds",                         "as", NULL, UNIT_TIMES_DEP_FIELD(UNIT_UPHOLDS) },
                 {},
         };
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
@@ -254,14 +277,15 @@ int acquire_time_data(sd_bus *bus, bool require_finished, UnitTimes **out) {
                 return bus_log_parse_error(r);
 
         while ((r = bus_parse_unit_info(reply, &u)) > 0) {
-                UnitTimes *t;
+                _cleanup_(unit_times_clearp) UnitTimes *t = NULL;
 
-                if (!GREEDY_REALLOC(unit_times, c + 2))
+                if (!GREEDY_REALLOC0(unit_times, c + 2))
                         return log_oom();
 
                 unit_times[c + 1].has_data = false;
+                /* t initially has pointers zeroed by the allocation, and unit_times_clearp will have zeroed
+                 * them if the entry is being reused. */
                 t = &unit_times[c];
-                t->name = NULL;
 
                 assert_cc(sizeof(usec_t) == sizeof(uint64_t));
 
@@ -277,6 +301,7 @@ int acquire_time_data(sd_bus *bus, bool require_finished, UnitTimes **out) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to get timestamp properties of unit %s: %s",
                                                u.id, bus_error_message(&error, r));
+
 
                 subtract_timestamp(&t->activating, boot_times->reverse_offset);
                 subtract_timestamp(&t->activated, boot_times->reverse_offset);
@@ -298,6 +323,8 @@ int acquire_time_data(sd_bus *bus, bool require_finished, UnitTimes **out) {
                         return log_oom();
 
                 t->has_data = true;
+                /* Prevent destructor from running on t reference. */
+                TAKE_PTR(t);
                 c++;
         }
         if (r < 0)
