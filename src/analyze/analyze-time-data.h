@@ -37,9 +37,22 @@ typedef struct BootTimes {
         usec_t reverse_offset;
 } BootTimes;
 
+typedef struct RelatedUnits {
+        char **after;
+        char **before;
+        char **requires;
+        char **requisite;
+        char **wants;
+        char **conflicts;
+        char **upholds;
+} RelatedUnits;
+
+void related_units_free(RelatedUnits *r);
+
 typedef struct UnitTimes {
         bool has_data;
         char *name;
+        RelatedUnits related;
         usec_t activating;
         usec_t activated;
         usec_t deactivated;
