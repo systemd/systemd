@@ -1969,14 +1969,25 @@ typedef struct {
         size_t end_index;
 } Indices;
 
-static void config_copy_entries(Config *config, ConfigEntry **entries, size_t start_index, size_t end_index, ConfigEntry *group_entry) {
+static void config_copy_entries(Config *config, ConfigEntry **entries, size_t start_index, size_t end_index, bool has_group_entry) {
         assert(config);
         assert(entries);
+        _cleanup_(config_entry_freep) ConfigEntry *group_entry = NULL;
 
+        if (config->idx_default >= start_index && config->idx_default <= end_index)
+                        config_add_entry(config, entries[config->idx_default]);
+        if (has_group_entry){
+                group_entry = xnew(ConfigEntry, 1);
+                *group_entry = (ConfigEntry){ .title = xstrdup16(u"More..."), .group_entry = NULL, .type = LOADER_MORE, .id = xstrdup16(u"More...") };
+                config_add_entry(config, group_entry);
+        }
         for (size_t i = start_index; i <= end_index; i++) {
+                if (i == config->idx_default)
+                        continue;
                 config_add_entry(config, entries[i]);
                 config->entries[config->n_entries - 1]->group_entry = group_entry;
         }
+        TAKE_PTR(group_entry);
 }
 
 static void config_create_groups(Config *config, Indices *indices, size_t group_count){
@@ -1988,21 +1999,15 @@ static void config_create_groups(Config *config, Indices *indices, size_t group_
         config->entries = entries;
         config->n_entries = 0;
         TAKE_PTR(entries);
-
-        config_copy_entries(config, old_entries, 0, indices[0].start_index - 1, NULL);
+        config_copy_entries(config, old_entries, 0, indices[0].start_index - 1, false);
         size_t i = 0;
         for (; i < group_count; i++) {
-                _cleanup_(config_entry_freep) ConfigEntry *group_entry = NULL;
-                group_entry = xnew(ConfigEntry, 1);
-                *group_entry = (ConfigEntry){ .title = xstrdup16(u"More..."), .group_entry = NULL, .type = LOADER_MORE, .id = xstrdup16(u"More...") };
-                config_add_entry(config, group_entry);
-                config_copy_entries(config, old_entries, indices[i].start_index, indices[i].end_index, group_entry);
-                TAKE_PTR(group_entry);
+                config_copy_entries(config, old_entries, indices[i].start_index, indices[i].end_index, true);
                 if(i+1 < group_count)
-                        config_copy_entries(config, old_entries, indices[i].end_index+1, indices[i+1].start_index-1, NULL);
+                        config_copy_entries(config, old_entries, indices[i].end_index+1, indices[i+1].start_index-1, false);
         }
         if (indices[i-1].end_index != old_n_entries-1)
-                config_copy_entries(config, old_entries, indices[i-1].end_index+1, old_n_entries - 1, NULL);
+                config_copy_entries(config, old_entries, indices[i-1].end_index+1, old_n_entries - 1, false);
         free(old_entries);
 }
 
@@ -2796,9 +2801,6 @@ static void config_load_all_entries(
         /* sort entries after version number */
         sort_pointer_array((void **) config->entries, config->n_entries, (compare_pointer_func_t) config_entry_compare);
 
-        /* create the menu hierarchy */
-        config_group_entries(config);
-
         /* if we find some well-known loaders, add them to the end of the list */
         config_entry_add_osx(config);
         config_entry_add_windows(config, loaded_image->DeviceHandle, root_dir);
@@ -2829,12 +2831,15 @@ static void config_load_all_entries(
         if (config->n_entries == 0)
                 return;
 
+        /* select entry by configured pattern or EFI LoaderDefaultEntry= variable */
+        config_default_entry_select(config);
+
+        /* create the menu hierarchy */
+        config_group_entries(config);
+
         config_write_entries_to_variable(config);
 
         config_title_generate(config);
-
-        /* select entry by configured pattern or EFI LoaderDefaultEntry= variable */
-        config_default_entry_select(config);
 }
 
 static EFI_STATUS discover_root_dir(EFI_LOADED_IMAGE_PROTOCOL *loaded_image, EFI_FILE **ret_dir) {
