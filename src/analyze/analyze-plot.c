@@ -1,13 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "analyze.h"
 #include "analyze-plot.h"
 #include "analyze-time-data.h"
+#include "analyze.h"
 #include "bus-error.h"
 #include "bus-map-properties.h"
 #include "format-table.h"
 #include "os-util.h"
 #include "sort-util.h"
+#include "strv.h"
 #include "version.h"
 
 #define SCALE_X (0.1 / 1000.0) /* pixels per us */
@@ -158,12 +159,46 @@ static void svg_graph_box(double height, double begin, double end) {
                             SCALE_Y * height);
         }
 }
+
+static void plot_tooltip(const char *name, const RelatedUnits *r) {
+        static const struct { const char *name; size_t off; } categories[] = {
+                { "After", offsetof(RelatedUnits, after) },
+                { "Before", offsetof(RelatedUnits, before) },
+                { "Requires", offsetof(RelatedUnits, after) },
+                { "Requisite", offsetof(RelatedUnits, requisite) },
+                { "Wants", offsetof(RelatedUnits, wants) },
+                { "Conflicts", offsetof(RelatedUnits, conflicts) },
+                { "Upholds", offsetof(RelatedUnits, upholds) },
+                {}
+        };
+
+        if (!r)
+                return;
+
+        assert(name);
+        svg("%s:\n", name);
+
+        for (size_t i = 0; categories[i].name; i++) {
+                char **sv = *(char ***) ((char *) r + categories[i].off);
+                if (!strv_isempty(sv)) {
+                        svg("\n%s:\n", categories[i].name);
+                        STRV_FOREACH(s, sv) {
+                                svg("  %s\n", *s);
+                        }
+                }
+        }
+}
+
 static int plot_unit_times(UnitTimes *u, double width, int y) {
         bool b;
 
         if (!u->name)
                 return 0;
 
+        svg("<g>\n");
+        svg("<title>");
+        plot_tooltip(u->name, &u->related);
+        svg("</title>\n");
         svg_bar("activating", u->activating, u->activated, y);
         svg_bar("active", u->activated, u->deactivating, y);
         svg_bar("deactivating", u->deactivating, u->deactivated, y);
@@ -175,6 +210,7 @@ static int plot_unit_times(UnitTimes *u, double width, int y) {
                          u->name, FORMAT_TIMESPAN(u->time, USEC_PER_MSEC));
         else
                 svg_text(b, u->activating, y, "%s", u->name);
+        svg("</g>\n");
 
         return 1;
 }
@@ -221,6 +257,7 @@ static int produce_plot_as_svg(
 
                 if (u->activating > boot->finish_time) {
                         u->name = mfree(u->name);
+                        related_units_free(&u->related);
                         continue;
                 }
 
