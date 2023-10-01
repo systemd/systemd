@@ -255,7 +255,9 @@
         created if it does not exist. If necessary (journal file full,
         or corrupted), the file will be renamed following normal
         journald rules and a new journal file will be created in its
-        stead.</para></listitem>
+        stead.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -267,7 +269,9 @@
         necessary (journal files over size, or corrupted), journal
         files will be rotated following normal journald rules. Names
         of files underneath <replaceable>DIR</replaceable> will be
-        generated using the rules described below.</para></listitem>
+        generated using the rules described below.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
     </variablelist>
 

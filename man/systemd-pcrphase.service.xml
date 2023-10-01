@@ -223,7 +223,9 @@
         project='man-pages'><refentrytitle>flock</refentrytitle><manvolnum>2</manvolnum></citerefentry>) on
         the log file is acquired while the measurement is made and the file is updated. Thus, applications
         that intend to acquire a consistent quote from the TPM with the associated snapshot of the event log
-        should acquire a <constant>LOCK_SH</constant> lock while doing so.</para></listitem>
+        should acquire a <constant>LOCK_SH</constant> lock while doing so.</para>
+
+        <xi:include href="version-info.xml" xpointer="v252"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
