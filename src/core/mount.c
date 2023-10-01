@@ -1169,9 +1169,11 @@ static void mount_enter_mounting(Mount *m) {
         }
 
         if (source_is_dir)
-                (void) mkdir_p_label(m->where, m->directory_mode);
+                r = mkdir_p_label(m->where, m->directory_mode);
         else
-                (void) touch_file(m->where, /* parents = */ true, USEC_INFINITY, UID_INVALID, GID_INVALID, MODE_INVALID);
+                r = touch_file(m->where, /* parents = */ true, USEC_INFINITY, UID_INVALID, GID_INVALID, MODE_INVALID);
+        if (r < 0 && r != -EEXIST)
+                log_unit_warning_errno(UNIT(m), r, "Failed to create mount point '%s', ignoring: %m", m->where);
 
         if (source_is_dir)
                 unit_warn_if_dir_nonempty(UNIT(m), m->where);
