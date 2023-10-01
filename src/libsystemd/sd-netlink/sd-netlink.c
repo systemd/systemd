@@ -378,8 +378,27 @@ int sd_netlink_process(sd_netlink *nl, sd_netlink_message **ret) {
 }
 
 static usec_t timespan_to_timestamp(usec_t usec) {
-        if (usec == 0)
-                usec = NETLINK_DEFAULT_TIMEOUT_USEC;
+        static bool default_timeout_set = false;
+        static usec_t default_timeout;
+        int r;
+
+        if (usec == 0) {
+                if (!default_timeout_set) {
+                        const char *e;
+
+                        default_timeout_set = true;
+                        default_timeout = NETLINK_DEFAULT_TIMEOUT_USEC;
+
+                        e = getenv("SYSTEMD_NETLINK_DEFAULT_TIMEOUT");
+                        if (e) {
+                                r = parse_sec(e, &default_timeout);
+                                if (r < 0)
+                                        log_debug_errno(r, "sd-netlink: Failed to parse $SYSTEMD_NETLINK_DEFAULT_TIMEOUT environment variable, ignoring: %m");
+                        }
+                }
+
+                usec = default_timeout;
+        }
 
         return usec_add(now(CLOCK_MONOTONIC), usec);
 }

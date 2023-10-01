@@ -121,7 +121,10 @@ All tools:
   kernel supports this.
 
 * `$SYSTEMD_ENABLE_LOG_CONTEXT` — if set, extra fields will always be logged to
-the journal instead of only when logging in debug mode.
+  the journal instead of only when logging in debug mode.
+
+* `$SYSTEMD_NETLINK_DEFAULT_TIMEOUT` — specifies the default timeout of waiting
+  replies for netlink messages from the kernel. Defaults to 25 seconds.
 
 `systemctl`:
 
