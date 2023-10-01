@@ -63,7 +63,7 @@ void netlink_slot_disconnect(sd_netlink_slot *slot, bool unref) {
         case NETLINK_REPLY_CALLBACK:
                 (void) hashmap_remove(nl->reply_callbacks, &slot->reply_callback.serial);
 
-                if (slot->reply_callback.timeout != 0)
+                if (slot->reply_callback.timeout != USEC_INFINITY)
                         prioq_remove(nl->reply_callbacks_prioq, &slot->reply_callback, &slot->reply_callback.prioq_idx);
 
                 break;
