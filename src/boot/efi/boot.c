@@ -775,8 +775,7 @@ static bool menu_run(
                         /* length of the longest entry */
                         line_width = 0;
                         for (size_t i = 0; i < config->n_entries; i++){
-                                if(entry_is_visible(config->entries[i], visible_group))
-                                        line_width = MAX(line_width, strlen16(config->entries[i]->title_show));
+                                line_width = MAX(line_width, strlen16(config->entries[i]->title_show));
                         }
                         line_width = MIN(line_width + 2 * entry_padding, x_max);
 
@@ -788,7 +787,7 @@ static bool menu_run(
                                 y_start = 0;
 
                         /* Put status line after the entry list, but give it some breathing room. */
-                        y_status = MIN(y_start + MIN(visible_max, visible_entries) + 1, y_max - 1);
+                        y_status = MIN(y_start + MIN(visible_max, visible_entries), y_max - 2);
 
                         lines = strv_free(lines);
                         clearline = mfree(clearline);
@@ -1945,14 +1944,33 @@ typedef struct {
         size_t end_index;
 } Indices;
 
-static void config_copy_entries(Config *config, ConfigEntry **entries, size_t start_index, size_t end_index, ConfigEntry *group_entry) {
+static void config_copy_entries(Config *config, ConfigEntry **entries, size_t start_index, size_t end_index, bool has_group_entry) {
         assert(config);
         assert(entries);
+        _cleanup_(config_entry_freep) ConfigEntry *group_entry = NULL;
+        size_t old_default_index = IDX_INVALID;
 
+        if (config->idx_default >= start_index && config->idx_default <= end_index){
+                        config_add_entry(config, entries[config->idx_default]);
+                        old_default_index = config->idx_default;
+                        config->idx_default = config->n_entries - 1;
+                        if (config->idx_default_efivar != IDX_INVALID)
+                                config->idx_default_efivar = config->n_entries - 1;
+                        if (start_index == end_index)
+                                has_group_entry = false;
+        }
+        if (has_group_entry){
+                group_entry = xnew(ConfigEntry, 1);
+                *group_entry = (ConfigEntry){ .title = xstrdup16(u"More..."), .group_entry = NULL, .type = LOADER_MORE, .id = xstrdup16(u"More...") };
+                config_add_entry(config, group_entry);
+        }
         for (size_t i = start_index; i <= end_index; i++) {
+                if (i == old_default_index)
+                        continue;
                 config_add_entry(config, entries[i]);
                 config->entries[config->n_entries - 1]->group_entry = group_entry;
         }
+        TAKE_PTR(group_entry);
 }
 
 static void config_create_groups(Config *config, Indices *indices, size_t group_count){
@@ -1964,21 +1982,15 @@ static void config_create_groups(Config *config, Indices *indices, size_t group_
         config->entries = entries;
         config->n_entries = 0;
         TAKE_PTR(entries);
-
-        config_copy_entries(config, old_entries, 0, indices[0].start_index - 1, NULL);
+        config_copy_entries(config, old_entries, 0, indices[0].start_index - 1, false);
         size_t i = 0;
         for (; i < group_count; i++) {
-                _cleanup_(config_entry_freep) ConfigEntry *group_entry = NULL;
-                group_entry = xnew(ConfigEntry, 1);
-                *group_entry = (ConfigEntry){ .title = xstrdup16(u"More..."), .group_entry = NULL, .type = LOADER_MORE, .id = xstrdup16(u"More...") };
-                config_add_entry(config, group_entry);
-                config_copy_entries(config, old_entries, indices[i].start_index, indices[i].end_index, group_entry);
-                TAKE_PTR(group_entry);
+                config_copy_entries(config, old_entries, indices[i].start_index, indices[i].end_index, true);
                 if(i+1 < group_count)
-                        config_copy_entries(config, old_entries, indices[i].end_index+1, indices[i+1].start_index-1, NULL);
+                        config_copy_entries(config, old_entries, indices[i].end_index+1, indices[i+1].start_index-1, false);
         }
         if (indices[i-1].end_index != old_n_entries-1)
-                config_copy_entries(config, old_entries, indices[i-1].end_index+1, old_n_entries - 1, NULL);
+                config_copy_entries(config, old_entries, indices[i-1].end_index+1, old_n_entries - 1, false);
         free(old_entries);
 }
 
@@ -2755,16 +2767,13 @@ static void config_load_all_entries(
         /* Similar, but on any XBOOTLDR partition */
         config_load_xbootldr(config, loaded_image->DeviceHandle);
 
-        /* Sort entries after version number */
-        sort_pointer_array((void **) config->entries, config->n_entries, (compare_pointer_func_t) boot_entry_compare);
+        /* sort entries after version number */
+        sort_pointer_array((void **) config->entries, config->n_entries, (compare_pointer_func_t) config_entry_compare);
 
-        /* create the menu hierarchy */
-        config_group_entries(config);
-
-        /* If we find some well-known loaders, add them to the end of the list */
-        config_add_entry_osx(config);
-        config_add_entry_windows(config, loaded_image->DeviceHandle, root_dir);
-        config_add_entry_loader_auto(config, loaded_image->DeviceHandle, root_dir, NULL,
+        /* if we find some well-known loaders, add them to the end of the list */
+        config_entry_add_osx(config);
+        config_entry_add_windows(config, loaded_image->DeviceHandle, root_dir);
+        config_entry_add_loader_auto(config, loaded_image->DeviceHandle, root_dir, NULL,
                                      u"auto-efi-shell", 's', u"EFI Shell", u"\\shell" EFI_MACHINE_TYPE_NAME ".efi");
         config_add_entry_loader_auto(config, loaded_image->DeviceHandle, root_dir, loaded_image_path,
                                      u"auto-efi-default", '\0', u"EFI Default Loader", NULL);
@@ -2815,7 +2824,13 @@ static void config_load_all_entries(
         if (config->n_entries == 0)
                 return;
 
+        /* select entry by configured pattern or EFI LoaderDefaultEntry= variable */
+        config_default_entry_select(config);
+
         config_write_entries_to_variable(config);
+
+        /* create the menu hierarchy */
+        config_group_entries(config);
 
         generate_boot_entry_titles(config);
 
