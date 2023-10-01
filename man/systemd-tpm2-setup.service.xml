@@ -53,14 +53,18 @@
       <varlistentry>
         <term><filename>/run/systemd/tpm2-srk-public-key.pem</filename></term>
 
-        <listitem><para>The SRK public key in PEM format, written during early boot.</para></listitem>
+        <listitem><para>The SRK public key in PEM format, written during early boot.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><filename>/var/lib/systemd/tpm2-srk-public-key.pem</filename></term>
 
         <listitem><para>The SRK public key in PEM format, written during later boot (once
-        <filename>/var/</filename> is available).</para></listitem>
+        <filename>/var/</filename> is available).</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
