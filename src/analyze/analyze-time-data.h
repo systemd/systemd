@@ -4,6 +4,7 @@
 #include <sd-bus.h>
 
 #include "time-util.h"
+#include "unit-def.h"
 
 typedef struct BootTimes {
         usec_t firmware_time;
@@ -45,11 +46,13 @@ typedef struct UnitTimes {
         usec_t deactivated;
         usec_t deactivating;
         usec_t time;
+        char **deps[_UNIT_DEPENDENCY_MAX];
 } UnitTimes;
 
 int acquire_boot_times(sd_bus *bus, bool require_finished, BootTimes **ret);
 int pretty_boot_time(sd_bus *bus, char **ret);
 
+void unit_times_clear(UnitTimes *t);
 UnitTimes* unit_times_free_array(UnitTimes *t);
 DEFINE_TRIVIAL_CLEANUP_FUNC(UnitTimes*, unit_times_free_array);
 
