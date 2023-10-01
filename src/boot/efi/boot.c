@@ -1974,6 +1974,8 @@ static void config_copy_entries(Config *config, ConfigEntry **entries, size_t st
         assert(entries);
 
         for (size_t i = start_index; i <= end_index; i++) {
+                if (i == config->idx_default)
+                        continue;
                 config_add_entry(config, entries[i]);
                 config->entries[config->n_entries - 1]->group_entry = group_entry;
         }
@@ -1992,6 +1994,8 @@ static void config_create_groups(Config *config, Indices *indices, size_t group_
         config_copy_entries(config, old_entries, 0, indices[0].start_index - 1, NULL);
         size_t i = 0;
         for (; i < group_count; i++) {
+                if (config->idx_default >= indices[i].start_index && config->idx_default <= indices[i].end_index)
+                        config_add_entry(config, old_entries[config->idx_default]);
                 _cleanup_(config_entry_freep) ConfigEntry *group_entry = NULL;
                 group_entry = xnew(ConfigEntry, 1);
                 *group_entry = (ConfigEntry){ .title = xstrdup16(u"More..."), .group_entry = NULL, .type = LOADER_MORE, .id = xstrdup16(u"More...") };
@@ -2796,9 +2800,6 @@ static void config_load_all_entries(
         /* sort entries after version number */
         sort_pointer_array((void **) config->entries, config->n_entries, (compare_pointer_func_t) config_entry_compare);
 
-        /* create the menu hierarchy */
-        config_group_entries(config);
-
         /* if we find some well-known loaders, add them to the end of the list */
         config_entry_add_osx(config);
         config_entry_add_windows(config, loaded_image->DeviceHandle, root_dir);
@@ -2829,12 +2830,15 @@ static void config_load_all_entries(
         if (config->n_entries == 0)
                 return;
 
+        /* select entry by configured pattern or EFI LoaderDefaultEntry= variable */
+        config_default_entry_select(config);
+
+        /* create the menu hierarchy */
+        config_group_entries(config);
+
         config_write_entries_to_variable(config);
 
         config_title_generate(config);
-
-        /* select entry by configured pattern or EFI LoaderDefaultEntry= variable */
-        config_default_entry_select(config);
 }
 
 static EFI_STATUS discover_root_dir(EFI_LOADED_IMAGE_PROTOCOL *loaded_image, EFI_FILE **ret_dir) {
