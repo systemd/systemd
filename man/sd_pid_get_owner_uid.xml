@@ -368,12 +368,22 @@
 
   <refsect1>
     <title>History</title>
-    <para><function>sd_pid_get_owner_uid()</function>,
-    <function>sd_pid_get_session()</function>,
-    <function>sd_pid_get_unit()</function>,
+    <para><function>sd_peer_get_cgroup()</function>,
+    <function>sd_peer_get_machine_name()</function>,
     <function>sd_peer_get_owner_uid()</function>,
-    <function>sd_peer_get_session()</function>, and
-    <function>sd_peer_get_unit()</function> were added in version 236.</para>
+    <function>sd_peer_get_session()</function>,
+    <function>sd_peer_get_slice()</function>,
+    <function>sd_peer_get_unit()</function>,
+    <function>sd_peer_get_user_slice()</function>,
+    <function>sd_peer_get_user_unit()</function>,
+    <function>sd_pid_get_cgroup()</function>,
+    <function>sd_pid_get_machine_name()</function>,
+    <function>sd_pid_get_owner_uid()</function>,
+    <function>sd_pid_get_session()</function>,
+    <function>sd_pid_get_slice()</function>,
+    <function>sd_pid_get_unit()</function>,
+    <function>sd_pid_get_user_slice()</function>, and
+    <function>sd_pid_get_user_unit()</function> were added in version 236.</para>
     <para><function>sd_pidfd_get_owner_uid()</function>,
     <function>sd_pidfd_get_session()</function>,
     <function>sd_pidfd_get_user_unit()</function>,
