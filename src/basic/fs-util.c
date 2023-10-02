@@ -1100,7 +1100,9 @@ int xopenat(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_flags
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
 
         if (isempty(path)) {
-                assert(!FLAGS_SET(open_flags, O_CREAT|O_EXCL));
+                /* assert_se() is used to avoid build failure due to false positive GCC _FORTIFY_SOURCE error
+                 * see issue #29408 */
+                assert_se(!FLAGS_SET(open_flags, O_CREAT|O_EXCL));
                 return fd_reopen(dir_fd, open_flags & ~O_NOFOLLOW);
         }
 
