@@ -959,15 +959,19 @@ static int macsec_read_key_file(NetDev *netdev, SecurityAssociation *sa) {
                 return 0;
 
         r = read_full_file_full(
-                        AT_FDCWD, sa->key_file, UINT64_MAX, SIZE_MAX,
-                        READ_FULL_FILE_SECURE | READ_FULL_FILE_UNHEX | READ_FULL_FILE_WARN_WORLD_READABLE | READ_FULL_FILE_CONNECT_SOCKET,
+                        AT_FDCWD, sa->key_file, UINT64_MAX, MACSEC_KEYID_LEN,
+                        READ_FULL_FILE_SECURE |
+                        READ_FULL_FILE_UNHEX |
+                        READ_FULL_FILE_WARN_WORLD_READABLE |
+                        READ_FULL_FILE_CONNECT_SOCKET |
+                        READ_FULL_FILE_FAIL_WHEN_LARGER,
                         NULL, (char **) &key, &key_len);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r,
                                               "Failed to read key from '%s', ignoring: %m",
                                               sa->key_file);
 
-        if (key_len != 16)
+        if (key_len != MACSEC_KEYID_LEN)
                 return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
                                               "Invalid key length (%zu bytes), ignoring: %m", key_len);
 
