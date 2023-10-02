@@ -245,8 +245,8 @@ static int lock_device(
                                 sigset_t ss;
                                 usec_t n;
 
-                                assert(sigemptyset(&ss) >= 0);
-                                assert(sigaddset(&ss, SIGCHLD) >= 0);
+                                assert_se(sigemptyset(&ss) >= 0);
+                                assert_se(sigaddset(&ss, SIGCHLD) >= 0);
 
                                 n = now(CLOCK_MONOTONIC);
                                 if (n >= deadline)
