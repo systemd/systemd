@@ -12,7 +12,6 @@ sources = files(
         'journald-stream.c',
         'journald-syslog.c',
         'journald-wall.c',
-        'managed-journal-file.c',
 )
 
 sources += custom_target(
@@ -28,8 +27,6 @@ libjournal_core = static_library(
         dependencies: [threads,
                        userspace],
         build_by_default : false)
-
-journal_includes = [includes, include_directories('.')]
 
 if get_option('link-journalctl-shared')
         journalctl_link_with = [libshared]
@@ -104,11 +101,7 @@ executables += [
                 ],
         },
         journal_test_template + {
-                'sources' : files('test-journal-append.c'),
-                'type' : 'manual',
-        },
-        journal_test_template + {
-                'sources' : files('test-journal-config.c'),
+                'sources' : files('test-journald-config.c'),
                 'dependencies' : [
                         liblz4,
                         libselinux,
@@ -116,16 +109,7 @@ executables += [
                 ],
         },
         journal_test_template + {
-                'sources' : files('test-journal-flush.c'),
-        },
-        journal_test_template + {
-                'sources' : files('test-journal-interleaving.c'),
-        },
-        journal_test_template + {
-                'sources' : files('test-journal-stream.c'),
-        },
-        journal_test_template + {
-                'sources' : files('test-journal-syslog.c'),
+                'sources' : files('test-journald-syslog.c'),
                 'dependencies' : [
                         liblz4,
                         libselinux,
@@ -134,11 +118,10 @@ executables += [
                 ],
         },
         journal_test_template + {
-                'sources' : files('test-journal-verify.c'),
-                'timeout' : 90,
-        },
-        journal_test_template + {
-                'sources' : files('test-journal.c'),
+                'sources' : files('test-journald-tables.c'),
+                'dependencies' : [
+                        libselinux,
+                ],
         },
         journal_fuzz_template + {
                 'sources' : files(
