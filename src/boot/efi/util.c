@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "device-path-util.h"
+#include "memory-util-fundamental.h"
 #include "proto/device-path.h"
 #include "proto/simple-text-io.h"
 #include "ticks.h"
@@ -373,7 +374,7 @@ EFI_STATUS file_read(EFI_FILE *dir, const char16_t *name, size_t off, size_t siz
                 return err;
 
         /* Note that chunked_read() changes size to reflect the actual bytes read. */
-        memset(buf + size, 0, extra);
+        memzero(buf + size, extra);
 
         *ret = TAKE_PTR(buf);
         if (ret_size)
