@@ -462,6 +462,27 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>LoaderEntryLastBooted</varname></term>
+
+        <listitem><para>The identifier of the boot loader entry last attempted. Set and read by the boot loader,
+        only when <filename>/loader/loader.conf</filename> has default set to <literal>@saved</literal>. See
+        <citerefentry><refentrytitle>loader.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+        <para> The boot loader will ensure <varname>LoaderEntryLastBooted</varname> is up-to date for every boot,
+        updating it as needed and will omit changing it all together when <varname>LoaderEntryOneShot</varname>
+        is set.</para>
+
+        <para>The boot loader reads the variable, which takes higher priority than
+        <varname>LoaderEntryDefault</varname>. The variable is ignored when <varname>LoaderEntryOneShot</varname>
+        is set.</para>
+
+        <para><varname>LoaderEntryLastBooted</varname> cannot be used as indication that the last boot was
+        successful or not.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>LoaderEntrySelected</varname></term>
 
         <listitem><para>The identifier of the boot loader entry currently being booted. Set by the boot
