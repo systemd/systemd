@@ -107,3 +107,6 @@ static inline void erase_and_freep(void *p) {
 static inline void erase_char(char *p) {
         explicit_bzero_safe(p, sizeof(char));
 }
+
+/* Makes a copy of the buffer with reversed order of bytes */
+void *make_swapped(const void *data, size_t size);

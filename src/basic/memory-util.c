@@ -39,3 +39,19 @@ bool memeqbyte(uint8_t byte, const void *data, size_t length) {
         /* Now we know first 16 bytes match, memcmp() with self.  */
         return memcmp(data, p + 16, length) == 0;
 }
+
+void *make_swapped(const void *data, size_t size) {
+        assert(data);
+        assert(size != 0);
+
+        void *p = malloc(size);
+        if (!p)
+                return NULL;
+
+        uint8_t *p_dst = p;
+        const uint8_t *p_src = data;
+        for (size_t i = 0, k = size - 1; i < size; i++, k--)
+                p_dst[i] = p_src[k];
+
+        return p;
+}
