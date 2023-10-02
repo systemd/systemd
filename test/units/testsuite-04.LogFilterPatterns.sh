@@ -78,6 +78,10 @@ if is_xattr_supported; then
     add_logs_filtering_override "logs-filtering.service" "10-allow-with-escape-char" "\\\\x7emore~"
     [[ -n $(run_service_and_fetch_logs "logs-filtering.service") ]]
 
+    add_logs_filtering_override "logs-filtering.service" "11-reset" ""
+    add_logs_filtering_override "logs-filtering.service" "12-allow-with-spaces" "foo bar"
+    [[ -n $(run_service_and_fetch_logs "logs-filtering.service") ]]
+
     add_logs_filtering_override "delegated-cgroup-filtering.service" "00-allow-all" ".*"
     [[ -n $(run_service_and_fetch_logs "delegated-cgroup-filtering.service") ]]
 
