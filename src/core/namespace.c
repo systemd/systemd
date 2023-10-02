@@ -1311,7 +1311,8 @@ static int mount_image(
                         host_os_release_id,
                         host_os_release_version_id,
                         host_os_release_level,
-                        NULL);
+                        /* required_sysext_scope= */ NULL,
+                        /* ret_image= */ NULL);
         if (r == -ENOENT && m->ignore)
                 return 0;
         if (r == -ESTALE && host_os_release_id)
@@ -2494,7 +2495,13 @@ int setup_namespace(
 
         if (root_image) {
                 /* A root image is specified, mount it to the right place */
-                r = dissected_image_mount(dissected_image, root, UID_INVALID, UID_INVALID, dissect_image_flags);
+                r = dissected_image_mount(
+                                dissected_image,
+                                root,
+                                /* uid_shift= */ UID_INVALID,
+                                /* uid_range= */ UID_INVALID,
+                                /* userns_fd= */ -EBADF,
+                                dissect_image_flags);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to mount root image: %m");
                         goto finish;
