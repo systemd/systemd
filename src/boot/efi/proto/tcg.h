@@ -11,6 +11,7 @@
 #define TCG_ALG_SHA 0x4
 #define EFI_TCG2_EVENT_HEADER_VERSION 1
 #define EV_IPL 13
+#define EV_EVENT_TAG 0x6
 
 typedef struct {
         uint8_t Major;
@@ -69,6 +70,12 @@ typedef struct {
         EFI_TCG2_EVENT_HEADER Header;
         uint8_t Event[];
 } _packed_ EFI_TCG2_EVENT;
+
+typedef struct {
+        uint32_t EventId;
+        uint32_t EventSize;
+        uint8_t Event[];
+} _packed_ EFI_TCG2_TAGGED_EVENT;
 
 typedef struct EFI_TCG_PROTOCOL EFI_TCG_PROTOCOL;
 struct EFI_TCG_PROTOCOL {
