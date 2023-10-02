@@ -909,7 +909,19 @@ add_symlink:
         return 0;
 }
 
-static int mount_private_dev(MountEntry *m) {
+static char *settle_runtime_dir(RuntimeScope scope) {
+        char *runtime_dir;
+
+        if (scope != RUNTIME_SCOPE_USER)
+                return strdup("/run/");
+
+        if (asprintf(&runtime_dir, "/run/user/" UID_FMT, geteuid()) < 0)
+                return NULL;
+
+        return runtime_dir;
+}
+
+static int mount_private_dev(MountEntry *m, RuntimeScope scope) {
         static const char devnodes[] =
                 "/dev/null\0"
                 "/dev/zero\0"
@@ -918,12 +930,20 @@ static int mount_private_dev(MountEntry *m) {
                 "/dev/urandom\0"
                 "/dev/tty\0";
 
-        char temporary_mount[] = "/tmp/namespace-dev-XXXXXX";
+        _cleanup_free_ char *runtime_dir = NULL, *temporary_mount = NULL;
         const char *dev = NULL, *devpts = NULL, *devshm = NULL, *devhugepages = NULL, *devmqueue = NULL, *devlog = NULL, *devptmx = NULL;
         bool can_mknod = true;
         int r;
 
         assert(m);
+
+        runtime_dir = settle_runtime_dir(scope);
+        if (!runtime_dir)
+                return log_oom_debug();
+
+        temporary_mount = path_join(runtime_dir, "systemd/namespace-dev-XXXXXX");
+        if (!temporary_mount)
+                return log_oom_debug();
 
         if (!mkdtemp(temporary_mount))
                 return log_debug_errno(errno, "Failed to create temporary directory '%s': %m", temporary_mount);
@@ -994,6 +1014,11 @@ static int mount_private_dev(MountEntry *m) {
         r = dev_setup(temporary_mount, UID_INVALID, GID_INVALID);
         if (r < 0)
                 log_debug_errno(r, "Failed to set up basic device tree at '%s', ignoring: %m", temporary_mount);
+
+        /* Make the bind mount read-only. */
+        r = mount_nofollow_verbose(LOG_DEBUG, NULL, dev, NULL, MS_REMOUNT|MS_BIND|MS_RDONLY, NULL);
+        if (r < 0)
+                return r;
 
         /* Create the /dev directory if missing. It is more likely to be missing when the service is started
          * with RootDirectory. This is consistent with mount units creating the mount points when missing. */
@@ -1359,7 +1384,8 @@ static int apply_one_mount(
                 MountEntry *m,
                 const ImagePolicy *mount_image_policy,
                 const ImagePolicy *extension_image_policy,
-                const NamespaceInfo *ns_info) {
+                const NamespaceInfo *ns_info,
+                RuntimeScope scope) {
 
         _cleanup_free_ char *inaccessible = NULL;
         bool rbind = true, make = false;
@@ -1374,8 +1400,7 @@ static int apply_one_mount(
         switch (m->mode) {
 
         case INACCESSIBLE: {
-                _cleanup_free_ char *tmp = NULL;
-                const char *runtime_dir;
+                _cleanup_free_ char *runtime_dir = NULL;
                 struct stat target;
 
                 /* First, get rid of everything that is below if there
@@ -1391,14 +1416,14 @@ static int apply_one_mount(
                                                mount_entry_path(m));
                 }
 
-                if (geteuid() == 0)
-                        runtime_dir = "/run";
-                else {
-                        if (asprintf(&tmp, "/run/user/" UID_FMT, geteuid()) < 0)
-                                return -ENOMEM;
-
-                        runtime_dir = tmp;
-                }
+                /* We don't pass the literal runtime scope through here but one based purely on our UID. This
+                 * means that the root user's --user services will use the host's inaccessible inodes rather
+                 * then root's private ones. This is preferable since it means device nodes that are
+                 * overmounted to make them inaccessible will be overmounted with a device node, rather than
+                 * an AF_UNIX socket inode. */
+                runtime_dir = settle_runtime_dir(geteuid() == 0 ? RUNTIME_SCOPE_SYSTEM : RUNTIME_SCOPE_USER);
+                if (!runtime_dir)
+                        return log_oom_debug();
 
                 r = mode_to_inaccessible_node(runtime_dir, target.st_mode, &inaccessible);
                 if (r < 0)
@@ -1518,7 +1543,7 @@ static int apply_one_mount(
                 break;
 
         case PRIVATE_DEV:
-                return mount_private_dev(m);
+                return mount_private_dev(m, scope);
 
         case BIND_DEV:
                 return mount_bind_dev(m);
@@ -1852,6 +1877,7 @@ static int apply_mounts(
                 const NamespaceInfo *ns_info,
                 MountEntry *mounts,
                 size_t *n_mounts,
+                RuntimeScope scope,
                 char **symlinks,
                 char **error_path) {
 
@@ -1902,7 +1928,7 @@ static int apply_mounts(
                                 break;
                         }
 
-                        r = apply_one_mount(root, m, mount_image_policy, extension_image_policy, ns_info);
+                        r = apply_one_mount(root, m, mount_image_policy, extension_image_policy, ns_info, scope);
                         if (r < 0) {
                                 mount_entry_path_debug_string(root, m, error_path);
                                 return r;
@@ -2053,6 +2079,7 @@ int setup_namespace(
                 const char *extension_dir,
                 const char *notify_socket,
                 const char *host_os_release_stage,
+                RuntimeScope scope,
                 char **error_path) {
 
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
@@ -2513,7 +2540,14 @@ int setup_namespace(
                 (void) base_filesystem_create(root, UID_INVALID, GID_INVALID);
 
         /* Now make the magic happen */
-        r = apply_mounts(root, mount_image_policy, extension_image_policy, ns_info, mounts, &n_mounts, symlinks, error_path);
+        r = apply_mounts(root,
+                         mount_image_policy,
+                         extension_image_policy,
+                         ns_info,
+                         mounts, &n_mounts,
+                         scope,
+                         symlinks,
+                         error_path);
         if (r < 0)
                 goto finish;
 
