@@ -44,6 +44,7 @@ TEST(chown_recursive) {
         const char *p;
         const uid_t uid = getuid();
         const gid_t gid = getgid();
+        int r;
 
         umask(022);
         assert_se(mkdtemp_malloc(NULL, &t) >= 0);
@@ -95,7 +96,11 @@ TEST(chown_recursive) {
 
         /* We now apply an xattr to the dir, and check it again */
         p = strjoina(t, "/dir");
-        assert_se(setxattr(p, "system.posix_acl_access", acl, sizeof(acl), 0) >= 0);
+        r = RET_NERRNO(setxattr(p, "system.posix_acl_access", acl, sizeof(acl), 0));
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                return (void) log_tests_skipped_errno(errno, "no acl supported on /tmp");
+
+        assert_se(r >= 0);
         assert_se(setxattr(p, "system.posix_acl_default", default_acl, sizeof(default_acl), 0) >= 0);
         assert_se(lstat(p, &st) >= 0);
         assert_se(S_ISDIR(st.st_mode));
