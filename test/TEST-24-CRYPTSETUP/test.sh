@@ -141,6 +141,10 @@ EOF
 
     mkdir -p "$initdir/etc/systemd/system/systemd-cryptsetup@.service.d"
     cat >"$initdir/etc/systemd/system/systemd-cryptsetup@.service.d/PKCS11.conf" <<EOF
+[Unit]
+# Make sure we can start systemd-cryptsetup@empty_pkcs11_auto.service many times
+StartLimitBurst=10
+
 [Service]
 Environment="SOFTHSM2_CONF=/etc/softhsm2.conf"
 Environment="PIN=$GNUTLS_PIN"
