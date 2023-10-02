@@ -251,7 +251,6 @@ static EFI_STATUS load_addons_from_dir(
         }
 
         return EFI_SUCCESS;
-
 }
 
 static EFI_STATUS cmdline_append_and_measure_addons(
