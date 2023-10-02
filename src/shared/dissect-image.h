@@ -36,6 +36,7 @@ struct DissectedPartition {
         uint64_t size;
         uint64_t offset;
         uint64_t gpt_flags;
+        int fsmount_fd;
 };
 
 #define DISSECTED_PARTITION_NULL                                        \
@@ -43,6 +44,7 @@ struct DissectedPartition {
                 .partno = -1,                                           \
                 .architecture = _ARCHITECTURE_INVALID,                  \
                 .mount_node_fd = -EBADF,                                \
+                .fsmount_fd = -EBADF,                                   \
         })
 #define TAKE_PARTITION(p)                                       \
         ({                                                      \
@@ -160,8 +162,8 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(DissectedImage*, dissected_image_unref);
 
 int dissected_image_decrypt(DissectedImage *m, const char *passphrase, const VeritySettings *verity, DissectImageFlags flags);
 int dissected_image_decrypt_interactively(DissectedImage *m, const char *passphrase, const VeritySettings *verity, DissectImageFlags flags);
-int dissected_image_mount(DissectedImage *m, const char *dest, uid_t uid_shift, uid_t uid_range, DissectImageFlags flags);
-int dissected_image_mount_and_warn(DissectedImage *m, const char *where, uid_t uid_shift, uid_t uid_range, DissectImageFlags flags);
+int dissected_image_mount(DissectedImage *m, const char *dest, uid_t uid_shift, uid_t uid_range, int userns_fd, DissectImageFlags flags);
+int dissected_image_mount_and_warn(DissectedImage *m, const char *where, uid_t uid_shift, uid_t uid_range, int userns_fd, DissectImageFlags flags);
 
 int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_flags);
 
@@ -192,7 +194,7 @@ bool dissected_image_verity_sig_ready(const DissectedImage *image, PartitionDesi
 
 int mount_image_privately_interactively(const char *path, const ImagePolicy *image_policy, DissectImageFlags flags, char **ret_directory, int *ret_dir_fd, LoopDevice **ret_loop_device);
 
-int verity_dissect_and_mount(int src_fd, const char *src, const char *dest, const MountOptions *options, const ImagePolicy *image_policy, const char *required_host_os_release_id, const char *required_host_os_release_version_id, const char *required_host_os_release_sysext_level, const char *required_sysext_scope);
+int verity_dissect_and_mount(int src_fd, const char *src, const char *dest, const MountOptions *options, const ImagePolicy *image_policy, const char *required_host_os_release_id, const char *required_host_os_release_version_id, const char *required_host_os_release_sysext_level, const char *required_sysext_scope, DissectedImage **ret_image);
 
 int dissect_fstype_ok(const char *fstype);
 
