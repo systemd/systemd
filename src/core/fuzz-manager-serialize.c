@@ -14,6 +14,9 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_fclose_ FILE *f = NULL, *null = NULL;
         _cleanup_fdset_free_ FDSet *fdset = NULL;
 
+        if (outside_size_range(size, 0, 65536))
+                return 0;
+
         /* We don't want to fill the logs with messages about parse errors.
          * Disable most logging if not running standalone. */
         if (!getenv("SYSTEMD_LOG_LEVEL")) {
