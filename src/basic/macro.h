@@ -189,9 +189,21 @@ static inline int __coverity_check_and_return__(int condition) {
 /* We override the glibc assert() here. */
 #undef assert
 #ifdef NDEBUG
-#define assert(expr) do {} while (false)
+#  if defined(__has_builtin)
+#    if __has_builtin(__builtin_assume)
+#      define assert(expr) __builtin_assume(!!(expr))
+#    endif
+#  endif
+#  if !defined(assert) && defined(__has_attribute)
+#    if __has_attribute(__assume__) && !defined(__clang__) /* clang's assume attribute is different */
+#      define assert(expr) __attribute__((__assume__(!!(expr))))
+#    endif
+#  endif
+#  if !defined(assert)
+#    define assert(expr) do {} while (false)
+#  endif
 #else
-#define assert(expr) assert_message_se(expr, #expr)
+#  define assert(expr) assert_message_se(expr, #expr)
 #endif
 
 #define assert_not_reached()                                            \
