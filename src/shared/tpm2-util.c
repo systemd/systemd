@@ -1174,7 +1174,8 @@ static int tpm2_get_srk(
         return tpm2_index_to_handle(c, TPM2_SRK_HANDLE, session, ret_public, ret_name, ret_qname, ret_handle);
 }
 
-/* Get the SRK, creating one if needed. Returns 0 on success, or < 0 on error. */
+/* Get the SRK, creating one if needed. Returns 1 if a new SRK was created and persisted, 0 if an SRK already
+ * exists, or < 0 on error. */
 int tpm2_get_or_create_srk(
                 Tpm2Context *c,
                 const Tpm2Handle *session,
