@@ -11,6 +11,12 @@
 
 #include "macro-fundamental.h"
 
+#define memzero(x, l)                                           \
+        ({                                                      \
+                size_t _l_ = (l);                               \
+                _l_ > 0 ? memset((x), 0, _l_) : (x);            \
+        })
+
 #if !SD_BOOT && HAVE_EXPLICIT_BZERO
 static inline void *explicit_bzero_safe(void *p, size_t l) {
         if (p && l > 0)

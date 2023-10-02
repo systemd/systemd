@@ -47,13 +47,6 @@ static inline int memcmp_nn(const void *s1, size_t n1, const void *s2, size_t n2
             ?: CMP(n1, n2);
 }
 
-#define memzero(x,l)                                            \
-        ({                                                      \
-                size_t _l_ = (l);                               \
-                if (_l_ > 0)                                    \
-                        memset(x, 0, _l_);                      \
-        })
-
 #define zero(x) (memzero(&(x), sizeof(x)))
 
 bool memeqbyte(uint8_t byte, const void *data, size_t length);
