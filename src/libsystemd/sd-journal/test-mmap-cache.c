@@ -23,7 +23,7 @@ int main(int argc, char *argv[]) {
         assert_se(x >= 0);
         (void) unlink(px);
 
-        assert_se(fx = mmap_cache_add_fd(m, x, PROT_READ));
+        assert_se(mmap_cache_add_fd(m, x, PROT_READ, &fx) > 0);
 
         y = mkostemp_safe(py);
         assert_se(y >= 0);

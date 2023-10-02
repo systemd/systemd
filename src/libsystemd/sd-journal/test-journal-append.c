@@ -9,8 +9,8 @@
 #include "fd-util.h"
 #include "fs-util.h"
 #include "io-util.h"
+#include "journal-file-util.h"
 #include "log.h"
-#include "managed-journal-file.h"
 #include "mmap-cache.h"
 #include "parse-util.h"
 #include "random-util.h"
@@ -20,7 +20,7 @@
 #include "tests.h"
 #include "tmpfile-util.h"
 
-static int journal_append_message(ManagedJournalFile *mj, const char *message) {
+static int journal_append_message(JournalFile *mj, const char *message) {
         struct iovec iovec;
         struct dual_timestamp ts;
 
@@ -30,7 +30,7 @@ static int journal_append_message(ManagedJournalFile *mj, const char *message) {
         dual_timestamp_get(&ts);
         iovec = IOVEC_MAKE_STRING(message);
         return journal_file_append_entry(
-                                mj->file,
+                                mj,
                                 &ts,
                                 /* boot_id= */ NULL,
                                 &iovec,
@@ -44,14 +44,14 @@ static int journal_append_message(ManagedJournalFile *mj, const char *message) {
 static int journal_corrupt_and_append(uint64_t start_offset, uint64_t step) {
         _cleanup_(mmap_cache_unrefp) MMapCache *mmap_cache = NULL;
         _cleanup_(rm_rf_physical_and_freep) char *tempdir = NULL;
-        _cleanup_(managed_journal_file_closep) ManagedJournalFile *mj = NULL;
+        _cleanup_(journal_file_offline_closep) JournalFile *mj = NULL;
         uint64_t start, end;
         int r;
 
         mmap_cache = mmap_cache_new();
         assert_se(mmap_cache);
 
-        /* managed_journal_file_open() requires a valid machine id */
+        /* journal_file_open() requires a valid machine id */
         if (sd_id128_get_machine(NULL) < 0)
                 return log_tests_skipped("No valid machine ID found");
 
@@ -61,23 +61,21 @@ static int journal_corrupt_and_append(uint64_t start_offset, uint64_t step) {
 
         log_debug("Opening journal %s/system.journal", tempdir);
 
-        r = managed_journal_file_open(
-                                /* fd= */ -1,
-                                "system.journal",
-                                O_RDWR|O_CREAT,
-                                JOURNAL_COMPRESS,
-                                0644,
-                                /* compress_threshold_bytes= */ UINT64_MAX,
-                                /* metrics= */ NULL,
-                                mmap_cache,
-                                /* deferred_closes= */ NULL,
-                                /* template= */ NULL,
-                                &mj);
+        r = journal_file_open(
+                        /* fd= */ -1,
+                        "system.journal",
+                        O_RDWR|O_CREAT,
+                        JOURNAL_COMPRESS,
+                        0644,
+                        /* compress_threshold_bytes= */ UINT64_MAX,
+                        /* metrics= */ NULL,
+                        mmap_cache,
+                        /* template= */ NULL,
+                        &mj);
         if (r < 0)
                 return log_error_errno(r, "Failed to open the journal: %m");
 
         assert_se(mj);
-        assert_se(mj->file);
 
         /* Add a couple of initial messages */
         for (int i = 0; i < 10; i++) {
@@ -89,8 +87,8 @@ static int journal_corrupt_and_append(uint64_t start_offset, uint64_t step) {
                         return log_error_errno(r, "Failed to write to the journal: %m");
         }
 
-        start = start_offset == UINT64_MAX ? random_u64() % mj->file->last_stat.st_size : start_offset;
-        end = (uint64_t) mj->file->last_stat.st_size;
+        start = start_offset == UINT64_MAX ? random_u64() % mj->last_stat.st_size : start_offset;
+        end = (uint64_t) mj->last_stat.st_size;
 
         /* Print the initial offset at which we start flipping bits, which can be
          * later used to reproduce a potential fail */
@@ -106,27 +104,26 @@ static int journal_corrupt_and_append(uint64_t start_offset, uint64_t step) {
                 uint8_t b;
 
                 /* Flip a bit in the journal file */
-                r = pread(mj->file->fd, &b, 1, offset);
+                r = pread(mj->fd, &b, 1, offset);
                 assert_se(r == 1);
                 b |= 0x1;
-                r = pwrite(mj->file->fd, &b, 1, offset);
+                r = pwrite(mj->fd, &b, 1, offset);
                 assert_se(r == 1);
 
                 /* Close and reopen the journal to flush all caches and remap
                  * the corrupted journal */
-                mj = managed_journal_file_close(mj);
-                r = managed_journal_file_open(
-                                        /* fd= */ -1,
-                                        "system.journal",
-                                        O_RDWR|O_CREAT,
-                                        JOURNAL_COMPRESS,
-                                        0644,
-                                        /* compress_threshold_bytes= */ UINT64_MAX,
-                                        /* metrics= */ NULL,
-                                        mmap_cache,
-                                        /* deferred_closes= */ NULL,
-                                        /* template= */ NULL,
-                                        &mj);
+                mj = journal_file_offline_close(mj);
+                r = journal_file_open(
+                                /* fd= */ -1,
+                                "system.journal",
+                                O_RDWR|O_CREAT,
+                                JOURNAL_COMPRESS,
+                                0644,
+                                /* compress_threshold_bytes= */ UINT64_MAX,
+                                /* metrics= */ NULL,
+                                mmap_cache,
+                                /* template= */ NULL,
+                                &mj);
                 if (r < 0) {
                         /* The corrupted journal might get rejected during reopening
                          * if it's corrupted enough (especially its header), so
