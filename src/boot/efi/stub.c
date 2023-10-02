@@ -6,6 +6,7 @@
 #include "graphics.h"
 #include "linux.h"
 #include "measure.h"
+#include "memory-util-fundamental.h"
 #include "part-discovery.h"
 #include "pe.h"
 #include "proto/shell-parameters.h"
@@ -64,7 +65,7 @@ static EFI_STATUS combine_initrd(
 
                 pad = ALIGN4(initrd_size) - initrd_size;
                 if (pad > 0)  {
-                        memset(p, 0, pad);
+                        memzero(p, pad);
                         p += pad;
                 }
         }
