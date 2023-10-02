@@ -417,6 +417,15 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>LoaderConfigConsoleMode</varname></term>
+        <listitem><para>The numerical menu console mode. Read by the boot loader. <varname>LoaderConfigConsoleMode</varname>
+        is maintained persistently. <varname>LoaderConfigConsoleMode</varname> may be manipulated with the
+        <keycap>r</keycap>/<keycap>R</keycap> keys, see above.</para>
+
+        <xi:include href="version-info.xml" xpointer="v250"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>LoaderDevicePartUUID</varname></term>
 
         <listitem><para>Contains the partition UUID of the EFI System Partition the boot loader was run from. Set by
