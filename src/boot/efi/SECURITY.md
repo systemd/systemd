@@ -82,6 +82,18 @@ and manual confirmation will be asked before proceeding. When running as a virtu
 enrollment is fully automated, without user interaction, unless disabled via a configuration file in the
 ESP. The configuration file can also be used to disable enrollment completely.
 
+## Compiler Hardening
+The PE binaries are built with `-fstack-protector-strong`, and the stack canary is seeded with random data if
+the UEFI RNG protocol is available.
+
+The binaries also are linked with `-z relro` and ship with native PE relocations, with the conversion from
+ELF performed at build time, instead of containing ELF dynamic relocations, so the firmware/Shim image
+loader require fewer pages to be marked as writable at.
+
+The binaries are linked by default with full LTO support, so no code will be shipped unless it's reachable.
+
+Finally, the binaries ship with the `NX_COMPAT` bit set.
+
 ## SBAT
 `systemd-boot` and `systemd-stub` are built with an `SBAT` section by default. There are build options to
 allow customizations of the metadata included in the section, that can be used by downstream distributors.
