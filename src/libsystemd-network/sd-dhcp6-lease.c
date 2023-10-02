@@ -9,6 +9,7 @@
 #include "dhcp6-internal.h"
 #include "dhcp6-lease-internal.h"
 #include "network-common.h"
+#include "set.h"
 #include "strv.h"
 
 #define IRT_DEFAULT (1 * USEC_PER_DAY)
@@ -145,6 +146,18 @@ DHCP6IA *dhcp6_ia_free(DHCP6IA *ia) {
         dhcp6_ia_clear_addresses(ia);
 
         return mfree(ia);
+}
+
+sd_dhcp6_option *dhcp6_vendor_option_free(sd_dhcp6_option *option) {
+
+        if (!option)
+                return NULL;
+
+        if (option->data)
+                free(option->data);
+
+        free(option);
+        return NULL;
 }
 
 int dhcp6_lease_set_clientid(sd_dhcp6_lease *lease, const uint8_t *id, size_t len) {
@@ -587,6 +600,67 @@ int sd_dhcp6_lease_get_captive_portal(sd_dhcp6_lease *lease, const char **ret) {
         return 0;
 }
 
+int dhcp6_lease_add_vendor_option(sd_dhcp6_lease *lease, const uint8_t *optval, size_t optlen, size_t base_offset) {
+        int r;
+        uint32_t enterprise_id;
+
+        assert(lease);
+        assert(optval || optlen == 0);
+
+        enterprise_id = unaligned_read_be16(optval + offsetof(DHCP6Option, len));
+        lease->vendor_options = set_new(NULL);
+
+        for (size_t offset = 0; offset < optlen;) {
+                const uint8_t *subval;
+                size_t sublen;
+                uint16_t subopt;
+
+                r = dhcp6_parse_vendor_option(optval, optlen, &offset, &subopt, &sublen, &subval);
+                if (r < 0)
+                        return r;
+
+                switch (subopt) {
+                        case DHCP6_VENDOR_SUBOPTION_BASE ... DHCP6_VENDOR_SUBOPTION_LAST:
+                                r = dhcp6_lease_insert_vendor_option(lease, subopt, subval, sublen, enterprise_id);
+                                if (r < 0)
+                                        return r;
+
+                        break;
+                }
+        }
+        return 0;
+}
+
+int dhcp6_lease_insert_vendor_option(sd_dhcp6_lease *lease, uint16_t option_code, const void *data, size_t len, uint32_t enterprise_id) {
+        _cleanup_(dhcp6_vendor_option_freep) sd_dhcp6_option *option = NULL;
+        int r;
+
+        assert(lease);
+
+        option = new(sd_dhcp6_option, 1);
+        if (!option)
+                return -ENOMEM;
+
+        *option = (sd_dhcp6_option) {
+                .enterprise_identifier = enterprise_id,
+                .option = option_code,
+                .length = len,
+        };
+
+        option->data = memdup(data, len);
+        if (!option->data) {
+                return -ENOMEM;
+        }
+
+        r = set_put(lease->vendor_options, TAKE_PTR(option));
+        if (r < 0)
+                return r;
+
+        sd_dhcp6_option_ref(option);
+
+        return 1;
+}
+
 static int dhcp6_lease_parse_message(
                 sd_dhcp6_client *client,
                 sd_dhcp6_lease *lease,
@@ -595,6 +669,7 @@ static int dhcp6_lease_parse_message(
 
         usec_t irt = IRT_DEFAULT;
         int r;
+        _cleanup_free_ uint8_t *buf = NULL;
 
         assert(client);
         assert(lease);
@@ -772,6 +847,13 @@ static int dhcp6_lease_parse_message(
 
                         irt = unaligned_be32_sec_to_usec(optval, /* max_as_infinity = */ false);
                         break;
+
+                case SD_DHCP6_OPTION_VENDOR_OPTS:
+                        r = dhcp6_lease_add_vendor_option(lease, optval, optlen, offset);
+                        if (r < 0)
+                                log_dhcp6_client_errno(client, r, "Failed to parse Vendor option, ignoring: %m");
+
+                        break;
                 }
         }
 
@@ -809,9 +891,15 @@ static int dhcp6_lease_parse_message(
 }
 
 static sd_dhcp6_lease *dhcp6_lease_free(sd_dhcp6_lease *lease) {
+        sd_dhcp6_option *dhcp6_option;
+
         if (!lease)
                 return NULL;
 
+        SET_FOREACH(dhcp6_option, lease->vendor_options)
+                dhcp6_vendor_option_free(dhcp6_option);
+
+        set_free(lease->vendor_options);
         free(lease->clientid);
         free(lease->serverid);
         dhcp6_ia_free(lease->ia_na);

@@ -45,6 +45,8 @@ struct sd_dhcp6_lease {
         size_t sntp_count;
         char *fqdn;
         char *captive_portal;
+
+        Set *vendor_options;
 };
 
 int dhcp6_lease_set_clientid(sd_dhcp6_lease *lease, const uint8_t *id, size_t len);
@@ -85,3 +87,8 @@ int dhcp6_lease_new_from_message(
              it = sd_dhcp6_lease_pd_iterator_next(lease))
 #define FOREACH_DHCP6_PD_PREFIX(lease)                                  \
         _FOREACH_DHCP6_PD_PREFIX(lease, UNIQ_T(i, UNIQ))
+
+int dhcp6_lease_add_vendor_option(sd_dhcp6_lease *lease, const uint8_t *optval, size_t optlen, size_t offset);
+int dhcp6_lease_insert_vendor_option(sd_dhcp6_lease *lease, uint16_t subopt, const void *data, size_t sublen, uint32_t enterprise_id);
+sd_dhcp6_option *dhcp6_vendor_option_free(sd_dhcp6_option *option);
+DEFINE_TRIVIAL_CLEANUP_FUNC(sd_dhcp6_option*, dhcp6_vendor_option_free);
