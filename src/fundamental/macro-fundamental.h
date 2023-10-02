@@ -72,7 +72,7 @@
         _noreturn_ void efi_assert(const char *expr, const char *file, unsigned line, const char *function);
 
         #ifdef NDEBUG
-                #define assert(expr)
+                #define assert(expr) ({ if (!(expr)) __builtin_unreachable(); })
                 #define assert_not_reached() __builtin_unreachable()
         #else
                 #define assert(expr) ({ _likely_(expr) ? VOID_0 : efi_assert(#expr, __FILE__, __LINE__, __func__); })
