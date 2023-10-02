@@ -128,7 +128,15 @@ if tpm_has_pcr sha256 12; then
     systemd-cryptsetup attach test-volume "$img" - tpm2-device=auto,headless=1
     systemd-cryptsetup detach test-volume
 
-    rm -f /tmp/pcr.dat
+    # enroll TPM using device key instead of direct access, then verify unlock using TPM
+    tpm2_pcrread -Q -o /tmp/pcr.dat sha256:12
+    CURRENT_PCR_VALUE=$(cat /sys/class/tpm/tpm0/pcr-sha256/12)
+    tpm2_readpublic -c 0x81000001 -o /tmp/srk.pub
+    PASSWORD=passphrase systemd-cryptenroll --tpm2-device-key=/tmp/srk.pub --tpm2-pcrs="12:sha256=$CURRENT_PCR_VALUE" "$img"
+    "$SD_CRYPTSETUP" attach test-volume "$img" - tpm2-device=auto,headless=1
+    "$SD_CRYPTSETUP" detach test-volume
+
+    rm -f /tmp/pcr.dat /tmp/srk.pub
 fi
 
 rm -f "${img:?}"
