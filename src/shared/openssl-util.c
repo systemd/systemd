@@ -624,19 +624,56 @@ int rsa_pkey_to_suitable_key_size(
         return 0;
 }
 
-/* Generate RSA public key from provided "n" and "e" values. Note that if "e" is a number (e.g. uint32_t), it
- * must be provided here big-endian, e.g. wrap it with htobe32(). */
+/* Generate RSA public key from provided "n" and "e" values. Numbers "n" and "e" must be provided here
+ * in big-endian format, e.g. wrap it with htobe32() for uint32_t. */
 int rsa_pkey_from_n_e(const void *n, size_t n_size, const void *e, size_t e_size, EVP_PKEY **ret) {
         _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = NULL;
 
         assert(n);
+        assert(n_size != 0);
         assert(e);
+        assert(e_size != 0);
         assert(ret);
 
-        _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_RSA, NULL);
+#if OPENSSL_VERSION_MAJOR >= 3
+        _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new_from_name(NULL, "RSA", NULL);
         if (!ctx)
                 return log_openssl_errors("Failed to create new EVP_PKEY_CTX");
 
+        if (EVP_PKEY_fromdata_init(ctx) <= 0)
+                return log_openssl_errors("Failed to initialize EVP_PKEY_CTX");
+
+        OSSL_PARAM params[3];
+        _cleanup_free_ void *native_n = NULL, *native_e = NULL;
+
+        uint_fast16_t value = 0x00FF;
+        if (*(uint8_t*)&value == 0) {
+                /* big-endian is native */
+                params[0] = OSSL_PARAM_construct_BN(OSSL_PKEY_PARAM_RSA_N, (void*)n, n_size);
+                params[1] = OSSL_PARAM_construct_BN(OSSL_PKEY_PARAM_RSA_E, (void*)e, e_size);
+        } else {
+                native_n = malloc(n_size);
+                if (!native_n)
+                        return log_oom();
+
+                native_e = malloc(e_size);
+                if (!native_e)
+                        return log_oom();
+
+                for (size_t i = 0, k = n_size - 1; i < n_size; i++, k--)
+                        ((uint8_t*) native_n)[i] = ((const uint8_t*) n)[k];
+
+                for (size_t i = 0, k = e_size - 1; i < e_size; i++, k--)
+                        ((uint8_t*) native_e)[i] = ((const uint8_t*) e)[k];
+
+                params[0] = OSSL_PARAM_construct_BN(OSSL_PKEY_PARAM_RSA_N, native_n, n_size);
+                params[1] = OSSL_PARAM_construct_BN(OSSL_PKEY_PARAM_RSA_E, native_e, e_size);
+        }
+        params[2] = OSSL_PARAM_construct_end();
+
+        if (EVP_PKEY_fromdata(ctx, &pkey, EVP_PKEY_PUBLIC_KEY, params) <= 0)
+                return log_openssl_errors("Failed to create RSA EVP_PKEY");
+#else
         _cleanup_(BN_freep) BIGNUM *bn_n = BN_bin2bn(n, n_size, NULL);
         if (!bn_n)
                 return log_openssl_errors("Failed to create BIGNUM for RSA n");
@@ -645,27 +682,6 @@ int rsa_pkey_from_n_e(const void *n, size_t n_size, const void *e, size_t e_size
         if (!bn_e)
                 return log_openssl_errors("Failed to create BIGNUM for RSA e");
 
-#if OPENSSL_VERSION_MAJOR >= 3
-        if (EVP_PKEY_fromdata_init(ctx) <= 0)
-                return log_openssl_errors("Failed to initialize EVP_PKEY_CTX");
-
-        _cleanup_(OSSL_PARAM_BLD_freep) OSSL_PARAM_BLD *bld = OSSL_PARAM_BLD_new();
-        if (!bld)
-                return log_openssl_errors("Failed to create new OSSL_PARAM_BLD");
-
-        if (!OSSL_PARAM_BLD_push_BN(bld, OSSL_PKEY_PARAM_RSA_N, bn_n))
-                return log_openssl_errors("Failed to set RSA OSSL_PKEY_PARAM_RSA_N");
-
-        if (!OSSL_PARAM_BLD_push_BN(bld, OSSL_PKEY_PARAM_RSA_E, bn_e))
-                return log_openssl_errors("Failed to set RSA OSSL_PKEY_PARAM_RSA_E");
-
-        _cleanup_(OSSL_PARAM_freep) OSSL_PARAM *params = OSSL_PARAM_BLD_to_param(bld);
-        if (!params)
-                return log_openssl_errors("Failed to build RSA OSSL_PARAM");
-
-        if (EVP_PKEY_fromdata(ctx, &pkey, EVP_PKEY_PUBLIC_KEY, params) <= 0)
-                return log_openssl_errors("Failed to create RSA EVP_PKEY");
-#else
         _cleanup_(RSA_freep) RSA *rsa_key = RSA_new();
         if (!rsa_key)
                 return log_openssl_errors("Failed to create new RSA");
@@ -1261,22 +1277,18 @@ static int rsa_pkey_generate_volume_key(
         return 0;
 }
 
-int x509_generate_volume_key(
-                X509 *cert,
+int pkey_generate_volume_key(
+                EVP_PKEY *pkey,
                 void **ret_decrypted_key,
                 size_t *ret_decrypted_key_size,
                 void **ret_saved_key,
                 size_t *ret_saved_key_size) {
 
-        assert(cert);
+        assert(pkey);
         assert(ret_decrypted_key);
         assert(ret_decrypted_key_size);
         assert(ret_saved_key);
         assert(ret_saved_key_size);
-
-        EVP_PKEY *pkey = X509_get0_pubkey(cert);
-        if (!pkey)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to extract public key from X.509 certificate.");
 
 #if OPENSSL_VERSION_MAJOR >= 3
         int type = EVP_PKEY_get_base_id(pkey);
