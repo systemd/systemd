@@ -189,7 +189,7 @@ static inline int __coverity_check_and_return__(int condition) {
 /* We override the glibc assert() here. */
 #undef assert
 #ifdef NDEBUG
-#define assert(expr) do {} while (false)
+#define assert(expr) ({ if (!(expr)) __builtin_unreachable(); })
 #else
 #define assert(expr) assert_message_se(expr, #expr)
 #endif
