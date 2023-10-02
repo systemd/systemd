@@ -240,6 +240,27 @@ int serialize_string_set(FILE *f, const char *key, Set *s) {
         return 1;
 }
 
+int serialize_image_policy(FILE *f, const char *key, const ImagePolicy *p) {
+        _cleanup_free_ char *policy = NULL;
+        int r;
+
+        assert(f);
+        assert(key);
+
+        if (!p)
+                return 0;
+
+        r = image_policy_to_string(p, /* simplify= */ false, &policy);
+        if (r < 0)
+                return r;
+
+        r = serialize_item(f, key, policy);
+        if (r < 0)
+                return r;
+
+        return 1;
+}
+
 int deserialize_read_line(FILE *f, char **ret) {
         _cleanup_free_ char *line = NULL;
         int r;
