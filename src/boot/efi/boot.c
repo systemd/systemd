@@ -38,6 +38,8 @@ DECLARE_NOALLOC_SECTION(
 
 DECLARE_SBAT(SBAT_BOOT_SECTION_TEXT);
 
+typedef struct ConfigEntry ConfigEntry;  /* Forward declaration */
+
 typedef enum LoaderType {
         LOADER_UNDEFINED,
         LOADER_AUTO,
@@ -46,9 +48,10 @@ typedef enum LoaderType {
         LOADER_UNIFIED_LINUX, /* Boot loader spec type #2 entries */
         LOADER_SECURE_BOOT_KEYS,
         _LOADER_TYPE_MAX,
+        LOADER_MORE,
 } LoaderType;
 
-typedef struct {
+struct ConfigEntry {
         char16_t *id;         /* The unique identifier for this entry (typically the filename of the file defining the entry) */
         char16_t *title_show; /* The string to actually display (this is made unique before showing) */
         char16_t *title;      /* The raw (human readable) title string of the entry (not necessarily unique) */
@@ -69,7 +72,8 @@ typedef struct {
         char16_t *path;
         char16_t *current_name;
         char16_t *next_name;
-} ConfigEntry;
+        ConfigEntry *group_entry;
+};
 
 typedef struct {
         ConfigEntry **entries;
@@ -618,6 +622,53 @@ static EFI_STATUS reboot_into_firmware(void) {
         assert_not_reached();
 }
 
+static bool entry_is_visible(ConfigEntry *entry, ConfigEntry *visible_group) {
+        assert(entry);
+
+        if (entry->group_entry == NULL)
+                return true;
+        else if (entry->group_entry == visible_group)
+                return true;
+        return false;
+}
+
+static size_t get_entry_index(Config *config, size_t idx_highlight, ConfigEntry *visible_group) {
+        assert(config);
+
+        size_t idx = 0;
+        size_t remaining = idx_highlight;
+
+        assert(idx_highlight < config->n_entries);
+
+        for (size_t i = 0; i < config->n_entries; i++) {
+
+                if (entry_is_visible(config->entries[i], visible_group)) {
+                        if (remaining == 0)
+                                break;
+                        remaining--;
+                }
+
+                idx++;
+        }
+
+        return idx;
+}
+
+static size_t entries_count(Config *config, ConfigEntry *visible_group) {
+        assert(config);
+
+        size_t count = 0;
+
+        for (size_t i = 0; i < config->n_entries; i++) {
+                ConfigEntry *entry = config->entries[i];
+
+                if (!entry_is_visible(entry, visible_group))
+                        continue;
+                count++;
+        }
+        return count;
+}
+
 static bool menu_run(
                 Config *config,
                 ConfigEntry **chosen_entry,
@@ -640,6 +691,8 @@ static bool menu_run(
         bool exit = false, run = true, firmware_setup = false;
         int64_t console_mode_initial = ST->ConOut->Mode->Mode, console_mode_efivar_saved = config->console_mode_efivar;
         size_t default_efivar_saved = config->idx_default_efivar;
+        ConfigEntry *visible_group = NULL;
+        size_t entry_index = 0, visible_entries = 0;
 
         graphics_mode(false);
         ST->ConIn->Reset(ST->ConIn, false);
@@ -665,58 +718,64 @@ static bool menu_run(
                         /* account for padding+status */
                         visible_max = y_max - 2;
 
+                        visible_entries = entries_count(config, visible_group);
+
                         /* Drawing entries starts at idx_first until idx_last. We want to make
                         * sure that idx_highlight is centered, but not if we are close to the
                         * beginning/end of the entry list. Otherwise we would have a half-empty
                         * screen. */
-                        if (config->n_entries <= visible_max || idx_highlight <= visible_max / 2)
+                        if (visible_entries <= visible_max || idx_highlight <= visible_max / 2)
                                 idx_first = 0;
-                        else if (idx_highlight >= config->n_entries - (visible_max / 2))
-                                idx_first = config->n_entries - visible_max;
+                        else if (idx_highlight >= visible_entries - (visible_max / 2))
+                                idx_first = visible_entries - visible_max;
                         else
                                 idx_first = idx_highlight - (visible_max / 2);
                         idx_last = idx_first + visible_max - 1;
 
                         /* length of the longest entry */
                         line_width = 0;
-                        for (size_t i = 0; i < config->n_entries; i++)
-                                line_width = MAX(line_width, strlen16(config->entries[i]->title_show));
+                        for (size_t i = 0; i < config->n_entries; i++){
+                                if(entry_is_visible(config->entries[i], visible_group))
+                                        line_width = MAX(line_width, strlen16(config->entries[i]->title_show));
+                        }
                         line_width = MIN(line_width + 2 * entry_padding, x_max);
 
                         /* offsets to center the entries on the screen */
                         x_start = (x_max - (line_width)) / 2;
-                        if (config->n_entries < visible_max)
-                                y_start = ((visible_max - config->n_entries) / 2) + 1;
+                        if (visible_entries < visible_max)
+                                y_start = ((visible_max - visible_entries) / 2) + 1;
                         else
                                 y_start = 0;
 
                         /* Put status line after the entry list, but give it some breathing room. */
-                        y_status = MIN(y_start + MIN(visible_max, config->n_entries) + 1, y_max - 1);
+                        y_status = MIN(y_start + MIN(visible_max, visible_entries) + 1, y_max - 1);
 
                         lines = strv_free(lines);
                         clearline = mfree(clearline);
                         separator = mfree(separator);
 
                         /* menu entries title lines */
-                        lines = xnew(char16_t *, config->n_entries + 1);
-
+                        lines = xnew(char16_t *, visible_entries + 1);
+                        size_t idx_lines = 0;
                         for (size_t i = 0; i < config->n_entries; i++) {
+                                if (!entry_is_visible(config->entries[i], visible_group))
+                                        continue;
                                 size_t j, padding;
-
-                                lines[i] = xnew(char16_t, line_width + 1);
+                                lines[idx_lines] = xnew(char16_t, line_width + 1);
                                 padding = (line_width - MIN(strlen16(config->entries[i]->title_show), line_width)) / 2;
 
                                 for (j = 0; j < padding; j++)
-                                        lines[i][j] = ' ';
+                                        lines[idx_lines][j] = ' ';
 
                                 for (size_t k = 0; config->entries[i]->title_show[k] != '\0' && j < line_width; j++, k++)
-                                        lines[i][j] = config->entries[i]->title_show[k];
+                                        lines[idx_lines][j] = config->entries[i]->title_show[k];
 
                                 for (; j < line_width; j++)
-                                        lines[i][j] = ' ';
-                                lines[i][line_width] = '\0';
+                                        lines[idx_lines][j] = ' ';
+                                lines[idx_lines][line_width] = '\0';
+                                idx_lines++;
                         }
-                        lines[config->n_entries] = NULL;
+                        lines[visible_entries] = NULL;
 
                         clearline = xnew(char16_t, x_max + 1);
                         separator = xnew(char16_t, x_max + 1);
@@ -738,7 +797,7 @@ static bool menu_run(
                 }
 
                 if (refresh) {
-                        for (size_t i = idx_first; i <= idx_last && i < config->n_entries; i++) {
+                        for (size_t i = idx_first; i <= idx_last && i < visible_entries; i++) {
                                 print_at(x_start, y_start + i - idx_first,
                                          i == idx_highlight ? COLOR_HIGHLIGHT : COLOR_ENTRY,
                                          lines[i]);
@@ -778,16 +837,16 @@ static bool menu_run(
                         size_t len = strnlen16(status, x_max - 1);
                         size_t x = (x_max - len) / 2;
                         status[len] = '\0';
-                        print_at(0, y_status, COLOR_NORMAL, clearline + x_max - x);
+                        print_at(0, y_status + 1, COLOR_NORMAL, clearline + x_max - x);
                         ST->ConOut->OutputString(ST->ConOut, status);
                         ST->ConOut->OutputString(ST->ConOut, clearline + 1 + x + len);
 
                         len = MIN(MAX(len, line_width) + 2 * entry_padding, x_max);
                         x = (x_max - len) / 2;
-                        print_at(x, y_status - 1, COLOR_NORMAL, separator + x_max - len);
+                        print_at(x, y_status, COLOR_NORMAL, separator + x_max - len);
                 } else {
-                        print_at(0, y_status - 1, COLOR_NORMAL, clearline);
-                        print_at(0, y_status, COLOR_NORMAL, clearline + 1); /* See comment above. */
+                        print_at(0, y_status, COLOR_NORMAL, clearline);
+                        print_at(0, y_status + 1, COLOR_NORMAL, clearline + 1); /* See comment above. */
                 }
 
                 /* Beep several times so that the selected entry can be distinguished. */
@@ -840,7 +899,7 @@ static bool menu_run(
                 case KEYPRESS(0, SCAN_DOWN, 0):
                 case KEYPRESS(0, 0, 'j'):
                 case KEYPRESS(0, 0, 'J'):
-                        if (idx_highlight < config->n_entries-1)
+                        if (idx_highlight < visible_entries-1)
                                 idx_highlight++;
                         break;
 
@@ -854,9 +913,9 @@ static bool menu_run(
 
                 case KEYPRESS(0, SCAN_END, 0):
                 case KEYPRESS(EFI_ALT_PRESSED, 0, '>'):
-                        if (idx_highlight < config->n_entries-1) {
+                        if (idx_highlight < visible_entries-1) {
                                 refresh = true;
-                                idx_highlight = config->n_entries-1;
+                                idx_highlight = visible_entries-1;
                         }
                         break;
 
@@ -869,8 +928,8 @@ static bool menu_run(
 
                 case KEYPRESS(0, SCAN_PAGE_DOWN, 0):
                         idx_highlight += visible_max;
-                        if (idx_highlight > config->n_entries-1)
-                                idx_highlight = config->n_entries-1;
+                        if (idx_highlight > visible_entries-1)
+                                idx_highlight = visible_entries-1;
                         break;
 
                 case KEYPRESS(0, 0, '\n'):
@@ -878,6 +937,15 @@ static bool menu_run(
                 case KEYPRESS(0, SCAN_F3, 0): /* EZpad Mini 4s firmware sends malformed events */
                 case KEYPRESS(0, SCAN_F3, '\r'): /* Teclast X98+ II firmware sends malformed events */
                 case KEYPRESS(0, SCAN_RIGHT, 0):
+                        entry_index = get_entry_index(config, idx_highlight, visible_group);
+                        if (config->entries[entry_index]->type == LOADER_MORE){
+                                if (visible_group == config->entries[entry_index])
+                                        visible_group = NULL;
+                                else
+                                        visible_group = config->entries[entry_index];
+                                new_mode = true;
+                                break;
+                        }
                         exit = true;
                         break;
 
@@ -896,10 +964,16 @@ static bool menu_run(
 
                 case KEYPRESS(0, 0, 'd'):
                 case KEYPRESS(0, 0, 'D'):
-                        if (config->idx_default_efivar != idx_highlight) {
+                        entry_index = get_entry_index(config, idx_highlight, visible_group);
+                        if (config->entries[entry_index]->type == LOADER_MORE){
+                                status = xstrdup16(u"Default boot entry can not be set to a menu.");
+                                break;
+                        }
+
+                        if (config->idx_default_efivar != entry_index) {
                                 free(config->entry_default_efivar);
-                                config->entry_default_efivar = xstrdup16(config->entries[idx_highlight]->id);
-                                config->idx_default_efivar = idx_highlight;
+                                config->entry_default_efivar = xstrdup16(config->entries[entry_index]->id);
+                                config->idx_default_efivar = entry_index;
                                 status = xstrdup16(u"Default boot entry selected.");
                         } else {
                                 config->entry_default_efivar = mfree(config->entry_default_efivar);
@@ -922,9 +996,15 @@ static bool menu_run(
 
                 case KEYPRESS(0, 0, 'e'):
                 case KEYPRESS(0, 0, 'E'):
+                        entry_index = get_entry_index(config, idx_highlight, visible_group);
+                        if (config->entries[entry_index]->type == LOADER_MORE){
+                                status = xstrdup16(u"Menu entries cannot be edited.");
+                                break;
+                        }
+
                         /* only the options of configured entries can be edited */
                         if (!config->editor ||
-                            !IN_SET(config->entries[idx_highlight]->type, LOADER_EFI, LOADER_LINUX, LOADER_UNIFIED_LINUX)) {
+                            !IN_SET(config->entries[entry_index]->type, LOADER_EFI, LOADER_LINUX, LOADER_UNIFIED_LINUX)) {
                                 status = xstrdup16(u"Entry does not support editing the command line.");
                                 break;
                         }
@@ -932,9 +1012,9 @@ static bool menu_run(
                         /* Unified kernels that are signed as a whole will not accept command line options
                          * when secure boot is enabled unless there is none embedded in the image. Do not try
                          * to pretend we can edit it to only have it be ignored. */
-                        if (config->entries[idx_highlight]->type == LOADER_UNIFIED_LINUX &&
+                        if (config->entries[entry_index]->type == LOADER_UNIFIED_LINUX &&
                             secure_boot_enabled() &&
-                            config->entries[idx_highlight]->options) {
+                            config->entries[entry_index]->options) {
                                 status = xstrdup16(u"Entry not editable in SecureBoot mode.");
                                 break;
                         }
@@ -945,7 +1025,7 @@ static bool menu_run(
                          * Since we cannot paint the last character of the edit line, we simply start
                          * at x-offset 1 for symmetry. */
                         print_at(1, y_status, COLOR_EDIT, clearline + 2);
-                        exit = line_edit(&config->entries[idx_highlight]->options, x_max - 2, y_status);
+                        exit = line_edit(&config->entries[entry_index]->options, x_max - 2, y_status);
                         print_at(1, y_status, COLOR_NORMAL, clearline + 2);
 
                         /* The options string was now edited, hence we have to pass it to the invoked
@@ -1048,8 +1128,8 @@ static bool menu_run(
                 if (!refresh && idx_highlight != idx_highlight_prev)
                         highlight = true;
         }
-
-        *chosen_entry = config->entries[idx_highlight];
+        entry_index = get_entry_index(config, idx_highlight, visible_group);
+        *chosen_entry = config->entries[entry_index];
 
         /* Update EFI vars after we left the menu to reduce NVRAM writes. */
 
@@ -1550,6 +1630,7 @@ static void config_entry_add_type1(
         entry->device = device;
         entry->id = xstrdup16(file);
         strtolower16(entry->id);
+        entry->group_entry = NULL;
 
         config_add_entry(config, entry);
 
@@ -1807,13 +1888,18 @@ static bool entries_unique(ConfigEntry **entries, bool *unique, size_t n_entries
         assert(entries);
         assert(unique);
 
-        for (size_t i = 0; i < n_entries; i++)
+        for (size_t i = 0; i < n_entries; i++){
+                if (entries[i]->type == LOADER_MORE)
+                        continue;
                 for (size_t k = i + 1; k < n_entries; k++) {
+                        if (entries[k]->type == LOADER_MORE)
+                                continue;
                         if (!streq16(entries[i]->title_show, entries[k]->title_show))
                                 continue;
 
                         is_unique = unique[i] = unique[k] = false;
                 }
+        }
 
         return is_unique;
 }
@@ -1876,6 +1962,90 @@ static void config_title_generate(Config *config) {
                 _cleanup_free_ char16_t *t = config->entries[i]->title_show;
                 config->entries[i]->title_show = xasprintf("%ls (%ls)", t, config->entries[i]->id);
         }
+}
+
+typedef struct {
+        size_t start_index;
+        size_t end_index;
+} Indices;
+
+static void config_copy_entries(Config *config, ConfigEntry **entries, size_t start_index, size_t end_index, bool has_group_entry) {
+        assert(config);
+        assert(entries);
+        _cleanup_(config_entry_freep) ConfigEntry *group_entry = NULL;
+
+        if (config->idx_default >= start_index && config->idx_default <= end_index)
+                        config_add_entry(config, entries[config->idx_default]);
+        if (has_group_entry){
+                group_entry = xnew(ConfigEntry, 1);
+                *group_entry = (ConfigEntry){ .title = xstrdup16(u"More..."), .group_entry = NULL, .type = LOADER_MORE, .id = xstrdup16(u"More...") };
+                config_add_entry(config, group_entry);
+                TAKE_PTR(group_entry);
+        }
+        for (size_t i = start_index; i <= end_index; i++) {
+                if (i == config->idx_default)
+                        continue;
+                config_add_entry(config, entries[i]);
+                config->entries[config->n_entries - 1]->group_entry = group_entry;
+        }
+}
+
+static void config_create_groups(Config *config, Indices *indices, size_t group_count){
+        assert(config);
+
+        ConfigEntry **old_entries = config->entries;
+        ConfigEntry **entries = NULL;
+        size_t old_n_entries = config->n_entries;
+        config->entries = entries;
+        config->n_entries = 0;
+        TAKE_PTR(entries);
+        config_copy_entries(config, old_entries, 0, indices[0].start_index - 1, false);
+        size_t i = 0;
+        for (; i < group_count; i++) {
+                config_copy_entries(config, old_entries, indices[i].start_index, indices[i].end_index, true);
+                if(i+1 < group_count)
+                        config_copy_entries(config, old_entries, indices[i].end_index+1, indices[i+1].start_index-1, false);
+        }
+        if (indices[i-1].end_index != old_n_entries-1)
+                config_copy_entries(config, old_entries, indices[i-1].end_index+1, old_n_entries - 1, false);
+        free(old_entries);
+}
+
+static void config_group_entries(Config *config){
+        assert(config);
+
+        size_t group_count = 0;
+        Indices *indices = NULL;
+        for(size_t i = 0; i < config->n_entries; i++){
+                if (config->entries[i]->type == LOADER_MORE)
+                        continue;
+                if(config->entries[i]->sort_key == NULL)
+                        continue;
+                size_t k = i;
+                for(; k < config->n_entries; k++){
+                        if(config->entries[k]->type == LOADER_MORE)
+                                break;
+                        if(config->entries[k]->sort_key == NULL)
+                                break;
+                        if(strcmp(config->entries[i]->sort_key,
+                                  config->entries[k]->sort_key) == 0)
+                                continue;
+                        break;
+                }
+                if(k>=i+2){
+                        indices = xrealloc(
+                                        indices,
+                                        sizeof(Indices) * group_count,
+                                        sizeof(Indices) * (group_count + 1));
+                        indices[group_count].start_index = i+1;
+                        indices[group_count++].end_index = k-1;
+                        i = k-1;
+                }
+        }
+        if(group_count == 0)
+                return;
+        config_create_groups(config, indices, group_count);
+        free(indices);
 }
 
 static bool is_sd_boot(EFI_FILE *root_dir, const char16_t *loader_path) {
@@ -2469,13 +2639,19 @@ static void config_write_entries_to_variable(Config *config) {
 
         assert(config);
 
-        for (size_t i = 0; i < config->n_entries; i++)
+        for (size_t i = 0; i < config->n_entries; i++){
+                if (config->entries[i]->type == LOADER_MORE)
+                        continue;
                 sz += strsize16(config->entries[i]->id);
+        }
 
         p = buffer = xmalloc(sz);
 
-        for (size_t i = 0; i < config->n_entries; i++)
+        for (size_t i = 0; i < config->n_entries; i++){
+                if (config->entries[i]->type == LOADER_MORE)
+                        continue;
                 p = mempcpy(p, config->entries[i]->id, strsize16(config->entries[i]->id));
+        }
 
         assert(p == buffer + sz);
 
@@ -2655,12 +2831,15 @@ static void config_load_all_entries(
         if (config->n_entries == 0)
                 return;
 
+        /* select entry by configured pattern or EFI LoaderDefaultEntry= variable */
+        config_default_entry_select(config);
+
+        /* create the menu hierarchy */
+        config_group_entries(config);
+
         config_write_entries_to_variable(config);
 
         config_title_generate(config);
-
-        /* select entry by configured pattern or EFI LoaderDefaultEntry= variable */
-        config_default_entry_select(config);
 }
 
 static EFI_STATUS discover_root_dir(EFI_LOADED_IMAGE_PROTOCOL *loaded_image, EFI_FILE **ret_dir) {
