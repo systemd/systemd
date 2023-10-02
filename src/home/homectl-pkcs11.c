@@ -142,34 +142,22 @@ int identity_add_token_pin(JsonVariant **v, const char *pin) {
         return 1;
 }
 
-static int acquire_pkcs11_certificate(
-                const char *uri,
-                const char *askpw_friendly_name,
-                const char *askpw_icon_name,
-                X509 **ret_cert,
-                char **ret_pin_used) {
 #if HAVE_P11KIT
-        return pkcs11_acquire_certificate(uri, askpw_friendly_name, askpw_icon_name, ret_cert, ret_pin_used);
-#else
-        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                               "PKCS#11 tokens not supported on this build.");
-#endif
-}
 
 int identity_add_pkcs11_key_data(JsonVariant **v, const char *uri) {
         _cleanup_(erase_and_freep) void *decrypted_key = NULL, *saved_key = NULL;
         _cleanup_(erase_and_freep) char *pin = NULL;
         size_t decrypted_key_size, saved_key_size;
-        _cleanup_(X509_freep) X509 *cert = NULL;
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = NULL;
         int r;
 
         assert(v);
 
-        r = acquire_pkcs11_certificate(uri, "home directory operation", "user-home", &cert, &pin);
+        r = pkcs11_acquire_public_key(uri, "home directory operation", "user-home", &pkey, &pin);
         if (r < 0)
                 return r;
 
-        r = x509_generate_volume_key(cert, &decrypted_key, &decrypted_key_size, &saved_key, &saved_key_size);
+        r = pkey_generate_volume_key(pkey, &decrypted_key, &decrypted_key_size, &saved_key, &saved_key_size);
         if (r < 0)
                 return r;
 
@@ -196,3 +184,5 @@ int identity_add_pkcs11_key_data(JsonVariant **v, const char *uri) {
 
         return 0;
 }
+
+#endif
