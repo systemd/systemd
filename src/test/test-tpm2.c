@@ -1070,8 +1070,91 @@ static void check_get_or_create_srk(Tpm2Context *c) {
         assert_se(index == index2);
 }
 
+#if HAVE_OPENSSL && OPENSSL_VERSION_MAJOR >= 3
+static void calculate_seal_and_unseal(
+                Tpm2Context *c,
+                TPM2_HANDLE parent_index,
+                const TPM2B_PUBLIC *parent_public) {
+
+        _cleanup_free_ char *secret_string = NULL;
+        assert_se(asprintf(&secret_string, "The classified documents are in room %x", parent_index) > 0);
+        size_t secret_size = strlen(secret_string) + 1;
+
+        _cleanup_free_ void *blob = NULL;
+        size_t blob_size = 0;
+        _cleanup_free_ void *serialized_parent = NULL;
+        size_t serialized_parent_size;
+        assert_se(tpm2_calculate_seal(
+                        parent_index,
+                        parent_public,
+                        /* attributes= */ NULL,
+                        secret_string, secret_size,
+                        /* policy= */ NULL,
+                        /* pin= */ NULL,
+                        /* ret_secret= */ NULL, /* ret_secret_size= */ 0,
+                        &blob, &blob_size,
+                        &serialized_parent, &serialized_parent_size) >= 0);
+
+        _cleanup_free_ void *unsealed_secret = NULL;
+        size_t unsealed_secret_size;
+        assert_se(tpm2_unseal(
+                        c,
+                        /* hash_pcr_mask= */ 0,
+                        /* pcr_bank= */ 0,
+                        /* pubkey= */ NULL, /* pubkey_size= */ 0,
+                        /* pubkey_pcr_mask= */ 0,
+                        /* signature= */ NULL,
+                        /* pin= */ NULL,
+                        /* primary_alg= */ 0,
+                        blob, blob_size,
+                        /* known_policy_hash= */ NULL, /* known_policy_hash_size= */ 0,
+                        serialized_parent, serialized_parent_size,
+                        &unsealed_secret, &unsealed_secret_size) >= 0);
+
+        assert_se(memcmp_nn(secret_string, secret_size, unsealed_secret, unsealed_secret_size) == 0);
+
+        char unsealed_string[unsealed_secret_size];
+        assert_se(snprintf(unsealed_string, unsealed_secret_size, "%s", (char*) unsealed_secret) == (int) unsealed_secret_size - 1);
+        log_debug("Unsealed secret is: %s", unsealed_string);
+}
+
+static int check_calculate_seal(Tpm2Context *c) {
+        assert(c);
+        int r;
+
+        _cleanup_free_ TPM2B_PUBLIC *srk_public = NULL;
+        assert_se(tpm2_get_srk(c, NULL, &srk_public, NULL, NULL, NULL) >= 0);
+        calculate_seal_and_unseal(c, TPM2_SRK_HANDLE, srk_public);
+
+        TPMI_ALG_ASYM test_algs[] = { TPM2_ALG_RSA, TPM2_ALG_ECC, };
+        for (unsigned i = 0; i < ELEMENTSOF(test_algs); i++) {
+                TPMI_ALG_ASYM alg = test_algs[i];
+
+                TPM2B_PUBLIC template = { .size = sizeof(TPMT_PUBLIC), };
+                assert_se(tpm2_get_srk_template(c, alg, &template.publicArea) >= 0);
+
+                _cleanup_free_ TPM2B_PUBLIC *public = NULL;
+                _cleanup_(tpm2_handle_freep) Tpm2Handle *handle = NULL;
+                assert_se(tpm2_create_primary(c, NULL, &template, NULL, &public, &handle) >= 0);
+
+                /* Once our minimum libtss2-esys version is 2.4.0 or later, this can assume
+                 * tpm2_index_from_handle() should always work. */
+                TPM2_HANDLE index;
+                r = tpm2_index_from_handle(c, handle, &index);
+                if (r == -EOPNOTSUPP)
+                        return log_tests_skipped("libtss2-esys version too old to support tpm2_index_from_handle()");
+                assert_se(r >= 0);
+
+                calculate_seal_and_unseal(c, index, public);
+        }
+
+        return 0;
+}
+#endif /* HAVE_OPENSSL && OPENSSL_VERSION_MAJOR >= 3 */
+
 TEST_RET(tests_which_require_tpm) {
         _cleanup_(tpm2_context_unrefp) Tpm2Context *c = NULL;
+        int r = 0;
 
         if (tpm2_context_new(NULL, &c) < 0)
                 return log_tests_skipped("Could not find TPM");
@@ -1082,7 +1165,11 @@ TEST_RET(tests_which_require_tpm) {
         check_get_or_create_srk(c);
         check_srk_templates(c);
 
-        return 0;
+#if HAVE_OPENSSL && OPENSSL_VERSION_MAJOR >= 3 /* calculating sealed object requires openssl >= 3 */
+        r = check_calculate_seal(c);
+#endif
+
+        return r;
 }
 
 #endif /* HAVE_TPM2 */
