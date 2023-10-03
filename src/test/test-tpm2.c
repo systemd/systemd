@@ -950,15 +950,8 @@ TEST(calculate_policy_pcr) {
         assert_se(digest_check(&d, "7481fd1b116078eb3ac2456e4ad542c9b46b9b8eb891335771ca8e7c8f8e4415"));
 }
 
-TEST(tpm_required_tests) {
-        int r;
-
-        _cleanup_(tpm2_context_unrefp) Tpm2Context *c = NULL;
-        r = tpm2_context_new(NULL, &c);
-        if (r < 0) {
-                log_tests_skipped("Could not find TPM");
-                return;
-        }
+static void check_test_parms(Tpm2Context *c) {
+        assert(c);
 
         TPMU_PUBLIC_PARMS parms = {
                 .symDetail.sym = {
@@ -977,6 +970,10 @@ TEST(tpm_required_tests) {
 
         /* Test with valid parms */
         assert_se(tpm2_test_parms(c, TPM2_ALG_SYMCIPHER, &parms));
+}
+
+static void check_supports_alg(Tpm2Context *c) {
+        assert(c);
 
         /* Test invalid algs */
         assert_se(!tpm2_supports_alg(c, TPM2_ALG_ERROR));
@@ -986,6 +983,10 @@ TEST(tpm_required_tests) {
         assert_se(tpm2_supports_alg(c, TPM2_ALG_RSA));
         assert_se(tpm2_supports_alg(c, TPM2_ALG_AES));
         assert_se(tpm2_supports_alg(c, TPM2_ALG_CFB));
+}
+
+static void check_supports_command(Tpm2Context *c) {
+        assert(c);
 
         /* Test invalid commands. TPM specification Part 2 ("Structures") section "TPM_CC (Command Codes)"
          * states bits 31:30 and 28:16 are reserved and must be 0. */
@@ -1002,6 +1003,45 @@ TEST(tpm_required_tests) {
         assert_se(tpm2_supports_command(c, TPM2_CC_Create));
         assert_se(tpm2_supports_command(c, TPM2_CC_CreatePrimary));
         assert_se(tpm2_supports_command(c, TPM2_CC_Unseal));
+}
+
+static void check_get_or_create_srk(Tpm2Context *c) {
+        _cleanup_free_ TPM2B_PUBLIC *public = NULL;
+        _cleanup_free_ TPM2B_NAME *name = NULL, *qname = NULL;
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *handle = NULL;
+        TPM2_HANDLE index;
+        assert_se(tpm2_get_or_create_srk(c, NULL, &public, &name, &qname, &handle) >= 0);
+        assert_se(public2 && name2 && qname2 && handle2);
+        assert_se(tpm2_index_from_handle(c, handle, &index) >= 0);
+
+        assert_se(index == TPM2_SRK_HANDLE);
+
+        _cleanup_free_ TPM2B_PUBLIC *public2 = NULL;
+        _cleanup_free_ TPM2B_NAME *name2 = NULL, *qname2 = NULL;
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *handle2 = NULL;
+        TPM2_HANDLE index2;
+        assert_se(tpm2_get_srk(c, NULL, &public2, &name2, &qname2, &handle2) >= 0);
+        assert_se(public2 && name2 && qname2 && handle2);
+        assert_se(tpm2_index_from_handle(c, handle2, &index2) >= 0);
+
+        assert_se(memcmp_nn(public, sizeof(*public), public2, sizeof(*public2)) == 0);
+        assert_se(memcmp_nn(name->name, name->size, name2->name, name2->size) == 0);
+        assert_se(memcmp_nn(qname->name, qname->size, qname2->name, qname2->size) == 0);
+        assert_se(index == index2);
+}
+
+TEST_RET(tests_which_require_tpm) {
+        _cleanup_(tpm2_context_unrefp) Tpm2Context *c = NULL;
+
+        if (tpm2_context_new(NULL, &c) < 0)
+                return log_tests_skipped("Could not find TPM");
+
+        check_test_parms(c);
+        check_supports_alg(c);
+        check_supports_command(c);
+        check_get_or_create_srk(c);
+
+        return 0;
 }
 
 #endif /* HAVE_TPM2 */
