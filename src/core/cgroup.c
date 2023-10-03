@@ -731,6 +731,23 @@ int cgroup_add_device_allow(CGroupContext *c, const char *dev, const char *mode)
         return 0;
 }
 
+int cgroup_add_or_update_device_allow(CGroupContext *c, const char *dev, const char *mode) {
+        assert(c);
+        assert(dev);
+        assert(isempty(mode) || in_charset(mode, "rwm"));
+
+        LIST_FOREACH(device_allow, b, c->device_allow)
+                if (path_equal(b->path, dev)) {
+                        b->r = isempty(mode) || strchr(mode, 'r');
+                        b->w = isempty(mode) || strchr(mode, 'w');
+                        b->m = isempty(mode) || strchr(mode, 'm');
+
+                        return 0;
+                }
+
+        return cgroup_add_device_allow(c, dev, mode);
+}
+
 int cgroup_add_bpf_foreign_program(CGroupContext *c, uint32_t attach_type, const char *bpffs_path) {
         CGroupBPFForeignProgram *p;
         _cleanup_free_ char *d = NULL;
