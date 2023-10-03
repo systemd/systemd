@@ -75,7 +75,7 @@ elif [ -f /run/testsuite82.touch2 ]; then
     mount
 
     # Restart the unit that is not supposed to survive
-    systemd-run --service-type=exec --unit=testsuite-82-nosurvive.service sleep infinity
+    systemd-run --collect --service-type=exec --unit=testsuite-82-nosurvive.service sleep infinity
 
     # Now issue the soft reboot. We should be right back soon.
     touch /run/testsuite82.touch3
@@ -131,7 +131,7 @@ elif [ -f /run/testsuite82.touch ]; then
     mount --bind / /run/nextroot/original-root
 
     # Restart the unit that is not supposed to survive
-    systemd-run --service-type=exec --unit=testsuite-82-nosurvive.service sleep infinity
+    systemd-run --collect --service-type=exec --unit=testsuite-82-nosurvive.service sleep infinity
 
     # Now issue the soft reboot. We should be right back soon.
     touch /run/testsuite82.touch2
@@ -170,8 +170,8 @@ EOF
     # This sets DefaultDependencies=no so that they remain running until the very end, and
     # IgnoreOnIsolate=yes so that they aren't stopped via the "testsuite.target" isolation we do on next boot,
     # and will be killed by the final sigterm/sigkill spree.
-    systemd-run --service-type=notify -p DefaultDependencies=no -p IgnoreOnIsolate=yes --unit=testsuite-82-nosurvive-sigterm.service "$survive_sigterm"
-    systemd-run --service-type=exec -p DefaultDependencies=no -p IgnoreOnIsolate=yes --unit=testsuite-82-nosurvive.service sleep infinity
+    systemd-run --collect --service-type=notify -p DefaultDependencies=no -p IgnoreOnIsolate=yes --unit=testsuite-82-nosurvive-sigterm.service "$survive_sigterm"
+    systemd-run --collect --service-type=exec -p DefaultDependencies=no -p IgnoreOnIsolate=yes --unit=testsuite-82-nosurvive.service sleep infinity
 
     # Configure these transient units to survive the soft reboot - they will not conflict with shutdown.target
     # and it will be ignored on the isolate that happens in the next boot. The first will use argv[0][0] =
