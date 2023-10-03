@@ -289,6 +289,39 @@ static int tpm2_cache_capabilities(Tpm2Context *c) {
                 current_cc = TPMA_CC_TO_TPM2_CC(commands.commandAttributes[commands.count - 1]) + 1;
         }
 
+        /* Cache the ECC curves. The spec isn't actually clear if ECC curves can be added/removed
+         * while running, but that would be crazy, so let's hope it is not possible. */
+        TPM2_ECC_CURVE current_ecc_curve = TPM2_ECC_NONE;
+        for (;;) {
+                r = tpm2_get_capability(
+                                c,
+                                TPM2_CAP_ECC_CURVES,
+                                current_ecc_curve,
+                                TPM2_MAX_ECC_CURVES,
+                                &capability);
+                if (r < 0)
+                        return r;
+
+                TPML_ECC_CURVE ecc_curves = capability.eccCurves;
+
+                /* ECC support isn't required */
+                if (ecc_curves.count == 0)
+                        break;
+
+                if (!GREEDY_REALLOC_APPEND(
+                                c->capability_ecc_curves,
+                                c->n_capability_ecc_curves,
+                                ecc_curves.eccCurves,
+                                ecc_curves.count))
+                        return log_oom_debug();
+
+                if (r == 0)
+                        break;
+
+                /* Set current_ecc_curve to index after last ecc curve the TPM provided */
+                current_ecc_curve = ecc_curves.eccCurves[ecc_curves.count - 1] + 1;
+        }
+
         /* Cache the PCR capabilities, which are safe to cache, as the only way they can change is
          * TPM2_PCR_Allocate(), which changes the allocation after the next _TPM_Init(). If the TPM is
          * reinitialized while we are using it, all our context and sessions will be invalid, so we can
@@ -358,23 +391,16 @@ bool tpm2_supports_command(Tpm2Context *c, TPM2_CC command) {
         return tpm2_get_capability_command(c, command, NULL);
 }
 
-/* Returns 1 if the TPM supports the ECC curve, 0 if not, or < 0 for any error. */
-static int tpm2_supports_ecc_curve(Tpm2Context *c, TPM2_ECC_CURVE curve) {
-        TPMU_CAPABILITIES capability;
-        int r;
+/* Returns true if the TPM supports the ECC curve, otherwise false. */
+bool tpm2_supports_ecc_curve(Tpm2Context *c, TPM2_ECC_CURVE ecc_curve) {
+        assert(c);
 
-        /* The spec explicitly states the TPM2_ECC_CURVE should be cast to uint32_t. */
-        r = tpm2_get_capability(c, TPM2_CAP_ECC_CURVES, (uint32_t) curve, 1, &capability);
-        if (r < 0)
-                return r;
+        FOREACH_ARRAY(curve, c->capability_ecc_curves, c->n_capability_ecc_curves)
+                if (*curve == ecc_curve)
+                        return true;
 
-        TPML_ECC_CURVE eccCurves = capability.eccCurves;
-        if (eccCurves.count == 0 || eccCurves.eccCurves[0] != curve) {
-                log_debug("TPM does not support ECC curve 0x%02" PRIx16 ".", curve);
-                return 0;
-        }
-
-        return 1;
+        log_debug("TPM does not support ECC curve 0x%" PRIx16 ".", ecc_curve);
+        return false;
 }
 
 /* Query the TPM for populated handles.
@@ -402,6 +428,8 @@ static int tpm2_get_capability_handles(
         assert(ret_handles);
         assert(ret_n_handles);
 
+        max = MIN(max, UINT32_MAX);
+
         while (max > 0) {
                 TPMU_CAPABILITIES capability;
                 r = tpm2_get_capability(c, TPM2_CAP_HANDLES, current, (uint32_t) max, &capability);
@@ -417,13 +445,10 @@ static int tpm2_get_capability_handles(
                 if (n_handles > SIZE_MAX - handle_list.count)
                         return log_oom_debug();
 
-                if (!GREEDY_REALLOC(handles, n_handles + handle_list.count))
+                if (!GREEDY_REALLOC_APPEND(handles, n_handles, handle_list.handle, handle_list.count))
                         return log_oom_debug();
 
-                memcpy_safe(&handles[n_handles], handle_list.handle, sizeof(handles[0]) * handle_list.count);
-
                 max -= handle_list.count;
-                n_handles += handle_list.count;
 
                 /* Update current to the handle index after the last handle in the list. */
                 current = handles[n_handles - 1] + 1;
@@ -523,6 +548,7 @@ static Tpm2Context *tpm2_context_free(Tpm2Context *c) {
 
         c->capability_algorithms = mfree(c->capability_algorithms);
         c->capability_commands = mfree(c->capability_commands);
+        c->capability_ecc_curves = mfree(c->capability_ecc_curves);
 
         return mfree(c);
 }
@@ -732,7 +758,8 @@ int tpm2_index_to_handle(
 
         assert(c);
 
-        /* Let's restrict this, at least for now, to allow only some handle types. */
+        /* Only allow only some handle types. The man page for systemd-cryptenroll states only persistent,
+         * transient, and nv handle indexes are allowed, and it relies on this to enforce that. */
         switch (TPM2_HANDLE_TYPE(index)) {
         case TPM2_HT_PERSISTENT:
         case TPM2_HT_NV_INDEX:
@@ -2854,6 +2881,7 @@ static int tpm2_make_encryption_session(
         int r;
 
         assert(c);
+        assert(primary);
         assert(ret_session);
 
         log_debug("Starting HMAC encryption session.");
@@ -2869,7 +2897,7 @@ static int tpm2_make_encryption_session(
         rc = sym_Esys_StartAuthSession(
                         c->esys_context,
                         primary->esys_handle,
-                        bind_key->esys_handle,
+                        bind_key ? bind_key->esys_handle : ESYS_TR_NONE,
                         ESYS_TR_NONE,
                         ESYS_TR_NONE,
                         ESYS_TR_NONE,
@@ -3904,6 +3932,7 @@ static int tpm2_deserialize(
 }
 
 int tpm2_seal(Tpm2Context *c,
+              uint32_t handle_index,
               const TPM2B_DIGEST *policy,
               const char *pin,
               void **ret_secret,
@@ -3977,18 +4006,38 @@ int tpm2_seal(Tpm2Context *c,
         _cleanup_(tpm2_handle_freep) Tpm2Handle *primary_handle = NULL;
         if (ret_srk_buf) {
                 _cleanup_(Esys_Freep) TPM2B_PUBLIC *primary_public = NULL;
-                r = tpm2_get_or_create_srk(
-                                c,
-                                /* session= */ NULL,
-                                &primary_public,
-                                /* ret_name= */ NULL,
-                                /* ret_qname= */ NULL,
-                                &primary_handle);
-                if (r < 0)
-                        return r;
+
+                if (IN_SET(handle_index, 0, TPM2_SRK_HANDLE)) {
+                        r = tpm2_get_or_create_srk(
+                                        c,
+                                        /* session= */ NULL,
+                                        &primary_public,
+                                        /* ret_name= */ NULL,
+                                        /* ret_qname= */ NULL,
+                                        &primary_handle);
+                        if (r < 0)
+                                return r;
+                } else { /* We do NOT automatically create anything other than the SRK */
+                        r = tpm2_index_to_handle(
+                                        c,
+                                        handle_index,
+                                        /* session= */ NULL,
+                                        &primary_public,
+                                        /* ret_name= */ NULL,
+                                        /* ret_qname= */ NULL,
+                                        &primary_handle);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                return log_debug_errno(SYNTHETIC_ERRNO(ENOENT),
+                                                       "No handle found at index 0x%" PRIx32, handle_index);
+                }
 
                 primary_alg = primary_public->publicArea.type;
         } else {
+                if (handle_index != 0)
+                        log_debug("Using primary alg sealing, but handle index also provided; ignoring handle index.");
+
                 /* TODO: force all callers to provide ret_srk_buf, so we can stop sealing with the legacy templates. */
                 primary_alg = TPM2_ALG_ECC;
 
@@ -4021,7 +4070,7 @@ int tpm2_seal(Tpm2Context *c,
         }
 
         _cleanup_(tpm2_handle_freep) Tpm2Handle *encryption_session = NULL;
-        r = tpm2_make_encryption_session(c, primary_handle, &TPM2_HANDLE_NONE, &encryption_session);
+        r = tpm2_make_encryption_session(c, primary_handle, /* bind_key= */ NULL, &encryption_session);
         if (r < 0)
                 return r;
 
@@ -4081,7 +4130,7 @@ int tpm2_seal(Tpm2Context *c,
 
 #define RETRY_UNSEAL_MAX 30u
 
-int tpm2_unseal(const char *device,
+int tpm2_unseal(Tpm2Context *c,
                 uint32_t hash_pcr_mask,
                 uint16_t pcr_bank,
                 const void *pubkey,
@@ -4112,10 +4161,6 @@ int tpm2_unseal(const char *device,
         assert(TPM2_PCR_MASK_VALID(hash_pcr_mask));
         assert(TPM2_PCR_MASK_VALID(pubkey_pcr_mask));
 
-        r = dlopen_tpm2();
-        if (r < 0)
-                return r;
-
         /* So here's what we do here: We connect to the TPM2 chip. As we do when sealing we generate a
          * "primary" key on the TPM2 chip, with the same parameters as well as a PCR-bound policy session.
          * Given we pass the same parameters, this will result in the same "primary" key, and same policy
@@ -4131,11 +4176,6 @@ int tpm2_unseal(const char *device,
         r = tpm2_unmarshal_blob(blob, blob_size, &public, &private);
         if (r < 0)
                 return log_debug_errno(r, "Could not extract parts from blob: %m");
-
-        _cleanup_(tpm2_context_unrefp) Tpm2Context *c = NULL;
-        r = tpm2_context_new(device, &c);
-        if (r < 0)
-                return r;
 
         /* Older code did not save the pcr_bank, and unsealing needed to detect the best pcr bank to use,
          * so we need to handle that legacy situation. */

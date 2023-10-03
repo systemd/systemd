@@ -133,6 +133,7 @@ int enroll_tpm2(struct crypt_device *cd,
                 const void *volume_key,
                 size_t volume_key_size,
                 const char *device,
+                uint32_t handle,
                 Tpm2PCRValue *hash_pcr_values,
                 size_t n_hash_pcr_values,
                 const char *pubkey_path,
@@ -252,6 +253,7 @@ int enroll_tpm2(struct crypt_device *cd,
                 return r;
 
         r = tpm2_seal(tpm2_context,
+                      handle,
                       &policy,
                       pin_str,
                       &secret, &secret_size,
@@ -279,7 +281,7 @@ int enroll_tpm2(struct crypt_device *cd,
                 size_t secret2_size;
 
                 log_debug("Unsealing for verification...");
-                r = tpm2_unseal(device,
+                r = tpm2_unseal(tpm2_context,
                                 hash_pcr_mask,
                                 hash_pcr_bank,
                                 pubkey, pubkey_size,
