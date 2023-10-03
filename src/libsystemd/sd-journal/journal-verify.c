@@ -924,10 +924,9 @@ int journal_file_verify(
                         goto fail;
                 }
 
-        if (!JOURNAL_HEADER_SEALED_CONTINOUS(f->header)) {
+        if (!JOURNAL_HEADER_SEALED_CONTINOUS(f->header))
                 warning(p,
                         "This log file was sealed with an old journald version where the sequence of seals might not be continous. We cannot guarantee completeness.");
-        }
 
 
         /* First iteration: we go through all objects, verify the
@@ -1131,7 +1130,7 @@ int journal_file_verify(
                         }
 
                         if (JOURNAL_HEADER_SEALED_CONTINOUS(f->header)) {
-                                if (n_tags != 0 && (o->tag.epoch) != last_epoch + 1) {
+                                if (n_tags != 0 && le64toh(o->tag.epoch) != last_epoch + 1) {
                                         error(p,
                                               "Epoch sequence not continous (%"PRIu64" vs %"PRIu64")",
                                               le64toh(o->tag.epoch),
