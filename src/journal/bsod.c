@@ -49,14 +49,15 @@ static int help(void) {
         return 0;
 }
 
-static int acquire_first_emergency_log_message(char **ret) {
+static int acquire_first_emergency_log_message(char **ret_message, char **ret_message_id) {
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
-        _cleanup_free_ char *message = NULL;
+        _cleanup_free_ char *message = NULL, *message_id = NULL;
         const void *d;
         size_t l;
         int r;
 
-        assert(ret);
+        assert(ret_message);
+        assert(ret_message_id);
 
         r = sd_journal_open(&j, SD_JOURNAL_LOCAL_ONLY);
         if (r < 0)
@@ -88,7 +89,8 @@ static int acquire_first_emergency_log_message(char **ret) {
 
                 if (!arg_continuous) {
                         log_debug("No emergency level entries in the journal");
-                        *ret = NULL;
+                        *ret_message = NULL;
+                        *ret_message_id = NULL;
                         return 0;
                 }
 
@@ -105,7 +107,21 @@ static int acquire_first_emergency_log_message(char **ret) {
         if (!message)
                 return log_oom();
 
-        *ret = TAKE_PTR(message);
+        r = sd_journal_get_data(j, "MESSAGE_ID", &d, &l);
+        if (r == -ENODATA) {
+                *ret_message = TAKE_PTR(message);
+                *ret_message_id = NULL;
+                return 0;
+        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to read message ID from journal: %m");
+
+        message_id = memdup_suffix0((const char*)d + STRLEN("MESSAGE_ID="), l - STRLEN("MESSAGE_ID="));
+        if (!message_id)
+                return log_oom();
+
+        *ret_message = TAKE_PTR(message);
+        *ret_message_id = TAKE_PTR(message_id);
 
         return 0;
 }
@@ -130,7 +146,7 @@ static int find_next_free_vt(int fd, int *ret_free_vt, int *ret_original_vt) {
         return log_error_errno(SYNTHETIC_ERRNO(ENOTTY), "No free VT found: %m");
 }
 
-static int display_emergency_message_fullscreen(const char *message) {
+static int display_emergency_message_fullscreen(char *message, const char *message_id) {
         int r, free_vt = 0, original_vt = 0;
         unsigned qr_code_start_row = 1, qr_code_start_column = 1;
         char tty[STRLEN("/dev/tty") + DECIMAL_STR_MAX(int) + 1];
@@ -188,11 +204,20 @@ static int display_emergency_message_fullscreen(const char *message) {
         if (r < 0)
                 return log_warning_errno(r, "Failed to write emergency message to terminal: %m");
 
+        if (message_id) {
+                char buff[STRLEN("\nScan the QR code below, and search for the entry with the ID: --") + strlen(message_id) + 1];
+                xsprintf(buff, "\nScan the QR code below, and search for the entry with the ID: --%s", message_id);
+
+                r = loop_write(fd, buff, SIZE_MAX, /* do_poll = */false);
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to write emergency message to terminal: %m");
+        }
+
         r = fdopen_independent(fd, "r+", &stream);
         if (r < 0)
                 return log_error_errno(errno, "Failed to open output file: %m");
 
-        r = print_qrcode_full(stream, "Scan the QR code", message, qr_code_start_row, qr_code_start_column, w.ws_col, w.ws_row);
+        r = print_qrcode_full(stream, "Scan the QR code", "https://cgit.freedesktop.org/systemd/systemd/plain/catalog/systemd.catalog", qr_code_start_row, qr_code_start_column, w.ws_col, w.ws_row);
         if (r < 0)
                 log_warning_errno(r, "QR code could not be printed, ignoring: %m");
 
@@ -262,7 +287,8 @@ static int parse_argv(int argc, char * argv[]) {
 
 static int run(int argc, char *argv[]) {
         int r;
-        _cleanup_free_ char *message = NULL;
+        _cleanup_free_ char *message = NULL, *id = NULL;
+        /*const char *message_id = NULL;*/
 
         log_open();
         log_parse_environment();
@@ -271,7 +297,7 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        r = acquire_first_emergency_log_message(&message);
+        r = acquire_first_emergency_log_message(&message, &id);
         if (r < 0)
                 return log_error_errno(r, "Failed to acquire first emergency log message: %m");
 
@@ -280,7 +306,10 @@ static int run(int argc, char *argv[]) {
                 return 0;
         }
 
-        r = display_emergency_message_fullscreen((const char*) message);
+       /* message_id = TAKE_PTR(id);*/
+
+        /*r = display_emergency_message_fullscreen(message, message_id);*/
+        r = display_emergency_message_fullscreen(message, id);
         if (r < 0)
                 return log_error_errno(r, "Failed to display emergency message on terminal: %m");
 
