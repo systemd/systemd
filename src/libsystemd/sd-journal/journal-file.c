@@ -838,9 +838,9 @@ static int journal_file_move_to(
         assert(f);
         assert(ret);
 
-        /* This function may clear, overwrite, or alter previously cached entries. After this function has
-         * been called, all objects except for one obtained by this function are invalidated and must be
-         * re-read before use. */
+        /* This function may clear, overwrite, or alter previously cached entries with the same type. After
+         * this function has been called, all previously read objects with the same type may be invalidated,
+         * hence must be re-read before use. */
 
         if (size <= 0)
                 return -EINVAL;
@@ -1088,9 +1088,9 @@ int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset
 
         assert(f);
 
-        /* Even if this function fails, it may clear, overwrite, or alter previously cached entries. After
-         * this function has been called, all objects except for one obtained by this function are
-         * invalidated and must be re-read before use.. */
+        /* Even if this function fails, it may clear, overwrite, or alter previously cached entries with the
+         * same type. After this function has been called, all previously read objects with the same type may
+         * be invalidated, hence must be re-read before use. */
 
         /* Objects may only be located at multiple of 64 bit */
         if (!VALID64(offset))
@@ -2834,6 +2834,10 @@ static int generic_array_get(
                         uint64_t p;
 
                         p = journal_file_entry_array_item(f, o, i);
+                        if (p == 0) {
+                                log_trace("Entry item %" PRIu64 " (offset=%"PRIu64") is bad, skipping over it.", i, p);
+                                continue;
+                        }
 
                         r = journal_file_move_to_object(f, OBJECT_ENTRY, p, ret_object);
                         if (r >= 0) {
@@ -2850,7 +2854,7 @@ static int generic_array_get(
 
                         /* OK, so this entry is borked. Most likely some entry didn't get synced to
                          * disk properly, let's see if the next one might work for us instead. */
-                        log_debug_errno(r, "Entry item %" PRIu64 " is bad, skipping over it.", i);
+                        log_debug_errno(r, "Entry item %" PRIu64 " (offset=%"PRIu64") is bad, skipping over it: %m", i, p);
 
                 } while (bump_array_index(&i, direction, k) > 0);
 
@@ -4338,10 +4342,14 @@ int journal_file_copy_entry(
                 Object *u;
 
                 q = journal_file_entry_item_object_offset(from, o, i);
+                if (q == 0) {
+                        log_trace("Entry item %"PRIu64" data object (offset=%"PRIu64") is bad, skipping over it.", i, q);
+                        continue;
+                }
                 r = journal_file_data_payload(from, NULL, q, NULL, 0, 0, &data, &l);
                 if (IN_SET(r, -EADDRNOTAVAIL, -EBADMSG)) {
-                        log_debug_errno(r, "Entry item %"PRIu64" data object is bad, skipping over it: %m", i);
-                        goto next;
+                        log_debug_errno(r, "Entry item %"PRIu64" data object (offset=%"PRIu64") is bad, skipping over it: %m", i, q);
+                        continue;
                 }
                 if (r < 0)
                         return r;
@@ -4363,13 +4371,6 @@ int journal_file_copy_entry(
                         .object_offset = h,
                         .hash = le64toh(u->data.hash),
                 };
-
-        next:
-                /* The above journal_file_data_payload() may clear or overwrite cached object. Hence, we need
-                 * to re-read the object from the cache. */
-                r = journal_file_move_to_object(from, OBJECT_ENTRY, p, &o);
-                if (r < 0)
-                        return r;
         }
 
         if (m == 0)
