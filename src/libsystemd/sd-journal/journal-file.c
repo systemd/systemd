@@ -414,7 +414,7 @@ static int journal_file_init_header(
                                 keyed_hash_requested() * HEADER_INCOMPATIBLE_KEYED_HASH |
                                 compact_mode_requested() * HEADER_INCOMPATIBLE_COMPACT),
                 .compatible_flags = htole32(
-                                (seal * HEADER_COMPATIBLE_SEALED) |
+                                (seal * ( HEADER_COMPATIBLE_SEALED | HEADER_COMPATIBLE_SEALED_CONTINOUS ) ) |
                                 HEADER_COMPATIBLE_TAIL_ENTRY_BOOT_ID),
         };
 
@@ -487,6 +487,8 @@ static bool warn_wrong_flags(const JournalFile *f, bool compatible) {
                         if (compatible) {
                                 if (flags & HEADER_COMPATIBLE_SEALED)
                                         strv[n++] = "sealed";
+                                if (flags & HEADER_COMPATIBLE_SEALED_CONTINOUS)
+                                        strv[n++] = "sealed continous";
                         } else {
                                 if (flags & HEADER_INCOMPATIBLE_COMPRESSED_XZ)
                                         strv[n++] = "xz-compressed";
@@ -3741,7 +3743,7 @@ void journal_file_print_header(JournalFile *f) {
                "Boot ID: %s\n"
                "Sequential number ID: %s\n"
                "State: %s\n"
-               "Compatible flags:%s%s%s\n"
+               "Compatible flags:%s%s%s%s\n"
                "Incompatible flags:%s%s%s%s%s%s\n"
                "Header size: %"PRIu64"\n"
                "Arena size: %"PRIu64"\n"
@@ -3764,6 +3766,7 @@ void journal_file_print_header(JournalFile *f) {
                f->header->state == STATE_ONLINE ? "ONLINE" :
                f->header->state == STATE_ARCHIVED ? "ARCHIVED" : "UNKNOWN",
                JOURNAL_HEADER_SEALED(f->header) ? " SEALED" : "",
+               JOURNAL_HEADER_SEALED_CONTINOUS(f->header) ? " SEALED_CONTINOUS" : "",
                JOURNAL_HEADER_TAIL_ENTRY_BOOT_ID(f->header) ? " TAIL_ENTRY_BOOT_ID" : "",
                (le32toh(f->header->compatible_flags) & ~HEADER_COMPATIBLE_ANY) ? " ???" : "",
                JOURNAL_HEADER_COMPRESSED_XZ(f->header) ? " COMPRESSED-XZ" : "",

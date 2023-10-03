@@ -676,6 +676,14 @@ static int server_archive_offline_user_journals(Server *s) {
 
                 TAKE_FD(fd); /* Donated to managed_journal_file_open() */
 
+#if HAVE_GCRYPT
+                /* Write the final tag */
+                if (JOURNAL_HEADER_SEALED(f->file->header) && journal_file_writable(f->file)) {
+                        r = journal_file_append_tag(f->file);
+                        if (r < 0)
+                                log_error_errno(r, "Failed to append tag when closing journal: %m");
+                }
+#endif
                 r = journal_file_archive(f->file, NULL);
                 if (r < 0)
                         log_debug_errno(r, "Failed to archive journal file '%s', ignoring: %m", full);
