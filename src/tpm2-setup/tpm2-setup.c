@@ -198,7 +198,7 @@ static int load_public_key_tpm2(struct public_key_data *ret) {
 
         r = tpm2_context_new(arg_tpm2_device, &c);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to create TPM2 context: %m");
 
         r = tpm2_get_or_create_srk(
                         c,
@@ -208,7 +208,7 @@ static int load_public_key_tpm2(struct public_key_data *ret) {
                         /* ret_qname= */ NULL,
                         NULL);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to get or create SRK: %m");
         if (r > 0)
                 log_info("New SRK generated and stored in the TPM.");
         else
