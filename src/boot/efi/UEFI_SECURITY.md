@@ -24,13 +24,15 @@ Specification)](https://uapi-group.org/specifications/specs/boot_loader_specific
 
 The role of `systemd-stub` is to load and measure in the TPM the post-bootloader stages, such as the kernel,
 initrd and kernel command line, and implement optional features such as augmenting the initrd with
-additional content such as configuration or optional services.
+additional content such as configuration or optional services. [Unified Kernel
+Images](https://uapi-group.org/specifications/specs/unified_kernel_image/) embed `systemd-stub`, a kernel
+and other optional components as sections in a PE signed binary, that can thus be executed in UEFI
+environments.
 
-Since it is embedded in a PE signed binary, `systemd-stub` will temporarily disable SecureBoot
-authentication when loading the payload kernel it wraps, in order to avoid redundant duplicate
-authentication of the image, given that that the payload kernel was already authenticated and verified as
-part of the whole image. SecureBoot authentication is re-enabled immediately after the kernel image has been
-loaded.
+Since it is embedded in a PE signed binary, `systemd-stub` will temporarily disable the UEFI authentication
+protobol while loading the payload kernel it wraps, in order to avoid redundant duplicate authentication of
+the image, given that that the payload kernel was already authenticated and verified as part of the whole
+image. SecureBoot authentication is re-enabled immediately after the kernel image has been loaded.
 
 Various EFI variables, under the vendor UUID `4a67b082-0a4c-41cf-b6c7-440b29bb8c4f`, are set and read by
 these components, to pass metadata and configuration between different stages of the boot process, as
