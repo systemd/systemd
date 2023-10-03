@@ -31,8 +31,8 @@ environments.
 
 Since it is embedded in a PE signed binary, `systemd-stub` will temporarily disable the UEFI authentication
 protobol while loading the payload kernel it wraps, in order to avoid redundant duplicate authentication of
-the image, given that that the payload kernel was already authenticated and verified as part of the whole
-image. SecureBoot authentication is re-enabled immediately after the kernel image has been loaded.
+the image, given that the payload kernel was already authenticated and verified as part of the whole image.
+SecureBoot authentication is re-enabled immediately after the kernel image has been loaded.
 
 Various EFI variables, under the vendor UUID `4a67b082-0a4c-41cf-b6c7-440b29bb8c4f`, are set and read by
 these components, to pass metadata and configuration between different stages of the boot process, as
