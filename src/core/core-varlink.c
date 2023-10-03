@@ -508,13 +508,21 @@ static int manager_varlink_init_system(Manager *m) {
         if (!MANAGER_IS_TEST_RUN(m)) {
                 (void) mkdir_p_label("/run/systemd/userdb", 0755);
 
-                r = varlink_server_listen_address(s, "/run/systemd/userdb/io.systemd.DynamicUser", 0666);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to bind to varlink socket: %m");
+                FOREACH_STRING(address, "/run/systemd/userdb/io.systemd.DynamicUser", VARLINK_ADDR_PATH_MANAGED_OOM_SYSTEM) {
+                        if (MANAGER_IS_RELOADING(m)) {
+                                /* If manager is reloading, we skip listening on existing addresses, since
+                                 * the fd should be acquired later through deserialization. */
+                                if (access(address, F_OK) >= 0)
+                                        continue;
+                                if (errno != ENOENT)
+                                        return log_error_errno(errno,
+                                                               "Failed to check if varlink socket '%s' exists: %m", address);
+                        }
 
-                r = varlink_server_listen_address(s, VARLINK_ADDR_PATH_MANAGED_OOM_SYSTEM, 0666);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to bind to varlink socket: %m");
+                        r = varlink_server_listen_address(s, address, 0666);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to bind to varlink socket '%s': %m", address);
+                }
         }
 
         r = varlink_server_attach_event(s, m->event, SD_EVENT_PRIORITY_NORMAL);
