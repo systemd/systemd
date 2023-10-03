@@ -828,11 +828,11 @@ int encrypt_credential_and_warn(
                 _cleanup_(tpm2_context_unrefp) Tpm2Context *tpm2_context = NULL;
                 r = tpm2_context_new(tpm2_device, &tpm2_context);
                 if (r < 0)
-                        return r;
+                        return log_error_errno(r, "Failed to create TPM2 context: %m");
 
                 r = tpm2_get_best_pcr_bank(tpm2_context, tpm2_hash_pcr_mask | tpm2_pubkey_pcr_mask, &tpm2_pcr_bank);
                 if (r < 0)
-                        return r;
+                        return log_error_errno(r, "Could not find best pcr bank: %m");
 
                 TPML_PCR_SELECTION tpm2_hash_pcr_selection;
                 tpm2_tpml_pcr_selection_from_mask(tpm2_hash_pcr_mask, tpm2_pcr_bank, &tpm2_hash_pcr_selection);
@@ -841,7 +841,7 @@ int encrypt_credential_and_warn(
                 size_t tpm2_n_hash_pcr_values;
                 r = tpm2_pcr_read(tpm2_context, &tpm2_hash_pcr_selection, &tpm2_hash_pcr_values, &tpm2_n_hash_pcr_values);
                 if (r < 0)
-                        return r;
+                        return log_error_errno(r, "Could not read PCR values: %m");
 
                 TPM2B_PUBLIC public;
                 if (pubkey) {
@@ -858,7 +858,7 @@ int encrypt_credential_and_warn(
                                 /* use_pin= */ false,
                                 &tpm2_policy);
                 if (r < 0)
-                        return r;
+                        return log_error_errno(r, "Could not calculate sealing policy digest: %m");
 
                 r = tpm2_seal(tpm2_context,
                               &tpm2_policy,
@@ -872,7 +872,7 @@ int encrypt_credential_and_warn(
                         if (sd_id128_equal(with_key, _CRED_AUTO_INITRD))
                                 log_warning("TPM2 present and used, but we didn't manage to talk to it. Credential will be refused if SecureBoot is enabled.");
                         else if (!sd_id128_equal(with_key, _CRED_AUTO))
-                                return r;
+                                return log_error_errno(r, "Failed to seal to TPM2: %m");
 
                         log_notice_errno(r, "TPM2 sealing didn't work, continuing without TPM2: %m");
                 }
@@ -1104,7 +1104,7 @@ int decrypt_credential_and_warn(
         if (with_tpm2_pk) {
                 r = tpm2_load_pcr_signature(tpm2_signature_path, &signature_json);
                 if (r < 0)
-                        return r;
+                        return log_error_errno(r, "Failed to load pcr signature: %m");
         }
 
         if (is_tpm2_absent) {
@@ -1203,9 +1203,14 @@ int decrypt_credential_and_warn(
                                     le32toh(z->size));
                 }
 
+                _cleanup_(tpm2_context_unrefp) Tpm2Context *tpm2_context = NULL;
+                r = tpm2_context_new(tpm2_device, &tpm2_context);
+                if (r < 0)
+                        return r;
+
                  // TODO: Add the SRK data to the credential structure so it can be plumbed
                  // through and used to verify the TPM session.
-                r = tpm2_unseal(tpm2_device,
+                r = tpm2_unseal(tpm2_context,
                                 le64toh(t->pcr_mask),
                                 le16toh(t->pcr_bank),
                                 z ? z->data : NULL,
@@ -1223,8 +1228,7 @@ int decrypt_credential_and_warn(
                                 &tpm2_key,
                                 &tpm2_key_size);
                 if (r < 0)
-                        return r;
-
+                        return log_error_errno(r, "Failed to unseal secret using TPM2: %m");
 #else
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Credential requires TPM2 support, but TPM2 support not available.");
 #endif
