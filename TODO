@@ -201,7 +201,7 @@ Features:
 * add a new PE binary section ".mokkeys" or so which sd-stub will insert into
   Mok keyring, by overriding/extending whatever shim sets in the EFI
   var. Benefit: we can extend the kernel module keyring at ukify time,
-  i.e. without recompiling the kernel, taking an upstrem OS' kernel and adding
+  i.e. without recompiling the kernel, taking an upstream OS' kernel and adding
   a local key to it.
 
 * PidRef conversion work:
@@ -244,7 +244,7 @@ Features:
 
 * similar, add the same for journal stream clients that log too much
 
-* systemd-mount sould only consider modern file systems when mounting, similar
+* systemd-mount should only consider modern file systems when mounting, similar
   to systemd-dissect
 
 * new "systemd-pcrlock" component for dealing with PCR4. Design idea:
@@ -512,7 +512,7 @@ Features:
 
 * sd-boot: make boot loader spec type #1 accept http urls in "linux"
   lines. Then, do the uefi http dance to download kernels and boot them. This
-  is then useful for network boot, by embdedding a cpio with type #1 snippets
+  is then useful for network boot, by embedding a cpio with type #1 snippets
   in sd-boot, which reference remote kernels.
 
 * maybe prohibit setuid() to the nobody user, to lock things down, via seccomp.
@@ -767,7 +767,7 @@ Features:
 * systemd-measure: allow operating with PEM certificates in addition to PEM
   public keys when signing PCR values. SecureBoot and our Verity signatures
   operate with certificates already, hence I guess we should also just deal for
-  convencience with certificates for the PCR stuff too.
+  convenience with certificates for the PCR stuff too.
 
 * systemd-measure: add --pcrpkey-auto as an alternative to --pcrpkey=, where it
   would just use the same public key specified with --public-key= (or the one

@@ -693,7 +693,7 @@ int mount_all(const char *dest,
                 if (FLAGS_SET(mount_table[k].mount_settings, MOUNT_PREFIX_ROOT)) {
                         /* Optionally prefix the mount source with the root dir. This is useful in bind
                          * mounts to be created within the container image before we transition into it. Note
-                         * that MOUNT_IN_USERNS is run after we transitioned hence prefixing is not ncessary
+                         * that MOUNT_IN_USERNS is run after we transitioned hence prefixing is not necessary
                          * for those. */
                         r = chase(mount_table[k].what, dest, CHASE_PREFIX_ROOT, &prefixed, NULL);
                         if (r < 0)

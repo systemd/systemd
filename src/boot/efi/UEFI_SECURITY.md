@@ -56,7 +56,7 @@ only load them after `ExitBootServices()` has been called.
 
 Another mechanism is supported by `systemd-boot` and `systemd-stub` to add additional payloads to the boot
 process: `addons`. Addons are PE signed binaries that can carry kernel command line arguments or Devicetree
-blobs (more might be added in the future). In constrast to the user-specified additions in the Type #1 case
+blobs (more might be added in the future). In contrast to the user-specified additions in the Type #1 case
 described above, these addons are loaded through the UEFI image loading protocol, and thus are subject to
 signature validation, and will be rejected if not signed or if the signature is invalid, following the
 standard SecureBoot model. They are also measured in the TPM.

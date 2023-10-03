@@ -3197,7 +3197,7 @@ int home_resize_luks(
 
                 old_image_size = st.st_size;
 
-                /* Note an asymetry here: when we operate on loopback files the specified disk size we get we
+                /* Note an asymmetry here: when we operate on loopback files the specified disk size we get we
                  * apply onto the loopback file as a whole. When we operate on block devices we instead apply
                  * to the partition itself only. */
 

@@ -12,7 +12,7 @@ static void test_path_is_encrypted_one(const char *p, int expect) {
                 /* This might fail, if btrfs is used and we run in a container. In that case we cannot
                  * resolve the device node paths that BTRFS_IOC_DEV_INFO returns, because the device nodes
                  * are unlikely to exist in the container. But if we can't stat() them we cannot determine
-                 * the dev_t of them, and thus cannot figure out if they are enrypted. Hence let's just
+                 * the dev_t of them, and thus cannot figure out if they are encrypted. Hence let's just
                  * ignore ENOENT here. Also skip the test if we lack privileges. */
                 return;
         assert_se(r >= 0);

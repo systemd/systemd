@@ -5142,7 +5142,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.wait_online(['veth-peer:carrier'])
 
         # Note that at this point the DHCPv6 client has not been started because no RA (with managed
-        # bit set) has yet been recieved and the configuration does not include WithoutRA=true
+        # bit set) has yet been received and the configuration does not include WithoutRA=true
         state = get_dbus_dhcp6_client_state('veth99')
         print(f"State = {state}")
         self.assertEqual(state, 'stopped')
