@@ -1005,6 +1005,46 @@ static void check_supports_command(Tpm2Context *c) {
         assert_se(tpm2_supports_command(c, TPM2_CC_Unseal));
 }
 
+static void check_srk_templates(Tpm2Context *c) {
+        TPMT_PUBLIC rsa = {}, ecc = {}, best = {};
+
+        assert_se(tpm2_get_srk_template(c, TPM2_ALG_RSA, rsa) >= 0);
+        assert_se(rsa.type == TPM2_ALG_RSA);
+        assert_se(rsa.nameAlg == TPM2_ALG_SHA256);
+        assert_se(rsa.objectAttributes == 0x30472);
+        assert_se(rsa.parameters.rsaDetail.symmetric.algorithm == TPM2_ALG_AES);
+        assert_se(rsa.parameters.rsaDetail.symmetric.keyBits.sym == 128);
+        assert_se(rsa.parameters.rsaDetail.symmetric.mode.sym == TPM2_ALG_CFB);
+        assert_se(rsa.parameters.rsaDetail.scheme.scheme == TPM2_ALG_NULL);
+        assert_se(rsa.parameters.rsaDetail.keyBits == 2048);
+
+        assert_se(tpm2_get_srk_template(c, TPM2_ALG_ECC, ecc) >= 0);
+        assert_se(ecc.type == TPM2_ALG_ECC);
+        assert_se(ecc.nameAlg == TPM2_ALG_SHA256);
+        assert_se(ecc.objectAttributes == 0x30472);
+        assert_se(ecc.parameters.eccDetail.symmetric.algorithm == TPM2_ALG_AES);
+        assert_se(ecc.parameters.eccDetail.symmetric.keyBits.sym == 128);
+        assert_se(ecc.parameters.eccDetail.symmetric.mode.sym == TPM2_ALG_CFB);
+        assert_se(ecc.parameters.eccDetail.scheme.scheme == TPM2_ALG_NULL);
+        assert_se(ecc.parameters.eccDetail.kdf.scheme == TPM2_ALG_NULL);
+        assert_se(ecc.parameters.eccDetail.curveID == TPM2_ECC_NIST_P256);
+
+        /* These are required for both SRK templates */
+        assert_se(tpm2_supports_alg(c, TPM2_ALG_SHA256));
+        assert_se(tpm2_supports_alg(c, TPM2_ALG_AES));
+        assert_se(tpm2_supports_alg(c, TPM2_ALG_CFB));
+
+        /* Must support at least one */
+        assert_se(tpm2_supports_alg(c, TPM2_ALG_RSA) || tpm2_supports_alg(c, TPM2_ALG_ECC));
+
+        assert_se(tpm2_get_best_srk_template(c, best) >= 0);
+
+        if (tpm2_supports_alg(c, TPM2_ALG_ECC) && tpm2_supports_ecc_curve(c, TPM2_ECC_NIST_P256))
+                assert_se(memcmp_nn(best, sizeof(best), ecc, sizeof(ecc)) == 0);
+        else
+                assert_se(memcmp_nn(best, sizeof(best), rsa, sizeof(rsa)) == 0);
+}
+
 static void check_get_or_create_srk(Tpm2Context *c) {
         _cleanup_free_ TPM2B_PUBLIC *public = NULL;
         _cleanup_free_ TPM2B_NAME *name = NULL, *qname = NULL;
@@ -1040,6 +1080,7 @@ TEST_RET(tests_which_require_tpm) {
         check_supports_alg(c);
         check_supports_command(c);
         check_get_or_create_srk(c);
+        check_srk_templates(c);
 
         return 0;
 }
