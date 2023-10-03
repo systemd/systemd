@@ -520,21 +520,12 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                                 return -ENOMEM;
                 } else if ((val = startswith(l, "varlink-server-socket-address="))) {
                         if (!m->varlink_server && MANAGER_IS_SYSTEM(m)) {
-                                _cleanup_(varlink_server_unrefp) VarlinkServer *s = NULL;
-
-                                r = manager_setup_varlink_server(m, &s);
+                                r = manager_varlink_init(m);
                                 if (r < 0) {
                                         log_warning_errno(r, "Failed to setup varlink server, ignoring: %m");
                                         continue;
                                 }
 
-                                r = varlink_server_attach_event(s, m->event, SD_EVENT_PRIORITY_NORMAL);
-                                if (r < 0) {
-                                        log_warning_errno(r, "Failed to attach varlink connection to event loop, ignoring: %m");
-                                        continue;
-                                }
-
-                                m->varlink_server = TAKE_PTR(s);
                                 deserialize_varlink_sockets = true;
                         }
 
