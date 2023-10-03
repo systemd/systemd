@@ -670,7 +670,7 @@ int tpm2_context_new(const char *device, Tpm2Context **ret_context) {
 
         r = tpm2_cache_capabilities(context);
         if (r < 0)
-                return log_debug_errno(r, "Failed to cache TPM capbilities: %m");
+                return log_debug_errno(r, "Failed to cache TPM capabilities: %m");
 
         /* We require AES and CFB support for session encryption. */
         if (!tpm2_supports_alg(context, TPM2_ALG_AES))
@@ -862,7 +862,7 @@ int tpm2_index_from_handle(Tpm2Context *c, const Tpm2Handle *handle, TPM2_HANDLE
  *
  * Returns 1 if the object was successfully persisted, or 0 if there is already a key at the requested
  * handle, or < 0 on error. Theoretically, this would also return 0 if no specific persistent handle is
- * requiested but all persistent handles are used, but it is extremely unlikely the TPM has enough internal
+ * requested but all persistent handles are used, but it is extremely unlikely the TPM has enough internal
  * memory to store the entire persistent range, in which case an error will be returned if the TPM is out of
  * memory for persistent storage. The persistent handle is only provided when returning 1. */
 static int tpm2_persist_handle(
@@ -4636,7 +4636,7 @@ int tpm2_extend_bytes(
                 values.count++;
         }
 
-        /* Open + lock the log file *before* we start measuring, so that noone else can come between our log
+        /* Open + lock the log file *before* we start measuring, so that no one else can come between our log
          * and our measurement and change either */
         log_fd = tpm2_userspace_log_open();
 

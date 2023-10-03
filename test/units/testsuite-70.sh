@@ -96,7 +96,7 @@ tpm2_pcrextend 0:sha256=00000000000000000000000000000000000000000000000000000000
 (! systemd-cryptsetup attach test-volume "$img" - tpm2-device=auto,headless=1)
 
 if tpm_has_pcr sha256 12; then
-    # Enroll using an explict PCR value (that does match current PCR value)
+    # Enroll using an explicit PCR value (that does match current PCR value)
     systemd-cryptenroll --wipe-slot=tpm2 "$img"
     EXPECTED_PCR_VALUE=$(cat /sys/class/tpm/tpm0/pcr-sha256/12)
     PASSWORD=passphrase systemd-cryptenroll --tpm2-device=auto --tpm2-pcrs="12:sha256=$EXPECTED_PCR_VALUE" "$img"

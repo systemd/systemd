@@ -76,8 +76,8 @@ verify_version() {
     # $1: block device
     # $2: sector size
     # $3: version
-    # $4: partiton number of part1
-    # $5: partiton number of part2
+    # $4: partition number of part1
+    # $5: partition number of part2
 
     gpt_reserved_sectors=$(( 1024 * 1024 / $2 ))
     part1_offset=$(( ( $4 - 1 ) * 2048 + gpt_reserved_sectors ))

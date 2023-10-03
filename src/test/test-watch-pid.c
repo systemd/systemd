@@ -42,7 +42,7 @@ int main(int argc, char *argv[]) {
         assert_se(unit_add_name(c, "c.service") >= 0);
         assert_se(set_isempty(c->pids));
 
-        /* Fork off a child so thta we have a PID to watch */
+        /* Fork off a child so that we have a PID to watch */
         _cleanup_(sigkill_waitp) pid_t pid = 0;
         pid = fork();
         if (pid == 0) {

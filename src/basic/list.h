@@ -195,7 +195,7 @@
 #define LIST_CLEAR(name, head, free_func)       \
         _LIST_CLEAR(name, head, free_func, UNIQ_T(elem, UNIQ))
 
-/* Clear the list, destroing each element with free_func */
+/* Clear the list, destroying each element with free_func */
 #define _LIST_CLEAR(name, head, free_func, elem)        \
         ({                                              \
                 typeof(head) elem;                      \

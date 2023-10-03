@@ -391,7 +391,7 @@ int pkcs11_token_login(
                         if (r != -ENOLCK)
                                 return r;
 
-                        /* Referesh the token info, so that we can prompt knowing the new flags if they changed. */
+                        /* Refresh the token info, so that we can prompt knowing the new flags if they changed. */
                         rv = m->C_GetTokenInfo(slotid, &updated_token_info);
                         if (rv != CKR_OK)
                                 return log_error_errno(SYNTHETIC_ERRNO(EIO),

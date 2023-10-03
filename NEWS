@@ -33,7 +33,7 @@ CHANGES WITH 255 in spe:
           by default when combined with --scope, will be changed in a future
           release to be enabled by default.
 
-        * "systemctl switch-root" is now restricted to initrd transtions only.
+        * "systemctl switch-root" is now restricted to initrd transitions only.
           Transitions between real systems should be done with "systemctl soft-reboot"
           instead.
 

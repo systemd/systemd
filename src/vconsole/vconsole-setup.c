@@ -512,7 +512,7 @@ static int find_source_vc(char **ret_path, unsigned *ret_idx) {
 
                 r = verify_vc_allocation(i);
                 if (r < 0) {
-                        log_debug_errno(r, "VC %u existance check failed, skipping: %m", i);
+                        log_debug_errno(r, "VC %u existence check failed, skipping: %m", i);
                         RET_GATHER(err, r);
                         continue;
                 }

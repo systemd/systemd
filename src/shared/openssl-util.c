@@ -112,7 +112,7 @@ int openssl_digest_many(
                 return log_openssl_errors("Failed to create new EVP_MD_CTX");
 
         if (!EVP_DigestInit_ex(ctx, md, NULL))
-                return log_openssl_errors("Failed to initializate EVP_MD_CTX");
+                return log_openssl_errors("Failed to initialize EVP_MD_CTX");
 
         for (size_t i = 0; i < n_data; i++)
                 if (!EVP_DigestUpdate(ctx, data[i].iov_base, data[i].iov_len))
@@ -188,7 +188,7 @@ int openssl_hmac_many(
                 return log_openssl_errors("Failed to build HMAC OSSL_PARAM");
 
         if (!EVP_MAC_init(ctx, key, key_size, params))
-                return log_openssl_errors("Failed to initializate EVP_MAC_CTX");
+                return log_openssl_errors("Failed to initialize EVP_MAC_CTX");
 #else
         _cleanup_(HMAC_CTX_freep) HMAC_CTX *ctx = HMAC_CTX_new();
         if (!ctx)
