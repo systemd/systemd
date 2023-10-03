@@ -29,6 +29,19 @@ static inline bool TPM2_PCR_MASK_VALID(uint32_t pcr_mask) {
 
 #define FOREACH_PCR_IN_MASK(pcr, mask) BIT_FOREACH(pcr, mask)
 
+/* The SRK handle is defined in the Provisioning Guidance document (see above) in the table "Reserved Handles
+ * for TPM Provisioning Fundamental Elements". The SRK is useful because it is "shared", meaning it has no
+ * authValue nor authPolicy set, and thus may be used by anyone on the system to generate derived keys or
+ * seal secrets. This is useful if the TPM has an auth (password) set for the 'owner hierarchy', which would
+ * prevent users from generating primary transient keys, unless they knew the owner hierarchy auth. See
+ * the Provisioning Guidance document for more details. */
+#define TPM2_SRK_HANDLE UINT32_C(0x81000001)
+
+/* The TPM specification limits sealed data to MAX_SYM_DATA. Unfortunately, tpm2-tss incorrectly
+ * defines this value as 256; the TPM specification Part 2 ("Structures") section
+ * "TPMU_SENSITIVE_CREATE" states "For interoperability, MAX_SYM_DATA should be 128." */
+#define TPM2_MAX_SEALED_DATA UINT16_C(128)
+
 #if HAVE_TPM2
 
 #include <tss2/tss2_esys.h>
@@ -49,6 +62,8 @@ typedef struct {
         size_t n_capability_algorithms;
         TPMA_CC *capability_commands;
         size_t n_capability_commands;
+        TPM2_ECC_CURVE *capability_ecc_curves;
+        size_t n_capability_ecc_curves;
         TPML_PCR_SELECTION capability_pcrs;
 } Tpm2Context;
 
@@ -107,6 +122,7 @@ int tpm2_create_loaded(Tpm2Context *c, const Tpm2Handle *parent, const Tpm2Handl
 
 bool tpm2_supports_alg(Tpm2Context *c, TPM2_ALG_ID alg);
 bool tpm2_supports_command(Tpm2Context *c, TPM2_CC command);
+bool tpm2_supports_ecc_curve(Tpm2Context *c, TPM2_ECC_CURVE ecc_curve);
 
 bool tpm2_test_parms(Tpm2Context *c, TPMI_ALG_PUBLIC alg, const TPMU_PUBLIC_PARMS *parms);
 
@@ -186,14 +202,19 @@ int tpm2_calculate_policy_auth_value(TPM2B_DIGEST *digest);
 int tpm2_calculate_policy_authorize(const TPM2B_PUBLIC *public, const TPM2B_DIGEST *policy_ref, TPM2B_DIGEST *digest);
 int tpm2_calculate_policy_pcr(const Tpm2PCRValue *pcr_values, size_t n_pcr_values, TPM2B_DIGEST *digest);
 int tpm2_calculate_sealing_policy(const Tpm2PCRValue *pcr_values, size_t n_pcr_values, const TPM2B_PUBLIC *public, bool use_pin, TPM2B_DIGEST *digest);
+int tpm2_calculate_seal(TPM2_HANDLE parent_handle, const TPM2B_PUBLIC *parent_public, const TPMA_OBJECT *attributes, const void *secret, size_t secret_size, const TPM2B_DIGEST *policy, const char *pin, void **ret_secret, size_t *ret_secret_size, void **ret_blob, size_t *ret_blob_size, void **ret_serialized_parent, size_t *ret_serialized_parent_size);
 
-int tpm2_marshal_blob(const TPM2B_PUBLIC *public, const TPM2B_PRIVATE *private, void **ret_blob, size_t *ret_blob_size);
-int tpm2_unmarshal_blob(const void *blob, size_t blob_size, TPM2B_PUBLIC *ret_public, TPM2B_PRIVATE *ret_private);
+int tpm2_marshal_blob(const TPM2B_PUBLIC *public, const TPM2B_PRIVATE *private, const TPM2B_ENCRYPTED_SECRET *seed, void **ret_blob, size_t *ret_blob_size);
+int tpm2_unmarshal_blob(const void *blob, size_t blob_size, TPM2B_PUBLIC *ret_public, TPM2B_PRIVATE *ret_private, TPM2B_ENCRYPTED_SECRET *ret_seed);
 
+int tpm2_get_srk_template(Tpm2Context *c, TPMI_ALG_PUBLIC alg, TPMT_PUBLIC *ret_template);
+int tpm2_get_best_srk_template(Tpm2Context *c, TPMT_PUBLIC *ret_template);
+
+int tpm2_get_srk(Tpm2Context *c, const Tpm2Handle *session, TPM2B_PUBLIC **ret_public, TPM2B_NAME **ret_name, TPM2B_NAME **ret_qname, Tpm2Handle **ret_handle);
 int tpm2_get_or_create_srk(Tpm2Context *c, const Tpm2Handle *session, TPM2B_PUBLIC **ret_public, TPM2B_NAME **ret_name, TPM2B_NAME **ret_qname, Tpm2Handle **ret_handle);
 
-int tpm2_seal(Tpm2Context *c, const TPM2B_DIGEST *policy, const char *pin, void **ret_secret, size_t *ret_secret_size, void **ret_blob, size_t *ret_blob_size, uint16_t *ret_primary_alg, void **ret_srk_buf, size_t *ret_srk_buf_size);
-int tpm2_unseal(const char *device, uint32_t hash_pcr_mask, uint16_t pcr_bank, const void *pubkey, size_t pubkey_size, uint32_t pubkey_pcr_mask, JsonVariant *signature, const char *pin, uint16_t primary_alg, const void *blob, size_t blob_size, const void *policy_hash, size_t policy_hash_size, const void *srk_buf, size_t srk_buf_size, void **ret_secret, size_t *ret_secret_size);
+int tpm2_seal(Tpm2Context *c, uint32_t handle_index, const TPM2B_DIGEST *policy, const char *pin, void **ret_secret, size_t *ret_secret_size, void **ret_blob, size_t *ret_blob_size, uint16_t *ret_primary_alg, void **ret_srk_buf, size_t *ret_srk_buf_size);
+int tpm2_unseal(Tpm2Context *c, uint32_t hash_pcr_mask, uint16_t pcr_bank, const void *pubkey, size_t pubkey_size, uint32_t pubkey_pcr_mask, JsonVariant *signature, const char *pin, uint16_t primary_alg, const void *blob, size_t blob_size, const void *policy_hash, size_t policy_hash_size, const void *srk_buf, size_t srk_buf_size, void **ret_secret, size_t *ret_secret_size);
 
 #if HAVE_OPENSSL
 int tpm2_tpm2b_public_to_openssl_pkey(const TPM2B_PUBLIC *public, EVP_PKEY **ret);
@@ -259,6 +280,8 @@ int tpm2_tpm2b_public_to_fingerprint(const TPM2B_PUBLIC *public, void **ret_fing
                         0;                                              \
         })
 
+extern TSS2_RC (*sym_Tss2_MU_TPM2B_PUBLIC_Unmarshal)(uint8_t const buffer[], size_t buffer_size, size_t *offset, TPM2B_PUBLIC *dest);
+
 #else /* HAVE_TPM2 */
 typedef struct {} Tpm2Context;
 typedef struct {} Tpm2Handle;
@@ -268,7 +291,7 @@ typedef struct {} Tpm2PCRValue;
 #endif /* HAVE_TPM2 */
 
 int tpm2_list_devices(void);
-int tpm2_find_device_auto(int log_level, char **ret);
+int tpm2_find_device_auto(char **ret);
 
 int tpm2_make_pcr_json_array(uint32_t pcr_mask, JsonVariant **ret);
 int tpm2_parse_pcr_json_array(JsonVariant *v, uint32_t *ret);
