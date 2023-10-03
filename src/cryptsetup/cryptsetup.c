@@ -836,13 +836,13 @@ static int measure_volume_key(
         _cleanup_(tpm2_context_unrefp) Tpm2Context *c = NULL;
         r = tpm2_context_new(arg_tpm2_device, &c);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to create TPM2 context: %m");
 
         _cleanup_strv_free_ char **l = NULL;
         if (strv_isempty(arg_tpm2_measure_banks)) {
                 r = tpm2_get_good_pcr_banks_strv(c, UINT32_C(1) << arg_tpm2_measure_pcr, &l);
                 if (r < 0)
-                        return r;
+                        return log_error_errno(r, "Could not verify pcr banks: %m");
         }
 
         _cleanup_free_ char *joined = strv_join(l ?: arg_tpm2_measure_banks, ", ");
@@ -865,7 +865,7 @@ static int measure_volume_key(
 
         r = tpm2_extend_bytes(c, l ?: arg_tpm2_measure_banks, arg_tpm2_measure_pcr, s, SIZE_MAX, volume_key, volume_key_size, TPM2_EVENT_VOLUME_KEY, s);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Could not extend PCR: %m");
 
         log_struct(LOG_INFO,
                    "MESSAGE_ID=" SD_MESSAGE_TPM_PCR_EXTEND_STR,
