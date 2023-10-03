@@ -60,6 +60,12 @@ CHANGES WITH 255 in spe:
           is now dropped, as it never worked, hence it should not be used by
           anyone.
 
+        Changes in systemd-analyze:
+
+        * "systemd-analyze plot" has gained tooltips on each unit name with
+          related-unit information in its svg output, such as Before=,
+          Requires=, and similar properties.
+
 CHANGES WITH 254:
 
         Announcements of Future Feature Removals and Incompatible Changes:

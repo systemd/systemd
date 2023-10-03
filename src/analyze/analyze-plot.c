@@ -1,13 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "analyze.h"
 #include "analyze-plot.h"
 #include "analyze-time-data.h"
+#include "analyze.h"
 #include "bus-error.h"
 #include "bus-map-properties.h"
 #include "format-table.h"
 #include "os-util.h"
 #include "sort-util.h"
+#include "strv.h"
+#include "unit-def.h"
 #include "version.h"
 
 #define SCALE_X (0.1 / 1000.0) /* pixels per us */
@@ -158,12 +160,33 @@ static void svg_graph_box(double height, double begin, double end) {
                             SCALE_Y * height);
         }
 }
+
+static void plot_tooltip(const char *name, char **ru[_UNIT_DEPENDENCY_MAX]) {
+        if (!ru)
+                return;
+
+        assert(name);
+        svg("%s:\n", name);
+
+        UnitDependency i;
+        VA_ARGS_FOREACH(i, UNIT_AFTER, UNIT_BEFORE, UNIT_REQUIRES, UNIT_REQUISITE, UNIT_WANTS, UNIT_CONFLICTS, UNIT_UPHOLDS)
+                if (!strv_isempty(ru[i])) {
+                        svg("\n%s:\n", unit_dependency_to_string(i));
+                        STRV_FOREACH(s, ru[i])
+                                svg("  %s\n", *s);
+                }
+}
+
 static int plot_unit_times(UnitTimes *u, double width, int y) {
         bool b;
 
         if (!u->name)
                 return 0;
 
+        svg("<g>\n");
+        svg("<title>");
+        plot_tooltip(u->name, u->deps);
+        svg("</title>\n");
         svg_bar("activating", u->activating, u->activated, y);
         svg_bar("active", u->activated, u->deactivating, y);
         svg_bar("deactivating", u->deactivating, u->deactivated, y);
@@ -175,6 +198,7 @@ static int plot_unit_times(UnitTimes *u, double width, int y) {
                          u->name, FORMAT_TIMESPAN(u->time, USEC_PER_MSEC));
         else
                 svg_text(b, u->activating, y, "%s", u->name);
+        svg("</g>\n");
 
         return 1;
 }
@@ -220,7 +244,7 @@ static int produce_plot_as_svg(
                 double text_start, text_width;
 
                 if (u->activating > boot->finish_time) {
-                        u->name = mfree(u->name);
+                        unit_times_clear(u);
                         continue;
                 }
 
