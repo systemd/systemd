@@ -143,7 +143,14 @@ static void cgroup_compat_warn(void) {
 void cgroup_context_init(CGroupContext *c) {
         assert(c);
 
-        /* Initialize everything to the kernel defaults. */
+        /* Initialize everything to the kernel defaults. When initializing a bool member to 'true', make
+         * sure to serialize in execute-serialize.c using serialize_bool() instead of
+         * serialize_bool_elide(), as sd-executor will initialize here to 'true', but serialize_bool_elide()
+         * skips serialization if the value is 'false' (as that's the common default), so if the value at
+         * runtime is zero it would be lost after deserialization. Same when initializing uint64_t and other
+         * values, update/add a conditional serialization check. This is to minimize the amount of
+         * serialized data that is sent to the sd-executor, so that there is less work to do on the default
+         * cases. */
 
         *c = (CGroupContext) {
                 .cpu_weight = CGROUP_WEIGHT_INVALID,
@@ -722,6 +729,23 @@ int cgroup_add_device_allow(CGroupContext *c, const char *dev, const char *mode)
         TAKE_PTR(a);
 
         return 0;
+}
+
+int cgroup_add_or_update_device_allow(CGroupContext *c, const char *dev, const char *mode) {
+        assert(c);
+        assert(dev);
+        assert(isempty(mode) || in_charset(mode, "rwm"));
+
+        LIST_FOREACH(device_allow, b, c->device_allow)
+                if (path_equal(b->path, dev)) {
+                        b->r = isempty(mode) || strchr(mode, 'r');
+                        b->w = isempty(mode) || strchr(mode, 'w');
+                        b->m = isempty(mode) || strchr(mode, 'm');
+
+                        return 0;
+                }
+
+        return cgroup_add_device_allow(c, dev, mode);
 }
 
 int cgroup_add_bpf_foreign_program(CGroupContext *c, uint32_t attach_type, const char *bpffs_path) {
@@ -3699,6 +3723,12 @@ int manager_setup_cgroup(Manager *m) {
                 if (r < 0)
                         log_warning_errno(r, "Couldn't move remaining userspace processes, ignoring: %m");
 
+                /* Create the workers pool scope as well */
+                scope_path = strjoina(m->cgroup_root, "/" SPECIAL_INIT_WORKERS_SCOPE);
+                r = cg_create(SYSTEMD_CGROUP_CONTROLLER, scope_path);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create %s control group: %m", scope_path);
+
                 /* 6. And pin it, so that it cannot be unmounted */
                 safe_close(m->pin_cgroupfs_fd);
                 m->pin_cgroupfs_fd = open(path, O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOCTTY|O_NONBLOCK);
@@ -4392,8 +4422,10 @@ int unit_cgroup_freezer_action(Unit *u, FreezerAction action) {
         if (!cg_freezer_supported())
                 return 0;
 
-        /* Ignore all requests to thaw init.scope or -.slice and reject all requests to freeze them */
-        if (unit_has_name(u, SPECIAL_ROOT_SLICE) || unit_has_name(u, SPECIAL_INIT_SCOPE))
+        /* Ignore all requests to thaw init[-workers].scope or -.slice and reject all requests to freeze them */
+        if (unit_has_name(u, SPECIAL_ROOT_SLICE) ||
+                          unit_has_name(u, SPECIAL_INIT_SCOPE) ||
+                          unit_has_name(u, SPECIAL_INIT_WORKERS_SCOPE))
                 return action == FREEZER_FREEZE ? -EPERM : 0;
 
         if (!u->cgroup_realized)
