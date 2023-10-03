@@ -24,7 +24,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
                 log_set_target(LOG_TARGET_NULL);
         }
 
-        assert_se(manager_new(RUNTIME_SCOPE_SYSTEM, MANAGER_TEST_RUN_MINIMAL, &m) >= 0);
+        assert_se(manager_new(RUNTIME_SCOPE_SYSTEM, MANAGER_TEST_RUN_MINIMAL|MANAGER_TEST_DONT_OPEN_EXECUTOR, &m) >= 0);
         /* Set log overrides as well to make it harder for a serialization file
          * to switch log levels/targets during fuzzing */
         manager_override_log_level(m, log_get_max_level());
