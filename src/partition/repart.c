@@ -3761,7 +3761,7 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                 _cleanup_(tpm2_context_unrefp) Tpm2Context *tpm2_context = NULL;
                 r = tpm2_context_new(arg_tpm2_device, &tpm2_context);
                 if (r < 0)
-                        return r;
+                        return log_error_errno(r, "Failed to create TPM2 context: %m");
 
                 TPM2B_PUBLIC public;
                 if (pubkey) {
@@ -3772,7 +3772,7 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
 
                 r = tpm2_pcr_read_missing_values(tpm2_context, arg_tpm2_hash_pcr_values, arg_tpm2_n_hash_pcr_values);
                 if (r < 0)
-                        return r;
+                        return log_error_errno(r, "Could not read pcr values: %m");
 
                 uint16_t hash_pcr_bank = 0;
                 uint32_t hash_pcr_mask = 0;
@@ -3794,9 +3794,10 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                 TPM2B_DIGEST policy = TPM2B_DIGEST_MAKE(NULL, TPM2_SHA256_DIGEST_SIZE);
                 r = tpm2_calculate_sealing_policy(arg_tpm2_hash_pcr_values, arg_tpm2_n_hash_pcr_values, &public, /* use_pin= */ false, &policy);
                 if (r < 0)
-                        return r;
+                        return log_error_errno(r, "Could not calculate sealing policy digest: %m");
 
                 r = tpm2_seal(tpm2_context,
+                              /* handle_index= */ 0,
                               &policy,
                               /* pin= */ NULL,
                               &secret, &secret_size,
