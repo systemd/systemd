@@ -1095,9 +1095,8 @@ static int tpm2_get_legacy_template(TPMI_ALG_PUBLIC alg, TPMT_PUBLIC *ret_templa
  * SRK-compatible). Preferably, the TPM should contain a shared SRK located at the reserved shared SRK handle
  * (see TPM2_SRK_HANDLE in tpm2-util.h, and tpm2_get_srk() below).
  *
- * The alg must be TPM2_ALG_RSA or TPM2_ALG_ECC. Returns error if the requested template is not supported on
- * this TPM. Also see tpm2_get_best_srk_template() below. */
-static int tpm2_get_srk_template(Tpm2Context *c, TPMI_ALG_PUBLIC alg, TPMT_PUBLIC *ret_template) {
+ * Returns 0 if the specified algorithm is ECC or RSA, otherwise -EOPNOTSUPP. */
+int tpm2_get_srk_template(TPMI_ALG_PUBLIC alg, TPMT_PUBLIC *ret_template) {
         /* The attributes are the same between ECC and RSA templates. This has the changes specified in the
          * Provisioning Guidance document, specifically:
          * TPMA_OBJECT_USERWITHAUTH is added.
@@ -1146,47 +1145,55 @@ static int tpm2_get_srk_template(Tpm2Context *c, TPMI_ALG_PUBLIC alg, TPMT_PUBLI
                 },
         };
 
-        assert(c);
         assert(ret_template);
 
-        if (alg == TPM2_ALG_ECC) {
-                if (!tpm2_supports_alg(c, TPM2_ALG_ECC))
-                        return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                               "TPM does not support ECC.");
-
-                if (!tpm2_supports_ecc_curve(c, srk_ecc.parameters.eccDetail.curveID))
-                        return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                               "TPM does not support ECC-NIST-P256 curve.");
-
-                if (!tpm2_supports_tpmt_public(c, &srk_ecc))
-                        return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                               "TPM does not support SRK ECC template L-2.");
-
+        switch (alg) {
+        case TPM2_ALG_ECC:
                 *ret_template = srk_ecc;
                 return 0;
-        }
-
-        if (alg == TPM2_ALG_RSA) {
-                if (!tpm2_supports_alg(c, TPM2_ALG_RSA))
-                        return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                               "TPM does not support RSA.");
-
-                if (!tpm2_supports_tpmt_public(c, &srk_rsa))
-                        return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                               "TPM does not support SRK RSA template L-1.");
-
+        case TPM2_ALG_RSA:
                 *ret_template = srk_rsa;
                 return 0;
         }
 
-        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Unsupported SRK alg: 0x%x.", alg);
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "No SRK for algorithm 0x%" PRIx16, alg);
 }
 
 /* Get the best supported SRK template. ECC is preferred, then RSA. */
 static int tpm2_get_best_srk_template(Tpm2Context *c, TPMT_PUBLIC *ret_template) {
-        if (tpm2_get_srk_template(c, TPM2_ALG_ECC, ret_template) >= 0 ||
-            tpm2_get_srk_template(c, TPM2_ALG_RSA, ret_template) >= 0)
+        TPMT_PUBLIC template;
+        int r;
+
+        assert(c);
+        assert(ret_template);
+
+        r = tpm2_get_srk_template(TPM2_ALG_ECC, &template);
+        if (r < 0)
+                return r;
+
+        if (!tpm2_supports_alg(c, TPM2_ALG_ECC))
+                log_debug("TPM does not support ECC.");
+        else if (!tpm2_supports_ecc_curve(c, template.parameters.eccDetail.curveID))
+                log_debug("TPM does not support ECC-NIST-P256 curve.");
+        else if (!tpm2_supports_tpmt_public(c, &template))
+                log_debug("TPM does not support SRK ECC template L-2.");
+        else {
+                *ret_template = template;
                 return 0;
+        }
+
+        r = tpm2_get_srk_template(TPM2_ALG_RSA, &template);
+        if (r < 0)
+                return r;
+
+        if (!tpm2_supports_alg(c, TPM2_ALG_RSA))
+                log_debug("TPM does not support RSA.");
+        else if (!tpm2_supports_tpmt_public(c, &template))
+                log_debug("TPM does not support SRK RSA template L-1.");
+        else {
+                *ret_template = template;
+                return 0;
+        }
 
         return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                "TPM does not support either SRK template L-1 (RSA) or L-2 (ECC).");
