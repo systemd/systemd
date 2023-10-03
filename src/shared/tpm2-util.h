@@ -49,6 +49,8 @@ typedef struct {
         size_t n_capability_algorithms;
         TPMA_CC *capability_commands;
         size_t n_capability_commands;
+        TPM2_ECC_CURVE *capability_ecc_curves;
+        size_t n_capability_ecc_curves;
         TPML_PCR_SELECTION capability_pcrs;
 } Tpm2Context;
 
@@ -107,6 +109,7 @@ int tpm2_create_loaded(Tpm2Context *c, const Tpm2Handle *parent, const Tpm2Handl
 
 bool tpm2_supports_alg(Tpm2Context *c, TPM2_ALG_ID alg);
 bool tpm2_supports_command(Tpm2Context *c, TPM2_CC command);
+bool tpm2_supports_ecc_curve(Tpm2Context *c, TPM2_ECC_CURVE ecc_curve);
 
 bool tpm2_test_parms(Tpm2Context *c, TPMI_ALG_PUBLIC alg, const TPMU_PUBLIC_PARMS *parms);
 
@@ -192,8 +195,8 @@ int tpm2_unmarshal_blob(const void *blob, size_t blob_size, TPM2B_PUBLIC *ret_pu
 
 int tpm2_get_or_create_srk(Tpm2Context *c, const Tpm2Handle *session, TPM2B_PUBLIC **ret_public, TPM2B_NAME **ret_name, TPM2B_NAME **ret_qname, Tpm2Handle **ret_handle);
 
-int tpm2_seal(Tpm2Context *c, const TPM2B_DIGEST *policy, const char *pin, void **ret_secret, size_t *ret_secret_size, void **ret_blob, size_t *ret_blob_size, uint16_t *ret_primary_alg, void **ret_srk_buf, size_t *ret_srk_buf_size);
-int tpm2_unseal(const char *device, uint32_t hash_pcr_mask, uint16_t pcr_bank, const void *pubkey, size_t pubkey_size, uint32_t pubkey_pcr_mask, JsonVariant *signature, const char *pin, uint16_t primary_alg, const void *blob, size_t blob_size, const void *policy_hash, size_t policy_hash_size, const void *srk_buf, size_t srk_buf_size, void **ret_secret, size_t *ret_secret_size);
+int tpm2_seal(Tpm2Context *c, uint32_t handle_index, const TPM2B_DIGEST *policy, const char *pin, void **ret_secret, size_t *ret_secret_size, void **ret_blob, size_t *ret_blob_size, uint16_t *ret_primary_alg, void **ret_srk_buf, size_t *ret_srk_buf_size);
+int tpm2_unseal(Tpm2Context *c, uint32_t hash_pcr_mask, uint16_t pcr_bank, const void *pubkey, size_t pubkey_size, uint32_t pubkey_pcr_mask, JsonVariant *signature, const char *pin, uint16_t primary_alg, const void *blob, size_t blob_size, const void *policy_hash, size_t policy_hash_size, const void *srk_buf, size_t srk_buf_size, void **ret_secret, size_t *ret_secret_size);
 
 #if HAVE_OPENSSL
 int tpm2_tpm2b_public_to_openssl_pkey(const TPM2B_PUBLIC *public, EVP_PKEY **ret);
@@ -268,7 +271,7 @@ typedef struct {} Tpm2PCRValue;
 #endif /* HAVE_TPM2 */
 
 int tpm2_list_devices(void);
-int tpm2_find_device_auto(int log_level, char **ret);
+int tpm2_find_device_auto(char **ret);
 
 int tpm2_make_pcr_json_array(uint32_t pcr_mask, JsonVariant **ret);
 int tpm2_parse_pcr_json_array(JsonVariant *v, uint32_t *ret);

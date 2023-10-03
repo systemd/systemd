@@ -133,6 +133,7 @@ int enroll_tpm2(struct crypt_device *cd,
                 const void *volume_key,
                 size_t volume_key_size,
                 const char *device,
+                uint32_t handle,
                 Tpm2PCRValue *hash_pcr_values,
                 size_t n_hash_pcr_values,
                 const char *pubkey_path,
@@ -209,13 +210,13 @@ int enroll_tpm2(struct crypt_device *cd,
         _cleanup_(tpm2_context_unrefp) Tpm2Context *tpm2_context = NULL;
         r = tpm2_context_new(device, &tpm2_context);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to create TPM2 context: %m");
 
         bool pcr_value_specified = tpm2_pcr_values_has_any_values(hash_pcr_values, n_hash_pcr_values);
 
         r = tpm2_pcr_read_missing_values(tpm2_context, hash_pcr_values, n_hash_pcr_values);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Could not read pcr values: %m");
 
         uint16_t hash_pcr_bank = 0;
         uint32_t hash_pcr_mask = 0;
@@ -252,6 +253,7 @@ int enroll_tpm2(struct crypt_device *cd,
                 return r;
 
         r = tpm2_seal(tpm2_context,
+                      handle,
                       &policy,
                       pin_str,
                       &secret, &secret_size,
@@ -260,7 +262,7 @@ int enroll_tpm2(struct crypt_device *cd,
                       &srk_buf,
                       &srk_buf_size);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to seal to TPM2: %m");
 
         /* Let's see if we already have this specific PCR policy hash enrolled, if so, exit early. */
         r = search_policy_hash(cd, policy.buffer, policy.size);
@@ -279,7 +281,7 @@ int enroll_tpm2(struct crypt_device *cd,
                 size_t secret2_size;
 
                 log_debug("Unsealing for verification...");
-                r = tpm2_unseal(device,
+                r = tpm2_unseal(tpm2_context,
                                 hash_pcr_mask,
                                 hash_pcr_bank,
                                 pubkey, pubkey_size,
@@ -292,7 +294,7 @@ int enroll_tpm2(struct crypt_device *cd,
                                 srk_buf, srk_buf_size,
                                 &secret2, &secret2_size);
                 if (r < 0)
-                        return r;
+                        return log_error_errno(r, "Failed to unseal secret using TPM2: %m");
 
                 if (memcmp_nn(secret, secret_size, secret2, secret2_size) != 0)
                         return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "TPM2 seal/unseal verification failed.");
