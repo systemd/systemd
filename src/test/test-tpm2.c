@@ -1041,6 +1041,30 @@ static void check_supports_command(Tpm2Context *c) {
         assert_se(tpm2_supports_command(c, TPM2_CC_Unseal));
 }
 
+static void check_best_srk_template(Tpm2Context *c) {
+        TPMT_PUBLIC template;
+        assert_se(tpm2_get_best_srk_template(c, &template) >= 0);
+        assert_se(IN_SET(template.type, TPM2_ALG_ECC, TPM2_ALG_RSA));
+}
+
+static void check_get_or_create_srk(Tpm2Context *c) {
+        _cleanup_free_ TPM2B_PUBLIC *public = NULL;
+        _cleanup_free_ TPM2B_NAME *name = NULL, *qname = NULL;
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *handle = NULL;
+        assert_se(tpm2_get_or_create_srk(c, NULL, &public, &name, &qname, &handle) >= 0);
+        assert_se(public && name && qname && handle);
+
+        _cleanup_free_ TPM2B_PUBLIC *public2 = NULL;
+        _cleanup_free_ TPM2B_NAME *name2 = NULL, *qname2 = NULL;
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *handle2 = NULL;
+        assert_se(tpm2_get_srk(c, NULL, &public2, &name2, &qname2, &handle2) >= 0);
+        assert_se(public2 && name2 && qname2 && handle2);
+
+        assert_se(memcmp_nn(public, sizeof(*public), public2, sizeof(*public2)) == 0);
+        assert_se(memcmp_nn(name->name, name->size, name2->name, name2->size) == 0);
+        assert_se(memcmp_nn(qname->name, qname->size, qname2->name, qname2->size) == 0);
+}
+
 static void check_seal_unseal_for_handle(Tpm2Context *c, TPM2_HANDLE handle) {
         TPM2B_DIGEST policy = TPM2B_DIGEST_MAKE(NULL, TPM2_SHA256_DIGEST_SIZE);
 
@@ -1122,6 +1146,8 @@ TEST_RET(tests_which_require_tpm) {
         check_test_parms(c);
         check_supports_alg(c);
         check_supports_command(c);
+        check_best_srk_template(c);
+        check_get_or_create_srk(c);
         check_seal_unseal(c);
 
         return 0;
