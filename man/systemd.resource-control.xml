@@ -1587,6 +1587,27 @@ DeviceAllow=/dev/loop-control
         <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
     </variablelist>
+
+    </refsect2><refsect2><title>Coredump Control</title>
+
+    <variablelist class='unit-directives'>
+
+      <varlistentry>
+        <term><varname>CoredumpReceive=</varname></term>
+
+        <listitem><para>This setting is used to enable coredump forwarding for containers that belong to this
+        unit's cgroup. Units with <varname>CoredumpReceive=yes</varname> must also be configured with
+        <varname>Delegate=yes</varname>.</para>
+
+        <para>When <command>systemd-coredump</command> is handling a coredump for a process from a container,
+        if the container's leader process is a descendant of a cgroup with <varname>CoredumpReceive=yes</varname>
+        and <varname>Delegate=yes</varname>, then <command>systemd-coredump</command> will attempt to forward
+        the coredump to <command>systemd-coredump</command> within the container.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+    </variablelist>
     </refsect2>
   </refsect1>
 
