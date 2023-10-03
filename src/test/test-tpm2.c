@@ -961,6 +961,31 @@ TEST(calculate_policy_pcr) {
         assert_se(digest_check(&d, "7481fd1b116078eb3ac2456e4ad542c9b46b9b8eb891335771ca8e7c8f8e4415"));
 }
 
+TEST(tpm2_get_srk_template) {
+        TPMT_PUBLIC rsa;
+        assert_se(tpm2_get_srk_template(TPM2_ALG_RSA, rsa) >= 0);
+        assert_se(rsa.type == TPM2_ALG_RSA);
+        assert_se(rsa.nameAlg == TPM2_ALG_SHA256);
+        assert_se(rsa.objectAttributes == 0x30472);
+        assert_se(rsa.parameters.rsaDetail.symmetric.algorithm == TPM2_ALG_AES);
+        assert_se(rsa.parameters.rsaDetail.symmetric.keyBits.sym == 128);
+        assert_se(rsa.parameters.rsaDetail.symmetric.mode.sym == TPM2_ALG_CFB);
+        assert_se(rsa.parameters.rsaDetail.scheme.scheme == TPM2_ALG_NULL);
+        assert_se(rsa.parameters.rsaDetail.keyBits == 2048);
+
+        TPMT_PUBLIC ecc;
+        assert_se(tpm2_get_srk_template(TPM2_ALG_ECC, ecc) >= 0);
+        assert_se(ecc.type == TPM2_ALG_ECC);
+        assert_se(ecc.nameAlg == TPM2_ALG_SHA256);
+        assert_se(ecc.objectAttributes == 0x30472);
+        assert_se(ecc.parameters.eccDetail.symmetric.algorithm == TPM2_ALG_AES);
+        assert_se(ecc.parameters.eccDetail.symmetric.keyBits.sym == 128);
+        assert_se(ecc.parameters.eccDetail.symmetric.mode.sym == TPM2_ALG_CFB);
+        assert_se(ecc.parameters.eccDetail.scheme.scheme == TPM2_ALG_NULL);
+        assert_se(ecc.parameters.eccDetail.kdf.scheme == TPM2_ALG_NULL);
+        assert_se(ecc.parameters.eccDetail.curveID == TPM2_ECC_NIST_P256);
+}
+
 static void check_test_parms(Tpm2Context *c) {
         assert(c);
 
