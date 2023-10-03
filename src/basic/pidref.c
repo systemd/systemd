@@ -260,6 +260,13 @@ int pidref_verify(PidRef *pidref) {
         return 1; /* We have a pidfd and it still points to the PID we have, hence all is *really* OK → return 1 */
 }
 
+
+int pidref_is_alive(PidRef *pidref) {
+        assert(pidref);
+
+        return pidref->fd >= 0 ? pidfd_is_alive(pidref->fd) : pid_is_alive(pidref->pid);
+}
+
 static void pidref_hash_func(const PidRef *pidref, struct siphash *state) {
         siphash24_compress(&pidref->pid, sizeof(pidref->pid), state);
 }
