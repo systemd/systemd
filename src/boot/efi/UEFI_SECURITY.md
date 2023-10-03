@@ -24,8 +24,7 @@ Specification)](https://uapi-group.org/specifications/specs/boot_loader_specific
 
 The role of `systemd-stub` is to load and measure in the TPM the post-bootloader stages, such as the kernel,
 initrd and kernel command line, and implement optional features such as augmenting the initrd with
-additional content such as configuration or optional services. These payloads can be augmented, and such
-augmentations are measured too.
+additional content such as configuration or optional services.
 
 Since it is embedded in a PE signed binary, `systemd-stub` will temporarily disable SecureBoot
 authentication when loading the payload kernel it wraps, in order to avoid redundant duplicate
@@ -58,7 +57,7 @@ process: `addons`. Addons are PE signed binaries that can carry kernel command l
 blobs (more might be added in the future). In constrast to the user-specified additions in the Type #1 case
 described above, these addons are loaded through the UEFI image loading protocol, and thus are subject to
 signature validation, and will be rejected if not signed or if the signature is invalid, following the
-standard SecureBoot model.
+standard SecureBoot model. They are also measured in the TPM.
 
 `systemd-boot` will also load file system drivers that are stored in the ESP, to allow enhancing the
 firmware's capabilities. These are again PE signed binaries and will be verified using the appropriate
