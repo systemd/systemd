@@ -325,6 +325,12 @@ static int acquire_managed_oom_connect(Manager *m) {
         assert(m->event);
 
         r = varlink_connect_address(&link, VARLINK_ADDR_PATH_MANAGED_OOM_SYSTEM);
+        if (r == -ENOENT) {
+                /* Try to connect to the pre-v255 socket with a typo in its path */
+                r = varlink_connect_address(&link, "/run/systemd/io.system.ManagedOOM");
+                if (r < 0)
+                        return log_error_errno(r, "Failed to connect to /run/systemd/io.system.ManagedOOM: %m");
+        }
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to " VARLINK_ADDR_PATH_MANAGED_OOM_SYSTEM ": %m");
 
