@@ -1160,7 +1160,7 @@ int tpm2_get_srk_template(TPMI_ALG_PUBLIC alg, TPMT_PUBLIC *ret_template) {
 }
 
 /* Get the best supported SRK template. ECC is preferred, then RSA. */
-static int tpm2_get_best_srk_template(Tpm2Context *c, TPMT_PUBLIC *ret_template) {
+int tpm2_get_best_srk_template(Tpm2Context *c, TPMT_PUBLIC *ret_template) {
         TPMT_PUBLIC template;
         int r;
 
@@ -1201,7 +1201,7 @@ static int tpm2_get_best_srk_template(Tpm2Context *c, TPMT_PUBLIC *ret_template)
 
 /* Get the SRK. Returns 1 if SRK is found, 0 if there is no SRK, or < 0 on error. Also see
  * tpm2_get_or_create_srk() below. */
-static int tpm2_get_srk(
+int tpm2_get_srk(
                 Tpm2Context *c,
                 const Tpm2Handle *session,
                 TPM2B_PUBLIC **ret_public,
