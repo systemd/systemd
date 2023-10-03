@@ -25,13 +25,17 @@ TEST_RET(loopback_setup) {
                 return log_error_errno(r, "loopback: %m");
 
         log_info("> ipv6 main");
-        system("ip -6 route show table main");
+        /* <0 → fork error, ==0 → success, >0 → error in child */
+        assert_se(system("ip -6 route show table main") >= 0);
+
         log_info("> ipv6 local");
-        system("ip -6 route show table local");
+        assert_se(system("ip -6 route show table local") >=0);
+
         log_info("> ipv4 main");
-        system("ip -4 route show table main");
+        assert_se(system("ip -4 route show table main") >= 0);
+
         log_info("> ipv4 local");
-        system("ip -4 route show table local");
+        assert_se(system("ip -4 route show table local") >= 0);
 
         return EXIT_SUCCESS;
 }
