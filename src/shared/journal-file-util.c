@@ -9,7 +9,7 @@
 #include "fd-util.h"
 #include "format-util.h"
 #include "journal-authenticate.h"
-#include "managed-journal-file.h"
+#include "journal-file-util.h"
 #include "path-util.h"
 #include "random-util.h"
 #include "set.h"
@@ -19,7 +19,7 @@
 #define PAYLOAD_BUFFER_SIZE (16U * 1024U)
 #define MINIMUM_HOLE_SIZE (1U * 1024U * 1024U / 2U)
 
-static int managed_journal_file_truncate(JournalFile *f) {
+static int journal_file_truncate(JournalFile *f) {
         uint64_t p;
         int r;
 
@@ -37,7 +37,7 @@ static int managed_journal_file_truncate(JournalFile *f) {
         return journal_file_fstat(f);
 }
 
-static int managed_journal_file_entry_array_punch_hole(JournalFile *f, uint64_t p, uint64_t n_entries) {
+static int journal_file_entry_array_punch_hole(JournalFile *f, uint64_t p, uint64_t n_entries) {
         Object o;
         uint64_t offset, sz, n_items = 0, n_unused;
         int r;
@@ -103,13 +103,13 @@ static int managed_journal_file_entry_array_punch_hole(JournalFile *f, uint64_t 
         return 0;
 }
 
-static int managed_journal_file_punch_holes(JournalFile *f) {
+static int journal_file_punch_holes(JournalFile *f) {
         HashItem items[PAYLOAD_BUFFER_SIZE / sizeof(HashItem)];
         uint64_t p, sz;
         ssize_t n = SSIZE_MAX;
         int r;
 
-        r = managed_journal_file_entry_array_punch_hole(
+        r = journal_file_entry_array_punch_hole(
                 f, le64toh(f->header->entry_array_offset), le64toh(f->header->n_entries));
         if (r < 0)
                 return r;
@@ -141,7 +141,7 @@ static int managed_journal_file_punch_holes(JournalFile *f) {
                                 if (le64toh(o.data.n_entries) == 0)
                                         continue;
 
-                                r = managed_journal_file_entry_array_punch_hole(
+                                r = journal_file_entry_array_punch_hole(
                                                 f, le64toh(o.data.entry_array_offset), le64toh(o.data.n_entries) - 1);
                                 if (r == -EOPNOTSUPP)
                                         return -EOPNOTSUPP;
@@ -157,18 +157,18 @@ static int managed_journal_file_punch_holes(JournalFile *f) {
 /* This may be called from a separate thread to prevent blocking the caller for the duration of fsync().
  * As a result we use atomic operations on f->offline_state for inter-thread communications with
  * journal_file_set_offline() and journal_file_set_online(). */
-static void managed_journal_file_set_offline_internal(ManagedJournalFile *f) {
+static void journal_file_set_offline_internal(JournalFile *f) {
         int r;
 
         assert(f);
-        assert(f->file->fd >= 0);
-        assert(f->file->header);
+        assert(f->fd >= 0);
+        assert(f->header);
 
         for (;;) {
-                switch (f->file->offline_state) {
+                switch (f->offline_state) {
                 case OFFLINE_CANCEL: {
                         OfflineState tmp_state = OFFLINE_CANCEL;
-                        if (!__atomic_compare_exchange_n(&f->file->offline_state, &tmp_state, OFFLINE_DONE,
+                        if (!__atomic_compare_exchange_n(&f->offline_state, &tmp_state, OFFLINE_DONE,
                                                          false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST))
                                 continue;
                         }
@@ -176,7 +176,7 @@ static void managed_journal_file_set_offline_internal(ManagedJournalFile *f) {
 
                 case OFFLINE_AGAIN_FROM_SYNCING: {
                         OfflineState tmp_state = OFFLINE_AGAIN_FROM_SYNCING;
-                        if (!__atomic_compare_exchange_n(&f->file->offline_state, &tmp_state, OFFLINE_SYNCING,
+                        if (!__atomic_compare_exchange_n(&f->offline_state, &tmp_state, OFFLINE_SYNCING,
                                                          false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST))
                                 continue;
                         }
@@ -184,29 +184,29 @@ static void managed_journal_file_set_offline_internal(ManagedJournalFile *f) {
 
                 case OFFLINE_AGAIN_FROM_OFFLINING: {
                         OfflineState tmp_state = OFFLINE_AGAIN_FROM_OFFLINING;
-                        if (!__atomic_compare_exchange_n(&f->file->offline_state, &tmp_state, OFFLINE_SYNCING,
+                        if (!__atomic_compare_exchange_n(&f->offline_state, &tmp_state, OFFLINE_SYNCING,
                                                          false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST))
                                 continue;
                         }
                         break;
 
                 case OFFLINE_SYNCING:
-                        if (f->file->archive) {
-                                (void) managed_journal_file_truncate(f->file);
-                                (void) managed_journal_file_punch_holes(f->file);
+                        if (f->archive) {
+                                (void) journal_file_truncate(f);
+                                (void) journal_file_punch_holes(f);
                         }
 
-                        (void) fsync(f->file->fd);
+                        (void) fsync(f->fd);
 
                         {
                                 OfflineState tmp_state = OFFLINE_SYNCING;
-                                if (!__atomic_compare_exchange_n(&f->file->offline_state, &tmp_state, OFFLINE_OFFLINING,
+                                if (!__atomic_compare_exchange_n(&f->offline_state, &tmp_state, OFFLINE_OFFLINING,
                                                                  false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST))
                                         continue;
                         }
 
-                        f->file->header->state = f->file->archive ? STATE_ARCHIVED : STATE_OFFLINE;
-                        (void) fsync(f->file->fd);
+                        f->header->state = f->archive ? STATE_ARCHIVED : STATE_OFFLINE;
+                        (void) fsync(f->fd);
 
                         /* If we've archived the journal file, first try to re-enable COW on the file. If the
                          * FS_NOCOW_FL flag was never set or we successfully removed it, continue. If we fail
@@ -215,20 +215,20 @@ static void managed_journal_file_set_offline_internal(ManagedJournalFile *f) {
                          * be removed after data has been written to a file. The only way to remove it is to
                          * copy all data to a new file without the NOCOW flag set. */
 
-                        if (f->file->archive) {
-                                r = chattr_fd(f->file->fd, 0, FS_NOCOW_FL, NULL);
+                        if (f->archive) {
+                                r = chattr_fd(f->fd, 0, FS_NOCOW_FL, NULL);
                                 if (r >= 0)
                                         continue;
 
-                                log_debug_errno(r, "Failed to re-enable copy-on-write for %s: %m, rewriting file", f->file->path);
+                                log_debug_errno(r, "Failed to re-enable copy-on-write for %s: %m, rewriting file", f->path);
 
-                                r = copy_file_atomic_full(FORMAT_PROC_FD_PATH(f->file->fd), f->file->path, f->file->mode,
+                                r = copy_file_atomic_full(FORMAT_PROC_FD_PATH(f->fd), f->path, f->mode,
                                                           0,
                                                           FS_NOCOW_FL,
                                                           COPY_REPLACE | COPY_FSYNC | COPY_HOLES | COPY_ALL_XATTRS,
                                                           NULL, NULL);
                                 if (r < 0) {
-                                        log_debug_errno(r, "Failed to rewrite %s: %m", f->file->path);
+                                        log_debug_errno(r, "Failed to rewrite %s: %m", f->path);
                                         continue;
                                 }
                         }
@@ -237,7 +237,7 @@ static void managed_journal_file_set_offline_internal(ManagedJournalFile *f) {
 
                 case OFFLINE_OFFLINING: {
                         OfflineState tmp_state = OFFLINE_OFFLINING;
-                        if (!__atomic_compare_exchange_n(&f->file->offline_state, &tmp_state, OFFLINE_DONE,
+                        if (!__atomic_compare_exchange_n(&f->offline_state, &tmp_state, OFFLINE_DONE,
                                                          false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST))
                                 continue;
                         }
@@ -252,27 +252,27 @@ static void managed_journal_file_set_offline_internal(ManagedJournalFile *f) {
         }
 }
 
-static void * managed_journal_file_set_offline_thread(void *arg) {
-        ManagedJournalFile *f = arg;
+static void * journal_file_set_offline_thread(void *arg) {
+        JournalFile *f = arg;
 
         (void) pthread_setname_np(pthread_self(), "journal-offline");
 
-        managed_journal_file_set_offline_internal(f);
+        journal_file_set_offline_internal(f);
 
         return NULL;
 }
 
 /* Trigger a restart if the offline thread is mid-flight in a restartable state. */
-static bool managed_journal_file_set_offline_try_restart(ManagedJournalFile *f) {
+static bool journal_file_set_offline_try_restart(JournalFile *f) {
         for (;;) {
-                switch (f->file->offline_state) {
+                switch (f->offline_state) {
                 case OFFLINE_AGAIN_FROM_SYNCING:
                 case OFFLINE_AGAIN_FROM_OFFLINING:
                         return true;
 
                 case OFFLINE_CANCEL: {
                         OfflineState tmp_state = OFFLINE_CANCEL;
-                        if (!__atomic_compare_exchange_n(&f->file->offline_state, &tmp_state, OFFLINE_AGAIN_FROM_SYNCING,
+                        if (!__atomic_compare_exchange_n(&f->offline_state, &tmp_state, OFFLINE_AGAIN_FROM_SYNCING,
                                                          false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST))
                                 continue;
                         }
@@ -280,7 +280,7 @@ static bool managed_journal_file_set_offline_try_restart(ManagedJournalFile *f) 
 
                 case OFFLINE_SYNCING: {
                         OfflineState tmp_state = OFFLINE_SYNCING;
-                        if (!__atomic_compare_exchange_n(&f->file->offline_state, &tmp_state, OFFLINE_AGAIN_FROM_SYNCING,
+                        if (!__atomic_compare_exchange_n(&f->offline_state, &tmp_state, OFFLINE_AGAIN_FROM_SYNCING,
                                                          false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST))
                                 continue;
                         }
@@ -288,7 +288,7 @@ static bool managed_journal_file_set_offline_try_restart(ManagedJournalFile *f) 
 
                 case OFFLINE_OFFLINING: {
                         OfflineState tmp_state = OFFLINE_OFFLINING;
-                        if (!__atomic_compare_exchange_n(&f->file->offline_state, &tmp_state, OFFLINE_AGAIN_FROM_OFFLINING,
+                        if (!__atomic_compare_exchange_n(&f->offline_state, &tmp_state, OFFLINE_AGAIN_FROM_OFFLINING,
                                                          false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST))
                                 continue;
                         }
@@ -310,32 +310,32 @@ static bool managed_journal_file_set_offline_try_restart(ManagedJournalFile *f) 
  * and joined, or if none exists the offline is simply performed in this
  * context without involving another thread.
  */
-int managed_journal_file_set_offline(ManagedJournalFile *f, bool wait) {
+int journal_file_set_offline(JournalFile *f, bool wait) {
         int target_state;
         bool restarted;
         int r;
 
         assert(f);
 
-        if (!journal_file_writable(f->file))
+        if (!journal_file_writable(f))
                 return -EPERM;
 
-        if (f->file->fd < 0 || !f->file->header)
+        if (f->fd < 0 || !f->header)
                 return -EINVAL;
 
-        target_state = f->file->archive ? STATE_ARCHIVED : STATE_OFFLINE;
+        target_state = f->archive ? STATE_ARCHIVED : STATE_OFFLINE;
 
         /* An offlining journal is implicitly online and may modify f->header->state,
          * we must also join any potentially lingering offline thread when already in
          * the desired offline state.
          */
-        if (!managed_journal_file_is_offlining(f) && f->file->header->state == target_state)
-                return journal_file_set_offline_thread_join(f->file);
+        if (!journal_file_is_offlining(f) && f->header->state == target_state)
+                return journal_file_set_offline_thread_join(f);
 
         /* Restart an in-flight offline thread and wait if needed, or join a lingering done one. */
-        restarted = managed_journal_file_set_offline_try_restart(f);
+        restarted = journal_file_set_offline_try_restart(f);
         if ((restarted && wait) || !restarted) {
-                r = journal_file_set_offline_thread_join(f->file);
+                r = journal_file_set_offline_thread_join(f);
                 if (r < 0)
                         return r;
         }
@@ -344,10 +344,10 @@ int managed_journal_file_set_offline(ManagedJournalFile *f, bool wait) {
                 return 0;
 
         /* Initiate a new offline. */
-        f->file->offline_state = OFFLINE_SYNCING;
+        f->offline_state = OFFLINE_SYNCING;
 
         if (wait) /* Without using a thread if waiting. */
-                managed_journal_file_set_offline_internal(f);
+                journal_file_set_offline_internal(f);
         else {
                 sigset_t ss, saved_ss;
                 int k;
@@ -361,11 +361,11 @@ int managed_journal_file_set_offline(ManagedJournalFile *f, bool wait) {
                 if (r > 0)
                         return -r;
 
-                r = pthread_create(&f->file->offline_thread, NULL, managed_journal_file_set_offline_thread, f);
+                r = pthread_create(&f->offline_thread, NULL, journal_file_set_offline_thread, f);
 
                 k = pthread_sigmask(SIG_SETMASK, &saved_ss, NULL);
                 if (r > 0) {
-                        f->file->offline_state = OFFLINE_JOINED;
+                        f->offline_state = OFFLINE_JOINED;
                         return -r;
                 }
                 if (k > 0)
@@ -375,85 +375,42 @@ int managed_journal_file_set_offline(ManagedJournalFile *f, bool wait) {
         return 0;
 }
 
-bool managed_journal_file_is_offlining(ManagedJournalFile *f) {
+bool journal_file_is_offlining(JournalFile *f) {
         assert(f);
 
         __atomic_thread_fence(__ATOMIC_SEQ_CST);
 
-        if (IN_SET(f->file->offline_state, OFFLINE_DONE, OFFLINE_JOINED))
+        if (IN_SET(f->offline_state, OFFLINE_DONE, OFFLINE_JOINED))
                 return false;
 
         return true;
 }
 
-ManagedJournalFile* managed_journal_file_close(ManagedJournalFile *f) {
+JournalFile* journal_file_offline_close(JournalFile *f) {
         if (!f)
                 return NULL;
 
 #if HAVE_GCRYPT
         /* Write the final tag */
-        if (JOURNAL_HEADER_SEALED(f->file->header) && journal_file_writable(f->file)) {
+        if (JOURNAL_HEADER_SEALED(f->header) && journal_file_writable(f)) {
                 int r;
 
-                r = journal_file_append_tag(f->file);
+                r = journal_file_append_tag(f);
                 if (r < 0)
                         log_error_errno(r, "Failed to append tag when closing journal: %m");
         }
 #endif
 
-        if (sd_event_source_get_enabled(f->file->post_change_timer, NULL) > 0)
-                journal_file_post_change(f->file);
-        sd_event_source_disable_unref(f->file->post_change_timer);
+        if (sd_event_source_get_enabled(f->post_change_timer, NULL) > 0)
+                journal_file_post_change(f);
+        sd_event_source_disable_unref(f->post_change_timer);
 
-        managed_journal_file_set_offline(f, true);
+        journal_file_set_offline(f, true);
 
-        journal_file_close(f->file);
-
-        return mfree(f);
+        return journal_file_close(f);
 }
 
-int managed_journal_file_open(
-                int fd,
-                const char *fname,
-                int open_flags,
-                JournalFileFlags file_flags,
-                mode_t mode,
-                uint64_t compress_threshold_bytes,
-                JournalMetrics *metrics,
-                MMapCache *mmap_cache,
-                Set *deferred_closes,
-                ManagedJournalFile *template,
-                ManagedJournalFile **ret) {
-
-        _cleanup_free_ ManagedJournalFile *f = NULL;
-        int r;
-
-        set_clear_with_destructor(deferred_closes, managed_journal_file_close);
-
-        f = new0(ManagedJournalFile, 1);
-        if (!f)
-                return -ENOMEM;
-
-        r = journal_file_open(
-                        fd,
-                        fname,
-                        open_flags,
-                        file_flags,
-                        mode,
-                        compress_threshold_bytes,
-                        metrics,
-                        mmap_cache,
-                        template ? template->file : NULL,
-                        &f->file);
-        if (r < 0)
-                return r;
-
-        *ret = TAKE_PTR(f);
-
-        return 0;
-}
-
-ManagedJournalFile* managed_journal_file_initiate_close(ManagedJournalFile *f, Set *deferred_closes) {
+JournalFile* journal_file_initiate_close(JournalFile *f, Set *deferred_closes) {
         int r;
 
         assert(f);
@@ -463,52 +420,53 @@ ManagedJournalFile* managed_journal_file_initiate_close(ManagedJournalFile *f, S
                 if (r < 0)
                         log_debug_errno(r, "Failed to add file to deferred close set, closing immediately.");
                 else {
-                        (void) managed_journal_file_set_offline(f, false);
+                        (void) journal_file_set_offline(f, false);
                         return NULL;
                 }
         }
 
-        return managed_journal_file_close(f);
+        return journal_file_offline_close(f);
 }
 
-int managed_journal_file_rotate(
-                ManagedJournalFile **f,
+int journal_file_rotate(
+                JournalFile **f,
                 MMapCache *mmap_cache,
                 JournalFileFlags file_flags,
                 uint64_t compress_threshold_bytes,
                 Set *deferred_closes) {
 
         _cleanup_free_ char *path = NULL;
-        ManagedJournalFile *new_file = NULL;
+        JournalFile *new_file = NULL;
         int r;
 
         assert(f);
         assert(*f);
 
-        r = journal_file_archive((*f)->file, &path);
+        r = journal_file_archive(*f, &path);
         if (r < 0)
                 return r;
 
-        r = managed_journal_file_open(
+        set_clear_with_destructor(deferred_closes, journal_file_offline_close);
+
+        r = journal_file_open(
                         /* fd= */ -1,
                         path,
-                        (*f)->file->open_flags,
+                        (*f)->open_flags,
                         file_flags,
-                        (*f)->file->mode,
+                        (*f)->mode,
                         compress_threshold_bytes,
                         /* metrics= */ NULL,
                         mmap_cache,
-                        deferred_closes,
                         /* template= */ *f,
                         &new_file);
 
-        managed_journal_file_initiate_close(*f, deferred_closes);
+        journal_file_initiate_close(*f, deferred_closes);
         *f = new_file;
 
         return r;
 }
 
-int managed_journal_file_open_reliably(
+int journal_file_open_reliably(
                 const char *fname,
                 int open_flags,
                 JournalFileFlags file_flags,
@@ -516,14 +474,13 @@ int managed_journal_file_open_reliably(
                 uint64_t compress_threshold_bytes,
                 JournalMetrics *metrics,
                 MMapCache *mmap_cache,
-                Set *deferred_closes,
-                ManagedJournalFile *template,
-                ManagedJournalFile **ret) {
+                JournalFile *template,
+                JournalFile **ret) {
 
-        _cleanup_(managed_journal_file_closep) ManagedJournalFile *old_file = NULL;
+        _cleanup_(journal_file_offline_closep) JournalFile *old_file = NULL;
         int r;
 
-        r = managed_journal_file_open(
+        r = journal_file_open(
                         /* fd= */ -1,
                         fname,
                         open_flags,
@@ -532,7 +489,6 @@ int managed_journal_file_open_reliably(
                         compress_threshold_bytes,
                         metrics,
                         mmap_cache,
-                        deferred_closes,
                         template,
                         ret);
         if (!IN_SET(r,
@@ -562,10 +518,10 @@ int managed_journal_file_open_reliably(
         if (!template) {
                 /* The file is corrupted and no template is specified. Try opening it read-only as the
                  * template before rotating to inherit its sequence number and ID. */
-                r = managed_journal_file_open(-1, fname,
-                                              (open_flags & ~(O_ACCMODE|O_CREAT|O_EXCL)) | O_RDONLY,
-                                              file_flags, 0, compress_threshold_bytes, NULL,
-                                              mmap_cache, deferred_closes, NULL, &old_file);
+                r = journal_file_open(-1, fname,
+                                      (open_flags & ~(O_ACCMODE|O_CREAT|O_EXCL)) | O_RDONLY,
+                                      file_flags, 0, compress_threshold_bytes, NULL,
+                                      mmap_cache, NULL, &old_file);
                 if (r < 0)
                         log_debug_errno(r, "Failed to continue sequence from file %s, ignoring: %m", fname);
                 else
@@ -576,6 +532,6 @@ int managed_journal_file_open_reliably(
         if (r < 0)
                 return r;
 
-        return managed_journal_file_open(-1, fname, open_flags, file_flags, mode, compress_threshold_bytes, metrics,
-                                         mmap_cache, deferred_closes, template, ret);
+        return journal_file_open(-1, fname, open_flags, file_flags, mode, compress_threshold_bytes, metrics,
+                                 mmap_cache, template, ret);
 }

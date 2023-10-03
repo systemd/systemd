@@ -9,10 +9,10 @@
 #include "alloc-util.h"
 #include "chattr-util.h"
 #include "io-util.h"
+#include "journal-file-util.h"
 #include "journal-vacuum.h"
 #include "log.h"
 #include "logs-show.h"
-#include "managed-journal-file.h"
 #include "parse-util.h"
 #include "rm-rf.h"
 #include "tests.h"
@@ -35,30 +35,30 @@ _noreturn_ static void log_assert_errno(const char *text, int error, const char 
                         log_assert_errno(#expr, -_r_, PROJECT_FILE, __LINE__, __func__); \
         } while (false)
 
-static ManagedJournalFile *test_open_internal(const char *name, JournalFileFlags flags) {
+static JournalFile *test_open_internal(const char *name, JournalFileFlags flags) {
         _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
-        ManagedJournalFile *f;
+        JournalFile *f;
 
         m = mmap_cache_new();
         assert_se(m != NULL);
 
-        assert_ret(managed_journal_file_open(-1, name, O_RDWR|O_CREAT, flags, 0644, UINT64_MAX, NULL, m, NULL, NULL, &f));
+        assert_ret(journal_file_open(-1, name, O_RDWR|O_CREAT, flags, 0644, UINT64_MAX, NULL, m, NULL, &f));
         return f;
 }
 
-static ManagedJournalFile *test_open(const char *name) {
+static JournalFile *test_open(const char *name) {
         return test_open_internal(name, JOURNAL_COMPRESS);
 }
 
-static ManagedJournalFile *test_open_strict(const char *name) {
+static JournalFile *test_open_strict(const char *name) {
         return test_open_internal(name, JOURNAL_COMPRESS | JOURNAL_STRICT_ORDER);
 }
 
-static void test_close(ManagedJournalFile *f) {
-        (void) managed_journal_file_close(f);
+static void test_close(JournalFile *f) {
+        (void) journal_file_offline_close(f);
 }
 
-static void append_number(ManagedJournalFile *f, int n, const sd_id128_t *boot_id, uint64_t *seqnum) {
+static void append_number(JournalFile *f, int n, const sd_id128_t *boot_id, uint64_t *seqnum) {
         _cleanup_free_ char *p = NULL, *q = NULL;
         dual_timestamp ts;
         struct iovec iovec[2];
@@ -82,10 +82,10 @@ static void append_number(ManagedJournalFile *f, int n, const sd_id128_t *boot_i
                 iovec[n_iov++] = IOVEC_MAKE_STRING(q);
         }
 
-        assert_ret(journal_file_append_entry(f->file, &ts, boot_id, iovec, n_iov, seqnum, NULL, NULL, NULL));
+        assert_ret(journal_file_append_entry(f, &ts, boot_id, iovec, n_iov, seqnum, NULL, NULL, NULL));
 }
 
-static void append_unreferenced_data(ManagedJournalFile *f, const sd_id128_t *boot_id) {
+static void append_unreferenced_data(JournalFile *f, const sd_id128_t *boot_id) {
         _cleanup_free_ char *q = NULL;
         dual_timestamp ts;
         struct iovec iovec;
@@ -98,7 +98,7 @@ static void append_unreferenced_data(ManagedJournalFile *f, const sd_id128_t *bo
         assert_se(q = strjoin("_BOOT_ID=", SD_ID128_TO_STRING(*boot_id)));
         iovec = IOVEC_MAKE_STRING(q);
 
-        assert_se(journal_file_append_entry(f->file, &ts, boot_id, &iovec, 1, NULL, NULL, NULL, NULL) == -EREMCHG);
+        assert_se(journal_file_append_entry(f, &ts, boot_id, &iovec, 1, NULL, NULL, NULL, NULL) == -EREMCHG);
 }
 
 static void test_check_number(sd_journal *j, int n) {
@@ -146,7 +146,7 @@ static void test_check_numbers_up(sd_journal *j, int count) {
 }
 
 static void setup_sequential(void) {
-        ManagedJournalFile *f1, *f2, *f3;
+        JournalFile *f1, *f2, *f3;
         sd_id128_t id;
 
         f1 = test_open("one.journal");
@@ -173,7 +173,7 @@ static void setup_sequential(void) {
 }
 
 static void setup_interleaved(void) {
-        ManagedJournalFile *f1, *f2, *f3;
+        JournalFile *f1, *f2, *f3;
         sd_id128_t id;
 
         f1 = test_open("one.journal");
@@ -196,7 +196,7 @@ static void setup_interleaved(void) {
 }
 
 static void setup_unreferenced_data(void) {
-        ManagedJournalFile *f1, *f2, *f3;
+        JournalFile *f1, *f2, *f3;
         sd_id128_t id;
 
         /* For issue #29275. */
@@ -449,7 +449,7 @@ TEST(boot_id) {
 static void test_sequence_numbers_one(void) {
         _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
         char t[] = "/var/tmp/journal-seq-XXXXXX";
-        ManagedJournalFile *one, *two;
+        JournalFile *one, *two;
         uint64_t seqnum = 0;
         sd_id128_t seqnum_id;
 
@@ -458,8 +458,8 @@ static void test_sequence_numbers_one(void) {
 
         mkdtemp_chdir_chattr(t);
 
-        assert_se(managed_journal_file_open(-1, "one.journal", O_RDWR|O_CREAT, JOURNAL_COMPRESS, 0644,
-                                            UINT64_MAX, NULL, m, NULL, NULL, &one) == 0);
+        assert_se(journal_file_open(-1, "one.journal", O_RDWR|O_CREAT, JOURNAL_COMPRESS, 0644,
+                                    UINT64_MAX, NULL, m, NULL, &one) == 0);
 
         append_number(one, 1, NULL, &seqnum);
         printf("seqnum=%"PRIu64"\n", seqnum);
@@ -468,21 +468,21 @@ static void test_sequence_numbers_one(void) {
         printf("seqnum=%"PRIu64"\n", seqnum);
         assert_se(seqnum == 2);
 
-        assert_se(one->file->header->state == STATE_ONLINE);
-        assert_se(!sd_id128_equal(one->file->header->file_id, one->file->header->machine_id));
-        assert_se(!sd_id128_equal(one->file->header->file_id, one->file->header->tail_entry_boot_id));
-        assert_se(sd_id128_equal(one->file->header->file_id, one->file->header->seqnum_id));
+        assert_se(one->header->state == STATE_ONLINE);
+        assert_se(!sd_id128_equal(one->header->file_id, one->header->machine_id));
+        assert_se(!sd_id128_equal(one->header->file_id, one->header->tail_entry_boot_id));
+        assert_se(sd_id128_equal(one->header->file_id, one->header->seqnum_id));
 
-        memcpy(&seqnum_id, &one->file->header->seqnum_id, sizeof(sd_id128_t));
+        memcpy(&seqnum_id, &one->header->seqnum_id, sizeof(sd_id128_t));
 
-        assert_se(managed_journal_file_open(-1, "two.journal", O_RDWR|O_CREAT, JOURNAL_COMPRESS, 0644,
-                                            UINT64_MAX, NULL, m, NULL, one, &two) == 0);
+        assert_se(journal_file_open(-1, "two.journal", O_RDWR|O_CREAT, JOURNAL_COMPRESS, 0644,
+                                    UINT64_MAX, NULL, m, one, &two) == 0);
 
-        assert_se(two->file->header->state == STATE_ONLINE);
-        assert_se(!sd_id128_equal(two->file->header->file_id, one->file->header->file_id));
-        assert_se(sd_id128_equal(two->file->header->machine_id, one->file->header->machine_id));
-        assert_se(sd_id128_is_null(two->file->header->tail_entry_boot_id)); /* Not written yet. */
-        assert_se(sd_id128_equal(two->file->header->seqnum_id, one->file->header->seqnum_id));
+        assert_se(two->header->state == STATE_ONLINE);
+        assert_se(!sd_id128_equal(two->header->file_id, one->header->file_id));
+        assert_se(sd_id128_equal(two->header->machine_id, one->header->machine_id));
+        assert_se(sd_id128_is_null(two->header->tail_entry_boot_id)); /* Not written yet. */
+        assert_se(sd_id128_equal(two->header->seqnum_id, one->header->seqnum_id));
 
         append_number(two, 3, NULL, &seqnum);
         printf("seqnum=%"PRIu64"\n", seqnum);
@@ -492,7 +492,7 @@ static void test_sequence_numbers_one(void) {
         assert_se(seqnum == 4);
 
         /* Verify tail_entry_boot_id. */
-        assert_se(sd_id128_equal(two->file->header->tail_entry_boot_id, one->file->header->tail_entry_boot_id));
+        assert_se(sd_id128_equal(two->header->tail_entry_boot_id, one->header->tail_entry_boot_id));
 
         test_close(two);
 
@@ -512,10 +512,10 @@ static void test_sequence_numbers_one(void) {
                 /* restart server */
                 seqnum = 0;
 
-                assert_se(managed_journal_file_open(-1, "two.journal", O_RDWR, JOURNAL_COMPRESS, 0,
-                                                    UINT64_MAX, NULL, m, NULL, NULL, &two) == 0);
+                assert_se(journal_file_open(-1, "two.journal", O_RDWR, JOURNAL_COMPRESS, 0,
+                                            UINT64_MAX, NULL, m, NULL, &two) == 0);
 
-                assert_se(sd_id128_equal(two->file->header->seqnum_id, seqnum_id));
+                assert_se(sd_id128_equal(two->header->seqnum_id, seqnum_id));
 
                 append_number(two, 7, NULL, &seqnum);
                 printf("seqnum=%"PRIu64"\n", seqnum);
@@ -547,7 +547,7 @@ TEST(sequence_numbers) {
 }
 
 static int intro(void) {
-        /* managed_journal_file_open requires a valid machine id */
+        /* journal_file_open() requires a valid machine id */
         if (access("/etc/machine-id", F_OK) != 0)
                 return log_tests_skipped("/etc/machine-id not found");
 
