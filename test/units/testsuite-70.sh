@@ -270,7 +270,11 @@ if [[ -x "$SD_PCREXTEND" ]] && tpm_has_pcr sha256 11 && tpm_has_pcr sha256 15; t
 
     # And similar for the boot phase measurement into PCR 11
     tpm2_pcrread sha256:11 -Q -o /tmp/oldpcr11
-    SYSTEMD_FORCE_MEASURE=1 "$SD_PCREXTEND" foobar
+    # Do the equivalent of 'SYSTEMD_FORCE_MEASURE=1 "$SD_PCREXTEND" foobar' via Varlink, just to test the Varlink logic (but first we need to patch out the conditionalization...)
+    grep -v -e '^Condition' /usr/lib/systemd/system/systemd-pcrextend.socket > /etc/systemd/system/systemd-pcrextend.socket
+    systemctl daemon-reload
+    systemctl restart systemd-pcrextend.socket
+    varlinkctl call /run/systemd/io.systemd.PCRExtend io.systemd.PCRExtend.Extend '{"pcr":11,"text":"foobar"}'
     tpm2_pcrread sha256:11 -Q -o /tmp/newpcr11
 
     diff /tmp/newpcr11 \
