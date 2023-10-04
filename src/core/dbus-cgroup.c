@@ -521,6 +521,7 @@ const sd_bus_vtable bus_cgroup_vtable[] = {
         SD_BUS_PROPERTY("MemoryPressureWatch", "s", bus_property_get_cgroup_pressure_watch, offsetof(CGroupContext, memory_pressure_watch), 0),
         SD_BUS_PROPERTY("MemoryPressureThresholdUSec", "t", bus_property_get_usec, offsetof(CGroupContext, memory_pressure_threshold_usec), 0),
         SD_BUS_PROPERTY("NFTSet", "a(iiss)", property_get_cgroup_nft_set, 0, 0),
+        SD_BUS_PROPERTY("CoredumpReceive", "b", bus_property_get_bool, offsetof(CGroupContext, coredump_receive), 0),
         SD_BUS_VTABLE_END
 };
 
@@ -837,6 +838,23 @@ static int bus_cgroup_set_transient_property(
                                 unit_write_setting(u, flags, name, "MemoryPressureThresholdUSec=");
                         else
                                 unit_write_settingf(u, flags, name, "MemoryPressureThresholdUSec=%" PRIu64, t);
+                }
+
+                return 1;
+        } else if (streq(name, "CoredumpReceive")) {
+                int b;
+
+                if (!UNIT_VTABLE(u)->can_delegate)
+                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Delegation not available for unit type");
+
+                r = sd_bus_message_read(message, "b", &b);
+                if (r < 0)
+                        return r;
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        c->coredump_receive = b;
+
+                        unit_write_settingf(u, flags, name, "CoredumpReceive=%s", yes_no(b));
                 }
 
                 return 1;
