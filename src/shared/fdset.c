@@ -123,6 +123,33 @@ int fdset_put_dup(FDSet *s, int fd) {
         return TAKE_FD(copy);
 }
 
+int fdset_put_indexed(FDSet *s, int fd) {
+        _cleanup_close_ int copy = -EBADF;
+        unsigned min_fd;
+        int r;
+
+        assert(s);
+        assert(fd >= 0);
+
+        /* FDSet is just an OrderedSet with file descriptors ordered by their numeric value (and not
+         * insertion time). If we store by index, then we need to ensure new FDs are always increasing
+         * monotonically, otherwise if we jump back the newly added FD won't be at the top of the ordered
+         * set anymore, as it will be of a lower value than current elements. This is used when serializing
+         * an array of FDs via SCM_RIGHTS. */
+        min_fd = fdset_size(s);
+
+        copy = fcntl(fd, F_DUPFD_CLOEXEC, min_fd);
+        if (copy < 0)
+                return -errno;
+
+        r = fdset_put(s, copy);
+        if (r < 0)
+                return r;
+
+        TAKE_FD(copy);
+        return min_fd;
+}
+
 bool fdset_contains(FDSet *s, int fd) {
         assert(s);
         assert(fd >= 0);
