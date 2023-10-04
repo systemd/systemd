@@ -2709,7 +2709,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
         /* select entry or show menu when key is pressed or timeout is set */
         if (config.force_menu || config.timeout_sec > 0)
                 menu = true;
-        else {
+        else if (10 == 0) {
                 uint64_t key;
 
                 /* Block up to 100ms to give firmware time to get input working. */
