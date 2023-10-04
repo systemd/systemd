@@ -97,20 +97,32 @@ int fdset_consume(FDSet *s, int fd) {
         return r;
 }
 
-int fdset_put_dup(FDSet *s, int fd) {
+int fdset_put_dup_full(FDSet *s, int fd, bool store_index) {
         _cleanup_close_ int copy = -EBADF;
+        unsigned min_fd = 3;
         int r;
 
         assert(s);
         assert(fd >= 0);
 
-        copy = fcntl(fd, F_DUPFD_CLOEXEC, 3);
+        /* If we store by index, then we need to ensure new FDs are always increasing monotonically,
+         * otherwise if we jump back the assumption is going to break. This is used when serializing
+         * an array of FDs via SCM_RIGHTS. */
+        if (store_index)
+                min_fd = fdset_size(s);
+
+        copy = fcntl(fd, F_DUPFD_CLOEXEC, min_fd);
         if (copy < 0)
                 return -errno;
 
         r = fdset_put(s, copy);
         if (r < 0)
                 return r;
+
+        if (store_index) {
+                TAKE_FD(copy);
+                return min_fd;
+        }
 
         return TAKE_FD(copy);
 }
