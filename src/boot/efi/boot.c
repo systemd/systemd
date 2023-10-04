@@ -100,12 +100,13 @@ typedef struct {
  * employ unsigned over-/underflow like this:
  * efivar unset ↔ force menu ↔ no timeout/skip menu ↔ 1 s ↔ 2 s ↔ … */
 enum {
-        TIMEOUT_MIN         = 1,
-        TIMEOUT_MAX         = UINT32_MAX - 2U,
-        TIMEOUT_UNSET       = UINT32_MAX - 1U,
-        TIMEOUT_MENU_FORCE  = UINT32_MAX,
-        TIMEOUT_MENU_HIDDEN = 0,
-        TIMEOUT_TYPE_MAX    = UINT32_MAX,
+        TIMEOUT_MIN           = 1,
+        TIMEOUT_MAX           = UINT32_MAX - 3U,
+        TIMEOUT_UNSET         = UINT32_MAX - 2U,
+        TIMEOUT_MENU_DISABLED = UINT32_MAX - 1U,
+        TIMEOUT_MENU_FORCE    = UINT32_MAX,
+        TIMEOUT_MENU_HIDDEN   = 0,
+        TIMEOUT_TYPE_MAX      = UINT32_MAX,
 };
 
 enum {
@@ -396,6 +397,9 @@ static char16_t *update_timeout_efivar(uint32_t *t, bool inc) {
         case TIMEOUT_UNSET:
                 *t = inc ? TIMEOUT_MENU_FORCE : TIMEOUT_UNSET;
                 break;
+        case TIMEOUT_MENU_DISABLED:
+                *t = inc ? TIMEOUT_MENU_FORCE : TIMEOUT_UNSET;
+                break;
         case TIMEOUT_MENU_FORCE:
                 *t = inc ? TIMEOUT_MENU_HIDDEN : TIMEOUT_UNSET;
                 break;
@@ -409,10 +413,12 @@ static char16_t *update_timeout_efivar(uint32_t *t, bool inc) {
         switch (*t) {
         case TIMEOUT_UNSET:
                 return xstrdup16(u"Menu timeout defined by configuration file.");
+        case TIMEOUT_MENU_DISABLED:
+                return xstrdup16(u"Menu disabled. Holding down key at bootup will NOT show menu.");
         case TIMEOUT_MENU_FORCE:
                 return xstrdup16(u"Timeout disabled, menu will always be shown.");
         case TIMEOUT_MENU_HIDDEN:
-                return xstrdup16(u"Menu disabled. Hold down key at bootup to show menu.");
+                return xstrdup16(u"Menu hidden. Hold down key at bootup to show menu.");
         default:
                 return xasprintf("Menu timeout set to %u s.", *t);
         }
@@ -478,6 +484,9 @@ static void print_status(Config *config, char16_t *loaded_image_path) {
         switch (config->timeout_sec_config) {
         case TIMEOUT_UNSET:
                 break;
+        case TIMEOUT_MENU_DISABLED:
+                printf("      timeout (config): menu-disabled\n");
+                break;
         case TIMEOUT_MENU_FORCE:
                 printf("      timeout (config): menu-force\n");
                 break;
@@ -490,6 +499,9 @@ static void print_status(Config *config, char16_t *loaded_image_path) {
 
         switch (config->timeout_sec_efivar) {
         case TIMEOUT_UNSET:
+                break;
+        case TIMEOUT_MENU_DISABLED:
+                printf("     timeout (EFI var): menu-disabled\n");
                 break;
         case TIMEOUT_MENU_FORCE:
                 printf("     timeout (EFI var): menu-force\n");
@@ -1069,6 +1081,9 @@ static bool menu_run(
                 case TIMEOUT_UNSET:
                         efivar_unset(MAKE_GUID_PTR(LOADER), u"LoaderConfigTimeout", EFI_VARIABLE_NON_VOLATILE);
                         break;
+                case TIMEOUT_MENU_DISABLED:
+                        efivar_set(MAKE_GUID_PTR(LOADER), u"LoaderConfigTimeout", u"menu-disabled", EFI_VARIABLE_NON_VOLATILE);
+                        break;
                 case TIMEOUT_MENU_FORCE:
                         efivar_set(MAKE_GUID_PTR(LOADER), u"LoaderConfigTimeout", u"menu-force", EFI_VARIABLE_NON_VOLATILE);
                         break;
@@ -1210,7 +1225,9 @@ static void config_defaults_load_from_file(Config *config, char *content) {
 
         while ((line = line_get_key_value(content, " \t", &pos, &key, &value))) {
                 if (streq8(key, "timeout")) {
-                        if (streq8( value, "menu-force"))
+                        if (streq8( value, "menu-disabled"))
+                                config->timeout_sec_config = TIMEOUT_MENU_DISABLED;
+                        else if (streq8( value, "menu-force"))
                                 config->timeout_sec_config = TIMEOUT_MENU_FORCE;
                         else if (streq8(value, "menu-hidden"))
                                 config->timeout_sec_config = TIMEOUT_MENU_HIDDEN;
@@ -1568,6 +1585,10 @@ static EFI_STATUS efivar_get_timeout(const char16_t *var, uint32_t *ret_value) {
         if (err != EFI_SUCCESS)
                 return err;
 
+        if (streq16(value, u"menu-disabled")) {
+                *ret_value = TIMEOUT_MENU_DISABLED;
+                return EFI_SUCCESS;
+        }
         if (streq16(value, u"menu-force")) {
                 *ret_value = TIMEOUT_MENU_FORCE;
                 return EFI_SUCCESS;
@@ -2707,9 +2728,9 @@ static EFI_STATUS run(EFI_HANDLE image) {
                                 "No loader found. Configuration files in \\loader\\entries\\*.conf are needed.");
 
         /* select entry or show menu when key is pressed or timeout is set */
-        if (config.force_menu || config.timeout_sec > 0)
+        if (config.force_menu || (config.timeout_sec > 0 && config.timeout_sec != TIMEOUT_MENU_DISABLED))
                 menu = true;
-        else {
+        else if (config.timeout_sec != TIMEOUT_MENU_DISABLED) {
                 uint64_t key;
 
                 /* Block up to 100ms to give firmware time to get input working. */
