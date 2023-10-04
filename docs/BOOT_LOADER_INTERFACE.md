@@ -31,7 +31,8 @@ variables. All EFI variables use the vendor UUID
 * The EFI variable `LoaderConfigTimeout` contains the boot menu timeout
   currently in use. It may be modified both by the boot loader and by the
   host. The value should be formatted as numeric, NUL-terminated, decimal
-  string, in UTF-16. The time is specified in seconds. A value of `menu-force`
+  string, in UTF-16. The time is specified in seconds. In addition some
+  non-numeric string values are also accepted. A value of `menu-force`
   will disable the timeout and show the menu indefinitely. If set to `0` or
   `menu-hidden` the default entry is booted immediately without showing a menu.
   The boot loader should provide a way to interrupt this by for example
