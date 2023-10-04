@@ -5189,6 +5189,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         start_networkd()
         self.wait_online(['veth-peer:carrier'])
         start_dnsmasq('--dhcp-option=option:dns-server,192.168.5.6,192.168.5.7',
+                      '--dhcp-option=option:sip-server,192.168.5.21,192.168.5.22',
                       '--dhcp-option=option:domain-search,example.com',
                       '--dhcp-alternate-port=67,5555',
                       ipv4_range='192.168.5.110,192.168.5.119')
@@ -5227,9 +5228,34 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         print('## link state file')
         output = read_link_state_file('veth99')
         print(output)
-        # checking DNS server and Domains
+        # checking DNS server, SIP server, and Domains
         self.assertIn('DNS=192.168.5.6 192.168.5.7', output)
+        self.assertIn('SIP=192.168.5.21 192.168.5.22', output)
         self.assertIn('DOMAINS=example.com', output)
+
+        print('## json')
+        output = check_output(*networkctl_cmd, '--json=short', 'status', 'veth99', env=env)
+        j = json.loads(output)
+
+        self.assertEqual(len(j['DNS']), 2)
+        for i in j['DNS']:
+            print(i)
+            self.assertEqual(i['Family'], 2)
+            a = socket.inet_ntop(socket.AF_INET, bytearray(i['Address']))
+            self.assertRegex(a, '^192.168.5.[67]$')
+            self.assertEqual(i['ConfigSource'], 'DHCPv4')
+            a = socket.inet_ntop(socket.AF_INET, bytearray(i['ConfigProvider']))
+            self.assertEqual('192.168.5.1', a)
+
+        self.assertEqual(len(j['SIP']), 2)
+        for i in j['SIP']:
+            print(i)
+            self.assertEqual(i['Family'], 2)
+            a = socket.inet_ntop(socket.AF_INET, bytearray(i['Address']))
+            self.assertRegex(a, '^192.168.5.2[12]$')
+            self.assertEqual(i['ConfigSource'], 'DHCPv4')
+            a = socket.inet_ntop(socket.AF_INET, bytearray(i['ConfigProvider']))
+            self.assertEqual('192.168.5.1', a)
 
         print('## dnsmasq log')
         output = read_dnsmasq_log_file()
@@ -5242,6 +5268,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         # change address range, DNS servers, and Domains
         stop_dnsmasq()
         start_dnsmasq('--dhcp-option=option:dns-server,192.168.5.1,192.168.5.7,192.168.5.8',
+                      '--dhcp-option=option:sip-server,192.168.5.23,192.168.5.24',
                       '--dhcp-option=option:domain-search,foo.example.com',
                       '--dhcp-alternate-port=67,5555',
                       ipv4_range='192.168.5.120,192.168.5.129',)
@@ -5287,9 +5314,34 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         print('## link state file')
         output = read_link_state_file('veth99')
         print(output)
-        # checking DNS server and Domains
+        # checking DNS server, SIP server, and Domains
         self.assertIn('DNS=192.168.5.1 192.168.5.7 192.168.5.8', output)
+        self.assertIn('SIP=192.168.5.23 192.168.5.24', output)
         self.assertIn('DOMAINS=foo.example.com', output)
+
+        print('## json')
+        output = check_output(*networkctl_cmd, '--json=short', 'status', 'veth99', env=env)
+        j = json.loads(output)
+
+        self.assertEqual(len(j['DNS']), 3)
+        for i in j['DNS']:
+            print(i)
+            self.assertEqual(i['Family'], 2)
+            a = socket.inet_ntop(socket.AF_INET, bytearray(i['Address']))
+            self.assertRegex(a, '^192.168.5.[178]$')
+            self.assertEqual(i['ConfigSource'], 'DHCPv4')
+            a = socket.inet_ntop(socket.AF_INET, bytearray(i['ConfigProvider']))
+            self.assertEqual('192.168.5.1', a)
+
+        self.assertEqual(len(j['SIP']), 2)
+        for i in j['SIP']:
+            print(i)
+            self.assertEqual(i['Family'], 2)
+            a = socket.inet_ntop(socket.AF_INET, bytearray(i['Address']))
+            self.assertRegex(a, '^192.168.5.2[34]$')
+            self.assertEqual(i['ConfigSource'], 'DHCPv4')
+            a = socket.inet_ntop(socket.AF_INET, bytearray(i['ConfigProvider']))
+            self.assertEqual('192.168.5.1', a)
 
         print('## dnsmasq log')
         output = read_dnsmasq_log_file()
