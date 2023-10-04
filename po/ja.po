@@ -167,7 +167,7 @@ msgstr "すみません、復旧キーを再入力して下さい: "
 #: src/home/pam_systemd_home.c:352
 #, c-format
 msgid "Security token of user %s not inserted."
-msgstr "ユーザ$sのセキュリティトークンが挿入されていません。"
+msgstr "ユーザ%sのセキュリティトークンが挿入されていません。"
 
 #: src/home/pam_systemd_home.c:353 src/home/pam_systemd_home.c:356
 msgid "Try again with password: "
@@ -250,7 +250,7 @@ msgstr ""
 #: src/home/pam_systemd_home.c:645
 #, c-format
 msgid "Too many unsuccessful login attempts for user %s, refusing."
-msgstr "ユーザ$sのログイン試行の失敗回数が多すぎたため、拒否されました。"
+msgstr "ユーザ%sのログイン試行の失敗回数が多すぎたため、拒否されました。"
 
 #: src/home/pam_systemd_home.c:868
 msgid "User record is blocked, prohibiting access."
