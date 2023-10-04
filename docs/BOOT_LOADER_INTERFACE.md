@@ -35,8 +35,9 @@ variables. All EFI variables use the vendor UUID
   non-numeric string values are also accepted. A value of `menu-force`
   will disable the timeout and show the menu indefinitely. If set to `0` or
   `menu-hidden` the default entry is booted immediately without showing a menu.
-  The boot loader should provide a way to interrupt this by for example
-  listening for key presses for a brief moment before booting.
+  Unless a value of `menu-disabled` is set, the boot loader should provide a
+  way to interrupt this by for example listening for key presses for a brief
+  moment before booting.
 
 * Similarly, the EFI variable `LoaderConfigTimeoutOneShot` contains a boot menu
   timeout for a single following boot. It is set by the OS in order to request
