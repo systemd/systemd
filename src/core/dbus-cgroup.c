@@ -1820,31 +1820,9 @@ int bus_cgroup_set_property(
                                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "DeviceAllow= requires combination of rwm flags");
 
                         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                                CGroupDeviceAllow *a = NULL;
-
-                                LIST_FOREACH(device_allow, b, c->device_allow)
-                                        if (path_equal(b->path, path)) {
-                                                a = b;
-                                                break;
-                                        }
-
-                                if (!a) {
-                                        a = new0(CGroupDeviceAllow, 1);
-                                        if (!a)
-                                                return -ENOMEM;
-
-                                        a->path = strdup(path);
-                                        if (!a->path) {
-                                                free(a);
-                                                return -ENOMEM;
-                                        }
-
-                                        LIST_PREPEND(device_allow, c->device_allow, a);
-                                }
-
-                                a->r = strchr(rwm, 'r');
-                                a->w = strchr(rwm, 'w');
-                                a->m = strchr(rwm, 'm');
+                                r = cgroup_add_or_update_device_allow(c, path, rwm);
+                                if (r < 0)
+                                        return r;
                         }
 
                         n++;

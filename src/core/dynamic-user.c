@@ -26,9 +26,9 @@
 /* Takes a value generated randomly or by hashing and turns it into a UID in the right range */
 #define UID_CLAMP_INTO_RANGE(rnd) (((uid_t) (rnd) % (DYNAMIC_UID_MAX - DYNAMIC_UID_MIN + 1)) + DYNAMIC_UID_MIN)
 
-DEFINE_PRIVATE_TRIVIAL_REF_FUNC(DynamicUser, dynamic_user);
+DEFINE_TRIVIAL_REF_FUNC(DynamicUser, dynamic_user);
 
-static DynamicUser* dynamic_user_free(DynamicUser *d) {
+DynamicUser* dynamic_user_free(DynamicUser *d) {
         if (!d)
                 return NULL;
 
@@ -43,13 +43,15 @@ static int dynamic_user_add(Manager *m, const char *name, int storage_socket[sta
         DynamicUser *d;
         int r;
 
-        assert(m);
+        assert(m || ret);
         assert(name);
         assert(storage_socket);
 
-        r = hashmap_ensure_allocated(&m->dynamic_users, &string_hash_ops);
-        if (r < 0)
-                return r;
+        if (m) { /* Might be called in sd-executor with no manager object */
+                r = hashmap_ensure_allocated(&m->dynamic_users, &string_hash_ops);
+                if (r < 0)
+                        return r;
+        }
 
         d = malloc0(offsetof(DynamicUser, name) + strlen(name) + 1);
         if (!d)
@@ -60,10 +62,12 @@ static int dynamic_user_add(Manager *m, const char *name, int storage_socket[sta
         d->storage_socket[0] = storage_socket[0];
         d->storage_socket[1] = storage_socket[1];
 
-        r = hashmap_put(m->dynamic_users, d->name, d);
-        if (r < 0) {
-                free(d);
-                return r;
+        if (m) { /* Might be called in sd-executor with no manager object */
+                r = hashmap_put(m->dynamic_users, d->name, d);
+                if (r < 0) {
+                        free(d);
+                        return r;
+                }
         }
 
         d->manager = m;
@@ -603,39 +607,50 @@ static DynamicUser* dynamic_user_destroy(DynamicUser *d) {
         return dynamic_user_free(d);
 }
 
-int dynamic_user_serialize(Manager *m, FILE *f, FDSet *fds) {
-        DynamicUser *d;
+int dynamic_user_serialize_one(DynamicUser *d, const char *key, FILE *f, FDSet *fds, bool store_index) {
+        int copy0, copy1;
 
-        assert(m);
+        assert(key);
         assert(f);
         assert(fds);
 
-        /* Dump the dynamic user database into the manager serialization, to deal with daemon reloads. */
+        if (!d)
+                return 0;
 
-        HASHMAP_FOREACH(d, m->dynamic_users) {
-                int copy0, copy1;
+        if (d->storage_socket[0] < 0 || d->storage_socket[1] < 0)
+                return 0;
 
-                copy0 = fdset_put_dup(fds, d->storage_socket[0]);
-                if (copy0 < 0)
-                        return log_error_errno(copy0, "Failed to add dynamic user storage fd to serialization: %m");
+        copy0 = fdset_put_dup_full(fds, d->storage_socket[0], store_index);
+        if (copy0 < 0)
+                return log_error_errno(copy0, "Failed to add dynamic user storage fd to serialization: %m");
 
-                copy1 = fdset_put_dup(fds, d->storage_socket[1]);
-                if (copy1 < 0)
-                        return log_error_errno(copy1, "Failed to add dynamic user storage fd to serialization: %m");
+        copy1 = fdset_put_dup_full(fds, d->storage_socket[1], store_index);
+        if (copy1 < 0)
+                return log_error_errno(copy1, "Failed to add dynamic user storage fd to serialization: %m");
 
-                (void) serialize_item_format(f, "dynamic-user", "%s %i %i", d->name, copy0, copy1);
-        }
+        (void) serialize_item_format(f, key, "%s %i %i", d->name, copy0, copy1);
 
         return 0;
 }
 
-void dynamic_user_deserialize_one(Manager *m, const char *value, FDSet *fds) {
+int dynamic_user_serialize(Manager *m, FILE *f, FDSet *fds) {
+        DynamicUser *d;
+
+        assert(m);
+
+        /* Dump the dynamic user database into the manager serialization, to deal with daemon reloads. */
+
+        HASHMAP_FOREACH(d, m->dynamic_users)
+                (void) dynamic_user_serialize_one(d, "dynamic-user", f, fds, /* store_index= */ false);
+
+        return 0;
+}
+
+void dynamic_user_deserialize_one(Manager *m, const char *value, FDSet *fds, bool store_index, DynamicUser **ret) {
         _cleanup_free_ char *name = NULL, *s0 = NULL, *s1 = NULL;
         int r, fd0, fd1;
 
-        assert(m);
         assert(value);
-        assert(fds);
 
         /* Parse the serialization again, after a daemon reload */
 
@@ -645,24 +660,23 @@ void dynamic_user_deserialize_one(Manager *m, const char *value, FDSet *fds) {
                 return;
         }
 
-        if ((fd0 = parse_fd(s0)) < 0 || !fdset_contains(fds, fd0)) {
-                log_debug("Unable to process dynamic user fd specification.");
+        fd0 = deserialize_fd(s0, fds, store_index);
+        if (fd0 < 0) {
+                log_debug_errno(fd0, "Unable to process dynamic user fd specification: %m");
                 return;
         }
 
-        if ((fd1 = parse_fd(s1)) < 0 || !fdset_contains(fds, fd1)) {
-                log_debug("Unable to process dynamic user fd specification.");
+        fd1 = deserialize_fd(s1, fds, store_index);
+        if (fd1 < 0) {
+                log_debug_errno(fd1, "Unable to process dynamic user fd specification: %m");
                 return;
         }
 
-        r = dynamic_user_add(m, name, (int[]) { fd0, fd1 }, NULL);
+        r = dynamic_user_add(m, name, (int[]) { fd0, fd1 }, ret);
         if (r < 0) {
                 log_debug_errno(r, "Failed to add dynamic user: %m");
                 return;
         }
-
-        (void) fdset_remove(fds, fd0);
-        (void) fdset_remove(fds, fd1);
 }
 
 void dynamic_user_vacuum(Manager *m, bool close_user) {
@@ -830,4 +844,13 @@ DynamicCreds* dynamic_creds_destroy(DynamicCreds *creds) {
         creds->group = dynamic_user_destroy(creds->group);
 
         return mfree(creds);
+}
+
+void dynamic_creds_done(DynamicCreds *creds) {
+        if (!creds)
+                return;
+
+        if (creds->group != creds->user)
+                dynamic_user_free(creds->group);
+        creds->group = creds->user = dynamic_user_free(creds->user);
 }
