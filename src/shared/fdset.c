@@ -12,21 +12,21 @@
 #include "fdset.h"
 #include "log.h"
 #include "macro.h"
+#include "ordered-set.h"
 #include "parse-util.h"
 #include "path-util.h"
-#include "set.h"
 #include "stat-util.h"
 
-#define MAKE_SET(s) ((Set*) s)
+#define MAKE_SET(s) ((OrderedSet*) s)
 #define MAKE_FDSET(s) ((FDSet*) s)
 
 FDSet *fdset_new(void) {
-        return MAKE_FDSET(set_new(NULL));
+        return MAKE_FDSET(ordered_set_new(NULL));
 }
 
 static void fdset_shallow_freep(FDSet **s) {
         /* Destroys the set, but does not free the fds inside, like fdset_free()! */
-        set_free(MAKE_SET(*ASSERT_PTR(s)));
+        ordered_set_free(MAKE_SET(*ASSERT_PTR(s)));
 }
 
 int fdset_new_array(FDSet **ret, const int fds[], size_t n_fds) {
@@ -53,7 +53,7 @@ int fdset_new_array(FDSet **ret, const int fds[], size_t n_fds) {
 void fdset_close(FDSet *s) {
         void *p;
 
-        while ((p = set_steal_first(MAKE_SET(s)))) {
+        while ((p = ordered_set_steal_first(MAKE_SET(s)))) {
                 /* Valgrind's fd might have ended up in this set here, due to fdset_new_fill(). We'll ignore
                  * all failures here, so that the EBADFD that valgrind will return us on close() doesn't
                  * influence us */
@@ -69,7 +69,7 @@ void fdset_close(FDSet *s) {
 
 FDSet* fdset_free(FDSet *s) {
         fdset_close(s);
-        set_free(MAKE_SET(s));
+        ordered_set_free(MAKE_SET(s));
         return NULL;
 }
 
@@ -81,7 +81,7 @@ int fdset_put(FDSet *s, int fd) {
         if (fd == INT_MAX)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Refusing invalid fd: %d", fd);
 
-        return set_put(MAKE_SET(s), FD_TO_PTR(fd));
+        return ordered_set_put(MAKE_SET(s), FD_TO_PTR(fd));
 }
 
 int fdset_consume(FDSet *s, int fd) {
@@ -97,20 +97,32 @@ int fdset_consume(FDSet *s, int fd) {
         return r;
 }
 
-int fdset_put_dup(FDSet *s, int fd) {
+int fdset_put_dup_full(FDSet *s, int fd, bool store_index) {
         _cleanup_close_ int copy = -EBADF;
+        unsigned min_fd = 3;
         int r;
 
         assert(s);
         assert(fd >= 0);
 
-        copy = fcntl(fd, F_DUPFD_CLOEXEC, 3);
+        /* If we store by index, then we need to ensure new FDs are always increasing monotonically,
+         * otherwise if we jump back the assumption is going to break. This is used when serializing
+         * an array of FDs via SCM_RIGHTS. */
+        if (store_index)
+                min_fd = fdset_size(s);
+
+        copy = fcntl(fd, F_DUPFD_CLOEXEC, min_fd);
         if (copy < 0)
                 return -errno;
 
         r = fdset_put(s, copy);
         if (r < 0)
                 return r;
+
+        if (store_index) {
+                TAKE_FD(copy);
+                return min_fd;
+        }
 
         return TAKE_FD(copy);
 }
@@ -125,7 +137,7 @@ bool fdset_contains(FDSet *s, int fd) {
                 return false;
         }
 
-        return !!set_get(MAKE_SET(s), FD_TO_PTR(fd));
+        return !!ordered_set_get(MAKE_SET(s), FD_TO_PTR(fd));
 }
 
 int fdset_remove(FDSet *s, int fd) {
@@ -136,7 +148,7 @@ int fdset_remove(FDSet *s, int fd) {
         if (fd == INT_MAX)
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOENT), "Refusing invalid fd: %d", fd);
 
-        return set_remove(MAKE_SET(s), FD_TO_PTR(fd)) ? fd : -ENOENT;
+        return ordered_set_remove(MAKE_SET(s), FD_TO_PTR(fd)) ? fd : -ENOENT;
 }
 
 int fdset_new_fill(
@@ -206,7 +218,7 @@ int fdset_cloexec(FDSet *fds, bool b) {
 
         assert(fds);
 
-        SET_FOREACH(p, MAKE_SET(fds)) {
+        ORDERED_SET_FOREACH(p, MAKE_SET(fds)) {
                 r = fd_cloexec(PTR_TO_FD(p), b);
                 if (r < 0)
                         return r;
@@ -257,7 +269,7 @@ int fdset_to_array(FDSet *fds, int **ret) {
         if (!a)
                 return -ENOMEM;
 
-        SET_FOREACH(e, MAKE_SET(fds))
+        ORDERED_SET_FOREACH(e, MAKE_SET(fds))
                 a[j++] = PTR_TO_FD(e);
 
         assert(j == m);
@@ -278,17 +290,17 @@ int fdset_close_others(FDSet *fds) {
 }
 
 unsigned fdset_size(FDSet *fds) {
-        return set_size(MAKE_SET(fds));
+        return ordered_set_size(MAKE_SET(fds));
 }
 
 bool fdset_isempty(FDSet *fds) {
-        return set_isempty(MAKE_SET(fds));
+        return ordered_set_isempty(MAKE_SET(fds));
 }
 
 int fdset_iterate(FDSet *s, Iterator *i) {
         void *p;
 
-        if (!set_iterate(MAKE_SET(s), i, &p))
+        if (!ordered_set_iterate(MAKE_SET(s), i, &p))
                 return -ENOENT;
 
         return PTR_TO_FD(p);
@@ -297,7 +309,7 @@ int fdset_iterate(FDSet *s, Iterator *i) {
 int fdset_steal_first(FDSet *fds) {
         void *p;
 
-        p = set_steal_first(MAKE_SET(fds));
+        p = ordered_set_steal_first(MAKE_SET(fds));
         if (!p)
                 return -ENOENT;
 
