@@ -2082,6 +2082,8 @@ evdev:name:AT Translated Set 2 keyboard:dmi:bvn*:bvr*:svnPositivoTecnologiaSA:pn
 evdev:name:SIPODEV USB Composite Device:dmi:bvn*:bvr*:svnPositivoTecnologiaSA:pn*:pvr*:rvn*:rnK142*
 # Positivo Motion (N14ZP6, N14ZP7)
 evdev:name:SIPODEV USB Composite Device:dmi:bvn*:bvr*:svnPositivoTecnologiaSA:pn*:pvr*:rvn*:rnN14ZP[67]*
+# Positivo Motion (N14EP6)
+evdev:name:SIPODEV USB Composite Device:dmi:bvn*:bvr*:br*:svnPositivoTecnologiaSA:pn*:pvr*:rvn*:rnN14EP6*
 # Positivo Motion (CW14Q01P) (CW14Q01P-V2)
 evdev:name:SIPODEV USB Composite Device:dmi:bvn*:bvr*:svnPositivoTecnologiaSA:pn*:pvr*:rvn*:rnCW14Q01P*
  KEYBOARD_KEY_70073=f21                                 # Fn+f2 toggle touchpad
