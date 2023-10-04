@@ -27,20 +27,22 @@
 #include "vmspawn.h"
 
 static PagerFlags arg_pager_flags = 0;
-static ConfigFeature arg_qemu_kvm = CONFIG_FEATURE_AUTO;
-static QemuFirmware arg_qemu_firmware = QEMU_FIRMWARE_UEFI;
+static char* arg_image = NULL;
 static char* arg_qemu_smp = NULL;
 static char* arg_qemu_mem = NULL;
-static char* arg_image = NULL;
-static bool arg_qemu_gui = false;
+static ConfigFeature arg_qemu_kvm = CONFIG_FEATURE_AUTO;
 static bool arg_qemu_cdrom = false;
+static QemuFirmware arg_qemu_firmware = QEMU_FIRMWARE_UEFI;
+static bool arg_qemu_gui = false;
 static Credential *arg_credentials = NULL;
 static size_t arg_n_credentials = 0;
 static SettingsMask arg_settings_mask = 0;
+static char **arg_parameters = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_qemu_smp, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_qemu_mem, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_parameters, strv_freep);
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
@@ -52,7 +54,7 @@ static int help(void) {
         if (r < 0)
                 return log_oom();
 
-        printf("%1$s [OPTIONS...]\n\n"
+        printf("%1$s [OPTIONS...] [ARGUMENTS...]\n\n"
                "%5$sSpawn a command or OS in a virtual machine.%6$s\n\n"
                "  -h --help                 Show this help\n"
                "     --version              Print version string\n"
@@ -282,6 +284,15 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached();
                 }
 
+        if (argc > optind) {
+                strv_free(arg_parameters);
+                arg_parameters = strv_copy(argv + optind);
+                if (!arg_parameters)
+                        return log_oom();
+
+                arg_settings_mask |= SETTING_START_MODE;
+        }
+
         return 1;
 }
 
@@ -407,6 +418,12 @@ static int run_virtual_machine(void) {
         strv_extend(&cmdline, "virtio-scsi-pci,id=scsi");
         strv_extend(&cmdline, "-device");
         strv_extendf(&cmdline, "scsi-%s,drive=mkosi,bootindex=1", arg_qemu_cdrom ? "cd" : "hd");
+
+        strv_extend_strv(&cmdline, arg_parameters, false);
+
+        STRV_FOREACH(s, cmdline)
+                printf("%s ", *s);
+        putchar('\n');
 
         int child_status;
         pid_t child_pid, pid;
