@@ -14,11 +14,10 @@
 #include "errno-util.h"
 #include "escape.h"
 #include "fd-util.h"
+#include "journal-file-util.h"
 #include "journal-remote-write.h"
 #include "journal-remote.h"
-#include "journald-native.h"
 #include "macro.h"
-#include "managed-journal-file.h"
 #include "parse-util.h"
 #include "parse-helpers.h"
 #include "process-util.h"
@@ -79,7 +78,7 @@ static int open_output(RemoteServer *s, Writer *w, const char* host) {
                 assert_not_reached();
         }
 
-        r = managed_journal_file_open_reliably(
+        r = journal_file_open_reliably(
                         filename,
                         O_RDWR|O_CREAT,
                         s->file_flags,
@@ -88,12 +87,11 @@ static int open_output(RemoteServer *s, Writer *w, const char* host) {
                         &w->metrics,
                         w->mmap,
                         NULL,
-                        NULL,
                         &w->journal);
         if (r < 0)
                 return log_error_errno(r, "Failed to open output journal %s: %m", filename);
 
-        log_debug("Opened output file %s", w->journal->file->path);
+        log_debug("Opened output file %s", w->journal->path);
         return 0;
 }
 
