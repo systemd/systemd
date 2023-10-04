@@ -8,6 +8,7 @@ IPv6AcceptRA=no
 Address=192.168.5.250/24
 
 [DHCPv4]
+RequestAddress=192.168.5.110
 UseDomains=yes
 UseMTU=yes
 UseRoutes=yes
