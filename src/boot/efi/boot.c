@@ -86,6 +86,8 @@ typedef struct {
         bool editor;
         bool auto_entries;
         bool auto_firmware;
+        bool auto_poweroff;
+        bool auto_reboot;
         bool reboot_for_bitlocker;
         secure_boot_enroll secure_boot_enroll;
         bool force_menu;
@@ -512,6 +514,8 @@ static void print_status(Config *config, char16_t *loaded_image_path) {
         printf("                editor: %ls\n", yes_no(config->editor));
         printf("          auto-entries: %ls\n", yes_no(config->auto_entries));
         printf("         auto-firmware: %ls\n", yes_no(config->auto_firmware));
+        printf("         auto-poweroff: %ls\n", yes_no(config->auto_poweroff));
+        printf("           auto-reboot: %ls\n", yes_no(config->auto_reboot));
         printf("                  beep: %ls\n", yes_no(config->beep));
         printf("  reboot-for-bitlocker: %ls\n", yes_no(config->reboot_for_bitlocker));
 
@@ -614,6 +618,16 @@ static EFI_STATUS reboot_into_firmware(void) {
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Error setting OsIndications: %m");
 
+        RT->ResetSystem(EfiResetCold, EFI_SUCCESS, 0, NULL);
+        assert_not_reached();
+}
+
+static EFI_STATUS poweroff_system(void) {
+        RT->ResetSystem(EfiResetShutdown, EFI_SUCCESS, 0, NULL);
+        assert_not_reached();
+}
+
+static EFI_STATUS reboot_system(void) {
         RT->ResetSystem(EfiResetCold, EFI_SUCCESS, 0, NULL);
         assert_not_reached();
 }
@@ -886,7 +900,9 @@ static bool menu_run(
                 case KEYPRESS(0, 0, 'H'):
                 case KEYPRESS(0, 0, '?'):
                         /* This must stay below 80 characters! Q/v/Ctrl+l/f deliberately not advertised. */
-                        status = xstrdup16(u"(d)efault (t/T)imeout (e)dit (r/R)esolution (p)rint (O)ff re(B)oot (h)elp");
+                        status = xasprintf("(d)efault (t/T)imeout (e)dit (r/R)esolution (p)rint %s%s(h)elp",
+                                           config->auto_poweroff ? "" : "(O)ff ",
+                                           config->auto_reboot ? "" : "re(B)oot ");
                         break;
 
                 case KEYPRESS(0, 0, 'Q'):
@@ -1019,11 +1035,11 @@ static bool menu_run(
                         break;
 
                 case KEYPRESS(0, 0, 'O'): /* Only uppercase, so that it can't be hit so easily fat-fingered, but still works safely over serial */
-                        RT->ResetSystem(EfiResetShutdown, EFI_SUCCESS, 0, NULL);
+                        (void) poweroff_system();
                         break;
 
                 case KEYPRESS(0, 0, 'B'): /* ditto */
-                        RT->ResetSystem(EfiResetCold, EFI_SUCCESS, 0, NULL);
+                        (void) reboot_system();
                         break;
 
                 default:
@@ -1255,6 +1271,20 @@ static void config_defaults_load_from_file(Config *config, char *content) {
                         err = parse_boolean(value, &config->auto_firmware);
                         if (err != EFI_SUCCESS)
                                 log_error("Error parsing 'auto-firmware' config option, ignoring: %s", value);
+                        continue;
+                }
+
+                if (streq8(key, "auto-poweroff")) {
+                        err = parse_boolean(value, &config->auto_poweroff);
+                        if (err != EFI_SUCCESS)
+                                log_error("Error parsing 'auto-poweroff' config option, ignoring: %s", value);
+                        continue;
+                }
+
+                if (streq8(key, "auto-reboot")) {
+                        err = parse_boolean(value, &config->auto_reboot);
+                        if (err != EFI_SUCCESS)
+                                log_error("Error parsing 'auto-reboot' config option, ignoring: %s", value);
                         continue;
                 }
 
@@ -2642,6 +2672,30 @@ static void config_load_all_entries(
                         .id = xstrdup16(u"auto-reboot-to-firmware-setup"),
                         .title = xstrdup16(u"Reboot Into Firmware Interface"),
                         .call = reboot_into_firmware,
+                        .tries_done = -1,
+                        .tries_left = -1,
+                };
+                config_add_entry(config, entry);
+        }
+
+        if (config->auto_poweroff) {
+                ConfigEntry *entry = xnew(ConfigEntry, 1);
+                *entry = (ConfigEntry) {
+                        .id = xstrdup16(u"auto-poweroff"),
+                        .title = xstrdup16(u"Power Off The System"),
+                        .call = poweroff_system,
+                        .tries_done = -1,
+                        .tries_left = -1,
+                };
+                config_add_entry(config, entry);
+        }
+
+        if (config->auto_reboot) {
+                ConfigEntry *entry = xnew(ConfigEntry, 1);
+                *entry = (ConfigEntry) {
+                        .id = xstrdup16(u"auto-reboot"),
+                        .title = xstrdup16(u"Reboot The System"),
+                        .call = reboot_system,
                         .tries_done = -1,
                         .tries_left = -1,
                 };
