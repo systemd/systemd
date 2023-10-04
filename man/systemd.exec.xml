@@ -350,7 +350,7 @@
         the service with a private, minimal version of <filename>/dev/</filename>, combine this option with
         <varname>PrivateDevices=</varname>.</para>
 
-        <para>In order to allow propagating mounts at runtime in a safe manner, <filename>/run/systemd/propagate</filename>
+        <para>In order to allow propagating mounts at runtime in a safe manner, <filename>/run/systemd/propagate/</filename>
         on the host will be used to set up new mounts, and <filename>/run/host/incoming/</filename> in the private namespace
         will be used as an intermediate step to store them before being moved to the final mount point.</para>
 
@@ -1659,12 +1659,15 @@ StateDirectory=aaa/bbb ccc</programlisting>
         i.e. writable mounts appearing on the host will be writable in the unit's namespace too, even when propagated
         below a path marked with <varname>ReadOnlyPaths=</varname>! Restricting access with these options hence does
         not extend to submounts of a directory that are created later on. This means the lock-down offered by that
-        setting is not complete, and does not offer full protection. </para>
+        setting is not complete, and does not offer full protection.</para>
 
         <para>Note that the effect of these settings may be undone by privileged processes. In order to set up an
         effective sandboxed environment for a unit it is thus recommended to combine these settings with either
-        <varname>CapabilityBoundingSet=~CAP_SYS_ADMIN</varname> or
-        <varname>SystemCallFilter=~@mount</varname>.</para>
+        <varname>CapabilityBoundingSet=~CAP_SYS_ADMIN</varname> or <varname>SystemCallFilter=~@mount</varname>.</para>
+
+        <para>Please be extra careful when applying these options to API file systems (a list of them could be
+        found in <varname>MountAPIVPS=</varname>), since they may be required for basic system functionalities.
+        Moreover, <filename>/run/</filename> needs to be writable for setting up mount namespace and propagation.</para>
 
         <para>Simple allow-list example using these directives:
         <programlisting>[Service]
