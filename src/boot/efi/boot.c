@@ -1057,17 +1057,24 @@ static bool menu_run(
                 efivar_set(MAKE_GUID_PTR(LOADER), u"LoaderEntryDefault", config->entry_default_efivar, EFI_VARIABLE_NON_VOLATILE);
 
         if (console_mode_efivar_saved != config->console_mode_efivar) {
-                if (config->console_mode_efivar == CONSOLE_MODE_KEEP)
-                        efivar_set(MAKE_GUID_PTR(LOADER), u"LoaderConfigConsoleMode", NULL, EFI_VARIABLE_NON_VOLATILE);
-                else
+                if (config->console_mode_efivar == CONSOLE_MODE_KEEP) {
+                        if (efivar_get_raw(MAKE_GUID_PTR(LOADER), u"LoaderConfigConsoleMode",
+                                           NULL, NULL) == EFI_SUCCESS)
+                                efivar_set(MAKE_GUID_PTR(LOADER), u"LoaderConfigConsoleMode",
+                                           NULL, EFI_VARIABLE_NON_VOLATILE);
+                } else {
                         efivar_set_uint_string(MAKE_GUID_PTR(LOADER), u"LoaderConfigConsoleMode",
                                                config->console_mode_efivar, EFI_VARIABLE_NON_VOLATILE);
+                }
         }
 
         if (timeout_efivar_saved != config->timeout_sec_efivar) {
                 switch (config->timeout_sec_efivar) {
                 case TIMEOUT_UNSET:
-                        efivar_set(MAKE_GUID_PTR(LOADER), u"LoaderConfigTimeout", NULL, EFI_VARIABLE_NON_VOLATILE);
+                        if (efivar_get_raw(MAKE_GUID_PTR(LOADER), u"LoaderConfigTimeout",
+                                           NULL, NULL) == EFI_SUCCESS)
+                                efivar_set(MAKE_GUID_PTR(LOADER), u"LoaderConfigTimeout",
+                                           NULL, EFI_VARIABLE_NON_VOLATILE);
                         break;
                 case TIMEOUT_MENU_FORCE:
                         efivar_set(MAKE_GUID_PTR(LOADER), u"LoaderConfigTimeout", u"menu-force", EFI_VARIABLE_NON_VOLATILE);
@@ -2501,9 +2508,12 @@ static void save_selected_entry(const Config *config, const ConfigEntry *entry) 
                         return;
 
                 (void) efivar_set(MAKE_GUID_PTR(LOADER), u"LoaderEntryLastBooted", entry->id, EFI_VARIABLE_NON_VOLATILE);
-        } else
-                /* Delete the non-volatile var if not needed. */
-                (void) efivar_set(MAKE_GUID_PTR(LOADER), u"LoaderEntryLastBooted", NULL, EFI_VARIABLE_NON_VOLATILE);
+        } else {
+                if (efivar_get_raw(MAKE_GUID_PTR(LOADER), u"LoaderEntryLastBooted",
+                                   NULL, NULL) == EFI_SUCCESS)
+                        efivar_set(MAKE_GUID_PTR(LOADER), u"LoaderEntryLastBooted",
+                                   NULL, EFI_VARIABLE_NON_VOLATILE);
+        }
 }
 
 static EFI_STATUS secure_boot_discover_keys(Config *config, EFI_FILE *root_dir) {
