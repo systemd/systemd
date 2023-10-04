@@ -188,6 +188,7 @@ static char **arg_network_veth_extra = NULL;
 static char *arg_network_bridge = NULL;
 static char *arg_network_zone = NULL;
 static char *arg_network_namespace_path = NULL;
+static const char *arg_network_provided_mac = NULL;
 static PagerFlags arg_pager_flags = 0;
 static unsigned long arg_personality = PERSONALITY_INVALID;
 static char *arg_image = NULL;
@@ -667,6 +668,10 @@ static int parse_environment(void) {
         e = getenv("SYSTEMD_NSPAWN_CONTAINER_SERVICE");
         if (e)
                 arg_container_service_name = e;
+
+        e = getenv("SYSTEMD_NSPAWN_NETWORK_MAC");
+        if (e)
+                arg_network_provided_mac = e;
 
         r = getenv_bool("SYSTEMD_SUPPRESS_SYNC");
         if (r >= 0)
@@ -4976,7 +4981,7 @@ static int run_container(
 
                 if (arg_network_veth) {
                         r = setup_veth(arg_machine, *pid, veth_name,
-                                       arg_network_bridge || arg_network_zone);
+                                       arg_network_bridge || arg_network_zone, arg_network_provided_mac);
                         if (r < 0)
                                 return r;
                         else if (r > 0)
