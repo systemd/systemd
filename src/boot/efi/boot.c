@@ -86,6 +86,8 @@ typedef struct {
         bool editor;
         bool auto_entries;
         bool auto_firmware;
+        bool auto_shutdown;
+        bool auto_reboot;
         bool reboot_for_bitlocker;
         secure_boot_enroll secure_boot_enroll;
         bool force_menu;
@@ -618,6 +620,16 @@ static EFI_STATUS reboot_into_firmware(void) {
         assert_not_reached();
 }
 
+static EFI_STATUS shutdown_system(void) {
+        RT->ResetSystem(EfiResetShutdown, EFI_SUCCESS, 0, NULL);
+        assert_not_reached();
+}
+
+static EFI_STATUS reboot_system(void) {
+        RT->ResetSystem(EfiResetCold, EFI_SUCCESS, 0, NULL);
+        assert_not_reached();
+}
+
 static bool menu_run(
                 Config *config,
                 ConfigEntry **chosen_entry,
@@ -1019,11 +1031,11 @@ static bool menu_run(
                         break;
 
                 case KEYPRESS(0, 0, 'O'): /* Only uppercase, so that it can't be hit so easily fat-fingered, but still works safely over serial */
-                        RT->ResetSystem(EfiResetShutdown, EFI_SUCCESS, 0, NULL);
+                        shutdown_system();
                         break;
 
                 case KEYPRESS(0, 0, 'B'): /* ditto */
-                        RT->ResetSystem(EfiResetCold, EFI_SUCCESS, 0, NULL);
+                        reboot_system();
                         break;
 
                 default:
@@ -1596,6 +1608,8 @@ static void config_load_defaults(Config *config, EFI_FILE *root_dir) {
                 .editor = true,
                 .auto_entries = true,
                 .auto_firmware = true,
+                .auto_shutdown = true,
+                .auto_reboot = true,
                 .reboot_for_bitlocker = false,
                 .secure_boot_enroll = ENROLL_IF_SAFE,
                 .idx_default_efivar = IDX_INVALID,
@@ -2639,6 +2653,32 @@ static void config_load_all_entries(
                         .id = xstrdup16(u"auto-reboot-to-firmware-setup"),
                         .title = xstrdup16(u"Reboot Into Firmware Interface"),
                         .call = reboot_into_firmware,
+                        .tries_done = -1,
+                        .tries_left = -1,
+                };
+                config_add_entry(config, entry);
+        }
+
+        // XXX: nuke the o/b from the help screen ?
+        // XXX: add FLAGS_SET(get_os_indications_supported(), EFI_OS_INDICATIONS_xx)) ?
+        if (config->auto_shutdown) {
+                ConfigEntry *entry = xnew(ConfigEntry, 1);
+                *entry = (ConfigEntry) {
+                        .id = xstrdup16(u"auto-shutdown"),
+                        .title = xstrdup16(u"ShutDown The System"),
+                        .call = shutdown_system,
+                        .tries_done = -1,
+                        .tries_left = -1,
+                };
+                config_add_entry(config, entry);
+        }
+
+        if (config->auto_reboot) {
+                ConfigEntry *entry = xnew(ConfigEntry, 1);
+                *entry = (ConfigEntry) {
+                        .id = xstrdup16(u"auto-reboot"),
+                        .title = xstrdup16(u"Reboot The System"),
+                        .call = reboot_system,
                         .tries_done = -1,
                         .tries_left = -1,
                 };
