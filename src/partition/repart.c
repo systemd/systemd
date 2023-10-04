@@ -107,14 +107,16 @@
  * sector size devices were generally assumed to have an even number of sectors, hence at the worst we'll
  * waste 3K per partition, which is probably fine. */
 
-static enum {
+typedef enum EmptyMode {
         EMPTY_UNSET,    /* no choice has been made yet */
         EMPTY_REFUSE,   /* refuse empty disks, never create a partition table */
         EMPTY_ALLOW,    /* allow empty disks, create partition table if necessary */
         EMPTY_REQUIRE,  /* require an empty disk, create a partition table */
         EMPTY_FORCE,    /* make disk empty, erase everything, create a partition table always */
         EMPTY_CREATE,   /* create disk as loopback file, create a partition table always */
-} arg_empty = EMPTY_UNSET;
+        _EMPTY_MODE_MAX,
+        _EMPTY_MODE_INVALID = -EINVAL,
+} EmptyMode;
 
 typedef enum FilterPartitionType {
         FILTER_PARTITIONS_NONE,
@@ -124,6 +126,7 @@ typedef enum FilterPartitionType {
         _FILTER_PARTITIONS_INVALID = -EINVAL,
 } FilterPartitionsType;
 
+static EmptyMode arg_empty = EMPTY_UNSET;
 static bool arg_dry_run = true;
 static const char *arg_node = NULL;
 static char *arg_root = NULL;
@@ -306,6 +309,15 @@ typedef struct Context {
         bool from_scratch;
 } Context;
 
+static const char *empty_mode_table[_EMPTY_MODE_MAX] = {
+        [EMPTY_UNSET]   = "unset",
+        [EMPTY_REFUSE]  = "refuse",
+        [EMPTY_ALLOW]   = "allow",
+        [EMPTY_REQUIRE] = "require",
+        [EMPTY_FORCE]   = "force",
+        [EMPTY_CREATE]  = "create",
+};
+
 static const char *encrypt_mode_table[_ENCRYPT_MODE_MAX] = {
         [ENCRYPT_OFF] = "off",
         [ENCRYPT_KEY_FILE] = "key-file",
@@ -326,6 +338,7 @@ static const char *minimize_mode_table[_MINIMIZE_MODE_MAX] = {
         [MINIMIZE_GUESS] = "guess",
 };
 
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP(empty_mode, EmptyMode);
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING_WITH_BOOLEAN(encrypt_mode, EncryptMode, ENCRYPT_KEY_FILE);
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP(verity_mode, VerityMode);
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING_WITH_BOOLEAN(minimize_mode, MinimizeMode, MINIMIZE_BEST);
@@ -2422,7 +2435,7 @@ static int context_load_partition_table(Context *context) {
                 from_scratch = true;
                 break;
 
-        case EMPTY_UNSET:
+        default:
                 assert_not_reached();
         }
 
@@ -6500,21 +6513,15 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_EMPTY:
-                        if (isempty(optarg))
+                        if (isempty(optarg)) {
                                 arg_empty = EMPTY_UNSET;
-                        else if (streq(optarg, "refuse"))
-                                arg_empty = EMPTY_REFUSE;
-                        else if (streq(optarg, "allow"))
-                                arg_empty = EMPTY_ALLOW;
-                        else if (streq(optarg, "require"))
-                                arg_empty = EMPTY_REQUIRE;
-                        else if (streq(optarg, "force"))
-                                arg_empty = EMPTY_FORCE;
-                        else if (streq(optarg, "create"))
-                                arg_empty = EMPTY_CREATE;
-                        else
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Failed to parse --empty= parameter: %s", optarg);
+                                break;
+                        }
+
+                        arg_empty = empty_mode_from_string(optarg);
+                        if (arg_empty < 0)
+                                return log_error_errno(arg_empty, "Failed to parse --empty= parameter: %s", optarg);
+
                         break;
 
                 case ARG_DISCARD:
@@ -6848,10 +6855,7 @@ static int parse_argv(int argc, char *argv[]) {
                 if (arg_definitions)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Combination of --make-ddi= and --definitions= is not supported.");
                 if (!IN_SET(arg_empty, EMPTY_UNSET, EMPTY_CREATE))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Combination of --make-ddi= and --empty=%s is not supported.",
-                                               arg_empty == EMPTY_REFUSE ? "refuse" :
-                                               arg_empty == EMPTY_ALLOW ? "allow" :
-                                               arg_empty == EMPTY_REQUIRE ? "require" : "force");
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Combination of --make-ddi= and --empty=%s is not supported.", empty_mode_to_string(arg_empty));
 
                 /* Imply automatic sizing in DDI mode */
                 if (arg_size == UINT64_MAX)
