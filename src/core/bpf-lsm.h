@@ -16,7 +16,7 @@ typedef struct restrict_fs_bpf restrict_fs_bpf;
 
 bool lsm_bpf_supported(bool initialize);
 int lsm_bpf_setup(Manager *m);
-int lsm_bpf_unit_restrict_filesystems(Unit *u, const Set *filesystems, bool allow_list);
+int lsm_bpf_restrict_filesystems(const Set *filesystems, uint64_t cgroup_id, int outer_map_fd, bool allow_list);
 int lsm_bpf_cleanup(const Unit *u);
 int lsm_bpf_map_restrict_fs_fd(Unit *u);
 void lsm_bpf_destroy(struct restrict_fs_bpf *prog);
