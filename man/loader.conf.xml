@@ -101,6 +101,14 @@
                 <entry>macOS</entry>
               </row>
               <row>
+                <entry>auto-poweroff</entry>
+                <entry>Power Off The System</entry>
+              </row>
+              <row>
+                <entry>auto-reboot</entry>
+                <entry>Reboot The System</entry>
+              </row>
+              <row>
                 <entry>auto-reboot-to-firmware-setup</entry>
                 <entry>Reboot Into Firmware Interface</entry>
               </row>
