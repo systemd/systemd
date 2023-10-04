@@ -114,6 +114,7 @@ struct Network {
 
         /* DHCP Client Support */
         AddressFamily dhcp;
+        struct in_addr dhcp_preferred_address;
         DHCPClientIdentifier dhcp_client_identifier;
         DUID dhcp_duid;
         uint32_t dhcp_iaid;
