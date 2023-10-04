@@ -2099,6 +2099,17 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
       <!-- DHCP packet contents -->
 
       <varlistentry>
+        <term><varname>RequestAddress=</varname></term>
+        <listitem>
+          <para>Takes an IPv4 address. When specified, the Requested IP Address option (option code 50) is
+          added with it to the initial DHCPDISCOVER message sent by the DHCP client. Defaults to unset, and
+          an already assigned dynamic address to the interface is automatically picked.</para>
+
+          <xi:include href="version-info.xml" xpointer="v255"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>SendHostname=</varname></term>
         <listitem>
           <para>When true (the default), the machine's hostname (or the value specified with
@@ -2232,6 +2243,7 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
           are implied and these settings in the .network file are silently ignored. Also,
           <varname>Hostname=</varname>,
           <varname>MUDURL=</varname>,
+          <varname>RequestAddress</varname>,
           <varname>RequestOptions=</varname>,
           <varname>SendOption=</varname>,
           <varname>SendVendorOption=</varname>,
