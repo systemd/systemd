@@ -30,7 +30,7 @@ and other optional components as sections in a PE signed binary, that can thus b
 environments.
 
 Since it is embedded in a PE signed binary, `systemd-stub` will temporarily disable the UEFI authentication
-protobol while loading the payload kernel it wraps, in order to avoid redundant duplicate authentication of
+protocol while loading the payload kernel it wraps, in order to avoid redundant duplicate authentication of
 the image, given that the payload kernel was already authenticated and verified as part of the whole image.
 SecureBoot authentication is re-enabled immediately after the kernel image has been loaded.
 
