@@ -14,7 +14,10 @@ FDSet* fdset_free(FDSet *s);
 
 int fdset_put(FDSet *s, int fd);
 int fdset_consume(FDSet *s, int fd);
-int fdset_put_dup(FDSet *s, int fd);
+int fdset_put_dup_full(FDSet *s, int fd, bool return_size);
+static inline int fdset_put_dup(FDSet *s, int fd) {
+        return fdset_put_dup_full(s, fd, /* store_index= */ false);
+}
 
 bool fdset_contains(FDSet *s, int fd);
 int fdset_remove(FDSet *s, int fd);
