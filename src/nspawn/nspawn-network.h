@@ -5,9 +5,11 @@
 #include <stdbool.h>
 #include <sys/types.h>
 
+#include "ether-addr-util.h"
+
 int test_network_interfaces_initialized(char **iface_pairs);
 
-int setup_veth(const char *machine_name, pid_t pid, char iface_name[IFNAMSIZ], bool bridge);
+int setup_veth(const char *machine_name, pid_t pid, char iface_name[IFNAMSIZ], bool bridge, struct ether_addr *provided_mac);
 int setup_veth_extra(const char *machine_name, pid_t pid, char **pairs);
 
 int setup_bridge(const char *veth_name, const char *bridge_name, bool create);
