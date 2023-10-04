@@ -389,7 +389,7 @@ static usec_t timespan_to_timestamp(usec_t usec) {
                         default_timeout_set = true;
                         default_timeout = NETLINK_DEFAULT_TIMEOUT_USEC;
 
-                        e = getenv("SYSTEMD_NETLINK_DEFAULT_TIMEOUT");
+                        e = secure_getenv("SYSTEMD_NETLINK_DEFAULT_TIMEOUT");
                         if (e) {
                                 r = parse_sec(e, &default_timeout);
                                 if (r < 0)
