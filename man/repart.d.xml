@@ -463,10 +463,11 @@
         <para>This option cannot be combined with <varname>CopyBlocks=</varname>.</para>
 
         <para>When
-        <citerefentry><refentrytitle>systemd-repart</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-        is invoked with the <option>--image=</option> or <option>--root=</option> command line switches the
-        source paths specified are taken relative to the specified root directory or disk image root.
-        </para>
+        <citerefentry><refentrytitle>systemd-repart</refentrytitle><manvolnum>8</manvolnum></citerefentry> is
+        invoked with the <option>--copy-source=</option> command line switch the file paths are taken
+        relative to the specified directory. If <option>--copy-source=</option> is not used, but the
+        <option>--image=</option> or <option>--root=</option> switches are used, the source paths are taken
+        relative to the specified root directory or disk image root.</para>
 
         <xi:include href="version-info.xml" xpointer="v247"/></listitem>
       </varlistentry>

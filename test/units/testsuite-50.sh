@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 # -*- mode: shell-script; indent-tabs-mode: nil; sh-basic-offset: 4; -*-
 # ex: ts=8 sw=4 sts=4 et filetype=sh
+# shellcheck disable=SC2233,SC2235
 set -eux
 set -o pipefail
 
@@ -623,5 +624,36 @@ systemctl status foo.service 2>&1 | grep -q -F "Warning"
 systemd-sysext merge
 systemd-sysext unmerge
 systemctl status foo.service 2>&1 | grep -v -q -F "Warning"
+
+# Test systemd-repart --make-ddi=:
+if command -v mkfs.erofs >/dev/null 2>&1; then
+    openssl req -config /dev/null -subj="/CN=waldo" -x509 -sha256 -nodes -days 365 -newkey rsa:4096 -keyout /tmp/test-50-privkey.key -out /tmp/test-50-cert.crt
+
+    mkdir -p /tmp/test-50-confext/etc/extension-release.d/
+
+    echo "foobar50" > /tmp/test-50-confext/etc/waldo
+
+    ( grep -e '^\(ID\|VERSION_ID\)=' /etc/os-release ; echo IMAGE_ID=waldo ; echo IMAGE_VERSION=7 ) > /tmp/test-50-confext/etc/extension-release.d/extension-release.waldo
+
+    mkdir -p /run/confexts
+
+    systemd-repart -C -s /tmp/test-50-confext --certificate=/tmp/test-50-cert.crt --private-key=/tmp/test-50-privkey.key /run/confexts/waldo.confext.raw
+    rm -rf /tmp/test-50-confext
+
+    mkdir -p /run/verity.d
+    cp /tmp/test-50-cert.crt /run/verity.d/
+    systemd-dissect --mtree /run/confexts/waldo.confext.raw
+
+    systemd-confext refresh
+
+    read -r X < /etc/waldo
+    test "$X" = foobar50
+
+    rm /run/verity.d/test-50-cert.crt /run/confexts/waldo.confext.raw /tmp/test-50-cert.crt /tmp/test-50-privkey.key
+
+    systemd-confext refresh
+
+    (! test -f /tmp/test-50-confext/etc/waldo )
+fi
 
 touch /testok
