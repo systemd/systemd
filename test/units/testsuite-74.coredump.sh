@@ -74,6 +74,27 @@ rm -fv /run/systemd/coredump.conf.d/99-external.conf
 # Wait a bit for the coredumps to get processed
 timeout 30 bash -c "while [[ \$(coredumpctl list -q --no-legend $CORE_TEST_BIN | wc -l) -lt 4 ]]; do sleep 1; done"
 
+# Make sure we can forward crashes back to containers
+CONTAINER="testsuite-74-container"
+
+mkdir -p "/run/systemd/system/systemd-nspawn@${CONTAINER}.service.d"
+cat >  "/run/systemd/system/systemd-nspawn@${CONTAINER}.service.d/coredump-receive.conf" << EOF
+[Service]
+CoredumpReceive=yes
+EOF
+systemctl daemon-reload
+
+machinectl start "$CONTAINER"
+until systemd-run -M "$CONTAINER" -q --wait --pipe /usr/bin/true; do
+    sleep .5
+done
+machinectl copy-to "$CONTAINER" "$MAKE_DUMP_SCRIPT"
+systemd-run -M "$CONTAINER" -q --wait --pipe "$MAKE_DUMP_SCRIPT" "/usr/bin/sleep" "SIGABRT"
+systemd-run -M "$CONTAINER" -q --wait --pipe "$MAKE_DUMP_SCRIPT" "/usr/bin/sleep" "SIGTRAP"
+# Wait a bit for the coredumps to get processed
+timeout 30 bash -c "while [[ \$(systemd-run -M $CONTAINER -q --wait --pipe coredumpctl list -q --no-legend /usr/bin/sleep | wc -l) -lt 2 ]]; do sleep 1; done"
+rm -fv /run/systemd/coredump.conf.d/99-forward-to-containers.conf
+
 coredumpctl
 SYSTEMD_LOG_LEVEL=debug coredumpctl
 coredumpctl --help

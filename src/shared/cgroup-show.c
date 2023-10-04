@@ -128,33 +128,6 @@ static int show_cgroup_one_by_path(
         return 0;
 }
 
-static int is_delegated(int cgfd, const char *path) {
-        _cleanup_free_ char *b = NULL;
-        int r;
-
-        assert(cgfd >= 0 || path);
-
-        const char *t = cgfd >= 0 ? FORMAT_PROC_FD_PATH(cgfd) : path;
-
-        r = getxattr_malloc(t, "trusted.delegate", &b);
-        if (ERRNO_IS_NEG_XATTR_ABSENT(r)) {
-                /* If the trusted xattr isn't set (preferred), then check the untrusted one. Under the
-                 * assumption that whoever is trusted enough to own the cgroup, is also trusted enough to
-                 * decide if it is delegated or not this should be safe. */
-                r = getxattr_malloc(t, "user.delegate", &b);
-                if (ERRNO_IS_NEG_XATTR_ABSENT(r))
-                        return false;
-        }
-        if (r < 0)
-                return log_debug_errno(r, "Failed to read delegate xattr from %s, ignoring: %m", t);
-
-        r = parse_boolean(b);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to parse delegate xattr from %s, ignoring: %m", t);
-
-        return r;
-}
-
 static int show_cgroup_name(
                 const char *path,
                 const char *prefix,
@@ -173,7 +146,10 @@ static int show_cgroup_name(
                         log_debug_errno(errno, "Failed to open cgroup '%s', ignoring: %m", path);
         }
 
-        delegate = is_delegated(fd, path) > 0;
+        r = cg_is_delegated(NULL, fd >= 0 ? FORMAT_PROC_FD_PATH(fd) : path);
+        if (r < 0)
+                log_debug_errno(r, "Failed to check if cgroup is delegated, ignoring: %m");
+        delegate = r > 0;
 
         if (FLAGS_SET(flags, OUTPUT_CGROUP_ID)) {
                 cg_file_handle fh = CG_FILE_HANDLE_INIT;
