@@ -20,10 +20,11 @@ static int parse_timeout(const char *arg1, char16_t **ret_timeout, size_t *ret_t
         assert(ret_timeout);
         assert(ret_timeout_size);
 
+        assert_cc(STRLEN("menu-disabled") < ELEMENTSOF(utf8));
         assert_cc(STRLEN("menu-force") < ELEMENTSOF(utf8));
         assert_cc(STRLEN("menu-hidden") < ELEMENTSOF(utf8));
 
-        if (streq(arg1, "menu-force") || streq(arg1, "menu-hidden")) {
+        if (streq(arg1, "menu-disabled") || streq(arg1, "menu-force") || streq(arg1, "menu-hidden")) {
                 xsprintf(utf8, "%s", arg1);
         } else {
                 r = parse_time(arg1, &timeout, USEC_PER_SEC);
