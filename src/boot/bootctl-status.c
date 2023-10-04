@@ -372,6 +372,7 @@ int verb_status(int argc, char *argv[], void *userdata) {
                         { EFI_LOADER_FEATURE_DEVICETREE,              "Support Type #1 devicetree field"      },
                         { EFI_LOADER_FEATURE_SECUREBOOT_ENROLL,       "Enroll SecureBoot keys"                },
                         { EFI_LOADER_FEATURE_RETAIN_SHIM,             "Retain SHIM protocols"                 },
+                        { EFI_LOADER_FEATURE_MENU_DISABLE,            "Menu disablement control"              },
                 };
                 static const struct {
                         uint64_t flag;
