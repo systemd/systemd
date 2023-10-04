@@ -95,6 +95,8 @@ EFI_STATUS efivar_set_uint32_le(const EFI_GUID *vendor, const char16_t *NAME, ui
 EFI_STATUS efivar_set_uint64_le(const EFI_GUID *vendor, const char16_t *name, uint64_t value, uint32_t flags);
 void efivar_set_time_usec(const EFI_GUID *vendor, const char16_t *name, uint64_t usec);
 
+EFI_STATUS efivar_unset(const EFI_GUID *vendor, const char16_t *name, uint32_t flags);
+
 EFI_STATUS efivar_get(const EFI_GUID *vendor, const char16_t *name, char16_t **ret);
 EFI_STATUS efivar_get_raw(const EFI_GUID *vendor, const char16_t *name, char **ret, size_t *ret_size);
 EFI_STATUS efivar_get_uint_string(const EFI_GUID *vendor, const char16_t *name, size_t *ret);

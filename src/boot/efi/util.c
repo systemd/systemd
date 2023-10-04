@@ -85,6 +85,21 @@ EFI_STATUS efivar_set_uint64_le(const EFI_GUID *vendor, const char16_t *name, ui
         return efivar_set_raw(vendor, name, buf, sizeof(buf), flags);
 }
 
+EFI_STATUS efivar_unset(const EFI_GUID *vendor, const char16_t *name, uint32_t flags) {
+        EFI_STATUS err;
+
+        assert(vendor);
+        assert(name);
+
+        /* We could be wiping a non-volatile variable here and the spec makes no guarantees that won't incur
+         * in an extra write (and thus wear out). So check and clear only if needed. */
+        err = efivar_get_raw(vendor, name, NULL, NULL);
+        if (err == EFI_SUCCESS)
+                return efivar_set_raw(vendor, name, NULL, 0, flags);
+
+        return err;
+}
+
 EFI_STATUS efivar_get(const EFI_GUID *vendor, const char16_t *name, char16_t **ret) {
         _cleanup_free_ char16_t *buf = NULL;
         EFI_STATUS err;
