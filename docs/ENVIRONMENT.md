@@ -163,6 +163,12 @@ All tools:
   friends. This is equivalent to passing `--suppress-sync=yes` on the
   `systemd-nspawn` command line.
 
+* `$SYSTEMD_NSPAWN_NETWORK_MAC=...` — if set, allows users to set a specific MAC
+  address for a container, ensuring that it uses the provided value instead of
+  generating a random one. It is effective when used with `--network-veth`. The
+  expected format is six groups of two hexadecimal digits separated by colons,
+  e.g. `SYSTEMD_NSPAWN_NETWORK_MAC=12:34:56:78:90:AB`
+
 `systemd-logind`:
 
 * `$SYSTEMD_BYPASS_HIBERNATION_MEMORY_CHECK=1` — if set, report that
