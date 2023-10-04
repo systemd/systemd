@@ -214,6 +214,7 @@ NextHop.Family,                              config_parse_nexthop_family,       
 NextHop.OnLink,                              config_parse_nexthop_onlink,                              0,                             0
 NextHop.Blackhole,                           config_parse_nexthop_blackhole,                           0,                             0
 NextHop.Group,                               config_parse_nexthop_group,                               0,                             0
+DHCPv4.PreferredAddress,                     config_parse_in_addr_non_null,                            AF_INET,                       offsetof(Network, dhcp_preferred_address)
 DHCPv4.ClientIdentifier,                     config_parse_dhcp_client_identifier,                      0,                             offsetof(Network, dhcp_client_identifier)
 DHCPv4.UseDNS,                               config_parse_dhcp_use_dns,                                AF_INET,                       0
 DHCPv4.RoutesToDNS,                          config_parse_bool,                                        0,                             offsetof(Network, dhcp_routes_to_dns)

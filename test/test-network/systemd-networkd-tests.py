@@ -5204,6 +5204,16 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertRegex(output, r'inet 192.168.5.11[0-9]/24 metric 24 brd 192.168.5.255 scope global secondary dynamic noprefixroute test-label')
         self.assertNotIn('2600::', output)
 
+        output = check_output('ip -4 --json address show dev veth99')
+        for i in json.loads(output)[0]['addr_info']:
+            if i['label'] == 'test-label':
+                address1 = i['local']
+                break
+        else:
+            self.assertFalse(True)
+
+        self.assertRegex(address1, r'^192.168.5.11[0-9]$')
+
         print('## ip route show table main dev veth99')
         output = check_output('ip route show table main dev veth99')
         print(output)
@@ -5218,11 +5228,11 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         print('## ip route show table 211 dev veth99')
         output = check_output('ip route show table 211 dev veth99')
         print(output)
-        self.assertRegex(output, 'default via 192.168.5.1 proto dhcp src 192.168.5.11[0-9] metric 24')
-        self.assertRegex(output, '192.168.5.0/24 proto dhcp scope link src 192.168.5.11[0-9] metric 24')
-        self.assertRegex(output, '192.168.5.1 proto dhcp scope link src 192.168.5.11[0-9] metric 24')
-        self.assertRegex(output, '192.168.5.6 proto dhcp scope link src 192.168.5.11[0-9] metric 24')
-        self.assertRegex(output, '192.168.5.7 proto dhcp scope link src 192.168.5.11[0-9] metric 24')
+        self.assertRegex(output, f'default via 192.168.5.1 proto dhcp src {address1} metric 24')
+        self.assertRegex(output, f'192.168.5.0/24 proto dhcp scope link src {address1} metric 24')
+        self.assertRegex(output, f'192.168.5.1 proto dhcp scope link src {address1} metric 24')
+        self.assertRegex(output, f'192.168.5.6 proto dhcp scope link src {address1} metric 24')
+        self.assertRegex(output, f'192.168.5.7 proto dhcp scope link src {address1} metric 24')
         self.assertIn('10.0.0.0/8 via 192.168.5.1 proto dhcp', output)
 
         print('## link state file')
@@ -5261,7 +5271,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         output = read_dnsmasq_log_file()
         print(output)
         self.assertIn('vendor class: FooBarVendorTest', output)
-        self.assertIn('DHCPDISCOVER(veth-peer) 12:34:56:78:9a:bc', output)
+        self.assertIn('DHCPDISCOVER(veth-peer) 192.168.5.110 12:34:56:78:9a:bc', output)
         self.assertIn('client provides name: test-hostname', output)
         self.assertIn('26:mtu', output)
 
@@ -5275,7 +5285,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
 
         # Sleep for 120 sec as the dnsmasq minimum lease time can only be set to 120
         print('Wait for the DHCP lease to be expired')
-        self.wait_address_dropped('veth99', r'inet 192.168.5.11[0-9]*/24', ipv='-4', timeout_sec=120)
+        self.wait_address_dropped('veth99', f'inet {address1}/24', ipv='-4', timeout_sec=120)
         self.wait_address('veth99', r'inet 192.168.5.12[0-9]*/24', ipv='-4')
 
         self.wait_online(['veth99:routable', 'veth-peer:routable'])
@@ -5285,9 +5295,19 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         print(output)
         self.assertIn('mtu 1492', output)
         self.assertIn('inet 192.168.5.250/24 brd 192.168.5.255 scope global veth99', output)
-        self.assertNotIn('192.168.5.11', output)
+        self.assertNotIn(f'{address1}', output)
         self.assertRegex(output, r'inet 192.168.5.12[0-9]/24 metric 24 brd 192.168.5.255 scope global secondary dynamic noprefixroute test-label')
         self.assertNotIn('2600::', output)
+
+        output = check_output('ip -4 --json address show dev veth99')
+        for i in json.loads(output)[0]['addr_info']:
+            if i['label'] == 'test-label':
+                address2 = i['local']
+                break
+        else:
+            self.assertFalse(True)
+
+        self.assertRegex(address2, r'^192.168.5.12[0-9]$')
 
         print('## ip route show table main dev veth99')
         output = check_output('ip route show table main dev veth99')
@@ -5303,12 +5323,12 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         print('## ip route show table 211 dev veth99')
         output = check_output('ip route show table 211 dev veth99')
         print(output)
-        self.assertRegex(output, 'default via 192.168.5.1 proto dhcp src 192.168.5.12[0-9] metric 24')
-        self.assertRegex(output, '192.168.5.0/24 proto dhcp scope link src 192.168.5.12[0-9] metric 24')
-        self.assertRegex(output, '192.168.5.1 proto dhcp scope link src 192.168.5.12[0-9] metric 24')
+        self.assertRegex(output, f'default via 192.168.5.1 proto dhcp src {address2} metric 24')
+        self.assertRegex(output, f'192.168.5.0/24 proto dhcp scope link src {address2} metric 24')
+        self.assertRegex(output, f'192.168.5.1 proto dhcp scope link src {address2} metric 24')
         self.assertNotIn('192.168.5.6', output)
-        self.assertRegex(output, '192.168.5.7 proto dhcp scope link src 192.168.5.12[0-9] metric 24')
-        self.assertRegex(output, '192.168.5.8 proto dhcp scope link src 192.168.5.12[0-9] metric 24')
+        self.assertRegex(output, f'192.168.5.7 proto dhcp scope link src {address2} metric 24')
+        self.assertRegex(output, f'192.168.5.8 proto dhcp scope link src {address2} metric 24')
         self.assertIn('10.0.0.0/8 via 192.168.5.1 proto dhcp', output)
 
         print('## link state file')
@@ -5347,7 +5367,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         output = read_dnsmasq_log_file()
         print(output)
         self.assertIn('vendor class: FooBarVendorTest', output)
-        self.assertIn('DHCPDISCOVER(veth-peer) 192.168.5.11', output)
+        self.assertIn(f'DHCPDISCOVER(veth-peer) {address1} 12:34:56:78:9a:bc', output)
         self.assertIn('client provides name: test-hostname', output)
         self.assertIn('26:mtu', output)
 
