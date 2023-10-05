@@ -213,7 +213,6 @@ Features:
   - get_process_uid() → pidref_get_uid()
   - actually wait for POLLIN on pidref's pidfd in service logic
   - exec_spawn()
-  - serialization of control/main pid in service, socket, mount, swap units
   - cg_pid_get_unit()
   - openpt_allocate_in_namespace()
   - scope dbus PIDs property needs to gain PIDFDs companion
