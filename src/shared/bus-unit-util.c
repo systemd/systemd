@@ -2817,6 +2817,22 @@ int bus_append_unit_property_assignment_many(sd_bus_message *m, UnitType t, char
         return 0;
 }
 
+int bus_append_scope_pidref(sd_bus_message *m, PidRef *pidref) {
+        assert(m);
+
+        if (!pidref_is_set(pidref))
+                return -ESRCH;
+
+        if (pidref->fd >= 0)
+                return sd_bus_message_append(
+                                m, "(sv)",
+                                "PIDFDs", "ah", 1, pidref->fd);
+
+        return sd_bus_message_append(
+                        m, "(sv)",
+                        "PIDs", "au", 1, pidref->pid);
+}
+
 int bus_deserialize_and_dump_unit_file_changes(sd_bus_message *m, bool quiet) {
         const char *type, *path, *source;
         InstallChange *changes = NULL;
