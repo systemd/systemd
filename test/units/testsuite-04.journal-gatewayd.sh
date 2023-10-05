@@ -11,10 +11,14 @@ fi
 TEST_MESSAGE="-= This is a test message $RANDOM =-"
 TEST_TAG="$(systemd-id128 new)"
 
+BEFORE_TIMESTAMP="$(date +%s)"
+sleep 1
 echo "$TEST_MESSAGE" | systemd-cat -t "$TEST_TAG"
+sleep 1
 journalctl --sync
 TEST_CURSOR="$(journalctl -q -t "$TEST_TAG" -n 0 --show-cursor | awk '{ print $3; }')"
 BOOT_CURSOR="$(journalctl -q -b -n 0 --show-cursor | awk '{ print $3; }')"
+AFTER_TIMESTAMP="$(date +%s)"
 
 /usr/lib/systemd/systemd-journal-gatewayd --version
 /usr/lib/systemd/systemd-journal-gatewayd --help
@@ -47,6 +51,16 @@ curl -Lfs --header "Accept: application/json" --header "Range: entries=$BOOT_CUR
 # Check if the specified cursor refers to an existing entry and return just that entry
 curl -Lfs --header "Accept: application/json" --header "Range: entries=$TEST_CURSOR" http://localhost:19531/entries?discrete | \
     jq -se "length == 1 and select(.[].MESSAGE == \"$TEST_MESSAGE\")"
+# Check entry is present (resp. absent) when restricting by timestamp
+curl -Lfs --header "Range: time=$BEFORE_TIMESTAMP:" http://localhost:19531/entries?SYSLOG_IDENTIFIER="$TEST_TAG" | \
+    grep -qE " $TEST_TAG\[[0-9]+\]: $TEST_MESSAGE"
+curl -Lfs --header "Range: time=:$AFTER_TIMESTAMP" http://localhost:19531/entries?SYSLOG_IDENTIFIER="$TEST_TAG" | \
+    grep -qE " $TEST_TAG\[[0-9]+\]: $TEST_MESSAGE"
+curl -Lfs --header "Accept: application/json" --header "Range: time=:$BEFORE_TIMESTAMP" http://localhost:19531/entries?SYSLOG_IDENTIFIER="$TEST_TAG" | \
+    jq -se "length == 0"
+curl -Lfs --header "Accept: application/json" --header "Range: time=$AFTER_TIMESTAMP:" http://localhost:19531/entries?SYSLOG_IDENTIFIER="$TEST_TAG" | \
+    jq -se "length == 0"
+
 # No idea how to properly parse this (jq won't cut it), so let's at least do some sanity checks that every
 # line is either empty or begins with data:
 curl -Lfs --header "Accept: text/event-stream" http://localhost:19531/entries | \
