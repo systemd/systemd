@@ -484,51 +484,36 @@ bool fstype_is_ro(const char *fstype) {
 }
 
 bool fstype_can_discard(const char *fstype) {
-        int r;
-
         assert(fstype);
 
-        /* On new kernels we can just ask the kernel */
-        r = mount_option_supported(fstype, "discard", NULL);
-        if (r >= 0)
-                return r;
+        /* Use a curated list as first check, to avoid calling fsopen() which might load kmods, which might
+         * not be allowed in our MAC context. */
+        if (STR_IN_SET(fstype, "btrfs", "f2fs", "ext4", "vfat", "xfs"))
+                return true;
 
-        return STR_IN_SET(fstype,
-                          "btrfs",
-                          "f2fs",
-                          "ext4",
-                          "vfat",
-                          "xfs");
+        /* On new kernels we can just ask the kernel */
+        return mount_option_supported(fstype, "discard", NULL) > 0;
 }
 
 bool fstype_can_norecovery(const char *fstype) {
-        int r;
-
         assert(fstype);
 
-        /* On new kernels we can just ask the kernel */
-        r = mount_option_supported(fstype, "norecovery", NULL);
-        if (r >= 0)
-                return r;
+        /* Use a curated list as first check, to avoid calling fsopen() which might load kmods, which might
+         * not be allowed in our MAC context. */
+        if (STR_IN_SET(fstype, "ext3", "ext4", "xfs", "btrfs"))
+                return true;
 
-        return STR_IN_SET(fstype,
-                          "ext3",
-                          "ext4",
-                          "xfs",
-                          "btrfs");
+        /* On new kernels we can just ask the kernel */
+        return mount_option_supported(fstype, "norecovery", NULL) > 0;
 }
 
 bool fstype_can_umask(const char *fstype) {
-        int r;
-
         assert(fstype);
 
-        /* On new kernels we can just ask the kernel */
-        r = mount_option_supported(fstype, "umask", "0077");
-        if (r >= 0)
-                return r;
-
-        return streq(fstype, "vfat");
+        /* Use a curated list as first check, to avoid calling fsopen() which might load kmods, which might
+         * not be allowed in our MAC context. If we don't know ourselves, on new kernels we can just ask the
+         * kernel. */
+        return streq(fstype, "vfat") || mount_option_supported(fstype, "umask", "0077") > 0;
 }
 
 bool fstype_can_uid_gid(const char *fstype) {
