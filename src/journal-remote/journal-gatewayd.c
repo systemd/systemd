@@ -32,6 +32,7 @@
 #include "pretty-print.h"
 #include "sigbus.h"
 #include "signal-util.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 
 #define JOURNAL_WAIT_TIMEOUT (10*USEC_PER_SEC)
@@ -54,9 +55,10 @@ typedef struct RequestMeta {
         OutputMode mode;
 
         char *cursor;
+        usec_t since, until;
         int64_t n_skip;
         uint64_t n_entries;
-        bool n_entries_set;
+        bool n_entries_set, since_set, until_set;
 
         FILE *tmp;
         uint64_t delta, size;
@@ -211,6 +213,17 @@ static ssize_t request_reader_entries(
                                 return MHD_CONTENT_READER_END_OF_STREAM;
                 }
 
+                if (m->until_set) {
+                        usec_t usec;
+
+                        r = sd_journal_get_realtime_usec(m->journal, &usec);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to determine timestamp: %m");
+                                return MHD_CONTENT_READER_END_WITH_ERROR;
+                        }
+                        if (usec > m->until)
+                                return MHD_CONTENT_READER_END_OF_STREAM;
+                }
                 pos -= m->size;
                 m->delta += m->size;
 
@@ -292,12 +305,124 @@ static int request_parse_accept(
         return 0;
 }
 
+static int request_parse_range_skip_and_n_entries(
+                RequestMeta *m,
+                const char *colon) {
+
+        const char *p, *colon2;
+        int r;
+
+        colon2 = strchr(colon + 1, ':');
+        if (colon2) {
+                _cleanup_free_ char *t = NULL;
+
+                t = strndup(colon + 1, colon2 - colon - 1);
+                if (!t)
+                        return -ENOMEM;
+
+                r = safe_atoi64(t, &m->n_skip);
+                if (r < 0)
+                        return r;
+        }
+
+        p = (colon2 ?: colon) + 1;
+        r = safe_atou64(p, &m->n_entries);
+        if (r < 0)
+                return r;
+
+        if (m->n_entries <= 0)
+                return -EINVAL;
+
+        m->n_entries_set = true;
+
+        return 0;
+}
+
+static int request_parse_range_entries(
+                RequestMeta *m,
+                const char *entries_request) {
+
+        const char *colon;
+        int r;
+
+        colon = strchr(entries_request, ':');
+        if (!colon)
+                m->cursor = strdup(entries_request);
+        else {
+                r = request_parse_range_skip_and_n_entries(m, colon);
+                if (r < 0)
+                        return r;
+
+                m->cursor = strndup(entries_request, colon - entries_request);
+        }
+        if (!m->cursor)
+                return -ENOMEM;
+
+        m->cursor[strcspn(m->cursor, WHITESPACE)] = 0;
+        if (isempty(m->cursor))
+                m->cursor = mfree(m->cursor);
+
+        return 0;
+}
+
+static int request_parse_range_time(
+                RequestMeta *m,
+                const char *time_request) {
+
+        _cleanup_free_ char *until = NULL;
+        const char *colon;
+        int r;
+
+        colon = strchr(time_request, ':');
+        if (!colon)
+                return -EINVAL;
+
+        if (colon - time_request > 0) {
+                _cleanup_free_ char *t = NULL;
+
+                t = strndup(time_request, colon - time_request);
+                if (!t)
+                        return -ENOMEM;
+
+                r = parse_sec(t, &m->since);
+                if (r < 0)
+                        return r;
+
+                m->since_set = true;
+        }
+
+        time_request = colon + 1;
+        colon = strchr(time_request, ':');
+        if (!colon)
+                until = strdup(time_request);
+        else {
+                r = request_parse_range_skip_and_n_entries(m, colon);
+                if (r < 0)
+                        return r;
+
+                until = strndup(time_request, colon - time_request);
+        }
+        if (!until)
+                return -ENOMEM;
+
+        if (!isempty(until)) {
+                r = parse_sec(until, &m->until);
+                if (r < 0)
+                        return r;
+
+                m->until_set = true;
+                if (m->until < m->since)
+                        return -EINVAL;
+        }
+
+        return 0;
+}
+
 static int request_parse_range(
                 RequestMeta *m,
                 struct MHD_Connection *connection) {
 
-        const char *range, *colon, *colon2;
-        int r;
+        const char *range, *range_after_eq;
 
         assert(m);
         assert(connection);
@@ -306,52 +431,18 @@ static int request_parse_range(
         if (!range)
                 return 0;
 
-        if (!startswith(range, "entries="))
-                return 0;
-
-        range += 8;
-        range += strspn(range, WHITESPACE);
-
-        colon = strchr(range, ':');
-        if (!colon)
-                m->cursor = strdup(range);
-        else {
-                const char *p;
-
-                colon2 = strchr(colon + 1, ':');
-                if (colon2) {
-                        _cleanup_free_ char *t = NULL;
-
-                        t = strndup(colon + 1, colon2 - colon - 1);
-                        if (!t)
-                                return -ENOMEM;
-
-                        r = safe_atoi64(t, &m->n_skip);
-                        if (r < 0)
-                                return r;
-                }
-
-                p = (colon2 ?: colon) + 1;
-                if (*p) {
-                        r = safe_atou64(p, &m->n_entries);
-                        if (r < 0)
-                                return r;
-
-                        if (m->n_entries <= 0)
-                                return -EINVAL;
-
-                        m->n_entries_set = true;
-                }
-
-                m->cursor = strndup(range, colon - range);
+        m->n_skip = 0;
+        range_after_eq = startswith(range, "entries=");
+        if (range_after_eq) {
+                range_after_eq += strspn(range_after_eq, WHITESPACE);
+                return request_parse_range_entries(m, range_after_eq);
         }
 
-        if (!m->cursor)
-                return -ENOMEM;
-
-        m->cursor[strcspn(m->cursor, WHITESPACE)] = 0;
-        if (isempty(m->cursor))
-                m->cursor = mfree(m->cursor);
+        range_after_eq = startswith(range, "realtime=");
+        if (startswith(range, "realtime=")) {
+                range_after_eq += strspn(range_after_eq, WHITESPACE);
+                return request_parse_range_time(m, range_after_eq);
+        }
 
         return 0;
 }
@@ -496,10 +587,15 @@ static int request_handler_entries(
 
         if (m->cursor)
                 r = sd_journal_seek_cursor(m->journal, m->cursor);
+        else if (m->since_set)
+                r = sd_journal_seek_realtime_usec(m->journal, m->since);
         else if (m->n_skip >= 0)
                 r = sd_journal_seek_head(m->journal);
+        else if (m->until_set && m->n_skip < 0)
+                r = sd_journal_seek_realtime_usec(m->journal, m->until);
         else if (m->n_skip < 0)
                 r = sd_journal_seek_tail(m->journal);
+
         if (r < 0)
                 return mhd_respond(connection, MHD_HTTP_BAD_REQUEST, "Failed to seek in journal.");
 

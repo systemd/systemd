@@ -277,9 +277,13 @@
     <para>
       <option>Range: entries=<replaceable>cursor</replaceable>[[:<replaceable>num_skip</replaceable>]:<replaceable>num_entries</replaceable>]</option>
     </para>
+    <para>
+      <option>Range: realtime=[<replaceable>since</replaceable>]:[<replaceable>until</replaceable>][[:<replaceable>num_skip</replaceable>]:<replaceable>num_entries</replaceable>]</option>
+    </para>
 
     <para>where
       <replaceable>cursor</replaceable> is a cursor string,
+      <replaceable>since</replaceable> and <replaceable>until</replaceable> are timestamps (seconds since 1970-01-01 00:00:00 UTC),
       <replaceable>num_skip</replaceable> is an integer,
       <replaceable>num_entries</replaceable> is an unsigned integer.
     </para>
