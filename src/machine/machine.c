@@ -9,6 +9,7 @@
 #include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-locator.h"
+#include "bus-unit-util.h"
 #include "bus-util.h"
 #include "env-file.h"
 #include "errno-util.h"
@@ -383,8 +384,11 @@ static int machine_start_scope(
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_append(m, "(sv)(sv)(sv)(sv)(sv)",
-                                  "PIDs", "au", 1, machine->leader.pid,
+        r = bus_append_scope_pidref(m, &machine->leader);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(m, "(sv)(sv)(sv)(sv)",
                                   "Delegate", "b", 1,
                                   "CollectMode", "s", "inactive-or-failed",
                                   "AddRef", "b", 1,
