@@ -1370,8 +1370,17 @@ static int config_parse_fstype(
                 void *userdata) {
 
         char **fstype = ASSERT_PTR(data);
+        const char *e;
 
         assert(rvalue);
+
+        /* Let's provide an easy way to override the chosen fstype for file system partitions */
+        e = secure_getenv("SYSTEMD_REPART_OVERRIDE_FSTYPE");
+        if (e && !streq(rvalue, e)) {
+                log_syntax(unit, LOG_NOTICE, filename, line, 0,
+                           "Overriding defined file system type '%s' with '%s'.", rvalue, e);
+                rvalue = e;
+        }
 
         if (!filename_is_valid(rvalue))
                 return log_syntax(unit, LOG_ERR, filename, line, 0,
