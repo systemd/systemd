@@ -813,6 +813,28 @@ int cg_pid_get_path(const char *controller, pid_t pid, char **ret_path) {
         }
 }
 
+int cg_pidref_get_path(const char *controller, PidRef *pidref, char **ret_path) {
+        _cleanup_free_ char *path = NULL;
+        int r;
+
+        assert(ret_path);
+
+        if (!pidref_is_set(pidref))
+                return -ESRCH;
+
+        r = cg_pid_get_path(controller, pidref->pid, &path);
+        if (r < 0)
+                return r;
+
+        /* Before we return the path, make sure the procfs entry for this pid still matches the pidref */
+        r = pidref_verify(pidref);
+        if (r < 0)
+                return r;
+
+        *ret_path = TAKE_PTR(path);
+        return 0;
+}
+
 int cg_install_release_agent(const char *controller, const char *agent) {
         _cleanup_free_ char *fs = NULL, *contents = NULL;
         const char *sc;
