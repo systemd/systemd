@@ -629,13 +629,14 @@ int image_discover(
                                 r = extract_pretty(de->d_name, image_class_suffix_to_string(class), NULL, &pretty);
                         else if (S_ISBLK(st.st_mode))
                                 r = extract_pretty(de->d_name, NULL, NULL, &pretty);
-                        else
+                        else {
+                                log_debug("Skipping directory entry '%s', which is neither regular file, directory nor block device.", de->d_name);
                                 continue;
-                        if (r < 0)
-                                return r;
-
-                        if (!image_name_is_valid(pretty))
+                        }
+                        if (r < 0) {
+                                log_debug_errno(r, "Skipping directory entry '%s', which doesn't look like an image.", de->d_name);
                                 continue;
+                        }
 
                         if (hashmap_contains(h, pretty))
                                 continue;
