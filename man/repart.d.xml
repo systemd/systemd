@@ -460,6 +460,11 @@
         <citerefentry project='man-pages'><refentrytitle>mkfs.xfs</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         due to limitations of its protofile format.</para>
 
+        <para>Note that when populating XFS filesystems with <command>systemd-repart</command> and loop
+        devices are not available, extended attributes will not be copied into generated XFS filesystems
+        due to limitations <citerefentry project='man-pages'><refentrytitle>mkfs.xfs</refentrytitle><manvolnum>8</manvolnum></citerefentry>'s
+        protofile format.</para>
+
         <para>This option cannot be combined with <varname>CopyBlocks=</varname>.</para>
 
         <para>When
