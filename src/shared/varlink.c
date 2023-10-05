@@ -3069,7 +3069,7 @@ int varlink_server_listen_auto(VarlinkServer *s) {
 
         assert_return(s, -EINVAL);
 
-        /* Adds a all passed fds marked as "varlink" to our varlink server. These fds can either refer to a
+        /* Adds all passed fds marked as "varlink" to our varlink server. These fds can either refer to a
          * listening socket or to a connection socket.
          *
          * See https://varlink.org/#activation for the environment variables this is backed by and the
