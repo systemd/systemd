@@ -38,6 +38,7 @@
 #include "memory-util.h"
 #include "memstream-util.h"
 #include "mkdir-label.h"
+#include "namespace-util.h"
 #include "parse-util.h"
 #include "process-util.h"
 #include "signal-util.h"
@@ -131,6 +132,8 @@ typedef struct Context {
         const char *meta[_META_MAX];
         size_t meta_size[_META_MAX];
         pid_t pid;
+        uid_t uid;
+        gid_t gid;
         bool is_pid1;
         bool is_journald;
 } Context;
@@ -717,56 +720,6 @@ static int compose_open_fds(pid_t pid, char **ret) {
         return memstream_finalize(&m, ret, NULL);
 }
 
-static int get_process_ns(pid_t pid, const char *namespace, ino_t *ns) {
-        const char *p;
-        struct stat stbuf;
-        _cleanup_close_ int proc_ns_dir_fd = -EBADF;
-
-        p = procfs_file_alloca(pid, "ns");
-
-        proc_ns_dir_fd = open(p, O_DIRECTORY | O_CLOEXEC | O_RDONLY);
-        if (proc_ns_dir_fd < 0)
-                return -errno;
-
-        if (fstatat(proc_ns_dir_fd, namespace, &stbuf, /* flags */0) < 0)
-                return -errno;
-
-        *ns = stbuf.st_ino;
-        return 0;
-}
-
-static int get_mount_namespace_leader(pid_t pid, pid_t *ret) {
-        ino_t proc_mntns;
-        int r;
-
-        r = get_process_ns(pid, "mnt", &proc_mntns);
-        if (r < 0)
-                return r;
-
-        for (;;) {
-                ino_t parent_mntns;
-                pid_t ppid;
-
-                r = get_process_ppid(pid, &ppid);
-                if (r == -EADDRNOTAVAIL) /* Reached the top (i.e. typically PID 1, but could also be a process
-                                          * whose parent is not in our pidns) */
-                        return -ENOENT;
-                if (r < 0)
-                        return r;
-
-                r = get_process_ns(ppid, "mnt", &parent_mntns);
-                if (r < 0)
-                        return r;
-
-                if (proc_mntns != parent_mntns) {
-                        *ret = ppid;
-                        return 0;
-                }
-
-                pid = ppid;
-        }
-}
-
 /* Returns 1 if the parent was found.
  * Returns 0 if there is not a process we can call the pid's
  * container parent (the pid's process isn't 'containerized').
@@ -792,7 +745,7 @@ static int get_process_container_parent_cmdline(pid_t pid, char** cmdline) {
                 return 0;
         }
 
-        r = get_mount_namespace_leader(pid, &container_pid);
+        r = namespace_get_leader(pid, NAMESPACE_MOUNT, &container_pid);
         if (r < 0)
                 return r;
 
@@ -1030,6 +983,14 @@ static int save_context(Context *context, const struct iovec_wrapper *iovw) {
         r = parse_pid(context->meta[META_ARGV_PID], &context->pid);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse PID \"%s\": %m", context->meta[META_ARGV_PID]);
+
+        r = parse_uid(context->meta[META_ARGV_UID], &context->uid);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse UID \"%s\": %m", context->meta[META_ARGV_UID]);
+
+        r = parse_gid(context->meta[META_ARGV_GID], &context->gid);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse GID \"%s\": %m", context->meta[META_ARGV_GID]);
 
         unit = context->meta[META_UNIT];
         context->is_pid1 = streq(context->meta[META_ARGV_PID], "1") || streq_ptr(unit, SPECIAL_INIT_SCOPE);
@@ -1368,6 +1329,257 @@ static int gather_pid_metadata_from_procfs(struct iovec_wrapper *iovw, Context *
         return save_context(context, iovw);
 }
 
+static int send_ucred_and_one_fd(int transport_fd, struct ucred *ucred, int fd) {
+        CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(struct ucred)) +
+                         CMSG_SPACE(sizeof(int))) control = {};
+        struct msghdr mh = {
+                .msg_control = &control,
+                .msg_controllen = sizeof(control),
+        };
+        struct cmsghdr *cmsg;
+
+        assert(transport_fd >= 0);
+        assert(fd >= 0);
+
+        cmsg = CMSG_FIRSTHDR(&mh);
+        cmsg->cmsg_level = SOL_SOCKET;
+        cmsg->cmsg_type = SCM_CREDENTIALS;
+        cmsg->cmsg_len = CMSG_LEN(sizeof(struct ucred));
+        memcpy(CMSG_DATA(cmsg), ucred, sizeof(struct ucred));
+
+        cmsg = CMSG_NXTHDR(&mh, cmsg);
+        cmsg->cmsg_level = SOL_SOCKET;
+        cmsg->cmsg_type = SCM_RIGHTS;
+        cmsg->cmsg_len = CMSG_LEN(sizeof(int));
+        memcpy(CMSG_DATA(cmsg), &fd, sizeof(int));
+
+        return RET_NERRNO(sendmsg(transport_fd, &mh, MSG_NOSIGNAL));
+}
+
+static int receive_ucred_and_one_fd(int transport_fd, struct ucred *ret_ucred, int *ret_fd) {
+        _cleanup_close_ int fd = -EBADF;
+        CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(struct ucred)) +
+                         CMSG_SPACE(sizeof(int))) control = {};
+        struct msghdr mh = {
+                .msg_control = &control,
+                .msg_controllen = sizeof(control),
+        };
+        struct cmsghdr *cmsg = NULL;
+        struct ucred *ucred = NULL;
+        ssize_t n;
+        int r;
+
+        assert(ret_fd);
+        assert(ret_ucred);
+
+        r = setsockopt_int(transport_fd, SOL_SOCKET, SO_PASSCRED, true);
+        if (r < 0)
+                return r;
+
+        n = recvmsg_safe(transport_fd, &mh, 0);
+        if (n < 0)
+                return n;
+
+        CMSG_FOREACH(cmsg, &mh)
+                if (cmsg->cmsg_level == SOL_SOCKET &&
+                    cmsg->cmsg_type == SCM_RIGHTS &&
+                    cmsg->cmsg_len == CMSG_LEN(sizeof(int))) {
+
+                        assert(fd < 0);
+                        fd = *CMSG_TYPED_DATA(cmsg, int);
+
+                } else if (cmsg->cmsg_level == SOL_SOCKET &&
+                           cmsg->cmsg_type == SCM_CREDENTIALS &&
+                           cmsg->cmsg_len == CMSG_LEN(sizeof(struct ucred))) {
+
+                        assert(!ucred);
+                        ucred = CMSG_TYPED_DATA(cmsg, struct ucred);
+                }
+
+        if (!ucred || fd < 0)
+                return -EIO;
+
+        *ret_fd = TAKE_FD(fd);
+        *ret_ucred = *ucred;
+
+        return 0;
+}
+
+static int can_forward_coredump(pid_t pid) {
+        _cleanup_free_ char *path = NULL, *unit = NULL;
+        pid_t ppid;
+        int r;
+
+        r = get_process_ppid(pid, &ppid);
+        if (r < 0)
+                return r;
+
+        r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, ppid, &path);
+        if (r < 0)
+                return r;
+
+        r = cg_path_get_unit_path(path, &unit);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r == -ENXIO)
+                /* No valid units in this path. */
+                return false;
+        if (r < 0)
+                return r;
+
+        /* We require that this process belongs to a delegated cgroup
+         * (i.e. user.delegate=1), with user.coredump_receive=1 also. */
+        r = cg_is_delegated(SYSTEMD_CGROUP_CONTROLLER, unit);
+        if (r <= 0)
+                return r;
+
+        r = cg_get_xattr_bool(SYSTEMD_CGROUP_CONTROLLER, unit, "user.coredump_receive");
+        if (ERRNO_IS_NEG_XATTR_ABSENT(r))
+                return false;
+        if (r < 0)
+                return r;
+
+        return r > 0;
+}
+
+static int forward_coredump_to_container(Context *context) {
+        _cleanup_close_ int pidnsfd = -EBADF, mntnsfd = -EBADF, netnsfd = -EBADF, usernsfd = -EBADF, rootfd = -EBADF;
+        _cleanup_close_pair_ int pair[2] = PIPE_EBADF;
+        pid_t pid;
+        struct ucred ucred = {
+                .pid = context->pid,
+                .uid = context->uid,
+                .gid = context->gid,
+        };
+        int r;
+
+        r = namespace_get_leader(context->pid, NAMESPACE_PID, &pid);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get namespace leader: %m");
+
+        r = can_forward_coredump(pid);
+        if (r <= 0)
+                return log_debug_errno(r < 0 ? r : SYNTHETIC_ERRNO(ENOENT), "Cannot forward coredump: %m");
+
+        r = RET_NERRNO(socketpair(AF_UNIX, SOCK_DGRAM, 0, pair));
+        if (r < 0)
+                return log_debug_errno(r, "Failed to create socket pair: %m");
+
+        /* We need to translate the PID, UID, and GID of the crashing process
+         * to the container's namespaces. Do this by sending an SCM_CREDENTIALS
+         * message on a socket pair, and read the result when we join the
+         * container. The kernel will perform the translation for us. */
+        r = send_ucred_and_one_fd(pair[0], &ucred, STDIN_FILENO);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to send metadata to container: %m");
+
+        pair[0] = safe_close(pair[0]);
+
+        r = namespace_open(pid, &pidnsfd, &mntnsfd, &netnsfd, &usernsfd, &rootfd);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to join namespaces of PID " PID_FMT ": %m", pid);
+
+        r = namespace_fork("(sd-coredumpns)", "(sd-coredump)", NULL, 0,
+                           FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_WAIT,
+                           pidnsfd, mntnsfd, netnsfd, usernsfd, rootfd, NULL);
+        if (r == -EPROTO)
+                return log_debug_errno(r, "Failed to process coredump in container");
+        if (r < 0)
+                return log_debug_errno(r, "Failed to fork into namespaces of PID " PID_FMT ": %m", pid);
+        if (r == 0) {
+                _cleanup_(iovw_free_freep) struct iovec_wrapper *iovw = NULL;
+                _cleanup_close_ int input_fd = -EBADF;
+                char pidstr[DECIMAL_STR_MAX(pid_t)];
+                char uidstr[DECIMAL_STR_MAX(uid_t)];
+                char gidstr[DECIMAL_STR_MAX(gid_t)];
+                Context child_context = {};
+
+                if (laccess("/usr/lib/systemd/systemd-coredump", X_OK) < 0) {
+                        log_debug("Cannot find systemd-coredump, exiting.");
+                        _exit(EXIT_FAILURE);
+                }
+
+                r = receive_ucred_and_one_fd(pair[1], &ucred, &input_fd);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to receive ucred and fd: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                xsprintf(pidstr, PID_FMT, ucred.pid);
+                xsprintf(uidstr, UID_FMT, ucred.uid);
+                xsprintf(gidstr, GID_FMT, ucred.gid);
+
+                iovw = iovw_new();
+                if (!iovw) {
+                        log_oom();
+                        _exit(EXIT_FAILURE);
+                }
+
+                (void) iovw_put_string_field(iovw, "MESSAGE_ID=", SD_MESSAGE_COREDUMP_STR);
+                (void) iovw_put_string_field(iovw, "PRIORITY=", STRINGIFY(LOG_CRIT));
+
+                for (int i = 0; i < _META_ARGV_MAX; i++) {
+                        int signo;
+                        const char *t = context->meta[i];
+
+                        switch(i) {
+
+                        case META_ARGV_PID:
+                                t = pidstr;
+                                break;
+
+                        case META_ARGV_UID:
+                                t = uidstr;
+                                break;
+
+                        case META_ARGV_GID:
+                                t = gidstr;
+                                break;
+
+                        case META_ARGV_SIGNAL:
+                                if (safe_atoi(t, &signo) >= 0 && SIGNAL_VALID(signo))
+                                        (void) iovw_put_string_field(iovw,
+                                                                     "COREDUMP_SIGNAL_NAME=SIG",
+                                                                     signal_to_string(signo));
+                                break;
+
+                        default:
+                                break;
+                        }
+
+                        r = iovw_put_string_field(iovw, meta_field_names[i], t);
+                        if (r < 0) {
+                                log_debug_errno(r, "Failed to construct iovec: %m");
+                                _exit(EXIT_FAILURE);
+                        }
+                }
+
+                r = save_context(&child_context, iovw);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to save context: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                r = gather_pid_metadata_from_procfs(iovw, &child_context);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to gather metadata from procfs: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                r = send_iovec(iovw, input_fd);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to send iovec to coredump socket: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                _exit(EXIT_SUCCESS);
+        }
+
+        pair[1] = safe_close(pair[1]);
+
+        return 0;
+}
+
 static int process_kernel(int argc, char* argv[]) {
         _cleanup_(iovw_free_freep) struct iovec_wrapper *iovw = NULL;
         Context context = {};
@@ -1402,6 +1614,14 @@ static int process_kernel(int argc, char* argv[]) {
         if (!context.is_journald)
                 /* OK, now we know it's not the journal, hence we can make use of it now. */
                 log_set_target_and_open(LOG_TARGET_JOURNAL_OR_KMSG);
+
+        if (!in_same_namespace(getpid_cached(), context.pid, NAMESPACE_PID)) {
+                /* If this fails, fallback to the old behavior so that
+                 * there is still some record of the crash. */
+                r = forward_coredump_to_container(&context);
+                if (r >= 0)
+                        return 0;
+        }
 
         /* If this is PID 1 disable coredump collection, we'll unlikely be able to process
          * it later on.
