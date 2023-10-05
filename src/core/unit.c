@@ -2918,20 +2918,6 @@ int unit_watch_pid(Unit *u, pid_t pid, bool exclusive) {
         return unit_watch_pidref(u, &pidref, exclusive);
 }
 
-int unit_watch_pid_str(Unit *u, const char *s, bool exclusive) {
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
-        int r;
-
-        assert(u);
-        assert(s);
-
-        r = pidref_set_pidstr(&pidref, s);
-        if (r < 0)
-                return r;
-
-        return unit_watch_pidref(u, &pidref, exclusive);
-}
-
 void unit_unwatch_pidref(Unit *u, PidRef *pid) {
         assert(u);
         assert(pidref_is_set(pid));

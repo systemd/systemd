@@ -962,9 +962,7 @@ static int swap_serialize(Unit *u, FILE *f, FDSet *fds) {
 
         (void) serialize_item(f, "state", swap_state_to_string(s->state));
         (void) serialize_item(f, "result", swap_result_to_string(s->result));
-
-        if (pidref_is_set(&s->control_pid))
-                (void) serialize_item_format(f, "control-pid", PID_FMT, s->control_pid.pid);
+        (void) serialize_pidref(f, fds, "control-pid", &s->control_pid);
 
         if (s->control_command_id >= 0)
                 (void) serialize_item(f, "control-command", swap_exec_command_to_string(s->control_command_id));
@@ -974,7 +972,6 @@ static int swap_serialize(Unit *u, FILE *f, FDSet *fds) {
 
 static int swap_deserialize_item(Unit *u, const char *key, const char *value, FDSet *fds) {
         Swap *s = SWAP(u);
-        int r;
 
         assert(s);
         assert(fds);
@@ -998,9 +995,7 @@ static int swap_deserialize_item(Unit *u, const char *key, const char *value, FD
         } else if (streq(key, "control-pid")) {
 
                 pidref_done(&s->control_pid);
-                r = pidref_set_pidstr(&s->control_pid, value);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to pin control PID '%s', ignoring: %m", value);
+                (void) deserialize_pidref(fds, value, &s->control_pid);
 
         } else if (streq(key, "control-command")) {
                 SwapExecCommand id;

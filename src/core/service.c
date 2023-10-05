@@ -213,19 +213,6 @@ static int service_set_main_pidref(Service *s, PidRef *pidref) {
         return 0;
 }
 
-static int service_set_main_pid(Service *s, pid_t pid) {
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
-        int r;
-
-        assert(s);
-
-        r = pidref_set_pid(&pidref, pid);
-        if (r < 0)
-                return r;
-
-        return service_set_main_pidref(s, &pidref);
-}
-
 void service_release_socket_fd(Service *s) {
         assert(s);
 
@@ -2949,11 +2936,9 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
         (void) serialize_item(f, "result", service_result_to_string(s->result));
         (void) serialize_item(f, "reload-result", service_result_to_string(s->reload_result));
 
-        if (pidref_is_set(&s->control_pid))
-                (void) serialize_item_format(f, "control-pid", PID_FMT, s->control_pid.pid);
-
-        if (s->main_pid_known && pidref_is_set(&s->main_pid))
-                (void) serialize_item_format(f, "main-pid", PID_FMT, s->main_pid.pid);
+        (void) serialize_pidref(f, fds, "control-pid", &s->control_pid);
+        if (s->main_pid_known)
+                (void) serialize_pidref(f, fds, "main-pid", &s->main_pid);
 
         (void) serialize_bool(f, "main-pid-known", s->main_pid_known);
         (void) serialize_bool(f, "bus-name-good", s->bus_name_good);
@@ -3188,16 +3173,15 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
 
         } else if (streq(key, "control-pid")) {
                 pidref_done(&s->control_pid);
-                r = pidref_set_pidstr(&s->control_pid, value);
-                if (r < 0)
-                        log_unit_debug_errno(u, r, "Failed to initialize control PID '%s' from serialization, ignoring.", value);
-        } else if (streq(key, "main-pid")) {
-                pid_t pid;
 
-                if (parse_pid(value, &pid) < 0)
-                        log_unit_debug(u, "Failed to parse main-pid value: %s", value);
-                else
-                        (void) service_set_main_pid(s, pid);
+                (void) deserialize_pidref(fds, value, &s->control_pid);
+
+        } else if (streq(key, "main-pid")) {
+                _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+
+                if (deserialize_pidref(fds, value, &pidref) >= 0)
+                        (void) service_set_main_pidref(s, &pidref);
+
         } else if (streq(key, "main-pid-known")) {
                 int b;
 
