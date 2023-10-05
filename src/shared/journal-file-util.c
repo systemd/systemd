@@ -346,9 +346,14 @@ int journal_file_set_offline(JournalFile *f, bool wait) {
         /* Initiate a new offline. */
         f->offline_state = OFFLINE_SYNCING;
 
-        if (wait) /* Without using a thread if waiting. */
+        if (wait) {
+                /* Without using a thread if waiting. */
                 journal_file_set_offline_internal(f);
-        else {
+
+                assert(f->offline_state == OFFLINE_DONE);
+                f->offline_state = OFFLINE_JOINED;
+
+        } else {
                 sigset_t ss, saved_ss;
                 int k;
 
