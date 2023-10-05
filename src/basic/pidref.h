@@ -39,6 +39,10 @@ int pidref_set_pidfd(PidRef *pidref, int fd);
 int pidref_set_pidfd_take(PidRef *pidref, int fd); /* takes ownership of the passed pidfd on success*/
 int pidref_set_pidfd_consume(PidRef *pidref, int fd); /* takes ownership of the passed pidfd in both success and failure */
 
+static inline int pidref_set_self(PidRef *pidref) {
+        return pidref_set_pid(pidref, 0);
+}
+
 void pidref_done(PidRef *pidref);
 PidRef *pidref_free(PidRef *pidref);
 DEFINE_TRIVIAL_CLEANUP_FUNC(PidRef*, pidref_free);
