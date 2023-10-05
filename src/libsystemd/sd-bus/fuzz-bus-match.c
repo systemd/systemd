@@ -9,8 +9,6 @@
 #include "fuzz.h"
 #include "memstream-util.h"
 
-DEFINE_TRIVIAL_DESTRUCTOR(bus_match_donep, struct bus_match_node, bus_match_free);
-
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_(memstream_done) MemStream m = {};
         _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
@@ -28,7 +26,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         r = sd_bus_new(&bus);
         assert_se(r >= 0);
 
-        _cleanup_(bus_match_donep) struct bus_match_node root = {
+        _cleanup_(bus_match_free) struct bus_match_node root = {
                 .type = BUS_MATCH_ROOT,
         };
 
