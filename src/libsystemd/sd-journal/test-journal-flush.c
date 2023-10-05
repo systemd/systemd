@@ -9,19 +9,21 @@
 #include "chattr-util.h"
 #include "journal-file-util.h"
 #include "journal-internal.h"
+#include "logs-show.h"
 #include "macro.h"
 #include "path-util.h"
 #include "rm-rf.h"
 #include "string-util.h"
+#include "tests.h"
 #include "tmpfile-util.h"
 
-static void test_journal_flush(int argc, char *argv[]) {
+static void test_journal_flush_one(int argc, char *argv[]) {
         _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
         _cleanup_free_ char *fn = NULL;
         _cleanup_(rm_rf_physical_and_freep) char *dn = NULL;
-        JournalFile *new_journal = NULL;
-        sd_journal *j = NULL;
-        unsigned n = 0;
+        _cleanup_(journal_file_offline_closep) JournalFile *new_journal = NULL;
+        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
+        unsigned n, limit;
         int r;
 
         assert_se(m = mmap_cache_new());
@@ -41,6 +43,8 @@ static void test_journal_flush(int argc, char *argv[]) {
 
         sd_journal_set_data_threshold(j, 0);
 
+        n = 0;
+        limit = slow_tests_enabled() ? 10000 : 1000;
         SD_JOURNAL_FOREACH(j) {
                 Object *o;
                 JournalFile *f;
@@ -62,21 +66,51 @@ static void test_journal_flush(int argc, char *argv[]) {
                                     -EIO,             /* file rotated */
                                     -EREMCHG));       /* clock rollback */
 
-                if (++n >= 10000)
+                if (++n >= limit)
                         break;
         }
 
         sd_journal_close(j);
 
-        (void) journal_file_offline_close(new_journal);
+        /* Open the new journal before archiving and offlining the file. */
+        assert_se(sd_journal_open_directory(&j, dn, 0) >= 0);
+
+        /* Read the online journal. */
+        assert_se(sd_journal_seek_tail(j) >= 0);
+        assert_se(sd_journal_step_one(j, 0) > 0);
+        printf("current_journal: %s (%i)\n", j->current_file->path, j->current_file->fd);
+        assert_se(show_journal_entry(stdout, j, OUTPUT_EXPORT, 0, 0, NULL, NULL, NULL, &(dual_timestamp) {}, &(sd_id128_t) {}) >= 0);
+
+        uint64_t p;
+        assert_se(journal_file_tail_end_by_mmap(j->current_file, &p) >= 0);
+        for (uint64_t q = ALIGN64(p + 1); q < (uint64_t) j->current_file->last_stat.st_size; q = ALIGN64(q + 1)) {
+                Object *o;
+
+                r = journal_file_move_to_object(j->current_file, OBJECT_UNUSED, q, &o);
+                assert_se(IN_SET(r, -EBADMSG, -EADDRNOTAVAIL));
+        }
+
+        /* Archive and offline file. */
+        assert_se(journal_file_archive(new_journal, NULL) >= 0);
+        assert_se(journal_file_set_offline(new_journal, /* wait = */ true) >= 0);
+
+        /* Read the archived and offline journal. */
+        for (uint64_t q = ALIGN64(p + 1); q < (uint64_t) j->current_file->last_stat.st_size; q = ALIGN64(q + 1)) {
+                Object *o;
+
+                r = journal_file_move_to_object(j->current_file, OBJECT_UNUSED, q, &o);
+                assert_se(IN_SET(r, -EBADMSG, -EADDRNOTAVAIL, -EIDRM));
+        }
 }
 
-int main(int argc, char *argv[]) {
+TEST(journal_flush) {
         assert_se(setenv("SYSTEMD_JOURNAL_COMPACT", "0", 1) >= 0);
-        test_journal_flush(argc, argv);
-
-        assert_se(setenv("SYSTEMD_JOURNAL_COMPACT", "1", 1) >= 0);
-        test_journal_flush(argc, argv);
-
-        return 0;
+        test_journal_flush_one(saved_argc, saved_argv);
 }
+
+TEST(journal_flush_compact) {
+        assert_se(setenv("SYSTEMD_JOURNAL_COMPACT", "1", 1) >= 0);
+        test_journal_flush_one(saved_argc, saved_argv);
+}
+
+DEFINE_TEST_MAIN(LOG_INFO);
