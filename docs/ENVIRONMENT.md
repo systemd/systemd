@@ -305,6 +305,12 @@ All tools:
   default is not appropriate for a given system. Defaults to `5`, accepts
   positive integers.
 
+* `SYSTEMD_WORKERS_POOL_SIZE` — can be set to override the default number of
+  worker processes in the execution pool, which defaults to `5` normally and
+  `25` during boot. These are pre-spawned systemd-executor processes that wait
+  for a service configuration to run, in order to decrease latency due to the
+  cost of exec'ing an intermediate ELF binary with shared libraries.
+
 `systemd-remount-fs`:
 
 * `$SYSTEMD_REMOUNT_ROOT_RW=1` — if set and no entry for the root directory
