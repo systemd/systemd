@@ -8,6 +8,7 @@
 
 #include "sd-device.h"
 
+#include "ask-password-api.h"
 #include "blockdev-util.h"
 #include "build.h"
 #include "chase.h"
@@ -33,6 +34,7 @@
 #include "pcrlock-firmware.h"
 #include "pehash.h"
 #include "pretty-print.h"
+#include "random-util.h"
 #include "recovery-key.h"
 #include "sort-util.h"
 #include "terminal-util.h"
@@ -50,10 +52,14 @@ static char *arg_pcrlock_path = NULL;
 static bool arg_pcrlock_auto = true;
 static bool arg_raw_description = false;
 static char *arg_location = NULL;
+static TPM2_HANDLE arg_nv_index = UINT32_C(0x1b40a35); // FIXME
+static bool arg_recovery_pin = false;
+static char *arg_policy_path = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_components, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_pcrlock_path, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_location, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_policy_path, freep);
 
 #define PCRLOCK_SECUREBOOT_POLICY_PATH      "/var/lib/pcrlock.d/240-secureboot-policy.pcrlock"
 #define PCRLOCK_FIRMWARE_CODE_EARLY_PATH    "/var/lib/pcrlock.d/250-firmware-code-early.pcrlock"
@@ -108,8 +114,7 @@ typedef struct EventLog EventLog;
 
 struct EventLogRecordBank {
         uint16_t algorithm;
-        void *hash;
-        size_t hash_size;
+        TPM2B_DIGEST hash;
         LIST_FIELDS(struct EventLogRecordBank, banks);
 };
 
@@ -154,10 +159,8 @@ struct EventLogRecord {
 #define EVENT_LOG_RECORD_IS_USERSPACE(record) ((record)->userspace_event_type >= 0)
 
 struct EventLogRegisterBank {
-        void *observed;
-        size_t observed_size;
-        void *calculated;
-        size_t calculated_size;
+        TPM2B_DIGEST observed;
+        TPM2B_DIGEST calculated;
 };
 
 struct EventLogRegister {
@@ -221,10 +224,6 @@ static const uint16_t all_hash_algorithms[] =  {
 };
 
 static struct EventLogRecordBank *event_log_record_bank_free(EventLogRecordBank *bank) {
-        if (!bank)
-                return NULL;
-
-        free(bank->hash);
         return mfree(bank);
 }
 
@@ -250,24 +249,11 @@ static EventLogRecord *event_log_record_free(EventLogRecord *record) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(EventLogRecord*, event_log_record_free);
 
-static void event_log_register_bank_done(EventLogRegisterBank *bank) {
-        assert(bank);
-
-        free(bank->observed);
-        free(bank->calculated);
-}
-
 static void event_log_register_done(EventLog *el, EventLogRegister *reg) {
         assert(reg);
 
         free(reg->color);
-
-        if (reg->banks) {
-                for (size_t i = 0; i < el->n_algorithms; i++)
-                        event_log_register_bank_done(reg->banks + i);
-
-                free(reg->banks);
-        }
+        free(reg->banks);
 }
 
 static EventLogComponentInstance* event_log_component_instance_free(EventLogComponentInstance *instance) {
@@ -437,6 +423,9 @@ static int event_log_record_add_bank(
                 if (i->algorithm == algorithm)
                         return -EEXIST;
 
+        if (hash_size > sizeof_field(TPM2B_DIGEST, buffer))
+                return -E2BIG;
+
         h = memdup(hash, hash_size);
         if (!h)
                 return -ENOMEM;
@@ -447,8 +436,7 @@ static int event_log_record_add_bank(
 
         *bank = (EventLogRecordBank) {
                 .algorithm = algorithm,
-                .hash = TAKE_PTR(h),
-                .hash_size = hash_size,
+                .hash = TPM2B_DIGEST_MAKE(hash, hash_size),
         };
 
         LIST_PREPEND(banks, record->banks, bank);
@@ -708,6 +696,30 @@ static int event_log_record_extract_firmware_description(EventLogRecord *rec) {
                                         return log_oom();
                                 break;
 
+                        /* systemd's measurements: */
+                        case LOADER_CONF_EVENT_TAG_ID:
+                                /* As above. */
+                                if (!strextend_with_separator(&rec->description, ", ", "systemd-boot: loader.conf"))
+                                        return log_oom();
+                                break;
+
+                        case DEVICETREE_ADDON_EVENT_TAG_ID: {
+                                _cleanup_free_ char *raw = NULL, *s = NULL;
+
+                                raw = utf16_to_utf8((const char16_t*) tag->taggedEventData, tag->taggedEventDataSize);
+                                if (!raw)
+                                        return log_oom();
+
+                                s = cescape(raw);
+                                if (!s)
+                                        return log_oom();
+
+                                r = strextendf_with_separator(&rec->description, ", ", "systemd-stub: devicetree addon %s", s);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to format EV_EVENT_TAG description string: %m");
+                                break;
+                        }
+
                         default: {
                                 _cleanup_free_ char *s = NULL;
 
@@ -868,6 +880,12 @@ static int event_log_load_firmware(EventLog *el) {
         r = read_full_file(path, (char**) &buf, &bufsize);
         if (r < 0)
                 return log_error_errno(r, "Failed to open TPM2 event log '%s': %m", path);
+
+        if (bufsize == 0) {
+                /* Sometimes it's useful to invoke things with SYSTEMD_MEASURE_LOG_FIRMWARE=/dev/null, let's allow that, and proceed */
+                log_warning("Empty firmware event log file, not loading.");
+                return 0;
+        }
 
         r = validate_firmware_header(buf, bufsize, &algorithms, &n_algorithms, &event, &left);
         if (r < 0)
@@ -1207,19 +1225,42 @@ static int event_log_read_pcrs(EventLog *el) {
 
                 for (size_t i = 0; i < n_pcr_values; i++) {
                         const Tpm2PCRValue *v = pcr_values + i;
-
                         assert(v->hash == el->algorithms[a]);
-
-                        EventLogRegisterBank *bank = el->registers[v->index].banks + a;
-                        bank->observed = memdup(v->value.buffer, v->value.size);
-                        if (!bank->observed)
-                                return log_oom();
-
-                        bank->observed_size = v->value.size;
+                        el->registers[v->index].banks[a].observed = v->value;
                 }
         }
 
         return 0;
+}
+
+static void event_log_initial_pcr_state(EventLog *el, uint32_t pcr, size_t size, TPM2B_DIGEST *ret) {
+        assert(el);
+        assert(pcr < TPM2_PCRS_MAX);
+        assert(size > 0);
+        assert(size <= sizeof_field(TPM2B_DIGEST, buffer));
+        assert(ret);
+
+        ret->size = size;
+
+        switch (pcr) {
+
+        case 0:
+                memzero(ret->buffer, ret->size-1);
+                ((uint8_t*) ret->buffer)[ret->size-1] = el->startup_locality_found ? el->startup_locality : 0;
+                break;
+
+        case 1 ... 16:
+        case 23:
+                memzero(ret->buffer, ret->size);
+                break;
+
+        case 17 ... 22:
+                memset(ret->buffer, 0xffu, ret->size);
+                break;
+
+        default:
+                assert_not_reached();
+        }
 }
 
 static int event_log_calculate_pcrs(EventLog *el) {
@@ -1245,32 +1286,7 @@ static int event_log_calculate_pcrs(EventLog *el) {
         for (uint32_t pcr = 0; pcr < TPM2_PCRS_MAX; pcr++)
                 for (size_t i = 0; i < el->n_algorithms; i++) {
                         EventLogRegisterBank *b = el->registers[pcr].banks + i;
-
-                        b->calculated_size = EVP_MD_size(el->mds[i]);
-
-                        b->calculated = malloc(b->calculated_size);
-                        if (!b->calculated)
-                                return log_oom();
-
-                        switch (pcr) {
-
-                        case 0:
-                                memzero(b->calculated, b->calculated_size-1);
-                                ((uint8_t*) b->calculated)[b->calculated_size-1] = el->startup_locality_found ? el->startup_locality : 0;
-                                break;
-
-                        case 1 ... 16:
-                        case 23:
-                                memzero(b->calculated, b->calculated_size);
-                                break;
-
-                        case 17 ... 22:
-                                memset(b->calculated, 0xffu, b->calculated_size);
-                                break;
-
-                        default:
-                                assert_not_reached();
-                        }
+                        event_log_initial_pcr_state(el, pcr, EVP_MD_size(el->mds[i]), &b->calculated);
                 }
 
         FOREACH_ARRAY(rr, el->records, el->n_records) {
@@ -1297,16 +1313,16 @@ static int event_log_calculate_pcrs(EventLog *el) {
                         if (EVP_DigestInit_ex(mc, el->mds[i], NULL) != 1)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to initialize %s message digest context.", n);
 
-                        if (EVP_DigestUpdate(mc, reg_b->calculated, reg_b->calculated_size) != 1)
+                        if (EVP_DigestUpdate(mc, reg_b->calculated.buffer, reg_b->calculated.size) != 1)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to run digest.");
 
-                        if (EVP_DigestUpdate(mc, rec_b->hash, rec_b->hash_size) != 1)
+                        if (EVP_DigestUpdate(mc, rec_b->hash.buffer, rec_b->hash.size) != 1)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to run digest.");
 
-                        if (EVP_DigestFinal_ex(mc, reg_b->calculated, &sz) != 1)
+                        if (EVP_DigestFinal_ex(mc, reg_b->calculated.buffer, &sz) != 1)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to finalize hash context.");
 
-                        assert(sz == reg_b->calculated_size);
+                        assert(sz == reg_b->calculated.size);
                 }
 
                 reg->n_measurements++;
@@ -1320,13 +1336,10 @@ static int event_log_record_validate_hash_firmware(
                 EventLogRecordBank *bank,
                 const EVP_MD *md) {
 
-        _cleanup_free_ unsigned char *payload_hash = NULL;
-        unsigned payload_hash_size;
-        bool strict = false;
         _cleanup_free_ void *hdata_alternative = NULL;
-        const void *hdata;
         size_t hsz, hsz_alternative = 0;
-        int mdsz;
+        bool strict = false;
+        const void *hdata;
 
         assert(record);
         assert(bank);
@@ -1396,26 +1409,28 @@ static int event_log_record_validate_hash_firmware(
                 break;
         }
 
-        mdsz = EVP_MD_size(md);
+        int mdsz = EVP_MD_size(md);
         assert(mdsz > 0);
+        assert((size_t) mdsz <= sizeof_field(TPM2B_DIGEST, buffer));
 
-        payload_hash_size = mdsz;
-        payload_hash = malloc(payload_hash_size);
-        if (!payload_hash)
-                return log_oom();
+        TPM2B_DIGEST payload_hash = {
+                .size = mdsz,
+        };
 
-        if (EVP_Digest(hdata, hsz, payload_hash, &payload_hash_size, md, NULL) != 1)
+        unsigned dsz = mdsz;
+
+        if (EVP_Digest(hdata, hsz, payload_hash.buffer, &dsz, md, NULL) != 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to calculate event payload hash.");
-        assert((int) payload_hash_size == mdsz);
+        assert(dsz == (unsigned) mdsz);
 
         /* If this didn't match then let's try the alternative format here, if we have one, and check things then. */
-        if (memcmp_nn(bank->hash, bank->hash_size, payload_hash, payload_hash_size) != 0 && hdata_alternative) {
-                if (EVP_Digest(hdata_alternative, hsz_alternative, payload_hash, &payload_hash_size, md, NULL) != 1)
+        if (memcmp_nn(bank->hash.buffer, bank->hash.size, payload_hash.buffer, payload_hash.size) != 0 && hdata_alternative) {
+                if (EVP_Digest(hdata_alternative, hsz_alternative, payload_hash.buffer, &dsz, md, NULL) != 1)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to calculate event payload hash.");
-                assert((int) payload_hash_size == mdsz);
+                assert(dsz == (unsigned) mdsz);
         }
 
-        if (memcmp_nn(bank->hash, bank->hash_size, payload_hash, payload_hash_size) != 0) {
+        if (memcmp_nn(bank->hash.buffer, bank->hash.size, payload_hash.buffer, payload_hash.size) != 0) {
                 if (strict)
                         record->event_payload_valid = EVENT_PAYLOAD_VALID_NO;
                 else if (record->event_payload_valid != EVENT_PAYLOAD_VALID_NO)
@@ -1466,7 +1481,7 @@ static int event_log_record_validate_hash_userspace(
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to calculate event payload hash.");
 
         assert((int) payload_hash_size == mdsz);
-        if (memcmp_nn(bank->hash, bank->hash_size, payload_hash, payload_hash_size) != 0)
+        if (memcmp_nn(bank->hash.buffer, bank->hash.size, payload_hash, payload_hash_size) != 0)
                 record->event_payload_valid = EVENT_PAYLOAD_VALID_NO;
         else if (record->event_payload_valid < 0)
                 record->event_payload_valid = EVENT_PAYLOAD_VALID_YES;
@@ -1581,7 +1596,7 @@ static int event_log_record_equal(const EventLogRecord *a, const EventLogRecord 
         assert(x->algorithm == a->event_log->primary_algorithm);
         assert(y->algorithm == b->event_log->primary_algorithm);
 
-        return memcmp_nn(x->hash, x->hash_size, y->hash, y->hash_size) == 0;
+        return memcmp_nn(x->hash.buffer, x->hash.size, y->hash.buffer, y->hash.size) == 0;
 }
 
 static int event_log_add_component_file(EventLog *el, EventLogComponent *component, const char *path) {
@@ -2080,7 +2095,7 @@ static int show_log_table(EventLog *el) {
                         if (bank) {
                                 _cleanup_free_ char *hex = NULL;
 
-                                hex = hexmem(bank->hash, bank->hash_size);
+                                hex = hexmem(bank->hash.buffer, bank->hash.size);
                                 if (!hex)
                                         return log_oom();
 
@@ -2117,8 +2132,8 @@ static bool event_log_pcr_checks_out(const EventLog *el, const EventLogRegister 
         assert(reg);
 
         for (size_t i = 0; i < el->n_algorithms; i++)
-                if (memcmp_nn(reg->banks[i].calculated, reg->banks[i].calculated_size,
-                              reg->banks[i].observed, reg->banks[i].observed_size) != 0)
+                if (memcmp_nn(reg->banks[i].calculated.buffer, reg->banks[i].calculated.size,
+                              reg->banks[i].observed.buffer, reg->banks[i].observed.size) != 0)
                         return false;
 
         return true;
@@ -2198,12 +2213,12 @@ static int show_pcr_table(EventLog *el) {
                 for (size_t i = 0; i < el->n_algorithms; i++) {
                         const char *color;
 
-                        color = is_unset_pcr(el->registers[pcr].banks[i].calculated, el->registers[pcr].banks[i].calculated_size) ? ANSI_GREY : NULL;
+                        color = is_unset_pcr(el->registers[pcr].banks[i].calculated.buffer, el->registers[pcr].banks[i].calculated.size) ? ANSI_GREY : NULL;
 
-                        if (el->registers[pcr].banks[i].calculated_size > 0) {
+                        if (el->registers[pcr].banks[i].calculated.size > 0) {
                                 _cleanup_free_ char *hex = NULL;
 
-                                hex = hexmem(el->registers[pcr].banks[i].calculated, el->registers[pcr].banks[i].calculated_size);
+                                hex = hexmem(el->registers[pcr].banks[i].calculated.buffer, el->registers[pcr].banks[i].calculated.size);
                                 if (!hex)
                                         return log_oom();
 
@@ -2222,12 +2237,12 @@ static int show_pcr_table(EventLog *el) {
                         _cleanup_free_ char *hex = NULL;
                         const char *color;
 
-                        hex = hexmem(el->registers[pcr].banks[i].observed, el->registers[pcr].banks[i].observed_size);
+                        hex = hexmem(el->registers[pcr].banks[i].observed.buffer, el->registers[pcr].banks[i].observed.size);
                         if (!hex)
                                 return log_oom();
 
                         color = !hash_match ? ANSI_HIGHLIGHT_RED :
-                                is_unset_pcr(el->registers[pcr].banks[i].observed, el->registers[pcr].banks[i].observed_size) ? ANSI_GREY : NULL;
+                                is_unset_pcr(el->registers[pcr].banks[i].observed.buffer, el->registers[pcr].banks[i].observed.size) ? ANSI_GREY : NULL;
 
                         r = table_add_many(table,
                                            TABLE_STRING, hex,
@@ -2368,7 +2383,7 @@ static int verb_show_cel(int argc, char *argv[], void *userdata) {
                         r = json_variant_append_arrayb(
                                         &ja, JSON_BUILD_OBJECT(
                                                         JSON_BUILD_PAIR_STRING("hashAlg", tpm2_hash_alg_to_string(bank->algorithm)),
-                                                        JSON_BUILD_PAIR_HEX("digest", bank->hash, bank->hash_size)));
+                                                        JSON_BUILD_PAIR_HEX("digest", bank->hash.buffer, bank->hash.size)));
                         if (r < 0)
                                 return log_error_errno(r, "Failed to append CEL digest entry: %m");
                 }
@@ -2910,7 +2925,7 @@ static int verb_lock_secureboot_authority(int argc, char *argv[], void *userdata
                                         &digests,
                                         JSON_BUILD_OBJECT(
                                                         JSON_BUILD_PAIR("hashAlg", JSON_BUILD_STRING(tpm2_hash_alg_to_string(bank->algorithm))),
-                                                        JSON_BUILD_PAIR("digest", JSON_BUILD_HEX(bank->hash, bank->hash_size))));
+                                                        JSON_BUILD_PAIR("digest", JSON_BUILD_HEX(bank->hash.buffer, bank->hash.size))));
                         if (r < 0)
                                 return log_error_errno(r, "Failed to build digests array: %m");
                 }
@@ -3197,7 +3212,7 @@ static int verb_lock_firmware(int argc, char *argv[], void *userdata) {
                                         &digests,
                                         JSON_BUILD_OBJECT(
                                                         JSON_BUILD_PAIR("hashAlg", JSON_BUILD_STRING(tpm2_hash_alg_to_string(bank->algorithm))),
-                                                        JSON_BUILD_PAIR("digest", JSON_BUILD_HEX(bank->hash, bank->hash_size))));
+                                                        JSON_BUILD_PAIR("digest", JSON_BUILD_HEX(bank->hash.buffer, bank->hash.size))));
                         if (r < 0)
                                 return log_error_errno(r, "Failed to build digests array: %m");
                 }
@@ -3681,22 +3696,16 @@ static int verb_unlock_kernel_initrd(int argc, char *argv[], void *userdata) {
 }
 
 typedef struct EventLogPredictionBanks {
-        void* hash[ELEMENTSOF(all_hash_algorithms)];
-        size_t hash_size[ELEMENTSOF(all_hash_algorithms)];
+        TPM2B_DIGEST hash[ELEMENTSOF(all_hash_algorithms)];
 } EventLogPredictionBanks;
 
-typedef struct EventLogPredictionContext {
+typedef struct EventLogPrediction {
         uint32_t pcrs;
-        size_t banks_size[ELEMENTSOF(all_hash_algorithms)];
         const EVP_MD *banks_md[ELEMENTSOF(all_hash_algorithms)];
-        OrderedSet* results[TPM2_PCRS_MAX]; /* of EventLogPredictionBanks objects*/
-} EventLogPredictionContext;
+        OrderedSet* results[TPM2_PCRS_MAX]; /* of EventLogPredictionBanks objects */
+} EventLogPrediction;
 
 static EventLogPredictionBanks* event_log_prediction_banks_free(EventLogPredictionBanks *banks) {
-        if (!banks)
-                return NULL;
-
-        free_many(banks->hash, ELEMENTSOF(all_hash_algorithms));
         return mfree(banks);
 }
 
@@ -3707,25 +3716,14 @@ static EventLogPredictionBanks* event_log_prediction_banks_copy(EventLogPredicti
 
         assert(banks);
 
-        copy = new0(EventLogPredictionBanks, 1);
+        copy = newdup(EventLogPredictionBanks, banks, 1);
         if (!copy)
                 return NULL;
-
-        for (size_t i = 0; i < ELEMENTSOF(all_hash_algorithms); i++) {
-                if (!banks->hash[i])
-                        continue;
-
-                copy->hash[i] = memdup(banks->hash[i], banks->hash_size[i]);
-                if (!copy->hash[i])
-                        return NULL;
-
-                copy->hash_size[i] = banks->hash_size[i];
-        }
 
         return TAKE_PTR(copy);
 }
 
-static void event_log_prediction_context_done(EventLogPredictionContext *context) {
+static void event_log_prediction_done(EventLogPrediction *context) {
         assert(context);
 
         for (uint32_t pcr = 0; pcr < TPM2_PCRS_MAX; pcr++)
@@ -3734,7 +3732,7 @@ static void event_log_prediction_context_done(EventLogPredictionContext *context
 
 static void event_log_prediction_banks_hash_func(const EventLogPredictionBanks *banks, struct siphash *state) {
         for (size_t i = 0; i < ELEMENTSOF(all_hash_algorithms); i++)
-                siphash24_compress_safe(banks->hash[i], banks->hash_size[i], state);
+                siphash24_compress_safe(banks->hash[i].buffer, banks->hash[i].size, state);
 }
 
 static int event_log_prediction_banks_compare_func(const EventLogPredictionBanks *a, const EventLogPredictionBanks *b) {
@@ -3744,7 +3742,8 @@ static int event_log_prediction_banks_compare_func(const EventLogPredictionBanks
         assert(b);
 
         for (size_t i = 0; i < ELEMENTSOF(all_hash_algorithms); i++) {
-                r = memcmp_nn(a->hash[i], a->hash_size[i], b->hash[i], b->hash_size[i]);
+                r = memcmp_nn(a->hash[i].buffer, a->hash[i].size,
+                              b->hash[i].buffer, b->hash[i].size);
                 if (r != 0)
                         return r;
         }
@@ -3761,7 +3760,7 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
                 event_log_prediction_banks_free);
 
 static int event_log_prediction_finalize(
-                EventLogPredictionContext *context,
+                EventLogPrediction *context,
                 EventLogPredictionBanks *banks,
                 uint32_t pcr,
                 const char *path) {
@@ -3788,7 +3787,7 @@ static int event_log_prediction_finalize(
 }
 
 static int event_log_component_instance_calculate(
-                EventLogPredictionContext *context,
+                EventLogPrediction *context,
                 EventLogPredictionBanks *banks,
                 EventLogComponentInstance *instance,
                 uint32_t pcr) {
@@ -3806,16 +3805,14 @@ static int event_log_component_instance_calculate(
                 for (size_t i = 0; i < ELEMENTSOF(all_hash_algorithms); i++) {
                         _cleanup_(EVP_MD_CTX_freep) EVP_MD_CTX *md_ctx = NULL;
                         EventLogRecordBank *b;
-                        size_t sz;
 
-                        if (!banks->hash[i]) /* already invalidated */
+                        if (banks->hash[i].size <= 0) /* already invalidated */
                                 continue;
 
                         b = event_log_record_find_bank(rec, all_hash_algorithms[i]);
                         if (!b) {
                                 /* Can't calculate, hence invalidate */
-                                banks->hash[i] = mfree(banks->hash[i]);
-                                banks->hash_size[i] = 0;
+                                banks->hash[i] = TPM2B_DIGEST_NULL;
                                 continue;
                         }
 
@@ -3823,24 +3820,27 @@ static int event_log_component_instance_calculate(
                         if (!md_ctx)
                                 return log_oom();
 
-                        sz = context->banks_size[i];
-                        assert(banks->hash_size[i] == sz);
-                        assert(b->hash_size == sz);
+                        int sz = EVP_MD_size(context->banks_md[i]);
+                        assert(sz > 0);
+                        assert((size_t) sz <= sizeof_field(TPM2B_DIGEST, buffer));
+
+                        assert(banks->hash[i].size == (size_t) sz);
+                        assert(b->hash.size == (size_t) sz);
 
                         if (EVP_DigestInit_ex(md_ctx, context->banks_md[i], NULL) != 1)
                                 return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to initialize message digest.");
 
-                        if (EVP_DigestUpdate(md_ctx, banks->hash[i], sz) != 1)
+                        if (EVP_DigestUpdate(md_ctx, banks->hash[i].buffer, sz) != 1)
                                 return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to hash bank value.");
 
-                        if (EVP_DigestUpdate(md_ctx, b->hash, sz) != 1)
+                        if (EVP_DigestUpdate(md_ctx, b->hash.buffer, sz) != 1)
                                 return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to hash data value.");
 
-                        unsigned l = sz;
-                        if (EVP_DigestFinal_ex(md_ctx, banks->hash[i], &l) != 1)
+                        unsigned l = (unsigned) sz;
+                        if (EVP_DigestFinal_ex(md_ctx, banks->hash[i].buffer, &l) != 1)
                                 return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to finalize message digest.");
 
-                        assert(l == sz);
+                        assert(l == (unsigned) sz);
                 }
         }
 
@@ -3849,7 +3849,7 @@ static int event_log_component_instance_calculate(
 
 static int event_log_predict_pcrs(
                 EventLog *el,
-                EventLogPredictionContext *context,
+                EventLogPrediction *context,
                 EventLogPredictionBanks *parent_banks,
                 size_t component_index,
                 uint32_t pcr,
@@ -3917,24 +3917,8 @@ static int event_log_predict_pcrs(
         return count;
 }
 
-static EventLogPredictionBanks *event_log_prediction_banks_new_zero(EventLogPredictionContext *context) {
-        _cleanup_(event_log_prediction_banks_freep) EventLogPredictionBanks *banks = NULL;
-
-        assert(context);
-
-        banks = new(EventLogPredictionBanks, 1);
-        if (!banks)
-                return NULL;
-
-        for (size_t i = 0; i < ELEMENTSOF(all_hash_algorithms); i++) {
-                banks->hash[i] = malloc0(context->banks_size[i]);
-                if (!banks->hash[i])
-                        return NULL;
-
-                banks->hash_size[i] = context->banks_size[i];
-        }
-
-        return TAKE_PTR(banks);
+static EventLogPredictionBanks *event_log_prediction_banks_new_zero(void) {
+        return new0(EventLogPredictionBanks, 1);
 }
 
 static ssize_t event_log_calculate_component_combinations(EventLog *el) {
@@ -3954,10 +3938,181 @@ static ssize_t event_log_calculate_component_combinations(EventLog *el) {
         return count;
 }
 
-static int event_log_show_predictions(EventLogPredictionContext *context) {
+static size_t algorithm_index(uint16_t algorithm) {
+
+        for (size_t alg_index = 0; alg_index < ELEMENTSOF(all_hash_algorithms); alg_index++)
+                if (all_hash_algorithms[alg_index] == algorithm)
+                        return alg_index;
+
+        return SIZE_MAX;
+}
+
+static int event_log_prediction_to_json(
+                const EventLogPrediction *prediction,
+                uint16_t algorithm,
+                JsonVariant **ret) {
+
+        _cleanup_(json_variant_unrefp) JsonVariant *aj = NULL;
+        int r;
+
+        assert(prediction);
+        assert(ret);
+
+        size_t alg_index = algorithm_index(algorithm);
+        assert(alg_index < ELEMENTSOF(all_hash_algorithms));
+
+        for (uint32_t pcr = 0; pcr < TPM2_PCRS_MAX; pcr++) {
+                _cleanup_(json_variant_unrefp) JsonVariant *vj = NULL;
+                EventLogPredictionBanks *banks;
+
+                if (!FLAGS_SET(prediction->pcrs, UINT32_C(1) << pcr))
+                        continue;
+
+                ORDERED_SET_FOREACH(banks, prediction->results[pcr]) {
+
+                        if (banks->hash[alg_index].size <= 0)
+                                continue;
+
+                        r = json_variant_append_arrayb(
+                                        &vj,
+                                        JSON_BUILD_HEX(banks->hash[alg_index].buffer, banks->hash[alg_index].size));
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to append hash variant to JSON array: %m");
+                }
+
+                if (!vj)
+                        continue;
+
+                r = json_variant_append_arrayb(
+                                &aj,
+                                JSON_BUILD_OBJECT(
+                                                JSON_BUILD_PAIR_INTEGER("pcr", pcr),
+                                                JSON_BUILD_PAIR_VARIANT("values", vj)));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to append PCR variants to JSON array: %m");
+        }
+
+        if (!aj) {
+                r = json_variant_new_array(&aj, NULL, 0);
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = TAKE_PTR(aj);
+        return 0;
+}
+
+static int event_log_prediction_from_json(
+                EventLogPrediction *prediction,
+                uint16_t algorithm,
+                JsonVariant *aj) {
+
+        int r;
+
+        assert(prediction);
+
+        size_t alg_index = algorithm_index(algorithm);
+        assert(alg_index < ELEMENTSOF(all_hash_algorithms));
+
+        if (!json_variant_is_array(aj))
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "PCR variant array is not an array.");
+
+        JsonVariant *pcr;
+        JSON_VARIANT_ARRAY_FOREACH(pcr, aj) {
+                JsonVariant *nr, *values;
+
+                nr = json_variant_by_key(pcr, "pcr");
+                if (!nr)
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "PCR array entry lacks PCR index field");
+
+                if (!json_variant_is_unsigned(nr) ||
+                    json_variant_unsigned(nr) >= TPM2_PCRS_MAX)
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "PCR array entry PCR index is not an integer in the range 0…23");
+
+                values = json_variant_by_key(pcr, "values");
+                if (!values)
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "PCR array entry lacks values field");
+
+                if (!json_variant_is_array(values))
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "PCR array entry values field is not an array");
+
+                prediction->pcrs |= UINT32_C(1) << json_variant_unsigned(nr);
+
+                JsonVariant *v;
+                JSON_VARIANT_ARRAY_FOREACH(v, values) {
+                        _cleanup_free_ void *buffer = NULL;
+                        size_t size;
+
+                        r = json_variant_unhex(v, &buffer, &size);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to decode PCR policy array hash value");
+
+                        if (size <= 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "PCR policy array hash value is zero.");
+
+                        if (size > sizeof_field(TPM2B_DIGEST, buffer))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "PCR policy array hash value too large.");
+
+                        _cleanup_(event_log_prediction_banks_freep) EventLogPredictionBanks *banks = new0(EventLogPredictionBanks, 1);
+                        if (!banks)
+                                return log_oom();
+
+                        memcpy(banks->hash[alg_index].buffer, buffer, size);
+                        banks->hash[alg_index].size = size;
+
+                        r = ordered_set_ensure_put(prediction->results + json_variant_unsigned(nr), &event_log_prediction_banks_hash_ops, banks);
+                        if (r == -EEXIST) /* Let's allow duplicates */
+                                continue;
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to insert result into set: %m");
+
+                        TAKE_PTR(banks);
+                }
+        }
+
+        return 0;
+}
+
+static int event_log_show_predictions(EventLogPrediction *context) {
+        int r;
+
         assert(context);
 
         pager_open(arg_pager_flags);
+
+        if (!FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF)) {
+                _cleanup_(json_variant_unrefp) JsonVariant *j = NULL;
+
+                for (size_t i = 0; i < ELEMENTSOF(all_hash_algorithms); i++) {
+                        _cleanup_(json_variant_unrefp) JsonVariant *aj = NULL;
+
+                        r = event_log_prediction_to_json(
+                                        context,
+                                        all_hash_algorithms[i],
+                                        &aj);
+                        if (r < 0)
+                                return r;
+
+                        if (json_variant_elements(aj) == 0)
+                                continue;
+
+                        r = json_variant_set_field(
+                                        &j,
+                                        tpm2_hash_alg_to_string(all_hash_algorithms[i]),
+                                        aj);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to add prediction bank to object: %m");
+                }
+
+                if (!j) {
+                        r = json_variant_new_object(&j, NULL, 0);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to allocated empty object: %m");
+                }
+
+                json_variant_dump(j, arg_json_format_flags, /* f= */ NULL, /* prefix= */ NULL);
+                return 0;
+        }
 
         for (uint32_t pcr = 0; pcr < TPM2_PCRS_MAX; pcr++) {
                 EventLogPredictionBanks *banks;
@@ -3976,7 +4131,7 @@ static int event_log_show_predictions(EventLogPredictionContext *context) {
                                 _cleanup_free_ char *aa = NULL, *h = NULL;
                                 const char *a;
 
-                                if (!banks->hash[i])
+                                if (banks->hash[i].size <= 0)
                                         continue;
 
                                 a = ASSERT_PTR(EVP_MD_name(context->banks_md[i]));
@@ -3986,11 +4141,11 @@ static int event_log_show_predictions(EventLogPredictionContext *context) {
 
                                 ascii_strlower(aa);
 
-                                h = hexmem(banks->hash[i], banks->hash_size[i]);
+                                h = hexmem(banks->hash[i].buffer, banks->hash[i].size);
                                 if (!h)
                                         return log_oom();
 
-                                printf("\t%-6s: %s\n", aa, h);
+                                printf("  %s%-6s%s: %s\n", ansi_highlight(), aa, ansi_normal(), h);
                         }
 
                         printf("\n");
@@ -4002,7 +4157,7 @@ static int event_log_show_predictions(EventLogPredictionContext *context) {
 
 static int event_log_prediction_run(
                 EventLog *el,
-                EventLogPredictionContext *context) {
+                EventLogPrediction *context) {
 
         int r;
 
@@ -4010,15 +4165,8 @@ static int event_log_prediction_run(
         assert(context);
 
         for (size_t i = 0; i < ELEMENTSOF(all_hash_algorithms); i++) {
-                const char *a;
-                int hash_size;
-
-                a = ASSERT_PTR(tpm2_hash_alg_to_string(all_hash_algorithms[i]));
+                const char *a = ASSERT_PTR(tpm2_hash_alg_to_string(all_hash_algorithms[i]));
                 context->banks_md[i] = ASSERT_PTR(EVP_get_digestbyname(a));
-
-                hash_size = EVP_MD_size(context->banks_md[i]);
-                assert_se(hash_size > 0);
-                context->banks_size[i] = hash_size;
         }
 
         for (uint32_t pcr = 0; pcr < TPM2_PCRS_MAX; pcr++) {
@@ -4027,9 +4175,12 @@ static int event_log_prediction_run(
                 if (!FLAGS_SET(context->pcrs, UINT32_C(1) << pcr))
                         continue;
 
-                banks = event_log_prediction_banks_new_zero(context);
+                banks = event_log_prediction_banks_new_zero();
                 if (!banks)
                         return log_oom();
+
+                for (size_t i = 0; i < ELEMENTSOF(all_hash_algorithms); i++)
+                        event_log_initial_pcr_state(el, pcr, EVP_MD_size(context->banks_md[i]), banks->hash + i);
 
                 r = event_log_predict_pcrs(
                                 el,
@@ -4046,7 +4197,7 @@ static int event_log_prediction_run(
 }
 
 static int verb_predict(int argc, char *argv[], void *userdata) {
-        _cleanup_(event_log_prediction_context_done) EventLogPredictionContext context = {
+        _cleanup_(event_log_prediction_done) EventLogPrediction context = {
                 arg_pcrs != 0 ? arg_pcrs : DEFAULT_PCR_MASK,
         };
         _cleanup_(event_log_freep) EventLog *el = NULL;
@@ -4076,423 +4227,388 @@ static int verb_predict(int argc, char *argv[], void *userdata) {
         return event_log_show_predictions(&context);
 }
 
-#define PCRLOCK_RSA_BITS 2048U
+static int calculate_super_pcr_policy(
+                EventLogPrediction *prediction,
+                uint16_t algorithm,
+                const TPM2B_DIGEST *base_policy,
+                TPM2B_DIGEST *ret_super_pcr_policy) {
 
-static int calculate_signing_policy(
-                const TPM2B_PUBLIC *helper_public,
-                TPM2B_DIGEST *ret_helper_policy,
-                TPM2B_DIGEST *ret_recovery_policy,
-                TPM2B_DIGEST *combined_policy) {
-
-        TPM2B_DIGEST
-                helper_policy = TPM2B_DIGEST_MAKE(NULL, TPM2_SHA256_DIGEST_SIZE),
-                recovery_policy = TPM2B_DIGEST_MAKE(NULL, TPM2_SHA256_DIGEST_SIZE);
         int r;
 
-        if (ret_helper_policy || combined_policy) {
-                assert(helper_public);
+        assert_se(prediction);
+        assert_se(ret_super_pcr_policy);
 
-                /* Make a PolicyAuthorize policy from the "helper" key */
-                log_debug("Calculating helper key policy for main key...");
-                r = tpm2_calculate_policy_authorize(
-                                helper_public,
-                                /* policy_ref= */ NULL,
-                                &helper_policy);
-                if (r < 0)
-                        return r;
+        size_t alg_index = algorithm_index(algorithm);
+        assert_se(alg_index < ELEMENTSOF(all_hash_algorithms));
+
+        /* Start with a zero policy if not specified otheriwse */
+        TPM2B_DIGEST super_pcr_policy_digest =
+                base_policy ? *base_policy : TPM2B_DIGEST_MAKE(NULL, TPM2_SHA256_DIGEST_SIZE);
+
+        for (uint32_t pcr = 0; pcr < TPM2_PCRS_MAX; pcr++) {
+                _cleanup_free_ TPM2B_DIGEST *pcr_policy_digest_variants = NULL;
+                size_t n_pcr_policy_digest_variants = 0;
+                EventLogPredictionBanks *banks;
+
+                if (!FLAGS_SET(prediction->pcrs, UINT32_C(1) << pcr))
+                        continue;
+
+                ORDERED_SET_FOREACH(banks, prediction->results[pcr]) {
+                        /* Start from the super PCR policy from the previous PCR we looked at so far. */
+                        TPM2B_DIGEST pcr_policy_digest = super_pcr_policy_digest;
+
+                        /* Evolve it based on the expected PCR value for this PCR */
+                        r = tpm2_calculate_policy_pcr(
+                                        &TPM2_PCR_VALUE_MAKE(
+                                                        pcr,
+                                                        algorithm,
+                                                        banks->hash[alg_index]),
+                                        /* n_pcr_values= */ 1,
+                                        &pcr_policy_digest);
+                        if (r < 0)
+                                return r;
+
+                        /* Store away this new variant */
+                        if (!GREEDY_REALLOC(pcr_policy_digest_variants, n_pcr_policy_digest_variants + 1))
+                                return log_oom();
+
+                        pcr_policy_digest_variants[n_pcr_policy_digest_variants++] = pcr_policy_digest;
+
+                        log_debug("Calculated PCR policy variant %zu for for PCR %" PRIu32, n_pcr_policy_digest_variants, pcr);
+                }
+
+                if (n_pcr_policy_digest_variants == 0)
+                        continue;
+
+                if (n_pcr_policy_digest_variants > 8)
+                        return log_error_errno(SYNTHETIC_ERRNO(E2BIG), "PCR policies with more than 8 alternatives per PCR are currently not supported.");
+
+                if (n_pcr_policy_digest_variants > 1) {
+                        /* Now combine all our variant into one OR policy */
+                        r = tpm2_calculate_policy_or(
+                                        pcr_policy_digest_variants,
+                                        n_pcr_policy_digest_variants,
+                                        &super_pcr_policy_digest);
+                        if (r < 0)
+                                return r;
+
+                        log_debug("Combined %zu variants in OR policy.", n_pcr_policy_digest_variants);
+                } else
+                        super_pcr_policy_digest = pcr_policy_digest_variants[0];
+
         }
 
-        if (ret_recovery_policy || combined_policy) {
-                /* Make a PolicyAuthValue policy for the recovery PIN */
-                log_debug("Calculating recovery PIN policy for main key...");
-                r = tpm2_calculate_policy_auth_value(&recovery_policy);
+        *ret_super_pcr_policy = super_pcr_policy_digest;
+        return 0;
+}
+
+static int tpm2_fulfill_super_pcr_policy(
+                Tpm2Context *c,
+                const Tpm2Handle *session,
+                const EventLogPrediction *prediction,
+                uint16_t algorithm) {
+
+        int r;
+
+        assert_se(c);
+        assert_se(session);
+        assert_se(prediction);
+
+        size_t alg_index = algorithm_index(algorithm);
+        assert(alg_index < ELEMENTSOF(all_hash_algorithms));
+
+        TPM2B_DIGEST previous_policy_digest = TPM2B_DIGEST_MAKE(NULL, TPM2_SHA256_DIGEST_SIZE);
+
+        for (uint32_t pcr = 0; pcr < TPM2_PCRS_MAX; pcr++) {
+                size_t n_branches;
+
+                if (!FLAGS_SET(prediction->pcrs, UINT32_C(1) << pcr))
+                        continue;
+
+                log_debug("Fulfilling PCR/OR policy for PCR %" PRIu32, pcr);
+
+                n_branches = ordered_set_size(prediction->results[pcr]);
+                if (n_branches < 1 || n_branches > 8)
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Number of variants per PCR not in range 1…8");
+
+                TPML_PCR_SELECTION pcr_selection;
+                tpm2_tpml_pcr_selection_from_mask(UINT32_C(1) << pcr, algorithm, &pcr_selection);
+
+                _cleanup_free_ TPM2B_DIGEST *current_policy_digest = NULL;
+                r = tpm2_policy_pcr(
+                                c,
+                                session,
+                                &pcr_selection,
+                                &current_policy_digest);
                 if (r < 0)
                         return r;
-        }
 
-        if (combined_policy) {
-                /* Make a PolicyOR policy from both policies */
-                log_debug("Calculating combined OR policy for main key...");
-                r = tpm2_calculate_policy_or(
-                                /* branches= */ (const TPM2B_DIGEST[2]) {
-                                        helper_policy,
-                                        recovery_policy,
-                                },
-                                /* n_branches= */ 2,
-                                combined_policy);
+                if (n_branches == 1) {
+                        previous_policy_digest = *current_policy_digest;
+                        continue;
+                }
+
+                _cleanup_free_ TPM2B_DIGEST *branches = NULL;
+                branches = new0(TPM2B_DIGEST, n_branches);
+                if (!branches)
+                        return log_oom();
+
+                EventLogPredictionBanks *banks;
+                size_t i = 0;
+                ORDERED_SET_FOREACH(banks, prediction->results[pcr]) {
+                        TPM2B_DIGEST pcr_policy_digest = previous_policy_digest;
+
+                        /* Evolve it based on the expected PCR value for this PCR */
+                        r = tpm2_calculate_policy_pcr(
+                                        &TPM2_PCR_VALUE_MAKE(
+                                                        pcr,
+                                                        algorithm,
+                                                        banks->hash[alg_index]),
+                                        /* n_pcr_values= */ 1,
+                                        &pcr_policy_digest);
+                        if (r < 0)
+                                return r;
+
+                        branches[i++] = pcr_policy_digest;
+                }
+
+                assert_se(i == n_branches);
+
+                current_policy_digest = mfree(current_policy_digest);
+                r = tpm2_policy_or(
+                                c,
+                                session,
+                                branches,
+                                n_branches,
+                                &current_policy_digest);
                 if (r < 0)
                         return r;
-        }
 
-        if (ret_helper_policy)
-                *ret_helper_policy = helper_policy;
-        if (ret_recovery_policy)
-                *ret_recovery_policy = recovery_policy;
+                previous_policy_digest = *current_policy_digest;
+        }
 
         return 0;
 }
 
-static int setup_signing_key(
-                Tpm2Context *tc,
-                Tpm2Handle *primary_handle,
-                Tpm2Handle *session,
-                Tpm2Handle **ret_key,
-                void **ret_helper_signature,
-                size_t *ret_helper_signature_size,
-                TPM2B_PUBLIC *ret_helper_public,
-                char **ret_recovery_pin) {
+static int tpm2_calculate_combined_policy(
+                EventLogPrediction *prediction,
+                uint16_t algorithm,
+                TPM2B_DIGEST *ret_combined_policy_digest) {
 
         int r;
 
-        assert(tc);
-        assert(primary_handle);
-        assert(ret_key);
+        assert(prediction);
 
-        /* We work with two keys. Initial setup is like this:
-         *
-         *           1. The "helper" key pair is generated on the CPU
-         *           2. The "main" key pair is generated on the TPM, with a PolicyAuthorize access policy bound to the "helper" key.
-         *           3. The "helper" key then signs a PolicyAuthorize policy bound to the "main" key. Let's call this signature "HELPERSIG".
-         *           4. The "helper" key is now erased and forgotten.
-         *
-         * Whenever we want to sign a new PCR policy we calculate it and sign it with the "main" key. Let's
-         * call signatures like this "PCRSIG(t)".
-         *
-         * Whenever we want to unlock the "main" key we first set up a PCR policy, and then match that up
-         * with PCRSIG(t) to prove it's right, and then use HELPERSIG to prove that we should have access,
-         * and thus unlock "main" for us.
-         *
-         * Why the need for the "helper" key? Because we cannot generate the "main" key on the TPM and
-         * already specify it in the access policy for it.
-         *
-         * Now, one complication: the above of course is impossible to actually set up: we can never create a
-         * policy that the "main" key could sign which we could use to access the "main" key, since for that
-         * we'd need an earlier signature which we don't have initially. Our way out: access to the "main"
-         * key is actually via PolicyOR of PolicyAuthorize as one branch and a PolicyAuthValue as second
-         * branch. The latter allows us to configure a PIN (which we dub the "recovery PIN") which gives us
-         * altrenative access. This we can use as "anchor" for the first policy: we the first policy we
-         * generate via the recovery key, all subsequent ones via PCR based policy.
-         *
-         * Right now now we'll forget the recovery PIN once we are done. One day we might advertise this as
-         * an official recoery interface however, as it basically allows signing new policy any time,
-         * regardles of PCR state. */
-
-        /* Generate "helper" key */
-        log_debug("Generating helper key on CPU...");
-        usec_t t = now(CLOCK_MONOTONIC);
-        _cleanup_(EVP_PKEY_freep) EVP_PKEY *helper_pkey = EVP_RSA_gen(PCRLOCK_RSA_BITS);
-        if (!helper_pkey)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to generate local RSA key.");
-        log_debug("Successfully generated key in %s.", FORMAT_TIMESPAN(now(CLOCK_MONOTONIC) - t, USEC_PER_MSEC));
-
-        /* Convert "helper" key to TPM format */
-        TPM2B_PUBLIC helper_tpm2b;
-        r = tpm2_tpm2b_public_from_openssl_pkey(helper_pkey, &helper_tpm2b);
-        if (r < 0)
-                return log_error_errno(r, "Failed to convert RSA key to TPM2 format: %m");
-
-        TPM2B_DIGEST combined_policy = TPM2B_DIGEST_MAKE(NULL, TPM2_SHA256_DIGEST_SIZE);
-        r = calculate_signing_policy(
-                        &helper_tpm2b,
-                        /* ret_helper_policy= */ NULL,
-                        /* ret_recovery_policy= */ NULL,
-                        &combined_policy);
+        /* Make a PolicyAuthValue policy for the recovery PIN */
+        log_debug("Calculating PCR policy...");
+        TPM2B_DIGEST super_pcr_policy_digest = TPM2B_DIGEST_MAKE(NULL, TPM2_SHA256_DIGEST_SIZE);
+        r = calculate_super_pcr_policy(
+                        prediction,
+                        algorithm,
+                        NULL,
+                        &super_pcr_policy_digest);
         if (r < 0)
                 return r;
 
-        /* Make a recovery PIN we can use as alternative access to the TPM key */
-        _cleanup_(erase_and_freep) char *recovery_pin = NULL;
-        r = make_recovery_key(&recovery_pin);
+        /* Make a PolicyAuthValue policy for the recovery PIN */
+        log_debug("Calculating recovery PIN policy...");
+        TPM2B_DIGEST recovery_policy_digest = TPM2B_DIGEST_MAKE(NULL, TPM2_SHA256_DIGEST_SIZE);
+        r = tpm2_calculate_policy_auth_value(&recovery_policy_digest);
         if (r < 0)
                 return r;
 
-        /* "main" key template, with the policy set we just calculated */
-        TPMT_PUBLIC policy_signature_key_template = {
-                .type = TPM2_ALG_RSA,
-                .nameAlg = TPM2_ALG_SHA256,
-                .objectAttributes =
-                        TPMA_OBJECT_SIGN_ENCRYPT |
-                        TPMA_OBJECT_FIXEDPARENT |
-                        TPMA_OBJECT_FIXEDTPM |
-                        TPMA_OBJECT_NODA |
-                        TPMA_OBJECT_SENSITIVEDATAORIGIN,
-                .parameters.rsaDetail = {
-                        .symmetric.algorithm = TPM2_ALG_NULL,
-                        .scheme.scheme = TPM2_ALG_NULL,
-                        .keyBits = PCRLOCK_RSA_BITS,
-                },
-                .authPolicy = combined_policy, /* ← enforce our OR policy on the newly generated key */
-        };
-
-        /* set up "sensitive" parameters for key */
-        TPMS_SENSITIVE_CREATE policy_signature_key_sensitive = {};
-        CLEANUP_ERASE(policy_signature_key_sensitive);
-        r = tpm2_get_pin_auth(TPM2_ALG_SHA256, recovery_pin, &policy_signature_key_sensitive.userAuth);
+        /* Make a PolicyOR policy from both policies */
+        log_debug("Calculating combined OR policy for PCR policy and recovery PIN policy...");
+        r = tpm2_calculate_policy_or(
+                        /* branches= */ (const TPM2B_DIGEST[2]) {
+                                             super_pcr_policy_digest,
+                                             recovery_policy_digest,
+                                     },
+                        /* n_branches= */ 2,
+                        ret_combined_policy_digest);
         if (r < 0)
                 return r;
 
-        /* Now generate the "main" key in the TPM */
-        _cleanup_(Esys_Freep) TPM2B_PUBLIC *main_public = NULL;
-        _cleanup_(Esys_Freep) TPM2B_PRIVATE *main_private = NULL;
-        _cleanup_(tpm2_handle_freep) Tpm2Handle *main_handle = NULL;
-        log_debug("Generating main key on TPM...");
-        r = tpm2_create_loaded(
-                        tc,
-                        primary_handle,
+        return 0;
+}
+
+static int tpm2_fulfill_combined_policy(
+                Tpm2Context *c,
+                const Tpm2Handle *session,
+                EventLogPrediction *prediction,
+                uint16_t algorithm) {
+
+        int r;
+
+        assert(c);
+        assert(session);
+        assert(prediction);
+
+        log_notice(">> Preparing OR policy");
+
+        /* Make a PolicyAuthValue policy for the recovery PIN */
+        log_debug("Calculating PCR policy...");
+        TPM2B_DIGEST super_pcr_policy_digest = TPM2B_DIGEST_MAKE(NULL, TPM2_SHA256_DIGEST_SIZE);
+        r = calculate_super_pcr_policy(
+                        prediction,
+                        algorithm,
+                        NULL,
+                        &super_pcr_policy_digest);
+        if (r < 0)
+                return r;
+
+        /* Make a PolicyAuthValue policy for the recovery PIN */
+        log_debug("Calculating recovery PIN policy...");
+        TPM2B_DIGEST recovery_policy_digest = TPM2B_DIGEST_MAKE(NULL, TPM2_SHA256_DIGEST_SIZE);
+        r = tpm2_calculate_policy_auth_value(&recovery_policy_digest);
+        if (r < 0)
+                return r;
+
+        r = tpm2_policy_or(
+                        c,
                         session,
-                        &policy_signature_key_template,
-                        &policy_signature_key_sensitive,
-                        &main_public,
-                        &main_private,
-                        &main_handle);
+                        /* branches= */ (const TPM2B_DIGEST[2]) {
+                                             super_pcr_policy_digest,
+                                             recovery_policy_digest,
+                                     },
+                        /* n_branches= */ 2,
+                        NULL);
         if (r < 0)
                 return r;
-
-        /* Calculate a PolicyAuthorize policy based on the "main" key */
-        TPM2B_DIGEST main_policy = TPM2B_DIGEST_MAKE(NULL, TPM2_SHA256_DIGEST_SIZE);
-        log_debug("Calculating main key policy...");
-        r = tpm2_calculate_policy_authorize(main_public, NULL, &main_policy);
-        if (r < 0)
-                return r;
-
-        /* Sign the "main" key policy we just calculated with the helper key */
-        _cleanup_free_ void *sig = NULL;
-        size_t ss;
-        log_debug("Signing main policy with helper key...");
-        r = digest_and_sign(EVP_sha256(), helper_pkey, main_policy.buffer, main_policy.size, &sig, &ss);
-        if (r < 0)
-                return log_error_errno(r, "Failed to sign PCR policy: %m");
-
-        /* Destroy the helper key now, we don't want to sign policies with it ever again. */
-        EVP_PKEY_free(helper_pkey);
-        helper_pkey = NULL;
-
-        /* At this point only the "main" key remains. It has a policy bound to a "helper" key we don't
-         * possess anymore, but we have do retain one policy signed by the "helper" key, that permits access
-         * to the "main" key via any policy that is signed by the "main" key itself. Thus, we can sign new
-         * policies for access to the main key with the main key itself. */
-
-        /* Marshall the key data */
-        _cleanup_free_ void *marshalled_public = NULL;
-        size_t marshalled_public_size;
-        r = tpm2_marshal_public(main_public, &marshalled_public, &marshalled_public_size);
-        if (r < 0)
-                return log_error_errno(r, "Failed to marshal public key: %m");
-
-        _cleanup_free_ void *marshalled_private = NULL;
-        size_t marshalled_private_size;
-        r = tpm2_marshal_private(main_private, &marshalled_private, &marshalled_private_size);
-        if (r < 0)
-                return log_error_errno(r, "Failed to marshal private key: %m");
-
-        _cleanup_free_ void *marshalled_helper_public = NULL;
-        size_t marshalled_helper_public_size;
-        r = tpm2_marshal_public(&helper_tpm2b, &marshalled_helper_public, &marshalled_helper_public_size);
-        if (r < 0)
-                return log_error_errno(r, "Failed to marshal private key: %m");
-
-        /* Turn everything into a JSON object */
-        _cleanup_(json_variant_unrefp) JsonVariant *j = NULL;
-        r = json_build(&j,
-                       JSON_BUILD_OBJECT(
-                                       JSON_BUILD_PAIR_BASE64("public", marshalled_public, marshalled_public_size),
-                                       JSON_BUILD_PAIR_BASE64("private", marshalled_private, marshalled_private_size),
-                                       JSON_BUILD_PAIR_BASE64("helperPublic", marshalled_helper_public, marshalled_helper_public_size),
-                                       JSON_BUILD_PAIR_BASE64("helperSignature", sig, ss)));
-        if (r < 0)
-                return log_error_errno(r, "Failed to build key data JSON: %m");
-
-        _cleanup_free_ char *text = NULL;
-        r = json_variant_format(j, JSON_FORMAT_NEWLINE, &text);
-        if (r < 0)
-                return log_error_errno(r, "Failed to format key data as JSON: %m");
-
-        /* Store JSON data on disk */
-        r = write_string_file("/var/lib/systemd/pcrlock/pcrlock.keydata", text, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_SYNC|WRITE_STRING_FILE_MKDIR_0755);
-        if (r < 0)
-                return log_error_errno(r, "Failed to store key data on disk: %m");
-
-        *ret_key = TAKE_PTR(main_handle);
-        if (ret_helper_signature)
-                *ret_helper_signature = TAKE_PTR(sig);
-        if (ret_helper_signature_size)
-                *ret_helper_signature_size = ss;
-        if (ret_helper_public)
-                *ret_helper_public = helper_tpm2b;
-        if (ret_recovery_pin)
-                *ret_recovery_pin = TAKE_PTR(recovery_pin);
 
         return 0;
 }
 
-static int load_signing_key(
-                Tpm2Context *tc,
-                Tpm2Handle *primary_handle,
-                Tpm2Handle *session,
-                Tpm2Handle **ret_key,
-                void **ret_helper_signature,
-                size_t *ret_helper_signature_size,
-                TPM2B_PUBLIC *ret_helper_public) {
+static const char *pcrlock_policy_path(void) {
+        return arg_policy_path ?: "/var/lib/systemd/pcrlock/policy.json";
+}
+
+static int load_policy(const char *path, EventLogPrediction *prediction, uint16_t *ret_algorithm, uint32_t *ret_nv_index) {
         int r;
 
-        assert(tc);
-        assert(primary_handle);
-        assert(ret_key);
+        assert(path);
 
-        _cleanup_(json_variant_unrefp) JsonVariant *j = NULL;
-        r = json_parse_file(NULL, "/var/lib/systemd/pcrlock/pcrlock.keydata", 0, &j, NULL, NULL);
-        if (r == -ENOENT) {
-                *ret_key = NULL;
-                *ret_helper_signature = NULL;
-                *ret_helper_signature_size = 0;
-                return 0; /* Not found */
+        _cleanup_(json_variant_unrefp) JsonVariant *configuration_json = NULL;
+        r = json_parse_file(
+                        /* f= */ NULL,
+                        path,
+                        /* flags = */ 0,
+                        &configuration_json,
+                        /* ret_line= */ NULL,
+                        /* ret_column= */ NULL);
+        if (r < 0) {
+                if (r != -ENOENT)
+                        return log_error_errno(r, "Failed to load existing pcrlock policy data: %m");
+
+                if (ret_algorithm)
+                        *ret_algorithm = 0;
+
+                if (ret_nv_index)
+                        *ret_nv_index = 0;
+                return 0;
         }
-        if (r < 0)
-                return log_error_errno(r, "Failed to parse pcrlock key data: %m");
 
-        JsonVariant *pubj = json_variant_by_key(j, "public");
-        if (!pubj)
-                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Key data lacks public part.");
-        _cleanup_free_ void *marshalled_public = NULL;
-        size_t marshalled_public_size;
-        r = json_variant_unbase64(pubj, &marshalled_public, &marshalled_public_size);
-        if (r < 0)
-                return log_error_errno(r, "Failed to decode marshalled public key: %m");
+        _cleanup_(json_variant_unrefp) JsonVariant *prediction_json = NULL;
+        const char *algorithm_string = NULL;
+        uint32_t nv_index = 0;
 
-        TPM2B_PUBLIC public = {};
-        r = tpm2_unmarshal_public(marshalled_public, marshalled_public_size, &public);
-        if (r < 0)
-                return log_error_errno(r, "Failed to unmarshal public key: %m");
+        JsonDispatch policy_dispatch[] = {
+                { "nvIndex",   JSON_VARIANT_INTEGER, json_dispatch_uint32,       PTR_TO_SIZE(&nv_index),         JSON_MANDATORY },
+                { "pcrBank",   JSON_VARIANT_STRING,  json_dispatch_const_string, PTR_TO_SIZE(&algorithm_string), JSON_MANDATORY },
+                { "pcrValues", JSON_VARIANT_ARRAY,   json_dispatch_variant,      PTR_TO_SIZE(&prediction_json),  JSON_MANDATORY },
+                {}
+        };
 
-        JsonVariant *privj = json_variant_by_key(j, "private");
-        if (!privj)
-                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Key data lacks private part.");
-        _cleanup_free_ void *marshalled_private = NULL;
-        size_t marshalled_private_size;
-        r = json_variant_unbase64(privj, &marshalled_private, &marshalled_private_size);
-        if (r < 0)
-                return log_error_errno(r, "Failed to decode marshalled private key: %m");
-
-        TPM2B_PRIVATE private = {};
-        r = tpm2_unmarshal_private(marshalled_private, marshalled_private_size, &private);
-        if (r < 0)
-                return log_error_errno(r, "Failed to unmarshal private key: %m");
-
-        JsonVariant *hpubj = json_variant_by_key(j, "helperPublic");
-        if (!hpubj)
-                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Key data lacks public part of helper.");
-        _cleanup_free_ void *marshalled_helper_public = NULL;
-        size_t marshalled_helper_public_size;
-        r = json_variant_unbase64(hpubj, &marshalled_helper_public, &marshalled_helper_public_size);
-        if (r < 0)
-                return log_error_errno(r, "Failed to decode marshalled public helper key: %m");
-
-        TPM2B_PUBLIC helper_public = {};
-        r = tpm2_unmarshal_public(marshalled_helper_public, marshalled_helper_public_size, &helper_public);
-        if (r < 0)
-                return log_error_errno(r, "Failed to unmarshal public helper key: %m");
-
-        JsonVariant *helpersigj = json_variant_by_key(j, "helperSignature");
-        if (!helpersigj)
-                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Key data lacks helper signature data.");
-        _cleanup_free_ void *sig = NULL;
-        size_t ss;
-        r = json_variant_unbase64(privj, &sig, &ss);
-        if (r < 0)
-                return log_error_errno(r, "Failed to decode signal: %m");
-
-        r = tpm2_load(tc, primary_handle, session, &public, &private, ret_key);
+        r = json_dispatch(configuration_json, policy_dispatch, /* bad= */ NULL, JSON_LOG, /* userdata= */ NULL);
         if (r < 0)
                 return r;
 
-        if (ret_helper_signature)
-                *ret_helper_signature = TAKE_PTR(sig);
-        if (ret_helper_signature_size)
-                *ret_helper_signature_size = ss;
-        if (ret_helper_public)
-                *ret_helper_public = helper_public;
+        r = tpm2_hash_alg_from_string(algorithm_string);
+        if (r < 0 || algorithm_index(r) == SIZE_MAX)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid hash algorithm: %s", algorithm_string);
 
-        return 1; /* Found and loaded */
+        uint16_t algorithm = r;
+
+        if (prediction) {
+                r = event_log_prediction_from_json(prediction, algorithm, prediction_json);
+                if (r < 0)
+                        return r;
+        }
+
+        if (ret_algorithm)
+                *ret_algorithm = algorithm;
+
+        if (ret_nv_index)
+                *ret_nv_index = nv_index;
+
+        return 1;
 }
 
-static int verb_sign(int argc, char *argv[], void *userdata) {
-        _cleanup_(event_log_prediction_context_done) EventLogPredictionContext context = {
-                arg_pcrs != 0 ? arg_pcrs : DEFAULT_PCR_MASK,
-        };
-        _cleanup_(tpm2_context_unrefp) Tpm2Context *tc = NULL;
-        _cleanup_(event_log_freep) EventLog *el = NULL;
-        ssize_t count;
+static int verb_make_policy(int argc, char *argv[], void *userdata) {
         int r;
 
+        _cleanup_(event_log_freep) EventLog *el = NULL;
         r = event_log_load_and_process(&el);
         if (r < 0)
                 return r;
 
+        ssize_t count;
         count = event_log_calculate_component_combinations(el);
         if (count < 0)
                 return count;
 
         log_notice("%zi combinations of components.", count);
         if (count > 500)
-                log_warning("%zi is a lot of combinations, consider removing alternatives.", count);
+                log_warning("%zi is a lot of combinations, consider removing alternatives, proceeding anyway", count);
 
-        r = event_log_reduce_to_safe_pcrs(el, &context.pcrs);
+        _cleanup_(event_log_prediction_done) EventLogPrediction new_prediction = {
+                arg_pcrs != 0 ? arg_pcrs : DEFAULT_PCR_MASK,
+        };
+        r = event_log_reduce_to_safe_pcrs(el, &new_prediction.pcrs);
         if (r < 0)
                 return r;
 
-        r = event_log_prediction_run(el, &context);
+        r = event_log_prediction_run(el, &new_prediction);
         if (r < 0)
                 return r;
 
+        _cleanup_(tpm2_context_unrefp) Tpm2Context *tc = NULL;
         r = tpm2_context_new(NULL, &tc);
         if (r < 0)
                 return r;
 
-        size_t alg_index;
-        for (alg_index = 0; alg_index < ELEMENTSOF(all_hash_algorithms); alg_index++)
-                if (all_hash_algorithms[alg_index] == el->primary_algorithm)
-                        break;
-        assert_se(alg_index < ELEMENTSOF(all_hash_algorithms));
+        if (!tpm2_supports_command(tc, TPM2_CC_PolicyAuthorizeNV))
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "TPM2 does not support PolicyAuthorizeNV command, refusing.");
 
-        TPM2B_DIGEST combined_policy_digest = TPM2B_DIGEST_MAKE(NULL, TPM2_SHA256_DIGEST_SIZE);
+        _cleanup_(json_variant_unrefp) JsonVariant *new_prediction_json = NULL;
+        r = event_log_prediction_to_json(&new_prediction, el->primary_algorithm, &new_prediction_json);
+        if (r < 0)
+                return r;
 
-        for (uint32_t pcr = 0; pcr < TPM2_PCRS_MAX; pcr++) {
-                EventLogPredictionBanks *banks;
-                _cleanup_free_ TPM2B_DIGEST *pcr_policy_digest_variants = NULL;
-                size_t n_pcr_policy_digest_variants = 0;
+        (void) json_variant_dump(new_prediction_json, arg_json_format_flags, NULL, NULL);
 
-                if (!FLAGS_SET(context.pcrs, UINT32_C(1) << pcr))
-                        continue;
+        TPM2B_DIGEST new_combined_policy_digest = TPM2B_DIGEST_MAKE(NULL, TPM2_SHA256_DIGEST_SIZE);
+        r = tpm2_calculate_combined_policy(
+                        &new_prediction,
+                        el->primary_algorithm,
+                        &new_combined_policy_digest);
+        if (r < 0)
+                return r;
 
-                ORDERED_SET_FOREACH(banks, context.results[pcr]) {
-                        TPM2B_DIGEST pcr_policy_digest = TPM2B_DIGEST_MAKE(NULL, TPM2_SHA256_DIGEST_SIZE);
+        const char *path = pcrlock_policy_path();
 
-                        r = tpm2_calculate_policy_pcr(
-                                        &TPM2_PCR_VALUE_MAKE(
-                                                        pcr,
-                                                        el->primary_algorithm,
-                                                        TPM2B_DIGEST_MAKE(banks->hash[alg_index], banks->hash_size[alg_index])),
-                                        /* n_pcr_values= */ 1,
-                                        &pcr_policy_digest);
-                        if (r < 0)
-                                return r;
+        _cleanup_(event_log_prediction_done) EventLogPrediction old_prediction = {};
+        uint16_t old_algorithm = 0;
+        uint32_t old_nv_index = 0;
 
-                        if (!GREEDY_REALLOC(pcr_policy_digest_variants, n_pcr_policy_digest_variants + 1))
-                                return log_oom();
+        r = load_policy(path, &old_prediction, &old_algorithm, &old_nv_index);
+        if (r < 0)
+                return r;
 
-                        pcr_policy_digest_variants[n_pcr_policy_digest_variants++] = pcr_policy_digest;
-                }
+        bool have_old_policy = r > 0;
 
-                if (n_pcr_policy_digest_variants == 0)
-                        continue;
-
-                r = tpm2_calculate_policy_or(
-                                pcr_policy_digest_variants,
-                                n_pcr_policy_digest_variants,
-                                &combined_policy_digest);
-                if (r < 0)
-                        return r;
-        }
+        if (have_old_policy && arg_nv_index != 0 && old_nv_index != arg_nv_index)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Stored policy references different NV index (0x%x) then specified (0x%x), refusing.", old_nv_index, arg_nv_index);
 
         _cleanup_(tpm2_handle_freep) Tpm2Handle *primary_handle = NULL;
         r = tpm2_get_or_create_srk(
@@ -4514,24 +4630,73 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        _cleanup_(tpm2_handle_freep) Tpm2Handle *signing_key = NULL;
-        _cleanup_free_ void *helpersig = NULL;
-        size_t helpersig_size = 0;
-        _cleanup_(erase_and_freep) char *recovery_pin = NULL;
-        TPM2B_PUBLIC helper_public;
-        r = load_signing_key(tc, primary_handle, encryption_session, &signing_key, &helpersig, &helpersig_size, &helper_public);
-        if (r < 0)
-                return r;
-        if (r > 0)
-                log_debug("Loaded signing key from disk.");
-        else {
-                log_debug("Signing key not yet generated. Generating...");
-                r = setup_signing_key(tc, primary_handle, encryption_session, &signing_key, &helpersig, &helpersig_size, &helper_public, &recovery_pin);
+        /* Acquire a recovery PIN, either from the user, or create a randomized one */
+        _cleanup_(erase_and_freep) char *pin = NULL;
+        if (arg_recovery_pin) {
+                _cleanup_(strv_free_erasep) char **l = NULL;
+
+                r = ask_password_auto(
+                                "Recovery PIN",
+                                /* icon= */ NULL,
+                                /* id= */ "pcrlock-recovery-pin",
+                                NULL,
+                                /* credential_name= */ "systemd-pcrlock.recovery-pin",
+                                /* until= */ 0,
+                                /* flags= */ 0,
+                                &l);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to query for recovery PIN: %m");
+
+                if (strv_length(l) != 1)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Expected a single PIN only.");
+
+                pin = TAKE_PTR(l[0]);
+                l = mfree(l);
+
+        } else if (!have_old_policy) {
+                char rnd[256];
+
+                r = crypto_random_bytes(rnd, sizeof(rnd));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to generate a randomized recovery PIN: %m");
+
+                (void) base64mem(rnd, sizeof(rnd), &pin);
+                explicit_bzero_safe(rnd, sizeof(rnd));
+                if (!pin)
+                        return log_oom();
+        }
+
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *nv_handle = NULL;
+        TPM2_HANDLE nv_index = 0;
+
+        if (have_old_policy) {
+                assert(old_nv_index != UINT32_MAX);
+
+                r = tpm2_index_to_handle(
+                                tc,
+                                old_nv_index,
+                                encryption_session,
+                                /* ret_public= */ NULL,
+                                /* ret_name= */ NULL,
+                                /* ret_qname= */ NULL,
+                                &nv_handle);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get handle for NV index 0x%x: %m", old_nv_index);
+
+                nv_index = old_nv_index;
+        } else {
+                r = tpm2_define_policy_nv_index(
+                                tc,
+                                encryption_session,
+                                arg_nv_index,
+                                &new_combined_policy_digest,
+                                pin,
+                                &nv_index,
+                                &nv_handle);
                 if (r < 0)
                         return r;
         }
 
-        /* Now set up a policy session so that we get access to the signing key */
         _cleanup_(tpm2_handle_freep) Tpm2Handle *policy_session = NULL;
         r = tpm2_make_policy_session(
                         tc,
@@ -4541,82 +4706,158 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        /* If we have the recovery PIN, we'll use it to get access to the key */
-        if (recovery_pin) {
-                /* Configure the policy, i.e. the fact that we are going to use a PIN to unlock this */
+        if (pin) {
+                log_notice(">> Unlocking NV index via auth value (PIN)");
+
+                /* If we have a recovery key use it to access the NV index */
+                r = tpm2_set_auth(tc, nv_handle, pin);
+                if (r < 0)
+                        return r;
+
                 r = tpm2_policy_auth_value(
                                 tc,
                                 policy_session,
                                 /* ret_policy_digest= */ NULL);
                 if (r < 0)
                         return r;
+        } else {
+                assert(have_old_policy);
 
-                /* And already configure the PIN too. */
-                r = tpm2_set_auth(tc, signing_key, recovery_pin);
+                log_notice(">> Unlocking NV index via PCR policy");
+
+                r = tpm2_fulfill_super_pcr_policy(
+                                tc,
+                                policy_session,
+                                &old_prediction,
+                                old_algorithm);
                 if (r < 0)
                         return r;
-        } else {
-                /* Fulfill PCR policies */
-
-
-                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Not implemented yet.");
         }
 
-        /* Now generate the PolicyOR command. For that we need to regenerate the policies ORed here */
-        TPM2B_DIGEST helper_policy, recovery_policy;
-        r = calculate_signing_policy(
-                        &helper_public,
-                        &helper_policy,
-                        &recovery_policy,
-                        /* combined_policy= */ NULL);
-        if (r < 0)
-                return r;
-
-        r = tpm2_policy_or(
+        r = tpm2_fulfill_combined_policy(
                         tc,
                         policy_session,
-                        /* branches= */ (const TPM2B_DIGEST[2]) {
-                                helper_policy,
-                                recovery_policy,
-                        },
-                        /* n_branches= */ 2,
-                        /* ret_policy_digest= */ NULL);
+                        have_old_policy ? &old_prediction : &new_prediction,
+                        have_old_policy ? old_algorithm : el->primary_algorithm);
         if (r < 0)
                 return r;
 
-        static const TPMT_SIG_SCHEME scheme = {
-                .scheme = TPM2_ALG_RSASSA,
-                .details = {
-                        .rsapss.hashAlg = TPM2_ALG_SHA256,
-                },
-        };
+        log_notice(">> TRYING TO WRITE");
 
-        _cleanup_free_ TPMT_SIGNATURE *signature = NULL;
-        log_debug("Signing combined PCR policy with main key...");
-        r = tpm2_sign(
+        r = tpm2_write_policy_nv_index(
                         tc,
-                        signing_key,
                         policy_session,
-                        &combined_policy_digest,
-                        &scheme,
-                        /* validation= */ NULL,
-                        &signature);
+                        nv_index,
+                        nv_handle,
+                        &new_combined_policy_digest);
         if (r < 0)
                 return r;
+
+        log_notice("NV Index: 0x%" PRIx32, nv_index);
+
+        _cleanup_(json_variant_unrefp) JsonVariant *new_configuration_json = NULL;
+        r = json_build(&new_configuration_json,
+                       JSON_BUILD_OBJECT(
+                                       JSON_BUILD_PAIR_INTEGER("nvIndex", nv_index),
+                                       JSON_BUILD_PAIR_STRING("pcrBank", tpm2_hash_alg_to_string(el->primary_algorithm)),
+                                       JSON_BUILD_PAIR_VARIANT("pcrValues", new_prediction_json)));
+        if (r < 0)
+                return log_error_errno(r, "Failed to generate JSON: %m");
+
+        _cleanup_free_ char *text = NULL;
+        r = json_variant_format(new_configuration_json, 0, &text);
+        if (r < 0)
+                return log_error_errno(r, "Failed to format new configuration to JSON: %m");
+
+        r = write_string_file(path, text, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_SYNC|WRITE_STRING_FILE_MKDIR_0755);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write new configuration to '%s': %m", path);
 
         return 0;
 }
 
-static int verb_unlink(int argc, char *argv[], void *userdata) {
+static int undefine_policy_nv_index(uint32_t nv_index) {
+        int r;
 
-        if (unlink("/var/lib/systemd/pcrlock/pcrlock.keydata") < 0) {
-                if (errno != ENOENT)
-                        return log_error_errno(errno, "Failed to remove PCR lock key file: %m");
+        _cleanup_(tpm2_context_unrefp) Tpm2Context *tc = NULL;
+        r = tpm2_context_new(NULL, &tc);
+        if (r < 0)
+                return r;
 
-                log_info("PCR lock key file already removed.");
-        } else
-                log_info("PCR lock key file removed.");
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *primary_handle = NULL;
+        r = tpm2_get_or_create_srk(
+                        tc,
+                        /* session= */ NULL,
+                        /* ret_public= */ NULL,
+                        /* ret_name= */ NULL,
+                        /* ret_qname= */ NULL,
+                        &primary_handle);
+        if (r < 0)
+                return r;
 
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *encryption_session = NULL;
+        r = tpm2_make_encryption_session(
+                        tc,
+                        primary_handle,
+                        /* bind_key= */ &TPM2_HANDLE_NONE,
+                        &encryption_session);
+        if (r < 0)
+                return r;
+
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *nv_handle = NULL;
+        r = tpm2_index_to_handle(
+                        tc,
+                        nv_index,
+                        encryption_session,
+                        /* ret_public= */ NULL,
+                        /* ret_name= */ NULL,
+                        /* ret_qname= */ NULL,
+                        &nv_handle);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get handle for NV index 0x%x: %m", nv_index);
+
+        r = tpm2_undefine_policy_nv_index(
+                        tc,
+                        encryption_session,
+                        nv_index,
+                        nv_handle);
+        if (r < 0)
+                return r;
+
+        log_info("Removed NV index 0x%x", nv_index);
+        return 0;
+}
+
+static int verb_remove_policy(int argc, char *argv[], void *userdata) {
+        uint32_t nv_index = 0;
+        int r;
+
+        const char *path = pcrlock_policy_path();
+        r = load_policy(path,
+                        /* prediction= */ NULL,
+                        /* ret_algorithm= */ NULL,
+                        &nv_index);
+        if (r == 0) {
+                log_info("No policy '%s' exists.", path);
+                return 0;
+        }
+
+        if (r < 0)
+                log_notice("Failed to load old policy file, assuming it corrupted, removing.");
+        else {
+                r = undefine_policy_nv_index(nv_index);
+                if (r < 0)
+                        log_notice("Failed to remove nv index, assuming data out of date, removing policy file.");
+        }
+
+        if (unlink(pcrlock_policy_path()) < 0) {
+                if (errno == ENOENT)
+                        return 0;
+
+                return log_error_errno(errno, "Failed to remove old policy file '%s': %m", path);
+        }
+
+        log_info("Removed policy file '%s'.", path);
         return 0;
 }
 
@@ -4635,8 +4876,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "  cel                         Show measurement log in TCG CEL-JSON format\n"
                "  list-components             List defined .pcrlock components\n"
                "  predict                     Predict PCR values\n"
-               "  sign                        Generate PCR signature\n"
-               "  unlink                      Remove PCR signature\n"
+               "  make-policy                 Predict PCR values and generate TPM2 policy from it\n"
+               "  remove-policy               Remove TPM2 policy\n"
                "\n%3$sProtections:%4$s\n"
                "  lock-firmware-code          Generate a .pcrlock file from current firmware code\n"
                "  unlock-firmware-code        Remove .pcrlock file for firmware code\n"
@@ -4695,6 +4936,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_PCRLOCK,
                 ARG_RAW_DESCRIPTION,
                 ARG_LOCATION,
+                ARG_NV_INDEX,
         };
 
         static const struct option options[] = {
@@ -4707,6 +4949,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "pcrlock",         required_argument, NULL, ARG_PCRLOCK         },
                 { "raw-description", no_argument,       NULL, ARG_RAW_DESCRIPTION },
                 { "location",        required_argument, NULL, ARG_LOCATION        },
+                { "nv-index",        required_argument, NULL, ARG_NV_INDEX        },
                 {}
         };
 
@@ -4747,6 +4990,24 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_pcrs |= UINT32_C(1) << pcr;
                         break;
                 }
+
+                case ARG_NV_INDEX:
+                        if (isempty(optarg))
+                                arg_nv_index = 0;
+                        else {
+                                uint32_t u;
+
+                                r = safe_atou32_full(optarg, 16, &u);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse --nv-index= parameter: %s", optarg);
+
+                                if (u < TPM2_NV_INDEX_FIRST || u > TPM2_NV_INDEX_LAST)
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Parameter for --nv-imdex= outside of valid range 0x%" PRIx32 "…0x%"  PRIx32 ": 0x%" PRIx32,
+                                                               TPM2_NV_INDEX_FIRST, TPM2_NV_INDEX_LAST, u);
+
+                                arg_nv_index = u;
+                        }
+                        break;
 
                 case ARG_COMPONENTS: {
                         _cleanup_free_ char *p = NULL;
@@ -4830,8 +5091,8 @@ static int pcrlock_main(int argc, char *argv[]) {
                 { "unlock-kernel-initrd",        VERB_ANY, 1,        0,            verb_unlock_kernel_initrd        },
                 { "lock-raw",                    VERB_ANY, 2,        0,            verb_lock_raw                    },
                 { "unlock-raw",                  VERB_ANY, 1,        0,            verb_unlock_simple               },
-                { "sign",                        VERB_ANY, 1,        0,            verb_sign                        },
-                { "unlink",                      VERB_ANY, 1,        0,            verb_unlink                      },
+                { "make-policy",                 VERB_ANY, 1,        0,            verb_make_policy                 },
+                { "remove-policy",               VERB_ANY, 1,        0,            verb_remove_policy               },
                 {}
         };
 
@@ -4840,6 +5101,8 @@ static int pcrlock_main(int argc, char *argv[]) {
 
 static int run(int argc, char *argv[]) {
         int r;
+
+        log_set_max_level(LOG_DEBUG); // FIXME
 
         log_show_color(true);
         log_parse_environment();

@@ -208,6 +208,7 @@ int tpm2_set_auth(Tpm2Context *c, const Tpm2Handle *handle, const char *pin);
 int tpm2_make_policy_session(Tpm2Context *c, const Tpm2Handle *primary, const Tpm2Handle *encryption_session, Tpm2Handle **ret_session);
 int tpm2_policy_auth_value(Tpm2Context *c, const Tpm2Handle *session, TPM2B_DIGEST **ret_policy_digest);
 int tpm2_policy_or(Tpm2Context *c, const Tpm2Handle *session, const TPM2B_DIGEST *branches, size_t n_branches, TPM2B_DIGEST **ret_policy_digest);
+int tpm2_policy_pcr(Tpm2Context *c, const Tpm2Handle *session, const TPML_PCR_SELECTION *pcr_selection, TPM2B_DIGEST **ret_policy_digest);
 
 int tpm2_calculate_name(const TPMT_PUBLIC *public, TPM2B_NAME *ret_name);
 int tpm2_calculate_policy_auth_value(TPM2B_DIGEST *digest);
@@ -261,6 +262,8 @@ int tpm2_tpm2b_public_to_fingerprint(const TPM2B_PUBLIC *public, void **ret_fing
                         memcpy_safe(UNIQ_T(STRUCT, uniq).buffer_field, UNIQ_T(BUF, uniq), UNIQ_T(SIZE, uniq)); \
                 UNIQ_T(STRUCT, uniq);                                   \
         })
+
+#define TPM2B_DIGEST_NULL ((TPM2B_DIGEST) {})
 
 /* Check if the size will fit in the TPM2B struct buffer. Returns 0 if the size will fit, otherwise this logs
  * a debug message and returns < 0. */
@@ -386,3 +389,9 @@ enum {
 
 int tpm2_pcr_index_from_string(const char *s) _pure_;
 const char *tpm2_pcr_index_to_string(int pcr) _const_;
+
+int tpm2_define_policy_nv_index(Tpm2Context *c, const Tpm2Handle *session, TPM2_HANDLE requested_nv_index, const TPM2B_DIGEST *write_policy, const char *pin, TPM2_HANDLE *ret_nv_index, Tpm2Handle **ret_nv_handle);
+
+int tpm2_write_policy_nv_index(Tpm2Context *c, const Tpm2Handle *policy_session, TPM2_HANDLE nv_index, const Tpm2Handle *nv_handle, const TPM2B_DIGEST *policy_digest);
+
+int tpm2_undefine_policy_nv_index(Tpm2Context *c, const Tpm2Handle *session, TPM2_HANDLE nv_index, const Tpm2Handle *nv_handle);
