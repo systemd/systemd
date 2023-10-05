@@ -209,7 +209,6 @@ Features:
   - pid_is_alive() → pidref_is_alive()
   - is_kernel_thread() → pidref_is_kernel_thread()
   - pid_is_my_child() → pidref_is_my_child()
-  - cg_pid_get_path() → cg_pidref_get_path()
   - get_process_uid() → pidref_get_uid()
   - actually wait for POLLIN on pidref's pidfd in service logic
   - exec_spawn()
