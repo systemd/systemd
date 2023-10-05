@@ -795,7 +795,7 @@ static void unit_set_xattr_graceful(Unit *u, const char *cgroup_path, const char
                 cgroup_path = u->cgroup_path;
         }
 
-        r = cg_set_xattr(SYSTEMD_CGROUP_CONTROLLER, cgroup_path, name, data, size, 0);
+        r = cg_set_xattr(cgroup_path, name, data, size, 0);
         if (r < 0)
                 log_unit_debug_errno(u, r, "Failed to set '%s' xattr on control group %s, ignoring: %m", name, empty_to_root(cgroup_path));
 }
@@ -813,7 +813,7 @@ static void unit_remove_xattr_graceful(Unit *u, const char *cgroup_path, const c
                 cgroup_path = u->cgroup_path;
         }
 
-        r = cg_remove_xattr(SYSTEMD_CGROUP_CONTROLLER, cgroup_path, name);
+        r = cg_remove_xattr(cgroup_path, name);
         if (r < 0 && !ERRNO_IS_XATTR_ABSENT(r))
                 log_unit_debug_errno(u, r, "Failed to remove '%s' xattr flag on control group %s, ignoring: %m", name, empty_to_root(cgroup_path));
 }
@@ -924,15 +924,15 @@ static void cgroup_xattr_apply(Unit *u) {
         }
 
         if (u->survive_final_kill_signal) {
-                r = cg_set_xattr(SYSTEMD_CGROUP_CONTROLLER,
-                                 u->cgroup_path,
-                                 "user.survive_final_kill_signal",
-                                 "1",
-                                 1,
-                                 /* flags= */ 0);
+                r = cg_set_xattr(
+                                u->cgroup_path,
+                                "user.survive_final_kill_signal",
+                                "1",
+                                1,
+                                /* flags= */ 0);
                 /* user xattr support was added in kernel v5.7 */
                 if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
-                        r = cg_set_xattr(SYSTEMD_CGROUP_CONTROLLER,
+                        r = cg_set_xattr(
                                         u->cgroup_path,
                                         "trusted.survive_final_kill_signal",
                                         "1",
@@ -3309,7 +3309,7 @@ int unit_check_oomd_kill(Unit *u) {
         else if (r == 0)
                 return 0;
 
-        r = cg_get_xattr_malloc(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, "user.oomd_ooms", &value);
+        r = cg_get_xattr_malloc(u->cgroup_path, "user.oomd_ooms", &value);
         if (r < 0 && !ERRNO_IS_XATTR_ABSENT(r))
                 return r;
 
@@ -3327,7 +3327,7 @@ int unit_check_oomd_kill(Unit *u) {
 
         n = 0;
         value = mfree(value);
-        r = cg_get_xattr_malloc(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, "user.oomd_kill", &value);
+        r = cg_get_xattr_malloc(u->cgroup_path, "user.oomd_kill", &value);
         if (r >= 0 && !isempty(value))
                 (void) safe_atou64(value, &n);
 
