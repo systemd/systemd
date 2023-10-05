@@ -9,6 +9,7 @@
 #include "chattr-util.h"
 #include "journal-file-util.h"
 #include "journal-internal.h"
+#include "logs-show.h"
 #include "macro.h"
 #include "path-util.h"
 #include "rm-rf.h"
@@ -67,6 +68,38 @@ static void test_journal_flush_one(int argc, char *argv[]) {
 
                 if (++n >= limit)
                         break;
+        }
+
+        sd_journal_close(j);
+
+        /* Open the new journal before archiving and offlining the file. */
+        assert_se(sd_journal_open_directory(&j, dn, 0) >= 0);
+
+        /* Read the online journal. */
+        assert_se(sd_journal_seek_tail(j) >= 0);
+        assert_se(sd_journal_step_one(j, 0) > 0);
+        printf("current_journal: %s (%i)\n", j->current_file->path, j->current_file->fd);
+        assert_se(show_journal_entry(stdout, j, OUTPUT_EXPORT, 0, 0, NULL, NULL, NULL, &(dual_timestamp) {}, &(sd_id128_t) {}) >= 0);
+
+        uint64_t p;
+        assert_se(journal_file_tail_end_by_mmap(j->current_file, &p) >= 0);
+        for (uint64_t q = ALIGN64(p + 1); q < (uint64_t) j->current_file->last_stat.st_size; q = ALIGN64(q + 1)) {
+                Object *o;
+
+                r = journal_file_move_to_object(j->current_file, OBJECT_UNUSED, q, &o);
+                assert_se(IN_SET(r, -EBADMSG, -EADDRNOTAVAIL));
+        }
+
+        /* Archive and offline file. */
+        assert_se(journal_file_archive(new_journal, NULL) >= 0);
+        assert_se(journal_file_set_offline(new_journal, /* wait = */ true) >= 0);
+
+        /* Read the archived and offline journal. */
+        for (uint64_t q = ALIGN64(p + 1); q < (uint64_t) j->current_file->last_stat.st_size; q = ALIGN64(q + 1)) {
+                Object *o;
+
+                r = journal_file_move_to_object(j->current_file, OBJECT_UNUSED, q, &o);
+                assert_se(IN_SET(r, -EBADMSG, -EADDRNOTAVAIL, -EIDRM));
         }
 }
 
