@@ -1183,7 +1183,7 @@ static int on_post(sd_event_source *s, void *userdata) {
 
         if (manager->cgroup)
                 /* cleanup possible left-over processes in our cgroup */
-                (void) cg_kill(SYSTEMD_CGROUP_CONTROLLER, manager->cgroup, SIGKILL, CGROUP_IGNORE_SELF, NULL, NULL, NULL);
+                (void) cg_kill(manager->cgroup, SIGKILL, CGROUP_IGNORE_SELF, /* set=*/ NULL, /* kill_log= */ NULL, /* userdata= */ NULL);
 
         return 1;
 }

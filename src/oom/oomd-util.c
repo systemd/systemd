@@ -40,7 +40,7 @@ static int increment_oomd_xattr(const char *path, const char *xattr, uint64_t nu
         assert(path);
         assert(xattr);
 
-        r = cg_get_xattr_malloc(SYSTEMD_CGROUP_CONTROLLER, path, xattr, &value);
+        r = cg_get_xattr_malloc(path, xattr, &value);
         if (r < 0 && !ERRNO_IS_XATTR_ABSENT(r))
                 return r;
 
@@ -54,7 +54,7 @@ static int increment_oomd_xattr(const char *path, const char *xattr, uint64_t nu
                 return -EOVERFLOW;
 
         xsprintf(buf, "%"PRIu64, curr_count + num_procs_killed);
-        r = cg_set_xattr(SYSTEMD_CGROUP_CONTROLLER, path, xattr, buf, strlen(buf), 0);
+        r = cg_set_xattr(path, xattr, buf, strlen(buf), 0);
         if (r < 0)
                 return r;
 
@@ -157,14 +157,14 @@ int oomd_fetch_cgroup_oom_preference(OomdCGroupContext *ctx, const char *prefix)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "%s is not a descendant of %s", ctx->path, prefix);
 
-        r = cg_get_owner(SYSTEMD_CGROUP_CONTROLLER, ctx->path, &uid);
+        r = cg_get_owner(ctx->path, &uid);
         if (r < 0)
                 return log_debug_errno(r, "Failed to get owner/group from %s: %m", ctx->path);
 
         if (uid != 0) {
                 uid_t prefix_uid;
 
-                r = cg_get_owner(SYSTEMD_CGROUP_CONTROLLER, prefix, &prefix_uid);
+                r = cg_get_owner(prefix, &prefix_uid);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to get owner/group from %s: %m", prefix);
 
@@ -176,14 +176,14 @@ int oomd_fetch_cgroup_oom_preference(OomdCGroupContext *ctx, const char *prefix)
 
         /* Ignore most errors when reading the xattr since it is usually unset and cgroup xattrs are only used
          * as an optional feature of systemd-oomd (and the system might not even support them). */
-        r = cg_get_xattr_bool(SYSTEMD_CGROUP_CONTROLLER, ctx->path, "user.oomd_avoid");
+        r = cg_get_xattr_bool(ctx->path, "user.oomd_avoid");
         if (r == -ENOMEM)
                 return log_oom_debug();
         if (r < 0 && !ERRNO_IS_XATTR_ABSENT(r))
                 log_debug_errno(r, "Failed to get xattr user.oomd_avoid, ignoring: %m");
         ctx->preference = r > 0 ? MANAGED_OOM_PREFERENCE_AVOID : ctx->preference;
 
-        r = cg_get_xattr_bool(SYSTEMD_CGROUP_CONTROLLER, ctx->path, "user.oomd_omit");
+        r = cg_get_xattr_bool(ctx->path, "user.oomd_omit");
         if (r == -ENOMEM)
                 return log_oom_debug();
         if (r < 0 && !ERRNO_IS_XATTR_ABSENT(r))
@@ -256,9 +256,9 @@ int oomd_cgroup_kill(const char *path, bool recurse, bool dry_run) {
                 log_debug_errno(r, "Failed to set user.oomd_ooms before kill: %m");
 
         if (recurse)
-                r = cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, path, SIGKILL, CGROUP_IGNORE_SELF, pids_killed, log_kill, NULL);
+                r = cg_kill_recursive(path, SIGKILL, CGROUP_IGNORE_SELF, pids_killed, log_kill, NULL);
         else
-                r = cg_kill(SYSTEMD_CGROUP_CONTROLLER, path, SIGKILL, CGROUP_IGNORE_SELF, pids_killed, log_kill, NULL);
+                r = cg_kill(path, SIGKILL, CGROUP_IGNORE_SELF, pids_killed, log_kill, NULL);
 
         /* The cgroup could have been cleaned up after we have sent SIGKILL to all of the processes, but before
          * we could do one last iteration of cgroup.procs to check. Or the service unit could have exited and
