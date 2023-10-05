@@ -684,7 +684,7 @@ static int session_start_scope(Session *s, sd_bus_message *properties, sd_bus_er
                 r = manager_start_scope(
                                 s->manager,
                                 scope,
-                                s->leader.pid,
+                                &s->leader,
                                 s->user->slice,
                                 description,
                                 /* These two have StopWhenUnneeded= set, hence add a dep towards them */
