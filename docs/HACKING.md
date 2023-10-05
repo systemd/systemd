@@ -69,9 +69,9 @@ $ sudo dnf builddep systemd
 # Debian/Ubuntu
 $ sudo apt-get build-dep systemd
 # Arch
-$ sudo pacman -S asp
-$ asp checkout systemd
-$ cd systemd/trunk
+$ sudo pacman -S devtools
+$ pkgctl repo clone --protocol=https systemd
+$ cd systemd
 $ makepkg -seoc
 ```
 
