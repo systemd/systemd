@@ -1852,9 +1852,12 @@ int cg_get_owner(const char *path, uid_t *ret_uid) {
         if (r < 0)
                 return r;
 
-        r = stat(f, &stats);
-        if (r < 0)
+        if (stat(f, &stats) < 0)
                 return -errno;
+
+        r = stat_verify_directory(&stats);
+        if (r < 0)
+                return r;
 
         *ret_uid = stats.st_uid;
         return 0;
