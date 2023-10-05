@@ -216,7 +216,6 @@ Features:
   - serialization of control/main pid in service, socket, mount, swap units
   - cg_pid_get_unit()
   - openpt_allocate_in_namespace()
-  - scope dbus PIDs property needs to gain PIDFDs companion
   - sd_bus_creds
   - unit_attach_pid_to_cgroup_via_bus()
   - cg_attach() – requires new kernel feature
