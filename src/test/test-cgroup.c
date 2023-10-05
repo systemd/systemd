@@ -106,18 +106,18 @@ TEST(cg_create) {
         assert_se(cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, test_a) > 0);
         assert_se(cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, test_b) == 0);
 
-        assert_se(cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, test_a, 0, 0, NULL, NULL, NULL) == 0);
-        assert_se(cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, test_b, 0, 0, NULL, NULL, NULL) > 0);
+        assert_se(cg_kill_recursive(test_a, 0, 0, NULL, NULL, NULL) == 0);
+        assert_se(cg_kill_recursive(test_b, 0, 0, NULL, NULL, NULL) > 0);
 
         assert_se(cg_migrate_recursive(SYSTEMD_CGROUP_CONTROLLER, test_b, SYSTEMD_CGROUP_CONTROLLER, test_a, 0) > 0);
 
         assert_se(cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, test_a) == 0);
         assert_se(cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, test_b) > 0);
 
-        assert_se(cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, test_a, 0, 0, NULL, NULL, NULL) > 0);
-        assert_se(cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, test_b, 0, 0, NULL, NULL, NULL) == 0);
+        assert_se(cg_kill_recursive(test_a, 0, 0, NULL, NULL, NULL) > 0);
+        assert_se(cg_kill_recursive(test_b, 0, 0, NULL, NULL, NULL) == 0);
 
-        cg_trim(SYSTEMD_CGROUP_CONTROLLER, test_b, false);
+        (void) cg_trim(SYSTEMD_CGROUP_CONTROLLER, test_b, false);
 
         assert_se(cg_rmdir(SYSTEMD_CGROUP_CONTROLLER, test_b) == 0);
         assert_se(cg_rmdir(SYSTEMD_CGROUP_CONTROLLER, test_a) < 0);
