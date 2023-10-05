@@ -204,6 +204,7 @@ int cg_get_path(const char *controller, const char *path, const char *suffix, ch
 int cg_get_path_and_check(const char *controller, const char *path, const char *suffix, char **fs);
 
 int cg_pid_get_path(const char *controller, pid_t pid, char **path);
+int cg_pidref_get_path(const char *controller, PidRef *pidref, char **path);
 
 int cg_rmdir(const char *controller, const char *path);
 
