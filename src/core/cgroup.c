@@ -3784,10 +3784,7 @@ Unit *manager_get_unit_by_pidref_cgroup(Manager *m, PidRef *pid) {
 
         assert(m);
 
-        if (!pidref_is_set(pid))
-                return NULL;
-
-        if (cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, pid->pid, &cgroup) < 0)
+        if (cg_pidref_get_path(SYSTEMD_CGROUP_CONTROLLER, pid, &cgroup) < 0)
                 return NULL;
 
         return manager_get_unit_by_cgroup(m, cgroup);
