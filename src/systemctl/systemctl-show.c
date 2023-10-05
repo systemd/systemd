@@ -656,7 +656,7 @@ static void print_status_info(
                         if (i->main_pid > 0)
                                 fputs("; Control PID: ", stdout);
                         else
-                                fputs("Cntrl PID: ", stdout); /* if first in column, abbreviated so it fits alignment */
+                                fputs("  Cntrl PID: ", stdout); /* if first in column, abbreviated so it fits alignment */
 
                         printf(PID_FMT, i->control_pid);
 
