@@ -49,6 +49,42 @@ static int method_something(Varlink *link, JsonVariant *parameters, VarlinkMetho
         return varlink_reply(link, ret);
 }
 
+static int method_something_more(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+        _cleanup_(json_variant_unrefp) JsonVariant *ret = NULL;
+        JsonVariant *a, *b;
+        int64_t i, x, y;
+        int r;
+
+        a = json_variant_by_key(parameters, "a");
+        if (!a)
+                return varlink_error(link, "io.test.BadParameters", NULL);
+
+        x = json_variant_integer(a);
+
+        b = json_variant_by_key(parameters, "b");
+        if (!b)
+                return varlink_error(link, "io.test.BadParameters", NULL);
+
+        y = json_variant_integer(b);
+
+        for (i = 0; i < 5; i++) {
+                _cleanup_(json_variant_unrefp) JsonVariant *w = NULL;
+                r = json_build(&w, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("sum", JSON_BUILD_INTEGER(x + (y * i)))));
+                if (r < 0)
+                        return r;
+
+                r = varlink_notify(link, w);
+                if (r < 0)
+                        return r;
+        }
+
+        r = json_build(&ret, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("sum", JSON_BUILD_INTEGER(x + (y * 5)))));
+        if (r < 0)
+                return r;
+
+        return varlink_reply(link, ret);
+}
+
 static void test_fd(int fd, const void *buf, size_t n) {
         char rbuf[n + 1];
         ssize_t m;
@@ -248,6 +284,29 @@ static void *thread(void *arg) {
         return NULL;
 }
 
+static void *collect_thread(void *arg) {
+        _cleanup_(varlink_flush_close_unrefp) Varlink *c = NULL;
+        _cleanup_(json_variant_unrefp) JsonVariant *i, *o = NULL;
+        JsonVariant *k = NULL;
+        int x = 0;
+
+        assert_se(json_build(&i, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("a", JSON_BUILD_INTEGER(5)),
+                                                   JSON_BUILD_PAIR("b", JSON_BUILD_INTEGER(10)))) >= 0);
+
+        assert_se(varlink_connect_address(&c, arg) >= 0);
+        assert_se(varlink_set_description(c, "collect-client") >= 0);
+
+        assert_se(varlink_collect(c, "io.test.DoSomethingMore", i, &o) >= 0);
+        assert_se(!json_variant_is_blank_array(o));
+        JSON_VARIANT_ARRAY_FOREACH(k, o) {
+                assert_se(json_variant_integer(json_variant_by_key(k, "sum")) == 5 + (10 * x));
+                x++;
+        }
+        assert_se(x == 6);
+
+        return NULL;
+}
+
 static int block_fd_handler(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         char c;
 
@@ -267,14 +326,14 @@ static int block_fd_handler(sd_event_source *s, int fd, uint32_t revents, void *
 
 int main(int argc, char *argv[]) {
         _cleanup_(sd_event_source_unrefp) sd_event_source *block_event = NULL;
-        _cleanup_(varlink_server_unrefp) VarlinkServer *s = NULL;
+        _cleanup_(varlink_server_unrefp) VarlinkServer *s, *l = NULL;
         _cleanup_(varlink_flush_close_unrefp) Varlink *c = NULL;
         _cleanup_(rm_rf_physical_and_freep) char *tmpdir = NULL;
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
-        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *e, *le = NULL;
         _cleanup_close_pair_ int block_fds[2] = PIPE_EBADF;
-        pthread_t t;
-        const char *sp;
+        pthread_t t, u;
+        const char *sp, *lp;
 
         log_set_max_level(LOG_DEBUG);
         log_open();
@@ -294,26 +353,39 @@ int main(int argc, char *argv[]) {
 
         assert_se(varlink_server_bind_method(s, "io.test.PassFD", method_passfd) >= 0);
         assert_se(varlink_server_bind_method(s, "io.test.DoSomething", method_something) >= 0);
+        assert_se(varlink_server_bind_method(s, "io.test.DoSomethingMore", method_something_more) >= 0);
         assert_se(varlink_server_bind_method(s, "io.test.Done", method_done) >= 0);
         assert_se(varlink_server_bind_connect(s, on_connect) >= 0);
         assert_se(varlink_server_listen_address(s, sp, 0600) >= 0);
         assert_se(varlink_server_attach_event(s, e, 0) >= 0);
         assert_se(varlink_server_set_connections_max(s, OVERLOAD_CONNECTIONS) >= 0);
 
-        assert_se(varlink_connect_address(&c, sp) >= 0);
-        assert_se(varlink_set_description(c, "main-client") >= 0);
-        assert_se(varlink_bind_reply(c, reply) >= 0);
+        /* Set up another server for varlink_collect test */
+        lp = strjoina(tmpdir, "/socket-collect");
+        assert_se(varlink_server_new(&l, VARLINK_SERVER_ACCOUNT_UID) >= 0);
+        assert_se(varlink_server_set_description(l, "collect-server") >= 0);
+        assert_se(varlink_server_bind_method(l, "io.test.DoSomethingMore", method_something_more) >= 0);
+        assert_se(varlink_server_listen_address(l, lp, 0600) >= 0);
+        assert_se(varlink_server_attach_event(l, le, 0) >= 0);
 
         assert_se(json_build(&v, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("a", JSON_BUILD_INTEGER(7)),
                                                    JSON_BUILD_PAIR("b", JSON_BUILD_INTEGER(22)))) >= 0);
+
+        assert_se(varlink_connect_address(&c, sp) >= 0);
+        assert_se(varlink_set_description(c, "main-client") >= 0);
+        assert_se(varlink_bind_reply(c, reply) >= 0);
 
         assert_se(varlink_invoke(c, "io.test.DoSomething", v) >= 0);
 
         assert_se(varlink_attach_event(c, e, 0) >= 0);
 
+        assert_se(pthread_create(&u, NULL, collect_thread, (void*) lp) == 0);
+
         assert_se(pthread_create(&t, NULL, thread, (void*) sp) == 0);
 
         assert_se(sd_event_loop(e) >= 0);
+
+        assert_se(pthread_join(u, NULL) == 0);
 
         assert_se(pthread_join(t, NULL) == 0);
 
