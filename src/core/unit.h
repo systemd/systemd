@@ -921,7 +921,6 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
 
 int unit_watch_pidref(Unit *u, PidRef *pid, bool exclusive);
 int unit_watch_pid(Unit *u, pid_t pid, bool exclusive);
-int unit_watch_pid_str(Unit *u, const char *s, bool exclusive);
 void unit_unwatch_pidref(Unit *u, PidRef *pid);
 void unit_unwatch_pid(Unit *u, pid_t pid);
 void unit_unwatch_all_pids(Unit *u);

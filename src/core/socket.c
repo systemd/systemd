@@ -2557,9 +2557,7 @@ static int socket_serialize(Unit *u, FILE *f, FDSet *fds) {
         (void) serialize_item(f, "result", socket_result_to_string(s->result));
         (void) serialize_item_format(f, "n-accepted", "%u", s->n_accepted);
         (void) serialize_item_format(f, "n-refused", "%u", s->n_refused);
-
-        if (pidref_is_set(&s->control_pid))
-                (void) serialize_item_format(f, "control-pid", PID_FMT, s->control_pid.pid);
+        (void) serialize_pidref(f, fds, "control-pid", &s->control_pid);
 
         if (s->control_command_id >= 0)
                 (void) serialize_item(f, "control-command", socket_exec_command_to_string(s->control_command_id));
@@ -2641,9 +2639,8 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value, 
                         s->n_refused += k;
         } else if (streq(key, "control-pid")) {
                 pidref_done(&s->control_pid);
-                r = pidref_set_pidstr(&s->control_pid, value);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to pin control PID '%s', ignoring: %m", value);
+                (void) deserialize_pidref(fds, value, &s->control_pid);
+
         } else if (streq(key, "control-command")) {
                 SocketExecCommand id;
 

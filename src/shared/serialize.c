@@ -5,6 +5,7 @@
 #include "alloc-util.h"
 #include "env-util.h"
 #include "escape.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "memfd-util.h"
 #include "missing_mman.h"
@@ -101,6 +102,7 @@ int serialize_fd(FILE *f, FDSet *fds, const char *key, int fd) {
         int copy;
 
         assert(f);
+        assert(fds);
         assert(key);
 
         if (fd < 0)
@@ -147,6 +149,28 @@ int serialize_strv(FILE *f, const char *key, char **l) {
         }
 
         return ret;
+}
+
+int serialize_pidref(FILE *f, FDSet *fds, const char *key, PidRef *pidref) {
+        int copy;
+
+        assert(f);
+        assert(fds);
+
+        if (!pidref_is_set(pidref))
+                return 0;
+
+        /* If we have a pidfd we serialize the fd and encode the fd number prefixed by "@" in the
+         * serialization. Otherwise we serialize the numeric PID as it is. */
+
+        if (pidref->fd < 0)
+                return serialize_item_format(f, key, PID_FMT, pidref->pid);
+
+        copy = fdset_put_dup(fds, pidref->fd);
+        if (copy < 0)
+                return log_error_errno(copy, "Failed to add file descriptor to serialization set: %m");
+
+        return serialize_item_format(f, key, "@%i", copy);
 }
 
 int deserialize_read_line(FILE *f, char **ret) {
@@ -251,6 +275,42 @@ int deserialize_environment(const char *value, char ***list) {
         r = strv_env_replace_consume(list, TAKE_PTR(unescaped));
         if (r < 0)
                 return log_error_errno(r, "Failed to append environment variable: %m");
+
+        return 0;
+}
+
+int deserialize_pidref(FDSet *fds, const char *value, PidRef *ret) {
+        const char *e;
+        int r;
+
+        assert(value);
+        assert(ret);
+
+        e = startswith(value, "@");
+        if (e) {
+                _cleanup_close_ int our_fd = -EBADF;
+                int parsed_fd;
+
+                parsed_fd = parse_fd(e);
+                if (parsed_fd < 0)
+                        return log_debug_errno(parsed_fd, "Failed to parse file descriptor specification: %s", e);
+
+                our_fd = fdset_remove(fds, parsed_fd); /* Take possession of the fd */
+                if (our_fd < 0)
+                        return log_debug_errno(our_fd, "Failed to acquire pidfd from serialization fds: %m");
+
+                r = pidref_set_pidfd_consume(ret, TAKE_FD(our_fd));
+        } else {
+                pid_t pid;
+
+                r = parse_pid(value, &pid);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to parse PID: %s", value);
+
+                r = pidref_set_pid(ret, pid);
+        }
+        if (r < 0)
+                return log_debug_errno(r, "Failed to initialize pidref: %m");
 
         return 0;
 }

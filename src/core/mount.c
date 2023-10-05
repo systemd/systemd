@@ -1405,9 +1405,7 @@ static int mount_serialize(Unit *u, FILE *f, FDSet *fds) {
         (void) serialize_item(f, "result", mount_result_to_string(m->result));
         (void) serialize_item(f, "reload-result", mount_result_to_string(m->reload_result));
         (void) serialize_item_format(f, "n-retry-umount", "%u", m->n_retry_umount);
-
-        if (pidref_is_set(&m->control_pid))
-                (void) serialize_item_format(f, "control-pid", PID_FMT, m->control_pid.pid);
+        (void) serialize_pidref(f, fds, "control-pid", &m->control_pid);
 
         if (m->control_command_id >= 0)
                 (void) serialize_item(f, "control-command", mount_exec_command_to_string(m->control_command_id));
@@ -1461,9 +1459,7 @@ static int mount_deserialize_item(Unit *u, const char *key, const char *value, F
         } else if (streq(key, "control-pid")) {
 
                 pidref_done(&m->control_pid);
-                r = pidref_set_pidstr(&m->control_pid, value);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to set control PID to '%s': %m", value);
+                (void) deserialize_pidref(fds, value, &m->control_pid);
 
         } else if (streq(key, "control-command")) {
                 MountExecCommand id;
