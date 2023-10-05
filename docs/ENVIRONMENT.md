@@ -552,3 +552,6 @@ SYSTEMD_HOME_DEBUG_SUFFIX=foo \
 * `$SYSTEMD_REPART_MKFS_OPTIONS_<FSTYPE>` – configure additional arguments to use for
   `mkfs` when formatting partition file systems. There's one variable for each
   of the supported file systems.
+
+* `$SYSTEMD_REPART_OVERRIDE_FSTYPE` – if set the value will override the file
+  system type specified in Format= lines in partition definition files.
