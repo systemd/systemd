@@ -5074,7 +5074,8 @@ static int run_container(
                                 arg_custom_mounts, arg_n_custom_mounts,
                                 arg_kill_signal,
                                 arg_property,
-                                arg_property_message);
+                                arg_property_message,
+                                /* allow_pidfds= */ true);
                 if (r < 0)
                         return r;
 
