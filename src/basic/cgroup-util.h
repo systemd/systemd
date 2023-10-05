@@ -193,9 +193,9 @@ typedef enum CGroupFlags {
 
 typedef int (*cg_kill_log_func_t)(pid_t pid, int sig, void *userdata);
 
-int cg_kill(const char *controller, const char *path, int sig, CGroupFlags flags, Set *s, cg_kill_log_func_t kill_log, void *userdata);
-int cg_kill_kernel_sigkill(const char *controller, const char *path);
-int cg_kill_recursive(const char *controller, const char *path, int sig, CGroupFlags flags, Set *s, cg_kill_log_func_t kill_log, void *userdata);
+int cg_kill(const char *path, int sig, CGroupFlags flags, Set *s, cg_kill_log_func_t kill_log, void *userdata);
+int cg_kill_kernel_sigkill(const char *path);
+int cg_kill_recursive(const char *path, int sig, CGroupFlags flags, Set *s, cg_kill_log_func_t kill_log, void *userdata);
 
 int cg_split_spec(const char *spec, char **ret_controller, char **ret_path);
 int cg_mangle_path(const char *path, char **result);
@@ -207,7 +207,7 @@ int cg_pid_get_path(const char *controller, pid_t pid, char **path);
 
 int cg_rmdir(const char *controller, const char *path);
 
-int cg_is_threaded(const char *controller, const char *path);
+int cg_is_threaded(const char *path);
 
 typedef enum  {
         CG_KEY_MODE_GRACEFUL = 1 << 0,
@@ -240,14 +240,14 @@ int cg_get_attribute_as_uint64(const char *controller, const char *path, const c
 /* Does a parse_boolean() on the attribute contents and sets ret accordingly */
 int cg_get_attribute_as_bool(const char *controller, const char *path, const char *attribute, bool *ret);
 
-int cg_get_owner(const char *controller, const char *path, uid_t *ret_uid);
+int cg_get_owner(const char *path, uid_t *ret_uid);
 
-int cg_set_xattr(const char *controller, const char *path, const char *name, const void *value, size_t size, int flags);
-int cg_get_xattr(const char *controller, const char *path, const char *name, void *value, size_t size);
-int cg_get_xattr_malloc(const char *controller, const char *path, const char *name, char **ret);
+int cg_set_xattr(const char *path, const char *name, const void *value, size_t size, int flags);
+int cg_get_xattr(const char *path, const char *name, void *value, size_t size);
+int cg_get_xattr_malloc(const char *path, const char *name, char **ret);
 /* Returns negative on error, and 0 or 1 on success for the bool value */
-int cg_get_xattr_bool(const char *controller, const char *path, const char *name);
-int cg_remove_xattr(const char *controller, const char *path, const char *name);
+int cg_get_xattr_bool(const char *path, const char *name);
+int cg_remove_xattr(const char *path, const char *name);
 
 int cg_install_release_agent(const char *controller, const char *agent);
 int cg_uninstall_release_agent(const char *controller);

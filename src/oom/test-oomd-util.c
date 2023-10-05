@@ -58,7 +58,7 @@ static void test_oomd_cgroup_kill(void) {
         assert_se(cg_create(SYSTEMD_CGROUP_CONTROLLER, cgroup) >= 0);
 
         /* If we don't have permissions to set xattrs we're likely in a userns or missing capabilities */
-        r = cg_set_xattr(SYSTEMD_CGROUP_CONTROLLER, cgroup, "user.oomd_test", "test", 4, 0);
+        r = cg_set_xattr(cgroup, "user.oomd_test", "test", 4, 0);
         if (ERRNO_IS_PRIVILEGE(r) || ERRNO_IS_NOT_SUPPORTED(r))
                 return (void) log_tests_skipped("Cannot set user xattrs");
 
@@ -77,7 +77,7 @@ static void test_oomd_cgroup_kill(void) {
                         abort();
                 }
 
-                assert_se(cg_get_xattr_malloc(SYSTEMD_CGROUP_CONTROLLER, cgroup, "user.oomd_ooms", &v) >= 0);
+                assert_se(cg_get_xattr_malloc(cgroup, "user.oomd_ooms", &v) >= 0);
                 assert_se(streq(v, i == 0 ? "1" : "2"));
                 v = mfree(v);
 
@@ -85,7 +85,7 @@ static void test_oomd_cgroup_kill(void) {
                 sleep(2);
                 assert_se(cg_is_empty(SYSTEMD_CGROUP_CONTROLLER, cgroup) == true);
 
-                assert_se(cg_get_xattr_malloc(SYSTEMD_CGROUP_CONTROLLER, cgroup, "user.oomd_kill", &v) >= 0);
+                assert_se(cg_get_xattr_malloc(cgroup, "user.oomd_kill", &v) >= 0);
                 assert_se(streq(v, i == 0 ? "2" : "4"));
         }
 }
@@ -433,13 +433,13 @@ static void test_oomd_fetch_cgroup_oom_preference(void) {
 
         /* If we don't have permissions to set xattrs we're likely in a userns or missing capabilities
          * so skip the xattr portions of the test. */
-        r = cg_set_xattr(SYSTEMD_CGROUP_CONTROLLER, cgroup, "user.oomd_test", "1", 1, 0);
+        r = cg_set_xattr(cgroup, "user.oomd_test", "1", 1, 0);
         test_xattrs = !ERRNO_IS_PRIVILEGE(r) && !ERRNO_IS_NOT_SUPPORTED(r);
 
         if (test_xattrs) {
                 assert_se(oomd_fetch_cgroup_oom_preference(ctx, NULL) == 0);
-                assert_se(cg_set_xattr(SYSTEMD_CGROUP_CONTROLLER, cgroup, "user.oomd_omit", "1", 1, 0) >= 0);
-                assert_se(cg_set_xattr(SYSTEMD_CGROUP_CONTROLLER, cgroup, "user.oomd_avoid", "1", 1, 0) >= 0);
+                assert_se(cg_set_xattr(cgroup, "user.oomd_omit", "1", 1, 0) >= 0);
+                assert_se(cg_set_xattr(cgroup, "user.oomd_avoid", "1", 1, 0) >= 0);
 
                 /* omit takes precedence over avoid when both are set to true */
                 assert_se(oomd_fetch_cgroup_oom_preference(ctx, NULL) == 0);
@@ -452,8 +452,8 @@ static void test_oomd_fetch_cgroup_oom_preference(void) {
 
         /* also check when only avoid is set to true */
         if (test_xattrs) {
-                assert_se(cg_set_xattr(SYSTEMD_CGROUP_CONTROLLER, cgroup, "user.oomd_omit", "0", 1, 0) >= 0);
-                assert_se(cg_set_xattr(SYSTEMD_CGROUP_CONTROLLER, cgroup, "user.oomd_avoid", "1", 1, 0) >= 0);
+                assert_se(cg_set_xattr(cgroup, "user.oomd_omit", "0", 1, 0) >= 0);
+                assert_se(cg_set_xattr(cgroup, "user.oomd_avoid", "1", 1, 0) >= 0);
                 assert_se(oomd_cgroup_context_acquire(cgroup, &ctx) == 0);
                 assert_se(oomd_fetch_cgroup_oom_preference(ctx, NULL) == 0);
                 assert_se(ctx->preference == MANAGED_OOM_PREFERENCE_AVOID);
@@ -464,9 +464,9 @@ static void test_oomd_fetch_cgroup_oom_preference(void) {
         /* Root cgroup is live and not made on demand like the cgroup the test runs in. It can have varying
          * xattrs set already so let's read in the booleans first to get the final preference value. */
         assert_se(oomd_cgroup_context_acquire("", &ctx) == 0);
-        root_xattrs = cg_get_xattr_bool(SYSTEMD_CGROUP_CONTROLLER, "", "user.oomd_omit");
+        root_xattrs = cg_get_xattr_bool("", "user.oomd_omit");
         root_pref = root_xattrs > 0 ? MANAGED_OOM_PREFERENCE_OMIT : MANAGED_OOM_PREFERENCE_NONE;
-        root_xattrs = cg_get_xattr_bool(SYSTEMD_CGROUP_CONTROLLER, "", "user.oomd_avoid");
+        root_xattrs = cg_get_xattr_bool("", "user.oomd_avoid");
         root_pref = root_xattrs > 0 ? MANAGED_OOM_PREFERENCE_AVOID : MANAGED_OOM_PREFERENCE_NONE;
         assert_se(oomd_fetch_cgroup_oom_preference(ctx, NULL) == 0);
         assert_se(ctx->preference == root_pref);

@@ -4172,7 +4172,7 @@ int unit_kill(
                 if (!pid_set)
                         return log_oom();
 
-                r = cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, signo, 0, pid_set, kill_common_log, u);
+                r = cg_kill_recursive(u->cgroup_path, signo, 0, pid_set, kill_common_log, u);
                 if (r < 0) {
                         if (!IN_SET(r, -ESRCH, -ENOENT)) {
                                 if (ret == 0) {
@@ -4888,11 +4888,12 @@ int unit_kill_context(
                 if (!pid_set)
                         return -ENOMEM;
 
-                r = cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path,
-                                      sig,
-                                      CGROUP_SIGCONT|CGROUP_IGNORE_SELF,
-                                      pid_set,
-                                      log_func, u);
+                r = cg_kill_recursive(
+                                u->cgroup_path,
+                                sig,
+                                CGROUP_SIGCONT|CGROUP_IGNORE_SELF,
+                                pid_set,
+                                log_func, u);
                 if (r < 0) {
                         if (!IN_SET(r, -EAGAIN, -ESRCH, -ENOENT))
                                 log_unit_warning_errno(u, r, "Failed to kill control group %s, ignoring: %m", empty_to_root(u->cgroup_path));
@@ -4917,11 +4918,13 @@ int unit_kill_context(
                                 if (!pid_set)
                                         return -ENOMEM;
 
-                                (void) cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path,
-                                                         SIGHUP,
-                                                         CGROUP_IGNORE_SELF,
-                                                         pid_set,
-                                                         NULL, NULL);
+                                (void) cg_kill_recursive(
+                                                u->cgroup_path,
+                                                SIGHUP,
+                                                CGROUP_IGNORE_SELF,
+                                                pid_set,
+                                                /* kill_log= */ NULL,
+                                                /* userdata= */ NULL);
                         }
                 }
         }
@@ -5903,7 +5906,13 @@ int unit_warn_leftover_processes(Unit *u, cg_kill_log_func_t log_func) {
         if (!u->cgroup_path)
                 return 0;
 
-        return cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, 0, 0, NULL, log_func, u);
+        return cg_kill_recursive(
+                        u->cgroup_path,
+                        /* sig= */ 0,
+                        /* flags= */ 0,
+                        /* set= */ NULL,
+                        log_func,
+                        u);
 }
 
 bool unit_needs_console(Unit *u) {
