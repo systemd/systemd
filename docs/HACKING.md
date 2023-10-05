@@ -35,16 +35,13 @@ possible, however. In order to simplify testing for cases like this we provide
 a set of `mkosi` build files directly in the source tree.
 [mkosi](https://github.com/systemd/mkosi) is a tool for building clean OS images
 from an upstream distribution in combination with a fresh build of the project
-in the local working directory. To make use of this, please install `mkosi` from
-the [GitHub repository](https://github.com/systemd/mkosi). `mkosi` will build an
-image for the host distro by default. Currently, the latest github commit is
-required. `mkosi` also requires systemd v253 (unreleased) or newer. If systemd v253
-is not available, `mkosi` will automatically use executables from the systemd build
-directory if it's executed from the systemd repository root directory. First, run
-`mkosi genkey` to generate a key and certificate to be used for secure boot and
-verity signing. After that is done, it is sufficient to type `mkosi` in the systemd
-project directory to generate a disk image you can boot either in `systemd-nspawn`
-or in a UEFI-capable VM:
+in the local working directory. To make use of this, please install `mkosi` v18
+or newer using your distribution's package manager or from the
+[GitHub repository](https://github.com/systemd/mkosi). `mkosi` will build an
+image for the host distro by default. First, run `mkosi genkey` to generate a key
+and certificate to be used for secure boot and verity signing. After that is done,
+it is sufficient to type `mkosi` in the systemd project directory to generate a disk
+image you can boot either in `systemd-nspawn` or in a UEFI-capable VM:
 
 ```sh
 $ sudo mkosi boot # nspawn still needs sudo for now
@@ -59,8 +56,26 @@ $ mkosi qemu
 Every time you rerun the `mkosi` command a fresh image is built, incorporating
 all current changes you made to the project tree.
 
+Putting this all together, here's a series of commands for preparing a patch
+for systemd:
+
+```sh
+$ git clone https://github.com/systemd/mkosi.git  # If mkosi v18 or newer is not packaged by your distribution
+$ ln -s $PWD/mkosi/bin/mkosi /usr/local/bin/mkosi # If mkosi v18 or newer is not packaged by your distribution
+$ git clone https://github.com/systemd/systemd.git
+$ cd systemd
+$ git checkout -b <BRANCH>        # where BRANCH is the name of the branch
+$ vim src/core/main.c             # or wherever you'd like to make your changes
+$ mkosi -f qemu                   # (re-)build and boot up the test image in qemu
+$ git add -p                      # interactively put together your patch
+$ git commit                      # commit it
+$ git push -u <REMOTE>            # where REMOTE is your "fork" on GitHub
+```
+
+And after that, head over to your repo on GitHub and click "Compare & pull request"
+
 If you want to do a local build without mkosi, most distributions also provide
-very simple and convenient ways to install all development packages necessary
+very simple and convenient ways to install most development packages necessary
 to build systemd:
 
 ```sh
@@ -75,31 +90,13 @@ $ cd systemd
 $ makepkg -seoc
 ```
 
-Putting this all together, here's a series of commands for preparing a patch
-for systemd:
+After installing the development packages, systemd can be built from source as follows:
 
 ```sh
-# Install build dependencies (see above)
-# Install mkosi from the github repository
-$ git clone https://github.com/systemd/systemd.git
-$ cd systemd
-$ git checkout -b <BRANCH>        # where BRANCH is the name of the branch
-$ vim src/core/main.c             # or wherever you'd like to make your changes
-$ meson setup build -Danalyze=true -Drepart=true -Defi=true -Dbootloader=true -Dukify=true # configure the build
-$ ninja -C build                  # build it locally, see if everything compiles fine
-$ meson test -C build             # run some simple regression tests
-$ cd ..
-$ git clone https://github.com/systemd/mkosi.git
-$ ln -s mkosi/bin/mkosi ~/.local/bin/mkosi # Make sure ~/.local/bin is in $PATH
-$ cd systemd
-$ mkosi                           # build the test image
-$ mkosi qemu                      # boot up the test image in qemu
-$ git add -p                      # interactively put together your patch
-$ git commit                      # commit it
-$ git push -u <REMOTE>            # where REMOTE is your "fork" on GitHub
+$ meson setup build <options>
+$ ninja -C build
+$ meson test -C build
 ```
-
-And after that, head over to your repo on GitHub and click "Compare & pull request"
 
 Happy hacking!
 
