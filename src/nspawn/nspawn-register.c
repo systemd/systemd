@@ -194,7 +194,6 @@ int register_machine(
 
                 r = sd_bus_call(bus, m, 0, &error, NULL);
         }
-
         if (r < 0)
                 return log_error_errno(r, "Failed to register machine: %s", bus_error_message(&error, r));
 
@@ -260,8 +259,16 @@ int allocate_scope(
 
         description = strjoina("Container ", machine_name);
 
-        r = sd_bus_message_append(m, "(sv)(sv)(sv)(sv)(sv)(sv)",
-                                  "PIDs", "au", 1, pid,
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        r = pidref_set_pid(&pidref, pid);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate PID reference: %m");
+
+        r = bus_append_scope_pidref(m, &pidref);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append(m, "(sv)(sv)(sv)(sv)(sv)",
                                   "Description", "s", description,
                                   "Delegate", "b", 1,
                                   "CollectMode", "s", "inactive-or-failed",
