@@ -98,7 +98,7 @@
         option). See <citerefentry><refentrytitle>kill</refentrytitle><manvolnum>2</manvolnum></citerefentry>
         for more information.</para>
 
-        <para>Defaults to <option>control-group</option>.</para>
+        <para>Defaults to <option>control-group</option>, unless user@.service, when it defaults to <option>mixed</option></para>
 
         <xi:include href="version-info.xml" xpointer="v187"/></listitem>
       </varlistentry>
