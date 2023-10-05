@@ -280,7 +280,6 @@ int cg_rmdir(const char *controller, const char *path) {
 }
 
 static int cg_kill_items(
-                const char *controller,
                 const char *path,
                 int sig,
                 CGroupFlags flags,
@@ -318,7 +317,7 @@ static int cg_kill_items(
                 pid_t pid = 0;
                 done = true;
 
-                r = cg_enumerate_items(controller, path, &f, item);
+                r = cg_enumerate_items(SYSTEMD_CGROUP_CONTROLLER, path, &f, item);
                 if (r < 0) {
                         if (ret >= 0 && r != -ENOENT)
                                 return r;
@@ -382,7 +381,6 @@ static int cg_kill_items(
 }
 
 int cg_kill(
-                const char *controller,
                 const char *path,
                 int sig,
                 CGroupFlags flags,
@@ -392,7 +390,7 @@ int cg_kill(
 
         int r, ret;
 
-        r = cg_kill_items(controller, path, sig, flags, s, log_kill, userdata, "cgroup.procs");
+        r = cg_kill_items(path, sig, flags, s, log_kill, userdata, "cgroup.procs");
         if (r < 0 || sig != SIGKILL)
                 return r;
 
@@ -401,32 +399,32 @@ int cg_kill(
         /* Only in case of killing with SIGKILL and when using cgroupsv2, kill remaining threads manually as
            a workaround for kernel bug. It was fixed in 5.2-rc5 (c03cd7738a83), backported to 4.19.66
            (4340d175b898) and 4.14.138 (feb6b123b7dd). */
-        r = cg_unified_controller(controller);
+        r = cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER);
         if (r < 0)
                 return r;
         if (r == 0)
                 return ret;
 
-        r = cg_kill_items(controller, path, sig, flags, s, log_kill, userdata, "cgroup.threads");
+        r = cg_kill_items(path, sig, flags, s, log_kill, userdata, "cgroup.threads");
         if (r < 0)
                 return r;
 
         return r > 0 || ret > 0;
 }
 
-int cg_kill_kernel_sigkill(const char *controller, const char *path) {
-        /* Kills the cgroup at `path` directly by writing to its cgroup.kill file.
-         * This sends SIGKILL to all processes in the cgroup and has the advantage of
-         * being completely atomic, unlike cg_kill_items. */
-        int r;
+int cg_kill_kernel_sigkill(const char *path) {
+        /* Kills the cgroup at `path` directly by writing to its cgroup.kill file.  This sends SIGKILL to all
+         * processes in the cgroup and has the advantage of being completely atomic, unlike cg_kill_items(). */
+
         _cleanup_free_ char *killfile = NULL;
+        int r;
 
         assert(path);
 
         if (!cg_kill_supported())
                 return -EOPNOTSUPP;
 
-        r = cg_get_path(controller, path, "cgroup.kill", &killfile);
+        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, path, "cgroup.kill", &killfile);
         if (r < 0)
                 return r;
 
@@ -438,7 +436,6 @@ int cg_kill_kernel_sigkill(const char *controller, const char *path) {
 }
 
 int cg_kill_recursive(
-                const char *controller,
                 const char *path,
                 int sig,
                 CGroupFlags flags,
@@ -446,57 +443,60 @@ int cg_kill_recursive(
                 cg_kill_log_func_t log_kill,
                 void *userdata) {
 
-        _cleanup_set_free_ Set *allocated_set = NULL;
-        _cleanup_closedir_ DIR *d = NULL;
         int r, ret;
-        char *fn;
 
         assert(path);
         assert(sig >= 0);
 
         if (sig == SIGKILL && cg_kill_supported() &&
-            !FLAGS_SET(flags, CGROUP_IGNORE_SELF) && !s && !log_kill) {
+            !FLAGS_SET(flags, CGROUP_IGNORE_SELF) && !s && !log_kill)
                 /* ignore CGROUP_SIGCONT, since this is a no-op alongside SIGKILL */
-                ret = cg_kill_kernel_sigkill(controller, path);
-                if (ret < 0)
-                        return ret;
-        } else {
+                ret = cg_kill_kernel_sigkill(path);
+        else {
+                _cleanup_set_free_ Set *allocated_set = NULL;
+                _cleanup_closedir_ DIR *d = NULL;
+
                 if (!s) {
                         s = allocated_set = set_new(NULL);
                         if (!s)
                                 return -ENOMEM;
                 }
 
-                ret = cg_kill(controller, path, sig, flags, s, log_kill, userdata);
+                ret = cg_kill(path, sig, flags, s, log_kill, userdata);
 
-                r = cg_enumerate_subgroups(controller, path, &d);
+                r = cg_enumerate_subgroups(SYSTEMD_CGROUP_CONTROLLER, path, &d);
                 if (r < 0) {
-                        if (ret >= 0 && r != -ENOENT)
-                                return r;
+                        if (r != -ENOENT)
+                                RET_GATHER(ret, r);
 
                         return ret;
                 }
 
-                while ((r = cg_read_subgroup(d, &fn)) > 0) {
-                        _cleanup_free_ char *p = NULL;
+                for (;;) {
+                        _cleanup_free_ char *fn = NULL, *p = NULL;
+
+                        r = cg_read_subgroup(d, &fn);
+                        if (r < 0) {
+                                RET_GATHER(ret, r);
+                                break;
+                        }
+                        if (r == 0)
+                                break;
 
                         p = path_join(empty_to_root(path), fn);
-                        free(fn);
                         if (!p)
                                 return -ENOMEM;
 
-                        r = cg_kill_recursive(controller, p, sig, flags, s, log_kill, userdata);
+                        r = cg_kill_recursive(p, sig, flags, s, log_kill, userdata);
                         if (r != 0 && ret >= 0)
                                 ret = r;
                 }
-                if (ret >= 0 && r < 0)
-                        ret = r;
         }
 
         if (FLAGS_SET(flags, CGROUP_REMOVE)) {
-                r = cg_rmdir(controller, path);
-                if (r < 0 && ret >= 0 && !IN_SET(r, -ENOENT, -EBUSY))
-                        return r;
+                r = cg_rmdir(SYSTEMD_CGROUP_CONTROLLER, path);
+                if (!IN_SET(r, -ENOENT, -EBUSY))
+                        RET_GATHER(ret, r);
         }
 
         return ret;
@@ -649,7 +649,7 @@ int cg_get_path_and_check(const char *controller, const char *path, const char *
         return cg_get_path(controller, path, suffix, fs);
 }
 
-int cg_set_xattr(const char *controller, const char *path, const char *name, const void *value, size_t size, int flags) {
+int cg_set_xattr(const char *path, const char *name, const void *value, size_t size, int flags) {
         _cleanup_free_ char *fs = NULL;
         int r;
 
@@ -657,14 +657,14 @@ int cg_set_xattr(const char *controller, const char *path, const char *name, con
         assert(name);
         assert(value || size <= 0);
 
-        r = cg_get_path(controller, path, NULL, &fs);
+        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, path, NULL, &fs);
         if (r < 0)
                 return r;
 
         return RET_NERRNO(setxattr(fs, name, value, size, flags));
 }
 
-int cg_get_xattr(const char *controller, const char *path, const char *name, void *value, size_t size) {
+int cg_get_xattr(const char *path, const char *name, void *value, size_t size) {
         _cleanup_free_ char *fs = NULL;
         ssize_t n;
         int r;
@@ -672,7 +672,7 @@ int cg_get_xattr(const char *controller, const char *path, const char *name, voi
         assert(path);
         assert(name);
 
-        r = cg_get_path(controller, path, NULL, &fs);
+        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, path, NULL, &fs);
         if (r < 0)
                 return r;
 
@@ -683,46 +683,42 @@ int cg_get_xattr(const char *controller, const char *path, const char *name, voi
         return (int) n;
 }
 
-int cg_get_xattr_malloc(const char *controller, const char *path, const char *name, char **ret) {
+int cg_get_xattr_malloc(const char *path, const char *name, char **ret) {
         _cleanup_free_ char *fs = NULL;
         int r;
 
         assert(path);
         assert(name);
 
-        r = cg_get_path(controller, path, NULL, &fs);
+        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, path, NULL, &fs);
         if (r < 0)
                 return r;
 
-        r = lgetxattr_malloc(fs, name, ret);
-        if (r < 0)
-                return r;
-
-        return r;
+        return lgetxattr_malloc(fs, name, ret);
 }
 
-int cg_get_xattr_bool(const char *controller, const char *path, const char *name) {
+int cg_get_xattr_bool(const char *path, const char *name) {
         _cleanup_free_ char *val = NULL;
         int r;
 
         assert(path);
         assert(name);
 
-        r = cg_get_xattr_malloc(controller, path, name, &val);
+        r = cg_get_xattr_malloc(path, name, &val);
         if (r < 0)
                 return r;
 
         return parse_boolean(val);
 }
 
-int cg_remove_xattr(const char *controller, const char *path, const char *name) {
+int cg_remove_xattr(const char *path, const char *name) {
         _cleanup_free_ char *fs = NULL;
         int r;
 
         assert(path);
         assert(name);
 
-        r = cg_get_path(controller, path, NULL, &fs);
+        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, path, NULL, &fs);
         if (r < 0)
                 return r;
 
@@ -1753,12 +1749,12 @@ int cg_slice_to_path(const char *unit, char **ret) {
         return 0;
 }
 
-int cg_is_threaded(const char *controller, const char *path) {
+int cg_is_threaded(const char *path) {
         _cleanup_free_ char *fs = NULL, *contents = NULL;
         _cleanup_strv_free_ char **v = NULL;
         int r;
 
-        r = cg_get_path(controller, path, "cgroup.type", &fs);
+        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, path, "cgroup.type", &fs);
         if (r < 0)
                 return r;
 
@@ -1845,14 +1841,14 @@ int cg_get_attribute_as_bool(const char *controller, const char *path, const cha
         return 0;
 }
 
-int cg_get_owner(const char *controller, const char *path, uid_t *ret_uid) {
+int cg_get_owner(const char *path, uid_t *ret_uid) {
         _cleanup_free_ char *f = NULL;
         struct stat stats;
         int r;
 
         assert(ret_uid);
 
-        r = cg_get_path(controller, path, NULL, &f);
+        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, path, NULL, &f);
         if (r < 0)
                 return r;
 
