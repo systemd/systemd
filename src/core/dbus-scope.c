@@ -140,8 +140,54 @@ static int bus_scope_set_transient_property(
                         return -EINVAL;
 
                 return 1;
+        }
 
-        } else if (streq(name, "Controller")) {
+        if (streq(name, "PIDFDs")) {
+                _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
+                unsigned n = 0;
+
+                r = sd_bus_message_enter_container(message, 'a', "h");
+                if (r < 0)
+                        return r;
+
+                for (;;) {
+                        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+                        int fd;
+
+                        r = sd_bus_message_read(message, "h", &fd);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                break;
+
+                        r = pidref_set_pidfd(&pidref, fd);
+                        if (r < 0)
+                                return r;
+
+                        r = unit_pid_attachable(u, &pidref, error);
+                        if (r < 0)
+                                return r;
+
+                        if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                                r = unit_watch_pidref(u, &pidref, /* exclusive= */ false);
+                                if (r < 0 && r != -EEXIST)
+                                        return r;
+                        }
+
+                        n++;
+                }
+
+                r = sd_bus_message_exit_container(message);
+                if (r < 0)
+                        return r;
+
+                if (n <= 0)
+                        return -EINVAL;
+
+                return 1;
+        }
+
+        if (streq(name, "Controller")) {
                 const char *controller;
 
                 /* We can't support direct connections with this, as direct connections know no service or unique name
