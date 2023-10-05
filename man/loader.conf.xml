@@ -142,9 +142,12 @@
       <varlistentry>
         <term>console-mode</term>
 
-        <listitem><para>This option configures the resolution of the console. Takes a
-        number or one of the special values listed below. The following values may be
-        used:</para>
+        <listitem><para>This option configures the resolution of the console. This may be changed in
+        the boot menu itself and will be stored as an EFI variable in that case, overriding this
+        option.</para>
+
+        <para>Takes a number or one of the special values listed below. The following
+        values may be used:</para>
 
         <variablelist>
           <varlistentry>
