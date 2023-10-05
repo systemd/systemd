@@ -199,6 +199,15 @@
       </varlistentry>
 
       <varlistentry>
+        <term><uri>/fields</uri></term>
+
+        <listitem><para>Return the list of fields present in the logs.</para>
+        </listitem>
+
+        <xi:include href="version-info.xml" xpointer="v255"/>
+      </varlistentry>
+
+      <varlistentry>
         <term><uri>/fields/<replaceable>FIELD_NAME</replaceable></uri></term>
 
         <listitem><para>Return a list of values of this field present in the logs.</para>
@@ -277,9 +286,13 @@
     <para>
       <option>Range: entries=<replaceable>cursor</replaceable>[[:<replaceable>num_skip</replaceable>]:<replaceable>num_entries</replaceable>]</option>
     </para>
+    <para>
+      <option>Range: time=[<replaceable>since</replaceable>]:[<replaceable>until</replaceable>][[:<replaceable>num_skip</replaceable>]:<replaceable>num_entries</replaceable>]</option>
+    </para>
 
     <para>where
       <replaceable>cursor</replaceable> is a cursor string,
+      <replaceable>since</replaceable> and <replaceable>until</replaceable> are timestamps,
       <replaceable>num_skip</replaceable> is an integer,
       <replaceable>num_entries</replaceable> is an unsigned integer.
     </para>
