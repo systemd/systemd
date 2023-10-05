@@ -4,6 +4,7 @@
 #include "sd-bus.h"
 
 #include "install.h"
+#include "pidref.h"
 #include "unit-def.h"
 
 typedef struct UnitInfo {
@@ -24,6 +25,8 @@ int bus_parse_unit_info(sd_bus_message *message, UnitInfo *u);
 
 int bus_append_unit_property_assignment(sd_bus_message *m, UnitType t, const char *assignment);
 int bus_append_unit_property_assignment_many(sd_bus_message *m, UnitType t, char **l);
+
+int bus_append_scope_pidref(sd_bus_message *m, PidRef *pidref);
 
 int bus_deserialize_and_dump_unit_file_changes(sd_bus_message *m, bool quiet);
 
