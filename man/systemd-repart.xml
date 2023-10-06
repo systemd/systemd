@@ -537,7 +537,7 @@
         <literal>portable</literal> is used a full OS file hierarchy can be provided.</para>
 
         <para>This option implies <option>--empty=create</option>, <option>--size=auto</option> and
-        <option>--seed=random</option> (the latter two can be overriden).</para>
+        <option>--seed=random</option> (the latter two can be overridden).</para>
 
         <para>The private key and certificate for signing the DDI must be specified via the
         <option>--private-key=</option> and <option>--certificate=</option> switches.</para>
