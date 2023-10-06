@@ -128,7 +128,7 @@ TEST(serialize_strv) {
 
                 const char *t = startswith(line, "strv3=");
                 assert_se(t);
-                assert_se(deserialize_strv(&strv2, t) >= 0);
+                assert_se(deserialize_strv(t, &strv2) >= 0);
         }
 
         assert_se(strv_equal(strv, strv2));
