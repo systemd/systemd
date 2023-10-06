@@ -56,12 +56,14 @@ static void test_files(void) {
 
 static int run(int argc, char *argv[]) {
         int r;
+        _cleanup_free_ char *fspath = NULL;
+        bool quota_check_all = false;
 
         log_setup();
 
-        if (argc > 1)
+        if (argc > 2)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "This program takes no arguments.");
+                                       "This program expects one or no arguments.");
 
         umask(0022);
 
@@ -79,14 +81,23 @@ static int run(int argc, char *argv[]) {
                         return 0;
         }
 
+        if (argc == 2) {
+                fspath = strdup(argv[1]);
+                if (!fspath)
+                        return log_oom();
+        } else
+                quota_check_all = true;
+
         r = safe_fork("(quotacheck)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_RLIMIT_NOFILE_SAFE|FORK_WAIT|FORK_LOG, NULL);
         if (r < 0)
                 return r;
+
         if (r == 0) {
-                static const char * const cmdline[] = {
+                const char *cmdline[] = {
                         QUOTACHECK,
-                        "-anug",
-                        NULL
+                        quota_check_all ? "-anug" : "-nug",
+                        fspath,
+                         NULL
                 };
 
                 /* Child */
