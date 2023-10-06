@@ -75,6 +75,9 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
         assert_se(setenv("SYSTEMD_NETWORK_TEST_MODE", "1", 1) >= 0);
 
+        if (!getenv("SYSTEMD_LOG_LEVEL"))
+                log_set_max_level(LOG_CRIT);
+
         if (outside_size_range(size, 0, 65536))
                 return 0;
 
