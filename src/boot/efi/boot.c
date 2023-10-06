@@ -825,7 +825,7 @@ static bool menu_run(
                 if (firmware_setup) {
                         firmware_setup = false;
                         if (IN_SET(key, KEYPRESS(0, 0, '\r'), KEYPRESS(0, 0, '\n')))
-                                reboot_into_firmware();
+                                (void) reboot_into_firmware();
                         continue;
                 }
 
