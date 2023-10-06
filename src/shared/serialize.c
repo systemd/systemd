@@ -302,7 +302,7 @@ int deserialize_fd(FDSet *fds, const char *value) {
         return TAKE_FD(our_fd);
 }
 
-int deserialize_strv(char ***l, const char *value) {
+int deserialize_strv(const char *value, char ***l) {
         ssize_t unescaped_len;
         char *unescaped;
 
