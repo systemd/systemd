@@ -5764,7 +5764,8 @@ CHANGES WITH 246:
           started automatically as part of the desktop session.
 
         * "bootctl" gained a new verb "reboot-to-firmware" that may be used
-          to query and change the firmware's 'reboot into firmware' setup flag.
+          to query and change the firmware's 'Reboot Into Firmware Interface'
+          setup flag.
 
         * systemd-firstboot gained a new switch --kernel-command-line= that may
           be used to initialize the /etc/kernel/cmdline file of the image. It
