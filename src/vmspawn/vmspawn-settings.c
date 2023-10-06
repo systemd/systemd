@@ -19,19 +19,3 @@ int parse_config_feature(const char *s, ConfigFeature *ret) {
 
         return 0;
 }
-
-int parse_qemu_firmware(const char *s, QemuFirmware *ret) {
-        assert(s);
-        assert(ret);
-
-        if (strcaseeq(s, "direct"))
-                *ret = QEMU_FIRMWARE_DIRECT;
-        else if (strcaseeq(s, "uefi"))
-                *ret = QEMU_FIRMWARE_UEFI;
-        else if (strcaseeq(s, "bios"))
-                *ret = QEMU_FIRMWARE_BIOS;
-        else
-                return -EINVAL;
-
-        return 0;
-}

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -11,10 +12,12 @@
 #include "creds-util.h"
 #include "escape.h"
 #include "fileio.h"
+#include "format-util.h"
 #include "hexdecoct.h"
 #include "log.h"
 #include "main-func.h"
 #include "pager.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "parse-argument.h"
 #include "pretty-print.h"
@@ -27,12 +30,10 @@
 #include "vmspawn.h"
 
 static PagerFlags arg_pager_flags = 0;
-static char* arg_image = NULL;
-static char* arg_qemu_smp = NULL;
-static char* arg_qemu_mem = NULL;
+static char *arg_image = NULL;
+static char *arg_qemu_smp = NULL;
+static uint64_t arg_qemu_mem = 2ULL * 1024ULL * 1024ULL * 1024ULL;
 static ConfigFeature arg_qemu_kvm = CONFIG_FEATURE_AUTO;
-static bool arg_qemu_cdrom = false;
-static QemuFirmware arg_qemu_firmware = QEMU_FIRMWARE_UEFI;
 static bool arg_qemu_gui = false;
 static Credential *arg_credentials = NULL;
 static size_t arg_n_credentials = 0;
@@ -41,7 +42,6 @@ static char **arg_parameters = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_qemu_smp, freep);
-STATIC_DESTRUCTOR_REGISTER(arg_qemu_mem, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_parameters, strv_freep);
 
 static int help(void) {
@@ -67,9 +67,6 @@ static int help(void) {
                "     --qemu-mem=MEM         Configure guest's RAM size\n"
                "     --qemu-kvm=auto|enabled|disabled\n"
                "                            Configure whether to use KVM or not\n"
-               "     --qemu-cdrom           Attach the image as a CD-ROM to the virtual machine\n"
-               "     --qemu-firmware=direct|uefi|bios\n"
-               "                            Set qemu firmware to use\n"
                "     --qemu-gui             Start QEMU in graphical mode\n"
                "%3$sCredentials:%4$s\n"
                "     --set-credential=ID:VALUE\n"
@@ -95,8 +92,6 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_QEMU_SMP,
                 ARG_QEMU_MEM,
                 ARG_QEMU_KVM,
-                ARG_QEMU_CDROM,
-                ARG_QEMU_FIRMWARE,
                 ARG_QEMU_GUI,
                 ARG_SET_CREDENTIAL,
                 ARG_LOAD_CREDENTIAL,
@@ -107,11 +102,9 @@ static int parse_argv(int argc, char *argv[]) {
                 { "version",         no_argument,       NULL, ARG_VERSION         },
                 { "no-pager",        no_argument,       NULL, ARG_NO_PAGER        },
                 { "image",           required_argument, NULL, 'i'                 },
-                { "qemu-smp",        optional_argument, NULL, ARG_QEMU_SMP        },
-                { "qemu-mem",        optional_argument, NULL, ARG_QEMU_MEM        },
-                { "qemu-kvm",        optional_argument, NULL, ARG_QEMU_KVM        },
-                { "qemu-cdrom",      no_argument,       NULL, ARG_QEMU_CDROM      },
-                { "qemu-firmware",   optional_argument, NULL, ARG_QEMU_FIRMWARE   },
+                { "qemu-smp",        required_argument, NULL, ARG_QEMU_SMP        },
+                { "qemu-mem",        required_argument, NULL, ARG_QEMU_MEM        },
+                { "qemu-kvm",        required_argument, NULL, ARG_QEMU_KVM        },
                 { "qemu-gui",        no_argument,       NULL, ARG_QEMU_GUI        },
                 { "set-credential",  required_argument, NULL, ARG_SET_CREDENTIAL  },
                 { "load-credential", required_argument, NULL, ARG_LOAD_CREDENTIAL },
@@ -147,27 +140,17 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_QEMU_SMP:
                         arg_qemu_smp = strdup(optarg);
                         if (!arg_qemu_smp)
-                                log_oom();
+                                return log_oom();
                         break;
 
                 case ARG_QEMU_MEM:
-                        arg_qemu_mem = strdup(optarg);
-                        if (!arg_qemu_mem)
-                                log_oom();
+                        r = parse_size(optarg, 1024, &arg_qemu_mem);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse size from --qemu-mem: \"%s\": %m", optarg);
                         break;
 
                 case ARG_QEMU_KVM:
                         r = parse_config_feature(optarg, &arg_qemu_kvm);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_QEMU_CDROM:
-                        arg_qemu_cdrom = true;
-                        break;
-
-                case ARG_QEMU_FIRMWARE:
-                        r = parse_qemu_firmware(optarg, &arg_qemu_firmware);
                         if (r < 0)
                                 return r;
                         break;
@@ -298,37 +281,41 @@ static int parse_argv(int argc, char *argv[]) {
 
 static int run_virtual_machine(void) {
         int r;
-        const char* accel = "tcg";
+        const char *accel = "tcg";
         _cleanup_strv_free_ char **cmdline = NULL;
 
-        bool auto_conf_kvm = arg_qemu_kvm == CONFIG_FEATURE_AUTO && qemu_check_kvm_support(true);
+        bool auto_conf_kvm = arg_qemu_kvm == CONFIG_FEATURE_AUTO && qemu_check_kvm_support();
         if (arg_qemu_kvm == CONFIG_FEATURE_ENABLED || auto_conf_kvm)
                 accel = "kvm";
 
-        const char* firmware_path = NULL;
-        r = find_ovmf_firmware(&firmware_path);
+        const char *ovmf = NULL;
+        r = find_ovmf_firmware(&ovmf);
         if (r < 0)
-                return r;
-        bool fw_supports_sb = r == 0;
-        const char* smm = arg_qemu_firmware == QEMU_FIRMWARE_UEFI && fw_supports_sb ? "on" : "off";
+                return log_error_errno(r, "Couldn't find OVMF UEFI firmware blob.");
+        bool ovmf_supports_sb = r == 0;
+        if (!ovmf_supports_sb)
+                log_warning("Couldn't find OVMF firmware blob with secure boot support, "
+                            "falling back to OVMF firmware blobs without secure boot support.");
+        const char *smm = ovmf_supports_sb ? "on" : "off";
 
-        _cleanup_free_ char* machine = NULL;
+        _cleanup_free_ char *machine = NULL;
 #ifdef __aarch64__
-        r = asprintf(&machine, "type=virt,accel=%s", accel);
+        machine = strjoin("type=virt,accel=", accel);
 #else
-        r = asprintf(&machine, "type=q35,accel=%s,smm=%s", accel, smm);
+        machine = strjoin("type=q35,accel=", accel, ",smm=", smm);
 #endif
-        if (r < 0)
-                log_oom();
+        if (!machine)
+                return log_oom();
 
-        _cleanup_free_ char* qemu_binary = NULL;
+        _cleanup_free_ char *qemu_binary = NULL;
         r = find_qemu_binary(&qemu_binary);
+        if (r == -ESRCH)
+                return log_error_errno(r, "Native architecture is not supported by qemu.");
         if (r < 0)
                 return r;
 
-        const char *smp = arg_qemu_smp ? arg_qemu_smp : "1",
-                   *mem = arg_qemu_mem ? arg_qemu_mem : "2G";
-
+        const char *smp = arg_qemu_smp ? arg_qemu_smp : "1";
+        const char *mem = FORMAT_BYTES(arg_qemu_mem);
         cmdline = strv_new(
                 qemu_binary,
                 "-machine", machine,
@@ -336,52 +323,61 @@ static int run_virtual_machine(void) {
                 "-m", mem,
                 "-object", "rng-random,filename=/dev/urandom,id=rng0",
                 "-device", "virtio-rng-pci,rng=rng0,id=rng-device0",
-                "-nic", "user,model=virtio-net-pci"
+                "-nic", "user,model=virtio-net-pci",
+                "-cpu", "max"
         );
 
-        // add vsock support here
-
-        strv_extend(&cmdline, "-cpu");
-        strv_extend(&cmdline, "max");
-
         if (arg_qemu_gui) {
-                strv_extend(&cmdline, "-vga");
-                strv_extend(&cmdline, "virtio");
+                r = strv_extend_strv(&cmdline, STRV_MAKE("-vga", "virtio"), false);
+                if (r < 0)
+                        log_oom();
         } else {
-                FOREACH_STRING(s,
-                                "-nographic",
-                                "-nodefaults",
-                                "-chardev", "stdio,mux=on,id=console,signal=off",
-                                "-serial", "chardev:console",
-                                "-mon", "console")
-                        strv_extend(&cmdline, s);
+                r = strv_extend_strv(&cmdline, STRV_MAKE(
+                        "-nographic",
+                        "-nodefaults",
+                        "-chardev", "stdio,mux=on,id=console,signal=off",
+                        "-serial", "chardev:console",
+                        "-mon", "console"
+                ), false);
+                if (r < 0)
+                        log_oom();
         }
 
+#ifdef ARCHITECTURE_SUPPORTS_SMBIOS
         ssize_t n;
         for (size_t i = 0; i < arg_n_credentials; i++) {
-                _cleanup_free_ char* cred_data_b64 = NULL;
+                _cleanup_free_ char *cred_data_b64 = NULL;
                 Credential* cred = &arg_credentials[i];
 
                 n = base64mem(cred->data, cred->size, &cred_data_b64);
                 if (n < 0)
                         return log_oom();
 
-                strv_extend(&cmdline, "-smbios");
-                strv_extendf(&cmdline, "type=11,value=io.systemd.credential.binary:%s=%s", cred->id, cred_data_b64);
-        }
+                r = strv_extend(&cmdline, "-smbios");
+                if (r < 0)
+                        log_oom();
 
-        if (arg_qemu_firmware == QEMU_FIRMWARE_UEFI) {
-                strv_extend(&cmdline, "-drive");
-                strv_extendf(&cmdline, "if=pflash,format=raw,readonly=on,file=%s", firmware_path);
+                r = strv_extendf(&cmdline, "type=11,value=io.systemd.credential.binary:%s=%s", cred->id, cred_data_b64);
+                if (r < 0)
+                        log_oom();
         }
+#endif
 
-        if (arg_qemu_firmware == QEMU_FIRMWARE_UEFI && fw_supports_sb) {
-                const char* ovmf_vars_from = NULL;
+        r = strv_extend(&cmdline, "-drive");
+        if (r < 0)
+                log_oom();
+
+        r = strv_extendf(&cmdline, "if=pflash,format=raw,readonly=on,file=%s", ovmf);
+        if (r < 0)
+                log_oom();
+
+        if (ovmf_supports_sb) {
+                const char *ovmf_vars_from = NULL;
                 r = find_ovmf_vars(&ovmf_vars_from);
                 if (r < 0)
                         return r;
 
-                _cleanup_free_ char* ovmf_vars_to = NULL;
+                _cleanup_free_ char *ovmf_vars_to = NULL;
                 r = tempfn_random_child(NULL, "vmspawn-", &ovmf_vars_to);
                 if (r < 0)
                         return r;
@@ -404,28 +400,38 @@ static int run_virtual_machine(void) {
                 (void) copy_access(source_fd, target_fd);
                 (void) copy_times(source_fd, target_fd, 0);
 
-                FOREACH_STRING(s,
-                                "-global", "ICH9-LPC.disable_s3=1",
-                                "-global", "driver=cfi.pflash01,property=secure,value=on",
-                                "-drive")
-                        strv_extend(&cmdline, s);
-                strv_extendf(&cmdline, "file=%s,if=pflash,format=raw", ovmf_vars_to);
+                r = strv_extend_strv(&cmdline, STRV_MAKE(
+                        "-global", "ICH9-LPC.disable_s3=1",
+                        "-global", "driver=cfi.pflash01,property=secure,value=on",
+                        "-drive"
+                ), false);
+                if (r < 0)
+                        log_oom();
+
+                r = strv_extendf(&cmdline, "file=%s,if=pflash,format=raw", ovmf_vars_to);
+                if (r < 0)
+                        log_oom();
         }
 
-        strv_extend(&cmdline, "-drive");
-        strv_extendf(&cmdline, "if=none,id=mkosi,file=%s,format=raw", arg_image);
-        strv_extend(&cmdline, "-device");
-        strv_extend(&cmdline, "virtio-scsi-pci,id=scsi");
-        strv_extend(&cmdline, "-device");
-        strv_extendf(&cmdline, "scsi-%s,drive=mkosi,bootindex=1", arg_qemu_cdrom ? "cd" : "hd");
+        r = strv_extend(&cmdline, "-drive");
+        if (r < 0)
+                log_oom();
 
-        strv_extend_strv(&cmdline, arg_parameters, false);
+        r = strv_extendf(&cmdline, "if=none,id=mkosi,file=%s,format=raw", arg_image);
+        if (r < 0)
+                log_oom();
 
-        STRV_FOREACH(s, cmdline)
-                printf("%s ", *s);
-        putchar('\n');
+        r = strv_extend_strv(&cmdline, STRV_MAKE(
+                "-device", "virtio-scsi-pci,id=scsi",
+                "-device", "scsi-hd,drive=mkosi,bootindex=1"
+        ), false);
+        if (r < 0)
+                log_oom();
 
-        int child_status;
+        r = strv_extend_strv(&cmdline, arg_parameters, false);
+        if (r < 0)
+                log_oom();
+
         pid_t child_pid, pid;
         pid = safe_fork(qemu_binary, 0, &child_pid);
         if (pid == 0) {
@@ -438,19 +444,12 @@ static int run_virtual_machine(void) {
                 if (r < 0)
                         log_oom();
 
-                r = execve(qemu_binary, cmdline, environ);
-                log_error_errno(r, "failed to execve %s: %m", qemu_binary);
+                execve(qemu_binary, cmdline, environ);
+                log_error_errno(errno, "failed to execve %s: %m", qemu_binary);
                 _exit(r);
         } else {
-                wait(&child_status);
-                int exit_status = WEXITSTATUS(child_status);
-                if (exit_status != 0) {
-                        log_error("qemu process exited with code %d", exit_status);
-                        return exit_status;
-                }
+                return wait_for_terminate_and_check(qemu_binary, child_pid, WAIT_LOG);
         }
-
-        return 0;
 }
 
 static int run(int argc, char *argv[]) {
@@ -466,8 +465,6 @@ static int run(int argc, char *argv[]) {
         }
 
         r = run_virtual_machine();
-        if (r != 0)
-                goto finish;
 finish:
         credential_free_all(arg_credentials, arg_n_credentials);
 
