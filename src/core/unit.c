@@ -3843,10 +3843,7 @@ int unit_coldplug(Unit *u) {
         if (u->nop_job)
                 RET_GATHER(r, job_coldplug(u->nop_job));
 
-        CGroupContext *c = unit_get_cgroup_context(u);
-        if (c)
-                cgroup_modify_nft_set(u, /* add = */ true);
-
+        unit_modify_nft_set(u, /* add = */ true);
         return r;
 }
 
