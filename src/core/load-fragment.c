@@ -3915,23 +3915,23 @@ int config_parse_tasks_max(
                 void *userdata) {
 
         const Unit *u = userdata;
-        TasksMax *tasks_max = data;
+        CGroupTasksMax *tasks_max = data;
         uint64_t v;
         int r;
 
         if (isempty(rvalue)) {
-                *tasks_max = u ? u->manager->defaults.tasks_max : TASKS_MAX_UNSET;
+                *tasks_max = u ? u->manager->defaults.tasks_max : CGROUP_TASKS_MAX_UNSET;
                 return 0;
         }
 
         if (streq(rvalue, "infinity")) {
-                *tasks_max = TASKS_MAX_UNSET;
+                *tasks_max = CGROUP_TASKS_MAX_UNSET;
                 return 0;
         }
 
         r = parse_permyriad(rvalue);
         if (r >= 0)
-                *tasks_max = (TasksMax) { r, 10000U }; /* r‱ */
+                *tasks_max = (CGroupTasksMax) { r, 10000U }; /* r‱ */
         else {
                 r = safe_atou64(rvalue, &v);
                 if (r < 0) {
@@ -3944,7 +3944,7 @@ int config_parse_tasks_max(
                         return 0;
                 }
 
-                *tasks_max = (TasksMax) { v };
+                *tasks_max = (CGroupTasksMax) { v };
         }
 
         return 0;

@@ -25,7 +25,7 @@
 #include "percent-util.h"
 #include "socket-util.h"
 
-BUS_DEFINE_PROPERTY_GET(bus_property_get_tasks_max, "t", TasksMax, tasks_max_resolve);
+BUS_DEFINE_PROPERTY_GET(bus_property_get_tasks_max, "t", CGroupTasksMax, cgroup_tasks_max_resolve);
 BUS_DEFINE_PROPERTY_GET_ENUM(bus_property_get_cgroup_pressure_watch, cgroup_pressure_watch, CGroupPressureWatch);
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_cgroup_device_policy, cgroup_device_policy, CGroupDevicePolicy);
@@ -994,7 +994,7 @@ static int bus_cgroup_set_cpu_weight(
 static int bus_cgroup_set_tasks_max(
                 Unit *u,
                 const char *name,
-                TasksMax *p,
+                CGroupTasksMax *p,
                 sd_bus_message *message,
                 UnitWriteFlags flags,
                 sd_bus_error *error) {
@@ -1013,7 +1013,7 @@ static int bus_cgroup_set_tasks_max(
                                          "Value specified in %s is out of range", name);
 
         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                *p = (TasksMax) { .value = v, .scale = 0 }; /* When .scale==0, .value is the absolute value */
+                *p = (CGroupTasksMax) { .value = v, .scale = 0 }; /* When .scale==0, .value is the absolute value */
                 unit_invalidate_cgroup(u, CGROUP_MASK_PIDS);
 
                 if (v == CGROUP_LIMIT_MAX)
@@ -1030,7 +1030,7 @@ static int bus_cgroup_set_tasks_max(
 static int bus_cgroup_set_tasks_max_scale(
                 Unit *u,
                 const char *name,
-                TasksMax *p,
+                CGroupTasksMax *p,
                 sd_bus_message *message,
                 UnitWriteFlags flags,
                 sd_bus_error *error) {
@@ -1049,7 +1049,7 @@ static int bus_cgroup_set_tasks_max_scale(
                                          "Value specified in %s is out of range", name);
 
         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                *p = (TasksMax) { v, UINT32_MAX }; /* .scale is not 0, so this is interpreted as v/UINT32_MAX. */
+                *p = (CGroupTasksMax) { v, UINT32_MAX }; /* .scale is not 0, so this is interpreted as v/UINT32_MAX. */
                 unit_invalidate_cgroup(u, CGROUP_MASK_PIDS);
 
                 uint32_t scaled = DIV_ROUND_UP((uint64_t) v * 100U, (uint64_t) UINT32_MAX);

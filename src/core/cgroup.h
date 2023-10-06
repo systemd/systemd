@@ -9,20 +9,20 @@
 #include "list.h"
 #include "time-util.h"
 
-typedef struct TasksMax {
+typedef struct CGroupTasksMax {
         /* If scale == 0, just use value; otherwise, value / scale.
          * See tasks_max_resolve(). */
         uint64_t value;
         uint64_t scale;
-} TasksMax;
+} CGroupTasksMax;
 
-#define TASKS_MAX_UNSET ((TasksMax) { .value = UINT64_MAX, .scale = 0 })
+#define CGROUP_TASKS_MAX_UNSET ((CGroupTasksMax) { .value = UINT64_MAX, .scale = 0 })
 
-static inline bool tasks_max_isset(const TasksMax *tasks_max) {
+static inline bool cgroup_tasks_max_isset(const CGroupTasksMax *tasks_max) {
         return tasks_max->value != UINT64_MAX || tasks_max->scale != 0;
 }
 
-uint64_t tasks_max_resolve(const TasksMax *tasks_max);
+uint64_t cgroup_tasks_max_resolve(const CGroupTasksMax *tasks_max);
 
 typedef struct CGroupContext CGroupContext;
 typedef struct CGroupDeviceAllow CGroupDeviceAllow;
@@ -210,7 +210,7 @@ struct CGroupContext {
         LIST_HEAD(CGroupSocketBindItem, socket_bind_deny);
 
         /* Common */
-        TasksMax tasks_max;
+        CGroupTasksMax tasks_max;
 
         /* Settings for systemd-oomd */
         ManagedOOMMode moom_swap;

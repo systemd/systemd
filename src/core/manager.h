@@ -167,7 +167,7 @@ typedef struct UnitDefaults {
         bool tasks_accounting;
         bool ip_accounting;
 
-        TasksMax tasks_max;
+        CGroupTasksMax tasks_max;
         usec_t timer_accuracy_usec;
 
         OOMPolicy oom_policy;
