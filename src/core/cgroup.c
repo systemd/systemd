@@ -1387,19 +1387,20 @@ static void cgroup_apply_firewall(Unit *u) {
         (void) bpf_firewall_install(u);
 }
 
-void cgroup_modify_nft_set(Unit *u, bool add) {
+void unit_modify_nft_set(Unit *u, bool add) {
         int r;
-        CGroupContext *c;
 
         assert(u);
 
         if (!MANAGER_IS_SYSTEM(u->manager))
                 return;
 
+        if (!UNIT_HAS_CGROUP_CONTEXT(u))
+                return;
+
         if (cg_all_unified() <= 0)
                 return;
 
-        assert_se(c = unit_get_cgroup_context(u));
         if (u->cgroup_id == 0)
                 return;
 
@@ -1410,6 +1411,8 @@ void cgroup_modify_nft_set(Unit *u, bool add) {
 
                 assert(u->manager->fw_ctx);
         }
+
+        CGroupContext *c = ASSERT_PTR(unit_get_cgroup_context(u));
 
         FOREACH_ARRAY(nft_set, c->nft_set_context.sets, c->nft_set_context.n_sets) {
                 uint64_t element = u->cgroup_id;
@@ -1864,7 +1867,7 @@ static void cgroup_context_apply(
         if (apply_mask & CGROUP_MASK_BPF_RESTRICT_NETWORK_INTERFACES)
                 cgroup_apply_restrict_network_interfaces(u);
 
-        cgroup_modify_nft_set(u, /* add = */ true);
+        unit_modify_nft_set(u, /* add = */ true);
 }
 
 static bool unit_get_needs_bpf_firewall(Unit *u) {
@@ -3042,7 +3045,7 @@ void unit_prune_cgroup(Unit *u) {
         (void) lsm_bpf_cleanup(u); /* Remove cgroup from the global LSM BPF map */
 #endif
 
-        cgroup_modify_nft_set(u, /* add = */ false);
+        unit_modify_nft_set(u, /* add = */ false);
 
         is_root_slice = unit_has_name(u, SPECIAL_ROOT_SLICE);
 
