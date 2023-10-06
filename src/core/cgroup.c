@@ -871,18 +871,10 @@ int cgroup_log_xattr_apply(Unit *u) {
         return 0;
 }
 
-static void cgroup_xattr_apply(Unit *u) {
+static void cgroup_invocation_id_xattr_apply(Unit *u) {
         bool b;
-        int r;
 
         assert(u);
-
-        /* The 'user.*' xattrs can be set from a user manager. */
-        cgroup_oomd_xattr_apply(u);
-        cgroup_log_xattr_apply(u);
-
-        if (!MANAGER_IS_SYSTEM(u->manager))
-                return;
 
         b = !sd_id128_is_null(u->invocation_id);
         FOREACH_STRING(xn, "trusted.invocation_id", "user.invocation_id") {
@@ -891,6 +883,12 @@ static void cgroup_xattr_apply(Unit *u) {
                 else
                         unit_remove_xattr_graceful(u, xn);
         }
+}
+
+static void cgroup_delegate_xattr_apply(Unit *u) {
+        bool b;
+
+        assert(u);
 
         /* Indicate on the cgroup whether delegation is on, via an xattr. This is best-effort, as old kernels
          * didn't support xattrs on cgroups at all. Later they got support for setting 'trusted.*' xattrs,
@@ -907,6 +905,12 @@ static void cgroup_xattr_apply(Unit *u) {
                 else
                         unit_remove_xattr_graceful(u, xn);
         }
+}
+
+static void cgroup_survive_xattr_apply(Unit *u) {
+        int r;
+
+        assert(u);
 
         if (u->survive_final_kill_signal) {
                 r = cg_set_xattr(
@@ -933,6 +937,21 @@ static void cgroup_xattr_apply(Unit *u) {
                 unit_remove_xattr_graceful(u, "user.survive_final_kill_signal");
                 unit_remove_xattr_graceful(u, "trusted.survive_final_kill_signal");
         }
+}
+
+static void cgroup_xattr_apply(Unit *u) {
+        assert(u);
+
+        /* The 'user.*' xattrs can be set from a user manager. */
+        cgroup_oomd_xattr_apply(u);
+        cgroup_log_xattr_apply(u);
+
+        if (!MANAGER_IS_SYSTEM(u->manager))
+                return;
+
+        cgroup_invocation_id_xattr_apply(u);
+        cgroup_delegate_xattr_apply(u);
+        cgroup_survive_xattr_apply(u);
 }
 
 static int lookup_block_device(const char *p, dev_t *ret) {
