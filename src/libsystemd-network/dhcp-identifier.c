@@ -6,6 +6,7 @@
 
 #include "dhcp-identifier.h"
 #include "netif-util.h"
+#include "network-common.h"
 #include "siphash24.h"
 #include "sparse-endian.h"
 #include "string-table.h"
@@ -90,13 +91,16 @@ int dhcp_identifier_set_duid_ll(
         return 0;
 }
 
-int dhcp_identifier_set_duid_en(bool test_mode, struct duid *ret_duid, size_t *ret_len) {
+int dhcp_identifier_set_duid_en(struct duid *ret_duid, size_t *ret_len) {
         sd_id128_t machine_id;
+        bool test_mode;
         uint64_t hash;
         int r;
 
         assert(ret_duid);
         assert(ret_len);
+
+        test_mode = network_test_mode_enabled();
 
         if (!test_mode) {
                 r = sd_id128_get_machine(&machine_id);
