@@ -6359,6 +6359,38 @@ int unit_arm_timer(
         return 0;
 }
 
+static int unit_get_nice(Unit *u) {
+        ExecContext *ec;
+
+        ec = unit_get_exec_context(u);
+        return ec ? ec->nice : 0;
+}
+
+static uint64_t unit_get_cpu_weight(Unit *u) {
+        CGroupContext *cc;
+
+        cc = unit_get_cgroup_context(u);
+        return cc ? cgroup_context_cpu_weight(cc, manager_state(u->manager)) : CGROUP_WEIGHT_DEFAULT;
+}
+
+int unit_compare_priority(Unit *a, Unit *b) {
+        int ret;
+
+        ret = CMP(a->type, b->type);
+        if (ret != 0)
+                return -ret;
+
+        ret = CMP(unit_get_cpu_weight(a), unit_get_cpu_weight(b));
+        if (ret != 0)
+                return -ret;
+
+        ret = CMP(unit_get_nice(a), unit_get_nice(b));
+        if (ret != 0)
+                return ret;
+
+        return strcmp(a->id, b->id);
+}
+
 const ActivationDetailsVTable * const activation_details_vtable[_UNIT_TYPE_MAX] = {
         [UNIT_PATH] = &activation_details_path_vtable,
         [UNIT_TIMER] = &activation_details_timer_vtable,
