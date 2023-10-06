@@ -7,14 +7,11 @@
 #include "vmspawn-util.h"
 #include <stdio.h>
 
-bool qemu_check_kvm_support(bool log) {
+bool qemu_check_kvm_support(void) {
         _cleanup_close_ int fd = -EBADF;
         fd = open("/dev/kvm", O_RDONLY | O_CLOEXEC);
         if (fd >= 0)
                 return true;
-
-        if (!log)
-                goto finish;
 
         switch (errno) {
         case ENOENT:
@@ -28,7 +25,6 @@ bool qemu_check_kvm_support(bool log) {
                 break;
         }
 
-finish:
         return false;
 }
 
@@ -126,7 +122,7 @@ int find_ovmf_firmware(const char **ret_firmware_path) {
 int find_qemu_binary(char **ret_qemu_binary) {
         int r;
 
-        static const char* architecture_to_qemu_table[_ARCHITECTURE_MAX] = {
+        static const char *architecture_to_qemu_table[_ARCHITECTURE_MAX] = {
                 [ARCHITECTURE_ARM64]       = "aarch64",
                 [ARCHITECTURE_ARM]         = "arm",
                 [ARCHITECTURE_ALPHA]       = "alpha",
@@ -150,7 +146,7 @@ int find_qemu_binary(char **ret_qemu_binary) {
                         return 0;
         }
 
-        const char* arch_qemu = architecture_to_qemu_table[native_architecture()];
+        const char *arch_qemu = architecture_to_qemu_table[native_architecture()];
         if (!arch_qemu) {
                 log_error("Architecture %s not supported by qemu", architecture_to_string(native_architecture()));
                 return -ENOENT;
@@ -166,7 +162,7 @@ int find_qemu_binary(char **ret_qemu_binary) {
         return -ENOENT;
 }
 
-int find_ovmf_vars(const char** ret_ovmf_vars) {
+int find_ovmf_vars(const char **ret_ovmf_vars) {
 #ifdef __x86_64__
         #define OVMF_VARS_LOCATIONS "/usr/share/ovmf/x64/OVMF_VARS.fd"
 #elif defined(__i386__)
