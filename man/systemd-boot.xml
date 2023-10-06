@@ -54,7 +54,8 @@
 
       <listitem><para>The EFI Shell binary, if installed.</para></listitem>
 
-      <listitem><para>A reboot into the UEFI firmware setup option, if supported by the firmware.</para></listitem>
+      <listitem><para>A Reboot Into Firmware Interface option, if supported by the UEFI firmware.
+      </para></listitem>
 
       <listitem><para>Secure Boot variables enrollment if the UEFI firmware is in setup-mode and files are provided
       on the ESP.</para></listitem>

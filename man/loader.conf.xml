@@ -243,9 +243,9 @@
       <varlistentry>
         <term>auto-firmware</term>
 
-        <listitem><para>A boolean controlling the presence of the "Reboot into firmware" entry
-        (enabled by default). If this is disabled, the firmware interface may still be reached
-        by using the <keycap>f</keycap> key.</para>
+        <listitem><para>A boolean controlling the presence of the "Reboot Into Firmware Interface" entry
+        (enabled by default). If this is disabled, the firmware interface may still be reached by using the
+        <keycap>f</keycap> key.</para>
 
         <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
