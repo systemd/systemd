@@ -857,6 +857,12 @@ void manager_set_switching_root(Manager *m, bool switching_root) {
         m->switching_root = MANAGER_IS_SYSTEM(m) && switching_root;
 }
 
+static int compare_job_priority(const void *a, const void *b) {
+        const Job *x = a, *y = b;
+
+        return unit_compare_priority(x->unit, y->unit);
+}
+
 int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, Manager **_m) {
         _cleanup_(manager_freep) Manager *m = NULL;
         int r;

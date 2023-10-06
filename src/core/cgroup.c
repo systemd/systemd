@@ -1014,7 +1014,9 @@ static bool cgroup_context_has_allowed_mems(CGroupContext *c) {
         return c->cpuset_mems.set || c->startup_cpuset_mems.set;
 }
 
-static uint64_t cgroup_context_cpu_weight(CGroupContext *c, ManagerState state) {
+uint64_t cgroup_context_cpu_weight(CGroupContext *c, ManagerState state) {
+        assert(c);
+
         if (IN_SET(state, MANAGER_STARTING, MANAGER_INITIALIZING, MANAGER_STOPPING) &&
             c->startup_cpu_weight != CGROUP_WEIGHT_INVALID)
                 return c->startup_cpu_weight;
@@ -4337,45 +4339,6 @@ void manager_invalidate_startup_units(Manager *m) {
 
         SET_FOREACH(u, m->startup_units)
                 unit_invalidate_cgroup(u, CGROUP_MASK_CPU|CGROUP_MASK_IO|CGROUP_MASK_BLKIO|CGROUP_MASK_CPUSET);
-}
-
-static int unit_get_nice(Unit *u) {
-        ExecContext *ec;
-
-        ec = unit_get_exec_context(u);
-        return ec ? ec->nice : 0;
-}
-
-static uint64_t unit_get_cpu_weight(Unit *u) {
-        ManagerState state = manager_state(u->manager);
-        CGroupContext *cc;
-
-        cc = unit_get_cgroup_context(u);
-        return cc ? cgroup_context_cpu_weight(cc, state) : CGROUP_WEIGHT_DEFAULT;
-}
-
-int compare_job_priority(const void *a, const void *b) {
-        const Job *x = a, *y = b;
-        int nice_x, nice_y;
-        uint64_t weight_x, weight_y;
-        int ret;
-
-        if ((ret = CMP(x->unit->type, y->unit->type)) != 0)
-                return -ret;
-
-        weight_x = unit_get_cpu_weight(x->unit);
-        weight_y = unit_get_cpu_weight(y->unit);
-
-        if ((ret = CMP(weight_x, weight_y)) != 0)
-                return -ret;
-
-        nice_x = unit_get_nice(x->unit);
-        nice_y = unit_get_nice(y->unit);
-
-        if ((ret = CMP(nice_x, nice_y)) != 0)
-                return ret;
-
-        return strcmp(x->unit->id, y->unit->id);
 }
 
 int unit_cgroup_freezer_action(Unit *u, FreezerAction action) {
