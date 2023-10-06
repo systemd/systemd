@@ -1073,7 +1073,6 @@ TEST(dhcp6_client) {
         assert_se(sd_dhcp6_client_set_fqdn(client, "host.lab.intra") >= 0);
         assert_se(sd_dhcp6_client_set_iaid(client, unaligned_read_be32((uint8_t[]) { IA_ID_BYTES })) >= 0);
         assert_se(sd_dhcp6_client_set_send_release(client, true) >= 0);
-        dhcp6_client_set_test_mode(client, true);
 
         assert_se(sd_dhcp6_client_set_request_option(client, SD_DHCP6_OPTION_DNS_SERVER) >= 0);
         assert_se(sd_dhcp6_client_set_request_option(client, SD_DHCP6_OPTION_DOMAIN) >= 0);
@@ -1097,4 +1096,9 @@ TEST(dhcp6_client) {
         test_fd[1] = safe_close(test_fd[1]);
 }
 
-DEFINE_TEST_MAIN(LOG_DEBUG);
+static int intro(void) {
+        assert_se(setenv("SYSTEMD_NETWORK_TEST_MODE", "1", 1) >= 0);
+        return 0;
+}
+
+DEFINE_TEST_MAIN_WITH_INTRO(LOG_DEBUG, intro);

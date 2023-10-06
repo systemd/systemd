@@ -72,8 +72,6 @@ void dhcp_packet_append_ip_headers(DHCPPacket *packet, be32_t source_addr,
 
 int dhcp_packet_verify_headers(DHCPPacket *packet, size_t len, bool checksum, uint16_t port);
 
-void dhcp_client_set_test_mode(sd_dhcp_client *client, bool test_mode);
-
 /* If we are invoking callbacks of a dhcp-client, ensure unreffing the
  * client from the callback doesn't destroy the object we are working
  * on */
