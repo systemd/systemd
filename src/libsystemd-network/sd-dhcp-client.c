@@ -125,9 +125,6 @@ struct sd_dhcp_client {
         int ip_service_type;
         int socket_priority;
         bool socket_priority_set;
-
-        /* Ignore machine-ID when generating DUID. See dhcp_identifier_set_duid_en(). */
-        bool test_mode;
 };
 
 static const uint8_t default_req_opts[] = {
@@ -507,7 +504,7 @@ int sd_dhcp_client_set_iaid_duid_en(
         if (r < 0)
                 return r;
 
-        r = dhcp_identifier_set_duid_en(client->test_mode, &client->client_id.ns.duid, &len);
+        r = dhcp_identifier_set_duid_en(&client->client_id.ns.duid, &len);
         if (r < 0)
                 return log_dhcp_client_errno(client, r, "Failed to set DUID-EN: %m");
 
@@ -566,12 +563,6 @@ int sd_dhcp_client_set_iaid_duid_raw(
         client->client_id_len = sizeof(client->client_id.type) + sizeof(client->client_id.ns.iaid) + len;
 
         return 0;
-}
-
-void dhcp_client_set_test_mode(sd_dhcp_client *client, bool test_mode) {
-        assert(client);
-
-        client->test_mode = test_mode;
 }
 
 int sd_dhcp_client_set_hostname(
