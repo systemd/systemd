@@ -20,6 +20,14 @@ typedef enum TPM2Flags {
 #define TPM2_PCRS_MAX 24U
 #define TPM2_PCRS_MASK ((UINT32_C(1) << TPM2_PCRS_MAX) - 1)
 
+/* The SRK handle is defined in the Provisioning Guidance document (see above) in the table "Reserved Handles
+ * for TPM Provisioning Fundamental Elements". The SRK is useful because it is "shared", meaning it has no
+ * authValue nor authPolicy set, and thus may be used by anyone on the system to generate derived keys or
+ * seal secrets. This is useful if the TPM has an auth (password) set for the 'owner hierarchy', which would
+ * prevent users from generating primary transient keys, unless they knew the owner hierarchy auth. See
+ * the Provisioning Guidance document for more details. */
+#define TPM2_SRK_HANDLE UINT32_C(0x81000001)
+
 static inline bool TPM2_PCR_INDEX_VALID(unsigned pcr) {
         return pcr < TPM2_PCRS_MAX;
 }
