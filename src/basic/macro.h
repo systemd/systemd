@@ -310,6 +310,8 @@ static inline int __coverity_check_and_return__(int condition) {
 #define FOREACH_ARRAY(i, array, num)                                    \
         _FOREACH_ARRAY(i, array, num, UNIQ_T(m, UNIQ), UNIQ_T(end, UNIQ))
 
+/* A wrapper for 'func' to return void.
+ * Only useful when a void-returning function is required by some API. */
 #define DEFINE_TRIVIAL_DESTRUCTOR(name, type, func)             \
         static inline void name(type *p) {                      \
                 func(p);                                        \
