@@ -387,16 +387,9 @@ int unit_deserialize_state(Unit *u, FILE *f, FDSet *fds) {
                 else if (STR_IN_SET(l, "ipv4-socket-bind-bpf-link-fd", "ipv6-socket-bind-bpf-link-fd")) {
                         int fd;
 
-                        if ((fd = parse_fd(v)) < 0 || !fdset_contains(fds, fd))
-                                log_unit_debug(u, "Failed to parse %s value: %s, ignoring.", l, v);
-                        else {
-                                if (fdset_remove(fds, fd) < 0) {
-                                        log_unit_debug(u, "Failed to remove %s value=%d from fdset", l, fd);
-                                        continue;
-                                }
-
+                        fd = deserialize_fd(fds, v);
+                        if (fd >= 0)
                                 (void) bpf_socket_bind_add_initial_link_fd(u, fd);
-                        }
                         continue;
 
                 } else if (streq(l, "ip-bpf-ingress-installed")) {
@@ -419,16 +412,10 @@ int unit_deserialize_state(Unit *u, FILE *f, FDSet *fds) {
                 } else if (streq(l, "restrict-ifaces-bpf-fd")) {
                         int fd;
 
-                        if ((fd = parse_fd(v)) < 0 || !fdset_contains(fds, fd)) {
-                                log_unit_debug(u, "Failed to parse restrict-ifaces-bpf-fd value: %s", v);
-                                continue;
-                        }
-                        if (fdset_remove(fds, fd) < 0) {
-                                log_unit_debug(u, "Failed to remove restrict-ifaces-bpf-fd %d from fdset", fd);
-                                continue;
-                        }
+                        fd = deserialize_fd(fds, v);
+                        if (fd >= 0)
+                                (void) restrict_network_interfaces_add_initial_link_fd(u, fd);
 
-                        (void) restrict_network_interfaces_add_initial_link_fd(u, fd);
                         continue;
 
                 } else if (streq(l, "ref-uid")) {

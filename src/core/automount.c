@@ -925,14 +925,8 @@ static int automount_deserialize_item(Unit *u, const char *key, const char *valu
                                 log_unit_error_errno(u, r, "Failed to add expire token to set: %m");
                 }
         } else if (streq(key, "pipe-fd")) {
-                int fd;
-
-                if ((fd = parse_fd(value)) < 0 || !fdset_contains(fds, fd))
-                        log_unit_debug(u, "Failed to parse pipe-fd value: %s", value);
-                else {
-                        safe_close(a->pipe_fd);
-                        a->pipe_fd = fdset_remove(fds, fd);
-                }
+                safe_close(a->pipe_fd);
+                a->pipe_fd = deserialize_fd(fds, value);
         } else
                 log_unit_debug(u, "Unknown serialization key: %s", key);
 
