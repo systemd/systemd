@@ -810,7 +810,7 @@ static void unit_remove_xattr_graceful(Unit *u, const char *name) {
                 log_unit_debug_errno(u, r, "Failed to remove '%s' xattr flag on control group %s, ignoring: %m", name, empty_to_root(u->cgroup_path));
 }
 
-void cgroup_oomd_xattr_apply(Unit *u) {
+static void cgroup_oomd_xattr_apply(Unit *u) {
         CGroupContext *c;
 
         assert(u);
@@ -832,7 +832,7 @@ void cgroup_oomd_xattr_apply(Unit *u) {
                 unit_remove_xattr_graceful(u, "user.oomd_omit");
 }
 
-int cgroup_log_xattr_apply(Unit *u) {
+static int cgroup_log_xattr_apply(Unit *u) {
         ExecContext *c;
         size_t len, allowed_patterns_len, denied_patterns_len;
         _cleanup_free_ char *patterns = NULL, *allowed_patterns = NULL, *denied_patterns = NULL;
