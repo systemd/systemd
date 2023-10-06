@@ -509,13 +509,13 @@ typedef struct oci_mount_data {
 } oci_mount_data;
 
 static void oci_mount_data_done(oci_mount_data *data) {
+        assert(data);
+
         free(data->destination);
         free(data->source);
         free(data->type);
         strv_free(data->options);
 }
-
-DEFINE_TRIVIAL_DESTRUCTOR(oci_mount_data_donep, oci_mount_data, oci_mount_data_done);
 
 static int oci_mounts(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
         Settings *s = ASSERT_PTR(userdata);
@@ -532,7 +532,7 @@ static int oci_mounts(const char *name, JsonVariant *v, JsonDispatchFlags flags,
                 };
 
                 _cleanup_free_ char *joined_options = NULL;
-                _cleanup_(oci_mount_data_donep) oci_mount_data data = {};
+                _cleanup_(oci_mount_data_done) oci_mount_data data = {};
                 CustomMount *m;
 
                 r = json_dispatch(e, table, oci_unexpected, flags, &data);
@@ -614,13 +614,11 @@ struct namespace_data {
         char *path;
 };
 
-static void namespace_data_done(struct namespace_data *p) {
-        assert(p);
+static void namespace_data_done(struct namespace_data *data) {
+        assert(data);
 
-        free(p->path);
+        free(data->path);
 }
-
-DEFINE_TRIVIAL_DESTRUCTOR(namespace_data_donep, struct namespace_data, namespace_data_done);
 
 static int oci_namespaces(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
         Settings *s = ASSERT_PTR(userdata);
@@ -629,7 +627,7 @@ static int oci_namespaces(const char *name, JsonVariant *v, JsonDispatchFlags fl
         int r;
 
         JSON_VARIANT_ARRAY_FOREACH(e, v) {
-                _cleanup_(namespace_data_donep) struct namespace_data data = {};
+                _cleanup_(namespace_data_done) struct namespace_data data = {};
 
                 static const JsonDispatch table[] = {
                         { "type", JSON_VARIANT_STRING, oci_namespace_type, offsetof(struct namespace_data, type), JSON_MANDATORY },
@@ -1744,8 +1742,6 @@ static void syscall_rule_done(struct syscall_rule *rule) {
         free(rule->arguments);
 };
 
-DEFINE_TRIVIAL_DESTRUCTOR(syscall_rule_donep, struct syscall_rule, syscall_rule_done);
-
 static int oci_seccomp_action(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
         uint32_t *action = ASSERT_PTR(userdata);
         int r;
@@ -1829,7 +1825,7 @@ static int oci_seccomp_syscalls(const char *name, JsonVariant *v, JsonDispatchFl
                         { "args",   JSON_VARIANT_ARRAY,  oci_seccomp_args,   0,                                     0              },
                         {}
                 };
-                _cleanup_(syscall_rule_donep) struct syscall_rule rule = {
+                _cleanup_(syscall_rule_done) struct syscall_rule rule = {
                         .action = UINT32_MAX,
                 };
 
