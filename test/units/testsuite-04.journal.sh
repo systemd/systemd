@@ -10,8 +10,12 @@ for ((i = 0; i < ITERATIONS; i++)); do
     dd if=/dev/urandom bs=1M count=1 | base64 | systemd-cat
 done
 journalctl --rotate
+# Let's test varlinkctl a bit, i.e. implement the equivalent of 'journalctl --rotate' via varlinkctl
+varlinkctl call /run/systemd/journal/io.systemd.journal io.systemd.Journal.Rotate '{}'
 journalctl --flush
+varlinkctl call /run/systemd/journal/io.systemd.journal io.systemd.Journal.FlushToVar '{}'
 journalctl --sync
+varlinkctl call /run/systemd/journal/io.systemd.journal io.systemd.Journal.Synchronize '{}'
 journalctl --rotate --vacuum-size=8M
 
 # Reset the ratelimit buckets for the subsequent tests below.
@@ -42,7 +46,8 @@ write_and_match "<5> \t Leading spaces\n" " \t Leading spaces\n" --level-prefix 
 # --output-fields restricts output
 ID="$(systemd-id128 new)"
 echo -ne "foo" | systemd-cat -t "$ID" --level-prefix false
-journalctl --sync
+# Let's test varlinkctl a bit, i.e. implement the equivalent of 'journalctl --sync' via varlinkctl
+varlinkctl call /run/systemd/journal/io.systemd.journal io.systemd.Journal.Synchronize '{}'
 journalctl -b -o export --output-fields=MESSAGE,FOO --output-fields=PRIORITY,MESSAGE -t "$ID" >/tmp/output
 [[ $(wc -l </tmp/output) -eq 9 ]]
 grep -q '^__CURSOR=' /tmp/output
