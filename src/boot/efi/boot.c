@@ -1596,7 +1596,6 @@ static void config_load_defaults(Config *config, EFI_FILE *root_dir) {
                 .editor = true,
                 .auto_entries = true,
                 .auto_firmware = true,
-                .reboot_for_bitlocker = false,
                 .secure_boot_enroll = ENROLL_IF_SAFE,
                 .idx_default_efivar = IDX_INVALID,
                 .console_mode = CONSOLE_MODE_KEEP,
