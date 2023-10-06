@@ -775,43 +775,35 @@ UNIT_DEFINE_ANCESTOR_MEMORY_LOOKUP(memory_low);
 UNIT_DEFINE_ANCESTOR_MEMORY_LOOKUP(startup_memory_low);
 UNIT_DEFINE_ANCESTOR_MEMORY_LOOKUP(memory_min);
 
-static void unit_set_xattr_graceful(Unit *u, const char *cgroup_path, const char *name, const void *data, size_t size) {
+static void unit_set_xattr_graceful(Unit *u, const char *name, const void *data, size_t size) {
         int r;
 
         assert(u);
         assert(name);
 
-        if (!cgroup_path) {
-                if (!u->cgroup_path)
-                        return;
+        if (!u->cgroup_path)
+                return;
 
-                cgroup_path = u->cgroup_path;
-        }
-
-        r = cg_set_xattr(cgroup_path, name, data, size, 0);
+        r = cg_set_xattr(u->cgroup_path, name, data, size, 0);
         if (r < 0)
-                log_unit_debug_errno(u, r, "Failed to set '%s' xattr on control group %s, ignoring: %m", name, empty_to_root(cgroup_path));
+                log_unit_debug_errno(u, r, "Failed to set '%s' xattr on control group %s, ignoring: %m", name, empty_to_root(u->cgroup_path));
 }
 
-static void unit_remove_xattr_graceful(Unit *u, const char *cgroup_path, const char *name) {
+static void unit_remove_xattr_graceful(Unit *u, const char *name) {
         int r;
 
         assert(u);
         assert(name);
 
-        if (!cgroup_path) {
-                if (!u->cgroup_path)
-                        return;
+        if (!u->cgroup_path)
+                return;
 
-                cgroup_path = u->cgroup_path;
-        }
-
-        r = cg_remove_xattr(cgroup_path, name);
+        r = cg_remove_xattr(u->cgroup_path, name);
         if (r < 0 && !ERRNO_IS_XATTR_ABSENT(r))
-                log_unit_debug_errno(u, r, "Failed to remove '%s' xattr flag on control group %s, ignoring: %m", name, empty_to_root(cgroup_path));
+                log_unit_debug_errno(u, r, "Failed to remove '%s' xattr flag on control group %s, ignoring: %m", name, empty_to_root(u->cgroup_path));
 }
 
-void cgroup_oomd_xattr_apply(Unit *u, const char *cgroup_path) {
+void cgroup_oomd_xattr_apply(Unit *u) {
         CGroupContext *c;
 
         assert(u);
@@ -821,19 +813,19 @@ void cgroup_oomd_xattr_apply(Unit *u, const char *cgroup_path) {
                 return;
 
         if (c->moom_preference == MANAGED_OOM_PREFERENCE_OMIT)
-                unit_set_xattr_graceful(u, cgroup_path, "user.oomd_omit", "1", 1);
+                unit_set_xattr_graceful(u, "user.oomd_omit", "1", 1);
 
         if (c->moom_preference == MANAGED_OOM_PREFERENCE_AVOID)
-                unit_set_xattr_graceful(u, cgroup_path, "user.oomd_avoid", "1", 1);
+                unit_set_xattr_graceful(u, "user.oomd_avoid", "1", 1);
 
         if (c->moom_preference != MANAGED_OOM_PREFERENCE_AVOID)
-                unit_remove_xattr_graceful(u, cgroup_path, "user.oomd_avoid");
+                unit_remove_xattr_graceful(u, "user.oomd_avoid");
 
         if (c->moom_preference != MANAGED_OOM_PREFERENCE_OMIT)
-                unit_remove_xattr_graceful(u, cgroup_path, "user.oomd_omit");
+                unit_remove_xattr_graceful(u, "user.oomd_omit");
 }
 
-int cgroup_log_xattr_apply(Unit *u, const char *cgroup_path) {
+int cgroup_log_xattr_apply(Unit *u) {
         ExecContext *c;
         size_t len, allowed_patterns_len, denied_patterns_len;
         _cleanup_free_ char *patterns = NULL, *allowed_patterns = NULL, *denied_patterns = NULL;
@@ -849,7 +841,7 @@ int cgroup_log_xattr_apply(Unit *u, const char *cgroup_path) {
                 return 0;
 
         if (set_isempty(c->log_filter_allowed_patterns) && set_isempty(c->log_filter_denied_patterns)) {
-                unit_remove_xattr_graceful(u, cgroup_path, "user.journald_log_filter_patterns");
+                unit_remove_xattr_graceful(u, "user.journald_log_filter_patterns");
                 return 0;
         }
 
@@ -874,7 +866,7 @@ int cgroup_log_xattr_apply(Unit *u, const char *cgroup_path) {
         *(last++) = '\xff';
         memcpy_safe(last, denied_patterns, denied_patterns_len);
 
-        unit_set_xattr_graceful(u, cgroup_path, "user.journald_log_filter_patterns", patterns, len);
+        unit_set_xattr_graceful(u, "user.journald_log_filter_patterns", patterns, len);
 
         return 0;
 }
@@ -886,8 +878,8 @@ static void cgroup_xattr_apply(Unit *u) {
         assert(u);
 
         /* The 'user.*' xattrs can be set from a user manager. */
-        cgroup_oomd_xattr_apply(u, u->cgroup_path);
-        cgroup_log_xattr_apply(u, u->cgroup_path);
+        cgroup_oomd_xattr_apply(u);
+        cgroup_log_xattr_apply(u);
 
         if (!MANAGER_IS_SYSTEM(u->manager))
                 return;
@@ -895,9 +887,9 @@ static void cgroup_xattr_apply(Unit *u) {
         b = !sd_id128_is_null(u->invocation_id);
         FOREACH_STRING(xn, "trusted.invocation_id", "user.invocation_id") {
                 if (b)
-                        unit_set_xattr_graceful(u, NULL, xn, SD_ID128_TO_STRING(u->invocation_id), 32);
+                        unit_set_xattr_graceful(u, xn, SD_ID128_TO_STRING(u->invocation_id), 32);
                 else
-                        unit_remove_xattr_graceful(u, NULL, xn);
+                        unit_remove_xattr_graceful(u, xn);
         }
 
         /* Indicate on the cgroup whether delegation is on, via an xattr. This is best-effort, as old kernels
@@ -911,9 +903,9 @@ static void cgroup_xattr_apply(Unit *u) {
         b = unit_cgroup_delegate(u);
         FOREACH_STRING(xn, "trusted.delegate", "user.delegate") {
                 if (b)
-                        unit_set_xattr_graceful(u, NULL, xn, "1", 1);
+                        unit_set_xattr_graceful(u, xn, "1", 1);
                 else
-                        unit_remove_xattr_graceful(u, NULL, xn);
+                        unit_remove_xattr_graceful(u, xn);
         }
 
         if (u->survive_final_kill_signal) {
@@ -938,8 +930,8 @@ static void cgroup_xattr_apply(Unit *u) {
                                              "group %s, ignoring: %m",
                                              empty_to_root(u->cgroup_path));
         } else {
-                unit_remove_xattr_graceful(u, /* cgroup_path= */ NULL, "user.survive_final_kill_signal");
-                unit_remove_xattr_graceful(u, /* cgroup_path= */ NULL, "trusted.survive_final_kill_signal");
+                unit_remove_xattr_graceful(u, "user.survive_final_kill_signal");
+                unit_remove_xattr_graceful(u, "trusted.survive_final_kill_signal");
         }
 }
 
