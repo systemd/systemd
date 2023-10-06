@@ -1365,7 +1365,18 @@ bool dns_scope_name_wants_search_domain(DnsScope *s, const char *name) {
         if (s->protocol != DNS_PROTOCOL_DNS)
                 return false;
 
-        return dns_name_is_single_label(name);
+        bool is_single_label = dns_name_is_single_label(name);
+
+        /* If we allow single-label domain lookups on unicast DNS, and this scope has a search domain that matches
+         * _exactly_ this name, then do not use search domains. */
+        if (is_single_label && s->manager->resolve_unicast_single_label) {
+                LIST_FOREACH(domains, d, dns_scope_get_search_domains(s)) {
+                        if (dns_name_equal(name, d->name))
+                                return false;
+                }
+        }
+
+        return is_single_label;
 }
 
 bool dns_scope_network_good(DnsScope *s) {

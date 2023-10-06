@@ -66,6 +66,12 @@ CHANGES WITH 255 in spe:
           related-unit information in its svg output, such as Before=,
           Requires=, and similar properties.
 
+        Changes in systemd-resolved:
+
+        * Single-label ("dotless") domains are now queried without affixing
+          search domains on links that contain a matching search or routing
+          domain.
+
 CHANGES WITH 254:
 
         Announcements of Future Feature Removals and Incompatible Changes:
