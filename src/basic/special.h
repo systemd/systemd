@@ -112,7 +112,8 @@
 #define SPECIAL_MACHINE_SLICE "machine.slice"
 #define SPECIAL_ROOT_SLICE "-.slice"
 
-/* The scope units systemd itself lives in. */
+/* The scope and slice units systemd itself lives in. */
+#define SPECIAL_INIT_SLICE "init.slice"
 #define SPECIAL_INIT_SCOPE "init.scope"
 #define SPECIAL_INIT_WORKERS_SCOPE "init-workers.scope"
 

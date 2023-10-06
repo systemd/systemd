@@ -6,7 +6,7 @@ set -o pipefail
 systemd-analyze log-level debug
 
 # Ensure that the init.scope.d drop-in is applied on boot
-test "$(cat /sys/fs/cgroup/init.scope/memory.high)" != "max"
+test "$(cat /sys/fs/cgroup/init.slice/init.scope/memory.high)" != "max"
 
 # Loose checks to ensure the environment has the necessary features for systemd-oomd
 [[ -e /proc/pressure ]] || echo "no PSI" >>/skipped

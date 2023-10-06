@@ -3629,8 +3629,12 @@ int manager_setup_cgroup(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Cannot determine cgroup we are running in: %m");
 
-        /* Chop off the init scope, if we are already located in it */
-        e = endswith(m->cgroup_root, "/" SPECIAL_INIT_SCOPE);
+        /* Chop off the init slice and scope, if we are already located in it */
+        e = endswith(m->cgroup_root, "/" SPECIAL_INIT_SLICE "/" SPECIAL_INIT_SCOPE);
+        if (!e) /* Or maybe just the scope, if we are upgrading */
+                e = endswith(m->cgroup_root, "/" SPECIAL_INIT_SLICE);
+        if (!e) /* Or maybe just the scope, if we are upgrading */
+                e = endswith(m->cgroup_root, "/" SPECIAL_INIT_SCOPE);
 
         /* LEGACY: Also chop off the system slice if we are in
          * it. This is to support live upgrades from older systemd
@@ -3730,8 +3734,8 @@ int manager_setup_cgroup(Manager *m) {
                         log_debug("Release agent already installed.");
         }
 
-        /* 5. Make sure we are in the special "init.scope" unit in the root slice. */
-        scope_path = strjoina(m->cgroup_root, "/" SPECIAL_INIT_SCOPE);
+        /* 5. Make sure we are in the special "init.scope" unit in the init slice. */
+        scope_path = strjoina(m->cgroup_root, "/" SPECIAL_INIT_SLICE "/" SPECIAL_INIT_SCOPE);
         r = cg_create_and_attach(SYSTEMD_CGROUP_CONTROLLER, scope_path, 0);
         if (r >= 0) {
                 /* Also, move all other userspace processes remaining in the root cgroup into that scope. */
@@ -3740,7 +3744,7 @@ int manager_setup_cgroup(Manager *m) {
                         log_warning_errno(r, "Couldn't move remaining userspace processes, ignoring: %m");
 
                 /* Create the workers pool scope as well */
-                scope_path = strjoina(m->cgroup_root, "/" SPECIAL_INIT_WORKERS_SCOPE);
+                scope_path = strjoina(m->cgroup_root, "/" SPECIAL_INIT_SLICE "/" SPECIAL_INIT_WORKERS_SCOPE);
                 r = cg_create(SYSTEMD_CGROUP_CONTROLLER, scope_path);
                 if (r < 0)
                         return log_error_errno(r, "Failed to create %s control group: %m", scope_path);
@@ -4398,6 +4402,7 @@ int unit_cgroup_freezer_action(Unit *u, FreezerAction action) {
 
         /* Ignore all requests to thaw init[-workers].scope or -.slice and reject all requests to freeze them */
         if (unit_has_name(u, SPECIAL_ROOT_SLICE) ||
+                          unit_has_name(u, SPECIAL_INIT_SLICE) ||
                           unit_has_name(u, SPECIAL_INIT_SCOPE) ||
                           unit_has_name(u, SPECIAL_INIT_WORKERS_SCOPE))
                 return action == FREEZER_FREEZE ? -EPERM : 0;

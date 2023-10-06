@@ -502,7 +502,7 @@ int exec_spawn(Unit *unit,
 
         /* If the workers pool is not empty, then send the serialization FD so that one of the workers will
          * pick it up and send us back its pid. Otherwise, fallback to the slower direct spawn. */
-        scope_path = strjoina(unit->manager->cgroup_root, "/" SPECIAL_INIT_WORKERS_SCOPE);
+        scope_path = strjoina(unit->manager->cgroup_root, "/" SPECIAL_INIT_SLICE "/" SPECIAL_INIT_WORKERS_SCOPE);
         r = cg_is_empty(SYSTEMD_CGROUP_CONTROLLER, scope_path);
         if (r < 0)
                 return r;

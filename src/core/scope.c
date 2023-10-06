@@ -140,10 +140,21 @@ static int scope_verify(Scope *s) {
 }
 
 static int scope_load_init_scope(Unit *u) {
+        Unit *slice;
+        int r;
+
         assert(u);
 
         if (!unit_has_name(u, SPECIAL_INIT_SCOPE) && !unit_has_name(u, SPECIAL_INIT_WORKERS_SCOPE))
                 return 0;
+
+        r = manager_load_unit(u->manager, SPECIAL_INIT_SLICE, NULL, NULL, &slice);
+        if (r < 0)
+                return r;
+
+        r = unit_set_slice(u, slice);
+        if (r < 0)
+                return r;
 
         u->transient = true;
         u->perpetual = true;

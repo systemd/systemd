@@ -186,7 +186,7 @@ int manager_spawn_workers(Manager *m) {
         if (n_workers == 0)
                 return 0;
 
-        scope_path = strjoina(m->cgroup_root, "/" SPECIAL_INIT_WORKERS_SCOPE);
+        scope_path = strjoina(m->cgroup_root, "/" SPECIAL_INIT_SLICE "/" SPECIAL_INIT_WORKERS_SCOPE);
 
         r = cg_is_empty(SYSTEMD_CGROUP_CONTROLLER, scope_path);
         if (r <= 0)
@@ -236,7 +236,7 @@ int manager_kill_workers(Manager *m) {
 
         assert(m);
 
-        scope_path = strjoina(m->cgroup_root, "/" SPECIAL_INIT_WORKERS_SCOPE);
+        scope_path = strjoina(m->cgroup_root, "/" SPECIAL_INIT_SLICE "/" SPECIAL_INIT_WORKERS_SCOPE);
 
         r = cg_is_empty(SYSTEMD_CGROUP_CONTROLLER, scope_path);
         if (r > 0)

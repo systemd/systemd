@@ -150,6 +150,27 @@ static int slice_load_system_slice(Unit *u) {
         return 1;
 }
 
+static int slice_load_init_slice(Unit *u) {
+        assert(u);
+
+        if (!unit_has_name(u, SPECIAL_INIT_SLICE))
+                return 0;
+
+        u->perpetual = true;
+
+        /* The init slice is a bit special. For example it is always running and cannot be terminated. Because of its
+         * special semantics we synthesize it here, instead of relying on the unit file on disk. */
+
+        u->default_dependencies = false;
+
+        if (!u->description)
+                u->description = strdup("Init Slice");
+        if (!u->documentation)
+                u->documentation = strv_new("man:systemd.special(7)");
+
+        return 1;
+}
+
 static int slice_load(Unit *u) {
         Slice *s = SLICE(u);
         int r;
@@ -161,6 +182,9 @@ static int slice_load(Unit *u) {
         if (r < 0)
                 return r;
         r = slice_load_system_slice(u);
+        if (r < 0)
+                return r;
+        r = slice_load_init_slice(u);
         if (r < 0)
                 return r;
 
@@ -345,6 +369,8 @@ static void slice_enumerate_perpetual(Manager *m) {
 
         if (MANAGER_IS_SYSTEM(m))
                 (void) slice_make_perpetual(m, SPECIAL_SYSTEM_SLICE, NULL);
+
+        (void) slice_make_perpetual(m, SPECIAL_INIT_SLICE, NULL);
 }
 
 static bool slice_freezer_action_supported_by_children(Unit *s) {

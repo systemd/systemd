@@ -3484,8 +3484,8 @@ int unit_set_slice(Unit *u, Unit *slice) {
         if (slice->type != UNIT_SLICE)
                 return -EINVAL;
 
-        if (unit_has_name(u, SPECIAL_INIT_SCOPE) &&
-            !unit_has_name(slice, SPECIAL_ROOT_SLICE))
+        if ((unit_has_name(u, SPECIAL_INIT_SCOPE) || unit_has_name(u, SPECIAL_INIT_WORKERS_SCOPE)) &&
+            !unit_has_name(slice, SPECIAL_INIT_SLICE))
                 return -EPERM;
 
         if (UNIT_GET_SLICE(u) == slice)

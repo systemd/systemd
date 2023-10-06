@@ -1076,7 +1076,9 @@ static int condition_test_psi(Condition *c, char **env) {
 
                 /* Drop init.scope, we want the parent. We could get an empty or / path, but that's fine,
                  * just skip it in that case. */
-                e = endswith(root_scope, "/" SPECIAL_INIT_SCOPE);
+                e = endswith(root_scope, "/" SPECIAL_INIT_SLICE "/" SPECIAL_INIT_SCOPE);
+                if (!e)
+                        e = endswith(root_scope, "/" SPECIAL_INIT_SCOPE);
                 if (e)
                         *e = 0;
                 if (!empty_or_root(root_scope)) {
