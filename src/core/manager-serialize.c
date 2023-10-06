@@ -548,7 +548,7 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                                 deserialize_varlink_sockets = true;
                         }
 
-                        /* To void unnecessary deserialization (i.e. during reload vs. reexec) we only deserialize
+                        /* To avoid unnecessary deserialization (i.e. during reload vs. reexec) we only deserialize
                          * the FDs if we had to create a new m->varlink_server. The deserialize_varlink_sockets flag
                          * is initialized outside of the loop, is flipped after the VarlinkServer is setup, and
                          * remains set until all serialized contents are handled. */
