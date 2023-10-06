@@ -11,6 +11,42 @@
 #include <stddef.h>
 #include <stdint.h>
 
+/* Temporarily disable some warnings */
+#define DISABLE_WARNING_DEPRECATED_DECLARATIONS                         \
+        _Pragma("GCC diagnostic push");                                 \
+        _Pragma("GCC diagnostic ignored \"-Wdeprecated-declarations\"")
+
+#define DISABLE_WARNING_FORMAT_NONLITERAL                               \
+        _Pragma("GCC diagnostic push");                                 \
+        _Pragma("GCC diagnostic ignored \"-Wformat-nonliteral\"")
+
+#define DISABLE_WARNING_MISSING_PROTOTYPES                              \
+        _Pragma("GCC diagnostic push");                                 \
+        _Pragma("GCC diagnostic ignored \"-Wmissing-prototypes\"")
+
+#define DISABLE_WARNING_NONNULL                                         \
+        _Pragma("GCC diagnostic push");                                 \
+        _Pragma("GCC diagnostic ignored \"-Wnonnull\"")
+
+#define DISABLE_WARNING_SHADOW                                          \
+        _Pragma("GCC diagnostic push");                                 \
+        _Pragma("GCC diagnostic ignored \"-Wshadow\"")
+
+#define DISABLE_WARNING_INCOMPATIBLE_POINTER_TYPES                      \
+        _Pragma("GCC diagnostic push");                                 \
+        _Pragma("GCC diagnostic ignored \"-Wincompatible-pointer-types\"")
+
+#define DISABLE_WARNING_TYPE_LIMITS                                     \
+        _Pragma("GCC diagnostic push");                                 \
+        _Pragma("GCC diagnostic ignored \"-Wtype-limits\"")
+
+#define DISABLE_WARNING_ADDRESS                                         \
+        _Pragma("GCC diagnostic push");                                 \
+        _Pragma("GCC diagnostic ignored \"-Waddress\"")
+
+#define REENABLE_WARNING                                                \
+        _Pragma("GCC diagnostic pop")
+
 #define _align_(x) __attribute__((__aligned__(x)))
 #define _alignas_(x) __attribute__((__aligned__(alignof(x))))
 #define _alignptr_ __attribute__((__aligned__(sizeof(void *))))
@@ -383,6 +419,42 @@ static inline size_t ALIGN_TO(size_t l, size_t ali) {
         (v) = UPDATE_FLAG(v, flag, b)
 #define FLAGS_SET(v, flags) \
         ((~(v) & (flags)) == 0)
+
+/* A wrapper for 'func' to return void.
+ * Only useful when a void-returning function is required by some API. */
+#define DEFINE_TRIVIAL_DESTRUCTOR(name, type, func)             \
+        static inline void name(type *p) {                      \
+                func(p);                                        \
+        }
+
+/* When func() returns the void value (NULL, -1, …) of the appropriate type */
+#define DEFINE_TRIVIAL_CLEANUP_FUNC(type, func)                 \
+        static inline void func##p(type *p) {                   \
+                if (*p)                                         \
+                        *p = func(*p);                          \
+        }
+
+/* When func() doesn't return the appropriate type, set variable to empty afterwards.
+ * The func() may be provided by a dynamically loaded shared library, hence add an assertion. */
+#define DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(type, func, empty)     \
+        static inline void func##p(type *p) {                   \
+                if (*p != (empty)) {                            \
+                        DISABLE_WARNING_ADDRESS;                \
+                        assert(func);                           \
+                        REENABLE_WARNING;                       \
+                        func(*p);                               \
+                        *p = (empty);                           \
+                }                                               \
+        }
+
+/* When func() doesn't return the appropriate type, and is also a macro, set variable to empty afterwards. */
+#define DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_MACRO(type, func, empty)       \
+        static inline void func##p(type *p) {                           \
+                if (*p != (empty)) {                                    \
+                        func(*p);                                       \
+                        *p = (empty);                                   \
+                }                                                       \
+        }
 
 /* Declare a flexible array usable in a union.
  * This is essentially a work-around for a pointless constraint in C99
