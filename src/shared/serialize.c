@@ -201,6 +201,23 @@ int deserialize_read_line(FILE *f, char **ret) {
         return 1;
 }
 
+int deserialize_fd(FDSet *fds, const char *value) {
+        _cleanup_close_ int our_fd = -EBADF;
+        int parsed_fd;
+
+        assert(value);
+
+        parsed_fd = parse_fd(value);
+        if (parsed_fd < 0)
+                return log_debug_errno(parsed_fd, "Failed to parse file descriptor serialization: %s", value);
+
+        our_fd = fdset_remove(fds, parsed_fd); /* Take possession of the fd */
+        if (our_fd < 0)
+                return log_debug_errno(our_fd, "Failed to acquire fd from serialization fds: %m");
+
+        return TAKE_FD(our_fd);
+}
+
 int deserialize_strv(char ***l, const char *value) {
         ssize_t unescaped_len;
         char *unescaped;
@@ -288,18 +305,12 @@ int deserialize_pidref(FDSet *fds, const char *value, PidRef *ret) {
 
         e = startswith(value, "@");
         if (e) {
-                _cleanup_close_ int our_fd = -EBADF;
-                int parsed_fd;
+                int fd = deserialize_fd(fds, e);
 
-                parsed_fd = parse_fd(e);
-                if (parsed_fd < 0)
-                        return log_debug_errno(parsed_fd, "Failed to parse file descriptor specification: %s", e);
+                if (fd < 0)
+                        return fd;
 
-                our_fd = fdset_remove(fds, parsed_fd); /* Take possession of the fd */
-                if (our_fd < 0)
-                        return log_debug_errno(our_fd, "Failed to acquire pidfd from serialization fds: %m");
-
-                r = pidref_set_pidfd_consume(ret, TAKE_FD(our_fd));
+                r = pidref_set_pidfd_consume(ret, fd);
         } else {
                 pid_t pid;
 
