@@ -206,7 +206,6 @@ Features:
 
 * PidRef conversion work:
   - pid_is_unwaited() → pidref_is_unwaited()
-  - pid_is_alive() → pidref_is_alive()
   - is_kernel_thread() → pidref_is_kernel_thread()
   - pid_is_my_child() → pidref_is_my_child()
   - get_process_uid() → pidref_get_uid()
