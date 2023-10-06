@@ -3917,23 +3917,23 @@ int config_parse_tasks_max(
                 void *userdata) {
 
         const Unit *u = userdata;
-        TasksMax *tasks_max = data;
+        CGroupTasksMax *tasks_max = data;
         uint64_t v;
         int r;
 
         if (isempty(rvalue)) {
-                *tasks_max = u ? u->manager->defaults.tasks_max : TASKS_MAX_UNSET;
+                *tasks_max = u ? u->manager->defaults.tasks_max : CGROUP_TASKS_MAX_UNSET;
                 return 0;
         }
 
         if (streq(rvalue, "infinity")) {
-                *tasks_max = TASKS_MAX_UNSET;
+                *tasks_max = CGROUP_TASKS_MAX_UNSET;
                 return 0;
         }
 
         r = parse_permyriad(rvalue);
         if (r >= 0)
-                *tasks_max = (TasksMax) { r, 10000U }; /* r‱ */
+                *tasks_max = (CGroupTasksMax) { r, 10000U }; /* r‱ */
         else {
                 r = safe_atou64(rvalue, &v);
                 if (r < 0) {
@@ -3946,7 +3946,7 @@ int config_parse_tasks_max(
                         return 0;
                 }
 
-                *tasks_max = (TasksMax) { v };
+                *tasks_max = (CGroupTasksMax) { v };
         }
 
         return 0;
@@ -4195,7 +4195,7 @@ int config_parse_device_allow(
                 return 0;
         }
 
-        return cgroup_add_device_allow(c, resolved, p);
+        return cgroup_context_add_device_allow(c, resolved, p);
 }
 
 int config_parse_io_device_weight(
@@ -5978,7 +5978,7 @@ int config_parse_bpf_foreign_program(
         if (r < 0)
                 return 0;
 
-        r = cgroup_add_bpf_foreign_program(c, attach_type, resolved);
+        r = cgroup_context_add_bpf_foreign_program(c, attach_type, resolved);
         if (r < 0)
                 return log_error_errno(r, "Failed to add foreign BPF program to cgroup context: %m");
 

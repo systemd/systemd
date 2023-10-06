@@ -3843,10 +3843,7 @@ int unit_coldplug(Unit *u) {
         if (u->nop_job)
                 RET_GATHER(r, job_coldplug(u->nop_job));
 
-        CGroupContext *c = unit_get_cgroup_context(u);
-        if (c)
-                cgroup_modify_nft_set(u, /* add = */ true);
-
+        unit_modify_nft_set(u, /* add = */ true);
         return r;
 }
 
@@ -4385,12 +4382,12 @@ int unit_patch_contexts(Unit *u) {
 
                                 /* When RootImage= or MountImages= is specified, the following devices are touched. */
                                 FOREACH_STRING(p, "/dev/loop-control", "/dev/mapper/control") {
-                                        r = cgroup_add_device_allow(cc, p, "rw");
+                                        r = cgroup_context_add_device_allow(cc, p, "rw");
                                         if (r < 0)
                                                 return r;
                                 }
                                 FOREACH_STRING(p, "block-loop", "block-blkext", "block-device-mapper") {
-                                        r = cgroup_add_device_allow(cc, p, "rwm");
+                                        r = cgroup_context_add_device_allow(cc, p, "rwm");
                                         if (r < 0)
                                                 return r;
                                 }
@@ -4405,14 +4402,14 @@ int unit_patch_contexts(Unit *u) {
                         }
 
                         if (ec->protect_clock) {
-                                r = cgroup_add_device_allow(cc, "char-rtc", "r");
+                                r = cgroup_context_add_device_allow(cc, "char-rtc", "r");
                                 if (r < 0)
                                         return r;
                         }
 
                         /* If there are encrypted credentials we might need to access the TPM. */
                         if (exec_context_has_encrypted_credentials(ec)) {
-                                r = cgroup_add_device_allow(cc, "char-tpm", "rw");
+                                r = cgroup_context_add_device_allow(cc, "char-tpm", "rw");
                                 if (r < 0)
                                         return r;
                         }
