@@ -16,8 +16,8 @@ measurements listed below are (by default) only done if a system is booted with
 to systemd's UEFI-mode measurements, and if the latter are not done the former
 aren't made either.
 
-systemd will measure to PCRs 11 (`kernel-boot`), 12 (`kernel-config`), 13
-(`sysexts`), 15 (`system-identity`).
+systemd will measure to PCRs 5 (`boot-loader-config`), 11 (`kernel-boot`),
+12 (`kernel-config`), 13 (`sysexts`), 15 (`system-identity`).
 
 Currently, four components will issue TPM2 PCR measurements:
 
@@ -30,6 +30,17 @@ A userspace measurement event log in a format close to TCG CEL-JSON is
 maintained in `/run/log/systemd/tpm2-measure.log`.
 
 ## PCR Measurements Made by `systemd-boot` (UEFI)
+
+### PCS 5, `EV_EVENT_TAG`, "loader.conf"
+
+The content of `systemd-boot`'s configuration file, `loader/loader.conf`, is
+measured as a tagged event.
+
+→ **Event Tag** `0xf5bc582a`
+
+→ **Description** in the event log record is the file name, `loader.conf`.
+
+→ **Measured hash** covers the content of `loader.conf` as it is read from the ESP.
 
 ### PCR 12, `EV_IPL`, "Kernel Command Line"
 
