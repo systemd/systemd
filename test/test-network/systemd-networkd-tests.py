@@ -761,7 +761,11 @@ def setUpModule():
     save_timezone()
 
     create_service_dropin('systemd-networkd', networkd_bin,
-                          ['[Service]', 'Restart=no', '[Unit]', 'StartLimitIntervalSec=0'])
+                          ['[Service]',
+                           'Restart=no',
+                           'Environment=SYSTEMD_NETWORK_TEST_MODE=yes',
+                           '[Unit]',
+                           'StartLimitIntervalSec=0'])
     create_service_dropin('systemd-resolved', resolved_bin)
     create_service_dropin('systemd-timesyncd', timesyncd_bin)
 
@@ -5099,7 +5103,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
 
         start_networkd()
         self.wait_online(['veth-peer:carrier'])
-        start_dnsmasq()
+        start_dnsmasq('--dhcp-option=option:ipv6-only,300')
         self.wait_online(['veth99:routable', 'veth-peer:routable'])
 
         # checking address
@@ -5131,7 +5135,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
             f.write('\n[DHCPv6]\nRapidCommit=no\n')
 
         stop_dnsmasq()
-        start_dnsmasq()
+        start_dnsmasq('--dhcp-option=option:ipv6-only,300')
 
         networkctl_reload()
         self.wait_online(['veth99:routable', 'veth-peer:routable'])
@@ -5164,15 +5168,29 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         # Note that at this point the DHCPv6 client has not been started because no RA (with managed
         # bit set) has yet been received and the configuration does not include WithoutRA=true
         state = get_dhcp6_client_state('veth99')
-        print(f"State = {state}")
+        print(f"DHCPv6 client state = {state}")
         self.assertEqual(state, 'stopped')
 
-        start_dnsmasq()
+        state = get_dhcp4_client_state('veth99')
+        print(f"DHCPv4 client state = {state}")
+        self.assertEqual(state, 'selecting')
+
+        start_dnsmasq('--dhcp-option=option:ipv6-only,300')
         self.wait_online(['veth99:routable', 'veth-peer:routable'])
 
         state = get_dhcp6_client_state('veth99')
-        print(f"State = {state}")
+        print(f"DHCPv6 client state = {state}")
         self.assertEqual(state, 'bound')
+
+        # DHCPv4 client will stop after an DHCPOFFER message received, so we need to wait for a while.
+        for _ in range(100):
+            state = get_dhcp4_client_state('veth99')
+            if state == 'stopped':
+                break
+            time.sleep(.2)
+
+        print(f"DHCPv4 client state = {state}")
+        self.assertEqual(state, 'stopped')
 
     def test_dhcp_client_ipv6_only_with_custom_client_identifier(self):
         copy_network_unit('25-veth.netdev', '25-dhcp-server-veth-peer.network', '25-dhcp-client-ipv6-only-custom-client-identifier.network')
@@ -5414,6 +5432,18 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
                       ipv4_range='192.168.5.110,192.168.5.119')
         self.wait_online(['veth99:routable', 'veth-peer:routable'])
         self.wait_address('veth99', r'inet 192.168.5.11[0-9]*/24', ipv='-4')
+
+        state = get_dhcp4_client_state('veth99')
+        print(f"State = {state}")
+        self.assertEqual(state, 'bound')
+
+    def test_dhcp_client_ipv6_only_mode_without_ipv6_connectivity(self):
+        copy_network_unit('25-veth.netdev',
+                          '25-dhcp-server-ipv6-only-mode.network',
+                          '25-dhcp-client-ipv6-only-mode.network')
+        start_networkd()
+        self.wait_online(['veth99:routable', 'veth-peer:routable'], timeout='40s')
+        self.wait_address('veth99', r'inet 192.168.5.[0-9]*/24', ipv='-4')
 
         state = get_dhcp4_client_state('veth99')
         print(f"State = {state}")
