@@ -631,7 +631,8 @@ int dynamic_user_serialize(Manager *m, FILE *f, FDSet *fds) {
 
 void dynamic_user_deserialize_one(Manager *m, const char *value, FDSet *fds) {
         _cleanup_free_ char *name = NULL, *s0 = NULL, *s1 = NULL;
-        int r, fd0, fd1;
+        _cleanup_close_ int fd0 = -EBADF, fd1 = -EBADF;
+        int r;
 
         assert(m);
         assert(value);
@@ -645,15 +646,13 @@ void dynamic_user_deserialize_one(Manager *m, const char *value, FDSet *fds) {
                 return;
         }
 
-        if ((fd0 = parse_fd(s0)) < 0 || !fdset_contains(fds, fd0)) {
-                log_debug("Unable to process dynamic user fd specification.");
+        fd0 = deserialize_fd(fds, s0);
+        if (fd0 < 0)
                 return;
-        }
 
-        if ((fd1 = parse_fd(s1)) < 0 || !fdset_contains(fds, fd1)) {
-                log_debug("Unable to process dynamic user fd specification.");
+        fd1 = deserialize_fd(fds, s1);
+        if (fd1 < 0)
                 return;
-        }
 
         r = dynamic_user_add(m, name, (int[]) { fd0, fd1 }, NULL);
         if (r < 0) {
@@ -661,8 +660,8 @@ void dynamic_user_deserialize_one(Manager *m, const char *value, FDSet *fds) {
                 return;
         }
 
-        (void) fdset_remove(fds, fd0);
-        (void) fdset_remove(fds, fd1);
+        TAKE_FD(fd0);
+        TAKE_FD(fd1);
 }
 
 void dynamic_user_vacuum(Manager *m, bool close_user) {
