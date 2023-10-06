@@ -1146,6 +1146,8 @@ int boot_config_augment_from_loader(
                 "auto-efi-shell",                "EFI Shell",
                 "auto-efi-default",              "EFI Default Loader",
                 "auto-reboot-to-firmware-setup", "Reboot Into Firmware Interface",
+                "auto-shutdown",                 "Shutdown The System",
+                "auto-reboot",                   "Reboot The System",
                 NULL,
         };
 
