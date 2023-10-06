@@ -21,6 +21,7 @@ executables += [
         executable_template + {
                 'name' : 'systemd-vmspawn',
                 'public' : true,
+                'conditions': ['ENABLE_VMSPAWN'],
                 'sources' : files('vmspawn.c'),
                 'link_with' : vmspawn_libs,
         }
