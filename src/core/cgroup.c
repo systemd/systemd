@@ -526,7 +526,8 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 "%sManagedOOMMemoryPressure: %s\n"
                 "%sManagedOOMMemoryPressureLimit: " PERMYRIAD_AS_PERCENT_FORMAT_STR "\n"
                 "%sManagedOOMPreference: %s\n"
-                "%sMemoryPressureWatch: %s\n",
+                "%sMemoryPressureWatch: %s\n"
+                "%sCoredumpReceive: %s\n",
                 prefix, yes_no(c->cpu_accounting),
                 prefix, yes_no(c->io_accounting),
                 prefix, yes_no(c->blockio_accounting),
@@ -569,7 +570,8 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 prefix, managed_oom_mode_to_string(c->moom_mem_pressure),
                 prefix, PERMYRIAD_AS_PERCENT_FORMAT_VAL(UINT32_SCALE_TO_PERMYRIAD(c->moom_mem_pressure_limit)),
                 prefix, managed_oom_preference_to_string(c->moom_preference),
-                prefix, cgroup_pressure_watch_to_string(c->memory_pressure_watch));
+                prefix, cgroup_pressure_watch_to_string(c->memory_pressure_watch),
+                prefix, yes_no(c->coredump_receive));
 
         if (c->delegate_subgroup)
                 fprintf(f, "%sDelegateSubgroup: %s\n",
@@ -886,6 +888,21 @@ int cgroup_log_xattr_apply(Unit *u, const char *cgroup_path) {
         return 0;
 }
 
+static void cgroup_coredump_xattr_apply(Unit *u, const char *cgroup_path) {
+        CGroupContext *c;
+
+        assert(u);
+
+        c = unit_get_cgroup_context(u);
+        if (!c)
+                return;
+
+        if (unit_cgroup_delegate(u) && c->coredump_receive)
+                unit_set_xattr_graceful(u, cgroup_path, "user.coredump_receive", "1", 1);
+        else
+                unit_remove_xattr_graceful(u, cgroup_path, "user.coredump_receive");
+}
+
 static void cgroup_xattr_apply(Unit *u) {
         bool b;
         int r;
@@ -895,6 +912,7 @@ static void cgroup_xattr_apply(Unit *u) {
         /* The 'user.*' xattrs can be set from a user manager. */
         cgroup_oomd_xattr_apply(u, u->cgroup_path);
         cgroup_log_xattr_apply(u, u->cgroup_path);
+        cgroup_coredump_xattr_apply(u, u->cgroup_path);
 
         if (!MANAGER_IS_SYSTEM(u->manager))
                 return;
