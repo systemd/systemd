@@ -1083,7 +1083,7 @@ static int tpm2_get_legacy_template(TPMI_ALG_PUBLIC alg, TPMT_PUBLIC *ret_templa
  *
  * These templates are only needed to create a new persistent SRK (or a new transient key that is
  * SRK-compatible). Preferably, the TPM should contain a shared SRK located at the reserved shared SRK handle
- * (see TPM2_SRK_HANDLE and tpm2_get_srk() below).
+ * (see TPM2_SRK_HANDLE in tpm2-util.h, and tpm2_get_srk() below).
  *
  * The alg must be TPM2_ALG_RSA or TPM2_ALG_ECC. Returns error if the requested template is not supported on
  * this TPM. Also see tpm2_get_best_srk_template() below. */
@@ -1181,14 +1181,6 @@ static int tpm2_get_best_srk_template(Tpm2Context *c, TPMT_PUBLIC *ret_template)
         return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                "TPM does not support either SRK template L-1 (RSA) or L-2 (ECC).");
 }
-
-/* The SRK handle is defined in the Provisioning Guidance document (see above) in the table "Reserved Handles
- * for TPM Provisioning Fundamental Elements". The SRK is useful because it is "shared", meaning it has no
- * authValue nor authPolicy set, and thus may be used by anyone on the system to generate derived keys or
- * seal secrets. This is useful if the TPM has an auth (password) set for the 'owner hierarchy', which would
- * prevent users from generating primary transient keys, unless they knew the owner hierarchy auth. See
- * the Provisioning Guidance document for more details. */
-#define TPM2_SRK_HANDLE UINT32_C(0x81000001)
 
 /* Get the SRK. Returns 1 if SRK is found, 0 if there is no SRK, or < 0 on error. Also see
  * tpm2_get_or_create_srk() below. */
