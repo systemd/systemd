@@ -56,6 +56,7 @@ int pidref_kill_and_sigcont(PidRef *pidref, int sig);
 int pidref_sigqueue(PidRef *pidfref, int sig, int value);
 
 int pidref_verify(PidRef *pidref);
+int pidref_is_alive(PidRef *pidref);
 
 #define TAKE_PIDREF(p) TAKE_GENERIC((p), PidRef, PIDREF_NULL)
 

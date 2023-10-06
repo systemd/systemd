@@ -938,6 +938,51 @@ TEST(is_reaper_process) {
         }
 }
 
+TEST(pidref_is_alive) {
+        _cleanup_(pidref_done) PidRef p = PIDREF_NULL;
+        int pidfd = -EBADF, r;
+        pid_t child;
+
+        r = safe_fork("(alive)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_CLOSE_ALL_FDS, &child);
+        assert_se(r >= 0);
+
+        if (r == 0) {
+                sleep(3600);
+                _exit(EXIT_SUCCESS);
+        }
+
+        pidfd = pidfd_open(child, 0);
+        if (pidfd < 0)
+                /* Syscall is either not implemented or was denied by seccomp filter if we run in some sort of container. */
+                assert_se(ERRNO_IS_NOT_SUPPORTED(errno) || ERRNO_IS_PRIVILEGE(errno));
+        else
+                assert_se(pidref_set_pidfd_consume(&p, pidfd) == 0);
+
+        assert_se(pidref_set_pid(&p, child) == 0);
+        assert_se(pidref_is_alive(&p));
+        pidref_done(&p);
+
+        r = safe_fork("(zombie)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_CLOSE_ALL_FDS, &child);
+        assert_se(r >= 0);
+
+        if (r == 0)
+                _exit(EXIT_SUCCESS);
+
+        pidfd = pidfd_open(child, 0);
+        if (pidfd < 0)
+                assert_se(ERRNO_IS_NOT_SUPPORTED(errno) || ERRNO_IS_PRIVILEGE(errno));
+        else
+                assert_se(pidref_set_pidfd_consume(&p, pidfd) == 0);
+
+        assert_se(pidref_set_pid(&p, child) == 0);
+
+        /* Make sure child had enough time to exit. */
+        sleep(1);
+
+        assert_se(pidref_is_alive(&p) == 0);
+        pidref_done(&p);
+}
+
 static int intro(void) {
         log_show_color(true);
         return EXIT_SUCCESS;
