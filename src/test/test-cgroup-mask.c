@@ -58,7 +58,7 @@ TEST_RET(cgroup_mask, .sd_booted = true) {
                 m->defaults.blockio_accounting =
                 m->defaults.io_accounting =
                 m->defaults.tasks_accounting = false;
-        m->defaults.tasks_max = TASKS_MAX_UNSET;
+        m->defaults.tasks_max = CGROUP_TASKS_MAX_UNSET;
 
         assert_se(manager_startup(m, NULL, NULL, NULL) >= 0);
 
