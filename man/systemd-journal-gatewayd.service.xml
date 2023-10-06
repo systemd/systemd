@@ -199,6 +199,15 @@
       </varlistentry>
 
       <varlistentry>
+        <term><uri>/fields</uri></term>
+
+        <listitem><para>Return the list of fields present in the logs.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><uri>/fields/<replaceable>FIELD_NAME</replaceable></uri></term>
 
         <listitem><para>Return a list of values of this field present in the logs.</para>
