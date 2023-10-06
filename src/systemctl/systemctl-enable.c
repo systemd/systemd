@@ -252,7 +252,7 @@ int verb_enable(int argc, char *argv[], void *userdata) {
                            "Also=, or Alias= settings in the [Install] section, and DefaultInstance= for\n"
                            "template units). This means they are not meant to be enabled or disabled using systemctl.\n"
                            " \n" /* trick: the space is needed so that the line does not get stripped from output */
-                           "Possible reasons for having this kind of units are:\n"
+                           "Possible reasons for having these kinds of units are:\n"
                            "%1$s A unit may be statically enabled by being symlinked from another unit's\n"
                            "  .wants/, .requires/, or .upholds/ directory.\n"
                            "%1$s A unit's purpose may be to act as a helper for some other unit which has\n"
