@@ -251,6 +251,9 @@ typedef enum CGroupIOAccountingMetric {
 
 typedef struct Unit Unit;
 typedef struct Manager Manager;
+typedef enum ManagerState ManagerState;
+
+uint64_t cgroup_context_cpu_weight(CGroupContext *c, ManagerState state);
 
 usec_t cgroup_cpu_adjust_period(usec_t period, usec_t quota, usec_t resolution, usec_t max_period);
 
@@ -374,8 +377,6 @@ CGroupDevicePolicy cgroup_device_policy_from_string(const char *s) _pure_;
 void unit_cgroup_catchup(Unit *u);
 
 bool unit_cgroup_delegate(Unit *u);
-
-int compare_job_priority(const void *a, const void *b);
 
 int unit_get_cpuset(Unit *u, CPUSet *cpus, const char *name);
 int unit_cgroup_freezer_action(Unit *u, FreezerAction action);
