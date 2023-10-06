@@ -19,22 +19,29 @@
 #define PAYLOAD_BUFFER_SIZE (16U * 1024U)
 #define MINIMUM_HOLE_SIZE (1U * 1024U * 1024U / 2U)
 
-static int journal_file_truncate(JournalFile *f) {
-        uint64_t p;
+static int journal_file_end_punch_hole(JournalFile *f) {
+        uint64_t p, sz;
         int r;
 
-        /* truncate excess from the end of archives */
         r = journal_file_tail_end_by_pread(f, &p);
         if (r < 0)
                 return log_debug_errno(r, "Failed to determine end of tail object: %m");
 
-        /* arena_size can't exceed the file size, ensure it's updated before truncating */
-        f->header->arena_size = htole64(p - le64toh(f->header->header_size));
+        assert(p <= (uint64_t) f->last_stat.st_size);
 
-        if (ftruncate(f->fd, p) < 0)
-                return log_debug_errno(errno, "Failed to truncate %s: %m", f->path);
+        sz = ((uint64_t) f->last_stat.st_size) - p;
+        if (sz < MINIMUM_HOLE_SIZE)
+                return 0;
 
-        return journal_file_fstat(f);
+        if (fallocate(f->fd, FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE, p, sz) < 0) {
+                if (ERRNO_IS_NOT_SUPPORTED(errno))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), /* Make recognizable */
+                                               "Hole punching not supported by backing file system, skipping.");
+
+                return log_debug_errno(errno, "Failed to punch hole at end of journal file %s: %m", f->path);
+        }
+
+        return 0;
 }
 
 static int journal_file_entry_array_punch_hole(JournalFile *f, uint64_t p, uint64_t n_entries) {
@@ -72,25 +79,6 @@ static int journal_file_entry_array_punch_hole(JournalFile *f, uint64_t p, uint6
 
         if (sz < MINIMUM_HOLE_SIZE)
                 return 0;
-
-        if (p == le64toh(f->header->tail_object_offset) && !JOURNAL_HEADER_SEALED(f->header)) {
-                ssize_t n;
-
-                o.object.size = htole64(offset - p);
-
-                n = pwrite(f->fd, &o, sizeof(EntryArrayObject), p);
-                if (n < 0)
-                        return log_debug_errno(errno, "Failed to modify entry array object size: %m");
-                if ((size_t) n != sizeof(EntryArrayObject))
-                        return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Short pwrite() while modifying entry array object size.");
-
-                f->header->arena_size = htole64(ALIGN64(offset) - le64toh(f->header->header_size));
-
-                if (ftruncate(f->fd, ALIGN64(offset)) < 0)
-                        return log_debug_errno(errno, "Failed to truncate %s: %m", f->path);
-
-                return 0;
-        }
 
         if (fallocate(f->fd, FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE, offset, sz) < 0) {
                 if (ERRNO_IS_NOT_SUPPORTED(errno))
@@ -192,7 +180,7 @@ static void journal_file_set_offline_internal(JournalFile *f) {
 
                 case OFFLINE_SYNCING:
                         if (f->archive) {
-                                (void) journal_file_truncate(f);
+                                (void) journal_file_end_punch_hole(f);
                                 (void) journal_file_punch_holes(f);
                         }
 
@@ -346,9 +334,14 @@ int journal_file_set_offline(JournalFile *f, bool wait) {
         /* Initiate a new offline. */
         f->offline_state = OFFLINE_SYNCING;
 
-        if (wait) /* Without using a thread if waiting. */
+        if (wait) {
+                /* Without using a thread if waiting. */
                 journal_file_set_offline_internal(f);
-        else {
+
+                assert(f->offline_state == OFFLINE_DONE);
+                f->offline_state = OFFLINE_JOINED;
+
+        } else {
                 sigset_t ss, saved_ss;
                 int k;
 
