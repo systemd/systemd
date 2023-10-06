@@ -84,6 +84,7 @@
 #include "seccomp-util.h"
 #include "securebits-util.h"
 #include "selinux-util.h"
+#include "serialize.h"
 #include "signal-util.h"
 #include "smack-util.h"
 #include "socket-util.h"
@@ -6806,27 +6807,14 @@ int exec_shared_runtime_deserialize_compat(Unit *u, const char *key, const char 
                         return -ENOMEM;
 
         } else if (streq(key, "netns-socket-0")) {
-                int fd;
-
-                if ((fd = parse_fd(value)) < 0 || !fdset_contains(fds, fd)) {
-                        log_unit_debug(u, "Failed to parse netns socket value: %s", value);
-                        return 0;
-                }
 
                 safe_close(rt->netns_storage_socket[0]);
-                rt->netns_storage_socket[0] = fdset_remove(fds, fd);
+                rt->netns_storage_socket[0] = deserialize_fd(fds, value);
 
         } else if (streq(key, "netns-socket-1")) {
-                int fd;
-
-                if ((fd = parse_fd(value)) < 0 || !fdset_contains(fds, fd)) {
-                        log_unit_debug(u, "Failed to parse netns socket value: %s", value);
-                        return 0;
-                }
 
                 safe_close(rt->netns_storage_socket[1]);
-                rt->netns_storage_socket[1] = fdset_remove(fds, fd);
-
+                rt->netns_storage_socket[1] = deserialize_fd(fds, value);
         } else
                 return 0;
 
@@ -6892,13 +6880,7 @@ int exec_shared_runtime_deserialize_one(Manager *m, const char *value, FDSet *fd
                 n = strcspn(v, " ");
                 buf = strndupa_safe(v, n);
 
-                netns_fdpair[0] = parse_fd(buf);
-                if (netns_fdpair[0] < 0)
-                        return log_debug_errno(netns_fdpair[0], "Unable to parse exec-runtime specification netns-socket-0=%s: %m", buf);
-                if (!fdset_contains(fds, netns_fdpair[0]))
-                        return log_debug_errno(SYNTHETIC_ERRNO(EBADF),
-                                               "exec-runtime specification netns-socket-0= refers to unknown fd %d: %m", netns_fdpair[0]);
-                netns_fdpair[0] = fdset_remove(fds, netns_fdpair[0]);
+                netns_fdpair[0] = deserialize_fd(fds, buf);
                 if (v[n] != ' ')
                         goto finalize;
                 p = v + n + 1;
@@ -6911,13 +6893,7 @@ int exec_shared_runtime_deserialize_one(Manager *m, const char *value, FDSet *fd
                 n = strcspn(v, " ");
                 buf = strndupa_safe(v, n);
 
-                netns_fdpair[1] = parse_fd(buf);
-                if (netns_fdpair[1] < 0)
-                        return log_debug_errno(netns_fdpair[1], "Unable to parse exec-runtime specification netns-socket-1=%s: %m", buf);
-                if (!fdset_contains(fds, netns_fdpair[1]))
-                        return log_debug_errno(SYNTHETIC_ERRNO(EBADF),
-                                               "exec-runtime specification netns-socket-1= refers to unknown fd %d: %m", netns_fdpair[1]);
-                netns_fdpair[1] = fdset_remove(fds, netns_fdpair[1]);
+                netns_fdpair[1] = deserialize_fd(fds, buf);
                 if (v[n] != ' ')
                         goto finalize;
                 p = v + n + 1;
@@ -6930,13 +6906,7 @@ int exec_shared_runtime_deserialize_one(Manager *m, const char *value, FDSet *fd
                 n = strcspn(v, " ");
                 buf = strndupa_safe(v, n);
 
-                ipcns_fdpair[0] = parse_fd(buf);
-                if (ipcns_fdpair[0] < 0)
-                        return log_debug_errno(ipcns_fdpair[0], "Unable to parse exec-runtime specification ipcns-socket-0=%s: %m", buf);
-                if (!fdset_contains(fds, ipcns_fdpair[0]))
-                        return log_debug_errno(SYNTHETIC_ERRNO(EBADF),
-                                               "exec-runtime specification ipcns-socket-0= refers to unknown fd %d: %m", ipcns_fdpair[0]);
-                ipcns_fdpair[0] = fdset_remove(fds, ipcns_fdpair[0]);
+                ipcns_fdpair[0] = deserialize_fd(fds, buf);
                 if (v[n] != ' ')
                         goto finalize;
                 p = v + n + 1;
@@ -6949,13 +6919,7 @@ int exec_shared_runtime_deserialize_one(Manager *m, const char *value, FDSet *fd
                 n = strcspn(v, " ");
                 buf = strndupa_safe(v, n);
 
-                ipcns_fdpair[1] = parse_fd(buf);
-                if (ipcns_fdpair[1] < 0)
-                        return log_debug_errno(ipcns_fdpair[1], "Unable to parse exec-runtime specification ipcns-socket-1=%s: %m", buf);
-                if (!fdset_contains(fds, ipcns_fdpair[1]))
-                        return log_debug_errno(SYNTHETIC_ERRNO(EBADF),
-                                               "exec-runtime specification ipcns-socket-1= refers to unknown fd %d: %m", ipcns_fdpair[1]);
-                ipcns_fdpair[1] = fdset_remove(fds, ipcns_fdpair[1]);
+                ipcns_fdpair[1] = deserialize_fd(fds, buf);
         }
 
 finalize:
