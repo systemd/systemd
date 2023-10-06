@@ -201,7 +201,24 @@ int deserialize_read_line(FILE *f, char **ret) {
         return 1;
 }
 
-int deserialize_strv(char ***l, const char *value) {
+int deserialize_fd(FDSet *fds, const char *value) {
+        _cleanup_close_ int our_fd = -EBADF;
+        int parsed_fd;
+
+        assert(value);
+
+        parsed_fd = parse_fd(value);
+        if (parsed_fd < 0)
+                return log_debug_errno(parsed_fd, "Failed to parse file descriptor serialization: %s", value);
+
+        our_fd = fdset_remove(fds, parsed_fd); /* Take possession of the fd */
+        if (our_fd < 0)
+                return log_debug_errno(our_fd, "Failed to acquire pidfd from serialization fds: %m");
+
+        return TAKE_FD(our_fd);
+}
+
+int deserialize_strv(const char *value, char ***l) {
         ssize_t unescaped_len;
         char *unescaped;
 
@@ -219,6 +236,7 @@ int deserialize_usec(const char *value, usec_t *ret) {
         int r;
 
         assert(value);
+        assert(ret);
 
         r = safe_atou64(value, ret);
         if (r < 0)
@@ -227,12 +245,12 @@ int deserialize_usec(const char *value, usec_t *ret) {
         return 0;
 }
 
-int deserialize_dual_timestamp(const char *value, dual_timestamp *t) {
+int deserialize_dual_timestamp(const char *value, dual_timestamp *ret) {
         uint64_t a, b;
         int r, pos;
 
         assert(value);
-        assert(t);
+        assert(ret);
 
         pos = strspn(value, WHITESPACE);
         if (value[pos] == '-')
@@ -252,8 +270,10 @@ int deserialize_dual_timestamp(const char *value, dual_timestamp *t) {
                 /* trailing garbage */
                 return -EINVAL;
 
-        t->realtime = a;
-        t->monotonic = b;
+        *ret = (dual_timestamp) {
+                .realtime = a,
+                .monotonic = b,
+        };
 
         return 0;
 }
@@ -288,18 +308,12 @@ int deserialize_pidref(FDSet *fds, const char *value, PidRef *ret) {
 
         e = startswith(value, "@");
         if (e) {
-                _cleanup_close_ int our_fd = -EBADF;
-                int parsed_fd;
+                int fd = deserialize_fd(fds, e);
 
-                parsed_fd = parse_fd(e);
-                if (parsed_fd < 0)
-                        return log_debug_errno(parsed_fd, "Failed to parse file descriptor specification: %s", e);
+                if (fd < 0)
+                        return fd;
 
-                our_fd = fdset_remove(fds, parsed_fd); /* Take possession of the fd */
-                if (our_fd < 0)
-                        return log_debug_errno(our_fd, "Failed to acquire pidfd from serialization fds: %m");
-
-                r = pidref_set_pidfd_consume(ret, TAKE_FD(our_fd));
+                r = pidref_set_pidfd_consume(ret, fd);
         } else {
                 pid_t pid;
 
