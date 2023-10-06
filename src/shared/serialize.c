@@ -324,6 +324,7 @@ int deserialize_usec(const char *value, usec_t *ret) {
         int r;
 
         assert(value);
+        assert(ret);
 
         r = safe_atou64(value, ret);
         if (r < 0)
@@ -332,12 +333,12 @@ int deserialize_usec(const char *value, usec_t *ret) {
         return 0;
 }
 
-int deserialize_dual_timestamp(const char *value, dual_timestamp *t) {
+int deserialize_dual_timestamp(const char *value, dual_timestamp *ret) {
         uint64_t a, b;
         int r, pos;
 
         assert(value);
-        assert(t);
+        assert(ret);
 
         pos = strspn(value, WHITESPACE);
         if (value[pos] == '-')
@@ -357,8 +358,10 @@ int deserialize_dual_timestamp(const char *value, dual_timestamp *t) {
                 /* trailing garbage */
                 return -EINVAL;
 
-        t->realtime = a;
-        t->monotonic = b;
+        *ret = (dual_timestamp) {
+                .realtime = a,
+                .monotonic = b,
+        };
 
         return 0;
 }
