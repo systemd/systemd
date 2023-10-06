@@ -36,23 +36,24 @@ static int happy_finder(sd_bus *bus, const char *path, const char *interface, vo
 }
 
 static void test_vtable(void) {
-        sd_bus *bus = NULL;
+        _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
         int r;
 
-        assert(sd_bus_new(&bus) >= 0);
+        assert_se(sd_bus_new(&bus) >= 0);
 
-        assert(sd_bus_add_object_vtable(bus, NULL, "/foo", "org.freedesktop.systemd.testVtable", test_vtable_2, &c) >= 0);
-        assert(sd_bus_add_object_vtable(bus, NULL, "/foo", "org.freedesktop.systemd.testVtable2", test_vtable_2, &c) >= 0);
+        assert_se(sd_bus_add_object_vtable(bus, NULL, "/foo", "org.freedesktop.systemd.testVtable", test_vtable_2, &c) >= 0);
+        assert_se(sd_bus_add_object_vtable(bus, NULL, "/foo", "org.freedesktop.systemd.testVtable2", test_vtable_2, &c) >= 0);
         /* the cast on the line below is needed to test with the old version of the table */
-        assert(sd_bus_add_object_vtable(bus, NULL, "/foo", "org.freedesktop.systemd.testVtable221",
-                                        (const sd_bus_vtable *)vtable_format_221, &c) >= 0);
+        assert_se(sd_bus_add_object_vtable(bus, NULL, "/foo", "org.freedesktop.systemd.testVtable221",
+                                           (const sd_bus_vtable *)vtable_format_221, &c) >= 0);
 
-        assert(sd_bus_add_fallback_vtable(bus, NULL, "/fallback", "org.freedesktop.systemd.testVtable2", test_vtable_2, happy_finder, &c) >= 0);
+        assert_se(sd_bus_add_fallback_vtable(bus, NULL, "/fallback", "org.freedesktop.systemd.testVtable2",
+                                             test_vtable_2, happy_finder, &c) >= 0);
 
-        assert(sd_bus_set_address(bus, DEFAULT_BUS_PATH) >= 0);
+        assert_se(sd_bus_set_address(bus, DEFAULT_BUS_PATH) >= 0);
         r = sd_bus_start(bus);
-        assert(r == 0 ||     /* success */
-               r == -ENOENT  /* dbus is inactive */ );
+        assert(IN_SET(r, 0,          /* success */
+                         -ENOENT));  /* dbus is inactive */
 
 #ifndef __cplusplus
         _cleanup_free_ char *s, *s2;
@@ -65,8 +66,6 @@ static void test_vtable(void) {
 
         assert_se(happy_finder_object == 1);
 #endif
-
-        sd_bus_unref(bus);
 }
 
 int main(int argc, char **argv) {
