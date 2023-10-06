@@ -20,19 +20,24 @@ static int parse_timeout(const char *arg1, char16_t **ret_timeout, size_t *ret_t
         assert(ret_timeout);
         assert(ret_timeout_size);
 
-        if (streq(arg1, "menu-force"))
-                timeout = USEC_INFINITY;
-        else if (streq(arg1, "menu-hidden"))
-                timeout = 0;
-        else {
+        assert_cc(STRLEN("menu-disabled") < ELEMENTSOF(utf8));
+        assert_cc(STRLEN("menu-force") < ELEMENTSOF(utf8));
+        assert_cc(STRLEN("menu-hidden") < ELEMENTSOF(utf8));
+
+        if (streq(arg1, "menu-disabled") || streq(arg1, "menu-force") || streq(arg1, "menu-hidden")) {
+                xsprintf(utf8, "%s", arg1);
+        } else {
                 r = parse_time(arg1, &timeout, USEC_PER_SEC);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse timeout '%s': %m", arg1);
-                if (timeout != USEC_INFINITY && timeout > UINT32_MAX * USEC_PER_SEC)
-                        log_warning("Timeout is too long and will be treated as 'menu-force' instead.");
-        }
 
-        xsprintf(utf8, USEC_FMT, MIN(timeout / USEC_PER_SEC, UINT32_MAX));
+                if (timeout != USEC_INFINITY && timeout > UINT32_MAX * USEC_PER_SEC) {
+                        log_warning("Timeout is too long and will be treated as 'menu-force' instead.");
+                        xsprintf(utf8, "menu-force");
+                } else {
+                        xsprintf(utf8, USEC_FMT, timeout / USEC_PER_SEC);
+                }
+        }
 
         encoded = utf8_to_utf16(utf8, SIZE_MAX);
         if (!encoded)
