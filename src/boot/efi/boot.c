@@ -1117,29 +1117,28 @@ static void config_add_entry(Config *config, ConfigEntry *entry) {
         config->entries[config->n_entries++] = entry;
 }
 
-static void config_entry_free(ConfigEntry *entry) {
-        if (!entry)
-                return;
+static ConfigEntry* config_entry_free(ConfigEntry *entry) {
+        if (entry) {
+                free(entry->id);
+                free(entry->title_show);
+                free(entry->title);
+                free(entry->sort_key);
+                free(entry->version);
+                free(entry->machine_id);
+                free(entry->loader);
+                free(entry->devicetree);
+                free(entry->options);
+                strv_free(entry->initrd);
+                free(entry->path);
+                free(entry->current_name);
+                free(entry->next_name);
+                free(entry);
+        }
 
-        free(entry->id);
-        free(entry->title_show);
-        free(entry->title);
-        free(entry->sort_key);
-        free(entry->version);
-        free(entry->machine_id);
-        free(entry->loader);
-        free(entry->devicetree);
-        free(entry->options);
-        strv_free(entry->initrd);
-        free(entry->path);
-        free(entry->current_name);
-        free(entry->next_name);
-        free(entry);
+        return mfree(entry);
 }
 
-static void config_entry_freep(ConfigEntry **entry) {
-        config_entry_free(*entry);
-}
+DEFINE_TRIVIAL_CLEANUP_FUNC(ConfigEntry *, config_entry_free);
 
 static char *line_get_key_value(
                 char *content,
