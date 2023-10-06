@@ -1594,6 +1594,7 @@ foreach term : ['analyze',
                 'userdb',
                 'utmp',
                 'vconsole',
+                'vmspawn',
                 'xdg-autostart']
         have = get_option(term)
         name = 'ENABLE_' + term.underscorify().to_upper()
@@ -2788,6 +2789,7 @@ foreach tuple : [
         ['tmpfiles'],
         ['userdb'],
         ['vconsole'],
+        ['vmspawn'],
         ['xdg-autostart'],
 
         # optional features
