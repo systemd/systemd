@@ -54,6 +54,8 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
         int res, r;
 
+        assert_se(setenv("SYSTEMD_NETWORK_TEST_MODE", "1", 1) >= 0);
+
         if (!getenv("SYSTEMD_LOG_LEVEL"))
                 log_set_max_level(LOG_CRIT);
 
@@ -68,7 +70,6 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
         assert_se(sd_dhcp_client_set_ifindex(client, 42) >= 0);
         assert_se(sd_dhcp_client_set_mac(client, mac_addr, bcast_addr, ETH_ALEN, ARPHRD_ETHER) >= 0);
-        dhcp_client_set_test_mode(client, true);
 
         res = sd_dhcp_client_start(client);
         assert_se(IN_SET(res, 0, -EINPROGRESS));

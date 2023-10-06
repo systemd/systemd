@@ -70,7 +70,7 @@ int dhcp_identifier_set_duid_ll(
                 uint16_t arp_type,
                 struct duid *ret_duid,
                 size_t *ret_len);
-int dhcp_identifier_set_duid_en(bool test_mode, struct duid *ret_duid, size_t *ret_len);
+int dhcp_identifier_set_duid_en(struct duid *ret_duid, size_t *ret_len);
 int dhcp_identifier_set_duid_uuid(struct duid *ret_duid, size_t *ret_len);
 int dhcp_identifier_set_duid_raw(
                 DUIDType duid_type,
