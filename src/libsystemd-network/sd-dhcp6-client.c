@@ -194,7 +194,7 @@ static int client_ensure_duid(sd_dhcp6_client *client) {
         if (client->duid_len != 0)
                 return 0;
 
-        return dhcp_identifier_set_duid_en(client->test_mode, &client->duid, &client->duid_len);
+        return dhcp_identifier_set_duid_en(&client->duid, &client->duid_len);
 }
 
 /**
@@ -234,7 +234,7 @@ int sd_dhcp6_client_set_duid_en(sd_dhcp6_client *client) {
         assert_return(client, -EINVAL);
         assert_return(!sd_dhcp6_client_is_running(client), -EBUSY);
 
-        r = dhcp_identifier_set_duid_en(client->test_mode, &client->duid, &client->duid_len);
+        r = dhcp_identifier_set_duid_en(&client->duid, &client->duid_len);
         if (r < 0)
                 return log_dhcp6_client_errno(client, r, "Failed to set DUID-EN: %m");
 
@@ -346,12 +346,6 @@ int sd_dhcp6_client_get_iaid(sd_dhcp6_client *client, uint32_t *iaid) {
         *iaid = be32toh(client->ia_na.header.id);
 
         return 0;
-}
-
-void dhcp6_client_set_test_mode(sd_dhcp6_client *client, bool test_mode) {
-        assert(client);
-
-        client->test_mode = test_mode;
 }
 
 int sd_dhcp6_client_set_fqdn(
@@ -504,7 +498,7 @@ int sd_dhcp6_client_set_address_request(sd_dhcp6_client *client, int request) {
 
 int dhcp6_client_set_transaction_id(sd_dhcp6_client *client, uint32_t transaction_id) {
         assert(client);
-        assert(client->test_mode);
+        assert_se(network_test_mode_enabled());
 
         /* This is for tests or fuzzers. */
 
