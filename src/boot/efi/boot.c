@@ -21,6 +21,7 @@
 #include "secure-boot.h"
 #include "shim.h"
 #include "ticks.h"
+#include "tpm2-pcr.h"
 #include "util.h"
 #include "version.h"
 #include "vmm.h"
@@ -37,6 +38,8 @@ DECLARE_NOALLOC_SECTION(
                 "NAME=\"systemd-boot " GIT_VERSION "\"\n");
 
 DECLARE_SBAT(SBAT_BOOT_SECTION_TEXT);
+
+#define LOADER_CONF_CONTENT_EVENT_TAG_ID UINT32_C(0xf5bc582a)
 
 typedef enum LoaderType {
         LOADER_UNDEFINED,
@@ -1621,7 +1624,7 @@ static EFI_STATUS efivar_get_timeout(const char16_t *var, uint32_t *ret_value) {
 
 static void config_load_defaults(Config *config, EFI_FILE *root_dir) {
         _cleanup_free_ char *content = NULL;
-        size_t value = 0;  /* avoid false maybe-uninitialized warning */
+        size_t content_size, value = 0;  /* avoid false maybe-uninitialized warning */
         EFI_STATUS err;
 
         assert(root_dir);
@@ -1638,9 +1641,19 @@ static void config_load_defaults(Config *config, EFI_FILE *root_dir) {
                 .timeout_sec_efivar = TIMEOUT_UNSET,
         };
 
-        err = file_read(root_dir, u"\\loader\\loader.conf", 0, 0, &content, NULL);
-        if (err == EFI_SUCCESS)
+        err = file_read(root_dir, u"\\loader\\loader.conf", 0, 0, &content, &content_size);
+        if (err == EFI_SUCCESS) {
                 config_defaults_load_from_file(config, content);
+                err = tpm_log_tagged_event(
+                                TPM2_PCR_BOOT_LOADER_CONFIG,
+                                POINTER_TO_PHYSICAL_ADDRESS(content),
+                                content_size,
+                                LOADER_CONF_CONTENT_EVENT_TAG_ID,
+                                u"loader.conf",
+                                /* ret_measured= */ NULL);
+                if (err != EFI_SUCCESS)
+                        log_error_status(err, "Error measuring loader.conf into TPM: %m");
+        }
 
         err = efivar_get_timeout(u"LoaderConfigTimeout", &config->timeout_sec_efivar);
         if (err == EFI_SUCCESS)
