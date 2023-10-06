@@ -4193,7 +4193,7 @@ int config_parse_device_allow(
                 return 0;
         }
 
-        return cgroup_add_device_allow(c, resolved, p);
+        return cgroup_context_add_device_allow(c, resolved, p);
 }
 
 int config_parse_io_device_weight(
@@ -5976,7 +5976,7 @@ int config_parse_bpf_foreign_program(
         if (r < 0)
                 return 0;
 
-        r = cgroup_add_bpf_foreign_program(c, attach_type, resolved);
+        r = cgroup_context_add_bpf_foreign_program(c, attach_type, resolved);
         if (r < 0)
                 return log_error_errno(r, "Failed to add foreign BPF program to cgroup context: %m");
 

@@ -715,7 +715,7 @@ static int bus_cgroup_set_transient_property(
                                                 name);
 
                         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                                r = cgroup_add_bpf_foreign_program(c, attach_type, p);
+                                r = cgroup_context_add_bpf_foreign_program(c, attach_type, p);
                                 if (r < 0)
                                         return r;
                         }

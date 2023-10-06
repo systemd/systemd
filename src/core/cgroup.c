@@ -688,7 +688,7 @@ void cgroup_context_dump_socket_bind_item(const CGroupSocketBindItem *item, FILE
         }
 }
 
-int cgroup_add_device_allow(CGroupContext *c, const char *dev, const char *mode) {
+int cgroup_context_add_device_allow(CGroupContext *c, const char *dev, const char *mode) {
         _cleanup_free_ CGroupDeviceAllow *a = NULL;
         _cleanup_free_ char *d = NULL;
 
@@ -717,7 +717,7 @@ int cgroup_add_device_allow(CGroupContext *c, const char *dev, const char *mode)
         return 0;
 }
 
-int cgroup_add_bpf_foreign_program(CGroupContext *c, uint32_t attach_type, const char *bpffs_path) {
+int cgroup_context_add_bpf_foreign_program(CGroupContext *c, uint32_t attach_type, const char *bpffs_path) {
         CGroupBPFForeignProgram *p;
         _cleanup_free_ char *d = NULL;
 
