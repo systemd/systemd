@@ -58,6 +58,8 @@ DEFINE_NETWORK_CONFIG_STATE_FUNCTIONS(TClass, tclass);
 TClass* tclass_free(TClass *tclass);
 int tclass_new_static(TClassKind kind, Network *network, const char *filename, unsigned section_line, TClass **ret);
 
+TClass* tclass_drop(TClass *tclass);
+
 int link_find_tclass(Link *link, uint32_t classid, TClass **ret);
 
 int link_request_tclass(Link *link, TClass *tclass);

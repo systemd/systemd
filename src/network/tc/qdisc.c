@@ -293,6 +293,33 @@ int link_find_qdisc(Link *link, uint32_t handle, uint32_t parent, const char *ki
         return -ENOENT;
 }
 
+QDisc* qdisc_drop(QDisc *qdisc) {
+        TClass *tclass;
+        Link *link;
+
+        assert(qdisc);
+
+        link = ASSERT_PTR(qdisc->link);
+
+        /* also drop all child classes assigned to the qdisc. */
+        SET_FOREACH(tclass, link->tclasses) {
+                if (TC_H_MAJ(tclass->classid) != qdisc->handle)
+                        continue;
+
+                tclass_drop(tclass);
+        }
+
+        qdisc_enter_removed(qdisc);
+
+        if (qdisc->state == 0) {
+                log_qdisc_debug(qdisc, link, "Forgetting");
+                qdisc = qdisc_free(qdisc);
+        } else
+                log_qdisc_debug(qdisc, link, "Removed");
+
+        return qdisc;
+}
+
 static int qdisc_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, QDisc *qdisc) {
         int r;
 
@@ -512,14 +539,9 @@ int manager_rtnl_process_qdisc(sd_netlink *rtnl, sd_netlink_message *message, Ma
                 break;
 
         case RTM_DELQDISC:
-                if (qdisc) {
-                        qdisc_enter_removed(qdisc);
-                        if (qdisc->state == 0) {
-                                log_qdisc_debug(qdisc, link, "Forgetting");
-                                qdisc_free(qdisc);
-                        } else
-                                log_qdisc_debug(qdisc, link, "Removed");
-                } else
+                if (qdisc)
+                        qdisc_drop(qdisc);
+                else
                         log_qdisc_debug(tmp, link, "Kernel removed unknown");
 
                 break;
