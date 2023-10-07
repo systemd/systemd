@@ -586,11 +586,9 @@ static int mark_symlink_for_removal(
         if (r < 0)
                 return r;
 
-        n = strdup(p);
-        if (!n)
-                return -ENOMEM;
-
-        path_simplify(n);
+        r = path_simplify_alloc(p, &n);
+        if (r < 0)
+                return r;
 
         r = set_consume(*remove_symlinks_to, n);
         if (r == -EEXIST)

@@ -4903,14 +4903,14 @@ int unit_require_mounts_for(Unit *u, const char *path, UnitDependencyMask mask) 
         if (hashmap_contains(u->requires_mounts_for, path)) /* Exit quickly if the path is already covered. */
                 return 0;
 
-        _cleanup_free_ char *p = strdup(path);
-        if (!p)
-                return -ENOMEM;
-
         /* Use the canonical form of the path as the stored key. We call path_is_normalized()
          * only after simplification, since path_is_normalized() rejects paths with '.'.
          * path_is_normalized() also verifies that the path fits in PATH_MAX. */
-        path = path_simplify(p);
+        _cleanup_free_ char *p = NULL;
+        r = path_simplify_alloc(path, &p);
+        if (r < 0)
+                return r;
+        path = p;
 
         if (!path_is_normalized(path))
                 return -EPERM;
