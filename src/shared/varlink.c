@@ -221,7 +221,7 @@ struct VarlinkServer {
 
         Hashmap *methods;              /* Fully qualified symbol name of a method → VarlinkMethod */
         Hashmap *interfaces;           /* Fully qualified interface name → VarlinkInterface* */
-        Hashmap *symbols;              /* Fully qualified symbol name of methord/error → VarlinkSymbol* */
+        Hashmap *symbols;              /* Fully qualified symbol name of method/error → VarlinkSymbol* */
         VarlinkConnect connect_callback;
         VarlinkDisconnect disconnect_callback;
 
