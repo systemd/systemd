@@ -665,6 +665,19 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>SetLoginEnvironment=</varname></term>
+
+        <listitem><para>Takes a boolean parameter. If true, <varname>$HOME</varname>, <varname>$LOGNAME</varname>,
+        and <varname>$SHELL</varname> environment variables will be set for system services even if
+        <varname>User=</varname> is not set, i.e. when the default user <literal>root</literal> is used.
+        If false, the mentioned variables are not set by systemd, no matter whether <varname>User=</varname>
+        is set or not. This option normally has no effect on user services, since these variables are typically
+        inherited from user manager's own environment anyway.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>PAMName=</varname></term>
 
         <listitem><para>Sets the PAM service name to set up a session as. If set, the executed process will be
@@ -3516,10 +3529,10 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
           <term><varname>$HOME</varname></term>
           <term><varname>$SHELL</varname></term>
 
-          <listitem><para>User name (twice), home directory, and the
-          login shell. The variables are set for the units that have
-          <varname>User=</varname> set, which includes user
-          <command>systemd</command> instances. See
+          <listitem><para>User name (twice), home directory, and the login shell. <varname>$USER</varname> is
+          set unconditionally, while <varname>$HOME</varname>, <varname>$LOGNAME</varname>, and <varname>$SHELL</varname>
+          are only set for the units that have <varname>User=</varname> set and <varname>SetLoginEnvironment=</varname>
+          unset or set to true. For user services, these variables are typically inherited from the user manager itself. See
           <citerefentry project='die-net'><refentrytitle>passwd</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
           </para></listitem>
         </varlistentry>

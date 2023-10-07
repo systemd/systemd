@@ -19,6 +19,7 @@
 {{type}}.User,                             config_parse_user_group_compat,              0,                                  offsetof({{type}}, exec_context.user)
 {{type}}.Group,                            config_parse_user_group_compat,              0,                                  offsetof({{type}}, exec_context.group)
 {{type}}.SupplementaryGroups,              config_parse_user_group_strv_compat,         0,                                  offsetof({{type}}, exec_context.supplementary_groups)
+{{type}}.SetLoginEnvironment,              config_parse_tristate,                       0,                                  offsetof({{type}}, exec_context.set_login_environment)
 {{type}}.Nice,                             config_parse_exec_nice,                      0,                                  offsetof({{type}}, exec_context)
 {{type}}.OOMScoreAdjust,                   config_parse_exec_oom_score_adjust,          0,                                  offsetof({{type}}, exec_context)
 {{type}}.CoredumpFilter,                   config_parse_exec_coredump_filter,           0,                                  offsetof({{type}}, exec_context)
