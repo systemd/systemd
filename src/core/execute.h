@@ -254,6 +254,8 @@ struct ExecContext {
         char *group;
         char **supplementary_groups;
 
+        int set_login_environment;
+
         char *pam_name;
 
         char *utmp_id;
