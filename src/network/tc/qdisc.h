@@ -77,6 +77,8 @@ DEFINE_NETWORK_CONFIG_STATE_FUNCTIONS(QDisc, qdisc);
 QDisc* qdisc_free(QDisc *qdisc);
 int qdisc_new_static(QDiscKind kind, Network *network, const char *filename, unsigned section_line, QDisc **ret);
 
+QDisc* qdisc_drop(QDisc *qdisc);
+
 int link_find_qdisc(Link *link, uint32_t handle, uint32_t parent, const char *kind, QDisc **qdisc);
 
 int link_request_qdisc(Link *link, QDisc *qdisc);
