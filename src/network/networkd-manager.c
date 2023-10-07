@@ -716,7 +716,7 @@ int manager_load_config(Manager *m) {
         return manager_build_dhcp_pd_subnet_ids(m);
 }
 
-static int manager_enumerate_internal(
+int manager_enumerate_internal(
                 Manager *m,
                 sd_netlink *nl,
                 sd_netlink_message *req,
@@ -775,17 +775,18 @@ static int manager_enumerate_qdisc(Manager *m) {
 }
 
 static int manager_enumerate_tclass(Manager *m) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
-        int r;
+        Link *link;
+        int r = 0;
 
         assert(m);
         assert(m->rtnl);
 
-        r = sd_rtnl_message_new_traffic_control(m->rtnl, &req, RTM_GETTCLASS, 0, 0, 0);
-        if (r < 0)
-                return r;
+        /* TC class can be enumerated only per link. See tc_dump_tclass() in net/sched/sched_api.c. */
 
-        return manager_enumerate_internal(m, m->rtnl, req, manager_rtnl_process_tclass);
+        HASHMAP_FOREACH(link, m->links_by_index)
+                RET_GATHER(r, link_enumerate_tclass(link, 0));
+
+        return r;
 }
 
 static int manager_enumerate_addresses(Manager *m) {

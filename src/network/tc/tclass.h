@@ -67,6 +67,7 @@ int link_request_tclass(Link *link, TClass *tclass);
 void network_drop_invalid_tclass(Network *network);
 
 int manager_rtnl_process_tclass(sd_netlink *rtnl, sd_netlink_message *message, Manager *m);
+int link_enumerate_tclass(Link *link, uint32_t parent);
 
 DEFINE_SECTION_CLEANUP_FUNCTIONS(TClass, tclass_free);
 
