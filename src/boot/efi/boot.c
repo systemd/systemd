@@ -604,32 +604,37 @@ static void print_status(Config *config, char16_t *loaded_image_path) {
         }
 }
 
-static EFI_STATUS reboot_into_firmware(void) {
+static EFI_STATUS set_reboot_into_firmware(void) {
         uint64_t osind = 0;
         EFI_STATUS err;
-
-        if (!FLAGS_SET(get_os_indications_supported(), EFI_OS_INDICATIONS_BOOT_TO_FW_UI))
-                return log_error_status(EFI_UNSUPPORTED, "Reboot to firmware interface not supported.");
 
         (void) efivar_get_uint64_le(MAKE_GUID_PTR(EFI_GLOBAL_VARIABLE), u"OsIndications", &osind);
         osind |= EFI_OS_INDICATIONS_BOOT_TO_FW_UI;
 
         err = efivar_set_uint64_le(MAKE_GUID_PTR(EFI_GLOBAL_VARIABLE), u"OsIndications", osind, EFI_VARIABLE_NON_VOLATILE);
         if (err != EFI_SUCCESS)
-                return log_error_status(err, "Error setting OsIndications: %m");
-
-        RT->ResetSystem(EfiResetCold, EFI_SUCCESS, 0, NULL);
-        assert_not_reached();
+                log_error_status(err, "Error setting OsIndications: %m");
+        return err;
 }
 
-static EFI_STATUS poweroff_system(void) {
+_noreturn_ static EFI_STATUS poweroff_system(void) {
         RT->ResetSystem(EfiResetShutdown, EFI_SUCCESS, 0, NULL);
         assert_not_reached();
 }
 
-static EFI_STATUS reboot_system(void) {
+_noreturn_ static EFI_STATUS reboot_system(void) {
         RT->ResetSystem(EfiResetCold, EFI_SUCCESS, 0, NULL);
         assert_not_reached();
+}
+
+static EFI_STATUS reboot_into_firmware(void) {
+        EFI_STATUS err;
+
+        err = set_reboot_into_firmware();
+        if (err != EFI_SUCCESS)
+                return err;
+
+        return reboot_system();
 }
 
 static bool menu_run(
@@ -651,7 +656,7 @@ static bool menu_run(
         _cleanup_free_ char16_t *clearline = NULL, *separator = NULL, *status = NULL;
         uint32_t timeout_efivar_saved = config->timeout_sec_efivar;
         uint32_t timeout_remain = config->timeout_sec == TIMEOUT_MENU_FORCE ? 0 : config->timeout_sec;
-        bool exit = false, run = true, firmware_setup = false;
+        bool exit = false, run = true, firmware_setup = false, poweroff = false, reboot = false;
         int64_t console_mode_initial = ST->ConOut->Mode->Mode, console_mode_efivar_saved = config->console_mode_efivar;
         size_t default_efivar_saved = config->idx_default_efivar;
 
@@ -837,9 +842,12 @@ static bool menu_run(
                 idx_highlight_prev = idx_highlight;
 
                 if (firmware_setup) {
+                        if (IN_SET(key, KEYPRESS(0, 0, '\r'), KEYPRESS(0, 0, '\n')) &&
+                            set_reboot_into_firmware() == EFI_SUCCESS)
+                                break;
+
+                        /* Any key other then newline or a failed attempt cancel the request. */
                         firmware_setup = false;
-                        if (IN_SET(key, KEYPRESS(0, 0, '\r'), KEYPRESS(0, 0, '\n')))
-                                (void) reboot_into_firmware();
                         continue;
                 }
 
@@ -1034,12 +1042,15 @@ static bool menu_run(
                                 status = xstrdup16(u"Reboot into firmware interface not supported.");
                         break;
 
-                case KEYPRESS(0, 0, 'O'): /* Only uppercase, so that it can't be hit so easily fat-fingered, but still works safely over serial */
-                        (void) poweroff_system();
+                case KEYPRESS(0, 0, 'O'): /* Only uppercase, so that it can't be hit so easily fat-fingered,
+                                           * but still works safely over serial. */
+                        poweroff = true;
+                        exit = true;
                         break;
 
                 case KEYPRESS(0, 0, 'B'): /* ditto */
-                        (void) reboot_system();
+                        reboot = true;
+                        exit = true;
                         break;
 
                 default:
@@ -1064,8 +1075,6 @@ static bool menu_run(
                 if (!refresh && idx_highlight != idx_highlight_prev)
                         highlight = true;
         }
-
-        *chosen_entry = config->entries[idx_highlight];
 
         /* Update EFI vars after we left the menu to reduce NVRAM writes. */
 
@@ -1096,6 +1105,13 @@ static bool menu_run(
                                                config->timeout_sec_efivar, EFI_VARIABLE_NON_VOLATILE);
                 }
         }
+
+        if (poweroff)
+                poweroff_system();
+        if (reboot || firmware_setup)
+                reboot_system();
+
+        *chosen_entry = config->entries[idx_highlight];
 
         clear_screen(COLOR_NORMAL);
         return run;
