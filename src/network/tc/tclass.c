@@ -505,6 +505,21 @@ int manager_rtnl_process_tclass(sd_netlink *rtnl, sd_netlink_message *message, M
         return 1;
 }
 
+int link_enumerate_tclass(Link *link, uint32_t parent) {
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+        int r;
+
+        assert(link);
+        assert(link->manager);
+        assert(link->manager->rtnl);
+
+        r = sd_rtnl_message_new_traffic_control(link->manager->rtnl, &req, RTM_GETTCLASS, link->ifindex, 0, parent);
+        if (r < 0)
+                return r;
+
+        return manager_enumerate_internal(link->manager, link->manager->rtnl, req, manager_rtnl_process_tclass);
+}
+
 static int tclass_section_verify(TClass *tclass) {
         int r;
 
