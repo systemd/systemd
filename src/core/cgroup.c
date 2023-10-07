@@ -52,7 +52,7 @@
  * out specific attributes from us. */
 #define LOG_LEVEL_CGROUP_WRITE(r) (IN_SET(abs(r), ENOENT, EROFS, EACCES, EPERM) ? LOG_DEBUG : LOG_WARNING)
 
-uint64_t tasks_max_resolve(const TasksMax *tasks_max) {
+uint64_t cgroup_tasks_max_resolve(const CGroupTasksMax *tasks_max) {
         if (tasks_max->scale == 0)
                 return tasks_max->value;
 
@@ -171,7 +171,7 @@ void cgroup_context_init(CGroupContext *c) {
                 .blockio_weight = CGROUP_BLKIO_WEIGHT_INVALID,
                 .startup_blockio_weight = CGROUP_BLKIO_WEIGHT_INVALID,
 
-                .tasks_max = TASKS_MAX_UNSET,
+                .tasks_max = CGROUP_TASKS_MAX_UNSET,
 
                 .moom_swap = MANAGED_OOM_AUTO,
                 .moom_mem_pressure = MANAGED_OOM_AUTO,
@@ -561,7 +561,7 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 prefix, c->memory_zswap_max, format_cgroup_memory_limit_comparison(cdj, sizeof(cdj), u, "MemoryZSwapMax"),
                 prefix, c->startup_memory_zswap_max, format_cgroup_memory_limit_comparison(cdk, sizeof(cdk), u, "StartupMemoryZSwapMax"),
                 prefix, c->memory_limit,
-                prefix, tasks_max_resolve(&c->tasks_max),
+                prefix, cgroup_tasks_max_resolve(&c->tasks_max),
                 prefix, cgroup_device_policy_to_string(c->device_policy),
                 prefix, strempty(disable_controllers_str),
                 prefix, delegate_str,
@@ -695,7 +695,7 @@ void cgroup_context_dump_socket_bind_item(const CGroupSocketBindItem *item, FILE
         }
 }
 
-int cgroup_add_device_allow(CGroupContext *c, const char *dev, const char *mode) {
+int cgroup_context_add_device_allow(CGroupContext *c, const char *dev, const char *mode) {
         _cleanup_free_ CGroupDeviceAllow *a = NULL;
         _cleanup_free_ char *d = NULL;
 
@@ -724,7 +724,7 @@ int cgroup_add_device_allow(CGroupContext *c, const char *dev, const char *mode)
         return 0;
 }
 
-int cgroup_add_bpf_foreign_program(CGroupContext *c, uint32_t attach_type, const char *bpffs_path) {
+int cgroup_context_add_bpf_foreign_program(CGroupContext *c, uint32_t attach_type, const char *bpffs_path) {
         CGroupBPFForeignProgram *p;
         _cleanup_free_ char *d = NULL;
 
@@ -782,43 +782,35 @@ UNIT_DEFINE_ANCESTOR_MEMORY_LOOKUP(memory_low);
 UNIT_DEFINE_ANCESTOR_MEMORY_LOOKUP(startup_memory_low);
 UNIT_DEFINE_ANCESTOR_MEMORY_LOOKUP(memory_min);
 
-static void unit_set_xattr_graceful(Unit *u, const char *cgroup_path, const char *name, const void *data, size_t size) {
+static void unit_set_xattr_graceful(Unit *u, const char *name, const void *data, size_t size) {
         int r;
 
         assert(u);
         assert(name);
 
-        if (!cgroup_path) {
-                if (!u->cgroup_path)
-                        return;
+        if (!u->cgroup_path)
+                return;
 
-                cgroup_path = u->cgroup_path;
-        }
-
-        r = cg_set_xattr(cgroup_path, name, data, size, 0);
+        r = cg_set_xattr(u->cgroup_path, name, data, size, 0);
         if (r < 0)
-                log_unit_debug_errno(u, r, "Failed to set '%s' xattr on control group %s, ignoring: %m", name, empty_to_root(cgroup_path));
+                log_unit_debug_errno(u, r, "Failed to set '%s' xattr on control group %s, ignoring: %m", name, empty_to_root(u->cgroup_path));
 }
 
-static void unit_remove_xattr_graceful(Unit *u, const char *cgroup_path, const char *name) {
+static void unit_remove_xattr_graceful(Unit *u, const char *name) {
         int r;
 
         assert(u);
         assert(name);
 
-        if (!cgroup_path) {
-                if (!u->cgroup_path)
-                        return;
+        if (!u->cgroup_path)
+                return;
 
-                cgroup_path = u->cgroup_path;
-        }
-
-        r = cg_remove_xattr(cgroup_path, name);
+        r = cg_remove_xattr(u->cgroup_path, name);
         if (r < 0 && !ERRNO_IS_XATTR_ABSENT(r))
-                log_unit_debug_errno(u, r, "Failed to remove '%s' xattr flag on control group %s, ignoring: %m", name, empty_to_root(cgroup_path));
+                log_unit_debug_errno(u, r, "Failed to remove '%s' xattr flag on control group %s, ignoring: %m", name, empty_to_root(u->cgroup_path));
 }
 
-void cgroup_oomd_xattr_apply(Unit *u, const char *cgroup_path) {
+static void cgroup_oomd_xattr_apply(Unit *u) {
         CGroupContext *c;
 
         assert(u);
@@ -828,19 +820,19 @@ void cgroup_oomd_xattr_apply(Unit *u, const char *cgroup_path) {
                 return;
 
         if (c->moom_preference == MANAGED_OOM_PREFERENCE_OMIT)
-                unit_set_xattr_graceful(u, cgroup_path, "user.oomd_omit", "1", 1);
+                unit_set_xattr_graceful(u, "user.oomd_omit", "1", 1);
 
         if (c->moom_preference == MANAGED_OOM_PREFERENCE_AVOID)
-                unit_set_xattr_graceful(u, cgroup_path, "user.oomd_avoid", "1", 1);
+                unit_set_xattr_graceful(u, "user.oomd_avoid", "1", 1);
 
         if (c->moom_preference != MANAGED_OOM_PREFERENCE_AVOID)
-                unit_remove_xattr_graceful(u, cgroup_path, "user.oomd_avoid");
+                unit_remove_xattr_graceful(u, "user.oomd_avoid");
 
         if (c->moom_preference != MANAGED_OOM_PREFERENCE_OMIT)
-                unit_remove_xattr_graceful(u, cgroup_path, "user.oomd_omit");
+                unit_remove_xattr_graceful(u, "user.oomd_omit");
 }
 
-int cgroup_log_xattr_apply(Unit *u, const char *cgroup_path) {
+static int cgroup_log_xattr_apply(Unit *u) {
         ExecContext *c;
         size_t len, allowed_patterns_len, denied_patterns_len;
         _cleanup_free_ char *patterns = NULL, *allowed_patterns = NULL, *denied_patterns = NULL;
@@ -856,7 +848,7 @@ int cgroup_log_xattr_apply(Unit *u, const char *cgroup_path) {
                 return 0;
 
         if (set_isempty(c->log_filter_allowed_patterns) && set_isempty(c->log_filter_denied_patterns)) {
-                unit_remove_xattr_graceful(u, cgroup_path, "user.journald_log_filter_patterns");
+                unit_remove_xattr_graceful(u, "user.journald_log_filter_patterns");
                 return 0;
         }
 
@@ -881,31 +873,29 @@ int cgroup_log_xattr_apply(Unit *u, const char *cgroup_path) {
         *(last++) = '\xff';
         memcpy_safe(last, denied_patterns, denied_patterns_len);
 
-        unit_set_xattr_graceful(u, cgroup_path, "user.journald_log_filter_patterns", patterns, len);
+        unit_set_xattr_graceful(u, "user.journald_log_filter_patterns", patterns, len);
 
         return 0;
 }
 
-static void cgroup_xattr_apply(Unit *u) {
+static void cgroup_invocation_id_xattr_apply(Unit *u) {
         bool b;
-        int r;
 
         assert(u);
-
-        /* The 'user.*' xattrs can be set from a user manager. */
-        cgroup_oomd_xattr_apply(u, u->cgroup_path);
-        cgroup_log_xattr_apply(u, u->cgroup_path);
-
-        if (!MANAGER_IS_SYSTEM(u->manager))
-                return;
 
         b = !sd_id128_is_null(u->invocation_id);
         FOREACH_STRING(xn, "trusted.invocation_id", "user.invocation_id") {
                 if (b)
-                        unit_set_xattr_graceful(u, NULL, xn, SD_ID128_TO_STRING(u->invocation_id), 32);
+                        unit_set_xattr_graceful(u, xn, SD_ID128_TO_STRING(u->invocation_id), 32);
                 else
-                        unit_remove_xattr_graceful(u, NULL, xn);
+                        unit_remove_xattr_graceful(u, xn);
         }
+}
+
+static void cgroup_delegate_xattr_apply(Unit *u) {
+        bool b;
+
+        assert(u);
 
         /* Indicate on the cgroup whether delegation is on, via an xattr. This is best-effort, as old kernels
          * didn't support xattrs on cgroups at all. Later they got support for setting 'trusted.*' xattrs,
@@ -918,10 +908,16 @@ static void cgroup_xattr_apply(Unit *u) {
         b = unit_cgroup_delegate(u);
         FOREACH_STRING(xn, "trusted.delegate", "user.delegate") {
                 if (b)
-                        unit_set_xattr_graceful(u, NULL, xn, "1", 1);
+                        unit_set_xattr_graceful(u, xn, "1", 1);
                 else
-                        unit_remove_xattr_graceful(u, NULL, xn);
+                        unit_remove_xattr_graceful(u, xn);
         }
+}
+
+static void cgroup_survive_xattr_apply(Unit *u) {
+        int r;
+
+        assert(u);
 
         if (u->survive_final_kill_signal) {
                 r = cg_set_xattr(
@@ -945,9 +941,24 @@ static void cgroup_xattr_apply(Unit *u) {
                                              "group %s, ignoring: %m",
                                              empty_to_root(u->cgroup_path));
         } else {
-                unit_remove_xattr_graceful(u, /* cgroup_path= */ NULL, "user.survive_final_kill_signal");
-                unit_remove_xattr_graceful(u, /* cgroup_path= */ NULL, "trusted.survive_final_kill_signal");
+                unit_remove_xattr_graceful(u, "user.survive_final_kill_signal");
+                unit_remove_xattr_graceful(u, "trusted.survive_final_kill_signal");
         }
+}
+
+static void cgroup_xattr_apply(Unit *u) {
+        assert(u);
+
+        /* The 'user.*' xattrs can be set from a user manager. */
+        cgroup_oomd_xattr_apply(u);
+        cgroup_log_xattr_apply(u);
+
+        if (!MANAGER_IS_SYSTEM(u->manager))
+                return;
+
+        cgroup_invocation_id_xattr_apply(u);
+        cgroup_delegate_xattr_apply(u);
+        cgroup_survive_xattr_apply(u);
 }
 
 static int lookup_block_device(const char *p, dev_t *ret) {
@@ -1376,19 +1387,20 @@ static void cgroup_apply_firewall(Unit *u) {
         (void) bpf_firewall_install(u);
 }
 
-void cgroup_modify_nft_set(Unit *u, bool add) {
+void unit_modify_nft_set(Unit *u, bool add) {
         int r;
-        CGroupContext *c;
 
         assert(u);
 
         if (!MANAGER_IS_SYSTEM(u->manager))
                 return;
 
+        if (!UNIT_HAS_CGROUP_CONTEXT(u))
+                return;
+
         if (cg_all_unified() <= 0)
                 return;
 
-        assert_se(c = unit_get_cgroup_context(u));
         if (u->cgroup_id == 0)
                 return;
 
@@ -1399,6 +1411,8 @@ void cgroup_modify_nft_set(Unit *u, bool add) {
 
                 assert(u->manager->fw_ctx);
         }
+
+        CGroupContext *c = ASSERT_PTR(unit_get_cgroup_context(u));
 
         FOREACH_ARRAY(nft_set, c->nft_set_context.sets, c->nft_set_context.n_sets) {
                 uint64_t element = u->cgroup_id;
@@ -1816,9 +1830,9 @@ static void cgroup_context_apply(
                          * which is desirable so that there's an official way to release control of the sysctl from
                          * systemd: set the limit to unbounded and reload. */
 
-                        if (tasks_max_isset(&c->tasks_max)) {
+                        if (cgroup_tasks_max_isset(&c->tasks_max)) {
                                 u->manager->sysctl_pid_max_changed = true;
-                                r = procfs_tasks_set_limit(tasks_max_resolve(&c->tasks_max));
+                                r = procfs_tasks_set_limit(cgroup_tasks_max_resolve(&c->tasks_max));
                         } else if (u->manager->sysctl_pid_max_changed)
                                 r = procfs_tasks_set_limit(TASKS_MAX);
                         else
@@ -1831,10 +1845,10 @@ static void cgroup_context_apply(
                 /* The attribute itself is not available on the host root cgroup, and in the container case we want to
                  * leave it for the container manager. */
                 if (!is_local_root) {
-                        if (tasks_max_isset(&c->tasks_max)) {
+                        if (cgroup_tasks_max_isset(&c->tasks_max)) {
                                 char buf[DECIMAL_STR_MAX(uint64_t) + 1];
 
-                                xsprintf(buf, "%" PRIu64 "\n", tasks_max_resolve(&c->tasks_max));
+                                xsprintf(buf, "%" PRIu64 "\n", cgroup_tasks_max_resolve(&c->tasks_max));
                                 (void) set_attribute_and_warn(u, "pids", "pids.max", buf);
                         } else
                                 (void) set_attribute_and_warn(u, "pids", "pids.max", "max\n");
@@ -1853,7 +1867,7 @@ static void cgroup_context_apply(
         if (apply_mask & CGROUP_MASK_BPF_RESTRICT_NETWORK_INTERFACES)
                 cgroup_apply_restrict_network_interfaces(u);
 
-        cgroup_modify_nft_set(u, /* add = */ true);
+        unit_modify_nft_set(u, /* add = */ true);
 }
 
 static bool unit_get_needs_bpf_firewall(Unit *u) {
@@ -1952,7 +1966,7 @@ static CGroupMask unit_get_cgroup_mask(Unit *u) {
                 mask |= CGROUP_MASK_DEVICES | CGROUP_MASK_BPF_DEVICES;
 
         if (c->tasks_accounting ||
-            tasks_max_isset(&c->tasks_max))
+            cgroup_tasks_max_isset(&c->tasks_max))
                 mask |= CGROUP_MASK_PIDS;
 
         return CGROUP_MASK_EXTEND_JOINED(mask);
@@ -3031,7 +3045,7 @@ void unit_prune_cgroup(Unit *u) {
         (void) lsm_bpf_cleanup(u); /* Remove cgroup from the global LSM BPF map */
 #endif
 
-        cgroup_modify_nft_set(u, /* add = */ false);
+        unit_modify_nft_set(u, /* add = */ false);
 
         is_root_slice = unit_has_name(u, SPECIAL_ROOT_SLICE);
 

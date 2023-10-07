@@ -11,20 +11,20 @@
 #include "pidref.h"
 #include "time-util.h"
 
-typedef struct TasksMax {
+typedef struct CGroupTasksMax {
         /* If scale == 0, just use value; otherwise, value / scale.
          * See tasks_max_resolve(). */
         uint64_t value;
         uint64_t scale;
-} TasksMax;
+} CGroupTasksMax;
 
-#define TASKS_MAX_UNSET ((TasksMax) { .value = UINT64_MAX, .scale = 0 })
+#define CGROUP_TASKS_MAX_UNSET ((CGroupTasksMax) { .value = UINT64_MAX, .scale = 0 })
 
-static inline bool tasks_max_isset(const TasksMax *tasks_max) {
+static inline bool cgroup_tasks_max_isset(const CGroupTasksMax *tasks_max) {
         return tasks_max->value != UINT64_MAX || tasks_max->scale != 0;
 }
 
-uint64_t tasks_max_resolve(const TasksMax *tasks_max);
+uint64_t cgroup_tasks_max_resolve(const CGroupTasksMax *tasks_max);
 
 typedef struct CGroupContext CGroupContext;
 typedef struct CGroupDeviceAllow CGroupDeviceAllow;
@@ -212,7 +212,7 @@ struct CGroupContext {
         LIST_HEAD(CGroupSocketBindItem, socket_bind_deny);
 
         /* Common */
-        TasksMax tasks_max;
+        CGroupTasksMax tasks_max;
 
         /* Settings for systemd-oomd */
         ManagedOOMMode moom_swap;
@@ -275,13 +275,10 @@ static inline bool cgroup_context_want_memory_pressure(const CGroupContext *c) {
                 (c->memory_pressure_watch == CGROUP_PRESSURE_WATCH_AUTO && c->memory_accounting);
 }
 
-int cgroup_add_device_allow(CGroupContext *c, const char *dev, const char *mode);
-int cgroup_add_bpf_foreign_program(CGroupContext *c, uint32_t attach_type, const char *path);
+int cgroup_context_add_device_allow(CGroupContext *c, const char *dev, const char *mode);
+int cgroup_context_add_bpf_foreign_program(CGroupContext *c, uint32_t attach_type, const char *path);
 
-void cgroup_oomd_xattr_apply(Unit *u, const char *cgroup_path);
-int cgroup_log_xattr_apply(Unit *u, const char *cgroup_path);
-
-void cgroup_modify_nft_set(Unit *u, bool add);
+void unit_modify_nft_set(Unit *u, bool add);
 
 CGroupMask unit_get_own_mask(Unit *u);
 CGroupMask unit_get_delegate_mask(Unit *u);
