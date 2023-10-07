@@ -339,7 +339,7 @@ static bool tclass_is_ready_to_configure(TClass *tclass, Link *link) {
         if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
                 return false;
 
-        return link_find_qdisc(link, tclass->classid, tclass->parent, tclass_get_tca_kind(tclass), NULL) >= 0;
+        return link_find_qdisc(link, TC_H_MAJ(tclass->classid), tclass_get_tca_kind(tclass), NULL) >= 0;
 }
 
 static int tclass_process_request(Request *req, Link *link, TClass *tclass) {
