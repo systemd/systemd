@@ -544,7 +544,7 @@ int varlink_connect_url(Varlink **ret, const char *url) {
         }
 
         if (exec)
-                return varlink_connect_exec(ret, c ?: p, NULL);
+                return varlink_connect_exec(ret, c, NULL);
 
         return varlink_connect_address(ret, c ?: p);
 }
