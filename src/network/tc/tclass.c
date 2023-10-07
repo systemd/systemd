@@ -223,9 +223,6 @@ int link_find_tclass(Link *link, uint32_t classid, TClass **ret) {
                 if (tclass->classid != classid)
                         continue;
 
-                if (tclass->source == NETWORK_CONFIG_SOURCE_FOREIGN)
-                        continue;
-
                 if (!tclass_exists(tclass))
                         continue;
 
@@ -253,6 +250,33 @@ static void log_tclass_debug(TClass *tclass, Link *link, const char *str) {
                        TC_H_MAJ(tclass->classid) >> 16, TC_H_MIN(tclass->classid),
                        TC_H_MAJ(tclass->parent) >> 16, TC_H_MIN(tclass->parent),
                        strna(tclass_get_tca_kind(tclass)));
+}
+
+TClass* tclass_drop(TClass *tclass) {
+        QDisc *qdisc;
+        Link *link;
+
+        assert(tclass);
+
+        link = ASSERT_PTR(tclass->link);
+
+        /* Also drop all child qdiscs assigned to the class. */
+        SET_FOREACH(qdisc, link->qdiscs) {
+                if (qdisc->parent != tclass->classid)
+                        continue;
+
+                qdisc_drop(qdisc);
+        }
+
+        tclass_enter_removed(tclass);
+
+        if (tclass->state == 0) {
+                log_tclass_debug(tclass, link, "Forgetting");
+                tclass = tclass_free(tclass);
+        } else
+                log_tclass_debug(tclass, link, "Removed");
+
+        return tclass;
 }
 
 static int tclass_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, TClass *tclass) {
@@ -315,7 +339,7 @@ static bool tclass_is_ready_to_configure(TClass *tclass, Link *link) {
         if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
                 return false;
 
-        return link_find_qdisc(link, tclass->classid, tclass->parent, tclass_get_tca_kind(tclass), NULL) >= 0;
+        return link_find_qdisc(link, TC_H_MAJ(tclass->classid), tclass_get_tca_kind(tclass), NULL) >= 0;
 }
 
 static int tclass_process_request(Request *req, Link *link, TClass *tclass) {
@@ -464,14 +488,9 @@ int manager_rtnl_process_tclass(sd_netlink *rtnl, sd_netlink_message *message, M
                 break;
 
         case RTM_DELTCLASS:
-                if (tclass) {
-                        tclass_enter_removed(tclass);
-                        if (tclass->state == 0) {
-                                log_tclass_debug(tclass, link, "Forgetting");
-                                tclass_free(tclass);
-                        } else
-                                log_tclass_debug(tclass, link, "Removed");
-                } else
+                if (tclass)
+                        (void) tclass_drop(tclass);
+                else
                         log_tclass_debug(tmp, link, "Kernel removed unknown");
 
                 break;
@@ -481,6 +500,21 @@ int manager_rtnl_process_tclass(sd_netlink *rtnl, sd_netlink_message *message, M
         }
 
         return 1;
+}
+
+int link_enumerate_tclass(Link *link, uint32_t parent) {
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+        int r;
+
+        assert(link);
+        assert(link->manager);
+        assert(link->manager->rtnl);
+
+        r = sd_rtnl_message_new_traffic_control(link->manager->rtnl, &req, RTM_GETTCLASS, link->ifindex, 0, parent);
+        if (r < 0)
+                return r;
+
+        return manager_enumerate_internal(link->manager, link->manager->rtnl, req, manager_rtnl_process_tclass);
 }
 
 static int tclass_section_verify(TClass *tclass) {

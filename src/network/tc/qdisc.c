@@ -262,21 +262,13 @@ static void log_qdisc_debug(QDisc *qdisc, Link *link, const char *str) {
                        strna(qdisc_get_tca_kind(qdisc)));
 }
 
-int link_find_qdisc(Link *link, uint32_t handle, uint32_t parent, const char *kind, QDisc **ret) {
+int link_find_qdisc(Link *link, uint32_t handle, const char *kind, QDisc **ret) {
         QDisc *qdisc;
 
         assert(link);
 
-        handle = TC_H_MAJ(handle);
-
         SET_FOREACH(qdisc, link->qdiscs) {
                 if (qdisc->handle != handle)
-                        continue;
-
-                if (qdisc->parent != parent)
-                        continue;
-
-                if (qdisc->source == NETWORK_CONFIG_SOURCE_FOREIGN)
                         continue;
 
                 if (!qdisc_exists(qdisc))
@@ -291,6 +283,33 @@ int link_find_qdisc(Link *link, uint32_t handle, uint32_t parent, const char *ki
         }
 
         return -ENOENT;
+}
+
+QDisc* qdisc_drop(QDisc *qdisc) {
+        TClass *tclass;
+        Link *link;
+
+        assert(qdisc);
+
+        link = ASSERT_PTR(qdisc->link);
+
+        /* also drop all child classes assigned to the qdisc. */
+        SET_FOREACH(tclass, link->tclasses) {
+                if (TC_H_MAJ(tclass->classid) != qdisc->handle)
+                        continue;
+
+                tclass_drop(tclass);
+        }
+
+        qdisc_enter_removed(qdisc);
+
+        if (qdisc->state == 0) {
+                log_qdisc_debug(qdisc, link, "Forgetting");
+                qdisc = qdisc_free(qdisc);
+        } else
+                log_qdisc_debug(qdisc, link, "Removed");
+
+        return qdisc;
 }
 
 static int qdisc_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, QDisc *qdisc) {
@@ -354,9 +373,15 @@ static bool qdisc_is_ready_to_configure(QDisc *qdisc, Link *link) {
                 return false;
 
         /* TC_H_CLSACT == TC_H_INGRESS */
-        if (!IN_SET(qdisc->parent, TC_H_ROOT, TC_H_CLSACT) &&
-            link_find_tclass(link, qdisc->parent, NULL) < 0)
-                return false;
+        if (!IN_SET(qdisc->parent, TC_H_ROOT, TC_H_CLSACT)) {
+                if (TC_H_MIN(qdisc->parent) == 0) {
+                        if (link_find_qdisc(link, qdisc->parent, NULL, NULL) < 0)
+                                return false;
+                } else {
+                        if (link_find_tclass(link, qdisc->parent, NULL) < 0)
+                                return false;
+                }
+        }
 
         if (QDISC_VTABLE(qdisc) &&
             QDISC_VTABLE(qdisc)->is_ready &&
@@ -509,17 +534,20 @@ int manager_rtnl_process_qdisc(sd_netlink *rtnl, sd_netlink_message *message, Ma
                         qdisc = TAKE_PTR(tmp);
                 }
 
+                if (!m->enumerating) {
+                        /* Some QDisc (e.g. tbf) also creates an implicit class under the qdisc, but the
+                         * kernel may not notify about the class. Hence, we need to enumerate classes */
+                        r = link_enumerate_tclass(link, qdisc->handle);
+                        if (r < 0)
+                                log_link_warning_errno(link, r, "Failed to enumerate TClass, ignoring: %m");
+                }
+
                 break;
 
         case RTM_DELQDISC:
-                if (qdisc) {
-                        qdisc_enter_removed(qdisc);
-                        if (qdisc->state == 0) {
-                                log_qdisc_debug(qdisc, link, "Forgetting");
-                                qdisc_free(qdisc);
-                        } else
-                                log_qdisc_debug(qdisc, link, "Removed");
-                } else
+                if (qdisc)
+                        qdisc_drop(qdisc);
+                else
                         log_qdisc_debug(tmp, link, "Kernel removed unknown");
 
                 break;
