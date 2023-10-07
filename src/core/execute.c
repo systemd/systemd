@@ -989,26 +989,36 @@ restore_stdio:
         return r;
 }
 
-static int get_fixed_user(const ExecContext *c, const char **user,
-                          uid_t *uid, gid_t *gid,
-                          const char **home, const char **shell) {
-        int r;
+static int get_fixed_user(
+                const ExecContext *c,
+                RuntimeScope scope,
+                const char **ret_user,
+                uid_t *ret_uid,
+                gid_t *ret_gid,
+                const char **ret_home,
+                const char **ret_shell) {
+
         const char *name;
+        int r;
 
         assert(c);
+        assert(ret_user);
 
-        if (!c->user)
+        /* If User= is not explicitly specified for a system unit, we query "root", and set $LOGNAME and
+         * $SHELL based on SetLoginEnvironment= in build_environment. */
+
+        if (!c->user && scope != RUNTIME_SCOPE_SYSTEM)
                 return 0;
 
         /* Note that we don't set $HOME or $SHELL if they are not particularly enlightening anyway
          * (i.e. are "/" or "/bin/nologin"). */
 
-        name = c->user;
-        r = get_user_creds(&name, uid, gid, home, shell, USER_CREDS_CLEAN);
+        name = c->user ?: "root";
+        r = get_user_creds(&name, ret_uid, ret_gid, ret_home, ret_shell, USER_CREDS_CLEAN);
         if (r < 0)
                 return r;
 
-        *user = name;
+        *ret_user = name;
         return 0;
 }
 
@@ -1922,6 +1932,26 @@ static int build_environment(
                 our_env[n_env++] = x;
         }
 
+        /* In get_fixed_user, we query "root" if this is a system unit and User= is not specified. $USER
+         * and $HOME are always set, but $LOGNAME and $SHELL don't really make much sense since we're not
+         * logged in, hence we conditionalize it based on SetLoginEnvironment= switch. */
+        bool set_user_login_env = ((c->user || c->dynamic_user) && c->set_login_environment != 0) ||
+                                  c->set_login_environment > 0;
+
+        if (username) {
+                x = strjoin("USER=", username);
+                if (!x)
+                        return -ENOMEM;
+                our_env[n_env++] = x;
+
+                if (set_user_login_env) {
+                        x = strjoin("LOGNAME=", username);
+                        if (!x)
+                                return -ENOMEM;
+                        our_env[n_env++] = x;
+                }
+        }
+
         if (home) {
                 x = strjoin("HOME=", home);
                 if (!x)
@@ -1931,19 +1961,7 @@ static int build_environment(
                 our_env[n_env++] = x;
         }
 
-        if (username) {
-                x = strjoin("LOGNAME=", username);
-                if (!x)
-                        return -ENOMEM;
-                our_env[n_env++] = x;
-
-                x = strjoin("USER=", username);
-                if (!x)
-                        return -ENOMEM;
-                our_env[n_env++] = x;
-        }
-
-        if (shell) {
+        if (shell && set_user_login_env) {
                 x = strjoin("SHELL=", shell);
                 if (!x)
                         return -ENOMEM;
@@ -4153,7 +4171,7 @@ static int exec_child(
                         username = runtime->dynamic_creds->user->name;
 
         } else {
-                r = get_fixed_user(context, &username, &uid, &gid, &home, &shell);
+                r = get_fixed_user(context, params->runtime_scope, &username, &uid, &gid, &home, &shell);
                 if (r < 0) {
                         *exit_status = EXIT_USER;
                         return log_unit_error_errno(unit, r, "Failed to determine user credentials: %m");
