@@ -255,6 +255,33 @@ static void log_tclass_debug(TClass *tclass, Link *link, const char *str) {
                        strna(tclass_get_tca_kind(tclass)));
 }
 
+TClass* tclass_drop(TClass *tclass) {
+        QDisc *qdisc;
+        Link *link;
+
+        assert(tclass);
+
+        link = ASSERT_PTR(tclass->link);
+
+        /* Also drop all child qdiscs assigned to the class. */
+        SET_FOREACH(qdisc, link->qdiscs) {
+                if (qdisc->parent != tclass->classid)
+                        continue;
+
+                qdisc_drop(qdisc);
+        }
+
+        tclass_enter_removed(tclass);
+
+        if (tclass->state == 0) {
+                log_tclass_debug(tclass, link, "Forgetting");
+                tclass = tclass_free(tclass);
+        } else
+                log_tclass_debug(tclass, link, "Removed");
+
+        return tclass;
+}
+
 static int tclass_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, TClass *tclass) {
         int r;
 
@@ -464,14 +491,9 @@ int manager_rtnl_process_tclass(sd_netlink *rtnl, sd_netlink_message *message, M
                 break;
 
         case RTM_DELTCLASS:
-                if (tclass) {
-                        tclass_enter_removed(tclass);
-                        if (tclass->state == 0) {
-                                log_tclass_debug(tclass, link, "Forgetting");
-                                tclass_free(tclass);
-                        } else
-                                log_tclass_debug(tclass, link, "Removed");
-                } else
+                if (tclass)
+                        (void) tclass_drop(tclass);
+                else
                         log_tclass_debug(tmp, link, "Kernel removed unknown");
 
                 break;
