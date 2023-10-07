@@ -19,6 +19,7 @@
 #include "main-func.h"
 #include "pretty-print.h"
 #include "qrcode-util.h"
+#include "sigbus.h"
 #include "sysctl-util.h"
 #include "terminal-util.h"
 
@@ -266,6 +267,8 @@ static int run(int argc, char *argv[]) {
 
         log_open();
         log_parse_environment();
+
+        sigbus_install();
 
         r = parse_argv(argc, argv);
         if (r <= 0)

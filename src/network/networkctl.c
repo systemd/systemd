@@ -57,6 +57,7 @@
 #include "path-util.h"
 #include "pretty-print.h"
 #include "set.h"
+#include "sigbus.h"
 #include "socket-netlink.h"
 #include "socket-util.h"
 #include "sort-util.h"
@@ -3583,6 +3584,8 @@ static int run(int argc, char* argv[]) {
         int r;
 
         log_setup();
+
+        sigbus_install();
 
         r = parse_argv(argc, argv);
         if (r <= 0)
