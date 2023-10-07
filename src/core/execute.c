@@ -1921,6 +1921,32 @@ static int build_environment(
                 our_env[n_env++] = x;
         }
 
+        /* We query "root" if this is a system unit and User= is not specified. $USER and $HOME are always
+         * set, but $LOGNAME and $SHELL don't really make much sense since we're not logged in, hence we
+         * conditionalize it based on SetLoginEnvironment= switch. */
+        if (!c->user && p->runtime_scope == RUNTIME_SCOPE_SYSTEM) {
+                r = get_fixed_user("root", &username, NULL, NULL, &home, &shell);
+                if (r < 0)
+                        return log_unit_error_errno(unit, r, "Failed to determine user credentials for root: %m");
+        }
+
+        bool set_user_login_env = ((c->user || c->dynamic_user) && c->set_login_environment != 0) ||
+                                  c->set_login_environment > 0;
+
+        if (username) {
+                x = strjoin("USER=", username);
+                if (!x)
+                        return -ENOMEM;
+                our_env[n_env++] = x;
+
+                if (set_user_login_env) {
+                        x = strjoin("LOGNAME=", username);
+                        if (!x)
+                                return -ENOMEM;
+                        our_env[n_env++] = x;
+                }
+        }
+
         if (home) {
                 x = strjoin("HOME=", home);
                 if (!x)
@@ -1930,19 +1956,7 @@ static int build_environment(
                 our_env[n_env++] = x;
         }
 
-        if (username) {
-                x = strjoin("LOGNAME=", username);
-                if (!x)
-                        return -ENOMEM;
-                our_env[n_env++] = x;
-
-                x = strjoin("USER=", username);
-                if (!x)
-                        return -ENOMEM;
-                our_env[n_env++] = x;
-        }
-
-        if (shell) {
+        if (shell && set_user_login_env) {
                 x = strjoin("SHELL=", shell);
                 if (!x)
                         return -ENOMEM;
@@ -5260,6 +5274,7 @@ void exec_context_init(ExecContext *c) {
                 .tty_cols = UINT_MAX,
                 .private_mounts = -1,
                 .memory_ksm = -1,
+                .set_login_environment = -1,
         };
 
         FOREACH_ARRAY(d, c->directories, _EXEC_DIRECTORY_TYPE_MAX)
