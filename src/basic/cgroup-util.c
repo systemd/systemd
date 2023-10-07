@@ -185,7 +185,7 @@ bool cg_freezer_supported(void) {
         if (supported >= 0)
                 return supported;
 
-        supported = cg_all_unified() > 0 && access("/sys/fs/cgroup/init.scope/cgroup.freeze", F_OK) == 0;
+        supported = cg_all_unified() > 0 && access("/sys/fs/cgroup/init.slice/cgroup.freeze", F_OK) == 0;
 
         return supported;
 }
@@ -198,7 +198,7 @@ bool cg_kill_supported(void) {
 
         if (cg_all_unified() <= 0)
                 supported = false;
-        else if (access("/sys/fs/cgroup/init.scope/cgroup.kill", F_OK) < 0) {
+        else if (access("/sys/fs/cgroup/init.slice/cgroup.kill", F_OK) < 0) {
                 if (errno != ENOENT)
                         log_debug_errno(errno, "Failed to check if cgroup.kill is available, assuming not: %m");
                 supported = false;
@@ -1081,7 +1081,9 @@ int cg_get_root_path(char **path) {
         if (r < 0)
                 return r;
 
-        e = endswith(p, "/" SPECIAL_INIT_SCOPE);
+        e = endswith(p, "/" SPECIAL_INIT_SLICE "/" SPECIAL_INIT_SCOPE);
+        if (!e)
+                e = endswith(p, "/" SPECIAL_INIT_SCOPE);
         if (!e)
                 e = endswith(p, "/" SPECIAL_SYSTEM_SLICE); /* legacy */
         if (!e)

@@ -12,9 +12,9 @@ systemd-cgls --cgroup-id=yes
 systemd-cgls --cgroup-id=no
 
 systemd-cgls /system.slice/systemd-journald.service
-systemd-cgls /system.slice/systemd-journald.service /init.scope
-systemd-cgls /sys/fs/cgroup/system.slice/systemd-journald.service /init.scope
-[[ -d /sys/fs/cgroup/init.scope ]] && init_scope="init.scope" || init_scope="systemd/init.scope"
+systemd-cgls /system.slice/systemd-journald.service /init.slice
+systemd-cgls /sys/fs/cgroup/system.slice/systemd-journald.service /init.slice
+[[ -d /sys/fs/cgroup/init.slice ]] && init_scope="init.slice" || init_scope="systemd/init.scope"
 (cd "/sys/fs/cgroup/$init_scope" && systemd-cgls)
 systemd-cgls --unit=systemd-journald.service
 # There's most likely no user session running, so we need to create one

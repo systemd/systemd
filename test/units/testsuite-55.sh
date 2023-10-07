@@ -6,7 +6,7 @@ set -o pipefail
 systemd-analyze log-level debug
 
 # Ensure that the init.scope.d drop-in is applied on boot
-test "$(cat /sys/fs/cgroup/init.scope/memory.high)" != "max"
+test "$(cat /sys/fs/cgroup/init.slice/init.scope/memory.high)" != "max"
 
 # Loose checks to ensure the environment has the necessary features for systemd-oomd
 [[ -e /proc/pressure ]] || echo "no PSI" >>/skipped
@@ -66,6 +66,12 @@ systemctl enable systemd-oomd.service
 # if oomd is already running for some reasons, then restart it to make sure the above settings to be applied
 if systemctl is-active systemd-oomd.service; then
     systemctl restart systemd-oomd.service
+fi
+
+# Ensure that we can start services even with a very low hard memory cap without oom-kills, but skip under
+# sanitizers as they balloon memory usage.
+if ! [[ -v ASAN_OPTIONS || -v UBSAN_OPTIONS ]]; then
+    systemd-run -t -p MemoryMax=10M -p MemorySwapMax=0 -p MemoryZSwapMax=0 /bin/true
 fi
 
 systemctl start testsuite-55-testchill.service
