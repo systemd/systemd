@@ -23,5 +23,6 @@ src/locale/localed.c
 src/timedate/timedated.c
 units/debug-shell.service.in
 units/systemd-journald.service.in
+units/systemd-pcrextend@.service.in
 units/systemd-timesyncd.service.in
 units/user@.service.in
