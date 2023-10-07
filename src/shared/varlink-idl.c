@@ -1024,7 +1024,7 @@ int varlink_idl_parse(
                         if (r < 0)
                                 return r;
 
-                        symbol->symbol_type = _VARLINK_SYMBOL_TYPE_INVALID; /* don't know yet if enum or struct, will be fileld in by varlink_idl_subparse_struct_or_enum() */
+                        symbol->symbol_type = _VARLINK_SYMBOL_TYPE_INVALID; /* don't know yet if enum or struct, will be field in by varlink_idl_subparse_struct_or_enum() */
                         symbol->name = TAKE_PTR(token);
 
                         r = varlink_idl_subparse_struct_or_enum(&text, line, column, &symbol, &n_fields, VARLINK_REGULAR);

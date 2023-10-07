@@ -279,7 +279,7 @@ type ResolvedAddress(
     <example>
       <title>Investigating a Service Executable</title>
 
-      <para>The following comand inspects the <filename>/usr/lib/systemd/systemd-pcrextend</filename>
+      <para>The following command inspects the <filename>/usr/lib/systemd/systemd-pcrextend</filename>
       executable and the IPC APIs it provides. It then invokes a method on it:</para>
 
       <programlisting># varlinkctl info /usr/lib/systemd/systemd-pcrextend
