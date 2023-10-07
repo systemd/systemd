@@ -276,9 +276,6 @@ int link_find_qdisc(Link *link, uint32_t handle, uint32_t parent, const char *ki
                 if (qdisc->parent != parent)
                         continue;
 
-                if (qdisc->source == NETWORK_CONFIG_SOURCE_FOREIGN)
-                        continue;
-
                 if (!qdisc_exists(qdisc))
                         continue;
 
