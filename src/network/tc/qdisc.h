@@ -79,7 +79,7 @@ int qdisc_new_static(QDiscKind kind, Network *network, const char *filename, uns
 
 QDisc* qdisc_drop(QDisc *qdisc);
 
-int link_find_qdisc(Link *link, uint32_t handle, uint32_t parent, const char *kind, QDisc **qdisc);
+int link_find_qdisc(Link *link, uint32_t handle, const char *kind, QDisc **qdisc);
 
 int link_request_qdisc(Link *link, QDisc *qdisc);
 
