@@ -142,6 +142,8 @@ static bool line_edit(char16_t **line_in, size_t x_max, size_t y_pos) {
         _cleanup_free_ char16_t *line = NULL, *print = NULL;
         size_t size, len, first = 0, cursor = 0, clear = 0;
 
+        /* Edit the line and return true if it should be executed, false if not. */
+
         assert(line_in);
 
         len = strlen16(*line_in);
@@ -607,32 +609,37 @@ static void print_status(Config *config, char16_t *loaded_image_path) {
         }
 }
 
-static EFI_STATUS reboot_into_firmware(void) {
+static EFI_STATUS set_reboot_into_firmware(void) {
         uint64_t osind = 0;
         EFI_STATUS err;
-
-        if (!FLAGS_SET(get_os_indications_supported(), EFI_OS_INDICATIONS_BOOT_TO_FW_UI))
-                return log_error_status(EFI_UNSUPPORTED, "Reboot to firmware interface not supported.");
 
         (void) efivar_get_uint64_le(MAKE_GUID_PTR(EFI_GLOBAL_VARIABLE), u"OsIndications", &osind);
         osind |= EFI_OS_INDICATIONS_BOOT_TO_FW_UI;
 
         err = efivar_set_uint64_le(MAKE_GUID_PTR(EFI_GLOBAL_VARIABLE), u"OsIndications", osind, EFI_VARIABLE_NON_VOLATILE);
         if (err != EFI_SUCCESS)
-                return log_error_status(err, "Error setting OsIndications: %m");
-
-        RT->ResetSystem(EfiResetCold, EFI_SUCCESS, 0, NULL);
-        assert_not_reached();
+                log_error_status(err, "Error setting OsIndications: %m");
+        return err;
 }
 
-static EFI_STATUS poweroff_system(void) {
+_noreturn_ static EFI_STATUS poweroff_system(void) {
         RT->ResetSystem(EfiResetShutdown, EFI_SUCCESS, 0, NULL);
         assert_not_reached();
 }
 
-static EFI_STATUS reboot_system(void) {
+_noreturn_ static EFI_STATUS reboot_system(void) {
         RT->ResetSystem(EfiResetCold, EFI_SUCCESS, 0, NULL);
         assert_not_reached();
+}
+
+static EFI_STATUS reboot_into_firmware(void) {
+        EFI_STATUS err;
+
+        err = set_reboot_into_firmware();
+        if (err != EFI_SUCCESS)
+                return err;
+
+        return reboot_system();
 }
 
 static bool menu_run(
@@ -654,9 +661,17 @@ static bool menu_run(
         _cleanup_free_ char16_t *clearline = NULL, *separator = NULL, *status = NULL;
         uint32_t timeout_efivar_saved = config->timeout_sec_efivar;
         uint32_t timeout_remain = config->timeout_sec == TIMEOUT_MENU_FORCE ? 0 : config->timeout_sec;
-        bool exit = false, run = true, firmware_setup = false;
         int64_t console_mode_initial = ST->ConOut->Mode->Mode, console_mode_efivar_saved = config->console_mode_efivar;
         size_t default_efivar_saved = config->idx_default_efivar;
+
+        enum {
+                ACTION_CONTINUE,        /* Continue with loop over user input */
+                ACTION_FIRMWARE_SETUP,  /* Ask for confirmation and reboot into firmware setup */
+                ACTION_POWEROFF,        /* Power off the machine */
+                ACTION_REBOOT,          /* Reboot the machine */
+                ACTION_RUN,             /* Execute a boot entry */
+                ACTION_QUIT,            /* Return to the firmware */
+        } action = ACTION_CONTINUE;
 
         graphics_mode(false);
         ST->ConIn->Reset(ST->ConIn, false);
@@ -673,7 +688,7 @@ static bool menu_run(
         }
 
         size_t line_width = 0, entry_padding = 3;
-        while (!exit) {
+        while (IN_SET(action, ACTION_CONTINUE, ACTION_FIRMWARE_SETUP)) {
                 uint64_t key;
 
                 if (new_mode) {
@@ -820,7 +835,7 @@ static bool menu_run(
                         assert(timeout_remain > 0);
                         timeout_remain--;
                         if (timeout_remain == 0) {
-                                exit = true;
+                                action = ACTION_RUN;
                                 break;
                         }
 
@@ -828,7 +843,7 @@ static bool menu_run(
                         continue;
                 }
                 if (err != EFI_SUCCESS) {
-                        exit = true;
+                        action = ACTION_RUN;
                         break;
                 }
 
@@ -839,10 +854,13 @@ static bool menu_run(
 
                 idx_highlight_prev = idx_highlight;
 
-                if (firmware_setup) {
-                        firmware_setup = false;
-                        if (IN_SET(key, KEYPRESS(0, 0, '\r'), KEYPRESS(0, 0, '\n')))
-                                (void) reboot_into_firmware();
+                if (action == ACTION_FIRMWARE_SETUP) {
+                        if (IN_SET(key, KEYPRESS(0, 0, '\r'), KEYPRESS(0, 0, '\n')) &&
+                            set_reboot_into_firmware() == EFI_SUCCESS)
+                                break;
+
+                        /* Any key other than newline or a failed attempt cancel the request. */
+                        action = ACTION_CONTINUE;
                         continue;
                 }
 
@@ -895,7 +913,7 @@ static bool menu_run(
                 case KEYPRESS(0, SCAN_F3, 0): /* EZpad Mini 4s firmware sends malformed events */
                 case KEYPRESS(0, SCAN_F3, '\r'): /* Teclast X98+ II firmware sends malformed events */
                 case KEYPRESS(0, SCAN_RIGHT, 0):
-                        exit = true;
+                        action = ACTION_RUN;
                         break;
 
                 case KEYPRESS(0, SCAN_F1, 0):
@@ -909,8 +927,7 @@ static bool menu_run(
                         break;
 
                 case KEYPRESS(0, 0, 'Q'):
-                        exit = true;
-                        run = false;
+                        action = ACTION_QUIT;
                         break;
 
                 case KEYPRESS(0, 0, 'd'):
@@ -964,7 +981,8 @@ static bool menu_run(
                          * Since we cannot paint the last character of the edit line, we simply start
                          * at x-offset 1 for symmetry. */
                         print_at(1, y_status, COLOR_EDIT, clearline + 2);
-                        exit = line_edit(&config->entries[idx_highlight]->options, x_max - 2, y_status);
+                        if (line_edit(&config->entries[idx_highlight]->options, x_max - 2, y_status))
+                                action = ACTION_RUN;
                         print_at(1, y_status, COLOR_NORMAL, clearline + 2);
 
                         /* The options string was now edited, hence we have to pass it to the invoked
@@ -1030,19 +1048,20 @@ static bool menu_run(
                 case KEYPRESS(0, SCAN_DELETE, 0): /* Same as F2. */
                 case KEYPRESS(0, SCAN_ESC, 0):    /* HP. */
                         if (FLAGS_SET(get_os_indications_supported(), EFI_OS_INDICATIONS_BOOT_TO_FW_UI)) {
-                                firmware_setup = true;
+                                action = ACTION_FIRMWARE_SETUP;
                                 /* Let's make sure the user really wants to do this. */
                                 status = xstrdup16(u"Press Enter to reboot into firmware interface.");
                         } else
                                 status = xstrdup16(u"Reboot into firmware interface not supported.");
                         break;
 
-                case KEYPRESS(0, 0, 'O'): /* Only uppercase, so that it can't be hit so easily fat-fingered, but still works safely over serial */
-                        (void) poweroff_system();
+                case KEYPRESS(0, 0, 'O'): /* Only uppercase, so that it can't be hit so easily fat-fingered,
+                                           * but still works safely over serial. */
+                        action = ACTION_POWEROFF;
                         break;
 
                 case KEYPRESS(0, 0, 'B'): /* ditto */
-                        (void) reboot_system();
+                        action = ACTION_REBOOT;
                         break;
 
                 default:
@@ -1067,8 +1086,6 @@ static bool menu_run(
                 if (!refresh && idx_highlight != idx_highlight_prev)
                         highlight = true;
         }
-
-        *chosen_entry = config->entries[idx_highlight];
 
         /* Update EFI vars after we left the menu to reduce NVRAM writes. */
 
@@ -1100,8 +1117,22 @@ static bool menu_run(
                 }
         }
 
+        switch (action) {
+        case ACTION_CONTINUE:
+                assert_not_reached();
+        case ACTION_POWEROFF:
+                poweroff_system();
+        case ACTION_REBOOT:
+        case ACTION_FIRMWARE_SETUP:
+                reboot_system();
+        case ACTION_RUN:
+        case ACTION_QUIT:
+                break;
+        }
+
+        *chosen_entry = config->entries[idx_highlight];
         clear_screen(COLOR_NORMAL);
-        return run;
+        return action == ACTION_RUN;
 }
 
 static void config_add_entry(Config *config, ConfigEntry *entry) {
