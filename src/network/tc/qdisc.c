@@ -536,6 +536,14 @@ int manager_rtnl_process_qdisc(sd_netlink *rtnl, sd_netlink_message *message, Ma
                         qdisc = TAKE_PTR(tmp);
                 }
 
+                if (!m->enumerating) {
+                        /* Some QDisc (e.g. tbf) also creates an implicit class under the qdisc, but the
+                         * kernel may not notify about the class. Hence, we need to enumerate classes */
+                        r = link_enumerate_tclass(link, qdisc->handle);
+                        if (r < 0)
+                                log_link_warning_errno(link, r, "Failed to enumerate TClass, ignoring: %m");
+                }
+
                 break;
 
         case RTM_DELQDISC:
