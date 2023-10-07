@@ -57,6 +57,23 @@ static int remove_one_link(sd_netlink *rtnl, const char *name) {
         return 1;
 }
 
+static int parse_mac(const char *str_mac, struct ether_addr *mac_container) {
+        int i;
+        int r;
+
+        r = strlen(str_mac);
+        if (r != 17)
+                return log_error_errno(r, "Provided container MAC address in unexpected format: %s", str_mac);
+
+        for (i = 0; i < 6; i++) {
+                r = sscanf(str_mac + i * 3, "%2hhx", &mac_container->ether_addr_octet[i]);
+                if (r != 1)
+                        return log_error_errno(r, "Failed to convert provided MAC address to binary format");
+        }
+
+        return 0;
+}
+
 static int generate_mac(
                 const char *machine_name,
                 struct ether_addr *mac,
@@ -236,7 +253,8 @@ static int shorten_ifname(char *ifname) {
 int setup_veth(const char *machine_name,
                pid_t pid,
                char iface_name[IFNAMSIZ],
-               bool bridge) {
+               bool bridge,
+               const char *provided_mac) {
 
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         struct ether_addr mac_host, mac_container;
@@ -255,9 +273,16 @@ int setup_veth(const char *machine_name,
         if (r > 0)
                 a = strjoina(bridge ? "vb-" : "ve-", machine_name);
 
-        r = generate_mac(machine_name, &mac_container, CONTAINER_HASH_KEY, 0);
-        if (r < 0)
-                return log_error_errno(r, "Failed to generate predictable MAC address for container side: %m");
+        if (provided_mac){
+                r = parse_mac(provided_mac, &mac_container);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse provided MAC address for container side: %m");
+
+        } else {
+                r = generate_mac(machine_name, &mac_container, CONTAINER_HASH_KEY, 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to generate predictable MAC address for container side: %m");
+        }
 
         r = generate_mac(machine_name, &mac_host, HOST_HASH_KEY, 0);
         if (r < 0)
