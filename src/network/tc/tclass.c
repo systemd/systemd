@@ -223,9 +223,6 @@ int link_find_tclass(Link *link, uint32_t classid, TClass **ret) {
                 if (tclass->classid != classid)
                         continue;
 
-                if (tclass->source == NETWORK_CONFIG_SOURCE_FOREIGN)
-                        continue;
-
                 if (!tclass_exists(tclass))
                         continue;
 
