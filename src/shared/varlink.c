@@ -501,6 +501,7 @@ int varlink_connect_url(Varlink **ret, const char *url) {
         _cleanup_free_ char *c = NULL;
         const char *p;
         bool exec;
+        int r;
 
         assert_return(ret, -EINVAL);
         assert_return(url, -EINVAL);
@@ -533,11 +534,9 @@ int varlink_connect_url(Varlink **ret, const char *url) {
                 if (!path_is_absolute(p))
                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Specified path not absolute, refusing.");
 
-                c = strdup(p);
-                if (!c)
-                        return log_oom_debug();
-
-                path_simplify(c);
+                r = path_simplify_alloc(p, &c);
+                if (r < 0)
+                        return r;
 
                 if (!path_is_normalized(c))
                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Specified path is not normalized, refusing.");
