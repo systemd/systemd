@@ -393,27 +393,29 @@ static size_t entry_lookup_key(Config *config, size_t start, char16_t key) {
         return IDX_INVALID;
 }
 
-static char16_t *update_timeout_efivar(uint32_t *t, bool inc) {
-        assert(t);
+static char16_t* update_timeout_efivar(Config *config, bool inc) {
+        assert(config);
 
-        switch (*t) {
+        switch (config->timeout_sec) {
         case TIMEOUT_MAX:
-                *t = inc ? TIMEOUT_MAX : (*t - 1);
+                config->timeout_sec = inc ? TIMEOUT_MAX : config->timeout_sec - 1;
                 break;
         case TIMEOUT_UNSET:
-                *t = inc ? TIMEOUT_MENU_FORCE : TIMEOUT_UNSET;
+                config->timeout_sec = inc ? TIMEOUT_MENU_FORCE : TIMEOUT_UNSET;
                 break;
         case TIMEOUT_MENU_FORCE:
-                *t = inc ? TIMEOUT_MENU_HIDDEN : TIMEOUT_UNSET;
+                config->timeout_sec = inc ? TIMEOUT_MENU_HIDDEN : TIMEOUT_MENU_FORCE;
                 break;
         case TIMEOUT_MENU_HIDDEN:
-                *t = inc ? TIMEOUT_MIN : TIMEOUT_MENU_FORCE;
+                config->timeout_sec = inc ? TIMEOUT_MIN : TIMEOUT_MENU_FORCE;
                 break;
         default:
-                *t += inc ? 1 : -1;
+                config->timeout_sec = config->timeout_sec + (inc ? 1 : -1);
         }
 
-        switch (*t) {
+        config->timeout_sec_efivar = config->timeout_sec;
+
+        switch (config->timeout_sec) {
         case TIMEOUT_UNSET:
                 return xstrdup16(u"Menu timeout defined by configuration file.");
         case TIMEOUT_MENU_FORCE:
@@ -421,7 +423,7 @@ static char16_t *update_timeout_efivar(uint32_t *t, bool inc) {
         case TIMEOUT_MENU_HIDDEN:
                 return xstrdup16(u"Menu disabled. Hold down key at bootup to show menu.");
         default:
-                return xasprintf("Menu timeout set to %u s.", *t);
+                return xasprintf("Menu timeout set to %u s.", config->timeout_sec_efivar);
         }
 }
 
@@ -938,12 +940,12 @@ static bool menu_run(
 
                 case KEYPRESS(0, 0, '-'):
                 case KEYPRESS(0, 0, 'T'):
-                        status = update_timeout_efivar(&config->timeout_sec_efivar, false);
+                        status = update_timeout_efivar(config, false);
                         break;
 
                 case KEYPRESS(0, 0, '+'):
                 case KEYPRESS(0, 0, 't'):
-                        status = update_timeout_efivar(&config->timeout_sec_efivar, true);
+                        status = update_timeout_efivar(config, true);
                         break;
 
                 case KEYPRESS(0, 0, 'e'):
