@@ -571,7 +571,12 @@ def stop_by_pid_file(pid_file):
                 print(f"Unexpected exception when waiting for {pid} to die: {e.errno}")
     rm_f(pid_file)
 
-def start_dnsmasq(*additional_options, interface='veth-peer', lease_time='2m', ipv4_range='192.168.5.10,192.168.5.200', ipv4_router='192.168.5.1', ipv6_range='2600::10,2600::20'):
+def start_dnsmasq(*additional_options, interface='veth-peer', ra_mode=None, ipv4_range='192.168.5.10,192.168.5.200', ipv4_router='192.168.5.1', ipv6_range='2600::10,2600::20'):
+    if ra_mode:
+        ra_mode = f',{ra_mode}'
+    else:
+        ra_mode = ''
+
     command = (
         'dnsmasq',
         f'--log-facility={dnsmasq_log_file}',
@@ -583,8 +588,8 @@ def start_dnsmasq(*additional_options, interface='veth-peer', lease_time='2m', i
         f'--interface={interface}',
         f'--dhcp-leasefile={dnsmasq_lease_file}',
         '--enable-ra',
-        f'--dhcp-range={ipv6_range},{lease_time}',
-        f'--dhcp-range={ipv4_range},{lease_time}',
+        f'--dhcp-range={ipv6_range}{ra_mode},2m',
+        f'--dhcp-range={ipv4_range},2m',
         '--dhcp-option=option:mtu,1492',
         f'--dhcp-option=option:router,{ipv4_router}',
         '--port=0',
@@ -5062,8 +5067,41 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
 
         start_networkd()
         self.wait_online(['veth-peer:carrier'])
+
+        # information request mode
+        start_dnsmasq('--dhcp-option=option6:dns-server,[2600::ee]',
+                      '--dhcp-option=option6:ntp-server,[2600::ff]',
+                      ra_mode='ra-stateless')
+        self.wait_online(['veth99:routable', 'veth-peer:routable'])
+
+        # Check link state file
+        print('## link state file')
+        output = read_link_state_file('veth99')
+        print(output)
+        self.assertIn('DNS=2600::ee', output)
+        self.assertIn('NTP=2600::ff', output)
+
+        # Check manager state file
+        print('## manager state file')
+        output = read_manager_state_file()
+        print(output)
+        self.assertRegex(output, 'DNS=.*2600::ee')
+        self.assertRegex(output, 'NTP=.*2600::ff')
+
+        print('## dnsmasq log')
+        output = read_dnsmasq_log_file()
+        print(output)
+        self.assertIn('DHCPINFORMATION-REQUEST(veth-peer)', output)
+        self.assertNotIn('DHCPSOLICIT(veth-peer)', output)
+        self.assertNotIn('DHCPADVERTISE(veth-peer)', output)
+        self.assertNotIn('DHCPREQUEST(veth-peer)', output)
+        self.assertNotIn('DHCPREPLY(veth-peer)', output)
+
+        # solicit mode
+        stop_dnsmasq()
         start_dnsmasq('--dhcp-option=option6:dns-server,[2600::ee]',
                       '--dhcp-option=option6:ntp-server,[2600::ff]')
+        networkctl_reconfigure('veth99')
         self.wait_online(['veth99:routable', 'veth-peer:routable'])
 
         # checking address
@@ -5099,6 +5137,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         print('## dnsmasq log')
         output = read_dnsmasq_log_file()
         print(output)
+        self.assertNotIn('DHCPINFORMATION-REQUEST(veth-peer)', output)
         self.assertIn('DHCPSOLICIT(veth-peer)', output)
         self.assertNotIn('DHCPADVERTISE(veth-peer)', output)
         self.assertNotIn('DHCPREQUEST(veth-peer)', output)
@@ -5143,6 +5182,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         print('## dnsmasq log')
         output = read_dnsmasq_log_file()
         print(output)
+        self.assertNotIn('DHCPINFORMATION-REQUEST(veth-peer)', output)
         self.assertIn('DHCPSOLICIT(veth-peer)', output)
         self.assertIn('DHCPADVERTISE(veth-peer)', output)
         self.assertIn('DHCPREQUEST(veth-peer)', output)
