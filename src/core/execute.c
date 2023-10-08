@@ -989,44 +989,45 @@ restore_stdio:
         return r;
 }
 
-static int get_fixed_user(const ExecContext *c, const char **user,
-                          uid_t *uid, gid_t *gid,
-                          const char **home, const char **shell) {
+static int get_fixed_user(
+                const char *username,
+                const char **ret_user,
+                uid_t *ret_uid,
+                gid_t *ret_gid,
+                const char **ret_home,
+                const char **ret_shell) {
+
         int r;
-        const char *name;
 
-        assert(c);
-
-        if (!c->user)
-                return 0;
+        assert(username);
+        assert(ret_user);
 
         /* Note that we don't set $HOME or $SHELL if they are not particularly enlightening anyway
          * (i.e. are "/" or "/bin/nologin"). */
 
-        name = c->user;
-        r = get_user_creds(&name, uid, gid, home, shell, USER_CREDS_CLEAN);
+        r = get_user_creds(&username, ret_uid, ret_gid, ret_home, ret_shell, USER_CREDS_CLEAN);
         if (r < 0)
                 return r;
 
-        *user = name;
+        *ret_user = username;
         return 0;
 }
 
-static int get_fixed_group(const ExecContext *c, const char **group, gid_t *gid) {
+static int get_fixed_group(
+                const char *groupname,
+                const char **ret_group,
+                gid_t *ret_gid) {
+
         int r;
-        const char *name;
 
-        assert(c);
+        assert(groupname);
+        assert(ret_group);
 
-        if (!c->group)
-                return 0;
-
-        name = c->group;
-        r = get_group_creds(&name, gid, 0);
+        r = get_group_creds(&groupname, ret_gid, /* flags = */ 0);
         if (r < 0)
                 return r;
 
-        *group = name;
+        *ret_group = groupname;
         return 0;
 }
 
@@ -4153,16 +4154,20 @@ static int exec_child(
                         username = runtime->dynamic_creds->user->name;
 
         } else {
-                r = get_fixed_user(context, &username, &uid, &gid, &home, &shell);
-                if (r < 0) {
-                        *exit_status = EXIT_USER;
-                        return log_unit_error_errno(unit, r, "Failed to determine user credentials: %m");
+                if (context->user) {
+                        r = get_fixed_user(context->user, &username, &uid, &gid, &home, &shell);
+                        if (r < 0) {
+                                *exit_status = EXIT_USER;
+                                return log_unit_error_errno(unit, r, "Failed to determine user credentials: %m");
+                        }
                 }
 
-                r = get_fixed_group(context, &groupname, &gid);
-                if (r < 0) {
-                        *exit_status = EXIT_GROUP;
-                        return log_unit_error_errno(unit, r, "Failed to determine group credentials: %m");
+                if (context->group) {
+                        r = get_fixed_group(context->group, &groupname, &gid);
+                        if (r < 0) {
+                                *exit_status = EXIT_GROUP;
+                                return log_unit_error_errno(unit, r, "Failed to determine group credentials: %m");
+                        }
                 }
         }
 
