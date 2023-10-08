@@ -341,7 +341,17 @@ static int dhcp6_lease_ip_acquired(sd_dhcp6_client *client, Link *link) {
 }
 
 static int dhcp6_lease_information_acquired(sd_dhcp6_client *client, Link *link) {
-        return 0;
+        sd_dhcp6_lease *lease;
+        int r;
+
+        assert(client);
+        assert(link);
+
+        r = sd_dhcp6_client_get_lease(client, &lease);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Failed to get DHCPv6 lease: %m");
+
+        return unref_and_replace_full(link->dhcp6_lease, lease, sd_dhcp6_lease_ref, sd_dhcp6_lease_unref);
 }
 
 static int dhcp6_lease_lost(Link *link) {
