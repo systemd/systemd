@@ -519,8 +519,9 @@ static EFI_STATUS run(EFI_HANDLE image) {
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Error getting a LoadedImageProtocol handle: %m");
 
-        if (efivar_get_uint64_le(MAKE_GUID_PTR(LOADER), u"LoaderFeatures", &loader_features) != EFI_SUCCESS ||
-            !FLAGS_SET(loader_features, EFI_LOADER_FEATURE_RANDOM_SEED)) {
+        if (loaded_image->DeviceHandle && /* Handle case, where bootloader doesn't support DeviceHandle. */
+            (efivar_get_uint64_le(MAKE_GUID_PTR(LOADER), u"LoaderFeatures", &loader_features) != EFI_SUCCESS ||
+            !FLAGS_SET(loader_features, EFI_LOADER_FEATURE_RANDOM_SEED))) {
                 _cleanup_(file_closep) EFI_FILE *esp_dir = NULL;
 
                 err = partition_open(MAKE_GUID_PTR(ESP), loaded_image->DeviceHandle, NULL, &esp_dir);
@@ -555,19 +556,22 @@ static EFI_STATUS run(EFI_HANDLE image) {
         if (err != EFI_SUCCESS)
                 log_error_status(err, "Error loading global addons, ignoring: %m");
 
-        _cleanup_free_ char16_t *dropin_dir = get_extra_dir(loaded_image->FilePath);
-        err = load_addons(
-                        image,
-                        loaded_image,
-                        dropin_dir,
-                        uname,
-                        &cmdline_addons_uki,
-                        &dt_bases_addons_uki,
-                        &dt_sizes_addons_uki,
-                        &dt_filenames_addons_uki,
-                        &n_dts_addons_uki);
-        if (err != EFI_SUCCESS)
-                log_error_status(err, "Error loading UKI-specific addons, ignoring: %m");
+        /* Some bootloaders always pass NULL in FilePath, so we need to check for it here. */
+        if (loaded_image->FilePath) {
+                _cleanup_free_ char16_t *dropin_dir = get_extra_dir(loaded_image->FilePath);
+                err = load_addons(
+                                image,
+                                loaded_image,
+                                dropin_dir,
+                                uname,
+                                &cmdline_addons_uki,
+                                &dt_bases_addons_uki,
+                                &dt_sizes_addons_uki,
+                                &dt_filenames_addons_uki,
+                                &n_dts_addons_uki);
+                if (err != EFI_SUCCESS)
+                        log_error_status(err, "Error loading UKI-specific addons, ignoring: %m");
+        }
 
         /* Measure all "payload" of this PE image into a separate PCR (i.e. where nothing else is written
          * into so far), so that we have one PCR that we can nicely write policies against because it
