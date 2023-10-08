@@ -445,6 +445,19 @@ static bool ps_continue(void) {
                         !IN_SET(key, KEYPRESS(0, SCAN_ESC, 0), KEYPRESS(0, 0, 'q'), KEYPRESS(0, 0, 'Q'));
 }
 
+static void print_timeout_status(const char *label, uint32_t t) {
+        switch (t) {
+        case TIMEOUT_UNSET:
+                return;
+        case TIMEOUT_MENU_FORCE:
+                return (void) printf("%s: menu-force\n", label);
+        case TIMEOUT_MENU_HIDDEN:
+                return (void) printf("%s: menu-hidden\n", label);
+        default:
+                return (void) printf("%s: %u s\n", label, t);
+        }
+}
+
 static void print_status(Config *config, char16_t *loaded_image_path) {
         size_t x_max, y_max;
         uint32_t screen_width = 0, screen_height = 0;
@@ -482,31 +495,8 @@ static void print_status(Config *config, char16_t *loaded_image_path) {
         if (!ps_continue())
                 return;
 
-        switch (config->timeout_sec_config) {
-        case TIMEOUT_UNSET:
-                break;
-        case TIMEOUT_MENU_FORCE:
-                printf("      timeout (config): menu-force\n");
-                break;
-        case TIMEOUT_MENU_HIDDEN:
-                printf("      timeout (config): menu-hidden\n");
-                break;
-        default:
-                printf("      timeout (config): %u s\n", config->timeout_sec_config);
-        }
-
-        switch (config->timeout_sec_efivar) {
-        case TIMEOUT_UNSET:
-                break;
-        case TIMEOUT_MENU_FORCE:
-                printf("     timeout (EFI var): menu-force\n");
-                break;
-        case TIMEOUT_MENU_HIDDEN:
-                printf("     timeout (EFI var): menu-hidden\n");
-                break;
-        default:
-                printf("     timeout (EFI var): %u s\n", config->timeout_sec_efivar);
-        }
+        print_timeout_status("      timeout (config)", config->timeout_sec_config);
+        print_timeout_status("     timeout (EFI var)", config->timeout_sec_efivar);
 
         if (config->entry_default_config)
                 printf("      default (config): %ls\n", config->entry_default_config);
