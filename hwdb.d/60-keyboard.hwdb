@@ -221,6 +221,10 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnGateway*:pn*:*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnPackard*Bell*:pn*:*
  KEYBOARD_KEY_86=wlan                                   # Fn+F3 or Fn+Q for communication key
 
+# Swift SF314-511
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnSwiftSF314-511:pvr*
+ KEYBOARD_KEY_8a=f20					# Fn+F12, microphone mute
+
 ###########################################################
 # Alienware
 ###########################################################
