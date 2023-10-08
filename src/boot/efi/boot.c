@@ -1249,7 +1249,7 @@ static void config_defaults_load_from_file(Config *config, char *content) {
         assert(config);
         assert(content);
 
-        while ((line = line_get_key_value(content, " \t", &pos, &key, &value))) {
+        while ((line = line_get_key_value(content, " \t", &pos, &key, &value)))
                 if (streq8(key, "timeout")) {
                         if (streq8( value, "menu-force"))
                                 config->timeout_sec_config = TIMEOUT_MENU_FORCE;
@@ -1265,69 +1265,52 @@ static void config_defaults_load_from_file(Config *config, char *content) {
                                 config->timeout_sec_config = u;
                         }
                         config->timeout_sec = config->timeout_sec_config;
-                        continue;
-                }
 
-                if (streq8(key, "default")) {
+                } else if (streq8(key, "default")) {
                         if (value[0] == '@' && !strcaseeq8(value, "@saved")) {
                                 log_error("Unsupported special entry identifier, ignoring: %s", value);
                                 continue;
                         }
                         free(config->entry_default_config);
                         config->entry_default_config = xstr8_to_16(value);
-                        continue;
-                }
 
-                if (streq8(key, "editor")) {
+                } else if (streq8(key, "editor")) {
                         err = parse_boolean(value, &config->editor);
                         if (err != EFI_SUCCESS)
                                 log_error("Error parsing 'editor' config option, ignoring: %s", value);
-                        continue;
-                }
 
-                if (streq8(key, "auto-entries")) {
+                } else if (streq8(key, "auto-entries")) {
                         err = parse_boolean(value, &config->auto_entries);
                         if (err != EFI_SUCCESS)
                                 log_error("Error parsing 'auto-entries' config option, ignoring: %s", value);
-                        continue;
-                }
 
-                if (streq8(key, "auto-firmware")) {
+                } else if (streq8(key, "auto-firmware")) {
                         err = parse_boolean(value, &config->auto_firmware);
                         if (err != EFI_SUCCESS)
                                 log_error("Error parsing 'auto-firmware' config option, ignoring: %s", value);
-                        continue;
-                }
 
-                if (streq8(key, "auto-poweroff")) {
+                } else if (streq8(key, "auto-poweroff")) {
                         err = parse_boolean(value, &config->auto_poweroff);
                         if (err != EFI_SUCCESS)
                                 log_error("Error parsing 'auto-poweroff' config option, ignoring: %s", value);
-                        continue;
-                }
 
-                if (streq8(key, "auto-reboot")) {
+                } else if (streq8(key, "auto-reboot")) {
                         err = parse_boolean(value, &config->auto_reboot);
                         if (err != EFI_SUCCESS)
                                 log_error("Error parsing 'auto-reboot' config option, ignoring: %s", value);
-                        continue;
-                }
 
-                if (streq8(key, "beep")) {
+                } else if (streq8(key, "beep")) {
                         err = parse_boolean(value, &config->beep);
                         if (err != EFI_SUCCESS)
                                 log_error("Error parsing 'beep' config option, ignoring: %s", value);
-                        continue;
-                }
 
-                if (streq8(key, "reboot-for-bitlocker")) {
+                } else if (streq8(key, "reboot-for-bitlocker")) {
                         err = parse_boolean(value, &config->reboot_for_bitlocker);
                         if (err != EFI_SUCCESS)
                                 log_error("Error parsing 'reboot-for-bitlocker' config option, ignoring: %s",
                                           value);
-                }
 
-                if (streq8(key, "secure-boot-enroll")) {
+                } else if (streq8(key, "secure-boot-enroll")) {
                         if (streq8(value, "manual"))
                                 config->secure_boot_enroll = ENROLL_MANUAL;
                         else if (streq8(value, "force"))
@@ -1339,10 +1322,8 @@ static void config_defaults_load_from_file(Config *config, char *content) {
                         else
                                 log_error("Error parsing 'secure-boot-enroll' config option, ignoring: %s",
                                           value);
-                        continue;
-                }
 
-                if (streq8(key, "console-mode")) {
+                } else if (streq8(key, "console-mode")) {
                         if (streq8(value, "auto"))
                                 config->console_mode = CONSOLE_MODE_AUTO;
                         else if (streq8(value, "max"))
@@ -1358,9 +1339,7 @@ static void config_defaults_load_from_file(Config *config, char *content) {
                                 }
                                 config->console_mode = u;
                         }
-                        continue;
                 }
-        }
 }
 
 static void config_entry_parse_tries(
@@ -1511,40 +1490,30 @@ static void config_entry_add_type1(
                 .tries_left = -1,
         };
 
-        while ((line = line_get_key_value(content, " \t", &pos, &key, &value))) {
+        while ((line = line_get_key_value(content, " \t", &pos, &key, &value)))
                 if (streq8(key, "title")) {
                         free(entry->title);
                         entry->title = xstr8_to_16(value);
-                        continue;
-                }
 
-                if (streq8(key, "sort-key")) {
+                } else if (streq8(key, "sort-key")) {
                         free(entry->sort_key);
                         entry->sort_key = xstr8_to_16(value);
-                        continue;
-                }
 
-                if (streq8(key, "version")) {
+                } else if (streq8(key, "version")) {
                         free(entry->version);
                         entry->version = xstr8_to_16(value);
-                        continue;
-                }
 
-                if (streq8(key, "machine-id")) {
+                } else if (streq8(key, "machine-id")) {
                         free(entry->machine_id);
                         entry->machine_id = xstr8_to_16(value);
-                        continue;
-                }
 
-                if (streq8(key, "linux")) {
+                } else if (streq8(key, "linux")) {
                         free(entry->loader);
                         entry->type = LOADER_LINUX;
                         entry->loader = xstr8_to_path(value);
                         entry->key = 'l';
-                        continue;
-                }
 
-                if (streq8(key, "efi")) {
+                } else if (streq8(key, "efi")) {
                         entry->type = LOADER_EFI;
                         free(entry->loader);
                         entry->loader = xstr8_to_path(value);
@@ -1554,35 +1523,27 @@ static void config_entry_add_type1(
                                 entry->type = LOADER_UNDEFINED;
                                 break;
                         }
-                        continue;
-                }
 
-                if (streq8(key, "architecture")) {
+                } else if (streq8(key, "architecture")) {
                         /* do not add an entry for an EFI image of architecture not matching with that of the image */
                         if (!streq8(value, EFI_MACHINE_TYPE_NAME)) {
                                 entry->type = LOADER_UNDEFINED;
                                 break;
                         }
-                        continue;
-                }
 
-                if (streq8(key, "devicetree")) {
+                } else if (streq8(key, "devicetree")) {
                         free(entry->devicetree);
                         entry->devicetree = xstr8_to_path(value);
-                        continue;
-                }
 
-                if (streq8(key, "initrd")) {
+                } else if (streq8(key, "initrd")) {
                         entry->initrd = xrealloc(
                                 entry->initrd,
                                 n_initrd == 0 ? 0 : (n_initrd + 1) * sizeof(uint16_t *),
                                 (n_initrd + 2) * sizeof(uint16_t *));
                         entry->initrd[n_initrd++] = xstr8_to_path(value);
                         entry->initrd[n_initrd] = NULL;
-                        continue;
-                }
 
-                if (streq8(key, "options")) {
+                } else if (streq8(key, "options")) {
                         _cleanup_free_ char16_t *new = NULL;
 
                         new = xstr8_to_16(value);
@@ -1592,10 +1553,7 @@ static void config_entry_add_type1(
                                 entry->options = s;
                         } else
                                 entry->options = TAKE_PTR(new);
-
-                        continue;
                 }
-        }
 
         if (entry->type == LOADER_UNDEFINED)
                 return;
@@ -1856,12 +1814,11 @@ static void config_default_entry_select(Config *config) {
         }
 
         /* select the first suitable entry */
-        for (i = 0; i < config->n_entries; i++) {
-                if (config->entries[i]->type == LOADER_AUTO || config->entries[i]->call)
-                        continue;
-                config->idx_default = i;
-                return;
-        }
+        for (i = 0; i < config->n_entries; i++)
+                if (config->entries[i]->type != LOADER_AUTO && !config->entries[i]->call) {
+                        config->idx_default = i;
+                        return;
+                }
 
         /* If no configured entry to select from was found, enable the menu. */
         config->idx_default = 0;
@@ -2232,55 +2189,39 @@ static void config_entry_add_unified(
                         continue;
 
                 /* read properties from the embedded os-release file */
-                while ((line = line_get_key_value(content, "=", &pos, &key, &value))) {
+                while ((line = line_get_key_value(content, "=", &pos, &key, &value)))
                         if (streq8(key, "PRETTY_NAME")) {
                                 free(os_pretty_name);
                                 os_pretty_name = xstr8_to_16(value);
-                                continue;
-                        }
 
-                        if (streq8(key, "IMAGE_ID")) {
+                        } else if (streq8(key, "IMAGE_ID")) {
                                 free(os_image_id);
                                 os_image_id = xstr8_to_16(value);
-                                continue;
-                        }
 
-                        if (streq8(key, "NAME")) {
+                        } else if (streq8(key, "NAME")) {
                                 free(os_name);
                                 os_name = xstr8_to_16(value);
-                                continue;
-                        }
 
-                        if (streq8(key, "ID")) {
+                        } else if (streq8(key, "ID")) {
                                 free(os_id);
                                 os_id = xstr8_to_16(value);
-                                continue;
-                        }
 
-                        if (streq8(key, "IMAGE_VERSION")) {
+                        } else if (streq8(key, "IMAGE_VERSION")) {
                                 free(os_image_version);
                                 os_image_version = xstr8_to_16(value);
-                                continue;
-                        }
 
-                        if (streq8(key, "VERSION")) {
+                        } else if (streq8(key, "VERSION")) {
                                 free(os_version);
                                 os_version = xstr8_to_16(value);
-                                continue;
-                        }
 
-                        if (streq8(key, "VERSION_ID")) {
+                        } else if (streq8(key, "VERSION_ID")) {
                                 free(os_version_id);
                                 os_version_id = xstr8_to_16(value);
-                                continue;
-                        }
 
-                        if (streq8(key, "BUILD_ID")) {
+                        } else if (streq8(key, "BUILD_ID")) {
                                 free(os_build_id);
                                 os_build_id = xstr8_to_16(value);
-                                continue;
                         }
-                }
 
                 if (!bootspec_pick_name_version_sort_key(
                                     os_pretty_name,
