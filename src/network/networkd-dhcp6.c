@@ -341,7 +341,17 @@ static int dhcp6_lease_ip_acquired(sd_dhcp6_client *client, Link *link) {
 }
 
 static int dhcp6_lease_information_acquired(sd_dhcp6_client *client, Link *link) {
-        return 0;
+        sd_dhcp6_lease *lease;
+        int r;
+
+        assert(client);
+        assert(link);
+
+        r = sd_dhcp6_client_get_lease(client, &lease);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Failed to get DHCPv6 lease: %m");
+
+        return unref_and_replace_full(link->dhcp6_lease, lease, sd_dhcp6_lease_ref, sd_dhcp6_lease_unref);
 }
 
 static int dhcp6_lease_lost(Link *link) {
@@ -366,7 +376,7 @@ static int dhcp6_lease_lost(Link *link) {
 
 static void dhcp6_handler(sd_dhcp6_client *client, int event, void *userdata) {
         Link *link = ASSERT_PTR(userdata);
-        int r;
+        int r = 0;
 
         assert(link->network);
 
@@ -378,31 +388,24 @@ static void dhcp6_handler(sd_dhcp6_client *client, int event, void *userdata) {
         case SD_DHCP6_CLIENT_EVENT_RESEND_EXPIRE:
         case SD_DHCP6_CLIENT_EVENT_RETRANS_MAX:
                 r = dhcp6_lease_lost(link);
-                if (r < 0)
-                        link_enter_failed(link);
                 break;
 
         case SD_DHCP6_CLIENT_EVENT_IP_ACQUIRE:
                 r = dhcp6_lease_ip_acquired(client, link);
-                if (r < 0) {
-                        link_enter_failed(link);
-                        return;
-                }
+                break;
 
-                _fallthrough_;
         case SD_DHCP6_CLIENT_EVENT_INFORMATION_REQUEST:
                 r = dhcp6_lease_information_acquired(client, link);
-                if (r < 0)
-                        link_enter_failed(link);
                 break;
 
         default:
                 if (event < 0)
-                        log_link_warning_errno(link, event, "DHCPv6 error: %m");
+                        log_link_warning_errno(link, event, "DHCPv6 error, ignoring: %m");
                 else
                         log_link_warning(link, "DHCPv6 unknown event: %d", event);
-                return;
         }
+        if (r < 0)
+                link_enter_failed(link);
 }
 
 int dhcp6_start_on_ra(Link *link, bool information_request) {
