@@ -534,6 +534,10 @@ def read_link_attr(*args):
     with open(os.path.join('/sys/class/net', *args), encoding='utf-8') as f:
         return f.readline().strip()
 
+def read_manager_state_file():
+    with open('/run/systemd/netif/state', encoding='utf-8') as f:
+        return f.read()
+
 def read_link_state_file(link):
     ifindex = read_link_attr(link, 'ifindex')
     path = os.path.join('/run/systemd/netif/links', ifindex)
@@ -5099,7 +5103,8 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
 
         start_networkd()
         self.wait_online(['veth-peer:carrier'])
-        start_dnsmasq()
+        start_dnsmasq('--dhcp-option=option6:dns-server,[2600::ee]',
+                      '--dhcp-option=option6:ntp-server,[2600::ff]')
         self.wait_online(['veth99:routable', 'veth-peer:routable'])
 
         # checking address
@@ -5118,6 +5123,20 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, 'token :: dev veth99')
 
+        # Check link state file
+        print('## link state file')
+        output = read_link_state_file('veth99')
+        print(output)
+        self.assertIn('DNS=2600::ee', output)
+        self.assertIn('NTP=2600::ff', output)
+
+        # Check manager state file
+        print('## manager state file')
+        output = read_manager_state_file()
+        print(output)
+        self.assertRegex(output, 'DNS=.*2600::ee')
+        self.assertRegex(output, 'NTP=.*2600::ff')
+
         print('## dnsmasq log')
         output = read_dnsmasq_log_file()
         print(output)
@@ -5131,7 +5150,8 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
             f.write('\n[DHCPv6]\nRapidCommit=no\n')
 
         stop_dnsmasq()
-        start_dnsmasq()
+        start_dnsmasq('--dhcp-option=option6:dns-server,[2600::ee]',
+                      '--dhcp-option=option6:ntp-server,[2600::ff]')
 
         networkctl_reload()
         self.wait_online(['veth99:routable', 'veth-peer:routable'])
@@ -5146,6 +5166,20 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         output = check_output('ip -6 route list dev veth99 2001:1234:5:9fff:ff:ff:ff:ff')
         print(output)
         self.assertRegex(output, 'via fe80::1034:56ff:fe78:9abd')
+
+        # Check link state file
+        print('## link state file')
+        output = read_link_state_file('veth99')
+        print(output)
+        self.assertIn('DNS=2600::ee', output)
+        self.assertIn('NTP=2600::ff', output)
+
+        # Check manager state file
+        print('## manager state file')
+        output = read_manager_state_file()
+        print(output)
+        self.assertRegex(output, 'DNS=.*2600::ee')
+        self.assertRegex(output, 'NTP=.*2600::ff')
 
         print('## dnsmasq log')
         output = read_dnsmasq_log_file()
