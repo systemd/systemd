@@ -390,8 +390,8 @@ static EFI_STATUS run(EFI_HANDLE image) {
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Error getting a LoadedImageProtocol handle: %m");
 
-        if (efivar_get_uint64_le(MAKE_GUID_PTR(LOADER), u"LoaderFeatures", &loader_features) != EFI_SUCCESS ||
-            !FLAGS_SET(loader_features, EFI_LOADER_FEATURE_RANDOM_SEED)) {
+        if (loaded_image->DeviceHandle && (efivar_get_uint64_le(MAKE_GUID_PTR(LOADER), u"LoaderFeatures", &loader_features) != EFI_SUCCESS ||
+            !FLAGS_SET(loader_features, EFI_LOADER_FEATURE_RANDOM_SEED))) {
                 _cleanup_(file_closep) EFI_FILE *esp_dir = NULL;
 
                 err = partition_open(MAKE_GUID_PTR(ESP), loaded_image->DeviceHandle, NULL, &esp_dir);
@@ -482,17 +482,19 @@ static EFI_STATUS run(EFI_HANDLE image) {
                 log_error_status(err, "Error loading global addons, ignoring: %m");
         parameters_measured = parameters_measured < 0 ? m : (parameters_measured && m);
 
-        _cleanup_free_ char16_t *dropin_dir = get_extra_dir(loaded_image->FilePath);
-        err = cmdline_append_and_measure_addons(
-                        image,
-                        loaded_image,
-                        dropin_dir,
-                        uname,
-                        &m,
-                        &cmdline);
-        if (err != EFI_SUCCESS)
-                log_error_status(err, "Error loading UKI-specific addons, ignoring: %m");
-        parameters_measured = parameters_measured < 0 ? m : (parameters_measured && m);
+        if (loaded_image->FilePath) {
+                _cleanup_free_ char16_t *dropin_dir = get_extra_dir(loaded_image->FilePath);
+                err = cmdline_append_and_measure_addons(
+                                image,
+                                loaded_image,
+                                dropin_dir,
+                                uname,
+                                &m,
+                                &cmdline);
+                if (err != EFI_SUCCESS)
+                        log_error_status(err, "Error loading UKI-specific addons, ignoring: %m");
+                parameters_measured = parameters_measured < 0 ? m : (parameters_measured && m);
+        }
 
         /* SMBIOS OEM Strings data is controlled by the host admin and not covered
          * by the VM attestation, so MUST NOT be trusted when in a confidential VM */
