@@ -5259,8 +5259,8 @@ void exec_context_init(ExecContext *c) {
                 .memory_ksm = -1,
         };
 
-        for (ExecDirectoryType t = 0; t < _EXEC_DIRECTORY_TYPE_MAX; t++)
-                c->directories[t].mode = 0755;
+        FOREACH_ARRAY(d, c->directories, _EXEC_DIRECTORY_TYPE_MAX)
+                d->mode = 0755;
 
         numa_policy_reset(&c->numa_policy);
 
