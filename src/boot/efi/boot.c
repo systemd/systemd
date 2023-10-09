@@ -2402,7 +2402,8 @@ static EFI_STATUS image_start(
                 return log_error_status(err, "Error loading %ls: %m", entry->loader);
 
         /* DTBs are loaded by the kernel before ExitBootServices, and they can be used to map and assign
-         * arbitrary memory ranges, so skip it when secure boot is enabled as the DTB here is unverified. */
+         * arbitrary memory ranges, so skip them when secure boot is enabled as the DTB here is unverified.
+         */
         if (entry->devicetree && !secure_boot_enabled()) {
                 err = devicetree_install(&dtstate, image_root, entry->devicetree);
                 if (err != EFI_SUCCESS)
@@ -2419,8 +2420,8 @@ static EFI_STATUS image_start(
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Error getting LoadedImageProtocol handle: %m");
 
-        /* If we had to append an initrd= entry to the command line, we have to pass it, and measure
-         * it. Otherwise, only pass/measure it if it is not implicit anyway (i.e. embedded into the UKI or
+        /* If we had to append an initrd= entry to the command line, we have to pass it, and measure it.
+         * Otherwise, only pass/measure it if it is not implicit anyway (i.e. embedded into the UKI or
          * so). */
         char16_t *options = options_initrd ?: entry->options_implied ? NULL : entry->options;
         if (options) {
@@ -2557,8 +2558,8 @@ static EFI_STATUS secure_boot_discover_keys(Config *config, EFI_FILE *root_dir) 
 
                 if (IN_SET(config->secure_boot_enroll, ENROLL_IF_SAFE, ENROLL_FORCE) &&
                     strcaseeq16(dirent->FileName, u"auto"))
-                        /* if we auto enroll successfully this call does not return, if it fails we still
-                         * want to add other potential entries to the menu */
+                        /* If we auto enroll successfully this call does not return.
+                         * If it fails we still want to add other potential entries to the menu. */
                         secure_boot_enroll_at(root_dir, entry->path, config->secure_boot_enroll == ENROLL_FORCE);
         }
 
@@ -2622,19 +2623,19 @@ static void config_load_all_entries(
 
         config_load_defaults(config, root_dir);
 
-        /* scan /EFI/Linux/ directory */
+        /* Scan /EFI/Linux/ directory */
         config_entry_add_unified(config, loaded_image->DeviceHandle, root_dir);
 
-        /* scan /loader/entries/\*.conf files */
+        /* Scan /loader/entries/\*.conf files */
         config_load_entries(config, loaded_image->DeviceHandle, root_dir, loaded_image_path);
 
         /* Similar, but on any XBOOTLDR partition */
         config_load_xbootldr(config, loaded_image->DeviceHandle);
 
-        /* sort entries after version number */
+        /* Sort entries after version number */
         sort_pointer_array((void **) config->entries, config->n_entries, (compare_pointer_func_t) config_entry_compare);
 
-        /* if we find some well-known loaders, add them to the end of the list */
+        /* If we find some well-known loaders, add them to the end of the list */
         config_entry_add_osx(config);
         config_entry_add_windows(config, loaded_image->DeviceHandle, root_dir);
         config_entry_add_loader_auto(config, loaded_image->DeviceHandle, root_dir, NULL,
@@ -2678,10 +2679,10 @@ static void config_load_all_entries(
                 config_add_entry(config, entry);
         }
 
-        /* find if secure boot signing keys exist and autoload them if necessary
-        otherwise creates menu entries so that the user can load them manually
-        if the secure-boot-enroll variable is set to no (the default), we do not
-        even search for keys on the ESP */
+        /* Find secure boot signing keys and autoload them if configured.
+         * Otherwise, create menu entries so that the user can load them manually.
+         * If the secure-boot-enroll variable is set to no (the default), we do not
+         * even search for keys on the ESP */
         if (config->secure_boot_enroll != ENROLL_OFF)
                 secure_boot_discover_keys(config, root_dir);
 
@@ -2692,7 +2693,7 @@ static void config_load_all_entries(
 
         config_title_generate(config);
 
-        /* select entry by configured pattern or EFI LoaderDefaultEntry= variable */
+        /* Select entry by configured pattern or EFI LoaderDefaultEntry= variable */
         config_default_entry_select(config);
 }
 
