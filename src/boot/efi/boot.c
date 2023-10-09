@@ -388,27 +388,29 @@ static size_t entry_lookup_key(Config *config, size_t start, char16_t key) {
         return IDX_INVALID;
 }
 
-static char16_t *update_timeout_efivar(uint32_t *t, bool inc) {
-        assert(t);
+static char16_t* update_timeout_efivar(Config *config, bool inc) {
+        assert(config);
 
-        switch (*t) {
+        switch (config->timeout_sec) {
         case TIMEOUT_MAX:
-                *t = inc ? TIMEOUT_MAX : (*t - 1);
+                config->timeout_sec = inc ? TIMEOUT_MAX : config->timeout_sec - 1;
                 break;
         case TIMEOUT_UNSET:
-                *t = inc ? TIMEOUT_MENU_FORCE : TIMEOUT_UNSET;
+                config->timeout_sec = inc ? TIMEOUT_MENU_FORCE : TIMEOUT_UNSET;
                 break;
         case TIMEOUT_MENU_FORCE:
-                *t = inc ? TIMEOUT_MENU_HIDDEN : TIMEOUT_UNSET;
+                config->timeout_sec = inc ? TIMEOUT_MENU_HIDDEN : TIMEOUT_MENU_FORCE;
                 break;
         case TIMEOUT_MENU_HIDDEN:
-                *t = inc ? TIMEOUT_MIN : TIMEOUT_MENU_FORCE;
+                config->timeout_sec = inc ? TIMEOUT_MIN : TIMEOUT_MENU_FORCE;
                 break;
         default:
-                *t += inc ? 1 : -1;
+                config->timeout_sec = config->timeout_sec + (inc ? 1 : -1);
         }
 
-        switch (*t) {
+        config->timeout_sec_efivar = config->timeout_sec;
+
+        switch (config->timeout_sec) {
         case TIMEOUT_UNSET:
                 return xstrdup16(u"Menu timeout defined by configuration file.");
         case TIMEOUT_MENU_FORCE:
@@ -416,7 +418,7 @@ static char16_t *update_timeout_efivar(uint32_t *t, bool inc) {
         case TIMEOUT_MENU_HIDDEN:
                 return xstrdup16(u"Menu disabled. Hold down key at bootup to show menu.");
         default:
-                return xasprintf("Menu timeout set to %u s.", *t);
+                return xasprintf("Menu timeout set to %u s.", config->timeout_sec_efivar);
         }
 }
 
@@ -438,6 +440,19 @@ static bool ps_continue(void) {
         uint64_t key;
         return console_key_read(&key, UINT64_MAX) == EFI_SUCCESS &&
                         !IN_SET(key, KEYPRESS(0, SCAN_ESC, 0), KEYPRESS(0, 0, 'q'), KEYPRESS(0, 0, 'Q'));
+}
+
+static void print_timeout_status(const char *label, uint32_t t) {
+        switch (t) {
+        case TIMEOUT_UNSET:
+                return;
+        case TIMEOUT_MENU_FORCE:
+                return (void) printf("%s: menu-force\n", label);
+        case TIMEOUT_MENU_HIDDEN:
+                return (void) printf("%s: menu-hidden\n", label);
+        default:
+                return (void) printf("%s: %u s\n", label, t);
+        }
 }
 
 static void print_status(Config *config, char16_t *loaded_image_path) {
@@ -477,31 +492,8 @@ static void print_status(Config *config, char16_t *loaded_image_path) {
         if (!ps_continue())
                 return;
 
-        switch (config->timeout_sec_config) {
-        case TIMEOUT_UNSET:
-                break;
-        case TIMEOUT_MENU_FORCE:
-                printf("      timeout (config): menu-force\n");
-                break;
-        case TIMEOUT_MENU_HIDDEN:
-                printf("      timeout (config): menu-hidden\n");
-                break;
-        default:
-                printf("      timeout (config): %u s\n", config->timeout_sec_config);
-        }
-
-        switch (config->timeout_sec_efivar) {
-        case TIMEOUT_UNSET:
-                break;
-        case TIMEOUT_MENU_FORCE:
-                printf("     timeout (EFI var): menu-force\n");
-                break;
-        case TIMEOUT_MENU_HIDDEN:
-                printf("     timeout (EFI var): menu-hidden\n");
-                break;
-        default:
-                printf("     timeout (EFI var): %u s\n", config->timeout_sec_efivar);
-        }
+        print_timeout_status("      timeout (config)", config->timeout_sec_config);
+        print_timeout_status("     timeout (EFI var)", config->timeout_sec_efivar);
 
         if (config->entry_default_config)
                 printf("      default (config): %ls\n", config->entry_default_config);
@@ -604,32 +596,37 @@ static void print_status(Config *config, char16_t *loaded_image_path) {
         }
 }
 
-static EFI_STATUS reboot_into_firmware(void) {
+static EFI_STATUS set_reboot_into_firmware(void) {
         uint64_t osind = 0;
         EFI_STATUS err;
-
-        if (!FLAGS_SET(get_os_indications_supported(), EFI_OS_INDICATIONS_BOOT_TO_FW_UI))
-                return log_error_status(EFI_UNSUPPORTED, "Reboot to firmware interface not supported.");
 
         (void) efivar_get_uint64_le(MAKE_GUID_PTR(EFI_GLOBAL_VARIABLE), u"OsIndications", &osind);
         osind |= EFI_OS_INDICATIONS_BOOT_TO_FW_UI;
 
         err = efivar_set_uint64_le(MAKE_GUID_PTR(EFI_GLOBAL_VARIABLE), u"OsIndications", osind, EFI_VARIABLE_NON_VOLATILE);
         if (err != EFI_SUCCESS)
-                return log_error_status(err, "Error setting OsIndications: %m");
-
-        RT->ResetSystem(EfiResetCold, EFI_SUCCESS, 0, NULL);
-        assert_not_reached();
+                log_error_status(err, "Error setting OsIndications: %m");
+        return err;
 }
 
-static EFI_STATUS poweroff_system(void) {
+_noreturn_ static EFI_STATUS poweroff_system(void) {
         RT->ResetSystem(EfiResetShutdown, EFI_SUCCESS, 0, NULL);
         assert_not_reached();
 }
 
-static EFI_STATUS reboot_system(void) {
+_noreturn_ static EFI_STATUS reboot_system(void) {
         RT->ResetSystem(EfiResetCold, EFI_SUCCESS, 0, NULL);
         assert_not_reached();
+}
+
+static EFI_STATUS reboot_into_firmware(void) {
+        EFI_STATUS err;
+
+        err = set_reboot_into_firmware();
+        if (err != EFI_SUCCESS)
+                return err;
+
+        return reboot_system();
 }
 
 static bool menu_run(
@@ -651,7 +648,7 @@ static bool menu_run(
         _cleanup_free_ char16_t *clearline = NULL, *separator = NULL, *status = NULL;
         uint32_t timeout_efivar_saved = config->timeout_sec_efivar;
         uint32_t timeout_remain = config->timeout_sec == TIMEOUT_MENU_FORCE ? 0 : config->timeout_sec;
-        bool exit = false, run = true, firmware_setup = false;
+        bool exit = false, run = true, firmware_setup = false, poweroff = false, reboot = false;
         int64_t console_mode_initial = ST->ConOut->Mode->Mode, console_mode_efivar_saved = config->console_mode_efivar;
         size_t default_efivar_saved = config->idx_default_efivar;
 
@@ -837,9 +834,12 @@ static bool menu_run(
                 idx_highlight_prev = idx_highlight;
 
                 if (firmware_setup) {
+                        if (IN_SET(key, KEYPRESS(0, 0, '\r'), KEYPRESS(0, 0, '\n')) &&
+                            set_reboot_into_firmware() == EFI_SUCCESS)
+                                break;
+
+                        /* Any key other then newline or a failed attempt cancel the request. */
                         firmware_setup = false;
-                        if (IN_SET(key, KEYPRESS(0, 0, '\r'), KEYPRESS(0, 0, '\n')))
-                                (void) reboot_into_firmware();
                         continue;
                 }
 
@@ -928,12 +928,12 @@ static bool menu_run(
 
                 case KEYPRESS(0, 0, '-'):
                 case KEYPRESS(0, 0, 'T'):
-                        status = update_timeout_efivar(&config->timeout_sec_efivar, false);
+                        status = update_timeout_efivar(config, false);
                         break;
 
                 case KEYPRESS(0, 0, '+'):
                 case KEYPRESS(0, 0, 't'):
-                        status = update_timeout_efivar(&config->timeout_sec_efivar, true);
+                        status = update_timeout_efivar(config, true);
                         break;
 
                 case KEYPRESS(0, 0, 'e'):
@@ -1034,12 +1034,15 @@ static bool menu_run(
                                 status = xstrdup16(u"Reboot into firmware interface not supported.");
                         break;
 
-                case KEYPRESS(0, 0, 'O'): /* Only uppercase, so that it can't be hit so easily fat-fingered, but still works safely over serial */
-                        (void) poweroff_system();
+                case KEYPRESS(0, 0, 'O'): /* Only uppercase, so that it can't be hit so easily fat-fingered,
+                                           * but still works safely over serial. */
+                        poweroff = true;
+                        exit = true;
                         break;
 
                 case KEYPRESS(0, 0, 'B'): /* ditto */
-                        (void) reboot_system();
+                        reboot = true;
+                        exit = true;
                         break;
 
                 default:
@@ -1064,8 +1067,6 @@ static bool menu_run(
                 if (!refresh && idx_highlight != idx_highlight_prev)
                         highlight = true;
         }
-
-        *chosen_entry = config->entries[idx_highlight];
 
         /* Update EFI vars after we left the menu to reduce NVRAM writes. */
 
@@ -1097,6 +1098,13 @@ static bool menu_run(
                 }
         }
 
+        if (poweroff)
+                poweroff_system();
+        if (reboot || firmware_setup)
+                reboot_system();
+
+        *chosen_entry = config->entries[idx_highlight];
+
         clear_screen(COLOR_NORMAL);
         return run;
 }
@@ -1117,29 +1125,28 @@ static void config_add_entry(Config *config, ConfigEntry *entry) {
         config->entries[config->n_entries++] = entry;
 }
 
-static void config_entry_free(ConfigEntry *entry) {
-        if (!entry)
-                return;
+static ConfigEntry* config_entry_free(ConfigEntry *entry) {
+        if (entry) {
+                free(entry->id);
+                free(entry->title_show);
+                free(entry->title);
+                free(entry->sort_key);
+                free(entry->version);
+                free(entry->machine_id);
+                free(entry->loader);
+                free(entry->devicetree);
+                free(entry->options);
+                strv_free(entry->initrd);
+                free(entry->path);
+                free(entry->current_name);
+                free(entry->next_name);
+                free(entry);
+        }
 
-        free(entry->id);
-        free(entry->title_show);
-        free(entry->title);
-        free(entry->sort_key);
-        free(entry->version);
-        free(entry->machine_id);
-        free(entry->loader);
-        free(entry->devicetree);
-        free(entry->options);
-        strv_free(entry->initrd);
-        free(entry->path);
-        free(entry->current_name);
-        free(entry->next_name);
-        free(entry);
+        return mfree(entry);
 }
 
-static void config_entry_freep(ConfigEntry **entry) {
-        config_entry_free(*entry);
-}
+DEFINE_TRIVIAL_CLEANUP_FUNC(ConfigEntry *, config_entry_free);
 
 static char *line_get_key_value(
                 char *content,
@@ -1224,7 +1231,7 @@ static void config_defaults_load_from_file(Config *config, char *content) {
         assert(config);
         assert(content);
 
-        while ((line = line_get_key_value(content, " \t", &pos, &key, &value))) {
+        while ((line = line_get_key_value(content, " \t", &pos, &key, &value)))
                 if (streq8(key, "timeout")) {
                         if (streq8( value, "menu-force"))
                                 config->timeout_sec_config = TIMEOUT_MENU_FORCE;
@@ -1240,69 +1247,52 @@ static void config_defaults_load_from_file(Config *config, char *content) {
                                 config->timeout_sec_config = u;
                         }
                         config->timeout_sec = config->timeout_sec_config;
-                        continue;
-                }
 
-                if (streq8(key, "default")) {
+                } else if (streq8(key, "default")) {
                         if (value[0] == '@' && !strcaseeq8(value, "@saved")) {
                                 log_error("Unsupported special entry identifier, ignoring: %s", value);
                                 continue;
                         }
                         free(config->entry_default_config);
                         config->entry_default_config = xstr8_to_16(value);
-                        continue;
-                }
 
-                if (streq8(key, "editor")) {
+                } else if (streq8(key, "editor")) {
                         err = parse_boolean(value, &config->editor);
                         if (err != EFI_SUCCESS)
                                 log_error("Error parsing 'editor' config option, ignoring: %s", value);
-                        continue;
-                }
 
-                if (streq8(key, "auto-entries")) {
+                } else if (streq8(key, "auto-entries")) {
                         err = parse_boolean(value, &config->auto_entries);
                         if (err != EFI_SUCCESS)
                                 log_error("Error parsing 'auto-entries' config option, ignoring: %s", value);
-                        continue;
-                }
 
-                if (streq8(key, "auto-firmware")) {
+                } else if (streq8(key, "auto-firmware")) {
                         err = parse_boolean(value, &config->auto_firmware);
                         if (err != EFI_SUCCESS)
                                 log_error("Error parsing 'auto-firmware' config option, ignoring: %s", value);
-                        continue;
-                }
 
-                if (streq8(key, "auto-poweroff")) {
+                } else if (streq8(key, "auto-poweroff")) {
                         err = parse_boolean(value, &config->auto_poweroff);
                         if (err != EFI_SUCCESS)
                                 log_error("Error parsing 'auto-poweroff' config option, ignoring: %s", value);
-                        continue;
-                }
 
-                if (streq8(key, "auto-reboot")) {
+                } else if (streq8(key, "auto-reboot")) {
                         err = parse_boolean(value, &config->auto_reboot);
                         if (err != EFI_SUCCESS)
                                 log_error("Error parsing 'auto-reboot' config option, ignoring: %s", value);
-                        continue;
-                }
 
-                if (streq8(key, "beep")) {
+                } else if (streq8(key, "beep")) {
                         err = parse_boolean(value, &config->beep);
                         if (err != EFI_SUCCESS)
                                 log_error("Error parsing 'beep' config option, ignoring: %s", value);
-                        continue;
-                }
 
-                if (streq8(key, "reboot-for-bitlocker")) {
+                } else if (streq8(key, "reboot-for-bitlocker")) {
                         err = parse_boolean(value, &config->reboot_for_bitlocker);
                         if (err != EFI_SUCCESS)
                                 log_error("Error parsing 'reboot-for-bitlocker' config option, ignoring: %s",
                                           value);
-                }
 
-                if (streq8(key, "secure-boot-enroll")) {
+                } else if (streq8(key, "secure-boot-enroll")) {
                         if (streq8(value, "manual"))
                                 config->secure_boot_enroll = ENROLL_MANUAL;
                         else if (streq8(value, "force"))
@@ -1314,10 +1304,8 @@ static void config_defaults_load_from_file(Config *config, char *content) {
                         else
                                 log_error("Error parsing 'secure-boot-enroll' config option, ignoring: %s",
                                           value);
-                        continue;
-                }
 
-                if (streq8(key, "console-mode")) {
+                } else if (streq8(key, "console-mode")) {
                         if (streq8(value, "auto"))
                                 config->console_mode = CONSOLE_MODE_AUTO;
                         else if (streq8(value, "max"))
@@ -1333,9 +1321,7 @@ static void config_defaults_load_from_file(Config *config, char *content) {
                                 }
                                 config->console_mode = u;
                         }
-                        continue;
                 }
-        }
 }
 
 static void config_entry_parse_tries(
@@ -1486,40 +1472,30 @@ static void config_entry_add_type1(
                 .tries_left = -1,
         };
 
-        while ((line = line_get_key_value(content, " \t", &pos, &key, &value))) {
+        while ((line = line_get_key_value(content, " \t", &pos, &key, &value)))
                 if (streq8(key, "title")) {
                         free(entry->title);
                         entry->title = xstr8_to_16(value);
-                        continue;
-                }
 
-                if (streq8(key, "sort-key")) {
+                } else if (streq8(key, "sort-key")) {
                         free(entry->sort_key);
                         entry->sort_key = xstr8_to_16(value);
-                        continue;
-                }
 
-                if (streq8(key, "version")) {
+                } else if (streq8(key, "version")) {
                         free(entry->version);
                         entry->version = xstr8_to_16(value);
-                        continue;
-                }
 
-                if (streq8(key, "machine-id")) {
+                } else if (streq8(key, "machine-id")) {
                         free(entry->machine_id);
                         entry->machine_id = xstr8_to_16(value);
-                        continue;
-                }
 
-                if (streq8(key, "linux")) {
+                } else if (streq8(key, "linux")) {
                         free(entry->loader);
                         entry->type = LOADER_LINUX;
                         entry->loader = xstr8_to_path(value);
                         entry->key = 'l';
-                        continue;
-                }
 
-                if (streq8(key, "efi")) {
+                } else if (streq8(key, "efi")) {
                         entry->type = LOADER_EFI;
                         free(entry->loader);
                         entry->loader = xstr8_to_path(value);
@@ -1529,35 +1505,27 @@ static void config_entry_add_type1(
                                 entry->type = LOADER_UNDEFINED;
                                 break;
                         }
-                        continue;
-                }
 
-                if (streq8(key, "architecture")) {
+                } else if (streq8(key, "architecture")) {
                         /* do not add an entry for an EFI image of architecture not matching with that of the image */
                         if (!streq8(value, EFI_MACHINE_TYPE_NAME)) {
                                 entry->type = LOADER_UNDEFINED;
                                 break;
                         }
-                        continue;
-                }
 
-                if (streq8(key, "devicetree")) {
+                } else if (streq8(key, "devicetree")) {
                         free(entry->devicetree);
                         entry->devicetree = xstr8_to_path(value);
-                        continue;
-                }
 
-                if (streq8(key, "initrd")) {
+                } else if (streq8(key, "initrd")) {
                         entry->initrd = xrealloc(
                                 entry->initrd,
                                 n_initrd == 0 ? 0 : (n_initrd + 1) * sizeof(uint16_t *),
                                 (n_initrd + 2) * sizeof(uint16_t *));
                         entry->initrd[n_initrd++] = xstr8_to_path(value);
                         entry->initrd[n_initrd] = NULL;
-                        continue;
-                }
 
-                if (streq8(key, "options")) {
+                } else if (streq8(key, "options")) {
                         _cleanup_free_ char16_t *new = NULL;
 
                         new = xstr8_to_16(value);
@@ -1567,10 +1535,7 @@ static void config_entry_add_type1(
                                 entry->options = s;
                         } else
                                 entry->options = TAKE_PTR(new);
-
-                        continue;
                 }
-        }
 
         if (entry->type == LOADER_UNDEFINED)
                 return;
@@ -1821,12 +1786,11 @@ static void config_default_entry_select(Config *config) {
         }
 
         /* select the first suitable entry */
-        for (i = 0; i < config->n_entries; i++) {
-                if (config->entries[i]->type == LOADER_AUTO || config->entries[i]->call)
-                        continue;
-                config->idx_default = i;
-                return;
-        }
+        for (i = 0; i < config->n_entries; i++)
+                if (config->entries[i]->type != LOADER_AUTO && !config->entries[i]->call) {
+                        config->idx_default = i;
+                        return;
+                }
 
         /* If no configured entry to select from was found, enable the menu. */
         config->idx_default = 0;
@@ -2197,55 +2161,39 @@ static void config_entry_add_unified(
                         continue;
 
                 /* read properties from the embedded os-release file */
-                while ((line = line_get_key_value(content, "=", &pos, &key, &value))) {
+                while ((line = line_get_key_value(content, "=", &pos, &key, &value)))
                         if (streq8(key, "PRETTY_NAME")) {
                                 free(os_pretty_name);
                                 os_pretty_name = xstr8_to_16(value);
-                                continue;
-                        }
 
-                        if (streq8(key, "IMAGE_ID")) {
+                        } else if (streq8(key, "IMAGE_ID")) {
                                 free(os_image_id);
                                 os_image_id = xstr8_to_16(value);
-                                continue;
-                        }
 
-                        if (streq8(key, "NAME")) {
+                        } else if (streq8(key, "NAME")) {
                                 free(os_name);
                                 os_name = xstr8_to_16(value);
-                                continue;
-                        }
 
-                        if (streq8(key, "ID")) {
+                        } else if (streq8(key, "ID")) {
                                 free(os_id);
                                 os_id = xstr8_to_16(value);
-                                continue;
-                        }
 
-                        if (streq8(key, "IMAGE_VERSION")) {
+                        } else if (streq8(key, "IMAGE_VERSION")) {
                                 free(os_image_version);
                                 os_image_version = xstr8_to_16(value);
-                                continue;
-                        }
 
-                        if (streq8(key, "VERSION")) {
+                        } else if (streq8(key, "VERSION")) {
                                 free(os_version);
                                 os_version = xstr8_to_16(value);
-                                continue;
-                        }
 
-                        if (streq8(key, "VERSION_ID")) {
+                        } else if (streq8(key, "VERSION_ID")) {
                                 free(os_version_id);
                                 os_version_id = xstr8_to_16(value);
-                                continue;
-                        }
 
-                        if (streq8(key, "BUILD_ID")) {
+                        } else if (streq8(key, "BUILD_ID")) {
                                 free(os_build_id);
                                 os_build_id = xstr8_to_16(value);
-                                continue;
                         }
-                }
 
                 if (!bootspec_pick_name_version_sort_key(
                                     os_pretty_name,
@@ -2426,7 +2374,8 @@ static EFI_STATUS image_start(
                 return log_error_status(err, "Error loading %ls: %m", entry->loader);
 
         /* DTBs are loaded by the kernel before ExitBootServices, and they can be used to map and assign
-         * arbitrary memory ranges, so skip it when secure boot is enabled as the DTB here is unverified. */
+         * arbitrary memory ranges, so skip them when secure boot is enabled as the DTB here is unverified.
+         */
         if (entry->devicetree && !secure_boot_enabled()) {
                 err = devicetree_install(&dtstate, image_root, entry->devicetree);
                 if (err != EFI_SUCCESS)
@@ -2443,8 +2392,8 @@ static EFI_STATUS image_start(
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Error getting LoadedImageProtocol handle: %m");
 
-        /* If we had to append an initrd= entry to the command line, we have to pass it, and measure
-         * it. Otherwise, only pass/measure it if it is not implicit anyway (i.e. embedded into the UKI or
+        /* If we had to append an initrd= entry to the command line, we have to pass it, and measure it.
+         * Otherwise, only pass/measure it if it is not implicit anyway (i.e. embedded into the UKI or
          * so). */
         char16_t *options = options_initrd ?: entry->options_implied ? NULL : entry->options;
         if (options) {
@@ -2581,8 +2530,8 @@ static EFI_STATUS secure_boot_discover_keys(Config *config, EFI_FILE *root_dir) 
 
                 if (IN_SET(config->secure_boot_enroll, ENROLL_IF_SAFE, ENROLL_FORCE) &&
                     strcaseeq16(dirent->FileName, u"auto"))
-                        /* if we auto enroll successfully this call does not return, if it fails we still
-                         * want to add other potential entries to the menu */
+                        /* If we auto enroll successfully this call does not return.
+                         * If it fails we still want to add other potential entries to the menu. */
                         secure_boot_enroll_at(root_dir, entry->path, config->secure_boot_enroll == ENROLL_FORCE);
         }
 
@@ -2646,19 +2595,19 @@ static void config_load_all_entries(
 
         config_load_defaults(config, root_dir);
 
-        /* scan /EFI/Linux/ directory */
+        /* Scan /EFI/Linux/ directory */
         config_entry_add_unified(config, loaded_image->DeviceHandle, root_dir);
 
-        /* scan /loader/entries/\*.conf files */
+        /* Scan /loader/entries/\*.conf files */
         config_load_entries(config, loaded_image->DeviceHandle, root_dir, loaded_image_path);
 
         /* Similar, but on any XBOOTLDR partition */
         config_load_xbootldr(config, loaded_image->DeviceHandle);
 
-        /* sort entries after version number */
+        /* Sort entries after version number */
         sort_pointer_array((void **) config->entries, config->n_entries, (compare_pointer_func_t) config_entry_compare);
 
-        /* if we find some well-known loaders, add them to the end of the list */
+        /* If we find some well-known loaders, add them to the end of the list */
         config_entry_add_osx(config);
         config_entry_add_windows(config, loaded_image->DeviceHandle, root_dir);
         config_entry_add_loader_auto(config, loaded_image->DeviceHandle, root_dir, NULL,
@@ -2702,10 +2651,10 @@ static void config_load_all_entries(
                 config_add_entry(config, entry);
         }
 
-        /* find if secure boot signing keys exist and autoload them if necessary
-        otherwise creates menu entries so that the user can load them manually
-        if the secure-boot-enroll variable is set to no (the default), we do not
-        even search for keys on the ESP */
+        /* Find secure boot signing keys and autoload them if configured.
+         * Otherwise, create menu entries so that the user can load them manually.
+         * If the secure-boot-enroll variable is set to no (the default), we do not
+         * even search for keys on the ESP */
         if (config->secure_boot_enroll != ENROLL_OFF)
                 secure_boot_discover_keys(config, root_dir);
 
@@ -2716,7 +2665,7 @@ static void config_load_all_entries(
 
         config_title_generate(config);
 
-        /* select entry by configured pattern or EFI LoaderDefaultEntry= variable */
+        /* Select entry by configured pattern or EFI LoaderDefaultEntry= variable */
         config_default_entry_select(config);
 }
 
