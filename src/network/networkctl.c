@@ -1788,7 +1788,7 @@ static int link_status_one(
                            TABLE_STRING, "Link File:",
                            TABLE_SET_ALIGN_PERCENT, 100,
                            TABLE_STRV, link_dropins ?: STRV_MAKE("n/a"),
-                           TABLE_EMPTY,
+                           TABLE_STRING, "(via systemd-udevd)"
                            TABLE_STRING, "Network File:",
                            TABLE_STRV, network_dropins ?: STRV_MAKE("n/a"),
                            TABLE_EMPTY,
