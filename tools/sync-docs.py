@@ -18,15 +18,18 @@ SCRIPT_TAG = '<script src="{}"></script>'
 NAV_JS = """
 $(document).ready(function() {
     $.getJSON("../index.json", function(data) {
-        data.sort().reverse();
+        var versions = Object.keys(data).sort().reverse();
 
         var [filename, dirname] = window.location.pathname.split("/").reverse();
 
         var items = [];
-        $.each( data, function(_, version) {
+        $.each(versions, function(_, version) {
+            if (filename != "" && !data[version].includes(filename))
+                return;
+
             if (version == dirname) {
                 items.push( "<option selected value='" + version + "'>" + "systemd " + version + "</option>");
-            } else if (dirname == "latest" && version == data[0]) {
+            } else if (dirname == "latest" && version == versions[0]) {
                 items.push( "<option selected value='" + version + "'>" + "systemd " + version + "</option>");
             } else {
                 items.push( "<option value='" + version + "'>" + "systemd " + version + "</option>");
@@ -65,17 +68,16 @@ def process_file(filename):
         f.write(new_contents)
 
 
-def update_index_file(version, index_filename):
+def update_index_file(version, filenames, index_filename):
     response = requests.get(BASE_URL + "index.json")
     if response.status_code == 404:
-        index = []
+        index = {}
     elif response.ok:
         index = response.json()
     else:
         sys.exit(f"Error getting index: {response.status_code} {response.reason}")
 
-    if version not in index:
-        index.insert(0, version)
+    index[version] = filenames
 
     with open(index_filename, "w") as f:
         json.dump(index, f)
@@ -95,13 +97,14 @@ def main(version, directory, www_target):
     index_filename = os.path.join(directory, "index.json")
     nav_filename = os.path.join(directory, "nav.js")
 
-    for filename in glob.glob(os.path.join(directory, "*.html")):
-        process_file(filename)
+    filenames = glob.glob("*.html", root_dir=directory)
+    for filename in filenames:
+        process_file(os.path.join(directory, filename))
 
     with open(nav_filename, "w") as f:
         f.write(NAV_JS)
 
-    update_index_file(version, index_filename)
+    update_index_file(version, filenames, index_filename)
 
     dirs = [version]
 
