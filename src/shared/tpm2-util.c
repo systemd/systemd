@@ -696,12 +696,22 @@ static void tpm2_handle_cleanup(ESYS_CONTEXT *esys_context, ESYS_TR esys_handle,
         if (flush)
                 rc = sym_Esys_FlushContext(esys_context, esys_handle);
         else
-                rc = sym_Esys_TR_Close(esys_context, &esys_handle);
-        if (rc != TSS2_RC_SUCCESS) /* We ignore failures here (besides debug logging), since this is called
-                                    * in error paths, where we cannot do anything about failures anymore. And
-                                    * when it is called in successful codepaths by this time we already did
-                                    * what we wanted to do, and got the results we wanted so there's no
-                                    * reason to make this fail more loudly than necessary. */
+                /* We can't use Esys_TR_Close() because the tpm2-tss library does not use reference counting
+                 * for handles, and a single Esys_TR_Close() will remove the handle (internal to the tpm2-tss
+                 * library) that might be in use by other code that is using the same ESYS_CONTEXT. This
+                 * directly affects us; for example the src/test/test-tpm2.c test function
+                 * check_seal_unseal() will encounter this issue and will result in a failure when trying to
+                 * cleanup (i.e. Esys_FlushContext) the transient primary key that the test function
+                 * generates. However, not calling Esys_TR_Close() here should be ok, since any leaked handle
+                 * references will be cleaned up when we free our ESYS_CONTEXT.
+                 *
+                 * An upstream bug is open here: https://github.com/tpm2-software/tpm2-tss/issues/2693 */
+                rc = TSS2_RC_SUCCESS; // FIXME: restore sym_Esys_TR_Close() use once tpm2-tss is fixed and adopted widely enough
+        if (rc != TSS2_RC_SUCCESS)
+                /* We ignore failures here (besides debug logging), since this is called in error paths,
+                 * where we cannot do anything about failures anymore. And when it is called in successful
+                 * codepaths by this time we already did what we wanted to do, and got the results we wanted
+                 * so there's no reason to make this fail more loudly than necessary. */
                 log_debug("Failed to %s TPM handle, ignoring: %s", flush ? "flush" : "close", sym_Tss2_RC_Decode(rc));
 }
 
