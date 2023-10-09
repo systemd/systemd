@@ -95,18 +95,26 @@ def main(version, directory, www_target):
     index_filename = os.path.join(directory, "index.json")
     nav_filename = os.path.join(directory, "nav.js")
 
+    current_branch = subprocess.check_output(["git", "branch", "--show-current"], text=True).strip()
+
+    if current_branch != 'main' and not current_branch.endswith("-stable"):
+        sys.exit("doc-sync should only be run from main or a stable branch")
+
     for filename in glob.glob(os.path.join(directory, "*.html")):
         process_file(filename)
+
+    if current_branch == "main":
+        version = "devel"
+        dirs = ["devel"]
+    elif int(version) == get_latest_version():
+        dirs = [version, "latest"]
+    else:
+        dirs = [version]
 
     with open(nav_filename, "w") as f:
         f.write(NAV_JS)
 
     update_index_file(version, index_filename)
-
-    dirs = [version]
-
-    if int(version) == get_latest_version():
-        dirs.append("latest")
 
     for d in dirs:
         subprocess.check_call(
