@@ -17,6 +17,7 @@
 #include "memory-util.h"
 #include "network-common.h"
 #include "strv.h"
+#include "strxcpyx.h"
 #include "unaligned.h"
 
 #define DHCP6_OPTION_IA_NA_LEN (sizeof(struct ia_na))
@@ -838,7 +839,8 @@ static int parse_domain(const uint8_t **data, size_t *len, char **ret) {
                 return -ENODATA;
 
         for (;;) {
-                const char *label;
+                char buf[DNS_LABEL_MAX+1], label[DNS_LABEL_MAX];
+                const char *q;
                 uint8_t c;
 
                 if (optlen == 0)
@@ -851,15 +853,12 @@ static int parse_domain(const uint8_t **data, size_t *len, char **ret) {
                 if (c == 0)
                         /* End label */
                         break;
-                if (c > 63)
+                if (c > DNS_LABEL_MAX)
                         return -EBADMSG;
                 if (c > optlen)
                         return -EMSGSIZE;
 
                 /* Literal label */
-                label = (const char*) optval;
-                optval += c;
-                optlen -= c;
 
                 if (!GREEDY_REALLOC(domain, n + (n != 0) + DNS_LABEL_ESCAPED_MAX))
                         return -ENOMEM;
@@ -867,10 +866,19 @@ static int parse_domain(const uint8_t **data, size_t *len, char **ret) {
                 if (n != 0)
                         domain[n++] = '.';
 
-                r = dns_label_escape(label, c, domain + n, DNS_LABEL_ESCAPED_MAX);
+                strnscpy(buf, sizeof buf, (const char*) optval, c);
+
+                q = buf;
+                r = dns_label_unescape(&q, label, sizeof label, 0);
                 if (r < 0)
                         return r;
 
+                r = dns_label_escape(label, r, domain + n, DNS_LABEL_ESCAPED_MAX);
+                if (r < 0)
+                        return r;
+
+                optval += c;
+                optlen -= c;
                 n += r;
         }
 
