@@ -108,7 +108,7 @@ def main(version, directory, www_target, latest):
                 "--exclude=*",
                 "--omit-dir-times",
                 directory + "/",  # copy contents of directory
-                os.path.join(www_target, d),
+                os.path.join(www_target, "man", d),
             ]
         )
 
@@ -118,7 +118,7 @@ def main(version, directory, www_target, latest):
             "-v",
             os.path.join(directory, "index.json"),
             os.path.join(directory, "nav.js"),
-            www_target,
+            os.path.join(www_target, "man"),
         ]
     )
 
