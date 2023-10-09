@@ -84,7 +84,6 @@ int decrypt_pkcs11_key(
 
         *ret_decrypted_key = TAKE_PTR(data.decrypted_key);
         *ret_decrypted_key_size = data.decrypted_key_size;
-
         return 0;
 }
 
