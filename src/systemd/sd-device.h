@@ -129,6 +129,7 @@ sd_device *sd_device_enumerator_get_subsystem_next(sd_device_enumerator *enumera
 int sd_device_enumerator_add_match_subsystem(sd_device_enumerator *enumerator, const char *subsystem, int match);
 int sd_device_enumerator_add_match_sysattr(sd_device_enumerator *enumerator, const char *sysattr, const char *value, int match);
 int sd_device_enumerator_add_match_property(sd_device_enumerator *enumerator, const char *property, const char *value);
+int sd_device_enumerator_add_match_property_required(sd_device_enumerator *enumerator, const char *property, const char *value);
 int sd_device_enumerator_add_match_sysname(sd_device_enumerator *enumerator, const char *sysname);
 int sd_device_enumerator_add_nomatch_sysname(sd_device_enumerator *enumerator, const char *sysname);
 int sd_device_enumerator_add_match_tag(sd_device_enumerator *enumerator, const char *tag);
