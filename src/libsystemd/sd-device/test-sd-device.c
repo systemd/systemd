@@ -397,6 +397,8 @@ TEST(sd_device_enumerator_add_match_property) {
         assert_se(dev);
         assert_se(sd_device_get_ifindex(dev, &ifindex) >= 0);
         assert_se(ifindex == 1);
+        assert_se(sd_device_enumerator_set_match_all_properties(e, true) == 1);
+        assert_se(!sd_device_enumerator_get_device_first(e));
 }
 
 static void check_parent_match(sd_device_enumerator *e, sd_device *dev) {

@@ -40,6 +40,7 @@ struct sd_device_enumerator {
         Hashmap *match_sysattr;
         Hashmap *nomatch_sysattr;
         Hashmap *match_property;
+        bool match_all_properties;
         Set *match_sysname;
         Set *nomatch_sysname;
         Set *match_tag;
@@ -175,6 +176,18 @@ _public_ int sd_device_enumerator_add_match_property(sd_device_enumerator *enume
         if (r <= 0)
                 return r;
 
+        enumerator->scan_uptodate = false;
+
+        return 1;
+}
+
+_public_ int sd_device_enumerator_set_match_all_properties(sd_device_enumerator *enumerator, int b) {
+        assert_return(enumerator, -EINVAL);
+
+        if (enumerator->match_all_properties == !!b)
+                return 0;
+
+        enumerator->match_all_properties = b;
         enumerator->scan_uptodate = false;
 
         return 1;
@@ -471,16 +484,27 @@ static bool match_property(sd_device_enumerator *enumerator, sd_device *device) 
         if (hashmap_isempty(enumerator->match_property))
                 return true;
 
-        HASHMAP_FOREACH_KEY(value_patterns, property_pattern, enumerator->match_property)
+        HASHMAP_FOREACH_KEY(value_patterns, property_pattern, enumerator->match_property) {
+                bool match = false;
+
                 FOREACH_DEVICE_PROPERTY(device, property, value) {
                         if (fnmatch(property_pattern, property, 0) != 0)
                                 continue;
 
-                        if (strv_fnmatch(value_patterns, value))
-                                return true;
+                        match = strv_fnmatch(value_patterns, value);
+                        if (match) {
+                                if (!enumerator->match_all_properties)
+                                        return true;
+
+                                break;
+                        }
                 }
 
-        return false;
+                if (!match && enumerator->match_all_properties)
+                        return false;
+        }
+
+        return enumerator->match_all_properties;
 }
 
 static bool match_tag(sd_device_enumerator *enumerator, sd_device *device) {
