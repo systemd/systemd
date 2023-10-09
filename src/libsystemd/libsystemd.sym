@@ -832,4 +832,5 @@ global:
 LIBSYSTEMD_255 {
 global:
         sd_id128_get_app_specific;
+        sd_device_enumerator_add_match_property_required;
 } LIBSYSTEMD_254;
