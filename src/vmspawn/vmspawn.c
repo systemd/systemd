@@ -450,6 +450,9 @@ static int run_virtual_machine(void) {
 static int run(int argc, char *argv[]) {
         int r, ret = EXIT_SUCCESS;
 
+        log_parse_environment();
+        log_open();
+
         r = parse_argv(argc, argv);
         if (r <= 0)
                 goto finish;
