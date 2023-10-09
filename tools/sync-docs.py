@@ -18,15 +18,18 @@ SCRIPT_TAG = '<script src="{}"></script>'
 NAV_JS = """
 $(document).ready(function() {
     $.getJSON("../index.json", function(data) {
-        data.sort().reverse();
+        var versions = Object.keys(data).sort().reverse();
 
         var [filename, dirname] = window.location.pathname.split("/").reverse();
 
         var items = [];
-        $.each( data, function(_, version) {
+        $.each(versions, function(_, version) {
+            if (filename != "" && !data[version].includes(filename))
+                return;
+
             if (version == dirname) {
                 items.push( "<option selected value='" + version + "'>" + "systemd " + version + "</option>");
-            } else if (dirname == "latest" && version == data[0]) {
+            } else if (dirname == "latest" && version == versions[0]) {
                 items.push( "<option selected value='" + version + "'>" + "systemd " + version + "</option>");
             } else {
                 items.push( "<option value='" + version + "'>" + "systemd " + version + "</option>");
@@ -65,37 +68,47 @@ def process_file(filename):
         f.write(new_contents)
 
 
-def update_index_file(version, index_filename):
+def update_index_file(version, filenames, index_filename):
     response = requests.get(BASE_URL + "index.json")
     if response.status_code == 404:
-        index = []
+        index = {}
     elif response.ok:
         index = response.json()
     else:
         sys.exit(f"Error getting index: {response.status_code} {response.reason}")
 
-    if version not in index:
-        index.insert(0, version)
+    index[version] = filenames
 
     with open(index_filename, "w") as f:
         json.dump(index, f)
 
 
-def main(version, directory, www_target, latest):
+def get_latest_version():
+    tags = subprocess.check_output(["git", "tag", "-l", "v*"], text=True).split()
+    versions = []
+    for tag in tags:
+        m = re.match("v?(\d+).*", tag)
+        if m:
+            versions.append(int(m.group(1)))
+    return max(versions)
+
+
+def main(version, directory, www_target):
     index_filename = os.path.join(directory, "index.json")
     nav_filename = os.path.join(directory, "nav.js")
 
-    for filename in glob.glob(os.path.join(directory, "*.html")):
-        process_file(filename)
+    filenames = glob.glob("*.html", root_dir=directory)
+    for filename in filenames:
+        process_file(os.path.join(directory, filename))
 
     with open(nav_filename, "w") as f:
         f.write(NAV_JS)
 
-    update_index_file(version, index_filename)
+    update_index_file(version, filenames, index_filename)
 
     dirs = [version]
 
-    if latest:
+    if int(version) == get_latest_version():
         dirs.append("latest")
 
     for d in dirs:
@@ -108,7 +121,7 @@ def main(version, directory, www_target, latest):
                 "--exclude=*",
                 "--omit-dir-times",
                 directory + "/",  # copy contents of directory
-                os.path.join(www_target, d),
+                os.path.join(www_target, "man", d),
             ]
         )
 
@@ -118,7 +131,7 @@ def main(version, directory, www_target, latest):
             "-v",
             os.path.join(directory, "index.json"),
             os.path.join(directory, "nav.js"),
-            www_target,
+            os.path.join(www_target, "man"),
         ]
     )
 
@@ -126,9 +139,8 @@ def main(version, directory, www_target, latest):
 if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("--version", required=True)
-    parser.add_argument("--no-latest", dest="latest", action="store_false")
     parser.add_argument("directory")
     parser.add_argument("www_target")
 
     args = parser.parse_args()
-    main(args.version, args.directory, args.www_target, args.latest)
+    main(args.version, args.directory, args.www_target)
