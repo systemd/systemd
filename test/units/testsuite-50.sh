@@ -160,9 +160,11 @@ if systemctl --version | grep -q -- +OPENSSL ; then
         echo "openssl missing" >/failed
         exit 1
     fi
+
     HAVE_OPENSSL=1
+    OPENSSL_CONFIG="$(mktemp)"
     # Unfortunately OpenSSL insists on reading some config file, hence provide one with mostly placeholder contents
-    cat >>"${image}.openssl.cnf" <<EOF
+    cat >"${OPENSSL_CONFIG:?}" <<EOF
 [ req ]
 prompt = no
 distinguished_name = req_distinguished_name
@@ -178,7 +180,7 @@ emailAddress = test@email.com
 EOF
 
     # Create key pair
-    openssl req -config "${image}.openssl.cnf" -new -x509 -newkey rsa:1024 -keyout "${image}.key" -out "${image}.crt" -days 365 -nodes
+    openssl req -config "$OPENSSL_CONFIG" -new -x509 -newkey rsa:1024 -keyout "${image}.key" -out "${image}.crt" -days 365 -nodes
     # Sign Verity root hash with it
     openssl smime -sign -nocerts -noattr -binary -in "${image}.roothash" -inkey "${image}.key" -signer "${image}.crt" -outform der -out "${image}.roothash.p7s"
     # Generate signature partition JSON data
@@ -628,7 +630,7 @@ systemctl status foo.service 2>&1 | grep -v -q -F "Warning"
 # Test systemd-repart --make-ddi=:
 if command -v mksquashfs >/dev/null 2>&1; then
 
-    openssl req -config /dev/null -subj="/CN=waldo" -x509 -sha256 -nodes -days 365 -newkey rsa:4096 -keyout /tmp/test-50-privkey.key -out /tmp/test-50-cert.crt
+    openssl req -config "$OPENSSL_CONFIG" -subj="/CN=waldo" -x509 -sha256 -nodes -days 365 -newkey rsa:4096 -keyout /tmp/test-50-privkey.key -out /tmp/test-50-cert.crt
 
     mkdir -p /tmp/test-50-confext/etc/extension-release.d/
 
