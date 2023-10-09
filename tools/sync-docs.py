@@ -81,22 +81,40 @@ def update_index_file(version, index_filename):
         json.dump(index, f)
 
 
-def main(version, directory, www_target, latest):
+def get_latest_version():
+    tags = subprocess.check_output(["git", "tag", "-l", "v*"], text=True).split()
+    versions = []
+    for tag in tags:
+        m = re.match("v?(\d+).*", tag)
+        if m:
+            versions.append(int(m.group(1)))
+    return max(versions)
+
+
+def main(version, directory, www_target):
     index_filename = os.path.join(directory, "index.json")
     nav_filename = os.path.join(directory, "nav.js")
 
+    current_branch = subprocess.check_output(["git", "branch", "--show-current"], text=True).strip()
+
+    if current_branch != 'main' and not current_branch.endswith("-stable"):
+        sys.exit("doc-sync should only be run from main or a stable branch")
+
     for filename in glob.glob(os.path.join(directory, "*.html")):
         process_file(filename)
+
+    if current_branch == "main":
+        version = "devel"
+        dirs = ["devel"]
+    elif int(version) == get_latest_version():
+        dirs = [version, "latest"]
+    else:
+        dirs = [version]
 
     with open(nav_filename, "w") as f:
         f.write(NAV_JS)
 
     update_index_file(version, index_filename)
-
-    dirs = [version]
-
-    if latest:
-        dirs.append("latest")
 
     for d in dirs:
         subprocess.check_call(
@@ -108,7 +126,7 @@ def main(version, directory, www_target, latest):
                 "--exclude=*",
                 "--omit-dir-times",
                 directory + "/",  # copy contents of directory
-                os.path.join(www_target, d),
+                os.path.join(www_target, "man", d),
             ]
         )
 
@@ -118,7 +136,7 @@ def main(version, directory, www_target, latest):
             "-v",
             os.path.join(directory, "index.json"),
             os.path.join(directory, "nav.js"),
-            www_target,
+            os.path.join(www_target, "man"),
         ]
     )
 
@@ -126,9 +144,8 @@ def main(version, directory, www_target, latest):
 if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("--version", required=True)
-    parser.add_argument("--no-latest", dest="latest", action="store_false")
     parser.add_argument("directory")
     parser.add_argument("www_target")
 
     args = parser.parse_args()
-    main(args.version, args.directory, args.www_target, args.latest)
+    main(args.version, args.directory, args.www_target)
