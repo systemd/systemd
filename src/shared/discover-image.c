@@ -1348,6 +1348,24 @@ bool image_in_search_path(
         return false;
 }
 
+int image_to_json(const struct Image *img, JsonVariant **ret) {
+        assert(img);
+
+        return json_build(ret,
+                          JSON_BUILD_OBJECT(
+                                          JSON_BUILD_PAIR_STRING("Type", image_type_to_string(img->type)),
+                                          JSON_BUILD_PAIR_STRING("Class", image_class_to_string(img->class)),
+                                          JSON_BUILD_PAIR_STRING("Name", img->name),
+                                          JSON_BUILD_PAIR_CONDITION(img->path, "Path", JSON_BUILD_STRING(img->path)),
+                                          JSON_BUILD_PAIR_BOOLEAN("ReadOnly", img->read_only),
+                                          JSON_BUILD_PAIR_CONDITION(img->crtime != 0, "CreationTimestamp", JSON_BUILD_UNSIGNED(img->crtime)),
+                                          JSON_BUILD_PAIR_CONDITION(img->mtime != 0, "ModificationTimestamp", JSON_BUILD_UNSIGNED(img->mtime)),
+                                          JSON_BUILD_PAIR_CONDITION(img->usage != UINT64_MAX, "Usage", JSON_BUILD_UNSIGNED(img->usage)),
+                                          JSON_BUILD_PAIR_CONDITION(img->usage_exclusive != UINT64_MAX, "UsageExclusive", JSON_BUILD_UNSIGNED(img->usage_exclusive)),
+                                          JSON_BUILD_PAIR_CONDITION(img->limit != UINT64_MAX, "Limit", JSON_BUILD_UNSIGNED(img->limit)),
+                                          JSON_BUILD_PAIR_CONDITION(img->limit_exclusive != UINT64_MAX, "LimitExclusive", JSON_BUILD_UNSIGNED(img->limit_exclusive))));
+}
+
 static const char* const image_type_table[_IMAGE_TYPE_MAX] = {
         [IMAGE_DIRECTORY] = "directory",
         [IMAGE_SUBVOLUME] = "subvolume",
