@@ -530,6 +530,15 @@ units = [
           'conditions' : ['ENABLE_SYSEXT'],
         },
         {
+          'file' : 'systemd-sysext.socket',
+          'conditions' : ['ENABLE_SYSEXT'],
+          'symlinks' : ['sockets.target.wants/'],
+        },
+        {
+          'file' : 'systemd-sysext@.service',
+          'conditions' : ['ENABLE_SYSEXT'],
+        },
+        {
           'file' : 'systemd-sysupdate-reboot.service.in',
           'conditions' : ['ENABLE_SYSUPDATE'],
         },

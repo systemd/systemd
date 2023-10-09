@@ -457,6 +457,16 @@ test ! -e /usr/lib/systemd/system/some_file
 systemd-sysext unmerge
 rmdir /etc/extensions/app-nodistro
 
+# Similar, but go via varlink
+varlinkctl call /run/systemd/io.systemd.sysext io.systemd.sysext.List '{}'
+(! grep -q -F "MARKER=1" /usr/lib/systemd/system/some_file )
+varlinkctl call /run/systemd/io.systemd.sysext io.systemd.sysext.Merge '{}'
+grep -q -F "MARKER=1" /usr/lib/systemd/system/some_file
+varlinkctl call /run/systemd/io.systemd.sysext io.systemd.sysext.Refresh '{}'
+grep -q -F "MARKER=1" /usr/lib/systemd/system/some_file
+varlinkctl call /run/systemd/io.systemd.sysext io.systemd.sysext.Unmerge '{}'
+(! grep -q -F "MARKER=1" /usr/lib/systemd/system/some_file )
+
 # Check that extensions cannot contain os-release
 mkdir -p /run/extensions/app-reject/usr/lib/{extension-release.d/,systemd/system}
 echo "ID=_any" >/run/extensions/app-reject/usr/lib/extension-release.d/extension-release.app-reject
