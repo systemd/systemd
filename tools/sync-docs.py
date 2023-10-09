@@ -81,7 +81,17 @@ def update_index_file(version, index_filename):
         json.dump(index, f)
 
 
-def main(version, directory, www_target, latest):
+def get_latest_version():
+    tags = subprocess.check_output(["git", "tag", "-l", "v*"], text=True).split()
+    versions = []
+    for tag in tags:
+        m = re.match("v?(\d+).*", tag)
+        if m:
+            versions.append(int(m.group(1)))
+    return max(versions)
+
+
+def main(version, directory, www_target):
     index_filename = os.path.join(directory, "index.json")
     nav_filename = os.path.join(directory, "nav.js")
 
@@ -95,7 +105,7 @@ def main(version, directory, www_target, latest):
 
     dirs = [version]
 
-    if latest:
+    if int(version) == get_latest_version():
         dirs.append("latest")
 
     for d in dirs:
@@ -126,9 +136,8 @@ def main(version, directory, www_target, latest):
 if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("--version", required=True)
-    parser.add_argument("--no-latest", dest="latest", action="store_false")
     parser.add_argument("directory")
     parser.add_argument("www_target")
 
     args = parser.parse_args()
-    main(args.version, args.directory, args.www_target, args.latest)
+    main(args.version, args.directory, args.www_target)
