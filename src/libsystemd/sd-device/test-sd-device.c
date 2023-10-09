@@ -399,6 +399,32 @@ TEST(sd_device_enumerator_add_match_property) {
         assert_se(ifindex == 1);
 }
 
+TEST(sd_device_enumerator_add_match_property_required) {
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        sd_device *dev;
+        int ifindex;
+
+        assert_se(sd_device_enumerator_new(&e) >= 0);
+        assert_se(sd_device_enumerator_allow_uninitialized(e) >= 0);
+        assert_se(sd_device_enumerator_add_match_subsystem(e, "net", true) >= 0);
+        assert_se(sd_device_enumerator_add_match_sysattr(e, "ifindex", "1", true) >= 0);
+        assert_se(sd_device_enumerator_add_match_property_required(e, "IFINDE*", "1*") >= 0);
+
+        /* Only one required match which should be satisfied. */
+        dev = sd_device_enumerator_get_device_first(e);
+        assert_se(dev);
+        assert_se(sd_device_get_ifindex(dev, &ifindex) >= 0);
+        assert_se(ifindex == 1);
+
+        /* Now let's add a bunch of garbage properties which should not be satisfied. */
+        assert_se(sd_device_enumerator_add_match_property_required(e, "IFINDE*", "hoge") >= 0);
+        assert_se(sd_device_enumerator_add_match_property_required(e, "IFINDE*", NULL) >= 0);
+        assert_se(sd_device_enumerator_add_match_property_required(e, "AAAAA", "BBBB") >= 0);
+        assert_se(sd_device_enumerator_add_match_property_required(e, "FOOOO", NULL) >= 0);
+
+        assert_se(!sd_device_enumerator_get_device_first(e));
+}
+
 static void check_parent_match(sd_device_enumerator *e, sd_device *dev) {
         const char *syspath;
         bool found = false;
