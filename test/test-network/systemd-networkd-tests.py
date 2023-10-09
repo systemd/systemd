@@ -5138,6 +5138,28 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertNotIn('DHCPREQUEST(veth-peer)', output)
         self.assertNotIn('DHCPREPLY(veth-peer)', output)
 
+        # test again with fqdn NTP servers
+        stop_dnsmasq()
+        start_dnsmasq('--dhcp-option=option6:dns-server,[2600::ee]',
+                      '--dhcp-option=option6:ntp-server,ntp1.example.com,ntp2.example.com',
+                      ra_mode='ra-stateless')
+        networkctl_reconfigure('veth99')
+        self.wait_online(['veth99:routable', 'veth-peer:routable'])
+
+        # Check link state file
+        print('## link state file')
+        output = read_link_state_file('veth99')
+        print(output)
+        self.assertIn('DNS=2600::ee', output)
+        self.assertIn('NTP=ntp1.example.com ntp2.example.com', output)
+
+        # Check manager state file
+        print('## manager state file')
+        output = read_manager_state_file()
+        print(output)
+        self.assertRegex(output, 'DNS=.*2600::ee')
+        self.assertRegex(output, 'NTP=.*ntp1.example.com ntp2.example.com')
+
         # solicit mode
         stop_dnsmasq()
         start_dnsmasq('--dhcp-option=option6:dns-server,[2600::ee]',
