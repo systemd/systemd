@@ -1,0 +1,25 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=System Extension Image Management (Varlink)
+Documentation=man:systemd-sysext(8)
+DefaultDependencies=no
+After=local-fs.target
+Before=sockets.target
+ConditionCapability=CAP_SYS_ADMIN
+
+[Socket]
+ListenStream=/run/systemd/io.systemd.sysext
+FileDescriptorName=varlink
+SocketMode=0600
+Accept=yes
+
+[Install]
+WantedBy=sockets.target
