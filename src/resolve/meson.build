@@ -45,6 +45,10 @@ resolvectl_sources = files(
         'resolvectl.c',
 )
 
+mdns_browse_services_sources = files(
+         'test-mdns-browse-services.c',
+)
+
 ############################################################
 
 dns_type_list_txt = custom_target(
@@ -160,6 +164,13 @@ executables += [
                         libm,
                         threads,
                 ],
+        },
+        executable_template + {
+                'name' : 'mdns-browse-services',
+                'public' : true,
+                'conditions' : ['ENABLE_RESOLVE'],
+                'sources' : mdns_browse_services_sources,
+                'link_with' : link_with,
         },
         resolve_test_template + {
                 'sources' : files('test-resolve-tables.c'),
