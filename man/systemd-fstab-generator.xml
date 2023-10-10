@@ -269,7 +269,7 @@ systemd.mount-extra=/dev/sda1:/mount-point:ext4:rw,noatime</programlisting>
           <varname>systemd.swap-extra=</varname> is honored by both the main system and the initrd.</para>
           <para>Example:
           <programlisting>
-systemd.swap=/dev/sda2:x-systemd.makefs</programlisting>
+systemd.swap-extra=/dev/sda2:x-systemd.makefs</programlisting>
           </para>
         </listitem>
       </varlistentry>
