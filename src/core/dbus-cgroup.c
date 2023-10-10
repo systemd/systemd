@@ -281,19 +281,7 @@ static int property_get_device_allow(
                 return r;
 
         LIST_FOREACH(device_allow, a, c->device_allow) {
-                unsigned k = 0;
-                char rwm[4];
-
-                if (a->r)
-                        rwm[k++] = 'r';
-                if (a->w)
-                        rwm[k++] = 'w';
-                if (a->m)
-                        rwm[k++] = 'm';
-
-                rwm[k] = 0;
-
-                r = sd_bus_message_append(reply, "(ss)", a->path, rwm);
+                r = sd_bus_message_append(reply, "(ss)", a->path, cgroup_device_permissions_to_string(a->permissions));
                 if (r < 0)
                         return r;
         }
@@ -1810,14 +1798,18 @@ int bus_cgroup_set_property(
                         return r;
 
                 while ((r = sd_bus_message_read(message, "(ss)", &path, &rwm)) > 0) {
+                        CGroupDevicePermissions p;
 
                         if (!valid_device_allow_pattern(path) || strpbrk(path, WHITESPACE))
                                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "DeviceAllow= requires device node or pattern");
 
                         if (isempty(rwm))
-                                rwm = "rwm";
-                        else if (!in_charset(rwm, "rwm"))
-                                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "DeviceAllow= requires combination of rwm flags");
+                                p = _CGROUP_DEVICE_PERMISSIONS_ALL;
+                        else {
+                                p = cgroup_device_permissions_from_string(rwm);
+                                if (p < 0)
+                                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "DeviceAllow= requires combination of rwm flags");
+                        }
 
                         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                                 CGroupDeviceAllow *a = NULL;
@@ -1842,9 +1834,7 @@ int bus_cgroup_set_property(
                                         LIST_PREPEND(device_allow, c->device_allow, a);
                                 }
 
-                                a->r = strchr(rwm, 'r');
-                                a->w = strchr(rwm, 'w');
-                                a->m = strchr(rwm, 'm');
+                                a->permissions = p;
                         }
 
                         n++;
@@ -1873,7 +1863,7 @@ int bus_cgroup_set_property(
 
                         fputs("DeviceAllow=\n", f);
                         LIST_FOREACH(device_allow, a, c->device_allow)
-                                fprintf(f, "DeviceAllow=%s %s%s%s\n", a->path, a->r ? "r" : "", a->w ? "w" : "", a->m ? "m" : "");
+                                fprintf(f, "DeviceAllow=%s %s\n", a->path, cgroup_device_permissions_to_string(a->permissions));
 
                         r = memstream_finalize(&m, &buf, NULL);
                         if (r < 0)
