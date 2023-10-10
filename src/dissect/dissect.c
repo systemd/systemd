@@ -902,11 +902,14 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse scope: %m");
 
+                Architecture a = dissected_image_architecture(m);
+
                 r = json_build(&v, JSON_BUILD_OBJECT(
                                                JSON_BUILD_PAIR("name", JSON_BUILD_STRING(bn)),
                                                JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(m->image_uuid), "imageUuid", JSON_BUILD_UUID(m->image_uuid)),
                                                JSON_BUILD_PAIR("size", JSON_BUILD_INTEGER(size)),
                                                JSON_BUILD_PAIR("sectorSize", JSON_BUILD_INTEGER(m->sector_size)),
+                                               JSON_BUILD_PAIR_CONDITION(a >= 0, "architecture", JSON_BUILD_STRING(architecture_to_string(a))),
                                                JSON_BUILD_PAIR_CONDITION(m->hostname, "hostname", JSON_BUILD_STRING(m->hostname)),
                                                JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(m->machine_id), "machineId", JSON_BUILD_ID128(m->machine_id)),
                                                JSON_BUILD_PAIR_CONDITION(!strv_isempty(m->machine_info), "machineInfo", JSON_BUILD_STRV_ENV_PAIR(m->machine_info)),
