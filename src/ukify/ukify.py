@@ -250,7 +250,7 @@ DEFAULT_SECTIONS_TO_SHOW = {
         '.linux'    : 'binary',
         '.initrd'   : 'binary',
         '.splash'   : 'binary',
-        '.dt'       : 'binary',
+        '.dtb'      : 'binary',
         '.cmdline'  : 'text',
         '.osrel'    : 'text',
         '.uname'    : 'text',
