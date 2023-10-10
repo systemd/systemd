@@ -628,6 +628,7 @@ static int print_session_status_info(sd_bus *bus, const char *path) {
         if (i.scope) {
                 r = table_add_many(table,
                                    TABLE_FIELD, "Unit",
+                                   TABLE_SET_MINIMUM_WIDTH, STRLEN("Display"), /* For alignment with show_unit_cgroup */
                                    TABLE_STRING, i.scope);
                 if (r < 0)
                         return table_log_add_error(r);
@@ -732,6 +733,7 @@ static int print_user_status_info(sd_bus *bus, const char *path) {
         if (i.slice) {
                 r = table_add_many(table,
                                    TABLE_FIELD, "Unit",
+                                   TABLE_SET_MINIMUM_WIDTH, STRLEN("Sessions"), /* For alignment with show_unit_cgroup */
                                    TABLE_STRING, i.slice);
                 if (r < 0)
                         return table_log_add_error(r);
@@ -805,6 +807,7 @@ static int print_seat_status_info(sd_bus *bus, const char *path) {
         if (arg_transport == BUS_TRANSPORT_LOCAL) {
                 r = table_add_many(table,
                                    TABLE_FIELD, "Devices",
+                                   TABLE_SET_MINIMUM_WIDTH, STRLEN("Sessions"), /* For alignment with show_sysfs */
                                    TABLE_EMPTY);
                 if (r < 0)
                         return table_log_add_error(r);
