@@ -3728,6 +3728,14 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
                   <entry>Watchdog keep-alive ping was enabled for the service, but the deadline was missed.</entry>
                 </row>
                 <row>
+                  <entry><literal>exec-condition</literal></entry>
+                  <entry>Service did not run because <varname>ExecCondition=</varname> failed.</entry>
+                </row>
+                <row>
+                  <entry><literal>oom-kill</literal></entry>
+                  <entry>A service process was terminated by the Out-Of-Memory (OOM) killer.</entry>
+                </row>
+                <row>
                   <entry><literal>start-limit-hit</literal></entry>
                   <entry>A start limit was defined for the unit and it was hit, causing the unit to fail to start. See <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>'s <varname>StartLimitIntervalSec=</varname> and <varname>StartLimitBurst=</varname> for details.</entry>
                 </row>
