@@ -29,6 +29,16 @@ Currently, four components will issue TPM2 PCR measurements:
 A userspace measurement event log in a format close to TCG CEL-JSON is
 maintained in `/run/log/systemd/tpm2-measure.log`.
 
+## Measurements Added in Future
+
+We expect that we'll add further PCR extensions in future (both in firmware and
+user mode), which also will be documented here. When executed from firmware
+mode future additions are expected to be recorded as `EV_EVENT_TAG`
+measurements in the event log, in order to make them robustly
+recognizable. Measurements currently recorded as `EV_IPL` will continue to be
+recorded as `EV_IPL`, for compatibility reasons. However, `EV_IPL` will not be
+used for new, additional measurements.
+
 ## PCR Measurements Made by `systemd-boot` (UEFI)
 
 ### PCS 5, `EV_EVENT_TAG`, "loader.conf"
