@@ -889,15 +889,14 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
                     !strv_isempty(m->confext_release))
                         putc('\n', stdout);
 
-                printf("    Use As: %s bootable system for UEFI\n", COLOR_MARK_BOOL(m->partitions[PARTITION_ESP].found));
-
-                if (m->has_init_system >= 0)
-                        printf("            %s bootable system for container\n", COLOR_MARK_BOOL(m->has_init_system));
-
+                printf("    Use As: %s bootable system for UEFI\n",
+                       COLOR_MARK_BOOL(dissected_image_is_bootable_uefi(m)));
+                printf("            %s bootable system for container\n",
+                       COLOR_MARK_BOOL(dissected_image_is_bootable_os(m)));
                 printf("            %s portable service\n",
-                       COLOR_MARK_BOOL(strv_env_pairs_get(m->os_release, "PORTABLE_PREFIXES")));
+                       COLOR_MARK_BOOL(dissected_image_is_portable(m)));
                 printf("            %s initrd\n",
-                       COLOR_MARK_BOOL(!strv_isempty(m->initrd_release)));
+                       COLOR_MARK_BOOL(dissected_image_is_initrd(m)));
 
                 for (ImageClass c = _IMAGE_CLASS_EXTENSION_FIRST; c <= _IMAGE_CLASS_EXTENSION_LAST; c++) {
                         const char *string_class = image_class_to_string(c);
@@ -942,10 +941,10 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
                                                JSON_BUILD_PAIR_CONDITION(!strv_isempty(m->initrd_release), "initrdRelease", JSON_BUILD_STRV_ENV_PAIR(m->initrd_release)),
                                                JSON_BUILD_PAIR_CONDITION(!strv_isempty(m->sysext_release), "sysextRelease", JSON_BUILD_STRV_ENV_PAIR(m->sysext_release)),
                                                JSON_BUILD_PAIR_CONDITION(!strv_isempty(m->confext_release), "confextRelease", JSON_BUILD_STRV_ENV_PAIR(m->confext_release)),
-                                               JSON_BUILD_PAIR("useBootableUefi", JSON_BUILD_BOOLEAN(m->partitions[PARTITION_ESP].found)),
-                                               JSON_BUILD_PAIR_CONDITION(m->has_init_system >= 0, "useBootableContainer", JSON_BUILD_BOOLEAN(m->has_init_system)),
-                                               JSON_BUILD_PAIR("useInitrd", JSON_BUILD_BOOLEAN(!strv_isempty(m->initrd_release))),
-                                               JSON_BUILD_PAIR("usePortableService", JSON_BUILD_BOOLEAN(strv_env_pairs_get(m->os_release, "PORTABLE_MATCHES"))),
+                                               JSON_BUILD_PAIR("useBootableUefi", JSON_BUILD_BOOLEAN(dissected_image_is_bootable_uefi(m))),
+                                               JSON_BUILD_PAIR("useBootableContainer", JSON_BUILD_BOOLEAN(dissected_image_is_bootable_os(m))),
+                                               JSON_BUILD_PAIR("useInitrd", JSON_BUILD_BOOLEAN(dissected_image_is_initrd(m))),
+                                               JSON_BUILD_PAIR("usePortableService", JSON_BUILD_BOOLEAN(dissected_image_is_portable(m))),
                                                JSON_BUILD_PAIR("useSystemExtension", JSON_BUILD_BOOLEAN(strv_contains(sysext_scopes, "system"))),
                                                JSON_BUILD_PAIR("useInitRDSystemExtension", JSON_BUILD_BOOLEAN(strv_contains(sysext_scopes, "initrd"))),
                                                JSON_BUILD_PAIR("usePortableSystemExtension", JSON_BUILD_BOOLEAN(strv_contains(sysext_scopes, "portable"))),
