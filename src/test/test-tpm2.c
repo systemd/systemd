@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "hexdecoct.h"
+#include "macro.h"
 #include "tpm2-util.h"
 #include "tests.h"
 
@@ -702,21 +703,44 @@ TEST(parse_pcr_argument) {
         check_parse_pcr_argument_to_mask("debug+24", -EINVAL);
 }
 
-static void tpm2b_public_rsa_init(TPM2B_PUBLIC *public, const char *rsa_n) {
-        TPMT_PUBLIC tpmt = {
-                .type = TPM2_ALG_RSA,
-                .nameAlg = TPM2_ALG_SHA256,
-                .objectAttributes = TPMA_OBJECT_RESTRICTED|TPMA_OBJECT_DECRYPT|TPMA_OBJECT_FIXEDTPM|TPMA_OBJECT_FIXEDPARENT|TPMA_OBJECT_SENSITIVEDATAORIGIN|TPMA_OBJECT_USERWITHAUTH,
-                .parameters.rsaDetail = {
-                        .symmetric = {
-                                .algorithm = TPM2_ALG_AES,
-                                .keyBits.aes = 128,
-                                .mode.aes = TPM2_ALG_CFB,
-                        },
-                        .scheme.scheme = TPM2_ALG_NULL,
-                        .keyBits = 2048,
+static const TPMT_PUBLIC test_rsa_template = {
+        .type = TPM2_ALG_RSA,
+        .nameAlg = TPM2_ALG_SHA256,
+        .objectAttributes = TPMA_OBJECT_RESTRICTED|TPMA_OBJECT_DECRYPT|TPMA_OBJECT_FIXEDTPM|TPMA_OBJECT_FIXEDPARENT|TPMA_OBJECT_SENSITIVEDATAORIGIN|TPMA_OBJECT_USERWITHAUTH,
+        .parameters.rsaDetail = {
+                .symmetric = {
+                        .algorithm = TPM2_ALG_AES,
+                        .keyBits.aes = 128,
+                        .mode.aes = TPM2_ALG_CFB,
                 },
-        };
+                .scheme.scheme = TPM2_ALG_NULL,
+                .keyBits = 2048,
+        },
+};
+
+static const TPMT_PUBLIC test_ecc_template = {
+        .type = TPM2_ALG_ECC,
+        .nameAlg = TPM2_ALG_SHA256,
+        .objectAttributes = TPMA_OBJECT_RESTRICTED|TPMA_OBJECT_DECRYPT|TPMA_OBJECT_FIXEDTPM|TPMA_OBJECT_FIXEDPARENT|TPMA_OBJECT_SENSITIVEDATAORIGIN|TPMA_OBJECT_USERWITHAUTH,
+        .parameters.eccDetail = {
+                .symmetric = {
+                        .algorithm = TPM2_ALG_AES,
+                        .keyBits.aes = 128,
+                        .mode.aes = TPM2_ALG_CFB,
+                },
+                .scheme.scheme = TPM2_ALG_NULL,
+                .curveID = TPM2_ECC_NIST_P256,
+                .kdf.scheme = TPM2_ALG_NULL,
+        },
+};
+
+static const TPMT_PUBLIC *test_templates[] = {
+        &test_rsa_template,
+        &test_ecc_template,
+};
+
+static void tpm2b_public_rsa_init(TPM2B_PUBLIC *public, const char *rsa_n) {
+        TPMT_PUBLIC tpmt = test_rsa_template;
 
         DEFINE_HEX_PTR(key, rsa_n);
         tpmt.unique.rsa = TPM2B_PUBLIC_KEY_RSA_MAKE(key, key_len);
@@ -726,21 +750,8 @@ static void tpm2b_public_rsa_init(TPM2B_PUBLIC *public, const char *rsa_n) {
 }
 
 static void tpm2b_public_ecc_init(TPM2B_PUBLIC *public, TPMI_ECC_CURVE curve, const char *x, const char *y) {
-        TPMT_PUBLIC tpmt = {
-                .type = TPM2_ALG_ECC,
-                .nameAlg = TPM2_ALG_SHA256,
-                .objectAttributes = TPMA_OBJECT_RESTRICTED|TPMA_OBJECT_DECRYPT|TPMA_OBJECT_FIXEDTPM|TPMA_OBJECT_FIXEDPARENT|TPMA_OBJECT_SENSITIVEDATAORIGIN|TPMA_OBJECT_USERWITHAUTH,
-                .parameters.eccDetail = {
-                        .symmetric = {
-                                .algorithm = TPM2_ALG_AES,
-                                .keyBits.aes = 128,
-                                .mode.aes = TPM2_ALG_CFB,
-                        },
-                        .scheme.scheme = TPM2_ALG_NULL,
-                        .curveID = curve,
-                        .kdf.scheme = TPM2_ALG_NULL,
-                },
-        };
+        TPMT_PUBLIC tpmt = test_ecc_template;
+        tpmt.parameters.eccDetail.curveID = curve;
 
         DEFINE_HEX_PTR(buf_x, x);
         tpmt.unique.ecc.x = TPM2B_ECC_PARAMETER_MAKE(buf_x, buf_x_len);
@@ -950,15 +961,33 @@ TEST(calculate_policy_pcr) {
         assert_se(digest_check(&d, "7481fd1b116078eb3ac2456e4ad542c9b46b9b8eb891335771ca8e7c8f8e4415"));
 }
 
-TEST(tpm_required_tests) {
-        int r;
+TEST(tpm2_get_srk_template) {
+        TPMT_PUBLIC rsa;
+        assert_se(tpm2_get_srk_template(TPM2_ALG_RSA, rsa) >= 0);
+        assert_se(rsa.type == TPM2_ALG_RSA);
+        assert_se(rsa.nameAlg == TPM2_ALG_SHA256);
+        assert_se(rsa.objectAttributes == 0x30472);
+        assert_se(rsa.parameters.rsaDetail.symmetric.algorithm == TPM2_ALG_AES);
+        assert_se(rsa.parameters.rsaDetail.symmetric.keyBits.sym == 128);
+        assert_se(rsa.parameters.rsaDetail.symmetric.mode.sym == TPM2_ALG_CFB);
+        assert_se(rsa.parameters.rsaDetail.scheme.scheme == TPM2_ALG_NULL);
+        assert_se(rsa.parameters.rsaDetail.keyBits == 2048);
 
-        _cleanup_(tpm2_context_unrefp) Tpm2Context *c = NULL;
-        r = tpm2_context_new(NULL, &c);
-        if (r < 0) {
-                log_tests_skipped("Could not find TPM");
-                return;
-        }
+        TPMT_PUBLIC ecc;
+        assert_se(tpm2_get_srk_template(TPM2_ALG_ECC, ecc) >= 0);
+        assert_se(ecc.type == TPM2_ALG_ECC);
+        assert_se(ecc.nameAlg == TPM2_ALG_SHA256);
+        assert_se(ecc.objectAttributes == 0x30472);
+        assert_se(ecc.parameters.eccDetail.symmetric.algorithm == TPM2_ALG_AES);
+        assert_se(ecc.parameters.eccDetail.symmetric.keyBits.sym == 128);
+        assert_se(ecc.parameters.eccDetail.symmetric.mode.sym == TPM2_ALG_CFB);
+        assert_se(ecc.parameters.eccDetail.scheme.scheme == TPM2_ALG_NULL);
+        assert_se(ecc.parameters.eccDetail.kdf.scheme == TPM2_ALG_NULL);
+        assert_se(ecc.parameters.eccDetail.curveID == TPM2_ECC_NIST_P256);
+}
+
+static void check_test_parms(Tpm2Context *c) {
+        assert(c);
 
         TPMU_PUBLIC_PARMS parms = {
                 .symDetail.sym = {
@@ -977,6 +1006,10 @@ TEST(tpm_required_tests) {
 
         /* Test with valid parms */
         assert_se(tpm2_test_parms(c, TPM2_ALG_SYMCIPHER, &parms));
+}
+
+static void check_supports_alg(Tpm2Context *c) {
+        assert(c);
 
         /* Test invalid algs */
         assert_se(!tpm2_supports_alg(c, TPM2_ALG_ERROR));
@@ -986,6 +1019,10 @@ TEST(tpm_required_tests) {
         assert_se(tpm2_supports_alg(c, TPM2_ALG_RSA));
         assert_se(tpm2_supports_alg(c, TPM2_ALG_AES));
         assert_se(tpm2_supports_alg(c, TPM2_ALG_CFB));
+}
+
+static void check_supports_command(Tpm2Context *c) {
+        assert(c);
 
         /* Test invalid commands. TPM specification Part 2 ("Structures") section "TPM_CC (Command Codes)"
          * states bits 31:30 and 28:16 are reserved and must be 0. */
@@ -1002,6 +1039,204 @@ TEST(tpm_required_tests) {
         assert_se(tpm2_supports_command(c, TPM2_CC_Create));
         assert_se(tpm2_supports_command(c, TPM2_CC_CreatePrimary));
         assert_se(tpm2_supports_command(c, TPM2_CC_Unseal));
+}
+
+static void check_best_srk_template(Tpm2Context *c) {
+        TPMT_PUBLIC template;
+        assert_se(tpm2_get_best_srk_template(c, &template) >= 0);
+        assert_se(IN_SET(template.type, TPM2_ALG_ECC, TPM2_ALG_RSA));
+}
+
+static void check_get_or_create_srk(Tpm2Context *c) {
+        _cleanup_free_ TPM2B_PUBLIC *public = NULL;
+        _cleanup_free_ TPM2B_NAME *name = NULL, *qname = NULL;
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *handle = NULL;
+        assert_se(tpm2_get_or_create_srk(c, NULL, &public, &name, &qname, &handle) >= 0);
+        assert_se(public && name && qname && handle);
+
+        _cleanup_free_ TPM2B_PUBLIC *public2 = NULL;
+        _cleanup_free_ TPM2B_NAME *name2 = NULL, *qname2 = NULL;
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *handle2 = NULL;
+        assert_se(tpm2_get_srk(c, NULL, &public2, &name2, &qname2, &handle2) >= 0);
+        assert_se(public2 && name2 && qname2 && handle2);
+
+        assert_se(memcmp_nn(public, sizeof(*public), public2, sizeof(*public2)) == 0);
+        assert_se(memcmp_nn(name->name, name->size, name2->name, name2->size) == 0);
+        assert_se(memcmp_nn(qname->name, qname->size, qname2->name, qname2->size) == 0);
+}
+
+#if HAVE_OPENSSL && OPENSSL_VERSION_MAJOR >= 3
+static void calculate_seal_and_unseal(
+                Tpm2Context *c,
+                TPM2_HANDLE parent_index,
+                const TPM2B_PUBLIC *parent_public) {
+
+        _cleanup_free_ char *secret_string = NULL;
+        assert_se(asprintf(&secret_string, "The classified documents are in room %x", parent_index) > 0);
+        size_t secret_size = strlen(secret_string) + 1;
+
+        _cleanup_free_ void *blob = NULL;
+        size_t blob_size = 0;
+        _cleanup_free_ void *serialized_parent = NULL;
+        size_t serialized_parent_size;
+        assert_se(tpm2_calculate_seal(
+                        parent_index,
+                        parent_public,
+                        /* attributes= */ NULL,
+                        secret_string, secret_size,
+                        /* policy= */ NULL,
+                        /* pin= */ NULL,
+                        /* ret_secret= */ NULL, /* ret_secret_size= */ 0,
+                        &blob, &blob_size,
+                        &serialized_parent, &serialized_parent_size) >= 0);
+
+        _cleanup_free_ void *unsealed_secret = NULL;
+        size_t unsealed_secret_size;
+        assert_se(tpm2_unseal(
+                        c,
+                        /* hash_pcr_mask= */ 0,
+                        /* pcr_bank= */ 0,
+                        /* pubkey= */ NULL, /* pubkey_size= */ 0,
+                        /* pubkey_pcr_mask= */ 0,
+                        /* signature= */ NULL,
+                        /* pin= */ NULL,
+                        /* primary_alg= */ 0,
+                        blob, blob_size,
+                        /* known_policy_hash= */ NULL, /* known_policy_hash_size= */ 0,
+                        serialized_parent, serialized_parent_size,
+                        &unsealed_secret, &unsealed_secret_size) >= 0);
+
+        assert_se(memcmp_nn(secret_string, secret_size, unsealed_secret, unsealed_secret_size) == 0);
+
+        char unsealed_string[unsealed_secret_size];
+        assert_se(snprintf(unsealed_string, unsealed_secret_size, "%s", (char*) unsealed_secret) == (int) unsealed_secret_size - 1);
+        log_debug("Unsealed secret is: %s", unsealed_string);
+}
+
+static int check_calculate_seal(Tpm2Context *c) {
+        assert(c);
+        int r;
+
+        _cleanup_free_ TPM2B_PUBLIC *srk_public = NULL;
+        assert_se(tpm2_get_srk(c, NULL, &srk_public, NULL, NULL, NULL) >= 0);
+        calculate_seal_and_unseal(c, TPM2_SRK_HANDLE, srk_public);
+
+        TPMI_ALG_ASYM test_algs[] = { TPM2_ALG_RSA, TPM2_ALG_ECC, };
+        for (unsigned i = 0; i < ELEMENTSOF(test_algs); i++) {
+                TPMI_ALG_ASYM alg = test_algs[i];
+
+                TPM2B_PUBLIC template = { .size = sizeof(TPMT_PUBLIC), };
+                assert_se(tpm2_get_srk_template(c, alg, &template.publicArea) >= 0);
+
+                _cleanup_free_ TPM2B_PUBLIC *public = NULL;
+                _cleanup_(tpm2_handle_freep) Tpm2Handle *handle = NULL;
+                assert_se(tpm2_create_primary(c, NULL, &template, NULL, &public, &handle) >= 0);
+
+                /* Once our minimum libtss2-esys version is 2.4.0 or later, this can assume
+                 * tpm2_index_from_handle() should always work. */
+                TPM2_HANDLE index;
+                r = tpm2_index_from_handle(c, handle, &index);
+                if (r == -EOPNOTSUPP)
+                        return log_tests_skipped("libtss2-esys version too old to support tpm2_index_from_handle()");
+                assert_se(r >= 0);
+
+                calculate_seal_and_unseal(c, index, public);
+        }
+
+        return 0;
+}
+#endif /* HAVE_OPENSSL && OPENSSL_VERSION_MAJOR >= 3 */
+
+static void check_seal_unseal_for_handle(Tpm2Context *c, TPM2_HANDLE handle) {
+        TPM2B_DIGEST policy = TPM2B_DIGEST_MAKE(NULL, TPM2_SHA256_DIGEST_SIZE);
+
+        assert(c);
+
+        log_debug("Check seal/unseal for handle 0x%" PRIx32, handle);
+
+        _cleanup_free_ void *secret = NULL, *blob = NULL, *srk = NULL, *unsealed_secret = NULL;
+        size_t secret_size, blob_size, srk_size, unsealed_secret_size;
+        assert_se(tpm2_seal(
+                        c,
+                        handle,
+                        &policy,
+                        /* pin= */ NULL,
+                        &secret, &secret_size,
+                        &blob, &blob_size,
+                        /* ret_primary_alg= */ NULL,
+                        &srk, &srk_size) >= 0);
+
+        assert_se(tpm2_unseal(
+                        c,
+                        /* hash_pcr_mask= */ 0,
+                        /* pcr_bank= */ 0,
+                        /* pubkey= */ NULL, /* pubkey_size= */ 0,
+                        /* pubkey_pcr_mask= */ 0,
+                        /* signature= */ NULL,
+                        /* pin= */ NULL,
+                        /* primary_alg= */ 0,
+                        blob, blob_size,
+                        /* policy_hash= */ NULL, /* policy_hash_size= */ 0,
+                        srk, srk_size,
+                        &unsealed_secret, &unsealed_secret_size) >= 0);
+
+        assert_se(memcmp_nn(secret, secret_size, unsealed_secret, unsealed_secret_size) == 0);
+}
+
+static void check_seal_unseal(Tpm2Context *c) {
+        int r;
+
+        assert(c);
+
+        check_seal_unseal_for_handle(c, 0);
+        check_seal_unseal_for_handle(c, TPM2_SRK_HANDLE);
+
+        FOREACH_ARRAY(template, test_templates, ELEMENTSOF(test_templates)) {
+                TPM2B_PUBLIC public = {
+                        .publicArea = **template,
+                        .size = sizeof(**template),
+                };
+                _cleanup_(tpm2_handle_freep) Tpm2Handle *transient_handle = NULL;
+                assert_se(tpm2_create_primary(
+                                c,
+                                /* session= */ NULL,
+                                &public,
+                                /* sensitive= */ NULL,
+                                /* ret_public= */ NULL,
+                                &transient_handle) >= 0);
+
+                TPMI_DH_PERSISTENT transient_handle_index;
+                r = tpm2_index_from_handle(c, transient_handle, &transient_handle_index);
+                if (r == -EOPNOTSUPP) {
+                        /* libesys too old */
+                        log_tests_skipped("libesys too old for tpm2_index_from_handle");
+                        return;
+                }
+                assert_se(r >= 0);
+
+                check_seal_unseal_for_handle(c, transient_handle_index);
+        }
+}
+
+TEST_RET(tests_which_require_tpm) {
+        _cleanup_(tpm2_context_unrefp) Tpm2Context *c = NULL;
+        int r = 0;
+
+        if (tpm2_context_new(NULL, &c) < 0)
+                return log_tests_skipped("Could not find TPM");
+
+        check_test_parms(c);
+        check_supports_alg(c);
+        check_supports_command(c);
+        check_best_srk_template(c);
+        check_get_or_create_srk(c);
+        check_seal_unseal(c);
+
+#if HAVE_OPENSSL && OPENSSL_VERSION_MAJOR >= 3 /* calculating sealed object requires openssl >= 3 */
+        r = check_calculate_seal(c);
+#endif
+
+        return r;
 }
 
 #endif /* HAVE_TPM2 */
