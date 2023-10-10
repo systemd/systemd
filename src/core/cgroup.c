@@ -452,6 +452,46 @@ static char *format_cgroup_memory_limit_comparison(char *buf, size_t l, Unit *u,
         return buf;
 }
 
+const char *cgroup_device_permissions_to_string(CGroupDevicePermissions p) {
+        static const char *table[_CGROUP_DEVICE_PERMISSIONS_MAX] = {
+                /* Lets simply define a table with every possible combination. As long as those are just 8 we
+                 * can get away with it. If this ever grows to more we need to revisit this logic though. */
+                [0]                                                          = "",
+                [CGROUP_DEVICE_READ]                                         = "r",
+                [CGROUP_DEVICE_WRITE]                                        = "w",
+                [CGROUP_DEVICE_MKNOD]                                        = "m",
+                [CGROUP_DEVICE_READ|CGROUP_DEVICE_WRITE]                     = "rw",
+                [CGROUP_DEVICE_READ|CGROUP_DEVICE_MKNOD]                     = "rm",
+                [CGROUP_DEVICE_WRITE|CGROUP_DEVICE_MKNOD]                    = "wm",
+                [CGROUP_DEVICE_READ|CGROUP_DEVICE_WRITE|CGROUP_DEVICE_MKNOD] = "rwm",
+        };
+
+        if (p < 0 || p >= _CGROUP_DEVICE_PERMISSIONS_MAX)
+                return NULL;
+
+        return table[p];
+}
+
+CGroupDevicePermissions cgroup_device_permissions_from_string(const char *s) {
+        CGroupDevicePermissions p = 0;
+
+        if (!s)
+                return _CGROUP_DEVICE_PERMISSIONS_INVALID;
+
+        for (const char *c = s; *c; c++) {
+                if (*c == 'r')
+                        p |= CGROUP_DEVICE_READ;
+                else if (*c == 'w')
+                        p |= CGROUP_DEVICE_WRITE;
+                else if (*c == 'm')
+                        p |= CGROUP_DEVICE_MKNOD;
+                else
+                        return _CGROUP_DEVICE_PERMISSIONS_INVALID;
+        }
+
+        return p;
+}
+
 void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
         _cleanup_free_ char *disable_controllers_str = NULL, *delegate_controllers_str = NULL, *cpuset_cpus = NULL, *cpuset_mems = NULL, *startup_cpuset_cpus = NULL, *startup_cpuset_mems = NULL;
         CGroupContext *c;
@@ -585,10 +625,10 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
 
         LIST_FOREACH(device_allow, a, c->device_allow)
                 fprintf(f,
-                        "%sDeviceAllow: %s %s%s%s\n",
+                        "%sDeviceAllow: %s %s\n",
                         prefix,
                         a->path,
-                        a->r ? "r" : "", a->w ? "w" : "", a->m ? "m" : "");
+                        cgroup_device_permissions_to_string(a->permissions));
 
         LIST_FOREACH(device_weights, iw, c->io_device_weights)
                 fprintf(f,
@@ -695,13 +735,16 @@ void cgroup_context_dump_socket_bind_item(const CGroupSocketBindItem *item, FILE
         }
 }
 
-int cgroup_context_add_device_allow(CGroupContext *c, const char *dev, const char *mode) {
+int cgroup_context_add_device_allow(CGroupContext *c, const char *dev, CGroupDevicePermissions p) {
         _cleanup_free_ CGroupDeviceAllow *a = NULL;
         _cleanup_free_ char *d = NULL;
 
         assert(c);
         assert(dev);
-        assert(isempty(mode) || in_charset(mode, "rwm"));
+        assert(p >= 0 && p < _CGROUP_DEVICE_PERMISSIONS_MAX);
+
+        if (p == 0)
+                p = _CGROUP_DEVICE_PERMISSIONS_ALL;
 
         a = new(CGroupDeviceAllow, 1);
         if (!a)
@@ -713,9 +756,7 @@ int cgroup_context_add_device_allow(CGroupContext *c, const char *dev, const cha
 
         *a = (CGroupDeviceAllow) {
                 .path = TAKE_PTR(d),
-                .r = isempty(mode) || strchr(mode, 'r'),
-                .w = isempty(mode) || strchr(mode, 'w'),
-                .m = isempty(mode) || strchr(mode, 'm'),
+                .permissions = p,
         };
 
         LIST_PREPEND(device_allow, c->device_allow, a);
@@ -724,21 +765,21 @@ int cgroup_context_add_device_allow(CGroupContext *c, const char *dev, const cha
         return 0;
 }
 
-int cgroup_context_add_or_update_device_allow(CGroupContext *c, const char *dev, const char *mode) {
+int cgroup_context_add_or_update_device_allow(CGroupContext *c, const char *dev, CGroupDevicePermissions p) {
         assert(c);
         assert(dev);
-        assert(isempty(mode) || in_charset(mode, "rwm"));
+        assert(p >= 0 && p < _CGROUP_DEVICE_PERMISSIONS_MAX);
+
+        if (p == 0)
+                p = _CGROUP_DEVICE_PERMISSIONS_ALL;
 
         LIST_FOREACH(device_allow, b, c->device_allow)
                 if (path_equal(b->path, dev)) {
-                        b->r = isempty(mode) || strchr(mode, 'r');
-                        b->w = isempty(mode) || strchr(mode, 'w');
-                        b->m = isempty(mode) || strchr(mode, 'm');
-
+                        b->permissions = p;
                         return 0;
                 }
 
-        return cgroup_context_add_device_allow(c, dev, mode);
+        return cgroup_context_add_device_allow(c, dev, p);
 }
 
 int cgroup_context_add_bpf_foreign_program(CGroupContext *c, uint32_t attach_type, const char *bpffs_path) {
@@ -1453,25 +1494,17 @@ static int cgroup_apply_devices(Unit *u) {
 
         bool any = allow_list_static;
         LIST_FOREACH(device_allow, a, c->device_allow) {
-                char acc[4], *val;
-                unsigned k = 0;
+                const char *val;
 
-                if (a->r)
-                        acc[k++] = 'r';
-                if (a->w)
-                        acc[k++] = 'w';
-                if (a->m)
-                        acc[k++] = 'm';
-                if (k == 0)
+                if (a->permissions == 0)
                         continue;
-                acc[k++] = 0;
 
                 if (path_startswith(a->path, "/dev/"))
-                        r = bpf_devices_allow_list_device(prog, path, a->path, acc);
+                        r = bpf_devices_allow_list_device(prog, path, a->path, a->permissions);
                 else if ((val = startswith(a->path, "block-")))
-                        r = bpf_devices_allow_list_major(prog, path, val, 'b', acc);
+                        r = bpf_devices_allow_list_major(prog, path, val, 'b', a->permissions);
                 else if ((val = startswith(a->path, "char-")))
-                        r = bpf_devices_allow_list_major(prog, path, val, 'c', acc);
+                        r = bpf_devices_allow_list_major(prog, path, val, 'c', a->permissions);
                 else {
                         log_unit_debug(u, "Ignoring device '%s' while writing cgroup attribute.", a->path);
                         continue;

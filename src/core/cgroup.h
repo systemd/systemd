@@ -57,12 +57,20 @@ typedef enum FreezerAction {
         _FREEZER_ACTION_INVALID = -EINVAL,
 } FreezerAction;
 
+typedef enum CGroupDevicePermissions {
+        /* We reuse the same bit meanings the kernel's BPF_DEVCG_ACC_xyz definitions use */
+        CGROUP_DEVICE_MKNOD                = 1 << 0,
+        CGROUP_DEVICE_READ                 = 1 << 1,
+        CGROUP_DEVICE_WRITE                = 1 << 2,
+        _CGROUP_DEVICE_PERMISSIONS_MAX     = 1 << 3,
+        _CGROUP_DEVICE_PERMISSIONS_ALL     = _CGROUP_DEVICE_PERMISSIONS_MAX - 1,
+        _CGROUP_DEVICE_PERMISSIONS_INVALID = -EINVAL,
+} CGroupDevicePermissions;
+
 struct CGroupDeviceAllow {
         LIST_FIELDS(CGroupDeviceAllow, device_allow);
         char *path;
-        bool r:1;
-        bool w:1;
-        bool m:1;
+        CGroupDevicePermissions permissions;
 };
 
 struct CGroupIODeviceWeight {
@@ -271,8 +279,8 @@ static inline bool cgroup_context_want_memory_pressure(const CGroupContext *c) {
                 (c->memory_pressure_watch == CGROUP_PRESSURE_WATCH_AUTO && c->memory_accounting);
 }
 
-int cgroup_context_add_device_allow(CGroupContext *c, const char *dev, const char *mode);
-int cgroup_context_add_or_update_device_allow(CGroupContext *c, const char *dev, const char *mode);
+int cgroup_context_add_device_allow(CGroupContext *c, const char *dev, CGroupDevicePermissions p);
+int cgroup_context_add_or_update_device_allow(CGroupContext *c, const char *dev, CGroupDevicePermissions p);
 int cgroup_context_add_bpf_foreign_program(CGroupContext *c, uint32_t attach_type, const char *path);
 
 void cgroup_oomd_xattr_apply(Unit *u);
@@ -378,3 +386,6 @@ FreezerAction freezer_action_from_string(const char *s) _pure_;
 
 const char* cgroup_pressure_watch_to_string(CGroupPressureWatch a) _const_;
 CGroupPressureWatch cgroup_pressure_watch_from_string(const char *s) _pure_;
+
+const char *cgroup_device_permissions_to_string(CGroupDevicePermissions p) _const_;
+CGroupDevicePermissions cgroup_device_permissions_from_string(const char *s) _pure_;

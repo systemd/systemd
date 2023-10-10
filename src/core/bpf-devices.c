@@ -16,45 +16,25 @@
 
 #define PASS_JUMP_OFF 4096
 
-static int bpf_access_type(const char *acc) {
-        int r = 0;
-
-        assert(acc);
-
-        for (; *acc; acc++)
-                switch (*acc) {
-                case 'r':
-                        r |= BPF_DEVCG_ACC_READ;
-                        break;
-                case 'w':
-                        r |= BPF_DEVCG_ACC_WRITE;
-                        break;
-                case 'm':
-                        r |= BPF_DEVCG_ACC_MKNOD;
-                        break;
-                default:
-                        return -EINVAL;
-                }
-
-        return r;
-}
+/* Ensure the high level flags we use and the low-level BPF flags exposed on the kernel are defined the same way */
+assert_cc((unsigned) BPF_DEVCG_ACC_MKNOD == (unsigned) CGROUP_DEVICE_MKNOD);
+assert_cc((unsigned) BPF_DEVCG_ACC_READ  == (unsigned) CGROUP_DEVICE_READ);
+assert_cc((unsigned) BPF_DEVCG_ACC_WRITE == (unsigned) CGROUP_DEVICE_WRITE);
 
 static int bpf_prog_allow_list_device(
                 BPFProgram *prog,
                 char type,
                 int major,
                 int minor,
-                const char *acc) {
+                CGroupDevicePermissions p) {
 
-        int r, access;
+        int r;
 
         assert(prog);
-        assert(acc);
 
-        log_trace("%s: %c %d:%d %s", __func__, type, major, minor, acc);
+        log_trace("%s: %c %d:%d %s", __func__, type, major, minor, cgroup_device_permissions_to_string(p));
 
-        access = bpf_access_type(acc);
-        if (access <= 0)
+        if (p <= 0 || p >= _CGROUP_DEVICE_PERMISSIONS_MAX)
                 return -EINVAL;
 
         assert(IN_SET(type, 'b', 'c'));
@@ -62,7 +42,7 @@ static int bpf_prog_allow_list_device(
 
         const struct bpf_insn insn[] = {
                 BPF_MOV32_REG(BPF_REG_1, BPF_REG_3),
-                BPF_ALU32_IMM(BPF_AND, BPF_REG_1, access),
+                BPF_ALU32_IMM(BPF_AND, BPF_REG_1, p),
                 BPF_JMP_REG(BPF_JNE, BPF_REG_1, BPF_REG_3, 4), /* compare access type */
 
                 BPF_JMP_IMM(BPF_JNE, BPF_REG_2, bpf_type, 3),  /* compare device type */
@@ -71,7 +51,7 @@ static int bpf_prog_allow_list_device(
                 BPF_JMP_A(PASS_JUMP_OFF),                      /* jump to PASS */
         };
 
-        if (FLAGS_SET(access, BPF_DEVCG_ACC_READ | BPF_DEVCG_ACC_WRITE | BPF_DEVCG_ACC_MKNOD))
+        if (p == _CGROUP_DEVICE_PERMISSIONS_ALL)
                 r = bpf_program_add_instructions(prog, insn + 3, ELEMENTSOF(insn) - 3);
         else
                 r = bpf_program_add_instructions(prog, insn, ELEMENTSOF(insn));
@@ -85,17 +65,15 @@ static int bpf_prog_allow_list_major(
                 BPFProgram *prog,
                 char type,
                 int major,
-                const char *acc) {
+                CGroupDevicePermissions p) {
 
-        int r, access;
+        int r;
 
         assert(prog);
-        assert(acc);
 
-        log_trace("%s: %c %d:* %s", __func__, type, major, acc);
+        log_trace("%s: %c %d:* %s", __func__, type, major, cgroup_device_permissions_to_string(p));
 
-        access = bpf_access_type(acc);
-        if (access <= 0)
+        if (p <= 0 || p >= _CGROUP_DEVICE_PERMISSIONS_MAX)
                 return -EINVAL;
 
         assert(IN_SET(type, 'b', 'c'));
@@ -103,7 +81,7 @@ static int bpf_prog_allow_list_major(
 
         const struct bpf_insn insn[] = {
                 BPF_MOV32_REG(BPF_REG_1, BPF_REG_3),
-                BPF_ALU32_IMM(BPF_AND, BPF_REG_1, access),
+                BPF_ALU32_IMM(BPF_AND, BPF_REG_1, p),
                 BPF_JMP_REG(BPF_JNE, BPF_REG_1, BPF_REG_3, 3), /* compare access type */
 
                 BPF_JMP_IMM(BPF_JNE, BPF_REG_2, bpf_type, 2),  /* compare device type */
@@ -111,7 +89,7 @@ static int bpf_prog_allow_list_major(
                 BPF_JMP_A(PASS_JUMP_OFF),                      /* jump to PASS */
         };
 
-        if (FLAGS_SET(access, BPF_DEVCG_ACC_READ | BPF_DEVCG_ACC_WRITE | BPF_DEVCG_ACC_MKNOD))
+        if (p == _CGROUP_DEVICE_PERMISSIONS_ALL)
                 r = bpf_program_add_instructions(prog, insn + 3, ELEMENTSOF(insn) - 3);
         else
                 r = bpf_program_add_instructions(prog, insn, ELEMENTSOF(insn));
@@ -124,17 +102,15 @@ static int bpf_prog_allow_list_major(
 static int bpf_prog_allow_list_class(
                 BPFProgram *prog,
                 char type,
-                const char *acc) {
+                CGroupDevicePermissions p) {
 
-        int r, access;
+        int r;
 
         assert(prog);
-        assert(acc);
 
-        log_trace("%s: %c *:* %s", __func__, type, acc);
+        log_trace("%s: %c *:* %s", __func__, type, cgroup_device_permissions_to_string(p));
 
-        access = bpf_access_type(acc);
-        if (access <= 0)
+        if (p <= 0 || p >= _CGROUP_DEVICE_PERMISSIONS_MAX)
                 return -EINVAL;
 
         assert(IN_SET(type, 'b', 'c'));
@@ -142,14 +118,14 @@ static int bpf_prog_allow_list_class(
 
         const struct bpf_insn insn[] = {
                 BPF_MOV32_REG(BPF_REG_1, BPF_REG_3),
-                BPF_ALU32_IMM(BPF_AND, BPF_REG_1, access),
+                BPF_ALU32_IMM(BPF_AND, BPF_REG_1, p),
                 BPF_JMP_REG(BPF_JNE, BPF_REG_1, BPF_REG_3, 2), /* compare access type */
 
                 BPF_JMP_IMM(BPF_JNE, BPF_REG_2, bpf_type, 1), /* compare device type */
                 BPF_JMP_A(PASS_JUMP_OFF),                     /* jump to PASS */
         };
 
-        if (FLAGS_SET(access, BPF_DEVCG_ACC_READ | BPF_DEVCG_ACC_WRITE | BPF_DEVCG_ACC_MKNOD))
+        if (p == _CGROUP_DEVICE_PERMISSIONS_ALL)
                 r = bpf_program_add_instructions(prog, insn + 3, ELEMENTSOF(insn) - 3);
         else
                 r = bpf_program_add_instructions(prog, insn, ELEMENTSOF(insn));
@@ -333,7 +309,7 @@ static int allow_list_device_pattern(
                 char type,
                 const unsigned *maj,
                 const unsigned *min,
-                const char *acc) {
+                CGroupDevicePermissions p) {
 
         assert(IN_SET(type, 'b', 'c'));
 
@@ -342,22 +318,22 @@ static int allow_list_device_pattern(
                         return 0;
 
                 if (maj && min)
-                        return bpf_prog_allow_list_device(prog, type, *maj, *min, acc);
+                        return bpf_prog_allow_list_device(prog, type, *maj, *min, p);
                 else if (maj)
-                        return bpf_prog_allow_list_major(prog, type, *maj, acc);
+                        return bpf_prog_allow_list_major(prog, type, *maj, p);
                 else
-                        return bpf_prog_allow_list_class(prog, type, acc);
+                        return bpf_prog_allow_list_class(prog, type, p);
 
         } else {
                 char buf[2+DECIMAL_STR_MAX(unsigned)*2+2+4];
                 int r;
 
                 if (maj && min)
-                        xsprintf(buf, "%c %u:%u %s", type, *maj, *min, acc);
+                        xsprintf(buf, "%c %u:%u %s", type, *maj, *min, cgroup_device_permissions_to_string(p));
                 else if (maj)
-                        xsprintf(buf, "%c %u:* %s", type, *maj, acc);
+                        xsprintf(buf, "%c %u:* %s", type, *maj, cgroup_device_permissions_to_string(p));
                 else
-                        xsprintf(buf, "%c *:* %s", type, acc);
+                        xsprintf(buf, "%c *:* %s", type, cgroup_device_permissions_to_string(p));
 
                 /* Changing the devices list of a populated cgroup might result in EINVAL, hence ignore
                  * EINVAL here. */
@@ -375,17 +351,16 @@ int bpf_devices_allow_list_device(
                 BPFProgram *prog,
                 const char *path,
                 const char *node,
-                const char *acc) {
+                CGroupDevicePermissions p) {
 
         mode_t mode;
         dev_t rdev;
         int r;
 
         assert(path);
-        assert(acc);
-        assert(strlen(acc) <= 3);
+        assert(p >= 0 && p < _CGROUP_DEVICE_PERMISSIONS_MAX);
 
-        log_trace("%s: %s %s", __func__, node, acc);
+        log_trace("%s: %s %s", __func__, node, cgroup_device_permissions_to_string(p));
 
         /* Some special handling for /dev/block/%u:%u, /dev/char/%u:%u, /run/systemd/inaccessible/chr and
          * /run/systemd/inaccessible/blk paths. Instead of stat()ing these we parse out the major/minor directly. This
@@ -407,7 +382,7 @@ int bpf_devices_allow_list_device(
         }
 
         unsigned maj = major(rdev), min = minor(rdev);
-        return allow_list_device_pattern(prog, path, S_ISCHR(mode) ? 'c' : 'b', &maj, &min, acc);
+        return allow_list_device_pattern(prog, path, S_ISCHR(mode) ? 'c' : 'b', &maj, &min, p);
 }
 
 int bpf_devices_allow_list_major(
@@ -415,23 +390,23 @@ int bpf_devices_allow_list_major(
                 const char *path,
                 const char *name,
                 char type,
-                const char *acc) {
+                CGroupDevicePermissions permissions) {
 
         unsigned maj;
         int r;
 
         assert(path);
-        assert(acc);
         assert(IN_SET(type, 'b', 'c'));
+        assert(permissions >= 0 && permissions < _CGROUP_DEVICE_PERMISSIONS_MAX);
 
         if (streq(name, "*"))
                 /* If the name is a wildcard, then apply this list to all devices of this type */
-                return allow_list_device_pattern(prog, path, type, NULL, NULL, acc);
+                return allow_list_device_pattern(prog, path, type, NULL, NULL, permissions);
 
         if (safe_atou(name, &maj) >= 0 && DEVICE_MAJOR_VALID(maj))
                 /* The name is numeric and suitable as major. In that case, let's take its major, and create
                  * the entry directly. */
-                return allow_list_device_pattern(prog, path, type, &maj, NULL, acc);
+                return allow_list_device_pattern(prog, path, type, &maj, NULL, permissions);
 
         _cleanup_fclose_ FILE *f = NULL;
         bool good = false, any = false;
@@ -488,7 +463,7 @@ int bpf_devices_allow_list_major(
                         continue;
 
                 any = true;
-                (void) allow_list_device_pattern(prog, path, type, &maj, NULL, acc);
+                (void) allow_list_device_pattern(prog, path, type, &maj, NULL, permissions);
         }
 
         if (!any)
@@ -516,13 +491,13 @@ int bpf_devices_allow_list_static(
         int r = 0, k;
 
         NULSTR_FOREACH_PAIR(node, acc, auto_devices) {
-                k = bpf_devices_allow_list_device(prog, path, node, acc);
+                k = bpf_devices_allow_list_device(prog, path, node, cgroup_device_permissions_from_string(acc));
                 if (r >= 0 && k < 0)
                         r = k;
         }
 
         /* PTS (/dev/pts) devices may not be duplicated, but accessed */
-        k = bpf_devices_allow_list_major(prog, path, "pts", 'c', "rw");
+        k = bpf_devices_allow_list_major(prog, path, "pts", 'c', CGROUP_DEVICE_READ|CGROUP_DEVICE_WRITE);
         if (r >= 0 && k < 0)
                 r = k;
 

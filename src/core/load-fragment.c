@@ -4149,6 +4149,7 @@ int config_parse_device_allow(
                 void *userdata) {
 
         _cleanup_free_ char *path = NULL, *resolved = NULL;
+        CGroupDevicePermissions permissions;
         CGroupContext *c = data;
         const char *p = rvalue;
         int r;
@@ -4188,12 +4189,13 @@ int config_parse_device_allow(
                 }
         }
 
-        if (!isempty(p) && !in_charset(p, "rwm")) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid device rights '%s', ignoring.", p);
+        permissions = isempty(p) ? 0 : cgroup_device_permissions_from_string(p);
+        if (permissions < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, permissions, "Invalid device rights '%s', ignoring.", p);
                 return 0;
         }
 
-        return cgroup_context_add_device_allow(c, resolved, p);
+        return cgroup_context_add_device_allow(c, resolved, permissions);
 }
 
 int config_parse_io_device_weight(

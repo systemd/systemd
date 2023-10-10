@@ -2629,9 +2629,9 @@ static int get_security_info(Unit *u, ExecContext *c, CGroupContext *g, Security
 
                 LIST_FOREACH(device_allow, a, g->device_allow)
                         if (strv_extendf(&info->device_allow,
-                                         "%s:%s%s%s",
+                                         "%s:%s",
                                          a->path,
-                                         a->r ? "r" : "", a->w ? "w" : "", a->m ? "m" : "") < 0)
+                                         cgroup_device_permissions_to_string(a->permissions)) < 0)
                                 return log_oom();
         }
 
