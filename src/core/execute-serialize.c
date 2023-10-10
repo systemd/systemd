@@ -343,9 +343,9 @@ static int exec_cgroup_context_serialize(const CGroupContext *c, FILE *f) {
         }
 
         LIST_FOREACH(device_allow, a, c->device_allow) {
-                r = serialize_item_format(f, "exec-cgroup-context-device-allow", "%s %s%s%s",
+                r = serialize_item_format(f, "exec-cgroup-context-device-allow", "%s %s",
                                           a->path,
-                                          a->r ? "r" : "", a->w ? "w" : "", a->m ? "m" : "");
+                                          cgroup_device_permissions_to_string(a->permissions));
                 if (r < 0)
                         return r;
         }
@@ -787,16 +787,19 @@ static int exec_cgroup_context_deserialize(CGroupContext *c, FILE *f) {
                                 return r;
                 } else if ((val = startswith(l, "exec-cgroup-context-device-allow="))) {
                         _cleanup_free_ char *path = NULL, *rwm = NULL;
+                        CGroupDevicePermissions p;
 
                         r = extract_many_words(&val, " ", 0, &path, &rwm, NULL);
                         if (r < 0)
                                 return r;
                         if (r == 0)
                                 return -EINVAL;
-                        if (!isempty(rwm) && !in_charset(rwm, "rwm"))
-                                return -EINVAL;
 
-                        r = cgroup_context_add_or_update_device_allow(c, path, rwm);
+                        p = isempty(rwm) ? 0 : cgroup_device_permissions_from_string(rwm);
+                        if (p < 0)
+                                return p;
+
+                        r = cgroup_context_add_or_update_device_allow(c, path, p);
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-cgroup-context-io-device-weight="))) {
