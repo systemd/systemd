@@ -39,6 +39,11 @@ BOOT_ROOT="$D/badboot"
 MACHINE_ID=badbadbadbadbadbad6abadbadbadbad
 EOF
 
+# Create a 'devicetree' config file that points to a fake dtb file
+echo 'subdir/whatever.dtb' >"$D/sources/devicetree"
+mkdir "$D/sources/subdir"
+echo 'DTBDTBDTBDTB' >"$D/sources/subdir/whatever.dtb"
+
 export KERNEL_INSTALL_CONF_ROOT="$D/sources"
 # We "install" multiple plugins, but control which ones will be active via install.conf.
 export KERNEL_INSTALL_PLUGINS="${ukify_install} ${loaderentry_install} ${uki_copy_install}"
@@ -60,9 +65,11 @@ grep -qE '^version +1.1.1' "$entry"
 grep -qE '^options +opt1 opt2' "$entry"
 grep -qE '^linux .*/the-token/1.1.1/linux' "$entry"
 grep -qE '^initrd .*/the-token/1.1.1/initrd' "$entry"
+grep -qE '^devicetree .*/the-token/1.1.1/whatever.dtb' "$entry"
 
 grep -qE 'image' "$BOOT_ROOT/the-token/1.1.1/linux"
 grep -qE 'initrd' "$BOOT_ROOT/the-token/1.1.1/initrd"
+grep -qE 'DTBDTB' "$BOOT_ROOT/the-token/1.1.1/whatever.dtb"
 
 "$kernel_install" inspect
 "$kernel_install" inspect "$D/sources/linux"
@@ -95,9 +102,11 @@ grep -qE '^version +1.1.2' "$entry"
 grep -qE '^options +opt1 opt2' "$entry"
 grep -qE '^linux .*/the-token/1.1.2/linux' "$entry"
 ( ! grep -qE '^initrd' "$entry" )
+grep -qE '^devicetree .*/the-token/1.1.2/whatever.dtb' "$entry"
 
 grep -qE 'image' "$BOOT_ROOT/the-token/1.1.2/linux"
 test ! -e "$BOOT_ROOT/the-token/1.1.2/initrd"
+grep -qE 'DTBDTB' "$BOOT_ROOT/the-token/1.1.2/whatever.dtb"
 
 # Check installation with boot counting
 echo '56' >"$D/sources/tries"
@@ -120,6 +129,7 @@ if [ -f "$ukify" ]; then
 layout=uki
 uki_generator=ukify
 EOF
+
     "$kernel_install" -v add 1.1.3 "$D/sources/linux" "$D/sources/initrd"
     uki="${BOOT_ROOT}/EFI/Linux/the-token-1.1.3+56.efi"
     test -f "$uki"
@@ -129,6 +139,13 @@ EOF
         "$bootctl" kernel-inspect "$uki" | grep -qE 'Version: +1\.1\.3$'
         "$bootctl" kernel-inspect "$uki" | grep -qE 'Cmdline: +opt1 opt2$'
     fi
+
+    "$ukify" inspect "$uki" | grep -qE '^.sbat'
+    "$ukify" inspect "$uki" | grep -qE '^.cmdline'
+    "$ukify" inspect "$uki" | grep -qE '^.uname'
+    "$ukify" inspect "$uki" | grep -qE '^.initrd'
+    "$ukify" inspect "$uki" | grep -qE '^.linux'
+    "$ukify" inspect "$uki" | grep -qE '^.dtb'
 fi
 
 # Test bootctl
