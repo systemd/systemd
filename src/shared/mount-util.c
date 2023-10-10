@@ -884,6 +884,7 @@ static int mount_in_namespace_legacy(
                                 /* required_host_os_release_id= */ NULL,
                                 /* required_host_os_release_version_id= */ NULL,
                                 /* required_host_os_release_sysext_level= */ NULL,
+                                /* required_host_os_release_confext_level= */ NULL,
                                 /* required_sysext_scope= */ NULL,
                                 /* ret_image= */ NULL);
         else
@@ -1102,6 +1103,7 @@ static int mount_in_namespace(
                                 /* required_host_os_release_id= */ NULL,
                                 /* required_host_os_release_version_id= */ NULL,
                                 /* required_host_os_release_sysext_level= */ NULL,
+                                /* required_host_os_release_confext_level= */ NULL,
                                 /* required_sysext_scope= */ NULL,
                                 &img);
                 if (r < 0)

@@ -1288,9 +1288,8 @@ static int mount_image(
                 const ImagePolicy *image_policy) {
 
         _cleanup_free_ char *host_os_release_id = NULL, *host_os_release_version_id = NULL,
-                            *host_os_release_level = NULL, *extension_name = NULL;
-        _cleanup_strv_free_ char **extension_release = NULL;
-        ImageClass class = IMAGE_SYSEXT;
+                            *host_os_release_sysext_level = NULL, *host_os_release_confext_level = NULL,
+                            *extension_name = NULL;
         int r;
 
         assert(m);
@@ -1300,20 +1299,12 @@ static int mount_image(
                 return log_debug_errno(r, "Failed to extract extension name from %s: %m", mount_entry_source(m));
 
         if (m->mode == EXTENSION_IMAGES) {
-                r = load_extension_release_pairs(mount_entry_source(m), IMAGE_SYSEXT, extension_name, /* relax_extension_release_check= */ false, &extension_release);
-                if (r == -ENOENT) {
-                        r = load_extension_release_pairs(mount_entry_source(m), IMAGE_CONFEXT, extension_name, /* relax_extension_release_check= */ false, &extension_release);
-                        if (r >= 0)
-                                class = IMAGE_CONFEXT;
-                }
-                if (r == -ENOENT)
-                        return r;
-
                 r = parse_os_release(
                                 empty_to_root(root_directory),
                                 "ID", &host_os_release_id,
                                 "VERSION_ID", &host_os_release_version_id,
-                                image_class_info[class].level_env, &host_os_release_level,
+                                image_class_info[IMAGE_SYSEXT].level_env, &host_os_release_sysext_level,
+                                image_class_info[IMAGE_CONFEXT].level_env, &host_os_release_confext_level,
                                 NULL);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to acquire 'os-release' data of OS tree '%s': %m", empty_to_root(root_directory));
@@ -1329,20 +1320,23 @@ static int mount_image(
                         image_policy,
                         host_os_release_id,
                         host_os_release_version_id,
-                        host_os_release_level,
+                        host_os_release_sysext_level,
+                        host_os_release_confext_level,
                         /* required_sysext_scope= */ NULL,
                         /* ret_image= */ NULL);
         if (r == -ENOENT && m->ignore)
                 return 0;
         if (r == -ESTALE && host_os_release_id)
                 return log_error_errno(r,
-                                       "Failed to mount image %s, extension-release metadata does not match the lower layer's: ID=%s%s%s%s%s",
+                                       "Failed to mount image %s, extension-release metadata does not match the lower layer's: ID=%s%s%s%s%s%s%s",
                                        mount_entry_source(m),
                                        host_os_release_id,
                                        host_os_release_version_id ? " VERSION_ID=" : "",
                                        strempty(host_os_release_version_id),
-                                       host_os_release_level ? image_class_info[class].level_env_print : "",
-                                       strempty(host_os_release_level));
+                                       host_os_release_sysext_level ? image_class_info[IMAGE_SYSEXT].level_env_print : "",
+                                       strempty(host_os_release_sysext_level),
+                                       host_os_release_confext_level ? image_class_info[IMAGE_CONFEXT].level_env_print : "",
+                                       strempty(host_os_release_confext_level));
         if (r < 0)
                 return log_debug_errno(r, "Failed to mount image %s on %s: %m", mount_entry_source(m), mount_entry_path(m));
 
@@ -1484,8 +1478,8 @@ static int apply_one_mount(
                         if (r >= 0)
                                 class = IMAGE_CONFEXT;
                 }
-                if (r == -ENOENT)
-                        return r;
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to acquire 'extension-release' data of extension tree %s: %m", mount_entry_source(m));
 
                 r = parse_os_release(
                                 empty_to_root(root_directory),
