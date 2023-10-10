@@ -1287,7 +1287,7 @@ static int mount_image(
                         if (r >= 0)
                                 class = IMAGE_CONFEXT;
                 }
-                if (r == -ENOENT)
+                if (r < 0)
                         return r;
 
                 r = parse_os_release(
@@ -1468,7 +1468,7 @@ static int apply_one_mount(
                         if (r >= 0)
                                 class = IMAGE_CONFEXT;
                 }
-                if (r == -ENOENT)
+                if (r < 0)
                         return r;
 
                 r = parse_os_release(
