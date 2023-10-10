@@ -108,9 +108,9 @@ struct DissectedImage {
         char **machine_info;
         char **os_release;
         char **initrd_release;
-        char **extension_release;
+        char **confext_release;
+        char **sysext_release;
         int has_init_system;
-        ImageClass image_class;
 };
 
 struct MountOptions {

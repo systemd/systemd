@@ -741,7 +741,7 @@ static int merge_subprocess(Hashmap *images, const char *workspace) {
                                         host_os_release_version_id,
                                         host_os_release_api_level,
                                         in_initrd() ? "initrd" : "system",
-                                        img->extension_release,
+                                        image_extension_release(img, arg_image_class),
                                         arg_image_class);
                         if (r < 0)
                                 return r;

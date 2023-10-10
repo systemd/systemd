@@ -573,8 +573,8 @@ echo "MARKER_SYSEXT_123" >testkit/usr/lib/testfile
 mksquashfs testkit/ testkit.raw
 cp testkit.raw /run/extensions/
 unsquashfs -l /run/extensions/testkit.raw
-systemd-dissect --no-pager /run/extensions/testkit.raw | grep -q '✓ sysext extension for portable service'
-systemd-dissect --no-pager /run/extensions/testkit.raw | grep -q '✓ sysext extension for system'
+systemd-dissect --no-pager /run/extensions/testkit.raw | grep -q '✓ sysext for portable service'
+systemd-dissect --no-pager /run/extensions/testkit.raw | grep -q '✓ sysext for system'
 systemd-sysext merge
 systemd-sysext status
 grep -q -F "MARKER_SYSEXT_123" /usr/lib/testfile
@@ -589,8 +589,8 @@ echo "MARKER_CONFEXT_123" >testjob/etc/testfile
 mksquashfs testjob/ testjob.raw
 cp testjob.raw /run/confexts/
 unsquashfs -l /run/confexts/testjob.raw
-systemd-dissect --no-pager /run/confexts/testjob.raw | grep -q '✓ confext extension for system'
-systemd-dissect --no-pager /run/confexts/testjob.raw | grep -q '✓ confext extension for portable service'
+systemd-dissect --no-pager /run/confexts/testjob.raw | grep -q '✓ confext for system'
+systemd-dissect --no-pager /run/confexts/testjob.raw | grep -q '✓ confext for portable service'
 systemd-confext merge
 systemd-confext status
 grep -q -F "MARKER_CONFEXT_123" /etc/testfile

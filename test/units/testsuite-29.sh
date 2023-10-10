@@ -31,8 +31,8 @@ fi
 
 systemd-dissect --no-pager /usr/share/minimal_0.raw | grep -q '✓ portable service'
 systemd-dissect --no-pager /usr/share/minimal_1.raw | grep -q '✓ portable service'
-systemd-dissect --no-pager /usr/share/app0.raw | grep -q '✓ sysext extension for portable service'
-systemd-dissect --no-pager /usr/share/app1.raw | grep -q '✓ sysext extension for portable service'
+systemd-dissect --no-pager /usr/share/app0.raw | grep -q '✓ sysext for portable service'
+systemd-dissect --no-pager /usr/share/app1.raw | grep -q '✓ sysext for portable service'
 
 export SYSTEMD_LOG_LEVEL=debug
 mkdir -p /run/systemd/system/systemd-portabled.service.d/
