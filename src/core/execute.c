@@ -3138,7 +3138,6 @@ static int apply_mount_namespace(
                         *extension_dir = NULL, *host_os_release_stage = NULL;
         const char *root_dir = NULL, *root_image = NULL, *tmp_dir = NULL, *var_tmp_dir = NULL;
         char **read_write_paths;
-        NamespaceInfo ns_info;
         bool needs_sandboxing, setup_os_release_symlink;
         BindMount *bind_mounts = NULL;
         size_t n_bind_mounts = 0;
@@ -3180,10 +3179,9 @@ static int apply_mount_namespace(
 
         needs_sandboxing = (params->flags & EXEC_APPLY_SANDBOXING) && !(command_flags & EXEC_COMMAND_FULLY_PRIVILEGED);
         if (needs_sandboxing) {
-                /* The runtime struct only contains the parent of the private /tmp,
-                 * which is non-accessible to world users. Inside of it there's a /tmp
-                 * that is sticky, and that's the one we want to use here.
-                 * This does not apply when we are using /run/systemd/empty as fallback. */
+                /* The runtime struct only contains the parent of the private /tmp, which is non-accessible
+                 * to world users. Inside of it there's a /tmp that is sticky, and that's the one we want to
+                 * use here.  This does not apply when we are using /run/systemd/empty as fallback. */
 
                 if (context->private_tmp && runtime && runtime->shared) {
                         if (streq_ptr(runtime->shared->tmp_dir, RUN_SYSTEMD_EMPTY))
@@ -3196,39 +3194,10 @@ static int apply_mount_namespace(
                         else if (runtime->shared->var_tmp_dir)
                                 var_tmp_dir = strjoina(runtime->shared->var_tmp_dir, "/tmp");
                 }
-
-                ns_info = (NamespaceInfo) {
-                        .ignore_protect_paths = false,
-                        .private_dev = context->private_devices,
-                        .protect_control_groups = context->protect_control_groups,
-                        .protect_kernel_tunables = context->protect_kernel_tunables,
-                        .protect_kernel_modules = context->protect_kernel_modules,
-                        .protect_kernel_logs = context->protect_kernel_logs,
-                        .protect_hostname = context->protect_hostname,
-                        .mount_apivfs = exec_context_get_effective_mount_apivfs(context),
-                        .protect_home = context->protect_home,
-                        .protect_system = context->protect_system,
-                        .protect_proc = context->protect_proc,
-                        .proc_subset = context->proc_subset,
-                        .private_network = exec_needs_network_namespace(context),
-                        .private_ipc = exec_needs_ipc_namespace(context),
-                        /* If NNP is on, we can turn on MS_NOSUID, since it won't have any effect anymore. */
-                        .mount_nosuid = context->no_new_privileges && !mac_selinux_use(),
-                };
-        } else if (!context->dynamic_user && root_dir)
-                /*
-                 * If DynamicUser=no and RootDirectory= is set then lets pass a relaxed
-                 * sandbox info, otherwise enforce it, don't ignore protected paths and
-                 * fail if we are enable to apply the sandbox inside the mount namespace.
-                 */
-                ns_info = (NamespaceInfo) {
-                        .ignore_protect_paths = true,
-                };
-        else
-                ns_info = (NamespaceInfo) {};
+        }
 
         /* Symlinks (exec dirs, os-release) are set up after other mounts, before they are made read-only. */
-        setup_os_release_symlink = ns_info.mount_apivfs && (root_dir || root_image);
+        setup_os_release_symlink = needs_sandboxing && exec_context_get_effective_mount_apivfs(context) && (root_dir || root_image);
         r = compile_symlinks(context, params, setup_os_release_symlink, &symlinks);
         if (r < 0)
                 return r;
@@ -3287,44 +3256,81 @@ static int apply_mount_namespace(
                         return r;
         }
 
-        r = setup_namespace(
-                        root_dir,
-                        root_image,
-                        context->root_image_options,
-                        context->root_image_policy ?: &image_policy_service,
-                        &ns_info,
-                        read_write_paths,
-                        needs_sandboxing ? context->read_only_paths : NULL,
-                        needs_sandboxing ? context->inaccessible_paths : NULL,
-                        needs_sandboxing ? context->exec_paths : NULL,
-                        needs_sandboxing ? context->no_exec_paths : NULL,
-                        empty_directories,
-                        symlinks,
-                        bind_mounts,
-                        n_bind_mounts,
-                        context->temporary_filesystems,
-                        context->n_temporary_filesystems,
-                        context->mount_images,
-                        context->n_mount_images,
-                        context->mount_image_policy ?: &image_policy_service,
-                        tmp_dir,
-                        var_tmp_dir,
-                        creds_path,
-                        context->log_namespace,
-                        context->mount_propagation_flag,
-                        &verity,
-                        context->extension_images,
-                        context->n_extension_images,
-                        context->extension_image_policy ?: &image_policy_sysext,
-                        context->extension_directories,
-                        propagate_dir,
-                        incoming_dir,
-                        extension_dir,
-                        root_dir || root_image ? params->notify_socket : NULL,
-                        host_os_release_stage,
-                        params->runtime_scope,
-                        error_path);
+        NamespaceParameters parameters = {
+                .runtime_scope = params->runtime_scope,
 
+                .root_directory = root_dir,
+                .root_image = root_image,
+                .root_image_options = context->root_image_options,
+                .root_image_policy = context->root_image_policy ?: &image_policy_service,
+
+                .read_write_paths = read_write_paths,
+                .read_only_paths = needs_sandboxing ? context->read_only_paths : NULL,
+                .inaccessible_paths = needs_sandboxing ? context->inaccessible_paths : NULL,
+
+                .exec_paths = needs_sandboxing ? context->exec_paths : NULL,
+                .no_exec_paths = needs_sandboxing ? context->no_exec_paths : NULL,
+
+                .empty_directories = empty_directories,
+                .symlinks = symlinks,
+
+                .bind_mounts = bind_mounts,
+                .n_bind_mounts = n_bind_mounts,
+
+                .temporary_filesystems = context->temporary_filesystems,
+                .n_temporary_filesystems = context->n_temporary_filesystems,
+
+                .mount_images = context->mount_images,
+                .n_mount_images = context->n_mount_images,
+                .mount_image_policy = context->mount_image_policy ?: &image_policy_service,
+
+                .tmp_dir = tmp_dir,
+                .var_tmp_dir = var_tmp_dir,
+
+                .creds_path = creds_path,
+                .log_namespace = context->log_namespace,
+                .mount_propagation_flag = context->mount_propagation_flag,
+
+                .verity = &verity,
+
+                .extension_images = context->extension_images,
+                .n_extension_images = context->n_extension_images,
+                .extension_image_policy = context->extension_image_policy ?: &image_policy_sysext,
+                .extension_directories = context->extension_directories,
+
+                .propagate_dir = propagate_dir,
+                .incoming_dir = incoming_dir,
+                .extension_dir = extension_dir,
+                .notify_socket = root_dir || root_image ? params->notify_socket : NULL,
+                .host_os_release_stage = host_os_release_stage,
+
+                /* If DynamicUser=no and RootDirectory= is set then lets pass a relaxed sandbox info,
+                 * otherwise enforce it, don't ignore protected paths and fail if we are enable to apply the
+                 * sandbox inside the mount namespace. */
+                .ignore_protect_paths = !needs_sandboxing && !context->dynamic_user && root_dir,
+
+                .protect_control_groups = needs_sandboxing && context->protect_control_groups,
+                .protect_kernel_tunables = needs_sandboxing && context->protect_kernel_tunables,
+                .protect_kernel_modules = needs_sandboxing && context->protect_kernel_modules,
+                .protect_kernel_logs = needs_sandboxing && context->protect_kernel_logs,
+                .protect_hostname = needs_sandboxing && context->protect_hostname,
+
+                .private_dev = needs_sandboxing && context->private_devices,
+                .private_network = needs_sandboxing && exec_needs_network_namespace(context),
+                .private_ipc = needs_sandboxing && exec_needs_ipc_namespace(context),
+
+                .mount_apivfs = needs_sandboxing && exec_context_get_effective_mount_apivfs(context),
+
+                /* If NNP is on, we can turn on MS_NOSUID, since it won't have any effect anymore. */
+                .mount_nosuid = needs_sandboxing && context->no_new_privileges && !mac_selinux_use(),
+
+                .protect_home = needs_sandboxing && context->protect_home,
+                .protect_system = needs_sandboxing && context->protect_system,
+                .protect_proc = needs_sandboxing && context->protect_proc,
+                .proc_subset = needs_sandboxing && context->proc_subset,
+        };
+
+        r = setup_namespace(&parameters, error_path);
         /* If we couldn't set up the namespace this is probably due to a missing capability. setup_namespace() reports
          * that with a special, recognizable error ENOANO. In this case, silently proceed, but only if exclusively
          * sandboxing options were used, i.e. nothing such as RootDirectory= or BindMount= that would result in a
