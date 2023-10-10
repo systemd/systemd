@@ -1039,6 +1039,19 @@ class ConfigItem:
             setattr(namespace, dest, value)
 
     @staticmethod
+    def config_set(
+            namespace: argparse.Namespace,
+            group: Optional[str],
+            dest: str,
+            value: Any,
+    ) -> None:
+        "Set namespace.<dest> to value only if it was None"
+
+        assert not group
+
+        setattr(namespace, dest, value)
+
+    @staticmethod
     def config_set_group(
             namespace: argparse.Namespace,
             group: Optional[str],
@@ -1279,8 +1292,9 @@ CONFIG_ITEMS = [
         '--signtool',
         choices = ('sbsign', 'pesign'),
         dest = 'signtool',
-        default = 'sbsign',
-        help = 'whether to use sbsign or pesign. Default is sbsign.',
+        help = 'whether to use sbsign or pesign. It will also be inferred by the other \
+        parameters given: when using --secureboot-{private-key/certificate}, sbsign \
+        will be used, otherwise pesign will be used',
         config_key = 'UKI/SecureBootSigningTool',
     ),
     ConfigItem(
@@ -1301,6 +1315,7 @@ CONFIG_ITEMS = [
         default = '/etc/pki/pesign',
         help = 'required by --signtool=pesign. Path to nss certificate database directory for PE signing. Default is /etc/pki/pesign',
         config_key = 'UKI/SecureBootCertificateDir',
+        config_push = ConfigItem.config_set
     ),
     ConfigItem(
         '--secureboot-certificate-name',
@@ -1315,6 +1330,7 @@ CONFIG_ITEMS = [
         default = 365 * 10,
         help = "period of validity (in days) for a certificate created by 'genkey'",
         config_key = 'UKI/SecureBootCertificateValidity',
+        config_push = ConfigItem.config_set
     ),
 
     ConfigItem(
@@ -1573,12 +1589,19 @@ def finalize_options(opts):
         if opts.sb_cert:
             opts.sb_cert = pathlib.Path(opts.sb_cert)
 
-    if opts.signtool == 'sbsign':
-        if bool(opts.sb_key) ^ bool(opts.sb_cert):
-            raise ValueError('--secureboot-private-key= and --secureboot-certificate= must be specified together when using --signtool=sbsign')
-    else:
-        if not bool(opts.sb_cert_name):
-            raise ValueError('--secureboot-certificate-name must be specified when using --signtool=pesign')
+    if bool(opts.sb_key) ^ bool(opts.sb_cert):
+        # one param only given, sbsign need boths
+        raise ValueError('--secureboot-private-key= and --secureboot-certificate= must be specified together')
+    elif bool(opts.sb_key) and bool(opts.sb_cert):
+        # both param given, infer sbsign and in case it was given, ensure signtool=sbsign
+        if opts.signtool and opts.signtool != 'sbsign':
+            raise ValueError(f'Cannot provide --signtool={opts.signtool} with --secureboot-private-key= and --secureboot-certificate=')
+        opts.signtool = 'sbsign'
+    elif bool(opts.sb_cert_name):
+        # sb_cert_name given, infer pesign and in case it was given, ensure signtool=pesign
+        if opts.signtool and opts.signtool != 'pesign':
+            raise ValueError(f'Cannot provide --signtool={opts.signtool} with --secureboot-certificate-name=')
+        opts.signtool = 'pesign'
 
     if opts.sign_kernel and not opts.sb_key and not opts.sb_cert_name:
         raise ValueError('--sign-kernel requires either --secureboot-private-key= and --secureboot-certificate= (for sbsign) or --secureboot-certificate-name= (for pesign) to be specified')
