@@ -3709,6 +3709,49 @@ int json_buildv(JsonVariant **ret, va_list ap) {
                         break;
                 }
 
+                case _JSON_BUILD_STRV_ENV_PAIR: {
+                        char **l;
+
+                        if (!IN_SET(current->expect, EXPECT_TOPLEVEL, EXPECT_OBJECT_VALUE, EXPECT_ARRAY_ELEMENT)) {
+                                r = -EINVAL;
+                                goto finish;
+                        }
+
+                        l = va_arg(ap, char **);
+
+                        _cleanup_strv_free_ char **el = NULL;
+                        STRV_FOREACH_PAIR(x, y, l) {
+                                char *n = NULL;
+
+                                n = strjoin(*x, "=", *y);
+                                if (!n) {
+                                        r = -ENOMEM;
+                                        goto finish;
+                                }
+
+                                r = strv_consume(&el, n);
+                                if (r < 0)
+                                        goto finish;
+                        }
+
+                        if (current->n_suppress == 0) {
+                                r = json_variant_new_array_strv(&add, el);
+                                if (r < 0)
+                                        goto finish;
+                        }
+
+                        n_subtract = 1;
+
+                        if (current->expect == EXPECT_TOPLEVEL)
+                                current->expect = EXPECT_END;
+                        else if (current->expect == EXPECT_OBJECT_VALUE)
+                                current->expect = EXPECT_OBJECT_KEY;
+                        else
+                                assert(current->expect == EXPECT_ARRAY_ELEMENT);
+
+                        break;
+                }
+
                 case _JSON_BUILD_BASE64:
                 case _JSON_BUILD_BASE32HEX:
                 case _JSON_BUILD_HEX:
