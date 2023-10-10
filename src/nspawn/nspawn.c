@@ -5125,16 +5125,16 @@ static int run_container(
         if (r < 0)
                 return r;
 
+        /* Let the child know that we are ready and wait that the child is completely ready now. */
+        if (!barrier_place_and_sync(&barrier)) /* #5 */
+                return log_error_errno(SYNTHETIC_ERRNO(ESRCH), "Child died too early.");
+
         if (arg_userns_mode != USER_NAMESPACE_NO) {
                 r = wipe_fully_visible_fs(mntns_fd);
                 if (r < 0)
                         return r;
                 mntns_fd = safe_close(mntns_fd);
         }
-
-        /* Let the child know that we are ready and wait that the child is completely ready now. */
-        if (!barrier_place_and_sync(&barrier)) /* #5 */
-                return log_error_errno(SYNTHETIC_ERRNO(ESRCH), "Child died too early.");
 
         /* At this point we have made use of the UID we picked, and thus nss-systemd/systemd-machined.service
          * will make them appear in getpwuid(), thus we can release the /etc/passwd lock. */
