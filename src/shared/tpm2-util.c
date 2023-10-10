@@ -786,20 +786,26 @@ int tpm2_index_to_handle(
                                        "Invalid handle 0x%08" PRIx32 " (in unknown range).", index);
         }
 
-        r = tpm2_get_capability_handle(c, index);
-        if (r < 0)
-                return r;
-        if (r == 0) {
-                log_debug("TPM handle 0x%08" PRIx32 " not populated.", index);
-                if (ret_public)
-                        *ret_public = NULL;
-                if (ret_name)
-                        *ret_name = NULL;
-                if (ret_qname)
-                        *ret_qname = NULL;
-                if (ret_handle)
-                        *ret_handle = NULL;
-                return 0;
+        /* For transient handles, the kernel tpm "resource manager" (i.e. /dev/tpmrm0) never acknowleges that
+         * any transient handles exist, even if they actually do. So a failure to find the requested handle
+         * index, if it's a transient handle, may not actually mean it's not present in the tpm; thus, only
+         * check GetCapability() if the handle isn't transient. */
+        if (TPM2_HANDLE_TYPE(index) != TPM2_HT_TRANSIENT) { // FIXME: once kernel tpmrm is fixed to acknowledge transient handles, check transient handles too
+                r = tpm2_get_capability_handle(c, index);
+                if (r < 0)
+                        return r;
+                if (r == 0) {
+                        log_debug("TPM handle 0x%08" PRIx32 " not populated.", index);
+                        if (ret_public)
+                                *ret_public = NULL;
+                        if (ret_name)
+                                *ret_name = NULL;
+                        if (ret_qname)
+                                *ret_qname = NULL;
+                        if (ret_handle)
+                                *ret_handle = NULL;
+                        return 0;
+                }
         }
 
         _cleanup_(tpm2_handle_freep) Tpm2Handle *handle = NULL;
