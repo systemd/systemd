@@ -44,13 +44,15 @@ int main(int argc, char *argv[]) {
                 NULL
         };
 
-        static const NamespaceInfo ns_info = {
-                .private_dev = true,
-                .protect_control_groups = true,
-                .protect_kernel_tunables = true,
-                .protect_kernel_modules = true,
-                .protect_proc = PROTECT_PROC_NOACCESS,
-                .proc_subset = PROC_SUBSET_PID,
+        static const BindMount bind_mount = {
+                .source = (char*) "/usr/bin",
+                .destination = (char*) "/etc/systemd",
+                .read_only = true,
+        };
+
+        static const TemporaryFileSystem tmpfs = {
+                .path = (char*) "/var",
+                .options = (char*) "ro",
         };
 
         char *root_directory;
@@ -76,40 +78,36 @@ int main(int argc, char *argv[]) {
         else
                 log_info("Not chrooted");
 
-        r = setup_namespace(root_directory,
-                            NULL,
-                            NULL,
-                            NULL,
-                            &ns_info,
-                            (char **) writable,
-                            (char **) readonly,
-                            (char **) inaccessible,
-                            NULL,
-                            (char **) exec,
-                            (char **) no_exec,
-                            NULL,
-                            &(BindMount) { .source = (char*) "/usr/bin", .destination = (char*) "/etc/systemd", .read_only = true }, 1,
-                            &(TemporaryFileSystem) { .path = (char*) "/var", .options = (char*) "ro" }, 1,
-                            NULL,
-                            0,
-                            NULL,
-                            tmp_dir,
-                            var_tmp_dir,
-                            NULL,
-                            NULL,
-                            0,
-                            NULL,
-                            NULL,
-                            0,
-                            NULL,
-                            NULL,
-                            NULL,
-                            NULL,
-                            NULL,
-                            NULL,
-                            NULL,
-                            RUNTIME_SCOPE_SYSTEM,
-                            NULL);
+        NamespaceParameters p = {
+                .runtime_scope = RUNTIME_SCOPE_SYSTEM,
+
+                .root_directory = root_directory,
+
+                .read_write_paths = (char**) writable,
+                .read_only_paths = (char**) readonly,
+                .inaccessible_paths = (char**) inaccessible,
+
+                .exec_paths = (char**) exec,
+                .no_exec_paths = (char**) no_exec,
+
+                .tmp_dir = tmp_dir,
+                .var_tmp_dir = var_tmp_dir,
+
+                .bind_mounts = &bind_mount,
+                .n_bind_mounts = 1,
+
+                .temporary_filesystems = &tmpfs,
+                .n_temporary_filesystems = 1,
+
+                .private_dev = true,
+                .protect_control_groups = true,
+                .protect_kernel_tunables = true,
+                .protect_kernel_modules = true,
+                .protect_proc = PROTECT_PROC_NOACCESS,
+                .proc_subset = PROC_SUBSET_PID,
+        };
+
+        r = setup_namespace(&p, NULL);
         if (r < 0) {
                 log_error_errno(r, "Failed to set up namespace: %m");
 
