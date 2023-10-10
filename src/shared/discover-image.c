@@ -101,7 +101,8 @@ static Image *image_free(Image *i) {
         free(i->hostname);
         strv_free(i->machine_info);
         strv_free(i->os_release);
-        strv_free(i->extension_release);
+        strv_free(i->sysext_release);
+        strv_free(i->confext_release);
 
         return mfree(i);
 }
@@ -1180,10 +1181,9 @@ int image_read_metadata(Image *i, const ImagePolicy *image_policy) {
 
         case IMAGE_SUBVOLUME:
         case IMAGE_DIRECTORY: {
-                _cleanup_strv_free_ char **machine_info = NULL, **os_release = NULL, **extension_release = NULL;
+                _cleanup_strv_free_ char **machine_info = NULL, **os_release = NULL, **sysext_release = NULL, **confext_release = NULL;
+                _cleanup_free_ char *hostname = NULL, *path = NULL;
                 sd_id128_t machine_id = SD_ID128_NULL;
-                _cleanup_free_ char *hostname = NULL;
-                _cleanup_free_ char *path = NULL;
 
                 if (i->class == IMAGE_SYSEXT) {
                         r = extension_has_forbidden_content(i->path);
@@ -1223,16 +1223,20 @@ int image_read_metadata(Image *i, const ImagePolicy *image_policy) {
                 if (r < 0)
                         log_debug_errno(r, "Failed to read os-release in image, ignoring: %m");
 
-                r = load_extension_release_pairs(i->path, i->class, i->name, /* relax_extension_release_check= */ false, &extension_release);
+                r = load_extension_release_pairs(i->path, IMAGE_SYSEXT, i->name, /* relax_extension_release_check= */ false, &sysext_release);
                 if (r < 0)
-                        log_debug_errno(r, "Failed to read extension-release in image, ignoring: %m");
+                        log_debug_errno(r, "Failed to read sysext-release in image, ignoring: %m");
+
+                r = load_extension_release_pairs(i->path, IMAGE_CONFEXT, i->name, /* relax_extension_release_check= */ false, &confext_release);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to read confext-release in image, ignoring: %m");
 
                 free_and_replace(i->hostname, hostname);
                 i->machine_id = machine_id;
                 strv_free_and_replace(i->machine_info, machine_info);
                 strv_free_and_replace(i->os_release, os_release);
-                strv_free_and_replace(i->extension_release, extension_release);
-
+                strv_free_and_replace(i->sysext_release, sysext_release);
+                strv_free_and_replace(i->confext_release, confext_release);
                 break;
         }
 
@@ -1271,7 +1275,8 @@ int image_read_metadata(Image *i, const ImagePolicy *image_policy) {
                 i->machine_id = m->machine_id;
                 strv_free_and_replace(i->machine_info, m->machine_info);
                 strv_free_and_replace(i->os_release, m->os_release);
-                strv_free_and_replace(i->extension_release, m->extension_release);
+                strv_free_and_replace(i->sysext_release, m->sysext_release);
+                strv_free_and_replace(i->confext_release, m->confext_release);
 
                 break;
         }
