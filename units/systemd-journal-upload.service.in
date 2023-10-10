@@ -12,6 +12,8 @@ Description=Journal Remote Upload Service
 Documentation=man:systemd-journal-upload(8)
 Wants=network-online.target
 After=network-online.target
+StartLimitBurst=10
+StartLimitIntervalSec=15
 
 [Service]
 DynamicUser=yes
@@ -26,6 +28,8 @@ ProtectHostname=yes
 ProtectKernelLogs=yes
 ProtectKernelModules=yes
 ProtectKernelTunables=yes
+Restart=on-failure
+RestartSec=15
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
 RestrictNamespaces=yes
 RestrictRealtime=yes
