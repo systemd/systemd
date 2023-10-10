@@ -143,6 +143,8 @@ const GptPartitionType gpt_partition_type_table[] = {
         _GPT_ARCH_SEXTET(ARM64,       "aarch64"), /* Alias: must be listed after arm64 */
         _GPT_ARCH_SEXTET(IA64,        "ia64"),
         _GPT_ARCH_SEXTET(LOONGARCH64, "loongarch64"),
+        _GPT_ARCH_SEXTET(MIPS,        "mips"),
+        _GPT_ARCH_SEXTET(MIPS64,      "mips64"),
         _GPT_ARCH_SEXTET(MIPS_LE,     "mips-le"),
         _GPT_ARCH_SEXTET(MIPS64_LE,   "mips64-le"),
         _GPT_ARCH_SEXTET(PARISC,      "parisc"),
