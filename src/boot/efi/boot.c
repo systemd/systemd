@@ -72,10 +72,10 @@ typedef struct {
         char16_t *path;
         char16_t *current_name;
         char16_t *next_name;
-} ConfigEntry;
+} BootEntry;
 
 typedef struct {
-        ConfigEntry **entries;
+        BootEntry **entries;
         size_t n_entries;
         size_t idx_default;
         size_t idx_default_efivar;
@@ -381,7 +381,7 @@ static size_t entry_lookup_key(Config *config, size_t start, char16_t key) {
                 return i-1;
         }
 
-        /* find matching key in config entries */
+        /* find matching key in boot entries */
         for (size_t i = start; i < config->n_entries; i++)
                 if (config->entries[i]->key == key)
                         return i;
@@ -556,7 +556,7 @@ static void print_status(Config *config, char16_t *loaded_image_path) {
                 return;
 
         for (size_t i = 0; i < config->n_entries; i++) {
-                ConfigEntry *entry = config->entries[i];
+                BootEntry *entry = config->entries[i];
                 EFI_DEVICE_PATH *dp = NULL;
                 _cleanup_free_ char16_t *dp_str = NULL;
 
@@ -565,7 +565,7 @@ static void print_status(Config *config, char16_t *loaded_image_path) {
                                     EFI_SUCCESS)
                         (void) device_path_to_str(dp, &dp_str);
 
-                printf("  config entry: %zu/%zu\n", i + 1, config->n_entries);
+                printf("    boot entry: %zu/%zu\n", i + 1, config->n_entries);
                 printf("            id: %ls\n", entry->id);
                 if (entry->title)
                         printf("         title: %ls\n", entry->title);
@@ -636,7 +636,7 @@ static EFI_STATUS reboot_into_firmware(void) {
 
 static bool menu_run(
                 Config *config,
-                ConfigEntry **chosen_entry,
+                BootEntry **chosen_entry,
                 char16_t *loaded_image_path) {
 
         assert(config);
@@ -1127,7 +1127,7 @@ static bool menu_run(
         return action == ACTION_RUN;
 }
 
-static void config_add_entry(Config *config, ConfigEntry *entry) {
+static void config_add_entry(Config *config, BootEntry *entry) {
         assert(config);
         assert(entry);
 
@@ -1143,7 +1143,7 @@ static void config_add_entry(Config *config, ConfigEntry *entry) {
         config->entries[config->n_entries++] = entry;
 }
 
-static ConfigEntry* config_entry_free(ConfigEntry *entry) {
+static BootEntry* boot_entry_free(BootEntry *entry) {
         if (!entry)
                 return NULL;
 
@@ -1164,7 +1164,7 @@ static ConfigEntry* config_entry_free(ConfigEntry *entry) {
         return mfree(entry);
 }
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(ConfigEntry *, config_entry_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC(BootEntry *, boot_entry_free);
 
 static char *line_get_key_value(
                 char *content,
@@ -1342,8 +1342,8 @@ static void config_defaults_load_from_file(Config *config, char *content) {
                 }
 }
 
-static void config_entry_parse_tries(
-                ConfigEntry *entry,
+static void boot_entry_parse_tries(
+                BootEntry *entry,
                 const char16_t *path,
                 const char16_t *file,
                 const char16_t *suffix) {
@@ -1406,7 +1406,7 @@ static void config_entry_parse_tries(
                         suffix);
 }
 
-static EFI_STATUS config_entry_bump_counters(ConfigEntry *entry) {
+static EFI_STATUS boot_entry_bump_counters(BootEntry *entry) {
         _cleanup_free_ char16_t* old_path = NULL, *new_path = NULL;
         _cleanup_(file_closep) EFI_FILE *handle = NULL;
         _cleanup_free_ EFI_FILE_INFO *file_info = NULL;
@@ -1462,7 +1462,7 @@ static EFI_STATUS config_entry_bump_counters(ConfigEntry *entry) {
         return EFI_SUCCESS;
 }
 
-static void config_entry_add_type1(
+static void boot_entry_add_type1(
                 Config *config,
                 EFI_HANDLE *device,
                 EFI_FILE *root_dir,
@@ -1471,7 +1471,7 @@ static void config_entry_add_type1(
                 char *content,
                 const char16_t *loaded_image_path) {
 
-        _cleanup_(config_entry_freep) ConfigEntry *entry = NULL;
+        _cleanup_(boot_entry_freep) BootEntry *entry = NULL;
         char *line;
         size_t pos = 0, n_initrd = 0;
         char *key, *value;
@@ -1484,8 +1484,8 @@ static void config_entry_add_type1(
         assert(file);
         assert(content);
 
-        entry = xnew(ConfigEntry, 1);
-        *entry = (ConfigEntry) {
+        entry = xnew(BootEntry, 1);
+        *entry = (BootEntry) {
                 .tries_done = -1,
                 .tries_left = -1,
         };
@@ -1570,7 +1570,7 @@ static void config_entry_add_type1(
 
         config_add_entry(config, entry);
 
-        config_entry_parse_tries(entry, path, file, u".conf");
+        boot_entry_parse_tries(entry, path, file, u".conf");
         TAKE_PTR(entry);
 }
 
@@ -1672,7 +1672,7 @@ static void config_load_defaults(Config *config, EFI_FILE *root_dir) {
                 (void) efivar_get(MAKE_GUID_PTR(LOADER), u"LoaderEntryLastBooted", &config->entry_saved);
 }
 
-static void config_load_entries(
+static void config_load_type1_entries(
                 Config *config,
                 EFI_HANDLE *device,
                 EFI_FILE *root_dir,
@@ -1712,11 +1712,11 @@ static void config_load_entries(
 
                 err = file_read(entries_dir, f->FileName, 0, 0, &content, NULL);
                 if (err == EFI_SUCCESS)
-                        config_entry_add_type1(config, device, root_dir, u"\\loader\\entries", f->FileName, content, loaded_image_path);
+                        boot_entry_add_type1(config, device, root_dir, u"\\loader\\entries", f->FileName, content, loaded_image_path);
         }
 }
 
-static int config_entry_compare(const ConfigEntry *a, const ConfigEntry *b) {
+static int boot_entry_compare(const BootEntry *a, const BootEntry *b) {
         int r;
 
         assert(a);
@@ -1770,7 +1770,7 @@ static int config_entry_compare(const ConfigEntry *a, const ConfigEntry *b) {
         return CMP(a->tries_done, b->tries_done);
 }
 
-static size_t config_entry_find(Config *config, const char16_t *pattern) {
+static size_t config_find_entry(Config *config, const char16_t *pattern) {
         assert(config);
 
         /* We expect pattern and entry IDs to be already case folded. */
@@ -1785,18 +1785,18 @@ static size_t config_entry_find(Config *config, const char16_t *pattern) {
         return IDX_INVALID;
 }
 
-static void config_default_entry_select(Config *config) {
+static void config_select_default_entry(Config *config) {
         size_t i;
 
         assert(config);
 
-        i = config_entry_find(config, config->entry_oneshot);
+        i = config_find_entry(config, config->entry_oneshot);
         if (i != IDX_INVALID) {
                 config->idx_default = i;
                 return;
         }
 
-        i = config_entry_find(config, config->use_saved_entry_efivar ? config->entry_saved : config->entry_default_efivar);
+        i = config_find_entry(config, config->use_saved_entry_efivar ? config->entry_saved : config->entry_default_efivar);
         if (i != IDX_INVALID) {
                 config->idx_default = i;
                 config->idx_default_efivar = i;
@@ -1805,9 +1805,9 @@ static void config_default_entry_select(Config *config) {
 
         if (config->use_saved_entry)
                 /* No need to do the same thing twice. */
-                i = config->use_saved_entry_efivar ? IDX_INVALID : config_entry_find(config, config->entry_saved);
+                i = config->use_saved_entry_efivar ? IDX_INVALID : config_find_entry(config, config->entry_saved);
         else
-                i = config_entry_find(config, config->entry_default_config);
+                i = config_find_entry(config, config->entry_default_config);
         if (i != IDX_INVALID) {
                 config->idx_default = i;
                 return;
@@ -1826,7 +1826,7 @@ static void config_default_entry_select(Config *config) {
                 config->timeout_sec = 10;
 }
 
-static bool entries_unique(ConfigEntry **entries, bool *unique, size_t n_entries) {
+static bool entries_unique(BootEntry **entries, bool *unique, size_t n_entries) {
         bool is_unique = true;
 
         assert(entries);
@@ -1843,8 +1843,8 @@ static bool entries_unique(ConfigEntry **entries, bool *unique, size_t n_entries
         return is_unique;
 }
 
-/* generate a unique title, avoiding non-distinguishable menu entries */
-static void config_title_generate(Config *config) {
+/* generate unique titles, avoiding non-distinguishable menu entries */
+static void generate_boot_entry_titles(Config *config) {
         assert(config);
 
         bool unique[config->n_entries];
@@ -1926,7 +1926,7 @@ static bool is_sd_boot(EFI_FILE *root_dir, const char16_t *loader_path) {
         return memcmp(content, SD_MAGIC, sizeof(SD_MAGIC)) == 0;
 }
 
-static ConfigEntry *config_entry_add_loader_auto(
+static BootEntry* config_add_entry_loader_auto(
                 Config *config,
                 EFI_HANDLE *device,
                 EFI_FILE *root_dir,
@@ -1965,8 +1965,8 @@ static ConfigEntry *config_entry_add_loader_auto(
         if (err != EFI_SUCCESS)
                 return NULL;
 
-        ConfigEntry *entry = xnew(ConfigEntry, 1);
-        *entry = (ConfigEntry) {
+        BootEntry *entry = xnew(BootEntry, 1);
+        *entry = (BootEntry) {
                 .id = xstrdup16(id),
                 .type = LOADER_AUTO,
                 .title = xstrdup16(title),
@@ -1981,7 +1981,7 @@ static ConfigEntry *config_entry_add_loader_auto(
         return entry;
 }
 
-static void config_entry_add_osx(Config *config) {
+static void config_add_entry_osx(Config *config) {
         EFI_STATUS err;
         size_t n_handles = 0;
         _cleanup_free_ EFI_HANDLE *handles = NULL;
@@ -2002,7 +2002,7 @@ static void config_entry_add_osx(Config *config) {
                 if (open_volume(handles[i], &root) != EFI_SUCCESS)
                         continue;
 
-                if (config_entry_add_loader_auto(
+                if (config_add_entry_loader_auto(
                                 config,
                                 handles[i],
                                 root,
@@ -2098,7 +2098,7 @@ static EFI_STATUS boot_windows_bitlocker(void) {
 }
 #endif
 
-static void config_entry_add_windows(Config *config, EFI_HANDLE *device, EFI_FILE *root_dir) {
+static void config_add_entry_windows(Config *config, EFI_HANDLE *device, EFI_FILE *root_dir) {
 #if defined(__i386__) || defined(__x86_64__) || defined(__arm__) || defined(__aarch64__)
         _cleanup_free_ char *bcd = NULL;
         char16_t *title = NULL;
@@ -2117,16 +2117,16 @@ static void config_entry_add_windows(Config *config, EFI_HANDLE *device, EFI_FIL
         if (err == EFI_SUCCESS)
                 title = get_bcd_title((uint8_t *) bcd, len);
 
-        ConfigEntry *e = config_entry_add_loader_auto(config, device, root_dir, NULL,
-                                                      u"auto-windows", 'w', title ?: u"Windows Boot Manager",
-                                                      u"\\EFI\\Microsoft\\Boot\\bootmgfw.efi");
+        BootEntry *e = config_add_entry_loader_auto(config, device, root_dir, NULL,
+                                                    u"auto-windows", 'w', title ?: u"Windows Boot Manager",
+                                                    u"\\EFI\\Microsoft\\Boot\\bootmgfw.efi");
 
         if (config->reboot_for_bitlocker)
                 e->call = boot_windows_bitlocker;
 #endif
 }
 
-static void config_entry_add_unified(
+static void config_load_type2_entries(
                 Config *config,
                 EFI_HANDLE *device,
                 EFI_FILE *root_dir) {
@@ -2237,8 +2237,8 @@ static void config_entry_add_unified(
                                     &good_sort_key))
                         continue;
 
-                ConfigEntry *entry = xnew(ConfigEntry, 1);
-                *entry = (ConfigEntry) {
+                BootEntry *entry = xnew(BootEntry, 1);
+                *entry = (BootEntry) {
                         .id = xstrdup16(f->FileName),
                         .type = LOADER_UNIFIED_LINUX,
                         .title = xstrdup16(good_name),
@@ -2253,7 +2253,7 @@ static void config_entry_add_unified(
 
                 strtolower16(entry->id);
                 config_add_entry(config, entry);
-                config_entry_parse_tries(entry, u"\\EFI\\Linux", f->FileName, u".efi");
+                boot_entry_parse_tries(entry, u"\\EFI\\Linux", f->FileName, u".efi");
 
                 if (szs[SECTION_CMDLINE] == 0)
                         continue;
@@ -2286,13 +2286,13 @@ static void config_load_xbootldr(
         if (err != EFI_SUCCESS)
                 return;
 
-        config_entry_add_unified(config, new_device, root_dir);
-        config_load_entries(config, new_device, root_dir, NULL);
+        config_load_type2_entries(config, new_device, root_dir);
+        config_load_type1_entries(config, new_device, root_dir, NULL);
 }
 
 static EFI_STATUS initrd_prepare(
                 EFI_FILE *root,
-                const ConfigEntry *entry,
+                const BootEntry *entry,
                 char16_t **ret_options,
                 void **ret_initrd,
                 size_t *ret_initrd_size) {
@@ -2368,7 +2368,7 @@ static EFI_STATUS initrd_prepare(
 
 static EFI_STATUS image_start(
                 EFI_HANDLE parent_image,
-                const ConfigEntry *entry) {
+                const BootEntry *entry) {
 
         _cleanup_(devicetree_cleanup) struct devicetree_state dtstate = {};
         _cleanup_(unload_imagep) EFI_HANDLE image = NULL;
@@ -2464,7 +2464,7 @@ static EFI_STATUS image_start(
 static void config_free(Config *config) {
         assert(config);
         for (size_t i = 0; i < config->n_entries; i++)
-                config_entry_free(config->entries[i]);
+                boot_entry_free(config->entries[i]);
         free(config->entries);
         free(config->entry_default_config);
         free(config->entry_default_efivar);
@@ -2493,7 +2493,7 @@ static void config_write_entries_to_variable(Config *config) {
         (void) efivar_set_raw(MAKE_GUID_PTR(LOADER), u"LoaderEntries", buffer, sz, 0);
 }
 
-static void save_selected_entry(const Config *config, const ConfigEntry *entry) {
+static void save_selected_entry(const Config *config, const BootEntry *entry) {
         assert(config);
         assert(entry);
         assert(entry->loader || !entry->call);
@@ -2533,7 +2533,7 @@ static EFI_STATUS secure_boot_discover_keys(Config *config, EFI_FILE *root_dir) 
         for (;;) {
                 _cleanup_free_ EFI_FILE_INFO *dirent = NULL;
                 size_t dirent_size = 0;
-                ConfigEntry *entry = NULL;
+                BootEntry *entry = NULL;
 
                 err = readdir(keys_basedir, &dirent, &dirent_size);
                 if (err != EFI_SUCCESS || !dirent)
@@ -2545,8 +2545,8 @@ static EFI_STATUS secure_boot_discover_keys(Config *config, EFI_FILE *root_dir) 
                 if (!FLAGS_SET(dirent->Attribute, EFI_FILE_DIRECTORY))
                         continue;
 
-                entry = xnew(ConfigEntry, 1);
-                *entry = (ConfigEntry) {
+                entry = xnew(BootEntry, 1);
+                *entry = (BootEntry) {
                         .id = xasprintf("secure-boot-keys-%ls", dirent->FileName),
                         .title = xasprintf("Enroll Secure Boot keys: %ls", dirent->FileName),
                         .path = xasprintf("\\loader\\keys\\%ls", dirent->FileName),
@@ -2624,28 +2624,28 @@ static void config_load_all_entries(
         config_load_defaults(config, root_dir);
 
         /* Scan /EFI/Linux/ directory */
-        config_entry_add_unified(config, loaded_image->DeviceHandle, root_dir);
+        config_load_type2_entries(config, loaded_image->DeviceHandle, root_dir);
 
         /* Scan /loader/entries/\*.conf files */
-        config_load_entries(config, loaded_image->DeviceHandle, root_dir, loaded_image_path);
+        config_load_type1_entries(config, loaded_image->DeviceHandle, root_dir, loaded_image_path);
 
         /* Similar, but on any XBOOTLDR partition */
         config_load_xbootldr(config, loaded_image->DeviceHandle);
 
         /* Sort entries after version number */
-        sort_pointer_array((void **) config->entries, config->n_entries, (compare_pointer_func_t) config_entry_compare);
+        sort_pointer_array((void **) config->entries, config->n_entries, (compare_pointer_func_t) boot_entry_compare);
 
         /* If we find some well-known loaders, add them to the end of the list */
-        config_entry_add_osx(config);
-        config_entry_add_windows(config, loaded_image->DeviceHandle, root_dir);
-        config_entry_add_loader_auto(config, loaded_image->DeviceHandle, root_dir, NULL,
+        config_add_entry_osx(config);
+        config_add_entry_windows(config, loaded_image->DeviceHandle, root_dir);
+        config_add_entry_loader_auto(config, loaded_image->DeviceHandle, root_dir, NULL,
                                      u"auto-efi-shell", 's', u"EFI Shell", u"\\shell" EFI_MACHINE_TYPE_NAME ".efi");
-        config_entry_add_loader_auto(config, loaded_image->DeviceHandle, root_dir, loaded_image_path,
+        config_add_entry_loader_auto(config, loaded_image->DeviceHandle, root_dir, loaded_image_path,
                                      u"auto-efi-default", '\0', u"EFI Default Loader", NULL);
 
         if (config->auto_firmware && FLAGS_SET(get_os_indications_supported(), EFI_OS_INDICATIONS_BOOT_TO_FW_UI)) {
-                ConfigEntry *entry = xnew(ConfigEntry, 1);
-                *entry = (ConfigEntry) {
+                BootEntry *entry = xnew(BootEntry, 1);
+                *entry = (BootEntry) {
                         .id = xstrdup16(u"auto-reboot-to-firmware-setup"),
                         .title = xstrdup16(u"Reboot Into Firmware Interface"),
                         .call = reboot_into_firmware,
@@ -2656,8 +2656,8 @@ static void config_load_all_entries(
         }
 
         if (config->auto_poweroff) {
-                ConfigEntry *entry = xnew(ConfigEntry, 1);
-                *entry = (ConfigEntry) {
+                BootEntry *entry = xnew(BootEntry, 1);
+                *entry = (BootEntry) {
                         .id = xstrdup16(u"auto-poweroff"),
                         .title = xstrdup16(u"Power Off The System"),
                         .call = poweroff_system,
@@ -2668,8 +2668,8 @@ static void config_load_all_entries(
         }
 
         if (config->auto_reboot) {
-                ConfigEntry *entry = xnew(ConfigEntry, 1);
-                *entry = (ConfigEntry) {
+                BootEntry *entry = xnew(BootEntry, 1);
+                *entry = (BootEntry) {
                         .id = xstrdup16(u"auto-reboot"),
                         .title = xstrdup16(u"Reboot The System"),
                         .call = reboot_system,
@@ -2691,10 +2691,10 @@ static void config_load_all_entries(
 
         config_write_entries_to_variable(config);
 
-        config_title_generate(config);
+        generate_boot_entry_titles(config);
 
         /* Select entry by configured pattern or EFI LoaderDefaultEntry= variable */
-        config_default_entry_select(config);
+        config_select_default_entry(config);
 }
 
 static EFI_STATUS discover_root_dir(EFI_LOADED_IMAGE_PROTOCOL *loaded_image, EFI_FILE **ret_dir) {
@@ -2749,7 +2749,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
                 /* Block up to 100ms to give firmware time to get input working. */
                 err = console_key_read(&key, 100 * 1000);
                 if (err == EFI_SUCCESS) {
-                        /* find matching key in config entries */
+                        /* find matching key in boot entries */
                         size_t idx = entry_lookup_key(&config, config.idx_default, KEYCHAR(key));
                         if (idx != IDX_INVALID)
                                 config.idx_default = idx;
@@ -2759,7 +2759,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
         }
 
         for (;;) {
-                ConfigEntry *entry;
+                BootEntry *entry;
 
                 entry = config.entries[config.idx_default];
                 if (menu) {
@@ -2783,7 +2783,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
                         continue;
                 }
 
-                (void) config_entry_bump_counters(entry);
+                (void) boot_entry_bump_counters(entry);
                 save_selected_entry(&config, entry);
 
                 /* Optionally, read a random seed off the ESP and pass it to the OS */
