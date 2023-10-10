@@ -471,64 +471,74 @@
     <title>Files</title>
     <variablelist>
       <varlistentry>
-        <term>
-          <filename>/usr/lib/kernel/install.d/*.install</filename>
-          <filename>/etc/kernel/install.d/*.install</filename>
-        </term>
-          <listitem>
-            <para>Drop-in files which are executed by kernel-install.</para>
+        <term><filename>/etc/kernel/install.d/*.install</filename></term>
+        <term><filename>/usr/lib/kernel/install.d/*.install</filename></term>
+        <listitem>
+          <para>Drop-in files which are executed by <command>kernel-install</command>.</para>
 
           <xi:include href="version-info.xml" xpointer="v198"/>
-          </listitem>
+        </listitem>
       </varlistentry>
+
       <varlistentry>
-        <term>
-          <filename>/usr/lib/kernel/cmdline</filename>
-          <filename>/etc/kernel/cmdline</filename>
-          <filename>/proc/cmdline</filename>
-        </term>
-          <listitem>
-            <para>Read by <filename>90-loaderentry.install</filename>. The content of the file
-            <filename>/etc/kernel/cmdline</filename> specifies the kernel command line to use. If that file
-            does not exist, <filename>/usr/lib/kernel/cmdline</filename> is used. If that also does not
-            exist, <filename>/proc/cmdline</filename> is used. <varname>$KERNEL_INSTALL_CONF_ROOT</varname>
-            may be used to override the path.</para>
+        <term><filename>/etc/kernel/cmdline</filename></term>
+        <term><filename>/usr/lib/kernel/cmdline</filename></term>
+        <term><filename>/proc/cmdline</filename></term>
+        <listitem>
+          <para>Specifies the kernel command line to use. The first of the files that is found will be used.
+          <varname>$KERNEL_INSTALL_CONF_ROOT</varname> may be used to override the search path; see below for
+          details.</para>
 
           <xi:include href="version-info.xml" xpointer="v198"/>
-          </listitem>
+        </listitem>
       </varlistentry>
+
       <varlistentry>
-        <term>
-          <filename>/etc/kernel/tries</filename>
-        </term>
-          <listitem>
-            <para>Read by <filename>90-loaderentry.install</filename> and
-            <filename>90-uki-copy.install</filename>. If this file exists a numeric value is read from it
-            and the naming of the generated entry file or UKI is slightly altered to include it as
-            <filename>$BOOT/loader/entries/<replaceable>ENTRY-TOKEN</replaceable>-<replaceable>KERNEL-VERSION</replaceable>+<replaceable>TRIES</replaceable>.conf</filename>
-            or
-            <filename>$BOOT/EFI/Linux/<replaceable>ENTRY-TOKEN</replaceable>-<replaceable>KERNEL-VERSION</replaceable>+<replaceable>TRIES</replaceable>.efi</filename>, respectively. This
-            is useful for boot loaders such as
-            <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-            which implement boot attempt counting with a counter embedded in the entry file name.
-            <varname>$KERNEL_INSTALL_CONF_ROOT</varname> may be used to override the path.</para>
+        <term><filename>/etc/kernel/devicetree</filename></term>
+        <term><filename>/usr/lib/kernel/devicetree</filename></term>
+        <listitem>
+          <para>The name of the device tree blob to install with the kernel and use at boot. The name of the
+          device tree blob is specified relative to where the kernel install tree. For example,
+          <literal>broadcom/bcm2711-rpi-4-b.dtb</literal> could be used to install the device tree blob for
+          the Raspberry Pi 4 Model B. The first of the files that is found will be used.
+          <varname>$KERNEL_INSTALL_CONF_ROOT</varname> may be used to override the search path; see below for
+          details.</para>
+
+          <xi:include href="version-info.xml" xpointer="v255"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><filename>/etc/kernel/tries</filename></term>
+        <listitem>
+          <para>Read by <filename>90-loaderentry.install</filename> and
+          <filename>90-uki-copy.install</filename>. If this file exists, a numeric value is read from it and
+          the naming of the generated entry file or UKI is altered to include it as
+          <filename>$BOOT/loader/entries/<replaceable>ENTRY-TOKEN</replaceable>-<replaceable>KERNEL-VERSION</replaceable>+<replaceable>TRIES</replaceable>.conf</filename>
+          or
+          <filename>$BOOT/EFI/Linux/<replaceable>ENTRY-TOKEN</replaceable>-<replaceable>KERNEL-VERSION</replaceable>+<replaceable>TRIES</replaceable>.efi</filename>,
+          respectively. This is useful for boot loaders such as
+          <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+          which implement boot attempt counting with a counter embedded in the entry file name.
+          <varname>$KERNEL_INSTALL_CONF_ROOT</varname> may be used to override the search path; see below for
+          details.</para>
 
           <xi:include href="version-info.xml" xpointer="v240"/>
-          </listitem>
+        </listitem>
       </varlistentry>
-      <varlistentry>
-        <term>
-          <filename>/etc/kernel/entry-token</filename>
-        </term>
-          <listitem>
-            <para>If this file exists it is read and used as "entry token" for this system, i.e. is used for
-            naming Boot Loader Specification entries, see <varname>$KERNEL_INSTALL_ENTRY_TOKEN</varname>
-            above for details. <varname>$KERNEL_INSTALL_CONF_ROOT</varname> may be used to override the
-            path.</para>
 
-            <xi:include href="version-info.xml" xpointer="v251"/>
-          </listitem>
+      <varlistentry>
+        <term><filename>/etc/kernel/entry-token</filename></term>
+        <listitem>
+          <para>If this file exists it is read and used as "entry token" for this system, i.e. is used for
+          naming Boot Loader Specification entries. See <varname>$KERNEL_INSTALL_ENTRY_TOKEN</varname> above
+          for details. <varname>$KERNEL_INSTALL_CONF_ROOT</varname> may be used to override the search path; see
+          below for details.</para>
+
+          <xi:include href="version-info.xml" xpointer="v251"/>
+        </listitem>
       </varlistentry>
+
       <varlistentry>
         <term>
           <filename>/etc/machine-id</filename>
@@ -540,63 +550,62 @@
             <xi:include href="version-info.xml" xpointer="v198"/>
           </listitem>
       </varlistentry>
+
       <varlistentry>
-        <term>
-          <filename>/etc/os-release</filename>
-          <filename>/usr/lib/os-release</filename>
-        </term>
+        <term><filename>/etc/os-release</filename></term>
+        <term><filename>/usr/lib/os-release</filename></term>
         <listitem>
-            <para>Read by <filename>90-loaderentry.install</filename>.
-            If available, <varname>PRETTY_NAME=</varname> is read from these files and used as the title of the boot menu entry.
-            Otherwise, <literal>Linux <replaceable>KERNEL-VERSION</replaceable></literal> will be used.</para>
+            <para>Read by <filename>90-loaderentry.install</filename>. If available,
+            <varname>PRETTY_NAME=</varname> is read from these files and used as the title of the boot menu
+            entry. Otherwise, <literal>Linux <replaceable>KERNEL-VERSION</replaceable></literal> will be
+            used.</para>
 
-        <xi:include href="version-info.xml" xpointer="v198"/>
+            <xi:include href="version-info.xml" xpointer="v198"/>
           </listitem>
       </varlistentry>
       <varlistentry>
-        <term>
-          <filename>/usr/lib/kernel/install.conf</filename>
-          <filename>/etc/kernel/install.conf</filename>
-        </term>
-          <listitem>
-            <para>Configuration options for <command>kernel-install</command>, as a series of
-            <varname>KEY=</varname><replaceable>VALUE</replaceable> assignments, compatible with shell
-            syntax, following the same rules as described in
-            <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-            <filename>/etc/kernel/install.conf</filename> will be read if present, and
-            <filename>/usr/lib/kernel/install.conf</filename> otherwise. This file is optional.
-            <varname>$KERNEL_INSTALL_CONF_ROOT</varname> may be used to override the path.
-            </para>
+        <term><filename>/etc/kernel/install.conf</filename></term>
+        <term><filename>/usr/lib/kernel/install.conf</filename></term>
+        <listitem>
+          <para>Configuration file with options for <command>kernel-install</command>, as a series of
+          <varname>KEY=</varname><replaceable>VALUE</replaceable> assignments, compatible with shell syntax,
+          following the same rules as described in
+          <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>. The
+          first of the files that is found will be used. <varname>$KERNEL_INSTALL_CONF_ROOT</varname> may be
+          used to override the search path; see below for details.</para>
 
-            <para>Currently, the following keys are supported:
-            <varname>MACHINE_ID=</varname>,
-            <varname>BOOT_ROOT=</varname>,
-            <varname>layout=</varname>,
-            <varname>initrd_generator=</varname>,
-            <varname>uki_generator=</varname>.
-            See the Environment variables section above for details.</para>
+          <para>Currently, the following keys are supported:
+          <varname>MACHINE_ID=</varname>,
+          <varname>BOOT_ROOT=</varname>,
+          <varname>layout=</varname>,
+          <varname>initrd_generator=</varname>,
+          <varname>uki_generator=</varname>.
+          See the Environment variables section above for details.</para>
 
-            <xi:include href="version-info.xml" xpointer="v250"/>
-          </listitem>
+          <xi:include href="version-info.xml" xpointer="v250"/>
+        </listitem>
       </varlistentry>
       <varlistentry>
-        <term>
-          <filename>/etc/kernel/uki.conf</filename>
-        </term>
-          <listitem>
-            <para>Ini-style configuration file for
-            <citerefentry><refentrytitle>ukify</refentrytitle><manvolnum>1</manvolnum></citerefentry> which
-            is only effective when <varname>$KERNEL_INSTALL_LAYOUT</varname> or <varname>layout=</varname> in
-            <filename>install.conf</filename> is set to <option>uki</option> and
-            <varname>$KERNEL_INSTALL_UKI_GENERATOR</varname> or <varname>uki_generator=</varname> in
-            <filename>install.conf</filename> is set to <option>ukify</option>.
-            <varname>$KERNEL_INSTALL_CONF_ROOT</varname> may be used to override the path.
-            </para>
+        <term><filename>/etc/kernel/uki.conf</filename></term>
+        <listitem>
+          <para>Ini-style configuration file for
+          <citerefentry><refentrytitle>ukify</refentrytitle><manvolnum>1</manvolnum></citerefentry> which is
+          only effective when <varname>$KERNEL_INSTALL_LAYOUT</varname> or <varname>layout=</varname> in
+          <filename>install.conf</filename> is set to <option>uki</option> and
+          <varname>$KERNEL_INSTALL_UKI_GENERATOR</varname> or <varname>uki_generator=</varname> in
+          <filename>install.conf</filename> is set to <option>ukify</option>.
+          <varname>$KERNEL_INSTALL_CONF_ROOT</varname> may be used to override the search path; see below for
+          details.</para>
 
-            <xi:include href="version-info.xml" xpointer="v255"/>
-          </listitem>
+          <xi:include href="version-info.xml" xpointer="v255"/>
+        </listitem>
       </varlistentry>
     </variablelist>
+
+    <para>For various cases listed above, if the <varname>$KERNEL_INSTALL_CONF_ROOT</varname> environment
+    variable is set, it will override the search path. The files will be loaded <emphasis>only</emphasis>
+    from the directory specified by the environment variable. When the variable is not set, the listed paths
+    are tried in turn, and the first file that exists is used.</para>
   </refsect1>
 
   <refsect1>
