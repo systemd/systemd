@@ -16,8 +16,8 @@ measurements listed below are (by default) only done if a system is booted with
 to systemd's UEFI-mode measurements, and if the latter are not done the former
 aren't made either.
 
-systemd will measure to PCRs 11 (`kernel-boot`), 12 (`kernel-config`), 13
-(`sysexts`), 15 (`system-identity`).
+systemd will measure to PCRs 5 (`boot-loader-config`), 11 (`kernel-boot`),
+12 (`kernel-config`), 13 (`sysexts`), 15 (`system-identity`).
 
 Currently, four components will issue TPM2 PCR measurements:
 
@@ -30,6 +30,17 @@ A userspace measurement event log in a format close to TCG CEL-JSON is
 maintained in `/run/log/systemd/tpm2-measure.log`.
 
 ## PCR Measurements Made by `systemd-boot` (UEFI)
+
+### PCS 5, `EV_EVENT_TAG`, "loader.conf"
+
+The content of `systemd-boot`'s configuration file, `loader/loader.conf`, is
+measured as a tagged event.
+
+→ **Event Tag** `0xf5bc582a`
+
+→ **Description** in the event log record is the file name, `loader.conf`.
+
+→ **Measured hash** covers the content of `loader.conf` as it is read from the ESP.
 
 ### PCR 12, `EV_IPL`, "Kernel Command Line"
 
@@ -77,18 +88,27 @@ PE section order, as per the UKI specification, see above.
 
 ### PCR 12, `EV_IPL`, "Kernel Command Line"
 
-Might happen up to four times, for kernel command lines from:
+Might happen up to three times, for kernel command lines from:
 
  1. Passed cmdline
- 2. System cmdline add-ons (one measurement covering all add-ons combined)
- 3. Per-UKI cmdline add-ons (one measurement covering all add-ons combined)
- 2. SMBIOS cmdline
+ 2. System and per-UKI cmdline add-ons (one measurement covering all add-ons combined)
+ 3. SMBIOS cmdline
 
 → **Description** in the event log record is the literal kernel command line in
 UTF-16.
 
 → **Measured hash** covers the literal kernel command line in UTF-16 (without any
 trailing NUL bytes).
+
+### PCR 12, `EV_EVENT_TAG`, "Devicetrees"
+
+Devicetree addons are measured individually as a tagged event.
+
+→ **Event Tag** `0x6c46f751`
+
+→ **Description** the addon filename.
+
+→ **Measured hash** covers the content of the Devicetree.
 
 ### PCR 12, `EV_IPL`, "Per-UKI Credentials initrd"
 
