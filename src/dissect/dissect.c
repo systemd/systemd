@@ -755,23 +755,6 @@ static int parse_argv_as_mount_helper(int argc, char *argv[]) {
         return 1;
 }
 
-static int strv_pair_to_json(char **l, JsonVariant **ret) {
-        _cleanup_strv_free_ char **jl = NULL;
-
-        STRV_FOREACH_PAIR(a, b, l) {
-                char *j;
-
-                j = strjoin(*a, "=", *b);
-                if (!j)
-                        return log_oom();
-
-                if (strv_consume(&jl, j) < 0)
-                        return log_oom();
-        }
-
-        return json_variant_new_array_strv(ret, jl);
-}
-
 static void strv_pair_print(char **l, const char *prefix) {
         assert(prefix);
 
@@ -915,30 +898,6 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
                 _cleanup_(json_variant_unrefp) JsonVariant *mi = NULL, *osr = NULL, *irdr = NULL, *exr = NULL;
                 _cleanup_strv_free_ char **extension_scopes = NULL;
 
-                if (!strv_isempty(m->machine_info)) {
-                        r = strv_pair_to_json(m->machine_info, &mi);
-                        if (r < 0)
-                                return log_oom();
-                }
-
-                if (!strv_isempty(m->os_release)) {
-                        r = strv_pair_to_json(m->os_release, &osr);
-                        if (r < 0)
-                                return log_oom();
-                }
-
-                if (!strv_isempty(m->initrd_release)) {
-                        r = strv_pair_to_json(m->initrd_release, &irdr);
-                        if (r < 0)
-                                return log_oom();
-                }
-
-                if (!strv_isempty(m->extension_release)) {
-                        r = strv_pair_to_json(m->extension_release, &exr);
-                        if (r < 0)
-                                return log_oom();
-                }
-
                 r = get_extension_scopes(m, &extension_scopes);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse scope: %m");
@@ -950,10 +909,10 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
                                                JSON_BUILD_PAIR("sectorSize", JSON_BUILD_INTEGER(m->sector_size)),
                                                JSON_BUILD_PAIR_CONDITION(m->hostname, "hostname", JSON_BUILD_STRING(m->hostname)),
                                                JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(m->machine_id), "machineId", JSON_BUILD_ID128(m->machine_id)),
-                                               JSON_BUILD_PAIR_CONDITION(mi, "machineInfo", JSON_BUILD_VARIANT(mi)),
-                                               JSON_BUILD_PAIR_CONDITION(osr, "osRelease", JSON_BUILD_VARIANT(osr)),
-                                               JSON_BUILD_PAIR_CONDITION(osr, "initrdRelease", JSON_BUILD_VARIANT(irdr)),
-                                               JSON_BUILD_PAIR_CONDITION(exr, "extensionRelease", JSON_BUILD_VARIANT(exr)),
+                                               JSON_BUILD_PAIR_CONDITION(!strv_isempty(m->machine_info), "machineInfo", JSON_BUILD_STRV_ENV_PAIR(m->machine_info)),
+                                               JSON_BUILD_PAIR_CONDITION(!strv_isempty(m->os_release), "osRelease", JSON_BUILD_STRV_ENV_PAIR(m->os_release)),
+                                               JSON_BUILD_PAIR_CONDITION(!strv_isempty(m->initrd_release), "initrdRelease", JSON_BUILD_STRV_ENV_PAIR(m->initrd_release)),
+                                               JSON_BUILD_PAIR_CONDITION(!strv_isempty(m->extension_release), "extensionRelease", JSON_BUILD_STRV_ENV_PAIR(m->extension_release)),
                                                JSON_BUILD_PAIR("useBootableUefi", JSON_BUILD_BOOLEAN(m->partitions[PARTITION_ESP].found)),
                                                JSON_BUILD_PAIR_CONDITION(m->has_init_system >= 0, "useBootableContainer", JSON_BUILD_BOOLEAN(m->has_init_system)),
                                                JSON_BUILD_PAIR("useInitrd", JSON_BUILD_BOOLEAN(!strv_isempty(m->initrd_release))),
