@@ -61,13 +61,13 @@ static void test_policy_strict(const char *cgroup_path, BPFProgram **installed_p
         r = bpf_devices_cgroup_init(&prog, CGROUP_DEVICE_POLICY_STRICT, true);
         assert_se(r >= 0);
 
-        r = bpf_devices_allow_list_device(prog, cgroup_path, "/dev/null", "rw");
+        r = bpf_devices_allow_list_device(prog, cgroup_path, "/dev/null", CGROUP_DEVICE_READ|CGROUP_DEVICE_WRITE);
         assert_se(r >= 0);
 
-        r = bpf_devices_allow_list_device(prog, cgroup_path, "/dev/random", "r");
+        r = bpf_devices_allow_list_device(prog, cgroup_path, "/dev/random", CGROUP_DEVICE_READ);
         assert_se(r >= 0);
 
-        r = bpf_devices_allow_list_device(prog, cgroup_path, "/dev/zero", "w");
+        r = bpf_devices_allow_list_device(prog, cgroup_path, "/dev/zero", CGROUP_DEVICE_WRITE);
         assert_se(r >= 0);
 
         r = bpf_devices_apply_policy(&prog, CGROUP_DEVICE_POLICY_STRICT, true, cgroup_path, installed_prog);
@@ -138,7 +138,7 @@ static void test_policy_allow_list_major(const char *pattern, const char *cgroup
         r = bpf_devices_cgroup_init(&prog, CGROUP_DEVICE_POLICY_STRICT, true);
         assert_se(r >= 0);
 
-        r = bpf_devices_allow_list_major(prog, cgroup_path, pattern, 'c', "rw");
+        r = bpf_devices_allow_list_major(prog, cgroup_path, pattern, 'c', CGROUP_DEVICE_READ|CGROUP_DEVICE_WRITE);
         assert_se(r >= 0);
 
         r = bpf_devices_apply_policy(&prog, CGROUP_DEVICE_POLICY_STRICT, true, cgroup_path, installed_prog);
@@ -197,7 +197,7 @@ static void test_policy_allow_list_major_star(char type, const char *cgroup_path
         r = bpf_devices_cgroup_init(&prog, CGROUP_DEVICE_POLICY_STRICT, true);
         assert_se(r >= 0);
 
-        r = bpf_devices_allow_list_major(prog, cgroup_path, "*", type, "rw");
+        r = bpf_devices_allow_list_major(prog, cgroup_path, "*", type, CGROUP_DEVICE_READ|CGROUP_DEVICE_WRITE);
         assert_se(r >= 0);
 
         r = bpf_devices_apply_policy(&prog, CGROUP_DEVICE_POLICY_STRICT, true, cgroup_path, installed_prog);
@@ -229,7 +229,7 @@ static void test_policy_empty(bool add_mismatched, const char *cgroup_path, BPFP
         assert_se(r >= 0);
 
         if (add_mismatched) {
-                r = bpf_devices_allow_list_major(prog, cgroup_path, "foobarxxx", 'c', "rw");
+                r = bpf_devices_allow_list_major(prog, cgroup_path, "foobarxxx", 'c', CGROUP_DEVICE_READ|CGROUP_DEVICE_WRITE);
                 assert_se(r < 0);
         }
 
