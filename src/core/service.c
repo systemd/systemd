@@ -3229,27 +3229,27 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                 }
 
         } else if (streq(key, "socket-fd")) {
-                int fd;
+                asynchronous_close(s->socket_fd);
+                s->socket_fd = deserialize_fd(fds, value);
 
-                if ((fd = parse_fd(value)) < 0 || !fdset_contains(fds, fd))
-                        log_unit_debug(u, "Failed to parse socket-fd value: %s", value);
-                else {
-                        asynchronous_close(s->socket_fd);
-                        s->socket_fd = fdset_remove(fds, fd);
-                }
         } else if (streq(key, "fd-store-fd")) {
                 _cleanup_free_ char *fdv = NULL, *fdn = NULL, *fdp = NULL;
-                int fd, do_poll;
+                _cleanup_close_ int fd = -EBADF;
+                int do_poll;
 
                 r = extract_first_word(&value, &fdv, NULL, 0);
-                if (r <= 0 || (fd = parse_fd(fdv)) < 0 || !fdset_contains(fds, fd)) {
-                        log_unit_debug(u, "Failed to parse fd-store-fd value: %s", value);
+                if (r <= 0) {
+                        log_unit_debug(u, "Failed to parse fd-store-fd value, ignoring: %s", value);
                         return 0;
                 }
 
+                fd = deserialize_fd(fds, fdv);
+                if (fd < 0)
+                        return fd;
+
                 r = extract_first_word(&value, &fdn, NULL, EXTRACT_CUNESCAPE | EXTRACT_UNQUOTE);
                 if (r <= 0) {
-                        log_unit_debug(u, "Failed to parse fd-store-fd value: %s", value);
+                        log_unit_debug(u, "Failed to parse fd-store-fd value, ignoring: %s", value);
                         return 0;
                 }
 
@@ -3257,23 +3257,18 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                 if (r == 0) {
                         /* If the value is not present, we assume the default */
                         do_poll = 1;
-                } else if (r < 0 || safe_atoi(fdp, &do_poll) < 0) {
-                        log_unit_debug_errno(u, r, "Failed to parse fd-store-fd value \"%s\": %m", value);
+                } else if (r < 0 || (r = safe_atoi(fdp, &do_poll)) < 0) {
+                        log_unit_debug_errno(u, r, "Failed to parse fd-store-fd value \"%s\", ignoring: %m", value);
                         return 0;
                 }
-
-                r = fdset_remove(fds, fd);
-                if (r < 0) {
-                        log_unit_error_errno(u, r, "Could not find deserialized fd %i in fdset: %m", fd);
-                        return 0;
-                }
-                assert(r == fd);
 
                 r = service_add_fd_store(s, fd, fdn, do_poll);
                 if (r < 0) {
-                        log_unit_error_errno(u, r, "Failed to store deserialized fd %i: %m", fd);
+                        log_unit_debug_errno(u, r, "Failed to store deserialized fd %i, ignoring: %m", fd);
                         return 0;
                 }
+
+                TAKE_FD(fd);
         } else if (streq(key, "main-exec-status-pid")) {
                 pid_t pid;
 
@@ -3318,47 +3313,37 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                 else
                         s->forbid_restart = b;
         } else if (streq(key, "stdin-fd")) {
-                int fd;
 
-                if ((fd = parse_fd(value)) < 0 || !fdset_contains(fds, fd))
-                        log_unit_debug(u, "Failed to parse stdin-fd value: %s", value);
-                else {
-                        asynchronous_close(s->stdin_fd);
-                        s->stdin_fd = fdset_remove(fds, fd);
+                asynchronous_close(s->stdin_fd);
+                s->stdin_fd = deserialize_fd(fds, value);
+                if (s->stdin_fd >= 0)
                         s->exec_context.stdio_as_fds = true;
-                }
+
         } else if (streq(key, "stdout-fd")) {
-                int fd;
 
-                if ((fd = parse_fd(value)) < 0 || !fdset_contains(fds, fd))
-                        log_unit_debug(u, "Failed to parse stdout-fd value: %s", value);
-                else {
-                        asynchronous_close(s->stdout_fd);
-                        s->stdout_fd = fdset_remove(fds, fd);
+                asynchronous_close(s->stdout_fd);
+                s->stdout_fd = deserialize_fd(fds, value);
+                if (s->stdout_fd >= 0)
                         s->exec_context.stdio_as_fds = true;
-                }
+
         } else if (streq(key, "stderr-fd")) {
-                int fd;
 
-                if ((fd = parse_fd(value)) < 0 || !fdset_contains(fds, fd))
-                        log_unit_debug(u, "Failed to parse stderr-fd value: %s", value);
-                else {
-                        asynchronous_close(s->stderr_fd);
-                        s->stderr_fd = fdset_remove(fds, fd);
+                asynchronous_close(s->stderr_fd);
+                s->stderr_fd = deserialize_fd(fds, value);
+                if (s->stderr_fd >= 0)
                         s->exec_context.stdio_as_fds = true;
-                }
-        } else if (streq(key, "exec-fd")) {
-                int fd;
 
-                if ((fd = parse_fd(value)) < 0 || !fdset_contains(fds, fd))
-                        log_unit_debug(u, "Failed to parse exec-fd value: %s", value);
-                else {
+        } else if (streq(key, "exec-fd")) {
+                _cleanup_close_ int fd = -EBADF;
+
+                fd = deserialize_fd(fds, value);
+                if (fd >= 0) {
                         s->exec_fd_event_source = sd_event_source_disable_unref(s->exec_fd_event_source);
 
-                        fd = fdset_remove(fds, fd);
-                        if (service_allocate_exec_fd_event_source(s, fd, &s->exec_fd_event_source) < 0)
-                                safe_close(fd);
+                        if (service_allocate_exec_fd_event_source(s, fd, &s->exec_fd_event_source) >= 0)
+                                TAKE_FD(fd);
                 }
+
         } else if (streq(key, "watchdog-override-usec")) {
                 if (deserialize_usec(value, &s->watchdog_override_usec) < 0)
                         log_unit_debug(u, "Failed to parse watchdog_override_usec value: %s", value);
