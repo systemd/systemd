@@ -4040,6 +4040,8 @@ static int exec_child(
         log_forget_fds();
         log_set_open_when_needed(true);
         log_settle_target();
+        if (context->log_level_max >= 0)
+                log_set_max_level(context->log_level_max);
 
         /* In case anything used libc syslog(), close this here, too */
         closelog();
