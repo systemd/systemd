@@ -365,6 +365,16 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--signing-engine=</option></term>
+
+        <listitem><para>Takes a signing engine identifier. Currently only OpenSSL engines and providers are
+        supported, such as <literal>pkcs11</literal>. When specified, the value of
+        <option>--private-key=</option> is passed to the signing engine verbatim.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--tpm2-device=</option></term>
         <term><option>--tpm2-pcrs=</option></term>
 
