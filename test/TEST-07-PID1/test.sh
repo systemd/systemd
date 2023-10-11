@@ -4,6 +4,9 @@ set -e
 
 TEST_DESCRIPTION="Tests for core PID1 functionality"
 
+# for testing PrivateNetwork=yes
+NSPAWN_ARGUMENTS="--capability=CAP_NET_ADMIN"
+
 # shellcheck source=test/test-functions
 . "${TEST_BASE_DIR:?}/test-functions"
 
