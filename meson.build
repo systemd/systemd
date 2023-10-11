@@ -519,7 +519,7 @@ if cxx_cmd != ''
         add_project_arguments(cxx.get_supported_arguments(basic_disabled_warnings), language : 'cpp')
 endif
 
-cpp = ' '.join(cc.cmd_array()) + ' -E'
+cpp = ' '.join(cc.cmd_array() + get_option('c_args')) + ' -E'
 
 has_wstringop_truncation = cc.has_argument('-Wstringop-truncation')
 
