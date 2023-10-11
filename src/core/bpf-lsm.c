@@ -228,11 +228,14 @@ int lsm_bpf_cleanup(const Unit *u) {
         if (!u->manager->restrict_fs)
                 return 0;
 
+        if (u->cgroup_id == 0)
+                return 0;
+
         int fd = sym_bpf_map__fd(u->manager->restrict_fs->maps.cgroup_hash);
         if (fd < 0)
                 return log_unit_error_errno(u, errno, "bpf-lsm: Failed to get BPF map fd: %m");
 
-        if (sym_bpf_map_delete_elem(fd, &u->cgroup_id) != 0)
+        if (sym_bpf_map_delete_elem(fd, &u->cgroup_id) != 0 && errno != ENOENT)
                 return log_unit_debug_errno(u, errno, "bpf-lsm: Failed to delete cgroup entry from LSM BPF map: %m");
 
         return 0;
