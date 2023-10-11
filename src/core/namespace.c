@@ -992,6 +992,26 @@ static char *settle_runtime_dir(RuntimeScope scope) {
         return runtime_dir;
 }
 
+static int create_temporary_mount_point(RuntimeScope scope, char **ret) {
+        _cleanup_free_ char *runtime_dir = NULL, *temporary_mount = NULL;
+
+        assert(ret);
+
+        runtime_dir = settle_runtime_dir(scope);
+        if (!runtime_dir)
+                return log_oom_debug();
+
+        temporary_mount = path_join(runtime_dir, "systemd/namespace-XXXXXX");
+        if (!temporary_mount)
+                return log_oom_debug();
+
+        if (!mkdtemp(temporary_mount))
+                return log_debug_errno(errno, "Failed to create temporary directory '%s': %m", temporary_mount);
+
+        *ret = TAKE_PTR(temporary_mount);
+        return 0;
+}
+
 static int mount_private_dev(MountEntry *m, RuntimeScope scope) {
         static const char devnodes[] =
                 "/dev/null\0"
@@ -1001,23 +1021,16 @@ static int mount_private_dev(MountEntry *m, RuntimeScope scope) {
                 "/dev/urandom\0"
                 "/dev/tty\0";
 
-        _cleanup_free_ char *runtime_dir = NULL, *temporary_mount = NULL;
+        _cleanup_free_ char *temporary_mount = NULL;
         const char *dev = NULL, *devpts = NULL, *devshm = NULL, *devhugepages = NULL, *devmqueue = NULL, *devlog = NULL, *devptmx = NULL;
         bool can_mknod = true;
         int r;
 
         assert(m);
 
-        runtime_dir = settle_runtime_dir(scope);
-        if (!runtime_dir)
-                return log_oom_debug();
-
-        temporary_mount = path_join(runtime_dir, "systemd/namespace-dev-XXXXXX");
-        if (!temporary_mount)
-                return log_oom_debug();
-
-        if (!mkdtemp(temporary_mount))
-                return log_debug_errno(errno, "Failed to create temporary directory '%s': %m", temporary_mount);
+        r = create_temporary_mount_point(scope, &temporary_mount);
+        if (r < 0)
+                return r;
 
         dev = strjoina(temporary_mount, "/dev");
         (void) mkdir(dev, 0755);
