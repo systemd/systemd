@@ -1095,41 +1095,47 @@ static int mount_bind_sysfs(const MountEntry *m) {
 }
 
 static int mount_private_apivfs(const char *fstype, const char *entry_path, const char *bind_source, const char *opts) {
-        int r, n;
+        int r;
 
         assert(fstype);
         assert(entry_path);
         assert(bind_source);
 
         (void) mkdir_p_label(entry_path, 0755);
-        n = umount_recursive(entry_path, 0);
 
-        r = mount_nofollow_verbose(LOG_DEBUG, fstype, entry_path, fstype, MS_NOSUID|MS_NOEXEC|MS_NODEV, opts);
-        if (r == -EINVAL && opts)
-                /* If this failed with EINVAL then this likely means the textual hidepid= stuff for procfs is
-                 * not supported by the kernel, and thus the per-instance hidepid= neither, which means we
-                 * really don't want to use it, since it would affect our host's /proc mount. Hence let's
-                 * gracefully fallback to a classic, unrestricted version. */
-                r = mount_nofollow_verbose(LOG_DEBUG, fstype, entry_path, fstype, MS_NOSUID|MS_NOEXEC|MS_NODEV, NULL);
-        if (ERRNO_IS_NEG_PRIVILEGE(r)) {
-                /* When we do not have enough privileges to mount a new instance, fall back to use existing
-                 * mount. */
-
-                if (n > 0)
-                        /* The mount or some of sub-mounts are umounted in the above. Refuse incomplete tree.
-                         * Propagate the original error code returned by mount() in the above. */
+        /* First, check if the entry point is already a mount point. */
+        r = path_is_mount_point(entry_path, NULL, 0);
+        if (r < 0)
+                return log_debug_errno(r, "Unable to determine whether '%s' is already mounted: %m", entry_path);
+        if (r > 0) {
+                /* If so, check if we have enough privileges to mount a new instance. */
+                r = mount_nofollow_verbose(LOG_DEBUG, fstype, entry_path, fstype, MS_NOSUID|MS_NOEXEC|MS_NODEV, opts);
+                if (r == -EINVAL && opts) {
+                        /* If this failed with EINVAL then this likely means the textual hidepid= stuff for
+                         * proc is not supported by the kernel, and thus the per-instance hidepid= neither,
+                         * which means we really don't want to use it, since it would affect our host's /proc
+                         * mount. Hence let's gracefully fallback to a classic, unrestricted version. */
+                        opts = NULL;
+                        r = mount_nofollow_verbose(LOG_DEBUG, fstype, entry_path, fstype, MS_NOSUID|MS_NOEXEC|MS_NODEV, NULL);
+                }
+                if (ERRNO_IS_NEG_PRIVILEGE(r))
+                        return 0; /* Use the current mount as is. */
+                if (r < 0)
                         return r;
 
-                r = path_is_mount_point(entry_path, NULL, 0);
-                if (r < 0)
-                        return log_debug_errno(r, "Unable to determine whether '%s' is already mounted: %m", entry_path);
-                if (r > 0)
-                        return 0;
+                /* Now, there may be old hidden mounts on the entry point. Let's clear them. */
+                (void) umount_recursive(entry_path, 0);
 
-                /* We lack permissions to mount a new instance, and it is not already mounted. But we can
-                 * access the host's, so as a final fallback bind-mount it to the destination, as most likely
-                 * we are inside a user manager in an unprivileged user namespace. */
-                return mount_nofollow_verbose(LOG_DEBUG, bind_source, entry_path, NULL, MS_BIND|MS_REC, NULL);
+                /* Then, mount a new instance again. */
+                r = mount_nofollow_verbose(LOG_DEBUG, fstype, entry_path, fstype, MS_NOSUID|MS_NOEXEC|MS_NODEV, opts);
+        } else {
+                r = mount_nofollow_verbose(LOG_DEBUG, fstype, entry_path, fstype, MS_NOSUID|MS_NOEXEC|MS_NODEV, opts);
+                if (r == -EINVAL && opts)
+                        r = mount_nofollow_verbose(LOG_DEBUG, fstype, entry_path, fstype, MS_NOSUID|MS_NOEXEC|MS_NODEV, NULL);
+                if (ERRNO_IS_NEG_PRIVILEGE(r))
+                        /* When we do not have enough privileges to mount a new instance, fall back to use
+                         * existing mount. */
+                        return mount_nofollow_verbose(LOG_DEBUG, bind_source, entry_path, NULL, MS_BIND|MS_REC, NULL);
         }
         if (r < 0)
                 return r;
