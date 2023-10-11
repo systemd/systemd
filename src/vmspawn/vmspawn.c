@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -11,10 +12,12 @@
 #include "creds-util.h"
 #include "escape.h"
 #include "fileio.h"
+#include "format-util.h"
 #include "hexdecoct.h"
 #include "log.h"
 #include "main-func.h"
 #include "pager.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "parse-argument.h"
 #include "pretty-print.h"
@@ -29,7 +32,7 @@
 static PagerFlags arg_pager_flags = 0;
 static char *arg_image = NULL;
 static char *arg_qemu_smp = NULL;
-static char *arg_qemu_mem = NULL;
+static uint64_t arg_qemu_mem = 2ULL * 1024ULL * 1024ULL * 1024ULL;
 static ConfigFeature arg_qemu_kvm = CONFIG_FEATURE_AUTO;
 static bool arg_qemu_gui = false;
 static Credential *arg_credentials = NULL;
@@ -39,7 +42,6 @@ static char **arg_parameters = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_qemu_smp, freep);
-STATIC_DESTRUCTOR_REGISTER(arg_qemu_mem, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_parameters, strv_freep);
 
 static int help(void) {
@@ -100,9 +102,9 @@ static int parse_argv(int argc, char *argv[]) {
                 { "version",         no_argument,       NULL, ARG_VERSION         },
                 { "no-pager",        no_argument,       NULL, ARG_NO_PAGER        },
                 { "image",           required_argument, NULL, 'i'                 },
-                { "qemu-smp",        optional_argument, NULL, ARG_QEMU_SMP        },
-                { "qemu-mem",        optional_argument, NULL, ARG_QEMU_MEM        },
-                { "qemu-kvm",        optional_argument, NULL, ARG_QEMU_KVM        },
+                { "qemu-smp",        required_argument, NULL, ARG_QEMU_SMP        },
+                { "qemu-mem",        required_argument, NULL, ARG_QEMU_MEM        },
+                { "qemu-kvm",        required_argument, NULL, ARG_QEMU_KVM        },
                 { "qemu-gui",        no_argument,       NULL, ARG_QEMU_GUI        },
                 { "set-credential",  required_argument, NULL, ARG_SET_CREDENTIAL  },
                 { "load-credential", required_argument, NULL, ARG_LOAD_CREDENTIAL },
@@ -138,13 +140,13 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_QEMU_SMP:
                         arg_qemu_smp = strdup(optarg);
                         if (!arg_qemu_smp)
-                                log_oom();
+                                return log_oom();
                         break;
 
                 case ARG_QEMU_MEM:
-                        arg_qemu_mem = strdup(optarg);
-                        if (!arg_qemu_mem)
-                                log_oom();
+                        r = parse_size(optarg, 1024, &arg_qemu_mem);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse size from --qemu-mem: \"%s\": %m", optarg);
                         break;
 
                 case ARG_QEMU_KVM:
@@ -295,21 +297,22 @@ static int run_virtual_machine(void) {
 
         _cleanup_free_ char *machine = NULL;
 #ifdef __aarch64__
-        r = asprintf(&machine, "type=virt,accel=%s", accel);
+        machine = strjoin("type=virt,accel=", accel);
 #else
-        r = asprintf(&machine, "type=q35,accel=%s,smm=%s", accel, smm);
+        machine = strjoin("type=q35,accel=", accel, ",smm=", smm);
 #endif
-        if (r < 0)
-                log_oom();
+        if (!machine)
+                return log_oom();
 
         _cleanup_free_ char *qemu_binary = NULL;
         r = find_qemu_binary(&qemu_binary);
+        if (r == -ESRCH)
+                return log_error_errno(r, "Native architecture is not supported by qemu.");
         if (r < 0)
                 return r;
 
-        const char *smp = arg_qemu_smp ? arg_qemu_smp : "1",
-                   *mem = arg_qemu_mem ? arg_qemu_mem : "2G";
-
+        const char *smp = arg_qemu_smp ? arg_qemu_smp : "1";
+        const char *mem = FORMAT_BYTES(arg_qemu_mem);
         cmdline = strv_new(
                 qemu_binary,
                 "-machine", machine,
@@ -319,7 +322,6 @@ static int run_virtual_machine(void) {
                 "-device", "virtio-rng-pci,rng=rng0,id=rng-device0",
                 "-nic", "user,model=virtio-net-pci",
                 "-cpu", "max"
-
         );
 
         if (arg_qemu_gui) {
