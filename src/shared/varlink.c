@@ -1330,7 +1330,9 @@ static int varlink_dispatch_method(Varlink *v) {
                                 log_debug_errno(r, "Callback for %s returned error: %m", method);
 
                                 /* We got an error back from the callback. Propagate it to the client if the method call remains unanswered. */
-                                if (!FLAGS_SET(flags, VARLINK_METHOD_ONEWAY)) {
+                                if (v->state == VARLINK_PROCESSED_METHOD)
+                                        r = 0; /* already processed */
+                                else if (!FLAGS_SET(flags, VARLINK_METHOD_ONEWAY)) {
                                         r = varlink_error_errno(v, r);
                                         if (r < 0)
                                                 return r;
