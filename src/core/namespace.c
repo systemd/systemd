@@ -1096,24 +1096,34 @@ static int mount_bind_sysfs(const MountEntry *m) {
 
 static int mount_private_sysfs(const MountEntry *m) {
         const char *entry_path = mount_entry_path(ASSERT_PTR(m));
-        int r, n;
+        int r;
 
         (void) mkdir_p_label(entry_path, 0755);
 
-        n = umount_recursive(entry_path, 0);
-
-        r = mount_nofollow_verbose(LOG_DEBUG, "sysfs", entry_path, "sysfs", MS_NOSUID|MS_NOEXEC|MS_NODEV, NULL);
-        if (ERRNO_IS_NEG_PRIVILEGE(r)) {
-                /* When we do not have enough privileges to mount sysfs, fall back to use existing /sys. */
-
-                if (n > 0)
-                        /* /sys or some of sub-mounts are umounted in the above. Refuse incomplete tree.
-                         * Propagate the original error code returned by mount() in the above. */
+        /* First, check if the entry point is already a mount point. */
+        r = path_is_mount_point(mount_entry_path(m), NULL, 0);
+        if (r < 0)
+                return log_debug_errno(r, "Unable to determine whether /sys/ is already mounted: %m");
+        if (r > 0) {
+                /* If so, check if we have enough privileges to mount sysfs. */
+                r = mount_nofollow_verbose(LOG_DEBUG, "sysfs", entry_path, "sysfs", MS_NOSUID|MS_NOEXEC|MS_NODEV, NULL);
+                if (ERRNO_IS_NEG_PRIVILEGE(r))
+                        return 0; /* Use the current mount as is. */
+                if (r < 0)
                         return r;
 
-                return mount_bind_sysfs(m);
+                /* Now, there may be old hidden mounts on /sys/. Let's clear them. */
+                (void) umount_recursive(entry_path, 0);
 
-        } else if (r < 0)
+                /* Then, mount a new sysfs again. */
+                r = mount_nofollow_verbose(LOG_DEBUG, "sysfs", entry_path, "sysfs", MS_NOSUID|MS_NOEXEC|MS_NODEV, NULL);
+        } else {
+                r = mount_nofollow_verbose(LOG_DEBUG, "sysfs", entry_path, "sysfs", MS_NOSUID|MS_NOEXEC|MS_NODEV, NULL);
+                if (ERRNO_IS_NEG_PRIVILEGE(r))
+                        /* When we do not have enough privileges to mount sysfs, fall back to use existing /sys/. */
+                        return mount_bind_sysfs(m);
+        }
+        if (r < 0)
                 return r;
 
         /* We mounted a new instance now. Let's bind mount the children over now. */
@@ -1124,7 +1134,7 @@ static int mount_private_sysfs(const MountEntry *m) {
 static int mount_procfs(const MountEntry *m, const NamespaceParameters *p) {
         _cleanup_free_ char *opts = NULL;
         const char *entry_path;
-        int r, n;
+        int r;
 
         assert(m);
         assert(p);
@@ -1168,35 +1178,44 @@ static int mount_procfs(const MountEntry *m, const NamespaceParameters *p) {
          * our user namespace and with our hidepid= settings applied. Hence, let's get rid of everything
          * mounted on /proc/ first. */
 
-        n = umount_recursive(entry_path, 0);
-
-        r = mount_nofollow_verbose(LOG_DEBUG, "proc", entry_path, "proc", MS_NOSUID|MS_NOEXEC|MS_NODEV, opts);
-        if (r == -EINVAL && opts)
-                /* If this failed with EINVAL then this likely means the textual hidepid= stuff is
-                 * not supported by the kernel, and thus the per-instance hidepid= neither, which
-                 * means we really don't want to use it, since it would affect our host's /proc
-                 * mount. Hence let's gracefully fallback to a classic, unrestricted version. */
-                r = mount_nofollow_verbose(LOG_DEBUG, "proc", entry_path, "proc", MS_NOSUID|MS_NOEXEC|MS_NODEV, NULL);
-        if (ERRNO_IS_NEG_PRIVILEGE(r)) {
-                /* When we do not have enough privileges to mount /proc, fall back to use existing /proc. */
-
-                if (n > 0)
-                        /* /proc or some of sub-mounts are umounted in the above. Refuse incomplete tree.
-                         * Propagate the original error code returned by mount() in the above. */
+        /* First, check if the entry point is already a mount point. */
+        r = path_is_mount_point(entry_path, NULL, 0);
+        if (r < 0)
+                return log_debug_errno(r, "Unable to determine whether /proc/ is already mounted: %m");
+        if (r > 0) {
+                r = mount_nofollow_verbose(LOG_DEBUG, "proc", entry_path, "proc", MS_NOSUID|MS_NOEXEC|MS_NODEV, opts);
+                if (r == -EINVAL && opts) {
+                        /* If this failed with EINVAL then this likely means the textual hidepid= stuff is
+                         * not supported by the kernel, and thus the per-instance hidepid= neither, which
+                         * means we really don't want to use it, since it would affect our host's /proc
+                         * mount. Hence let's gracefully fallback to a classic, unrestricted version. */
+                        opts = mfree(opts);
+                        r = mount_nofollow_verbose(LOG_DEBUG, "proc", entry_path, "proc", MS_NOSUID|MS_NOEXEC|MS_NODEV, NULL);
+                }
+                if (ERRNO_IS_NEG_PRIVILEGE(r))
+                        return 0; /* Use the current mount. */
+                else if (r < 0)
                         return r;
 
-                r = path_is_mount_point(entry_path, NULL, 0);
-                if (r < 0)
-                        return log_debug_errno(r, "Unable to determine whether /proc is already mounted: %m");
-                if (r > 0)
-                        return 0;
+                /* Now, there may be old hidden mounts on /proc/. Let's clear them. */
+                (void) umount_recursive(entry_path, 0);
 
-                /* We lack permissions to mount a new instance of /proc, and it is not already mounted. But
-                 * we can access the host's, so as a final fallback bind-mount it to the destination, as most
-                 * likely we are inside a user manager in an unprivileged user namespace. */
-                return mount_nofollow_verbose(LOG_DEBUG, "/proc", entry_path, NULL, MS_BIND|MS_REC, NULL);
-
-        } else if (r < 0)
+                /* Then, mount a new procfs again. */
+                r = mount_nofollow_verbose(LOG_DEBUG, "proc", entry_path, "proc", MS_NOSUID|MS_NOEXEC|MS_NODEV, opts);
+        } else {
+                r = mount_nofollow_verbose(LOG_DEBUG, "proc", entry_path, "proc", MS_NOSUID|MS_NOEXEC|MS_NODEV, opts);
+                if (r == -EINVAL && opts)
+                        r = mount_nofollow_verbose(LOG_DEBUG, "proc", entry_path, "proc", MS_NOSUID|MS_NOEXEC|MS_NODEV, NULL);
+                if (ERRNO_IS_NEG_PRIVILEGE(r)) {
+                        /* When we do not have enough privileges to mount /proc, fall back to use existing
+                         * /proc. We lack permissions to mount a new instance of /proc/, and it is not
+                         * already mounted. But we can access the host's, so as a final fallback bind-mount
+                         * it to the destination, as most likely we are inside a user manager in an
+                         * unprivileged user namespace. */
+                        return mount_nofollow_verbose(LOG_DEBUG, "/proc", entry_path, NULL, MS_BIND|MS_REC, NULL);
+                }
+        }
+        if (r < 0)
                 return r;
 
         /* We mounted a new instance now. Let's bind mount the children over now. This matters for nspawn
