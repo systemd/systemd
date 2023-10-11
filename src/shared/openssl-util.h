@@ -11,6 +11,7 @@
 #  include <openssl/bio.h>
 #  include <openssl/bn.h>
 #  include <openssl/crypto.h>
+#  include <openssl/engine.h>
 #  include <openssl/err.h>
 #  include <openssl/evp.h>
 #  include <openssl/opensslv.h>
@@ -131,6 +132,9 @@ static inline void *EVP_PKEY_free(EVP_PKEY *p) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(X509*, X509_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(EVP_PKEY*, EVP_PKEY_free, NULL);
+DISABLE_WARNING_DEPRECATED_DECLARATIONS
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(ENGINE*, ENGINE_free, NULL);
+REENABLE_WARNING
 
 int x509_fingerprint(X509 *cert, uint8_t buffer[static X509_FINGERPRINT_SIZE]);
 

@@ -146,7 +146,9 @@ static bool arg_legend = true;
 static void *arg_key = NULL;
 static size_t arg_key_size = 0;
 static EVP_PKEY *arg_private_key = NULL;
+static char *arg_private_key_path = NULL;
 static X509 *arg_certificate = NULL;
+static char *arg_signing_engine = NULL;
 static char *arg_tpm2_device = NULL;
 static Tpm2PCRValue *arg_tpm2_hash_pcr_values = NULL;
 static size_t arg_tpm2_n_hash_pcr_values = 0;
@@ -173,7 +175,9 @@ STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_definitions, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_key, erase_and_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_private_key, EVP_PKEY_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_private_key_path, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_certificate, X509_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_signing_engine, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_device, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_hash_pcr_values, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_public_key, freep);
@@ -1819,7 +1823,7 @@ static int partition_read_definition(Partition *p, const char *path, const char 
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
                                   "Encrypting verity hash/data partitions is not supported");
 
-        if (p->verity == VERITY_SIG && !arg_private_key)
+        if (p->verity == VERITY_SIG && !arg_private_key_path)
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
                                   "Verity signature partition requested but no private key provided (--private-key=)");
 
@@ -6439,6 +6443,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_KEY_FILE,
                 ARG_PRIVATE_KEY,
                 ARG_CERTIFICATE,
+                ARG_SIGNING_ENGINE,
                 ARG_TPM2_DEVICE,
                 ARG_TPM2_PCRS,
                 ARG_TPM2_PUBLIC_KEY,
@@ -6476,6 +6481,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "key-file",             required_argument, NULL, ARG_KEY_FILE             },
                 { "private-key",          required_argument, NULL, ARG_PRIVATE_KEY          },
                 { "certificate",          required_argument, NULL, ARG_CERTIFICATE          },
+                { "signing-engine",       required_argument, NULL, ARG_SIGNING_ENGINE       },
                 { "tpm2-device",          required_argument, NULL, ARG_TPM2_DEVICE          },
                 { "tpm2-pcrs",            required_argument, NULL, ARG_TPM2_PCRS            },
                 { "tpm2-public-key",      required_argument, NULL, ARG_TPM2_PUBLIC_KEY      },
@@ -6656,20 +6662,10 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
                 case ARG_PRIVATE_KEY: {
-                        _cleanup_(erase_and_freep) char *k = NULL;
-                        size_t n = 0;
-
-                        r = read_full_file_full(
-                                        AT_FDCWD, optarg, UINT64_MAX, SIZE_MAX,
-                                        READ_FULL_FILE_SECURE|READ_FULL_FILE_WARN_WORLD_READABLE|READ_FULL_FILE_CONNECT_SOCKET,
-                                        NULL,
-                                        &k, &n);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to read key file '%s': %m", optarg);
-
-                        EVP_PKEY_free(arg_private_key);
-                        arg_private_key = NULL;
-                        r = parse_private_key(k, n, &arg_private_key);
+                        if (is_path(optarg))
+                                r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_private_key_path);
+                        else
+                                r = free_and_strdup_warn(&arg_private_key_path, optarg);
                         if (r < 0)
                                 return r;
                         break;
@@ -6694,6 +6690,13 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
                         break;
                 }
+
+                case ARG_SIGNING_ENGINE:
+                        r = free_and_strdup_warn(&arg_signing_engine, optarg);
+                        if (r < 0)
+                                return r;
+
+                        break;
 
                 case ARG_TPM2_DEVICE: {
                         _cleanup_free_ char *device = NULL;
@@ -6961,6 +6964,45 @@ static int parse_argv(int argc, char *argv[]) {
 
                 FOREACH_ARRAY(p, arg_defer_partitions, arg_n_defer_partitions)
                         *p = gpt_partition_type_override_architecture(*p, arg_architecture);
+        }
+
+        if (arg_signing_engine && !arg_private_key_path)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--private-key must be specified when --signing-engine is used.");
+
+        if (arg_private_key_path) {
+                if (isempty(arg_signing_engine)) {
+                        _cleanup_(erase_and_freep) char *k = NULL;
+                        size_t n = 0;
+
+                        r = read_full_file_full(
+                                        AT_FDCWD, arg_private_key_path, UINT64_MAX, SIZE_MAX,
+                                        READ_FULL_FILE_SECURE|READ_FULL_FILE_WARN_WORLD_READABLE|READ_FULL_FILE_CONNECT_SOCKET,
+                                        NULL,
+                                        &k, &n);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to read key file '%s': %m", arg_private_key_path);
+
+                        EVP_PKEY_free(arg_private_key);
+                        arg_private_key = NULL;
+                        r = parse_private_key(k, n, &arg_private_key);
+                        if (r < 0)
+                                return r;
+                } else {
+                        DISABLE_WARNING_DEPRECATED_DECLARATIONS
+                        _cleanup_(ENGINE_freep) ENGINE *e = ENGINE_by_id(arg_signing_engine);
+                        if (!e)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to load signing engine '%s': %s", arg_signing_engine, ERR_error_string(ERR_get_error(), NULL));
+
+                        if (ENGINE_init(e) == 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to initialize signing engine '%s': %s", arg_signing_engine, ERR_error_string(ERR_get_error(), NULL));
+
+                        EVP_PKEY_free(arg_private_key);
+                        arg_private_key = ENGINE_load_private_key(e, arg_private_key_path, NULL, NULL);
+                        if (!arg_private_key)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to load private key from '%s': %s", arg_private_key_path, ERR_error_string(ERR_get_error(), NULL));
+                        REENABLE_WARNING
+                }
         }
 
         return 1;
