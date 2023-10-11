@@ -8,6 +8,15 @@ SD_PCREXTEND="/usr/lib/systemd/systemd-pcrextend"
 SD_TPM2SETUP="/usr/lib/systemd/systemd-tpm2-setup"
 export SYSTEMD_LOG_LEVEL=debug
 
+trap cleanup ERR
+cleanup() {
+    # Evict the TPM primary key that we persisted
+    if [[ -n $persistent ]]; then
+        tpm2_evictcontrol -c "$persistent"
+    fi
+}
+persistent=""
+
 cryptsetup_has_token_plugin_support() {
     local plugin_path
 
@@ -130,6 +139,57 @@ if tpm_has_pcr sha256 12; then
 
     rm -f /tmp/pcr.dat
 fi
+
+# Use default (0) seal key handle
+systemd-cryptenroll --wipe-slot=tpm2 "$img"
+PASSWORD=passphrase systemd-cryptenroll --tpm2-device=auto --tpm2-seal-key-handle=0 "$img"
+systemd-cryptsetup attach test-volume "$img" - tpm2-device=auto,headless=1
+systemd-cryptsetup detach test-volume
+
+systemd-cryptenroll --wipe-slot=tpm2 "$img"
+PASSWORD=passphrase systemd-cryptenroll --tpm2-device=auto --tpm2-seal-key-handle=0x0 "$img"
+systemd-cryptsetup attach test-volume "$img" - tpm2-device=auto,headless=1
+systemd-cryptsetup detach test-volume
+
+# Use SRK seal key handle
+systemd-cryptenroll --wipe-slot=tpm2 "$img"
+PASSWORD=passphrase systemd-cryptenroll --tpm2-device=auto --tpm2-seal-key-handle=81000001 "$img"
+systemd-cryptsetup attach test-volume "$img" - tpm2-device=auto,headless=1
+systemd-cryptsetup detach test-volume
+
+systemd-cryptenroll --wipe-slot=tpm2 "$img"
+PASSWORD=passphrase systemd-cryptenroll --tpm2-device=auto --tpm2-seal-key-handle=0x81000001 "$img"
+systemd-cryptsetup attach test-volume "$img" - tpm2-device=auto,headless=1
+systemd-cryptsetup detach test-volume
+
+# Test invalid ranges: pcr, nv, session, permanent
+systemd-cryptenroll --wipe-slot=tpm2 "$img"
+(! PASSWORD=passphrase systemd-cryptenroll --tpm2-device=auto --tpm2-seal-key-handle=7 "$img")          # PCR
+(! PASSWORD=passphrase systemd-cryptenroll --tpm2-device=auto --tpm2-seal-key-handle=0x01000001 "$img") # NV index
+(! PASSWORD=passphrase systemd-cryptenroll --tpm2-device=auto --tpm2-seal-key-handle=0x02000001 "$img") # HMAC/loaded session
+(! PASSWORD=passphrase systemd-cryptenroll --tpm2-device=auto --tpm2-seal-key-handle=0x03000001 "$img") # Policy/saved session
+(! PASSWORD=passphrase systemd-cryptenroll --tpm2-device=auto --tpm2-seal-key-handle=0x40000001 "$img") # Permanent
+
+# Use non-SRK persistent seal key handle (by creating/persisting new key)
+primary=/tmp/primary.ctx
+tpm2_createprimary -c "$primary"
+persistent_line=$(tpm2_evictcontrol -c "$primary" | grep persistent-handle)
+persistent="0x${persistent_line##*0x}"
+tpm2_flushcontext -t
+
+systemd-cryptenroll --wipe-slot=tpm2 "$img"
+PASSWORD=passphrase systemd-cryptenroll --tpm2-device=auto --tpm2-seal-key-handle="${persistent#0x}" "$img"
+systemd-cryptsetup attach test-volume "$img" - tpm2-device=auto,headless=1
+systemd-cryptsetup detach test-volume
+
+systemd-cryptenroll --wipe-slot=tpm2 "$img"
+PASSWORD=passphrase systemd-cryptenroll --tpm2-device=auto --tpm2-seal-key-handle="$persistent" "$img"
+systemd-cryptsetup attach test-volume "$img" - tpm2-device=auto,headless=1
+systemd-cryptsetup detach test-volume
+
+tpm2_evictcontrol -c "$persistent"
+persistent=""
+rm -f "$primary"
 
 rm -f "${img:?}"
 
@@ -389,5 +449,7 @@ if [[ -x "$SD_TPM2SETUP" ]]; then
     "$SD_TPM2SETUP" --early=no
     "$SD_TPM2SETUP" --early=no
 fi
+
+cleanup
 
 touch /testok
