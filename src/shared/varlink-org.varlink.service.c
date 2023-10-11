@@ -32,6 +32,8 @@ static VARLINK_DEFINE_ERROR(
 
 static VARLINK_DEFINE_ERROR(PermissionDenied);
 
+static VARLINK_DEFINE_ERROR(ExpectedMore);
+
 /* As per https://varlink.org/Service */
 VARLINK_DEFINE_INTERFACE(
                 org_varlink_service,
@@ -42,4 +44,5 @@ VARLINK_DEFINE_INTERFACE(
                 &vl_error_MethodNotFound,
                 &vl_error_MethodNotImplemented,
                 &vl_error_InvalidParameter,
-                &vl_error_PermissionDenied);
+                &vl_error_PermissionDenied,
+                &vl_error_ExpectedMore);
