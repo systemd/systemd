@@ -364,7 +364,7 @@ testcase_sanity_check() {
     session=$(loginctl --no-legend | awk '$3 == "logind-test-user" { print $1; exit; }')
     loginctl kill-session --signal=SIGCONT "$session"
     # FIXME(?)
-    #loginctl kill-session --signal=SIGCONT --kill-who=leader "$session"
+    #loginctl kill-session --signal=SIGCONT --kill-whom=leader "$session"
 
     loginctl list-users
     loginctl user-status
