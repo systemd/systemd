@@ -1314,7 +1314,12 @@ static int varlink_dispatch_method(Varlink *v) {
                         r = varlink_idl_validate_method_call(v->current_method, parameters, &bad_field);
                         if (r < 0) {
                                 log_debug_errno(r, "Parameters for method %s() didn't pass validation on field '%s': %m", method, strna(bad_field));
-                                r = varlink_errorb(v, VARLINK_ERROR_INVALID_PARAMETER, JSON_BUILD_OBJECT(JSON_BUILD_PAIR_STRING("parameter", bad_field)));
+
+                                if (!FLAGS_SET(flags, VARLINK_METHOD_ONEWAY)) {
+                                        r = varlink_errorb(v, VARLINK_ERROR_INVALID_PARAMETER, JSON_BUILD_OBJECT(JSON_BUILD_PAIR_STRING("parameter", bad_field)));
+                                        if (r < 0)
+                                                return r;
+                                }
                                 invalid = true;
                         }
                 }
@@ -1325,7 +1330,9 @@ static int varlink_dispatch_method(Varlink *v) {
                                 log_debug_errno(r, "Callback for %s returned error: %m", method);
 
                                 /* We got an error back from the callback. Propagate it to the client if the method call remains unanswered. */
-                                if (!FLAGS_SET(flags, VARLINK_METHOD_ONEWAY)) {
+                                if (v->state == VARLINK_PROCESSED_METHOD)
+                                        r = 0; /* already processed */
+                                else if (!FLAGS_SET(flags, VARLINK_METHOD_ONEWAY)) {
                                         r = varlink_error_errno(v, r);
                                         if (r < 0)
                                                 return r;
@@ -2182,7 +2189,7 @@ int varlink_error(Varlink *v, const char *error_id, JsonVariant *parameters) {
         else {
                 const char *bad_field = NULL;
 
-                r = varlink_idl_validate_method_reply(symbol, parameters, &bad_field);
+                r = varlink_idl_validate_error(symbol, parameters, &bad_field);
                 if (r < 0)
                         log_debug_errno(r, "Parameters for error %s didn't pass validation on field '%s', ignoring: %m", error_id, strna(bad_field));
         }
@@ -2275,6 +2282,12 @@ int varlink_notify(Varlink *v, JsonVariant *parameters) {
 
         if (v->state == VARLINK_DISCONNECTED)
                 return varlink_log_errno(v, SYNTHETIC_ERRNO(ENOTCONN), "Not connected.");
+
+        /* If we want to reply with a notify connection but the caller didn't set "more", then return an
+         * error indicating that we expected to be called with "more" set */
+        if (IN_SET(v->state, VARLINK_PROCESSING_METHOD, VARLINK_PENDING_METHOD))
+                return varlink_error(v, VARLINK_ERROR_EXPECTED_MORE, NULL);
+
         if (!IN_SET(v->state, VARLINK_PROCESSING_METHOD_MORE, VARLINK_PENDING_METHOD_MORE))
                 return varlink_log_errno(v, SYNTHETIC_ERRNO(EBUSY), "Connection busy.");
 
