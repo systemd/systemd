@@ -133,6 +133,11 @@ Deprecations and removals:
 
 Features:
 
+* redefine /var/lib/extensions/ as the dir one can place all three of sysext,
+  confext as well is multi-modal DDIs that qualify as both. Then introduce
+  /var/lib/sysexts/ which can be used to place only DDIs that shall be used as
+  sysext
+
 * in pid1: move out all cgroup state settings from Unit into a new object
   CGroupState or so which is allocated when we realize the unit into a cgroup,
   and then remains referenced by it. The new object should also carry an fd to
