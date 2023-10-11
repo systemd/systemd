@@ -507,6 +507,7 @@ static int unit_start_or_stop(UnitStatusInfo *u, sd_bus *bus, sd_bus_error *erro
 }
 
 static int unit_enable_or_disable(UnitStatusInfo *u, sd_bus *bus, sd_bus_error *error, bool enable) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         int r;
 
         assert(u);
@@ -545,7 +546,12 @@ static int unit_enable_or_disable(UnitStatusInfo *u, sd_bus *bus, sd_bus_error *
         if (r < 0)
                 return r;
 
-        r = bus_call_method(bus, bus_systemd_mgr, "Reload", error, NULL, NULL);
+        /* Reloading the daemon may take long, hence set a longer timeout here */
+        r = bus_message_new_method_call(bus, &m, bus_systemd_mgr, "Reload");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_call(bus, m, DAEMON_RELOAD_TIMEOUT_SEC, error, NULL);
         if (r < 0)
                 return r;
 
