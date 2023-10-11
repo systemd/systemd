@@ -1182,32 +1182,34 @@ static int mount_private_apivfs(
                 const char *fstype,
                 const char *entry_path,
                 const char *bind_source,
-                const char *opts) {
+                const char *opts,
+                RuntimeScope scope) {
 
-        int r, n;
+        _cleanup_(rmdir_and_freep) char *temporary_mount = NULL;
+        int r;
 
         assert(fstype);
         assert(entry_path);
         assert(bind_source);
 
         (void) mkdir_p_label(entry_path, 0755);
-        n = umount_recursive(entry_path, /* flags = */ 0);
 
-        r = mount_nofollow_verbose(LOG_DEBUG, fstype, entry_path, fstype, MS_NOSUID|MS_NOEXEC|MS_NODEV, opts);
+        /* First, check if we have enough privileges to mount a new instance. Note, a new sysfs instance
+         * cannot be mounted on an already existing mount. Let's use a temporary place. */
+        r = create_temporary_mount_point(scope, &temporary_mount);
+        if (r < 0)
+                return r;
+
+        r = mount_nofollow_verbose(LOG_DEBUG, fstype, temporary_mount, fstype, MS_NOSUID|MS_NOEXEC|MS_NODEV, opts);
         if (r == -EINVAL && opts)
                 /* If this failed with EINVAL then this likely means the textual hidepid= stuff for procfs is
                  * not supported by the kernel, and thus the per-instance hidepid= neither, which means we
                  * really don't want to use it, since it would affect our host's /proc mount. Hence let's
                  * gracefully fallback to a classic, unrestricted version. */
-                r = mount_nofollow_verbose(LOG_DEBUG, fstype, entry_path, fstype, MS_NOSUID|MS_NOEXEC|MS_NODEV, /* opts = */ NULL);
+                r = mount_nofollow_verbose(LOG_DEBUG, fstype, temporary_mount, fstype, MS_NOSUID|MS_NOEXEC|MS_NODEV, /* opts = */ NULL);
         if (ERRNO_IS_NEG_PRIVILEGE(r)) {
                 /* When we do not have enough privileges to mount a new instance, fall back to use an
                  * existing mount. */
-
-                if (n > 0)
-                        /* The mount or some of sub-mounts are umounted in the above. Refuse incomplete tree.
-                         * Propagate the original error code returned by mount() in the above. */
-                        return r;
 
                 r = path_is_mount_point(entry_path, /* root = */ NULL, /* flags = */ 0);
                 if (r < 0)
@@ -1223,15 +1225,26 @@ static int mount_private_apivfs(
         } else if (r < 0)
                 return r;
 
+        /* OK. We have a new mount instance. Let's clear an existing mount and its submounts. */
+        r = umount_recursive(entry_path, /* flags = */ 0);
+        if (r < 0)
+                log_debug_errno(r, "Failed to unmount directories below '%s', ignoring: %m", entry_path);
+
+        /* Then, move the new mount instance. */
+        r = mount_nofollow_verbose(LOG_DEBUG, temporary_mount, entry_path, /* fstype = */ NULL, MS_MOVE, /* opts = */ NULL);
+        if (r < 0)
+                return r;
+
         /* We mounted a new instance now. Let's bind mount the children over now. This matters for nspawn
          * where a bunch of files are overmounted, in particular the boot id. */
         (void) bind_mount_submounts(bind_source, entry_path);
         return 0;
 }
 
-static int mount_private_sysfs(const MountEntry *m) {
+static int mount_private_sysfs(const MountEntry *m, const NamespaceParameters *p) {
         assert(m);
-        return mount_private_apivfs("sysfs", mount_entry_path(m), "/sys", /* opts = */ NULL);
+        assert(p);
+        return mount_private_apivfs("sysfs", mount_entry_path(m), "/sys", /* opts = */ NULL, p->runtime_scope);
 }
 
 static int mount_procfs(const MountEntry *m, const NamespaceParameters *p) {
@@ -1275,7 +1288,7 @@ static int mount_procfs(const MountEntry *m, const NamespaceParameters *p) {
          * one. i.e we don't reuse existing mounts here under any condition, we want a new instance owned by
          * our user namespace and with our hidepid= settings applied. Hence, let's get rid of everything
          * mounted on /proc/ first. */
-        return mount_private_apivfs("proc", mount_entry_path(m), "/proc", opts);
+        return mount_private_apivfs("proc", mount_entry_path(m), "/proc", opts, p->runtime_scope);
 }
 
 static int mount_tmpfs(const MountEntry *m) {
@@ -1614,7 +1627,7 @@ static int apply_one_mount(
                 return mount_bind_dev(m);
 
         case PRIVATE_SYSFS:
-                return mount_private_sysfs(m);
+                return mount_private_sysfs(m, p);
 
         case BIND_SYSFS:
                 return mount_bind_sysfs(m);
