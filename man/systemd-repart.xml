@@ -349,7 +349,8 @@
 
         <listitem><para>Takes a file system path. Configures the signing key to use when creating verity
         signature partitions with the <varname>Verity=signature</varname> setting in partition files.
-        </para>
+        OpenSSL engines and providers are supported (since v256) and will be used if a URI is passed instead
+        of a file path.</para>
 
         <xi:include href="version-info.xml" xpointer="v252"/></listitem>
       </varlistentry>
@@ -614,6 +615,27 @@ systemd-confext refresh</programlisting>
 
       <para>The DDI generated that way may be applied to the system with
       <citerefentry><refentrytitle>systemd-confext</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+    </example>
+
+    <example>
+      <title>Generate a system extension image and sign it via PKCS11</title>
+
+      <para>The following creates a system extension DDI (sysext) for an
+      <filename>/usr/foo</filename> update and signs it with a hardware token via PKCS11.</para>
+
+      <programlisting>mkdir tree tree/usr tree/usr/lib/extension-release.d
+echo "Hello World" > tree/usr/foo
+cat > tree/usr/lib/extension-release.d/extension-release.my-foo &lt;&lt;EOF
+ID=fedora
+VERSION_ID=38
+IMAGE_ID=my-foo
+IMAGE_VERSION=7
+EOF
+systemd-repart --make-ddi=sysext --private-key="pkcs11:model=PKCS%2315%20emulated;manufacturer=piv_II;serial=0123456789abcdef;token=Some%20Cert" --certificate=cert.crt -s tree/ /var/lib/extensions/my-foo.sysext.raw
+systemd-sysext refresh</programlisting>
+
+      <para>The DDI generated that way may be applied to the system with
+      <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
     </example>
 
   </refsect1>

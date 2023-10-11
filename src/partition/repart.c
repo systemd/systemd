@@ -6506,6 +6506,7 @@ static int help(void) {
 }
 
 static int parse_argv(int argc, char *argv[]) {
+        _cleanup_free_ char *private_key = NULL;
 
         enum {
                 ARG_VERSION = 0x100,
@@ -6751,20 +6752,7 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
                 case ARG_PRIVATE_KEY: {
-                        _cleanup_(erase_and_freep) char *k = NULL;
-                        size_t n = 0;
-
-                        r = read_full_file_full(
-                                        AT_FDCWD, optarg, UINT64_MAX, SIZE_MAX,
-                                        READ_FULL_FILE_SECURE|READ_FULL_FILE_WARN_WORLD_READABLE|READ_FULL_FILE_CONNECT_SOCKET,
-                                        NULL,
-                                        &k, &n);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to read key file '%s': %m", optarg);
-
-                        EVP_PKEY_free(arg_private_key);
-                        arg_private_key = NULL;
-                        r = parse_private_key(k, n, &arg_private_key);
+                        r = free_and_strdup_warn(&private_key, optarg);
                         if (r < 0)
                                 return r;
                         break;
@@ -7099,6 +7087,34 @@ static int parse_argv(int argc, char *argv[]) {
 
                 FOREACH_ARRAY(p, arg_defer_partitions, arg_n_defer_partitions)
                         *p = gpt_partition_type_override_architecture(*p, arg_architecture);
+        }
+
+        if (private_key) {
+                _cleanup_(erase_and_freep) char *k = NULL;
+                size_t n = 0;
+
+                r = read_full_file_full(
+                                AT_FDCWD, private_key, UINT64_MAX, SIZE_MAX,
+                                READ_FULL_FILE_SECURE|READ_FULL_FILE_WARN_WORLD_READABLE|READ_FULL_FILE_CONNECT_SOCKET,
+                                NULL,
+                                &k, &n);
+                if (r == -ENOENT && strchr(private_key, ':')) {
+                        /* This must happen after parse_x509_certificate() is called above, otherwise
+                         * signing later will get stuck as the parsed private key won't have the
+                         * certificate, so this block cannot be inline in ARG_PRIVATE_KEY. */
+                        r = openssl_load_key_from_token(private_key, &arg_private_key);
+                        if (r < 0)
+                                return log_error_errno(
+                                                r,
+                                                "Failed to load key '%s' from OpenSSL provider: %m",
+                                                private_key);
+                } else if (r < 0)
+                        return log_error_errno(r, "Failed to read key file '%s': %m", private_key);
+                else {
+                        r = parse_private_key(k, n, &arg_private_key);
+                        if (r < 0)
+                                return r;
+                }
         }
 
         return 1;
