@@ -4,6 +4,13 @@ PE binary, adding various features, `systemd-stub`. These components fully suppo
 this document will describe their security posture and how they comply with industry-standard expectations
 for UEFI SecureBoot workflows.
 
+Note that `systemd-stub` is not the same, or an alternative, to the Linux kernel's own EFI stub. The kernel
+stub's role is that of the fundamental entrypoint to kernel execution from UEFI mode, implementing the
+modern Linux boot protocol. `systemd-stub` on the other hand loads various resources, including the kernel
+image, via the EFI LoadImage/StartImage protocol (although it does support the legacy Linux boot protocol,
+as a fallback for older kernels on x86). The purpose of `systemd-stub` is to provide additional features and
+functionality for either or both `systemd-boot` and `systemd` (userspace).
+
 ## Fundamental Security Design Goals
 The fundamental security design goals for these components are separation of security policy logic from the
 rest of the functionality, achieved by offloading security-critical tasks to the firmware or earlier stages
