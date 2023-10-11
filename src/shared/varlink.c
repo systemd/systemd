@@ -2189,7 +2189,7 @@ int varlink_error(Varlink *v, const char *error_id, JsonVariant *parameters) {
         else {
                 const char *bad_field = NULL;
 
-                r = varlink_idl_validate_method_reply(symbol, parameters, &bad_field);
+                r = varlink_idl_validate_error(symbol, parameters, &bad_field);
                 if (r < 0)
                         log_debug_errno(r, "Parameters for error %s didn't pass validation on field '%s', ignoring: %m", error_id, strna(bad_field));
         }
