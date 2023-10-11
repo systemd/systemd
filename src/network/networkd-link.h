@@ -236,6 +236,7 @@ static inline bool link_has_carrier(Link *link) {
 
 bool link_ipv6_enabled(Link *link);
 int link_ipv6ll_gained(Link *link);
+bool link_has_ipv6_connectivity(Link *link);
 
 int link_stop_engines(Link *link, bool may_keep_dhcp);
 

@@ -139,6 +139,7 @@ struct Network {
         bool dhcp_anonymize;
         bool dhcp_send_hostname;
         int dhcp_broadcast;
+        int dhcp_ipv6_only_mode;
         bool dhcp_use_dns;
         bool dhcp_use_dns_set;
         bool dhcp_routes_to_dns;
@@ -221,6 +222,7 @@ struct Network {
         struct in_addr dhcp_server_boot_server_address;
         char *dhcp_server_boot_server_name;
         char *dhcp_server_boot_filename;
+        usec_t dhcp_server_ipv6_only_preferred_usec;
 
         /* link-local addressing support */
         AddressFamily link_local;
