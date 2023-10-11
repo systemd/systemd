@@ -2394,6 +2394,7 @@ _public_ int sd_bus_call(
         bus_assert_return(m->header->type == SD_BUS_MESSAGE_METHOD_CALL, -EINVAL, error);
         bus_assert_return(!(m->header->flags & BUS_MESSAGE_NO_REPLY_EXPECTED), -EINVAL, error);
         bus_assert_return(!bus_error_is_dirty(error), -EINVAL, error);
+        printf("\nAssertions passed\n");
 
         if (bus)
                 assert_return(bus = bus_resolve(bus), -ENOPKG);
@@ -2401,12 +2402,14 @@ _public_ int sd_bus_call(
                 assert_return(bus = m->bus, -ENOTCONN);
         bus_assert_return(!bus_origin_changed(bus), -ECHILD, error);
 
+        printf("\nIf bus check passed\n");
         if (!BUS_IS_OPEN(bus->state)) {
                 r = -ENOTCONN;
                 goto fail;
         }
-
+        printf("\nIf not bus is open check passed\n");
         r = bus_ensure_running(bus);
+        printf("\n%i\n", r);
         if (r < 0)
                 goto fail;
 
@@ -2425,8 +2428,9 @@ _public_ int sd_bus_call(
                 goto fail;
 
         timeout = calc_elapse(bus, m->timeout);
-
+        int temp = 1;
         for (;;) {
+                printf("%i iteration of the for loop is where the failure happens", temp);
                 usec_t left;
 
                 while (i < bus->rqueue_size) {
@@ -2441,7 +2445,7 @@ _public_ int sd_bus_call(
                                 log_debug_bus_message(incoming);
 
                                 if (incoming->header->type == SD_BUS_MESSAGE_METHOD_RETURN) {
-
+                                        printf(" \nmethod return\n ");
                                         if (incoming->n_fds <= 0 || bus->accept_fd) {
                                                 if (reply)
                                                         *reply = TAKE_PTR(incoming);
@@ -2452,10 +2456,13 @@ _public_ int sd_bus_call(
                                         return sd_bus_error_set(error, SD_BUS_ERROR_INCONSISTENT_MESSAGE,
                                                                 "Reply message contained file descriptors which I couldn't accept. Sorry.");
 
-                                } else if (incoming->header->type == SD_BUS_MESSAGE_METHOD_ERROR)
+                                } else if (incoming->header->type == SD_BUS_MESSAGE_METHOD_ERROR) {
+                                        printf("\nMessage method error\n");
                                         return sd_bus_error_copy(error, &incoming->error);
+                                }
                                 else {
                                         r = -EIO;
+                                        printf("\nr has been set to -EIO, go to fail\n");
                                         goto fail;
                                 }
 
@@ -2470,14 +2477,17 @@ _public_ int sd_bus_call(
                                  * let's not dead-lock, let's fail immediately. */
 
                                 r = -ELOOP;
+                                printf("\nr has been set to -ELOOP, go to fail\n");
                                 goto fail;
                         }
 
                         /* Try to read more, right-away */
                         i++;
+                        printf("\n Increasing value of i by incrementing after \n");
                 }
 
                 r = bus_read_message(bus);
+                printf("\n Value of r is %i\n", r);
                 if (r < 0) {
                         if (ERRNO_IS_DISCONNECT(r)) {
                                 bus_enter_closing(bus);
@@ -2488,8 +2498,10 @@ _public_ int sd_bus_call(
                 }
                 if (r > 0)
                         continue;
+                printf("\n r is not greater than 0 I think? \n");
 
                 if (timeout > 0) {
+                        printf("\n timeout is greater than 0 \n");
                         usec_t n;
 
                         n = now(CLOCK_MONOTONIC);
@@ -2503,6 +2515,7 @@ _public_ int sd_bus_call(
                         left = UINT64_MAX;
 
                 r = bus_poll(bus, true, left);
+                printf("\n r is %i \n", r);
                 if (ERRNO_IS_NEG_TRANSIENT(r))
                         continue;
                 if (r < 0)
@@ -2512,8 +2525,10 @@ _public_ int sd_bus_call(
                         goto fail;
                 }
 
+                printf("\n r is fine before dispatch wqueue \n");
                 r = dispatch_wqueue(bus);
                 if (r < 0) {
+                        printf("\n r is less than 0 after dispatch wqueue \n");
                         if (ERRNO_IS_DISCONNECT(r)) {
                                 bus_enter_closing(bus);
                                 r = -ECONNRESET;
@@ -2521,6 +2536,8 @@ _public_ int sd_bus_call(
 
                         goto fail;
                 }
+                printf("\n sd bus call is good too \n");
+                temp+=1;
         }
 
 fail:

@@ -2076,6 +2076,7 @@ _public_ int sd_bus_message_append(sd_bus_message *m, const char *types, ...) {
         r = sd_bus_message_appendv(m, types, ap);
         va_end(ap);
 
+        printf("\n Now we are in the sd_bus_message_append() function\n");
         return r;
 }
 
@@ -2360,7 +2361,7 @@ _public_ int sd_bus_message_append_strv(sd_bus_message *m, char **l) {
                 if (r < 0)
                         return r;
         }
-
+        printf("\nSD BUS MESSAGE APPEND STRV\n");
         return sd_bus_message_close_container(m);
 }
 
