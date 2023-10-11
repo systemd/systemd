@@ -151,11 +151,8 @@ Features:
   2nd key derived from volume key of the user, with which to wrap all
   keys. maintain keys in kernel keyring if possible.
 
-* use sd-event ratelimit feature optionally for .socket units to "pause" overly
-  busy sockets temporarily. (as a less drastic version of the trigger
-  ratelimit)
-
-* similar, add the same for journal stream clients that log too much
+* use sd-event ratelimit feature optionally for journal stream clients that log
+  too much
 
 * systemd-mount sould only consider modern file systems when mounting, similar
   to systemd-dissect
@@ -258,13 +255,6 @@ Features:
 * add proper .osrel matching for PE addons. i.e. refuse applying an addon
   intended for a different OS. Take inspiration from how confext/sysext are
   matched against OS.
-
-* use different sbat for sd-boot and sd-stub (so that people can revoke one
-  without the other)
-
-* in ukify merge sbat info from kernel (if it has any, upstream kernels so far
-  dont), of sd-stub and data supplied by user. Then measure sbat too in
-  sd-stub, explicitly.
 
 * figure out what to do about credentials sealed to PCRs in kexec + soft-reboot
   scenarios. Maybe insist sealing is done additionally against some keypair in
@@ -545,11 +535,6 @@ Features:
   of the activated configuration and the image that is being activated (in case
   verity is used, hash of the root hash).
 
-* whenever we measure something into a TPM PCR from userspace, write a record in
-  TCG's "Canonical Event Log" format to some file, so that we can reason about
-  how PCR values we manage came to
-  be. https://trustedcomputinggroup.org/resource/canonical-event-log-format/
-
 * bootspec: permit graceful "update" from type #2 to type #1. If both a type #1
   and a type #2 entry exist under otherwise the exact same name, then use the
   type #1 entry, and ignore the type #2 entry. This way, people can "upgrade"
@@ -594,9 +579,6 @@ Features:
   addition to the existing mechanisms via EFI variables and kernel command
   line. Benefit: works also on non-EFI systems, and can be requested on one
   boot, for the next.
-
-* figure out a sane way when building UKIs how to extract SBAT data from inner
-  kernel, extend it with component info, and add to outer kernel.
 
 * systemd-sysupdate: make transport pluggable, so people can plug casync or
   similar behind it, instead of http.
@@ -1005,8 +987,6 @@ Features:
   invoke a VM or nspawn container in a way it automatically deploys/runs these
   images as OS payloads. i.e. have a generic OS image you can point to any
   payload you like, which is then downloaded, securely verified and run.
-
-* improve scope units to support creation by pidfd instead of by PID
 
 * deprecate cgroupsv1 further (print log message at boot)
 
@@ -1449,9 +1429,6 @@ Features:
 
 * maybe extend .path units to expose fanotify() per-mount change events
 
-* When reloading configuration PID 1 should reset all its properties to the
-  original defaults before calling parse_config()
-
 * hibernate/s2h: if swap is on weird storage and refuse if so
 
 * cgroups: use inotify to get notified when somebody else modifies cgroups
@@ -1563,9 +1540,6 @@ Features:
 
 * In DynamicUser= mode: before selecting a UID, use disk quota APIs on relevant
   disks to see if the UID is already in use.
-
-* expose IO accounting data on the bus, show it in systemd-run --wait and log
-  about it in the resource log message
 
 * Add AddUser= setting to unit files, similar to DynamicUser=1 which however
   creates a static, persistent user rather than a dynamic, transient user. We
@@ -1748,8 +1722,8 @@ Features:
   - when reloading configuration, apply new cgroup configuration
   - when recursively showing the cgroup hierarchy, optionally also show
     the hierarchies of child processes
-- add settings for cgroup.max.descendants and cgroup.max.depth,
-  maybe use them for user@.service
+  - add settings for cgroup.max.descendants and cgroup.max.depth,
+    maybe use them for user@.service
 
 * transient units:
   - add field to transient units that indicate whether systemd or somebody else saves/restores its settings, for integration with libvirt
@@ -1761,8 +1735,6 @@ Features:
 * be more careful what we export on the bus as (usec_t) 0 and (usec_t) -1
 
 * rfkill,backlight: we probably should run the load tools inside of the udev rules so that the state is properly initialized by the time other software sees it
-
-* After coming back from hibernation reset hibernation swap partition using the /dev/snapshot ioctl APIs
 
 * If we try to find a unit via a dangling symlink, generate a clean
   error. Currently, we just ignore it and read the unit from the search
@@ -2214,8 +2186,6 @@ Features:
 * systemd-repart: maybe remove half-initialized image on failure. It fails
   if the output file exists, so a repeated invocation will usually fail if
   something goes wrong on the way.
-
-* systemd-repart: drop pager mode on normal operation?
 
 * systemd-repart: by default generate minimized partition tables (i.e. tables
   that only cover the space actually used, excluding any free space at the
