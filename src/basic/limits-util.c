@@ -156,8 +156,11 @@ uint64_t system_tasks_max(void) {
         if (r < 0)
                 log_debug_errno(r, "Failed to determine cgroup root path, ignoring: %m");
         else {
+                /* We'll have the "pids.max" attribute on the our root cgroup only if we are in a
+                 * CLONE_NEWCGROUP namespace. On the top-level namespace this attribute is missing, hence
+                 * suppress any message about that */
                 r = cg_get_attribute_as_uint64("pids", root, "pids.max", &c);
-                if (r < 0)
+                if (r < 0 && r != -ENODATA)
                         log_debug_errno(r, "Failed to read pids.max attribute of root cgroup, ignoring: %m");
         }
 
