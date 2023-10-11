@@ -98,8 +98,9 @@ static int determine_image(const char *image, bool permit_non_existing, char **r
          * usual search directories. Otherwise we presume it's a path, and will normalize it on the client's side
          * (among other things, to make the path independent of the client's working directory) before passing it
          * over. */
-
+        printf("\n Entering the determine image function with image name %s \n", image);
         if (image_name_is_valid(image)) {
+                printf("\nImage name is valid\n");
                 char *c;
 
                 if (!arg_quiet && laccess(image, F_OK) >= 0)
@@ -111,6 +112,7 @@ static int determine_image(const char *image, bool permit_non_existing, char **r
                         return log_oom();
 
                 *ret = c;
+                printf("\nImage name is valid and we have reached the end of that loop\n");
                 return 0;
         }
 
@@ -119,9 +121,11 @@ static int determine_image(const char *image, bool permit_non_existing, char **r
                                        "Operations on images by path not supported when connecting to remote systems.");
 
         r = chase(image, NULL, CHASE_TRAIL_SLASH | (permit_non_existing ? CHASE_NONEXISTENT : 0), ret, NULL);
-        if (r < 0)
+        if (r < 0) {
+                printf("\nWe were chasing the image name but things failed here.\n");
                 return log_error_errno(r, "Cannot normalize specified image path '%s': %m", image);
-
+        }
+        printf("\nWas able to determine that the image %s is valid\n", image);
         return 0;
 }
 
@@ -141,20 +145,25 @@ static int attach_extensions_to_message(sd_bus_message *m, const char *method, c
 
         STRV_FOREACH(p, extensions) {
                 _cleanup_free_ char *resolved_extension_image = NULL;
-
+                printf("\nThe image being determined now is: %s\n", *p);
                 r = determine_image(*p, false, &resolved_extension_image);
                 if (r < 0)
                         return r;
 
                 r = sd_bus_message_append(m, "s", resolved_extension_image);
-                if (r < 0)
+                printf("\nThe resolved extension image is: %s\n", resolved_extension_image);
+                if (r < 0) {
+                        printf("\nValue of r %i is less than 0 on append\n", r);
                         return bus_log_create_error(r);
+                }
         }
 
         r = sd_bus_message_close_container(m);
-        if (r < 0)
+        if (r < 0) {
+                printf("\nValue of r %i is less than 0 on closing the container\n", r);
                 return bus_log_create_error(r);
-
+        }
+        printf("\nClosed the dbus message container %i\n", r);
         return 0;
 }
 
@@ -194,6 +203,8 @@ static int extract_prefix(const char *path, char **ret) {
                 return -EINVAL;
 
         *ret = TAKE_PTR(name);
+
+        printf("\nThe prefix is extracted and is %s\n", *ret);
         return 0;
 }
 
@@ -893,14 +904,17 @@ static int attach_reattach_image(int argc, char *argv[], const char *method) {
         if (r < 0)
                 return r;
 
+        printf("\nThe image has been successfully validated, now moving to matches\n");
         r = determine_matches(argv[1], argv + 2, false, &matches);
         if (r < 0)
                 return r;
 
+        printf("\nThe image matches have been found\n");
         r = acquire_bus(&bus);
         if (r < 0)
                 return r;
 
+        printf("\nBus has been acquired\n");
         (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         r = bus_message_new_method_call(bus, &m, bus_portable_mgr, method);
@@ -918,28 +932,36 @@ static int attach_reattach_image(int argc, char *argv[], const char *method) {
         r = sd_bus_message_append_strv(m, matches);
         if (r < 0)
                 return bus_log_create_error(r);
-
+        printf("\n The matches are appended to dbus: %s\n", *matches);
         r = sd_bus_message_append(m, "s", arg_profile);
         if (r < 0)
                 return bus_log_create_error(r);
-
+        printf("\n We are out of the sd bus append function and things are good %i\n", r);
         if (STR_IN_SET(method, "AttachImageWithExtensions", "ReattachImageWithExtensions")) {
                 uint64_t flags = (arg_runtime ? PORTABLE_RUNTIME : 0) | (arg_force ? PORTABLE_FORCE_ATTACH | PORTABLE_FORCE_EXTENSION : 0);
 
                 r = sd_bus_message_append(m, "st", arg_copy_mode, flags);
-        } else
+                printf("\n We are again out of the sd bus append function and things are good %i\n", r);
+        } else {
+                printf("\n Going an alternate route with this:\n");
                 r = sd_bus_message_append(m, "bs", arg_runtime, arg_copy_mode);
+                printf("\n We are again out of the sd bus append function and things are good %i\n", r);
+        }
         if (r < 0)
                 return bus_log_create_error(r);
-
+        printf("\nMade it this far now\n");
         r = sd_bus_call(bus, m, 0, &error, &reply);
-        if (r < 0)
+        if (r < 0) {
+                printf("\n The sd bus call returns a value of r that is less than 0 \n");
                 return log_error_errno(r, "%s failed: %s", method, bus_error_message(&error, r));
-
+        }
+        printf("\n We are out of the sd bus call function and things are good %i\n", r);
         (void) maybe_reload(&bus);
 
         print_changes(reply);
+        printf("\n We have printed the reply changes \n");
 
+        printf("\n Let's print the method now %s\n", method);
         if (STR_IN_SET(method, "AttachImage", "AttachImageWithExtensions"))
                 (void) maybe_enable_start(bus, reply);
         else {
@@ -948,6 +970,7 @@ static int attach_reattach_image(int argc, char *argv[], const char *method) {
                 (void) maybe_stop_enable_restart(bus, reply);
         }
 
+        printf("\n Will finally return 0 if all goes well \n");
         return 0;
 }
 

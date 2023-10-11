@@ -33,7 +33,7 @@ systemd-dissect --no-pager /usr/share/minimal_0.raw | grep -q '✓ portable serv
 systemd-dissect --no-pager /usr/share/minimal_1.raw | grep -q '✓ portable service'
 systemd-dissect --no-pager /usr/share/app0.raw | grep -q '✓ sysext extension for portable service'
 systemd-dissect --no-pager /usr/share/app1.raw | grep -q '✓ sysext extension for portable service'
-systemd-dissect --no-pager /etc/app00.raw | grep -q '✓ confext extension for portable service'
+systemd-dissect --no-pager /usr/share/app00.raw | grep -q '✓ confext extension for portable service'
 
 export SYSTEMD_LOG_LEVEL=debug
 mkdir -p /run/systemd/system/systemd-portabled.service.d/
@@ -118,8 +118,11 @@ portablectl list | grep -q -F "No images."
 busctl tree org.freedesktop.portable1 --no-pager | grep -q -F '/org/freedesktop/portable1/image/minimal_5f1' && exit 1
 
 # Need to figure out why this is not working
-# portablectl "${ARGS[@]}" attach --now --runtime --extension /usr/share/app0.raw --extension /etc/app00.raw /usr/share/minimal_0.raw app0
 portablectl "${ARGS[@]}" attach --now --runtime --extension /usr/share/app0.raw /usr/share/minimal_0.raw app0
+portablectl list | grep -q -F "app0"
+portablectl "${ARGS[@]}" detach --now --runtime --extension /usr/share/app0.raw /usr/share/minimal_0.raw app0
+portablectl list | grep -q -F "No images"
+portablectl "${ARGS[@]}" attach --now --runtime --extension /usr/share/app0.raw --extension /usr/share/app00.raw /usr/share/minimal_0.raw app0
 
 systemctl is-active app0.service
 # systemctl is-active app00.service
