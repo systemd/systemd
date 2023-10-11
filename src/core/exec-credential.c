@@ -932,7 +932,8 @@ int exec_setup_credentials(
 
         r = safe_fork("(sd-mkdcreds)", FORK_DEATHSIG|FORK_WAIT|FORK_NEW_MOUNTNS, NULL);
         if (r < 0) {
-                _cleanup_free_ char *t = NULL, *u = NULL;
+                _cleanup_(rmdir_and_freep) char *u = NULL; /* remove the temporary workspace if we can */
+                _cleanup_free_ char *t = NULL;
 
                 /* If this is not a privilege or support issue then propagate the error */
                 if (!ERRNO_IS_NOT_SUPPORTED(r) && !ERRNO_IS_PRIVILEGE(r))
@@ -967,9 +968,6 @@ int exec_setup_credentials(
                                 false,   /* it's OK to fall back to a plain directory if we can't mount anything */
                                 uid,
                                 gid);
-
-                (void) rmdir(u); /* remove the workspace again if we can. */
-
                 if (r < 0)
                         return r;
 
