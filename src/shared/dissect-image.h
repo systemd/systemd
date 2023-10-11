@@ -6,11 +6,13 @@
 #include "sd-id128.h"
 
 #include "architecture.h"
+#include "env-util.h"
 #include "gpt.h"
 #include "list.h"
 #include "loop-util.h"
 #include "macro.h"
 #include "os-util.h"
+#include "strv.h"
 
 typedef struct DissectedImage DissectedImage;
 typedef struct DissectedPartition DissectedPartition;
@@ -108,9 +110,9 @@ struct DissectedImage {
         char **machine_info;
         char **os_release;
         char **initrd_release;
-        char **extension_release;
+        char **confext_release;
+        char **sysext_release;
         int has_init_system;
-        ImageClass image_class;
 };
 
 struct MountOptions {
@@ -168,6 +170,22 @@ int dissected_image_mount_and_warn(DissectedImage *m, const char *where, uid_t u
 int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_flags);
 
 Architecture dissected_image_architecture(DissectedImage *m);
+
+static inline bool dissected_image_is_bootable_os(DissectedImage *m) {
+        return m && m->has_init_system > 0;
+}
+
+static inline bool dissected_image_is_bootable_uefi(DissectedImage *m) {
+        return m && m->partitions[PARTITION_ESP].found && dissected_image_is_bootable_os(m);
+}
+
+static inline bool dissected_image_is_portable(DissectedImage *m) {
+        return m && strv_env_pairs_get(m->os_release, "PORTABLE_PREFIXES");
+}
+
+static inline bool dissected_image_is_initrd(DissectedImage *m) {
+        return m && !strv_isempty(m->initrd_release);
+}
 
 DecryptedImage* decrypted_image_ref(DecryptedImage *p);
 DecryptedImage* decrypted_image_unref(DecryptedImage *p);
