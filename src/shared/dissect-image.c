@@ -3912,6 +3912,7 @@ int verity_dissect_and_mount(
                 const char *required_host_os_release_id,
                 const char *required_host_os_release_version_id,
                 const char *required_host_os_release_sysext_level,
+                const char *required_host_os_release_confext_level,
                 const char *required_sysext_scope,
                 DissectedImage **ret_image) {
 
@@ -4029,7 +4030,7 @@ int verity_dissect_and_mount(
                                 dissected_image->image_name,
                                 required_host_os_release_id,
                                 required_host_os_release_version_id,
-                                required_host_os_release_sysext_level,
+                                class == IMAGE_SYSEXT ? required_host_os_release_sysext_level : required_host_os_release_confext_level,
                                 required_sysext_scope,
                                 extension_release,
                                 class);
