@@ -267,6 +267,9 @@ _SD_BEGIN_DECLARATIONS;
 #define SD_MESSAGE_SYSV_GENERATOR_DEPRECATED          SD_ID128_MAKE(a8,fa,8d,ac,db,1d,44,3e,95,03,b8,be,36,7a,6a,db)
 #define SD_MESSAGE_SYSV_GENERATOR_DEPRECATED_STR      SD_ID128_MAKE_STR(a8,fa,8d,ac,db,1d,44,3e,95,03,b8,be,36,7a,6a,db)
 
+#define SD_MESSAGE_BPFD_LOG                            SD_ID128_MAKE(8f,f4,78,c2,0d,67,49,0c,b8,93,d2,9d,c5,5c,3f,37)
+#define SD_MESSAGE_BPFD_LOG_STR                        SD_ID128_MAKE_STR(8f,f4,78,c2,0d,67,49,0c,b8,93,d2,9d,c5,5c,3f,37)
+
 _SD_END_DECLARATIONS;
 
 #endif
