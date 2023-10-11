@@ -275,6 +275,7 @@ static int set_local_rtc(int argc, char **argv, void *userdata) {
 }
 
 static int set_ntp(int argc, char **argv, void *userdata) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = userdata;
         int b, r;
@@ -285,7 +286,16 @@ static int set_ntp(int argc, char **argv, void *userdata) {
         if (b < 0)
                 return log_error_errno(b, "Failed to parse NTP setting '%s': %m", argv[1]);
 
-        r = bus_call_method(bus, bus_timedate, "SetNTP", &error, NULL, "bb", b, arg_ask_password);
+        r = bus_message_new_method_call(bus, &m, bus_timedate, "SetNTP");
+        if (r < 0)
+                return bus_log_create_error(r);
+                
+        r = sd_bus_message_append(m, "bb", b, arg_ask_password);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        /* Reloading the daemon may take long, hence set a longer timeout here */
+        r = sd_bus_call(bus, m, DAEMON_RELOAD_TIMEOUT_SEC, &error, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to set ntp: %s", bus_error_message(&error, r));
 
