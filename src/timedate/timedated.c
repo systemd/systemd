@@ -18,6 +18,7 @@
 #include "bus-log-control-api.h"
 #include "bus-map-properties.h"
 #include "bus-polkit.h"
+#include "bus-unit-util.h"
 #include "clock-util.h"
 #include "conf-files.h"
 #include "constants.h"
@@ -545,7 +546,7 @@ static int unit_enable_or_disable(UnitStatusInfo *u, sd_bus *bus, sd_bus_error *
         if (r < 0)
                 return r;
 
-        r = bus_call_method(bus, bus_systemd_mgr, "Reload", error, NULL, NULL);
+        r = bus_service_manager_reload(bus);
         if (r < 0)
                 return r;
 
