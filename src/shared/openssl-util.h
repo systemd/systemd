@@ -11,6 +11,7 @@
 #  include <openssl/bio.h>
 #  include <openssl/bn.h>
 #  include <openssl/crypto.h>
+#  include <openssl/engine.h>
 #  include <openssl/err.h>
 #  include <openssl/evp.h>
 #  include <openssl/opensslv.h>
@@ -116,6 +117,7 @@ int digest_and_sign(const EVP_MD *md, EVP_PKEY *privkey, const void *data, size_
 
 typedef struct X509 X509;
 typedef struct EVP_PKEY EVP_PKEY;
+typedef struct ENGINE ENGINE;
 
 static inline void *X509_free(X509 *p) {
         assert(p == NULL);
@@ -127,10 +129,18 @@ static inline void *EVP_PKEY_free(EVP_PKEY *p) {
         return NULL;
 }
 
+static inline void *ENGINE_free(ENGINE *p) {
+        assert(p == NULL);
+        return NULL;
+}
+
 #endif
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(X509*, X509_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(EVP_PKEY*, EVP_PKEY_free, NULL);
+DISABLE_WARNING_DEPRECATED_DECLARATIONS
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(ENGINE*, ENGINE_free, NULL);
+REENABLE_WARNING
 
 int x509_fingerprint(X509 *cert, uint8_t buffer[static X509_FINGERPRINT_SIZE]);
 
