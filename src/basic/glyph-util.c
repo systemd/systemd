@@ -73,6 +73,8 @@ const char *special_glyph_full(SpecialGlyph code, bool force_utf) {
                         [SPECIAL_GLYPH_SPARKLES]                = "*",
                         [SPECIAL_GLYPH_LOW_BATTERY]             = "!",
                         [SPECIAL_GLYPH_WARNING_SIGN]            = "!",
+                        [SPECIAL_GLYPH_LINE_HORIZONTAL]         = "-",
+                        [SPECIAL_GLYPH_LINE_VERTICAL]           = "|",
                 },
 
                 /* UTF-8 */
@@ -132,6 +134,10 @@ const char *special_glyph_full(SpecialGlyph code, bool force_utf) {
                         [SPECIAL_GLYPH_SPARKLES]                = u8"✨",
                         [SPECIAL_GLYPH_LOW_BATTERY]             = u8"🪫",
                         [SPECIAL_GLYPH_WARNING_SIGN]            = u8"⚠️",
+
+                        /* Single glyphs in both cases */
+                        [SPECIAL_GLYPH_LINE_HORIZONTAL]         = u8"⎯",         /* actually called: HORIZONTAL LINE EXTENSION */
+                        [SPECIAL_GLYPH_LINE_VERTICAL]           = u8"｜",         /* actually called: VERTICAL LINE EXTENSION */
                 },
         };
 

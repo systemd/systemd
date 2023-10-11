@@ -156,6 +156,9 @@ struct Table {
         size_t n_json_fields;
 
         bool *reverse_map;
+
+        size_t *delimiter_map; /* In vertical mode, after which rows a delimiter should be added. */
+        size_t n_delimiter_map;
 };
 
 Table *table_new_raw(size_t n_columns) {
@@ -1289,6 +1292,21 @@ int table_hide_column_from_display_internal(Table *t, ...) {
         return 0;
 }
 
+int table_add_delimiter(Table *t) {
+        assert(t);
+        assert(t->vertical);
+
+        size_t rows = table_get_rows(t);
+        if (rows == 0)
+                return -EINVAL;
+
+        if (!GREEDY_REALLOC(t->delimiter_map, t->n_delimiter_map + 1))
+                return log_oom_debug();
+
+        t->delimiter_map[t->n_delimiter_map++] = rows - 1;
+        return 0;
+}
+
 static int cell_data_compare(TableData *a, size_t index_a, TableData *b, size_t index_b) {
         int r;
 
@@ -2133,6 +2151,10 @@ static const char* table_data_rgap_color(TableData *d) {
         return NULL;
 }
 
+static int row_compare(const size_t *a, const size_t *b) {
+        return CMP(*ASSERT_PTR(a), *ASSERT_PTR(b));
+}
+
 int table_print(Table *t, FILE *f) {
         size_t n_rows, *minimum_width, *maximum_width, display_columns, *requested_width,
                 table_minimum_width, table_maximum_width, table_requested_width, table_effective_width,
@@ -2522,6 +2544,14 @@ int table_print(Table *t, FILE *f) {
                         fputc('\n', f);
                         n_subline ++;
                 } while (more_sublines);
+
+                if (typesafe_bsearch(&i, t->delimiter_map, t->n_delimiter_map, row_compare)) {
+                        for (size_t j = 0; j < display_columns; j++)
+                                for (size_t w = 0; w < width[j]; w++)
+                                        fputs(special_glyph(SPECIAL_GLYPH_LINE_HORIZONTAL), f);
+
+                        fputc('\n', f);
+                }
         }
 
         return fflush_and_check(f);
@@ -2906,8 +2936,7 @@ static int table_to_json_regular(Table *t, JsonVariant **ret) {
 }
 
 static int table_to_json_vertical(Table *t, JsonVariant **ret) {
-        JsonVariant **elements = NULL;
-        size_t n_elements = 0;
+        _cleanup_(json_variant_unrefp) JsonVariant *o = NULL, *a = NULL;
         int r;
 
         assert(t);
@@ -2916,40 +2945,43 @@ static int table_to_json_vertical(Table *t, JsonVariant **ret) {
         if (t->n_columns != 2)
                 return -EINVAL;
 
+        if (!ret)
+                return -EINVAL;
+
         /* Ensure we have no incomplete rows */
         assert(t->n_cells % t->n_columns == 0);
 
-        elements = new0(JsonVariant *, t->n_cells);
-        if (!elements)
-                return -ENOMEM;
+        for (size_t i = t->n_columns; i < t->n_cells; i += 2) {
+                _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+                _cleanup_free_ char *mangled = NULL;
+                const char *n;
 
-        CLEANUP_ARRAY(elements, n_elements, json_variant_unref_many);
+                n = table_get_json_field_name(t, i / t->n_columns - 1);
+                if (!n) {
+                        r = table_make_json_field_name(t, ASSERT_PTR(t->data[i]), &mangled);
+                        if (r < 0)
+                                return r;
 
-        for (size_t i = t->n_columns; i < t->n_cells; i++) {
+                        n = mangled;
+                }
 
-                if (i % t->n_columns == 0) {
-                        _cleanup_free_ char *mangled = NULL;
-                        const char *n;
-
-                        n = table_get_json_field_name(t, i / t->n_columns - 1);
-                        if (!n) {
-                                r = table_make_json_field_name(t, ASSERT_PTR(t->data[i]), &mangled);
-                                if (r < 0)
-                                        return r;
-
-                                n = mangled;
-                        }
-
-                        r = json_variant_new_string(elements + n_elements, n);
-                } else
-                        r = table_data_to_json(t->data[i], elements + n_elements);
+                r = table_data_to_json(t->data[i + 1], &v);
                 if (r < 0)
                         return r;
 
-                n_elements++;
+                r = json_variant_set_field(&o, n, v);
+                if (r < 0)
+                        return r;
+
+                if (typesafe_bsearch(&(size_t) { i / 2 }, t->delimiter_map, t->n_delimiter_map, row_compare)) {
+                        r = json_variant_append_array(&a, TAKE_PTR(o));
+                        if (r < 0)
+                                return r;
+                }
         }
 
-        return json_variant_new_object(ret, elements, n_elements);
+        *ret = a ? TAKE_PTR(a) : TAKE_PTR(o);
+        return 0;
 }
 
 int table_to_json(Table *t, JsonVariant **ret) {
