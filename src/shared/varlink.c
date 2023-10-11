@@ -1314,7 +1314,12 @@ static int varlink_dispatch_method(Varlink *v) {
                         r = varlink_idl_validate_method_call(v->current_method, parameters, &bad_field);
                         if (r < 0) {
                                 log_debug_errno(r, "Parameters for method %s() didn't pass validation on field '%s': %m", method, strna(bad_field));
-                                r = varlink_errorb(v, VARLINK_ERROR_INVALID_PARAMETER, JSON_BUILD_OBJECT(JSON_BUILD_PAIR_STRING("parameter", bad_field)));
+
+                                if (!FLAGS_SET(flags, VARLINK_METHOD_ONEWAY)) {
+                                        r = varlink_errorb(v, VARLINK_ERROR_INVALID_PARAMETER, JSON_BUILD_OBJECT(JSON_BUILD_PAIR_STRING("parameter", bad_field)));
+                                        if (r < 0)
+                                                return r;
+                                }
                                 invalid = true;
                         }
                 }
