@@ -2275,6 +2275,12 @@ int varlink_notify(Varlink *v, JsonVariant *parameters) {
 
         if (v->state == VARLINK_DISCONNECTED)
                 return varlink_log_errno(v, SYNTHETIC_ERRNO(ENOTCONN), "Not connected.");
+
+        /* If we want to reply with a notify connection but the caller didn't set "more", then return an
+         * error indicating that we expected to be called with "more" set */
+        if (IN_SET(v->state, VARLINK_PROCESSING_METHOD, VARLINK_PENDING_METHOD))
+                return varlink_error(v, VARLINK_ERROR_EXPECTED_MORE, NULL);
+
         if (!IN_SET(v->state, VARLINK_PROCESSING_METHOD_MORE, VARLINK_PENDING_METHOD_MORE))
                 return varlink_log_errno(v, SYNTHETIC_ERRNO(EBUSY), "Connection busy.");
 
