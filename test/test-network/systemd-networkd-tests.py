@@ -5271,6 +5271,31 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         print(f"DHCPv4 client state = {state}")
         self.assertEqual(state, 'stopped')
 
+        # restart dnsmasq to clear log
+        stop_dnsmasq()
+        start_dnsmasq('--dhcp-option=108,00:00:02:00')
+
+        # Test renew command
+        # See https://github.com/systemd/systemd/pull/29472#issuecomment-1759092138
+        check_output(*networkctl_cmd, 'renew', 'veth99', env=env)
+
+        for _ in range(100):
+            state = get_dhcp4_client_state('veth99')
+            if state == 'stopped':
+                break
+            time.sleep(.2)
+
+        print(f"DHCPv4 client state = {state}")
+        self.assertEqual(state, 'stopped')
+
+        print('## dnsmasq log')
+        output = read_dnsmasq_log_file()
+        print(output)
+        self.assertIn('DHCPDISCOVER(veth-peer) 12:34:56:78:9a:bc', output)
+        self.assertIn('DHCPOFFER(veth-peer)', output)
+        self.assertNotIn('DHCPREQUEST(veth-peer)', output)
+        self.assertNotIn('DHCPACK(veth-peer)', output)
+
     def test_dhcp_client_ipv6_only_with_custom_client_identifier(self):
         copy_network_unit('25-veth.netdev', '25-dhcp-server-veth-peer.network', '25-dhcp-client-ipv6-only-custom-client-identifier.network')
 
@@ -5293,8 +5318,6 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertNotIn('DHCPREQUEST(veth-peer)', output)
         self.assertIn('DHCPREPLY(veth-peer)', output)
         self.assertIn('sent size:  0 option: 14 rapid-commit', output)
-
-        stop_dnsmasq()
 
     def test_dhcp_client_ipv4_only(self):
         copy_network_unit('25-veth.netdev', '25-dhcp-server-veth-peer.network', '25-dhcp-client-ipv4-only.network')
