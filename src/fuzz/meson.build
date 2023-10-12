@@ -12,4 +12,5 @@ simple_fuzzers += files(
         'fuzz-time-util.c',
         'fuzz-udev-database.c',
         'fuzz-varlink.c',
+        'fuzz-varlink-idl.c',
 )
