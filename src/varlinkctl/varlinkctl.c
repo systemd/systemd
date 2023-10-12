@@ -475,12 +475,20 @@ static int verb_validate_idl(int argc, char *argv[], void *userdata) {
         }
 
         r = varlink_idl_parse(text, &line, &column, &vi);
+        if (r == -EBADMSG)
+                return log_error_errno(r, "%s:%u:%u: Bad syntax.", fname, line, column);
+        if (r == -ENETUNREACH)
+                return log_error_errno(r, "%s:%u:%u: Failed to parse interface description due an unresolved type.", fname, line, column);
         if (r < 0)
                 return log_error_errno(r, "%s:%u:%u: Failed to parse interface description: %m", fname, line, column);
 
         r = varlink_idl_consistent(vi, LOG_ERR);
+        if (r == -EUCLEAN)
+                return log_error_errno(r, "Interface is inconsistent.");
+        if (r == -ENOTUNIQ)
+                return log_error_errno(r, "Field or symbol not unique in interface.");
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to check interface for consistency: %m");
 
         pager_open(arg_pager_flags);
 
