@@ -1128,6 +1128,129 @@ int string_hashsum(
         return 0;
 }
 #  endif
+
+#if OPENSSL_VERSION_MAJOR >= 3
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(OSSL_STORE_CTX*, OSSL_STORE_close, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(OSSL_STORE_INFO*, OSSL_STORE_INFO_free, NULL);
+#endif
+
+static int load_key_from_provider(
+                const char *provider,
+                const char *private_key_uri,
+                EVP_PKEY **private_key) {
+
+        assert(provider);
+        assert(private_key_uri);
+        assert(private_key);
+
+#if OPENSSL_VERSION_MAJOR >= 3
+        if (!OSSL_PROVIDER_load(/* ctx= */ NULL, provider))
+                return log_debug_errno(
+                                SYNTHETIC_ERRNO(EINVAL),
+                                "Failed to load OpenSSL provider '%s': %s",
+                                provider,
+                                ERR_error_string(ERR_get_error(), NULL));
+        if (!OSSL_PROVIDER_load(/* ctx= */ NULL, "default"))
+                return log_debug_errno(
+                                SYNTHETIC_ERRNO(EINVAL),
+                                "Failed to load OpenSSL provider 'default': %s",
+                                ERR_error_string(ERR_get_error(), NULL));
+
+        _cleanup_(OSSL_STORE_closep) OSSL_STORE_CTX *store = OSSL_STORE_open(
+                        private_key_uri,
+                        /* ui_method= */ NULL,
+                        /* ui_data= */ NULL,
+                        /* post_process= */ NULL,
+                        /* post_process_data= */ NULL);
+        if (!store)
+                return log_debug_errno(
+                                SYNTHETIC_ERRNO(EINVAL),
+                                "Failed to open OpenSSL store via '%s': %s",
+                                private_key_uri,
+                                ERR_error_string(ERR_get_error(), NULL));
+
+        _cleanup_(OSSL_STORE_INFO_freep) OSSL_STORE_INFO *info = OSSL_STORE_load(store);
+        if (!info)
+                return log_debug_errno(
+                                SYNTHETIC_ERRNO(EINVAL),
+                                "Failed to load OpenSSL store via '%s': %s",
+                                private_key_uri,
+                                ERR_error_string(ERR_get_error(), NULL));
+
+        EVP_PKEY_free(*private_key);
+        *private_key = OSSL_STORE_INFO_get1_PKEY(info);
+        if (!*private_key)
+                return log_debug_errno(
+                                SYNTHETIC_ERRNO(EINVAL),
+                                "Failed to load private key via '%s': %s",
+                                private_key_uri,
+                                ERR_error_string(ERR_get_error(), NULL));
+
+        return 0;
+#else
+        return -EOPNOTSUPP;
+#endif
+}
+
+DISABLE_WARNING_DEPRECATED_DECLARATIONS
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(ENGINE*, ENGINE_free, NULL);
+REENABLE_WARNING
+
+static int load_key_from_engine(
+                const char *engine,
+                const char *private_key_uri,
+                EVP_PKEY **private_key) {
+
+        assert(engine);
+        assert(private_key_uri);
+        assert(private_key);
+
+        DISABLE_WARNING_DEPRECATED_DECLARATIONS
+        _cleanup_(ENGINE_freep) ENGINE *e = ENGINE_by_id(engine);
+        if (!e)
+                return log_debug_errno(
+                                SYNTHETIC_ERRNO(EINVAL),
+                                "Failed to load signing engine '%s': %s",
+                                engine,
+                                ERR_error_string(ERR_get_error(), NULL));
+
+        if (ENGINE_init(e) == 0)
+                return log_debug_errno(
+                                SYNTHETIC_ERRNO(EINVAL),
+                                "Failed to initialize signing engine '%s': %s",
+                                engine,
+                                ERR_error_string(ERR_get_error(), NULL));
+
+        EVP_PKEY_free(*private_key);
+        *private_key = ENGINE_load_private_key(
+                        e,
+                        private_key_uri,
+                        /* ui_method= */ NULL,
+                        /* callback_data= */ NULL);
+        if (!*private_key)
+                return log_debug_errno(
+                                SYNTHETIC_ERRNO(EINVAL),
+                                "Failed to load private key from '%s': %s",
+                                private_key_uri,
+                                ERR_error_string(ERR_get_error(), NULL));
+        REENABLE_WARNING
+
+        return 0;
+}
+
+int openssl_load_key_from_provider(
+                const char *provider,
+                const char *private_key_uri,
+                EVP_PKEY **private_key) {
+
+        int r;
+
+        r = load_key_from_provider(provider, private_key_uri, private_key);
+        if (r < 0)
+                r = load_key_from_engine(provider, private_key_uri, private_key);
+
+        return r;
+}
 #endif
 
 int x509_fingerprint(X509 *cert, uint8_t buffer[static SHA256_DIGEST_SIZE]) {
