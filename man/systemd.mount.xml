@@ -269,16 +269,15 @@
        </varlistentry>
 
       <varlistentry>
-        <term><option>x-systemd.device-bound</option></term>
+        <term><option>x-systemd.device-bound=</option></term>
 
-        <listitem><para>The block device backed file system will be upgraded
-        to <varname>BindsTo=</varname> dependency. This option is only useful
-        when mounting file systems manually with
-        <citerefentry project='man-pages'><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-        as the default dependency in this case is <varname>Requires=</varname>.
-        This option is already implied by entries in <filename>/etc/fstab</filename>
-        or by mount units.
-        </para>
+        <listitem><para>Takes a boolean argument. If true or no argument, a <varname>BindsTo=</varname> dependency
+        on the backing device is set. If false, the mount unit is not stopped no matter whether the backing device
+        is still present. This is useful when the file system is backed by volume managers. If not set, and the mount
+        comes from unit fragments, i.e. generated from <filename>/etc/fstab</filename> by <citerefentry>
+        <refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry> or loaded from
+        a manually configured mount unit, a combination of <varname>Requires=</varname> and <varname>StopPropagatedFrom=</varname>
+        dependencies is set on the backing device. If doesn't, only <varname>Requires=</varname> is used.</para>
 
         <xi:include href="version-info.xml" xpointer="v233"/></listitem>
       </varlistentry>
