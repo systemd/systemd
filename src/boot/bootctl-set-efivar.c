@@ -20,6 +20,10 @@ static int parse_timeout(const char *arg1, char16_t **ret_timeout, size_t *ret_t
         assert(ret_timeout);
         assert(ret_timeout_size);
 
+        /* Note: Since there is no way to query if the booloader supports the string tokens, we explicitly
+         * set their numerical value(s) instead. This means that some of the sd-boot internal ABI has leaked
+         * although the ship has sailed and the side-effects are self-contained.
+         */
         if (streq(arg1, "menu-force"))
                 timeout = USEC_INFINITY;
         else if (streq(arg1, "menu-hidden"))

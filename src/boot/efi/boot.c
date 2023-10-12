@@ -101,9 +101,16 @@ typedef struct {
         int64_t console_mode_efivar;
 } Config;
 
-/* These values have been chosen so that the transitions the user sees could
- * employ unsigned over-/underflow like this:
- * efivar unset ↔ force menu ↔ no timeout/skip menu ↔ 1 s ↔ 2 s ↔ … */
+/* These values have been chosen so that the transitions the user sees could employ unsigned over-/underflow
+ * like this:
+ * efivar unset ↔ force menu ↔ no timeout/skip menu ↔ 1 s ↔ 2 s ↔ …
+ *
+ * Note: all the values below are ABI, so they are not allowed to change. The bootctl tool sets the numerical
+ * value of TIMEOUT_MENU_FORCE and TIMEOUT_MENU_HIDDEN, instead of the string for compatibility reasons.
+ *
+ * The other values may be set by systemd-boot itself and changing those will lead to functional regression
+ * when new version of systemd-boot is installed.
+ */
 enum {
         TIMEOUT_MIN         = 1,
         TIMEOUT_MAX         = UINT32_MAX - 2U,
