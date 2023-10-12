@@ -124,27 +124,60 @@ def we_are_wanted() -> bool:
     return True
 
 
-def config_file_location() -> Optional[Path]:
+def input_file_location(
+        filename: str,
+        *search_directories: str) -> Optional[Path]:
+
     if root := os.getenv('KERNEL_INSTALL_CONF_ROOT'):
-        p = Path(root) / 'uki.conf'
-    else:
-        p = Path('/etc/kernel/uki.conf')
-    if p.exists():
-        return p
+        search_directories = (root,)
+    elif not search_directories:
+        # This is the default search path.
+        search_directories = ('/etc/kernel',
+                              '/usr/lib/kernel')
+
+    for dir in search_directories:
+        p = Path(dir) / filename
+        if p.exists():
+            return p
     return None
 
 
+def uki_conf_location() -> Optional[Path]:
+    return input_file_location('uki.conf',
+                               '/etc/kernel')
+
+
+def devicetree_config_location() -> Optional[Path]:
+    return input_file_location('devicetree')
+
+
+def devicetree_file_location(opts) -> Optional[Path]:
+    # This mirrors the logic in 90-loaderentry.install. Keep in sync.
+    configfile = devicetree_config_location()
+    if configfile is None:
+        return None
+
+    devicetree = configfile.read_text().strip()
+    if not devicetree:
+        raise ValueError(f'{configfile!r} is empty')
+
+    path = input_file_location(
+        devicetree,
+        f'/usr/lib/firmware/{opts.kernel_version}/device-tree',
+        f'/usr/lib/linux-image-{opts.kernel_version}',
+        f'/usr/lib/modules/{opts.kernel_version}/dtb',
+    )
+    if path is None:
+        raise FileNotFoundError(f'DeviceTree file {devicetree} not found')
+    return path
+
+
 def kernel_cmdline_base() -> list[str]:
-    if root := os.getenv('KERNEL_INSTALL_CONF_ROOT'):
-        return Path(root).joinpath('cmdline').read_text().split()
+    path = input_file_location('cmdline')
+    if path:
+        return path.read_text().split()
 
-    for cmdline in ('/etc/kernel/cmdline',
-                    '/usr/lib/kernel/cmdline'):
-        try:
-            return Path(cmdline).read_text().split()
-        except FileNotFoundError:
-            continue
-
+    # If we read /proc/cmdline, we need to do some additional filtering.
     options = Path('/proc/cmdline').read_text().split()
     return [opt for opt in options
             if not opt.startswith(('BOOT_IMAGE=', 'initrd='))]
@@ -193,12 +226,15 @@ def call_ukify(opts):
     # argument set to prepopulate the namespace with the defaults.
     opts2 = ukify['create_parser']().parse_args(['build'])
 
-    opts2.config = config_file_location()
+    opts2.config = uki_conf_location()
     opts2.uname = opts.kernel_version
     opts2.linux = opts.kernel_image
     opts2.initrd = initrd_list(opts)
     # Note that 'uki.efi' is the name required by 90-uki-copy.install.
     opts2.output = opts.staging_area / 'uki.efi'
+
+    if devicetree := devicetree_file_location(opts):
+        opts2.devicetree = devicetree
 
     opts2.cmdline = kernel_cmdline(opts)
     if BOOT_STUB:
