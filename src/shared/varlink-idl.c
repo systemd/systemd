@@ -986,6 +986,9 @@ int varlink_idl_parse(
                         assert(!symbol);
                         n_fields = 0;
 
+                        if (!token)
+                                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Premature EOF.", *line, *column);
+
                         r = varlink_symbol_realloc(&symbol, n_fields);
                         if (r < 0)
                                 return r;
@@ -1003,6 +1006,9 @@ int varlink_idl_parse(
 
                 case STATE_METHOD_ARROW:
                         assert(symbol);
+
+                        if (!token)
+                                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Premature EOF.", *line, *column);
 
                         if (!streq(token, "->"))
                                 return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Unexpected token '%s'.", *line, *column, token);
@@ -1024,6 +1030,9 @@ int varlink_idl_parse(
                 case STATE_TYPE:
                         assert(!symbol);
                         n_fields = 0;
+
+                        if (!token)
+                                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Premature EOF.", *line, *column);
 
                         r = varlink_symbol_realloc(&symbol, n_fields);
                         if (r < 0)
@@ -1049,6 +1058,9 @@ int varlink_idl_parse(
                 case STATE_ERROR:
                         assert(!symbol);
                         n_fields = 0;
+
+                        if (!token)
+                                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Premature EOF.", *line, *column);
 
                         r = varlink_symbol_realloc(&symbol, n_fields);
                         if (r < 0)
