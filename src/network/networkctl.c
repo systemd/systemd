@@ -3297,7 +3297,7 @@ static int verb_cat(int argc, char *argv[], void *userdata) {
                         }
                 }
 
-                r = cat_files(path, dropins, /* flags = */ 0);
+                r = cat_files(path, dropins, /* flags = */ CAT_FORMAT_HAS_SECTIONS);
                 if (r < 0)
                         return ret < 0 ? ret : r;
         }

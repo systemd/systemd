@@ -463,7 +463,7 @@ static int run(int argc, char *argv[]) {
                 if (arg_cat_config) {
                         pager_open(arg_pager_flags);
 
-                        return cat_files(NULL, files, 0);
+                        return cat_files(NULL, files, /* flags= */ 0);
                 }
 
                 STRV_FOREACH(f, files)

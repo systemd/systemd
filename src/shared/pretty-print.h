@@ -15,11 +15,12 @@ int terminal_urlify_path(const char *path, const char *text, char **ret);
 int terminal_urlify_man(const char *page, const char *section, char **ret);
 
 typedef enum CatFlags {
-        CAT_DUMMY_FLAG,  // This flag only exists a as a placeholder because empty enums are not allowed
+        CAT_FORMAT_HAS_SECTIONS = 1 << 0,  /* Sections are meaningful for this file format */
+        CAT_TLDR                = 1 << 1,  /* Only print comments and relevant section headers */
 } CatFlags;
 
 int cat_files(const char *file, char **dropins, CatFlags flags);
-int conf_files_cat(const char *root, const char *name);
+int conf_files_cat(const char *root, const char *name, CatFlags flags);
 
 #define RED_CROSS_MARK_MAX (STRLEN(ANSI_HIGHLIGHT_RED) + STRLEN("✗") + STRLEN(ANSI_NORMAL) + 1)
 #define GREEN_CHECK_MARK_MAX (STRLEN(ANSI_HIGHLIGHT_GREEN) + STRLEN("✓") + STRLEN(ANSI_NORMAL) + 1)

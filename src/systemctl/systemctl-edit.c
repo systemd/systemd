@@ -93,7 +93,7 @@ int verb_cat(int argc, char *argv[], void *userdata) {
                                 arg_runtime_scope == RUNTIME_SCOPE_SYSTEM ? "" : " --user",
                                 ansi_normal());
 
-                r = cat_files(fragment_path, dropin_paths, 0);
+                r = cat_files(fragment_path, dropin_paths, /* flags= */ CAT_FORMAT_HAS_SECTIONS);
                 if (r < 0)
                         return r;
         }

@@ -1537,7 +1537,7 @@ static int cat_settings(int argc, char *argv[], void *userdata) {
                                                        "Invalid settings file path '%s'.",
                                                        *name);
 
-                        q = cat_files(*name, /* dropins = */ NULL, /* flags = */ 0);
+                        q = cat_files(*name, /* dropins = */ NULL, /* flags = */ CAT_FORMAT_HAS_SECTIONS);
                         if (q < 0)
                                 return r < 0 ? r : q;
                         continue;
@@ -1558,7 +1558,7 @@ static int cat_settings(int argc, char *argv[], void *userdata) {
                         return r < 0 ? r : q;
                 }
 
-                q = cat_files(path, /* dropins = */ NULL, /* flags = */ 0);
+                q = cat_files(path, /* dropins = */ NULL, /* flags = */ CAT_FORMAT_HAS_SECTIONS);
                 if (q < 0)
                         return r < 0 ? r : q;
         }
