@@ -1004,6 +1004,9 @@ int varlink_idl_parse(
                 case STATE_METHOD_ARROW:
                         assert(symbol);
 
+                        if (!token)
+                                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Premature EOF.", *line, *column);
+
                         if (!streq(token, "->"))
                                 return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Unexpected token '%s'.", *line, *column, token);
 
