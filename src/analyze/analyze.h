@@ -20,6 +20,7 @@ extern DotMode arg_dot;
 extern char **arg_dot_from_patterns, **arg_dot_to_patterns;
 extern usec_t arg_fuzz;
 extern PagerFlags arg_pager_flags;
+extern bool arg_tldr;
 extern BusTransport arg_transport;
 extern const char *arg_host;
 extern RuntimeScope arg_runtime_scope;
