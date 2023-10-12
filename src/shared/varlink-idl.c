@@ -1190,13 +1190,13 @@ bool varlink_idl_interface_name_is_valid(const char *name) {
         return true;
 }
 
-static int varlink_idl_symbol_consistent(const VarlinkInterface *interface, const VarlinkSymbol *symbol, bool level);
+static int varlink_idl_symbol_consistent(const VarlinkInterface *interface, const VarlinkSymbol *symbol, int level);
 
 static int varlink_idl_field_consistent(
                 const VarlinkInterface *interface,
                 const VarlinkSymbol *symbol,
                 const VarlinkField *field,
-                bool level) {
+                int level) {
 
         const char *symbol_name;
         int r;
@@ -1288,7 +1288,7 @@ static bool varlink_symbol_is_empty(const VarlinkSymbol *symbol) {
 static int varlink_idl_symbol_consistent(
                 const VarlinkInterface *interface,
                 const VarlinkSymbol *symbol,
-                bool level) {
+                int level) {
 
         _cleanup_(set_freep) Set *input_set = NULL, *output_set = NULL;
         const char *symbol_name;
@@ -1325,7 +1325,7 @@ static int varlink_idl_symbol_consistent(
         return 0;
 }
 
-int varlink_idl_consistent(const VarlinkInterface *interface, bool level) {
+int varlink_idl_consistent(const VarlinkInterface *interface, int level) {
         _cleanup_(set_freep) Set *name_set = NULL;
         int r;
 
