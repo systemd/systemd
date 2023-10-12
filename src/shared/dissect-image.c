@@ -2004,10 +2004,25 @@ static int mount_partition(
 
         if (p) {
                 if (m->fsmount_fd >= 0) {
+                        bool mount_beneath = FLAGS_SET(flags, DISSECT_IMAGE_MOUNT_BENEATH);
+
                         /* Case #1: Attach existing fsmount fd to the file system */
 
-                        if (move_mount(m->fsmount_fd, "", -EBADF, p, MOVE_MOUNT_F_EMPTY_PATH) < 0)
-                                return -errno;
+                        r = RET_NERRNO(move_mount(m->fsmount_fd,
+                                       "",
+                                       -EBADF,
+                                       p,
+                                       MOVE_MOUNT_F_EMPTY_PATH | (mount_beneath ? MOVE_MOUNT_BENEATH : 0)));
+                        if (mount_beneath && r == -EINVAL) /* Fallback if mount_beneath is not supported */
+                                r = RET_NERRNO(move_mount(m->fsmount_fd,
+                                               "",
+                                               -EBADF,
+                                               p,
+                                               MOVE_MOUNT_F_EMPTY_PATH));
+                        else if (mount_beneath && r >= 0) /* If it is, now remove the old mount */
+                                r = RET_NERRNO(umount2(p, UMOUNT_NOFOLLOW|MNT_DETACH));
+                        if (r < 0)
+                                return r;
 
                 } else {
                         assert(node);
