@@ -828,6 +828,11 @@ static int varlink_idl_subparse_struct_or_enum(
                 }
         }
 
+        /* If we don't know the type of the symbol by now it was an empty () which doesn't allow us to
+         * determine if we look at an enum or a struct */
+        if ((*symbol)->symbol_type < 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Ambiguous empty () enum/struct is not permitted.", *line, *column);
+
         return 0;
 }
 
