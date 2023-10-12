@@ -48,6 +48,7 @@ void manager_reset_config(Manager *m) {
         m->handle_suspend_key_long_press = HANDLE_HIBERNATE;
         m->handle_hibernate_key = HANDLE_HIBERNATE;
         m->handle_hibernate_key_long_press = HANDLE_IGNORE;
+        m->handle_capslock_esc_key_long_press = HANDLE_ACTIVATE_GREETER;
 
         m->handle_lid_switch = HANDLE_SUSPEND;
         m->handle_lid_switch_ep = _HANDLE_ACTION_INVALID;
@@ -681,6 +682,8 @@ bool manager_all_buttons_ignored(Manager *m) {
         if (!IN_SET(m->handle_lid_switch_ep, _HANDLE_ACTION_INVALID, HANDLE_IGNORE))
                 return false;
         if (m->handle_lid_switch_docked != HANDLE_IGNORE)
+                return false;
+        if (m->handle_capslock_esc_key_long_press != HANDLE_ACTIVATE_GREETER)
                 return false;
 
         return true;

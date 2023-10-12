@@ -190,7 +190,7 @@ int manager_handle_action(
                 }
         }
 
-        /* Locking is handled differently from the rest. */
+        /* Locking and greeter activation is handled differently from the rest. */
         if (handle == HANDLE_LOCK) {
                 if (!is_edge)
                         return 0;
@@ -277,6 +277,7 @@ static const char* const handle_action_verb_table[_HANDLE_ACTION_MAX] = {
         [HANDLE_SUSPEND_THEN_HIBERNATE] = "suspend and later hibernate",
         [HANDLE_FACTORY_RESET]          = "perform a factory reset",
         [HANDLE_LOCK]                   = "be locked",
+        [HANDLE_ACTIVATE_GREETER]       = "greeter activated",
 };
 
 DEFINE_STRING_TABLE_LOOKUP_TO_STRING(handle_action_verb, HandleAction);
@@ -296,6 +297,7 @@ static const char* const handle_action_table[_HANDLE_ACTION_MAX] = {
         [HANDLE_SUSPEND_THEN_HIBERNATE] = "suspend-then-hibernate",
         [HANDLE_FACTORY_RESET]          = "factory-reset",
         [HANDLE_LOCK]                   = "lock",
+        [HANDLE_ACTIVATE_GREETER]       = "activate-greeter",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(handle_action, HandleAction);
