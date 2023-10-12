@@ -626,11 +626,15 @@ int bus_link_method_renew(sd_bus_message *message, void *userdata, sd_bus_error 
         if (r == 0)
                 return 1; /* Polkit will call us back */
 
-        if (l->dhcp_client) {
+        if (sd_dhcp_client_is_running(l->dhcp_client))
                 r = sd_dhcp_client_send_renew(l->dhcp_client);
-                if (r < 0)
-                        return r;
-        }
+        else
+                /* The DHCPv4 client may have been stopped by the IPv6 only mode. Let's unconditionally
+                 * restart the client here. Note, if the DHCPv4 client is disabled, then dhcp4_start() does
+                 * nothing and returns 0. */
+                r = dhcp4_start(l);
+        if (r < 0)
+                return r;
 
         return sd_bus_reply_method_return(message, NULL);
 }
