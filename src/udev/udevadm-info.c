@@ -15,12 +15,15 @@
 #include "device-enumerator-private.h"
 #include "device-private.h"
 #include "device-util.h"
+#include "devnum-util.h"
 #include "dirent-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "glyph-util.h"
+#include "json.h"
 #include "pager.h"
+#include "parse-argument.h"
 #include "sort-util.h"
 #include "static-destruct.h"
 #include "string-table.h"
@@ -35,6 +38,7 @@ typedef enum ActionType {
         ACTION_ATTRIBUTE_WALK,
         ACTION_DEVICE_ID_FILE,
         ACTION_TREE,
+        ACTION_EXPORT,
 } ActionType;
 
 typedef enum QueryType {
@@ -52,6 +56,7 @@ static bool arg_value = false;
 static const char *arg_export_prefix = NULL;
 static usec_t arg_wait_for_initialization_timeout = 0;
 PagerFlags arg_pager_flags = 0;
+static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
 
 /* Put a limit on --tree descent level to not exhaust our stack */
 #define TREE_DEPTH_MAX 64
@@ -260,6 +265,39 @@ static int print_record(sd_device *device, const char *prefix) {
         return 0;
 }
 
+static int record_to_json(sd_device *device, JsonVariant **ret) {
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        const char *str;
+        int r;
+
+        assert(device);
+        assert(ret);
+
+        /* We don't show any shorthand fields here as done in print_record() except for SYSNAME and SYSNUM as
+         * all the other ones have a matching property which will already be included. */
+
+        if (sd_device_get_sysname(device, &str) >= 0) {
+                r = json_variant_set_field_string(&v, "SYSNAME", str);
+                if (r < 0)
+                        return r;
+        }
+
+        if (sd_device_get_sysnum(device, &str) >= 0) {
+                r = json_variant_set_field_string(&v, "SYSNUM", str);
+                if (r < 0)
+                        return r;
+        }
+
+        FOREACH_DEVICE_PROPERTY(device, key, val) {
+                r = json_variant_set_field_string(&v, key, val);
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = TAKE_PTR(v);
+        return 0;
+}
+
 static int stat_device(const char *name, bool export, const char *prefix) {
         struct stat statbuf;
 
@@ -300,7 +338,17 @@ static int export_devices(void) {
         pager_open(arg_pager_flags);
 
         FOREACH_DEVICE_AND_SUBSYSTEM(e, d)
-                (void) print_record(d, NULL);
+                if (arg_json_format_flags & JSON_FORMAT_OFF)
+                        (void) print_record(d, NULL);
+                else {
+                        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+
+                        r = record_to_json(d, &v);
+                        if (r < 0)
+                                return r;
+
+                        (void) json_variant_dump(v, arg_json_format_flags, stdout, NULL);
+                }
 
         return 0;
 }
@@ -466,7 +514,19 @@ static int query_device(QueryType query, sd_device* device) {
                 return 0;
 
         case QUERY_ALL:
-                return print_record(device, NULL);
+                if (arg_json_format_flags & JSON_FORMAT_OFF)
+                        return print_record(device, NULL);
+                else {
+                        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+
+                        r = record_to_json(device, &v);
+                        if (r < 0)
+                                return r;
+
+                        (void) json_variant_dump(v, arg_json_format_flags, stdout, NULL);
+                }
+
+                return 0;
 
         default:
                 assert_not_reached();
@@ -499,7 +559,8 @@ static int help(void) {
                "  -c --cleanup-db             Clean up the udev database\n"
                "  -w --wait-for-initialization[=SECONDS]\n"
                "                              Wait for device to be initialized\n"
-               "     --no-pager               Do not pipe output into a pager\n",
+               "     --no-pager               Do not pipe output into a pager\n"
+               "     --json=pretty|short|off  Generate JSON output\n",
                program_invocation_short_name);
 
         return 0;
@@ -671,6 +732,7 @@ int info_main(int argc, char *argv[], void *userdata) {
                 ARG_PROPERTY = 0x100,
                 ARG_VALUE,
                 ARG_NO_PAGER,
+                ARG_JSON,
         };
 
         static const struct option options[] = {
@@ -691,6 +753,7 @@ int info_main(int argc, char *argv[], void *userdata) {
                 { "version",                 no_argument,       NULL, 'V'          },
                 { "wait-for-initialization", optional_argument, NULL, 'w'          },
                 { "no-pager",                no_argument,       NULL, ARG_NO_PAGER },
+                { "json",                    required_argument, NULL, ARG_JSON     },
                 {}
         };
 
@@ -761,7 +824,8 @@ int info_main(int argc, char *argv[], void *userdata) {
                         action = ACTION_TREE;
                         break;
                 case 'e':
-                        return export_devices();
+                        action = ACTION_EXPORT;
+                        break;
                 case 'c':
                         cleanup_db();
                         return 0;
@@ -787,6 +851,13 @@ int info_main(int argc, char *argv[], void *userdata) {
                 case ARG_NO_PAGER:
                         arg_pager_flags |= PAGER_DISABLE;
                         break;
+
+                case ARG_JSON:
+                        r = parse_json_argument(optarg, &arg_json_format_flags);
+                        if (r <= 0)
+                                return r;
+                        break;
+
                 case '?':
                         return -EINVAL;
                 default:
@@ -800,6 +871,9 @@ int info_main(int argc, char *argv[], void *userdata) {
                 assert(name);
                 return stat_device(name, arg_export, arg_export_prefix);
         }
+
+        if (action == ACTION_EXPORT)
+                return export_devices();
 
         r = strv_extend_strv(&devices, argv + optind, false);
         if (r < 0)
