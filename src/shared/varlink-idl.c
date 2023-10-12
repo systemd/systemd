@@ -729,11 +729,7 @@ static int varlink_idl_subparse_struct_or_enum(
 
                         if (!token)
                                 return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Premature EOF.", *line, *column);
-                        if (streq(token, "#")) {
-                                r = varlink_idl_subparse_comment(p, line, column);
-                                if (r < 0)
-                                        return r;
-                        } else if (streq(token, ")"))
+                        if (streq(token, ")"))
                                 state = STATE_DONE;
                         else {
                                 field_name = TAKE_PTR(token);
