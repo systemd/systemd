@@ -147,6 +147,7 @@ static void *arg_key = NULL;
 static size_t arg_key_size = 0;
 static EVP_PKEY *arg_private_key = NULL;
 static X509 *arg_certificate = NULL;
+static char *arg_signing_provider = NULL;
 static char *arg_tpm2_device = NULL;
 static Tpm2PCRValue *arg_tpm2_hash_pcr_values = NULL;
 static size_t arg_tpm2_n_hash_pcr_values = 0;
@@ -174,6 +175,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_definitions, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_key, erase_and_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_private_key, EVP_PKEY_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_certificate, X509_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_signing_provider, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_device, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_hash_pcr_values, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_public_key, freep);
@@ -6418,6 +6420,7 @@ static int help(void) {
 }
 
 static int parse_argv(int argc, char *argv[]) {
+        _cleanup_free_ char *private_key = NULL;
 
         enum {
                 ARG_VERSION = 0x100,
@@ -6439,6 +6442,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_KEY_FILE,
                 ARG_PRIVATE_KEY,
                 ARG_CERTIFICATE,
+                ARG_SIGNING_PROVIDER,
                 ARG_TPM2_DEVICE,
                 ARG_TPM2_PCRS,
                 ARG_TPM2_PUBLIC_KEY,
@@ -6476,6 +6480,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "key-file",             required_argument, NULL, ARG_KEY_FILE             },
                 { "private-key",          required_argument, NULL, ARG_PRIVATE_KEY          },
                 { "certificate",          required_argument, NULL, ARG_CERTIFICATE          },
+                { "signing-provider",     required_argument, NULL, ARG_SIGNING_PROVIDER     },
                 { "tpm2-device",          required_argument, NULL, ARG_TPM2_DEVICE          },
                 { "tpm2-pcrs",            required_argument, NULL, ARG_TPM2_PCRS            },
                 { "tpm2-public-key",      required_argument, NULL, ARG_TPM2_PUBLIC_KEY      },
@@ -6656,20 +6661,7 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
                 case ARG_PRIVATE_KEY: {
-                        _cleanup_(erase_and_freep) char *k = NULL;
-                        size_t n = 0;
-
-                        r = read_full_file_full(
-                                        AT_FDCWD, optarg, UINT64_MAX, SIZE_MAX,
-                                        READ_FULL_FILE_SECURE|READ_FULL_FILE_WARN_WORLD_READABLE|READ_FULL_FILE_CONNECT_SOCKET,
-                                        NULL,
-                                        &k, &n);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to read key file '%s': %m", optarg);
-
-                        EVP_PKEY_free(arg_private_key);
-                        arg_private_key = NULL;
-                        r = parse_private_key(k, n, &arg_private_key);
+                        r = free_and_strdup_warn(&private_key, optarg);
                         if (r < 0)
                                 return r;
                         break;
@@ -6694,6 +6686,12 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
                         break;
                 }
+
+                case ARG_SIGNING_PROVIDER:
+                        r = free_and_strdup_warn(&arg_signing_provider, optarg);
+                        if (r < 0)
+                                return r;
+                        break;
 
                 case ARG_TPM2_DEVICE: {
                         _cleanup_free_ char *device = NULL;
@@ -6961,6 +6959,38 @@ static int parse_argv(int argc, char *argv[]) {
 
                 FOREACH_ARRAY(p, arg_defer_partitions, arg_n_defer_partitions)
                         *p = gpt_partition_type_override_architecture(*p, arg_architecture);
+        }
+
+        if (arg_signing_provider && !private_key)
+                return log_error_errno(
+                                SYNTHETIC_ERRNO(EINVAL),
+                                "--private-key= must be specified when --signing-provider= is used.");
+
+        if (private_key) {
+                if (isempty(arg_signing_provider)) {
+                        _cleanup_(erase_and_freep) char *k = NULL;
+                        size_t n = 0;
+
+                        r = read_full_file_full(
+                                        AT_FDCWD, private_key, UINT64_MAX, SIZE_MAX,
+                                        READ_FULL_FILE_SECURE|READ_FULL_FILE_WARN_WORLD_READABLE|READ_FULL_FILE_CONNECT_SOCKET,
+                                        NULL,
+                                        &k, &n);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to read key file '%s': %m", private_key);
+
+                        r = parse_private_key(k, n, &arg_private_key);
+                        if (r < 0)
+                                return r;
+                } else {
+                        r = openssl_load_key_from_provider(arg_signing_provider, private_key, &arg_private_key);
+                        if (r < 0)
+                                return log_error_errno(
+                                                r,
+                                                "Failed to load key '%s' from OpenSSL provider '%s': %m",
+                                                private_key,
+                                                arg_signing_provider);
+                }
         }
 
         return 1;
