@@ -154,6 +154,7 @@ static Manager* manager_free(Manager *m) {
 
         sd_event_source_unref(m->reboot_key_long_press_event_source);
 
+        sd_event_source_unref(m->capslock_esc_key_long_press_event_source);
 #if ENABLE_UTMP
         sd_event_source_unref(m->utmp_event_source);
 #endif

@@ -14,7 +14,7 @@
 #include "missing_input.h"
 #include "string-util.h"
 
-#define CONST_MAX5(a, b, c, d, e) CONST_MAX(CONST_MAX(a, b), CONST_MAX(CONST_MAX(c, d), e))
+#define CONST_MAX7(a, b, c, d, e, f, g) CONST_MAX(CONST_MAX(a, b), CONST_MAX(CONST_MAX(CONST_MAX(CONST_MAX(c, d), e), f), g))
 
 #define ULONG_BITS (sizeof(unsigned long)*8)
 
@@ -46,6 +46,8 @@ Button* button_new(Manager *m, const char *name) {
                 free(b->name);
                 return mfree(b);
         }
+
+        b->mods_depressed = MOD_NONE;
 
         b->manager = m;
         b->fd = -EBADF;
@@ -178,6 +180,27 @@ static int long_press_of_hibernate_key_handler(sd_event_source *e, uint64_t usec
         return 0;
 }
 
+static int long_press_of_capslock_esc_key_handler(sd_event_source *e, uint64_t usec, void *userdata) {
+        Button *b = ASSERT_PTR(userdata);
+
+        assert(e);
+
+        b->manager->capslock_esc_key_long_press_event_source = sd_event_source_unref(b->manager->capslock_esc_key_long_press_event_source);
+
+        log_struct(LOG_INFO,
+                   LOG_MESSAGE("Capslock+Esc key pressed long."),
+                   "MESSAGE_ID=" SD_MESSAGE_CAPSLOCK_ESC_KEY_LONG_PRESS_STR);
+
+        printf ("dbus something %s\n", b->seat);
+        sd_bus_emit_signal(
+                        b->manager->bus,
+                        "/org/freedesktop/login1",
+                        "org.freedesktop.login1.Manager",
+                        "SeatWantsGreeter",
+                        "so", b->seat, NULL);
+        return 0;
+}
+
 static void start_long_press(Manager *m, sd_event_source **e, sd_event_time_handler_t callback) {
         int r;
 
@@ -193,6 +216,25 @@ static void start_long_press(Manager *m, sd_event_source **e, sd_event_time_hand
                         CLOCK_MONOTONIC,
                         LONG_PRESS_DURATION, 0,
                         callback, m);
+        if (r < 0)
+                log_warning_errno(r, "Failed to add long press timer event, ignoring: %m");
+}
+
+static void start_long_press_button(Manager *m, Button *b, sd_event_source **e, sd_event_time_handler_t callback) {
+        int r;
+
+        assert(m);
+        assert(e);
+
+        if (*e)
+                return;
+
+        r = sd_event_add_time_relative(
+                        m->event,
+                        e,
+                        CLOCK_MONOTONIC,
+                        LONG_PRESS_DURATION, 0,
+                        callback, b);
         if (r < 0)
                 log_warning_errno(r, "Failed to add long press timer event, ignoring: %m");
 }
@@ -274,6 +316,19 @@ static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *u
                                 manager_handle_action(b->manager, INHIBIT_HANDLE_HIBERNATE_KEY, b->manager->handle_hibernate_key, b->manager->hibernate_key_ignore_inhibited, true);
                         }
                         break;
+
+                case KEY_ESC:
+                        if (b->manager->handle_capslock_esc_key_long_press != HANDLE_IGNORE) {
+                                if (b->mods_depressed &= MOD_CAPSLOCK) {
+                                        log_debug("Capslock+Esc key pressed. Further action depends on the key press duration.");
+                                        start_long_press_button(b->manager, b, &b->manager->capslock_esc_key_long_press_event_source, long_press_of_capslock_esc_key_handler);
+                                }
+                        }
+                        break;
+
+                case KEY_CAPSLOCK:
+                        b->mods_depressed |= MOD_CAPSLOCK;
+                        break;
                 }
 
         } else if (ev.type == EV_KEY && ev.value == 0) {
@@ -331,6 +386,13 @@ static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *u
                                 manager_handle_action(b->manager, INHIBIT_HANDLE_HIBERNATE_KEY, b->manager->handle_hibernate_key, b->manager->hibernate_key_ignore_inhibited, true);
                         }
                         break;
+
+                case KEY_ESC:
+                        break;
+
+                case KEY_CAPSLOCK:
+                        b->mods_depressed &= ~MOD_CAPSLOCK;
+                        break;
                 }
 
         } else if (ev.type == EV_SW && ev.value > 0) {
@@ -383,7 +445,7 @@ static int button_suitable(int fd) {
                 return -errno;
 
         if (bitset_get(types, EV_KEY)) {
-                unsigned long keys[CONST_MAX5(KEY_POWER, KEY_POWER2, KEY_SLEEP, KEY_SUSPEND, KEY_RESTART)/ULONG_BITS+1];
+                unsigned long keys[CONST_MAX7(KEY_POWER, KEY_POWER2, KEY_SLEEP, KEY_SUSPEND, KEY_RESTART, KEY_ESC, KEY_CAPSLOCK)/ULONG_BITS+1];
 
                 if (ioctl(fd, EVIOCGBIT(EV_KEY, sizeof keys), keys) < 0)
                         return -errno;
@@ -392,7 +454,8 @@ static int button_suitable(int fd) {
                     bitset_get(keys, KEY_POWER2) ||
                     bitset_get(keys, KEY_SLEEP) ||
                     bitset_get(keys, KEY_SUSPEND) ||
-                    bitset_get(keys, KEY_RESTART))
+                    bitset_get(keys, KEY_RESTART) ||
+                    bitset_get(keys, KEY_ESC))
                         return true;
         }
 
@@ -413,7 +476,7 @@ static int button_suitable(int fd) {
 static int button_set_mask(const char *name, int fd) {
         unsigned long
                 types[CONST_MAX(EV_KEY, EV_SW)/ULONG_BITS+1] = {},
-                keys[CONST_MAX5(KEY_POWER, KEY_POWER2, KEY_SLEEP, KEY_SUSPEND, KEY_RESTART)/ULONG_BITS+1] = {},
+                keys[CONST_MAX7(KEY_POWER, KEY_POWER2, KEY_SLEEP, KEY_SUSPEND, KEY_RESTART, KEY_ESC, KEY_CAPSLOCK)/ULONG_BITS+1] = {},
                 switches[CONST_MAX(SW_LID, SW_DOCK)/ULONG_BITS+1] = {};
         struct input_mask mask;
 
@@ -439,6 +502,8 @@ static int button_set_mask(const char *name, int fd) {
         bitset_put(keys, KEY_SLEEP);
         bitset_put(keys, KEY_SUSPEND);
         bitset_put(keys, KEY_RESTART);
+        bitset_put(keys, KEY_CAPSLOCK);
+        bitset_put(keys, KEY_ESC);
 
         mask = (struct input_mask) {
                 .type = EV_KEY,
