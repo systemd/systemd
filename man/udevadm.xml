@@ -230,6 +230,7 @@
           </listitem>
         </varlistentry>
 
+        <xi:include href="standard-options.xml" xpointer="json" />
         <xi:include href="standard-options.xml" xpointer="help" />
         <xi:include href="standard-options.xml" xpointer="no-pager" />
       </variablelist>
