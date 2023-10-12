@@ -110,6 +110,7 @@ shared_sources = files(
         'loop-util.c',
         'loopback-setup.c',
         'lsm-util.c',
+        'machine-credential.c',
         'machine-id-setup.c',
         'machine-pool.c',
         'macvlan-util.c',

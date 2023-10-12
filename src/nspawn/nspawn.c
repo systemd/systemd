@@ -60,6 +60,7 @@
 #include "log.h"
 #include "loop-util.h"
 #include "loopback-setup.h"
+#include "machine-credential.h"
 #include "macro.h"
 #include "main-func.h"
 #include "missing_sched.h"
@@ -70,7 +71,6 @@
 #include "netlink-util.h"
 #include "nspawn-bind-user.h"
 #include "nspawn-cgroup.h"
-#include "nspawn-creds.h"
 #include "nspawn-def.h"
 #include "nspawn-expose-ports.h"
 #include "nspawn-mount.h"
@@ -229,7 +229,7 @@ static DeviceNode* arg_extra_nodes = NULL;
 static size_t arg_n_extra_nodes = 0;
 static char **arg_sysctl = NULL;
 static ConsoleMode arg_console_mode = _CONSOLE_MODE_INVALID;
-static Credential *arg_credentials = NULL;
+static MachineCredential *arg_credentials = NULL;
 static size_t arg_n_credentials = 0;
 static char **arg_bind_user = NULL;
 static bool arg_suppress_sync = false;
@@ -1567,106 +1567,24 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_pager_flags |= PAGER_DISABLE;
                         break;
 
-                case ARG_SET_CREDENTIAL: {
-                        _cleanup_free_ char *word = NULL, *data = NULL;
-                        const char *p = optarg;
-                        Credential *a;
-                        ssize_t l;
-
-                        r = extract_first_word(&p, &word, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
+                case ARG_SET_CREDENTIAL:
+                        r = machine_credential_set(&arg_credentials, &arg_n_credentials, optarg);
                         if (r == -ENOMEM)
                                 return log_oom();
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --set-credential= parameter: %m");
-                        if (r == 0 || !p)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Missing value for --set-credential=: %s", optarg);
-
-                        if (!credential_name_valid(word))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Credential name is not valid: %s", word);
-
-                        for (size_t i = 0; i < arg_n_credentials; i++)
-                                if (streq(arg_credentials[i].id, word))
-                                        return log_error_errno(SYNTHETIC_ERRNO(EEXIST), "Duplicate credential '%s', refusing.", word);
-
-                        l = cunescape(p, UNESCAPE_ACCEPT_NUL, &data);
-                        if (l < 0)
-                                return log_error_errno(l, "Failed to unescape credential data: %s", p);
-
-                        a = reallocarray(arg_credentials, arg_n_credentials + 1, sizeof(Credential));
-                        if (!a)
-                                return log_oom();
-
-                        a[arg_n_credentials++] = (Credential) {
-                                .id = TAKE_PTR(word),
-                                .data = TAKE_PTR(data),
-                                .size = l,
-                        };
-
-                        arg_credentials = a;
-
+                                return log_error_errno(r, "Failed to set credential from %s: %m", optarg);
                         arg_settings_mask |= SETTING_CREDENTIALS;
                         break;
-                }
 
-                case ARG_LOAD_CREDENTIAL: {
-                        ReadFullFileFlags flags = READ_FULL_FILE_SECURE;
-                        _cleanup_(erase_and_freep) char *data = NULL;
-                        _cleanup_free_ char *word = NULL, *j = NULL;
-                        const char *p = optarg;
-                        Credential *a;
-                        size_t size, i;
-
-                        r = extract_first_word(&p, &word, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
+                case ARG_LOAD_CREDENTIAL:
+                        r = machine_credential_load(&arg_credentials, &arg_n_credentials, optarg);
                         if (r == -ENOMEM)
                                 return log_oom();
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --load-credential= parameter: %m");
-                        if (r == 0 || !p)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Missing value for --load-credential=: %s", optarg);
-
-                        if (!credential_name_valid(word))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Credential name is not valid: %s", word);
-
-                        for (i = 0; i < arg_n_credentials; i++)
-                                if (streq(arg_credentials[i].id, word))
-                                        return log_error_errno(SYNTHETIC_ERRNO(EEXIST), "Duplicate credential '%s', refusing.", word);
-
-                        if (path_is_absolute(p))
-                                flags |= READ_FULL_FILE_CONNECT_SOCKET;
-                        else {
-                                const char *e;
-
-                                r = get_credentials_dir(&e);
-                                if (r < 0)
-                                        return log_error_errno(r, "Credential not available (no credentials passed at all): %s", word);
-
-                                j = path_join(e, p);
-                                if (!j)
-                                        return log_oom();
-                        }
-
-                        r = read_full_file_full(AT_FDCWD, j ?: p, UINT64_MAX, SIZE_MAX,
-                                                flags,
-                                                NULL,
-                                                &data, &size);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to read credential '%s': %m", j ?: p);
-
-                        a = reallocarray(arg_credentials, arg_n_credentials + 1, sizeof(Credential));
-                        if (!a)
-                                return log_oom();
-
-                        a[arg_n_credentials++] = (Credential) {
-                                .id = TAKE_PTR(word),
-                                .data = TAKE_PTR(data),
-                                .size = size,
-                        };
-
-                        arg_credentials = a;
+                                return log_error_errno(r, "Failed to load credential from %s: %m", optarg);
 
                         arg_settings_mask |= SETTING_CREDENTIALS;
                         break;
-                }
 
                 case ARG_BIND_USER:
                         if (!valid_user_group_name(optarg, 0))
@@ -5933,7 +5851,7 @@ finish:
         expose_port_free_all(arg_expose_ports);
         rlimit_free_all(arg_rlimit);
         device_node_array_free(arg_extra_nodes, arg_n_extra_nodes);
-        credential_free_all(arg_credentials, arg_n_credentials);
+        machine_credential_free_all(arg_credentials, arg_n_credentials);
 
         if (r < 0)
                 return r;
