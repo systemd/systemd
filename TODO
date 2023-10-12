@@ -194,7 +194,6 @@ Features:
   - systemd-creds (allowing clients to encrypt credentials locally)
   - systemd-cryptenroll (to allow UIs to enroll FIDO2 keys and such)
   - systemd-dissect
-  - systemd-sysext
   - systemd-sysupdate
   - systemd-analyze
   - kernel-install
