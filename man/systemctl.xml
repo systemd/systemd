@@ -663,6 +663,9 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           <option>ExecReload=</option>, <option>ExecStartPre=</option>, etc.) run in distinct namespaces.
           </para>
 
+          <para>If the kernel supports it, the mount will be applied beneath the mount point, which will be
+          lazy umounted afterwards, atomically replacing the previous mount, if any.</para>
+
           <xi:include href="version-info.xml" xpointer="v248"/></listitem>
         </varlistentry>
 
@@ -692,6 +695,9 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           added to, is the one where the main service process runs. Other processes (those exececuted by
           <option>ExecReload=</option>, <option>ExecStartPre=</option>, etc.) run in distinct namespaces.
           </para>
+
+          <para>If the kernel supports it, the mount will be applied beneath the mount point, which will be
+          lazy umounted afterwards, atomically replacing the previous mount, if any.</para>
 
           <para>Example:
           <programlisting>systemctl mount-image foo.service /tmp/img.raw /var/lib/image root:ro,nosuid</programlisting>
