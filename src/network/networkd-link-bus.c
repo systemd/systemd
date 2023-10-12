@@ -599,7 +599,7 @@ int bus_link_method_force_renew(sd_bus_message *message, void *userdata, sd_bus_
         if (r == 0)
                 return 1; /* Polkit will call us back */
 
-        if (l->dhcp_server) {
+        if (sd_dhcp_server_is_running(l->dhcp_server)) {
                 r = sd_dhcp_server_forcerenew(l->dhcp_server);
                 if (r < 0)
                         return r;
