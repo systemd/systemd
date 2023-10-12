@@ -11,6 +11,7 @@
 #  include <openssl/bio.h>
 #  include <openssl/bn.h>
 #  include <openssl/crypto.h>
+#  include <openssl/engine.h>
 #  include <openssl/err.h>
 #  include <openssl/evp.h>
 #  include <openssl/opensslv.h>
@@ -25,6 +26,8 @@
 #    include <openssl/core_names.h>
 #    include <openssl/kdf.h>
 #    include <openssl/param_build.h>
+#    include <openssl/provider.h>
+#    include <openssl/store.h>
 #  endif
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_MACRO(void*, OPENSSL_free, NULL);
@@ -49,6 +52,8 @@ DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(EVP_MAC_CTX*, EVP_MAC_CTX_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(EVP_MD*, EVP_MD_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(OSSL_PARAM*, OSSL_PARAM_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(OSSL_PARAM_BLD*, OSSL_PARAM_BLD_free, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(OSSL_STORE_CTX*, OSSL_STORE_close, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(OSSL_STORE_INFO*, OSSL_STORE_INFO_free, NULL);
 #else
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(EC_KEY*, EC_KEY_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(HMAC_CTX*, HMAC_CTX_free, NULL);
@@ -112,6 +117,8 @@ int pubkey_fingerprint(EVP_PKEY *pk, const EVP_MD *md, void **ret, size_t *ret_s
 
 int digest_and_sign(const EVP_MD *md, EVP_PKEY *privkey, const void *data, size_t size, void **ret, size_t *ret_size);
 
+int openssl_load_key_from_provider(const char *provider, const char *private_key_uri, EVP_PKEY **ret_private_key);
+
 #else
 
 typedef struct X509 X509;
@@ -125,6 +132,10 @@ static inline void *X509_free(X509 *p) {
 static inline void *EVP_PKEY_free(EVP_PKEY *p) {
         assert(p == NULL);
         return NULL;
+}
+
+static inline int openssl_load_key_from_provider(const char *provider, const char *private_key_uri, EVP_PKEY **ret_private_key) {
+        return -EOPNOTSUPP;
 }
 
 #endif

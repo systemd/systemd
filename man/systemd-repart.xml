@@ -365,6 +365,16 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--signing-provider=</option></term>
+
+        <listitem><para>Takes a signing provider identifier. Currently only OpenSSL engines and providers are
+        supported, such as <literal>pkcs11</literal>. When specified, the value of
+        <option>--private-key=</option> is passed to the signing provider verbatim.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--tpm2-device=</option></term>
         <term><option>--tpm2-pcrs=</option></term>
 
@@ -593,6 +603,27 @@ systemd-confext refresh</programlisting>
 
       <para>The DDI generated that way may be applied to the system with
       <citerefentry><refentrytitle>systemd-confext</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+    </example>
+
+    <example>
+      <title>Generate a system extension image and sign it via PKCS11</title>
+
+      <para>The following creates a system extension DDI (sysext) for an
+      <filename>/usr/foo</filename> update and signs it with a hardware token via PKCS11.</para>
+
+      <programlisting>mkdir tree tree/usr tree/usr/lib/extension-release.d
+echo "Hello World" > tree/usr/foo
+cat > tree/usr/lib/extension-release.d/extension-release.my-foo &lt;&lt;EOF
+ID=fedora
+VERSION_ID=38
+IMAGE_ID=my-foo
+IMAGE_VERSION=7
+EOF
+systemd-repart --make-ddi=sysext --private-key="pkcs11:model=PKCS%2315%20emulated;manufacturer=piv_II;serial=0123456789abcdef;token=Some%20Cert" --signing-provider pkcs11 --certificate=cert.crt -s tree/ /var/lib/extensions/my-foo.sysext.raw
+systemd-sysext refresh</programlisting>
+
+      <para>The DDI generated that way may be applied to the system with
+      <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
     </example>
 
   </refsect1>
