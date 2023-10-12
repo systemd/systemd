@@ -5061,7 +5061,8 @@ static int run_container(
                                 arg_property,
                                 arg_property_message,
                                 arg_keep_unit,
-                                arg_container_service_name);
+                                arg_container_service_name,
+                                arg_start_mode);
                 if (r < 0)
                         return r;
 
@@ -5075,7 +5076,8 @@ static int run_container(
                                 arg_kill_signal,
                                 arg_property,
                                 arg_property_message,
-                                /* allow_pidfds= */ true);
+                                /* allow_pidfds= */ true,
+                                arg_start_mode);
                 if (r < 0)
                         return r;
 
