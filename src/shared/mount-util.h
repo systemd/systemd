@@ -11,6 +11,10 @@
 #include "errno-util.h"
 #include "macro.h"
 
+#ifndef MOVE_MOUNT_BENEATH
+#define MOVE_MOUNT_BENEATH 0x00000200
+#endif
+
 int repeat_unmount(const char *path, int flags);
 
 int umount_recursive_full(const char *target, int flags, char **keep);
