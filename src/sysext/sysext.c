@@ -44,6 +44,8 @@
 #include "sort-util.h"
 #include "terminal-util.h"
 #include "user-util.h"
+#include "varlink.h"
+#include "varlink-io.systemd.sysext.h"
 #include "verbs.h"
 
 static char **arg_hierarchies = NULL; /* "/usr" + "/opt" by default for sysext and /etc by default for confext */
@@ -55,6 +57,7 @@ static bool arg_force = false;
 static bool arg_no_reload = false;
 static int arg_noexec = -1;
 static ImagePolicy *arg_image_policy = NULL;
+static bool arg_varlink = false;
 
 /* Is set to IMAGE_CONFEXT when systemd is called with the confext functionality instead of the default */
 static ImageClass arg_image_class = IMAGE_SYSEXT;
@@ -99,11 +102,16 @@ static const struct {
         }
 };
 
-static int is_our_mount_point(const char *p) {
+static int is_our_mount_point(
+                ImageClass image_class,
+                const char *p) {
+
         _cleanup_free_ char *buf = NULL, *f = NULL;
         struct stat st;
         dev_t dev;
         int r;
+
+        assert(p);
 
         r = path_is_mount_point(p, NULL, 0);
         if (r == -ENOENT) {
@@ -125,21 +133,21 @@ static int is_our_mount_point(const char *p) {
          * confused if people tar up one of our merged trees and untar them elsewhere where we might mistake
          * them for a live sysext tree. */
 
-        f = path_join(p, image_class_info[arg_image_class].dot_directory_name, "dev");
+        f = path_join(p, image_class_info[image_class].dot_directory_name, "dev");
         if (!f)
                 return log_oom();
 
         r = read_one_line_file(f, &buf);
         if (r == -ENOENT) {
-                log_debug("Hierarchy '%s' does not carry a %s/dev file, not a merged tree.", p, image_class_info[arg_image_class].dot_directory_name);
+                log_debug("Hierarchy '%s' does not carry a %s/dev file, not a merged tree.", p, image_class_info[image_class].dot_directory_name);
                 return false;
         }
         if (r < 0)
-                return log_error_errno(r, "Failed to determine whether hierarchy '%s' contains '%s/dev': %m", p, image_class_info[arg_image_class].dot_directory_name);
+                return log_error_errno(r, "Failed to determine whether hierarchy '%s' contains '%s/dev': %m", p, image_class_info[image_class].dot_directory_name);
 
         r = parse_devnum(buf, &dev);
         if (r < 0)
-                return log_error_errno(r, "Failed to parse device major/minor stored in '%s/dev' file on '%s': %m", image_class_info[arg_image_class].dot_directory_name, p);
+                return log_error_errno(r, "Failed to parse device major/minor stored in '%s/dev' file on '%s': %m", image_class_info[image_class].dot_directory_name, p);
 
         if (lstat(p, &st) < 0)
                 return log_error_errno(r, "Failed to stat %s: %m", p);
@@ -152,15 +160,18 @@ static int is_our_mount_point(const char *p) {
         return true;
 }
 
-static int need_reload(void) {
-        /* Parse the mounted images to find out if we need
-        to reload the daemon. */
+static int need_reload(
+                ImageClass image_class,
+                char **hierarchies,
+                bool no_reload) {
+
+        /* Parse the mounted images to find out if we need to reload the daemon. */
         int r;
 
-        if (arg_no_reload)
+        if (no_reload)
                 return false;
 
-        STRV_FOREACH(p, arg_hierarchies) {
+        STRV_FOREACH(p, hierarchies) {
                 _cleanup_free_ char *f = NULL, *buf = NULL, *resolved = NULL;
                 _cleanup_strv_free_ char **mounted_extensions = NULL;
 
@@ -174,13 +185,13 @@ static int need_reload(void) {
                         continue;
                 }
 
-                r = is_our_mount_point(resolved);
+                r = is_our_mount_point(image_class, resolved);
                 if (r < 0)
                         return r;
                 if (!r)
                         continue;
 
-                f = path_join(resolved, image_class_info[arg_image_class].dot_directory_name, image_class_info[arg_image_class].short_identifier_plural);
+                f = path_join(resolved, image_class_info[image_class].dot_directory_name, image_class_info[image_class].short_identifier_plural);
                 if (!f)
                         return log_oom();
 
@@ -197,7 +208,7 @@ static int need_reload(void) {
                         const char *extension_reload_manager = NULL;
                         int b;
 
-                        r = load_extension_release_pairs(arg_root, arg_image_class, *extension, /* relax_extension_release_check */ true, &extension_release);
+                        r = load_extension_release_pairs(arg_root, image_class, *extension, /* relax_extension_release_check */ true, &extension_release);
                         if (r < 0) {
                                 log_debug_errno(r, "Failed to parse extension-release metadata of %s, ignoring: %m", *extension);
                                 continue;
@@ -233,14 +244,19 @@ static int daemon_reload(void) {
         return bus_service_manager_reload(bus);
 }
 
-static int unmerge_hierarchy(const char *p) {
+static int unmerge_hierarchy(
+                ImageClass image_class,
+                const char *p) {
+
         int r;
+
+        assert(p);
 
         for (;;) {
                 /* We only unmount /usr/ if it is a mount point and really one of ours, in order not to break
                  * systems where /usr/ is a mount point of its own already. */
 
-                r = is_our_mount_point(p);
+                r = is_our_mount_point(image_class, p);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -256,16 +272,20 @@ static int unmerge_hierarchy(const char *p) {
         return 0;
 }
 
-static int unmerge(void) {
+static int unmerge(
+                ImageClass image_class,
+                char **hierarchies,
+                bool no_reload) {
+
         int r, ret = 0;
         bool need_to_reload;
 
-        r = need_reload();
+        r = need_reload(image_class, hierarchies, no_reload);
         if (r < 0)
                 return r;
         need_to_reload = r > 0;
 
-        STRV_FOREACH(p, arg_hierarchies) {
+        STRV_FOREACH(p, hierarchies) {
                 _cleanup_free_ char *resolved = NULL;
 
                 r = chase(*p, arg_root, CHASE_PREFIX_ROOT, &resolved, NULL);
@@ -281,7 +301,7 @@ static int unmerge(void) {
                         continue;
                 }
 
-                r = unmerge_hierarchy(resolved);
+                r = unmerge_hierarchy(image_class, resolved);
                 if (r < 0 && ret == 0)
                         ret = r;
         }
@@ -304,7 +324,74 @@ static int verb_unmerge(int argc, char **argv, void *userdata) {
         if (r == 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EPERM), "Need to be privileged.");
 
-        return unmerge();
+        return unmerge(arg_image_class,
+                       arg_hierarchies,
+                       arg_no_reload);
+}
+
+static int parse_image_class_parameter(Varlink *link, const char *value, ImageClass *image_class, char ***hierarchies) {
+        _cleanup_strv_free_ char **h = NULL;
+        ImageClass c;
+        int r;
+
+        assert(link);
+        assert(image_class);
+
+        if (!value)
+                return 0;
+
+        c = image_class_from_string(value);
+        if (!IN_SET(c, IMAGE_SYSEXT, IMAGE_CONFEXT))
+                return varlink_errorb(link, VARLINK_ERROR_INVALID_PARAMETER, JSON_BUILD_OBJECT(JSON_BUILD_PAIR_STRING("parameter", "class")));
+
+        if (hierarchies) {
+                r = parse_env_extension_hierarchies(&h, image_class_info[c].name_env);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse environment variable: %m");
+
+                strv_free_and_replace(*hierarchies, h);
+        }
+
+        *image_class = c;
+        return 0;
+}
+
+typedef struct MethodUnmergeParameters {
+        const char *class;
+        int no_reload;
+} MethodUnmergeParameters;
+
+static int vl_method_unmerge(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+
+        static const JsonDispatch dispatch_table[] = {
+                { "class",    JSON_VARIANT_STRING,  json_dispatch_const_string, offsetof(MethodUnmergeParameters, class),     0 },
+                { "noReload", JSON_VARIANT_BOOLEAN, json_dispatch_boolean,      offsetof(MethodUnmergeParameters, no_reload), 0 },
+                {}
+        };
+        MethodUnmergeParameters p = {
+                .no_reload = -1,
+        };
+        _cleanup_strv_free_ char **hierarchies = NULL;
+        ImageClass image_class = arg_image_class;
+        int r;
+
+        assert(link);
+
+        r = json_dispatch(parameters, dispatch_table, NULL, 0, &p);
+        if (r < 0)
+                return r;
+
+        r = parse_image_class_parameter(link, p.class, &image_class, &hierarchies);
+        if (r < 0)
+                return r;
+
+        r = unmerge(image_class,
+                    hierarchies ?: arg_hierarchies,
+                    p.no_reload >= 0 ? p.no_reload : arg_no_reload);
+        if (r < 0)
+                return r;
+
+        return varlink_reply(link, NULL);
 }
 
 static int verb_status(int argc, char **argv, void *userdata) {
@@ -332,7 +419,7 @@ static int verb_status(int argc, char **argv, void *userdata) {
                         goto inner_fail;
                 }
 
-                r = is_our_mount_point(resolved);
+                r = is_our_mount_point(arg_image_class, resolved);
                 if (r < 0)
                         goto inner_fail;
                 if (r == 0) {
@@ -388,6 +475,8 @@ static int verb_status(int argc, char **argv, void *userdata) {
 }
 
 static int mount_overlayfs(
+                ImageClass image_class,
+                int noexec,
                 const char *where,
                 char **layers) {
 
@@ -415,12 +504,12 @@ static int mount_overlayfs(
                 separator = true;
         }
 
-        flags = image_class_info[arg_image_class].default_mount_flags;
-        if (arg_noexec >= 0)
-                SET_FLAG(flags, MS_NOEXEC, arg_noexec);
+        flags = image_class_info[image_class].default_mount_flags;
+        if (noexec >= 0)
+                SET_FLAG(flags, MS_NOEXEC, noexec);
 
         /* Now mount the actual overlayfs */
-        r = mount_nofollow_verbose(LOG_ERR, image_class_info[arg_image_class].short_identifier, where, "overlay", flags, options);
+        r = mount_nofollow_verbose(LOG_ERR, image_class_info[image_class].short_identifier, where, "overlay", flags, options);
         if (r < 0)
                 return r;
 
@@ -428,7 +517,9 @@ static int mount_overlayfs(
 }
 
 static int merge_hierarchy(
+                ImageClass image_class,
                 const char *hierarchy,
+                int noexec,
                 char **extensions,
                 char **paths,
                 const char *meta_path,
@@ -463,7 +554,7 @@ static int merge_hierarchy(
         /* Let's generate a metadata file that lists all extensions we took into account for this
          * hierarchy. We include this in the final fs, to make things nicely discoverable and
          * recognizable. */
-        f = path_join(meta_path, image_class_info[arg_image_class].dot_directory_name, image_class_info[arg_image_class].short_identifier_plural);
+        f = path_join(meta_path, image_class_info[image_class].dot_directory_name, image_class_info[image_class].short_identifier_plural);
         if (!f)
                 return log_oom();
 
@@ -519,7 +610,7 @@ static int merge_hierarchy(
         if (r < 0)
                 return log_error_errno(r, "Failed to make directory '%s': %m", overlay_path);
 
-        r = mount_overlayfs(overlay_path, layers);
+        r = mount_overlayfs(image_class, noexec, overlay_path, layers);
         if (r < 0)
                 return r;
 
@@ -536,7 +627,7 @@ static int merge_hierarchy(
                 return log_error_errno(r, "Failed to stat mount '%s': %m", overlay_path);
 
         free(f);
-        f = path_join(meta_path, image_class_info[arg_image_class].dot_directory_name, "dev");
+        f = path_join(meta_path, image_class_info[image_class].dot_directory_name, "dev");
         if (!f)
                 return log_oom();
 
@@ -574,7 +665,14 @@ static const ImagePolicy *pick_image_policy(const Image *img) {
         return image_class_info[img->class].default_image_policy;
 }
 
-static int merge_subprocess(Hashmap *images, const char *workspace) {
+static int merge_subprocess(
+                ImageClass image_class,
+                char **hierarchies,
+                bool force,
+                int noexec,
+                Hashmap *images,
+                const char *workspace) {
+
         _cleanup_free_ char *host_os_release_id = NULL, *host_os_release_version_id = NULL, *host_os_release_api_level = NULL, *buf = NULL;
         _cleanup_strv_free_ char **extensions = NULL, **paths = NULL;
         size_t n_extensions = 0;
@@ -597,7 +695,7 @@ static int merge_subprocess(Hashmap *images, const char *workspace) {
          * but let the kernel do that entirely automatically, once our namespace dies. Note that this file
          * system won't be visible to anyone but us, since we opened our own namespace and then made the
          * /run/ hierarchy (which our workspace is contained in) MS_SLAVE, see above. */
-        r = mount_nofollow_verbose(LOG_ERR, image_class_info[arg_image_class].short_identifier, workspace, "tmpfs", 0, "mode=0700");
+        r = mount_nofollow_verbose(LOG_ERR, image_class_info[image_class].short_identifier, workspace, "tmpfs", 0, "mode=0700");
         if (r < 0)
                 return r;
 
@@ -606,7 +704,7 @@ static int merge_subprocess(Hashmap *images, const char *workspace) {
                         arg_root,
                         "ID", &host_os_release_id,
                         "VERSION_ID", &host_os_release_version_id,
-                        image_class_info[arg_image_class].level_env, &host_os_release_api_level);
+                        image_class_info[image_class].level_env, &host_os_release_api_level);
         if (r < 0)
                 return log_error_errno(r, "Failed to acquire 'os-release' data of OS tree '%s': %m", empty_to_root(arg_root));
         if (isempty(host_os_release_id))
@@ -618,7 +716,7 @@ static int merge_subprocess(Hashmap *images, const char *workspace) {
         HASHMAP_FOREACH(img, images) {
                 _cleanup_free_ char *p = NULL;
 
-                p = path_join(workspace, image_class_info[arg_image_class].short_identifier_plural, img->name);
+                p = path_join(workspace, image_class_info[image_class].short_identifier_plural, img->name);
                 if (!p)
                         return log_oom();
 
@@ -630,7 +728,7 @@ static int merge_subprocess(Hashmap *images, const char *workspace) {
                 case IMAGE_DIRECTORY:
                 case IMAGE_SUBVOLUME:
 
-                        if (!arg_force) {
+                        if (!force) {
                                 r = extension_has_forbidden_content(p);
                                 if (r < 0)
                                         return r;
@@ -672,7 +770,7 @@ static int merge_subprocess(Hashmap *images, const char *workspace) {
                         if (verity_settings.data_path)
                                 flags |= DISSECT_IMAGE_NO_PARTITION_TABLE;
 
-                        if (!arg_force)
+                        if (!force)
                                 flags |= DISSECT_IMAGE_VALIDATE_OS_EXT;
 
                         r = loop_device_make_by_path(
@@ -718,7 +816,7 @@ static int merge_subprocess(Hashmap *images, const char *workspace) {
                                         flags);
                         if (r < 0 && r != -ENOMEDIUM)
                                 return r;
-                        if (r == -ENOMEDIUM && !arg_force) {
+                        if (r == -ENOMEDIUM && !force) {
                                 n_ignored++;
                                 continue;
                         }
@@ -732,7 +830,7 @@ static int merge_subprocess(Hashmap *images, const char *workspace) {
                         assert_not_reached();
                 }
 
-                if (arg_force)
+                if (force)
                         log_debug("Force mode enabled, skipping version validation.");
                 else {
                         r = extension_release_validate(
@@ -742,7 +840,7 @@ static int merge_subprocess(Hashmap *images, const char *workspace) {
                                         host_os_release_api_level,
                                         in_initrd() ? "initrd" : "system",
                                         img->extension_release,
-                                        arg_image_class);
+                                        image_class);
                         if (r < 0)
                                 return r;
                         if (r == 0) {
@@ -787,7 +885,7 @@ static int merge_subprocess(Hashmap *images, const char *workspace) {
 
                 assert_se(img = hashmap_get(images, extensions[n_extensions - 1 - k]));
 
-                p = path_join(workspace, image_class_info[arg_image_class].short_identifier_plural, img->name);
+                p = path_join(workspace, image_class_info[image_class].short_identifier_plural, img->name);
                 if (!p)
                         return log_oom();
 
@@ -796,20 +894,20 @@ static int merge_subprocess(Hashmap *images, const char *workspace) {
 
         /* Let's now unmerge the status quo ante, since to build the new overlayfs we need a reference to the
          * underlying fs. */
-        STRV_FOREACH(h, arg_hierarchies) {
+        STRV_FOREACH(h, hierarchies) {
                 _cleanup_free_ char *resolved = NULL;
 
                 r = chase(*h, arg_root, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT, &resolved, NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to resolve hierarchy '%s%s': %m", strempty(arg_root), *h);
 
-                r = unmerge_hierarchy(resolved);
+                r = unmerge_hierarchy(image_class, resolved);
                 if (r < 0)
                         return r;
         }
 
         /* Create overlayfs mounts for all hierarchies */
-        STRV_FOREACH(h, arg_hierarchies) {
+        STRV_FOREACH(h, hierarchies) {
                 _cleanup_free_ char *meta_path = NULL, *overlay_path = NULL;
 
                 meta_path = path_join(workspace, "meta", *h); /* The place where to store metadata about this instance */
@@ -820,13 +918,20 @@ static int merge_subprocess(Hashmap *images, const char *workspace) {
                 if (!overlay_path)
                         return log_oom();
 
-                r = merge_hierarchy(*h, extensions, paths, meta_path, overlay_path);
+                r = merge_hierarchy(
+                                image_class,
+                                *h,
+                                noexec,
+                                extensions,
+                                paths,
+                                meta_path,
+                                overlay_path);
                 if (r < 0)
                         return r;
         }
 
         /* And move them all into place. This is where things appear in the host namespace */
-        STRV_FOREACH(h, arg_hierarchies) {
+        STRV_FOREACH(h, hierarchies) {
                 _cleanup_free_ char *p = NULL, *resolved = NULL;
 
                 p = path_join(workspace, "overlay", *h);
@@ -859,7 +964,12 @@ static int merge_subprocess(Hashmap *images, const char *workspace) {
         return 1;
 }
 
-static int merge(Hashmap *images) {
+static int merge(ImageClass image_class,
+                 char **hierarchies,
+                 bool force,
+                 bool no_reload,
+                 int noexec,
+                 Hashmap *images) {
         pid_t pid;
         int r;
 
@@ -869,7 +979,7 @@ static int merge(Hashmap *images) {
         if (r == 0) {
                 /* Child with its own mount namespace */
 
-                r = merge_subprocess(images, "/run/systemd/sysext");
+                r = merge_subprocess(image_class, hierarchies, force, noexec, images, "/run/systemd/sysext");
                 if (r < 0)
                         _exit(EXIT_FAILURE);
 
@@ -886,7 +996,7 @@ static int merge(Hashmap *images) {
         if (r == 123) /* exit code 123 means: didn't do anything */
                 return 0;
 
-        r = need_reload();
+        r = need_reload(image_class, hierarchies, no_reload);
         if (r < 0)
                 return r;
         if (r > 0) {
@@ -898,7 +1008,9 @@ static int merge(Hashmap *images) {
         return 1;
 }
 
-static int image_discover_and_read_metadata(Hashmap **ret_images) {
+static int image_discover_and_read_metadata(
+                ImageClass image_class,
+                Hashmap **ret_images) {
         _cleanup_hashmap_free_ Hashmap *images = NULL;
         Image *img;
         int r;
@@ -909,12 +1021,12 @@ static int image_discover_and_read_metadata(Hashmap **ret_images) {
         if (!images)
                 return log_oom();
 
-        r = image_discover(arg_image_class, arg_root, images);
+        r = image_discover(image_class, arg_root, images);
         if (r < 0)
                 return log_error_errno(r, "Failed to discover images: %m");
 
         HASHMAP_FOREACH(img, images) {
-                r = image_read_metadata(img, image_class_info[arg_image_class].default_image_policy);
+                r = image_read_metadata(img, image_class_info[image_class].default_image_policy);
                 if (r < 0)
                         return log_error_errno(r, "Failed to read metadata for image %s: %m", img->name);
         }
@@ -924,23 +1036,17 @@ static int image_discover_and_read_metadata(Hashmap **ret_images) {
         return 0;
 }
 
-static int verb_merge(int argc, char **argv, void *userdata) {
-        _cleanup_hashmap_free_ Hashmap *images = NULL;
+static int look_for_merged_hierarchies(
+                ImageClass image_class,
+                char **hierarchies,
+                const char **ret_which) {
         int r;
 
-        r = have_effective_cap(CAP_SYS_ADMIN);
-        if (r < 0)
-                return log_error_errno(r, "Failed to check if we have enough privileges: %m");
-        if (r == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EPERM), "Need to be privileged.");
-
-        r = image_discover_and_read_metadata(&images);
-        if (r < 0)
-                return r;
+        assert(ret_which);
 
         /* In merge mode fail if things are already merged. (In --refresh mode below we'll unmerge if we find
          * things are already merged...) */
-        STRV_FOREACH(p, arg_hierarchies) {
+        STRV_FOREACH(p, hierarchies) {
                 _cleanup_free_ char *resolved = NULL;
 
                 r = chase(*p, arg_root, CHASE_PREFIX_ROOT, &resolved, NULL);
@@ -951,19 +1057,22 @@ static int verb_merge(int argc, char **argv, void *userdata) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to resolve path to hierarchy '%s%s': %m", strempty(arg_root), *p);
 
-                r = is_our_mount_point(resolved);
+                r = is_our_mount_point(image_class, resolved);
                 if (r < 0)
                         return r;
-                if (r > 0)
-                        return log_error_errno(SYNTHETIC_ERRNO(EBUSY),
-                                               "Hierarchy '%s' is already merged.", *p);
+                if (r > 0) {
+                        *ret_which = *p;
+                        return 1;
+                }
         }
 
-        return merge(images);
+        *ret_which = NULL;
+        return 0;
 }
 
-static int verb_refresh(int argc, char **argv, void *userdata) {
+static int verb_merge(int argc, char **argv, void *userdata) {
         _cleanup_hashmap_free_ Hashmap *images = NULL;
+        const char *which;
         int r;
 
         r = have_effective_cap(CAP_SYS_ADMIN);
@@ -972,19 +1081,123 @@ static int verb_refresh(int argc, char **argv, void *userdata) {
         if (r == 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EPERM), "Need to be privileged.");
 
-        r = image_discover_and_read_metadata(&images);
+        r = image_discover_and_read_metadata(arg_image_class, &images);
         if (r < 0)
                 return r;
 
-        r = merge(images); /* Returns > 0 if it did something, i.e. a new overlayfs is mounted now. When it
-                            * does so it implicitly unmounts any overlayfs placed there before. Returns == 0
-                            * if it did nothing, i.e. no extension images found. In this case the old
-                            * overlayfs remains in place if there was one. */
+        r = look_for_merged_hierarchies(arg_image_class, arg_hierarchies, &which);
+        if (r < 0)
+                return r;
+        if (r > 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EBUSY), "Hierarchy '%s' is already merged.", which);
+
+        return merge(arg_image_class,
+                     arg_hierarchies,
+                     arg_force,
+                     arg_no_reload,
+                     arg_noexec,
+                     images);
+}
+
+typedef struct MethodMergeParameters {
+        const char *class;
+        int force;
+        int no_reload;
+        int noexec;
+} MethodMergeParameters;
+
+static int parse_merge_parameters(Varlink *link, JsonVariant *parameters, MethodMergeParameters *p) {
+
+        static const JsonDispatch dispatch_table[] = {
+                { "class",    JSON_VARIANT_STRING,  json_dispatch_const_string, offsetof(MethodMergeParameters, class),     0 },
+                { "force",    JSON_VARIANT_BOOLEAN, json_dispatch_boolean,      offsetof(MethodMergeParameters, force),     0 },
+                { "noReload", JSON_VARIANT_BOOLEAN, json_dispatch_boolean,      offsetof(MethodMergeParameters, no_reload), 0 },
+                { "noexec",   JSON_VARIANT_BOOLEAN, json_dispatch_boolean,      offsetof(MethodMergeParameters, noexec),    0 },
+                {}
+        };
+        int r;
+
+        assert(link);
+        assert(parameters);
+        assert(p);
+
+        r = json_dispatch(parameters, dispatch_table, NULL, 0, p);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+static int vl_method_merge(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+        _cleanup_hashmap_free_ Hashmap *images = NULL;
+        MethodMergeParameters p = {
+                .force = -1,
+                .no_reload = -1,
+                .noexec = -1,
+        };
+        _cleanup_strv_free_ char **hierarchies = NULL;
+        ImageClass image_class = arg_image_class;
+        int r;
+
+        assert(link);
+
+        r = parse_merge_parameters(link, parameters, &p);
+        if (r < 0)
+                return r;
+
+        r = parse_image_class_parameter(link, p.class, &image_class, &hierarchies);
+        if (r < 0)
+                return r;
+
+        r = image_discover_and_read_metadata(image_class, &images);
+        if (r < 0)
+                return r;
+
+        const char *which;
+        r = look_for_merged_hierarchies(
+                        image_class,
+                        hierarchies ?: arg_hierarchies,
+                        &which);
+        if (r < 0)
+                return r;
+        if (r > 0)
+                return varlink_errorb(link, "io.systemd.sysext.AlreadyMerged", JSON_BUILD_OBJECT(JSON_BUILD_PAIR_STRING("hierarchy", which)));
+
+        r = merge(image_class,
+                  hierarchies ?: arg_hierarchies,
+                  p.force >= 0 ? p.force : arg_force,
+                  p.no_reload >= 0 ? p.no_reload : arg_no_reload,
+                  p.noexec >= 0 ? p.noexec : arg_noexec,
+                  images);
+        if (r < 0)
+                return r;
+
+        return varlink_reply(link, NULL);
+}
+
+static int refresh(
+                ImageClass image_class,
+                char **hierarchies,
+                bool force,
+                bool no_reload,
+                int noexec) {
+
+        _cleanup_hashmap_free_ Hashmap *images = NULL;
+        int r;
+
+        r = image_discover_and_read_metadata(image_class, &images);
+        if (r < 0)
+                return r;
+
+        /* Returns > 0 if it did something, i.e. a new overlayfs is mounted now. When it does so it
+         * implicitly unmounts any overlayfs placed there before. Returns == 0 if it did nothing, i.e. no
+         * extension images found. In this case the old overlayfs remains in place if there was one. */
+        r = merge(image_class, hierarchies, force, no_reload, noexec, images);
         if (r < 0)
                 return r;
         if (r == 0) /* No images found? Then unmerge. The goal of --refresh is after all that after having
                      * called there's a guarantee that the merge status matches the installed extensions. */
-                r = unmerge();
+                r = unmerge(image_class, hierarchies, no_reload);
 
         /* Net result here is that:
          *
@@ -1000,6 +1213,54 @@ static int verb_refresh(int argc, char **argv, void *userdata) {
          */
 
         return 0;
+}
+
+static int verb_refresh(int argc, char **argv, void *userdata) {
+        int r;
+
+        r = have_effective_cap(CAP_SYS_ADMIN);
+        if (r < 0)
+                return log_error_errno(r, "Failed to check if we have enough privileges: %m");
+        if (r == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EPERM), "Need to be privileged.");
+
+        return refresh(arg_image_class,
+                       arg_hierarchies,
+                       arg_force,
+                       arg_no_reload,
+                       arg_noexec);
+}
+
+static int vl_method_refresh(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+
+        MethodMergeParameters p = {
+                .force = -1,
+                .no_reload = -1,
+                .noexec = -1,
+        };
+        _cleanup_strv_free_ char **hierarchies = NULL;
+        ImageClass image_class = arg_image_class;
+        int r;
+
+        assert(link);
+
+        r = parse_merge_parameters(link, parameters, &p);
+        if (r < 0)
+                return r;
+
+        r = parse_image_class_parameter(link, p.class, &image_class, &hierarchies);
+        if (r < 0)
+                return r;
+
+        r = refresh(image_class,
+                    hierarchies ?: arg_hierarchies,
+                    p.force >= 0 ? p.force : arg_force,
+                    p.no_reload >= 0 ? p.no_reload : arg_no_reload,
+                    p.noexec >= 0 ? p.noexec : arg_noexec);
+        if (r < 0)
+                return r;
+
+        return varlink_reply(link, NULL);
 }
 
 static int verb_list(int argc, char **argv, void *userdata) {
@@ -1039,6 +1300,63 @@ static int verb_list(int argc, char **argv, void *userdata) {
         (void) table_set_sort(t, (size_t) 0);
 
         return table_print_with_pager(t, arg_json_format_flags, arg_pager_flags, arg_legend);
+}
+
+typedef struct MethodListParameters {
+        const char *class;
+} MethodListParameters;
+
+static int vl_method_list(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+
+        static const JsonDispatch dispatch_table[] = {
+                { "class",    JSON_VARIANT_STRING,  json_dispatch_const_string, offsetof(MethodListParameters, class),     0 },
+                {}
+        };
+        MethodListParameters p = {
+        };
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        _cleanup_hashmap_free_ Hashmap *images = NULL;
+        ImageClass image_class = arg_image_class;
+        Image *img;
+        int r;
+
+        assert(link);
+
+        r = json_dispatch(parameters, dispatch_table, NULL, 0, &p);
+        if (r < 0)
+                return r;
+
+        r = parse_image_class_parameter(link, p.class, &image_class, NULL);
+        if (r < 0)
+                return r;
+
+        images = hashmap_new(&image_hash_ops);
+        if (!images)
+                return -ENOMEM;
+
+        r = image_discover(image_class, arg_root, images);
+        if (r < 0)
+                return r;
+
+        HASHMAP_FOREACH(img, images) {
+                if (v) {
+                        /* Send previous item with more=true */
+                        r = varlink_notify(link, v);
+                        if (r < 0)
+                                return r;
+                }
+
+                v = json_variant_unref(v);
+
+                r = image_to_json(img, &v);
+                if (r < 0)
+                        return r;
+        }
+
+        if (v)  /* Send final item with more=false */
+                return varlink_reply(link, v);
+
+        return varlink_error(link, "io.systemd.sysext.NoImagesFound", NULL);
 }
 
 static int verb_help(int argc, char **argv, void *userdata) {
@@ -1176,6 +1494,12 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached();
                 }
 
+        r = varlink_invocation(VARLINK_ALLOW_ACCEPT);
+        if (r < 0)
+                return log_error_errno(r, "Failed to check if invoked in Varlink mode: %m");
+        if (r > 0)
+                arg_varlink = true;
+
         return 1;
 }
 
@@ -1196,9 +1520,10 @@ static int sysext_main(int argc, char *argv[]) {
 
 static int run(int argc, char *argv[]) {
         int r;
-        arg_image_class = invoked_as(argv, "systemd-confext") ? IMAGE_CONFEXT : IMAGE_SYSEXT;
 
         log_setup();
+
+        arg_image_class = invoked_as(argv, "systemd-confext") ? IMAGE_CONFEXT : IMAGE_SYSEXT;
 
         r = parse_argv(argc, argv);
         if (r <= 0)
@@ -1210,6 +1535,37 @@ static int run(int argc, char *argv[]) {
         r = parse_env_extension_hierarchies(&arg_hierarchies, image_class_info[arg_image_class].name_env);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse environment variable: %m");
+
+        if (arg_varlink) {
+                _cleanup_(varlink_server_unrefp) VarlinkServer *varlink_server = NULL;
+
+                /* Invocation as Varlink service */
+
+                r = varlink_server_new(&varlink_server, VARLINK_SERVER_ROOT_ONLY);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to allocate Varlink server: %m");
+
+                r = varlink_server_add_interface(varlink_server, &vl_interface_io_systemd_sysext);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add Varlink interface: %m");
+
+                r = varlink_server_bind_method_many(
+                                varlink_server,
+                                "io.systemd.sysext.Merge", vl_method_merge,
+                                "io.systemd.sysext.Unmerge", vl_method_unmerge,
+                                "io.systemd.sysext.Refresh", vl_method_refresh,
+                                "io.systemd.sysext.List", vl_method_list);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to bind Varlink methods: %m");
+
+                r = varlink_server_loop_auto(varlink_server);
+                if (r == -EPERM)
+                        return log_error_errno(r, "Invoked by unprivileged Varlink peer, refusing.");
+                if (r < 0)
+                        return log_error_errno(r, "Failed to run Varlink event loop: %m");
+
+                return EXIT_SUCCESS;
+        }
 
         return sysext_main(argc, argv);
 }
