@@ -2042,7 +2042,7 @@ static int cat_config(void) {
 
         pager_open(arg_pager_flags);
 
-        return cat_files(NULL, files, 0);
+        return cat_files(NULL, files, /* flags= */ 0);
 }
 
 static int help(void) {
