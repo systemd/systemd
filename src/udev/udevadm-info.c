@@ -318,18 +318,11 @@ static int stat_device(const char *name, bool export, const char *prefix) {
         return 0;
 }
 
-static int export_devices(void) {
-        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+static int export_devices(sd_device_enumerator *e) {
         sd_device *d;
         int r;
 
-        r = sd_device_enumerator_new(&e);
-        if (r < 0)
-                return log_oom();
-
-        r = sd_device_enumerator_allow_uninitialized(e);
-        if (r < 0)
-                return log_error_errno(r, "Failed to set allowing uninitialized flag: %m");
+        assert(e);
 
         r = device_enumerator_scan_devices(e);
         if (r < 0)
@@ -560,7 +553,23 @@ static int help(void) {
                "  -w --wait-for-initialization[=SECONDS]\n"
                "                              Wait for device to be initialized\n"
                "     --no-pager               Do not pipe output into a pager\n"
-               "     --json=pretty|short|off  Generate JSON output\n",
+               "     --json=pretty|short|off  Generate JSON output\n"
+               "     --subsystem-match=SUBSYSTEM\n"
+               "                              Query devices matching a subsystem\n"
+               "     --subsystem-nomatch=SUBSYSTEM\n"
+               "                              Query devices not matching a subsystem\n"
+               "     --attr-match=FILE[=VALUE]\n"
+               "                              Query devices that match an attribute\n"
+               "     --attr-nomatch=FILE[=VALUE]\n"
+               "                              Query devices that do not match an attribute\n"
+               "     --property-match=KEY=VALUE\n"
+               "                              Query devices with matching properties\n"
+               "     --tag-match=TAG          Query devices with a matching tag\n"
+               "     --sysname-match=NAME     Query devices with this /sys path\n"
+               "     --name-match=NAME        Query devices with this /dev name\n"
+               "     --parent-match=NAME      Query devices with this parent device\n"
+               "     --initialized-match      Query devices that are already initialized\n"
+               "     --initialized-nomatch    Query devices that are not initialized yet\n",
                program_invocation_short_name);
 
         return 0;
@@ -723,7 +732,49 @@ static int print_tree(sd_device* below) {
         return 0;
 }
 
+static int ensure_device_enumerator(sd_device_enumerator **e) {
+        int r;
+
+        assert(e);
+
+        if (*e)
+                return 0;
+
+        r = sd_device_enumerator_new(e);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create device enumerator: %m");
+
+        r = sd_device_enumerator_allow_uninitialized(*e);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allow uninitialized devices: %m");
+
+        return 0;
+}
+
+static int parse_key_value_argument(const char *s, char **key, char **value) {
+        _cleanup_free_ char *k = NULL, *v = NULL;
+        int r;
+
+        assert(s);
+        assert(key);
+        assert(value);
+
+        r = extract_many_words(&s, "=", EXTRACT_DONT_COALESCE_SEPARATORS, &k, &v, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse key/value pair %s: %m", s);
+        if (r < 2)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Missing '=' in key/value pair %s.", s);
+
+        if (!filename_is_valid(k))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "%s is not a valid key name", k);
+
+        free_and_replace(*key, k);
+        free_and_replace(*value, v);
+        return 0;
+}
+
 int info_main(int argc, char *argv[], void *userdata) {
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         _cleanup_strv_free_ char **devices = NULL;
         _cleanup_free_ char *name = NULL;
         int c, r, ret;
@@ -733,27 +784,49 @@ int info_main(int argc, char *argv[], void *userdata) {
                 ARG_VALUE,
                 ARG_NO_PAGER,
                 ARG_JSON,
+                ARG_SUBSYSTEM_MATCH,
+                ARG_SUBSYSTEM_NOMATCH,
+                ARG_ATTR_MATCH,
+                ARG_ATTR_NOMATCH,
+                ARG_PROPERTY_MATCH,
+                ARG_TAG_MATCH,
+                ARG_SYSNAME_MATCH,
+                ARG_NAME_MATCH,
+                ARG_PARENT_MATCH,
+                ARG_INITIALIZED_MATCH,
+                ARG_INITIALIZED_NOMATCH,
         };
 
         static const struct option options[] = {
-                { "attribute-walk",          no_argument,       NULL, 'a'          },
-                { "tree",                    no_argument,       NULL, 't'          },
-                { "cleanup-db",              no_argument,       NULL, 'c'          },
-                { "device-id-of-file",       required_argument, NULL, 'd'          },
-                { "export",                  no_argument,       NULL, 'x'          },
-                { "export-db",               no_argument,       NULL, 'e'          },
-                { "export-prefix",           required_argument, NULL, 'P'          },
-                { "help",                    no_argument,       NULL, 'h'          },
-                { "name",                    required_argument, NULL, 'n'          },
-                { "path",                    required_argument, NULL, 'p'          },
-                { "property",                required_argument, NULL, ARG_PROPERTY },
-                { "query",                   required_argument, NULL, 'q'          },
-                { "root",                    no_argument,       NULL, 'r'          },
-                { "value",                   no_argument,       NULL, ARG_VALUE    },
-                { "version",                 no_argument,       NULL, 'V'          },
-                { "wait-for-initialization", optional_argument, NULL, 'w'          },
-                { "no-pager",                no_argument,       NULL, ARG_NO_PAGER },
-                { "json",                    required_argument, NULL, ARG_JSON     },
+                { "attribute-walk",          no_argument,       NULL, 'a'                     },
+                { "tree",                    no_argument,       NULL, 't'                     },
+                { "cleanup-db",              no_argument,       NULL, 'c'                     },
+                { "device-id-of-file",       required_argument, NULL, 'd'                     },
+                { "export",                  no_argument,       NULL, 'x'                     },
+                { "export-db",               no_argument,       NULL, 'e'                     },
+                { "export-prefix",           required_argument, NULL, 'P'                     },
+                { "help",                    no_argument,       NULL, 'h'                     },
+                { "name",                    required_argument, NULL, 'n'                     },
+                { "path",                    required_argument, NULL, 'p'                     },
+                { "property",                required_argument, NULL, ARG_PROPERTY            },
+                { "query",                   required_argument, NULL, 'q'                     },
+                { "root",                    no_argument,       NULL, 'r'                     },
+                { "value",                   no_argument,       NULL, ARG_VALUE               },
+                { "version",                 no_argument,       NULL, 'V'                     },
+                { "wait-for-initialization", optional_argument, NULL, 'w'                     },
+                { "no-pager",                no_argument,       NULL, ARG_NO_PAGER            },
+                { "json",                    required_argument, NULL, ARG_JSON                },
+                { "subsystem-match",         required_argument, NULL, ARG_SUBSYSTEM_MATCH     },
+                { "subsystem-nomatch",       required_argument, NULL, ARG_SUBSYSTEM_NOMATCH   },
+                { "attr-match",              required_argument, NULL, ARG_ATTR_MATCH          },
+                { "attr-nomatch",            required_argument, NULL, ARG_ATTR_NOMATCH        },
+                { "property-match",          required_argument, NULL, ARG_PROPERTY_MATCH      },
+                { "tag-match",               required_argument, NULL, ARG_TAG_MATCH           },
+                { "sysname-match",           required_argument, NULL, ARG_SYSNAME_MATCH       },
+                { "name-match",              required_argument, NULL, ARG_NAME_MATCH          },
+                { "parent-match",            required_argument, NULL, ARG_PARENT_MATCH        },
+                { "initialized-match",       no_argument,       NULL, ARG_INITIALIZED_MATCH   },
+                { "initialized-nomatch",     no_argument,       NULL, ARG_INITIALIZED_NOMATCH },
                 {}
         };
 
@@ -858,6 +931,104 @@ int info_main(int argc, char *argv[], void *userdata) {
                                 return r;
                         break;
 
+                case ARG_SUBSYSTEM_MATCH:
+                case ARG_SUBSYSTEM_NOMATCH:
+                        r = ensure_device_enumerator(&e);
+                        if (r < 0)
+                                return r;
+
+                        r = sd_device_enumerator_add_match_subsystem(e, optarg, c == ARG_SUBSYSTEM_MATCH);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to add%s subsystem match '%s': %m",
+                                                       c == ARG_SUBSYSTEM_MATCH ? "" : " negative", optarg);
+
+                        break;
+
+                case ARG_ATTR_MATCH:
+                case ARG_ATTR_NOMATCH: {
+                        _cleanup_free_ char *k = NULL, *v = NULL;
+
+                        r = ensure_device_enumerator(&e);
+                        if (r < 0)
+                                return r;
+
+                        r = parse_key_value_argument(optarg, &k, &v);
+                        if (r < 0)
+                                return r;
+
+                        r = sd_device_enumerator_add_match_sysattr(e, k, v, c == ARG_ATTR_MATCH);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to add%s sysattr match '%s=%s': %m",
+                                                       c == ARG_ATTR_MATCH ? "" : " negative", k, v);
+                        break;
+                }
+
+                case ARG_PROPERTY_MATCH: {
+                        _cleanup_free_ char *k = NULL, *v = NULL;
+
+                        r = ensure_device_enumerator(&e);
+                        if (r < 0)
+                                return r;
+
+                        r = parse_key_value_argument(optarg, &k, &v);
+                        if (r < 0)
+                                return r;
+
+                        r = sd_device_enumerator_add_match_property_required(e, k, v);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to add property match '%s=%s': %m", k, v);
+                        break;
+                }
+
+                case ARG_TAG_MATCH:
+                        r = ensure_device_enumerator(&e);
+                        if (r < 0)
+                                return r;
+
+                        r = sd_device_enumerator_add_match_tag(e, optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to add tag match '%s': %m", optarg);
+                        break;
+
+                case ARG_SYSNAME_MATCH:
+                        r = ensure_device_enumerator(&e);
+                        if (r < 0)
+                                return r;
+
+                        r = sd_device_enumerator_add_match_sysname(e, optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to add sysname match '%s': %m", optarg);
+                        break;
+
+                case ARG_NAME_MATCH:
+                case ARG_PARENT_MATCH: {
+                        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+
+                        r = find_device(optarg, c == ARG_NAME_MATCH ? "/dev" : "/sys", &dev);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to open the device '%s': %m", optarg);
+
+                        r = ensure_device_enumerator(&e);
+                        if (r < 0)
+                                return r;
+
+                        r = device_enumerator_add_match_parent_incremental(e, dev);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to add parent match '%s': %m", optarg);
+                        break;
+                }
+
+                case ARG_INITIALIZED_MATCH:
+                case ARG_INITIALIZED_NOMATCH:
+                        r = ensure_device_enumerator(&e);
+                        if (r < 0)
+                                return r;
+
+                        r = device_enumerator_add_match_is_initialized(e, c == ARG_INITIALIZED_MATCH ? MATCH_INITIALIZED_YES : MATCH_INITIALIZED_NO);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to set initialized filter: %m");
+                        break;
+
                 case '?':
                         return -EINVAL;
                 default:
@@ -872,8 +1043,13 @@ int info_main(int argc, char *argv[], void *userdata) {
                 return stat_device(name, arg_export, arg_export_prefix);
         }
 
-        if (action == ACTION_EXPORT)
-                return export_devices();
+        if (action == ACTION_EXPORT) {
+                r = ensure_device_enumerator(&e);
+                if (r < 0)
+                        return r;
+
+                return export_devices(e);
+        }
 
         r = strv_extend_strv(&devices, argv + optind, false);
         if (r < 0)
