@@ -214,3 +214,4 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(VarlinkServer *, varlink_server_unref);
 
 /* These are errors we came up with and squatted the namespace with */
 #define VARLINK_ERROR_PERMISSION_DENIED "org.varlink.service.PermissionDenied"
+#define VARLINK_ERROR_EXPECTED_MORE "org.varlink.service.ExpectedMore"

@@ -126,12 +126,12 @@ elif [ -f /usr/lib/kernel/devicetree ]; then
 fi
 if [ -n "$DEVICETREE" ]; then
     for prefix in \
-        "/boot/dtb-$KERNEL_VERSION" \
-        "/boot/dtbs/$KERNEL_VERSION" \
-        "/lib/firmware/$KERNEL_VERSION/device-tree" \
-        "/lib/linux-image-$KERNEL_VERSION" \
-        "/lib/modules/$KERNEL_VERSION/dtb"
+        "$KERNEL_INSTALL_CONF_ROOT" \
+        "/usr/lib/firmware/$KERNEL_VERSION/device-tree" \
+        "/usr/lib/linux-image-$KERNEL_VERSION" \
+        "/usr/lib/modules/$KERNEL_VERSION/dtb"
     do
+        [ -n "$prefix" ] || continue
         [ -f "$prefix/$DEVICETREE" ] || continue
         DEVICETREE_SRC="$prefix/$DEVICETREE"
         break
