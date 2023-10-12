@@ -149,12 +149,11 @@ TEST(ipcns) {
 }
 
 TEST(protect_kernel_logs) {
-        static const NamespaceParameters p = {
-                .runtime_scope = RUNTIME_SCOPE_SYSTEM,
+        int r;
+        pid_t pid;
+        static const NamespaceInfo ns_info = {
                 .protect_kernel_logs = true,
         };
-        pid_t pid;
-        int r;
 
         if (geteuid() > 0) {
                 (void) log_tests_skipped("not root");
@@ -176,7 +175,39 @@ TEST(protect_kernel_logs) {
                 fd = open("/dev/kmsg", O_RDONLY | O_CLOEXEC);
                 assert_se(fd > 0);
 
-                r = setup_namespace(&p, NULL);
+                r = setup_namespace(NULL,
+                                    NULL,
+                                    NULL,
+                                    NULL,
+                                    &ns_info,
+                                    NULL,
+                                    NULL,
+                                    NULL,
+                                    NULL,
+                                    NULL,
+                                    NULL,
+                                    NULL,
+                                    NULL, 0,
+                                    NULL, 0,
+                                    NULL, 0,
+                                    NULL,
+                                    NULL,
+                                    NULL,
+                                    NULL,
+                                    NULL,
+                                    0,
+                                    NULL,
+                                    NULL,
+                                    0,
+                                    NULL,
+                                    NULL,
+                                    NULL,
+                                    NULL,
+                                    NULL,
+                                    NULL,
+                                    NULL,
+                                    RUNTIME_SCOPE_SYSTEM,
+                                    NULL);
                 assert_se(r == 0);
 
                 assert_se(setresuid(UID_NOBODY, UID_NOBODY, UID_NOBODY) >= 0);
