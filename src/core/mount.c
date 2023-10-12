@@ -125,13 +125,15 @@ static bool mount_is_bind(const MountParameters *p) {
         return fstab_is_bind(p->options, p->fstype);
 }
 
-static bool mount_is_bound_to_device(Mount *m) {
+static int mount_is_bound_to_device(Mount *m) {
+        _cleanup_free_ char *value = NULL;
         const MountParameters *p;
+        int r;
 
         assert(m);
 
         /* Determines whether to place a Requires= or BindsTo= dependency on the backing device unit. We do
-         * this by checking for the x-systemd.device-bound mount option. Iff it is set we use BindsTo=,
+         * this by checking for the x-systemd.device-bound= mount option. If it is enabled we use BindsTo=,
          * otherwise Requires=. But note that we might combine the latter with StopPropagatedFrom=, see
          * below. */
 
@@ -139,14 +141,30 @@ static bool mount_is_bound_to_device(Mount *m) {
         if (!p)
                 return false;
 
-        return fstab_test_option(p->options, "x-systemd.device-bound\0");
+        r = fstab_filter_options(p->options, "x-systemd.device-bound\0", NULL, &value, NULL, NULL);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -EIDRM; /* If unspecified at all, return recognizable error */
+
+        if (isempty(value))
+                return true;
+
+        return parse_boolean(value);
 }
 
 static bool mount_propagate_stop(Mount *m) {
+        int r;
+
         assert(m);
 
-        if (mount_is_bound_to_device(m)) /* If we are using BindsTo= the stop propagation is implicit, no need to bother */
-                return false;
+        r = mount_is_bound_to_device(m);
+        if (r >= 0)
+                /* If x-systemd.device-bound=no is explicitly requested by user, don't try to set StopPropagatedFrom=.
+                 * Also don't bother if true, since with BindsTo= the stop propagation is implicit. */
+                return r;
+        if (r < 0 && r != -EIDRM)
+                log_debug_errno("Failed to get x-systemd.device-bound= option, ignoring: %m");
 
         return m->from_fragment; /* let's propagate stop whenever this is an explicitly configured unit,
                                   * otherwise let's not bother. */
@@ -367,7 +385,7 @@ static int mount_add_device_dependencies(Mount *m) {
          * maintain. The user can still force this to be a BindsTo= dependency with an appropriate option (or
          * udev property) so the mount units are automatically stopped when the device disappears
          * suddenly. */
-        dep = mount_is_bound_to_device(m) ? UNIT_BINDS_TO : UNIT_REQUIRES;
+        dep = mount_is_bound_to_device(m) > 0 ? UNIT_BINDS_TO : UNIT_REQUIRES;
 
         /* We always use 'what' from /proc/self/mountinfo if mounted */
         mask = m->from_proc_self_mountinfo ? UNIT_DEPENDENCY_MOUNTINFO : UNIT_DEPENDENCY_MOUNT_FILE;
