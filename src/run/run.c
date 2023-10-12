@@ -928,7 +928,7 @@ static int transient_service_set_properties(sd_bus_message *m, const char *pty_p
         return 0;
 }
 
-static int transient_scope_set_properties(sd_bus_message *m) {
+static int transient_scope_set_properties(sd_bus_message *m, bool allow_pidfd) {
         int r;
 
         assert(m);
@@ -945,12 +945,18 @@ static int transient_scope_set_properties(sd_bus_message *m) {
         if (r < 0)
                 return r;
 
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
-        r = pidref_set_self(&pidref);
-        if (r < 0)
-                return r;
+        if (allow_pidfd) {
+                _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
 
-        r = bus_append_scope_pidref(m, &pidref);
+                r = pidref_set_self(&pidref);
+                if (r < 0)
+                        return r;
+
+                r = bus_append_scope_pidref(m, &pidref);
+        } else
+                r = sd_bus_message_append(
+                                m, "(sv)",
+                                "PIDs", "au", 1, getpid_cached());
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -1480,13 +1486,13 @@ static int acquire_invocation_id(sd_bus *bus, sd_id128_t *ret) {
 }
 
 static int start_transient_scope(sd_bus *bus) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
         _cleanup_strv_free_ char **env = NULL, **user_env = NULL;
         _cleanup_free_ char *scope = NULL;
         const char *object = NULL;
         sd_id128_t invocation_id;
+        bool allow_pidfd = true;
         int r;
 
         assert(bus);
@@ -1508,42 +1514,56 @@ static int start_transient_scope(sd_bus *bus) {
                         return r;
         }
 
-        r = bus_message_new_method_call(bus, &m, bus_systemd_mgr, "StartTransientUnit");
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        r = sd_bus_message_set_allow_interactive_authorization(m, arg_ask_password);
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        /* Name and Mode */
-        r = sd_bus_message_append(m, "ss", scope, "fail");
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        /* Properties */
-        r = sd_bus_message_open_container(m, 'a', "(sv)");
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        r = transient_scope_set_properties(m);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_message_close_container(m);
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        /* Auxiliary units */
-        r = sd_bus_message_append(m, "a(sa(sv))", 0);
-        if (r < 0)
-                return bus_log_create_error(r);
-
         polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
-        r = sd_bus_call(bus, m, 0, &error, &reply);
-        if (r < 0)
-                return log_error_errno(r, "Failed to start transient scope unit: %s", bus_error_message(&error, r));
+        for (;;) {
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+
+                r = bus_message_new_method_call(bus, &m, bus_systemd_mgr, "StartTransientUnit");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_set_allow_interactive_authorization(m, arg_ask_password);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                /* Name and Mode */
+                r = sd_bus_message_append(m, "ss", scope, "fail");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                /* Properties */
+                r = sd_bus_message_open_container(m, 'a', "(sv)");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = transient_scope_set_properties(m, allow_pidfd);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_close_container(m);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                /* Auxiliary units */
+                r = sd_bus_message_append(m, "a(sa(sv))", 0);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_call(bus, m, 0, &error, &reply);
+                if (r < 0) {
+                        if (sd_bus_error_has_names(&error, SD_BUS_ERROR_UNKNOWN_PROPERTY, SD_BUS_ERROR_PROPERTY_READ_ONLY) && allow_pidfd) {
+                                log_debug("Retrying with classic PIDs.");
+                                allow_pidfd = false;
+                                continue;
+                        }
+
+                        return log_error_errno(r, "Failed to start transient scope unit: %s", bus_error_message(&error, r));
+                }
+
+                break;
+        }
 
         r = sd_bus_message_read(reply, "o", &object);
         if (r < 0)
