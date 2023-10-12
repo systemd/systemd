@@ -658,7 +658,7 @@ static int varlink_idl_subparse_field_type(
                 if (r < 0)
                         return r;
                 if (!token)
-                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Premature EOF: %m", *line, *column);
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Premature EOF.", *line, *column);
 
                 field->named_type = TAKE_PTR(token);
                 field->field_type = VARLINK_NAMED_TYPE;
@@ -715,9 +715,9 @@ static int varlink_idl_subparse_struct_or_enum(
 
                 case STATE_OPEN:
                         if (!token)
-                                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Premature EOF: %m", *line, *column);
+                                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Premature EOF.", *line, *column);
                         if (!streq(token, "("))
-                                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Unexpected token '%s': %m", *line, *column, token);
+                                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Unexpected token '%s'.", *line, *column, token);
 
                         state = STATE_NAME;
                         allowed_delimiters = ")";
@@ -728,7 +728,7 @@ static int varlink_idl_subparse_struct_or_enum(
                         assert(!field_name);
 
                         if (!token)
-                                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Premature EOF: %m", *line, *column);
+                                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Premature EOF.", *line, *column);
                         if (streq(token, "#")) {
                                 r = varlink_idl_subparse_comment(p, line, column);
                                 if (r < 0)
@@ -748,7 +748,7 @@ static int varlink_idl_subparse_struct_or_enum(
                         assert(field_name);
 
                         if (!token)
-                                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Premature EOF: %m", *line, *column);
+                                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Premature EOF.", *line, *column);
 
                         if (streq(token, ":")) {
                                 VarlinkField *field;
@@ -756,7 +756,7 @@ static int varlink_idl_subparse_struct_or_enum(
                                 if ((*symbol)->symbol_type < 0)
                                         (*symbol)->symbol_type = VARLINK_STRUCT_TYPE;
                                 if ((*symbol)->symbol_type == VARLINK_ENUM_TYPE)
-                                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Enum with struct fields, refusing: %m", *line, *column);
+                                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Enum with struct fields, refusing.", *line, *column);
 
                                 r = varlink_symbol_realloc(symbol, *n_fields + 1);
                                 if (r < 0)
@@ -783,7 +783,7 @@ static int varlink_idl_subparse_struct_or_enum(
                                 if ((*symbol)->symbol_type < 0)
                                         (*symbol)->symbol_type = VARLINK_ENUM_TYPE;
                                 if ((*symbol)->symbol_type != VARLINK_ENUM_TYPE)
-                                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Struct with enum fields, refusing: %m", *line, *column);
+                                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Struct with enum fields, refusing.", *line, *column);
 
                                 r = varlink_symbol_realloc(symbol, *n_fields + 1);
                                 if (r < 0)
@@ -804,7 +804,7 @@ static int varlink_idl_subparse_struct_or_enum(
                                         state = STATE_DONE;
                                 }
                         } else
-                                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Unexpected token '%s': %m", *line, *column, token);
+                                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Unexpected token '%s'.", *line, *column, token);
 
                         break;
 
@@ -812,7 +812,7 @@ static int varlink_idl_subparse_struct_or_enum(
                         assert(!field_name);
 
                         if (!token)
-                                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Premature EOF: %m", *line, *column);
+                                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Premature EOF.", *line, *column);
                         if (streq(token, ",")) {
                                 state = STATE_NAME;
                                 allowed_delimiters = NULL;
@@ -820,7 +820,7 @@ static int varlink_idl_subparse_struct_or_enum(
                         } else if (streq(token, ")"))
                                 state = STATE_DONE;
                         else
-                                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Unexpected token '%s': %m", *line, *column, token);
+                                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Unexpected token '%s'.", *line, *column, token);
                         break;
 
                 default:
@@ -928,7 +928,7 @@ int varlink_idl_parse(
 
                 case STATE_PRE_INTERFACE:
                         if (!token)
-                                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Premature EOF: %m", *line, *column);
+                                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Premature EOF.", *line, *column);
                         if (streq(token, "#")) {
                                 r = varlink_idl_subparse_comment(&text, line, column);
                                 if (r < 0)
@@ -938,7 +938,7 @@ int varlink_idl_parse(
                                 allowed_delimiters = NULL;
                                 allowed_chars = VALID_CHARS_INTERFACE_NAME;
                         } else
-                                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Unexpected token '%s': %m", *line, *column, token);
+                                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Unexpected token '%s'.", *line, *column, token);
                         break;
 
                 case STATE_INTERFACE:
@@ -946,7 +946,7 @@ int varlink_idl_parse(
                         assert(n_symbols == 0);
 
                         if (!token)
-                                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Premature EOF: %m", *line, *column);
+                                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Premature EOF.", *line, *column);
 
                         r = varlink_interface_realloc(&interface, n_symbols);
                         if (r < 0)
@@ -978,7 +978,7 @@ int varlink_idl_parse(
                                 state = STATE_ERROR;
                                 allowed_chars = VALID_CHARS_IDENTIFIER;
                         } else
-                                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Unexpected token '%s': %m", *line, *column, token);
+                                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Unexpected token '%s'.", *line, *column, token);
 
                         break;
 
@@ -1005,7 +1005,7 @@ int varlink_idl_parse(
                         assert(symbol);
 
                         if (!streq(token, "->"))
-                                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Unexpected token '%s': %m", *line, *column, token);
+                                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Unexpected token '%s'.", *line, *column, token);
 
                         r = varlink_idl_subparse_struct_or_enum(&text, line, column, &symbol, &n_fields, VARLINK_OUTPUT);
                         if (r < 0)
