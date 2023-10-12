@@ -193,7 +193,9 @@ Now install necessary build & test dependencies:
 ## PPA with some newer Ubuntu packages required by upstream systemd
 # add-apt-repository -y --enable-source ppa:upstream-systemd-ci/systemd-ci
 # apt build-dep -y systemd
-# apt install -y autopkgtest debhelper genisoimage git qemu-system-x86
+# apt install -y autopkgtest debhelper genisoimage git qemu-system-x86 \
+                 libcurl4-openssl-dev libfdisk-dev libtss2-dev libfido2-dev \
+                 libssl-dev python3-pefile
 
 Build systemd deb packages with debug info:
 
