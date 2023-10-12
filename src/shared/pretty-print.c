@@ -131,9 +131,9 @@ int terminal_urlify_man(const char *page, const char *section, char **ret) {
         return terminal_urlify(url, text, ret);
 }
 
-static int cat_file(const char *filename, bool newline) {
+static int cat_file(const char *filename, bool newline, CatFlags flags) {
         _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_free_ char *urlified = NULL;
+        _cleanup_free_ char *urlified = NULL, *section = NULL;
         int r;
 
         f = fopen(filename, "re");
@@ -160,6 +160,24 @@ static int cat_file(const char *filename, bool newline) {
                 if (r == 0)
                         break;
 
+                if (flags & CAT_FLAGS_SUPPRESS_COMMENTS) {
+                        if (line[0] == '[') {
+                                /* The start of a section, let's not print it yet. */
+                                free_and_replace(section, line);
+                                continue;
+                        }
+
+                        if (IN_SET(line[0], '#', ';') ||
+                            isempty(skip_leading_chars(line, WHITESPACE)))
+                                continue;
+
+                        /* Before we print the actual line, print the last section header */
+                        if (section) {
+                                puts(section);
+                                section = mfree(section);
+                        }
+                }
+
                 puts(line);
         }
 
@@ -170,7 +188,7 @@ int cat_files(const char *file, char **dropins, CatFlags flags) {
         int r;
 
         if (file) {
-                r = cat_file(file, false);
+                r = cat_file(file, false, flags);
                 if (r == -ENOENT && (flags & CAT_FLAGS_MAIN_FILE_OPTIONAL))
                         printf("%s# Configuration file %s not found%s\n",
                                ansi_highlight_magenta(),
@@ -181,7 +199,7 @@ int cat_files(const char *file, char **dropins, CatFlags flags) {
         }
 
         STRV_FOREACH(path, dropins) {
-                r = cat_file(*path, file || path != dropins);
+                r = cat_file(*path, file || path != dropins, flags);
                 if (r < 0)
                         return log_warning_errno(r, "Failed to cat %s: %m", *path);
         }
@@ -279,7 +297,7 @@ static int guess_type(const char **name, char ***prefixes, bool *is_collection, 
         return 0;
 }
 
-int conf_files_cat(const char *root, const char *name) {
+int conf_files_cat(const char *root, const char *name, CatFlags flags) {
         _cleanup_strv_free_ char **dirs = NULL, **files = NULL;
         _cleanup_free_ char *path = NULL;
         char **prefixes = NULL; /* explicit initialization to appease gcc */
@@ -335,5 +353,5 @@ int conf_files_cat(const char *root, const char *name) {
                 return log_error_errno(r, "Failed to query file list: %m");
 
         /* Show */
-        return cat_files(path, files, 0);
+        return cat_files(path, files, flags);
 }
