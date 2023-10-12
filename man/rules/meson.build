@@ -1113,6 +1113,7 @@ manpages = [
   '8',
   ['systemd-veritysetup'],
   'HAVE_LIBCRYPTSETUP'],
+ ['systemd-vmspawn', '1', [], 'ENABLE_VMSPAWN'],
  ['systemd-volatile-root.service', '8', ['systemd-volatile-root'], ''],
  ['systemd-xdg-autostart-generator', '8', [], 'ENABLE_XDG_AUTOSTART'],
  ['systemd', '1', ['init'], ''],
