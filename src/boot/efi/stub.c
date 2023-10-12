@@ -26,8 +26,6 @@ DECLARE_NOALLOC_SECTION(".sdmagic", "#### LoaderInfo: systemd-stub " GIT_VERSION
 
 DECLARE_SBAT(SBAT_STUB_SECTION_TEXT);
 
-#define ADDON_FILENAME_EVENT_TAG_ID UINT32_C(0x6c46f751)
-
 static EFI_STATUS combine_initrd(
                 EFI_PHYSICAL_ADDRESS initrd_base, size_t initrd_size,
                 const void * const extra_initrds[], const size_t extra_initrd_sizes[], size_t n_extra_initrds,
@@ -314,7 +312,7 @@ static void dtb_install_addons(
                                         TPM2_PCR_KERNEL_CONFIG,
                                         POINTER_TO_PHYSICAL_ADDRESS(dt_bases[i]),
                                         dt_sizes[i],
-                                        ADDON_FILENAME_EVENT_TAG_ID,
+                                        DEVICETREE_ADDON_EVENT_TAG_ID,
                                         dt_filenames[i],
                                         &m);
                         if (err != EFI_SUCCESS)
