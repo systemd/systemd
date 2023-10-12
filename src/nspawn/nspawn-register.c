@@ -8,6 +8,7 @@
 #include "bus-util.h"
 #include "bus-wait-for-jobs.h"
 #include "nspawn-register.h"
+#include "nspawn-settings.h"
 #include "special.h"
 #include "stat-util.h"
 #include "strv.h"
@@ -16,7 +17,8 @@ static int append_machine_properties(
                 sd_bus_message *m,
                 CustomMount *mounts,
                 unsigned n_mounts,
-                int kill_signal) {
+                int kill_signal,
+                bool coredump_receive) {
 
         unsigned j;
         int r;
@@ -79,6 +81,12 @@ static int append_machine_properties(
                         return bus_log_create_error(r);
         }
 
+        if (coredump_receive) {
+                r = sd_bus_message_append(m, "(sv)", "CoredumpReceive", "b", true);
+                if (r < 0)
+                        return bus_log_create_error(r);
+        }
+
         return 0;
 }
 
@@ -114,7 +122,8 @@ int register_machine(
                 char **properties,
                 sd_bus_message *properties_message,
                 bool keep_unit,
-                const char *service) {
+                const char *service,
+                StartMode start_mode) {
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
@@ -174,7 +183,8 @@ int register_machine(
                                 m,
                                 mounts,
                                 n_mounts,
-                                kill_signal);
+                                kill_signal,
+                                start_mode == START_BOOT);
                 if (r < 0)
                         return r;
 
@@ -226,7 +236,8 @@ int allocate_scope(
                 int kill_signal,
                 char **properties,
                 sd_bus_message *properties_message,
-                bool allow_pidfd) {
+                bool allow_pidfd,
+                StartMode start_mode) {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -295,7 +306,8 @@ int allocate_scope(
                         m,
                         mounts,
                         n_mounts,
-                        kill_signal);
+                        kill_signal,
+                        start_mode == START_BOOT);
         if (r < 0)
                 return r;
 
@@ -321,7 +333,7 @@ int allocate_scope(
                  * doesn't support PIDFDs yet, let's try without. */
                 if (allow_pidfd &&
                     sd_bus_error_has_names(&error, SD_BUS_ERROR_UNKNOWN_PROPERTY, SD_BUS_ERROR_PROPERTY_READ_ONLY))
-                        return allocate_scope(bus, machine_name, pid, slice, mounts, n_mounts, kill_signal, properties, properties_message, /* allow_pidfd= */ false);
+                        return allocate_scope(bus, machine_name, pid, slice, mounts, n_mounts, kill_signal, properties, properties_message, /* allow_pidfd= */ false, start_mode);
 
                 return log_error_errno(r, "Failed to allocate scope: %s", bus_error_message(&error, r));
         }
