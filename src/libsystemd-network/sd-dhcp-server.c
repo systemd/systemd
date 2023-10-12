@@ -113,7 +113,8 @@ int sd_dhcp_server_configure_pool(
 }
 
 int sd_dhcp_server_is_running(sd_dhcp_server *server) {
-        assert_return(server, false);
+        if (!server)
+                return false;
 
         return !!server->receive_message;
 }
