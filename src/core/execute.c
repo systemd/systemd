@@ -5515,13 +5515,13 @@ int exec_context_destroy_runtime_directory(const ExecContext *c, const char *run
         if (!runtime_prefix)
                 return 0;
 
-        for (size_t i = 0; i < c->directories[EXEC_DIRECTORY_RUNTIME].n_items; i++) {
+        FOREACH_ARRAY(i, c->directories[EXEC_DIRECTORY_RUNTIME].items, c->directories[EXEC_DIRECTORY_RUNTIME].n_items) {
                 _cleanup_free_ char *p = NULL;
 
                 if (exec_directory_is_private(c, EXEC_DIRECTORY_RUNTIME))
-                        p = path_join(runtime_prefix, "private", c->directories[EXEC_DIRECTORY_RUNTIME].items[i].path);
+                        p = path_join(runtime_prefix, "private", i->path);
                 else
-                        p = path_join(runtime_prefix, c->directories[EXEC_DIRECTORY_RUNTIME].items[i].path);
+                        p = path_join(runtime_prefix, i->path);
                 if (!p)
                         return -ENOMEM;
 
@@ -5529,7 +5529,7 @@ int exec_context_destroy_runtime_directory(const ExecContext *c, const char *run
                  * service next. */
                 (void) rm_rf(p, REMOVE_ROOT);
 
-                STRV_FOREACH(symlink, c->directories[EXEC_DIRECTORY_RUNTIME].items[i].symlinks) {
+                STRV_FOREACH(symlink, i->symlinks) {
                         _cleanup_free_ char *symlink_abs = NULL;
 
                         if (exec_directory_is_private(c, EXEC_DIRECTORY_RUNTIME))
@@ -5571,8 +5571,8 @@ static void exec_command_done(ExecCommand *c) {
 }
 
 void exec_command_done_array(ExecCommand *c, size_t n) {
-        for (size_t i = 0; i < n; i++)
-                exec_command_done(c+i);
+        FOREACH_ARRAY(i, c, n)
+                exec_command_done(i);
 }
 
 ExecCommand* exec_command_free_list(ExecCommand *c) {
@@ -5587,18 +5587,18 @@ ExecCommand* exec_command_free_list(ExecCommand *c) {
 }
 
 void exec_command_free_array(ExecCommand **c, size_t n) {
-        for (size_t i = 0; i < n; i++)
-                c[i] = exec_command_free_list(c[i]);
+        FOREACH_ARRAY(i, c, n)
+                *i = exec_command_free_list(*i);
 }
 
 void exec_command_reset_status_array(ExecCommand *c, size_t n) {
-        for (size_t i = 0; i < n; i++)
-                exec_status_reset(&c[i].exec_status);
+        FOREACH_ARRAY(i, c, n)
+                exec_status_reset(&i->exec_status);
 }
 
 void exec_command_reset_status_list_array(ExecCommand **c, size_t n) {
-        for (size_t i = 0; i < n; i++)
-                LIST_FOREACH(command, z, c[i])
+        FOREACH_ARRAY(i, c, n)
+                LIST_FOREACH(command, z, *i)
                         exec_status_reset(&z->exec_status);
 }
 
@@ -5726,10 +5726,10 @@ static int exec_context_load_environment(const Unit *unit, const ExecContext *c,
                 /* When we don't match anything, -ENOENT should be returned */
                 assert(pglob.gl_pathc > 0);
 
-                for (size_t n = 0; n < pglob.gl_pathc; n++) {
+                FOREACH_ARRAY(path, pglob.gl_pathv, pglob.gl_pathc) {
                         _cleanup_strv_free_ char **p = NULL;
 
-                        r = load_env_file(NULL, pglob.gl_pathv[n], &p);
+                        r = load_env_file(NULL, *path, &p);
                         if (r < 0) {
                                 if (ignore)
                                         continue;
@@ -5740,7 +5740,7 @@ static int exec_context_load_environment(const Unit *unit, const ExecContext *c,
                         if (p) {
                                 InvalidEnvInfo info = {
                                         .unit = unit,
-                                        .path = pglob.gl_pathv[n]
+                                        .path = *path,
                                 };
 
                                 p = strv_env_clean_with_callback(p, invalid_env, &info);
@@ -6137,11 +6137,9 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 fputc('\n', f);
         }
 
-        for (size_t j = 0; j < c->n_log_extra_fields; j++) {
+        FOREACH_ARRAY(field, c->log_extra_fields, c->n_log_extra_fields) {
                 fprintf(f, "%sLogExtraFields: ", prefix);
-                fwrite(c->log_extra_fields[j].iov_base,
-                       1, c->log_extra_fields[j].iov_len,
-                       f);
+                fwrite(field->iov_base, 1, field->iov_len, f);
                 fputc('\n', f);
         }
 
@@ -6191,22 +6189,19 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
         strv_dump(f, prefix, "NoExecPaths", c->no_exec_paths);
         strv_dump(f, prefix, "ExecSearchPath", c->exec_search_path);
 
-        for (size_t i = 0; i < c->n_bind_mounts; i++)
+        FOREACH_ARRAY(mount, c->bind_mounts, c->n_bind_mounts)
                 fprintf(f, "%s%s: %s%s:%s:%s\n", prefix,
-                        c->bind_mounts[i].read_only ? "BindReadOnlyPaths" : "BindPaths",
-                        c->bind_mounts[i].ignore_enoent ? "-": "",
-                        c->bind_mounts[i].source,
-                        c->bind_mounts[i].destination,
-                        c->bind_mounts[i].recursive ? "rbind" : "norbind");
+                        mount->read_only ? "BindReadOnlyPaths" : "BindPaths",
+                        mount->ignore_enoent ? "-": "",
+                        mount->source,
+                        mount->destination,
+                        mount->recursive ? "rbind" : "norbind");
 
-        for (size_t i = 0; i < c->n_temporary_filesystems; i++) {
-                const TemporaryFileSystem *t = c->temporary_filesystems + i;
-
+        FOREACH_ARRAY(tmpfs, c->temporary_filesystems, c->n_temporary_filesystems)
                 fprintf(f, "%sTemporaryFileSystem: %s%s%s\n", prefix,
-                        t->path,
-                        isempty(t->options) ? "" : ":",
-                        strempty(t->options));
-        }
+                        tmpfs->path,
+                        isempty(tmpfs->options) ? "" : ":",
+                        strempty(tmpfs->options));
 
         if (c->utmp_id)
                 fprintf(f,
@@ -6322,23 +6317,23 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 fputc('\n', f);
         }
 
-        for (size_t i = 0; i < c->n_mount_images; i++) {
+        FOREACH_ARRAY(mount, c->mount_images, c->n_mount_images) {
                 fprintf(f, "%sMountImages: %s%s:%s", prefix,
-                        c->mount_images[i].ignore_enoent ? "-": "",
-                        c->mount_images[i].source,
-                        c->mount_images[i].destination);
-                LIST_FOREACH(mount_options, o, c->mount_images[i].mount_options)
+                        mount->ignore_enoent ? "-": "",
+                        mount->source,
+                        mount->destination);
+                LIST_FOREACH(mount_options, o, mount->mount_options)
                         fprintf(f, ":%s:%s",
                                 partition_designator_to_string(o->partition_designator),
                                 strempty(o->options));
                 fprintf(f, "\n");
         }
 
-        for (size_t i = 0; i < c->n_extension_images; i++) {
+        FOREACH_ARRAY(mount, c->extension_images, c->n_extension_images) {
                 fprintf(f, "%sExtensionImages: %s%s", prefix,
-                        c->extension_images[i].ignore_enoent ? "-": "",
-                        c->extension_images[i].source);
-                LIST_FOREACH(mount_options, o, c->extension_images[i].mount_options)
+                        mount->ignore_enoent ? "-": "",
+                        mount->source);
+                LIST_FOREACH(mount_options, o, mount->mount_options)
                         fprintf(f, ":%s:%s",
                                 partition_designator_to_string(o->partition_designator),
                                 strempty(o->options));
@@ -6395,8 +6390,9 @@ bool exec_context_get_effective_mount_apivfs(const ExecContext *c) {
 void exec_context_free_log_extra_fields(ExecContext *c) {
         assert(c);
 
-        for (size_t l = 0; l < c->n_log_extra_fields; l++)
-                free(c->log_extra_fields[l].iov_base);
+        FOREACH_ARRAY(field, c->log_extra_fields, c->n_log_extra_fields)
+                free(field->iov_base);
+
         c->log_extra_fields = mfree(c->log_extra_fields);
         c->n_log_extra_fields = 0;
 }
@@ -6464,10 +6460,10 @@ int exec_context_get_clean_directories(
                 if (!prefix[t])
                         continue;
 
-                for (size_t i = 0; i < c->directories[t].n_items; i++) {
+                FOREACH_ARRAY(i, c->directories[t].items, c->directories[t].n_items) {
                         char *j;
 
-                        j = path_join(prefix[t], c->directories[t].items[i].path);
+                        j = path_join(prefix[t], i->path);
                         if (!j)
                                 return -ENOMEM;
 
@@ -6477,7 +6473,7 @@ int exec_context_get_clean_directories(
 
                         /* Also remove private directories unconditionally. */
                         if (t != EXEC_DIRECTORY_CONFIGURATION) {
-                                j = path_join(prefix[t], "private", c->directories[t].items[i].path);
+                                j = path_join(prefix[t], "private", i->path);
                                 if (!j)
                                         return -ENOMEM;
 
@@ -6486,7 +6482,7 @@ int exec_context_get_clean_directories(
                                         return r;
                         }
 
-                        STRV_FOREACH(symlink, c->directories[t].items[i].symlinks) {
+                        STRV_FOREACH(symlink, i->symlinks) {
                                 j = path_join(prefix[t], *symlink);
                                 if (!j)
                                         return -ENOMEM;
@@ -7236,9 +7232,9 @@ void exec_directory_done(ExecDirectory *d) {
         if (!d)
                 return;
 
-        for (size_t i = 0; i < d->n_items; i++) {
-                free(d->items[i].path);
-                strv_free(d->items[i].symlinks);
+        FOREACH_ARRAY(i, d->items, d->n_items) {
+                free(i->path);
+                strv_free(i->symlinks);
         }
 
         d->items = mfree(d->items);
@@ -7250,9 +7246,9 @@ static ExecDirectoryItem *exec_directory_find(ExecDirectory *d, const char *path
         assert(d);
         assert(path);
 
-        for (size_t i = 0; i < d->n_items; i++)
-                if (path_equal(d->items[i].path, path))
-                        return &d->items[i];
+        FOREACH_ARRAY(i, d->items, d->n_items)
+                if (path_equal(i->path, path))
+                        return i;
 
         return NULL;
 }
