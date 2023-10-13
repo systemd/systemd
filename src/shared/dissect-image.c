@@ -2703,6 +2703,8 @@ static int verity_partition(
         _cleanup_close_ int mount_node_fd = -EBADF;
         int r;
 
+        flags &= ~DISSECT_IMAGE_VERITY_SHARE;
+
         assert(m);
         assert(v || (verity && verity->data_path));
 
