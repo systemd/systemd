@@ -1420,7 +1420,7 @@ int dns_scope_announce(DnsScope *scope, bool goodbye) {
 
         /* Check if we're done with probing. */
         LIST_FOREACH(transactions_by_scope, t, scope->transactions)
-                if (DNS_TRANSACTION_IS_LIVE(t->state))
+                if (t->probing && DNS_TRANSACTION_IS_LIVE(t->state))
                         return 0;
 
         /* Check if there're services pending conflict resolution. */
