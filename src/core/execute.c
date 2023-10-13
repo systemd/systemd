@@ -5920,6 +5920,9 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 prefix, protect_proc_to_string(c->protect_proc),
                 prefix, proc_subset_to_string(c->proc_subset));
 
+        if (c->set_login_environment >= 0)
+                fprintf(f, "%sSetLoginEnvironment: %s\n", prefix, yes_no(c->set_login_environment > 0));
+
         if (c->root_image)
                 fprintf(f, "%sRootImage: %s\n", prefix, c->root_image);
 
@@ -5983,6 +5986,9 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
         }
 
         fprintf(f, "%sTimeoutCleanSec: %s\n", prefix, FORMAT_TIMESPAN(c->timeout_clean_usec, USEC_PER_SEC));
+
+        if (c->memory_ksm >= 0)
+                fprintf(f, "%sMemoryKSM: %s\n", prefix, yes_no(c->memory_ksm > 0));
 
         if (c->nice_set)
                 fprintf(f, "%sNice: %i\n", prefix, c->nice);
