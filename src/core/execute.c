@@ -427,7 +427,8 @@ int exec_spawn(Unit *unit,
         xsprintf(serialization_fd_number, "%i", fileno(f));
 
         /* The executor binary is pinned, to avoid compatibility problems during upgrades. */
-        r = posix_spawn_wrapper(FORMAT_PROC_FD_PATH(unit->manager->executor_fd),
+        r = posix_spawn_wrapper(
+                        FORMAT_PROC_FD_PATH(unit->manager->executor_fd),
                         STRV_MAKE(executor_path,
                                   "--deserialize", serialization_fd_number,
                                   "--log-level", log_level,
