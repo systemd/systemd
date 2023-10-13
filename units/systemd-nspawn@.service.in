@@ -26,6 +26,7 @@ SuccessExitStatus=133
 Slice=machine.slice
 Delegate=yes
 DelegateSubgroup=supervisor
+CoredumpReceive=yes
 TasksMax=16384
 {{SERVICE_WATCHDOG}}
 
