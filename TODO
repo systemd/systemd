@@ -133,6 +133,37 @@ Deprecations and removals:
 
 Features:
 
+* in sd-boot and sd-stub measure the SMBIOS vendor strings to some PCR (at
+  least some subset of them that look like systemd stuff), because apparently
+  some firmware does not, but systemd honours it. avoid duplicate measurement
+  by sd-boot and sd-stub by adding LoaderFeatures/StubFeatures flag for this,
+  so that sd-stub can avoid it if sd-boot already did it.
+
+* cryptsetup: a mechanism that allows signing a volume key with some key that
+  has to be present in the kernel keyring, or similar, to ensure that confext
+  DDIs can be encrypted against the local SRK but signed with the admin's key
+  and thus can authenticated locally before they are decrypted.
+
+* image policy should be extended to allow dictating *how* a disk is unlocked,
+  i.e. root=encrypted-tpm2+encrypted-fido2 would mean "root fs must be
+  encrypted and unlocked via fido2 or tpm2, but not otherwise"
+
+* systemd-repart: add support for formatting dm-crypt + dm-integrity file
+  systems.
+
+* homed: add small tool that exposes a homed home dir via nvme-over-tcp (just a
+  bunch of sysfs writes). Then, teach homed/pam_systemd_homed with a user name
+  such as lennart%nvmettcp_192.168.100.77_8787_nqn to log in from any linux
+  host with the same home dir. Similar maybe for nbd, iscsi? this should then
+  first ask for the local root pw, to authenticate that logging in like this is
+  ok, and would then be followed by another password prompt asking for the
+  user's own password. Also, do something similar for CIFS: if you log in via
+  lennart%cifs-someserver_someshare, then set up the homed dir for it
+  automatically. The PAM module should update the user name used for login to the
+  short version once it set up the user. Some care should be taken, so that the
+  long version can be still be resolved via NSS afterwards, to deal with PAM
+  clients that do not support PAM sessions where PAM_USER changes half-way.
+
 * redefine /var/lib/extensions/ as the dir one can place all three of sysext,
   confext as well is multi-modal DDIs that qualify as both. Then introduce
   /var/lib/sysexts/ which can be used to place only DDIs that shall be used as
