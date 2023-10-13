@@ -1665,7 +1665,8 @@ DissectedImage* dissected_image_unref(DissectedImage *m) {
         strv_free(m->machine_info);
         strv_free(m->os_release);
         strv_free(m->initrd_release);
-        strv_free(m->extension_release);
+        strv_free(m->confext_release);
+        strv_free(m->sysext_release);
 
         return mfree(m);
 }
@@ -3352,7 +3353,8 @@ int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_
                 META_MACHINE_INFO,
                 META_OS_RELEASE,
                 META_INITRD_RELEASE,
-                META_EXTENSION_RELEASE,
+                META_SYSEXT_RELEASE,
+                META_CONFEXT_RELEASE,
                 META_HAS_INIT_SYSTEM,
                 _META_MAX,
         };
@@ -3361,15 +3363,16 @@ int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_
                 [META_HOSTNAME]          = "/etc/hostname\0",
                 [META_MACHINE_ID]        = "/etc/machine-id\0",
                 [META_MACHINE_INFO]      = "/etc/machine-info\0",
-                [META_OS_RELEASE]        = ("/etc/os-release\0"
-                                            "/usr/lib/os-release\0"),
-                [META_INITRD_RELEASE]    = ("/etc/initrd-release\0"
-                                            "/usr/lib/initrd-release\0"),
-                [META_EXTENSION_RELEASE] = "extension-release\0",    /* Used only for logging. */
+                [META_OS_RELEASE]        = "/etc/os-release\0"
+                                           "/usr/lib/os-release\0",
+                [META_INITRD_RELEASE]    = "/etc/initrd-release\0"
+                                           "/usr/lib/initrd-release\0",
+                [META_SYSEXT_RELEASE]    = "sysext-release\0",       /* String used only for logging. */
+                [META_CONFEXT_RELEASE]   = "confext-release\0",      /* ditto */
                 [META_HAS_INIT_SYSTEM]   = "has-init-system\0",      /* ditto */
         };
 
-        _cleanup_strv_free_ char **machine_info = NULL, **os_release = NULL, **initrd_release = NULL, **extension_release = NULL;
+        _cleanup_strv_free_ char **machine_info = NULL, **os_release = NULL, **initrd_release = NULL, **sysext_release = NULL, **confext_release = NULL;
         _cleanup_close_pair_ int error_pipe[2] = PIPE_EBADF;
         _cleanup_(rmdir_and_freep) char *t = NULL;
         _cleanup_(sigkill_waitp) pid_t child = 0;
@@ -3379,12 +3382,10 @@ int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_
         int fds[2 * _META_MAX], r, v;
         int has_init_system = -1;
         ssize_t n;
-        ImageClass image_class = IMAGE_SYSEXT;
 
         BLOCK_SIGNALS(SIGCHLD);
 
         assert(m);
-        assert(image_class);
 
         for (; n_meta_initialized < _META_MAX; n_meta_initialized ++) {
                 if (!paths[n_meta_initialized]) {
@@ -3439,40 +3440,46 @@ int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_
 
                         switch (k) {
 
-                        case META_EXTENSION_RELEASE: {
-                                /* As per the os-release spec, if the image is an extension it will have a file
-                                 * named after the image name in extension-release.d/ - we use the image name
-                                 * and try to resolve it with the extension-release helpers, as sometimes
-                                 * the image names are mangled on deployment and do not match anymore.
-                                 * Unlike other paths this is not fixed, and the image name
-                                 * can be mangled on deployment, so by calling into the helper
-                                 * we allow a fallback that matches on the first extension-release
-                                 * file found in the directory, if one named after the image cannot
-                                 * be found first. */
-                                ImageClass class = IMAGE_SYSEXT;
-                                r = open_extension_release(t, IMAGE_SYSEXT, m->image_name, /* relax_extension_release_check= */ false, NULL, &fd);
-                                if (r == -ENOENT) {
-                                        r = open_extension_release(t, IMAGE_CONFEXT, m->image_name, /* relax_extension_release_check= */ false, NULL, &fd);
-                                        if (r >= 0)
-                                                class = IMAGE_CONFEXT;
-                                }
+                        case META_SYSEXT_RELEASE:
+                                /* As per the os-release spec, if the image is an extension it will have a
+                                 * file named after the image name in extension-release.d/ - we use the image
+                                 * name and try to resolve it with the extension-release helpers, as
+                                 * sometimes the image names are mangled on deployment and do not match
+                                 * anymore.  Unlike other paths this is not fixed, and the image name can be
+                                 * mangled on deployment, so by calling into the helper we allow a fallback
+                                 * that matches on the first extension-release file found in the directory,
+                                 * if one named after the image cannot be found first. */
+                                r = open_extension_release(
+                                                t,
+                                                IMAGE_SYSEXT,
+                                                m->image_name,
+                                                /* relax_extension_release_check= */ false,
+                                                /* ret_path= */ NULL,
+                                                &fd);
                                 if (r < 0)
                                         fd = r;
-                                else {
-                                        r = loop_write(fds[2*k+1], &class, sizeof(class));
-                                        if (r < 0)
-                                                goto inner_fail; /* Propagate the error to the parent */
-                                }
+                                break;
+
+                        case META_CONFEXT_RELEASE:
+                                /* As above */
+                                r = open_extension_release(
+                                                t,
+                                                IMAGE_CONFEXT,
+                                                m->image_name,
+                                                /* relax_extension_release_check= */ false,
+                                                /* ret_path= */ NULL,
+                                                &fd);
+                                if (r < 0)
+                                        fd = r;
 
                                 break;
-                        }
 
                         case META_HAS_INIT_SYSTEM: {
                                 bool found = false;
 
                                 FOREACH_STRING(init,
-                                               "/usr/lib/systemd/systemd",  /* systemd on /usr merged system */
-                                               "/lib/systemd/systemd",      /* systemd on /usr non-merged systems */
+                                               "/usr/lib/systemd/systemd",  /* systemd on /usr/ merged system */
+                                               "/lib/systemd/systemd",      /* systemd on /usr/ non-merged systems */
                                                "/sbin/init") {              /* traditional path the Linux kernel invokes */
 
                                         r = chase(init, t, CHASE_PREFIX_ROOT, NULL, NULL);
@@ -3587,23 +3594,19 @@ int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_
 
                         break;
 
-                case META_EXTENSION_RELEASE: {
-                        ImageClass cl = IMAGE_SYSEXT;
-                        size_t nr;
-
-                        errno = 0;
-                        nr = fread(&cl, 1, sizeof(cl), f);
-                        if (nr != sizeof(cl))
-                                log_debug_errno(errno_or_else(EIO), "Failed to read class of extension image: %m");
-                        else {
-                                image_class = cl;
-                                r = load_env_file_pairs(f, "extension-release", &extension_release);
-                                if (r < 0)
-                                        log_debug_errno(r, "Failed to read extension release file of image: %m");
-                        }
+                case META_SYSEXT_RELEASE:
+                        r = load_env_file_pairs(f, "sysext-release", &sysext_release);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to read sysext release file of image: %m");
 
                         break;
-                }
+
+                case META_CONFEXT_RELEASE:
+                        r = load_env_file_pairs(f, "confext-release", &confext_release);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to read confext release file of image: %m");
+
+                        break;
 
                 case META_HAS_INIT_SYSTEM: {
                         bool b = false;
@@ -3641,9 +3644,9 @@ int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_
         strv_free_and_replace(m->machine_info, machine_info);
         strv_free_and_replace(m->os_release, os_release);
         strv_free_and_replace(m->initrd_release, initrd_release);
-        strv_free_and_replace(m->extension_release, extension_release);
+        strv_free_and_replace(m->sysext_release, sysext_release);
+        strv_free_and_replace(m->confext_release, confext_release);
         m->has_init_system = has_init_system;
-        m->image_class = image_class;
 
 finish:
         for (unsigned k = 0; k < n_meta_initialized; k++)

@@ -755,23 +755,6 @@ static int parse_argv_as_mount_helper(int argc, char *argv[]) {
         return 1;
 }
 
-static int strv_pair_to_json(char **l, JsonVariant **ret) {
-        _cleanup_strv_free_ char **jl = NULL;
-
-        STRV_FOREACH_PAIR(a, b, l) {
-                char *j;
-
-                j = strjoin(*a, "=", *b);
-                if (!j)
-                        return log_oom();
-
-                if (strv_consume(&jl, j) < 0)
-                        return log_oom();
-        }
-
-        return json_variant_new_array_strv(ret, jl);
-}
-
 static void strv_pair_print(char **l, const char *prefix) {
         assert(prefix);
 
@@ -782,24 +765,40 @@ static void strv_pair_print(char **l, const char *prefix) {
                         printf("%*s %s=%s\n", (int) strlen(prefix), "", *p, *q);
 }
 
-static int get_extension_scopes(DissectedImage *m, char ***ret_scopes) {
+static int get_extension_scopes(DissectedImage *m, ImageClass class, char ***ret_scopes) {
         _cleanup_strv_free_ char **l = NULL;
-        const char *e;
+        const char *e, *field_name;
+        char **release_data;
 
         assert(m);
         assert(ret_scopes);
 
+        switch (class) {
+
+        case IMAGE_SYSEXT:
+                release_data = m->sysext_release;
+                field_name = "SYSEXT_SCOPE";
+                break;
+
+        case IMAGE_CONFEXT:
+                release_data = m->confext_release;
+                field_name = "CONFEXT_SCOPE";
+                break;
+
+        default:
+                return -EINVAL;
+        }
+
         /* If there's no extension-release file its not a system extension. Otherwise the SYSEXT_SCOPE
          * field for sysext images and the CONFEXT_SCOPE field for confext images indicates which scope
          * it is for — and it defaults to "system" + "portable" if unset. */
-        if (!m->extension_release) {
+
+        if (!release_data) {
                 *ret_scopes = NULL;
                 return 0;
         }
 
-        e = strv_env_pairs_get(m->extension_release, "SYSEXT_SCOPE");
-        if (!e)
-                e = strv_env_pairs_get(m->extension_release, "CONFEXT_SCOPE");
+        e = strv_env_pairs_get(release_data, field_name);
         if (e)
                 l = strv_split(e, WHITESPACE);
         else
@@ -860,7 +859,6 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
         else if (r < 0)
                 return log_error_errno(r, "Failed to acquire image metadata: %m");
         else if (arg_json_format_flags & JSON_FORMAT_OFF) {
-                _cleanup_strv_free_ char **extension_scopes = NULL;
 
                 if (!sd_id128_is_null(m->image_uuid))
                         printf("Image UUID: %s\n", SD_ID128_TO_UUID_STRING(m->image_uuid));
@@ -877,91 +875,82 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
                                "OS Release:");
                 strv_pair_print(m->initrd_release,
                                 "initrd R.:");
-                strv_pair_print(m->extension_release,
-                               " Ext. Rel.:");
+                strv_pair_print(m->sysext_release,
+                               " sysext R.:");
+                strv_pair_print(m->confext_release,
+                               "confext R.:");
 
                 if (m->hostname ||
                     !sd_id128_is_null(m->machine_id) ||
                     !strv_isempty(m->machine_info) ||
                     !strv_isempty(m->os_release) ||
                     !strv_isempty(m->initrd_release) ||
-                    !strv_isempty(m->extension_release))
+                    !strv_isempty(m->sysext_release) ||
+                    !strv_isempty(m->confext_release))
                         putc('\n', stdout);
 
-                printf("    Use As: %s bootable system for UEFI\n", COLOR_MARK_BOOL(m->partitions[PARTITION_ESP].found));
-
-                if (m->has_init_system >= 0)
-                        printf("            %s bootable system for container\n", COLOR_MARK_BOOL(m->has_init_system));
-
+                printf("    Use As: %s bootable system for UEFI\n",
+                       COLOR_MARK_BOOL(dissected_image_is_bootable_uefi(m)));
+                printf("            %s bootable system for container\n",
+                       COLOR_MARK_BOOL(dissected_image_is_bootable_os(m)));
                 printf("            %s portable service\n",
-                       COLOR_MARK_BOOL(strv_env_pairs_get(m->os_release, "PORTABLE_PREFIXES")));
+                       COLOR_MARK_BOOL(dissected_image_is_portable(m)));
                 printf("            %s initrd\n",
-                       COLOR_MARK_BOOL(!strv_isempty(m->initrd_release)));
+                       COLOR_MARK_BOOL(dissected_image_is_initrd(m)));
 
-                r = get_extension_scopes(m, &extension_scopes);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to parse scope: %m");
+                for (ImageClass c = _IMAGE_CLASS_EXTENSION_FIRST; c <= _IMAGE_CLASS_EXTENSION_LAST; c++) {
+                        const char *string_class = image_class_to_string(c);
+                        _cleanup_strv_free_ char **extension_scopes = NULL;
 
-                const char *string_class = image_class_to_string(m->image_class);
-                printf("            %s %s extension for system\n",
-                        COLOR_MARK_BOOL(strv_contains(extension_scopes, "system")), string_class);
-                printf("            %s %s extension for initrd\n",
-                        COLOR_MARK_BOOL(strv_contains(extension_scopes, "initrd")), string_class);
-                printf("            %s %s extension for portable service\n",
-                        COLOR_MARK_BOOL(strv_contains(extension_scopes, "portable")), string_class);
+                        r = get_extension_scopes(m, c, &extension_scopes);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse scopes: %m");
+
+                        printf("            %s %s for system\n",
+                               COLOR_MARK_BOOL(strv_contains(extension_scopes, "system")), string_class);
+                        printf("            %s %s for portable service\n",
+                               COLOR_MARK_BOOL(strv_contains(extension_scopes, "portable")), string_class);
+                        printf("            %s %s for initrd\n",
+                               COLOR_MARK_BOOL(strv_contains(extension_scopes, "initrd")), string_class);
+                }
 
                 putc('\n', stdout);
         } else {
-                _cleanup_(json_variant_unrefp) JsonVariant *mi = NULL, *osr = NULL, *irdr = NULL, *exr = NULL;
-                _cleanup_strv_free_ char **extension_scopes = NULL;
+                _cleanup_strv_free_ char **sysext_scopes = NULL, **confext_scopes = NULL;
 
-                if (!strv_isempty(m->machine_info)) {
-                        r = strv_pair_to_json(m->machine_info, &mi);
-                        if (r < 0)
-                                return log_oom();
-                }
-
-                if (!strv_isempty(m->os_release)) {
-                        r = strv_pair_to_json(m->os_release, &osr);
-                        if (r < 0)
-                                return log_oom();
-                }
-
-                if (!strv_isempty(m->initrd_release)) {
-                        r = strv_pair_to_json(m->initrd_release, &irdr);
-                        if (r < 0)
-                                return log_oom();
-                }
-
-                if (!strv_isempty(m->extension_release)) {
-                        r = strv_pair_to_json(m->extension_release, &exr);
-                        if (r < 0)
-                                return log_oom();
-                }
-
-                r = get_extension_scopes(m, &extension_scopes);
+                r = get_extension_scopes(m, IMAGE_SYSEXT, &sysext_scopes);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to parse scope: %m");
+                        return log_error_errno(r, "Failed to parse sysext scopes: %m");
+
+                r = get_extension_scopes(m, IMAGE_CONFEXT, &confext_scopes);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse confext scopes: %m");
+
+                Architecture a = dissected_image_architecture(m);
 
                 r = json_build(&v, JSON_BUILD_OBJECT(
                                                JSON_BUILD_PAIR("name", JSON_BUILD_STRING(bn)),
-                                               JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(m->image_uuid), "imageUuid", JSON_BUILD_UUID(m->image_uuid)),
-                                               JSON_BUILD_PAIR("size", JSON_BUILD_INTEGER(size)),
+                                               JSON_BUILD_PAIR_CONDITION(size != UINT64_MAX, "size", JSON_BUILD_INTEGER(size)),
                                                JSON_BUILD_PAIR("sectorSize", JSON_BUILD_INTEGER(m->sector_size)),
+                                               JSON_BUILD_PAIR_CONDITION(a >= 0, "architecture", JSON_BUILD_STRING(architecture_to_string(a))),
+                                               JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(m->image_uuid), "imageUuid", JSON_BUILD_UUID(m->image_uuid)),
                                                JSON_BUILD_PAIR_CONDITION(m->hostname, "hostname", JSON_BUILD_STRING(m->hostname)),
                                                JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(m->machine_id), "machineId", JSON_BUILD_ID128(m->machine_id)),
-                                               JSON_BUILD_PAIR_CONDITION(mi, "machineInfo", JSON_BUILD_VARIANT(mi)),
-                                               JSON_BUILD_PAIR_CONDITION(osr, "osRelease", JSON_BUILD_VARIANT(osr)),
-                                               JSON_BUILD_PAIR_CONDITION(osr, "initrdRelease", JSON_BUILD_VARIANT(irdr)),
-                                               JSON_BUILD_PAIR_CONDITION(exr, "extensionRelease", JSON_BUILD_VARIANT(exr)),
-                                               JSON_BUILD_PAIR("useBootableUefi", JSON_BUILD_BOOLEAN(m->partitions[PARTITION_ESP].found)),
-                                               JSON_BUILD_PAIR_CONDITION(m->has_init_system >= 0, "useBootableContainer", JSON_BUILD_BOOLEAN(m->has_init_system)),
-                                               JSON_BUILD_PAIR("useInitrd", JSON_BUILD_BOOLEAN(!strv_isempty(m->initrd_release))),
-                                               JSON_BUILD_PAIR("usePortableService", JSON_BUILD_BOOLEAN(strv_env_pairs_get(m->os_release, "PORTABLE_MATCHES"))),
-                                               JSON_BUILD_PAIR("ExtensionType", JSON_BUILD_STRING(image_class_to_string(m->image_class))),
-                                               JSON_BUILD_PAIR("useSystemExtension", JSON_BUILD_BOOLEAN(strv_contains(extension_scopes, "system"))),
-                                               JSON_BUILD_PAIR("useInitRDExtension", JSON_BUILD_BOOLEAN(strv_contains(extension_scopes, "initrd"))),
-                                               JSON_BUILD_PAIR("usePortableExtension", JSON_BUILD_BOOLEAN(strv_contains(extension_scopes, "portable")))));
+                                               JSON_BUILD_PAIR_CONDITION(!strv_isempty(m->machine_info), "machineInfo", JSON_BUILD_STRV_ENV_PAIR(m->machine_info)),
+                                               JSON_BUILD_PAIR_CONDITION(!strv_isempty(m->os_release), "osRelease", JSON_BUILD_STRV_ENV_PAIR(m->os_release)),
+                                               JSON_BUILD_PAIR_CONDITION(!strv_isempty(m->initrd_release), "initrdRelease", JSON_BUILD_STRV_ENV_PAIR(m->initrd_release)),
+                                               JSON_BUILD_PAIR_CONDITION(!strv_isempty(m->sysext_release), "sysextRelease", JSON_BUILD_STRV_ENV_PAIR(m->sysext_release)),
+                                               JSON_BUILD_PAIR_CONDITION(!strv_isempty(m->confext_release), "confextRelease", JSON_BUILD_STRV_ENV_PAIR(m->confext_release)),
+                                               JSON_BUILD_PAIR("useBootableUefi", JSON_BUILD_BOOLEAN(dissected_image_is_bootable_uefi(m))),
+                                               JSON_BUILD_PAIR("useBootableContainer", JSON_BUILD_BOOLEAN(dissected_image_is_bootable_os(m))),
+                                               JSON_BUILD_PAIR("useInitrd", JSON_BUILD_BOOLEAN(dissected_image_is_initrd(m))),
+                                               JSON_BUILD_PAIR("usePortableService", JSON_BUILD_BOOLEAN(dissected_image_is_portable(m))),
+                                               JSON_BUILD_PAIR("useSystemExtension", JSON_BUILD_BOOLEAN(strv_contains(sysext_scopes, "system"))),
+                                               JSON_BUILD_PAIR("useInitRDSystemExtension", JSON_BUILD_BOOLEAN(strv_contains(sysext_scopes, "initrd"))),
+                                               JSON_BUILD_PAIR("usePortableSystemExtension", JSON_BUILD_BOOLEAN(strv_contains(sysext_scopes, "portable"))),
+                                               JSON_BUILD_PAIR("useConfigurationExtension", JSON_BUILD_BOOLEAN(strv_contains(confext_scopes, "system"))),
+                                               JSON_BUILD_PAIR("useInitRDConfigurationExtension", JSON_BUILD_BOOLEAN(strv_contains(confext_scopes, "initrd"))),
+                                               JSON_BUILD_PAIR("usePortableConfigurationExtension", JSON_BUILD_BOOLEAN(strv_contains(confext_scopes, "portable")))));
                 if (r < 0)
                         return log_oom();
         }

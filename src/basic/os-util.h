@@ -10,7 +10,9 @@ typedef enum ImageClass {
         IMAGE_MACHINE,
         IMAGE_PORTABLE,
         IMAGE_SYSEXT,
+        _IMAGE_CLASS_EXTENSION_FIRST = IMAGE_SYSEXT,  /* First "extension" image type, so that we can easily generically iterate through them */
         IMAGE_CONFEXT,
+        _IMAGE_CLASS_EXTENSION_LAST = IMAGE_CONFEXT,  /* Last "extension image type */
         _IMAGE_CLASS_MAX,
         _IMAGE_CLASS_INVALID = -EINVAL,
 } ImageClass;
