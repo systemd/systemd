@@ -1330,13 +1330,13 @@ static int exec_parameters_serialize(const ExecParameters *p, FILE *f, FDSet *fd
         if (r < 0)
                 return r;
 
-        if (p->n_socket_fds) {
+        if (p->n_socket_fds > 0) {
                 r = serialize_item_format(f, "exec-parameters-n-socket-fds", "%zu", p->n_socket_fds);
                 if (r < 0)
                         return r;
         }
 
-        if (p->n_storage_fds) {
+        if (p->n_storage_fds > 0) {
                 r = serialize_item_format(f, "exec-parameters-n-storage-fds", "%zu", p->n_storage_fds);
                 if (r < 0)
                         return r;
@@ -1348,11 +1348,11 @@ static int exec_parameters_serialize(const ExecParameters *p, FILE *f, FDSet *fd
                 if (!p->fds)
                         return -EINVAL;
 
-                for (size_t i = 0; i < p->n_socket_fds + p->n_storage_fds; ++i) {
+                FOREACH_ARRAY(fd, p->fds, p->n_socket_fds + p->n_storage_fds) {
                         int copy = -EBADF;
 
-                        if (p->fds[i] >= 0) {
-                                copy = fdset_put_dup(fds, p->fds[i]);
+                        if (*fd >= 0) {
+                                copy = fdset_put_dup(fds, *fd);
                                 if (copy < 0)
                                         return copy;
                         }
@@ -2118,20 +2118,20 @@ static int exec_context_serialize(const ExecContext *c, FILE *f) {
                 if (asprintf(&value, "%04o", c->directories[dt].mode) < 0)
                         return log_oom_debug();
 
-                for (size_t i = 0; i < c->directories[dt].n_items; i++) {
+                FOREACH_ARRAY(i, c->directories[dt].items, c->directories[dt].n_items) {
                         _cleanup_free_ char *path_escaped = NULL;
 
-                        path_escaped = shell_escape(c->directories[dt].items[i].path, ":");
+                        path_escaped = shell_escape(i->path, ":");
                         if (!path_escaped)
                                 return log_oom_debug();
 
                         if (!strextend(&value, " ", path_escaped))
                                 return log_oom_debug();
 
-                        if (!strextend(&value, ":", yes_no(c->directories[dt].items[i].only_create)))
+                        if (!strextend(&value, ":", yes_no(i->only_create)))
                                 return log_oom_debug();
 
-                        STRV_FOREACH(d, c->directories[dt].items[i].symlinks) {
+                        STRV_FOREACH(d, i->symlinks) {
                                 _cleanup_free_ char *link_escaped = NULL;
 
                                 link_escaped = shell_escape(*d, ":");
@@ -2368,8 +2368,8 @@ static int exec_context_serialize(const ExecContext *c, FILE *f) {
         if (r < 0)
                 return r;
 
-        for (size_t j = 0; j < c->n_log_extra_fields; j++) {
-                r = serialize_item(f, "exec-context-log-extra-fields", c->log_extra_fields[j].iov_base);
+        FOREACH_ARRAY(field, c->log_extra_fields, c->n_log_extra_fields) {
+                r = serialize_item(f, "exec-context-log-extra-fields", field->iov_base);
                 if (r < 0)
                         return r;
         }
@@ -2450,40 +2450,39 @@ static int exec_context_serialize(const ExecContext *c, FILE *f) {
         if (r < 0)
                 return r;
 
-        for (size_t i = 0; i < c->n_bind_mounts; i++) {
+        FOREACH_ARRAY(mount, c->bind_mounts, c->n_bind_mounts) {
                 _cleanup_free_ char *src_escaped = NULL, *dst_escaped = NULL;
 
-                src_escaped = shell_escape(c->bind_mounts[i].source, ":");
+                src_escaped = shell_escape(mount->source, ":");
                 if (!src_escaped)
                         return log_oom_debug();
 
-                dst_escaped = shell_escape(c->bind_mounts[i].destination, ":");
+                dst_escaped = shell_escape(mount->destination, ":");
                 if (!dst_escaped)
                         return log_oom_debug();
 
                 r = serialize_item_format(f,
-                                          c->bind_mounts[i].read_only ? "exec-context-bind-read-only-path" : "exec-context-bind-path",
+                                          mount->read_only ? "exec-context-bind-read-only-path" : "exec-context-bind-path",
                                           "%s%s:%s:%s",
-                                          c->bind_mounts[i].ignore_enoent ? "-" : "",
+                                          mount->ignore_enoent ? "-" : "",
                                           src_escaped,
                                           dst_escaped,
-                                          c->bind_mounts[i].recursive ? "rbind" : "norbind");
+                                          mount->recursive ? "rbind" : "norbind");
                 if (r < 0)
                         return r;
         }
 
-        for (size_t i = 0; i < c->n_temporary_filesystems; i++) {
-                const TemporaryFileSystem *t = c->temporary_filesystems + i;
+        FOREACH_ARRAY(tmpfs, c->temporary_filesystems, c->n_temporary_filesystems) {
                 _cleanup_free_ char *escaped = NULL;
 
-                if (!isempty(t->options)) {
-                        escaped = shell_escape(t->options, ":");
+                if (!isempty(tmpfs->options)) {
+                        escaped = shell_escape(tmpfs->options, ":");
                         if (!escaped)
                                 return log_oom_debug();
                 }
 
                 r = serialize_item_format(f, "exec-context-temporary-filesystems", "%s%s%s",
-                                          t->path,
+                                          tmpfs->path,
                                           isempty(escaped) ? "" : ":",
                                           strempty(escaped));
                 if (r < 0)
@@ -2642,25 +2641,25 @@ static int exec_context_serialize(const ExecContext *c, FILE *f) {
         if (r < 0)
                 return r;
 
-        for (size_t i = 0; i < c->n_mount_images; i++) {
+        FOREACH_ARRAY(mount, c->mount_images, c->n_mount_images) {
                 _cleanup_free_ char *s = NULL, *source_escaped = NULL, *dest_escaped = NULL;
 
-                source_escaped = shell_escape(c->mount_images[i].source, " ");
+                source_escaped = shell_escape(mount->source, " ");
                 if (!source_escaped)
                         return log_oom_debug();
 
-                dest_escaped = shell_escape(c->mount_images[i].destination, " ");
+                dest_escaped = shell_escape(mount->destination, " ");
                 if (!dest_escaped)
                         return log_oom_debug();
 
-                s = strjoin(c->mount_images[i].ignore_enoent ? "-" : "",
+                s = strjoin(mount->ignore_enoent ? "-" : "",
                             source_escaped,
                             " ",
                             dest_escaped);
                 if (!s)
                         return log_oom_debug();
 
-                LIST_FOREACH(mount_options, o, c->mount_images[i].mount_options) {
+                LIST_FOREACH(mount_options, o, mount->mount_options) {
                         _cleanup_free_ char *escaped = NULL;
 
                         if (isempty(o->options))
@@ -2683,19 +2682,19 @@ static int exec_context_serialize(const ExecContext *c, FILE *f) {
                         return r;
         }
 
-        for (size_t i = 0; i < c->n_extension_images; i++) {
+        FOREACH_ARRAY(mount, c->extension_images, c->n_extension_images) {
                 _cleanup_free_ char *s = NULL, *source_escaped = NULL;
 
-                source_escaped = shell_escape(c->extension_images[i].source, ":");
+                source_escaped = shell_escape(mount->source, ":");
                 if (!source_escaped)
                         return log_oom_debug();
 
-                s = strjoin(c->extension_images[i].ignore_enoent ? "-" : "",
+                s = strjoin(mount->ignore_enoent ? "-" : "",
                             source_escaped);
                 if (!s)
                         return log_oom_debug();
 
-                LIST_FOREACH(mount_options, o, c->extension_images[i].mount_options) {
+                LIST_FOREACH(mount_options, o, mount->mount_options) {
                         _cleanup_free_ char *escaped = NULL;
 
                         if (isempty(o->options))
