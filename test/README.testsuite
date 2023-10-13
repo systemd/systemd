@@ -193,7 +193,9 @@ Now install necessary build & test dependencies:
 ## PPA with some newer Ubuntu packages required by upstream systemd
 # add-apt-repository -y --enable-source ppa:upstream-systemd-ci/systemd-ci
 # apt build-dep -y systemd
-# apt install -y autopkgtest debhelper genisoimage git qemu-system-x86
+# apt install -y autopkgtest debhelper genisoimage git qemu-system-x86 \
+                 libcurl4-openssl-dev libfdisk-dev libtss2-dev libfido2-dev \
+                 libssl-dev python3-pefile
 
 Build systemd deb packages with debug info:
 
@@ -305,3 +307,28 @@ in the test definition (i.e. TEST-*-NAME/test.sh), which will skip the post-test
 check for missing coverage for the respective test.
 
 [0] https://coveralls.io/github/systemd/systemd
+
+Running fuzzers locally
+=======================
+
+When introducing a new fuzzer you usually want to check how well it behaves, as
+well as to check if it triggers anything unusual straight away. The easiest
+way is to use the LLVM's libFuzzer engine [0] together with ASan and UBSan:
+
+$ CC=clang CXX=clang++ meson setup build-libfuzz -Dllvm-fuzz=true -Db_sanitize=address,undefined -Db_lundef=false
+$ ninja -C build-libfuzz
+
+After that you can run the fuzzer directly together with a directory with your
+initial corpus (or an empty directory, in which libFuzzer will store inputs
+that trigger new code paths):
+
+$ build-libfuzz/fuzz-varlink-idl test/fuzz/fuzz-varlink-idl/
+
+Any leaks/crashes will abort the fuzzer and leave a reproducer in your current
+working directory (prefixed with `leak-` or `crash-`).
+
+There's quite a number of options and ways you can tweak the fuzzer; to get
+list of all supported options either run the fuzzer binary with `-help=1` or
+check the libFuzzer documentation [0].
+
+[0] https://llvm.org/docs/LibFuzzer.html
