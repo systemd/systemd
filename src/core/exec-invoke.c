@@ -888,8 +888,8 @@ restore_stdio:
 }
 
 static int get_fixed_user(
-                const char *username,
-                const char **ret_user,
+                const char *user_or_uid,
+                const char **ret_username,
                 uid_t *ret_uid,
                 gid_t *ret_gid,
                 const char **ret_home,
@@ -897,35 +897,39 @@ static int get_fixed_user(
 
         int r;
 
-        assert(username);
-        assert(ret_user);
+        assert(user_or_uid);
+        assert(ret_username);
 
         /* Note that we don't set $HOME or $SHELL if they are not particularly enlightening anyway
          * (i.e. are "/" or "/bin/nologin"). */
 
-        r = get_user_creds(&username, ret_uid, ret_gid, ret_home, ret_shell, USER_CREDS_CLEAN);
+        r = get_user_creds(&user_or_uid, ret_uid, ret_gid, ret_home, ret_shell, USER_CREDS_CLEAN);
         if (r < 0)
                 return r;
 
-        *ret_user = username;
+        /* user_or_uid is normalized by get_user_creds to username */
+        *ret_username = user_or_uid;
+
         return 0;
 }
 
 static int get_fixed_group(
-                const char *groupname,
-                const char **ret_group,
+                const char *group_or_gid,
+                const char **ret_groupname,
                 gid_t *ret_gid) {
 
         int r;
 
-        assert(groupname);
-        assert(ret_group);
+        assert(group_or_gid);
+        assert(ret_groupname);
 
-        r = get_group_creds(&groupname, ret_gid, /* flags = */ 0);
+        r = get_group_creds(&group_or_gid, ret_gid, /* flags = */ 0);
         if (r < 0)
                 return r;
 
-        *ret_group = groupname;
+        /* group_or_gid is normalized by get_group_creds to groupname */
+        *ret_groupname = group_or_gid;
+
         return 0;
 }
 
