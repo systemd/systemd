@@ -883,6 +883,10 @@ Unit* unit_free(Unit *u) {
         strv_free(u->dropin_paths);
         free(u->instance);
 
+        FOREACH_ARRAY(i, u->dep_names_list, ELEMENTSOF(u->dep_names_list)) {
+                strv_free(*i);
+        }
+
         free(u->job_timeout_reboot_arg);
         free(u->reboot_arg);
 
@@ -1472,6 +1476,17 @@ int unit_load_fragment_and_dropin(Unit *u, bool fragment_required) {
                         u->source_mtime = timespec_load(&st.st_mtim);
                 else
                         u->source_mtime = 0;
+        }
+
+        for (size_t i = 0; i < _UNIT_DEPENDENCY_MAX; i++) {
+                char **dep_names = u->dep_names_list[i];
+                if (!strv_isempty(dep_names)) {
+                        STRV_FOREACH(n, dep_names) {
+                                r = unit_add_dependency_by_name(u, i, *n, true, UNIT_DEPENDENCY_FILE);
+                                if (r < 0)
+                                        log_warning("Failed to add dependency on %s, ignoring: %m", *n);
+                        }
+                }
         }
 
         return 0;

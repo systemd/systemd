@@ -232,6 +232,10 @@ typedef struct Unit {
         char *source_path; /* if converted, the source file */
         char **dropin_paths;
 
+        /* Pointer to an array of string vectors, each containing a list of dependencies. The indices
+         * of the array correspond to the UnitDependency enum types. */
+        char **dep_names_list[_UNIT_DEPENDENCY_MAX];
+
         usec_t fragment_not_found_timestamp_hash;
         usec_t fragment_mtime;
         usec_t source_mtime;
