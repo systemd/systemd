@@ -729,11 +729,7 @@ static int varlink_idl_subparse_struct_or_enum(
 
                         if (!token)
                                 return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Premature EOF.", *line, *column);
-                        if (streq(token, "#")) {
-                                r = varlink_idl_subparse_comment(p, line, column);
-                                if (r < 0)
-                                        return r;
-                        } else if (streq(token, ")"))
+                        if (streq(token, ")"))
                                 state = STATE_DONE;
                         else {
                                 field_name = TAKE_PTR(token);
@@ -1004,6 +1000,9 @@ int varlink_idl_parse(
                 case STATE_METHOD_ARROW:
                         assert(symbol);
 
+                        if (!token)
+                                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Premature EOF.", *line, *column);
+
                         if (!streq(token, "->"))
                                 return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Unexpected token '%s'.", *line, *column, token);
 
@@ -1178,13 +1177,13 @@ bool varlink_idl_interface_name_is_valid(const char *name) {
         return true;
 }
 
-static int varlink_idl_symbol_consistent(const VarlinkInterface *interface, const VarlinkSymbol *symbol, bool level);
+static int varlink_idl_symbol_consistent(const VarlinkInterface *interface, const VarlinkSymbol *symbol, int level);
 
 static int varlink_idl_field_consistent(
                 const VarlinkInterface *interface,
                 const VarlinkSymbol *symbol,
                 const VarlinkField *field,
-                bool level) {
+                int level) {
 
         const char *symbol_name;
         int r;
@@ -1276,7 +1275,7 @@ static bool varlink_symbol_is_empty(const VarlinkSymbol *symbol) {
 static int varlink_idl_symbol_consistent(
                 const VarlinkInterface *interface,
                 const VarlinkSymbol *symbol,
-                bool level) {
+                int level) {
 
         _cleanup_(set_freep) Set *input_set = NULL, *output_set = NULL;
         const char *symbol_name;
@@ -1313,7 +1312,7 @@ static int varlink_idl_symbol_consistent(
         return 0;
 }
 
-int varlink_idl_consistent(const VarlinkInterface *interface, bool level) {
+int varlink_idl_consistent(const VarlinkInterface *interface, int level) {
         _cleanup_(set_freep) Set *name_set = NULL;
         int r;
 
