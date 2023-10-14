@@ -171,12 +171,7 @@ int cat_files(const char *file, char **dropins, CatFlags flags) {
 
         if (file) {
                 r = cat_file(file, false);
-                if (r == -ENOENT && (flags & CAT_FLAGS_MAIN_FILE_OPTIONAL))
-                        printf("%s# Configuration file %s not found%s\n",
-                               ansi_highlight_magenta(),
-                               file,
-                               ansi_normal());
-                else if (r < 0)
+                if (r < 0)
                         return log_warning_errno(r, "Failed to cat %s: %m", file);
         }
 
