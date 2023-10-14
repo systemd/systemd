@@ -160,26 +160,42 @@ static int cat_file(const char *filename, bool newline, CatFlags flags) {
                 if (r == 0)
                         break;
 
-                if (flags & CAT_TLDR) {
-                        const char *t = skip_leading_chars(line, WHITESPACE);
+                const char *t = skip_leading_chars(line, WHITESPACE);
+                enum {
+                        LINE_SECTION,
+                        LINE_COMMENT,
+                        LINE_NORMAL,
+                } line_type =
+                        ((flags & CAT_FORMAT_HAS_SECTIONS) && *t == '[') ? LINE_SECTION :
+                        IN_SET(*t, '#', ';', '\0') ? LINE_COMMENT :
+                        LINE_NORMAL;
 
-                        if ((flags & CAT_FORMAT_HAS_SECTIONS) && *t == '[') {
+                if (flags & CAT_TLDR) {
+                        if (line_type == LINE_SECTION) {
                                 /* The start of a section, let's not print it yet. */
                                 free_and_replace(section, line);
                                 continue;
                         }
 
-                        if (IN_SET(*t, '#', ';', '\0'))
+                        if (line_type == LINE_COMMENT)
                                 continue;
 
                         /* Before we print the actual line, print the last section header */
                         if (section) {
-                                puts(section);
+                                printf("%s%s%s\n",
+                                       ansi_highlight_cyan(),
+                                       section,
+                                       ansi_normal());
                                 section = mfree(section);
                         }
                 }
 
-                puts(line);
+                printf("%s%s%s\n",
+                       line_type == LINE_SECTION ? ansi_highlight_cyan() :
+                       line_type == LINE_COMMENT ? ansi_highlight_grey() :
+                       "",
+                       line,
+                       line_type != LINE_NORMAL ? ansi_normal() : "");
         }
 
         return 0;
