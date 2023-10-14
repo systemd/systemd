@@ -2081,7 +2081,7 @@ int seccomp_protect_hostname(void) {
 static int seccomp_restrict_sxid(scmp_filter_ctx seccomp, mode_t m) {
         /* Checks the mode_t parameter of the following system calls:
          *
-         *       → chmod() + fchmod() + fchmodat()
+         *       → chmod() + fchmod() + fchmodat() + fchmodat2()
          *       → open() + creat() + openat()
          *       → mkdir() + mkdirat()
          *       → mknod() + mknodat()
@@ -2121,6 +2121,28 @@ static int seccomp_restrict_sxid(scmp_filter_ctx seccomp, mode_t m) {
                         SCMP_A2(SCMP_CMP_MASKED_EQ, m, m));
         if (r < 0)
                 log_debug_errno(r, "Failed to add filter for fchmodat: %m");
+        else
+                any = true;
+
+#if defined(__SNR_fchmodat2)
+        r = seccomp_rule_add_exact(
+                        seccomp,
+                        SCMP_ACT_ERRNO(EPERM),
+                        SCMP_SYS(fchmodat2),
+                        1,
+                        SCMP_A2(SCMP_CMP_MASKED_EQ, m, m));
+#else
+        /* It looks like this libseccomp does not know about fchmodat2().
+         * Pretend the fchmodat2() system call is not supported at all,
+         * regardless of the kernel version. */
+        r = seccomp_rule_add_exact(
+                        seccomp,
+                        SCMP_ACT_ERRNO(ENOSYS),
+                        __NR_fchmodat2,
+                        0);
+#endif
+        if (r < 0)
+                log_debug_errno(r, "Failed to add filter for fchmodat2: %m");
         else
                 any = true;
 
