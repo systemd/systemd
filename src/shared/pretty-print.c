@@ -131,6 +131,22 @@ int terminal_urlify_man(const char *page, const char *section, char **ret) {
         return terminal_urlify(url, text, ret);
 }
 
+typedef enum {
+        LINE_SECTION,
+        LINE_COMMENT,
+        LINE_NORMAL,
+} LineType;
+
+static LineType classify_line_type(const char *line, CatFlags flags) {
+        const char *t = skip_leading_chars(line, WHITESPACE);
+
+        if ((flags & CAT_FORMAT_HAS_SECTIONS) && *t == '[')
+                return LINE_SECTION;
+        if (IN_SET(*t, '#', ';', '\0'))
+                return LINE_COMMENT;
+        return LINE_NORMAL;
+}
+
 static int cat_file(const char *filename, bool newline, CatFlags flags) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *urlified = NULL, *section = NULL;
@@ -160,26 +176,33 @@ static int cat_file(const char *filename, bool newline, CatFlags flags) {
                 if (r == 0)
                         break;
 
+                LineType line_type = classify_line_type(line, flags);
                 if (flags & CAT_TLDR) {
-                        const char *t = skip_leading_chars(line, WHITESPACE);
-
-                        if ((flags & CAT_FORMAT_HAS_SECTIONS) && *t == '[') {
+                        if (line_type == LINE_SECTION) {
                                 /* The start of a section, let's not print it yet. */
                                 free_and_replace(section, line);
                                 continue;
                         }
 
-                        if (IN_SET(*t, '#', ';', '\0'))
+                        if (line_type == LINE_COMMENT)
                                 continue;
 
                         /* Before we print the actual line, print the last section header */
                         if (section) {
-                                puts(section);
+                                printf("%s%s%s\n",
+                                       ansi_highlight_cyan(),
+                                       section,
+                                       ansi_normal());
                                 section = mfree(section);
                         }
                 }
 
-                puts(line);
+                printf("%s%s%s\n",
+                       line_type == LINE_SECTION ? ansi_highlight_cyan() :
+                       line_type == LINE_COMMENT ? ansi_highlight_grey() :
+                       "",
+                       line,
+                       line_type != LINE_NORMAL ? ansi_normal() : "");
         }
 
         return 0;
