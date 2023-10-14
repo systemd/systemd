@@ -2972,7 +2972,7 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         r = parse_boolean(val);
                         if (r < 0)
                                 return r;
-                        r = c->non_blocking;
+                        c->non_blocking = r;
                 } else if ((val = startswith(l, "exec-context-ignore-sigpipe="))) {
                         r = parse_boolean(val);
                         if (r < 0)
