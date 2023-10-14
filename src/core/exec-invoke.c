@@ -3163,10 +3163,10 @@ static int apply_mount_namespace(
                 /* If NNP is on, we can turn on MS_NOSUID, since it won't have any effect anymore. */
                 .mount_nosuid = needs_sandboxing && context->no_new_privileges && !mac_selinux_use(),
 
-                .protect_home = needs_sandboxing && context->protect_home,
-                .protect_system = needs_sandboxing && context->protect_system,
-                .protect_proc = needs_sandboxing && context->protect_proc,
-                .proc_subset = needs_sandboxing && context->proc_subset,
+                .protect_home = needs_sandboxing ? context->protect_home : false,
+                .protect_system = needs_sandboxing ? context->protect_system : false,
+                .protect_proc = needs_sandboxing ? context->protect_proc : false,
+                .proc_subset = needs_sandboxing ? context->proc_subset : false,
         };
 
         r = setup_namespace(&parameters, error_path);
