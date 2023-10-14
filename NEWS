@@ -67,6 +67,12 @@ CHANGES WITH 255 in spe:
           It is now enabled by default and is part of the new "v255" naming
           scheme.
 
+		* The 'prefixstable' ipv6 address generation mode now considers the
+		  SSID when genrating stable addresses, so that a different stable
+		  address is used when roaming between wireless networks. If you
+		  already use 'prefixstable' addresses with wireless networks, the
+		  stable address chosen will be changed by the update.
+
         Changes in systemd-analyze:
 
         * "systemd-analyze plot" has gained tooltips on each unit name with
