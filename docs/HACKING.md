@@ -147,8 +147,27 @@ corpus should be built and exported as `$OUT/fuzz-foo_seed_corpus.zip` in
 `tools/oss-fuzz.sh`.
 
 The fuzzers can be built locally if you have libFuzzer installed by running
-`tools/oss-fuzz.sh`. You should also confirm that the fuzzers can be built and
-run using
+`tools/oss-fuzz.sh`, or by running:
+
+```
+CC=clang CXX=clang++ \
+meson setup build-libfuzz -Dllvm-fuzz=true -Db_sanitize=address,undefined -Db_lundef=false \
+                          -Dc_args='-fno-omit-frame-pointer -DFUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION'
+ninja -C build-libfuzz fuzzers
+```
+
+Each fuzzer then can be then run manually together with a directory containing
+the initial corpus:
+
+```
+export UBSAN_OPTIONS=print_stacktrace=1:print_summary=1:halt_on_error=1
+build-libfuzz/fuzz-varlink-idl test/fuzz/fuzz-varlink-idl/
+```
+
+Note: the `halt_on_error=1` UBSan option is especially important, otherwise
+the fuzzer won't crash when undefined behavior is triggered.
+
+You should also confirm that the fuzzers can be built and run using
 [the OSS-Fuzz toolchain](https://google.github.io/oss-fuzz/advanced-topics/reproducing/#building-using-docker):
 
 ```
