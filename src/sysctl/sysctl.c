@@ -28,7 +28,7 @@
 #include "sysctl-util.h"
 
 static char **arg_prefixes = NULL;
-static bool arg_cat_config = false;
+static CatFlags arg_cat_flags = CAT_CONFIG_OFF;
 static bool arg_strict = false;
 static PagerFlags arg_pager_flags = 0;
 
@@ -331,6 +331,12 @@ static int read_credential_lines(OrderedHashmap **sysctl_options) {
         return 0;
 }
 
+static int cat_config(char **files) {
+        pager_open(arg_pager_flags);
+
+        return cat_files(NULL, files, arg_cat_flags);
+}
+
 static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -344,6 +350,7 @@ static int help(void) {
                "  -h --help             Show this help\n"
                "     --version          Show package version\n"
                "     --cat-config       Show configuration files\n"
+               "     --tldr             Show non-comment parts of configuration\n"
                "     --prefix=PATH      Only apply rules with the specified prefix\n"
                "     --no-pager         Do not pipe output into a pager\n"
                "\nSee the %s for details.\n",
@@ -358,6 +365,7 @@ static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
                 ARG_CAT_CONFIG,
+                ARG_TLDR,
                 ARG_PREFIX,
                 ARG_NO_PAGER,
                 ARG_STRICT,
@@ -367,6 +375,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "help",       no_argument,       NULL, 'h'            },
                 { "version",    no_argument,       NULL, ARG_VERSION    },
                 { "cat-config", no_argument,       NULL, ARG_CAT_CONFIG },
+                { "tldr",       no_argument,       NULL, ARG_TLDR       },
                 { "prefix",     required_argument, NULL, ARG_PREFIX     },
                 { "no-pager",   no_argument,       NULL, ARG_NO_PAGER   },
                 { "strict",     no_argument,       NULL, ARG_STRICT     },
@@ -389,7 +398,11 @@ static int parse_argv(int argc, char *argv[]) {
                         return version();
 
                 case ARG_CAT_CONFIG:
-                        arg_cat_config = true;
+                        arg_cat_flags = CAT_CONFIG_ON;
+                        break;
+
+                case ARG_TLDR:
+                        arg_cat_flags = CAT_TLDR;
                         break;
 
                 case ARG_PREFIX: {
@@ -428,9 +441,9 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached();
                 }
 
-        if (arg_cat_config && argc > optind)
+        if (arg_cat_flags != CAT_CONFIG_OFF && argc > optind)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Positional arguments are not allowed with --cat-config");
+                                       "Positional arguments are not allowed with --cat-config/--tldr.");
 
         return 1;
 }
@@ -460,11 +473,8 @@ static int run(int argc, char *argv[]) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to enumerate sysctl.d files: %m");
 
-                if (arg_cat_config) {
-                        pager_open(arg_pager_flags);
-
-                        return cat_files(NULL, files, /* flags= */ 0);
-                }
+                if (arg_cat_flags != CAT_CONFIG_OFF)
+                        return cat_config(files);
 
                 STRV_FOREACH(f, files)
                         RET_GATHER(r, parse_file(&sysctl_options, *f, true));
