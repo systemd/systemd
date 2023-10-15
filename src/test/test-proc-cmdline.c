@@ -114,7 +114,7 @@ static void test_proc_cmdline_given_one(bool flip_initrd) {
                 in_initrd_force(!in_initrd());
 }
 
-TEST(test_proc_cmdline_given) {
+TEST(proc_cmdline_given) {
         assert_se(putenv((char*) "SYSTEMD_PROC_CMDLINE=foo_bar=quux wuff-piep=\"tuet \" rd.zumm space='x y z' miepf=\"uuu\"") == 0);
         assert_se(putenv((char*) "SYSTEMD_EFI_OPTIONS=miepf=\"uuu\"") == 0);
 

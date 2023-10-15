@@ -484,7 +484,7 @@ TEST(parse_number16) {
         assert_se(streq16(tail, u"rest"));
 }
 
-TEST(test_hexdump) {
+TEST(hexdump) {
         char16_t *hex;
 
         hex = hexdump(NULL, 0);
