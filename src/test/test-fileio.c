@@ -1096,7 +1096,7 @@ static void test_read_virtual_file_one(size_t max_size) {
         }
 }
 
-TEST(test_read_virtual_file) {
+TEST(read_virtual_file) {
         test_read_virtual_file_one(0);
         test_read_virtual_file_one(1);
         test_read_virtual_file_one(2);
@@ -1106,7 +1106,7 @@ TEST(test_read_virtual_file) {
         test_read_virtual_file_one(SIZE_MAX);
 }
 
-TEST(test_fdopen_independent) {
+TEST(fdopen_independent) {
 #define TEST_TEXT "this is some random test text we are going to write to a memfd"
         _cleanup_close_ int fd = -EBADF;
         _cleanup_fclose_ FILE *f = NULL;

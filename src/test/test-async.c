@@ -13,7 +13,7 @@
 #include "tests.h"
 #include "tmpfile-util.h"
 
-TEST(test_asynchronous_sync) {
+TEST(asynchronous_sync) {
         assert_se(asynchronous_sync(NULL) >= 0);
 }
 
