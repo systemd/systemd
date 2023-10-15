@@ -110,6 +110,8 @@ bool parse_number16(const char16_t *s, uint64_t *ret_u, const char16_t **ret_tai
 
 bool parse_boolean(const char *v, bool *ret);
 
+char *line_get_key_value(char *s, const char *sep, size_t *pos, char **ret_key, char **ret_value);
+
 char16_t *hexdump(const void *data, size_t size);
 
 #ifdef __clang__
