@@ -1470,6 +1470,16 @@ NR NAME                SHA256
         <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--tldr</option></term>
+
+        <listitem><para>With <command>cat-config</command>, only print the "interesting" parts of the
+        configuration files, skipping comments and empty lines and section headers followed only by
+        comments and empty lines.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
       <xi:include href="standard-options.xml" xpointer="no-pager" />
