@@ -74,6 +74,16 @@
     </listitem>
   </varlistentry>
 
+  <varlistentry id='tldr'>
+    <term><option>--tldr</option></term>
+
+    <listitem>
+      <para>Copy the contents of config files to standard output. Only the "interesting" parts of the
+      configuration files are printed, comments and empty lines are skipped. Before each file, the filename
+      is printed as a comment.</para>
+    </listitem>
+  </varlistentry>
+
   <varlistentry id='json'>
     <term><option>--json=</option><replaceable>MODE</replaceable></term>
 
