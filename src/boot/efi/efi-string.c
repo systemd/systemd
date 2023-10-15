@@ -444,7 +444,7 @@ char *line_get_key_value(char *s, const char *sep, size_t *pos, char **ret_key, 
                 line[linelen] = '\0';
 
                 /* remove leading whitespace */
-                while (strchr8(" \t", *line)) {
+                while (linelen > 0 && strchr8(" \t", *line)) {
                         line++;
                         linelen--;
                 }
