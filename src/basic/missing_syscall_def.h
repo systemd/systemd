@@ -246,6 +246,74 @@ assert_cc(__NR_copy_file_range == systemd_NR_copy_file_range);
 #  endif
 #endif
 
+#ifndef __IGNORE_fchmodat2
+#  if defined(__aarch64__)
+#    define systemd_NR_fchmodat2 452
+#  elif defined(__alpha__)
+#    define systemd_NR_fchmodat2 562
+#  elif defined(__arc__) || defined(__tilegx__)
+#    define systemd_NR_fchmodat2 452
+#  elif defined(__arm__)
+#    define systemd_NR_fchmodat2 452
+#  elif defined(__i386__)
+#    define systemd_NR_fchmodat2 452
+#  elif defined(__ia64__)
+#    define systemd_NR_fchmodat2 1476
+#  elif defined(__loongarch_lp64)
+#    define systemd_NR_fchmodat2 452
+#  elif defined(__m68k__)
+#    define systemd_NR_fchmodat2 452
+#  elif defined(_MIPS_SIM)
+#    if _MIPS_SIM == _MIPS_SIM_ABI32
+#      define systemd_NR_fchmodat2 4452
+#    elif _MIPS_SIM == _MIPS_SIM_NABI32
+#      define systemd_NR_fchmodat2 6452
+#    elif _MIPS_SIM == _MIPS_SIM_ABI64
+#      define systemd_NR_fchmodat2 5452
+#    else
+#      error "Unknown MIPS ABI"
+#    endif
+#  elif defined(__hppa__)
+#    define systemd_NR_fchmodat2 452
+#  elif defined(__powerpc__)
+#    define systemd_NR_fchmodat2 452
+#  elif defined(__riscv)
+#    if __riscv_xlen == 32
+#      define systemd_NR_fchmodat2 452
+#    elif __riscv_xlen == 64
+#      define systemd_NR_fchmodat2 452
+#    else
+#      error "Unknown RISC-V ABI"
+#    endif
+#  elif defined(__s390__)
+#    define systemd_NR_fchmodat2 452
+#  elif defined(__sparc__)
+#    define systemd_NR_fchmodat2 452
+#  elif defined(__x86_64__)
+#    if defined(__ILP32__)
+#      define systemd_NR_fchmodat2 (452 | /* __X32_SYSCALL_BIT */ 0x40000000)
+#    else
+#      define systemd_NR_fchmodat2 452
+#    endif
+#  elif !defined(missing_arch_template)
+#    warning "fchmodat2() syscall number is unknown for your architecture"
+#  endif
+
+/* may be an (invalid) negative number due to libseccomp, see PR 13319 */
+#  if defined __NR_fchmodat2 && __NR_fchmodat2 >= 0
+#    if defined systemd_NR_fchmodat2
+assert_cc(__NR_fchmodat2 == systemd_NR_fchmodat2);
+#    endif
+#  else
+#    if defined __NR_fchmodat2
+#      undef __NR_fchmodat2
+#    endif
+#    if defined systemd_NR_fchmodat2 && systemd_NR_fchmodat2 >= 0
+#      define __NR_fchmodat2 systemd_NR_fchmodat2
+#    endif
+#  endif
+#endif
+
 #ifndef __IGNORE_getrandom
 #  if defined(__aarch64__)
 #    define systemd_NR_getrandom 278
