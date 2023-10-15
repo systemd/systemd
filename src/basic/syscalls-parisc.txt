@@ -79,6 +79,7 @@ fanotify_mark	323
 fchdir	133
 fchmod	94
 fchmodat	286
+fchmodat2	452
 fchown	95
 fchown32
 fchownat	278
@@ -202,6 +203,7 @@ lsetxattr	239
 lstat	84
 lstat64	198
 madvise	119
+map_shadow_stack
 mbind	260
 membarrier	343
 memfd_create	340
