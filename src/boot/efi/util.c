@@ -8,27 +8,6 @@
 #include "util.h"
 #include "version.h"
 
-EFI_STATUS parse_boolean(const char *v, bool *b) {
-        assert(b);
-
-        if (!v)
-                return EFI_INVALID_PARAMETER;
-
-        if (streq8(v, "1") || streq8(v, "yes") || streq8(v, "y") || streq8(v, "true") || streq8(v, "t") ||
-            streq8(v, "on")) {
-                *b = true;
-                return EFI_SUCCESS;
-        }
-
-        if (streq8(v, "0") || streq8(v, "no") || streq8(v, "n") || streq8(v, "false") || streq8(v, "f") ||
-            streq8(v, "off")) {
-                *b = false;
-                return EFI_SUCCESS;
-        }
-
-        return EFI_INVALID_PARAMETER;
-}
-
 EFI_STATUS efivar_set_raw(const EFI_GUID *vendor, const char16_t *name, const void *buf, size_t size, uint32_t flags) {
         assert(vendor);
         assert(name);

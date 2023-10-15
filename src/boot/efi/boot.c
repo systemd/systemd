@@ -1166,85 +1166,10 @@ static BootEntry* boot_entry_free(BootEntry *entry) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(BootEntry *, boot_entry_free);
 
-static char *line_get_key_value(
-                char *content,
-                const char *sep,
-                size_t *pos,
-                char **key_ret,
-                char **value_ret) {
-
-        char *line, *value;
-        size_t linelen;
-
-        assert(content);
-        assert(sep);
-        assert(pos);
-        assert(key_ret);
-        assert(value_ret);
-
-        for (;;) {
-                line = content + *pos;
-                if (*line == '\0')
-                        return NULL;
-
-                linelen = 0;
-                while (line[linelen] && !strchr8("\n\r", line[linelen]))
-                        linelen++;
-
-                /* move pos to next line */
-                *pos += linelen;
-                if (content[*pos])
-                        (*pos)++;
-
-                /* empty line */
-                if (linelen == 0)
-                        continue;
-
-                /* terminate line */
-                line[linelen] = '\0';
-
-                /* remove leading whitespace */
-                while (strchr8(" \t", *line)) {
-                        line++;
-                        linelen--;
-                }
-
-                /* remove trailing whitespace */
-                while (linelen > 0 && strchr8(" \t", line[linelen - 1]))
-                        linelen--;
-                line[linelen] = '\0';
-
-                if (*line == '#')
-                        continue;
-
-                /* split key/value */
-                value = line;
-                while (*value && !strchr8(sep, *value))
-                        value++;
-                if (*value == '\0')
-                        continue;
-                *value = '\0';
-                value++;
-                while (*value && strchr8(sep, *value))
-                        value++;
-
-                /* unquote */
-                if (value[0] == '"' && line[linelen - 1] == '"') {
-                        value++;
-                        line[linelen - 1] = '\0';
-                }
-
-                *key_ret = line;
-                *value_ret = value;
-                return line;
-        }
-}
-
 static void config_defaults_load_from_file(Config *config, char *content) {
         char *line;
         size_t pos = 0;
         char *key, *value;
-        EFI_STATUS err;
 
         assert(config);
         assert(content);
@@ -1275,38 +1200,31 @@ static void config_defaults_load_from_file(Config *config, char *content) {
                         config->entry_default_config = xstr8_to_16(value);
 
                 } else if (streq8(key, "editor")) {
-                        err = parse_boolean(value, &config->editor);
-                        if (err != EFI_SUCCESS)
+                        if (!parse_boolean(value, &config->editor))
                                 log_error("Error parsing 'editor' config option, ignoring: %s", value);
 
                 } else if (streq8(key, "auto-entries")) {
-                        err = parse_boolean(value, &config->auto_entries);
-                        if (err != EFI_SUCCESS)
+                        if (!parse_boolean(value, &config->auto_entries))
                                 log_error("Error parsing 'auto-entries' config option, ignoring: %s", value);
 
                 } else if (streq8(key, "auto-firmware")) {
-                        err = parse_boolean(value, &config->auto_firmware);
-                        if (err != EFI_SUCCESS)
+                        if (!parse_boolean(value, &config->auto_firmware))
                                 log_error("Error parsing 'auto-firmware' config option, ignoring: %s", value);
 
                 } else if (streq8(key, "auto-poweroff")) {
-                        err = parse_boolean(value, &config->auto_poweroff);
-                        if (err != EFI_SUCCESS)
+                        if (!parse_boolean(value, &config->auto_poweroff))
                                 log_error("Error parsing 'auto-poweroff' config option, ignoring: %s", value);
 
                 } else if (streq8(key, "auto-reboot")) {
-                        err = parse_boolean(value, &config->auto_reboot);
-                        if (err != EFI_SUCCESS)
+                        if (!parse_boolean(value, &config->auto_reboot))
                                 log_error("Error parsing 'auto-reboot' config option, ignoring: %s", value);
 
                 } else if (streq8(key, "beep")) {
-                        err = parse_boolean(value, &config->beep);
-                        if (err != EFI_SUCCESS)
+                        if (!parse_boolean(value, &config->beep))
                                 log_error("Error parsing 'beep' config option, ignoring: %s", value);
 
                 } else if (streq8(key, "reboot-for-bitlocker")) {
-                        err = parse_boolean(value, &config->reboot_for_bitlocker);
-                        if (err != EFI_SUCCESS)
+                        if (!parse_boolean(value, &config->reboot_for_bitlocker))
                                 log_error("Error parsing 'reboot-for-bitlocker' config option, ignoring: %s",
                                           value);
 
