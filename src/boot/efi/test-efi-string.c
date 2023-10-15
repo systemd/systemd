@@ -520,7 +520,9 @@ TEST(line_get_key_value) {
         char *key, *value;
 
         assert_se(!line_get_key_value((char[]){ "" }, "=", &pos, &key, &value));
+        assert_se(!line_get_key_value((char[]){ "\t" }, " \t", &pos, &key, &value));
 
+        pos = 0;
         assert_se(line_get_key_value(s1, "=", &pos, &key, &value));
         assert_se(streq8(key, "key"));
         assert_se(streq8(value, "value"));
