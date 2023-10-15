@@ -391,6 +391,27 @@ bool efi_fnmatch(const char16_t *pattern, const char16_t *haystack) {
 DEFINE_PARSE_NUMBER(char, parse_number8);
 DEFINE_PARSE_NUMBER(char16_t, parse_number16);
 
+bool parse_boolean(const char *v, bool *ret) {
+        assert(ret);
+
+        if (!v)
+                return false;
+
+        if (streq8(v, "1") || streq8(v, "yes") || streq8(v, "y") || streq8(v, "true") || streq8(v, "t") ||
+            streq8(v, "on")) {
+                *ret = true;
+                return true;
+        }
+
+        if (streq8(v, "0") || streq8(v, "no") || streq8(v, "n") || streq8(v, "false") || streq8(v, "f") ||
+            streq8(v, "off")) {
+                *ret = false;
+                return true;
+        }
+
+        return false;
+}
+
 char16_t *hexdump(const void *data, size_t size) {
         static const char hex[16] = "0123456789abcdef";
         const uint8_t *d = data;
