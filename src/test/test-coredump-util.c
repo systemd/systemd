@@ -130,7 +130,7 @@ static void test_parse_auxv_one(
         }
 }
 
-TEST(test_parse_auxv) {
+TEST(parse_auxv) {
         _cleanup_free_ char *dir = NULL;
         _cleanup_close_ int dir_fd = -EBADF;
 
