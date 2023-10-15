@@ -484,6 +484,26 @@ TEST(parse_number16) {
         assert_se(streq16(tail, u"rest"));
 }
 
+TEST(parse_boolean) {
+        bool b;
+
+        assert_se(!parse_boolean(NULL, &b));
+        assert_se(!parse_boolean("", &b));
+        assert_se(!parse_boolean("ja", &b));
+        assert_se(parse_boolean("1", &b) && b == true);
+        assert_se(parse_boolean("y", &b) && b == true);
+        assert_se(parse_boolean("yes", &b) && b == true);
+        assert_se(parse_boolean("t", &b) && b == true);
+        assert_se(parse_boolean("true", &b) && b == true);
+        assert_se(parse_boolean("on", &b) && b == true);
+        assert_se(parse_boolean("0", &b) && b == false);
+        assert_se(parse_boolean("n", &b) && b == false);
+        assert_se(parse_boolean("no", &b) && b == false);
+        assert_se(parse_boolean("f", &b) && b == false);
+        assert_se(parse_boolean("false", &b) && b == false);
+        assert_se(parse_boolean("off", &b) && b == false);
+}
+
 TEST(hexdump) {
         char16_t *hex;
 
