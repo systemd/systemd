@@ -21,6 +21,7 @@
 #include "macro.h"
 #include "memory-util.h"
 #include "missing_sched.h"
+#include "missing_syscall_def.h"
 #include "nsflags.h"
 #include "nulstr-util.h"
 #include "process-util.h"
@@ -1006,6 +1007,23 @@ static int real_open(const char *path, int flags, mode_t mode) {
 #endif
 }
 
+static int try_fchmodat2(int dirfd, const char *path, int flags, mode_t mode) {
+        /* glibc does not provide a direct wrapper for fchmodat2(). Let's hence define our own wrapper for
+         * testing purposes that calls the real syscall, on architectures and in environments where
+         * SYS_fchmodat2 is defined. Otherwise, let's just fall back to the glibc fchmodat() call. */
+
+#if defined __NR_fchmodat2 && __NR_fchmodat2 >= 0
+        int r;
+        r = (int) syscall(__NR_fchmodat2, dirfd, path, flags, mode);
+        /* The syscall might still be unsupported by kernel or libseccomp. */
+        if (r < 0 && errno == ENOSYS)
+                return fchmodat(dirfd, path, flags, mode);
+        return r;
+#else
+        return fchmodat(dirfd, path, flags, mode);
+#endif
+}
+
 TEST(restrict_suid_sgid) {
         pid_t pid;
 
@@ -1046,6 +1064,11 @@ TEST(restrict_suid_sgid) {
                 assert_se(fchmodat(AT_FDCWD, path, 0755 | S_ISGID, 0) >= 0);
                 assert_se(fchmodat(AT_FDCWD, path, 0755 | S_ISGID | S_ISUID, 0) >= 0);
                 assert_se(fchmodat(AT_FDCWD, path, 0755, 0) >= 0);
+
+                assert_se(try_fchmodat2(AT_FDCWD, path, 0755 | S_ISUID, 0) >= 0);
+                assert_se(try_fchmodat2(AT_FDCWD, path, 0755 | S_ISGID, 0) >= 0);
+                assert_se(try_fchmodat2(AT_FDCWD, path, 0755 | S_ISGID | S_ISUID, 0) >= 0);
+                assert_se(try_fchmodat2(AT_FDCWD, path, 0755, 0) >= 0);
 
                 k = real_open(z, O_CREAT|O_RDWR|O_CLOEXEC|O_EXCL, 0644 | S_ISUID);
                 k = safe_close(k);
@@ -1147,6 +1170,11 @@ TEST(restrict_suid_sgid) {
                 assert_se(fchmodat(AT_FDCWD, path, 0755 | S_ISGID, 0) < 0 && errno == EPERM);
                 assert_se(fchmodat(AT_FDCWD, path, 0755 | S_ISGID | S_ISUID, 0) < 0 && errno == EPERM);
                 assert_se(fchmodat(AT_FDCWD, path, 0755, 0) >= 0);
+
+                assert_se(try_fchmodat2(AT_FDCWD, path, 0755 | S_ISUID, 0) < 0 && errno == EPERM);
+                assert_se(try_fchmodat2(AT_FDCWD, path, 0755 | S_ISGID, 0) < 0 && errno == EPERM);
+                assert_se(try_fchmodat2(AT_FDCWD, path, 0755 | S_ISGID | S_ISUID, 0) < 0 && errno == EPERM);
+                assert_se(try_fchmodat2(AT_FDCWD, path, 0755, 0) >= 0);
 
                 assert_se(real_open(z, O_CREAT|O_RDWR|O_CLOEXEC|O_EXCL, 0644 | S_ISUID) < 0 && errno == EPERM);
                 assert_se(real_open(z, O_CREAT|O_RDWR|O_CLOEXEC|O_EXCL, 0644 | S_ISGID) < 0 && errno == EPERM);
