@@ -2241,7 +2241,7 @@ int seccomp_restrict_suid_sgid(void) {
 
                 k = seccomp_restrict_sxid(seccomp, S_ISGID);
                 if (k < 0)
-                        log_debug_errno(r, "Failed to add sgid rule for architecture %s, ignoring: %m",
+                        log_debug_errno(k, "Failed to add sgid rule for architecture %s, ignoring: %m",
                                         seccomp_arch_to_string(arch));
 
                 if (r < 0 && k < 0)
