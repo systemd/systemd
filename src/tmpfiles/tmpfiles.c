@@ -196,7 +196,7 @@ typedef enum {
         _CREATION_MODE_INVALID = -EINVAL,
 } CreationMode;
 
-static bool arg_cat_config = false;
+static CatFlags arg_cat_flags = CAT_CONFIG_OFF;
 static RuntimeScope arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
 static OperationMask arg_operation = 0;
 static bool arg_boot = false;
@@ -3936,7 +3936,9 @@ static int cat_config(char **config_dirs, char **args) {
         if (r < 0)
                 return r;
 
-        return cat_files(NULL, files, 0);
+        pager_open(arg_pager_flags);
+
+        return cat_files(NULL, files, arg_cat_flags);
 }
 
 static int exclude_default_prefixes(void) {
@@ -3974,6 +3976,7 @@ static int help(void) {
                "     --user                 Execute user configuration\n"
                "     --version              Show package version\n"
                "     --cat-config           Show configuration files\n"
+               "     --tldr                 Show non-comment parts of configuration\n"
                "     --create               Create marked files/directories\n"
                "     --clean                Clean up marked directories\n"
                "     --remove               Remove marked files/directories\n"
@@ -4001,6 +4004,7 @@ static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
                 ARG_CAT_CONFIG,
+                ARG_TLDR,
                 ARG_USER,
                 ARG_CREATE,
                 ARG_CLEAN,
@@ -4021,6 +4025,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "user",           no_argument,         NULL, ARG_USER           },
                 { "version",        no_argument,         NULL, ARG_VERSION        },
                 { "cat-config",     no_argument,         NULL, ARG_CAT_CONFIG     },
+                { "tldr",           no_argument,         NULL, ARG_TLDR           },
                 { "create",         no_argument,         NULL, ARG_CREATE         },
                 { "clean",          no_argument,         NULL, ARG_CLEAN          },
                 { "remove",         no_argument,         NULL, ARG_REMOVE         },
@@ -4052,7 +4057,11 @@ static int parse_argv(int argc, char *argv[]) {
                         return version();
 
                 case ARG_CAT_CONFIG:
-                        arg_cat_config = true;
+                        arg_cat_flags = CAT_CONFIG_ON;
+                        break;
+
+                case ARG_TLDR:
+                        arg_cat_flags = CAT_TLDR;
                         break;
 
                 case ARG_USER:
@@ -4140,17 +4149,17 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached();
                 }
 
-        if (arg_operation == 0 && !arg_cat_config)
+        if (arg_operation == 0 && arg_cat_flags == CAT_CONFIG_OFF)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "You need to specify at least one of --clean, --create or --remove.");
+                                       "You need to specify at least one of --clean, --create, or --remove.");
 
-        if (arg_replace && arg_cat_config)
+        if (arg_replace && arg_cat_flags != CAT_CONFIG_OFF)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Option --replace= is not supported with --cat-config");
+                                       "Option --replace= is not supported with --cat-config/--tldr.");
 
         if (arg_replace && optind >= argc)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "When --replace= is given, some configuration items must be specified");
+                                       "When --replace= is given, some configuration items must be specified.");
 
         if (arg_root && arg_runtime_scope == RUNTIME_SCOPE_USER)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -4453,11 +4462,8 @@ static int run(int argc, char *argv[]) {
                 log_debug("Looking for configuration files in (higher priority first):%s", t);
         }
 
-        if (arg_cat_config) {
-                pager_open(arg_pager_flags);
-
+        if (arg_cat_flags != CAT_CONFIG_OFF)
                 return cat_config(config_dirs, argv + optind);
-        }
 
         umask(0022);
 
