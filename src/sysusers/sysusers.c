@@ -94,7 +94,7 @@ typedef struct Item {
 
 static char *arg_root = NULL;
 static char *arg_image = NULL;
-static bool arg_cat_config = false;
+static CatFlags arg_cat_flags = CAT_CONFIG_OFF;
 static const char *arg_replace = NULL;
 static bool arg_dry_run = false;
 static bool arg_inline = false;
@@ -2042,7 +2042,7 @@ static int cat_config(void) {
 
         pager_open(arg_pager_flags);
 
-        return cat_files(NULL, files, /* flags= */ 0);
+        return cat_files(NULL, files, arg_cat_flags);
 }
 
 static int help(void) {
@@ -2058,6 +2058,7 @@ static int help(void) {
                "  -h --help                 Show this help\n"
                "     --version              Show package version\n"
                "     --cat-config           Show configuration files\n"
+               "     --tldr                 Show non-comment parts of configuration\n"
                "     --root=PATH            Operate on an alternate filesystem root\n"
                "     --image=PATH           Operate on disk image as filesystem root\n"
                "     --image-policy=POLICY  Specify disk image dissection policy\n"
@@ -2077,6 +2078,7 @@ static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
                 ARG_CAT_CONFIG,
+                ARG_TLDR,
                 ARG_ROOT,
                 ARG_IMAGE,
                 ARG_IMAGE_POLICY,
@@ -2090,6 +2092,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "help",         no_argument,       NULL, 'h'              },
                 { "version",      no_argument,       NULL, ARG_VERSION      },
                 { "cat-config",   no_argument,       NULL, ARG_CAT_CONFIG   },
+                { "tldr",         no_argument,       NULL, ARG_TLDR         },
                 { "root",         required_argument, NULL, ARG_ROOT         },
                 { "image",        required_argument, NULL, ARG_IMAGE        },
                 { "image-policy", required_argument, NULL, ARG_IMAGE_POLICY },
@@ -2116,7 +2119,11 @@ static int parse_argv(int argc, char *argv[]) {
                         return version();
 
                 case ARG_CAT_CONFIG:
-                        arg_cat_config = true;
+                        arg_cat_flags = CAT_CONFIG_ON;
+                        break;
+
+                case ARG_TLDR:
+                        arg_cat_flags = CAT_TLDR;
                         break;
 
                 case ARG_ROOT:
@@ -2170,16 +2177,17 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached();
                 }
 
-        if (arg_replace && arg_cat_config)
+        if (arg_replace && arg_cat_flags != CAT_CONFIG_OFF)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Option --replace= is not supported with --cat-config");
+                                       "Option --replace= is not supported with --cat-config/--tldr.");
 
         if (arg_replace && optind >= argc)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "When --replace= is given, some configuration items must be specified");
+                                       "When --replace= is given, some configuration items must be specified.");
 
         if (arg_image && arg_root)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Please specify either --root= or --image=, the combination of both is not supported.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Use either --root= or --image=, the combination of both is not supported.");
 
         return 1;
 }
@@ -2273,7 +2281,7 @@ static int run(int argc, char *argv[]) {
 
         log_setup();
 
-        if (arg_cat_config)
+        if (arg_cat_flags != CAT_CONFIG_OFF)
                 return cat_config();
 
         umask(0022);
