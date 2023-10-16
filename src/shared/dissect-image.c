@@ -2007,8 +2007,12 @@ static int mount_partition(
                 if (m->fsmount_fd >= 0) {
                         /* Case #1: Attach existing fsmount fd to the file system */
 
-                        if (move_mount(m->fsmount_fd, "", -EBADF, p, MOVE_MOUNT_F_EMPTY_PATH) < 0)
-                                return -errno;
+                        r = mount_exchange_graceful(
+                                        m->fsmount_fd,
+                                        p,
+                                        FLAGS_SET(flags, DISSECT_IMAGE_TRY_ATOMIC_MOUNT_EXCHANGE));
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to mount image on '%s': %m", p);
 
                 } else {
                         assert(node);
