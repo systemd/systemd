@@ -222,6 +222,10 @@ static bool s2h_supported(const SleepConfig *sleep_config, SleepSupport *ret_sup
                 if (r == 0) {
                         log_debug("Sleep operation %s is unsupported, can't perform %s.",
                                   sleep_operation_to_string(*i), sleep_operation_to_string(SLEEP_SUSPEND_THEN_HIBERNATE));
+
+                        puts(sleep_operation_to_string(*i));
+                        printf("%d\n", support);
+
                         *ret_support = support;
                         return false;
                 }
