@@ -22,6 +22,8 @@
 #include "strv.h"
 #include "time-util.h"
 
+#define DEFAULT_SUSPEND_ESTIMATION_USEC (1 * USEC_PER_HOUR)
+
 static const char* const sleep_operation_table[_SLEEP_OPERATION_MAX] = {
         [SLEEP_SUSPEND]                = "suspend",
         [SLEEP_HIBERNATE]              = "hibernate",
@@ -110,59 +112,57 @@ int parse_sleep_config(SleepConfig **ret) {
         return 0;
 }
 
-int can_sleep_state(char **requested_types) {
-        _cleanup_free_ char *text = NULL;
+int sleep_state_supported(char **states) {
+        _cleanup_free_ char *supported_sysfs = NULL;
+        const char *found;
         int r;
 
-        if (strv_isempty(requested_types))
-                return true;
+        if (strv_isempty(states))
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOMSG), "No sleep state configured.");
 
-        /* If /sys is read-only we cannot sleep */
-        if (access("/sys/power/state", W_OK) < 0) {
-                log_debug_errno(errno, "/sys/power/state is not writable, cannot sleep: %m");
-                return false;
-        }
+        if (access("/sys/power/state", W_OK) < 0)
+                return log_debug_errno(errno, "/sys/power/state is not writable: %m");
 
-        r = read_one_line_file("/sys/power/state", &text);
-        if (r < 0) {
-                log_debug_errno(r, "Failed to read /sys/power/state, cannot sleep: %m");
-                return false;
-        }
+        r = read_one_line_file("/sys/power/state", &supported_sysfs);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to read /sys/power/state: %m");
 
-        const char *found;
-        r = string_contains_word_strv(text, NULL, requested_types, &found);
+        r = string_contains_word_strv(supported_sysfs, NULL, states, &found);
         if (r < 0)
                 return log_debug_errno(r, "Failed to parse /sys/power/state: %m");
-        if (r > 0)
-                log_debug("Sleep mode \"%s\" is supported by the kernel.", found);
-        else if (DEBUG_LOGGING) {
-                _cleanup_free_ char *t = strv_join(requested_types, "/");
-                log_debug("Sleep mode %s not supported by the kernel, sorry.", strnull(t));
+        if (r > 0) {
+                log_debug("Sleep state '%s' is supported by kernel.", found);
+                return true;
         }
-        return r;
+
+        if (DEBUG_LOGGING) {
+                _cleanup_free_ char *joined = strv_join(states, " ");
+                log_debug("Configured sleep states are unsupported by kernel: %s", strnull(joined));
+        }
+        return false;
 }
 
-int can_sleep_disk(char **types) {
-        _cleanup_free_ char *text = NULL;
+int sleep_mode_supported(char **modes) {
+        _cleanup_free_ char *supported_sysfs = NULL;
         int r;
 
-        if (strv_isempty(types))
+        /* Unlike state, kernel has its own default choice if not configured */
+        if (strv_isempty(modes)) {
+                log_debug("No sleep mode configured, using kernel default.");
                 return true;
-
-        /* If /sys is read-only we cannot sleep */
-        if (access("/sys/power/disk", W_OK) < 0) {
-                log_debug_errno(errno, "/sys/power/disk is not writable: %m");
-                return false;
         }
 
-        r = read_one_line_file("/sys/power/disk", &text);
-        if (r < 0) {
-                log_debug_errno(r, "Couldn't read /sys/power/disk: %m");
-                return false;
-        }
+        if (access("/sys/power/disk", W_OK) < 0)
+                return log_debug_errno(errno, "/sys/power/disk is not writable: %m");
 
-        for (const char *p = text;;) {
+        r = read_one_line_file("/sys/power/disk", &supported_sysfs);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to read /sys/power/disk: %m");
+
+        for (const char *p = supported_sysfs;;) {
                 _cleanup_free_ char *word = NULL;
+                char *mode;
+                size_t l;
 
                 r = extract_first_word(&p, &word, NULL, 0);
                 if (r < 0)
@@ -170,91 +170,152 @@ int can_sleep_disk(char **types) {
                 if (r == 0)
                         break;
 
-                char *s = word;
-                size_t l = strlen(s);
-                if (s[0] == '[' && s[l-1] == ']') {
-                        s[l-1] = '\0';
-                        s++;
+                mode = word;
+                l = strlen(word);
+
+                if (mode[0] == '[' && mode[l - 1] == ']') {
+                        mode[l - 1] = '\0';
+                        mode++;
                 }
 
-                if (strv_contains(types, s)) {
-                        log_debug("Disk sleep mode \"%s\" is supported by the kernel.", s);
+                if (strv_contains(modes, mode)) {
+                        log_debug("Disk sleep mode '%s' is supported by kernel.", mode);
                         return true;
                 }
         }
 
         if (DEBUG_LOGGING) {
-                _cleanup_free_ char *t = strv_join(types, "/");
-                log_debug("Disk sleep mode %s not supported by the kernel, sorry.", strnull(t));
+                _cleanup_free_ char *joined = strv_join(modes, " ");
+                log_debug("Configured disk sleep modes are unsupported by kernel: %s", strnull(joined));
         }
         return false;
 }
 
-static int can_sleep_internal(const SleepConfig *sleep_config, SleepOperation operation, bool check_allowed);
+static int sleep_supported_internal(
+                const SleepConfig *sleep_config,
+                SleepOperation operation,
+                bool check_allowed,
+                SleepSupport *ret_support);
 
-static bool can_s2h(const SleepConfig *sleep_config) {
+static int s2h_supported(const SleepConfig *sleep_config, SleepSupport *ret_support) {
 
         static const SleepOperation operations[] = {
                 SLEEP_SUSPEND,
                 SLEEP_HIBERNATE,
         };
 
+        SleepSupport support;
         int r;
 
+        assert(sleep_config);
+        assert(ret_support);
+
         if (!clock_supported(CLOCK_BOOTTIME_ALARM)) {
-                log_debug("CLOCK_BOOTTIME_ALARM is not supported.");
+                log_debug("CLOCK_BOOTTIME_ALARM is not supported, can't perform %s.", sleep_operation_to_string(SLEEP_SUSPEND_THEN_HIBERNATE));
+                *ret_support = SLEEP_ALARM_UNSUPPORTED;
                 return false;
         }
 
-        for (size_t i = 0; i < ELEMENTSOF(operations); i++) {
-                r = can_sleep_internal(sleep_config, operations[i], false);
-                if (IN_SET(r, 0, -ENOSPC)) {
-                        log_debug("Unable to %s system.", sleep_operation_to_string(operations[i]));
+        FOREACH_ARRAY(i, operations, ELEMENTSOF(operations)) {
+                r = sleep_supported_internal(sleep_config, *i, /* check_allowed = */ false, &support);
+                if (r < 0)
+                        return r;
+                if (r == 0) {
+                        log_debug("Sleep operation %s is unsupported, can't perform %s.",
+                                  sleep_operation_to_string(*i), sleep_operation_to_string(SLEEP_SUSPEND_THEN_HIBERNATE));
+                        *ret_support = support;
                         return false;
                 }
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to check if %s is possible: %m", sleep_operation_to_string(operations[i]));
         }
+
+        assert(support == SLEEP_SUPPORTED);
+        *ret_support = support;
 
         return true;
 }
 
-static int can_sleep_internal(
+static int sleep_supported_internal(
                 const SleepConfig *sleep_config,
                 SleepOperation operation,
-                bool check_allowed) {
+                bool check_allowed,
+                SleepSupport *ret_support) {
 
+        int r;
+
+        assert(sleep_config);
         assert(operation >= 0);
         assert(operation < _SLEEP_OPERATION_MAX);
+        assert(ret_support);
 
         if (check_allowed && !sleep_config->allow[operation]) {
-                log_debug("Sleep mode \"%s\" is disabled by configuration.", sleep_operation_to_string(operation));
+                log_debug("Sleep operation %s is disabled by configuration.", sleep_operation_to_string(operation));
+                *ret_support = SLEEP_DISABLED;
                 return false;
         }
 
         if (operation == SLEEP_SUSPEND_THEN_HIBERNATE)
-                return can_s2h(sleep_config);
+                return s2h_supported(sleep_config, ret_support);
 
-        if (can_sleep_state(sleep_config->states[operation]) <= 0 ||
-            can_sleep_disk(sleep_config->modes[operation]) <= 0)
+        assert(operation < _SLEEP_OPERATION_CONFIG_MAX);
+
+        r = sleep_state_supported(sleep_config->states[operation]);
+        if (r == -ENOMSG) {
+                *ret_support = SLEEP_NOT_CONFIGURED;
                 return false;
+        }
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                *ret_support = SLEEP_STATE_OR_MODE_UNSUPPORTED;
+                return false;
+        }
 
-        if (operation == SLEEP_SUSPEND)
-                return true;
+        r = sleep_mode_supported(sleep_config->modes[operation]);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                *ret_support = SLEEP_STATE_OR_MODE_UNSUPPORTED;
+                return false;
+        }
 
-        if (!enough_swap_for_hibernation())
-                return -ENOSPC;
+        if (IN_SET(operation, SLEEP_HIBERNATE, SLEEP_HYBRID_SLEEP)) {
+                r = hibernate_is_safe();
+                if (r == -ENOTRECOVERABLE) {
+                        *ret_support = SLEEP_RESUME_UNSUPPORTED;
+                        return false;
+                }
+                if (r == -ENOSPC) {
+                        *ret_support = SLEEP_NOT_ENOUGH_SWAP_SPACE;
+                        return false;
+                }
+                if (r < 0)
+                        return r;
+        }
 
+        *ret_support = SLEEP_SUPPORTED;
         return true;
 }
 
-int can_sleep(SleepOperation operation) {
+int sleep_supported_full(SleepOperation operation, SleepSupport *ret_support) {
         _cleanup_(sleep_config_freep) SleepConfig *sleep_config = NULL;
+        SleepSupport support;
         int r;
+
+        assert(operation >= 0);
+        assert(operation < _SLEEP_OPERATION_MAX);
 
         r = parse_sleep_config(&sleep_config);
         if (r < 0)
                 return r;
 
-        return can_sleep_internal(sleep_config, operation, true);
+        r = sleep_supported_internal(sleep_config, operation, /* check_allowed = */ true, &support);
+        if (r < 0)
+                return r;
+
+        assert((r > 0) == (support == SLEEP_SUPPORTED));
+
+        if (ret_support)
+                *ret_support = support;
+
+        return r;
 }
