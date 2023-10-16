@@ -653,12 +653,25 @@ static int parse_argv(int argc, char *argv[]) {
 static int transient_unit_set_properties(sd_bus_message *m, UnitType t, char **properties) {
         int r;
 
+        assert(m);
+
         r = sd_bus_message_append(m, "(sv)", "Description", "s", arg_description);
         if (r < 0)
                 return bus_log_create_error(r);
 
         if (arg_aggressive_gc) {
                 r = sd_bus_message_append(m, "(sv)", "CollectMode", "s", "inactive-or-failed");
+                if (r < 0)
+                        return bus_log_create_error(r);
+        }
+
+        r = sd_bus_is_bus_client(sd_bus_message_get_bus(m));
+        if (r < 0)
+                return log_error_errno(r, "Can't determine if bus connection is direct or to broker: %m");
+        if (r > 0) {
+                /* Pin the object as least as long as we are around. Note that AddRef (currently) only works
+                 * if we talk via the bus though. */
+                r = sd_bus_message_append(m, "(sv)", "AddRef", "b", 1);
                 if (r < 0)
                         return bus_log_create_error(r);
         }
@@ -753,12 +766,6 @@ static int transient_service_set_properties(sd_bus_message *m, const char *pty_p
         r = transient_cgroup_set_properties(m);
         if (r < 0)
                 return r;
-
-        if (arg_wait || arg_stdio != ARG_STDIO_NONE) {
-                r = sd_bus_message_append(m, "(sv)", "AddRef", "b", 1);
-                if (r < 0)
-                        return bus_log_create_error(r);
-        }
 
         if (arg_remain_after_exit) {
                 r = sd_bus_message_append(m, "(sv)", "RemainAfterExit", "b", arg_remain_after_exit);
