@@ -255,6 +255,7 @@ typedef struct Partition {
         char **make_directories;
         char **subvolumes;
         EncryptMode encrypt;
+        bool encrypt_data_shift;
         VerityMode verity;
         char *verity_match_key;
         MinimizeMode minimize;
@@ -1696,6 +1697,7 @@ static int partition_read_definition(Partition *p, const char *path, const char 
                 { "Partition", "ExcludeFilesTarget",       config_parse_exclude_files, 0, &p->exclude_files_target    },
                 { "Partition", "MakeDirectories",          config_parse_make_dirs,     0, &p->make_directories        },
                 { "Partition", "Encrypt",                  config_parse_encrypt,       0, &p->encrypt                 },
+                { "Partition", "EncryptDataShift",         config_parse_bool,          0, &p->encrypt_data_shift      },
                 { "Partition", "Verity",                   config_parse_verity,        0, &p->verity                  },
                 { "Partition", "VerityMatchKey",           config_parse_string,        0, &p->verity_match_key        },
                 { "Partition", "Flags",                    config_parse_gpt_flags,     0, &p->gpt_flags               },
@@ -4708,6 +4710,116 @@ static int partition_populate_filesystem(Context *context, Partition *p, const c
         return 0;
 }
 
+static int is_luks(Context *context, uint64_t offset, uint64_t size) {
+        _cleanup_(blkid_free_probep) blkid_probe probe = NULL;
+        int r;
+
+        assert(context);
+        assert(offset != UINT64_MAX);
+        assert(size != UINT64_MAX);
+
+        probe = blkid_new_probe();
+        if (!probe)
+                return log_oom();
+
+        errno = 0;
+        r = blkid_probe_set_device(probe, fdisk_get_devfd(context->fdisk_context), offset, size);
+        if (r < 0)
+                return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "Failed to allocate device probe for encrypting.");
+
+        errno = 0;
+        if (blkid_probe_enable_superblocks(probe, true) < 0 ||
+            blkid_probe_set_superblocks_flags(probe, BLKID_SUBLKS_TYPE|BLKID_SUBLKS_BADCSUM) < 0)
+                return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "Failed to enable superblock probing.");
+
+        while (1) {
+                const char *data;
+                size_t len;
+
+                errno = 0;
+                r = blkid_do_probe(probe);
+                if (r < 0)
+                        return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "Failed to probe for file systems.");
+                if (r > 0)
+                        break;
+
+                r = blkid_probe_lookup_value(probe, "TYPE", &data, &len);
+                if (r < 0)
+                        return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "Failed to query device type.");
+                if (data != NULL && strcmp(data, "crypto_LUKS") == 0)
+                        return 1;
+        }
+
+        return 0;
+}
+
+
+static int context_encrypt_existing(Context *context) {
+
+        assert(context);
+
+        /* Add encryption to a volume */
+
+        LIST_FOREACH(partitions, p, context->partitions) {
+                _cleanup_(partition_target_freep) PartitionTarget *t = NULL;
+                int r;
+
+                if (p->dropped)
+                        continue;
+
+                if (!PARTITION_EXISTS(p)) /* Can only encrypt existing partitions */
+                        continue;
+
+                if (!p->encrypt || !p->encrypt_data_shift)
+                        continue;
+
+                if (partition_type_defer(&p->type))
+                        continue;
+
+                assert(p->offset != UINT64_MAX);
+                assert(p->new_size != UINT64_MAX);
+
+                /* Must treat this as a non-ignorable errors. If owner asked
+                 * for encryption, it is unsafe to fallback to leaving the
+                 * partition in plaintext when insufficient space was added
+                 */
+                if (p->growfs > 0 &&
+                    (p->new_size - p->current_size) < LUKS2_METADATA_KEEP_FREE) {
+                        return log_error_errno(-ENOSPC, "Cannot make room for LUKS2 header: %m");
+                }
+
+                r = is_luks(context, p->offset, p->new_size);
+                if (r < 0)
+                        return r;
+                if (r == 1)
+                        continue;
+
+                /* We make sure we keep free space at the end which is required
+                 * for cryptsetup's offline encryption. */
+                r = partition_target_prepare(context, p,
+                                             p->new_size - LUKS2_METADATA_KEEP_FREE,
+                                             /*need_path=*/ true,
+                                             &t);
+                if (r < 0)
+                        return r;
+
+                if (t->loop) {
+                        r = partition_target_grow(t, p->new_size);
+                        if (r < 0)
+                                return r;
+                }
+                r = partition_encrypt(context, p, t, /* offline = */ true);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to encrypt existing device: %m");
+
+                r = partition_target_sync(context, p, t);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 static int context_mkfs(Context *context) {
         int r;
 
@@ -5476,6 +5588,10 @@ static int context_write_partition_table(Context *context) {
         /* Wipe fs signatures and discard sectors where the new partitions are going to be placed and in the
          * gaps between partitions, just to be sure. */
         r = context_wipe_and_discard(context);
+        if (r < 0)
+                return r;
+
+        r = context_encrypt_existing(context);
         if (r < 0)
                 return r;
 

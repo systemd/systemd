@@ -572,9 +572,31 @@
         of <varname>Format=</varname> and <varname>CopyBlocks=</varname> are increased by the space necessary
         for the LUKS2 superblock (see above).</para>
 
-        <para>This option has no effect if the partition already exists.</para>
+        <para>This option has no effect if the partition already exists, unless the <varname>EncryptDataShift=</varname>
+        option has been set, to move existing data.</para>
 
         <xi:include href="version-info.xml" xpointer="v247"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>EncryptDataShift=</varname></term>
+
+        <listitem>
+          <para>Takes one of <literal>on</literal>, or <literal>off</literal>. Defaults
+          to <literal>off</literal>. If set to <literal>on</literal>, and the partition
+          already exists but is not yet encrypted, encryption will be added to the partition.
+          Existing data will be shifted to make space for the LUKS header. If the <literal>GrowFileSystem</literal>
+          option is enabled, the partition must be able to grow by a minimum of 32MB make space for the LUKS header
+          and data movement during encryption. If the <literal>GrowFileSystem</literal> option is disabled,
+          it is assumed that the contents of the partition have had their size reduced ahead of time to
+          ensure there is at least 32MB of unused space at the end. If set to <literal>off</literal>
+          encryption will not be added if the partition already exists.</para>
+
+          <para>This option has no effect unless <varname>Encrypt</varname> is set to a value
+          other than <literal>off</literal>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v255"/>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
