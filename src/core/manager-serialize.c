@@ -458,12 +458,11 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                 } else if ((val = startswith(l, "notify-fd="))) {
                         int fd;
 
-                        if ((fd = parse_fd(val)) < 0 || !fdset_contains(fds, fd))
-                                log_notice("Failed to parse notify fd, ignoring: \"%s\"", val);
-                        else {
+                        fd = deserialize_fd(fds, val);
+                        if (fd >= 0) {
                                 m->notify_event_source = sd_event_source_disable_unref(m->notify_event_source);
                                 safe_close(m->notify_fd);
-                                m->notify_fd = fdset_remove(fds, fd);
+                                m->notify_fd = fd;
                         }
 
                 } else if ((val = startswith(l, "notify-socket="))) {
@@ -474,12 +473,11 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                 } else if ((val = startswith(l, "cgroups-agent-fd="))) {
                         int fd;
 
-                        if ((fd = parse_fd(val)) < 0 || !fdset_contains(fds, fd))
-                                log_notice("Failed to parse cgroups agent fd, ignoring.: %s", val);
-                        else {
+                        fd = deserialize_fd(fds, val);
+                        if (fd >= 0) {
                                 m->cgroups_agent_event_source = sd_event_source_disable_unref(m->cgroups_agent_event_source);
                                 safe_close(m->cgroups_agent_fd);
-                                m->cgroups_agent_fd = fdset_remove(fds, fd);
+                                m->cgroups_agent_fd = fd;
                         }
 
                 } else if ((val = startswith(l, "user-lookup="))) {
