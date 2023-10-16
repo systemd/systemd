@@ -611,7 +611,7 @@ int cg_migrate(
                          * them there. */
                         if (cfrom &&
                             empty_or_root(pfrom) &&
-                            is_kernel_thread(pid) > 0)
+                            pid_is_kernel_thread(pid) > 0)
                                 continue;
 
                         r = cg_attach(cto, pto, pid);

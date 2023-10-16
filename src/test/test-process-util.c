@@ -76,7 +76,7 @@ static void test_get_process_comm_one(pid_t pid) {
                 assert_se(e > 0);
         }
 
-        assert_se(is_kernel_thread(pid) == 0 || pid != 1);
+        assert_se(pid_is_kernel_thread(pid) == 0 || pid != 1);
 
         r = get_process_exe(pid, &f);
         assert_se(r >= 0 || r == -EACCES);
