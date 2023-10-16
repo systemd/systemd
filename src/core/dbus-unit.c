@@ -1232,21 +1232,21 @@ static int property_get_cgroup(
         return sd_bus_message_append(reply, "s", t);
 }
 
-static int append_process(sd_bus_message *reply, const char *p, pid_t pid, Set *pids) {
+static int append_process(sd_bus_message *reply, const char *p, PidRef *pid, Set *pids) {
         _cleanup_free_ char *buf = NULL, *cmdline = NULL;
         int r;
 
         assert(reply);
-        assert(pid > 0);
+        assert(pidref_is_set(pid));
 
-        r = set_put(pids, PID_TO_PTR(pid));
+        r = set_put(pids, PID_TO_PTR(pid->pid));
         if (IN_SET(r, 0, -EEXIST))
                 return 0;
         if (r < 0)
                 return r;
 
         if (!p) {
-                r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, pid, &buf);
+                r = cg_pidref_get_path(SYSTEMD_CGROUP_CONTROLLER, pid, &buf);
                 if (r == -ESRCH)
                         return 0;
                 if (r < 0)
@@ -1255,7 +1255,7 @@ static int append_process(sd_bus_message *reply, const char *p, pid_t pid, Set *
                 p = buf;
         }
 
-        (void) pid_get_cmdline(
+        (void) pidref_get_cmdline(
                         pid,
                         SIZE_MAX,
                         PROCESS_CMDLINE_COMM_FALLBACK | PROCESS_CMDLINE_QUOTE,
@@ -1264,7 +1264,7 @@ static int append_process(sd_bus_message *reply, const char *p, pid_t pid, Set *
         return sd_bus_message_append(reply,
                                      "(sus)",
                                      p,
-                                     (uint32_t) pid,
+                                     (uint32_t) pid->pid,
                                      cmdline);
 }
 
@@ -1283,22 +1283,28 @@ static int append_cgroup(sd_bus_message *reply, const char *p, Set *pids) {
                 return r;
 
         for (;;) {
-                pid_t pid;
+                _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
 
                 /* libvirt / qemu uses threaded mode and cgroup.procs cannot be read at the lower levels.
-                 * From https://docs.kernel.org/admin-guide/cgroup-v2.html#threads,
-                 * “cgroup.procs” in a threaded domain cgroup contains the PIDs of all processes in
-                 * the subtree and is not readable in the subtree proper. */
-                r = cg_read_pid(f, &pid);
+                 * From https://docs.kernel.org/admin-guide/cgroup-v2.html#threads, “cgroup.procs” in a
+                 * threaded domain cgroup contains the PIDs of all processes in the subtree and is not
+                 * readable in the subtree proper. */
+
+                r = cg_read_pidref(f, &pidref);
                 if (IN_SET(r, 0, -EOPNOTSUPP))
                         break;
                 if (r < 0)
                         return r;
 
-                if (pid_is_kernel_thread(pid) > 0)
+                r = pidref_is_kernel_thread(&pidref);
+                if (r == -ESRCH) /* gone by now */
+                        continue;
+                if (r < 0)
+                        log_debug_errno(r, "Failed to determine if " PID_FMT " is a kernel thread, assuming not: %m", pidref.pid);
+                if (r > 0)
                         continue;
 
-                r = append_process(reply, p, pid, pids);
+                r = append_process(reply, p, &pidref, pids);
                 if (r < 0)
                         return r;
         }
@@ -1363,14 +1369,14 @@ int bus_unit_method_get_processes(sd_bus_message *message, void *userdata, sd_bu
         /* The main and control pids might live outside of the cgroup, hence fetch them separately */
         PidRef *pid = unit_main_pid(u);
         if (pidref_is_set(pid)) {
-                r = append_process(reply, NULL, pid->pid, pids);
+                r = append_process(reply, NULL, pid, pids);
                 if (r < 0)
                         return r;
         }
 
         pid = unit_control_pid(u);
         if (pidref_is_set(pid)) {
-                r = append_process(reply, NULL, pid->pid, pids);
+                r = append_process(reply, NULL, pid, pids);
                 if (r < 0)
                         return r;
         }
