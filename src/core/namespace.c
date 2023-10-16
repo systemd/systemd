@@ -948,7 +948,7 @@ add_symlink:
                      temporary_mount,
                      S_ISCHR(st.st_mode) ? "char" : "block",
                      DEVNUM_FORMAT_VAL(st.st_rdev)) < 0)
-                return log_oom();
+                return log_oom_debug();
 
         (void) mkdir_parents(sl, 0755);
 
@@ -1358,7 +1358,7 @@ static int mount_image(
         if (r == -ENOENT && m->ignore)
                 return 0;
         if (r == -ESTALE && host_os_release_id)
-                return log_error_errno(r,
+                return log_debug_errno(r,
                                        "Failed to mount image %s, extension-release metadata does not match the lower layer's: ID=%s%s%s%s%s%s%s",
                                        mount_entry_source(m),
                                        host_os_release_id,
@@ -1643,7 +1643,7 @@ static int apply_one_mount(
                 if (try_again)
                         r = mount_nofollow_verbose(LOG_DEBUG, what, mount_entry_path(m), NULL, MS_BIND|(rbind ? MS_REC : 0), NULL);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to mount %s to %s: %m", what, mount_entry_path(m));
+                        return log_debug_errno(r, "Failed to mount %s to %s: %m", what, mount_entry_path(m));
         }
 
         log_debug("Successfully mounted %s to %s", what, mount_entry_path(m));
@@ -2370,7 +2370,7 @@ int setup_namespace(const NamespaceParameters *p, char **error_path) {
 
                 q = strjoin("/run/systemd/journal.", p->log_namespace);
                 if (!q)
-                        return log_oom();
+                        return log_oom_debug();
 
                 MountEntry *me = mount_list_extend(&ml);
                 if (!me)
