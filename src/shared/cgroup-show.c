@@ -31,14 +31,14 @@
 
 static void show_pid_array(
                 pid_t pids[],
-                unsigned n_pids,
+                size_t n_pids,
                 const char *prefix,
                 size_t n_columns,
                 bool extra,
                 bool more,
                 OutputFlags flags) {
 
-        unsigned i, j, pid_width;
+        size_t i, j, pid_width;
 
         if (n_pids == 0)
                 return;
@@ -334,11 +334,11 @@ static int show_extra_pids(
                 const char *prefix,
                 size_t n_columns,
                 const pid_t pids[],
-                unsigned n_pids,
+                size_t n_pids,
                 OutputFlags flags) {
 
         _cleanup_free_ pid_t *copy = NULL;
-        unsigned i, j;
+        size_t i, j;
         int r;
 
         assert(path);
@@ -379,7 +379,7 @@ int show_cgroup_and_extra(
                 const char *prefix,
                 size_t n_columns,
                 const pid_t extra_pids[],
-                unsigned n_extra_pids,
+                size_t n_extra_pids,
                 OutputFlags flags) {
 
         int r;
