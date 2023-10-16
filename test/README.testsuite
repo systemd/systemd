@@ -193,11 +193,13 @@ Now install necessary build & test dependencies:
 ## PPA with some newer Ubuntu packages required by upstream systemd
 # add-apt-repository -y --enable-source ppa:upstream-systemd-ci/systemd-ci
 # apt build-dep -y systemd
-# apt install -y autopkgtest debhelper genisoimage git qemu-system-x86
+# apt install -y autopkgtest debhelper genisoimage git qemu-system-x86 \
+                 libcurl4-openssl-dev libfdisk-dev libtss2-dev libfido2-dev \
+                 libssl-dev python3-pefile
 
 Build systemd deb packages with debug info:
 
-# TEST_UPSTREAM=1 DEB_BUILD_OPTIONS="nocheck nostrip" dpkg-buildpackage -us -uc
+# TEST_UPSTREAM=1 DEB_BUILD_OPTIONS="nocheck nostrip noopt" dpkg-buildpackage -us -uc
 # cd ..
 
 Prepare a testbed image for autopkgtest (tweak the release as necessary):
@@ -210,7 +212,7 @@ And finally run the autopkgtest itself:
               --timeout-factor=3 \
               --test-name=boot-and-services \
               --shell-fail \
-              -- autopkgtest-virt-qemu --ram-size 2048 autopkgtest-jammy-amd64.img
+              -- autopkgtest-virt-qemu --cpus 4 --ram-size 2048 autopkgtest-jammy-amd64.img
 
 where --test-name= is the name of the test you want to run/debug. The
 --shell-fail option will pause the execution in case the test fails and shows
