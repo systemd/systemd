@@ -128,7 +128,7 @@ int proc_cmdline(char **ret) {
         }
 
         if (detect_container() > 0)
-                return get_process_cmdline(1, SIZE_MAX, 0, ret);
+                return pid_get_cmdline(1, SIZE_MAX, 0, ret);
         else
                 return read_full_file("/proc/cmdline", ret, NULL);
 }
@@ -147,7 +147,7 @@ static int proc_cmdline_strv_internal(char ***ret, bool filter_pid1_args) {
         if (detect_container() > 0) {
                 _cleanup_strv_free_ char **args = NULL;
 
-                r = get_process_cmdline_strv(1, /* flags = */ 0, &args);
+                r = pid_get_cmdline_strv(1, /* flags = */ 0, &args);
                 if (r < 0)
                         return r;
 
