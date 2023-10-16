@@ -87,23 +87,23 @@ const NamingScheme* naming_scheme(void) {
 }
 
 static const char* const name_policy_table[_NAMEPOLICY_MAX] = {
-        [NAMEPOLICY_KERNEL] = "kernel",
-        [NAMEPOLICY_KEEP] = "keep",
+        [NAMEPOLICY_KERNEL]   = "kernel",
+        [NAMEPOLICY_KEEP]     = "keep",
         [NAMEPOLICY_DATABASE] = "database",
-        [NAMEPOLICY_ONBOARD] = "onboard",
-        [NAMEPOLICY_SLOT] = "slot",
-        [NAMEPOLICY_PATH] = "path",
-        [NAMEPOLICY_MAC] = "mac",
+        [NAMEPOLICY_ONBOARD]  = "onboard",
+        [NAMEPOLICY_SLOT]     = "slot",
+        [NAMEPOLICY_PATH]     = "path",
+        [NAMEPOLICY_MAC]      = "mac",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(name_policy, NamePolicy);
 
 static const char* const alternative_names_policy_table[_NAMEPOLICY_MAX] = {
         [NAMEPOLICY_DATABASE] = "database",
-        [NAMEPOLICY_ONBOARD] = "onboard",
-        [NAMEPOLICY_SLOT] = "slot",
-        [NAMEPOLICY_PATH] = "path",
-        [NAMEPOLICY_MAC] = "mac",
+        [NAMEPOLICY_ONBOARD]  = "onboard",
+        [NAMEPOLICY_SLOT]     = "slot",
+        [NAMEPOLICY_PATH]     = "path",
+        [NAMEPOLICY_MAC]      = "mac",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(alternative_names_policy, NamePolicy);
