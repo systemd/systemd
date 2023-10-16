@@ -108,6 +108,32 @@ static int append_controller_property(sd_bus *bus, sd_bus_message *m) {
         return 0;
 }
 
+static int can_set_coredump_receive(sd_bus *bus) {
+        _cleanup_(sd_bus_error_free) sd_bus_error e = SD_BUS_ERROR_NULL;
+        _cleanup_free_ char *path = NULL;
+        int b, r;
+
+        assert(bus);
+
+        path = unit_dbus_path_from_name(SPECIAL_INIT_SCOPE);
+        if (!path)
+                return log_oom();
+
+        r = sd_bus_get_property_trivial(
+                        bus,
+                        "org.freedesktop.systemd1",
+                        path,
+                        "org.freedesktop.systemd1.Scope",
+                        "CoredumpReceive",
+                        &e,
+                        'b', &b);
+        if (r < 0 && !sd_bus_error_has_names(&e, SD_BUS_ERROR_UNKNOWN_PROPERTY, SD_BUS_ERROR_PROPERTY_READ_ONLY))
+                log_warning_errno(r, "Failed to determine if CoredumpReceive= can be set, assuming it cannot be: %s",
+                                  bus_error_message(&e, r));
+
+        return r >= 0;
+}
+
 int register_machine(
                 sd_bus *bus,
                 const char *machine_name,
@@ -184,7 +210,7 @@ int register_machine(
                                 mounts,
                                 n_mounts,
                                 kill_signal,
-                                start_mode == START_BOOT);
+                                start_mode == START_BOOT && can_set_coredump_receive(bus) > 0);
                 if (r < 0)
                         return r;
 
@@ -307,7 +333,7 @@ int allocate_scope(
                         mounts,
                         n_mounts,
                         kill_signal,
-                        start_mode == START_BOOT);
+                        start_mode == START_BOOT && can_set_coredump_receive(bus) > 0);
         if (r < 0)
                 return r;
 
