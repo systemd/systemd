@@ -117,6 +117,10 @@ static void generate_stable_private_address_one(
                 siphash24_compress(&link->hw_addr.infiniband[INFINIBAND_ALEN - 8], 8, &state);
         else
                 siphash24_compress(link->hw_addr.bytes, link->hw_addr.length, &state);
+
+        if (link->ssid)
+                siphash24_compress_string(link->ssid, &state);
+
         siphash24_compress(&dad_counter, sizeof(uint8_t), &state);
 
         rid = htole64(siphash24_finalize(&state));
