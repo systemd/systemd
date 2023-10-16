@@ -8,6 +8,7 @@
 
 #include "hashmap.h"
 #include "image-policy.h"
+#include "json.h"
 #include "lock-util.h"
 #include "macro.h"
 #include "os-util.h"
@@ -115,5 +116,7 @@ static inline bool IMAGE_IS_HOST(const struct Image *i) {
 
         return false;
 }
+
+int image_to_json(const struct Image *i, JsonVariant **ret);
 
 extern const struct hash_ops image_hash_ops;
