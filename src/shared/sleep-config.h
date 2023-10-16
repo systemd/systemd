@@ -40,6 +40,7 @@ typedef enum SleepSupport {
         SLEEP_DISABLED,
         SLEEP_NOTCONFIGURED,
         SLEEP_POWER_UNSUPPORTED,
+        SLEEP_RESUME_UNSUPPORTED,
         SLEEP_NO_ENOUGH_SWAP_SPACE,
         SLEEP_ALARM_UNSUPPORTED,
 } SleepSupport;

@@ -277,9 +277,18 @@ static int sleep_supported_internal(
                 return false;
         }
 
-        if (IN_SET(operation, SLEEP_HIBERNATE, SLEEP_HYBRID_SLEEP) && !enough_swap_for_hibernation()) {
-                *ret_support = SLEEP_NO_ENOUGH_SWAP_SPACE;
-                return false;
+        if (IN_SET(operation, SLEEP_HIBERNATE, SLEEP_HYBRID_SLEEP)) {
+                r = hibernate_is_safe();
+                if (r == -ENOSPC) {
+                        *ret_support = SLEEP_NO_ENOUGH_SWAP_SPACE;
+                        return false;
+                }
+                if (r == -ENOTRECOVERABLE) {
+                        *ret_support = SLEEP_RESUME_UNSUPPORTED;
+                        return false;
+                }
+                if (r < 0)
+                        return r;
         }
 
         *ret_support = SLEEP_OK;
