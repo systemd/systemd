@@ -1636,10 +1636,11 @@ static int apply_one_mount(
                         (void) mkdir_parents(mount_entry_path(m), 0755);
 
                         q = make_mount_point_inode_from_path(what, mount_entry_path(m), 0755);
-                        if (q < 0 && q != -EEXIST)
-                                log_debug_errno(q, "Failed to create destination mount point node '%s': %m",
-                                                mount_entry_path(m));
-                        else
+                        if (q < 0) {
+                                if (q != -EEXIST)
+                                        return log_debug_errno(q, "Failed to create destination mount point node '%s': %m",
+                                                               mount_entry_path(m));
+                        } else
                                 try_again = true;
                 }
 
