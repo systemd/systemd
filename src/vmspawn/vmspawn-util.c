@@ -194,6 +194,7 @@ int find_ovmf_config(int search_sb, OvmfConfig** ret) {
         typesafe_qsort(files, n_cfs, ovmf_config_file_compare);
 
 #define JSON_PATH(x) search_dirs[files[x].priority], files[x].name
+        bool valid_config_found = false;
         for (i = 0; i < n_cfs; i++) {
                 _cleanup_(json_variant_unrefp) JsonVariant *config_json = NULL;
                 _cleanup_free_ char *contents = NULL;
@@ -272,9 +273,13 @@ int find_ovmf_config(int search_sb, OvmfConfig** ret) {
                 config->path = TAKE_PTR(fwd->firmware);
                 config->vars = TAKE_PTR(fwd->vars);
                 config->supports_sb = sb_present;
+                valid_config_found = true;
                 break;
         }
 #undef JSON_PATH
+
+        if (!valid_config_found)
+                return -ENOENT;
 
         if (ret)
                 *ret = TAKE_PTR(config);

@@ -231,9 +231,10 @@ static int run_virtual_machine(void) {
 
         r = find_ovmf_config(arg_secboot, &ovmf_config);
         if (r < 0)
-                return log_error_errno(r, "failed to find OVMF config: %m");
+                return log_error_errno(r, "Failed to find OVMF config: %m");
 
-        if (!ovmf_config->supports_sb)
+        /* only warn if the user has*/
+        if (!ovmf_config->supports_sb && arg_secboot != 0)
                 log_warning("Couldn't find OVMF firmware blob with secure boot support, "
                             "falling back to OVMF firmware blobs without secure boot support.");
         const char *smm = ovmf_config->supports_sb ? "on" : "off";
