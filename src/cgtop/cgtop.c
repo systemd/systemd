@@ -298,15 +298,14 @@ static int process(
                         uint64_t k, *q;
                         char *l;
 
-                        r = read_line(f, LONG_LINE_MAX, &line);
+                        r = read_stripped_line(f, LONG_LINE_MAX, &line);
                         if (r < 0)
                                 return r;
                         if (r == 0)
                                 break;
 
-                        /* Trim and skip the device */
-                        l = strstrip(line);
-                        l += strcspn(l, WHITESPACE);
+                        /* Skip the device */
+                        l = line + strcspn(line, WHITESPACE);
                         l += strspn(l, WHITESPACE);
 
                         if (all_unified) {
