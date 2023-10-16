@@ -132,15 +132,15 @@ int get_process_comm(pid_t pid, char **ret) {
         return 0;
 }
 
-static int get_process_cmdline_nulstr(
+static int pid_get_cmdline_nulstr(
                 pid_t pid,
                 size_t max_size,
                 ProcessCmdlineFlags flags,
                 char **ret,
                 size_t *ret_size) {
 
+        _cleanup_free_ char *t = NULL;
         const char *p;
-        char *t;
         size_t k;
         int r;
 
@@ -164,8 +164,6 @@ static int get_process_cmdline_nulstr(
                 return r;
 
         if (k == 0) {
-                t = mfree(t);
-
                 if (!(flags & PROCESS_CMDLINE_COMM_FALLBACK))
                         return -ENOENT;
 
@@ -176,6 +174,7 @@ static int get_process_cmdline_nulstr(
                 if (r < 0)
                         return r;
 
+                free(t);
                 t = strjoin("[", comm, "]");
                 if (!t)
                         return -ENOMEM;
@@ -186,12 +185,15 @@ static int get_process_cmdline_nulstr(
                         t[max_size] = '\0';
         }
 
-        *ret = t;
-        *ret_size = k;
+        if (ret)
+                *ret = TAKE_PTR(t);
+        if (ret_size)
+                *ret_size = k;
+
         return r;
 }
 
-int get_process_cmdline(pid_t pid, size_t max_columns, ProcessCmdlineFlags flags, char **ret) {
+int pid_get_cmdline(pid_t pid, size_t max_columns, ProcessCmdlineFlags flags, char **ret) {
         _cleanup_free_ char *t = NULL;
         size_t k;
         char *ans;
@@ -213,7 +215,7 @@ int get_process_cmdline(pid_t pid, size_t max_columns, ProcessCmdlineFlags flags
          * Returns -ESRCH if the process doesn't exist, and -ENOENT if the process has no command line (and
          * PROCESS_CMDLINE_COMM_FALLBACK is not specified). Returns 0 and sets *line otherwise. */
 
-        int full = get_process_cmdline_nulstr(pid, max_columns, flags, &t, &k);
+        int full = pid_get_cmdline_nulstr(pid, max_columns, flags, &t, &k);
         if (full < 0)
                 return full;
 
@@ -256,7 +258,27 @@ int get_process_cmdline(pid_t pid, size_t max_columns, ProcessCmdlineFlags flags
         return 0;
 }
 
-int get_process_cmdline_strv(pid_t pid, ProcessCmdlineFlags flags, char ***ret) {
+int pidref_get_cmdline(const PidRef *pid, size_t max_columns, ProcessCmdlineFlags flags, char **ret) {
+        _cleanup_free_ char *s = NULL;
+        int r;
+
+        if (!pidref_is_set(pid))
+                return -ESRCH;
+
+        r = pid_get_cmdline(pid->pid, max_columns, flags, &s);
+        if (r < 0)
+                return r;
+
+        r = pidref_verify(pid);
+        if (r < 0)
+                return r;
+
+        if (ret)
+                *ret = TAKE_PTR(s);
+        return 0;
+}
+
+int pid_get_cmdline_strv(pid_t pid, ProcessCmdlineFlags flags, char ***ret) {
         _cleanup_free_ char *t = NULL;
         char **args;
         size_t k;
@@ -266,7 +288,7 @@ int get_process_cmdline_strv(pid_t pid, ProcessCmdlineFlags flags, char ***ret) 
         assert((flags & ~PROCESS_CMDLINE_COMM_FALLBACK) == 0);
         assert(ret);
 
-        r = get_process_cmdline_nulstr(pid, SIZE_MAX, flags, &t, &k);
+        r = pid_get_cmdline_nulstr(pid, SIZE_MAX, flags, &t, &k);
         if (r < 0)
                 return r;
 
@@ -275,6 +297,27 @@ int get_process_cmdline_strv(pid_t pid, ProcessCmdlineFlags flags, char ***ret) 
                 return -ENOMEM;
 
         *ret = args;
+        return 0;
+}
+
+int pidref_get_cmdline_strv(const PidRef *pid, ProcessCmdlineFlags flags, char ***ret) {
+        _cleanup_strv_free_ char **args = NULL;
+        int r;
+
+        if (!pidref_is_set(pid))
+                return -ESRCH;
+
+        r = pid_get_cmdline_strv(pid->pid, flags, &args);
+        if (r < 0)
+                return r;
+
+        r = pidref_verify(pid);
+        if (r < 0)
+                return r;
+
+        if (ret)
+                *ret = TAKE_PTR(args);
+
         return 0;
 }
 
