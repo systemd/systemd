@@ -77,7 +77,7 @@ static bool ignore_proc(pid_t pid, bool warn_rootfs) {
                 return true;
 
         /* Ignore kernel threads */
-        r = is_kernel_thread(pid);
+        r = pid_is_kernel_thread(pid);
         if (r != 0)
                 return true; /* also ignore processes where we can't determine this */
 

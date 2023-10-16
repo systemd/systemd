@@ -79,7 +79,8 @@ void sigkill_nowaitp(pid_t *pid);
 
 int kill_and_sigcont(pid_t pid, int sig);
 
-int is_kernel_thread(pid_t pid);
+int pid_is_kernel_thread(pid_t pid);
+int pidref_is_kernel_thread(const PidRef *pid);
 
 int getenv_for_pid(pid_t pid, const char *field, char **_value);
 

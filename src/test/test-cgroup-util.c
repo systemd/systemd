@@ -209,7 +209,7 @@ TEST(proc) {
                 if (r < 0)
                         continue;
 
-                if (is_kernel_thread(pid))
+                if (pid_is_kernel_thread(pid) != 0)
                         continue;
 
                 cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, pid, &path);
