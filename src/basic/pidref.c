@@ -250,6 +250,9 @@ int pidref_verify(const PidRef *pidref) {
         if (!pidref_is_set(pidref))
                 return -ESRCH;
 
+        if (pidref->pid == 1)
+                return 1; /* PID 1 can never go away, hence never be recycled to a different process → return 1 */
+
         if (pidref->fd < 0)
                 return 0; /* If we don't have a pidfd we cannot validate it, hence we assume it's all OK → return 0 */
 
