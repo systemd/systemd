@@ -386,7 +386,7 @@ int namespace_get_leader(pid_t pid, NamespaceType type, pid_t *ret) {
         }
 }
 
-int is_kernel_thread(pid_t pid) {
+int pid_is_kernel_thread(pid_t pid) {
         _cleanup_free_ char *line = NULL;
         unsigned long long flags;
         size_t l, i;
@@ -442,6 +442,23 @@ int is_kernel_thread(pid_t pid) {
                 return r;
 
         return !!(flags & PF_KTHREAD);
+}
+
+int pidref_is_kernel_thread(PidRef *pid) {
+        int result, r;
+
+        if (!pidref_is_set(pid))
+                return -ESRCH;
+
+        result = pid_is_kernel_thread(pid->pid);
+        if (result < 0)
+                return result;
+
+        r = pidref_verify(pid); /* Verify that the PID wasn't reused since */
+        if (r < 0)
+                return r;
+
+        return result;
 }
 
 int get_process_capeff(pid_t pid, char **ret) {

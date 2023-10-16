@@ -1295,7 +1295,7 @@ static int append_cgroup(sd_bus_message *reply, const char *p, Set *pids) {
                 if (r < 0)
                         return r;
 
-                if (is_kernel_thread(pid) > 0)
+                if (pid_is_kernel_thread(pid) > 0)
                         continue;
 
                 r = append_process(reply, p, pid, pids);
