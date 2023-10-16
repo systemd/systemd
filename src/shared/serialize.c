@@ -116,6 +116,26 @@ int serialize_fd(FILE *f, FDSet *fds, const char *key, int fd) {
         return serialize_item_format(f, key, "%i", copy);
 }
 
+int serialize_fd_many(FILE *f, FDSet *fds, const char *key, const int fd_array[], size_t n_fd_array) {
+        _cleanup_free_ char *t = NULL;
+
+        assert(f);
+        assert(fd_array || n_fd_array == 0);
+
+        for (size_t i = 0; i < n_fd_array; i++) {
+                int copy;
+
+                copy = fdset_put_dup(fds, fd_array[i]);
+                if (copy < 0)
+                        return log_error_errno(copy, "Failed to add file descriptor to serialization set: %m");
+
+                if (strextendf_with_separator(&t, " ", "%i", copy) < 0)
+                        return log_oom();
+        }
+
+        return serialize_item(f, key, t);
+}
+
 int serialize_usec(FILE *f, const char *key, usec_t usec) {
         assert(f);
         assert(key);
@@ -304,6 +324,48 @@ int deserialize_fd(FDSet *fds, const char *value) {
                 return log_debug_errno(our_fd, "Failed to acquire fd from serialization fds: %m");
 
         return TAKE_FD(our_fd);
+}
+
+int deserialize_fd_many(FDSet *fds, const char *value, size_t n, int *ret) {
+        int r, *fd_array = NULL;
+        size_t m = 0;
+
+        assert(value);
+
+        fd_array = new(int, n);
+        if (!fd_array)
+                return -ENOMEM;
+
+        CLEANUP_ARRAY(fd_array, m, close_many_and_free);
+
+        for (;;) {
+                _cleanup_free_ char *w = NULL;
+                int fd;
+
+                r = extract_first_word(&value, &w, NULL, 0);
+                if (r < 0)
+                        return r;
+                if (r == 0) {
+                        if (m < n) /* Too few */
+                                return -EINVAL;
+
+                        break;
+                }
+
+                if (m >= n) /* Too many */
+                        return -EINVAL;
+
+                fd = deserialize_fd(fds, w);
+                if (fd < 0)
+                        return fd;
+
+                fd_array[m++] = fd;
+        }
+
+        memcpy(ret, fd_array, m);
+        fd_array = mfree(fd_array);
+
+        return 0;
 }
 
 int deserialize_strv(const char *value, char ***l) {

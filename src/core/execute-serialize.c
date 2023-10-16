@@ -1114,33 +1114,13 @@ static int exec_runtime_serialize(const ExecRuntime *rt, FILE *f, FDSet *fds) {
                         return r;
 
                 if (rt->shared->netns_storage_socket[0] >= 0 && rt->shared->netns_storage_socket[1] >= 0) {
-                        int a, b;
-
-                        a = fdset_put_dup(fds, rt->shared->netns_storage_socket[0]);
-                        if (a < 0)
-                                return a;
-
-                        b = fdset_put_dup(fds, rt->shared->netns_storage_socket[1]);
-                        if (b < 0)
-                                return b;
-
-                        r = serialize_item_format(f, "exec-runtime-netns-storage-socket", "%d %d", a, b);
+                        r = serialize_fd_many(f, fds, "exec-runtime-netns-storage-socket", rt->shared->netns_storage_socket, 2);
                         if (r < 0)
                                 return r;
                 }
 
                 if (rt->shared->ipcns_storage_socket[0] >= 0 && rt->shared->ipcns_storage_socket[1] >= 0) {
-                        int a, b;
-
-                        a = fdset_put_dup(fds, rt->shared->ipcns_storage_socket[0]);
-                        if (a < 0)
-                                return a;
-
-                        b = fdset_put_dup(fds, rt->shared->ipcns_storage_socket[1]);
-                        if (b < 0)
-                                return b;
-
-                        r = serialize_item_format(f, "exec-runtime-ipcns-storage-socket", "%d %d", a, b);
+                        r = serialize_fd_many(f, fds, "exec-runtime-ipcns-storage-socket", rt->shared->ipcns_storage_socket, 2);
                         if (r < 0)
                                 return r;
                 }
@@ -1219,39 +1199,17 @@ static int exec_runtime_deserialize(ExecRuntime *rt, FILE *f, FDSet *fds) {
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-runtime-netns-storage-socket="))) {
-                        for (size_t i = 0; i < 2; ++i) {
-                                _cleanup_free_ char *w = NULL;
-                                int fd;
 
-                                r = extract_first_word(&val, &w, WHITESPACE, 0);
-                                if (r < 0)
-                                        return r;
-                                if (r == 0)
-                                        break;
+                        r = deserialize_fd_many(fds, val, 2, rt->shared->netns_storage_socket);
+                        if (r < 0)
+                                return r;
 
-                                fd = deserialize_fd(fds, w);
-                                if (fd < 0)
-                                        return fd;
-
-                                rt->shared->netns_storage_socket[i] = fd;
-                        }
                 } else if ((val = startswith(l, "exec-runtime-ipcns-storage-socket="))) {
-                        for (size_t i = 0; i < 2; ++i) {
-                                _cleanup_free_ char *w = NULL;
-                                int fd;
 
-                                r = extract_first_word(&val, &w, WHITESPACE, 0);
-                                if (r < 0)
-                                        return r;
-                                if (r == 0)
-                                        break;
+                        r = deserialize_fd_many(fds, val, 2, rt->shared->ipcns_storage_socket);
+                        if (r < 0)
+                                return r;
 
-                                fd = deserialize_fd(fds, w);
-                                if (fd < 0)
-                                        return fd;
-
-                                rt->shared->ipcns_storage_socket[i] = fd;
-                        }
                 } else if ((val = startswith(l, "exec-runtime-dynamic-creds-user=")))
                         dynamic_user_deserialize_one(/* m= */ NULL, val, fds, &rt->dynamic_creds->user);
                 else if ((val = startswith(l, "exec-runtime-dynamic-creds-group=")))
@@ -1272,22 +1230,10 @@ static int exec_runtime_deserialize(ExecRuntime *rt, FILE *f, FDSet *fds) {
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-runtime-ephemeral-storage-socket="))) {
-                        for (size_t i = 0; i < 2; ++i) {
-                                _cleanup_free_ char *w = NULL;
-                                int fd;
 
-                                r = extract_first_word(&val, &w, WHITESPACE, 0);
-                                if (r < 0)
-                                        return r;
-                                if (r == 0)
-                                        break;
-
-                                fd = deserialize_fd(fds, w);
-                                if (fd < 0)
-                                        return fd;
-
-                                rt->ephemeral_storage_socket[i] = fd;
-                        }
+                        r = deserialize_fd_many(fds, val, 2, rt->ephemeral_storage_socket);
+                        if (r < 0)
+                                return r;
                 } else
                         log_warning("Failed to parse serialized line, ignorning: %s", l);
         }
@@ -1578,22 +1524,10 @@ static int exec_parameters_deserialize(ExecParameters *p, FILE *f, FDSet *fds) {
                         for (size_t i = 0; i < p->n_socket_fds + p->n_storage_fds; ++i)
                                 p->fds[i] = -EBADF;
 
-                        for (size_t i = 0; i < p->n_socket_fds + p->n_storage_fds; ++i) {
-                                _cleanup_free_ char *w = NULL;
-                                int fd;
+                        r = deserialize_fd_many(fds, val, p->n_socket_fds + p->n_storage_fds, p->fds);
+                        if (r < 0)
+                                return r;
 
-                                r = extract_first_word(&val, &w, WHITESPACE, 0);
-                                if (r < 0)
-                                        return r;
-                                if (r == 0)
-                                        break;
-
-                                fd = deserialize_fd(fds, w);
-                                if (fd < 0)
-                                        return fd;
-
-                                p->fds[i] = fd;
-                        }
                 } else if ((val = startswith(l, "exec-parameters-fd-names="))) {
                         r = deserialize_strv(val, &p->fd_names);
                         if (r < 0)
@@ -1682,22 +1616,10 @@ static int exec_parameters_deserialize(ExecParameters *p, FILE *f, FDSet *fds) {
 
                         p->idle_pipe[0] = p->idle_pipe[1] = p->idle_pipe[2] = p->idle_pipe[3] = -EBADF;
 
-                        for (size_t i = 0; i < 4; ++i) {
-                                _cleanup_free_ char *w = NULL;
-                                int fd;
+                        r = deserialize_fd_many(fds, val, 2, p->idle_pipe);
+                        if (r < 0)
+                                return r;
 
-                                r = extract_first_word(&val, &w, WHITESPACE, 0);
-                                if (r < 0)
-                                        return r;
-                                if (r == 0)
-                                        break;
-
-                                fd = deserialize_fd(fds, w);
-                                if (fd < 0)
-                                        return fd;
-
-                                p->idle_pipe[i] = fd;
-                        }
                 } else if ((val = startswith(l, "exec-parameters-stdin-fd="))) {
                         int fd;
 
