@@ -122,9 +122,8 @@ int manager_read_resolv_conf(Manager *m) {
         for (;;) {
                 _cleanup_free_ char *line = NULL;
                 const char *a;
-                char *l;
 
-                r = read_line(f, LONG_LINE_MAX, &line);
+                r = read_stripped_line(f, LONG_LINE_MAX, &line);
                 if (r < 0) {
                         log_error_errno(r, "Failed to read /etc/resolv.conf: %m");
                         goto clear;
@@ -134,11 +133,10 @@ int manager_read_resolv_conf(Manager *m) {
 
                 n++;
 
-                l = strstrip(line);
-                if (IN_SET(*l, '#', ';', 0))
+                if (IN_SET(*line, '#', ';', 0))
                         continue;
 
-                a = first_word(l, "nameserver");
+                a = first_word(line, "nameserver");
                 if (a) {
                         r = manager_parse_dns_server_string_and_warn(m, DNS_SERVER_SYSTEM, a);
                         if (r < 0)
@@ -147,9 +145,9 @@ int manager_read_resolv_conf(Manager *m) {
                         continue;
                 }
 
-                a = first_word(l, "domain");
+                a = first_word(line, "domain");
                 if (!a) /* We treat "domain" lines, and "search" lines as equivalent, and add both to our list. */
-                        a = first_word(l, "search");
+                        a = first_word(line, "search");
                 if (a) {
                         r = manager_parse_search_domains_and_warn(m, a);
                         if (r < 0)
@@ -158,7 +156,7 @@ int manager_read_resolv_conf(Manager *m) {
                         continue;
                 }
 
-                log_syntax(NULL, LOG_DEBUG, "/etc/resolv.conf", n, 0, "Ignoring resolv.conf line: %s", l);
+                log_syntax(NULL, LOG_DEBUG, "/etc/resolv.conf", n, 0, "Ignoring resolv.conf line: %s", line);
         }
 
         m->resolv_conf_stat = st;

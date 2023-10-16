@@ -473,16 +473,14 @@ static int get_process_id(pid_t pid, const char *field, uid_t *ret) {
                 _cleanup_free_ char *line = NULL;
                 char *l;
 
-                r = read_line(f, LONG_LINE_MAX, &line);
+                r = read_stripped_line(f, LONG_LINE_MAX, &line);
                 if (r < 0)
                         return r;
                 if (r == 0)
                         break;
 
-                l = strstrip(line);
-
-                if (startswith(l, field)) {
-                        l += strlen(field);
+                l = startswith(line, field);
+                if (l) {
                         l += strspn(l, WHITESPACE);
 
                         l[strcspn(l, WHITESPACE)] = 0;

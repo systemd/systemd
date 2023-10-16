@@ -238,10 +238,10 @@ static int parse_file(OrderedHashmap **sysctl_options, const char *path, bool ig
                 _cleanup_free_ char *l = NULL;
                 bool ignore_failure = false;
                 Option *existing;
-                char *p, *value;
+                char *value;
                 int k;
 
-                k = read_line(f, LONG_LINE_MAX, &l);
+                k = read_stripped_line(f, LONG_LINE_MAX, &l);
                 if (k == 0)
                         break;
                 if (k < 0)
@@ -249,13 +249,12 @@ static int parse_file(OrderedHashmap **sysctl_options, const char *path, bool ig
 
                 c++;
 
-                p = strstrip(l);
-
-                if (isempty(p))
+                if (isempty(l))
                         continue;
-                if (strchr(COMMENTS "\n", *p))
+                if (strchr(COMMENTS, l[0]))
                         continue;
 
+                char *p = l;
                 value = strchr(p, '=');
                 if (value) {
                         if (p[0] == '-') {
