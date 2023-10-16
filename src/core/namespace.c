@@ -970,7 +970,7 @@ add_symlink:
                      temporary_mount,
                      S_ISCHR(st.st_mode) ? "char" : "block",
                      DEVNUM_FORMAT_VAL(st.st_rdev)) < 0)
-                return log_oom();
+                return log_oom_debug();
 
         (void) mkdir_parents(sl, 0755);
 
@@ -2381,7 +2381,7 @@ int setup_namespace(const NamespaceParameters *p, char **error_path) {
 
                 q = strjoin("/run/systemd/journal.", p->log_namespace);
                 if (!q)
-                        return log_oom();
+                        return log_oom_debug();
 
                 MountEntry *me = mount_list_extend(&ml);
                 if (!me)
