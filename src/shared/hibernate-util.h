@@ -18,7 +18,7 @@ static inline int find_suitable_hibernate_device(HibernateDevice *ret) {
         return find_suitable_hibernate_device_full(ASSERT_PTR(ret), NULL, NULL);
 }
 
-bool enough_swap_for_hibernation(void);
+int hibernation_is_safe(void);
 
 int write_resume_config(dev_t devno, uint64_t offset, const char *device);
 
