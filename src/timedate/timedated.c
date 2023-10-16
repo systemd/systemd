@@ -211,9 +211,8 @@ static int context_parse_ntp_services_from_disk(Context *c) {
 
                 for (;;) {
                         _cleanup_free_ char *line = NULL;
-                        const char *word;
 
-                        r = read_line(file, LINE_MAX, &line);
+                        r = read_stripped_line(file, LINE_MAX, &line);
                         if (r < 0) {
                                 log_error_errno(r, "Failed to read %s, ignoring: %m", *f);
                                 continue;
@@ -221,13 +220,12 @@ static int context_parse_ntp_services_from_disk(Context *c) {
                         if (r == 0)
                                 break;
 
-                        word = strstrip(line);
-                        if (isempty(word) || startswith(word, "#"))
+                        if (isempty(line) || startswith(line, "#"))
                                 continue;
 
-                        r = context_add_ntp_service(c, word, *f);
+                        r = context_add_ntp_service(c, line, *f);
                         if (r < 0)
-                                log_warning_errno(r, "Failed to add NTP service \"%s\", ignoring: %m", word);
+                                log_warning_errno(r, "Failed to add NTP service \"%s\", ignoring: %m", line);
                 }
         }
 

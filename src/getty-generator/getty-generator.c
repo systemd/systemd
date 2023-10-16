@@ -168,9 +168,8 @@ static int add_credential_gettys(void) {
 
                 for (;;) {
                         _cleanup_free_ char *tty = NULL;
-                        char *s;
 
-                        r = read_line(f, PATH_MAX, &tty);
+                        r = read_stripped_line(f, PATH_MAX, &tty);
                         if (r == 0)
                                 break;
                         if (r < 0) {
@@ -178,11 +177,10 @@ static int add_credential_gettys(void) {
                                 break;
                         }
 
-                        s = strstrip(tty);
-                        if (startswith(s, "#"))
+                        if (startswith(tty, "#"))
                                 continue;
 
-                        r = t->func(s);
+                        r = t->func(tty);
                         if (r < 0)
                                 return r;
                 }
