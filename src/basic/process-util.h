@@ -14,6 +14,7 @@
 #include "alloc-util.h"
 #include "format-util.h"
 #include "macro.h"
+#include "namespace-util.h"
 #include "time-util.h"
 
 #define procfs_file_alloca(pid, field)                                  \
@@ -52,6 +53,8 @@ int get_process_ppid(pid_t pid, pid_t *ret);
 int get_process_umask(pid_t pid, mode_t *ret);
 
 int container_get_leader(const char *machine, pid_t *pid);
+
+int namespace_get_leader(pid_t pid, NamespaceType type, pid_t *ret);
 
 int wait_for_terminate(pid_t pid, siginfo_t *status);
 
