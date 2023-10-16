@@ -1467,8 +1467,6 @@ Features:
   /etc/resolv.conf. Should be smart and do something useful on read-only
   images, for example fall back to read-only bind mounting the file instead.
 
-* show invocation ID in systemd-run output
-
 * bypass SIGTERM state in unit files if KillSignal is SIGKILL
 
 * add proper dbus APIs for the various sd_notify() commands, such as MAINPID=1
