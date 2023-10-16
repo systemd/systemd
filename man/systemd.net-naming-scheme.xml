@@ -505,13 +505,23 @@
         <varlistentry>
           <term><constant>v254</constant></term>
 
-          <listitem><para>Naming was changed for SR-IOV virtual device representors.</para>
+          <listitem><para>Naming was changed for SR-IOV virtual device representors, optionally settable at
+          compilation time. The <literal>r<replaceable>slot</replaceable></literal> suffix was added to
+          differentiate SR-IOV virtual device representors attached to a single physical device interface.
+          Because of a mistake, this scheme was <emphasis>not the the default scheme for systemd version
+          254</emphasis>.</para>
 
-          <para>The <literal>r<replaceable>slot</replaceable></literal> suffix was added to differentiate SR-IOV
-          virtual device representors attached to a single physical device interface.
-          </para>
+          <xi:include href="version-info.xml" xpointer="v255"/>
+          </listitem>
+        </varlistentry>
 
-          <xi:include href="version-info.xml" xpointer="v254"/>
+        <varlistentry>
+          <term><constant>v255</constant></term>
+
+          <listitem><para>Naming was changed for SR-IOV virtual device representors to enable the
+          change introduced in <constant>v254</constant> by default.</para>
+
+          <xi:include href="version-info.xml" xpointer="v255"/>
           </listitem>
         </varlistentry>
 
