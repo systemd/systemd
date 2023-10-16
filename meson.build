@@ -804,10 +804,12 @@ conf.set('EXTRA_NET_NAMING_SCHEMES', ' '.join(extra_net_naming_schemes))
 conf.set('EXTRA_NET_NAMING_MAP', ' '.join(extra_net_naming_map))
 
 default_net_naming_scheme = get_option('default-net-naming-scheme')
-conf.set_quoted('DEFAULT_NET_NAMING_SCHEME', default_net_naming_scheme)
+conf.set_quoted('DEFAULT_NET_NAMING_SCHEME', default_net_naming_scheme,
+                description : 'Default naming scheme as a string')
 if default_net_naming_scheme != 'latest'
-        conf.set('_DEFAULT_NET_NAMING_SCHEME_TEST',
-                 'NAMING_' + default_net_naming_scheme.underscorify().to_upper())
+        conf.set('_DEFAULT_NET_NAMING_SCHEME',
+                 'NAMING_' + default_net_naming_scheme.underscorify().to_upper(),
+                 description : 'Default naming scheme as a constant')
 endif
 
 time_epoch = get_option('time-epoch')
