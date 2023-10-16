@@ -40,6 +40,7 @@ typedef enum SleepSupport {
         SLEEP_DISABLED,                    /* Disabled in SleepConfig.allow */
         SLEEP_NOT_CONFIGURED,              /* SleepConfig.states is not configured */
         SLEEP_STATE_OR_MODE_NOT_SUPPORTED, /* SleepConfig.states/modes are not supported by kernel */
+        SLEEP_RESUME_NOT_SUPPORTED,
         SLEEP_NOT_ENOUGH_SWAP_SPACE,
         SLEEP_ALARM_NOT_SUPPORTED,         /* CLOCK_BOOTTIME_ALARM is unsupported by kernel (only used by s2h) */
 } SleepSupport;
