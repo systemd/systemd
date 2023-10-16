@@ -333,19 +333,17 @@ static int dhcp4_server_set_dns_from_resolve_conf(Link *link) {
         for (;;) {
                 _cleanup_free_ char *line = NULL;
                 const char *a;
-                char *l;
 
-                r = read_line(f, LONG_LINE_MAX, &line);
+                r = read_stripped_line(f, LONG_LINE_MAX, &line);
                 if (r < 0)
                         return log_error_errno(r, "Failed to read " PRIVATE_UPLINK_RESOLV_CONF ": %m");
                 if (r == 0)
                         break;
 
-                l = strstrip(line);
-                if (IN_SET(*l, '#', ';', 0))
+                if (IN_SET(*line, '#', ';', 0))
                         continue;
 
-                a = first_word(l, "nameserver");
+                a = first_word(line, "nameserver");
                 if (!a)
                         continue;
 

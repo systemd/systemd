@@ -441,9 +441,8 @@ static int dns_trust_anchor_load_files(
 
                 for (;;) {
                         _cleanup_free_ char *line = NULL;
-                        char *l;
 
-                        r = read_line(g, LONG_LINE_MAX, &line);
+                        r = read_stripped_line(g, LONG_LINE_MAX, &line);
                         if (r < 0) {
                                 log_warning_errno(r, "Failed to read '%s', ignoring: %m", *f);
                                 break;
@@ -453,14 +452,13 @@ static int dns_trust_anchor_load_files(
 
                         n++;
 
-                        l = strstrip(line);
-                        if (isempty(l))
+                        if (isempty(line))
                                 continue;
 
-                        if (*l == ';')
+                        if (*line == ';')
                                 continue;
 
-                        (void) loader(d, *f, n, l);
+                        (void) loader(d, *f, n, line);
                 }
         }
 

@@ -2005,10 +2005,9 @@ static int read_config_file(Context *c, const char *fn, bool ignore_enoent) {
 
         for (;;) {
                 _cleanup_free_ char *line = NULL;
-                char *l;
                 int k;
 
-                k = read_line(f, LONG_LINE_MAX, &line);
+                k = read_stripped_line(f, LONG_LINE_MAX, &line);
                 if (k < 0)
                         return log_error_errno(k, "Failed to read '%s': %m", fn);
                 if (k == 0)
@@ -2016,11 +2015,10 @@ static int read_config_file(Context *c, const char *fn, bool ignore_enoent) {
 
                 v++;
 
-                l = strstrip(line);
-                if (IN_SET(*l, 0, '#'))
+                if (IN_SET(line[0], 0, '#'))
                         continue;
 
-                k = parse_line(c, fn, v, l);
+                k = parse_line(c, fn, v, line);
                 if (k < 0 && r == 0)
                         r = k;
         }

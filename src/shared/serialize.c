@@ -156,7 +156,7 @@ int deserialize_read_line(FILE *f, char **ret) {
         assert(f);
         assert(ret);
 
-        r = read_line(f, LONG_LINE_MAX, &line);
+        r = read_stripped_line(f, LONG_LINE_MAX, &line);
         if (r < 0)
                 return log_error_errno(r, "Failed to read serialization line: %m");
         if (r == 0) { /* eof */
@@ -164,14 +164,10 @@ int deserialize_read_line(FILE *f, char **ret) {
                 return 0;
         }
 
-        const char *l = strstrip(line);
-        if (isempty(l)) { /* End marker */
+        if (isempty(line)) { /* End marker */
                 *ret = NULL;
                 return 0;
         }
-
-        if (free_and_strdup(&line, l) < 0)
-                return log_oom();
 
         *ret = TAKE_PTR(line);
         return 1;

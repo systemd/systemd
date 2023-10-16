@@ -809,10 +809,10 @@ static int add_crypttab_devices(void) {
                 _cleanup_free_ char *line = NULL, *name = NULL, *device = NULL, *keyspec = NULL, *options = NULL,
                                     *keyfile = NULL, *keydev = NULL, *headerdev = NULL, *filtered_header = NULL;
                 crypto_device *d = NULL;
-                char *l, *uuid;
+                char *uuid;
                 int k;
 
-                r = read_line(f, LONG_LINE_MAX, &line);
+                r = read_stripped_line(f, LONG_LINE_MAX, &line);
                 if (r < 0)
                         return log_error_errno(r, "Failed to read %s: %m", arg_crypttab);
                 if (r == 0)
@@ -820,11 +820,10 @@ static int add_crypttab_devices(void) {
 
                 crypttab_line++;
 
-                l = strstrip(line);
-                if (IN_SET(l[0], 0, '#'))
+                if (IN_SET(line[0], 0, '#'))
                         continue;
 
-                k = sscanf(l, "%ms %ms %ms %ms", &name, &device, &keyspec, &options);
+                k = sscanf(line, "%ms %ms %ms %ms", &name, &device, &keyspec, &options);
                 if (k < 2 || k > 4) {
                         log_error("Failed to parse %s:%u, ignoring.", arg_crypttab, crypttab_line);
                         continue;

@@ -222,21 +222,19 @@ static int manager_deserialize_one_unit(Manager *m, const char *name, FILE *f, F
 }
 
 static int manager_deserialize_units(Manager *m, FILE *f, FDSet *fds) {
-        const char *unit_name;
         int r;
 
         for (;;) {
                 _cleanup_free_ char *line = NULL;
+
                 /* Start marker */
-                r = read_line(f, LONG_LINE_MAX, &line);
+                r = read_stripped_line(f, LONG_LINE_MAX, &line);
                 if (r < 0)
                         return log_error_errno(r, "Failed to read serialization line: %m");
                 if (r == 0)
                         break;
 
-                unit_name = strstrip(line);
-
-                r = manager_deserialize_one_unit(m, unit_name, f, fds);
+                r = manager_deserialize_one_unit(m, line, f, fds);
                 if (r == -ENOMEM)
                         return r;
                 if (r < 0) {
