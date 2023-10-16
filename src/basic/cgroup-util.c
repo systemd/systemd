@@ -622,11 +622,11 @@ static int controller_is_v1_accessible(const char *root, const char *controller)
         return laccess(cpath, root ? W_OK : F_OK);
 }
 
-int cg_get_path_and_check(const char *controller, const char *path, const char *suffix, char **fs) {
+int cg_get_path_and_check(const char *controller, const char *path, const char *suffix, char **ret) {
         int r;
 
         assert(controller);
-        assert(fs);
+        assert(ret);
 
         if (!cg_controller_is_valid(controller))
                 return -EINVAL;
@@ -646,7 +646,7 @@ int cg_get_path_and_check(const char *controller, const char *path, const char *
                         return r;
         }
 
-        return cg_get_path(controller, path, suffix, fs);
+        return cg_get_path(controller, path, suffix, ret);
 }
 
 int cg_set_xattr(const char *path, const char *name, const void *value, size_t size, int flags) {
@@ -1052,30 +1052,30 @@ int cg_split_spec(const char *spec, char **ret_controller, char **ret_path) {
         return 0;
 }
 
-int cg_mangle_path(const char *path, char **result) {
+int cg_mangle_path(const char *path, char **ret) {
         _cleanup_free_ char *c = NULL, *p = NULL;
         int r;
 
         assert(path);
-        assert(result);
+        assert(ret);
 
         /* First, check if it already is a filesystem path */
         if (path_startswith(path, "/sys/fs/cgroup"))
-                return path_simplify_alloc(path, result);
+                return path_simplify_alloc(path, ret);
 
         /* Otherwise, treat it as cg spec */
         r = cg_split_spec(path, &c, &p);
         if (r < 0)
                 return r;
 
-        return cg_get_path(c ?: SYSTEMD_CGROUP_CONTROLLER, p ?: "/", NULL, result);
+        return cg_get_path(c ?: SYSTEMD_CGROUP_CONTROLLER, p ?: "/", NULL, ret);
 }
 
-int cg_get_root_path(char **path) {
+int cg_get_root_path(char **ret_path) {
         char *p, *e;
         int r;
 
-        assert(path);
+        assert(ret_path);
 
         r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, 1, &p);
         if (r < 0)
@@ -1089,17 +1089,17 @@ int cg_get_root_path(char **path) {
         if (e)
                 *e = 0;
 
-        *path = p;
+        *ret_path = p;
         return 0;
 }
 
-int cg_shift_path(const char *cgroup, const char *root, const char **shifted) {
+int cg_shift_path(const char *cgroup, const char *root, const char **ret_shifted) {
         _cleanup_free_ char *rt = NULL;
         char *p;
         int r;
 
         assert(cgroup);
-        assert(shifted);
+        assert(ret_shifted);
 
         if (!root) {
                 /* If the root was specified let's use that, otherwise
@@ -1114,20 +1114,20 @@ int cg_shift_path(const char *cgroup, const char *root, const char **shifted) {
 
         p = path_startswith(cgroup, root);
         if (p && p > cgroup)
-                *shifted = p - 1;
+                *ret_shifted = p - 1;
         else
-                *shifted = cgroup;
+                *ret_shifted = cgroup;
 
         return 0;
 }
 
-int cg_pid_get_path_shifted(pid_t pid, const char *root, char **cgroup) {
+int cg_pid_get_path_shifted(pid_t pid, const char *root, char **ret_cgroup) {
         _cleanup_free_ char *raw = NULL;
         const char *c;
         int r;
 
         assert(pid >= 0);
-        assert(cgroup);
+        assert(ret_cgroup);
 
         r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, pid, &raw);
         if (r < 0)
@@ -1138,7 +1138,7 @@ int cg_pid_get_path_shifted(pid_t pid, const char *root, char **cgroup) {
                 return r;
 
         if (c == raw)
-                *cgroup = TAKE_PTR(raw);
+                *ret_cgroup = TAKE_PTR(raw);
         else {
                 char *n;
 
@@ -1146,18 +1146,18 @@ int cg_pid_get_path_shifted(pid_t pid, const char *root, char **cgroup) {
                 if (!n)
                         return -ENOMEM;
 
-                *cgroup = n;
+                *ret_cgroup = n;
         }
 
         return 0;
 }
 
-int cg_path_decode_unit(const char *cgroup, char **unit) {
+int cg_path_decode_unit(const char *cgroup, char **ret_unit) {
         char *c, *s;
         size_t n;
 
         assert(cgroup);
-        assert(unit);
+        assert(ret_unit);
 
         n = strcspn(cgroup, "/");
         if (n < 3)
@@ -1173,7 +1173,7 @@ int cg_path_decode_unit(const char *cgroup, char **unit) {
         if (!s)
                 return -ENOMEM;
 
-        *unit = s;
+        *ret_unit = s;
         return 0;
 }
 
@@ -1261,17 +1261,17 @@ int cg_path_get_unit_path(const char *path, char **ret) {
         return 0;
 }
 
-int cg_pid_get_unit(pid_t pid, char **unit) {
+int cg_pid_get_unit(pid_t pid, char **ret_unit) {
         _cleanup_free_ char *cgroup = NULL;
         int r;
 
-        assert(unit);
+        assert(ret_unit);
 
         r = cg_pid_get_path_shifted(pid, NULL, &cgroup);
         if (r < 0)
                 return r;
 
-        return cg_path_get_unit(cgroup, unit);
+        return cg_path_get_unit(cgroup, ret_unit);
 }
 
 /**
@@ -1381,20 +1381,20 @@ int cg_path_get_user_unit(const char *path, char **ret) {
         return cg_path_get_unit(t, ret);
 }
 
-int cg_pid_get_user_unit(pid_t pid, char **unit) {
+int cg_pid_get_user_unit(pid_t pid, char **ret_unit) {
         _cleanup_free_ char *cgroup = NULL;
         int r;
 
-        assert(unit);
+        assert(ret_unit);
 
         r = cg_pid_get_path_shifted(pid, NULL, &cgroup);
         if (r < 0)
                 return r;
 
-        return cg_path_get_user_unit(cgroup, unit);
+        return cg_path_get_user_unit(cgroup, ret_unit);
 }
 
-int cg_path_get_machine_name(const char *path, char **machine) {
+int cg_path_get_machine_name(const char *path, char **ret_machine) {
         _cleanup_free_ char *u = NULL;
         const char *sl;
         int r;
@@ -1404,20 +1404,20 @@ int cg_path_get_machine_name(const char *path, char **machine) {
                 return r;
 
         sl = strjoina("/run/systemd/machines/unit:", u);
-        return readlink_malloc(sl, machine);
+        return readlink_malloc(sl, ret_machine);
 }
 
-int cg_pid_get_machine_name(pid_t pid, char **machine) {
+int cg_pid_get_machine_name(pid_t pid, char **ret_machine) {
         _cleanup_free_ char *cgroup = NULL;
         int r;
 
-        assert(machine);
+        assert(ret_machine);
 
         r = cg_pid_get_path_shifted(pid, NULL, &cgroup);
         if (r < 0)
                 return r;
 
-        return cg_path_get_machine_name(cgroup, machine);
+        return cg_path_get_machine_name(cgroup, ret_machine);
 }
 
 int cg_path_get_cgroupid(const char *path, uint64_t *ret) {
@@ -1436,7 +1436,7 @@ int cg_path_get_cgroupid(const char *path, uint64_t *ret) {
         return 0;
 }
 
-int cg_path_get_session(const char *path, char **session) {
+int cg_path_get_session(const char *path, char **ret_session) {
         _cleanup_free_ char *unit = NULL;
         char *start, *end;
         int r;
@@ -1458,20 +1458,20 @@ int cg_path_get_session(const char *path, char **session) {
         if (!session_id_valid(start))
                 return -ENXIO;
 
-        if (session) {
+        if (ret_session) {
                 char *rr;
 
                 rr = strdup(start);
                 if (!rr)
                         return -ENOMEM;
 
-                *session = rr;
+                *ret_session = rr;
         }
 
         return 0;
 }
 
-int cg_pid_get_session(pid_t pid, char **session) {
+int cg_pid_get_session(pid_t pid, char **ret_session) {
         _cleanup_free_ char *cgroup = NULL;
         int r;
 
@@ -1479,10 +1479,10 @@ int cg_pid_get_session(pid_t pid, char **session) {
         if (r < 0)
                 return r;
 
-        return cg_path_get_session(cgroup, session);
+        return cg_path_get_session(cgroup, ret_session);
 }
 
-int cg_path_get_owner_uid(const char *path, uid_t *uid) {
+int cg_path_get_owner_uid(const char *path, uid_t *ret_uid) {
         _cleanup_free_ char *slice = NULL;
         char *start, *end;
         int r;
@@ -1496,18 +1496,19 @@ int cg_path_get_owner_uid(const char *path, uid_t *uid) {
         start = startswith(slice, "user-");
         if (!start)
                 return -ENXIO;
+
         end = endswith(start, ".slice");
         if (!end)
                 return -ENXIO;
 
         *end = 0;
-        if (parse_uid(start, uid) < 0)
+        if (parse_uid(start, ret_uid) < 0)
                 return -ENXIO;
 
         return 0;
 }
 
-int cg_pid_get_owner_uid(pid_t pid, uid_t *uid) {
+int cg_pid_get_owner_uid(pid_t pid, uid_t *ret_uid) {
         _cleanup_free_ char *cgroup = NULL;
         int r;
 
@@ -1515,14 +1516,14 @@ int cg_pid_get_owner_uid(pid_t pid, uid_t *uid) {
         if (r < 0)
                 return r;
 
-        return cg_path_get_owner_uid(cgroup, uid);
+        return cg_path_get_owner_uid(cgroup, ret_uid);
 }
 
-int cg_path_get_slice(const char *p, char **slice) {
+int cg_path_get_slice(const char *p, char **ret_slice) {
         const char *e = NULL;
 
         assert(p);
-        assert(slice);
+        assert(ret_slice);
 
         /* Finds the right-most slice unit from the beginning, but
          * stops before we come to the first non-slice unit. */
@@ -1542,11 +1543,11 @@ int cg_path_get_slice(const char *p, char **slice) {
                                 if (!s)
                                         return -ENOMEM;
 
-                                *slice = s;
+                                *ret_slice = s;
                                 return 0;
                         }
 
-                        return cg_path_decode_unit(e, slice);
+                        return cg_path_decode_unit(e, ret_slice);
                 }
 
                 e = p;
@@ -1554,44 +1555,44 @@ int cg_path_get_slice(const char *p, char **slice) {
         }
 }
 
-int cg_pid_get_slice(pid_t pid, char **slice) {
+int cg_pid_get_slice(pid_t pid, char **ret_slice) {
         _cleanup_free_ char *cgroup = NULL;
         int r;
 
-        assert(slice);
+        assert(ret_slice);
 
         r = cg_pid_get_path_shifted(pid, NULL, &cgroup);
         if (r < 0)
                 return r;
 
-        return cg_path_get_slice(cgroup, slice);
+        return cg_path_get_slice(cgroup, ret_slice);
 }
 
-int cg_path_get_user_slice(const char *p, char **slice) {
+int cg_path_get_user_slice(const char *p, char **ret_slice) {
         const char *t;
         assert(p);
-        assert(slice);
+        assert(ret_slice);
 
         t = skip_user_prefix(p);
         if (!t)
                 return -ENXIO;
 
-        /* And now it looks pretty much the same as for a system
-         * slice, so let's just use the same parser from here on. */
-        return cg_path_get_slice(t, slice);
+        /* And now it looks pretty much the same as for a system slice, so let's just use the same parser
+         * from here on. */
+        return cg_path_get_slice(t, ret_slice);
 }
 
-int cg_pid_get_user_slice(pid_t pid, char **slice) {
+int cg_pid_get_user_slice(pid_t pid, char **ret_slice) {
         _cleanup_free_ char *cgroup = NULL;
         int r;
 
-        assert(slice);
+        assert(ret_slice);
 
         r = cg_pid_get_path_shifted(pid, NULL, &cgroup);
         if (r < 0)
                 return r;
 
-        return cg_path_get_user_slice(cgroup, slice);
+        return cg_path_get_user_slice(cgroup, ret_slice);
 }
 
 bool cg_needs_escape(const char *p) {
