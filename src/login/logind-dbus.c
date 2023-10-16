@@ -1943,6 +1943,10 @@ static int method_do_shutdown_or_sleep(
                                                          "Sleep verb '%s' is not configured or configuration is unsupported by kernel",
                                                          sleep_operation_to_string(a->sleep_operation));
 
+                        case SLEEP_RESUME_UNSUPPORTED:
+                                return sd_bus_error_setf(error, BUS_ERROR_SLEEP_VERB_NOT_SUPPORTED,
+                                                         "Not EFI booted and resume= is not set. No available method to resume from hibernation");
+
                         case SLEEP_NOT_ENOUGH_SWAP_SPACE:
                                 return sd_bus_error_set(error, BUS_ERROR_SLEEP_VERB_NOT_SUPPORTED,
                                                         "Not enough suitable swap space for hibernation available on compatible block devices and file systems");
