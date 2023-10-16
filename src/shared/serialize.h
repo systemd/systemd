@@ -17,6 +17,7 @@ int serialize_item_format(FILE *f, const char *key, const char *value, ...) _pri
 int serialize_item_hexmem(FILE *f, const char *key, const void *p, size_t l);
 int serialize_item_base64mem(FILE *f, const char *key, const void *p, size_t l);
 int serialize_fd(FILE *f, FDSet *fds, const char *key, int fd);
+int serialize_fd_many(FILE *f, FDSet *fds, const char *key, const int fd_array[], size_t n_fd_array);
 int serialize_usec(FILE *f, const char *key, usec_t usec);
 int serialize_dual_timestamp(FILE *f, const char *key, const dual_timestamp *t);
 int serialize_strv(FILE *f, const char *key, char **l);
@@ -38,6 +39,7 @@ static inline int serialize_item_tristate(FILE *f, const char *key, int value) {
 int deserialize_read_line(FILE *f, char **ret);
 
 int deserialize_fd(FDSet *fds, const char *value);
+int deserialize_fd_many(FDSet *fds, const char *value, size_t n, int *ret);
 int deserialize_usec(const char *value, usec_t *ret);
 int deserialize_dual_timestamp(const char *value, dual_timestamp *ret);
 int deserialize_environment(const char *value, char ***environment);
