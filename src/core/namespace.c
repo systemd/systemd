@@ -1380,7 +1380,7 @@ static int mount_image(
         if (r == -ENOENT && m->ignore)
                 return 0;
         if (r == -ESTALE && host_os_release_id)
-                return log_error_errno(r,
+                return log_error_errno(r, // FIXME: this should not be logged ad LOG_ERR, as it will result in duplicate logging.
                                        "Failed to mount image %s, extension-release metadata does not match the lower layer's: ID=%s%s%s%s%s%s%s",
                                        mount_entry_source(m),
                                        host_os_release_id,
@@ -1656,7 +1656,7 @@ static int apply_one_mount(
 
                         q = make_mount_point_inode_from_path(what, mount_entry_path(m), 0755);
                         if (q < 0) {
-                                if (q != -EEXIST)
+                                if (q != -EEXIST) // FIXME: this shouldn't be logged at LOG_WARNING, but be bubbled up, and logged there to avoid duplicate logging
                                         log_warning_errno(q, "Failed to create destination mount point node '%s', ignoring: %m",
                                                           mount_entry_path(m));
                         } else
@@ -1666,7 +1666,7 @@ static int apply_one_mount(
                 if (try_again)
                         r = mount_nofollow_verbose(LOG_DEBUG, what, mount_entry_path(m), NULL, MS_BIND|(rbind ? MS_REC : 0), NULL);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to mount %s to %s: %m", what, mount_entry_path(m));
+                        return log_error_errno(r, "Failed to mount %s to %s: %m", what, mount_entry_path(m)); // FIXME: this should not be logged here, but be bubbled up, to avoid duplicate logging
         }
 
         log_debug("Successfully mounted %s to %s", what, mount_entry_path(m));
