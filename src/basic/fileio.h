@@ -166,6 +166,8 @@ static inline int read_nul_string(FILE *f, size_t limit, char **ret) {
         return read_line_full(f, limit, READ_LINE_ONLY_NUL, ret);
 }
 
+int read_stripped_line(FILE *f, size_t limit, char **ret);
+
 int safe_fgetc(FILE *f, char *ret);
 
 int warn_file_is_world_accessible(const char *filename, struct stat *st, const char *unit, unsigned line);
