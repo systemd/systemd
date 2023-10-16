@@ -85,22 +85,20 @@ static int apply_file(const char *filename, bool ignore_enoent) {
         log_debug("Applying %s%s", pp, special_glyph(SPECIAL_GLYPH_ELLIPSIS));
         for (unsigned line = 1;; line++) {
                 _cleanup_free_ char *text = NULL;
-                char *p;
                 int k;
 
-                k = read_line(f, LONG_LINE_MAX, &text);
+                k = read_stripped_line(f, LONG_LINE_MAX, &text);
                 if (k < 0)
                         return log_error_errno(k, "Failed to read file '%s': %m", pp);
                 if (k == 0)
                         break;
 
-                p = strstrip(text);
-                if (isempty(p))
+                if (isempty(text))
                         continue;
-                if (strchr(COMMENTS, p[0]))
+                if (strchr(COMMENTS, text[0]))
                         continue;
 
-                RET_GATHER(r, apply_rule(filename, line, p));
+                RET_GATHER(r, apply_rule(filename, line, text));
         }
 
         return r;
