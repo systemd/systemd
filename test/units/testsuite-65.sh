@@ -827,13 +827,13 @@ check deny yes /run/systemd/system/deny-list.service
 check deny no deny-list.service
 
 output=$(systemd-run -p "SystemCallFilter=@system-service" -p "SystemCallFilter=~@resources:ENOANO @privileged" -p "SystemCallFilter=@clock" sleep 60 2>&1)
-name=$(echo "$output" | awk '{ print $4 }')
+name=$(echo "$output" | awk '{ print $4 }' | cut -d';' -f1)
 
 check allow yes /run/systemd/transient/"$name"
 check allow no "$name"
 
 output=$(systemd-run -p "SystemCallFilter=~@known" -p "SystemCallFilter=@system-service" -p "SystemCallFilter=~@resources:ENOANO @privileged" -p "SystemCallFilter=@clock" sleep 60 2>&1)
-name=$(echo "$output" | awk '{ print $4 }')
+name=$(echo "$output" | awk '{ print $4 }' | cut -d';' -f1)
 
 check deny yes /run/systemd/transient/"$name"
 check deny no "$name"
