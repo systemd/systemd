@@ -59,13 +59,13 @@ TEST(sleep_supported) {
         log_info("Freeze configured: %s", yes_no(sleep_state_supported(freeze) > 0));
 
         log_info("/= high-level sleep verbs =/");
-        r = can_sleep(SLEEP_SUSPEND);
+        r = sleep_supported(SLEEP_SUSPEND);
         log_info("Suspend configured and possible: %s", r >= 0 ? yes_no(r) : STRERROR(r));
-        r = can_sleep(SLEEP_HIBERNATE);
+        r = sleep_supported(SLEEP_HIBERNATE);
         log_info("Hibernation configured and possible: %s", r >= 0 ? yes_no(r) : STRERROR(r));
-        r = can_sleep(SLEEP_HYBRID_SLEEP);
+        r = sleep_supported(SLEEP_HYBRID_SLEEP);
         log_info("Hybrid-sleep configured and possible: %s", r >= 0 ? yes_no(r) : STRERROR(r));
-        r = can_sleep(SLEEP_SUSPEND_THEN_HIBERNATE);
+        r = sleep_supported(SLEEP_SUSPEND_THEN_HIBERNATE);
         log_info("Suspend-then-Hibernate configured and possible: %s", r >= 0 ? yes_no(r) : STRERROR(r));
 }
 

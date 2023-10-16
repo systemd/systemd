@@ -35,7 +35,19 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(SleepConfig*, sleep_config_free);
 
 int parse_sleep_config(SleepConfig **sleep_config);
 
-int can_sleep(SleepOperation operation);
+typedef enum SleepSupport {
+        SLEEP_SUPPORTED,
+        SLEEP_DISABLED,                    /* Disabled in SleepConfig.allow */
+        SLEEP_NOT_CONFIGURED,              /* SleepConfig.states is not configured */
+        SLEEP_STATE_OR_MODE_NOT_SUPPORTED, /* SleepConfig.states/modes are not supported by kernel */
+        SLEEP_NOT_ENOUGH_SWAP_SPACE,
+        SLEEP_ALARM_NOT_SUPPORTED,         /* CLOCK_BOOTTIME_ALARM is unsupported by kernel (only used by s2h) */
+} SleepSupport;
+
+int sleep_supported_full(SleepOperation operation, SleepSupport *ret_support);
+static inline int sleep_supported(SleepOperation operation) {
+        return sleep_supported_full(operation, NULL);
+}
 
 /* Only for test-sleep-config */
 int sleep_state_supported(char **states);
