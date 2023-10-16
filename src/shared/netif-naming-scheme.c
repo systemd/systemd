@@ -6,13 +6,6 @@
 #include "string-util.h"
 #include "string-table.h"
 
-#ifdef _DEFAULT_NET_NAMING_SCHEME_TEST
-/* The primary purpose of this check is to verify that _DEFAULT_NET_NAMING_SCHEME_TEST
- * is a valid identifier. If an invalid name is given during configuration, this will
- * fail with a name error. */
-assert_cc(_DEFAULT_NET_NAMING_SCHEME_TEST >= 0);
-#endif
-
 static const NamingScheme naming_schemes[] = {
         { "v238", NAMING_V238 },
         { "v239", NAMING_V239 },
