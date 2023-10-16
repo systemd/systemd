@@ -194,13 +194,10 @@ static const MountEntry protect_system_full_table[] = {
         { "/etc",                READONLY,     false },
 };
 
-/*
- * ProtectSystem=strict table. In this strict mode, we mount everything
- * read-only, except for /proc, /dev, /sys which are the kernel API VFS,
- * which are left writable, but PrivateDevices= + ProtectKernelTunables=
- * protect those, and these options should be fully orthogonal.
- * (And of course /home and friends are also left writable, as ProtectHome=
- * shall manage those, orthogonally).
+/* ProtectSystem=strict table. In this strict mode, we mount everything read-only, except for /proc, /dev,
+ * /sys which are the kernel API VFS, which are left writable, but PrivateDevices= + ProtectKernelTunables=
+ * protect those, and these options should be fully orthogonal.  (And of course /home and friends are also
+ * left writable, as ProtectHome= shall manage those, orthogonally).
  */
 static const MountEntry protect_system_strict_table[] = {
         { "/",                   READONLY,           false },
@@ -210,6 +207,12 @@ static const MountEntry protect_system_strict_table[] = {
         { "/home",               READWRITE_IMPLICIT, true  },      /* ProtectHome= */
         { "/run/user",           READWRITE_IMPLICIT, true  },      /* ProtectHome= */
         { "/root",               READWRITE_IMPLICIT, true  },      /* ProtectHome= */
+};
+
+/* ProtectHostname=yes able */
+static const MountEntry protect_hostname_table[] = {
+        { "/proc/sys/kernel/hostname",   READONLY, false },
+        { "/proc/sys/kernel/domainname", READONLY, false },
 };
 
 static const char * const mount_mode_table[_MOUNT_MODE_MAX] = {
@@ -2279,25 +2282,13 @@ int setup_namespace(const NamespaceParameters *p, char **error_path) {
         /* Note, if proc is mounted with subset=pid then neither of the two paths will exist, i.e. they are
          * implicitly protected by the mount option. */
         if (p->protect_hostname) {
-                MountEntry *me = mount_list_extend(&ml);
-                if (!me)
-                        return log_oom_debug();
-
-                *me = (MountEntry) {
-                        .path_const = "/proc/sys/kernel/hostname",
-                        .mode = READONLY,
-                        .ignore = ignore_protect_proc,
-                };
-
-                me = mount_list_extend(&ml);
-                if (!me)
-                        return log_oom_debug();
-
-                *me = (MountEntry) {
-                        .path_const = "/proc/sys/kernel/domainname",
-                        .mode = READONLY,
-                        .ignore = ignore_protect_proc,
-                };
+                r = append_static_mounts(
+                                &ml,
+                                protect_hostname_table,
+                                ELEMENTSOF(protect_hostname_table),
+                                ignore_protect_proc);
+                if (r < 0)
+                        return r;
         }
 
         if (p->private_network) {
