@@ -1656,8 +1656,8 @@ static int apply_one_mount(
 
                         q = make_mount_point_inode_from_path(what, mount_entry_path(m), 0755);
                         if (q < 0 && q != -EEXIST)
-                                log_error_errno(q, "Failed to create destination mount point node '%s': %m",
-                                                mount_entry_path(m));
+                                log_warning_errno(q, "Failed to create destination mount point node '%s', ignoring: %m",
+                                                  mount_entry_path(m));
                         else
                                 try_again = true;
                 }
