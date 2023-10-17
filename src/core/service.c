@@ -205,7 +205,7 @@ static int service_set_main_pidref(Service *s, PidRef *pidref) {
 
         s->main_pid = TAKE_PIDREF(*pidref);
         s->main_pid_known = true;
-        s->main_pid_alien = pid_is_my_child(s->main_pid.pid) == 0;
+        s->main_pid_alien = pidref_is_my_child(&s->main_pid) <= 0;
 
         if (s->main_pid_alien)
                 log_unit_warning(UNIT(s), "Supervising process "PID_FMT" which is not our child. We'll most likely not notice when it exits.", s->main_pid.pid);
