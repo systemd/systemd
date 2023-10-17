@@ -16,7 +16,10 @@ int serialize_item_escaped(FILE *f, const char *key, const char *value);
 int serialize_item_format(FILE *f, const char *key, const char *value, ...) _printf_(3,4);
 int serialize_item_hexmem(FILE *f, const char *key, const void *p, size_t l);
 int serialize_item_base64mem(FILE *f, const char *key, const void *p, size_t l);
-int serialize_fd(FILE *f, FDSet *fds, const char *key, int fd);
+int serialize_fd_full(FILE *f, FDSet *fds, const char *key, int fd, int *index);
+static inline int serialize_fd(FILE *f, FDSet *fds, const char *key, int fd) {
+        return serialize_fd_full(f, fds, key, fd, /* index= */ NULL);
+}
 int serialize_usec(FILE *f, const char *key, usec_t usec);
 int serialize_dual_timestamp(FILE *f, const char *key, const dual_timestamp *t);
 int serialize_strv(FILE *f, const char *key, char **l);
@@ -42,6 +45,8 @@ int deserialize_dual_timestamp(const char *value, dual_timestamp *t);
 int deserialize_environment(const char *value, char ***environment);
 int deserialize_strv(char ***l, const char *value);
 int deserialize_pidref(FDSet *fds, const char *value, PidRef *ret);
+int deserialize_fd_from_set(const char *value, FDSet *fds);
+int deserialize_fd_from_array(const char *value, int *fds_array, size_t n_fds_array);
 
 int open_serialization_fd(const char *ident);
 int open_serialization_file(const char *ident, FILE **ret);
