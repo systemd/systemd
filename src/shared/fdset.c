@@ -17,6 +17,11 @@
 #include "path-util.h"
 #include "stat-util.h"
 
+/* FDs can be stored in two modes: simply by value, or also by index. The latter is useful when sending
+ * arrays over SCM_RIGHTS, and is implemented by storing each FD both as key, with the index as value,
+ * and viceversa. To distinguish indexes from FDs, indexes will be stored as negative integers, since FDs
+ * are always >=0. */
+
 #define MAKE_HASHMAP(s) ((Hashmap*) s)
 #define MAKE_FDSET(s) ((FDSet*) s)
 
@@ -126,6 +131,52 @@ int fdset_put_dup(FDSet *s, int fd) {
         return TAKE_FD(copy);
 }
 
+int fdset_put_indexed(FDSet *s, int fd, int index) {
+        int r;
+
+        assert(s);
+        assert(fd >= 0);
+        assert(index >= 0);
+
+        /* Avoid integer overflow in FD_TO_PTR() */
+        if (fd == INT_MAX)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Refusing invalid fd: %d", fd);
+
+        if (hashmap_contains(MAKE_HASHMAP(s), INT_TO_PTR(-index - 1)))
+                return -EEXIST;
+
+        if (hashmap_contains(MAKE_HASHMAP(s), FD_TO_PTR(fd)))
+                return -EEXIST;
+
+        /* Store both the fd and the index, so that either can be used for lookups. Store the index as
+         * a negative number, so that we know there can be no overlap, since a fd must be >= 0. */
+
+        r = hashmap_put(MAKE_HASHMAP(s), FD_TO_PTR(fd), INT_TO_PTR(-index - 1));
+        if (r < 0)
+                return r;
+
+        return hashmap_put(MAKE_HASHMAP(s), INT_TO_PTR(-index - 1), FD_TO_PTR(fd));
+}
+
+int fdset_put_dup_indexed(FDSet *s, int fd, int index) {
+        _cleanup_close_ int copy = -EBADF;
+        int r;
+
+        assert(s);
+        assert(fd >= 0);
+
+        copy = fcntl(fd, F_DUPFD_CLOEXEC, 3);
+        if (copy < 0)
+                return -errno;
+
+        r = fdset_put_indexed(s, copy, index);
+        if (r < 0)
+                return r;
+
+        TAKE_FD(copy);
+        return index;
+}
+
 bool fdset_contains(FDSet *s, int fd) {
         assert(s);
         assert(fd >= 0);
@@ -137,6 +188,13 @@ bool fdset_contains(FDSet *s, int fd) {
         }
 
         return hashmap_contains(MAKE_HASHMAP(s), FD_TO_PTR(fd));
+}
+
+bool fdset_contains_index(FDSet *s, int index) {
+        assert(s);
+        assert(index >= 0);
+
+        return hashmap_contains(MAKE_HASHMAP(s), INT_TO_PTR(-index - 1));
 }
 
 int fdset_remove(FDSet *s, int fd) {
@@ -158,6 +216,28 @@ int fdset_remove(FDSet *s, int fd) {
         return hashmap_remove(MAKE_HASHMAP(s), INT_TO_PTR(ret)) ? fd : -ENOENT;
 }
 
+int fdset_remove_indexed(FDSet *s, int index) {
+        _cleanup_close_ int fd = -EBADF;
+
+        assert(s);
+        assert(index >= 0);
+
+        /* Avoid integer overflow in FD_TO_PTR() */
+        if (index == INT_MAX)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOENT), "Refusing invalid index: %d", index);
+
+        index = -index - 1; /* Indexes are stored as negative numbers to disambiguate with FDs */
+        assert(index != 0); /* Ensure this is never 0, as it would be mapped to NULL below */
+
+        /* First, remove the index -> fd entry */
+        void *raw = hashmap_remove(MAKE_HASHMAP(s), INT_TO_PTR(index));
+        if (!raw)
+                return -ENOENT;
+
+        fd = PTR_TO_FD(raw);
+
+        /* Now remove the fd -> index entry */
+        return hashmap_remove(MAKE_HASHMAP(s), FD_TO_PTR(fd)) ? TAKE_FD(fd) : -ENOENT;
 }
 
 int fdset_new_fill(
@@ -316,6 +396,10 @@ static int to_array(FDSet *fds, bool indexed, int **ret) {
 
 int fdset_to_array(FDSet *fds, int **ret) {
         return to_array(fds, /* indexed= */ false, ret);
+}
+
+int fdset_to_array_indexed(FDSet *fds, int **ret) {
+        return to_array(fds, /* indexed= */ true, ret);
 }
 
 int fdset_close_others(FDSet *fds) {
