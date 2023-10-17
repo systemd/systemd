@@ -86,7 +86,8 @@ int pidref_is_kernel_thread(PidRef *pid);
 
 int getenv_for_pid(pid_t pid, const char *field, char **_value);
 
-bool pid_is_alive(pid_t pid);
+int pid_is_alive(pid_t pid);
+int pidref_is_alive(PidRef *pidref);
 bool pid_is_unwaited(pid_t pid);
 int pid_is_my_child(pid_t pid);
 int pid_from_same_root_fs(pid_t pid);
