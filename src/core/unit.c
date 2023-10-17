@@ -4006,13 +4006,14 @@ static Set *unit_pid_set(pid_t main_pid, pid_t control_pid) {
         return TAKE_PTR(pid_set);
 }
 
-static int kill_common_log(pid_t pid, int signo, void *userdata) {
+static int kill_common_log(const PidRef *pid, int signo, void *userdata) {
         _cleanup_free_ char *comm = NULL;
         Unit *u = ASSERT_PTR(userdata);
 
-        (void) pid_get_comm(pid, &comm);
+        (void) pidref_get_comm(pid, &comm);
+
         log_unit_info(u, "Sending signal SIG%s to process " PID_FMT " (%s) on client request.",
-                      signal_to_string(signo), pid, strna(comm));
+                      signal_to_string(signo), pid->pid, strna(comm));
 
         return 1;
 }
@@ -4105,7 +4106,6 @@ int unit_kill(
 
         if (pidref_is_set(main_pid) &&
             IN_SET(who, KILL_MAIN, KILL_MAIN_FAIL, KILL_ALL, KILL_ALL_FAIL)) {
-
                 _cleanup_free_ char *comm = NULL;
                 (void) pidref_get_comm(main_pid, &comm);
 
@@ -4729,10 +4729,12 @@ int unit_make_transient(Unit *u) {
         return 0;
 }
 
-static int log_kill(pid_t pid, int sig, void *userdata) {
+static int log_kill(const PidRef *pid, int sig, void *userdata) {
         _cleanup_free_ char *comm = NULL;
 
-        (void) pid_get_comm(pid, &comm);
+        assert(pidref_is_set(pid));
+
+        (void) pidref_get_comm(pid, &comm);
 
         /* Don't log about processes marked with brackets, under the assumption that these are temporary processes
            only, like for example systemd's own PAM stub process. */
@@ -4743,7 +4745,7 @@ static int log_kill(pid_t pid, int sig, void *userdata) {
 
         log_unit_notice(userdata,
                         "Killing process " PID_FMT " (%s) with signal SIG%s.",
-                        pid,
+                        pid->pid,
                         strna(comm),
                         signal_to_string(sig));
 
@@ -4815,7 +4817,7 @@ int unit_kill_context(
 
         if (pidref_is_set(main_pid)) {
                 if (log_func)
-                        log_func(main_pid->pid, sig, u);
+                        log_func(main_pid, sig, u);
 
                 r = pidref_kill_and_sigcont(main_pid, sig);
                 if (r < 0 && r != -ESRCH) {
@@ -4834,7 +4836,7 @@ int unit_kill_context(
 
         if (pidref_is_set(control_pid)) {
                 if (log_func)
-                        log_func(control_pid->pid, sig, u);
+                        log_func(control_pid, sig, u);
 
                 r = pidref_kill_and_sigcont(control_pid, sig);
                 if (r < 0 && r != -ESRCH) {
@@ -5862,10 +5864,12 @@ static bool ignore_leftover_process(const char *comm) {
         return comm && comm[0] == '('; /* Most likely our own helper process (PAM?), ignore */
 }
 
-int unit_log_leftover_process_start(pid_t pid, int sig, void *userdata) {
+int unit_log_leftover_process_start(const PidRef *pid, int sig, void *userdata) {
         _cleanup_free_ char *comm = NULL;
 
-        (void) pid_get_comm(pid, &comm);
+        assert(pidref_is_set(pid));
+
+        (void) pidref_get_comm(pid, &comm);
 
         if (ignore_leftover_process(comm))
                 return 0;
@@ -5875,15 +5879,17 @@ int unit_log_leftover_process_start(pid_t pid, int sig, void *userdata) {
         log_unit_warning(userdata,
                          "Found left-over process " PID_FMT " (%s) in control group while starting unit. Ignoring.\n"
                          "This usually indicates unclean termination of a previous run, or service implementation deficiencies.",
-                         pid, strna(comm));
+                         pid->pid, strna(comm));
 
         return 1;
 }
 
-int unit_log_leftover_process_stop(pid_t pid, int sig, void *userdata) {
+int unit_log_leftover_process_stop(const PidRef *pid, int sig, void *userdata) {
         _cleanup_free_ char *comm = NULL;
 
-        (void) pid_get_comm(pid, &comm);
+        assert(pidref_is_set(pid));
+
+        (void) pidref_get_comm(pid, &comm);
 
         if (ignore_leftover_process(comm))
                 return 0;
@@ -5892,7 +5898,7 @@ int unit_log_leftover_process_stop(pid_t pid, int sig, void *userdata) {
 
         log_unit_info(userdata,
                       "Unit process " PID_FMT " (%s) remains running after unit stopped.",
-                      pid, strna(comm));
+                      pid->pid, strna(comm));
 
         return 1;
 }
