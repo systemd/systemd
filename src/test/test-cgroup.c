@@ -61,6 +61,10 @@ TEST(cg_create) {
 
         log_info("Paths for test:\n%s\n%s", test_a, test_b);
 
+        /* Possibly clean up left-overs from aboted previous runs */
+        (void) cg_trim(SYSTEMD_CGROUP_CONTROLLER, test_a, /* delete_root= */ true);
+        (void) cg_trim(SYSTEMD_CGROUP_CONTROLLER, test_b, /* delete_root= */ true);
+
         r = cg_create(SYSTEMD_CGROUP_CONTROLLER, test_a);
         if (IN_SET(r, -EPERM, -EACCES, -EROFS)) {
                 log_info_errno(r, "Skipping %s: %m", __func__);
