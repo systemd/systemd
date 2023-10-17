@@ -14,7 +14,7 @@ int sigrtmin18_handler(sd_event_source *s, const struct signalfd_siginfo *si, vo
         assert(s);
         assert(si);
 
-        (void) get_process_comm(si->ssi_pid, &comm);
+        (void) pid_get_comm(si->ssi_pid, &comm);
 
         if (si->ssi_code != SI_QUEUE) {
                 log_notice("Received control signal %s from process " PID_FMT " (%s) without command value, ignoring.",

@@ -38,7 +38,7 @@
 #include "user-util.h"
 #include "virt.h"
 
-static void test_get_process_comm_one(pid_t pid) {
+static void test_pid_get_comm_one(pid_t pid) {
         struct stat st;
         _cleanup_free_ char *a = NULL, *c = NULL, *d = NULL, *f = NULL, *i = NULL;
         _cleanup_free_ char *env = NULL;
@@ -54,7 +54,7 @@ static void test_get_process_comm_one(pid_t pid) {
         xsprintf(path, "/proc/"PID_FMT"/comm", pid);
 
         if (stat(path, &st) == 0) {
-                assert_se(get_process_comm(pid, &a) >= 0);
+                assert_se(pid_get_comm(pid, &a) >= 0);
                 log_info("PID"PID_FMT" comm: '%s'", pid, a);
         } else
                 log_warning("%s not exist.", path);
@@ -99,15 +99,15 @@ static void test_get_process_comm_one(pid_t pid) {
         log_info("PID"PID_FMT" $PATH: '%s'", pid, strna(i));
 }
 
-TEST(get_process_comm) {
+TEST(pid_get_comm) {
         if (saved_argc > 1) {
                 pid_t pid = 0;
 
                 (void) parse_pid(saved_argv[1], &pid);
-                test_get_process_comm_one(pid);
+                test_pid_get_comm_one(pid);
         } else {
-                TEST_REQ_RUNNING_SYSTEMD(test_get_process_comm_one(1));
-                test_get_process_comm_one(getpid());
+                TEST_REQ_RUNNING_SYSTEMD(test_pid_get_comm_one(1));
+                test_pid_get_comm_one(getpid());
         }
 }
 
@@ -165,34 +165,34 @@ TEST(pid_get_cmdline) {
         }
 }
 
-static void test_get_process_comm_escape_one(const char *input, const char *output) {
+static void test_pid_get_comm_escape_one(const char *input, const char *output) {
         _cleanup_free_ char *n = NULL;
 
         log_debug("input: <%s> — output: <%s>", input, output);
 
         assert_se(prctl(PR_SET_NAME, input) >= 0);
-        assert_se(get_process_comm(0, &n) >= 0);
+        assert_se(pid_get_comm(0, &n) >= 0);
 
         log_debug("got: <%s>", n);
 
         assert_se(streq_ptr(n, output));
 }
 
-TEST(get_process_comm_escape) {
+TEST(pid_get_comm_escape) {
         _cleanup_free_ char *saved = NULL;
 
-        assert_se(get_process_comm(0, &saved) >= 0);
+        assert_se(pid_get_comm(0, &saved) >= 0);
 
-        test_get_process_comm_escape_one("", "");
-        test_get_process_comm_escape_one("foo", "foo");
-        test_get_process_comm_escape_one("012345678901234", "012345678901234");
-        test_get_process_comm_escape_one("0123456789012345", "012345678901234");
-        test_get_process_comm_escape_one("äöüß", "\\303\\244\\303\\266\\303\\274\\303\\237");
-        test_get_process_comm_escape_one("xäöüß", "x\\303\\244\\303\\266\\303\\274\\303\\237");
-        test_get_process_comm_escape_one("xxäöüß", "xx\\303\\244\\303\\266\\303\\274\\303\\237");
-        test_get_process_comm_escape_one("xxxäöüß", "xxx\\303\\244\\303\\266\\303\\274\\303\\237");
-        test_get_process_comm_escape_one("xxxxäöüß", "xxxx\\303\\244\\303\\266\\303\\274\\303\\237");
-        test_get_process_comm_escape_one("xxxxxäöüß", "xxxxx\\303\\244\\303\\266\\303\\274\\303\\237");
+        test_pid_get_comm_escape_one("", "");
+        test_pid_get_comm_escape_one("foo", "foo");
+        test_pid_get_comm_escape_one("012345678901234", "012345678901234");
+        test_pid_get_comm_escape_one("0123456789012345", "012345678901234");
+        test_pid_get_comm_escape_one("äöüß", "\\303\\244\\303\\266\\303\\274\\303\\237");
+        test_pid_get_comm_escape_one("xäöüß", "x\\303\\244\\303\\266\\303\\274\\303\\237");
+        test_pid_get_comm_escape_one("xxäöüß", "xx\\303\\244\\303\\266\\303\\274\\303\\237");
+        test_pid_get_comm_escape_one("xxxäöüß", "xxx\\303\\244\\303\\266\\303\\274\\303\\237");
+        test_pid_get_comm_escape_one("xxxxäöüß", "xxxx\\303\\244\\303\\266\\303\\274\\303\\237");
+        test_pid_get_comm_escape_one("xxxxxäöüß", "xxxxx\\303\\244\\303\\266\\303\\274\\303\\237");
 
         assert_se(prctl(PR_SET_NAME, saved) >= 0);
 }
