@@ -3,8 +3,6 @@
 
 #include "time-util.h"
 
-#define DEFAULT_SUSPEND_ESTIMATION_USEC (1 * USEC_PER_HOUR)
-
 typedef enum SleepOperation {
         SLEEP_SUSPEND,
         SLEEP_HIBERNATE,
@@ -37,6 +35,21 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(SleepConfig*, sleep_config_free);
 
 int parse_sleep_config(SleepConfig **sleep_config);
 
-int can_sleep(SleepOperation operation);
-int can_sleep_disk(char **types);
-int can_sleep_state(char **types);
+typedef enum SleepSupport {
+        SLEEP_SUPPORTED,
+        SLEEP_DISABLED, /* Disabled in SleepConfig.allow */
+        SLEEP_NOT_CONFIGURED, /* SleepConfig.states is not configured */
+        SLEEP_STATE_OR_MODE_UNSUPPORTED, /* SleepConfig.states/modes are not supported by kernel */
+        SLEEP_RESUME_UNSUPPORTED,
+        SLEEP_NOT_ENOUGH_SWAP_SPACE,
+        SLEEP_ALARM_UNSUPPORTED, /* CLOCK_BOOTTIME_ALARM is unsupported by kernel (only used by s2h) */
+} SleepSupport;
+
+int sleep_supported_full(SleepOperation operation, SleepSupport *ret_support);
+static inline int sleep_supported(SleepOperation operation) {
+        return sleep_supported_full(operation, NULL);
+}
+
+/* Only for test-sleep-config */
+int sleep_state_supported(char **states);
+int sleep_mode_supported(char **modes);
