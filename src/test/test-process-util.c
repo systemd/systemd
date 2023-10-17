@@ -149,17 +149,18 @@ static void test_pid_get_cmdline_one(pid_t pid) {
 
 TEST(pid_get_cmdline) {
         _cleanup_closedir_ DIR *d = NULL;
+        int r;
 
-        assert_se(d = opendir("/proc"));
+        assert_se(proc_dir_open(&d) >= 0);
 
-        FOREACH_DIRENT(de, d, return) {
+        for (;;) {
                 pid_t pid;
 
-                if (de->d_type != DT_DIR)
-                        continue;
+                r = proc_dir_read(d, &pid);
+                assert_se(r >= 0);
 
-                if (parse_pid(de->d_name, &pid) < 0)
-                        continue;
+                if (r == 0) /* EOF */
+                        break;
 
                 test_pid_get_cmdline_one(pid);
         }
