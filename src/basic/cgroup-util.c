@@ -291,7 +291,6 @@ static int cg_kill_items(
         _cleanup_set_free_ Set *allocated_set = NULL;
         bool done = false;
         int r, ret = 0, ret_log_kill = 0;
-        pid_t my_pid;
 
         assert(sig >= 0);
 
@@ -310,8 +309,6 @@ static int cg_kill_items(
                         return -ENOMEM;
         }
 
-        my_pid = getpid_cached();
-
         do {
                 _cleanup_fclose_ FILE *f = NULL;
                 pid_t pid = 0;
@@ -325,25 +322,32 @@ static int cg_kill_items(
                         return ret;
                 }
 
-                while ((r = cg_read_pid(f, &pid)) > 0) {
+                for (;;) {
+                        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
 
-                        if ((flags & CGROUP_IGNORE_SELF) && pid == my_pid)
+                        r = cg_read_pidref(f, &pidref);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                break;
+
+                        if ((flags & CGROUP_IGNORE_SELF) && pidref_is_self(&pidref))
                                 continue;
 
-                        if (set_get(s, PID_TO_PTR(pid)) == PID_TO_PTR(pid))
+                        if (set_get(s, PID_TO_PTR(pidref.pid)) == PID_TO_PTR(pidref.pid))
                                 continue;
 
                         if (log_kill)
-                                ret_log_kill = log_kill(pid, sig, userdata);
+                                ret_log_kill = log_kill(&pidref, sig, userdata);
 
-                        /* If we haven't killed this process yet, kill
-                         * it */
-                        if (kill(pid, sig) < 0) {
-                                if (ret >= 0 && errno != ESRCH)
-                                        ret = -errno;
+                        /* If we haven't killed this process yet, kill it */
+                        r = pidref_kill(&pidref, sig);
+                        if (r < 0) {
+                                if (ret >= 0 && r != -ESRCH)
+                                        ret = r;
                         } else {
                                 if (flags & CGROUP_SIGCONT)
-                                        (void) kill(pid, SIGCONT);
+                                        (void) pidref_kill(&pidref, SIGCONT);
 
                                 if (ret == 0) {
                                         if (log_kill)
