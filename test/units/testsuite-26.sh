@@ -135,6 +135,8 @@ systemctl restart "$UNIT_NAME"
 systemctl stop "$UNIT_NAME"
 (! systemctl is-active "$UNIT_NAME")
 
+assert_eq "$(systemctl is-system-running)" "$(systemctl is-failed)"
+
 # enable/disable/preset
 test_enable_disable_preset() {
     (! systemctl is-enabled "$@" "$UNIT_NAME")
