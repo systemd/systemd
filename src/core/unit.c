@@ -4006,7 +4006,7 @@ static Set *unit_pid_set(pid_t main_pid, pid_t control_pid) {
         return TAKE_PTR(pid_set);
 }
 
-static int kill_common_log(PidRef *pid, int signo, void *userdata) {
+static int kill_common_log(const PidRef *pid, int signo, void *userdata) {
         _cleanup_free_ char *comm = NULL;
         Unit *u = ASSERT_PTR(userdata);
 
@@ -4729,7 +4729,7 @@ int unit_make_transient(Unit *u) {
         return 0;
 }
 
-static int log_kill(PidRef *pid, int sig, void *userdata) {
+static int log_kill(const PidRef *pid, int sig, void *userdata) {
         _cleanup_free_ char *comm = NULL;
 
         assert(pidref_is_set(pid));
@@ -5864,7 +5864,7 @@ static bool ignore_leftover_process(const char *comm) {
         return comm && comm[0] == '('; /* Most likely our own helper process (PAM?), ignore */
 }
 
-int unit_log_leftover_process_start(PidRef *pid, int sig, void *userdata) {
+int unit_log_leftover_process_start(const PidRef *pid, int sig, void *userdata) {
         _cleanup_free_ char *comm = NULL;
 
         assert(pidref_is_set(pid));
@@ -5884,7 +5884,7 @@ int unit_log_leftover_process_start(PidRef *pid, int sig, void *userdata) {
         return 1;
 }
 
-int unit_log_leftover_process_stop(PidRef *pid, int sig, void *userdata) {
+int unit_log_leftover_process_stop(const PidRef *pid, int sig, void *userdata) {
         _cleanup_free_ char *comm = NULL;
 
         assert(pidref_is_set(pid));

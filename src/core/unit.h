@@ -1036,8 +1036,9 @@ void unit_unlink_state_files(Unit *u);
 
 int unit_prepare_exec(Unit *u);
 
-int unit_log_leftover_process_start(PidRef* pid, int sig, void *userdata);
-int unit_log_leftover_process_stop(PidRef* pid, int sig, void *userdata);
+int unit_log_leftover_process_start(const PidRef* pid, int sig, void *userdata);
+int unit_log_leftover_process_stop(const PidRef* pid, int sig, void *userdata);
+
 int unit_warn_leftover_processes(Unit *u, cg_kill_log_func_t log_func);
 
 bool unit_needs_console(Unit *u);

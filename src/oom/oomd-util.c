@@ -26,7 +26,7 @@ DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
                 OomdCGroupContext,
                 oomd_cgroup_context_free);
 
-static int log_kill(PidRef *pid, int sig, void *userdata) {
+static int log_kill(const PidRef *pid, int sig, void *userdata) {
         log_debug("oomd attempting to kill " PID_FMT " with %s", pid->pid, signal_to_string(sig));
         return 0;
 }
