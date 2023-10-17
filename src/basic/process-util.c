@@ -25,6 +25,7 @@
 #include "alloc-util.h"
 #include "architecture.h"
 #include "argv-util.h"
+#include "dirent-util.h"
 #include "env-file.h"
 #include "env-util.h"
 #include "errno-util.h"
@@ -1844,6 +1845,74 @@ fail:
         assert(r > 0);
         posix_spawnattr_destroy(&attr);
         return -r;
+}
+
+int proc_dir_open(DIR **ret) {
+        DIR *d;
+
+        assert(ret);
+
+        d = opendir("/proc");
+        if (!d)
+                return -errno;
+
+        *ret = d;
+        return 0;
+}
+
+int proc_dir_read(DIR *d, pid_t *ret) {
+        assert(d);
+
+        for (;;) {
+                struct dirent *de;
+
+                errno = 0;
+                de = readdir_no_dot(d);
+                if (!de) {
+                        if (errno != 0)
+                                return -errno;
+
+                        break;
+                }
+
+                if (!IN_SET(de->d_type, DT_DIR, DT_UNKNOWN))
+                        continue;
+
+                if (parse_pid(de->d_name, ret) >= 0)
+                        return 1;
+        }
+
+        if (ret)
+                *ret = 0;
+        return 0;
+}
+
+int proc_dir_read_pidref(DIR *d, PidRef *ret) {
+        int r;
+
+        assert(d);
+
+        for (;;) {
+                pid_t pid;
+
+                r = proc_dir_read(d, &pid);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                r = pidref_set_pid(ret, pid);
+                if (r == -ESRCH) /* gone by now? skip it */
+                        continue;
+                if (r < 0)
+                        return r;
+
+                return 1;
+        }
+
+        if (ret)
+                *ret = PIDREF_NULL;
+        return 0;
 }
 
 static const char *const sigchld_code_table[] = {

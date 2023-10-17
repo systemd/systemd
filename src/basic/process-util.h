@@ -217,3 +217,7 @@ int is_reaper_process(void);
 int make_reaper_process(bool b);
 
 int posix_spawn_wrapper(const char *path, char *const *argv, char *const *envp, pid_t *ret_pid);
+
+int proc_dir_open(DIR **ret);
+int proc_dir_read(DIR *d, pid_t *ret);
+int proc_dir_read_pidref(DIR *d, PidRef *ret);
