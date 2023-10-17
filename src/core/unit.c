@@ -5949,7 +5949,7 @@ int unit_pid_attachable(Unit *u, PidRef *pid, sd_bus_error *error) {
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Process identifier is not valid.");
 
         /* Some extra safety check */
-        if (pid->pid == 1 || pid->pid == getpid_cached())
+        if (pid->pid == 1 || pidref_is_self(pid))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Process " PID_FMT " is a manager process, refusing.", pid->pid);
 
         /* Don't even begin to bother with kernel threads */

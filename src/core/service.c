@@ -190,7 +190,7 @@ static int service_set_main_pidref(Service *s, PidRef *pidref) {
         if (pidref->pid <= 1)
                 return -EINVAL;
 
-        if (pidref->pid == getpid_cached())
+        if (pidref_is_self(pidref))
                 return -EINVAL;
 
         if (pidref_equal(&s->main_pid, pidref) && s->main_pid_known) {
@@ -1061,7 +1061,7 @@ static int service_is_suitable_main_pid(Service *s, PidRef *pid, int prio) {
          * PID is questionnable but should be accepted if the source of configuration is trusted. > 0 if the PID is
          * good */
 
-        if (pid->pid == getpid_cached() || pid->pid == 1)
+        if (pidref_is_self(pid) || pid->pid == 1)
                 return log_unit_full_errno(UNIT(s), prio, SYNTHETIC_ERRNO(EPERM), "New main PID "PID_FMT" is the manager, refusing.", pid->pid);
 
         if (pidref_equal(pid, &s->control_pid))
