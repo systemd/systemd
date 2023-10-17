@@ -99,7 +99,7 @@ int serialize_item_format(FILE *f, const char *key, const char *format, ...) {
         return 1;
 }
 
-int serialize_fd(FILE *f, FDSet *fds, const char *key, int fd) {
+int serialize_fd_full(FILE *f, FDSet *fds, const char *key, int fd, int *index) {
         int copy;
 
         assert(f);
@@ -109,7 +109,10 @@ int serialize_fd(FILE *f, FDSet *fds, const char *key, int fd) {
         if (fd < 0)
                 return 0;
 
-        copy = fdset_put_dup(fds, fd);
+        if (index)
+                copy = fdset_put_dup_indexed(fds, fd, (*index)++);
+        else
+                copy = fdset_put_dup(fds, fd);
         if (copy < 0)
                 return log_error_errno(copy, "Failed to add file descriptor to serialization set: %m");
 
@@ -397,6 +400,47 @@ int deserialize_pidref(FDSet *fds, const char *value, PidRef *ret) {
                 return log_debug_errno(r, "Failed to initialize pidref: %m");
 
         return 0;
+}
+
+int deserialize_fd_from_set(const char *value, FDSet *fds) {
+        int fd, r;
+
+        assert(value);
+
+        if (!fds)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid fdset.");
+
+        fd = parse_fd(value);
+        if (fd < 0)
+                return log_debug_errno(fd, "Failed to parse FD out of value: %s", value);
+
+        if (!fdset_contains(fds, fd))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "FD %d not in fdset.", fd);
+
+        r = fdset_remove(fds, fd);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to remove value=%d from fdset", fd);
+
+        return fd;
+}
+
+int deserialize_fd_from_array(const char *value, int *fds_array, size_t n_fds_array) {
+        size_t i;
+        int r;
+
+        assert(value);
+
+        if (!fds_array || n_fds_array == 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid fd array.");
+
+        r = safe_atozu(value, &i);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to parse FD index out of value: %s", value);
+
+        if (i >= n_fds_array)
+                return log_debug_errno(SYNTHETIC_ERRNO(ERANGE), "FD index %zu not in fd array.", i);
+
+        return TAKE_FD(fds_array[i]);
 }
 
 int open_serialization_fd(const char *ident) {
