@@ -54,7 +54,11 @@ typedef enum NamingSchemeFlags {
         NAMING_V251 = NAMING_V250 | NAMING_BRIDGE_MULTIFUNCTION_SLOT,
         NAMING_V252 = NAMING_V251 | NAMING_DEVICETREE_ALIASES,
         NAMING_V253 = NAMING_V252 | NAMING_USB_HOST,
-        NAMING_V254 = NAMING_V253 | NAMING_SR_IOV_R,
+        NAMING_V254 = NAMING_V253 | NAMING_SR_IOV_R,  /* Despite the name, "v254" is NOT the default scheme
+                                                       * for systemd version 254. It was added in a follow-up
+                                                       * patch later. NAMING_SR_IOV_R is enabled by default in
+                                                       * systemd version 255, naming scheme "v255". */
+        NAMING_V255 = NAMING_V254,
 
         EXTRA_NET_NAMING_SCHEMES
 

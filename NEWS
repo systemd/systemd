@@ -60,6 +60,13 @@ CHANGES WITH 255 in spe:
           is now dropped, as it never worked, hence it should not be used by
           anyone.
 
+        * The predictable network interface naming logic is extended to include
+          the SR-IOV-R "representor" information in network interface names.
+          This feature was intended for v254, but even though the code was
+          merged, the part that actually enabled the feature was forgotten.
+          It is now enabled by default and is part of the new "v255" naming
+          scheme.
+
         Changes in systemd-analyze:
 
         * "systemd-analyze plot" has gained tooltips on each unit name with
@@ -576,8 +583,11 @@ CHANGES WITH 254:
           selects the default value of the per-network setting of the same
           name.
 
-        * The predictable network interface naming logic will now include
-          SR-IOV-R "representor" information in network interface names.
+        * The predictable network interface naming logic was extended to
+          include SR-IOV-R "representor" information in network interface
+          names. Unfortunately, this feature was not enabled by default and can
+          only be enabled at compilation time by setting
+          -Ddefault-net-naming-scheme=v254.
 
         * The DHCPv4 + DHCPv6 + IPv6 RA logic in networkd gained support for
           the RFC8910 captive portal option.
