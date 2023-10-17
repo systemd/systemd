@@ -25,7 +25,7 @@ static EFI_STATUS tpm1_measure_to_pcr_and_event_log(
         assert(description);
 
         desc_len = strsize16(description);
-        tcg_event = xmalloc0(offsetof(TCG_PCR_EVENT, Event) + desc_len);
+        tcg_event = xmalloc(offsetof(TCG_PCR_EVENT, Event) + desc_len);
         *tcg_event = (TCG_PCR_EVENT) {
                 .EventSize = desc_len,
                 .PCRIndex = pcrindex,
@@ -62,8 +62,7 @@ static EFI_STATUS tpm2_measure_to_pcr_and_tagged_event_log(
         desc_len = strsize16(description);
         event_size = offsetof(EFI_TCG2_EVENT, Event) + offsetof(EFI_TCG2_TAGGED_EVENT, Event) + desc_len;
 
-        event = xmalloc0(event_size);
-
+        event = xmalloc(event_size);
         *event = (struct event) {
                 .tcg_event = (EFI_TCG2_EVENT) {
                         .Size = event_size,
@@ -106,7 +105,7 @@ static EFI_STATUS tpm2_measure_to_pcr_and_event_log(
          * here. */
 
         desc_len = strsize16(description);
-        tcg_event = xmalloc0(offsetof(EFI_TCG2_EVENT, Event) + desc_len);
+        tcg_event = xmalloc(offsetof(EFI_TCG2_EVENT, Event) + desc_len);
         *tcg_event = (EFI_TCG2_EVENT) {
                 .Size = offsetof(EFI_TCG2_EVENT, Event) + desc_len,
                 .Header.HeaderSize = sizeof(EFI_TCG2_EVENT_HEADER),
