@@ -157,7 +157,7 @@ which is controlled via
 [`NotifyAccess=`](https://www.freedesktop.org/software/systemd/man/systemd.service.html#NotifyAccess=).
 
 By default only the main service process hence can push/remove fds, but by
-setting `NotifyAccess=cgroup` this may be relaxed to allow arbitrary service
+setting `NotifyAccess=all` this may be relaxed to allow arbitrary service
 child processes to do the same.
 
 # Soft Reboot
