@@ -69,5 +69,28 @@ int verb_is_failed(int argc, char *argv[], void *userdata) {
                 UNIT_FAILED,
         };
 
-        return check_unit_generic(EXIT_PROGRAM_DEAD_AND_PID_EXISTS, states, ELEMENTSOF(states), strv_skip(argv, 1));
+        if (argc > 1)
+                return check_unit_generic(EXIT_PROGRAM_DEAD_AND_PID_EXISTS, states, ELEMENTSOF(states), strv_skip(argv, 1));
+
+        /* If no unit is provided, we check SystemState property of the manager, i.e. whether there're failed
+         * units. */
+
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_free_ char *state = NULL;
+        sd_bus *bus;
+
+        r = acquire_bus(BUS_MANAGER, &bus);
+        if (r < 0)
+                return r;
+
+        r = bus_get_property_string(bus, bus_systemd_mgr, "SystemState", &error, &state);
+        if (r < 0) {
+                log_error_errno(r, "Failed to query system state: %s", bus_error_message(&error, r));
+                return EXIT_FAILURE;
+        }
+
+        if (!arg_quiet)
+                puts(state);
+
+        return streq(state, "degraded") ? EXIT_SUCCESS : EXIT_FAILURE;
 }
