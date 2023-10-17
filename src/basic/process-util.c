@@ -1044,11 +1044,11 @@ int pidref_is_my_child(PidRef *pid) {
         return result;
 }
 
-bool pid_is_unwaited(pid_t pid) {
+int pid_is_unwaited(pid_t pid) {
         /* Checks whether a PID is still valid at all, including a zombie */
 
         if (pid < 0)
-                return false;
+                return -ESRCH;
 
         if (pid <= 1) /* If we or PID 1 would be dead and have been waited for, this code would not be running */
                 return true;
@@ -1060,6 +1060,24 @@ bool pid_is_unwaited(pid_t pid) {
                 return true;
 
         return errno != ESRCH;
+}
+
+int pidref_is_unwaited(PidRef *pid) {
+        int r;
+
+        if (!pidref_is_set(pid))
+                return -ESRCH;
+
+        if (pid->pid == 1 || pidref_is_self(pid))
+                return true;
+
+        r = pidref_kill(pid, 0);
+        if (r == -ESRCH)
+                return false;
+        if (r < 0)
+                return r;
+
+        return true;
 }
 
 int pid_is_alive(pid_t pid) {
