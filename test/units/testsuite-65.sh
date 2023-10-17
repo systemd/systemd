@@ -165,6 +165,11 @@ systemd-analyze cat-config /etc/systemd/system.conf >/dev/null
 systemd-analyze cat-config systemd/system.conf systemd/journald.conf >/dev/null
 systemd-analyze cat-config systemd/system.conf foo/bar systemd/journald.conf >/dev/null
 systemd-analyze cat-config foo/bar
+systemd-analyze cat-config --tldr systemd/system.conf >/dev/null
+systemd-analyze cat-config --tldr /etc/systemd/system.conf >/dev/null
+systemd-analyze cat-config --tldr systemd/system.conf systemd/journald.conf >/dev/null
+systemd-analyze cat-config --tldr systemd/system.conf foo/bar systemd/journald.conf >/dev/null
+systemd-analyze cat-config --tldr foo/bar
 # security
 systemd-analyze security
 systemd-analyze security --json=off
