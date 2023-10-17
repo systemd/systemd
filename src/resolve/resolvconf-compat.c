@@ -226,9 +226,9 @@ int resolvconf_parse_argv(int argc, char *argv[]) {
 
                 for (;;) {
                         _cleanup_free_ char *line = NULL;
-                        const char *a, *l;
+                        const char *a;
 
-                        r = read_line(stdin, LONG_LINE_MAX, &line);
+                        r = read_stripped_line(stdin, LONG_LINE_MAX, &line);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to read from stdin: %m");
                         if (r == 0)
@@ -236,25 +236,24 @@ int resolvconf_parse_argv(int argc, char *argv[]) {
 
                         n++;
 
-                        l = strstrip(line);
-                        if (IN_SET(*l, '#', ';', 0))
+                        if (IN_SET(*line, '#', ';', 0))
                                 continue;
 
-                        a = first_word(l, "nameserver");
+                        a = first_word(line, "nameserver");
                         if (a) {
                                 (void) parse_nameserver(a);
                                 continue;
                         }
 
-                        a = first_word(l, "domain");
+                        a = first_word(line, "domain");
                         if (!a)
-                                a = first_word(l, "search");
+                                a = first_word(line, "search");
                         if (a) {
                                 (void) parse_search_domain(a);
                                 continue;
                         }
 
-                        log_syntax(NULL, LOG_DEBUG, "stdin", n, 0, "Ignoring resolv.conf line: %s", l);
+                        log_syntax(NULL, LOG_DEBUG, "stdin", n, 0, "Ignoring resolv.conf line: %s", line);
                 }
 
                 if (type == TYPE_EXCLUSIVE) {

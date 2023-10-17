@@ -4203,10 +4203,9 @@ static int read_config_file(
         for (;;) {
                 _cleanup_free_ char *line = NULL;
                 bool invalid_line = false;
-                char *l;
                 int k;
 
-                k = read_line(f, LONG_LINE_MAX, &line);
+                k = read_stripped_line(f, LONG_LINE_MAX, &line);
                 if (k < 0)
                         return log_error_errno(k, "Failed to read '%s': %m", fn);
                 if (k == 0)
@@ -4214,11 +4213,10 @@ static int read_config_file(
 
                 v++;
 
-                l = strstrip(line);
-                if (IN_SET(*l, 0, '#'))
+                if (IN_SET(line[0], 0, '#'))
                         continue;
 
-                k = parse_line(c, fn, v, l, &invalid_line, &uid_cache, &gid_cache);
+                k = parse_line(c, fn, v, line, &invalid_line, &uid_cache, &gid_cache);
                 if (k < 0) {
                         if (invalid_line)
                                 /* Allow reporting with a special code if the caller requested this */
