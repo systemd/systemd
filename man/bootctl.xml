@@ -177,10 +177,10 @@
         <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>
         for details about the syntax of time spans.</para>
 
-        <para>If this is set to <option>menu-hidden</option> or <option>0</option> no menu is shown and
-        the default entry will be booted immediately, while setting this to <option>menu-force</option>
-        disables the timeout while always showing the menu. When an empty string ("") is specified the
-        bootloader will revert to its default menu timeout.</para>
+        <para>If this is set to <option>menu-disabled</option> or <option>menu-hidden</option> or
+        <option>0</option>, no menu is shown and the default entry will be booted immediately, while
+        setting this to <option>menu-force</option> disables the timeout while always showing the menu.
+        When an empty string ("") is specified the bootloader will revert to its default menu timeout.</para>
 
         <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
@@ -555,6 +555,7 @@ Current Boot Loader:                         ← details about sd-boot or anothe
                ✓ Support for passing random seed to OS
                ✓ Load drop-in drivers
                ✓ Boot loader sets ESP information
+               ✓ Menu can be disabled
           ESP: /dev/disk/by-partuuid/01234567-89ab-cdef-dead-beef00000000
          File: └─/EFI/systemd/systemd-bootx64.efi
 
