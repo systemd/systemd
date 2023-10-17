@@ -219,15 +219,14 @@ Sun 2017-02-26 20:57:49 EST  2h 3min left  Sun 2017-02-26 11:56:36 EST  6h ago  
         </varlistentry>
 
         <varlistentry>
-          <term><command>is-failed <replaceable>PATTERN</replaceable>…</command></term>
+          <term><command>is-failed <optional><replaceable>PATTERN</replaceable>…</command></optional></term>
 
           <listitem>
-            <para>Check whether any of the specified units are in a
-            "failed" state. Returns an exit code
-            <constant>0</constant> if at least one has failed,
-            non-zero otherwise. Unless <option>--quiet</option> is
-            specified, this will also print the current unit state to
-            standard output.</para>
+            <para>Check whether any of the specified units is in the "failed" state. If no unit is specified,
+            check whether there're failed units, which corresponds to the <literal>degraded</literal> state
+            returned by <command>is-system-running</command>. Returns an exit code <constant>0</constant>
+            if at least one has failed, non-zero otherwise. Unless <option>--quiet</option> is specified, this
+            will also print the current unit or system state to standard output.</para>
 
             <xi:include href="version-info.xml" xpointer="v197"/>
           </listitem>
