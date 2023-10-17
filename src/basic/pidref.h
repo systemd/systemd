@@ -43,6 +43,8 @@ static inline int pidref_set_self(PidRef *pidref) {
         return pidref_set_pid(pidref, 0);
 }
 
+bool pidref_is_self(const PidRef *pidref);
+
 void pidref_done(PidRef *pidref);
 PidRef *pidref_free(PidRef *pidref);
 DEFINE_TRIVIAL_CLEANUP_FUNC(PidRef*, pidref_free);
