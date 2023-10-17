@@ -14,8 +14,11 @@ FDSet* fdset_free(FDSet *s);
 int fdset_put(FDSet *s, int fd);
 int fdset_consume(FDSet *s, int fd);
 int fdset_put_dup(FDSet *s, int fd);
+int fdset_put_indexed(FDSet *s, int fd, int index);
+int fdset_put_dup_indexed(FDSet *s, int fd, int index);
 
 bool fdset_contains(FDSet *s, int fd);
+bool fdset_contains_index(FDSet *s, int index);
 int fdset_remove(FDSet *s, int fd);
 
 int fdset_new_array(FDSet **ret, const int *fds, size_t n_fds);
@@ -25,6 +28,7 @@ int fdset_new_listen_fds(FDSet **ret, bool unset);
 int fdset_cloexec(FDSet *fds, bool b);
 
 int fdset_to_array(FDSet *fds, int **ret);
+int fdset_to_array_indexed(FDSet *fds, int **ret);
 
 int fdset_close_others(FDSet *fds);
 
