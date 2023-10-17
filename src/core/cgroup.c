@@ -3880,7 +3880,7 @@ Unit *manager_get_unit_by_pidref(Manager *m, PidRef *pid) {
         if (!pidref_is_set(pid))
                 return NULL;
 
-        if (pid->pid == getpid_cached())
+        if (pidref_is_self(pid))
                 return hashmap_get(m->units, SPECIAL_INIT_SCOPE);
         if (pid->pid == 1)
                 return NULL;
