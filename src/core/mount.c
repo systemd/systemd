@@ -796,7 +796,7 @@ static int mount_coldplug(Unit *u) {
                 return 0;
 
         if (pidref_is_set(&m->control_pid) &&
-            pid_is_unwaited(m->control_pid.pid) &&
+            pidref_is_unwaited(&m->control_pid) > 0 &&
             MOUNT_STATE_WITH_PROCESS(m->deserialized_state)) {
 
                 r = unit_watch_pidref(UNIT(m), &m->control_pid, /* exclusive= */ false);

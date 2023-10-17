@@ -609,7 +609,7 @@ static void client_context_try_shrink_to(Server *s, size_t limit) {
 
                         assert(c->n_ref == 0);
 
-                        if (!pid_is_unwaited(c->pid))
+                        if (pid_is_unwaited(c->pid) == 0)
                                 client_context_free(s, c);
                         else
                                 idx ++;

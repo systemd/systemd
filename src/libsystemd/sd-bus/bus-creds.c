@@ -1097,7 +1097,7 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, pid_t pid, pid_t tid) {
         if (r == 0)
                 return -ESRCH;
 
-        if (tid > 0 && tid != pid && !pid_is_unwaited(tid))
+        if (tid > 0 && tid != pid && pid_is_unwaited(tid) == 0)
                 return -ESRCH;
 
         c->augmented = missing & c->mask;
