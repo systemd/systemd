@@ -991,7 +991,7 @@ static int automount_dispatch_io(sd_event_source *s, int fd, uint32_t events, vo
                 if (packet.v5_packet.pid > 0) {
                         _cleanup_free_ char *p = NULL;
 
-                        (void) get_process_comm(packet.v5_packet.pid, &p);
+                        (void) pid_get_comm(packet.v5_packet.pid, &p);
                         log_unit_info(UNIT(a), "Got automount request for %s, triggered by %"PRIu32" (%s)", a->where, packet.v5_packet.pid, strna(p));
                 } else
                         log_unit_debug(UNIT(a), "Got direct mount request on %s", a->where);

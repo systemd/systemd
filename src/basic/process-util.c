@@ -94,7 +94,7 @@ static int get_process_state(pid_t pid) {
         return (unsigned char) state;
 }
 
-int get_process_comm(pid_t pid, char **ret) {
+int pid_get_comm(pid_t pid, char **ret) {
         _cleanup_free_ char *escaped = NULL, *comm = NULL;
         int r;
 
@@ -129,6 +129,26 @@ int get_process_comm(pid_t pid, char **ret) {
         cellescape(escaped, COMM_MAX_LEN, comm);
 
         *ret = TAKE_PTR(escaped);
+        return 0;
+}
+
+int pidref_get_comm(const PidRef *pid, char **ret) {
+        _cleanup_free_ char *comm = NULL;
+        int r;
+
+        if (!pidref_is_set(pid))
+                return -ESRCH;
+
+        r = pid_get_comm(pid->pid, &comm);
+        if (r < 0)
+                return r;
+
+        r = pidref_verify(pid);
+        if (r < 0)
+                return r;
+
+        if (ret)
+                *ret = TAKE_PTR(comm);
         return 0;
 }
 
@@ -170,7 +190,7 @@ static int pid_get_cmdline_nulstr(
                 /* Kernel threads have no argv[] */
                 _cleanup_free_ char *comm = NULL;
 
-                r = get_process_comm(pid, &comm);
+                r = pid_get_comm(pid, &comm);
                 if (r < 0)
                         return r;
 
@@ -752,7 +772,7 @@ int wait_for_terminate_and_check(const char *name, pid_t pid, WaitFlags flags) {
         assert(pid > 1);
 
         if (!name) {
-                r = get_process_comm(pid, &buffer);
+                r = pid_get_comm(pid, &buffer);
                 if (r < 0)
                         log_debug_errno(r, "Failed to acquire process name of " PID_FMT ", ignoring: %m", pid);
                 else

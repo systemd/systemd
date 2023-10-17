@@ -101,7 +101,7 @@ static bool ignore_proc(pid_t pid, bool warn_rootfs) {
 
                 _cleanup_free_ char *comm = NULL;
 
-                (void) get_process_comm(pid, &comm);
+                (void) pid_get_comm(pid, &comm);
 
                 log_notice("Process " PID_FMT " (%s) has been marked to be excluded from killing. It is "
                            "running from the root file system, and thus likely to block re-mounting of the "
@@ -120,7 +120,7 @@ static void log_children_no_yet_killed(Set *pids) {
         SET_FOREACH(p, pids) {
                 _cleanup_free_ char *s = NULL;
 
-                if (get_process_comm(PTR_TO_PID(p), &s) >= 0)
+                if (pid_get_comm(PTR_TO_PID(p), &s) >= 0)
                         r = strextendf(&lst_child, ", " PID_FMT " (%s)", PTR_TO_PID(p), s);
                 else
                         r = strextendf(&lst_child, ", " PID_FMT, PTR_TO_PID(p));
@@ -248,7 +248,7 @@ static int killall(int sig, Set *pids, bool send_sighup) {
                 if (sig == SIGKILL) {
                         _cleanup_free_ char *s = NULL;
 
-                        (void) get_process_comm(pid, &s);
+                        (void) pid_get_comm(pid, &s);
                         log_notice("Sending SIGKILL to PID "PID_FMT" (%s).", pid, strna(s));
                 }
 

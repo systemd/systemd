@@ -526,7 +526,7 @@ static void print_machine_status_info(sd_bus *bus, MachineStatusInfo *i) {
 
                 printf("\t  Leader: %u", (unsigned) i->leader);
 
-                (void) get_process_comm(i->leader, &t);
+                (void) pid_get_comm(i->leader, &t);
                 if (t)
                         printf(" (%s)", t);
 

@@ -525,7 +525,7 @@ static int print_session_status_info(sd_bus *bus, const char *path) {
         if (i.leader > 0) {
                 _cleanup_free_ char *name = NULL;
 
-                (void) get_process_comm(i.leader, &name);
+                (void) pid_get_comm(i.leader, &name);
 
                 r = table_add_cell(table, NULL, TABLE_FIELD, "Leader");
                 if (r < 0)

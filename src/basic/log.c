@@ -1451,7 +1451,7 @@ void log_received_signal(int level, const struct signalfd_siginfo *si) {
         if (pid_is_valid(si->ssi_pid)) {
                 _cleanup_free_ char *p = NULL;
 
-                (void) get_process_comm(si->ssi_pid, &p);
+                (void) pid_get_comm(si->ssi_pid, &p);
 
                 log_full(level,
                          "Received SIG%s from PID %"PRIu32" (%s).",

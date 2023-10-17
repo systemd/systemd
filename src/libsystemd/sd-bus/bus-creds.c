@@ -969,7 +969,7 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, pid_t pid, pid_t tid) {
         }
 
         if (missing & SD_BUS_CREDS_COMM) {
-                r = get_process_comm(pid, &c->comm);
+                r = pid_get_comm(pid, &c->comm);
                 if (r < 0) {
                         if (!ERRNO_IS_PRIVILEGE(r))
                                 return r;

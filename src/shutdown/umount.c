@@ -222,7 +222,7 @@ static void log_umount_blockers(const char *mnt) {
                         continue;
 
                 _cleanup_free_ char *comm = NULL;
-                r = get_process_comm(pid, &comm);
+                r = pid_get_comm(pid, &comm);
                 if (r < 0) {
                         if (r != -ESRCH) /* process gone by now */
                                 log_debug_errno(r, "Failed to read process name of PID " PID_FMT ": %m", pid);

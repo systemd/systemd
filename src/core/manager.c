@@ -2823,7 +2823,7 @@ static int manager_dispatch_sigchld(sd_event_source *source, void *userdata) {
                 _cleanup_free_ char *name = NULL;
                 Unit *u1, *u2, **array;
 
-                (void) get_process_comm(si.si_pid, &name);
+                (void) pid_get_comm(si.si_pid, &name);
 
                 log_debug("Child "PID_FMT" (%s) died (code=%s, status=%i/%s)",
                           si.si_pid, strna(name),

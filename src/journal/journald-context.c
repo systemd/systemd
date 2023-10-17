@@ -224,7 +224,7 @@ static void client_context_read_basic(ClientContext *c) {
         assert(c);
         assert(pid_is_valid(c->pid));
 
-        if (get_process_comm(c->pid, &t) >= 0)
+        if (pid_get_comm(c->pid, &t) >= 0)
                 free_and_replace(c->comm, t);
 
         if (get_process_exe(c->pid, &t) >= 0)
