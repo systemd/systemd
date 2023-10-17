@@ -2982,7 +2982,7 @@ static void unit_tidy_watch_pids(Unit *u) {
                 if (pidref_equal(except1, e) || pidref_equal(except2, e))
                         continue;
 
-                if (!pid_is_unwaited(e->pid))
+                if (pidref_is_unwaited(e) <= 0)
                         unit_unwatch_pidref(u, e);
         }
 }
