@@ -180,6 +180,8 @@ static void service_unwatch_pid_file(Service *s) {
 }
 
 static int service_set_main_pidref(Service *s, PidRef *pidref) {
+        int r;
+
         assert(s);
 
         /* Takes ownership of the specified pidref on success, but not on failure. */
@@ -205,11 +207,14 @@ static int service_set_main_pidref(Service *s, PidRef *pidref) {
 
         s->main_pid = TAKE_PIDREF(*pidref);
         s->main_pid_known = true;
-        s->main_pid_alien = pid_is_my_child(s->main_pid.pid) == 0;
 
-        if (s->main_pid_alien)
+        r = pidref_is_my_child(&s->main_pid);
+        if (r < 0)
+                log_unit_warning_errno(UNIT(s), r, "Can't determine if process "PID_FMT" is our child, assuming it is not: %m", s->main_pid.pid);
+        else if (r == 0)
                 log_unit_warning(UNIT(s), "Supervising process "PID_FMT" which is not our child. We'll most likely not notice when it exits.", s->main_pid.pid);
 
+        s->main_pid_alien = r <= 0;
         return 0;
 }
 

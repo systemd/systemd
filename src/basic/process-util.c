@@ -1015,6 +1015,9 @@ int pid_is_my_child(pid_t pid) {
         pid_t ppid;
         int r;
 
+        if (pid < 0)
+                return -ESRCH;
+
         if (pid <= 1)
                 return false;
 
@@ -1023,6 +1026,23 @@ int pid_is_my_child(pid_t pid) {
                 return r;
 
         return ppid == getpid_cached();
+}
+
+int pidref_is_my_child(const PidRef *pid) {
+        int r, result;
+
+        if (!pidref_is_set(pid))
+                return -ESRCH;
+
+        result = pid_is_my_child(pid->pid);
+        if (result < 0)
+                return result;
+
+        r = pidref_verify(pid);
+        if (r < 0)
+                return r;
+
+        return result;
 }
 
 bool pid_is_unwaited(pid_t pid) {
