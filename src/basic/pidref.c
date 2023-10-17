@@ -263,6 +263,13 @@ int pidref_verify(const PidRef *pidref) {
         return 1; /* We have a pidfd and it still points to the PID we have, hence all is *really* OK → return 1 */
 }
 
+bool pidref_is_self(const PidRef *pidref) {
+        if (!pidref)
+                return false;
+
+        return pidref->pid == getpid_cached();
+}
+
 static void pidref_hash_func(const PidRef *pidref, struct siphash *state) {
         siphash24_compress(&pidref->pid, sizeof(pidref->pid), state);
 }
