@@ -453,9 +453,9 @@ static int add_veritytab_devices(void) {
         for (;;) {
                 _cleanup_free_ char *line = NULL, *name = NULL, *data_device = NULL, *hash_device = NULL,
                                     *roothash = NULL, *options = NULL;
-                char *l, *data_uuid, *hash_uuid;
+                char *data_uuid, *hash_uuid;
 
-                r = read_line(f, LONG_LINE_MAX, &line);
+                r = read_stripped_line(f, LONG_LINE_MAX, &line);
                 if (r < 0)
                         return log_error_errno(r, "Failed to read %s: %m", arg_veritytab);
                 if (r == 0)
@@ -463,11 +463,10 @@ static int add_veritytab_devices(void) {
 
                 veritytab_line++;
 
-                l = strstrip(line);
-                if (IN_SET(l[0], 0, '#'))
+                if (IN_SET(line[0], 0, '#'))
                         continue;
 
-                r = sscanf(l, "%ms %ms %ms %ms %ms", &name, &data_device, &hash_device, &roothash, &options);
+                r = sscanf(line, "%ms %ms %ms %ms %ms", &name, &data_device, &hash_device, &roothash, &options);
                 if (!IN_SET(r, 4, 5)) {
                         log_error("Failed to parse %s:%u, ignoring.", arg_veritytab, veritytab_line);
                         continue;

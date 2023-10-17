@@ -325,9 +325,8 @@ static int boot_entry_load_type1(
 
         for (;;) {
                 _cleanup_free_ char *buf = NULL, *field = NULL;
-                const char *p;
 
-                r = read_line(f, LONG_LINE_MAX, &buf);
+                r = read_stripped_line(f, LONG_LINE_MAX, &buf);
                 if (r == 0)
                         break;
                 if (r == -ENOBUFS)
@@ -337,10 +336,10 @@ static int boot_entry_load_type1(
 
                 line++;
 
-                p = strstrip(buf);
-                if (IN_SET(p[0], '#', '\0'))
+                if (IN_SET(buf[0], '#', '\0'))
                         continue;
 
+                const char *p = buf;
                 r = extract_first_word(&p, &field, NULL, 0);
                 if (r < 0) {
                         log_syntax(NULL, LOG_WARNING, tmp.path, line, r, "Failed to parse, ignoring line: %m");
@@ -450,9 +449,8 @@ int boot_loader_read_conf(BootConfig *config, FILE *file, const char *path) {
 
         for (;;) {
                 _cleanup_free_ char *buf = NULL, *field = NULL;
-                const char *p;
 
-                r = read_line(file, LONG_LINE_MAX, &buf);
+                r = read_stripped_line(file, LONG_LINE_MAX, &buf);
                 if (r == 0)
                         break;
                 if (r == -ENOBUFS)
@@ -462,10 +460,10 @@ int boot_loader_read_conf(BootConfig *config, FILE *file, const char *path) {
 
                 line++;
 
-                p = strstrip(buf);
-                if (IN_SET(p[0], '#', '\0'))
+                if (IN_SET(buf[0], '#', '\0'))
                         continue;
 
+                const char *p = buf;
                 r = extract_first_word(&p, &field, NULL, 0);
                 if (r < 0) {
                         log_syntax(NULL, LOG_WARNING, path, line, r, "Failed to parse, ignoring line: %m");
