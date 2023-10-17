@@ -133,7 +133,7 @@ int terminal_urlify_man(const char *page, const char *section, char **ret) {
 
 static int cat_file(const char *filename, bool newline, CatFlags flags) {
         _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_free_ char *urlified = NULL, *section = NULL;
+        _cleanup_free_ char *urlified = NULL, *section = NULL, *old_section = NULL;
         int r;
 
         f = fopen(filename, "re");
@@ -182,11 +182,14 @@ static int cat_file(const char *filename, bool newline, CatFlags flags) {
 
                         /* Before we print the actual line, print the last section header */
                         if (section) {
-                                printf("%s%s%s\n",
-                                       ansi_highlight_cyan(),
-                                       section,
-                                       ansi_normal());
-                                section = mfree(section);
+                                /* Do not print redundant section headers */
+                                if (!streq_ptr(section, old_section))
+                                        printf("%s%s%s\n",
+                                               ansi_highlight_cyan(),
+                                               section,
+                                               ansi_normal());
+
+                                free_and_replace(old_section, section);
                         }
                 }
 
