@@ -47,7 +47,7 @@ static void *server(void *p) {
 
         const char *comm;
         assert_se(sd_bus_creds_get_comm(c, &comm) >= 0);
-        assert_se(get_process_comm(0, &our_comm) >= 0);
+        assert_se(pid_get_comm(0, &our_comm) >= 0);
         assert_se(streq_ptr(comm, our_comm));
 
         const char *description;

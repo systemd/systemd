@@ -1218,7 +1218,7 @@ static int gather_pid_metadata_from_procfs(struct iovec_wrapper *iovw, Context *
         pid = context->pid;
 
         /* The following is mandatory */
-        r = get_process_comm(pid, &t);
+        r = pid_get_comm(pid, &t);
         if (r < 0)
                 return log_error_errno(r, "Failed to get COMM: %m");
 

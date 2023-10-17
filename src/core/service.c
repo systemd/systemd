@@ -2295,7 +2295,7 @@ static void service_kill_control_process(Service *s) {
         if (r < 0) {
                 _cleanup_free_ char *comm = NULL;
 
-                (void) get_process_comm(s->control_pid.pid, &comm);
+                (void) pidref_get_comm(&s->control_pid, &comm);
 
                 log_unit_debug_errno(UNIT(s), r, "Failed to kill control process " PID_FMT " (%s), ignoring: %m",
                                      s->control_pid.pid, strna(comm));
