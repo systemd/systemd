@@ -224,11 +224,11 @@ TEST(pid_is_alive) {
         } else {
                 int status;
 
-                waitpid(pid, &status, 0);
-                assert_se(!pid_is_alive(pid));
+                assert_se(waitpid(pid, &status, 0) == pid);
+                assert_se(pid_is_alive(pid) == 0);
         }
-        assert_se(pid_is_alive(getpid_cached()));
-        assert_se(!pid_is_alive(-1));
+        assert_se(pid_is_alive(getpid_cached()) > 0);
+        assert_se(pid_is_alive(-1) < 0);
 }
 
 TEST(personality) {

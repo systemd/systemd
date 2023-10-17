@@ -1053,6 +1053,7 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
 
 static int service_is_suitable_main_pid(Service *s, PidRef *pid, int prio) {
         Unit *owner;
+        int r;
 
         assert(s);
         assert(pidref_is_set(pid));
@@ -1067,8 +1068,11 @@ static int service_is_suitable_main_pid(Service *s, PidRef *pid, int prio) {
         if (pidref_equal(pid, &s->control_pid))
                 return log_unit_full_errno(UNIT(s), prio, SYNTHETIC_ERRNO(EPERM), "New main PID "PID_FMT" is the control process, refusing.", pid->pid);
 
-        if (!pid_is_alive(pid->pid))
+        r = pidref_is_alive(pid);
+        if (r == 0)
                 return log_unit_full_errno(UNIT(s), prio, SYNTHETIC_ERRNO(ESRCH), "New main PID "PID_FMT" does not exist or is a zombie.", pid->pid);
+        if (r < 0)
+                return log_unit_full_errno(UNIT(s), prio, r, "Failed to check if main PID "PID_FMT" exists or is a zombie.", pid->pid);
 
         owner = manager_get_unit_by_pidref(UNIT(s)->manager, pid);
         if (owner == UNIT(s)) {
@@ -1827,7 +1831,7 @@ static int main_pid_good(Service *s) {
 
                 /* If it's an alien child let's check if it is still alive ... */
                 if (s->main_pid_alien && pidref_is_set(&s->main_pid))
-                        return pid_is_alive(s->main_pid.pid);
+                        return pidref_is_alive(&s->main_pid);
 
                 /* .. otherwise assume we'll get a SIGCHLD for it, which we really should wait for to collect
                  * exit status and code */
