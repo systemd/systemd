@@ -126,6 +126,52 @@ int fdset_put_dup(FDSet *s, int fd) {
         return TAKE_FD(copy);
 }
 
+int fdset_put_indexed(FDSet *s, int fd, int index) {
+        int r;
+
+        assert(s);
+        assert(fd >= 0);
+        assert(index >= 0);
+
+        /* Avoid integer overflow in FD_TO_PTR() */
+        if (fd == INT_MAX)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Refusing invalid fd: %d", fd);
+
+        if (hashmap_contains(MAKE_HASHMAP(s), INT_TO_PTR(-index - 1)))
+                return -EEXIST;
+
+        if (hashmap_contains(MAKE_HASHMAP(s), FD_TO_PTR(fd)))
+                return -EEXIST;
+
+        /* Store both the fd and the index, so that either can be used for lookups. Store the index as
+         * a negative number, so that we know there can be no overlap, since a fd must be >= 0. */
+
+        r = hashmap_put(MAKE_HASHMAP(s), FD_TO_PTR(fd), INT_TO_PTR(-index - 1));
+        if (r < 0)
+                return r;
+
+        return hashmap_put(MAKE_HASHMAP(s), INT_TO_PTR(-index - 1), FD_TO_PTR(fd));
+}
+
+int fdset_put_dup_indexed(FDSet *s, int fd, int index) {
+        _cleanup_close_ int copy = -EBADF;
+        int r;
+
+        assert(s);
+        assert(fd >= 0);
+
+        copy = fcntl(fd, F_DUPFD_CLOEXEC, 3);
+        if (copy < 0)
+                return -errno;
+
+        r = fdset_put_indexed(s, copy, index);
+        if (r < 0)
+                return r;
+
+        TAKE_FD(copy);
+        return index;
+}
+
 bool fdset_contains(FDSet *s, int fd) {
         assert(s);
         assert(fd >= 0);
@@ -137,6 +183,13 @@ bool fdset_contains(FDSet *s, int fd) {
         }
 
         return hashmap_contains(MAKE_HASHMAP(s), FD_TO_PTR(fd));
+}
+
+bool fdset_contains_index(FDSet *s, int index) {
+        assert(s);
+        assert(index >= 0);
+
+        return hashmap_contains(MAKE_HASHMAP(s), INT_TO_PTR(-index - 1));
 }
 
 int fdset_remove(FDSet *s, int fd) {
@@ -316,6 +369,10 @@ static int to_array(FDSet *fds, bool indexed, int **ret) {
 
 int fdset_to_array(FDSet *fds, int **ret) {
         return to_array(fds, /* indexed= */ false, ret);
+}
+
+int fdset_to_array_indexed(FDSet *fds, int **ret) {
+        return to_array(fds, /* indexed= */ true, ret);
 }
 
 int fdset_close_others(FDSet *fds) {
