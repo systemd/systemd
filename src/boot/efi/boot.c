@@ -101,16 +101,14 @@ typedef struct {
         int64_t console_mode_efivar;
 } Config;
 
-/* These values have been chosen so that the transitions the user sees could
- * employ unsigned over-/underflow like this:
- * efivar unset ↔ force menu ↔ no timeout/skip menu ↔ 1 s ↔ 2 s ↔ … */
 enum {
-        TIMEOUT_MIN         = 1,
-        TIMEOUT_MAX         = UINT32_MAX - 2U,
-        TIMEOUT_UNSET       = UINT32_MAX - 1U,
-        TIMEOUT_MENU_FORCE  = UINT32_MAX,
         TIMEOUT_MENU_HIDDEN = 0,
-        TIMEOUT_TYPE_MAX    = UINT32_MAX,
+        TIMEOUT_MIN         = 1,
+        TIMEOUT_FALLBACK    = 10,
+        TIMEOUT_MAX         = 900, /* 15m of timeout ought to be enough. */
+        /* Following values shall not be written to EFI vars. */
+        TIMEOUT_UNSET,
+        TIMEOUT_MENU_FORCE,
 };
 
 enum {
@@ -424,6 +422,23 @@ static char16_t* update_timeout_efivar(Config *config, bool inc) {
                 return xstrdup16(u"Menu disabled. Hold down key at bootup to show menu.");
         default:
                 return xasprintf("Menu timeout set to %u s.", config->timeout_sec_efivar);
+        }
+}
+
+static void write_timeout_efivar(const Config *config) {
+        switch (config->timeout_sec_efivar) {
+        case TIMEOUT_UNSET:
+                efivar_unset(MAKE_GUID_PTR(LOADER), u"LoaderConfigTimeout", EFI_VARIABLE_NON_VOLATILE);
+                break;
+        case TIMEOUT_MENU_FORCE:
+                efivar_set(MAKE_GUID_PTR(LOADER), u"LoaderConfigTimeout", u"menu-force", EFI_VARIABLE_NON_VOLATILE);
+                break;
+        case TIMEOUT_MENU_HIDDEN:
+                efivar_set(MAKE_GUID_PTR(LOADER), u"LoaderConfigTimeout", u"menu-hidden", EFI_VARIABLE_NON_VOLATILE);
+                break;
+        default:
+                efivar_set_uint_string(MAKE_GUID_PTR(LOADER), u"LoaderConfigTimeout",
+                                        config->timeout_sec_efivar, EFI_VARIABLE_NON_VOLATILE);
         }
 }
 
@@ -1092,22 +1107,8 @@ static bool menu_run(
                                                config->console_mode_efivar, EFI_VARIABLE_NON_VOLATILE);
         }
 
-        if (timeout_efivar_saved != config->timeout_sec_efivar) {
-                switch (config->timeout_sec_efivar) {
-                case TIMEOUT_UNSET:
-                        efivar_unset(MAKE_GUID_PTR(LOADER), u"LoaderConfigTimeout", EFI_VARIABLE_NON_VOLATILE);
-                        break;
-                case TIMEOUT_MENU_FORCE:
-                        efivar_set(MAKE_GUID_PTR(LOADER), u"LoaderConfigTimeout", u"menu-force", EFI_VARIABLE_NON_VOLATILE);
-                        break;
-                case TIMEOUT_MENU_HIDDEN:
-                        efivar_set(MAKE_GUID_PTR(LOADER), u"LoaderConfigTimeout", u"menu-hidden", EFI_VARIABLE_NON_VOLATILE);
-                        break;
-                default:
-                        efivar_set_uint_string(MAKE_GUID_PTR(LOADER), u"LoaderConfigTimeout",
-                                               config->timeout_sec_efivar, EFI_VARIABLE_NON_VOLATILE);
-                }
-        }
+        if (timeout_efivar_saved != config->timeout_sec_efivar)
+                write_timeout_efivar(config);
 
         switch (action) {
         case ACTION_CONTINUE:
@@ -1182,7 +1183,7 @@ static void config_defaults_load_from_file(Config *config, char *content) {
                                 config->timeout_sec_config = TIMEOUT_MENU_HIDDEN;
                         else {
                                 uint64_t u;
-                                if (!parse_number8(value, &u, NULL) || u > TIMEOUT_TYPE_MAX) {
+                                if (!parse_number8(value, &u, NULL) || u > TIMEOUT_MAX) {
                                         log_error("Error parsing 'timeout' config option, ignoring: %s",
                                                   value);
                                         continue;
@@ -1513,10 +1514,10 @@ static EFI_STATUS efivar_get_timeout(const char16_t *var, uint32_t *ret_value) {
         }
 
         uint64_t timeout;
-        if (!parse_number16(value, &timeout, NULL))
+        if (!parse_number16(value, &timeout, NULL) || timeout > TIMEOUT_MAX)
                 return EFI_INVALID_PARAMETER;
 
-        *ret_value = MIN(timeout, TIMEOUT_TYPE_MAX);
+        *ret_value = timeout;
         return EFI_SUCCESS;
 }
 
@@ -1741,7 +1742,7 @@ static void config_select_default_entry(Config *config) {
         /* If no configured entry to select from was found, enable the menu. */
         config->idx_default = 0;
         if (config->timeout_sec == 0)
-                config->timeout_sec = 10;
+                config->timeout_sec = TIMEOUT_FALLBACK;
 }
 
 static bool entries_unique(BootEntry **entries, bool *unique, size_t n_entries) {
@@ -2629,7 +2630,6 @@ static EFI_STATUS run(EFI_HANDLE image) {
         _cleanup_free_ char16_t *loaded_image_path = NULL;
         EFI_STATUS err;
         uint64_t init_usec;
-        bool menu = false;
 
         init_usec = time_usec();
 
@@ -2659,9 +2659,8 @@ static EFI_STATUS run(EFI_HANDLE image) {
                                 "No loader found. Configuration files in \\loader\\entries\\*.conf are needed.");
 
         /* select entry or show menu when key is pressed or timeout is set */
-        if (config.force_menu || config.timeout_sec > 0)
-                menu = true;
-        else {
+        bool menu = config.force_menu || config.timeout_sec > 0;
+        if (menu) {
                 uint64_t key;
 
                 /* Block up to 100ms to give firmware time to get input working. */
