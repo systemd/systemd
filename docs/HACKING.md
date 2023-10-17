@@ -234,16 +234,17 @@ QEMU.
 To allow VSCode's debugger to attach to systemd running in a mkosi image, we have to make sure it can access
 the virtual machine spawned by mkosi where systemd is running. mkosi makes this possible via a handy SSH
 option that makes the generated image accessible via SSH when booted. Thus you must build the image with
-`mkosi --ssh`. The easiest way to set the option is to create a file 20-local.conf in mkosi.conf.d/ (in the
-directory you ran mkosi in) and add the following contents:
+`mkosi --ssh`. The easiest way to set the option is to create a file `mkosi.conf` in the root of the
+repository and add the following contents:
 
 ```
 [Host]
 Ssh=yes
+RuntimeTrees=.
 ```
 
 Also make sure that the SSH agent is running on your system and that you've added your SSH key to it with
-`ssh-add`.
+`ssh-add`. Also make sure that `virtiofsd` is installed.
 
 After rebuilding the image and booting it with `mkosi qemu`, you should now be able to connect to it by
 running `mkosi ssh` from the same directory in another terminal window.
@@ -284,14 +285,10 @@ the directory, and add the following contents:
             },
             "MIMode": "gdb",
             "sourceFileMap": {
-                "/work/build/../src": {
+                "/root/src/systemd": {
                     "editorPath": "${workspaceFolder}",
                     "useForBreakpoints": false
                 },
-                "/work/build/*": {
-                    "editorPath": "${workspaceFolder}/mkosi.builddir",
-                    "useForBreakpoints": false
-                }
             }
         }
     ]
