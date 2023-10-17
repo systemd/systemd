@@ -1005,11 +1005,11 @@ static int exec_cgroup_context_deserialize(CGroupContext *c, FILE *f) {
                                 return r;
                         c->ip_address_deny_reduced = r;
                 } else if ((val = startswith(l, "exec-cgroup-context-ip-ingress-filter-path="))) {
-                        r = deserialize_strv(&c->ip_filters_ingress, val);
+                        r = deserialize_strv(val, &c->ip_filters_ingress);
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-cgroup-context-ip-egress-filter-path="))) {
-                        r = deserialize_strv(&c->ip_filters_egress, val);
+                        r = deserialize_strv(val, &c->ip_filters_egress);
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-cgroup-context-bpf-program="))) {
@@ -1114,33 +1114,13 @@ static int exec_runtime_serialize(const ExecRuntime *rt, FILE *f, FDSet *fds) {
                         return r;
 
                 if (rt->shared->netns_storage_socket[0] >= 0 && rt->shared->netns_storage_socket[1] >= 0) {
-                        int a, b;
-
-                        a = fdset_put_dup(fds, rt->shared->netns_storage_socket[0]);
-                        if (a < 0)
-                                return a;
-
-                        b = fdset_put_dup(fds, rt->shared->netns_storage_socket[1]);
-                        if (b < 0)
-                                return b;
-
-                        r = serialize_item_format(f, "exec-runtime-netns-storage-socket", "%d %d", a, b);
+                        r = serialize_fd_many(f, fds, "exec-runtime-netns-storage-socket", rt->shared->netns_storage_socket, 2);
                         if (r < 0)
                                 return r;
                 }
 
                 if (rt->shared->ipcns_storage_socket[0] >= 0 && rt->shared->ipcns_storage_socket[1] >= 0) {
-                        int a, b;
-
-                        a = fdset_put_dup(fds, rt->shared->ipcns_storage_socket[0]);
-                        if (a < 0)
-                                return a;
-
-                        b = fdset_put_dup(fds, rt->shared->ipcns_storage_socket[1]);
-                        if (b < 0)
-                                return b;
-
-                        r = serialize_item_format(f, "exec-runtime-ipcns-storage-socket", "%d %d", a, b);
+                        r = serialize_fd_many(f, fds, "exec-runtime-ipcns-storage-socket", rt->shared->ipcns_storage_socket, 2);
                         if (r < 0)
                                 return r;
                 }
@@ -1167,17 +1147,7 @@ static int exec_runtime_serialize(const ExecRuntime *rt, FILE *f, FDSet *fds) {
                 return r;
 
         if (rt->ephemeral_storage_socket[0] >= 0 && rt->ephemeral_storage_socket[1] >= 0) {
-                int a, b;
-
-                a = fdset_put_dup(fds, rt->ephemeral_storage_socket[0]);
-                if (a < 0)
-                        return a;
-
-                b = fdset_put_dup(fds, rt->ephemeral_storage_socket[1]);
-                if (b < 0)
-                        return b;
-
-                r = serialize_item_format(f, "exec-runtime-ephemeral-storage-socket", "%d %d", a, b);
+                r = serialize_fd_many(f, fds, "exec-runtime-ephemeral-storage-socket", rt->ephemeral_storage_socket, 2);
                 if (r < 0)
                         return r;
         }
@@ -1219,51 +1189,17 @@ static int exec_runtime_deserialize(ExecRuntime *rt, FILE *f, FDSet *fds) {
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-runtime-netns-storage-socket="))) {
-                        for (size_t i = 0; i < 2; ++i) {
-                                _cleanup_free_ char *w = NULL;
-                                int fd;
 
-                                r = extract_first_word(&val, &w, WHITESPACE, 0);
-                                if (r < 0)
-                                        return r;
-                                if (r == 0)
-                                        break;
+                        r = deserialize_fd_many(fds, val, 2, rt->shared->netns_storage_socket);
+                        if (r < 0)
+                                return r;
 
-                                if ((fd = parse_fd(w)) < 0 || !fdset_contains(fds, fd))
-                                        log_debug("Failed to parse %s value: %s, ignoring.", l, w);
-                                else {
-                                        r = fdset_remove(fds, fd);
-                                        if (r < 0) {
-                                                log_debug_errno(r, "Failed to remove %s value=%d from fdset, ignoring: %m", l, fd);
-                                                continue;
-                                        }
-
-                                        rt->shared->netns_storage_socket[i] = fd;
-                                }
-                        }
                 } else if ((val = startswith(l, "exec-runtime-ipcns-storage-socket="))) {
-                        for (size_t i = 0; i < 2; ++i) {
-                                _cleanup_free_ char *w = NULL;
-                                int fd;
 
-                                r = extract_first_word(&val, &w, WHITESPACE, 0);
-                                if (r < 0)
-                                        return r;
-                                if (r == 0)
-                                        break;
+                        r = deserialize_fd_many(fds, val, 2, rt->shared->ipcns_storage_socket);
+                        if (r < 0)
+                                return r;
 
-                                if ((fd = parse_fd(w)) < 0 || !fdset_contains(fds, fd))
-                                        log_debug("Failed to parse %s value: %s, ignoring.", l, w);
-                                else {
-                                        r = fdset_remove(fds, fd);
-                                        if (r < 0) {
-                                                log_debug_errno(r, "Failed to remove %s value=%d from fdset, ignoring: %m", l, fd);
-                                                continue;
-                                        }
-
-                                        rt->shared->ipcns_storage_socket[i] = fd;
-                                }
-                        }
                 } else if ((val = startswith(l, "exec-runtime-dynamic-creds-user=")))
                         dynamic_user_deserialize_one(/* m= */ NULL, val, fds, &rt->dynamic_creds->user);
                 else if ((val = startswith(l, "exec-runtime-dynamic-creds-group=")))
@@ -1284,28 +1220,10 @@ static int exec_runtime_deserialize(ExecRuntime *rt, FILE *f, FDSet *fds) {
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-runtime-ephemeral-storage-socket="))) {
-                        for (size_t i = 0; i < 2; ++i) {
-                                _cleanup_free_ char *w = NULL;
-                                int fd;
 
-                                r = extract_first_word(&val, &w, WHITESPACE, 0);
-                                if (r < 0)
-                                        return r;
-                                if (r == 0)
-                                        break;
-
-                                if ((fd = parse_fd(w)) < 0 || !fdset_contains(fds, fd))
-                                        log_debug("Failed to parse %s value: %s, ignoring.", l, w);
-                                else {
-                                        r = fdset_remove(fds, fd);
-                                        if (r < 0) {
-                                                log_debug_errno(r, "Failed to remove %s value=%d from fdset, ignoring: %m", l, fd);
-                                                continue;
-                                        }
-
-                                        rt->ephemeral_storage_socket[i] = fd;
-                                }
-                        }
+                        r = deserialize_fd_many(fds, val, 2, rt->ephemeral_storage_socket);
+                        if (r < 0)
+                                return r;
                 } else
                         log_warning("Failed to parse serialized line, ignorning: %s", l);
         }
@@ -1343,26 +1261,7 @@ static int exec_parameters_serialize(const ExecParameters *p, FILE *f, FDSet *fd
         }
 
         if (p->n_socket_fds + p->n_storage_fds > 0) {
-                _cleanup_free_ char *serialized_fds = NULL;
-
-                if (!p->fds)
-                        return -EINVAL;
-
-                FOREACH_ARRAY(fd, p->fds, p->n_socket_fds + p->n_storage_fds) {
-                        int copy = -EBADF;
-
-                        if (*fd >= 0) {
-                                copy = fdset_put_dup(fds, *fd);
-                                if (copy < 0)
-                                        return copy;
-                        }
-
-                        r = strextendf(&serialized_fds, "%d ", copy);
-                        if (r < 0)
-                                return r;
-                }
-
-                r = serialize_item(f, "exec-parameters-fds", serialized_fds);
+                r = serialize_fd_many(f, fds, "exec-parameters-fds", p->fds, p->n_socket_fds + p->n_storage_fds);
                 if (r < 0)
                         return r;
         }
@@ -1432,23 +1331,7 @@ static int exec_parameters_serialize(const ExecParameters *p, FILE *f, FDSet *fd
         }
 
         if (p->idle_pipe) {
-                _cleanup_free_ char *serialized_fds = NULL;
-
-                for (size_t i = 0; i < 4; ++i) {
-                        int copy = -EBADF;
-
-                        if (p->idle_pipe[i] >= 0) {
-                                copy = fdset_put_dup(fds, p->idle_pipe[i]);
-                                if (copy < 0)
-                                        return copy;
-                        }
-
-                        r = strextendf(&serialized_fds, "%d ", copy);
-                        if (r < 0)
-                                return r;
-                }
-
-                r = serialize_item(f, "exec-parameters-idle-pipe", serialized_fds);
+                r = serialize_fd_many(f, fds, "exec-parameters-idle-pipe", p->idle_pipe, 4);
                 if (r < 0)
                         return r;
         }
@@ -1553,7 +1436,7 @@ static int exec_parameters_deserialize(ExecParameters *p, FILE *f, FDSet *fds) {
                         if (p->runtime_scope < 0)
                                 return p->runtime_scope;
                 } else if ((val = startswith(l, "exec-parameters-environment="))) {
-                        r = deserialize_strv(&p->environment, val);
+                        r = deserialize_strv(val, &p->environment);
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-parameters-n-socket-fds="))) {
@@ -1596,30 +1479,12 @@ static int exec_parameters_deserialize(ExecParameters *p, FILE *f, FDSet *fds) {
                         for (size_t i = 0; i < p->n_socket_fds + p->n_storage_fds; ++i)
                                 p->fds[i] = -EBADF;
 
-                        for (size_t i = 0; i < p->n_socket_fds + p->n_storage_fds; ++i) {
-                                _cleanup_free_ char *w = NULL;
-                                int fd;
+                        r = deserialize_fd_many(fds, val, p->n_socket_fds + p->n_storage_fds, p->fds);
+                        if (r < 0)
+                                return r;
 
-                                r = extract_first_word(&val, &w, WHITESPACE, 0);
-                                if (r < 0)
-                                        return r;
-                                if (r == 0)
-                                        break;
-
-                                if ((fd = parse_fd(w)) < 0 || !fdset_contains(fds, fd))
-                                        log_debug("Failed to parse %s value: %s, ignoring.", l, w);
-                                else {
-                                        r = fdset_remove(fds, fd);
-                                        if (r < 0) {
-                                                log_debug_errno(r, "Failed to remove %s value=%d from fdset, ignoring: %m", l, fd);
-                                                continue;
-                                        }
-
-                                        p->fds[i] = fd;
-                                }
-                        }
                 } else if ((val = startswith(l, "exec-parameters-fd-names="))) {
-                        r = deserialize_strv(&p->fd_names, val);
+                        r = deserialize_strv(val, &p->fd_names);
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-parameters-flags="))) {
@@ -1706,104 +1571,58 @@ static int exec_parameters_deserialize(ExecParameters *p, FILE *f, FDSet *fds) {
 
                         p->idle_pipe[0] = p->idle_pipe[1] = p->idle_pipe[2] = p->idle_pipe[3] = -EBADF;
 
-                        for (size_t i = 0; i < 4; ++i) {
-                                _cleanup_free_ char *w = NULL;
-                                int fd;
+                        r = deserialize_fd_many(fds, val, 4, p->idle_pipe);
+                        if (r < 0)
+                                return r;
 
-                                r = extract_first_word(&val, &w, WHITESPACE, 0);
-                                if (r < 0)
-                                        return r;
-                                if (r == 0)
-                                        break;
-
-                                if ((fd = parse_fd(w)) < 0 || !fdset_contains(fds, fd))
-                                        log_debug("Failed to parse %s value: %s, ignoring.", l, w);
-                                else {
-                                        r = fdset_remove(fds, fd);
-                                        if (r < 0) {
-                                                log_debug_errno(r, "Failed to remove %s value=%d from fdset, ignoring: %m", l, fd);
-                                                continue;
-                                        }
-
-                                        p->idle_pipe[i] = fd;
-                                }
-                        }
                 } else if ((val = startswith(l, "exec-parameters-stdin-fd="))) {
                         int fd;
 
-                        if ((fd = parse_fd(val)) < 0 || !fdset_contains(fds, fd))
-                                log_debug("Failed to parse %s value: %s, ignoring.", l, val);
-                        else {
-                                r = fdset_remove(fds, fd);
-                                if (r < 0) {
-                                        log_debug_errno(r, "Failed to remove %s value=%d from fdset, ignoring: %m", l, fd);
-                                        continue;
-                                }
+                        fd = deserialize_fd(fds, val);
+                        if (fd < 0)
+                                return fd;
 
-                                p->stdin_fd = fd;
-                        }
+                        p->stdin_fd = fd;
+
                 } else if ((val = startswith(l, "exec-parameters-stdout-fd="))) {
                         int fd;
 
-                        if ((fd = parse_fd(val)) < 0 || !fdset_contains(fds, fd))
-                                log_debug("Failed to parse %s value: %s, ignoring.", l, val);
-                        else {
-                                r = fdset_remove(fds, fd);
-                                if (r < 0) {
-                                        log_debug_errno(r, "Failed to remove %s value=%d from fdset, ignoring: %m", l, fd);
-                                        continue;
-                                }
+                        fd = deserialize_fd(fds, val);
+                        if (fd < 0)
+                                return fd;
 
-                                p->stdout_fd = fd;
-                        }
+                        p->stdout_fd = fd;
+
                 } else if ((val = startswith(l, "exec-parameters-stderr-fd="))) {
                         int fd;
 
-                        if ((fd = parse_fd(val)) < 0 || !fdset_contains(fds, fd))
-                                log_debug("Failed to parse %s value: %s, ignoring.", l, val);
-                        else {
-                                r = fdset_remove(fds, fd);
-                                if (r < 0) {
-                                        log_debug_errno(r, "Failed to remove %s value=%d from fdset, ignoring: %m", l, fd);
-                                        continue;
-                                }
+                        fd = deserialize_fd(fds, val);
+                        if (fd < 0)
+                                return fd;
 
-                                p->stderr_fd = fd;
-                        }
+                        p->stderr_fd = fd;
                 } else if ((val = startswith(l, "exec-parameters-exec-fd="))) {
                         int fd;
 
-                        if ((fd = parse_fd(val)) < 0 || !fdset_contains(fds, fd))
-                                log_debug("Failed to parse %s value: %s, ignoring.", l, val);
-                        else {
-                                r = fdset_remove(fds, fd);
-                                if (r < 0) {
-                                        log_debug_errno(r, "Failed to remove %s value=%d from fdset, ignoring: %m", l, fd);
-                                        continue;
-                                }
+                        fd = deserialize_fd(fds, val);
+                        if (fd < 0)
+                                return fd;
 
-                                /* This is special and relies on close-on-exec semantics, make sure it's
-                                 * there */
-                                r = fd_cloexec(fd, true);
-                                if (r < 0)
-                                        return r;
+                        /* This is special and relies on close-on-exec semantics, make sure it's
+                         * there */
+                        r = fd_cloexec(fd, true);
+                        if (r < 0)
+                                return r;
 
-                                p->exec_fd = fd;
-                        }
+                        p->exec_fd = fd;
                 } else if ((val = startswith(l, "exec-parameters-bpf-outer-map-fd="))) {
                         int fd;
 
-                        if ((fd = parse_fd(val)) < 0 || !fdset_contains(fds, fd))
-                                log_debug("Failed to parse %s value: %s, ignoring.", l, val);
-                        else {
-                                r = fdset_remove(fds, fd);
-                                if (r < 0) {
-                                        log_debug_errno(r, "Failed to remove %s value=%d from fdset, ignoring: %m", l, fd);
-                                        continue;
-                                }
+                        fd = deserialize_fd(fds, val);
+                        if (fd < 0)
+                                return fd;
 
-                                p->bpf_outer_map_fd = fd;
-                        }
+                        p->bpf_outer_map_fd = fd;
                 } else if ((val = startswith(l, "exec-parameters-notify-socket="))) {
                         r = free_and_strdup(&p->notify_socket, val);
                         if (r < 0)
@@ -1823,19 +1642,13 @@ static int exec_parameters_deserialize(ExecParameters *p, FILE *f, FDSet *fds) {
                 } else if ((val = startswith(l, "exec-parameters-user-lookup-fd="))) {
                         int fd;
 
-                        if ((fd = parse_fd(val)) < 0 || !fdset_contains(fds, fd))
-                                log_debug("Failed to parse %s value: %s, ignoring.", l, val);
-                        else {
-                                r = fdset_remove(fds, fd);
-                                if (r < 0) {
-                                        log_debug_errno(r, "Failed to remove %s value=%d from fdset, ignoring: %m", l, fd);
-                                        continue;
-                                }
+                        fd = deserialize_fd(fds, val);
+                        if (fd < 0)
+                                return fd;
 
-                                p->user_lookup_fd = fd;
-                        }
+                        p->user_lookup_fd = fd;
                 } else if ((val = startswith(l, "exec-parameters-files-env="))) {
-                        r = deserialize_strv(&p->files_env, val);
+                        r = deserialize_strv(val, &p->files_env);
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-parameters-unit-id="))) {
@@ -2785,19 +2598,19 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         break;
 
                 if ((val = startswith(l, "exec-context-environment="))) {
-                        r = deserialize_strv(&c->environment, val);
+                        r = deserialize_strv(val, &c->environment);
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-context-environment-files="))) {
-                        r = deserialize_strv(&c->environment_files, val);
+                        r = deserialize_strv(val, &c->environment_files);
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-context-pass-environment="))) {
-                        r = deserialize_strv(&c->pass_environment, val);
+                        r = deserialize_strv(val, &c->pass_environment);
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-context-unset-environment="))) {
-                        r = deserialize_strv(&c->unset_environment, val);
+                        r = deserialize_strv(val, &c->unset_environment);
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-context-working-directory="))) {
@@ -3343,7 +3156,7 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                                 return r;
                         c->dynamic_user = r;
                 } else if ((val = startswith(l, "exec-context-supplementary-groups="))) {
-                        r = deserialize_strv(&c->supplementary_groups, val);
+                        r = deserialize_strv(val, &c->supplementary_groups);
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-context-set-login-environment="))) {
@@ -3355,27 +3168,27 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-context-read-write-paths="))) {
-                        r = deserialize_strv(&c->read_write_paths, val);
+                        r = deserialize_strv(val, &c->read_write_paths);
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-context-read-only-paths="))) {
-                        r = deserialize_strv(&c->read_only_paths, val);
+                        r = deserialize_strv(val, &c->read_only_paths);
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-context-inaccessible-paths="))) {
-                        r = deserialize_strv(&c->inaccessible_paths, val);
+                        r = deserialize_strv(val, &c->inaccessible_paths);
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-context-exec-paths="))) {
-                        r = deserialize_strv(&c->exec_paths, val);
+                        r = deserialize_strv(val, &c->exec_paths);
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-context-no-exec-paths="))) {
-                        r = deserialize_strv(&c->no_exec_paths, val);
+                        r = deserialize_strv(val, &c->no_exec_paths);
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-context-exec-search-path="))) {
-                        r = deserialize_strv(&c->exec_search_path, val);
+                        r = deserialize_strv(val, &c->exec_search_path);
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-context-mount-propagation-flag="))) {
@@ -3849,7 +3662,7 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         if (r < 0)
                                 return log_oom_debug();
                 } else if ((val = startswith(l, "exec-context-extension-directories="))) {
-                        r = deserialize_strv(&c->extension_directories, val);
+                        r = deserialize_strv(val, &c->extension_directories);
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-context-set-credentials="))) {
@@ -3993,7 +3806,7 @@ static int exec_command_deserialize(ExecCommand *c, FILE *f) {
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-command-argv="))) {
-                        r = deserialize_strv(&c->argv, val);
+                        r = deserialize_strv(val, &c->argv);
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-command-flags="))) {
