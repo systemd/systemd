@@ -82,7 +82,7 @@ static void test_pid_get_comm_one(pid_t pid) {
         assert_se(r >= 0 || r == -EACCES);
         log_info("PID"PID_FMT" exe: '%s'", pid, strna(f));
 
-        assert_se(get_process_uid(pid, &u) == 0);
+        assert_se(pid_get_uid(pid, &u) == 0);
         log_info("PID"PID_FMT" UID: "UID_FMT, pid, u);
 
         assert_se(get_process_gid(pid, &g) == 0);

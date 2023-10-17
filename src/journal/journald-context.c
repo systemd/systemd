@@ -210,7 +210,7 @@ static void client_context_read_uid_gid(ClientContext *c, const struct ucred *uc
         if (ucred && uid_is_valid(ucred->uid))
                 c->uid = ucred->uid;
         else
-                (void) get_process_uid(c->pid, &c->uid);
+                (void) pid_get_uid(c->pid, &c->uid);
 
         if (ucred && gid_is_valid(ucred->gid))
                 c->gid = ucred->gid;

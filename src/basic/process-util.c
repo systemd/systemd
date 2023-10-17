@@ -570,7 +570,8 @@ static int get_process_id(pid_t pid, const char *field, uid_t *ret) {
         return -EIO;
 }
 
-int get_process_uid(pid_t pid, uid_t *ret) {
+int pid_get_uid(pid_t pid, uid_t *ret) {
+        assert(ret);
 
         if (pid == 0 || pid == getpid_cached()) {
                 *ret = getuid();
@@ -578,6 +579,27 @@ int get_process_uid(pid_t pid, uid_t *ret) {
         }
 
         return get_process_id(pid, "Uid:", ret);
+}
+
+int pidref_get_uid(PidRef *pid, uid_t *ret) {
+        uid_t uid;
+        int r;
+
+        assert(ret);
+
+        if (!pidref_is_set(pid))
+                return -ESRCH;
+
+        r = pid_get_uid(pid->pid, &uid);
+        if (r < 0)
+                return r;
+
+        r = pidref_verify(pid);
+        if (r < 0)
+                return r;
+
+        *ret = uid;
+        return 0;
 }
 
 int get_process_gid(pid_t pid, gid_t *ret) {

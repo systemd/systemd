@@ -85,7 +85,7 @@ static bool ignore_proc(pid_t pid, bool warn_rootfs) {
         if (is_survivor_cgroup(pid))
                 return true;
 
-        r = get_process_uid(pid, &uid);
+        r = pid_get_uid(pid, &uid);
         if (r < 0)
                 return true; /* not really, but better safe than sorry */
 
