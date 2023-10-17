@@ -1530,7 +1530,7 @@ int bus_unit_method_attach_processes(sd_bus_message *message, void *userdata, sd
                 /* Let's validate security: if the sender is root, then all is OK. If the sender is any other unit,
                  * then the process' UID and the target unit's UID have to match the sender's UID */
                 if (sender_uid != 0 && sender_uid != getuid()) {
-                        r = get_process_uid(pidref->pid, &process_uid);
+                        r = pidref_get_uid(pidref, &process_uid);
                         if (r < 0)
                                 return sd_bus_error_set_errnof(error, r, "Failed to retrieve process UID: %m");
 
