@@ -10,23 +10,23 @@
 #include "dirent-util.h"
 #include "fd-util.h"
 #include "fdset.h"
+#include "hashmap.h"
 #include "log.h"
 #include "macro.h"
 #include "parse-util.h"
 #include "path-util.h"
-#include "set.h"
 #include "stat-util.h"
 
-#define MAKE_SET(s) ((Set*) s)
+#define MAKE_HASHMAP(s) ((Hashmap*) s)
 #define MAKE_FDSET(s) ((FDSet*) s)
 
 FDSet *fdset_new(void) {
-        return MAKE_FDSET(set_new(NULL));
+        return MAKE_FDSET(hashmap_new(NULL));
 }
 
 static void fdset_shallow_freep(FDSet **s) {
         /* Destroys the set, but does not free the fds inside, like fdset_free()! */
-        set_free(MAKE_SET(*ASSERT_PTR(s)));
+        hashmap_free(MAKE_HASHMAP(*ASSERT_PTR(s)));
 }
 
 int fdset_new_array(FDSet **ret, const int fds[], size_t n_fds) {
@@ -53,8 +53,11 @@ int fdset_new_array(FDSet **ret, const int fds[], size_t n_fds) {
 void fdset_close(FDSet *s) {
         void *p;
 
-        while ((p = set_steal_first(MAKE_SET(s)))) {
+        while ((p = hashmap_steal_first(MAKE_HASHMAP(s)))) {
                 int fd = PTR_TO_FD(p);
+
+                if (fd < 0) /* This is an index, ignore it */
+                        continue;
 
                 /* Valgrind's fd might have ended up in this set here, due to fdset_new_fill(). We'll ignore
                  * all failures here, so that the EBADFD that valgrind will return us on close() doesn't
@@ -77,7 +80,7 @@ void fdset_close(FDSet *s) {
 
 FDSet* fdset_free(FDSet *s) {
         fdset_close(s);
-        set_free(MAKE_SET(s));
+        hashmap_free(MAKE_HASHMAP(s));
         return NULL;
 }
 
@@ -89,7 +92,7 @@ int fdset_put(FDSet *s, int fd) {
         if (fd == INT_MAX)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Refusing invalid fd: %d", fd);
 
-        return set_put(MAKE_SET(s), FD_TO_PTR(fd));
+        return hashmap_put(MAKE_HASHMAP(s), FD_TO_PTR(fd), FD_TO_PTR(fd));
 }
 
 int fdset_consume(FDSet *s, int fd) {
@@ -123,6 +126,52 @@ int fdset_put_dup(FDSet *s, int fd) {
         return TAKE_FD(copy);
 }
 
+int fdset_put_indexed(FDSet *s, int fd, int index) {
+        int r;
+
+        assert(s);
+        assert(fd >= 0);
+        assert(index >= 0);
+
+        /* Avoid integer overflow in FD_TO_PTR() */
+        if (fd == INT_MAX)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Refusing invalid fd: %d", fd);
+
+        if (hashmap_contains(MAKE_HASHMAP(s), INT_TO_PTR(-index - 1)))
+                return -EEXIST;
+
+        if (hashmap_contains(MAKE_HASHMAP(s), FD_TO_PTR(fd)))
+                return -EEXIST;
+
+        /* Store both the fd and the index, so that either can be used for lookups. Store the index as
+         * a negative number, so that we know there can be no overlap, since a fd must be >= 0. */
+
+        r = hashmap_put(MAKE_HASHMAP(s), FD_TO_PTR(fd), INT_TO_PTR(-index - 1));
+        if (r < 0)
+                return r;
+
+        return hashmap_put(MAKE_HASHMAP(s), INT_TO_PTR(-index - 1), FD_TO_PTR(fd));
+}
+
+int fdset_put_dup_indexed(FDSet *s, int fd, int index) {
+        _cleanup_close_ int copy = -EBADF;
+        int r;
+
+        assert(s);
+        assert(fd >= 0);
+
+        copy = fcntl(fd, F_DUPFD_CLOEXEC, 3);
+        if (copy < 0)
+                return -errno;
+
+        r = fdset_put_indexed(s, copy, index);
+        if (r < 0)
+                return r;
+
+        TAKE_FD(copy);
+        return index;
+}
+
 bool fdset_contains(FDSet *s, int fd) {
         assert(s);
         assert(fd >= 0);
@@ -133,18 +182,35 @@ bool fdset_contains(FDSet *s, int fd) {
                 return false;
         }
 
-        return !!set_get(MAKE_SET(s), FD_TO_PTR(fd));
+        return hashmap_contains(MAKE_HASHMAP(s), FD_TO_PTR(fd));
+}
+
+bool fdset_contains_index(FDSet *s, int index) {
+        assert(s);
+        assert(index >= 0);
+
+        return hashmap_contains(MAKE_HASHMAP(s), INT_TO_PTR(-index - 1));
 }
 
 int fdset_remove(FDSet *s, int fd) {
         assert(s);
-        assert(fd >= 0);
 
         /* Avoid integer overflow in FD_TO_PTR() */
         if (fd == INT_MAX)
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOENT), "Refusing invalid fd: %d", fd);
 
-        return set_remove(MAKE_SET(s), FD_TO_PTR(fd)) ? fd : -ENOENT;
+        void *raw = hashmap_remove(MAKE_HASHMAP(s), fd >= 0 ? FD_TO_PTR(fd) : INT_TO_PTR(fd));
+        if (!raw)
+                return -ENOENT;
+
+        int ret = fd >= 0 ? PTR_TO_INT(raw) : PTR_TO_FD(raw);
+        if (ret >= 0 && fd >= 0)
+                return fd; /* No indexes (negative value), return immediately */
+
+        if (fd >= 0)
+                return hashmap_remove(MAKE_HASHMAP(s), INT_TO_PTR(ret)) ? fd : -ENOENT;
+
+        return hashmap_remove(MAKE_HASHMAP(s), FD_TO_PTR(ret)) ? ret : -ENOENT;
 }
 
 int fdset_new_fill(
@@ -214,7 +280,10 @@ int fdset_cloexec(FDSet *fds, bool b) {
 
         assert(fds);
 
-        SET_FOREACH(p, MAKE_SET(fds)) {
+        HASHMAP_FOREACH(p, MAKE_HASHMAP(fds)) {
+                if (PTR_TO_FD(p) < 0)
+                        continue;
+
                 r = fd_cloexec(PTR_TO_FD(p), b);
                 if (r < 0)
                         return r;
@@ -246,10 +315,9 @@ int fdset_new_listen_fds(FDSet **ret, bool unset) {
         return 0;
 }
 
-int fdset_to_array(FDSet *fds, int **ret) {
-        unsigned j = 0, m;
-        void *e;
-        int *a;
+static int to_array(FDSet *fds, bool indexed, int **ret) {
+        _cleanup_free_ int *a = NULL;
+        unsigned m, j = 0;
 
         assert(ret);
 
@@ -265,13 +333,46 @@ int fdset_to_array(FDSet *fds, int **ret) {
         if (!a)
                 return -ENOMEM;
 
-        SET_FOREACH(e, MAKE_SET(fds))
-                a[j++] = PTR_TO_FD(e);
+        for (size_t i = 0; i < m; ++i)
+                a[i] = -EBADF;
 
-        assert(j == m);
+        if (indexed) {
+                void *k, *e;
+
+                HASHMAP_FOREACH_KEY(e, k, MAKE_HASHMAP(fds)) {
+                        int fd = PTR_TO_FD(k), index = -(1 + PTR_TO_INT(e));
+
+                        if (fd < 0)
+                                continue;
+
+                        assert(index >= 0);
+                        if (index >= m)
+                                return -ERANGE;
+
+                        a[index] = fd;
+                        ++j;
+                }
+                assert(j == m / 2);
+        } else {
+                void *e;
+
+                HASHMAP_FOREACH(e, MAKE_HASHMAP(fds))
+                        a[j++] = PTR_TO_FD(e);
+
+                assert(j == m);
+        }
 
         *ret = TAKE_PTR(a);
-        return (int) m;
+        return (int) j;
+}
+
+
+int fdset_to_array(FDSet *fds, int **ret) {
+        return to_array(fds, /* indexed= */ false, ret);
+}
+
+int fdset_to_array_indexed(FDSet *fds, int **ret) {
+        return to_array(fds, /* indexed= */ true, ret);
 }
 
 int fdset_close_others(FDSet *fds) {
@@ -286,26 +387,27 @@ int fdset_close_others(FDSet *fds) {
 }
 
 unsigned fdset_size(FDSet *fds) {
-        return set_size(MAKE_SET(fds));
+        return hashmap_size(MAKE_HASHMAP(fds));
 }
 
 bool fdset_isempty(FDSet *fds) {
-        return set_isempty(MAKE_SET(fds));
+        return hashmap_isempty(MAKE_HASHMAP(fds));
 }
 
 int fdset_iterate(FDSet *s, Iterator *i) {
-        void *p;
+        const void *k;
+        void *v;
 
-        if (!set_iterate(MAKE_SET(s), i, &p))
+        if (!hashmap_iterate(MAKE_HASHMAP(s), i, &v, &k))
                 return -ENOENT;
 
-        return PTR_TO_FD(p);
+        return PTR_TO_FD(v);
 }
 
 int fdset_steal_first(FDSet *fds) {
         void *p;
 
-        p = set_steal_first(MAKE_SET(fds));
+        p = hashmap_steal_first(MAKE_HASHMAP(fds));
         if (!p)
                 return -ENOENT;
 
