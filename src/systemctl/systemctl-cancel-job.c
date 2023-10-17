@@ -21,6 +21,8 @@ int verb_cancel(int argc, char *argv[], void *userdata) {
 
         polkit_agent_open_maybe();
 
+        r = 0;
+
         STRV_FOREACH(name, strv_skip(argv, 1)) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 uint32_t id;
@@ -32,9 +34,9 @@ int verb_cancel(int argc, char *argv[], void *userdata) {
 
                 q = bus_call_method(bus, bus_systemd_mgr, "CancelJob", &error, NULL, "u", id);
                 if (q < 0) {
-                        log_error_errno(q, "Failed to cancel job %"PRIu32": %s", id, bus_error_message(&error, q));
-                        if (r == 0)
-                                r = q;
+                        log_warning_errno(q, "Failed to cancel job %"PRIu32", ignoring: %s",
+                                          id, bus_error_message(&error, q));
+                        RET_GATHER(r, q);
                 }
         }
 
