@@ -1321,7 +1321,7 @@ static int service_coldplug(Unit *u) {
                 return r;
 
         if (pidref_is_set(&s->main_pid) &&
-            pid_is_unwaited(s->main_pid.pid) &&
+            pidref_is_unwaited(&s->main_pid) > 0 &&
             (IN_SET(s->deserialized_state,
                     SERVICE_START, SERVICE_START_POST,
                     SERVICE_RUNNING,
@@ -1334,7 +1334,7 @@ static int service_coldplug(Unit *u) {
         }
 
         if (pidref_is_set(&s->control_pid) &&
-            pid_is_unwaited(s->control_pid.pid) &&
+            pidref_is_unwaited(&s->control_pid) > 0 &&
             IN_SET(s->deserialized_state,
                    SERVICE_CONDITION, SERVICE_START_PRE, SERVICE_START, SERVICE_START_POST,
                    SERVICE_RELOAD, SERVICE_RELOAD_SIGNAL, SERVICE_RELOAD_NOTIFY,

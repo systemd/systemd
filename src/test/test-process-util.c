@@ -207,11 +207,11 @@ TEST(pid_is_unwaited) {
         } else {
                 int status;
 
-                waitpid(pid, &status, 0);
-                assert_se(!pid_is_unwaited(pid));
+                assert_se(waitpid(pid, &status, 0) == pid);
+                assert_se(pid_is_unwaited(pid) == 0);
         }
-        assert_se(pid_is_unwaited(getpid_cached()));
-        assert_se(!pid_is_unwaited(-1));
+        assert_se(pid_is_unwaited(getpid_cached()) > 0);
+        assert_se(pid_is_unwaited(-1) < 0);
 }
 
 TEST(pid_is_alive) {
