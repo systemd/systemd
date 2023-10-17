@@ -25,6 +25,7 @@
 #include "cgroup-setup.h"
 #include "constants.h"
 #include "cpu-set-util.h"
+#include "dev-setup.h"
 #include "env-file.h"
 #include "env-util.h"
 #include "errno-list.h"
@@ -106,28 +107,27 @@ int exec_context_tty_size(const ExecContext *context, unsigned *ret_rows, unsign
 }
 
 void exec_context_tty_reset(const ExecContext *context, const ExecParameters *p) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_close_ int _fd = -EBADF, lock_fd = -EBADF;
         const char *path = exec_context_tty_path(ASSERT_PTR(context));
+        int fd;
 
-        /* Take a lock around the device for the duration of the setup that we do here.
-         * systemd-vconsole-setup.service also takes the lock to avoid being interrupted.
-         * We open a new fd that will be closed automatically, and operate on it for convenience.
-         */
-
-        if (p && p->stdin_fd >= 0) {
-                fd = xopenat_lock(p->stdin_fd, NULL,
-                                  O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY, 0, 0, LOCK_BSD, LOCK_EX);
+        if (p && p->stdin_fd >= 0)
+                fd = p->stdin_fd;
+        else if (path) {
+                fd = _fd = open_terminal(path, O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
                 if (fd < 0)
-                        return;
-        } else if (path) {
-                fd = open_terminal(path, O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
-                if (fd < 0)
-                        return;
-
-                if (lock_generic(fd, LOCK_BSD, LOCK_EX) < 0)
                         return;
         } else
                 return;   /* nothing to do */
+
+        /* Take a synchronization lock for the duration of the setup that we do here.
+         * systemd-vconsole-setup.service also takes the lock to avoid being interrupted.
+         * We open a new fd that will be closed automatically, and operate on it for convenience.
+         */
+        lock_fd = lock_dev_console();
+        if (lock_fd < 0)
+                return (void) log_debug_errno(lock_fd,
+                                              "Failed to lock /dev/console: %m");
 
         if (context->tty_vhangup)
                 (void) terminal_vhangup_fd(fd);
