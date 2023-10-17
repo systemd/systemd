@@ -162,7 +162,8 @@ static int systemctl_help(void) {
                "  list-timers [PATTERN...]            List timer units currently in memory,\n"
                "                                      ordered by next elapse\n"
                "  is-active PATTERN...                Check whether units are active\n"
-               "  is-failed PATTERN...                Check whether units are failed\n"
+               "  is-failed [PATTERN...]              Check whether units are failed or\n"
+               "                                      system is in degraded state\n"
                "  status [PATTERN...|PID...]          Show runtime status of one or more units\n"
                "  show [PATTERN...|JOB...]            Show properties of one or more\n"
                "                                      units/jobs or the manager\n"
@@ -1165,7 +1166,7 @@ static int systemctl_main(int argc, char *argv[]) {
                 { "thaw",                  2,        VERB_ANY, VERB_ONLINE_ONLY, verb_clean_or_freeze         },
                 { "is-active",             2,        VERB_ANY, VERB_ONLINE_ONLY, verb_is_active               },
                 { "check",                 2,        VERB_ANY, VERB_ONLINE_ONLY, verb_is_active               }, /* deprecated alias of is-active */
-                { "is-failed",             2,        VERB_ANY, VERB_ONLINE_ONLY, verb_is_failed               },
+                { "is-failed",             VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, verb_is_failed               },
                 { "show",                  VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, verb_show                    },
                 { "cat",                   2,        VERB_ANY, VERB_ONLINE_ONLY, verb_cat                     },
                 { "status",                VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, verb_show                    },
