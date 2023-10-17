@@ -3142,7 +3142,7 @@ int unit_search_main_pid(Unit *u, PidRef *ret) {
                 if (pidref_equal(&pidref, &npidref)) /* seen already, cgroupfs reports duplicates! */
                         continue;
 
-                if (pid_is_my_child(npidref.pid) == 0) /* ignore processes further down the tree */
+                if (pidref_is_my_child(&npidref) <= 0) /* ignore processes further down the tree */
                         continue;
 
                 if (pidref_is_set(&pidref) != 0)
@@ -3880,7 +3880,7 @@ Unit *manager_get_unit_by_pidref(Manager *m, PidRef *pid) {
         if (!pidref_is_set(pid))
                 return NULL;
 
-        if (pid->pid == getpid_cached())
+        if (pidref_is_self(pid))
                 return hashmap_get(m->units, SPECIAL_INIT_SCOPE);
         if (pid->pid == 1)
                 return NULL;

@@ -626,7 +626,7 @@ static void print_status_info(
                                 if (arg_transport == BUS_TRANSPORT_LOCAL) {
                                         _cleanup_free_ char *comm = NULL;
 
-                                        (void) get_process_comm(i->main_pid, &comm);
+                                        (void) pid_get_comm(i->main_pid, &comm);
                                         if (comm)
                                                 printf(" (%s)", comm);
                                 }
@@ -661,7 +661,7 @@ static void print_status_info(
                         printf(PID_FMT, i->control_pid);
 
                         if (arg_transport == BUS_TRANSPORT_LOCAL) {
-                                (void) get_process_comm(i->control_pid, &c);
+                                (void) pid_get_comm(i->control_pid, &c);
                                 if (c)
                                         printf(" (%s)", c);
                         }

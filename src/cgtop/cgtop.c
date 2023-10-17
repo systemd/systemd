@@ -209,7 +209,7 @@ static int process(
                 g->n_tasks = 0;
                 while (cg_read_pid(f, &pid) > 0) {
 
-                        if (arg_count == COUNT_USERSPACE_PROCESSES && is_kernel_thread(pid) > 0)
+                        if (arg_count == COUNT_USERSPACE_PROCESSES && pid_is_kernel_thread(pid) > 0)
                                 continue;
 
                         g->n_tasks++;
