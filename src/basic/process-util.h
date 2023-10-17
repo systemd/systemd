@@ -90,6 +90,7 @@ int pid_is_alive(pid_t pid);
 int pidref_is_alive(const PidRef *pidref);
 bool pid_is_unwaited(pid_t pid);
 int pid_is_my_child(pid_t pid);
+int pidref_is_my_child(const PidRef *pidref);
 int pid_from_same_root_fs(pid_t pid);
 
 bool is_main_thread(void);
