@@ -17,8 +17,14 @@
 #include "path-util.h"
 #include "stat-util.h"
 
+/* FDs can be stored in two modes: simply by value, or also by index. The latter is useful when sending
+ * arrays over SCM_RIGHTS, and is implemented by storing each FD both as key, with the index as value,
+ * and viceversa. To distinguish indexes from FDs, indexes will be stored as negative integers, since FDs
+ * are always >=0. */
+
 #define MAKE_HASHMAP(s) ((Hashmap*) s)
 #define MAKE_FDSET(s) ((FDSet*) s)
+#define FD_INDEX_TO_PTR(i) INT_TO_PTR(-(i) - 1)
 
 FDSet *fdset_new(void) {
         return MAKE_FDSET(hashmap_new(NULL));
@@ -126,6 +132,58 @@ int fdset_put_dup(FDSet *s, int fd) {
         return TAKE_FD(copy);
 }
 
+int fdset_put_indexed(FDSet *s, int fd, int index) {
+        int r;
+
+        assert(s);
+        assert(fd >= 0);
+        assert(index >= 0);
+
+        /* Avoid integer overflow in FD_TO_PTR() */
+        if (fd == INT_MAX)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Refusing invalid fd: %d", fd);
+
+        if (hashmap_contains(MAKE_HASHMAP(s), FD_INDEX_TO_PTR(index)))
+                return -EEXIST;
+
+        if (hashmap_contains(MAKE_HASHMAP(s), FD_TO_PTR(fd)))
+                return -EEXIST;
+
+        /* Store both the fd and the index, so that either can be used for lookups. Store the index as
+         * a negative number, so that we know there can be no overlap, since a fd must be >= 0. */
+
+        r = hashmap_put(MAKE_HASHMAP(s), FD_TO_PTR(fd), FD_INDEX_TO_PTR(index));
+        if (r < 0)
+                return r;
+
+        r = hashmap_put(MAKE_HASHMAP(s), FD_INDEX_TO_PTR(index), FD_TO_PTR(fd));
+        if (r < 0) {
+                (void) hashmap_remove(MAKE_HASHMAP(s), FD_TO_PTR(fd));
+                return r;
+        }
+
+        return r;
+}
+
+int fdset_put_dup_indexed(FDSet *s, int fd, int index) {
+        _cleanup_close_ int copy = -EBADF;
+        int r;
+
+        assert(s);
+        assert(fd >= 0);
+
+        copy = fcntl(fd, F_DUPFD_CLOEXEC, 3);
+        if (copy < 0)
+                return -errno;
+
+        r = fdset_put_indexed(s, copy, index);
+        if (r < 0)
+                return r;
+
+        TAKE_FD(copy);
+        return index;
+}
+
 bool fdset_contains(FDSet *s, int fd) {
         assert(s);
         assert(fd >= 0);
@@ -137,6 +195,13 @@ bool fdset_contains(FDSet *s, int fd) {
         }
 
         return hashmap_contains(MAKE_HASHMAP(s), FD_TO_PTR(fd));
+}
+
+bool fdset_contains_index(FDSet *s, int index) {
+        assert(s);
+        assert(index >= 0);
+
+        return hashmap_contains(MAKE_HASHMAP(s), INT_TO_PTR(-index - 1));
 }
 
 int fdset_remove(FDSet *s, int fd) {
@@ -158,6 +223,21 @@ int fdset_remove(FDSet *s, int fd) {
         return hashmap_remove(MAKE_HASHMAP(s), INT_TO_PTR(ret)) ? fd : -ENOENT;
 }
 
+int fdset_remove_indexed(FDSet *s, int index) {
+        _cleanup_close_ int fd = -EBADF;
+
+        assert(s);
+        assert(index >= 0);
+
+        /* First, remove the index -> fd entry */
+        void *raw = hashmap_remove(MAKE_HASHMAP(s), FD_INDEX_TO_PTR(index));
+        if (!raw)
+                return -ENOENT;
+
+        fd = PTR_TO_FD(raw);
+
+        /* Now remove the fd -> index entry */
+        return hashmap_remove(MAKE_HASHMAP(s), FD_TO_PTR(fd)) ? TAKE_FD(fd) : -ENOENT;
 }
 
 int fdset_new_fill(
@@ -318,6 +398,10 @@ int fdset_to_array(FDSet *fds, int **ret) {
         return to_array(fds, /* indexed= */ false, ret);
 }
 
+int fdset_to_array_indexed(FDSet *fds, int **ret) {
+        return to_array(fds, /* indexed= */ true, ret);
+}
+
 int fdset_close_others(FDSet *fds) {
         _cleanup_free_ int *a = NULL;
         int n;
@@ -330,6 +414,8 @@ int fdset_close_others(FDSet *fds) {
 }
 
 unsigned fdset_size(FDSet *fds) {
+        /* Note that if indexed entries are in the set, then this will return 2x the number of indexed FDs,
+         * as every entry is duplicated. */
         return hashmap_size(MAKE_HASHMAP(fds));
 }
 
@@ -341,8 +427,13 @@ int fdset_iterate(FDSet *s, Iterator *i) {
         const void *k;
         void *v;
 
-        if (!hashmap_iterate(MAKE_HASHMAP(s), i, &v, &k))
-                return -ENOENT;
+        for (;;) {
+                if (!hashmap_iterate(MAKE_HASHMAP(s), i, &v, &k))
+                        return -ENOENT;
+
+                if (PTR_TO_INT(v) >= 0) /* Not an index, done */
+                        break;
+        }
 
         return PTR_TO_FD(v);
 }
@@ -351,6 +442,14 @@ int fdset_steal_first(FDSet *fds) {
         void *p;
 
         p = hashmap_steal_first(MAKE_HASHMAP(fds));
+        if (!p)
+                return -ENOENT;
+
+        int ret = PTR_TO_INT(p);
+        if (ret >= 0)
+                return PTR_TO_FD(p); /* No indexes (negative value), return immediately */
+
+        p = hashmap_remove(MAKE_HASHMAP(fds), p);
         if (!p)
                 return -ENOENT;
 
