@@ -209,6 +209,12 @@ ServerCertificateFile=/run/systemd/journal-remote-tls/cert.pem
 TrustedCertificateFile=/run/systemd/remote-pki/ca.crt
 EOF
 systemd-analyze cat-config systemd/journal-upload.conf
+mkdir -p /run/systemd/system/systemd-journal-upload.service.d
+cat >/run/systemd/system/systemd-journal-upload.service.d/99-test.conf <<EOF
+[Service]
+Restart=no
+EOF
+systemctl daemon-reload
 setfacl -R -m "u:systemd-journal-upload:rwX" /run/systemd/journal-remote-tls
 
 systemctl restart systemd-journal-upload
