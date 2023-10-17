@@ -1650,7 +1650,7 @@ int manager_dispatch_delayed(Manager *manager, bool timeout) {
                 if (!timeout)
                         return 0;
 
-                (void) get_process_comm(offending->pid.pid, &comm);
+                (void) pidref_get_comm(&offending->pid, &comm);
                 u = uid_to_name(offending->uid);
 
                 log_notice("Delay lock is active (UID "UID_FMT"/%s, PID "PID_FMT"/%s) but inhibitor timeout is reached.",

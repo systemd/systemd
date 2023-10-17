@@ -4010,7 +4010,7 @@ static int kill_common_log(pid_t pid, int signo, void *userdata) {
         _cleanup_free_ char *comm = NULL;
         Unit *u = ASSERT_PTR(userdata);
 
-        (void) get_process_comm(pid, &comm);
+        (void) pid_get_comm(pid, &comm);
         log_unit_info(u, "Sending signal SIG%s to process " PID_FMT " (%s) on client request.",
                       signal_to_string(signo), pid, strna(comm));
 
@@ -4081,7 +4081,7 @@ int unit_kill(
         if (pidref_is_set(control_pid) &&
             IN_SET(who, KILL_CONTROL, KILL_CONTROL_FAIL, KILL_ALL, KILL_ALL_FAIL)) {
                 _cleanup_free_ char *comm = NULL;
-                (void) get_process_comm(control_pid->pid, &comm);
+                (void) pidref_get_comm(control_pid, &comm);
 
                 r = kill_or_sigqueue(control_pid, signo, code, value);
                 if (r < 0) {
@@ -4107,7 +4107,7 @@ int unit_kill(
             IN_SET(who, KILL_MAIN, KILL_MAIN_FAIL, KILL_ALL, KILL_ALL_FAIL)) {
 
                 _cleanup_free_ char *comm = NULL;
-                (void) get_process_comm(main_pid->pid, &comm);
+                (void) pidref_get_comm(main_pid, &comm);
 
                 r = kill_or_sigqueue(main_pid, signo, code, value);
                 if (r < 0) {
@@ -4732,7 +4732,7 @@ int unit_make_transient(Unit *u) {
 static int log_kill(pid_t pid, int sig, void *userdata) {
         _cleanup_free_ char *comm = NULL;
 
-        (void) get_process_comm(pid, &comm);
+        (void) pid_get_comm(pid, &comm);
 
         /* Don't log about processes marked with brackets, under the assumption that these are temporary processes
            only, like for example systemd's own PAM stub process. */
@@ -4820,7 +4820,7 @@ int unit_kill_context(
                 r = pidref_kill_and_sigcont(main_pid, sig);
                 if (r < 0 && r != -ESRCH) {
                         _cleanup_free_ char *comm = NULL;
-                        (void) get_process_comm(main_pid->pid, &comm);
+                        (void) pidref_get_comm(main_pid, &comm);
 
                         log_unit_warning_errno(u, r, "Failed to kill main process " PID_FMT " (%s), ignoring: %m", main_pid->pid, strna(comm));
                 } else {
@@ -4839,7 +4839,7 @@ int unit_kill_context(
                 r = pidref_kill_and_sigcont(control_pid, sig);
                 if (r < 0 && r != -ESRCH) {
                         _cleanup_free_ char *comm = NULL;
-                        (void) get_process_comm(control_pid->pid, &comm);
+                        (void) pidref_get_comm(control_pid, &comm);
 
                         log_unit_warning_errno(u, r, "Failed to kill control process " PID_FMT " (%s), ignoring: %m", control_pid->pid, strna(comm));
                 } else {
@@ -5865,7 +5865,7 @@ static bool ignore_leftover_process(const char *comm) {
 int unit_log_leftover_process_start(pid_t pid, int sig, void *userdata) {
         _cleanup_free_ char *comm = NULL;
 
-        (void) get_process_comm(pid, &comm);
+        (void) pid_get_comm(pid, &comm);
 
         if (ignore_leftover_process(comm))
                 return 0;
@@ -5883,7 +5883,7 @@ int unit_log_leftover_process_start(pid_t pid, int sig, void *userdata) {
 int unit_log_leftover_process_stop(pid_t pid, int sig, void *userdata) {
         _cleanup_free_ char *comm = NULL;
 
-        (void) get_process_comm(pid, &comm);
+        (void) pid_get_comm(pid, &comm);
 
         if (ignore_leftover_process(comm))
                 return 0;
