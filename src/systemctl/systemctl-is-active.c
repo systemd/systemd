@@ -9,7 +9,7 @@
 #include "systemctl-util.h"
 #include "systemctl.h"
 
-static int check_unit_generic(int code, const UnitActiveState good_states[], int nb_states, char **args) {
+static int check_unit_generic(int code, const UnitActiveState good_states[], size_t nb_states, char **args) {
         _cleanup_strv_free_ char **names = NULL;
         UnitActiveState active_state;
         sd_bus *bus;
@@ -38,8 +38,8 @@ static int check_unit_generic(int code, const UnitActiveState good_states[], int
                 if (!arg_quiet)
                         puts(unit_active_state_to_string(active_state));
 
-                for (int i = 0; i < nb_states; ++i)
-                        if (good_states[i] == active_state) {
+                FOREACH_ARRAY(good_state, good_states, nb_states)
+                        if (active_state == *good_state) {
                                 ok = true;
                                 break;
                         }
@@ -48,12 +48,12 @@ static int check_unit_generic(int code, const UnitActiveState good_states[], int
                         not_found = false;
         }
 
-        /* We use LSB code 4 ("program or service status is unknown")
-         * when the corresponding unit file doesn't exist. */
+        /* We use LSB code 4 ("program or service status is unknown") when the corresponding unit file doesn't exist. */
         return ok ? EXIT_SUCCESS : not_found ? EXIT_PROGRAM_OR_SERVICES_STATUS_UNKNOWN : code;
 }
 
 int verb_is_active(int argc, char *argv[], void *userdata) {
+
         static const UnitActiveState states[] = {
                 UNIT_ACTIVE,
                 UNIT_RELOADING,
@@ -64,6 +64,7 @@ int verb_is_active(int argc, char *argv[], void *userdata) {
 }
 
 int verb_is_failed(int argc, char *argv[], void *userdata) {
+
         static const UnitActiveState states[] = {
                 UNIT_FAILED,
         };
