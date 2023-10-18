@@ -376,7 +376,7 @@ static inline size_t ALIGN_TO(size_t l, size_t ali) {
         if (l > SIZE_MAX - (ali - 1))
                 return SIZE_MAX; /* indicate overflow */
 
-        return ((l + ali - 1) & ~(ali - 1));
+        return ((l + (ali - 1)) & ~(ali - 1));
 }
 
 #define ALIGN2(l) ALIGN_TO(l, 2)
