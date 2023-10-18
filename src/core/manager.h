@@ -635,6 +635,8 @@ int manager_override_watchdog_pretimeout_governor(Manager *m, const char *govern
 
 LogTarget manager_get_executor_log_target(Manager *m);
 
+int manager_allocate_idle_pipe(Manager *m);
+
 const char* oom_policy_to_string(OOMPolicy i) _const_;
 OOMPolicy oom_policy_from_string(const char *s) _pure_;
 
