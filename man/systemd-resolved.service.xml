@@ -244,7 +244,7 @@
   <refsect1>
     <title>Compatibility with the traditional glibc stub resolver</title>
 
-    <para>This section provides a short summary of differences in the stub resolver implemented by
+    <para>This section provides a short summary of differences in the resolver implemented by
     <citerefentry><refentrytitle>nss-resolve</refentrytitle><manvolnum>8</manvolnum></citerefentry> together
     with <command>systemd-resolved</command> and the traditional stub resolver implemented in
     <filename>nss-dns</filename>.</para>
@@ -309,6 +309,19 @@ search foobar.com barbar.com
       <varname>$RES_OPTIONS</varname> described in
       <citerefentry project='man-pages'><refentrytitle>resolv.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
       are not supported currently.</para></listitem>
+
+      <listitem><para>The <filename>nss-dns</filename> resolver maintains little state between subsequent DNS
+      queries, and for each query always talks to the first listed DNS server from
+      <filename>/etc/resolv.conf</filename> first, and on failure continues with the next until reaching the
+      end of the list which is when the query fails. The resolver in
+      <filename>systemd-resolved.service</filename> however maintains state, and will continuously talk to
+      the same server for all queries on a particular lookup scope until some form of error is seen at which
+      point it switches to the next, and then continuously stays with it for all queries on the scope until
+      the next failure, and so on, eventually returning to the first configured server. This is done to
+      optimize lookup times, in particular given that the resolver typically must first probe server feature
+      sets when talking to a server, which is time consuming. This different behaviour implies that listed
+      DNS servers per lookup scope must be equivalent in the zones they serve, so that sending a query to one
+      of them will yield the same results as sending it to another configured DNS server.</para></listitem>
     </itemizedlist>
   </refsect1>
 
