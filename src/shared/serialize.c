@@ -116,6 +116,33 @@ int serialize_fd(FILE *f, FDSet *fds, const char *key, int fd) {
         return serialize_item_format(f, key, "%i", copy);
 }
 
+int serialize_fd_many(FILE *f, FDSet *fds, const char *key, const int fd_array[], size_t n_fd_array) {
+        _cleanup_free_ char *t = NULL;
+
+        assert(f);
+
+        if (n_fd_array == 0)
+                return 0;
+
+        assert(fd_array);
+
+        for (size_t i = 0; i < n_fd_array; i++) {
+                int copy;
+
+                if (fd_array[i] < 0)
+                        return -EBADF;
+
+                copy = fdset_put_dup(fds, fd_array[i]);
+                if (copy < 0)
+                        return log_error_errno(copy, "Failed to add file descriptor to serialization set: %m");
+
+                if (strextendf_with_separator(&t, " ", "%i", copy) < 0)
+                        return log_oom();
+        }
+
+        return serialize_item(f, key, t);
+}
+
 int serialize_usec(FILE *f, const char *key, usec_t usec) {
         assert(f);
         assert(key);
@@ -285,7 +312,66 @@ int deserialize_read_line(FILE *f, char **ret) {
         return 1;
 }
 
-int deserialize_strv(char ***l, const char *value) {
+int deserialize_fd(FDSet *fds, const char *value) {
+        _cleanup_close_ int our_fd = -EBADF;
+        int parsed_fd;
+
+        assert(value);
+
+        parsed_fd = parse_fd(value);
+        if (parsed_fd < 0)
+                return log_debug_errno(parsed_fd, "Failed to parse file descriptor serialization: %s", value);
+
+        our_fd = fdset_remove(fds, parsed_fd); /* Take possession of the fd */
+        if (our_fd < 0)
+                return log_debug_errno(our_fd, "Failed to acquire fd from serialization fds: %m");
+
+        return TAKE_FD(our_fd);
+}
+
+int deserialize_fd_many(FDSet *fds, const char *value, size_t n, int *ret) {
+        int r, *fd_array = NULL;
+        size_t m = 0;
+
+        assert(value);
+
+        fd_array = new(int, n);
+        if (!fd_array)
+                return -ENOMEM;
+
+        CLEANUP_ARRAY(fd_array, m, close_many_and_free);
+
+        for (;;) {
+                _cleanup_free_ char *w = NULL;
+                int fd;
+
+                r = extract_first_word(&value, &w, NULL, 0);
+                if (r < 0)
+                        return r;
+                if (r == 0) {
+                        if (m < n) /* Too few */
+                                return -EINVAL;
+
+                        break;
+                }
+
+                if (m >= n) /* Too many */
+                        return -EINVAL;
+
+                fd = deserialize_fd(fds, w);
+                if (fd < 0)
+                        return fd;
+
+                fd_array[m++] = fd;
+        }
+
+        memcpy(ret, fd_array, m * sizeof(int));
+        fd_array = mfree(fd_array);
+
+        return 0;
+}
+
+int deserialize_strv(const char *value, char ***l) {
         ssize_t unescaped_len;
         char *unescaped;
 
@@ -303,6 +389,7 @@ int deserialize_usec(const char *value, usec_t *ret) {
         int r;
 
         assert(value);
+        assert(ret);
 
         r = safe_atou64(value, ret);
         if (r < 0)
@@ -311,12 +398,12 @@ int deserialize_usec(const char *value, usec_t *ret) {
         return 0;
 }
 
-int deserialize_dual_timestamp(const char *value, dual_timestamp *t) {
+int deserialize_dual_timestamp(const char *value, dual_timestamp *ret) {
         uint64_t a, b;
         int r, pos;
 
         assert(value);
-        assert(t);
+        assert(ret);
 
         pos = strspn(value, WHITESPACE);
         if (value[pos] == '-')
@@ -336,8 +423,10 @@ int deserialize_dual_timestamp(const char *value, dual_timestamp *t) {
                 /* trailing garbage */
                 return -EINVAL;
 
-        t->realtime = a;
-        t->monotonic = b;
+        *ret = (dual_timestamp) {
+                .realtime = a,
+                .monotonic = b,
+        };
 
         return 0;
 }
@@ -372,18 +461,12 @@ int deserialize_pidref(FDSet *fds, const char *value, PidRef *ret) {
 
         e = startswith(value, "@");
         if (e) {
-                _cleanup_close_ int our_fd = -EBADF;
-                int parsed_fd;
+                int fd = deserialize_fd(fds, e);
 
-                parsed_fd = parse_fd(e);
-                if (parsed_fd < 0)
-                        return log_debug_errno(parsed_fd, "Failed to parse file descriptor specification: %s", e);
+                if (fd < 0)
+                        return fd;
 
-                our_fd = fdset_remove(fds, parsed_fd); /* Take possession of the fd */
-                if (our_fd < 0)
-                        return log_debug_errno(our_fd, "Failed to acquire pidfd from serialization fds: %m");
-
-                r = pidref_set_pidfd_consume(ret, TAKE_FD(our_fd));
+                r = pidref_set_pidfd_consume(ret, fd);
         } else {
                 pid_t pid;
 
