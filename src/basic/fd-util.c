@@ -99,6 +99,13 @@ void close_many(const int fds[], size_t n_fd) {
                 safe_close(fds[i]);
 }
 
+void close_many_unset(int fds[], size_t n_fd) {
+        assert(fds || n_fd <= 0);
+
+        for (size_t i = 0; i < n_fd; i++)
+                fds[i] = safe_close(fds[i]);
+}
+
 void close_many_and_free(int *fds, size_t n_fds) {
         assert(fds || n_fds <= 0);
 
