@@ -1074,10 +1074,10 @@ static int service_is_suitable_main_pid(Service *s, PidRef *pid, int prio) {
                 return log_unit_full_errno(UNIT(s), prio, SYNTHETIC_ERRNO(EPERM), "New main PID "PID_FMT" is the control process, refusing.", pid->pid);
 
         r = pidref_is_alive(pid);
+        if (r < 0)
+                return log_unit_full_errno(UNIT(s), prio, r, "Failed to check if main PID "PID_FMT" exists or is a zombie: %m", pid->pid);
         if (r == 0)
                 return log_unit_full_errno(UNIT(s), prio, SYNTHETIC_ERRNO(ESRCH), "New main PID "PID_FMT" does not exist or is a zombie.", pid->pid);
-        if (r < 0)
-                return log_unit_full_errno(UNIT(s), prio, r, "Failed to check if main PID "PID_FMT" exists or is a zombie.", pid->pid);
 
         owner = manager_get_unit_by_pidref(UNIT(s)->manager, pid);
         if (owner == UNIT(s)) {
