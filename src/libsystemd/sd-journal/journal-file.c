@@ -47,30 +47,31 @@
 #define DEFAULT_COMPRESS_THRESHOLD (512ULL)
 #define MIN_COMPRESS_THRESHOLD (8ULL)
 
-/* This is the minimum journal file size */
-#define JOURNAL_FILE_SIZE_MIN (512 * 1024ULL)             /* 512 KiB */
-#define JOURNAL_COMPACT_SIZE_MAX UINT32_MAX               /* 4 GiB */
+#define U64_KB UINT64_C(1024)
+#define U64_MB (UINT64_C(1024) * U64_KB)
+#define U64_GB (UINT64_C(1024) * U64_MB)
 
-/* These are the lower and upper bounds if we deduce the max_use value
- * from the file system size */
-#define MAX_USE_LOWER (1 * 1024 * 1024ULL)                /* 1 MiB */
-#define MAX_USE_UPPER (4 * 1024 * 1024 * 1024ULL)         /* 4 GiB */
+/* This is the minimum journal file size */
+#define JOURNAL_FILE_SIZE_MIN (512 * U64_KB)             /* 512 KiB */
+#define JOURNAL_COMPACT_SIZE_MAX ((uint64_t) UINT32_MAX) /* 4 GiB */
+
+/* These are the lower and upper bounds if we deduce the max_use value from the file system size */
+#define MAX_USE_LOWER (1 * U64_MB)                       /* 1 MiB */
+#define MAX_USE_UPPER (4 * U64_GB)                       /* 4 GiB */
 
 /* Those are the lower and upper bounds for the minimal use limit,
  * i.e. how much we'll use even if keep_free suggests otherwise. */
-#define MIN_USE_LOW (1 * 1024 * 1024ULL)                  /* 1 MiB */
-#define MIN_USE_HIGH (16 * 1024 * 1024ULL)                /* 16 MiB */
+#define MIN_USE_LOW  (1  * U64_MB)                       /* 1 MiB */
+#define MIN_USE_HIGH (16 * U64_MB)                       /* 16 MiB */
 
 /* This is the upper bound if we deduce max_size from max_use */
-#define MAX_SIZE_UPPER (128 * 1024 * 1024ULL)             /* 128 MiB */
+#define MAX_SIZE_UPPER (128 * U64_MB)                    /* 128 MiB */
 
-/* This is the upper bound if we deduce the keep_free value from the
- * file system size */
-#define KEEP_FREE_UPPER (4 * 1024 * 1024 * 1024ULL)       /* 4 GiB */
+/* This is the upper bound if we deduce the keep_free value from the file system size */
+#define KEEP_FREE_UPPER (4 * U64_GB)                     /* 4 GiB */
 
-/* This is the keep_free value when we can't determine the system
- * size */
-#define DEFAULT_KEEP_FREE (1024 * 1024ULL)                /* 1 MB */
+/* This is the keep_free value when we can't determine the system size */
+#define DEFAULT_KEEP_FREE (1 * U64_MB)                   /* 1 MB */
 
 /* This is the default maximum number of journal files to keep around. */
 #define DEFAULT_N_MAX_FILES 100
@@ -82,7 +83,7 @@
 #define CHAIN_CACHE_MAX 20
 
 /* How much to increase the journal file size at once each time we allocate something new. */
-#define FILE_SIZE_INCREASE (8 * 1024 * 1024ULL)          /* 8MB */
+#define FILE_SIZE_INCREASE (8 * U64_MB)                  /* 8MB */
 
 /* Reread fstat() of the file for detecting deletions at least this often */
 #define LAST_STAT_REFRESH_USEC (5*USEC_PER_SEC)
@@ -750,7 +751,7 @@ static int journal_file_allocate(JournalFile *f, uint64_t offset, uint64_t size)
         /* We assume that this file is not sparse, and we know that for sure, since we always call
          * posix_fallocate() ourselves */
 
-        if (size > PAGE_ALIGN_DOWN(UINT64_MAX) - offset)
+        if (size > PAGE_ALIGN_DOWN_U64(UINT64_MAX) - offset)
                 return -EINVAL;
 
         if (mmap_cache_fd_got_sigbus(f->cache_fd))
@@ -758,12 +759,12 @@ static int journal_file_allocate(JournalFile *f, uint64_t offset, uint64_t size)
 
         old_header_size = le64toh(READ_NOW(f->header->header_size));
         old_arena_size = le64toh(READ_NOW(f->header->arena_size));
-        if (old_arena_size > PAGE_ALIGN_DOWN(UINT64_MAX) - old_header_size)
+        if (old_arena_size > PAGE_ALIGN_DOWN_U64(UINT64_MAX) - old_header_size)
                 return -EBADMSG;
 
         old_size = old_header_size + old_arena_size;
 
-        new_size = MAX(PAGE_ALIGN(offset + size), old_header_size);
+        new_size = MAX(PAGE_ALIGN_U64(offset + size), old_header_size);
 
         if (new_size <= old_size) {
 
@@ -3887,12 +3888,12 @@ static void journal_default_metrics(JournalMetrics *m, int fd, bool compact) {
         if (m->max_use == UINT64_MAX) {
 
                 if (fs_size > 0)
-                        m->max_use = CLAMP(PAGE_ALIGN(fs_size / 10), /* 10% of file system size */
+                        m->max_use = CLAMP(PAGE_ALIGN_U64(fs_size / 10), /* 10% of file system size */
                                            MAX_USE_LOWER, MAX_USE_UPPER);
                 else
                         m->max_use = MAX_USE_LOWER;
         } else {
-                m->max_use = PAGE_ALIGN(m->max_use);
+                m->max_use = PAGE_ALIGN_U64(m->max_use);
 
                 if (m->max_use != 0 && m->max_use < JOURNAL_FILE_SIZE_MIN*2)
                         m->max_use = JOURNAL_FILE_SIZE_MIN*2;
@@ -3900,7 +3901,7 @@ static void journal_default_metrics(JournalMetrics *m, int fd, bool compact) {
 
         if (m->min_use == UINT64_MAX) {
                 if (fs_size > 0)
-                        m->min_use = CLAMP(PAGE_ALIGN(fs_size / 50), /* 2% of file system size */
+                        m->min_use = CLAMP(PAGE_ALIGN_U64(fs_size / 50), /* 2% of file system size */
                                            MIN_USE_LOW, MIN_USE_HIGH);
                 else
                         m->min_use = MIN_USE_LOW;
@@ -3910,10 +3911,10 @@ static void journal_default_metrics(JournalMetrics *m, int fd, bool compact) {
                 m->min_use = m->max_use;
 
         if (m->max_size == UINT64_MAX)
-                m->max_size = MIN(PAGE_ALIGN(m->max_use / 8), /* 8 chunks */
+                m->max_size = MIN(PAGE_ALIGN_U64(m->max_use / 8), /* 8 chunks */
                                   MAX_SIZE_UPPER);
         else
-                m->max_size = PAGE_ALIGN(m->max_size);
+                m->max_size = PAGE_ALIGN_U64(m->max_size);
 
         if (compact && m->max_size > JOURNAL_COMPACT_SIZE_MAX)
                 m->max_size = JOURNAL_COMPACT_SIZE_MAX;
@@ -3929,13 +3930,13 @@ static void journal_default_metrics(JournalMetrics *m, int fd, bool compact) {
         if (m->min_size == UINT64_MAX)
                 m->min_size = JOURNAL_FILE_SIZE_MIN;
         else
-                m->min_size = CLAMP(PAGE_ALIGN(m->min_size),
+                m->min_size = CLAMP(PAGE_ALIGN_U64(m->min_size),
                                     JOURNAL_FILE_SIZE_MIN,
                                     m->max_size ?: UINT64_MAX);
 
         if (m->keep_free == UINT64_MAX) {
                 if (fs_size > 0)
-                        m->keep_free = MIN(PAGE_ALIGN(fs_size / 20), /* 5% of file system size */
+                        m->keep_free = MIN(PAGE_ALIGN_U64(fs_size / 20), /* 5% of file system size */
                                            KEEP_FREE_UPPER);
                 else
                         m->keep_free = DEFAULT_KEEP_FREE;
