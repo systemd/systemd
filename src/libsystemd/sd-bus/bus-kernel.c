@@ -27,6 +27,9 @@
 #include "memory-util.h"
 
 void close_and_munmap(int fd, void *address, size_t size) {
+        size = PAGE_ALIGN(size);
+        assert(size < SIZE_MAX);
+
         if (size > 0)
                 assert_se(munmap(address, PAGE_ALIGN(size)) >= 0);
 

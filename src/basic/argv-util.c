@@ -81,6 +81,9 @@ static int update_argv(const char name[], size_t l) {
         static int can_do = -1;
         int r;
 
+        assert(name);
+        assert(l < SIZE_MAX);
+
         if (can_do == 0)
                 return 0;
         can_do = false; /* We'll set it to true only if the whole process works */
@@ -102,6 +105,9 @@ static int update_argv(const char name[], size_t l) {
                 char *nn;
 
                 nn_size = PAGE_ALIGN(l+1);
+                if (nn_size >= SIZE_MAX)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "The requested argument is too long.");
+
                 nn = mmap(NULL, nn_size, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
                 if (nn == MAP_FAILED)
                         return log_debug_errno(errno, "mmap() failed: %m");
