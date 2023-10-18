@@ -99,6 +99,20 @@ void close_many(const int fds[], size_t n_fd) {
                 safe_close(fds[i]);
 }
 
+void close_many_unset(int fds[], size_t n_fd) {
+        assert(fds || n_fd <= 0);
+
+        for (size_t i = 0; i < n_fd; i++)
+                fds[i] = safe_close(fds[i]);
+}
+
+void close_many_and_free(int *fds, size_t n_fds) {
+        assert(fds || n_fds <= 0);
+
+        close_many(fds, n_fds);
+        free(fds);
+}
+
 int fclose_nointr(FILE *f) {
         assert(f);
 
@@ -738,8 +752,7 @@ finish:
                 safe_close_above_stdio(original_error_fd);
 
         /* Close the copies we moved > 2 */
-        for (int i = 0; i < 3; i++)
-                safe_close(copy_fd[i]);
+        close_many(copy_fd, 3);
 
         /* Close our null fd, if it's > 2 */
         safe_close_above_stdio(null_fd);
