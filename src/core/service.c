@@ -1611,7 +1611,7 @@ static int service_spawn_internal(
                 ExecFlags flags,
                 PidRef *ret_pid) {
 
-        _cleanup_(exec_params_clear) ExecParameters exec_params = EXEC_PARAMETERS_INIT(flags);
+        _cleanup_(exec_params_shallow_clear) ExecParameters exec_params = EXEC_PARAMETERS_INIT(flags);
         _cleanup_(sd_event_source_unrefp) sd_event_source *exec_fd_source = NULL;
         _cleanup_strv_free_ char **final_env = NULL, **our_env = NULL;
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
