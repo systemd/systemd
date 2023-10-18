@@ -17,12 +17,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         if (outside_size_range(size, 0, 65536))
                 return 0;
 
-        /* We don't want to fill the logs with messages about parse errors.
-         * Disable most logging if not running standalone. */
-        if (!getenv("SYSTEMD_LOG_LEVEL")) {
-                log_set_max_level(LOG_CRIT);
-                log_set_target(LOG_TARGET_NULL);
-        }
+        fuzz_setup_logging();
 
         assert_se(manager_new(RUNTIME_SCOPE_SYSTEM, MANAGER_TEST_RUN_MINIMAL|MANAGER_TEST_DONT_OPEN_EXECUTOR, &m) >= 0);
         /* Set log overrides as well to make it harder for a serialization file

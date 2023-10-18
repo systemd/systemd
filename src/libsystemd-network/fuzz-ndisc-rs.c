@@ -23,6 +23,8 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         if (outside_size_range(size, 0, 2048))
                 return 0;
 
+        fuzz_setup_logging();
+
         assert_se(sd_event_new(&e) >= 0);
         assert_se(sd_ndisc_new(&nd) >= 0);
         assert_se(sd_ndisc_attach_event(nd, e, 0) >= 0);
