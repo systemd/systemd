@@ -168,7 +168,7 @@ int logind_check_inhibitors(enum action a) {
                                           ACTION_KEXEC) ? "shutdown" : "sleep"))
                         continue;
 
-                (void) get_process_comm(pid, &comm);
+                (void) pid_get_comm(pid, &comm);
                 user = uid_to_name(uid);
 
                 log_warning("Operation inhibited by \"%s\" (PID "PID_FMT" \"%s\", user %s), reason is \"%s\".",

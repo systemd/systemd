@@ -241,14 +241,14 @@ Features:
   a local key to it.
 
 * PidRef conversion work:
-  - pid_is_unwaited() → pidref_is_unwaited()
-  - pid_is_alive() → pidref_is_alive()
-  - is_kernel_thread() → pidref_is_kernel_thread()
-  - pid_is_my_child() → pidref_is_my_child()
-  - get_process_uid() → pidref_get_uid()
+  - cg_pid_get_xyz()
+  - pid_from_same_root_fs()
+  - get_ctty_devnr()
+  - mount_image_in_namespace()
+  - bind_mount_in_namespace()
+  - pid1: sd_notify() receiver should use SCM_PIDFD to authenticate client
   - actually wait for POLLIN on pidref's pidfd in service logic
-  - exec_spawn()
-  - cg_pid_get_unit()
+  - exec_spawn() + safe_fork()
   - openpt_allocate_in_namespace()
   - sd_bus_creds
   - unit_attach_pid_to_cgroup_via_bus()

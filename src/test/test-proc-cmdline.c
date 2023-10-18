@@ -274,7 +274,7 @@ TEST(proc_cmdline_key_startswith) {
                 _cleanup_strv_free_ char **a = NULL, **b = NULL;        \
                 const char s[] = (nulstr);                              \
                                                                         \
-                /* This emulates get_process_cmdline_strv(). */         \
+                /* This emulates pid_get_cmdline_strv(). */         \
                 assert_se(a = strv_parse_nulstr_full(s, ELEMENTSOF(s),  \
                                                      /* drop_trailing_nuls = */ true)); \
                 assert_se(proc_cmdline_filter_pid1_args(a, &b) >= 0);   \

@@ -139,7 +139,7 @@ sd_bus_creds* bus_creds_new(void) {
 }
 
 _public_ int sd_bus_creds_new_from_pid(sd_bus_creds **ret, pid_t pid, uint64_t mask) {
-        sd_bus_creds *c;
+        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *c = NULL;
         int r;
 
         assert_return(pid >= 0, -EINVAL);
@@ -154,19 +154,18 @@ _public_ int sd_bus_creds_new_from_pid(sd_bus_creds **ret, pid_t pid, uint64_t m
                 return -ENOMEM;
 
         r = bus_creds_add_more(c, mask | SD_BUS_CREDS_AUGMENT, pid, 0);
-        if (r < 0) {
-                sd_bus_creds_unref(c);
+        if (r < 0)
                 return r;
-        }
 
         /* Check if the process existed at all, in case we haven't
          * figured that out already */
-        if (!pid_is_alive(pid)) {
-                sd_bus_creds_unref(c);
+        r = pid_is_alive(pid);
+        if (r < 0)
+                return r;
+        if (r == 0)
                 return -ESRCH;
-        }
 
-        *ret = c;
+        *ret = TAKE_PTR(c);
         return 0;
 }
 
@@ -969,7 +968,7 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, pid_t pid, pid_t tid) {
         }
 
         if (missing & SD_BUS_CREDS_COMM) {
-                r = get_process_comm(pid, &c->comm);
+                r = pid_get_comm(pid, &c->comm);
                 if (r < 0) {
                         if (!ERRNO_IS_PRIVILEGE(r))
                                 return r;
@@ -1089,15 +1088,16 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, pid_t pid, pid_t tid) {
                         c->mask |= SD_BUS_CREDS_TTY;
         }
 
-        /* In case only the exe path was to be read we cannot
-         * distinguish the case where the exe path was unreadable
-         * because the process was a kernel thread, or when the
-         * process didn't exist at all. Hence, let's do a final check,
-         * to be sure. */
-        if (!pid_is_alive(pid))
+        /* In case only the exe path was to be read we cannot distinguish the case where the exe path was
+         * unreadable because the process was a kernel thread, or when the process didn't exist at
+         * all. Hence, let's do a final check, to be sure. */
+        r = pid_is_alive(pid);
+        if (r < 0)
+                return r;
+        if (r == 0)
                 return -ESRCH;
 
-        if (tid > 0 && tid != pid && !pid_is_unwaited(tid))
+        if (tid > 0 && tid != pid && pid_is_unwaited(tid) == 0)
                 return -ESRCH;
 
         c->augmented = missing & c->mask;
