@@ -598,7 +598,8 @@ if command -v nft >/dev/null; then
     nft add set inet sd_test g '{ typeof meta skgid; }'
 
     # service
-    systemd-run -u test-nft.service -p DynamicUser=yes -p 'NFTSet=cgroup:inet:sd_test:c user:inet:sd_test:u group:inet:sd_test:g' sleep 10000
+    systemd-run --unit test-nft.service --service-type=exec -p DynamicUser=yes \
+                -p 'NFTSet=cgroup:inet:sd_test:c user:inet:sd_test:u group:inet:sd_test:g' sleep 10000
     run nft list set inet sd_test c
     grep -qF "test-nft.service" "$RUN_OUT"
     uid=$(getent passwd test-nft | cut -d':' -f3)
