@@ -795,7 +795,7 @@ static int journal_file_allocate(JournalFile *f, uint64_t offset, uint64_t size)
                 if (fstatvfs(f->fd, &svfs) >= 0) {
                         uint64_t available;
 
-                        available = LESS_BY((uint64_t) svfs.f_bfree * (uint64_t) svfs.f_bsize, f->metrics.keep_free);
+                        available = LESS_BY(u64_multiply_safe(svfs.f_bfree, svfs.f_bsize), f->metrics.keep_free);
 
                         if (new_size - old_size > available)
                                 return -E2BIG;
@@ -3881,7 +3881,7 @@ static void journal_default_metrics(JournalMetrics *m, int fd, bool compact) {
         assert(fd >= 0);
 
         if (fstatvfs(fd, &ss) >= 0)
-                fs_size = ss.f_frsize * ss.f_blocks;
+                fs_size = u64_multiply_safe(ss.f_frsize, ss.f_blocks);
         else
                 log_debug_errno(errno, "Failed to determine disk size: %m");
 
