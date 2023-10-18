@@ -1261,22 +1261,24 @@ static int exec_parameters_serialize(const ExecParameters *p, FILE *f, FDSet *fd
         if (r < 0)
                 return r;
 
-        if (p->n_socket_fds > 0) {
-                r = serialize_item_format(f, "exec-parameters-n-socket-fds", "%zu", p->n_socket_fds);
-                if (r < 0)
-                        return r;
-        }
+        if (p->fds) {
+                if (p->n_socket_fds > 0) {
+                        r = serialize_item_format(f, "exec-parameters-n-socket-fds", "%zu", p->n_socket_fds);
+                        if (r < 0)
+                                return r;
+                }
 
-        if (p->n_storage_fds > 0) {
-                r = serialize_item_format(f, "exec-parameters-n-storage-fds", "%zu", p->n_storage_fds);
-                if (r < 0)
-                        return r;
-        }
+                if (p->n_storage_fds > 0) {
+                        r = serialize_item_format(f, "exec-parameters-n-storage-fds", "%zu", p->n_storage_fds);
+                        if (r < 0)
+                                return r;
+                }
 
-        if (p->n_socket_fds + p->n_storage_fds > 0) {
-                r = serialize_fd_many(f, fds, "exec-parameters-fds", p->fds, p->n_socket_fds + p->n_storage_fds);
-                if (r < 0)
-                        return r;
+                if (p->n_socket_fds + p->n_storage_fds > 0) {
+                        r = serialize_fd_many(f, fds, "exec-parameters-fds", p->fds, p->n_socket_fds + p->n_storage_fds);
+                        if (r < 0)
+                                return r;
+                }
         }
 
         r = serialize_strv(f, "exec-parameters-fd-names", p->fd_names);
