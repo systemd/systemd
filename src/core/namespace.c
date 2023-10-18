@@ -2527,10 +2527,9 @@ int setup_namespace(const NamespaceParameters *p, char **error_path) {
 
         /* bind_mount_in_namespace() will MS_MOVE into that directory, and that's only
          * supported for non-shared mounts. This needs to happen after remounting / or it will fail. */
-        if (setup_propagate) {
+        if (setup_propagate)
                 if (mount(NULL, p->incoming_dir, NULL, MS_SLAVE, NULL) < 0)
                         return log_debug_errno(errno, "Failed to remount %s with MS_SLAVE: %m", p->incoming_dir);
-        }
 
         return 0;
 }
