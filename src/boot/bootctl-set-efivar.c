@@ -24,7 +24,7 @@ static int parse_timeout(const char *arg1, char16_t **ret_timeout, size_t *ret_t
 
         assert_cc(STRLEN("menu-disabled") < ELEMENTSOF(utf8));
 
-        /* Note: Since there is no way to query if the booloader supports the string tokens, we explicitly
+        /* Note: Since there is no way to query if the bootloader supports the string tokens, we explicitly
          * set their numerical value(s) instead. This means that some of the sd-boot internal ABI has leaked
          * although the ship has sailed and the side-effects are self-contained.
          */
