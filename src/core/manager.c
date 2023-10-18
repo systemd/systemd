@@ -4952,6 +4952,35 @@ ManagerTimestamp manager_timestamp_initrd_mangle(ManagerTimestamp s) {
         return s;
 }
 
+int manager_allocate_idle_pipe(Manager *m) {
+        int r;
+
+        assert(m);
+
+        if (m->idle_pipe[0] >= 0) {
+                assert(m->idle_pipe[1] >= 0);
+                assert(m->idle_pipe[2] >= 0);
+                assert(m->idle_pipe[3] >= 0);
+                return 0;
+        }
+
+        assert(m->idle_pipe[1] < 0);
+        assert(m->idle_pipe[2] < 0);
+        assert(m->idle_pipe[3] < 0);
+
+        r = RET_NERRNO(pipe2(m->idle_pipe + 0, O_NONBLOCK|O_CLOEXEC));
+        if (r < 0)
+                return r;
+
+        r = RET_NERRNO(pipe2(m->idle_pipe + 2, O_NONBLOCK|O_CLOEXEC));
+        if (r < 0) {
+                safe_close_pair(m->idle_pipe + 0);
+                return r;
+        }
+
+        return 1;
+}
+
 void unit_defaults_init(UnitDefaults *defaults, RuntimeScope scope) {
         assert(defaults);
         assert(scope >= 0);
