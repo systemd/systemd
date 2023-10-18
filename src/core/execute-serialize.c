@@ -1120,8 +1120,7 @@ static int exec_runtime_serialize(const ExecRuntime *rt, FILE *f, FDSet *fds, in
                         r = serialize_fd_many_full(
                                         f,
                                         fds,
-                                        index ? "exec-runtime-netns-storage-socket-by-fd-index" :
-                                                "exec-runtime-netns-storage-socket",
+                                        "exec-runtime-netns-storage-socket",
                                         rt->shared->netns_storage_socket,
                                         2,
                                         index);
@@ -1133,8 +1132,7 @@ static int exec_runtime_serialize(const ExecRuntime *rt, FILE *f, FDSet *fds, in
                         r = serialize_fd_many_full(
                                         f,
                                         fds,
-                                        index ? "exec-runtime-ipcns-storage-socket-by-fd-index" :
-                                                "exec-runtime-ipcns-storage-socket",
+                                        "exec-runtime-ipcns-storage-socket",
                                         rt->shared->ipcns_storage_socket,
                                         2,
                                         index);
@@ -1146,8 +1144,7 @@ static int exec_runtime_serialize(const ExecRuntime *rt, FILE *f, FDSet *fds, in
         if (rt->dynamic_creds) {
                 r = dynamic_user_serialize_one(
                                 rt->dynamic_creds->user,
-                                index ? "exec-runtime-dynamic-creds-user-by-fd-index" :
-                                        "exec-runtime-dynamic-creds-user",
+                                "exec-runtime-dynamic-creds-user",
                                 f,
                                 fds,
                                 index);
@@ -1162,8 +1159,7 @@ static int exec_runtime_serialize(const ExecRuntime *rt, FILE *f, FDSet *fds, in
         } else if (rt->dynamic_creds) {
                 r = dynamic_user_serialize_one(
                                 rt->dynamic_creds->group,
-                                index ? "exec-runtime-dynamic-creds-group-by-fd-index" :
-                                        "exec-runtime-dynamic-creds-group",
+                                "exec-runtime-dynamic-creds-group",
                                 f,
                                 fds,
                                 index);
@@ -1179,8 +1175,7 @@ static int exec_runtime_serialize(const ExecRuntime *rt, FILE *f, FDSet *fds, in
                 r = serialize_fd_many_full(
                                 f,
                                 fds,
-                                index ? "exec-runtime-ephemeral-storage-socket-by-fd-index" :
-                                        "exec-runtime-ephemeral-storage-socket",
+                                "exec-runtime-ephemeral-storage-socket",
                                 rt->ephemeral_storage_socket,
                                 2,
                                 index);
@@ -1369,7 +1364,7 @@ static int exec_parameters_serialize(const ExecParameters *p, FILE *f, FDSet *fd
                         r = serialize_fd_many_full(
                                         f,
                                         fds,
-                                        index ? "exec-parameters-fds-by-fd-index" : "exec-parameters-fds",
+                                        "exec-parameters-fds",
                                         p->fds,
                                         p->n_socket_fds + p->n_storage_fds,
                                         index);
@@ -1443,59 +1438,28 @@ static int exec_parameters_serialize(const ExecParameters *p, FILE *f, FDSet *fd
         }
 
         if (exec_parameters_is_idle_pipe_set(p)) {
-                r = serialize_fd_many_full(
-                                f,
-                                fds,
-                                index ? "exec-parameters-idle-pipe-by-fd-index" : "exec-parameters-idle-pipe",
-                                p->idle_pipe,
-                                4,
-                                index);
+                r = serialize_fd_many_full(f, fds, "exec-parameters-idle-pipe", p->idle_pipe, 4, index);
                 if (r < 0)
                         return r;
         }
 
-        r = serialize_fd_full(
-                        f,
-                        fds,
-                        index ? "exec-parameters-stdin-fd-by-fd-index" : "exec-parameters-stdin-fd",
-                        p->stdin_fd,
-                        index);
+        r = serialize_fd_full(f, fds, "exec-parameters-stdin-fd", p->stdin_fd, index);
         if (r < 0)
                 return r;
 
-        r = serialize_fd_full(
-                        f,
-                        fds,
-                        index ? "exec-parameters-stdout-fd-by-fd-index" : "exec-parameters-stdout-fd",
-                        p->stdout_fd,
-                        index);
+        r = serialize_fd_full(f, fds, "exec-parameters-stdout-fd", p->stdout_fd, index);
         if (r < 0)
                 return r;
 
-        r = serialize_fd_full(
-                        f,
-                        fds,
-                        index ? "exec-parameters-stderr-fd-by-fd-index" : "exec-parameters-stderr-fd",
-                        p->stderr_fd,
-                        index);
+        r = serialize_fd_full(f, fds, "exec-parameters-stderr-fd", p->stderr_fd, index);
         if (r < 0)
                 return r;
 
-        r = serialize_fd_full(
-                        f,
-                        fds,
-                        index ? "exec-parameters-exec-fd-by-fd-index" : "exec-parameters-exec-fd",
-                        p->exec_fd,
-                        index);
+        r = serialize_fd_full(f, fds, "exec-parameters-exec-fd", p->exec_fd, index);
         if (r < 0)
                 return r;
 
-        r = serialize_fd_full(
-                        f,
-                        fds,
-                        index ? "exec-parameters-bpf-outer-map-fd-by-fd-index" : "exec-parameters-bpf-outer-map-fd",
-                        p->bpf_outer_map_fd,
-                        index);
+        r = serialize_fd_full(f, fds, "exec-parameters-bpf-outer-map-fd", p->bpf_outer_map_fd, index);
         if (r < 0)
                 return r;
 
@@ -1519,12 +1483,7 @@ static int exec_parameters_serialize(const ExecParameters *p, FILE *f, FDSet *fd
         if (r < 0)
                 return r;
 
-        r = serialize_fd_full(
-                        f,
-                        fds,
-                        index ? "exec-parameters-user-lookup-fd-by-fd-index" : "exec-parameters-user-lookup-fd",
-                        p->user_lookup_fd,
-                        index);
+        r = serialize_fd_full(f, fds, "exec-parameters-user-lookup-fd", p->user_lookup_fd, index);
         if (r < 0)
                 return r;
 

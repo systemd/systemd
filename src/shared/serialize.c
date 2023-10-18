@@ -100,6 +100,7 @@ int serialize_item_format(FILE *f, const char *key, const char *format, ...) {
 }
 
 int serialize_fd_full(FILE *f, FDSet *fds, const char *key, int fd, int *index) {
+        _cleanup_free_ char *k = NULL;
         int copy;
 
         assert(f);
@@ -109,9 +110,14 @@ int serialize_fd_full(FILE *f, FDSet *fds, const char *key, int fd, int *index) 
         if (fd < 0)
                 return 0;
 
-        if (index)
+        if (index) {
                 copy = fdset_put_dup_indexed(fds, fd, (*index)++);
-        else
+
+                k = strjoin(key, "-by-fd-index");
+                if (!k)
+                        return log_oom();
+                key = k;
+        } else
                 copy = fdset_put_dup(fds, fd);
         if (copy < 0)
                 return log_error_errno(copy, "Failed to add file descriptor to serialization set: %m");
@@ -127,7 +133,7 @@ int serialize_fd_many_full(
                 size_t n_fd_array,
                 int *index) {
 
-        _cleanup_free_ char *t = NULL;
+        _cleanup_free_ char *t = NULL, *k = NULL;
 
         assert(f);
 
@@ -151,6 +157,13 @@ int serialize_fd_many_full(
 
                 if (strextendf_with_separator(&t, " ", "%i", copy) < 0)
                         return log_oom();
+        }
+
+        if (index) {
+                k = strjoin(key, "-by-fd-index");
+                if (!k)
+                        return log_oom();
+                key = k;
         }
 
         return serialize_item(f, key, t);

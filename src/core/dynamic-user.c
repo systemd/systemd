@@ -608,6 +608,7 @@ static DynamicUser* dynamic_user_destroy(DynamicUser *d) {
 }
 
 int dynamic_user_serialize_one(DynamicUser *d, const char *key, FILE *f, FDSet *fds, int *index) {
+        _cleanup_free_ char *k = NULL;
         int copy0, copy1;
 
         assert(key);
@@ -633,6 +634,13 @@ int dynamic_user_serialize_one(DynamicUser *d, const char *key, FILE *f, FDSet *
                 copy1 = fdset_put_dup(fds, d->storage_socket[1]);
         if (copy1 < 0)
                 return log_error_errno(copy1, "Failed to add dynamic user storage fd to serialization: %m");
+
+        if (index) {
+                k = strjoin(key, "-by-fd-index");
+                if (!k)
+                        return log_oom();
+                key = k;
+        }
 
         (void) serialize_item_format(f, key, "%s %i %i", d->name, copy0, copy1);
 
