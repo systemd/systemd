@@ -207,7 +207,9 @@ int serialize_item_hexmem(FILE *f, const char *key, const void *p, size_t l) {
 
         assert(f);
         assert(key);
-        assert(p || l == 0);
+
+        if (!p && l > 0)
+                return -EINVAL;
 
         if (l == 0)
                 return 0;
@@ -230,7 +232,9 @@ int serialize_item_base64mem(FILE *f, const char *key, const void *p, size_t l) 
 
         assert(f);
         assert(key);
-        assert(p || l == 0);
+
+        if (!p && l > 0)
+                return -EINVAL;
 
         if (l == 0)
                 return 0;
