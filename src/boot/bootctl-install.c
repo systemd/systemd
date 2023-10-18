@@ -233,7 +233,7 @@ static int copy_file_with_version_check(const char *from, const char *to, bool f
                         if (r < 0)
                                 return r;
 
-                        if (lseek(fd_from, 0, SEEK_SET) == (off_t) -1)
+                        if (lseek(fd_from, 0, SEEK_SET) == OFF_T_MAX)
                                 return log_error_errno(errno, "Failed to seek in \"%s\": %m", from);
 
                         fd_to = safe_close(fd_to);
