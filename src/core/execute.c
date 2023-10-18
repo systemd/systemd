@@ -401,7 +401,15 @@ int exec_spawn(Unit *unit,
         if (!fdset)
                 return log_oom();
 
-        r = exec_serialize_invocation(f, fdset, context, command, params, runtime, cgroup_context);
+        r = exec_serialize_invocation(
+                        f,
+                        fdset,
+                        /* index= */ NULL,
+                        context,
+                        command,
+                        params,
+                        runtime,
+                        cgroup_context);
         if (r < 0)
                 return log_unit_error_errno(unit, r, "Failed to serialize parameters: %m");
 
@@ -2004,14 +2012,14 @@ int exec_shared_runtime_deserialize_compat(Unit *u, const char *key, const char 
         } else if (streq(key, "netns-socket-0")) {
 
                 safe_close(rt->netns_storage_socket[0]);
-                rt->netns_storage_socket[0] = deserialize_fd(fds, value);
+                rt->netns_storage_socket[0] = deserialize_fd_from_set(fds, value);
                 if (rt->netns_storage_socket[0] < 0)
                         return 0;
 
         } else if (streq(key, "netns-socket-1")) {
 
                 safe_close(rt->netns_storage_socket[1]);
-                rt->netns_storage_socket[1] = deserialize_fd(fds, value);
+                rt->netns_storage_socket[1] = deserialize_fd_from_set(fds, value);
                 if (rt->netns_storage_socket[1] < 0)
                         return 0;
         } else
@@ -2079,7 +2087,7 @@ int exec_shared_runtime_deserialize_one(Manager *m, const char *value, FDSet *fd
                 n = strcspn(v, " ");
                 buf = strndupa_safe(v, n);
 
-                netns_fdpair[0] = deserialize_fd(fds, buf);
+                netns_fdpair[0] = deserialize_fd_from_set(fds, buf);
                 if (netns_fdpair[0] < 0)
                         return netns_fdpair[0];
                 if (v[n] != ' ')
@@ -2094,7 +2102,7 @@ int exec_shared_runtime_deserialize_one(Manager *m, const char *value, FDSet *fd
                 n = strcspn(v, " ");
                 buf = strndupa_safe(v, n);
 
-                netns_fdpair[1] = deserialize_fd(fds, buf);
+                netns_fdpair[1] = deserialize_fd_from_set(fds, buf);
                 if (netns_fdpair[1] < 0)
                         return netns_fdpair[1];
                 if (v[n] != ' ')
@@ -2109,7 +2117,7 @@ int exec_shared_runtime_deserialize_one(Manager *m, const char *value, FDSet *fd
                 n = strcspn(v, " ");
                 buf = strndupa_safe(v, n);
 
-                ipcns_fdpair[0] = deserialize_fd(fds, buf);
+                ipcns_fdpair[0] = deserialize_fd_from_set(fds, buf);
                 if (ipcns_fdpair[0] < 0)
                         return ipcns_fdpair[0];
                 if (v[n] != ' ')
@@ -2124,7 +2132,7 @@ int exec_shared_runtime_deserialize_one(Manager *m, const char *value, FDSet *fd
                 n = strcspn(v, " ");
                 buf = strndupa_safe(v, n);
 
-                ipcns_fdpair[1] = deserialize_fd(fds, buf);
+                ipcns_fdpair[1] = deserialize_fd_from_set(fds, buf);
                 if (ipcns_fdpair[1] < 0)
                         return ipcns_fdpair[1];
         }
@@ -2230,9 +2238,12 @@ void exec_runtime_clear(ExecRuntime *rt) {
         rt->ephemeral_copy = mfree(rt->ephemeral_copy);
 }
 
-void exec_params_clear(ExecParameters *p) {
+void exec_params_shallow_clear(ExecParameters *p) {
         if (!p)
                 return;
+
+        /* This is called on the PID1 side, as many of the struct's FDs are only borrowed, and actually
+         * owned by the manager or other objects, and reused across multiple units. */
 
         p->environment = strv_free(p->environment);
         p->fd_names = strv_free(p->fd_names);
@@ -2247,9 +2258,13 @@ void exec_params_clear(ExecParameters *p) {
         p->confirm_spawn = mfree(p->confirm_spawn);
 }
 
-void exec_params_serialized_done(ExecParameters *p) {
+void exec_params_deep_clear(ExecParameters *p) {
         if (!p)
                 return;
+
+        /* This is called on the sd-executor side, where everything received is owned by the process and has
+         * to be fully cleaned up to make sanitizers and analyzers happy, as opposed as the shallow clean
+         * function above. */
 
         close_many_unset(p->fds, p->n_socket_fds + p->n_storage_fds);
 
@@ -2274,7 +2289,7 @@ void exec_params_serialized_done(ExecParameters *p) {
 
         p->fallback_smack_process_label = mfree(p->fallback_smack_process_label);
 
-        exec_params_clear(p);
+        exec_params_shallow_clear(p);
 }
 
 void exec_directory_done(ExecDirectory *d) {
