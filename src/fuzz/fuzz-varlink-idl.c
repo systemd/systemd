@@ -14,9 +14,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_free_ char *str = NULL, *dump = NULL;
         int r;
 
-        log_set_max_level(LOG_CRIT);
-        log_parse_environment();
-        (void) log_open();
+        fuzz_setup_logging();
 
         assert_se(str = memdup_suffix0(data, size));
 

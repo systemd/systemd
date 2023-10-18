@@ -92,8 +92,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_(varlink_flush_close_unrefp) Varlink *c = NULL;
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
 
-        log_set_max_level(LOG_CRIT);
-        log_parse_environment();
+        fuzz_setup_logging();
 
         assert_se(null = fopen("/dev/null", "we"));
 
