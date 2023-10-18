@@ -3880,9 +3880,11 @@ static void journal_default_metrics(JournalMetrics *m, int fd, bool compact) {
         assert(m);
         assert(fd >= 0);
 
-        if (fstatvfs(fd, &ss) >= 0)
-                fs_size = ss.f_frsize * ss.f_blocks;
-        else
+        if (fstatvfs(fd, &ss) >= 0) {
+                /* check overflow */
+                if (ss.f_frsize != 0 && ss.f_blocks <= UINT64_MAX / ss.f_frsize)
+                        fs_size = ss.f_frsize * ss.f_blocks;
+        } else
                 log_debug_errno(errno, "Failed to determine disk size: %m");
 
         if (m->max_use == UINT64_MAX) {
