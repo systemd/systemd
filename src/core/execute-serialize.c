@@ -1086,7 +1086,7 @@ static int exec_cgroup_context_deserialize(CGroupContext *c, FILE *f) {
                                 return r;
                         c->restrict_network_interfaces_is_allow_list = r;
                 } else
-                        log_warning("Failed to parse serialized line, ignorning: %s", l);
+                        log_warning("Failed to parse serialized line, ignoring: %s", l);
         }
 
         return 0;
@@ -1310,7 +1310,7 @@ static int exec_runtime_deserialize(ExecRuntime *rt, FILE *f, FDSet *fds) {
                                 }
                         }
                 } else
-                        log_warning("Failed to parse serialized line, ignorning: %s", l);
+                        log_warning("Failed to parse serialized line, ignoring: %s", l);
         }
 
         return 0;
@@ -1855,7 +1855,7 @@ static int exec_parameters_deserialize(ExecParameters *p, FILE *f, FDSet *fds) {
 
                         sd_id128_to_string(p->invocation_id, p->invocation_id_string);
                 } else
-                        log_warning("Failed to parse serialized line, ignorning: %s", l);
+                        log_warning("Failed to parse serialized line, ignoring: %s", l);
         }
 
         /* Bail out if we got exec-parameters-n-{socket/storage}-fds= but no corresponding
@@ -4004,7 +4004,7 @@ static int exec_command_deserialize(ExecCommand *c, FILE *f) {
                         if (r < 0)
                                 return r;
                 } else
-                        log_warning("Failed to parse serialized line, ignorning: %s", l);
+                        log_warning("Failed to parse serialized line, ignoring: %s", l);
 
         }
 
