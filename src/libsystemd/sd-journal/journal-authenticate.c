@@ -379,7 +379,9 @@ int journal_file_fss_load(JournalFile *f) {
         if (le64toh(header->start_usec) <= 0 || le64toh(header->interval_usec) <= 0)
                 return -EBADMSG;
 
-        f->fss_file = mmap(NULL, PAGE_ALIGN(f->fss_file_size), PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
+        size_t sz = PAGE_ALIGN(f->fss_file_size);
+        assert(sz < SIZE_MAX);
+        f->fss_file = mmap(NULL, sz, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
         if (f->fss_file == MAP_FAILED) {
                 f->fss_file = NULL;
                 return -errno;
