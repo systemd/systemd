@@ -302,9 +302,11 @@ JournalFile* journal_file_close(JournalFile *f) {
 #endif
 
 #if HAVE_GCRYPT
-        if (f->fss_file)
-                munmap(f->fss_file, PAGE_ALIGN(f->fss_file_size));
-        else
+        if (f->fss_file) {
+                size_t sz = PAGE_ALIGN(f->fss_file_size);
+                assert(sz < SIZE_MAX);
+                munmap(f->fss_file, sz);
+        } else
                 free(f->fsprg_state);
 
         free(f->fsprg_seed);
