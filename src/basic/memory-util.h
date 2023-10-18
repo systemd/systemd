@@ -12,7 +12,7 @@
 #include "memory-util-fundamental.h"
 
 size_t page_size(void) _pure_;
-#define PAGE_ALIGN(l) ALIGN_TO((l), page_size())
+#define PAGE_ALIGN(l) ALIGN_TO(l, page_size())
 #define PAGE_ALIGN_DOWN(l) ((l) & ~(page_size() - 1))
 #define PAGE_OFFSET(l) ((l) & (page_size() - 1))
 
