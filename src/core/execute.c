@@ -2263,9 +2263,8 @@ void exec_params_serialized_done(ExecParameters *p) {
         p->received_credentials_directory = mfree(p->received_credentials_directory);
         p->received_encrypted_credentials_directory = mfree(p->received_encrypted_credentials_directory);
 
-        for (size_t i = 0; p->idle_pipe && i < 4; i++)
-                p->idle_pipe[i] = safe_close(p->idle_pipe[i]);
-        p->idle_pipe = mfree(p->idle_pipe);
+        if (p->idle_pipe)
+                close_many_and_free(p->idle_pipe, 4);
 
         p->stdin_fd = safe_close(p->stdin_fd);
         p->stdout_fd = safe_close(p->stdout_fd);
