@@ -1092,7 +1092,7 @@ static int exec_cgroup_context_deserialize(CGroupContext *c, FILE *f) {
         return 0;
 }
 
-static int exec_runtime_serialize(const ExecRuntime *rt, FILE *f, FDSet *fds) {
+static int exec_runtime_serialize(const ExecRuntime *rt, FILE *f, FDSet *fds, int *index) {
         int r;
 
         assert(f);
@@ -1117,20 +1117,40 @@ static int exec_runtime_serialize(const ExecRuntime *rt, FILE *f, FDSet *fds) {
                         return r;
 
                 if (rt->shared->netns_storage_socket[0] >= 0 && rt->shared->netns_storage_socket[1] >= 0) {
-                        r = serialize_fd_many(f, fds, "exec-runtime-netns-storage-socket", rt->shared->netns_storage_socket, 2);
+                        r = serialize_fd_many_full(
+                                        f,
+                                        fds,
+                                        index ? "exec-runtime-netns-storage-socket-by-fd-index" :
+                                                "exec-runtime-netns-storage-socket",
+                                        rt->shared->netns_storage_socket,
+                                        2,
+                                        index);
                         if (r < 0)
                                 return r;
                 }
 
                 if (rt->shared->ipcns_storage_socket[0] >= 0 && rt->shared->ipcns_storage_socket[1] >= 0) {
-                        r = serialize_fd_many(f, fds, "exec-runtime-ipcns-storage-socket", rt->shared->ipcns_storage_socket, 2);
+                        r = serialize_fd_many_full(
+                                        f,
+                                        fds,
+                                        index ? "exec-runtime-ipcns-storage-socket-by-fd-index" :
+                                                "exec-runtime-ipcns-storage-socket",
+                                        rt->shared->ipcns_storage_socket,
+                                        2,
+                                        index);
                         if (r < 0)
                                 return r;
                 }
         }
 
         if (rt->dynamic_creds) {
-                r = dynamic_user_serialize_one(rt->dynamic_creds->user, "exec-runtime-dynamic-creds-user", f, fds);
+                r = dynamic_user_serialize_one(
+                                rt->dynamic_creds->user,
+                                index ? "exec-runtime-dynamic-creds-user-by-fd-index" :
+                                        "exec-runtime-dynamic-creds-user",
+                                f,
+                                fds,
+                                index);
                 if (r < 0)
                         return r;
         }
@@ -1140,7 +1160,13 @@ static int exec_runtime_serialize(const ExecRuntime *rt, FILE *f, FDSet *fds) {
                 if (r < 0)
                         return r;
         } else if (rt->dynamic_creds) {
-                r = dynamic_user_serialize_one(rt->dynamic_creds->group, "exec-runtime-dynamic-creds-group", f, fds);
+                r = dynamic_user_serialize_one(
+                                rt->dynamic_creds->group,
+                                index ? "exec-runtime-dynamic-creds-group-by-fd-index" :
+                                        "exec-runtime-dynamic-creds-group",
+                                f,
+                                fds,
+                                index);
                 if (r < 0)
                         return r;
         }
@@ -1150,7 +1176,14 @@ static int exec_runtime_serialize(const ExecRuntime *rt, FILE *f, FDSet *fds) {
                 return r;
 
         if (rt->ephemeral_storage_socket[0] >= 0 && rt->ephemeral_storage_socket[1] >= 0) {
-                r = serialize_fd_many(f, fds, "exec-runtime-ephemeral-storage-socket", rt->ephemeral_storage_socket, 2);
+                r = serialize_fd_many_full(
+                                f,
+                                fds,
+                                index ? "exec-runtime-ephemeral-storage-socket-by-fd-index" :
+                                        "exec-runtime-ephemeral-storage-socket",
+                                rt->ephemeral_storage_socket,
+                                2,
+                                index);
                 if (r < 0)
                         return r;
         }
@@ -1160,14 +1193,21 @@ static int exec_runtime_serialize(const ExecRuntime *rt, FILE *f, FDSet *fds) {
         return 0;
 }
 
-static int exec_runtime_deserialize(ExecRuntime *rt, FILE *f, FDSet *fds) {
+static int exec_runtime_deserialize(
+                ExecRuntime *rt,
+                FILE *f,
+                FDSet *fds,
+                int *fds_array,
+                size_t n_fds_array) {
+
         int r;
 
         assert(rt);
         assert(rt->shared);
         assert(rt->dynamic_creds);
         assert(f);
-        assert(fds);
+        assert(fds || fds_array);
+        assert(fds_array || n_fds_array == 0);
 
         for (;;) {
                 _cleanup_free_ char *l = NULL;
@@ -1191,22 +1231,60 @@ static int exec_runtime_deserialize(ExecRuntime *rt, FILE *f, FDSet *fds) {
                         r = free_and_strdup(&rt->shared->var_tmp_dir, val);
                         if (r < 0)
                                 return r;
-                } else if ((val = startswith(l, "exec-runtime-netns-storage-socket="))) {
+                } else if ((val = startswith(l, "exec-runtime-netns-storage-socket=")) ||
+                                (val = startswith(l, "exec-runtime-netns-storage-socket-by-fd-index="))) {
 
-                        r = deserialize_fd_many(fds, val, 2, rt->shared->netns_storage_socket);
+                        if (startswith(l, "exec-runtime-netns-storage-socket-by-fd-index="))
+                                r = deserialize_fd_many_from_array(
+                                                fds_array,
+                                                n_fds_array,
+                                                val,
+                                                2,
+                                                rt->shared->netns_storage_socket);
+                        else
+                                r = deserialize_fd_many_from_set(
+                                                fds,
+                                                val,
+                                                2,
+                                                rt->shared->netns_storage_socket);
                         if (r < 0)
                                 continue;
+                } else if ((val = startswith(l, "exec-runtime-ipcns-storage-socket=")) ||
+                                (val = startswith(l, "exec-runtime-ipcns-storage-socket-by-fd-index="))) {
 
-                } else if ((val = startswith(l, "exec-runtime-ipcns-storage-socket="))) {
-
-                        r = deserialize_fd_many(fds, val, 2, rt->shared->ipcns_storage_socket);
+                        if (startswith(l, "exec-runtime-ipcns-storage-socket-by-fd-index="))
+                                r = deserialize_fd_many_from_array(
+                                                fds_array,
+                                                n_fds_array,
+                                                val,
+                                                2,
+                                                rt->shared->ipcns_storage_socket);
+                        else
+                                r = deserialize_fd_many_from_set(
+                                                fds,
+                                                val,
+                                                2,
+                                                rt->shared->ipcns_storage_socket);
                         if (r < 0)
                                 continue;
-
-                } else if ((val = startswith(l, "exec-runtime-dynamic-creds-user=")))
-                        dynamic_user_deserialize_one(/* m= */ NULL, val, fds, &rt->dynamic_creds->user);
-                else if ((val = startswith(l, "exec-runtime-dynamic-creds-group=")))
-                        dynamic_user_deserialize_one(/* m= */ NULL, val, fds, &rt->dynamic_creds->group);
+                } else if ((val = startswith(l, "exec-runtime-dynamic-creds-user=")) ||
+                                (val = startswith(l, "exec-runtime-dynamic-creds-user-by-fd-index=")))
+                        dynamic_user_deserialize_one(/* m= */ NULL,
+                                        val,
+                                        fds,
+                                        fds_array,
+                                        n_fds_array,
+                                        startswith(l, "exec-runtime-dynamic-creds-user-by-fd-index="),
+                                        &rt->dynamic_creds->user);
+                else if ((val = startswith(l, "exec-runtime-dynamic-creds-group=")) ||
+                                (val = startswith(l, "exec-runtime-dynamic-creds-group-by-fd-index=")))
+                        dynamic_user_deserialize_one(/* m= */ NULL,
+                                        val,
+                                        fds,
+                                        fds_array,
+                                        n_fds_array,
+                                        startswith(l, "exec-runtime-dynamic-creds-group-by-fd-index="),
+                                        &rt->dynamic_creds->group);
                 else if ((val = startswith(l, "exec-runtime-dynamic-creds-group-copy="))) {
                         r = parse_boolean(val);
                         if (r < 0)
@@ -1222,9 +1300,22 @@ static int exec_runtime_deserialize(ExecRuntime *rt, FILE *f, FDSet *fds) {
                         r = free_and_strdup(&rt->ephemeral_copy, val);
                         if (r < 0)
                                 return r;
-                } else if ((val = startswith(l, "exec-runtime-ephemeral-storage-socket="))) {
+                } else if ((val = startswith(l, "exec-runtime-ephemeral-storage-socket=")) ||
+                                (val = startswith(l, "exec-runtime-ephemeral-storage-socket-by-fd-index="))) {
 
-                        r = deserialize_fd_many(fds, val, 2, rt->ephemeral_storage_socket);
+                        if (startswith(l, "exec-runtime-ephemeral-storage-socket-by-fd-index="))
+                                r = deserialize_fd_many_from_array(
+                                                fds_array,
+                                                n_fds_array,
+                                                val,
+                                                2,
+                                                rt->ephemeral_storage_socket);
+                        else
+                                r = deserialize_fd_many_from_set(
+                                                fds,
+                                                val,
+                                                2,
+                                                rt->ephemeral_storage_socket);
                         if (r < 0)
                                 continue;
                 } else
@@ -1244,7 +1335,7 @@ static bool exec_parameters_is_idle_pipe_set(const ExecParameters *p) {
                 p->idle_pipe[3] >= 0;
 }
 
-static int exec_parameters_serialize(const ExecParameters *p, FILE *f, FDSet *fds) {
+static int exec_parameters_serialize(const ExecParameters *p, FILE *f, FDSet *fds, int *index) {
         int r;
 
         assert(f);
@@ -1274,7 +1365,13 @@ static int exec_parameters_serialize(const ExecParameters *p, FILE *f, FDSet *fd
         }
 
         if (p->n_socket_fds + p->n_storage_fds > 0) {
-                r = serialize_fd_many(f, fds, "exec-parameters-fds", p->fds, p->n_socket_fds + p->n_storage_fds);
+                r = serialize_fd_many_full(
+                                f,
+                                fds,
+                                index ? "exec-parameters-fds-by-fd-index" : "exec-parameters-fds",
+                                p->fds,
+                                p->n_socket_fds + p->n_storage_fds,
+                                index);
                 if (r < 0)
                         return r;
         }
@@ -1344,40 +1441,61 @@ static int exec_parameters_serialize(const ExecParameters *p, FILE *f, FDSet *fd
         }
 
         if (exec_parameters_is_idle_pipe_set(p)) {
-                r = serialize_fd_many(f, fds, "exec-parameters-idle-pipe", p->idle_pipe, 4);
+                r = serialize_fd_many_full(
+                                f,
+                                fds,
+                                index ? "exec-parameters-idle-pipe-by-fd-index" : "exec-parameters-idle-pipe",
+                                p->idle_pipe,
+                                4,
+                                index);
                 if (r < 0)
                         return r;
         }
 
-        if (p->stdin_fd >= 0) {
-                r = serialize_fd(f, fds, "exec-parameters-stdin-fd", p->stdin_fd);
-                if (r < 0)
-                        return r;
-        }
+        r = serialize_fd_full(
+                        f,
+                        fds,
+                        index ? "exec-parameters-stdin-fd-by-fd-index" : "exec-parameters-stdin-fd",
+                        p->stdin_fd,
+                        index);
+        if (r < 0)
+                return r;
 
-        if (p->stdout_fd >= 0) {
-                r = serialize_fd(f, fds, "exec-parameters-stdout-fd", p->stdout_fd);
-                if (r < 0)
-                        return r;
-        }
+        r = serialize_fd_full(
+                        f,
+                        fds,
+                        index ? "exec-parameters-stdout-fd-by-fd-index" : "exec-parameters-stdout-fd",
+                        p->stdout_fd,
+                        index);
+        if (r < 0)
+                return r;
 
-        if (p->stderr_fd >= 0) {
-                r = serialize_fd(f, fds, "exec-parameters-stderr-fd", p->stderr_fd);
-                if (r < 0)
-                        return r;
-        }
+        r = serialize_fd_full(
+                        f,
+                        fds,
+                        index ? "exec-parameters-stderr-fd-by-fd-index" : "exec-parameters-stderr-fd",
+                        p->stderr_fd,
+                        index);
+        if (r < 0)
+                return r;
 
-        if (p->exec_fd >= 0) {
-                r = serialize_fd(f, fds, "exec-parameters-exec-fd", p->exec_fd);
-                if (r < 0)
-                        return r;
-        }
+        r = serialize_fd_full(
+                        f,
+                        fds,
+                        index ? "exec-parameters-exec-fd-by-fd-index" : "exec-parameters-exec-fd",
+                        p->exec_fd,
+                        index);
+        if (r < 0)
+                return r;
 
-        if (p->bpf_outer_map_fd >= 0) {
-                r = serialize_fd(f, fds, "exec-parameters-bpf-outer-map-fd", p->bpf_outer_map_fd);
-                if (r < 0)
-                        return r;
-        }
+        r = serialize_fd_full(
+                        f,
+                        fds,
+                        index ? "exec-parameters-bpf-outer-map-fd-by-fd-index" : "exec-parameters-bpf-outer-map-fd",
+                        p->bpf_outer_map_fd,
+                        index);
+        if (r < 0)
+                return r;
 
         r = serialize_item(f, "exec-parameters-notify-socket", p->notify_socket);
         if (r < 0)
@@ -1399,11 +1517,14 @@ static int exec_parameters_serialize(const ExecParameters *p, FILE *f, FDSet *fd
         if (r < 0)
                 return r;
 
-        if (p->user_lookup_fd >= 0) {
-                r = serialize_fd(f, fds, "exec-parameters-user-lookup-fd", p->user_lookup_fd);
-                if (r < 0)
-                        return r;
-        }
+        r = serialize_fd_full(
+                        f,
+                        fds,
+                        index ? "exec-parameters-user-lookup-fd-by-fd-index" : "exec-parameters-user-lookup-fd",
+                        p->user_lookup_fd,
+                        index);
+        if (r < 0)
+                return r;
 
         r = serialize_strv(f, "exec-parameters-files-env", p->files_env);
         if (r < 0)
@@ -1422,12 +1543,19 @@ static int exec_parameters_serialize(const ExecParameters *p, FILE *f, FDSet *fd
         return 0;
 }
 
-static int exec_parameters_deserialize(ExecParameters *p, FILE *f, FDSet *fds) {
+static int exec_parameters_deserialize(
+                ExecParameters *p,
+                FILE *f,
+                FDSet *fds,
+                int *fds_array,
+                size_t n_fds_array) {
+
         int r, nr_open;
 
         assert(p);
         assert(f);
-        assert(fds);
+        assert(fds || fds_array);
+        assert(fds_array || n_fds_array == 0);
 
         nr_open = read_nr_open();
         if (nr_open < 3)
@@ -1472,7 +1600,8 @@ static int exec_parameters_deserialize(ExecParameters *p, FILE *f, FDSet *fds) {
 
                         if (p->n_storage_fds > (size_t) nr_open)
                                 return -EINVAL; /* too many, someone is playing games with us */
-                } else if ((val = startswith(l, "exec-parameters-fds="))) {
+                } else if ((val = startswith(l, "exec-parameters-fds=")) ||
+                                (val = startswith(l, "exec-parameters-fds-by-fd-index="))) {
                         if (p->n_socket_fds + p->n_storage_fds == 0)
                                 return log_warning_errno(
                                                 SYNTHETIC_ERRNO(EINVAL),
@@ -1492,7 +1621,19 @@ static int exec_parameters_deserialize(ExecParameters *p, FILE *f, FDSet *fds) {
                         for (size_t i = 0; i < p->n_socket_fds + p->n_storage_fds; ++i)
                                 p->fds[i] = -EBADF;
 
-                        r = deserialize_fd_many(fds, val, p->n_socket_fds + p->n_storage_fds, p->fds);
+                        if (startswith(l, "exec-parameters-fds-by-fd-index="))
+                                r = deserialize_fd_many_from_array(
+                                                fds_array,
+                                                n_fds_array,
+                                                val,
+                                                p->n_socket_fds + p->n_storage_fds,
+                                                p->fds);
+                        else
+                                r = deserialize_fd_many_from_set(
+                                                fds,
+                                                val,
+                                                p->n_socket_fds + p->n_storage_fds,
+                                                p->fds);
                         if (r < 0)
                                 continue;
 
@@ -1574,7 +1715,8 @@ static int exec_parameters_deserialize(ExecParameters *p, FILE *f, FDSet *fds) {
                         r = deserialize_usec(val, &p->watchdog_usec);
                         if (r < 0)
                                 return r;
-                } else if ((val = startswith(l, "exec-parameters-idle-pipe="))) {
+                } else if ((val = startswith(l, "exec-parameters-idle-pipe=")) ||
+                                (val = startswith(l, "exec-parameters-idle-pipe-by-fd-index="))) {
                         if (p->idle_pipe)
                                 return -EINVAL; /* duplicated */
 
@@ -1584,42 +1726,63 @@ static int exec_parameters_deserialize(ExecParameters *p, FILE *f, FDSet *fds) {
 
                         p->idle_pipe[0] = p->idle_pipe[1] = p->idle_pipe[2] = p->idle_pipe[3] = -EBADF;
 
-                        r = deserialize_fd_many(fds, val, 4, p->idle_pipe);
+                        if (startswith(l, "exec-parameters-idle-pipe-by-fd-index="))
+                                r = deserialize_fd_many_from_array(fds_array, n_fds_array, val, 4, p->idle_pipe);
+                        else
+                                r = deserialize_fd_many_from_set(fds, val, 4, p->idle_pipe);
                         if (r < 0)
                                 continue;
-
-                } else if ((val = startswith(l, "exec-parameters-stdin-fd="))) {
+                } else if ((val = startswith(l, "exec-parameters-stdin-fd=")) ||
+                                (val = startswith(l, "exec-parameters-stdin-fd-by-fd-index="))) {
                         int fd;
 
-                        fd = deserialize_fd(fds, val);
-                        if (fd < 0)
+                        if (startswith(l, "exec-parameters-stdin-fd-by-fd-index="))
+                                fd = deserialize_fd_from_array(fds_array, n_fds_array, val);
+                        else
+                                fd = deserialize_fd_from_set(fds, val);
+                        if (fd < 0) {
+                                log_debug_errno(fd, "Failed to deserialize %s value: %s, ignoring.", l, val);
                                 continue;
+                        }
 
                         p->stdin_fd = fd;
-
-                } else if ((val = startswith(l, "exec-parameters-stdout-fd="))) {
+                } else if ((val = startswith(l, "exec-parameters-stdout-fd=")) || (val = startswith(l, "exec-parameters-stdout-fd-by-fd-index="))) {
                         int fd;
 
-                        fd = deserialize_fd(fds, val);
-                        if (fd < 0)
+                        if (startswith(l, "exec-parameters-stdout-fd-by-fd-index="))
+                                fd = deserialize_fd_from_array(fds_array, n_fds_array, val);
+                        else
+                                fd = deserialize_fd_from_set(fds, val);
+                        if (fd < 0) {
+                                log_debug_errno(fd, "Failed to deserialize %s value: %s, ignoring.", l, val);
                                 continue;
+                        }
 
                         p->stdout_fd = fd;
-
-                } else if ((val = startswith(l, "exec-parameters-stderr-fd="))) {
+                } else if ((val = startswith(l, "exec-parameters-stderr-fd=")) || (val = startswith(l, "exec-parameters-stderr-fd-by-fd-index="))) {
                         int fd;
 
-                        fd = deserialize_fd(fds, val);
-                        if (fd < 0)
+                        if (startswith(l, "exec-parameters-stderr-fd-by-fd-index="))
+                                fd = deserialize_fd_from_array(fds_array, n_fds_array, val);
+                        else
+                                fd = deserialize_fd_from_set(fds, val);
+                        if (fd < 0) {
+                                log_debug_errno(fd, "Failed to deserialize %s value: %s, ignoring.", l, val);
                                 continue;
+                        }
 
                         p->stderr_fd = fd;
-                } else if ((val = startswith(l, "exec-parameters-exec-fd="))) {
+                } else if ((val = startswith(l, "exec-parameters-exec-fd=")) || (val = startswith(l, "exec-parameters-exec-fd-by-fd-index="))) {
                         int fd;
 
-                        fd = deserialize_fd(fds, val);
-                        if (fd < 0)
+                        if (startswith(l, "exec-parameters-exec-fd-by-fd-index="))
+                                fd = deserialize_fd_from_array(fds_array, n_fds_array, val);
+                        else
+                                fd = deserialize_fd_from_set(fds, val);
+                        if (fd < 0) {
+                                log_debug_errno(fd, "Failed to deserialize %s value: %s, ignoring.", l, val);
                                 continue;
+                        }
 
                         /* This is special and relies on close-on-exec semantics, make sure it's
                          * there */
@@ -1628,12 +1791,17 @@ static int exec_parameters_deserialize(ExecParameters *p, FILE *f, FDSet *fds) {
                                 return r;
 
                         p->exec_fd = fd;
-                } else if ((val = startswith(l, "exec-parameters-bpf-outer-map-fd="))) {
+                } else if ((val = startswith(l, "exec-parameters-bpf-outer-map-fd=")) || (val = startswith(l, "exec-parameters-bpf-outer-map-fd-by-fd-index="))) {
                         int fd;
 
-                        fd = deserialize_fd(fds, val);
-                        if (fd < 0)
+                        if (startswith(l, "exec-parameters-bpf-outer-map-fd-by-fd-index="))
+                                fd = deserialize_fd_from_array(fds_array, n_fds_array, val);
+                        else
+                                fd = deserialize_fd_from_set(fds, val);
+                        if (fd < 0) {
+                                log_debug_errno(fd, "Failed to deserialize %s value: %s, ignoring.", l, val);
                                 continue;
+                        }
 
                         p->bpf_outer_map_fd = fd;
                 } else if ((val = startswith(l, "exec-parameters-notify-socket="))) {
@@ -1652,12 +1820,17 @@ static int exec_parameters_deserialize(ExecParameters *p, FILE *f, FDSet *fds) {
                         r = free_and_strdup(&p->fallback_smack_process_label, val);
                         if (r < 0)
                                 return r;
-                } else if ((val = startswith(l, "exec-parameters-user-lookup-fd="))) {
+                } else if ((val = startswith(l, "exec-parameters-user-lookup-fd=")) || (val = startswith(l, "exec-parameters-user-lookup-fd-by-fd-index="))) {
                         int fd;
 
-                        fd = deserialize_fd(fds, val);
-                        if (fd < 0)
+                        if (startswith(l, "exec-parameters-user-lookup-fd-by-fd-index="))
+                                fd = deserialize_fd_from_array(fds_array, n_fds_array, val);
+                        else
+                                fd = deserialize_fd_from_set(fds, val);
+                        if (fd < 0) {
+                                log_debug_errno(fd, "Failed to deserialize %s value: %s, ignoring.", l, val);
                                 continue;
+                        }
 
                         p->user_lookup_fd = fd;
                 } else if ((val = startswith(l, "exec-parameters-files-env="))) {
@@ -3837,6 +4010,7 @@ static int exec_command_deserialize(ExecCommand *c, FILE *f) {
 int exec_serialize_invocation(
                 FILE *f,
                 FDSet *fds,
+                int *index,
                 const ExecContext *ctx,
                 const ExecCommand *cmd,
                 const ExecParameters *p,
@@ -3856,11 +4030,11 @@ int exec_serialize_invocation(
         if (r < 0)
                 return log_debug_errno(r, "Failed to serialize command: %m");
 
-        r = exec_parameters_serialize(p, f, fds);
+        r = exec_parameters_serialize(p, f, fds, index);
         if (r < 0)
                 return log_debug_errno(r, "Failed to serialize parameters: %m");
 
-        r = exec_runtime_serialize(rt, f, fds);
+        r = exec_runtime_serialize(rt, f, fds, index);
         if (r < 0)
                 return log_debug_errno(r, "Failed to serialize runtime: %m");
 
@@ -3874,6 +4048,8 @@ int exec_serialize_invocation(
 int exec_deserialize_invocation(
                 FILE *f,
                 FDSet *fds,
+                int *fds_array,
+                size_t n_fds_array,
                 ExecContext *ctx,
                 ExecCommand *cmd,
                 ExecParameters *p,
@@ -3883,7 +4059,8 @@ int exec_deserialize_invocation(
         int r;
 
         assert(f);
-        assert(fds);
+        assert(fds || n_fds_array > 0);
+        assert(fds_array || n_fds_array == 0);
 
         r = exec_context_deserialize(ctx, f);
         if (r < 0)
@@ -3893,11 +4070,11 @@ int exec_deserialize_invocation(
         if (r < 0)
                 return log_debug_errno(r, "Failed to deserialize command: %m");
 
-        r = exec_parameters_deserialize(p, f, fds);
+        r = exec_parameters_deserialize(p, f, fds, fds_array, n_fds_array);
         if (r < 0)
                 return log_debug_errno(r, "Failed to deserialize parameters: %m");
 
-        r = exec_runtime_deserialize(rt, f, fds);
+        r = exec_runtime_deserialize(rt, f, fds, fds_array, n_fds_array);
         if (r < 0)
                 return log_debug_errno(r, "Failed to deserialize runtime: %m");
 

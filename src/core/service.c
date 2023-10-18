@@ -1611,7 +1611,7 @@ static int service_spawn_internal(
                 ExecFlags flags,
                 PidRef *ret_pid) {
 
-        _cleanup_(exec_params_clear) ExecParameters exec_params = EXEC_PARAMETERS_INIT(flags);
+        _cleanup_(exec_params_shallow_clear) ExecParameters exec_params = EXEC_PARAMETERS_INIT(flags);
         _cleanup_(sd_event_source_unrefp) sd_event_source *exec_fd_source = NULL;
         _cleanup_strv_free_ char **final_env = NULL, **our_env = NULL;
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
@@ -3233,7 +3233,7 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
 
         } else if (streq(key, "socket-fd")) {
                 asynchronous_close(s->socket_fd);
-                s->socket_fd = deserialize_fd(fds, value);
+                s->socket_fd = deserialize_fd_from_set(fds, value);
 
         } else if (streq(key, "fd-store-fd")) {
                 _cleanup_free_ char *fdv = NULL, *fdn = NULL, *fdp = NULL;
@@ -3246,7 +3246,7 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                         return 0;
                 }
 
-                fd = deserialize_fd(fds, fdv);
+                fd = deserialize_fd_from_set(fds, fdv);
                 if (fd < 0)
                         return 0;
 
@@ -3318,28 +3318,28 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
         } else if (streq(key, "stdin-fd")) {
 
                 asynchronous_close(s->stdin_fd);
-                s->stdin_fd = deserialize_fd(fds, value);
+                s->stdin_fd = deserialize_fd_from_set(fds, value);
                 if (s->stdin_fd >= 0)
                         s->exec_context.stdio_as_fds = true;
 
         } else if (streq(key, "stdout-fd")) {
 
                 asynchronous_close(s->stdout_fd);
-                s->stdout_fd = deserialize_fd(fds, value);
+                s->stdout_fd = deserialize_fd_from_set(fds, value);
                 if (s->stdout_fd >= 0)
                         s->exec_context.stdio_as_fds = true;
 
         } else if (streq(key, "stderr-fd")) {
 
                 asynchronous_close(s->stderr_fd);
-                s->stderr_fd = deserialize_fd(fds, value);
+                s->stderr_fd = deserialize_fd_from_set(fds, value);
                 if (s->stderr_fd >= 0)
                         s->exec_context.stdio_as_fds = true;
 
         } else if (streq(key, "exec-fd")) {
                 _cleanup_close_ int fd = -EBADF;
 
-                fd = deserialize_fd(fds, value);
+                fd = deserialize_fd_from_set(fds, value);
                 if (fd >= 0) {
                         s->exec_fd_event_source = sd_event_source_disable_unref(s->exec_fd_event_source);
 
