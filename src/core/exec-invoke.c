@@ -4524,7 +4524,7 @@ int exec_invoke(
 
                 ngids_after_pam = getgroups_alloc(&gids_after_pam);
                 if (ngids_after_pam < 0) {
-                        *exit_status = EXIT_MEMORY;
+                        *exit_status = EXIT_GROUP;
                         return log_exec_error_errno(context, params, ngids_after_pam, "Failed to obtain groups after setting up PAM: %m");
                 }
         }
@@ -4632,7 +4632,7 @@ int exec_invoke(
                                                    ngids_after_pam,
                                                    &gids_to_enforce);
                 if (ngids_to_enforce < 0) {
-                        *exit_status = EXIT_MEMORY;
+                        *exit_status = EXIT_GROUP;
                         return log_exec_error_errno(context, params,
                                                     ngids_to_enforce,
                                                     "Failed to merge group lists. Group membership might be incorrect: %m");
