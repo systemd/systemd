@@ -557,7 +557,7 @@ static int swap_coldplug(Unit *u) {
                 return 0;
 
         if (pidref_is_set(&s->control_pid) &&
-            pid_is_unwaited(s->control_pid.pid) &&
+            pidref_is_unwaited(&s->control_pid) > 0 &&
             SWAP_STATE_WITH_PROCESS(new_state)) {
 
                 r = unit_watch_pidref(UNIT(s), &s->control_pid, /* exclusive= */ false);

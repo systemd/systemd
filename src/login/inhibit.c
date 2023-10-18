@@ -91,7 +91,7 @@ static int print_inhibitors(sd_bus *bus) {
                 if (arg_mode && !streq(mode, arg_mode))
                         continue;
 
-                (void) get_process_comm(pid, &comm);
+                (void) pid_get_comm(pid, &comm);
                 u = uid_to_name(uid);
 
                 r = table_add_many(table,
