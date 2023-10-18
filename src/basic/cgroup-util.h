@@ -191,20 +191,20 @@ typedef enum CGroupFlags {
         CGROUP_REMOVE      = 1 << 2,
 } CGroupFlags;
 
-typedef int (*cg_kill_log_func_t)(pid_t pid, int sig, void *userdata);
+typedef int (*cg_kill_log_func_t)(const PidRef *pid, int sig, void *userdata);
 
 int cg_kill(const char *path, int sig, CGroupFlags flags, Set *s, cg_kill_log_func_t kill_log, void *userdata);
 int cg_kill_kernel_sigkill(const char *path);
 int cg_kill_recursive(const char *path, int sig, CGroupFlags flags, Set *s, cg_kill_log_func_t kill_log, void *userdata);
 
 int cg_split_spec(const char *spec, char **ret_controller, char **ret_path);
-int cg_mangle_path(const char *path, char **result);
+int cg_mangle_path(const char *path, char **ret);
 
-int cg_get_path(const char *controller, const char *path, const char *suffix, char **fs);
-int cg_get_path_and_check(const char *controller, const char *path, const char *suffix, char **fs);
+int cg_get_path(const char *controller, const char *path, const char *suffix, char **ret);
+int cg_get_path_and_check(const char *controller, const char *path, const char *suffix, char **ret);
 
-int cg_pid_get_path(const char *controller, pid_t pid, char **path);
-int cg_pidref_get_path(const char *controller, PidRef *pidref, char **path);
+int cg_pid_get_path(const char *controller, pid_t pid, char **ret);
+int cg_pidref_get_path(const char *controller, const PidRef *pidref, char **ret);
 
 int cg_rmdir(const char *controller, const char *path);
 
@@ -263,27 +263,27 @@ int cg_is_empty_recursive(const char *controller, const char *path);
 int cg_get_root_path(char **path);
 
 int cg_path_get_cgroupid(const char *path, uint64_t *ret);
-int cg_path_get_session(const char *path, char **session);
-int cg_path_get_owner_uid(const char *path, uid_t *uid);
-int cg_path_get_unit(const char *path, char **unit);
-int cg_path_get_unit_path(const char *path, char **unit);
-int cg_path_get_user_unit(const char *path, char **unit);
-int cg_path_get_machine_name(const char *path, char **machine);
-int cg_path_get_slice(const char *path, char **slice);
-int cg_path_get_user_slice(const char *path, char **slice);
+int cg_path_get_session(const char *path, char **ret_session);
+int cg_path_get_owner_uid(const char *path, uid_t *ret_uid);
+int cg_path_get_unit(const char *path, char **ret_unit);
+int cg_path_get_unit_path(const char *path, char **ret_unit);
+int cg_path_get_user_unit(const char *path, char **ret_unit);
+int cg_path_get_machine_name(const char *path, char **ret_machine);
+int cg_path_get_slice(const char *path, char **ret_slice);
+int cg_path_get_user_slice(const char *path, char **ret_slice);
 
-int cg_shift_path(const char *cgroup, const char *cached_root, const char **shifted);
-int cg_pid_get_path_shifted(pid_t pid, const char *cached_root, char **cgroup);
+int cg_shift_path(const char *cgroup, const char *cached_root, const char **ret_shifted);
+int cg_pid_get_path_shifted(pid_t pid, const char *cached_root, char **ret_cgroup);
 
-int cg_pid_get_session(pid_t pid, char **session);
-int cg_pid_get_owner_uid(pid_t pid, uid_t *uid);
-int cg_pid_get_unit(pid_t pid, char **unit);
-int cg_pid_get_user_unit(pid_t pid, char **unit);
-int cg_pid_get_machine_name(pid_t pid, char **machine);
-int cg_pid_get_slice(pid_t pid, char **slice);
-int cg_pid_get_user_slice(pid_t pid, char **slice);
+int cg_pid_get_session(pid_t pid, char **ret_session);
+int cg_pid_get_owner_uid(pid_t pid, uid_t *ret_uid);
+int cg_pid_get_unit(pid_t pid, char **ret_unit);
+int cg_pid_get_user_unit(pid_t pid, char **ret_unit);
+int cg_pid_get_machine_name(pid_t pid, char **ret_machine);
+int cg_pid_get_slice(pid_t pid, char **ret_slice);
+int cg_pid_get_user_slice(pid_t pid, char **ret_slice);
 
-int cg_path_decode_unit(const char *cgroup, char **unit);
+int cg_path_decode_unit(const char *cgroup, char **ret_unit);
 
 bool cg_needs_escape(const char *p);
 int cg_escape(const char *p, char **ret);

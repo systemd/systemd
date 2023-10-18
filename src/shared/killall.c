@@ -46,13 +46,15 @@ static bool argv_has_at(pid_t pid) {
         return c == '@';
 }
 
-static bool is_survivor_cgroup(pid_t pid) {
+static bool is_survivor_cgroup(const PidRef *pid) {
         _cleanup_free_ char *cgroup_path = NULL;
         int r;
 
-        r = cg_pid_get_path(/* root= */ NULL, pid, &cgroup_path);
+        assert(pidref_is_set(pid));
+
+        r = cg_pidref_get_path(/* root= */ NULL, pid, &cgroup_path);
         if (r < 0) {
-                log_warning_errno(r, "Failed to get cgroup path of process " PID_FMT ", ignoring: %m", pid);
+                log_warning_errno(r, "Failed to get cgroup path of process " PID_FMT ", ignoring: %m", pid->pid);
                 return false;
         }
 
@@ -68,16 +70,18 @@ static bool is_survivor_cgroup(pid_t pid) {
         return r > 0;
 }
 
-static bool ignore_proc(pid_t pid, bool warn_rootfs) {
+static bool ignore_proc(const PidRef *pid, bool warn_rootfs) {
         uid_t uid;
         int r;
 
+        assert(pidref_is_set(pid));
+
         /* We are PID 1, let's not commit suicide */
-        if (pid <= 1)
+        if (pid->pid == 1)
                 return true;
 
         /* Ignore kernel threads */
-        r = is_kernel_thread(pid);
+        r = pidref_is_kernel_thread(pid);
         if (r != 0)
                 return true; /* also ignore processes where we can't determine this */
 
@@ -85,7 +89,7 @@ static bool ignore_proc(pid_t pid, bool warn_rootfs) {
         if (is_survivor_cgroup(pid))
                 return true;
 
-        r = get_process_uid(pid, &uid);
+        r = pidref_get_uid(pid, &uid);
         if (r < 0)
                 return true; /* not really, but better safe than sorry */
 
@@ -93,20 +97,20 @@ static bool ignore_proc(pid_t pid, bool warn_rootfs) {
         if (uid != 0)
                 return false;
 
-        if (!argv_has_at(pid))
+        if (!argv_has_at(pid->pid))
                 return false;
 
         if (warn_rootfs &&
-            pid_from_same_root_fs(pid) == 0) {
+            pid_from_same_root_fs(pid->pid) == 0) {
 
                 _cleanup_free_ char *comm = NULL;
 
-                (void) get_process_comm(pid, &comm);
+                (void) pidref_get_comm(pid, &comm);
 
                 log_notice("Process " PID_FMT " (%s) has been marked to be excluded from killing. It is "
                            "running from the root file system, and thus likely to block re-mounting of the "
                            "root file system to read-only. Please consider moving it into an initrd file "
-                           "system instead.", pid, strna(comm));
+                           "system instead.", pid->pid, strna(comm));
         }
 
         return true;
@@ -120,12 +124,12 @@ static void log_children_no_yet_killed(Set *pids) {
         SET_FOREACH(p, pids) {
                 _cleanup_free_ char *s = NULL;
 
-                if (get_process_comm(PTR_TO_PID(p), &s) >= 0)
+                if (pid_get_comm(PTR_TO_PID(p), &s) >= 0)
                         r = strextendf(&lst_child, ", " PID_FMT " (%s)", PTR_TO_PID(p), s);
                 else
                         r = strextendf(&lst_child, ", " PID_FMT, PTR_TO_PID(p));
                 if (r < 0)
-                        return (void) log_oom();
+                        return (void) log_oom_warning();
         }
 
         if (isempty(lst_child))
@@ -223,59 +227,57 @@ static int wait_for_children(Set *pids, sigset_t *mask, usec_t timeout) {
 
 static int killall(int sig, Set *pids, bool send_sighup) {
         _cleanup_closedir_ DIR *dir = NULL;
-        int n_killed = 0;
+        int n_killed = 0, r;
 
         /* Send the specified signal to all remaining processes, if not excluded by ignore_proc().
          * Returns the number of processes to which the specified signal was sent */
 
-        dir = opendir("/proc");
-        if (!dir)
-                return log_warning_errno(errno, "opendir(/proc) failed: %m");
+        r = proc_dir_open(&dir);
+        if (r < 0)
+                return log_warning_errno(r, "opendir(/proc) failed: %m");
 
-        FOREACH_DIRENT_ALL(de, dir, break) {
-                pid_t pid;
-                int r;
+        for (;;) {
+                _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
 
-                if (!IN_SET(de->d_type, DT_DIR, DT_UNKNOWN))
-                        continue;
+                r = proc_dir_read_pidref(dir, &pidref);
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to enumerate /proc: %m");
+                if (r == 0)
+                        break;
 
-                if (parse_pid(de->d_name, &pid) < 0)
-                        continue;
-
-                if (ignore_proc(pid, sig == SIGKILL && !in_initrd()))
+                if (ignore_proc(&pidref, sig == SIGKILL && !in_initrd()))
                         continue;
 
                 if (sig == SIGKILL) {
                         _cleanup_free_ char *s = NULL;
 
-                        (void) get_process_comm(pid, &s);
-                        log_notice("Sending SIGKILL to PID "PID_FMT" (%s).", pid, strna(s));
+                        (void) pidref_get_comm(&pidref, &s);
+                        log_notice("Sending SIGKILL to PID "PID_FMT" (%s).", pidref.pid, strna(s));
                 }
 
-                if (kill(pid, sig) >= 0) {
+                r = pidref_kill(&pidref, sig);
+                if (r < 0) {
+                        if (errno != -ESRCH)
+                                log_warning_errno(errno, "Could not kill " PID_FMT ", ignoring: %m", pidref.pid);
+                } else {
                         n_killed++;
                         if (pids) {
-                                r = set_put(pids, PID_TO_PTR(pid));
+                                r = set_put(pids, PID_TO_PTR(pidref.pid));
                                 if (r < 0)
-                                        log_oom();
+                                        (void) log_oom_warning();
                         }
-                } else if (errno != ENOENT)
-                        log_warning_errno(errno, "Could not kill %d: %m", pid);
+                }
 
                 if (send_sighup) {
-                        /* Optionally, also send a SIGHUP signal, but
-                        only if the process has a controlling
-                        tty. This is useful to allow handling of
-                        shells which ignore SIGTERM but react to
-                        SIGHUP. We do not send this to processes that
-                        have no controlling TTY since we don't want to
-                        trigger reloads of daemon processes. Also we
-                        make sure to only send this after SIGTERM so
-                        that SIGTERM is always first in the queue. */
+                        /* Optionally, also send a SIGHUP signal, but only if the process has a controlling
+                         * tty. This is useful to allow handling of shells which ignore SIGTERM but react to
+                         * SIGHUP. We do not send this to processes that have no controlling TTY since we
+                         * don't want to trigger reloads of daemon processes. Also we make sure to only send
+                         * this after SIGTERM so that SIGTERM is always first in the queue. */
 
-                        if (get_ctty_devnr(pid, NULL) >= 0)
+                        if (get_ctty_devnr(pidref.pid, NULL) >= 0)
                                 /* it's OK if the process is gone, just ignore the result */
-                                (void) kill(pid, SIGHUP);
+                                (void) pidref_kill(&pidref, SIGHUP);
                 }
         }
 

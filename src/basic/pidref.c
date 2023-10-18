@@ -186,7 +186,7 @@ int pidref_new_from_pid(pid_t pid, PidRef **ret) {
         return 0;
 }
 
-int pidref_kill(PidRef *pidref, int sig) {
+int pidref_kill(const PidRef *pidref, int sig) {
 
         if (!pidref)
                 return -ESRCH;
@@ -200,7 +200,7 @@ int pidref_kill(PidRef *pidref, int sig) {
         return -ESRCH;
 }
 
-int pidref_kill_and_sigcont(PidRef *pidref, int sig) {
+int pidref_kill_and_sigcont(const PidRef *pidref, int sig) {
         int r;
 
         r = pidref_kill(pidref, sig);
@@ -213,7 +213,7 @@ int pidref_kill_and_sigcont(PidRef *pidref, int sig) {
         return 0;
 }
 
-int pidref_sigqueue(PidRef *pidref, int sig, int value) {
+int pidref_sigqueue(const PidRef *pidref, int sig, int value) {
 
         if (!pidref)
                 return -ESRCH;
@@ -240,7 +240,7 @@ int pidref_sigqueue(PidRef *pidref, int sig, int value) {
         return -ESRCH;
 }
 
-int pidref_verify(PidRef *pidref) {
+int pidref_verify(const PidRef *pidref) {
         int r;
 
         /* This is a helper that is supposed to be called after reading information from procfs via a
@@ -250,6 +250,9 @@ int pidref_verify(PidRef *pidref) {
         if (!pidref_is_set(pidref))
                 return -ESRCH;
 
+        if (pidref->pid == 1)
+                return 1; /* PID 1 can never go away, hence never be recycled to a different process → return 1 */
+
         if (pidref->fd < 0)
                 return 0; /* If we don't have a pidfd we cannot validate it, hence we assume it's all OK → return 0 */
 
@@ -258,6 +261,13 @@ int pidref_verify(PidRef *pidref) {
                 return r;
 
         return 1; /* We have a pidfd and it still points to the PID we have, hence all is *really* OK → return 1 */
+}
+
+bool pidref_is_self(const PidRef *pidref) {
+        if (!pidref)
+                return false;
+
+        return pidref->pid == getpid_cached();
 }
 
 static void pidref_hash_func(const PidRef *pidref, struct siphash *state) {
