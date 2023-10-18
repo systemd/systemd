@@ -1108,7 +1108,7 @@ static int prepare_reexecute(
         if (r < 0)
                 return r;
 
-        if (fseeko(f, 0, SEEK_SET) == (off_t) -1)
+        if (fseeko(f, 0, SEEK_SET) < 0)
                 return log_error_errno(errno, "Failed to rewind serialization fd: %m");
 
         r = fd_cloexec(fileno(f), false);

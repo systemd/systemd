@@ -4586,7 +4586,7 @@ static int tpm2_userspace_log(
         if (r < 0)
                 return log_debug_errno(r, "Failed to format JSON: %m");
 
-        if (lseek(fd, 0, SEEK_END) == (off_t) -1)
+        if (lseek(fd, 0, SEEK_END) < 0)
                 return log_debug_errno(errno, "Failed to seek to end of JSON log: %m");
 
         r = loop_write(fd, f, SIZE_MAX);

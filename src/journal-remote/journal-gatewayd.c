@@ -233,7 +233,7 @@ static ssize_t request_reader_entries(
                 }
 
                 sz = ftello(m->tmp);
-                if (sz == (off_t) -1) {
+                if (sz < 0) {
                         log_error_errno(errno, "Failed to retrieve file position: %m");
                         return MHD_CONTENT_READER_END_WITH_ERROR;
                 }
@@ -582,7 +582,7 @@ static ssize_t request_reader_fields(
                 }
 
                 sz = ftello(m->tmp);
-                if (sz == (off_t) -1) {
+                if (sz < 0) {
                         log_error_errno(errno, "Failed to retrieve file position: %m");
                         return MHD_CONTENT_READER_END_WITH_ERROR;
                 }

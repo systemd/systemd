@@ -151,7 +151,7 @@ int machine_id_setup(const char *root, bool force_transient, sd_id128_t machine_
         }
 
         if (writable) {
-                if (lseek(fd, 0, SEEK_SET) == (off_t) -1)
+                if (lseek(fd, 0, SEEK_SET) < 0)
                         return log_error_errno(errno, "Failed to seek %s: %m", etc_machine_id);
 
                 if (ftruncate(fd, 0) < 0)

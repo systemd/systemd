@@ -283,7 +283,7 @@ ssize_t sparse_write(int fd, const void *p, size_t sz, size_t run_length) {
                                         return -EIO;
                         }
 
-                        if (lseek(fd, n, SEEK_CUR) == (off_t) -1)
+                        if (lseek(fd, n, SEEK_CUR) < 0)
                                 return -errno;
 
                         q += n;
