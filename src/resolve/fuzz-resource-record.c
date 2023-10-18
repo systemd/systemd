@@ -18,6 +18,8 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         if (dns_resource_record_new_from_raw(&rr, data, size) < 0)
                 return 0;
 
+        fuzz_setup_logging();
+
         assert_se(copy = dns_resource_record_copy(rr));
         assert_se(dns_resource_record_equal(copy, rr) > 0);
 

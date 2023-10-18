@@ -28,5 +28,13 @@ static inline bool outside_size_range(size_t size, size_t lower, size_t upper) {
         return false;
 }
 
+static inline void fuzz_setup_logging(void) {
+        /* We don't want to fill the logs and slow down stuff when running
+         * in a fuzzing mode, so disable most of the logging. */
+        log_set_max_level(LOG_CRIT);
+        log_parse_environment();
+        log_open();
+}
+
 /* Force value to not be optimized away. */
 #define DO_NOT_OPTIMIZE(value) ({ asm volatile("" : : "g"(value) : "memory"); })
