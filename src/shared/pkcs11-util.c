@@ -522,6 +522,254 @@ int pkcs11_token_find_x509_certificate(
 }
 
 #if HAVE_OPENSSL
+int pkcs11_token_read_public_key(
+                CK_FUNCTION_LIST *m,
+                CK_SESSION_HANDLE session,
+                CK_OBJECT_HANDLE object,
+                EVP_PKEY **ret_pkey) {
+
+        CK_KEY_TYPE key_type;
+        CK_ATTRIBUTE attributes[] = {
+                { CKA_PUBLIC_KEY_INFO, NULL_PTR,  0                },
+                { CKA_KEY_TYPE,        &key_type, sizeof(key_type) }
+        };
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = NULL;
+        CK_RV rv;
+        int r;
+
+        rv = m->C_GetAttributeValue(session, object, attributes, ELEMENTSOF(attributes));
+        if (rv != CKR_OK)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                "Failed to get attributes of a public key: %s", sym_p11_kit_strerror(rv));
+
+        if (attributes[0].ulValueLen != 0) {
+                _cleanup_free_ void *buffer = NULL;
+
+                log_debug("A public key has CKA_PUBLIC_KEY_INFO, trying to decode.");
+
+                buffer = malloc(attributes[0].ulValueLen);
+                if (!buffer)
+                        return log_oom();
+
+                attributes[0].pValue = buffer;
+
+                rv = m->C_GetAttributeValue(session, object, &attributes[0], 1);
+                if (rv != CKR_OK)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                "Failed to read CKA_PUBLIC_KEY_INFO of a public key: %s", sym_p11_kit_strerror(rv));
+
+                const unsigned char *value = attributes[0].pValue;
+                pkey = d2i_PUBKEY(NULL, &value, attributes[0].ulValueLen);
+                if (!pkey)
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Failed to parse CKA_PUBLIC_KEY_INFO.");
+
+                *ret_pkey = TAKE_PTR(pkey);
+                return 0;
+        }
+
+        switch (key_type) {
+        case CKK_RSA: {
+                CK_ATTRIBUTE rsa_attributes[] = {
+                        { CKA_MODULUS,         NULL_PTR, 0 },
+                        { CKA_PUBLIC_EXPONENT, NULL_PTR, 0 }
+                };
+                _cleanup_free_ void *modulus = NULL, *public_exponent = NULL;
+
+                rv = m->C_GetAttributeValue(session, object, rsa_attributes, ELEMENTSOF(rsa_attributes));
+                if (rv != CKR_OK)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                "Failed to get size of attributes of an RSA public key: %s", sym_p11_kit_strerror(rv));
+
+                if (rsa_attributes[0].ulValueLen != 0) {
+                        modulus = malloc(rsa_attributes[0].ulValueLen);
+                        if (!modulus)
+                                return log_oom();
+
+                        rsa_attributes[0].pValue = modulus;
+                } else
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "An RSA public key has empty CKA_MODULUS.");
+
+                if (rsa_attributes[1].ulValueLen != 0) {
+                        public_exponent = malloc(rsa_attributes[1].ulValueLen);
+                        if (!public_exponent)
+                                return log_oom();
+
+                        rsa_attributes[1].pValue = public_exponent;
+                } else
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "An RSA public key has empty CKA_PUBLIC_EXPONENT.");
+
+                rv = m->C_GetAttributeValue(session, object, rsa_attributes, ELEMENTSOF(rsa_attributes));
+                if (rv != CKR_OK)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                "Failed to get attributes of an RSA public key: %s", sym_p11_kit_strerror(rv));
+
+                size_t n_size = rsa_attributes[0].ulValueLen, e_size = rsa_attributes[1].ulValueLen;
+                r = rsa_pkey_from_n_e(rsa_attributes[0].pValue, n_size, rsa_attributes[1].pValue, e_size, &pkey);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create an EVP_PKEY from RSA parameters.");
+
+                break;
+        }
+        case CKK_EC: {
+                CK_ATTRIBUTE ec_attributes[] = {
+                        { CKA_EC_PARAMS, NULL_PTR, 0 },
+                        { CKA_EC_POINT,  NULL_PTR, 0 }
+                };
+                _cleanup_free_ void *ec_group = NULL, *ec_point = NULL;
+
+                rv = m->C_GetAttributeValue(session, object, ec_attributes, ELEMENTSOF(ec_attributes));
+                if (rv != CKR_OK)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                "Failed to get size of attributes of an EC public key: %s", sym_p11_kit_strerror(rv));
+
+                if (ec_attributes[0].ulValueLen != 0) {
+                        ec_group = malloc(ec_attributes[0].ulValueLen);
+                        if (!ec_group)
+                                return log_oom();
+
+                        ec_attributes[0].pValue = ec_group;
+                } else
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "An EC public key has empty CKA_EC_PARAMS.");
+
+                if (ec_attributes[1].ulValueLen != 0) {
+                        ec_point = malloc(ec_attributes[1].ulValueLen);
+                        if (!ec_point)
+                                return log_oom();
+
+                        ec_attributes[1].pValue = ec_point;
+                } else
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "An EC public key has empty CKA_EC_POINT.");
+
+                rv = m->C_GetAttributeValue(session, object, ec_attributes, ELEMENTSOF(ec_attributes));
+                if (rv != CKR_OK)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                "Failed to get attributes of an EC public key: %s", sym_p11_kit_strerror(rv));
+
+                _cleanup_(EC_GROUP_freep) EC_GROUP *group = NULL;
+                _cleanup_(ASN1_OCTET_STRING_freep) ASN1_OCTET_STRING *os = NULL;
+
+                const unsigned char *ec_params_value = ec_attributes[0].pValue;
+                group = d2i_ECPKParameters(NULL, &ec_params_value, ec_attributes[0].ulValueLen);
+                if (!group)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unable to decode CKA_EC_PARAMS.");
+
+                const unsigned char *ec_point_value = ec_attributes[1].pValue;
+                os = d2i_ASN1_OCTET_STRING(NULL, &ec_point_value, ec_attributes[1].ulValueLen);
+                if (!os)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unable to decode CKA_EC_POINT.");
+
+#if OPENSSL_VERSION_MAJOR >= 3
+                _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new_from_name(NULL, "EC", NULL);
+                if (!ctx)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to create an EVP_PKEY_CTX for EC.");
+
+                if (EVP_PKEY_fromdata_init(ctx) != 1)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to init an EVP_PKEY_CTX for EC.");
+
+                OSSL_PARAM ec_params[8] = {
+                        OSSL_PARAM_octet_string(OSSL_PKEY_PARAM_PUB_KEY, os->data, os->length)
+                };
+
+                _cleanup_free_ void *order = NULL, *p = NULL, *a = NULL, *b = NULL, *generator = NULL;
+                size_t order_size, p_size, a_size, b_size, generator_size;
+
+                int nid = EC_GROUP_get_curve_name(group);
+                if (nid != NID_undef) {
+                        const char* name = OSSL_EC_curve_nid2name(nid);
+                        ec_params[1] = OSSL_PARAM_construct_utf8_string(OSSL_PKEY_PARAM_GROUP_NAME, (char*)name, strlen(name));
+                        ec_params[2] = OSSL_PARAM_construct_end();
+                } else {
+                        const char *field_type = (EC_GROUP_get_field_type(group) == NID_X9_62_prime_field)?
+                                "prime-field" : "characteristic-two-field";
+
+                        const BIGNUM *bn_order = EC_GROUP_get0_order(group);
+
+                        _cleanup_(BN_CTX_freep) BN_CTX *bnctx = BN_CTX_new();
+                        _cleanup_(BN_freep) BIGNUM *bn_p = BN_new();
+                        _cleanup_(BN_freep) BIGNUM *bn_a = BN_new();
+                        _cleanup_(BN_freep) BIGNUM *bn_b = BN_new();
+                        if (!bnctx || !bn_p || !bn_a || !bn_b)
+                                return log_oom();
+
+                        if (EC_GROUP_get_curve(group, bn_p, bn_a, bn_b, bnctx) != 1)
+                                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to extract EC parameters from EC_GROUP.");
+                        order_size = BN_num_bytes(bn_order);
+                        p_size = BN_num_bytes(bn_p);
+                        a_size = BN_num_bytes(bn_a);
+                        b_size = BN_num_bytes(bn_b);
+
+                        order = malloc(order_size);
+                        p = malloc(p_size);
+                        a = malloc(a_size);
+                        b = malloc(b_size);
+                        if (!order || !p || !a || !b)
+                                return log_oom();
+
+                        if (BN_bn2nativepad(bn_order, order, order_size) <= 0 ||
+                            BN_bn2nativepad(bn_p, p, p_size) <= 0 ||
+                            BN_bn2nativepad(bn_a, a, a_size) <= 0 ||
+                            BN_bn2nativepad(bn_b, b, b_size) <= 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to store EC parameters in native byte order.");
+
+                        const EC_POINT *point_gen = EC_GROUP_get0_generator(group);
+                        generator_size = EC_POINT_point2oct(group, point_gen, POINT_CONVERSION_UNCOMPRESSED, NULL, 0, bnctx);
+                        if (generator_size == 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to determine size of a EC generator.");
+
+                        generator = malloc(generator_size);
+                        if (!generator)
+                                return log_oom();
+
+                        generator_size = EC_POINT_point2oct(group, point_gen, POINT_CONVERSION_UNCOMPRESSED, generator, generator_size, bnctx);
+                        if (generator_size == 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to convert a EC generator to octet string.");
+
+                        ec_params[1] = OSSL_PARAM_construct_utf8_string(OSSL_PKEY_PARAM_EC_FIELD_TYPE, (char*)field_type, strlen(field_type));
+                        ec_params[2] = OSSL_PARAM_construct_octet_string(OSSL_PKEY_PARAM_EC_GENERATOR, generator, generator_size);
+                        ec_params[3] = OSSL_PARAM_construct_BN(OSSL_PKEY_PARAM_EC_ORDER, order, order_size);
+                        ec_params[4] = OSSL_PARAM_construct_BN(OSSL_PKEY_PARAM_EC_P, p, p_size);
+                        ec_params[5] = OSSL_PARAM_construct_BN(OSSL_PKEY_PARAM_EC_A, a, a_size);
+                        ec_params[6] = OSSL_PARAM_construct_BN(OSSL_PKEY_PARAM_EC_B, b, b_size);
+                        ec_params[7] = OSSL_PARAM_construct_end();
+                }
+
+                if (EVP_PKEY_fromdata(ctx, &pkey, EVP_PKEY_PUBLIC_KEY, ec_params) != 1)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to create EVP_PKEY from EC parameters.");
+#else
+                _cleanup_(EC_POINT_freep) EC_POINT *point = EC_POINT_new(group);
+                if (!point)
+                        return log_oom();
+
+                if (EC_POINT_oct2point(group, point, os->data, os->length, NULL) != 1)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unable to decode CKA_EC_POINT.");
+
+                 _cleanup_(EC_KEY_freep) EC_KEY *ec_key = EC_KEY_new();
+                if (!ec_key)
+                        return log_oom();
+
+                if (EC_KEY_set_group(ec_key, group) != 1)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to set group for EC_KEY.");
+
+                if (EC_KEY_set_public_key(ec_key, point) != 1)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to set public key for EC_KEY.");
+
+                pkey = EVP_PKEY_new();
+                if (!pkey)
+                        return log_oom();
+
+                if (EVP_PKEY_set1_EC_KEY(pkey, ec_key) != 1)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to assign EC_KEY to EVP_PKEY.");
+#endif
+                break;
+        }
+        default:
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Unsupported type of public key: %lu", key_type);
+        }
+
+        *ret_pkey = TAKE_PTR(pkey);
+        return 0;
+}
+
 int pkcs11_token_read_x509_certificate(
                 CK_FUNCTION_LIST *m,
                 CK_SESSION_HANDLE session,
@@ -562,7 +810,7 @@ int pkcs11_token_read_x509_certificate(
         p = attribute.pValue;
         x509 = d2i_X509(NULL, &p, attribute.ulValueLen);
         if (!x509)
-                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Failed parse X.509 certificate.");
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Failed to parse X.509 certificate.");
 
         name = X509_get_subject_name(x509);
         if (!name)
@@ -585,114 +833,61 @@ int pkcs11_token_find_private_key(
                 P11KitUri *search_uri,
                 CK_OBJECT_HANDLE *ret_object) {
 
-        bool found_decrypt = false, found_class = false, found_key_type = false;
+        uint_fast8_t n_objects = 0;
+        bool found_class = false;
         _cleanup_free_ CK_ATTRIBUTE *attributes_buffer = NULL;
-        CK_ULONG n_attributes, a, n_objects;
-        CK_ATTRIBUTE *attributes = NULL;
-        CK_OBJECT_HANDLE objects[2];
-        CK_RV rv, rv2;
-        int r;
+        CK_OBJECT_HANDLE object, candidate;
+        static const CK_OBJECT_CLASS class = CKO_PRIVATE_KEY;
+        CK_BBOOL decrypt_value, derive_value;
+        CK_ATTRIBUTE optional_attributes[] = {
+                { CKA_DECRYPT, &decrypt_value, sizeof(decrypt_value) },
+                { CKA_DERIVE,  &derive_value,  sizeof(derive_value)  }
+        };
+        CK_RV rv;
 
         assert(m);
         assert(search_uri);
         assert(ret_object);
 
-        r = dlopen_p11kit();
-        if (r < 0)
-                return r;
-
-        attributes = sym_p11_kit_uri_get_attributes(search_uri, &n_attributes);
-        for (a = 0; a < n_attributes; a++) {
+        CK_ULONG n_attributes;
+        CK_ATTRIBUTE *attributes = sym_p11_kit_uri_get_attributes(search_uri, &n_attributes);
+        for (typeof(n_attributes) i = 0; i < n_attributes; i++) {
 
                 /* We use the URI's included match attributes, but make them more strict. This allows users
                  * to specify a token URL instead of an object URL and the right thing should happen if
                  * there's only one suitable key on the token. */
 
-                switch (attributes[a].type) {
-
+                switch (attributes[i].type) {
                 case CKA_CLASS: {
                         CK_OBJECT_CLASS c;
 
-                        if (attributes[a].ulValueLen != sizeof(c))
+                        if (attributes[i].ulValueLen != sizeof(c))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid PKCS#11 CKA_CLASS attribute size.");
 
-                        memcpy(&c, attributes[a].pValue, sizeof(c));
+                        memcpy(&c, attributes[i].pValue, sizeof(c));
                         if (c != CKO_PRIVATE_KEY)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Selected PKCS#11 object is not a private key, refusing.");
 
                         found_class = true;
                         break;
-                }
-
-                case CKA_DECRYPT: {
-                        CK_BBOOL b;
-
-                        if (attributes[a].ulValueLen != sizeof(b))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid PKCS#11 CKA_DECRYPT attribute size.");
-
-                        memcpy(&b, attributes[a].pValue, sizeof(b));
-                        if (!b)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Selected PKCS#11 object is not suitable for decryption, refusing.");
-
-                        found_decrypt = true;
-                        break;
-                }
-
-                case CKA_KEY_TYPE: {
-                        CK_KEY_TYPE t;
-
-                        if (attributes[a].ulValueLen != sizeof(t))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid PKCS#11 CKA_KEY_TYPE attribute size.");
-
-                        memcpy(&t, attributes[a].pValue, sizeof(t));
-                        if (t != CKK_RSA)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Selected PKCS#11 object is not an RSA key, refusing.");
-
-                        found_key_type = true;
-                        break;
                 }}
         }
 
-        if (!found_decrypt || !found_class || !found_key_type) {
+        if (!found_class) {
                 /* Hmm, let's slightly extend the attribute list we search for */
 
-                attributes_buffer = new(CK_ATTRIBUTE, n_attributes + !found_decrypt + !found_class + !found_key_type);
+                attributes_buffer = new(CK_ATTRIBUTE, n_attributes + 1);
                 if (!attributes_buffer)
                         return log_oom();
 
                 memcpy(attributes_buffer, attributes, sizeof(CK_ATTRIBUTE) * n_attributes);
 
-                if (!found_decrypt) {
-                        static const CK_BBOOL yes = true;
-
-                        attributes_buffer[n_attributes++] = (CK_ATTRIBUTE) {
-                                .type = CKA_DECRYPT,
-                                .pValue = (CK_BBOOL*) &yes,
-                                .ulValueLen = sizeof(yes),
-                        };
-                }
-
-                if (!found_class) {
-                        static const CK_OBJECT_CLASS class = CKO_PRIVATE_KEY;
-
-                        attributes_buffer[n_attributes++] = (CK_ATTRIBUTE) {
-                                .type = CKA_CLASS,
-                                .pValue = (CK_OBJECT_CLASS*) &class,
-                                .ulValueLen = sizeof(class),
-                        };
-                }
-
-                if (!found_key_type) {
-                        static const CK_KEY_TYPE type = CKK_RSA;
-
-                        attributes_buffer[n_attributes++] = (CK_ATTRIBUTE) {
-                                .type = CKA_KEY_TYPE,
-                                .pValue = (CK_KEY_TYPE*) &type,
-                                .ulValueLen = sizeof(type),
-                        };
-                }
+                attributes_buffer[n_attributes++] = (CK_ATTRIBUTE) {
+                        .type = CKA_CLASS,
+                        .pValue = (CK_OBJECT_CLASS*) &class,
+                        .ulValueLen = sizeof(class),
+                };
 
                 attributes = attributes_buffer;
         }
@@ -702,26 +897,353 @@ int pkcs11_token_find_private_key(
                 return log_error_errno(SYNTHETIC_ERRNO(EIO),
                                        "Failed to initialize object find call: %s", sym_p11_kit_strerror(rv));
 
-        rv = m->C_FindObjects(session, objects, ELEMENTSOF(objects), &n_objects);
-        rv2 = m->C_FindObjectsFinal(session);
+        for (;;) {
+                CK_ULONG b;
+                rv = m->C_FindObjects(session, &candidate, 1, &b);
+                if (rv != CKR_OK)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                "Failed to find objects: %s", sym_p11_kit_strerror(rv));
+
+                if (b == 0)
+                        break;
+
+                bool can_decrypt = false, can_derive = false;
+                optional_attributes[0].ulValueLen = sizeof(decrypt_value);
+                optional_attributes[1].ulValueLen = sizeof(derive_value);
+
+                rv = m->C_GetAttributeValue(session, candidate, optional_attributes, ELEMENTSOF(optional_attributes));
+                if (rv != CKR_OK && rv != CKR_ATTRIBUTE_TYPE_INVALID)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                "Failed to get attributes of a selected private key: %s", sym_p11_kit_strerror(rv));
+
+                if (optional_attributes[0].ulValueLen != CK_UNAVAILABLE_INFORMATION && decrypt_value == CK_TRUE)
+                        can_decrypt = true;
+
+                if (optional_attributes[1].ulValueLen != CK_UNAVAILABLE_INFORMATION && derive_value == CK_TRUE)
+                        can_derive = true;
+
+                if (can_decrypt || can_derive) {
+                        n_objects++;
+                        if (n_objects > 1)
+                                break;
+                        object = candidate;
+                }
+        }
+
+        rv = m->C_FindObjectsFinal(session);
         if (rv != CKR_OK)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO),
-                                       "Failed to find objects: %s", sym_p11_kit_strerror(rv));
-        if (rv2 != CKR_OK)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO),
-                                       "Failed to finalize object find call: %s", sym_p11_kit_strerror(rv));
+                        "Failed to finalize object find call: %s", sym_p11_kit_strerror(rv));
+
         if (n_objects == 0)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
-                                       "Failed to find selected private key suitable for decryption on token.");
+                        "Failed to find selected private key suitable for decryption or derivation on token.");
+
         if (n_objects > 1)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOTUNIQ),
-                                       "Configured private key URI matches multiple keys, refusing.");
+                        "Configured private key URI matches multiple keys, refusing.");
+
+        *ret_object = object;
+        return 0;
+}
+
+static const char* object_class_to_string(CK_OBJECT_CLASS class) {
+        switch (class) {
+        case CKO_CERTIFICATE:
+                return "CKO_CERTIFICATE";
+        case CKO_PUBLIC_KEY:
+                return "CKO_PUBLIC_KEY";
+        case CKO_PRIVATE_KEY:
+                return "CKO_PRIVATE_KEY";
+        case CKO_SECRET_KEY:
+                return "CKO_SECRET_KEY";
+        default:
+                return NULL;
+        }
+}
+
+/* Returns an object with the given class and the same CKA_ID or CKA_LABEL as prototype */
+int pkcs11_token_find_related_object(
+                CK_FUNCTION_LIST *m,
+                CK_SESSION_HANDLE session,
+                CK_OBJECT_HANDLE prototype,
+                CK_OBJECT_CLASS class,
+                CK_OBJECT_HANDLE *ret_object ) {
+
+        _cleanup_free_ void *buffer = NULL;
+        CK_ATTRIBUTE attributes[] = {
+                { CKA_ID,    NULL_PTR, 0 },
+                { CKA_LABEL, NULL_PTR, 0 }
+        };
+        CK_OBJECT_CLASS search_class = class;
+        CK_ATTRIBUTE search_attributes[2] = {
+                { CKA_CLASS, &search_class, sizeof(search_class) }
+        };
+        CK_ULONG n_objects;
+        CK_OBJECT_HANDLE objects[2];
+        CK_RV rv;
+
+        rv = m->C_GetAttributeValue(session, prototype, attributes, ELEMENTSOF(attributes));
+        if (rv != CKR_OK && rv != CKR_ATTRIBUTE_TYPE_INVALID)
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to retrieve length of attributes: %s", sym_p11_kit_strerror(rv));
+
+        if (attributes[0].ulValueLen != CK_UNAVAILABLE_INFORMATION) {
+                buffer = malloc(attributes[0].ulValueLen);
+                if (!buffer)
+                        return log_oom();
+
+                attributes[0].pValue = buffer;
+                rv = m->C_GetAttributeValue(session, prototype, &attributes[0], 1);
+                if (rv != CKR_OK)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EIO),
+                                "Failed to retrieve CKA_ID: %s", sym_p11_kit_strerror(rv));
+
+                search_attributes[1] = attributes[0];
+
+        } else if (attributes[1].ulValueLen != CK_UNAVAILABLE_INFORMATION) {
+                buffer = malloc(attributes[1].ulValueLen);
+                if (!buffer)
+                        return log_oom();
+
+                attributes[1].pValue = buffer;
+                rv = m->C_GetAttributeValue(session, prototype, &attributes[1], 1);
+                if (rv != CKR_OK)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EIO),
+                                "Failed to retrieve CKA_LABEL: %s", sym_p11_kit_strerror(rv));
+
+                search_attributes[1] = attributes[1];
+
+        } else
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "The prototype does not have CKA_ID or CKA_LABEL");
+
+        rv = m->C_FindObjectsInit(session, search_attributes, 2);
+        if (rv != CKR_OK)
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO),
+                        "Failed to initialize object find call: %s", sym_p11_kit_strerror(rv));
+
+        rv = m->C_FindObjects(session, objects, 2, &n_objects);
+        if (rv != CKR_OK)
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO),
+                        "Failed to find objects: %s", sym_p11_kit_strerror(rv));
+
+        rv = m->C_FindObjectsFinal(session);
+        if (rv != CKR_OK)
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO),
+                        "Failed to finalize object find call: %s", sym_p11_kit_strerror(rv));
+
+         if (n_objects == 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOENT),
+                        "Failed to find a related object with class %s", object_class_to_string(class));
+
+         if (n_objects > 1)
+                log_warning("Found multiple related objects with class %s, using the first object.",
+                        object_class_to_string(class));
 
         *ret_object = objects[0];
         return 0;
 }
 
-int pkcs11_token_decrypt_data(
+#if HAVE_OPENSSL
+static int ecc_convert_to_compressed(
+                CK_FUNCTION_LIST *m,
+                CK_SESSION_HANDLE session,
+                CK_OBJECT_HANDLE object,
+                const void *uncompressed_point,
+                size_t uncompressed_point_size,
+                void **ret_compressed_point,
+                size_t *ret_compressed_point_size) {
+
+        _cleanup_free_ void *ec_params_buffer = NULL;
+        CK_ATTRIBUTE ec_params_attr = { CKA_EC_PARAMS, NULL_PTR, 0 };
+        CK_RV rv;
+        int r;
+
+        rv = m->C_GetAttributeValue(session, object, &ec_params_attr, 1);
+        if (rv != CKR_OK && rv != CKR_ATTRIBUTE_TYPE_INVALID)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                        "Failed to retrieve length of CKA_EC_PARAMS: %s", sym_p11_kit_strerror(rv));
+
+        if (ec_params_attr.ulValueLen != CK_UNAVAILABLE_INFORMATION) {
+                ec_params_buffer = malloc(ec_params_attr.ulValueLen);
+                if (!ec_params_buffer)
+                        return log_oom();
+
+                ec_params_attr.pValue = ec_params_buffer;
+                rv = m->C_GetAttributeValue(session, object, &ec_params_attr, 1);
+                if (rv != CKR_OK)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                "Failed to retrieve CKA_EC_PARAMS from a private key: %s", sym_p11_kit_strerror(rv));
+        } else {
+                CK_OBJECT_HANDLE public_key;
+                r = pkcs11_token_find_related_object(m, session, object, CKO_PUBLIC_KEY, &public_key);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to find a public key for compressing a EC point");
+
+                ec_params_attr.ulValueLen = 0;
+                rv = m->C_GetAttributeValue(session, public_key, &ec_params_attr, 1);
+                if (rv != CKR_OK && rv != CKR_ATTRIBUTE_TYPE_INVALID)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                "Failed to retrieve length of CKA_EC_PARAMS: %s", sym_p11_kit_strerror(rv));
+
+                if (ec_params_attr.ulValueLen == CK_UNAVAILABLE_INFORMATION)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                "The public key does not have CKA_EC_PARAMS");
+
+                ec_params_buffer = malloc(ec_params_attr.ulValueLen);
+                if (!ec_params_buffer)
+                        return log_oom();
+
+                ec_params_attr.pValue = ec_params_buffer;
+                rv = m->C_GetAttributeValue(session, public_key, &ec_params_attr, 1);
+                if (rv != CKR_OK)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                "Failed to retrieve CKA_EC_PARAMS from a public key: %s", sym_p11_kit_strerror(rv));
+        }
+
+        _cleanup_(EC_GROUP_freep) EC_GROUP *group = NULL;
+        _cleanup_(EC_POINT_freep) EC_POINT *point = NULL;
+        _cleanup_(BN_CTX_freep) BN_CTX *bnctx = NULL;
+        _cleanup_free_ void *compressed_point = NULL;
+        size_t compressed_point_size;
+
+        const unsigned char *ec_params_value = ec_params_attr.pValue;
+        group = d2i_ECPKParameters(NULL, &ec_params_value, ec_params_attr.ulValueLen);
+        if (!group)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unable to decode CKA_EC_PARAMS");
+
+        point = EC_POINT_new(group);
+        if (!point)
+                return log_oom();
+
+        bnctx = BN_CTX_new();
+        if (!bnctx)
+                return log_oom();
+
+        if (EC_POINT_oct2point(group, point, uncompressed_point, uncompressed_point_size, bnctx) != 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unable to decode an uncompressed EC point");
+
+        compressed_point_size = EC_POINT_point2oct(group, point, POINT_CONVERSION_COMPRESSED, NULL, 0, bnctx);
+        if (compressed_point_size == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to determine size of a compressed EC point");
+
+        compressed_point = malloc(compressed_point_size);
+        if (!compressed_point)
+                return log_oom();
+
+        compressed_point_size = EC_POINT_point2oct(group, point, POINT_CONVERSION_COMPRESSED, compressed_point, compressed_point_size, bnctx);
+        if (compressed_point_size == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to convert a EC point to compressed format");
+
+        *ret_compressed_point = TAKE_PTR(compressed_point);
+        *ret_compressed_point_size = compressed_point_size;
+        return 0;
+}
+#endif
+
+/* Since EC keys doesn't support encryption directly, we use ECDH protocol to derive shared secret here.
+ * We use PKCS#11 C_DeriveKey function to derive a shared secret with a private key stored in the token and
+ * a public key saved on enrollment. */
+static int pkcs11_token_decrypt_data_ecc(
+                CK_FUNCTION_LIST *m,
+                CK_SESSION_HANDLE session,
+                CK_OBJECT_HANDLE object,
+                const void *encrypted_data,
+                size_t encrypted_data_size,
+                void **ret_decrypted_data,
+                size_t *ret_decrypted_data_size) {
+
+        _cleanup_free_ void *compressed_point = NULL;
+        static const CK_BBOOL yes = CK_TRUE, no = CK_FALSE;
+        static const CK_OBJECT_CLASS shared_secret_class = CKO_SECRET_KEY;
+        static const CK_KEY_TYPE shared_secret_type = CKK_GENERIC_SECRET;
+        static const CK_ATTRIBUTE shared_secret_template[] = {
+                { CKA_TOKEN,       (void*) &no,                  sizeof(no)                  },
+                { CKA_CLASS,       (void*) &shared_secret_class, sizeof(shared_secret_class) },
+                { CKA_KEY_TYPE,    (void*) &shared_secret_type,  sizeof(shared_secret_type)  },
+                { CKA_SENSITIVE,   (void*) &no,                  sizeof(no)                  },
+                { CKA_EXTRACTABLE, (void*) &yes,                 sizeof(yes)                 }
+        };
+        CK_ECDH1_DERIVE_PARAMS params = {
+                .kdf = CKD_NULL,
+                .pPublicData = (void*) encrypted_data,
+                .ulPublicDataLen = encrypted_data_size
+        };
+        CK_MECHANISM mechanism = {
+                .mechanism = CKM_ECDH1_DERIVE,
+                .pParameter = &params,
+                .ulParameterLen = sizeof(params)
+        };
+        CK_OBJECT_HANDLE shared_secret_handle;
+        CK_SESSION_INFO session_info;
+        CK_MECHANISM_INFO mechanism_info;
+        CK_RV rv, rv2;
+        int r;
+
+        rv = m->C_GetSessionInfo(session, &session_info);
+        if (rv != CKR_OK)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                        "Failed to get information about the PKCS#11 session: %s", sym_p11_kit_strerror(rv));
+
+        rv = m->C_GetMechanismInfo(session_info.slotID, CKM_ECDH1_DERIVE, &mechanism_info);
+        if (rv != CKR_OK)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                        "Failed to get information about CKM_ECDH1_DERIVE: %s", sym_p11_kit_strerror(rv));
+
+        if (!(mechanism_info.flags & CKF_EC_UNCOMPRESS)) {
+                if (mechanism_info.flags & CKF_EC_COMPRESS) {
+#if HAVE_OPENSSL
+                        log_debug("CKM_ECDH1_DERIVE accepts compressed EC points only, trying to convert.");
+                        size_t compressed_point_size;
+                        r = ecc_convert_to_compressed(m, session, object, encrypted_data, encrypted_data_size, &compressed_point, &compressed_point_size);
+                        if (r < 0)
+                                return r;
+
+                        params.pPublicData = compressed_point;
+                        params.ulPublicDataLen = compressed_point_size;
+#else
+                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                "CKM_ECDH1_DERIVE does not support uncompressed format of EC points");
+#endif
+                } else
+                        log_debug("Both CKF_EC_UNCOMPRESS and CKF_EC_COMPRESS are false for CKM_ECDH1_DERIVE, ignoring.");
+        }
+
+        rv = m->C_DeriveKey(session, &mechanism, object, (CK_ATTRIBUTE*) shared_secret_template, ELEMENTSOF(shared_secret_template), &shared_secret_handle);
+        if (rv != CKR_OK)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to derive a shared secret: %s", sym_p11_kit_strerror(rv));
+
+        CK_ATTRIBUTE shared_secret_attr = { CKA_VALUE, NULL_PTR, 0};
+
+        rv = m->C_GetAttributeValue(session, shared_secret_handle, &shared_secret_attr, 1);
+        if (rv != CKR_OK) {
+                rv2 = m->C_DestroyObject(session, shared_secret_handle);
+                if (rv2 != CKR_OK)
+                        log_warning("Failed to destroy a shared secret, ignoring: %s", sym_p11_kit_strerror(rv2));
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to retrieve shared secret length: %s", sym_p11_kit_strerror(rv));
+        }
+
+        shared_secret_attr.pValue = malloc(shared_secret_attr.ulValueLen);
+        if (!shared_secret_attr.pValue)
+                return log_oom();
+
+        rv = m->C_GetAttributeValue(session, shared_secret_handle, &shared_secret_attr, 1);
+        rv2 = m->C_DestroyObject(session, shared_secret_handle);
+        if (rv2 != CKR_OK)
+                log_warning("Failed to destroy a shared secret, ignoring: %s", sym_p11_kit_strerror(rv2));
+
+        if (rv != CKR_OK) {
+                erase_and_free(shared_secret_attr.pValue);
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to retrieve a shared secret: %s", sym_p11_kit_strerror(rv));
+        }
+
+        log_info("Successfully derived key with security token.");
+
+        *ret_decrypted_data = shared_secret_attr.pValue;
+        *ret_decrypted_data_size = shared_secret_attr.ulValueLen;
+        return 0;
+}
+
+static int pkcs11_token_decrypt_data_rsa(
                 CK_FUNCTION_LIST *m,
                 CK_SESSION_HANDLE session,
                 CK_OBJECT_HANDLE object,
@@ -736,17 +1258,6 @@ int pkcs11_token_decrypt_data(
         _cleanup_(erase_and_freep) CK_BYTE *dbuffer = NULL;
         CK_ULONG dbuffer_size = 0;
         CK_RV rv;
-        int r;
-
-        assert(m);
-        assert(encrypted_data);
-        assert(encrypted_data_size > 0);
-        assert(ret_decrypted_data);
-        assert(ret_decrypted_data_size);
-
-        r = dlopen_p11kit();
-        if (r < 0)
-                return r;
 
         rv = m->C_DecryptInit(session, (CK_MECHANISM*) &mechanism, object);
         if (rv != CKR_OK)
@@ -777,6 +1288,42 @@ int pkcs11_token_decrypt_data(
         *ret_decrypted_data = TAKE_PTR(dbuffer);
         *ret_decrypted_data_size = dbuffer_size;
         return 0;
+}
+
+int pkcs11_token_decrypt_data(
+                CK_FUNCTION_LIST *m,
+                CK_SESSION_HANDLE session,
+                CK_OBJECT_HANDLE object,
+                const void *encrypted_data,
+                size_t encrypted_data_size,
+                void **ret_decrypted_data,
+                size_t *ret_decrypted_data_size) {
+
+        CK_KEY_TYPE key_type;
+        CK_ATTRIBUTE key_type_template = { CKA_KEY_TYPE, &key_type, sizeof(key_type) };
+        CK_RV rv;
+
+        assert(m);
+        assert(encrypted_data);
+        assert(encrypted_data_size > 0);
+        assert(ret_decrypted_data);
+        assert(ret_decrypted_data_size);
+
+        rv = m->C_GetAttributeValue(session, object, &key_type_template, 1);
+        if (rv != CKR_OK)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to retrieve private key type");
+
+        switch (key_type) {
+
+        case CKK_RSA:
+                return pkcs11_token_decrypt_data_rsa(m, session, object, encrypted_data, encrypted_data_size, ret_decrypted_data, ret_decrypted_data_size);
+
+        case CKK_EC:
+                return pkcs11_token_decrypt_data_ecc(m, session, object, encrypted_data, encrypted_data_size, ret_decrypted_data, ret_decrypted_data_size);
+
+        default:
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Unsupported private key type: %lu", key_type);
+        }
 }
 
 int pkcs11_token_acquire_rng(
@@ -1054,18 +1601,18 @@ int pkcs11_find_token(
 }
 
 #if HAVE_OPENSSL
-struct pkcs11_acquire_certificate_callback_data {
+struct pkcs11_acquire_public_key_callback_data {
         char *pin_used;
-        X509 *cert;
+        EVP_PKEY *pkey;
         const char *askpw_friendly_name, *askpw_icon_name;
 };
 
-static void pkcs11_acquire_certificate_callback_data_release(struct pkcs11_acquire_certificate_callback_data *data) {
+static void pkcs11_acquire_public_key_callback_data_release(struct pkcs11_acquire_public_key_callback_data *data) {
         erase_and_free(data->pin_used);
-        X509_free(data->cert);
+        EVP_PKEY_free(data->pkey);
 }
 
-static int pkcs11_acquire_certificate_callback(
+static int pkcs11_acquire_public_key_callback(
                 CK_FUNCTION_LIST *m,
                 CK_SESSION_HANDLE session,
                 CK_SLOT_ID slot_id,
@@ -1075,8 +1622,16 @@ static int pkcs11_acquire_certificate_callback(
                 void *userdata) {
 
         _cleanup_(erase_and_freep) char *pin_used = NULL;
-        struct pkcs11_acquire_certificate_callback_data *data = ASSERT_PTR(userdata);
-        CK_OBJECT_HANDLE object;
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = NULL;
+        CK_OBJECT_CLASS class;
+        CK_CERTIFICATE_TYPE type;
+        CK_ATTRIBUTE candidate_attributes[] = {
+                { CKA_CLASS,            &class,   sizeof(class) },
+                { CKA_CERTIFICATE_TYPE, &type,    sizeof(type)  }
+        };
+        CK_OBJECT_HANDLE candidate, public_key, certificate;
+        uint_fast8_t n_public_keys = 0, n_certificates = 0;
+        CK_RV rv;
         int r;
 
         assert(m);
@@ -1084,19 +1639,118 @@ static int pkcs11_acquire_certificate_callback(
         assert(token_info);
         assert(uri);
 
+        struct pkcs11_acquire_public_key_callback_data *data = ASSERT_PTR(userdata);
+
         /* Called for every token matching our URI */
 
         r = pkcs11_token_login(m, session, slot_id, token_info, data->askpw_friendly_name, data->askpw_icon_name, "pkcs11-pin", "pkcs11-pin", UINT64_MAX, false, &pin_used);
         if (r < 0)
                 return r;
 
-        r = pkcs11_token_find_x509_certificate(m, session, uri, &object);
-        if (r < 0)
-                return r;
+        CK_ULONG n_attributes;
+        CK_ATTRIBUTE *attributes = sym_p11_kit_uri_get_attributes(uri, &n_attributes);
+        for (typeof(n_attributes) i = 0; i < n_attributes; i++) {
+                switch (attributes[i].type) {
+                case CKA_CLASS: {
+                        CK_OBJECT_CLASS requested_class = *((CK_OBJECT_CLASS*) attributes[i].pValue);
+                        if (requested_class != CKO_PUBLIC_KEY && requested_class != CKO_CERTIFICATE)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Selected PKCS#11 object is not a public key or certificate, refusing.");
+                        break;
+                }
 
-        r = pkcs11_token_read_x509_certificate(m, session, object, &data->cert);
-        if (r < 0)
-                return r;
+                case CKA_CERTIFICATE_TYPE: {
+                        CK_CERTIFICATE_TYPE requested_type = *((CK_CERTIFICATE_TYPE*) attributes[i].pValue);
+                        if (requested_type != CKC_X_509)
+                                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Selected PKCS#11 object is not an X.509 certificate, refusing.");
+                        break;
+                }}
+        }
+
+        rv = m->C_FindObjectsInit(session, attributes, n_attributes);
+        if (rv != CKR_OK)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                       "Failed to initialize object find call: %s", sym_p11_kit_strerror(rv));
+
+        for (;;) {
+                CK_ULONG n;
+                rv = m->C_FindObjects(session, &candidate, 1, &n);
+                if (rv != CKR_OK)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                "Failed to find objects: %s", sym_p11_kit_strerror(rv));
+
+                if (n == 0)
+                        break;
+
+                candidate_attributes[0].ulValueLen = sizeof(class);
+                candidate_attributes[1].ulValueLen = sizeof(type);
+                rv = m->C_GetAttributeValue(session, candidate, candidate_attributes, ELEMENTSOF(candidate_attributes));
+                if (rv != CKR_OK && rv != CKR_ATTRIBUTE_TYPE_INVALID)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                "Failed to get attributes of a selected candidate: %s", sym_p11_kit_strerror(rv));
+
+                if (candidate_attributes[0].ulValueLen == CK_UNAVAILABLE_INFORMATION) {
+                        log_debug("Failed to get CKA_CLASS of a selected candidate");
+                        continue;
+                }
+
+                CK_OBJECT_CLASS candidate_class = *((CK_OBJECT_CLASS*) candidate_attributes[0].pValue);
+
+                if (candidate_class == CKO_PUBLIC_KEY) {
+                        n_public_keys++;
+                        if (n_public_keys > 1)
+                                break;
+                        public_key = candidate;
+                        continue;
+                }
+
+                if (candidate_class == CKO_CERTIFICATE) {
+                        if (candidate_attributes[1].ulValueLen == CK_UNAVAILABLE_INFORMATION) {
+                                log_debug("Failed to get CKA_CERTIFICATE_TYPE of a selected candidate");
+                                continue;
+                        }
+                        CK_CERTIFICATE_TYPE candidate_type = *((CK_CERTIFICATE_TYPE*) candidate_attributes[1].pValue);
+                        if (candidate_type != CKC_X_509)
+                                continue;
+                        n_certificates++;
+                        if (n_certificates > 1)
+                                break;
+                        certificate = candidate;
+                        continue;
+                }
+        }
+
+        rv = m->C_FindObjectsFinal(session);
+        if (rv != CKR_OK)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                        "Failed to finalize object find call: %s", sym_p11_kit_strerror(rv));
+
+        if (n_public_keys == 0 && n_certificates == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
+                        "Failed to find selected public key or certificate on token.");
+
+        if (n_public_keys > 1)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTUNIQ),
+                        "Provided URI matches multiple public keys, refusing.");
+
+        if (n_certificates > 1)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTUNIQ),
+                        "Provided URI matches multiple certificates, refusing.");
+
+        if (n_certificates != 0) {
+                _cleanup_(X509_freep) X509 *cert = NULL;
+                r = pkcs11_token_read_x509_certificate(m, session, certificate, &cert);
+                if (r < 0)
+                        return r;
+
+                pkey = X509_get_pubkey(cert);
+                if (!pkey)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to extract public key from X.509 certificate.");
+        } else {
+                r = pkcs11_token_read_public_key(m, session, public_key, &pkey);
+                if (r < 0)
+                        return r;
+        }
 
         /* Let's read some random data off the token and write it to the kernel pool before we generate our
          * random key from it. This way we can claim the quality of the RNG is at least as good as the
@@ -1104,26 +1758,27 @@ static int pkcs11_acquire_certificate_callback(
         (void) pkcs11_token_acquire_rng(m, session);
 
         data->pin_used = TAKE_PTR(pin_used);
-        return 1;
+        data->pkey = TAKE_PTR(pkey);
+        return 0;
 }
 
-int pkcs11_acquire_certificate(
+int pkcs11_acquire_public_key(
                 const char *uri,
                 const char *askpw_friendly_name,
                 const char *askpw_icon_name,
-                X509 **ret_cert,
+                EVP_PKEY **ret_pkey,
                 char **ret_pin_used) {
 
-        _cleanup_(pkcs11_acquire_certificate_callback_data_release) struct pkcs11_acquire_certificate_callback_data data = {
+        _cleanup_(pkcs11_acquire_public_key_callback_data_release) struct pkcs11_acquire_public_key_callback_data data = {
                 .askpw_friendly_name = askpw_friendly_name,
                 .askpw_icon_name = askpw_icon_name,
         };
         int r;
 
         assert(uri);
-        assert(ret_cert);
+        assert(ret_pkey);
 
-        r = pkcs11_find_token(uri, pkcs11_acquire_certificate_callback, &data);
+        r = pkcs11_find_token(uri, pkcs11_acquire_public_key_callback, &data);
         if (r == -EAGAIN) /* pkcs11_find_token() doesn't log about this error, but all others */
                 return log_error_errno(SYNTHETIC_ERRNO(ENXIO),
                                        "Specified PKCS#11 token with URI '%s' not found.",
@@ -1131,11 +1786,9 @@ int pkcs11_acquire_certificate(
         if (r < 0)
                 return r;
 
-        *ret_cert = TAKE_PTR(data.cert);
-
+        *ret_pkey = TAKE_PTR(data.pkey);
         if (ret_pin_used)
                 *ret_pin_used = TAKE_PTR(data.pin_used);
-
         return 0;
 }
 #endif
