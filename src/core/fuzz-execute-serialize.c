@@ -22,7 +22,7 @@ static void exec_fuzz_one(FILE *f, FDSet *fdset, bool store_index) {
         _cleanup_(cgroup_context_done) CGroupContext cgroup_context = {};
         _cleanup_(exec_context_done) ExecContext context = {};
         _cleanup_(exec_command_done) ExecCommand command = {};
-        _cleanup_(exec_params_serialized_done) ExecParameters params = EXEC_PARAMETERS_INIT(/* flags= */ 0);
+        _cleanup_(exec_params_deep_clear) ExecParameters params = EXEC_PARAMETERS_INIT(/* flags= */ 0);
         _cleanup_(exec_shared_runtime_done) ExecSharedRuntime shared = {
                 .netns_storage_socket = PIPE_EBADF,
                 .ipcns_storage_socket = PIPE_EBADF,
