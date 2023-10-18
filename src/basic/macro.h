@@ -42,6 +42,8 @@
 /* test harness */
 #define EXIT_TEST_SKIP 77
 
+#define OFF_T_MAX ((off_t) -1)
+
 /* builtins */
 #if __SIZEOF_INT__ == 4
 #define BUILTIN_FFS_U32(x) __builtin_ffs(x);
