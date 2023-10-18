@@ -240,7 +240,7 @@ int pidref_sigqueue(PidRef *pidref, int sig, int value) {
         return -ESRCH;
 }
 
-int pidref_verify(PidRef *pidref) {
+int pidref_verify(const PidRef *pidref) {
         int r;
 
         /* This is a helper that is supposed to be called after reading information from procfs via a
