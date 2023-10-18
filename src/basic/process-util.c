@@ -25,6 +25,7 @@
 #include "alloc-util.h"
 #include "architecture.h"
 #include "argv-util.h"
+#include "dirent-util.h"
 #include "env-file.h"
 #include "env-util.h"
 #include "errno-util.h"
@@ -94,7 +95,7 @@ static int get_process_state(pid_t pid) {
         return (unsigned char) state;
 }
 
-int get_process_comm(pid_t pid, char **ret) {
+int pid_get_comm(pid_t pid, char **ret) {
         _cleanup_free_ char *escaped = NULL, *comm = NULL;
         int r;
 
@@ -132,7 +133,27 @@ int get_process_comm(pid_t pid, char **ret) {
         return 0;
 }
 
-static int get_process_cmdline_nulstr(
+int pidref_get_comm(const PidRef *pid, char **ret) {
+        _cleanup_free_ char *comm = NULL;
+        int r;
+
+        if (!pidref_is_set(pid))
+                return -ESRCH;
+
+        r = pid_get_comm(pid->pid, &comm);
+        if (r < 0)
+                return r;
+
+        r = pidref_verify(pid);
+        if (r < 0)
+                return r;
+
+        if (ret)
+                *ret = TAKE_PTR(comm);
+        return 0;
+}
+
+static int pid_get_cmdline_nulstr(
                 pid_t pid,
                 size_t max_size,
                 ProcessCmdlineFlags flags,
@@ -172,7 +193,7 @@ static int get_process_cmdline_nulstr(
                 /* Kernel threads have no argv[] */
                 _cleanup_free_ char *comm = NULL;
 
-                r = get_process_comm(pid, &comm);
+                r = pid_get_comm(pid, &comm);
                 if (r < 0)
                         return r;
 
@@ -191,7 +212,7 @@ static int get_process_cmdline_nulstr(
         return r;
 }
 
-int get_process_cmdline(pid_t pid, size_t max_columns, ProcessCmdlineFlags flags, char **ret) {
+int pid_get_cmdline(pid_t pid, size_t max_columns, ProcessCmdlineFlags flags, char **ret) {
         _cleanup_free_ char *t = NULL;
         size_t k;
         char *ans;
@@ -213,7 +234,7 @@ int get_process_cmdline(pid_t pid, size_t max_columns, ProcessCmdlineFlags flags
          * Returns -ESRCH if the process doesn't exist, and -ENOENT if the process has no command line (and
          * PROCESS_CMDLINE_COMM_FALLBACK is not specified). Returns 0 and sets *line otherwise. */
 
-        int full = get_process_cmdline_nulstr(pid, max_columns, flags, &t, &k);
+        int full = pid_get_cmdline_nulstr(pid, max_columns, flags, &t, &k);
         if (full < 0)
                 return full;
 
@@ -256,7 +277,27 @@ int get_process_cmdline(pid_t pid, size_t max_columns, ProcessCmdlineFlags flags
         return 0;
 }
 
-int get_process_cmdline_strv(pid_t pid, ProcessCmdlineFlags flags, char ***ret) {
+int pidref_get_cmdline(const PidRef *pid, size_t max_columns, ProcessCmdlineFlags flags, char **ret) {
+        _cleanup_free_ char *s = NULL;
+        int r;
+
+        if (!pidref_is_set(pid))
+                return -ESRCH;
+
+        r = pid_get_cmdline(pid->pid, max_columns, flags, &s);
+        if (r < 0)
+                return r;
+
+        r = pidref_verify(pid);
+        if (r < 0)
+                return r;
+
+        if (ret)
+                *ret = TAKE_PTR(s);
+        return 0;
+}
+
+int pid_get_cmdline_strv(pid_t pid, ProcessCmdlineFlags flags, char ***ret) {
         _cleanup_free_ char *t = NULL;
         char **args;
         size_t k;
@@ -266,7 +307,7 @@ int get_process_cmdline_strv(pid_t pid, ProcessCmdlineFlags flags, char ***ret) 
         assert((flags & ~PROCESS_CMDLINE_COMM_FALLBACK) == 0);
         assert(ret);
 
-        r = get_process_cmdline_nulstr(pid, SIZE_MAX, flags, &t, &k);
+        r = pid_get_cmdline_nulstr(pid, SIZE_MAX, flags, &t, &k);
         if (r < 0)
                 return r;
 
@@ -275,6 +316,27 @@ int get_process_cmdline_strv(pid_t pid, ProcessCmdlineFlags flags, char ***ret) 
                 return -ENOMEM;
 
         *ret = args;
+        return 0;
+}
+
+int pidref_get_cmdline_strv(PidRef *pid, ProcessCmdlineFlags flags, char ***ret) {
+        _cleanup_strv_free_ char **args = NULL;
+        int r;
+
+        if (!pidref_is_set(pid))
+                return -ESRCH;
+
+        r = pid_get_cmdline_strv(pid->pid, flags, &args);
+        if (r < 0)
+                return r;
+
+        r = pidref_verify(pid);
+        if (r < 0)
+                return r;
+
+        if (ret)
+                *ret = TAKE_PTR(args);
+
         return 0;
 }
 
@@ -346,7 +408,7 @@ int namespace_get_leader(pid_t pid, NamespaceType type, pid_t *ret) {
         }
 }
 
-int is_kernel_thread(pid_t pid) {
+int pid_is_kernel_thread(pid_t pid) {
         _cleanup_free_ char *line = NULL;
         unsigned long long flags;
         size_t l, i;
@@ -402,6 +464,23 @@ int is_kernel_thread(pid_t pid) {
                 return r;
 
         return !!(flags & PF_KTHREAD);
+}
+
+int pidref_is_kernel_thread(const PidRef *pid) {
+        int result, r;
+
+        if (!pidref_is_set(pid))
+                return -ESRCH;
+
+        result = pid_is_kernel_thread(pid->pid);
+        if (result < 0)
+                return result;
+
+        r = pidref_verify(pid); /* Verify that the PID wasn't reused since */
+        if (r < 0)
+                return r;
+
+        return result;
 }
 
 int get_process_capeff(pid_t pid, char **ret) {
@@ -492,7 +571,8 @@ static int get_process_id(pid_t pid, const char *field, uid_t *ret) {
         return -EIO;
 }
 
-int get_process_uid(pid_t pid, uid_t *ret) {
+int pid_get_uid(pid_t pid, uid_t *ret) {
+        assert(ret);
 
         if (pid == 0 || pid == getpid_cached()) {
                 *ret = getuid();
@@ -500,6 +580,26 @@ int get_process_uid(pid_t pid, uid_t *ret) {
         }
 
         return get_process_id(pid, "Uid:", ret);
+}
+
+int pidref_get_uid(const PidRef *pid, uid_t *ret) {
+        uid_t uid;
+        int r;
+
+        if (!pidref_is_set(pid))
+                return -ESRCH;
+
+        r = pid_get_uid(pid->pid, &uid);
+        if (r < 0)
+                return r;
+
+        r = pidref_verify(pid);
+        if (r < 0)
+                return r;
+
+        if (ret)
+                *ret = uid;
+        return 0;
 }
 
 int get_process_gid(pid_t pid, gid_t *ret) {
@@ -692,7 +792,7 @@ int wait_for_terminate_and_check(const char *name, pid_t pid, WaitFlags flags) {
         assert(pid > 1);
 
         if (!name) {
-                r = get_process_comm(pid, &buffer);
+                r = pid_get_comm(pid, &buffer);
                 if (r < 0)
                         log_debug_errno(r, "Failed to acquire process name of " PID_FMT ", ignoring: %m", pid);
                 else
@@ -914,6 +1014,9 @@ int pid_is_my_child(pid_t pid) {
         pid_t ppid;
         int r;
 
+        if (pid < 0)
+                return -ESRCH;
+
         if (pid <= 1)
                 return false;
 
@@ -924,11 +1027,28 @@ int pid_is_my_child(pid_t pid) {
         return ppid == getpid_cached();
 }
 
-bool pid_is_unwaited(pid_t pid) {
+int pidref_is_my_child(PidRef *pid) {
+        int r, result;
+
+        if (!pidref_is_set(pid))
+                return -ESRCH;
+
+        result = pid_is_my_child(pid->pid);
+        if (result < 0)
+                return result;
+
+        r = pidref_verify(pid);
+        if (r < 0)
+                return r;
+
+        return result;
+}
+
+int pid_is_unwaited(pid_t pid) {
         /* Checks whether a PID is still valid at all, including a zombie */
 
         if (pid < 0)
-                return false;
+                return -ESRCH;
 
         if (pid <= 1) /* If we or PID 1 would be dead and have been waited for, this code would not be running */
                 return true;
@@ -942,13 +1062,31 @@ bool pid_is_unwaited(pid_t pid) {
         return errno != ESRCH;
 }
 
-bool pid_is_alive(pid_t pid) {
+int pidref_is_unwaited(PidRef *pid) {
+        int r;
+
+        if (!pidref_is_set(pid))
+                return -ESRCH;
+
+        if (pid->pid == 1 || pidref_is_self(pid))
+                return true;
+
+        r = pidref_kill(pid, 0);
+        if (r == -ESRCH)
+                return false;
+        if (r < 0)
+                return r;
+
+        return true;
+}
+
+int pid_is_alive(pid_t pid) {
         int r;
 
         /* Checks whether a PID is still valid and not a zombie */
 
         if (pid < 0)
-                return false;
+                return -ESRCH;
 
         if (pid <= 1) /* If we or PID 1 would be a zombie, this code would not be running */
                 return true;
@@ -957,10 +1095,31 @@ bool pid_is_alive(pid_t pid) {
                 return true;
 
         r = get_process_state(pid);
-        if (IN_SET(r, -ESRCH, 'Z'))
+        if (r == -ESRCH)
                 return false;
+        if (r < 0)
+                return r;
 
-        return true;
+        return r != 'Z';
+}
+
+int pidref_is_alive(PidRef *pidref) {
+        int r, result;
+
+        if (!pidref_is_set(pidref))
+                return -ESRCH;
+
+        result = pid_is_alive(pidref->pid);
+        if (result < 0)
+                return result;
+
+        r = pidref_verify(pidref);
+        if (r == -ESRCH)
+                return false;
+        if (r < 0)
+                return r;
+
+        return result;
 }
 
 int pid_from_same_root_fs(pid_t pid) {
@@ -1801,6 +1960,74 @@ fail:
         assert(r > 0);
         posix_spawnattr_destroy(&attr);
         return -r;
+}
+
+int proc_dir_open(DIR **ret) {
+        DIR *d;
+
+        assert(ret);
+
+        d = opendir("/proc");
+        if (!d)
+                return -errno;
+
+        *ret = d;
+        return 0;
+}
+
+int proc_dir_read(DIR *d, pid_t *ret) {
+        assert(d);
+
+        for (;;) {
+                struct dirent *de;
+
+                errno = 0;
+                de = readdir_no_dot(d);
+                if (!de) {
+                        if (errno != 0)
+                                return -errno;
+
+                        break;
+                }
+
+                if (!IN_SET(de->d_type, DT_DIR, DT_UNKNOWN))
+                        continue;
+
+                if (parse_pid(de->d_name, ret) >= 0)
+                        return 1;
+        }
+
+        if (ret)
+                *ret = 0;
+        return 0;
+}
+
+int proc_dir_read_pidref(DIR *d, PidRef *ret) {
+        int r;
+
+        assert(d);
+
+        for (;;) {
+                pid_t pid;
+
+                r = proc_dir_read(d, &pid);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                r = pidref_set_pid(ret, pid);
+                if (r == -ESRCH) /* gone by now? skip it */
+                        continue;
+                if (r < 0)
+                        return r;
+
+                return 1;
+        }
+
+        if (ret)
+                *ret = PIDREF_NULL;
+        return 0;
 }
 
 static const char *const sigchld_code_table[] = {

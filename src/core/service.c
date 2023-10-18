@@ -190,7 +190,7 @@ static int service_set_main_pidref(Service *s, PidRef *pidref) {
         if (pidref->pid <= 1)
                 return -EINVAL;
 
-        if (pidref->pid == getpid_cached())
+        if (pidref_is_self(pidref))
                 return -EINVAL;
 
         if (pidref_equal(&s->main_pid, pidref) && s->main_pid_known) {
@@ -205,7 +205,7 @@ static int service_set_main_pidref(Service *s, PidRef *pidref) {
 
         s->main_pid = TAKE_PIDREF(*pidref);
         s->main_pid_known = true;
-        s->main_pid_alien = pid_is_my_child(s->main_pid.pid) == 0;
+        s->main_pid_alien = pidref_is_my_child(&s->main_pid) <= 0;
 
         if (s->main_pid_alien)
                 log_unit_warning(UNIT(s), "Supervising process "PID_FMT" which is not our child. We'll most likely not notice when it exits.", s->main_pid.pid);
@@ -1053,6 +1053,7 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
 
 static int service_is_suitable_main_pid(Service *s, PidRef *pid, int prio) {
         Unit *owner;
+        int r;
 
         assert(s);
         assert(pidref_is_set(pid));
@@ -1061,14 +1062,17 @@ static int service_is_suitable_main_pid(Service *s, PidRef *pid, int prio) {
          * PID is questionnable but should be accepted if the source of configuration is trusted. > 0 if the PID is
          * good */
 
-        if (pid->pid == getpid_cached() || pid->pid == 1)
+        if (pidref_is_self(pid) || pid->pid == 1)
                 return log_unit_full_errno(UNIT(s), prio, SYNTHETIC_ERRNO(EPERM), "New main PID "PID_FMT" is the manager, refusing.", pid->pid);
 
         if (pidref_equal(pid, &s->control_pid))
                 return log_unit_full_errno(UNIT(s), prio, SYNTHETIC_ERRNO(EPERM), "New main PID "PID_FMT" is the control process, refusing.", pid->pid);
 
-        if (!pid_is_alive(pid->pid))
+        r = pidref_is_alive(pid);
+        if (r == 0)
                 return log_unit_full_errno(UNIT(s), prio, SYNTHETIC_ERRNO(ESRCH), "New main PID "PID_FMT" does not exist or is a zombie.", pid->pid);
+        if (r < 0)
+                return log_unit_full_errno(UNIT(s), prio, r, "Failed to check if main PID "PID_FMT" exists or is a zombie.", pid->pid);
 
         owner = manager_get_unit_by_pidref(UNIT(s)->manager, pid);
         if (owner == UNIT(s)) {
@@ -1317,7 +1321,7 @@ static int service_coldplug(Unit *u) {
                 return r;
 
         if (pidref_is_set(&s->main_pid) &&
-            pid_is_unwaited(s->main_pid.pid) &&
+            pidref_is_unwaited(&s->main_pid) > 0 &&
             (IN_SET(s->deserialized_state,
                     SERVICE_START, SERVICE_START_POST,
                     SERVICE_RUNNING,
@@ -1330,7 +1334,7 @@ static int service_coldplug(Unit *u) {
         }
 
         if (pidref_is_set(&s->control_pid) &&
-            pid_is_unwaited(s->control_pid.pid) &&
+            pidref_is_unwaited(&s->control_pid) > 0 &&
             IN_SET(s->deserialized_state,
                    SERVICE_CONDITION, SERVICE_START_PRE, SERVICE_START, SERVICE_START_POST,
                    SERVICE_RELOAD, SERVICE_RELOAD_SIGNAL, SERVICE_RELOAD_NOTIFY,
@@ -1827,7 +1831,7 @@ static int main_pid_good(Service *s) {
 
                 /* If it's an alien child let's check if it is still alive ... */
                 if (s->main_pid_alien && pidref_is_set(&s->main_pid))
-                        return pid_is_alive(s->main_pid.pid);
+                        return pidref_is_alive(&s->main_pid);
 
                 /* .. otherwise assume we'll get a SIGCHLD for it, which we really should wait for to collect
                  * exit status and code */
@@ -2295,7 +2299,7 @@ static void service_kill_control_process(Service *s) {
         if (r < 0) {
                 _cleanup_free_ char *comm = NULL;
 
-                (void) get_process_comm(s->control_pid.pid, &comm);
+                (void) pidref_get_comm(&s->control_pid, &comm);
 
                 log_unit_debug_errno(UNIT(s), r, "Failed to kill control process " PID_FMT " (%s), ignoring: %m",
                                      s->control_pid.pid, strna(comm));

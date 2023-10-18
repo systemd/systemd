@@ -39,11 +39,15 @@ typedef enum ProcessCmdlineFlags {
         PROCESS_CMDLINE_QUOTE_POSIX   = 1 << 3,
 } ProcessCmdlineFlags;
 
-int get_process_comm(pid_t pid, char **ret);
-int get_process_cmdline(pid_t pid, size_t max_columns, ProcessCmdlineFlags flags, char **ret);
-int get_process_cmdline_strv(pid_t pid, ProcessCmdlineFlags flags, char ***ret);
+int pid_get_comm(pid_t pid, char **ret);
+int pidref_get_comm(const PidRef *pid, char **ret);
+int pid_get_cmdline(pid_t pid, size_t max_columns, ProcessCmdlineFlags flags, char **ret);
+int pidref_get_cmdline(const PidRef *pid, size_t max_columns, ProcessCmdlineFlags flags, char **ret);
+int pid_get_cmdline_strv(pid_t pid, ProcessCmdlineFlags flags, char ***ret);
+int pidref_get_cmdline_strv(PidRef *pid, ProcessCmdlineFlags flags, char ***ret);
 int get_process_exe(pid_t pid, char **ret);
-int get_process_uid(pid_t pid, uid_t *ret);
+int pid_get_uid(pid_t pid, uid_t *ret);
+int pidref_get_uid(const PidRef *pid, uid_t *ret);
 int get_process_gid(pid_t pid, gid_t *ret);
 int get_process_capeff(pid_t pid, char **ret);
 int get_process_cwd(pid_t pid, char **ret);
@@ -77,13 +81,17 @@ void sigkill_nowaitp(pid_t *pid);
 
 int kill_and_sigcont(pid_t pid, int sig);
 
-int is_kernel_thread(pid_t pid);
+int pid_is_kernel_thread(pid_t pid);
+int pidref_is_kernel_thread(const PidRef *pid);
 
 int getenv_for_pid(pid_t pid, const char *field, char **_value);
 
-bool pid_is_alive(pid_t pid);
-bool pid_is_unwaited(pid_t pid);
+int pid_is_alive(pid_t pid);
+int pidref_is_alive(PidRef *pidref);
+int pid_is_unwaited(pid_t pid);
+int pidref_is_unwaited(PidRef *pid);
 int pid_is_my_child(pid_t pid);
+int pidref_is_my_child(PidRef *pidref);
 int pid_from_same_root_fs(pid_t pid);
 
 bool is_main_thread(void);
@@ -215,3 +223,7 @@ int is_reaper_process(void);
 int make_reaper_process(bool b);
 
 int posix_spawn_wrapper(const char *path, char *const *argv, char *const *envp, pid_t *ret_pid);
+
+int proc_dir_open(DIR **ret);
+int proc_dir_read(DIR *d, pid_t *ret);
+int proc_dir_read_pidref(DIR *d, PidRef *ret);
