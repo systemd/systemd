@@ -71,7 +71,7 @@ struct MMapCache {
 /* Tiny windows increase mmap activity and the chance of exposing unsafe use. */
 # define WINDOW_SIZE (page_size())
 #else
-# define WINDOW_SIZE (8ULL*1024ULL*1024ULL)
+# define WINDOW_SIZE ((size_t) (UINT64_C(8) * UINT64_C(1024) * UINT64_C(1024)))
 #endif
 
 MMapCache* mmap_cache_new(void) {
@@ -269,7 +269,6 @@ static int add_mmap(
                 struct stat *st,
                 Window **ret) {
 
-        uint64_t woffset, wsize;
         Window *w;
         void *d;
         int r;
@@ -278,41 +277,42 @@ static int add_mmap(
         assert(size > 0);
         assert(ret);
 
-        woffset = offset & ~((uint64_t) page_size() - 1ULL);
-        wsize = size + (offset - woffset);
-        wsize = PAGE_ALIGN(wsize);
+        /* overflow check */
+        if (size > SIZE_MAX - PAGE_OFFSET_U64(offset))
+                return -EADDRNOTAVAIL;
 
-        if (wsize < WINDOW_SIZE) {
+        size = PAGE_ALIGN(size + PAGE_OFFSET_U64(offset));
+        offset = PAGE_ALIGN_DOWN_U64(offset);
+
+        if (size < WINDOW_SIZE) {
                 uint64_t delta;
 
-                delta = PAGE_ALIGN((WINDOW_SIZE - wsize) / 2);
-
-                if (delta > offset)
-                        woffset = 0;
-                else
-                        woffset -= delta;
-
-                wsize = WINDOW_SIZE;
+                delta = PAGE_ALIGN((WINDOW_SIZE - size) / 2);
+                offset = LESS_BY(offset, delta);
+                size = WINDOW_SIZE;
         }
 
         if (st) {
                 /* Memory maps that are larger then the files underneath have undefined behavior. Hence,
                  * clamp things to the file size if we know it */
 
-                if (woffset >= (uint64_t) st->st_size)
+                if (offset >= (uint64_t) st->st_size)
                         return -EADDRNOTAVAIL;
 
-                if (woffset + wsize > (uint64_t) st->st_size)
-                        wsize = PAGE_ALIGN(st->st_size - woffset);
+                if (size > (uint64_t) st->st_size - offset)
+                        size = PAGE_ALIGN((uint64_t) st->st_size - offset);
         }
 
-        r = mmap_try_harder(f, NULL, MAP_SHARED, woffset, wsize, &d);
+        if (size >= SIZE_MAX)
+                return -EADDRNOTAVAIL;
+
+        r = mmap_try_harder(f, NULL, MAP_SHARED, offset, size, &d);
         if (r < 0)
                 return r;
 
-        w = window_add(f, woffset, wsize, d);
+        w = window_add(f, offset, size, d);
         if (!w) {
-                (void) munmap(d, wsize);
+                (void) munmap(d, size);
                 return -ENOMEM;
         }
 
