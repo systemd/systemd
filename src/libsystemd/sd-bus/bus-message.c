@@ -2490,6 +2490,8 @@ int bus_body_part_map(struct bus_body_part *part) {
 
         shift = PAGE_OFFSET(part->memfd_offset);
         psz = PAGE_ALIGN(part->size + shift);
+        if (psz >= SIZE_MAX)
+                return -EFBIG;
 
         if (part->memfd >= 0)
                 p = mmap(NULL, psz, PROT_READ, MAP_PRIVATE, part->memfd, part->memfd_offset - shift);
