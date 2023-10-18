@@ -1012,4 +1012,29 @@ TEST(round_up) {
         TEST_ROUND_UP_BY_TYPE(uint64_t, UINT64_MAX);
 }
 
+TEST(u64_multiply_safe) {
+        assert_se(u64_multiply_safe(0, 0) == 0);
+        assert_se(u64_multiply_safe(10, 0) == 0);
+        assert_se(u64_multiply_safe(0, 10) == 0);
+        assert_se(u64_multiply_safe(10, 10) == 100);
+
+        assert_se(u64_multiply_safe(UINT64_MAX, 0) == 0);
+        assert_se(u64_multiply_safe(UINT64_MAX, 1) == UINT64_MAX);
+        assert_se(u64_multiply_safe(UINT64_MAX, 2) == 0);
+        assert_se(u64_multiply_safe(0, UINT64_MAX) == 0);
+        assert_se(u64_multiply_safe(1, UINT64_MAX) == UINT64_MAX);
+        assert_se(u64_multiply_safe(2, UINT64_MAX) == 0);
+
+        assert_se(u64_multiply_safe(UINT64_MAX / 2, 0) == 0);
+        assert_se(u64_multiply_safe(UINT64_MAX / 2, 1) == UINT64_MAX / 2);
+        assert_se(u64_multiply_safe(UINT64_MAX / 2, 2) == UINT64_MAX - 1);
+        assert_se(u64_multiply_safe(UINT64_MAX / 2, 3) == 0);
+        assert_se(u64_multiply_safe(0, UINT64_MAX / 2) == 0);
+        assert_se(u64_multiply_safe(1, UINT64_MAX / 2) == UINT64_MAX / 2);
+        assert_se(u64_multiply_safe(2, UINT64_MAX / 2) == UINT64_MAX - 1);
+        assert_se(u64_multiply_safe(3, UINT64_MAX / 2) == 0);
+
+        assert_se(u64_multiply_safe(UINT64_MAX, UINT64_MAX) == 0);
+}
+
 DEFINE_TEST_MAIN(LOG_INFO);
