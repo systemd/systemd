@@ -379,6 +379,39 @@ static inline size_t ALIGN_TO(size_t l, size_t ali) {
         return ((l + (ali - 1)) & ~(ali - 1));
 }
 
+static inline uint64_t ALIGN_TO_U64(uint64_t l, uint64_t ali) {
+        assert(ISPOWEROF2(ali));
+
+        if (l > UINT64_MAX - (ali - 1))
+                return UINT64_MAX; /* indicate overflow */
+
+        return ((l + (ali - 1)) & ~(ali - 1));
+}
+
+static inline size_t ALIGN_DOWN(size_t l, size_t ali) {
+        assert(ISPOWEROF2(ali));
+
+        return l & ~(ali - 1);
+}
+
+static inline uint64_t ALIGN_DOWN_U64(uint64_t l, uint64_t ali) {
+        assert(ISPOWEROF2(ali));
+
+        return l & ~(ali - 1);
+}
+
+static inline size_t ALIGN_OFFSET(size_t l, size_t ali) {
+        assert(ISPOWEROF2(ali));
+
+        return l & (ali - 1);
+}
+
+static inline uint64_t ALIGN_OFFSET_U64(uint64_t l, uint64_t ali) {
+        assert(ISPOWEROF2(ali));
+
+        return l & (ali - 1);
+}
+
 #define ALIGN2(l) ALIGN_TO(l, 2)
 #define ALIGN4(l) ALIGN_TO(l, 4)
 #define ALIGN8(l) ALIGN_TO(l, 8)

@@ -513,6 +513,34 @@ TEST(align_to) {
         assert_se(ALIGN_TO(SIZE_MAX-1, 4) == SIZE_MAX); /* overflow */
         assert_se(ALIGN_TO(SIZE_MAX, 4) == SIZE_MAX);   /* overflow */
 
+        assert_se(ALIGN_TO_U64(0, 1) == 0);
+        assert_se(ALIGN_TO_U64(1, 1) == 1);
+        assert_se(ALIGN_TO_U64(2, 1) == 2);
+        assert_se(ALIGN_TO_U64(3, 1) == 3);
+        assert_se(ALIGN_TO_U64(4, 1) == 4);
+        assert_se(ALIGN_TO_U64(UINT64_MAX-1, 1) == UINT64_MAX-1);
+        assert_se(ALIGN_TO_U64(UINT64_MAX, 1) == UINT64_MAX);
+
+        assert_se(ALIGN_TO_U64(0, 2) == 0);
+        assert_se(ALIGN_TO_U64(1, 2) == 2);
+        assert_se(ALIGN_TO_U64(2, 2) == 2);
+        assert_se(ALIGN_TO_U64(3, 2) == 4);
+        assert_se(ALIGN_TO_U64(4, 2) == 4);
+        assert_se(ALIGN_TO_U64(UINT64_MAX-3, 2) == UINT64_MAX-3);
+        assert_se(ALIGN_TO_U64(UINT64_MAX-2, 2) == UINT64_MAX-1);
+        assert_se(ALIGN_TO_U64(UINT64_MAX-1, 2) == UINT64_MAX-1);
+        assert_se(ALIGN_TO_U64(UINT64_MAX, 2) == UINT64_MAX); /* overflow */
+
+        assert_se(ALIGN_TO_U64(0, 4) == 0);
+        assert_se(ALIGN_TO_U64(1, 4) == 4);
+        assert_se(ALIGN_TO_U64(2, 4) == 4);
+        assert_se(ALIGN_TO_U64(3, 4) == 4);
+        assert_se(ALIGN_TO_U64(4, 4) == 4);
+        assert_se(ALIGN_TO_U64(UINT64_MAX-3, 4) == UINT64_MAX-3);
+        assert_se(ALIGN_TO_U64(UINT64_MAX-2, 4) == UINT64_MAX); /* overflow */
+        assert_se(ALIGN_TO_U64(UINT64_MAX-1, 4) == UINT64_MAX); /* overflow */
+        assert_se(ALIGN_TO_U64(UINT64_MAX, 4) == UINT64_MAX);   /* overflow */
+
         assert_cc(CONST_ALIGN_TO(96, 512) == 512);
         assert_cc(CONST_ALIGN_TO(511, 512) == 512);
         assert_cc(CONST_ALIGN_TO(512, 512) == 512);
@@ -521,6 +549,106 @@ TEST(align_to) {
 
         assert_cc(__builtin_types_compatible_p(typeof(CONST_ALIGN_TO(4, 3)), void));
         assert_cc(__builtin_types_compatible_p(typeof(CONST_ALIGN_TO(SIZE_MAX, 512)), void));
+}
+
+TEST(align_down) {
+        assert_se(ALIGN_DOWN(0, 1) == 0);
+        assert_se(ALIGN_DOWN(1, 1) == 1);
+        assert_se(ALIGN_DOWN(2, 1) == 2);
+        assert_se(ALIGN_DOWN(3, 1) == 3);
+        assert_se(ALIGN_DOWN(4, 1) == 4);
+        assert_se(ALIGN_DOWN(SIZE_MAX-1, 1) == SIZE_MAX-1);
+        assert_se(ALIGN_DOWN(SIZE_MAX, 1) == SIZE_MAX);
+
+        assert_se(ALIGN_DOWN(0, 2) == 0);
+        assert_se(ALIGN_DOWN(1, 2) == 0);
+        assert_se(ALIGN_DOWN(2, 2) == 2);
+        assert_se(ALIGN_DOWN(3, 2) == 2);
+        assert_se(ALIGN_DOWN(4, 2) == 4);
+        assert_se(ALIGN_DOWN(SIZE_MAX-1, 2) == SIZE_MAX-1);
+        assert_se(ALIGN_DOWN(SIZE_MAX, 2) == SIZE_MAX-1);
+
+        assert_se(ALIGN_DOWN(0, 4) == 0);
+        assert_se(ALIGN_DOWN(1, 4) == 0);
+        assert_se(ALIGN_DOWN(2, 4) == 0);
+        assert_se(ALIGN_DOWN(3, 4) == 0);
+        assert_se(ALIGN_DOWN(4, 4) == 4);
+        assert_se(ALIGN_DOWN(SIZE_MAX-1, 4) == SIZE_MAX-3);
+        assert_se(ALIGN_DOWN(SIZE_MAX, 4) == SIZE_MAX-3);
+
+        assert_se(ALIGN_DOWN_U64(0, 1) == 0);
+        assert_se(ALIGN_DOWN_U64(1, 1) == 1);
+        assert_se(ALIGN_DOWN_U64(2, 1) == 2);
+        assert_se(ALIGN_DOWN_U64(3, 1) == 3);
+        assert_se(ALIGN_DOWN_U64(4, 1) == 4);
+        assert_se(ALIGN_DOWN_U64(UINT64_MAX-1, 1) == UINT64_MAX-1);
+        assert_se(ALIGN_DOWN_U64(UINT64_MAX, 1) == UINT64_MAX);
+
+        assert_se(ALIGN_DOWN_U64(0, 2) == 0);
+        assert_se(ALIGN_DOWN_U64(1, 2) == 0);
+        assert_se(ALIGN_DOWN_U64(2, 2) == 2);
+        assert_se(ALIGN_DOWN_U64(3, 2) == 2);
+        assert_se(ALIGN_DOWN_U64(4, 2) == 4);
+        assert_se(ALIGN_DOWN_U64(UINT64_MAX-1, 2) == UINT64_MAX-1);
+        assert_se(ALIGN_DOWN_U64(UINT64_MAX, 2) == UINT64_MAX-1);
+
+        assert_se(ALIGN_DOWN_U64(0, 4) == 0);
+        assert_se(ALIGN_DOWN_U64(1, 4) == 0);
+        assert_se(ALIGN_DOWN_U64(2, 4) == 0);
+        assert_se(ALIGN_DOWN_U64(3, 4) == 0);
+        assert_se(ALIGN_DOWN_U64(4, 4) == 4);
+        assert_se(ALIGN_DOWN_U64(UINT64_MAX-1, 4) == UINT64_MAX-3);
+        assert_se(ALIGN_DOWN_U64(UINT64_MAX, 4) == UINT64_MAX-3);
+}
+
+TEST(align_offset) {
+        assert_se(ALIGN_OFFSET(0, 1) == 0);
+        assert_se(ALIGN_OFFSET(1, 1) == 0);
+        assert_se(ALIGN_OFFSET(2, 1) == 0);
+        assert_se(ALIGN_OFFSET(3, 1) == 0);
+        assert_se(ALIGN_OFFSET(4, 1) == 0);
+        assert_se(ALIGN_OFFSET(SIZE_MAX-1, 1) == 0);
+        assert_se(ALIGN_OFFSET(SIZE_MAX, 1) == 0);
+
+        assert_se(ALIGN_OFFSET(0, 2) == 0);
+        assert_se(ALIGN_OFFSET(1, 2) == 1);
+        assert_se(ALIGN_OFFSET(2, 2) == 0);
+        assert_se(ALIGN_OFFSET(3, 2) == 1);
+        assert_se(ALIGN_OFFSET(4, 2) == 0);
+        assert_se(ALIGN_OFFSET(SIZE_MAX-1, 2) == 0);
+        assert_se(ALIGN_OFFSET(SIZE_MAX, 2) == 1);
+
+        assert_se(ALIGN_OFFSET(0, 4) == 0);
+        assert_se(ALIGN_OFFSET(1, 4) == 1);
+        assert_se(ALIGN_OFFSET(2, 4) == 2);
+        assert_se(ALIGN_OFFSET(3, 4) == 3);
+        assert_se(ALIGN_OFFSET(4, 4) == 0);
+        assert_se(ALIGN_OFFSET(SIZE_MAX-1, 4) == 2);
+        assert_se(ALIGN_OFFSET(SIZE_MAX, 4) == 3);
+
+        assert_se(ALIGN_OFFSET_U64(0, 1) == 0);
+        assert_se(ALIGN_OFFSET_U64(1, 1) == 0);
+        assert_se(ALIGN_OFFSET_U64(2, 1) == 0);
+        assert_se(ALIGN_OFFSET_U64(3, 1) == 0);
+        assert_se(ALIGN_OFFSET_U64(4, 1) == 0);
+        assert_se(ALIGN_OFFSET_U64(UINT64_MAX-1, 1) == 0);
+        assert_se(ALIGN_OFFSET_U64(UINT64_MAX, 1) == 0);
+
+        assert_se(ALIGN_OFFSET_U64(0, 2) == 0);
+        assert_se(ALIGN_OFFSET_U64(1, 2) == 1);
+        assert_se(ALIGN_OFFSET_U64(2, 2) == 0);
+        assert_se(ALIGN_OFFSET_U64(3, 2) == 1);
+        assert_se(ALIGN_OFFSET_U64(4, 2) == 0);
+        assert_se(ALIGN_OFFSET_U64(UINT64_MAX-1, 2) == 0);
+        assert_se(ALIGN_OFFSET_U64(UINT64_MAX, 2) == 1);
+
+        assert_se(ALIGN_OFFSET_U64(0, 4) == 0);
+        assert_se(ALIGN_OFFSET_U64(1, 4) == 1);
+        assert_se(ALIGN_OFFSET_U64(2, 4) == 2);
+        assert_se(ALIGN_OFFSET_U64(3, 4) == 3);
+        assert_se(ALIGN_OFFSET_U64(4, 4) == 0);
+        assert_se(ALIGN_OFFSET_U64(UINT64_MAX-1, 4) == 2);
+        assert_se(ALIGN_OFFSET_U64(UINT64_MAX, 4) == 3);
 }
 
 TEST(flags) {
