@@ -613,7 +613,7 @@ static int clean_pool_done(Operation *operation, int ret, sd_bus_error *error) {
         assert(operation);
         assert(operation->extra_fd >= 0);
 
-        if (lseek(operation->extra_fd, 0, SEEK_SET) == (off_t) -1)
+        if (lseek(operation->extra_fd, 0, SEEK_SET) < 0)
                 return -errno;
 
         f = take_fdopen(&operation->extra_fd, "r");
