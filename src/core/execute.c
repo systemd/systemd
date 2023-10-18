@@ -2251,8 +2251,7 @@ void exec_params_serialized_done(ExecParameters *p) {
         if (!p)
                 return;
 
-        for (size_t i = 0; p->fds && i < p->n_socket_fds + p->n_storage_fds; i++)
-                p->fds[i] = safe_close(p->fds[i]);
+        close_many_unset(p->fds, p->n_socket_fds + p->n_storage_fds);
 
         p->cgroup_path = mfree(p->cgroup_path);
 
