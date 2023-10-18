@@ -18,10 +18,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         f = data_to_file(data, size);
         assert_se(f);
 
-        /* We don't want to fill the logs with messages about parse errors.
-         * Disable most logging if not running standalone */
-        if (!getenv("SYSTEMD_LOG_LEVEL"))
-                log_set_max_level(LOG_CRIT);
+        fuzz_setup_logging();
 
         (void) load_env_file(f, NULL, &rl);
         assert_se(fseek(f, 0, SEEK_SET) == 0);

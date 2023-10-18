@@ -78,6 +78,8 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         if (size < sizeof(DHCPMessage))
                 return 0;
 
+        fuzz_setup_logging();
+
         assert_se(duped = memdup(data, size));
 
         assert_se(sd_dhcp_server_new(&server, 1) >= 0);

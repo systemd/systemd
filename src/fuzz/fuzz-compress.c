@@ -29,10 +29,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
         int alg = h->alg;
 
-        /* We don't want to fill the logs with messages about parse errors.
-         * Disable most logging if not running standalone */
-        if (!getenv("SYSTEMD_LOG_LEVEL"))
-                log_set_max_level(LOG_CRIT);
+        fuzz_setup_logging();
 
         log_info("Using compression %s, data size=%zu",
                  compression_to_string(alg),

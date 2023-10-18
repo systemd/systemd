@@ -56,8 +56,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
         assert_se(setenv("SYSTEMD_NETWORK_TEST_MODE", "1", 1) >= 0);
 
-        if (!getenv("SYSTEMD_LOG_LEVEL"))
-                log_set_max_level(LOG_CRIT);
+        fuzz_setup_logging();
 
         r = sd_dhcp_client_new(&client, false);
         assert_se(r >= 0);
