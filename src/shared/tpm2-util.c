@@ -51,13 +51,18 @@ static TSS2_RC (*sym_Esys_GetRandom)(ESYS_CONTEXT *esysContext, ESYS_TR shandle1
 static TSS2_RC (*sym_Esys_Initialize)(ESYS_CONTEXT **esys_context,  TSS2_TCTI_CONTEXT *tcti, TSS2_ABI_VERSION *abiVersion) = NULL;
 static TSS2_RC (*sym_Esys_Load)(ESYS_CONTEXT *esysContext, ESYS_TR parentHandle, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPM2B_PRIVATE *inPrivate, const TPM2B_PUBLIC *inPublic, ESYS_TR *objectHandle) = NULL;
 static TSS2_RC (*sym_Esys_LoadExternal)(ESYS_CONTEXT *esysContext, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPM2B_SENSITIVE *inPrivate, const TPM2B_PUBLIC *inPublic, ESYS_TR hierarchy, ESYS_TR *objectHandle) = NULL;
+static TSS2_RC (*sym_Esys_NV_DefineSpace)(ESYS_CONTEXT *esysContext, ESYS_TR authHandle, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPM2B_AUTH *auth, const TPM2B_NV_PUBLIC *publicInfo, ESYS_TR *nvHandle);
+static TSS2_RC (*sym_Esys_NV_UndefineSpace)(ESYS_CONTEXT *esysContext, ESYS_TR authHandle, ESYS_TR nvIndex, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3);
+static TSS2_RC (*sym_Esys_NV_Write)(ESYS_CONTEXT *esysContext, ESYS_TR authHandle, ESYS_TR nvIndex, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPM2B_MAX_NV_BUFFER *data, UINT16 offset);
 static TSS2_RC (*sym_Esys_PCR_Extend)(ESYS_CONTEXT *esysContext, ESYS_TR pcrHandle, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPML_DIGEST_VALUES *digests) = NULL;
 static TSS2_RC (*sym_Esys_PCR_Read)(ESYS_CONTEXT *esysContext, ESYS_TR shandle1,ESYS_TR shandle2, ESYS_TR shandle3, const TPML_PCR_SELECTION *pcrSelectionIn, UINT32 *pcrUpdateCounter, TPML_PCR_SELECTION **pcrSelectionOut, TPML_DIGEST **pcrValues) = NULL;
 static TSS2_RC (*sym_Esys_PolicyAuthorize)(ESYS_CONTEXT *esysContext, ESYS_TR policySession, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPM2B_DIGEST *approvedPolicy, const TPM2B_NONCE *policyRef, const TPM2B_NAME *keySign, const TPMT_TK_VERIFIED *checkTicket) = NULL;
 static TSS2_RC (*sym_Esys_PolicyAuthValue)(ESYS_CONTEXT *esysContext, ESYS_TR policySession, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3) = NULL;
 static TSS2_RC (*sym_Esys_PolicyGetDigest)(ESYS_CONTEXT *esysContext, ESYS_TR policySession, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, TPM2B_DIGEST **policyDigest) = NULL;
+static TSS2_RC (*sym_Esys_PolicyOR)(ESYS_CONTEXT *esysContext, ESYS_TR policySession, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPML_DIGEST *pHashList) = NULL;
 static TSS2_RC (*sym_Esys_PolicyPCR)(ESYS_CONTEXT *esysContext, ESYS_TR policySession, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPM2B_DIGEST *pcrDigest, const TPML_PCR_SELECTION *pcrs) = NULL;
 static TSS2_RC (*sym_Esys_ReadPublic)(ESYS_CONTEXT *esysContext, ESYS_TR objectHandle, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, TPM2B_PUBLIC **outPublic, TPM2B_NAME **name, TPM2B_NAME **qualifiedName) = NULL;
+static TSS2_RC (*sym_Esys_Sign)(ESYS_CONTEXT *esysContext, ESYS_TR keyHandle, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPM2B_DIGEST *digest, const TPMT_SIG_SCHEME *inScheme, const TPMT_TK_HASHCHECK *validation, TPMT_SIGNATURE **signature);
 static TSS2_RC (*sym_Esys_StartAuthSession)(ESYS_CONTEXT *esysContext, ESYS_TR tpmKey, ESYS_TR bind, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPM2B_NONCE *nonceCaller, TPM2_SE sessionType, const TPMT_SYM_DEF *symmetric, TPMI_ALG_HASH authHash, ESYS_TR *sessionHandle) = NULL;
 static TSS2_RC (*sym_Esys_Startup)(ESYS_CONTEXT *esysContext, TPM2_SU startupType) = NULL;
 static TSS2_RC (*sym_Esys_TestParms)(ESYS_CONTEXT *esysContext, ESYS_TR shandle1, ESYS_TR shandle2, ESYS_TR shandle3, const TPMT_PUBLIC_PARMS *parameters) = NULL;
@@ -101,13 +106,18 @@ int dlopen_tpm2(void) {
                         DLSYM_ARG(Esys_Initialize),
                         DLSYM_ARG(Esys_Load),
                         DLSYM_ARG(Esys_LoadExternal),
+                        DLSYM_ARG(Esys_NV_DefineSpace),
+                        DLSYM_ARG(Esys_NV_UndefineSpace),
+                        DLSYM_ARG(Esys_NV_Write),
                         DLSYM_ARG(Esys_PCR_Extend),
                         DLSYM_ARG(Esys_PCR_Read),
                         DLSYM_ARG(Esys_PolicyAuthorize),
                         DLSYM_ARG(Esys_PolicyAuthValue),
                         DLSYM_ARG(Esys_PolicyGetDigest),
+                        DLSYM_ARG(Esys_PolicyOR),
                         DLSYM_ARG(Esys_PolicyPCR),
                         DLSYM_ARG(Esys_ReadPublic),
+                        DLSYM_ARG(Esys_Sign),
                         DLSYM_ARG(Esys_StartAuthSession),
                         DLSYM_ARG(Esys_Startup),
                         DLSYM_ARG(Esys_TestParms),
@@ -1043,7 +1053,13 @@ static int tpm2_get_legacy_template(TPMI_ALG_PUBLIC alg, TPMT_PUBLIC *ret_templa
         static const TPMT_PUBLIC legacy_ecc = {
                 .type = TPM2_ALG_ECC,
                 .nameAlg = TPM2_ALG_SHA256,
-                .objectAttributes = TPMA_OBJECT_RESTRICTED|TPMA_OBJECT_DECRYPT|TPMA_OBJECT_FIXEDTPM|TPMA_OBJECT_FIXEDPARENT|TPMA_OBJECT_SENSITIVEDATAORIGIN|TPMA_OBJECT_USERWITHAUTH,
+                .objectAttributes =
+                        TPMA_OBJECT_RESTRICTED|
+                        TPMA_OBJECT_DECRYPT|
+                        TPMA_OBJECT_FIXEDTPM|
+                        TPMA_OBJECT_FIXEDPARENT|
+                        TPMA_OBJECT_SENSITIVEDATAORIGIN|
+                        TPMA_OBJECT_USERWITHAUTH,
                 .parameters.eccDetail = {
                         .symmetric = {
                                 .algorithm = TPM2_ALG_AES,
@@ -2106,7 +2122,7 @@ int tpm2_create(Tpm2Context *c,
         return 0;
 }
 
-static int tpm2_load(
+int tpm2_load(
                 Tpm2Context *c,
                 const Tpm2Handle *parent,
                 const Tpm2Handle *session,
@@ -2317,6 +2333,139 @@ int tpm2_create_loaded(
                 *ret_private = TAKE_PTR(private);
         if (ret_handle)
                 *ret_handle = TAKE_PTR(handle);
+
+        return 0;
+}
+
+int tpm2_marshal_private(const TPM2B_PRIVATE *private, void **ret, size_t *ret_size) {
+        size_t max_size = sizeof(*private), blob_size = 0;
+        _cleanup_free_ void *blob = NULL;
+        TSS2_RC rc;
+
+        assert(private);
+        assert(ret);
+        assert(ret_size);
+
+        blob = malloc0(max_size);
+        if (!blob)
+                return log_oom_debug();
+
+        rc = sym_Tss2_MU_TPM2B_PRIVATE_Marshal(private, blob, max_size, &blob_size);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to marshal private key: %s", sym_Tss2_RC_Decode(rc));
+
+        *ret = TAKE_PTR(blob);
+        *ret_size = blob_size;
+        return 0;
+}
+
+int tpm2_unmarshal_private(const void *data, size_t size, TPM2B_PRIVATE *ret_private) {
+        TPM2B_PRIVATE private = {};
+        size_t offset = 0;
+        TSS2_RC rc;
+
+        assert(data || size == 0);
+        assert(ret_private);
+
+        rc = sym_Tss2_MU_TPM2B_PRIVATE_Unmarshal(data, size, &offset, &private);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to unmarshal private key: %s", sym_Tss2_RC_Decode(rc));
+        if (offset != size)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Garbage at end of private key marshal data.");
+
+        *ret_private = private;
+        return 0;
+}
+
+int tpm2_marshal_public(const TPM2B_PUBLIC *public, void **ret, size_t *ret_size) {
+        size_t max_size = sizeof(*public), blob_size = 0;
+        _cleanup_free_ void *blob = NULL;
+        TSS2_RC rc;
+
+        assert(public);
+        assert(ret);
+        assert(ret_size);
+
+        blob = malloc0(max_size);
+        if (!blob)
+                return log_oom_debug();
+
+        rc = sym_Tss2_MU_TPM2B_PUBLIC_Marshal(public, blob, max_size, &blob_size);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to marshal public key: %s", sym_Tss2_RC_Decode(rc));
+
+        *ret = TAKE_PTR(blob);
+        *ret_size = blob_size;
+        return 0;
+}
+
+int tpm2_unmarshal_public(const void *data, size_t size, TPM2B_PUBLIC *ret_public) {
+        TPM2B_PUBLIC public = {};
+        size_t offset = 0;
+        TSS2_RC rc;
+
+        assert(data || size == 0);
+        assert(ret_public);
+
+        rc = sym_Tss2_MU_TPM2B_PUBLIC_Unmarshal(data, size, &offset, &public);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to unmarshal public key: %s", sym_Tss2_RC_Decode(rc));
+        if (offset != size)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Garbage at end of public key marshal data.");
+
+        *ret_public = public;
+        return 0;
+}
+
+int tpm2_sign(
+                Tpm2Context *c,
+                const Tpm2Handle *key,
+                const Tpm2Handle *session,
+                const TPM2B_DIGEST *digest,
+                const TPMT_SIG_SCHEME *scheme,
+                const TPMT_TK_HASHCHECK *validation,
+                TPMT_SIGNATURE **ret_signature) {
+
+        TSS2_RC rc;
+
+        assert(c);
+        assert(key);
+        assert(digest);
+        assert(ret_signature);
+
+        log_debug("Signing digest in TPM.");
+
+        if (!validation) {
+                static const TPMT_TK_HASHCHECK default_validation = {
+                        .tag = TPM2_ST_HASHCHECK,
+                        .hierarchy = TPM2_RH_NULL,
+                };
+
+                validation = &default_validation;
+        }
+
+        rc = sym_Esys_Sign(
+                        c->esys_context,
+                        key->esys_handle,
+                        session ? session->esys_handle : ESYS_TR_PASSWORD,
+                        ESYS_TR_NONE,
+                        ESYS_TR_NONE,
+                        digest,
+                        scheme,
+                        validation,
+                        ret_signature);
+        if (rc == TPM2_RC_LOCKOUT)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOLCK),
+                                       "TPM2 device is in dictionary attack lockout mode.");
+        if (rc != TSS2_RC_SUCCESS)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to sign in TPM: %s", sym_Tss2_RC_Decode(rc));
 
         return 0;
 }
@@ -2821,7 +2970,7 @@ static void tpm2_trim_auth_value(TPM2B_AUTH *auth) {
                 log_debug("authValue ends in 0, trimming as required by the TPM2 specification Part 1 section 'HMAC Computation' authValue Note 2.");
 }
 
-static int tpm2_get_pin_auth(TPMI_ALG_HASH hash, const char *pin, TPM2B_AUTH *ret_auth) {
+int tpm2_get_pin_auth(TPMI_ALG_HASH hash, const char *pin, TPM2B_AUTH *ret_auth) {
         TPM2B_AUTH auth = {};
         int r;
 
@@ -2839,7 +2988,7 @@ static int tpm2_get_pin_auth(TPMI_ALG_HASH hash, const char *pin, TPM2B_AUTH *re
         return 0;
 }
 
-static int tpm2_set_auth(Tpm2Context *c, const Tpm2Handle *handle, const char *pin) {
+int tpm2_set_auth(Tpm2Context *c, const Tpm2Handle *handle, const char *pin) {
         TPM2B_AUTH auth = {};
         TSS2_RC rc;
         int r;
@@ -2878,7 +3027,7 @@ static bool tpm2_is_encryption_session(Tpm2Context *c, const Tpm2Handle *session
         return (flags & TPMA_SESSION_DECRYPT) && (flags & TPMA_SESSION_ENCRYPT);
 }
 
-static int tpm2_make_encryption_session(
+int tpm2_make_encryption_session(
                 Tpm2Context *c,
                 const Tpm2Handle *primary,
                 const Tpm2Handle *bind_key,
@@ -2932,7 +3081,7 @@ static int tpm2_make_encryption_session(
         return 0;
 }
 
-static int tpm2_make_policy_session(
+int tpm2_make_policy_session(
                 Tpm2Context *c,
                 const Tpm2Handle *primary,
                 const Tpm2Handle *encryption_session,
@@ -3202,7 +3351,7 @@ int tpm2_calculate_policy_auth_value(TPM2B_DIGEST *digest) {
         return 0;
 }
 
-static int tpm2_policy_auth_value(
+int tpm2_policy_auth_value(
                 Tpm2Context *c,
                 const Tpm2Handle *session,
                 TPM2B_DIGEST **ret_policy_digest) {
@@ -3212,7 +3361,7 @@ static int tpm2_policy_auth_value(
         assert(c);
         assert(session);
 
-        log_debug("Adding authValue policy.");
+        log_debug(">>> Submitting authValue policy.");
 
         rc = sym_Esys_PolicyAuthValue(
                         c->esys_context,
@@ -3226,6 +3375,102 @@ static int tpm2_policy_auth_value(
                                        sym_Tss2_RC_Decode(rc));
 
         return tpm2_get_policy_digest(c, session, ret_policy_digest);
+}
+
+int tpm2_policy_or(
+                Tpm2Context *c,
+                const Tpm2Handle *session,
+                const TPM2B_DIGEST *branches, size_t n_branches,
+                TPM2B_DIGEST **ret_policy_digest) {
+
+        TPML_DIGEST hash_list;
+        TSS2_RC rc;
+
+        assert(c);
+        assert(session);
+
+        if (n_branches > ELEMENTSOF(hash_list.digests))
+                return -EOPNOTSUPP;
+
+        log_debug(">>> Submitting OR policy.");
+
+        hash_list = (TPML_DIGEST) {
+                .count = n_branches,
+        };
+
+        memcpy(hash_list.digests, branches, n_branches * sizeof(TPM2B_DIGEST));
+
+        if (DEBUG_LOGGING) {
+                for (size_t i = 0; i < hash_list.count; i++) {
+                        _cleanup_free_ char *h = hexmem(hash_list.digests[i].buffer, hash_list.digests[i].size);
+                        log_debug("Submitting OR Branch #%zu: %s", i, h);
+                }
+        }
+
+        rc = sym_Esys_PolicyOR(
+                        c->esys_context,
+                        session->esys_handle,
+                        ESYS_TR_NONE,
+                        ESYS_TR_NONE,
+                        ESYS_TR_NONE,
+                        &hash_list);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to add OR policy to TPM: %s",
+                                       sym_Tss2_RC_Decode(rc));
+
+        return tpm2_get_policy_digest(c, session, ret_policy_digest);
+}
+
+/* Extend 'digest' with the PolicyOR calculated hash. */
+int tpm2_calculate_policy_or(const TPM2B_DIGEST *branches, size_t n_branches, TPM2B_DIGEST *digest) {
+        TPM2_CC command = TPM2_CC_PolicyOR;
+        TSS2_RC rc;
+        int r;
+
+        assert(digest);
+        assert(digest->size == SHA256_DIGEST_SIZE);
+
+        if (n_branches > 8)
+                return -E2BIG;
+
+        r = dlopen_tpm2();
+        if (r < 0)
+                return log_error_errno(r, "TPM2 support not installed: %m");
+
+        uint8_t buf[sizeof(command)];
+        size_t offset = 0;
+
+        rc = sym_Tss2_MU_TPM2_CC_Marshal(command, buf, sizeof(buf), &offset);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to marshal PolicyOR command: %s", sym_Tss2_RC_Decode(rc));
+
+        if (offset != sizeof(command))
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Offset 0x%zx wrong after marshalling PolicyOR command", offset);
+        _cleanup_free_ struct iovec *data = new(struct iovec, 1 + n_branches);
+        if (!data)
+                return log_oom();
+
+        data[0] = IOVEC_MAKE(buf, offset);
+        for (size_t i = 0; i < n_branches; i++) {
+                data[1 + i] = IOVEC_MAKE((void*) branches[i].buffer, branches[i].size);
+
+                if (DEBUG_LOGGING) {
+                        _cleanup_free_ char *h = hexmem(branches[i].buffer, branches[i].size);
+                        log_debug("OR Branch #%zu: %s", i, h);
+                }
+        }
+
+        zero(digest->buffer);
+        r = tpm2_digest_many(TPM2_ALG_SHA256, digest, data, 1 + n_branches, /* extend= */ true);
+        if (r < 0)
+                return r;
+
+        tpm2_log_debug_digest(digest, "PolicyOR calculated digest");
+
+        return 0;
 }
 
 /* Extend 'digest' with the PolicyPCR calculated hash. */
@@ -3288,7 +3533,7 @@ int tpm2_calculate_policy_pcr(
         return 0;
 }
 
-static int tpm2_policy_pcr(
+int tpm2_policy_pcr(
                 Tpm2Context *c,
                 const Tpm2Handle *session,
                 const TPML_PCR_SELECTION *pcr_selection,
@@ -3300,7 +3545,7 @@ static int tpm2_policy_pcr(
         assert(session);
         assert(pcr_selection);
 
-        log_debug("Adding PCR hash policy.");
+        log_debug(">>> Submitting PCR hash policy.");
 
         rc = sym_Esys_PolicyPCR(
                         c->esys_context,
@@ -4054,7 +4299,9 @@ int tpm2_seal(Tpm2Context *c,
                 /* TODO: force all callers to provide ret_srk_buf, so we can stop sealing with the legacy templates. */
                 primary_alg = TPM2_ALG_ECC;
 
-                TPM2B_PUBLIC template = { .size = sizeof(TPMT_PUBLIC), };
+                TPM2B_PUBLIC template = {
+                        .size = sizeof(TPMT_PUBLIC),
+                };
                 r = tpm2_get_legacy_template(primary_alg, &template.publicArea);
                 if (r < 0)
                         return log_debug_errno(r, "Could not get legacy ECC template: %m");
@@ -4465,6 +4712,10 @@ DEFINE_STRING_TABLE_LOOKUP(tpm2_userspace_event_type, Tpm2UserspaceEventType);
 
 const char *tpm2_userspace_log_path(void) {
         return secure_getenv("SYSTEMD_MEASURE_LOG_USERSPACE") ?: "/run/log/systemd/tpm2-measure.log";
+}
+
+const char *tpm2_firmware_log_path(void) {
+        return secure_getenv("SYSTEMD_MEASURE_LOG_FIRMWARE") ?: "/sys/kernel/security/tpm0/binary_bios_measurements";
 }
 
 static int tpm2_userspace_log_open(void) {
@@ -5385,3 +5636,184 @@ static const char* const tpm2_pcr_index_table[_TPM2_PCR_INDEX_MAX_DEFINED] = {
 
 DEFINE_STRING_TABLE_LOOKUP_FROM_STRING_WITH_FALLBACK(tpm2_pcr_index, int, TPM2_PCRS_MAX - 1);
 DEFINE_STRING_TABLE_LOOKUP_TO_STRING(tpm2_pcr_index, int);
+
+static TPM2_HANDLE generate_random_nv_index(void) {
+        return TPM2_NV_INDEX_FIRST + (TPM2_HANDLE) random_u64_range(TPM2_NV_INDEX_LAST - TPM2_NV_INDEX_FIRST + 1);
+}
+
+int tpm2_define_policy_nv_index(
+                Tpm2Context *c,
+                const Tpm2Handle *session,
+                TPM2_HANDLE requested_nv_index,
+                const TPM2B_DIGEST *write_policy,
+                const char *pin,
+                TPM2_HANDLE *ret_nv_index,
+                Tpm2Handle **ret_nv_handle) {
+
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *new_handle = NULL;
+        TSS2_RC rc;
+        int r;
+
+        assert(c);
+
+        r = tpm2_handle_new(c, &new_handle);
+        if (r < 0)
+                return r;
+
+        new_handle->flush = false; /* This is a persistent NV index, don't flush hence */
+
+        for (unsigned try = 0; try < 25U; try++) {
+                TPM2_HANDLE nv_index;
+
+                if (requested_nv_index != 0)
+                        nv_index = requested_nv_index;
+                else
+                        nv_index = generate_random_nv_index();
+
+                TPM2B_NV_PUBLIC public_info = {
+                        .size = sizeof_field(TPM2B_NV_PUBLIC, nvPublic),
+                        .nvPublic = {
+                                .nvIndex = nv_index,
+                                .nameAlg = TPM2_ALG_SHA256,
+                                /* .attributes = TPM2_NT_ORDINARY | TPMA_NV_WRITEALL | TPMA_NV_AUTHWRITE | TPMA_NV_AUTHREAD, // FIXME */
+                                .attributes = TPM2_NT_ORDINARY | TPMA_NV_WRITEALL | TPMA_NV_POLICYWRITE | TPMA_NV_OWNERREAD,
+                                .dataSize = tpm2_hash_alg_to_size(TPM2_ALG_SHA256),
+                        },
+                };
+
+                if (write_policy) {
+                        _cleanup_free_ char *h = NULL;
+
+                        h = hexmem(write_policy->buffer, write_policy->size);
+                        log_info("write policy is: %s", h);
+
+                        public_info.nvPublic.authPolicy = *write_policy;
+                }
+
+                TPM2B_AUTH auth = {};
+                CLEANUP_ERASE(auth);
+
+                if (pin) {
+                        r = tpm2_get_pin_auth(TPM2_ALG_SHA256, pin, &auth);
+                        if (r < 0)
+                                return r;
+                }
+
+                rc = sym_Esys_NV_DefineSpace(
+                                c->esys_context,
+                                /* authHandle= */ ESYS_TR_RH_OWNER,
+                                /* shandle1= */ session ? session->esys_handle : ESYS_TR_NONE,
+                                /* shandle2= */ ESYS_TR_NONE,
+                                /* shandle3= */ ESYS_TR_NONE,
+                                &auth,
+                                &public_info,
+                                &new_handle->esys_handle);
+
+                if (rc == TSS2_RC_SUCCESS) {
+                        log_debug("NV Index 0x%" PRIx32 " successfully allocated.", nv_index);
+
+                        if (ret_nv_index)
+                                *ret_nv_index = nv_index;
+
+                        if (ret_nv_handle)
+                                *ret_nv_handle = TAKE_PTR(new_handle);
+
+                        return 0;
+                }
+                if (rc != TPM2_RC_NV_DEFINED)
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                               "Failed to allocate NV index: %s", sym_Tss2_RC_Decode(rc));
+
+                if (requested_nv_index != 0) {
+                        assert(nv_index == requested_nv_index);
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                               "Requested NV index 0x%" PRIx32 " already taken.", requested_nv_index);
+                }
+
+                log_debug("NV Index 0x%" PRIu32 " already taken, trying another one (%u tries left)", nv_index, try);
+        }
+
+        return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                               "Too many attempts trying to allocate NV index: %s", sym_Tss2_RC_Decode(rc));
+}
+
+int tpm2_write_policy_nv_index(
+                Tpm2Context *c,
+                const Tpm2Handle *policy_session,
+                TPM2_HANDLE nv_index,
+                const Tpm2Handle *nv_handle,
+                const TPM2B_DIGEST *policy_digest) {
+
+        TSS2_RC rc;
+
+        assert(c);
+        assert(policy_session);
+        assert(nv_handle);
+        assert(policy_digest);
+
+        assert(sizeof_field(TPM2B_MAX_NV_BUFFER, buffer) >= policy_digest->size);
+
+        TPM2B_MAX_NV_BUFFER buffer = (TPM2B_MAX_NV_BUFFER) {
+                .size = policy_digest->size,
+        };
+
+        _cleanup_free_ TPM2B_DIGEST *current_policy = NULL;
+        (void) tpm2_get_policy_digest(c, policy_session, &current_policy);
+
+        _cleanup_free_ char *hh = NULL;
+
+        hh = hexmem(current_policy->buffer, current_policy->size);
+        log_info("current policy is: %s", hh);
+
+
+        memcpy(buffer.buffer, policy_digest->buffer, policy_digest->size);
+
+        rc = sym_Esys_NV_Write(
+                        c->esys_context,
+                        /* authHandle= */ nv_handle->esys_handle,
+                        /* nvIndex= */ nv_handle->esys_handle,
+                        /* shandle1= */ policy_session->esys_handle,
+                        /* shandle2= */ ESYS_TR_NONE,
+                        /* shandle3= */ ESYS_TR_NONE,
+                        &buffer,
+                        /* offset= */ 0);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to write NV index: %s", sym_Tss2_RC_Decode(rc));
+
+        if (DEBUG_LOGGING) {
+                _cleanup_free_ char *h = NULL;
+
+                h = hexmem(policy_digest->buffer, policy_digest->size);
+
+                log_debug("Written policy digest %s to NV index 0x%x", h, nv_index);
+        }
+
+        return 0;
+}
+
+int tpm2_undefine_policy_nv_index(
+                Tpm2Context *c,
+                const Tpm2Handle *session,
+                TPM2_HANDLE nv_index,
+                const Tpm2Handle *nv_handle) {
+
+        TSS2_RC rc;
+
+        assert(c);
+        assert(nv_handle);
+
+        rc = sym_Esys_NV_UndefineSpace(
+                        c->esys_context,
+                        /* authHandle= */ ESYS_TR_RH_OWNER,
+                        /* nvIndex= */ nv_handle->esys_handle,
+                        /* shandle1= */ session ? session->esys_handle : ESYS_TR_NONE,
+                        /* shandle2= */ ESYS_TR_NONE,
+                        /* shandle3= */ ESYS_TR_NONE);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to undefine NV index: %s", sym_Tss2_RC_Decode(rc));
+
+        log_debug("Undefined NV index 0x%x", nv_index);
+        return 0;
+}

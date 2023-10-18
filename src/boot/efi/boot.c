@@ -39,8 +39,6 @@ DECLARE_NOALLOC_SECTION(
 
 DECLARE_SBAT(SBAT_BOOT_SECTION_TEXT);
 
-#define LOADER_CONF_CONTENT_EVENT_TAG_ID UINT32_C(0xf5bc582a)
-
 typedef enum LoaderType {
         LOADER_UNDEFINED,
         LOADER_AUTO,
@@ -1573,7 +1571,7 @@ static void config_load_defaults(Config *config, EFI_FILE *root_dir) {
                                 TPM2_PCR_BOOT_LOADER_CONFIG,
                                 POINTER_TO_PHYSICAL_ADDRESS(content),
                                 content_size,
-                                LOADER_CONF_CONTENT_EVENT_TAG_ID,
+                                LOADER_CONF_EVENT_TAG_ID,
                                 u"loader.conf",
                                 /* ret_measured= */ NULL);
                 if (err != EFI_SUCCESS)
