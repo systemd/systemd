@@ -1653,7 +1653,9 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             as <command>halt</command>.</para>
 
             <para>If a new kernel has been loaded via <command>kexec --load</command>, a
-            <command>kexec</command> will be performed instead of a reboot.</para>
+            <command>kexec</command> will be performed instead of a reboot. If a new root file system has
+            been setup on <literal>/run/nextroot</literal>, a <command>soft-reboot</command> will be
+            performed instead of a reboot.</para>
 
             <xi:include href="version-info.xml" xpointer="v246"/>
           </listitem>
@@ -1705,6 +1707,10 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             <para>This operation only reboots userspace, leaving the kernel running. See
             <citerefentry><refentrytitle>systemd-soft-reboot.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
             for details.</para>
+
+            <para>If a new root file system has been setup on <literal>/run/nextroot</literal>, a
+            <command>soft-reboot</command> will be performed when <command>reboot</command> is
+            invoked.</para>
 
             <xi:include href="version-info.xml" xpointer="v254"/>
           </listitem>

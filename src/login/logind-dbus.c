@@ -1916,6 +1916,8 @@ static int method_do_shutdown_or_sleep(
                 a = handle_action_lookup(HANDLE_KEXEC);
         else if ((flags & SD_LOGIND_SOFT_REBOOT))
                 a = handle_action_lookup(HANDLE_SOFT_REBOOT);
+        else if (path_is_os_tree("/run/nextroot") > 0)
+                a = handle_action_lookup(HANDLE_SOFT_REBOOT);
         else if (kexec_loaded())
                 a = handle_action_lookup(HANDLE_KEXEC);
 
