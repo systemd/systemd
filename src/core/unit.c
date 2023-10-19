@@ -6063,6 +6063,18 @@ int unit_can_clean(Unit *u, ExecCleanMask *ret) {
         return UNIT_VTABLE(u)->can_clean(u, ret);
 }
 
+bool unit_can_start_refuse_manual(Unit *u) {
+        return unit_can_start(u) && !u->refuse_manual_start;
+}
+
+bool unit_can_stop_refuse_manual(Unit *u) {
+        return unit_can_stop(u) && !u->refuse_manual_stop;
+}
+
+bool unit_can_isolate_refuse_manual(Unit *u) {
+        return unit_can_isolate(u) && !u->refuse_manual_start;
+}
+
 bool unit_can_freeze(Unit *u) {
         assert(u);
 
