@@ -9,6 +9,7 @@
 #include <sys/uio.h>
 
 #include "macro.h"
+#include "memory-util.h"
 #include "time-util.h"
 
 int flush_fd(int fd);
@@ -78,13 +79,30 @@ static inline bool FILE_SIZE_VALID_OR_INFINITY(uint64_t l) {
 
 }
 
-#define IOVEC_NULL (struct iovec) {}
+#define IOVEC_NULL (const struct iovec) {}
 #define IOVEC_MAKE(base, len) (struct iovec) { .iov_base = (base), .iov_len = (len) }
 #define IOVEC_MAKE_STRING(string)               \
         ({                                      \
                 char *_s = (char*) (string);    \
                 IOVEC_MAKE(_s, strlen(_s));     \
         })
+
+#define TAKE_IOVEC(p) TAKE_GENERIC((p), struct iovec, IOVEC_NULL)
+
+static inline void iovec_done(struct iovec *iovec) {
+        /* A _cleanup_() helper that frees the iov_base in the iovec */
+        assert(iovec);
+        free(iovec->iov_base);
+}
+
+static inline void iovec_done_erase(struct iovec *iovec) {
+        assert(iovec);
+        erase_and_free(iovec->iov_base);
+}
+
+static inline bool iovec_is_set(const struct iovec *iov) {
+        return iov && iov->iov_len > 0 && iov->iov_base;
+}
 
 char* set_iovec_string_field(struct iovec *iovec, size_t *n_iovec, const char *field, const char *value);
 char* set_iovec_string_field_free(struct iovec *iovec, size_t *n_iovec, const char *field, char *value);
