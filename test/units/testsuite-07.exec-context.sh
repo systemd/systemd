@@ -23,25 +23,31 @@ proc_supports_option() {
     return $ec
 }
 
-systemd-run --wait --pipe -p ProtectSystem=yes \
-    bash -xec "test ! -w /usr; test ! -w /boot; test -w /etc; test -w /var"
-systemd-run --wait --pipe -p ProtectSystem=full \
-    bash -xec "test ! -w /usr; test ! -w /boot; test ! -w /etc; test -w /var"
-systemd-run --wait --pipe -p ProtectSystem=strict \
-    bash -xec "test ! -w /; test ! -w /etc; test ! -w /var; test -w /dev; test -w /proc"
-systemd-run --wait --pipe -p ProtectSystem=no \
-    bash -xec "test -w /; test -w /etc; test -w /var; test -w /dev; test -w /proc"
+# In coverage builds we disable ProtectSystem= and ProtectHome= via a service.d
+# dropin in /etc. This dropin has, unfortunately, higher priority than
+# the transient stuff from systemd-run. Let's just skip the following tests
+# in that case instead of complicating the test setup even more */
+if [[ -z "${COVERAGE_BUILD_DIR:-}" ]]; then
+    systemd-run --wait --pipe -p ProtectSystem=yes \
+        bash -xec "test ! -w /usr; test ! -w /boot; test -w /etc; test -w /var"
+    systemd-run --wait --pipe -p ProtectSystem=full \
+        bash -xec "test ! -w /usr; test ! -w /boot; test ! -w /etc; test -w /var"
+    systemd-run --wait --pipe -p ProtectSystem=strict \
+        bash -xec "test ! -w /; test ! -w /etc; test ! -w /var; test -w /dev; test -w /proc"
+    systemd-run --wait --pipe -p ProtectSystem=no \
+        bash -xec "test -w /; test -w /etc; test -w /var; test -w /dev; test -w /proc"
 
-MARK="$(mktemp /root/.exec-context.XXX)"
-systemd-run --wait --pipe -p ProtectHome=yes \
-    bash -xec "test ! -w /home; test ! -w /root; test ! -w /run/user; test ! -e $MARK"
-systemd-run --wait --pipe -p ProtectHome=read-only \
-    bash -xec "test ! -w /home; test ! -w /root; test ! -w /run/user; test -e $MARK"
-systemd-run --wait --pipe -p ProtectHome=tmpfs \
-    bash -xec "test -w /home; test -w /root; test -w /run/user; test ! -e $MARK"
-systemd-run --wait --pipe -p ProtectHome=no \
-    bash -xec "test -w /home; test -w /root; test -w /run/user; test -e $MARK"
-rm -f "$MARK"
+    MARK="$(mktemp /root/.exec-context.XXX)"
+    systemd-run --wait --pipe -p ProtectHome=yes \
+        bash -xec "test ! -w /home; test ! -w /root; test ! -w /run/user; test ! -e $MARK"
+    systemd-run --wait --pipe -p ProtectHome=read-only \
+        bash -xec "test ! -w /home; test ! -w /root; test ! -w /run/user; test -e $MARK"
+    systemd-run --wait --pipe -p ProtectHome=tmpfs \
+        bash -xec "test -w /home; test -w /root; test -w /run/user; test ! -e $MARK"
+    systemd-run --wait --pipe -p ProtectHome=no \
+        bash -xec "test -w /home; test -w /root; test -w /run/user; test -e $MARK"
+    rm -f "$MARK"
+fi
 
 if proc_supports_option "hidepid=off"; then
     systemd-run --wait --pipe -p ProtectProc=noaccess -p User=testuser \
