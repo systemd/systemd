@@ -1001,6 +1001,13 @@ static int activation_details_timer_append_pair(ActivationDetails *details, char
         return 2; /* Return the number of pairs added to the env block */
 }
 
+uint64_t timer_next_elapse_monotonic(const Timer *t) {
+        assert(t);
+
+        return (uint64_t) usec_shift_clock(t->next_elapse_monotonic_or_boottime,
+                                           TIMER_MONOTONIC_CLOCK(t), CLOCK_MONOTONIC);
+}
+
 static const char* const timer_base_table[_TIMER_BASE_MAX] = {
         [TIMER_ACTIVE]        = "OnActiveSec",
         [TIMER_BOOT]          = "OnBootSec",
@@ -1011,6 +1018,31 @@ static const char* const timer_base_table[_TIMER_BASE_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(timer_base, TimerBase);
+
+char* timer_base_to_usec_string(TimerBase i) {
+        _cleanup_free_ char *buf = NULL;
+        const char *s;
+        size_t l;
+
+        s = timer_base_to_string(i);
+
+        if (endswith(s, "Sec")) {
+                /* s/Sec/USec/ */
+                l = strlen(s);
+                buf = new(char, l+2);
+                if (!buf)
+                        return NULL;
+
+                memcpy(buf, s, l-3);
+                memcpy(buf+l-3, "USec", 5);
+        } else {
+                buf = strdup(s);
+                if (!buf)
+                        return NULL;
+        }
+
+        return TAKE_PTR(buf);
+}
 
 static const char* const timer_result_table[_TIMER_RESULT_MAX] = {
         [TIMER_SUCCESS]                 = "success",
