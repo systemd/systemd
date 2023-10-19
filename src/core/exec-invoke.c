@@ -3914,8 +3914,12 @@ int exec_invoke(
         assert(exit_status);
 
         /* Explicitly test for CVE-2021-4034 inspired invocations */
-        assert(command->path);
-        assert(!strv_isempty(command->argv));
+        if (!command->path || strv_isempty(command->argv))
+                return log_exec_error_errno(
+                                context,
+                                params,
+                                SYNTHETIC_ERRNO(EINVAL),
+                                "Invalid command line arguments.");
 
         LOG_CONTEXT_PUSH_EXEC(context, params);
 
