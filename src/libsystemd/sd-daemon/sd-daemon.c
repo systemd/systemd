@@ -592,7 +592,7 @@ static int pid_notify_with_fds_internal(
                         msghdr.msg_control = NULL;
                         msghdr.msg_controllen = 0;
                 }
-        } while (!IOVEC_INCREMENT(msghdr.msg_iov, msghdr.msg_iovlen, n));
+        } while (!iovec_increment(msghdr.msg_iov, msghdr.msg_iovlen, n));
 
         return 1;
 }
