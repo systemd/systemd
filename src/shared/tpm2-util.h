@@ -111,9 +111,13 @@ char *tpm2_pcr_values_to_string(const Tpm2PCRValue *pcr_values, size_t n_pcr_val
 int tpm2_pcr_values_hash_count(const Tpm2PCRValue *pcr_values, size_t n_pcr_values, size_t *ret_count);
 int tpm2_tpml_pcr_selection_from_pcr_values(const Tpm2PCRValue *pcr_values, size_t n_pcr_values, TPML_PCR_SELECTION *ret_selection, TPM2B_DIGEST **ret_values, size_t *ret_n_values);
 
+int tpm2_make_encryption_session(Tpm2Context *c, const Tpm2Handle *primary, const Tpm2Handle *bind_key, Tpm2Handle **ret_session);
+
 int tpm2_create_primary(Tpm2Context *c, const Tpm2Handle *session, const TPM2B_PUBLIC *template, const TPM2B_SENSITIVE_CREATE *sensitive, TPM2B_PUBLIC **ret_public, Tpm2Handle **ret_handle);
 int tpm2_create(Tpm2Context *c, const Tpm2Handle *parent, const Tpm2Handle *session, const TPMT_PUBLIC *template, const TPMS_SENSITIVE_CREATE *sensitive, TPM2B_PUBLIC **ret_public, TPM2B_PRIVATE **ret_private);
 int tpm2_create_loaded(Tpm2Context *c, const Tpm2Handle *parent, const Tpm2Handle *session, const TPMT_PUBLIC *template, const TPMS_SENSITIVE_CREATE *sensitive, TPM2B_PUBLIC **ret_public, TPM2B_PRIVATE **ret_private, Tpm2Handle **ret_handle);
+
+int tpm2_load(Tpm2Context *c, const Tpm2Handle *parent, const Tpm2Handle *session, const TPM2B_PUBLIC *public, const TPM2B_PRIVATE *private, Tpm2Handle **ret_handle);
 
 bool tpm2_supports_alg(Tpm2Context *c, TPM2_ALG_ID alg);
 bool tpm2_supports_command(Tpm2Context *c, TPM2_CC command);
@@ -193,6 +197,10 @@ int tpm2_read_public(Tpm2Context *c, const Tpm2Handle *session, const Tpm2Handle
 int tpm2_pcr_read(Tpm2Context *c, const TPML_PCR_SELECTION *pcr_selection, Tpm2PCRValue **ret_pcr_values, size_t *ret_n_pcr_values);
 int tpm2_pcr_read_missing_values(Tpm2Context *c, Tpm2PCRValue *pcr_values, size_t n_pcr_values);
 
+int tpm2_make_policy_session(Tpm2Context *c, const Tpm2Handle *primary, const Tpm2Handle *encryption_session, Tpm2Handle **ret_session);
+int tpm2_policy_auth_value(Tpm2Context *c, const Tpm2Handle *session, TPM2B_DIGEST **ret_policy_digest);
+int tpm2_policy_pcr(Tpm2Context *c, const Tpm2Handle *session, const TPML_PCR_SELECTION *pcr_selection, TPM2B_DIGEST **ret_policy_digest);
+
 int tpm2_calculate_name(const TPMT_PUBLIC *public, TPM2B_NAME *ret_name);
 int tpm2_calculate_policy_auth_value(TPM2B_DIGEST *digest);
 int tpm2_calculate_policy_authorize(const TPM2B_PUBLIC *public, const TPM2B_DIGEST *policy_ref, TPM2B_DIGEST *digest);
@@ -214,6 +222,9 @@ int tpm2_tpm2b_public_from_openssl_pkey(const EVP_PKEY *pkey, TPM2B_PUBLIC *ret)
 
 int tpm2_tpm2b_public_from_pem(const void *pem, size_t pem_size, TPM2B_PUBLIC *ret);
 int tpm2_tpm2b_public_to_fingerprint(const TPM2B_PUBLIC *public, void **ret_fingerprint, size_t *ret_fingerprint_size);
+
+int tpm2_serialize(Tpm2Context *c, const Tpm2Handle *handle, void **ret_serialized, size_t *ret_serialized_size);
+int tpm2_deserialize(Tpm2Context *c, const void *serialized, size_t serialized_size, Tpm2Handle **ret_handle);
 
 /* The tpm2-tss library has many structs that are simply a combination of an array (or object) and
  * size. These macros allow easily initializing or assigning instances of such structs from an existing
