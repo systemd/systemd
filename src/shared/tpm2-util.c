@@ -3438,7 +3438,7 @@ int tpm2_policy_auth_value(
         assert(c);
         assert(session);
 
-        log_debug("Adding authValue policy.");
+        log_debug("Submitting AuthValue policy.");
 
         rc = sym_Esys_PolicyAuthValue(
                         c->esys_context,
@@ -3452,6 +3452,186 @@ int tpm2_policy_auth_value(
                                        sym_Tss2_RC_Decode(rc));
 
         return tpm2_get_policy_digest(c, session, ret_policy_digest);
+}
+
+int tpm2_calculate_policy_authorize_nv(
+                const TPM2B_NV_PUBLIC *public_info,
+                TPM2B_DIGEST *digest) {
+        TPM2_CC command = TPM2_CC_PolicyAuthorizeNV;
+        TSS2_RC rc;
+        int r;
+
+        assert(public_info);
+        assert(digest);
+        assert(digest->size == SHA256_DIGEST_SIZE);
+
+        r = dlopen_tpm2();
+        if (r < 0)
+                return log_debug_errno(r, "TPM2 support not installed: %m");
+
+        uint8_t buf[sizeof(command)];
+        size_t offset = 0;
+
+        rc = sym_Tss2_MU_TPM2_CC_Marshal(command, buf, sizeof(buf), &offset);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to marshal PolicyAuthorizeNV command: %s", sym_Tss2_RC_Decode(rc));
+
+        if (offset != sizeof(command))
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Offset 0x%zx wrong after marshalling PolicyAuthorizeNV command", offset);
+
+        TPM2B_NV_PUBLIC public_info_copy = *public_info; /* Make a copy, since we must set TPMA_NV_WRITTEN for the calculation */
+        public_info_copy.nvPublic.attributes |= TPMA_NV_WRITTEN;
+
+        TPM2B_NAME name = {};
+        r = tpm2_calculate_nv_index_name(&public_info_copy.nvPublic, &name);
+        if (r < 0)
+                return r;
+
+        struct iovec data[] = {
+                IOVEC_MAKE(buf, offset),
+                IOVEC_MAKE(name.name, name.size),
+        };
+
+        r = tpm2_digest_many(TPM2_ALG_SHA256, digest, data, ELEMENTSOF(data), /* extend= */ true);
+        if (r < 0)
+                return r;
+
+        tpm2_log_debug_digest(digest, "PolicyAuthorizeNV calculated digest");
+
+        return 0;
+}
+
+int tpm2_policy_authorize_nv(
+                Tpm2Context *c,
+                const Tpm2Handle *session,
+                const Tpm2Handle *nv_handle,
+                TPM2B_DIGEST **ret_policy_digest) {
+
+        TSS2_RC rc;
+
+        assert(c);
+        assert(session);
+
+        log_debug("Submitting AuthorizeNV policy.");
+
+        rc = sym_Esys_PolicyAuthorizeNV(
+                        c->esys_context,
+                        ESYS_TR_RH_OWNER,
+                        nv_handle->esys_handle,
+                        session->esys_handle,
+                        ESYS_TR_PASSWORD,
+                        ESYS_TR_NONE,
+                        ESYS_TR_NONE);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to add AuthorizeNV policy to TPM: %s",
+                                       sym_Tss2_RC_Decode(rc));
+
+        return tpm2_get_policy_digest(c, session, ret_policy_digest);
+}
+
+int tpm2_policy_or(
+                Tpm2Context *c,
+                const Tpm2Handle *session,
+                const TPM2B_DIGEST *branches, size_t n_branches,
+                TPM2B_DIGEST **ret_policy_digest) {
+
+        TPML_DIGEST hash_list;
+        TSS2_RC rc;
+
+        assert(c);
+        assert(session);
+
+        if (n_branches > ELEMENTSOF(hash_list.digests))
+                return -EOPNOTSUPP;
+
+        log_debug("Submitting OR policy.");
+
+        hash_list = (TPML_DIGEST) {
+                .count = n_branches,
+        };
+
+        memcpy(hash_list.digests, branches, n_branches * sizeof(TPM2B_DIGEST));
+
+        if (DEBUG_LOGGING) {
+                for (size_t i = 0; i < hash_list.count; i++) {
+                        _cleanup_free_ char *h = hexmem(hash_list.digests[i].buffer, hash_list.digests[i].size);
+                        log_debug("Submitting OR Branch #%zu: %s", i, h);
+                }
+        }
+
+        rc = sym_Esys_PolicyOR(
+                        c->esys_context,
+                        session->esys_handle,
+                        ESYS_TR_NONE,
+                        ESYS_TR_NONE,
+                        ESYS_TR_NONE,
+                        &hash_list);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to add OR policy to TPM: %s",
+                                       sym_Tss2_RC_Decode(rc));
+
+        return tpm2_get_policy_digest(c, session, ret_policy_digest);
+}
+
+/* Extend 'digest' with the PolicyOR calculated hash. */
+int tpm2_calculate_policy_or(const TPM2B_DIGEST *branches, size_t n_branches, TPM2B_DIGEST *digest) {
+        TPM2_CC command = TPM2_CC_PolicyOR;
+        TSS2_RC rc;
+        int r;
+
+        assert(digest);
+        assert(digest->size == SHA256_DIGEST_SIZE);
+
+        if (n_branches == 0)
+                return -EINVAL;
+        if (n_branches == 1)
+                log_warning("PolicyOR with a single branch submitted, this is weird.");
+        if (n_branches > 8)
+                return -E2BIG;
+
+        r = dlopen_tpm2();
+        if (r < 0)
+                return log_error_errno(r, "TPM2 support not installed: %m");
+
+        uint8_t buf[sizeof(command)];
+        size_t offset = 0;
+
+        rc = sym_Tss2_MU_TPM2_CC_Marshal(command, buf, sizeof(buf), &offset);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to marshal PolicyOR command: %s", sym_Tss2_RC_Decode(rc));
+
+        if (offset != sizeof(command))
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Offset 0x%zx wrong after marshalling PolicyOR command", offset);
+        _cleanup_free_ struct iovec *data = new(struct iovec, 1 + n_branches);
+        if (!data)
+                return log_oom();
+
+        data[0] = IOVEC_MAKE(buf, offset);
+        for (size_t i = 0; i < n_branches; i++) {
+                data[1 + i] = IOVEC_MAKE((void*) branches[i].buffer, branches[i].size);
+
+                if (DEBUG_LOGGING) {
+                        _cleanup_free_ char *h = hexmem(branches[i].buffer, branches[i].size);
+                        log_debug("OR Branch #%zu: %s", i, h);
+                }
+        }
+
+        /* PolicyOR does not use the previous hash value; we must zero and then extend it. */
+        zero(digest->buffer);
+
+        r = tpm2_digest_many(TPM2_ALG_SHA256, digest, data, 1 + n_branches, /* extend= */ true);
+        if (r < 0)
+                return r;
+
+        tpm2_log_debug_digest(digest, "PolicyOR calculated digest");
+
+        return 0;
 }
 
 /* Extend 'digest' with the PolicyPCR calculated hash. */
@@ -3526,7 +3706,7 @@ int tpm2_policy_pcr(
         assert(session);
         assert(pcr_selection);
 
-        log_debug("Adding PCR hash policy.");
+        log_debug("Submitting PCR hash policy.");
 
         rc = sym_Esys_PolicyPCR(
                         c->esys_context,
