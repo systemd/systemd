@@ -3303,7 +3303,7 @@ int tpm2_calculate_pubkey_name(const TPMT_PUBLIC *public, TPM2B_NAME *ret_name) 
                                        "Failed to marshal key name: %s", sym_Tss2_RC_Decode(rc));
         name.size = size;
 
-        tpm2_log_debug_name(&name, "Calculated name");
+        tpm2_log_debug_name(&name, "Calculated public key name");
 
         *ret_name = name;
 
@@ -3336,6 +3336,60 @@ static int tpm2_get_name(
         tpm2_log_debug_name(name, "Object name");
 
         *ret_name = TAKE_PTR(name);
+
+        return 0;
+}
+
+int tpm2_calculate_nv_index_name(const TPMS_NV_PUBLIC *nvpublic, TPM2B_NAME *ret_name) {
+        TSS2_RC rc;
+        int r;
+
+        assert(nvpublic);
+        assert(ret_name);
+
+        r = dlopen_tpm2();
+        if (r < 0)
+                return log_debug_errno(r, "TPM2 support not installed: %m");
+
+        if (nvpublic->nameAlg != TPM2_ALG_SHA256)
+                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "Unsupported nameAlg: 0x%x",
+                                       nvpublic->nameAlg);
+
+        _cleanup_free_ uint8_t *buf = NULL;
+        size_t size = 0;
+
+        buf = (uint8_t*) new(TPMS_NV_PUBLIC, 1);
+        if (!buf)
+                return log_oom_debug();
+
+        rc = sym_Tss2_MU_TPMS_NV_PUBLIC_Marshal(nvpublic, buf, sizeof(TPMS_NV_PUBLIC), &size);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to marshal nv index: %s", sym_Tss2_RC_Decode(rc));
+
+        TPM2B_DIGEST digest = {};
+        r = tpm2_digest_buffer(TPM2_ALG_SHA256, &digest, buf, size, /* extend= */ false);
+        if (r < 0)
+                return r;
+
+        TPMT_HA ha = {
+                .hashAlg = TPM2_ALG_SHA256,
+        };
+        assert(digest.size <= sizeof(ha.digest.sha256));
+        memcpy_safe(ha.digest.sha256, digest.buffer, digest.size);
+
+        TPM2B_NAME name;
+        size = 0;
+        rc = sym_Tss2_MU_TPMT_HA_Marshal(&ha, name.name, sizeof(name.name), &size);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to marshal key name: %s", sym_Tss2_RC_Decode(rc));
+        name.size = size;
+
+        tpm2_log_debug_name(&name, "Calculated NV name");
+
+        *ret_name = name;
 
         return 0;
 }
