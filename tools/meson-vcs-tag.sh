@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-set -eu
+set -u
 set -o pipefail
 
 dir="${1:?}"
@@ -18,11 +18,16 @@ else
     #
     # If the working tree has no tags (CI builds), the first git-describe will fail
     # and we fall back to project_version-commitid instead.
+
+    c=''
     if [ -e "${dir}/.git" ]; then
-        c="$(git -C "$dir" describe --abbrev=7 --dirty=^ 2>/dev/null ||
-                    echo "${fallback}-$(git -C "$dir" describe --always --abbrev=7)")"
-    else
-        c="${fallback}"
+        c="$(git -C "$dir" describe --abbrev=7 --dirty=^ 2>/dev/null)"
+        if [ -z "$c" ]; then
+            # This call might still fail with permission issues
+            suffix="$(git -C "$dir" describe --always --abbrev=7 --dirty=^ 2>/dev/null)"
+            [ -n "$suffix" ] && c="${fallback}-${suffix}"
+        fi
     fi
+    [ -z "$c" ] && c="${fallback}"
     echo "$c" | sed 's/^v//; s/-rc/~rc/'
 fi
