@@ -171,3 +171,14 @@ systemctl_final() {
 
     systemctl "$@"
 }
+
+cgroupfs_supports_user_xattrs() {
+    local xattr
+
+    xattr="user.supported_$RANDOM"
+    # shellcheck disable=SC2064
+    trap "setfattr --remove=$xattr /sys/fs/cgroup || :" RETURN
+
+    setfattr --name="$xattr" --value=254 /sys/fs/cgroup
+    [[ "$(getfattr --name="$xattr" --absolute-names --only-values /sys/fs/cgroup)" -eq 254 ]]
+}

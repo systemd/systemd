@@ -173,6 +173,7 @@ BASICTOOLS=(
     getconf
     getent
     getfacl
+    getfattr
     grep
     gunzip
     gzip
