@@ -2255,7 +2255,13 @@ void exec_params_serialized_done(ExecParameters *p) {
 
         p->cgroup_path = mfree(p->cgroup_path);
 
-        p->prefix = strv_free(p->prefix);
+        if (p->prefix) {
+                for (ExecDirectoryType t = 0; t < _EXEC_DIRECTORY_TYPE_MAX; t++)
+                        free(p->prefix[t]);
+
+                free(p->prefix);
+        }
+
         p->received_credentials_directory = mfree(p->received_credentials_directory);
         p->received_encrypted_credentials_directory = mfree(p->received_encrypted_credentials_directory);
 
