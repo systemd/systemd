@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <sys/types.h>
 
+#include "memory-util-fundamental.h"
 #include "sd-messages.h"
 
 #include "alloc-util.h"
@@ -21,6 +22,7 @@
 #include "math-util.h"
 #include "memory-util.h"
 #include "memstream-util.h"
+#include "set.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
@@ -3350,6 +3352,7 @@ int json_parse_file_at(
 int json_buildv(JsonVariant **ret, va_list ap) {
         JsonStack *stack = NULL;
         size_t n_stack = 1;
+        const char *n = NULL;
         int r;
 
         assert_return(ret, -EINVAL);
@@ -3570,7 +3573,7 @@ int json_buildv(JsonVariant **ret, va_list ap) {
 
                 case _JSON_BUILD_VARIANT_ARRAY: {
                         JsonVariant **array;
-                        size_t n;
+                        size_t sz;
 
                         if (!IN_SET(current->expect, EXPECT_TOPLEVEL, EXPECT_OBJECT_VALUE, EXPECT_ARRAY_ELEMENT)) {
                                 r = -EINVAL;
@@ -3578,10 +3581,10 @@ int json_buildv(JsonVariant **ret, va_list ap) {
                         }
 
                         array = va_arg(ap, JsonVariant**);
-                        n = va_arg(ap, size_t);
+                        sz = va_arg(ap, size_t);
 
                         if (current->n_suppress == 0) {
-                                r = json_variant_new_array(&add, array, n);
+                                r = json_variant_new_array(&add, array, sz);
                                 if (r < 0)
                                         goto finish;
                         }
@@ -3721,15 +3724,15 @@ int json_buildv(JsonVariant **ret, va_list ap) {
 
                         _cleanup_strv_free_ char **el = NULL;
                         STRV_FOREACH_PAIR(x, y, l) {
-                                char *n = NULL;
+                                char *e = NULL;
 
-                                n = strjoin(*x, "=", *y);
-                                if (!n) {
+                                e = strjoin(*x, "=", *y);
+                                if (!e) {
                                         r = -ENOMEM;
                                         goto finish;
                                 }
 
-                                r = strv_consume(&el, n);
+                                r = strv_consume(&el, e);
                                 if (r < 0)
                                         goto finish;
                         }
@@ -3757,7 +3760,7 @@ int json_buildv(JsonVariant **ret, va_list ap) {
                 case _JSON_BUILD_HEX:
                 case _JSON_BUILD_OCTESCAPE: {
                         const void *p;
-                        size_t n;
+                        size_t sz;
 
                         if (!IN_SET(current->expect, EXPECT_TOPLEVEL, EXPECT_OBJECT_VALUE, EXPECT_ARRAY_ELEMENT)) {
                                 r = -EINVAL;
@@ -3765,13 +3768,13 @@ int json_buildv(JsonVariant **ret, va_list ap) {
                         }
 
                         p = va_arg(ap, const void *);
-                        n = va_arg(ap, size_t);
+                        sz = va_arg(ap, size_t);
 
                         if (current->n_suppress == 0) {
-                                r = command == _JSON_BUILD_BASE64    ? json_variant_new_base64(&add, p, n) :
-                                    command == _JSON_BUILD_BASE32HEX ? json_variant_new_base32hex(&add, p, n) :
-                                    command == _JSON_BUILD_HEX       ? json_variant_new_hex(&add, p, n) :
-                                                                       json_variant_new_octescape(&add, p, n);
+                                r = command == _JSON_BUILD_BASE64    ? json_variant_new_base64(&add, p, sz) :
+                                    command == _JSON_BUILD_BASE32HEX ? json_variant_new_base32hex(&add, p, sz) :
+                                    command == _JSON_BUILD_HEX       ? json_variant_new_hex(&add, p, sz) :
+                                                                       json_variant_new_octescape(&add, p, sz);
                                 if (r < 0)
                                         goto finish;
                         }
@@ -3821,7 +3824,7 @@ int json_buildv(JsonVariant **ret, va_list ap) {
 
                 case _JSON_BUILD_BYTE_ARRAY: {
                         const void *array;
-                        size_t n;
+                        size_t sz;
 
                         if (!IN_SET(current->expect, EXPECT_TOPLEVEL, EXPECT_OBJECT_VALUE, EXPECT_ARRAY_ELEMENT)) {
                                 r = -EINVAL;
@@ -3829,10 +3832,10 @@ int json_buildv(JsonVariant **ret, va_list ap) {
                         }
 
                         array = va_arg(ap, const void*);
-                        n = va_arg(ap, size_t);
+                        sz = va_arg(ap, size_t);
 
                         if (current->n_suppress == 0) {
-                                r = json_variant_new_array_bytes(&add, array, n);
+                                r = json_variant_new_array_bytes(&add, array, sz);
                                 if (r < 0)
                                         goto finish;
                         }
@@ -3863,6 +3866,91 @@ int json_buildv(JsonVariant **ret, va_list ap) {
                                 r = json_variant_new_array_bytes(&add, hw_addr->bytes, hw_addr->length);
                                 if (r < 0)
                                         goto finish;
+                        }
+
+                        n_subtract = 1;
+
+                        if (current->expect == EXPECT_TOPLEVEL)
+                                current->expect = EXPECT_END;
+                        else if (current->expect == EXPECT_OBJECT_VALUE)
+                                current->expect = EXPECT_OBJECT_KEY;
+                        else
+                                assert(current->expect == EXPECT_ARRAY_ELEMENT);
+
+                        break;
+                }
+
+                case _JSON_BUILD_STRING_SET: {
+                        Set *set;
+
+                        if (!IN_SET(current->expect, EXPECT_TOPLEVEL, EXPECT_OBJECT_VALUE, EXPECT_ARRAY_ELEMENT)) {
+                                r = -EINVAL;
+                                goto finish;
+                        }
+
+                        set = va_arg(ap, Set*);
+
+                        if (current->n_suppress == 0) {
+                                _cleanup_free_ void **sorted = NULL;
+                                JsonVariant **array = NULL;
+                                size_t n_sorted;
+
+                                CLEANUP_ARRAY(array, n_sorted, json_variant_unref_many);
+
+                                r = set_dump_sorted(set, &sorted, &n_sorted);
+                                if (r < 0)
+                                        goto finish;
+
+                                array = new0(JsonVariant*, n_sorted);
+                                if (!array) {
+                                        r = -ENOMEM;
+                                        goto finish;
+                                }
+
+                                for (size_t i = 0; i < n_sorted; i++) {
+                                        r = json_variant_new_string(array + i, sorted[i]);
+                                        if (r < 0)
+                                                goto finish;
+                                }
+
+                                r = json_variant_new_array(&add, array, n_sorted);
+                                if (r < 0)
+                                        goto finish;
+                        }
+
+                        n_subtract = 1;
+
+                        if (current->expect == EXPECT_TOPLEVEL)
+                                current->expect = EXPECT_END;
+                        else if (current->expect == EXPECT_OBJECT_VALUE)
+                                current->expect = EXPECT_OBJECT_KEY;
+                        else
+                                assert(current->expect == EXPECT_ARRAY_ELEMENT);
+
+                        break;
+                }
+
+                case _JSON_BUILD_CALLBACK: {
+                        JsonBuildCallback cb;
+                        void *userdata;
+
+                        if (!IN_SET(current->expect, EXPECT_TOPLEVEL, EXPECT_OBJECT_VALUE, EXPECT_ARRAY_ELEMENT)) {
+                                r = -EINVAL;
+                                goto finish;
+                        }
+
+                        cb = va_arg(ap, JsonBuildCallback);
+                        userdata = va_arg(ap, void *);
+
+                        if (current->n_suppress == 0) {
+                                if (cb) {
+                                        r = cb(n, userdata, &add);
+                                        if (r < 0)
+                                                goto finish;
+                                }
+
+                                if (!add)
+                                        add = JSON_VARIANT_MAGIC_NULL;
                         }
 
                         n_subtract = 1;
@@ -3930,8 +4018,6 @@ int json_buildv(JsonVariant **ret, va_list ap) {
                         break;
 
                 case _JSON_BUILD_PAIR: {
-                        const char *n;
-
                         if (current->expect != EXPECT_OBJECT_KEY) {
                                 r = -EINVAL;
                                 goto finish;
@@ -3952,7 +4038,6 @@ int json_buildv(JsonVariant **ret, va_list ap) {
                 }
 
                 case _JSON_BUILD_PAIR_CONDITION: {
-                        const char *n;
                         bool b;
 
                         if (current->expect != EXPECT_OBJECT_KEY) {
@@ -3979,7 +4064,6 @@ int json_buildv(JsonVariant **ret, va_list ap) {
                 }
 
                 case _JSON_BUILD_PAIR_UNSIGNED_NON_ZERO: {
-                        const char *n;
                         uint64_t u;
 
                         if (current->expect != EXPECT_OBJECT_KEY) {
@@ -4007,7 +4091,6 @@ int json_buildv(JsonVariant **ret, va_list ap) {
                 }
 
                 case _JSON_BUILD_PAIR_FINITE_USEC: {
-                        const char *n;
                         usec_t u;
 
                         if (current->expect != EXPECT_OBJECT_KEY) {
@@ -4035,7 +4118,7 @@ int json_buildv(JsonVariant **ret, va_list ap) {
                 }
 
                 case _JSON_BUILD_PAIR_STRING_NON_EMPTY: {
-                        const char *n, *s;
+                        const char *s;
 
                         if (current->expect != EXPECT_OBJECT_KEY) {
                                 r = -EINVAL;
@@ -4062,7 +4145,6 @@ int json_buildv(JsonVariant **ret, va_list ap) {
                 }
 
                 case _JSON_BUILD_PAIR_STRV_NON_EMPTY: {
-                        const char *n;
                         char **l;
 
                         if (current->expect != EXPECT_OBJECT_KEY) {
@@ -4091,7 +4173,6 @@ int json_buildv(JsonVariant **ret, va_list ap) {
 
                 case _JSON_BUILD_PAIR_VARIANT_NON_NULL: {
                         JsonVariant *v;
-                        const char *n;
 
                         if (current->expect != EXPECT_OBJECT_KEY) {
                                 r = -EINVAL;
@@ -4117,7 +4198,6 @@ int json_buildv(JsonVariant **ret, va_list ap) {
 
                 case _JSON_BUILD_PAIR_IN4_ADDR_NON_NULL: {
                         const struct in_addr *a;
-                        const char *n;
 
                         if (current->expect != EXPECT_OBJECT_KEY) {
                                 r = -EINVAL;
@@ -4145,7 +4225,6 @@ int json_buildv(JsonVariant **ret, va_list ap) {
 
                 case _JSON_BUILD_PAIR_IN6_ADDR_NON_NULL: {
                         const struct in6_addr *a;
-                        const char *n;
 
                         if (current->expect != EXPECT_OBJECT_KEY) {
                                 r = -EINVAL;
@@ -4173,7 +4252,6 @@ int json_buildv(JsonVariant **ret, va_list ap) {
 
                 case _JSON_BUILD_PAIR_IN_ADDR_NON_NULL: {
                         const union in_addr_union *a;
-                        const char *n;
                         int f;
 
                         if (current->expect != EXPECT_OBJECT_KEY) {
@@ -4203,7 +4281,6 @@ int json_buildv(JsonVariant **ret, va_list ap) {
 
                 case _JSON_BUILD_PAIR_ETHER_ADDR_NON_NULL: {
                         const struct ether_addr *a;
-                        const char *n;
 
                         if (current->expect != EXPECT_OBJECT_KEY) {
                                 r = -EINVAL;
@@ -4231,7 +4308,6 @@ int json_buildv(JsonVariant **ret, va_list ap) {
 
                 case _JSON_BUILD_PAIR_HW_ADDR_NON_NULL: {
                         const struct hw_addr_data *a;
-                        const char *n;
 
                         if (current->expect != EXPECT_OBJECT_KEY) {
                                 r = -EINVAL;
