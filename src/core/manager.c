@@ -1971,6 +1971,12 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds, const char *roo
                         r = manager_deserialize(m, serialization, fds);
                         if (r < 0)
                                 return log_error_errno(r, "Deserialization failed: %m");
+
+                        /* If we are in a new soft-reboot iteration bump the counter now before starting
+                         * units, so that they can reliably read it, and before the deserialized 'objective'
+                         * gets overwritten. */
+                        if (m->objective == MANAGER_SOFT_REBOOT)
+                                m->soft_reboots_count++;
                 }
 
                 /* Any fds left? Find some unit which wants them. This is useful to allow container managers to pass
