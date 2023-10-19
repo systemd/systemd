@@ -28,7 +28,7 @@
 #include "hostname-util.h"
 #include "id128-util.h"
 #include "initrd-util.h"
-#include "io-util.h"
+#include "iovec-util.h"
 #include "journal-authenticate.h"
 #include "journal-file-util.h"
 #include "journal-internal.h"
@@ -962,7 +962,7 @@ static void server_write_to_journal(
                 return;
         }
 
-        log_debug_errno(r, "Failed to write entry to %s (%zu items, %zu bytes): %m", f->path, n, IOVEC_TOTAL_SIZE(iovec, n));
+        log_debug_errno(r, "Failed to write entry to %s (%zu items, %zu bytes): %m", f->path, n, iovec_total_size(iovec, n));
 
         if (!shall_try_append_again(f, r))
                 return;
@@ -992,7 +992,7 @@ static void server_write_to_journal(
         if (r < 0)
                 log_ratelimit_error_errno(r, FAILED_TO_WRITE_ENTRY_RATELIMIT,
                                           "Failed to write entry to %s (%zu items, %zu bytes) despite vacuuming, ignoring: %m",
-                                          f->path, n, IOVEC_TOTAL_SIZE(iovec, n));
+                                          f->path, n, iovec_total_size(iovec, n));
         else
                 server_schedule_sync(s, priority);
 }

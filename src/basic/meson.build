@@ -45,6 +45,8 @@ basic_sources = files(
         'inotify-util.c',
         'io-util.c',
         'ioprio-util.c',
+        'iovec-util.c',
+        'iovec-wrapper.c',
         'label.c',
         'limits-util.c',
         'locale-util.c',
