@@ -2130,7 +2130,7 @@ int tpm2_create(Tpm2Context *c,
         return 0;
 }
 
-static int tpm2_load(
+int tpm2_load(
                 Tpm2Context *c,
                 const Tpm2Handle *parent,
                 const Tpm2Handle *session,
@@ -2853,7 +2853,7 @@ static void tpm2_trim_auth_value(TPM2B_AUTH *auth) {
                 log_debug("authValue ends in 0, trimming as required by the TPM2 specification Part 1 section 'HMAC Computation' authValue Note 2.");
 }
 
-static int tpm2_get_pin_auth(TPMI_ALG_HASH hash, const char *pin, TPM2B_AUTH *ret_auth) {
+int tpm2_get_pin_auth(TPMI_ALG_HASH hash, const char *pin, TPM2B_AUTH *ret_auth) {
         TPM2B_AUTH auth = {};
         int r;
 
@@ -2910,7 +2910,7 @@ static bool tpm2_is_encryption_session(Tpm2Context *c, const Tpm2Handle *session
         return (flags & TPMA_SESSION_DECRYPT) && (flags & TPMA_SESSION_ENCRYPT);
 }
 
-static int tpm2_make_encryption_session(
+int tpm2_make_encryption_session(
                 Tpm2Context *c,
                 const Tpm2Handle *primary,
                 const Tpm2Handle *bind_key,
@@ -2964,7 +2964,7 @@ static int tpm2_make_encryption_session(
         return 0;
 }
 
-static int tpm2_make_policy_session(
+int tpm2_make_policy_session(
                 Tpm2Context *c,
                 const Tpm2Handle *primary,
                 const Tpm2Handle *encryption_session,
@@ -3234,7 +3234,7 @@ int tpm2_calculate_policy_auth_value(TPM2B_DIGEST *digest) {
         return 0;
 }
 
-static int tpm2_policy_auth_value(
+int tpm2_policy_auth_value(
                 Tpm2Context *c,
                 const Tpm2Handle *session,
                 TPM2B_DIGEST **ret_policy_digest) {
@@ -3320,7 +3320,7 @@ int tpm2_calculate_policy_pcr(
         return 0;
 }
 
-static int tpm2_policy_pcr(
+int tpm2_policy_pcr(
                 Tpm2Context *c,
                 const Tpm2Handle *session,
                 const TPML_PCR_SELECTION *pcr_selection,
@@ -3915,7 +3915,7 @@ static int tpm2_unmarshal_blob(
 
 /* Serialize a handle. This produces a binary object that can be later deserialized (by the same TPM), even
  * across restarts of the TPM or reboots (assuming the handle is persistent). */
-static int tpm2_serialize(
+int tpm2_serialize(
                 Tpm2Context *c,
                 const Tpm2Handle *handle,
                 void **ret_serialized,
@@ -3941,7 +3941,7 @@ static int tpm2_serialize(
         return 0;
 }
 
-static int tpm2_deserialize(
+int tpm2_deserialize(
                 Tpm2Context *c,
                 const void *serialized,
                 size_t serialized_size,
