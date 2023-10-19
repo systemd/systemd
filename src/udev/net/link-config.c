@@ -364,7 +364,6 @@ Link *link_free(Link *link) {
 
         sd_device_unref(link->device);
         free(link->kind);
-        free(link->driver);
         strv_free(link->altnames);
         return mfree(link);
 }
@@ -417,7 +416,7 @@ int link_new(LinkConfigContext *ctx, sd_netlink **rtnl, sd_device *device, Link 
                         log_link_debug_errno(link, r, "Failed to get permanent hardware address, ignoring: %m");
         }
 
-        r = ethtool_get_driver(&ctx->ethtool_fd, link->ifname, &link->driver);
+        r = sd_device_get_property_value(link->device, "ID_NET_DRIVER", &link->driver);
         if (r < 0)
                 log_link_debug_errno(link, r, "Failed to get driver, ignoring: %m");
 
