@@ -9,7 +9,7 @@ typedef struct PidRef {
         int fd;    /* only valid if pidfd are available in the kernel, and we manage to get an fd */
 } PidRef;
 
-#define PIDREF_NULL (PidRef) { .fd = -EBADF }
+#define PIDREF_NULL (const PidRef) { .fd = -EBADF }
 
 static inline bool pidref_is_set(const PidRef *pidref) {
         return pidref && pidref->pid > 0;
