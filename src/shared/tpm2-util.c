@@ -2943,9 +2943,25 @@ int tpm2_get_pin_auth(TPMI_ALG_HASH hash, const char *pin, TPM2B_AUTH *ret_auth)
         return 0;
 }
 
-static int tpm2_set_auth(Tpm2Context *c, const Tpm2Handle *handle, const char *pin) {
-        TPM2B_AUTH auth = {};
+int tpm2_set_auth_binary(Tpm2Context *c, const Tpm2Handle *handle, const TPM2B_AUTH *auth) {
         TSS2_RC rc;
+
+        assert(c);
+        assert(handle);
+
+        if (!auth)
+                return 0;
+
+        rc = sym_Esys_TR_SetAuth(c->esys_context, handle->esys_handle, auth);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to load PIN in TPM: %s", sym_Tss2_RC_Decode(rc));
+
+        return 0;
+}
+
+int tpm2_set_auth(Tpm2Context *c, const Tpm2Handle *handle, const char *pin) {
+        TPM2B_AUTH auth = {};
         int r;
 
         assert(c);
@@ -2960,12 +2976,7 @@ static int tpm2_set_auth(Tpm2Context *c, const Tpm2Handle *handle, const char *p
         if (r < 0)
                 return r;
 
-        rc = sym_Esys_TR_SetAuth(c->esys_context, handle->esys_handle, &auth);
-        if (rc != TSS2_RC_SUCCESS)
-                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                       "Failed to load PIN in TPM: %s", sym_Tss2_RC_Decode(rc));
-
-        return 0;
+        return tpm2_set_auth_binary(c, handle, &auth);
 }
 
 static bool tpm2_is_encryption_session(Tpm2Context *c, const Tpm2Handle *session) {
