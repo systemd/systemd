@@ -365,6 +365,10 @@ static int rm_rf_children_impl(
                                                                strna(path));
                                 }
                         }
+
+                        /* Make sure we reset the iterator since we don't know the state the passed in file
+                         * descriptor is in. */
+                        rewinddir(d);
                 }
 
                 FOREACH_DIRENT_ALL(de, d, return -errno) {
