@@ -97,7 +97,7 @@ typedef struct MountEntry {
         char *options_malloc;
         unsigned long flags;      /* Mount flags used by EMPTY_DIR and TMPFS. Do not include MS_RDONLY here, but please use read_only. */
         unsigned n_followed;
-        LIST_HEAD(MountOptions, image_options);
+        LIST_HEAD(MountOptions, image_options_const);
 } MountEntry;
 
 typedef struct MountList {
@@ -346,7 +346,6 @@ static void mount_entry_done(MountEntry *p) {
         p->unprefixed_path_malloc = mfree(p->unprefixed_path_malloc);
         p->source_malloc = mfree(p->source_malloc);
         p->options_malloc = mfree(p->options_malloc);
-        p->image_options = mount_options_free_all(p->image_options);
 }
 
 static void mount_list_done(MountList *ml) {
@@ -464,7 +463,7 @@ static int append_mount_images(MountList *ml, const MountImage *mount_images, si
                         .path_const = m->destination,
                         .mode = MOUNT_IMAGES,
                         .source_const = m->source,
-                        .image_options = m->mount_options,
+                        .image_options_const = m->mount_options,
                         .ignore = m->ignore_enoent,
                 };
         }
@@ -542,7 +541,7 @@ static int append_extensions(
 
                 *me = (MountEntry) {
                         .path_malloc = TAKE_PTR(mount_point),
-                        .image_options = m->mount_options,
+                        .image_options_const = m->mount_options,
                         .ignore = m->ignore_enoent,
                         .source_const = m->source,
                         .mode = EXTENSION_IMAGES,
@@ -1369,7 +1368,7 @@ static int mount_image(
                         /* src_fd= */ -1,
                         mount_entry_source(m),
                         mount_entry_path(m),
-                        m->image_options,
+                        m->image_options_const,
                         image_policy,
                         host_os_release_id,
                         host_os_release_version_id,
