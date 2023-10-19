@@ -659,4 +659,11 @@ if command -v mksquashfs >/dev/null 2>&1; then
     (! test -f /tmp/test-50-confext/etc/waldo )
 fi
 
+# Sneak in a couple of expected-to-fail invocations to cover
+# https://github.com/systemd/systemd/issues/29610
+(! systemd-run -P -p MountImages="/this/should/definitely/not/exist.img:/run/img2\:3:nosuid" false)
+(! systemd-run -P -p ExtensionImages="/this/should/definitely/not/exist.img" false)
+(! systemd-run -P -p RootImage="/this/should/definitely/not/exist.img" false)
+(! systemd-run -P -p ExtensionDirectories="/foo/bar /foo/baz" false)
+
 touch /testok
