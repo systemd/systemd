@@ -415,7 +415,7 @@ static int pull_job_open_disk(PullJob *j) {
                         return log_error_errno(errno, "Failed to stat disk file: %m");
 
                 if (j->offset != UINT64_MAX) {
-                        if (lseek(j->disk_fd, j->offset, SEEK_SET) == (off_t) -1)
+                        if (lseek(j->disk_fd, j->offset, SEEK_SET) < 0)
                                 return log_error_errno(errno, "Failed to seek on file descriptor: %m");
                 }
         }

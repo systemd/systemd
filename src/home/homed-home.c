@@ -519,7 +519,7 @@ static int home_parse_worker_stdout(int _fd, UserRecord **ret) {
                 return 0;
         }
 
-        if (lseek(fd, SEEK_SET, 0) == (off_t) -1)
+        if (lseek(fd, SEEK_SET, 0) < 0)
                 return log_error_errno(errno, "Failed to seek to beginning of memfd: %m");
 
         f = take_fdopen(&fd, "r");
