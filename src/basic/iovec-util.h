@@ -32,7 +32,8 @@ static inline bool IOVEC_INCREMENT(struct iovec *i, size_t n, size_t k) {
         return true;
 }
 
-#define IOVEC_NULL (struct iovec) {}
+#define IOVEC_NULL (const struct iovec) {}
+
 #define IOVEC_MAKE(base, len) (struct iovec) { .iov_base = (base), .iov_len = (len) }
 #define IOVEC_MAKE_STRING(string)               \
         ({                                      \
