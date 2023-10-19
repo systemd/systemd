@@ -20,6 +20,7 @@ typedef enum UdevBuiltinCommand {
 #if HAVE_KMOD
         UDEV_BUILTIN_KMOD,
 #endif
+        UDEV_BUILTIN_NET_DRIVER,
         UDEV_BUILTIN_NET_ID,
         UDEV_BUILTIN_NET_LINK,
         UDEV_BUILTIN_PATH_ID,
@@ -64,6 +65,7 @@ extern const UdevBuiltin udev_builtin_keyboard;
 #if HAVE_KMOD
 extern const UdevBuiltin udev_builtin_kmod;
 #endif
+extern const UdevBuiltin udev_builtin_net_driver;
 extern const UdevBuiltin udev_builtin_net_id;
 extern const UdevBuiltin udev_builtin_net_setup_link;
 extern const UdevBuiltin udev_builtin_path_id;
