@@ -1078,6 +1078,10 @@ void unit_destroy_runtime_data(Unit *u, const ExecContext *context);
 int unit_clean(Unit *u, ExecCleanMask mask);
 int unit_can_clean(Unit *u, ExecCleanMask *ret_mask);
 
+bool unit_can_start_refuse_manual(Unit *u);
+bool unit_can_stop_refuse_manual(Unit *u);
+bool unit_can_isolate_refuse_manual(Unit *u);
+
 bool unit_can_freeze(Unit *u);
 int unit_freeze(Unit *u);
 void unit_frozen(Unit *u);

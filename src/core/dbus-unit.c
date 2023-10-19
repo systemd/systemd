@@ -30,18 +30,6 @@
 #include "user-util.h"
 #include "web-util.h"
 
-static bool unit_can_start_refuse_manual(Unit *u) {
-        return unit_can_start(u) && !u->refuse_manual_start;
-}
-
-static bool unit_can_stop_refuse_manual(Unit *u) {
-        return unit_can_stop(u) && !u->refuse_manual_stop;
-}
-
-static bool unit_can_isolate_refuse_manual(Unit *u) {
-        return unit_can_isolate(u) && !u->refuse_manual_start;
-}
-
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_collect_mode, collect_mode, CollectMode);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_load_state, unit_load_state, UnitLoadState);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_job_mode, job_mode, JobMode);
