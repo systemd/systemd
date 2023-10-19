@@ -1906,6 +1906,13 @@ static int client_enter_bound(sd_dhcp_client *client, int notify_event) {
         client->start_delay = 0;
         (void) event_source_disable(client->timeout_resend);
 
+        /* RFC 8925 section 3.2
+         * If the client is in the INIT-REBOOT state, it SHOULD stop the DHCPv4 configuration process or
+         * disable the IPv4 stack completely for V6ONLY_WAIT seconds or until the network attachment event,
+         * whichever happens first.
+         *
+         * In the below, the condition uses REBOOTING, instead of INIT-REBOOT, as the client state has
+         * already transitioned from INIT-REBOOT to REBOOTING after sending a DHCPREQUEST message. */
         if (client->state == DHCP_STATE_REBOOTING && client->lease->ipv6_only_preferred_usec > 0) {
                 if (client->ipv6_acquired) {
                         log_dhcp_client(client,
