@@ -1744,6 +1744,25 @@ int dhcp4_start_full(Link *link, bool set_ipv6_connectivity) {
         return 1;
 }
 
+int dhcp4_renew(Link *link) {
+        assert(link);
+
+        if (!link->dhcp_client)
+                return 0;
+
+        /* The DHCPv4 client may have been stopped by the IPv6 only mode. Let's unconditionally restart the
+         * client if it is not running. */
+        if (!sd_dhcp_client_is_running(link->dhcp_client))
+                return dhcp4_start(link);
+
+        /* The client may be waiting for IPv6 connectivity. Let's restart the client in that case. */
+        if (dhcp_client_get_state(link->dhcp_client) != DHCP_STATE_BOUND)
+                return sd_dhcp_client_interrupt_ipv6_only_mode(link->dhcp_client);
+
+        /* Otherwise, send a RENEW command. */
+        return sd_dhcp_client_send_renew(link->dhcp_client);
+}
+
 static int dhcp4_configure_duid(Link *link) {
         assert(link);
         assert(link->network);

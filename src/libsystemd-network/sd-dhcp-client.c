@@ -2351,6 +2351,18 @@ int sd_dhcp_client_set_ipv6_connectivity(sd_dhcp_client *client, int have) {
         return 0;
 }
 
+int sd_dhcp_client_interrupt_ipv6_only_mode(sd_dhcp_client *client) {
+        assert_return(client, -EINVAL);
+        assert_return(sd_dhcp_client_is_running(client), -ESTALE);
+        assert_return(client->fd >= 0, -EINVAL);
+
+        if (sd_event_source_get_enabled(client->timeout_ipv6_only_mode, NULL) <= 0)
+                return 0;
+
+        client_initialize(client);
+        return client_start(client);
+}
+
 int sd_dhcp_client_attach_event(sd_dhcp_client *client, sd_event *event, int64_t priority) {
         int r;
 
