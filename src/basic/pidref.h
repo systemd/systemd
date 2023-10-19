@@ -9,7 +9,7 @@ typedef struct PidRef {
         int fd;    /* only valid if pidfd are available in the kernel, and we manage to get an fd */
 } PidRef;
 
-#define PIDREF_NULL (PidRef) { .fd = -EBADF }
+#define PIDREF_NULL (const PidRef) { .fd = -EBADF }
 
 /* Turns a pid_t into a PidRef structure on-the-fly *without* acquiring a pidfd for it. (As opposed to
  * pidref_set_pid() which does so *with* acquiring one, see below) */
