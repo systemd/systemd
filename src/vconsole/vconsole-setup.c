@@ -21,13 +21,13 @@
 
 #include "alloc-util.h"
 #include "creds-util.h"
+#include "dev-setup.h"
 #include "env-file.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "io-util.h"
 #include "locale-util.h"
-#include "lock-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "proc-cmdline.h"
@@ -574,7 +574,7 @@ static int verify_source_vc(char **ret_path, const char *src_vc) {
 static int run(int argc, char **argv) {
         _cleanup_(context_done) Context c = {};
         _cleanup_free_ char *vc = NULL;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_close_ int fd = -EBADF, lock_fd = -EBADF;
         bool utf8, keyboard_ok;
         unsigned idx = 0;
         int r;
@@ -596,9 +596,15 @@ static int run(int argc, char **argv) {
 
         /* Take lock around the remaining operation to avoid being interrupted by a tty reset operation
          * performed for services with TTYVHangup=yes. */
-        r = lock_generic(fd, LOCK_BSD, LOCK_EX);
-        if (r < 0)
-                return log_error_errno(r, "Failed to lock console: %m");
+        lock_fd = lock_dev_console();
+        if (lock_fd < 0) {
+                log_full_errno(lock_fd == -ENOENT ? LOG_DEBUG : LOG_ERR,
+                               lock_fd,
+                               "Failed to lock /dev/console%s: %m",
+                               lock_fd == -ENOENT ? ", ignoring" : "");
+                if (lock_fd != -ENOENT)
+                        return lock_fd;
+        }
 
         (void) toggle_utf8_sysfs(utf8);
         (void) toggle_utf8_vc(vc, fd, utf8);
