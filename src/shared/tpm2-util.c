@@ -2345,6 +2345,92 @@ int tpm2_create_loaded(
         return 0;
 }
 
+int tpm2_marshal_private(const TPM2B_PRIVATE *private, void **ret, size_t *ret_size) {
+        size_t max_size = sizeof(*private), blob_size = 0;
+        _cleanup_free_ void *blob = NULL;
+        TSS2_RC rc;
+
+        assert(private);
+        assert(ret);
+        assert(ret_size);
+
+        blob = malloc0(max_size);
+        if (!blob)
+                return log_oom_debug();
+
+        rc = sym_Tss2_MU_TPM2B_PRIVATE_Marshal(private, blob, max_size, &blob_size);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to marshal private key: %s", sym_Tss2_RC_Decode(rc));
+
+        *ret = TAKE_PTR(blob);
+        *ret_size = blob_size;
+        return 0;
+}
+
+int tpm2_unmarshal_private(const void *data, size_t size, TPM2B_PRIVATE *ret_private) {
+        TPM2B_PRIVATE private = {};
+        size_t offset = 0;
+        TSS2_RC rc;
+
+        assert(data || size == 0);
+        assert(ret_private);
+
+        rc = sym_Tss2_MU_TPM2B_PRIVATE_Unmarshal(data, size, &offset, &private);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to unmarshal private key: %s", sym_Tss2_RC_Decode(rc));
+        if (offset != size)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Garbage at end of private key marshal data.");
+
+        *ret_private = private;
+        return 0;
+}
+
+int tpm2_marshal_public(const TPM2B_PUBLIC *public, void **ret, size_t *ret_size) {
+        size_t max_size = sizeof(*public), blob_size = 0;
+        _cleanup_free_ void *blob = NULL;
+        TSS2_RC rc;
+
+        assert(public);
+        assert(ret);
+        assert(ret_size);
+
+        blob = malloc0(max_size);
+        if (!blob)
+                return log_oom_debug();
+
+        rc = sym_Tss2_MU_TPM2B_PUBLIC_Marshal(public, blob, max_size, &blob_size);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to marshal public key: %s", sym_Tss2_RC_Decode(rc));
+
+        *ret = TAKE_PTR(blob);
+        *ret_size = blob_size;
+        return 0;
+}
+
+int tpm2_unmarshal_public(const void *data, size_t size, TPM2B_PUBLIC *ret_public) {
+        TPM2B_PUBLIC public = {};
+        size_t offset = 0;
+        TSS2_RC rc;
+
+        assert(data || size == 0);
+        assert(ret_public);
+
+        rc = sym_Tss2_MU_TPM2B_PUBLIC_Unmarshal(data, size, &offset, &public);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to unmarshal public key: %s", sym_Tss2_RC_Decode(rc));
+        if (offset != size)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Garbage at end of public key marshal data.");
+
+        *ret_public = public;
+        return 0;
+}
+
 /* Read hash values from the specified PCR selection. Provides a Tpm2PCRValue array that contains all
  * requested PCR values, in the order provided by the TPM. Normally, the provided pcr values will match
  * exactly what is in the provided selection, but the TPM may ignore some selected PCRs (for example, if an
