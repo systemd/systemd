@@ -3790,6 +3790,34 @@ int json_buildv(JsonVariant **ret, va_list ap) {
                         break;
                 }
 
+                case _JSON_BUILD_IOVEC_BASE64: {
+                        const struct iovec *iov;
+
+                        if (!IN_SET(current->expect, EXPECT_TOPLEVEL, EXPECT_OBJECT_VALUE, EXPECT_ARRAY_ELEMENT)) {
+                                r = -EINVAL;
+                                goto finish;
+                        }
+
+                        iov = ASSERT_PTR(va_arg(ap, const struct iovec*));
+
+                        if (current->n_suppress == 0) {
+                                r = json_variant_new_base64(&add, iov->iov_base, iov->iov_len);
+                                if (r < 0)
+                                        goto finish;
+                        }
+
+                        n_subtract = 1;
+
+                        if (current->expect == EXPECT_TOPLEVEL)
+                                current->expect = EXPECT_END;
+                        else if (current->expect == EXPECT_OBJECT_VALUE)
+                                current->expect = EXPECT_OBJECT_KEY;
+                        else
+                                assert(current->expect == EXPECT_ARRAY_ELEMENT);
+
+                        break;
+                }
+
                 case _JSON_BUILD_ID128:
                 case _JSON_BUILD_UUID: {
                         const sd_id128_t *id;
@@ -4861,6 +4889,24 @@ int json_dispatch_id128(const char *name, JsonVariant *variant, JsonDispatchFlag
 
 int json_dispatch_unsupported(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
         return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not allowed in this object.", strna(name));
+}
+
+int json_dispatch_unbase64_iovec(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
+        _cleanup_free_ void *buffer = NULL;
+        struct iovec *iov = ASSERT_PTR(userdata);
+        size_t sz;
+        int r;
+
+        if (!json_variant_is_string(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name));
+
+        r = json_variant_unbase64(variant, &buffer, &sz);
+        if (r < 0)
+                return json_log(variant, flags, r, "JSON field '%s' is not valid Base64 data.", strna(name));
+
+        free_and_replace(iov->iov_base, buffer);
+        iov->iov_len = sz;
+        return 0;
 }
 
 static int json_cmp_strings(const void *x, const void *y) {
