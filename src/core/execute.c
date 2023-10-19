@@ -1542,6 +1542,237 @@ int exec_context_get_clean_mask(ExecContext *c, ExecCleanMask *ret) {
         return 0;
 }
 
+int exec_context_get_oom_score_adjust(const ExecContext *c) {
+        int n = 0, r;
+
+        assert(c);
+
+        if (c->oom_score_adjust_set)
+                return c->oom_score_adjust;
+
+        r = get_oom_score_adjust(&n);
+        if (r < 0)
+                log_debug_errno(r, "Failed to read /proc/self/oom_score_adj, ignoring: %m");
+
+        return n;
+}
+
+uint64_t exec_context_get_coredump_filter(const ExecContext *c) {
+        _cleanup_free_ char *t = NULL;
+        uint64_t n = COREDUMP_FILTER_MASK_DEFAULT;
+        int r;
+
+        assert(c);
+
+        if (c->coredump_filter_set)
+                return c->coredump_filter;
+
+        r = read_one_line_file("/proc/self/coredump_filter", &t);
+        if (r < 0)
+                log_debug_errno(r, "Failed to read /proc/self/coredump_filter, ignoring: %m");
+        else {
+                r = safe_atoux64(t, &n);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to parse \"%s\" from /proc/self/coredump_filter, ignoring: %m", t);
+        }
+
+        return n;
+}
+
+int exec_context_get_nice(const ExecContext *c) {
+        int n;
+
+        assert(c);
+
+        if (c->nice_set)
+                return c->nice;
+
+        errno = 0;
+        n = getpriority(PRIO_PROCESS, 0);
+        if (errno > 0) {
+                log_debug_errno(errno, "Failed to get process nice value, ignoring: %m");
+                n = 0;
+        }
+
+        return n;
+}
+
+int exec_context_get_cpu_sched_policy(const ExecContext *c) {
+        int n;
+
+        assert(c);
+
+        if (c->cpu_sched_set)
+                return c->cpu_sched_policy;
+
+        n = sched_getscheduler(0);
+        if (n < 0)
+                log_debug_errno(errno, "Failed to get scheduler policy, ignoring: %m");
+
+        return n < 0 ? SCHED_OTHER : n;
+}
+
+int exec_context_get_cpu_sched_priority(const ExecContext *c) {
+        struct sched_param p = {};
+        int r;
+
+        assert(c);
+
+        if (c->cpu_sched_set)
+                return c->cpu_sched_priority;
+
+        r = sched_getparam(0, &p);
+        if (r < 0)
+                log_debug_errno(errno, "Failed to get scheduler priority, ignoring: %m");
+
+        return r >= 0 ? p.sched_priority : 0;
+}
+
+uint64_t exec_context_get_timer_slack_nsec(const ExecContext *c) {
+        int r;
+
+        assert(c);
+
+        if (c->timer_slack_nsec != NSEC_INFINITY)
+                return c->timer_slack_nsec;
+
+        r = prctl(PR_GET_TIMERSLACK);
+        if (r < 0)
+                log_debug_errno(r, "Failed to get timer slack, ignoring: %m");
+
+        return (uint64_t) MAX(r, 0);
+}
+
+char** exec_context_get_syscall_filter(const ExecContext *c) {
+        _cleanup_strv_free_ char **l = NULL;
+
+        assert(c);
+
+#if HAVE_SECCOMP
+        void *id, *val;
+        HASHMAP_FOREACH_KEY(val, id, c->syscall_filter) {
+                _cleanup_free_ char *name = NULL;
+                const char *e = NULL;
+                char *s;
+                int num = PTR_TO_INT(val);
+
+                if (c->syscall_allow_list && num >= 0)
+                        /* syscall with num >= 0 in allow-list is denied. */
+                        continue;
+
+                name = seccomp_syscall_resolve_num_arch(SCMP_ARCH_NATIVE, PTR_TO_INT(id) - 1);
+                if (!name)
+                        continue;
+
+                if (num >= 0) {
+                        e = seccomp_errno_or_action_to_string(num);
+                        if (e) {
+                                s = strjoin(name, ":", e);
+                                if (!s)
+                                        return NULL;
+                        } else {
+                                if (asprintf(&s, "%s:%d", name, num) < 0)
+                                        return NULL;
+                        }
+                } else
+                        s = TAKE_PTR(name);
+
+                if (strv_consume(&l, s) < 0)
+                        return NULL;
+        }
+
+        strv_sort(l);
+#endif
+
+        return l ? TAKE_PTR(l) : strv_new(NULL);
+}
+
+char** exec_context_get_syscall_archs(const ExecContext *c) {
+        _cleanup_strv_free_ char **l = NULL;
+
+        assert(c);
+
+#if HAVE_SECCOMP
+        void *id;
+        SET_FOREACH(id, c->syscall_archs) {
+                const char *name;
+
+                name = seccomp_arch_to_string(PTR_TO_UINT32(id) - 1);
+                if (!name)
+                        continue;
+
+                if (strv_extend(&l, name) < 0)
+                        return NULL;
+        }
+
+        strv_sort(l);
+#endif
+
+        return l ? TAKE_PTR(l) : strv_new(NULL);
+}
+
+char** exec_context_get_syscall_log(const ExecContext *c) {
+        _cleanup_strv_free_ char **l = NULL;
+
+        assert(c);
+
+#if HAVE_SECCOMP
+        void *id, *val;
+        HASHMAP_FOREACH_KEY(val, id, c->syscall_log) {
+                char *name = NULL;
+
+                name = seccomp_syscall_resolve_num_arch(SCMP_ARCH_NATIVE, PTR_TO_INT(id) - 1);
+                if (!name)
+                        continue;
+
+                if (strv_consume(&l, name) < 0)
+                        return NULL;
+        }
+
+        strv_sort(l);
+#endif
+
+        return l ? TAKE_PTR(l) : strv_new(NULL);
+}
+
+char** exec_context_get_address_families(const ExecContext *c) {
+        _cleanup_strv_free_ char **l = NULL;
+        void *af;
+
+        assert(c);
+
+        SET_FOREACH(af, c->address_families) {
+                const char *name;
+
+                name = af_to_name(PTR_TO_INT(af));
+                if (!name)
+                        continue;
+
+                if (strv_extend(&l, name) < 0)
+                        return NULL;
+        }
+
+        strv_sort(l);
+
+        return l ? TAKE_PTR(l) : strv_new(NULL);
+}
+
+char** exec_context_get_restrict_filesystems(const ExecContext *c) {
+        _cleanup_strv_free_ char **l = NULL;
+
+        assert(c);
+
+#if HAVE_LIBBPF
+        l = set_get_strv(c->restrict_filesystems);
+        if (!l)
+                return NULL;
+
+        strv_sort(l);
+#endif
+
+        return l ? TAKE_PTR(l) : strv_new(NULL);
+}
+
 void exec_status_start(ExecStatus *s, pid_t pid) {
         assert(s);
 
@@ -2453,6 +2684,16 @@ static const char* const exec_directory_type_symlink_table[_EXEC_DIRECTORY_TYPE_
 };
 
 DEFINE_STRING_TABLE_LOOKUP(exec_directory_type_symlink, ExecDirectoryType);
+
+static const char* const exec_directory_type_mode_table[_EXEC_DIRECTORY_TYPE_MAX] = {
+        [EXEC_DIRECTORY_RUNTIME]       = "RuntimeDirectoryMode",
+        [EXEC_DIRECTORY_STATE]         = "StateDirectoryMode",
+        [EXEC_DIRECTORY_CACHE]         = "CacheDirectoryMode",
+        [EXEC_DIRECTORY_LOGS]          = "LogsDirectoryMode",
+        [EXEC_DIRECTORY_CONFIGURATION] = "ConfigurationDirectoryMode",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(exec_directory_type_mode, ExecDirectoryType);
 
 /* And this table maps ExecDirectoryType too, but to a generic term identifying the type of resource. This
  * one is supposed to be generic enough to be used for unit types that don't use ExecContext and per-unit
