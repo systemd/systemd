@@ -4060,7 +4060,9 @@ int tpm2_seal(Tpm2Context *c,
                 /* TODO: force all callers to provide ret_srk_buf, so we can stop sealing with the legacy templates. */
                 primary_alg = TPM2_ALG_ECC;
 
-                TPM2B_PUBLIC template = { .size = sizeof(TPMT_PUBLIC), };
+                TPM2B_PUBLIC template = {
+                        .size = sizeof(TPMT_PUBLIC),
+                };
                 r = tpm2_get_legacy_template(primary_alg, &template.publicArea);
                 if (r < 0)
                         return log_debug_errno(r, "Could not get legacy ECC template: %m");
