@@ -35,10 +35,10 @@ static inline bool IOVEC_INCREMENT(struct iovec *i, size_t n, size_t k) {
 #define IOVEC_NULL (const struct iovec) {}
 
 #define IOVEC_MAKE(base, len) (struct iovec) { .iov_base = (base), .iov_len = (len) }
-#define IOVEC_MAKE_STRING(string)               \
-        ({                                      \
-                char *_s = (char*) (string);    \
-                IOVEC_MAKE(_s, strlen(_s));     \
+#define IOVEC_MAKE_STRING(string)                       \
+        ({                                              \
+                const char *_s = (string);              \
+                IOVEC_MAKE((char*) _s, strlen(_s));     \
         })
 
 char* set_iovec_string_field(struct iovec *iovec, size_t *n_iovec, const char *field, const char *value);
