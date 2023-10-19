@@ -1652,6 +1652,13 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             <para>This command honors <option>--force</option> and <option>--when=</option> in a similar way
             as <command>halt</command>.</para>
 
+            <para>If a new kernel has been loaded via <command>kexec --load</command>, a
+            <command>kexec</command> will be performed instead of a reboot, unless
+            <literal>SYSTEMCTL_SKIP_AUTO_KEXEC=1</literal> has been set. If a new root file system has
+            been setup on <literal>/run/nextroot</literal>, a <command>soft-reboot</command> will be
+            performed instead of a reboot, unless <literal>SYSTEMCTL_SKIP_AUTO_SOFT_REBOOT=1</literal> has
+            been set.</para>
+
             <xi:include href="version-info.xml" xpointer="v246"/>
           </listitem>
         </varlistentry>
@@ -1681,6 +1688,10 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
 
             <para>This command honors <option>--force</option> and <option>--when=</option> similarly
             to <command>halt</command>.</para>
+
+            <para>If a new kernel has been loaded via <command>kexec --load</command>, a
+            <command>kexec</command> will be performed when <command>reboot</command> is invoked, unless
+            <literal>SYSTEMCTL_SKIP_AUTO_KEXEC=1</literal> has been set.</para>
           </listitem>
         </varlistentry>
 
@@ -1699,6 +1710,10 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             <para>This operation only reboots userspace, leaving the kernel running. See
             <citerefentry><refentrytitle>systemd-soft-reboot.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
             for details.</para>
+
+            <para>If a new root file system has been setup on <literal>/run/nextroot</literal>, a
+            <command>soft-reboot</command> will be performed when <command>reboot</command> is invoked,
+            unless <literal>SYSTEMCTL_SKIP_AUTO_SOFT_REBOOT=1</literal> has been set.</para>
 
             <xi:include href="version-info.xml" xpointer="v254"/>
           </listitem>
