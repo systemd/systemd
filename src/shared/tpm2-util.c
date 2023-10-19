@@ -1037,7 +1037,13 @@ static int tpm2_get_legacy_template(TPMI_ALG_PUBLIC alg, TPMT_PUBLIC *ret_templa
         static const TPMT_PUBLIC legacy_ecc = {
                 .type = TPM2_ALG_ECC,
                 .nameAlg = TPM2_ALG_SHA256,
-                .objectAttributes = TPMA_OBJECT_RESTRICTED|TPMA_OBJECT_DECRYPT|TPMA_OBJECT_FIXEDTPM|TPMA_OBJECT_FIXEDPARENT|TPMA_OBJECT_SENSITIVEDATAORIGIN|TPMA_OBJECT_USERWITHAUTH,
+                .objectAttributes =
+                        TPMA_OBJECT_RESTRICTED|
+                        TPMA_OBJECT_DECRYPT|
+                        TPMA_OBJECT_FIXEDTPM|
+                        TPMA_OBJECT_FIXEDPARENT|
+                        TPMA_OBJECT_SENSITIVEDATAORIGIN|
+                        TPMA_OBJECT_USERWITHAUTH,
                 .parameters.eccDetail = {
                         .symmetric = {
                                 .algorithm = TPM2_ALG_AES,
