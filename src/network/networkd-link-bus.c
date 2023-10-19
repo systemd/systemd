@@ -10,6 +10,7 @@
 #include "bus-message-util.h"
 #include "bus-polkit.h"
 #include "dns-domain.h"
+#include "networkd-dhcp4.h"
 #include "networkd-json.h"
 #include "networkd-link-bus.h"
 #include "networkd-link.h"
@@ -626,13 +627,7 @@ int bus_link_method_renew(sd_bus_message *message, void *userdata, sd_bus_error 
         if (r == 0)
                 return 1; /* Polkit will call us back */
 
-        if (sd_dhcp_client_is_running(l->dhcp_client))
-                r = sd_dhcp_client_send_renew(l->dhcp_client);
-        else
-                /* The DHCPv4 client may have been stopped by the IPv6 only mode. Let's unconditionally
-                 * restart the client here. Note, if the DHCPv4 client is disabled, then dhcp4_start() does
-                 * nothing and returns 0. */
-                r = dhcp4_start(l);
+        r = dhcp4_renew(l);
         if (r < 0)
                 return r;
 
