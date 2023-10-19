@@ -30,26 +30,16 @@ static int property_get_monotonic_timers(
                 return r;
 
         LIST_FOREACH(value, v, t->values) {
-                _cleanup_free_ char *buf = NULL;
-                const char *s;
-                size_t l;
+                _cleanup_free_ char *usec = NULL;
 
                 if (v->base == TIMER_CALENDAR)
                         continue;
 
-                s = timer_base_to_string(v->base);
-                assert(endswith(s, "Sec"));
-
-                /* s/Sec/USec/ */
-                l = strlen(s);
-                buf = new(char, l+2);
-                if (!buf)
+                usec = timer_base_to_usec_string(v->base);
+                if (!usec)
                         return -ENOMEM;
 
-                memcpy(buf, s, l-3);
-                memcpy(buf+l-3, "USec", 5);
-
-                r = sd_bus_message_append(reply, "(stt)", buf, v->value, v->next_elapse);
+                r = sd_bus_message_append(reply, "(stt)", usec, v->value, v->next_elapse);
                 if (r < 0)
                         return r;
         }
@@ -108,9 +98,7 @@ static int property_get_next_elapse_monotonic(
         assert(bus);
         assert(reply);
 
-        return sd_bus_message_append(reply, "t",
-                                     (uint64_t) usec_shift_clock(t->next_elapse_monotonic_or_boottime,
-                                                                 TIMER_MONOTONIC_CLOCK(t), CLOCK_MONOTONIC));
+        return sd_bus_message_append(reply, "t", timer_next_elapse_monotonic(t));
 }
 
 const sd_bus_vtable bus_timer_vtable[] = {
