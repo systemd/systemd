@@ -68,6 +68,14 @@ const char *unit_dbus_interface_from_name(const char *name) {
         return unit_dbus_interface_from_type(t);
 }
 
+const char* unit_type_to_capitalized_string(UnitType t) {
+        const char *di = unit_dbus_interface_from_type(t);
+        if (!di)
+                return NULL;
+
+        return ASSERT_PTR(startswith(di, "org.freedesktop.systemd1."));
+}
+
 static const char* const unit_type_table[_UNIT_TYPE_MAX] = {
         [UNIT_SERVICE]   = "service",
         [UNIT_SOCKET]    = "socket",
