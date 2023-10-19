@@ -1587,6 +1587,27 @@ static int swap_can_start(Unit *u) {
         return 1;
 }
 
+int swap_get_priority(const Swap *s) {
+        assert(s);
+
+        if (s->from_proc_swaps && s->parameters_proc_swaps.priority_set)
+                return s->parameters_proc_swaps.priority;
+
+        if (s->from_fragment && s->parameters_fragment.priority_set)
+                return s->parameters_fragment.priority;
+
+        return -1;
+}
+
+const char* swap_get_options(const Swap *s) {
+        assert(s);
+
+        if (s->from_fragment)
+                return s->parameters_fragment.options;
+
+        return NULL;
+}
+
 static const char* const swap_exec_command_table[_SWAP_EXEC_COMMAND_MAX] = {
         [SWAP_EXEC_ACTIVATE]   = "ExecActivate",
         [SWAP_EXEC_DEACTIVATE] = "ExecDeactivate",
