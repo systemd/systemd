@@ -592,6 +592,10 @@ void manager_override_show_status(Manager *m, ShowStatus mode, const char *reaso
 void manager_set_first_boot(Manager *m, bool b);
 void manager_set_switching_root(Manager *m, bool switching_root);
 
+static inline double manager_get_progress(Manager *m) {
+        return MANAGER_IS_FINISHED(m) ? 1.0 : 1.0 - ((double) hashmap_size(m->jobs) / (double) m->n_installed_jobs);
+}
+
 void manager_status_printf(Manager *m, StatusType type, const char *status, const char *format, ...) _printf_(4,5);
 
 Set *manager_get_units_requiring_mounts_for(Manager *m, const char *path);
