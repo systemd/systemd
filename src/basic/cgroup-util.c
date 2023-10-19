@@ -314,19 +314,17 @@ static int cg_kill_items(
                 done = true;
 
                 r = cg_enumerate_items(SYSTEMD_CGROUP_CONTROLLER, path, &f, item);
-                if (r < 0) {
-                        if (ret >= 0 && r != -ENOENT)
-                                return r;
-
-                        return ret;
-                }
+                if (r == -ENOENT)
+                        break;
+                if (r < 0)
+                        return RET_GATHER(ret, r);
 
                 for (;;) {
                         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
 
                         r = cg_read_pidref(f, &pidref);
                         if (r < 0)
-                                return r;
+                                return RET_GATHER(ret, r);
                         if (r == 0)
                                 break;
 
@@ -341,10 +339,9 @@ static int cg_kill_items(
 
                         /* If we haven't killed this process yet, kill it */
                         r = pidref_kill(&pidref, sig);
-                        if (r < 0) {
-                                if (ret >= 0 && r != -ESRCH)
-                                        ret = r;
-                        } else {
+                        if (r < 0 && r != -ESRCH)
+                                RET_GATHER(ret, r);
+                        if (r >= 0)
                                 if (flags & CGROUP_SIGCONT)
                                         (void) pidref_kill(&pidref, SIGCONT);
 
@@ -359,17 +356,12 @@ static int cg_kill_items(
                         done = false;
 
                         r = set_put(s, PID_TO_PTR(pidref.pid));
-                        if (r < 0) {
-                                if (ret >= 0)
-                                        return r;
-
-                                return ret;
-                        }
+                        if (r < 0)
+                                return RET_GATHER(ret, r);
                 }
 
-                /* To avoid racing against processes which fork
-                 * quicker than we can kill them we repeat this until
-                 * no new pids need to be killed. */
+                /* To avoid racing against processes which fork quicker than we can kill them, we repeat this
+                 * until no new pids need to be killed. */
 
         } while (!done);
 
