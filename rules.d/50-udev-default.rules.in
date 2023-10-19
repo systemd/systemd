@@ -64,6 +64,8 @@ SUBSYSTEM=="sound", GROUP="audio", \
 
 SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", MODE="0664"
 
+SUBSYSTEM=="net", IMPORT{builtin}="net_driver"
+
 SUBSYSTEM=="firewire", TEST=="units", TEST=="model", \
   IMPORT{builtin}="hwdb 'ieee1394:node:ven$attr{vendor}mo$attr{model}units$attr{units}'"
 
