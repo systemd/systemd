@@ -164,6 +164,10 @@ ExecStart=sleep infinity
     <para>Note that <filename>systemd-soft-reboot.service</filename> (and related units) should never be
     executed directly. Instead, trigger system shutdown with a command such as <literal>systemctl
     soft-reboot</literal>.</para>
+
+    <para>Note that if a new root file system has been setup on <literal>/run/nextroot</literal>, a
+    <command>soft-reboot</command> will be performed when the <command>reboot</command> command is
+    invoked.</para>
   </refsect1>
 
   <refsect1>
