@@ -117,6 +117,10 @@ int tpm2_create_primary(Tpm2Context *c, const Tpm2Handle *session, const TPM2B_P
 int tpm2_create(Tpm2Context *c, const Tpm2Handle *parent, const Tpm2Handle *session, const TPMT_PUBLIC *template, const TPMS_SENSITIVE_CREATE *sensitive, TPM2B_PUBLIC **ret_public, TPM2B_PRIVATE **ret_private);
 int tpm2_create_loaded(Tpm2Context *c, const Tpm2Handle *parent, const Tpm2Handle *session, const TPMT_PUBLIC *template, const TPMS_SENSITIVE_CREATE *sensitive, TPM2B_PUBLIC **ret_public, TPM2B_PRIVATE **ret_private, Tpm2Handle **ret_handle);
 int tpm2_load(Tpm2Context *c, const Tpm2Handle *parent, const Tpm2Handle *session, const TPM2B_PUBLIC *public, const TPM2B_PRIVATE *private, Tpm2Handle **ret_handle);
+int tpm2_marshal_private(const TPM2B_PRIVATE *private, void **ret, size_t *ret_size);
+int tpm2_unmarshal_private(const void *data, size_t size, TPM2B_PRIVATE *ret_private);
+int tpm2_marshal_public(const TPM2B_PUBLIC *public, void **ret, size_t *ret_size);
+int tpm2_unmarshal_public(const void *data, size_t size, TPM2B_PUBLIC *ret_public);
 
 bool tpm2_supports_alg(Tpm2Context *c, TPM2_ALG_ID alg);
 bool tpm2_supports_command(Tpm2Context *c, TPM2_CC command);
