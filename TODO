@@ -244,8 +244,6 @@ Features:
   - cg_pid_get_xyz()
   - pid_from_same_root_fs()
   - get_ctty_devnr()
-  - mount_image_in_namespace()
-  - bind_mount_in_namespace()
   - pid1: sd_notify() receiver should use SCM_PIDFD to authenticate client
   - actually wait for POLLIN on pidref's pidfd in service logic
   - exec_spawn() + safe_fork()
