@@ -516,6 +516,19 @@ const char *exec_context_tty_path(const ExecContext *context);
 int exec_context_tty_size(const ExecContext *context, unsigned *ret_rows, unsigned *ret_cols);
 void exec_context_tty_reset(const ExecContext *context, const ExecParameters *p);
 
+uint64_t exec_context_get_rlimit(const ExecContext *c, const char *name);
+int exec_context_get_oom_score_adjust(const ExecContext *c);
+uint64_t exec_context_get_coredump_filter(const ExecContext *c);
+int exec_context_get_nice(const ExecContext *c);
+int exec_context_get_cpu_sched_policy(const ExecContext *c);
+int exec_context_get_cpu_sched_priority(const ExecContext *c);
+uint64_t exec_context_get_timer_slack_nsec(const ExecContext *c);
+char** exec_context_get_syscall_filter(const ExecContext *c);
+char** exec_context_get_syscall_archs(const ExecContext *c);
+char** exec_context_get_syscall_log(const ExecContext *c);
+char** exec_context_get_address_families(const ExecContext *c);
+char** exec_context_get_restrict_filesystems(const ExecContext *c);
+
 void exec_status_start(ExecStatus *s, pid_t pid);
 void exec_status_exit(ExecStatus *s, const ExecContext *context, pid_t pid, int code, int status);
 void exec_status_dump(const ExecStatus *s, FILE *f, const char *prefix);
@@ -572,6 +585,9 @@ ExecDirectoryType exec_directory_type_from_string(const char *s) _pure_;
 
 const char* exec_directory_type_symlink_to_string(ExecDirectoryType i) _const_;
 ExecDirectoryType exec_directory_type_symlink_from_string(const char *s) _pure_;
+
+const char* exec_directory_type_mode_to_string(ExecDirectoryType i) _const_;
+ExecDirectoryType exec_directory_type_mode_from_string(const char *s) _pure_;
 
 const char* exec_resource_type_to_string(ExecDirectoryType i) _const_;
 ExecDirectoryType exec_resource_type_from_string(const char *s) _pure_;
