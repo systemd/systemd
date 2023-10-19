@@ -34,6 +34,7 @@ libudevd_core_sources = files(
         'udev-builtin-keyboard.c',
         'udev-builtin-net_id.c',
         'udev-builtin-net_setup_link.c',
+        'udev-builtin-net_driver.c',
         'udev-builtin-path_id.c',
         'udev-builtin-usb_id.c',
         'udev-builtin.c',
