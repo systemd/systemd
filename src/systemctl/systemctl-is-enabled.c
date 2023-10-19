@@ -24,9 +24,9 @@ static int show_installation_targets_client_side(const char *name) {
         if (r < 0)
                 return log_error_errno(r, "Failed to get file links for %s: %m", name);
 
-        for (size_t i = 0; i < n_changes; i++)
-                if (changes[i].type == INSTALL_CHANGE_UNLINK)
-                        printf("  %s\n", changes[i].path);
+        FOREACH_ARRAY(c, changes, n_changes)
+                if (c->type == INSTALL_CHANGE_UNLINK)
+                        printf("  %s\n", c->path);
 
         return 0;
 }
