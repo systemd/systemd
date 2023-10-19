@@ -85,10 +85,7 @@ int shutdown_parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'r':
-                        if (kexec_loaded())
-                                arg_action = ACTION_KEXEC;
-                        else
-                                arg_action = ACTION_REBOOT;
+                        arg_action = ACTION_REBOOT;
                         break;
 
                 case 'K':

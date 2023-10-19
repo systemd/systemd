@@ -1916,6 +1916,8 @@ static int method_do_shutdown_or_sleep(
                 a = handle_action_lookup(HANDLE_KEXEC);
         else if ((flags & SD_LOGIND_SOFT_REBOOT))
                 a = handle_action_lookup(HANDLE_SOFT_REBOOT);
+        else if (kexec_loaded())
+                a = handle_action_lookup(HANDLE_KEXEC);
 
         /* Don't allow multiple jobs being executed at the same time */
         if (m->delayed_action)

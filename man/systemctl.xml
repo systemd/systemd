@@ -1652,6 +1652,9 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             <para>This command honors <option>--force</option> and <option>--when=</option> in a similar way
             as <command>halt</command>.</para>
 
+            <para>If a new kernel has been loaded via <command>kexec --load</command>, a
+            <command>kexec</command> will be performed instead of a reboot.</para>
+
             <xi:include href="version-info.xml" xpointer="v246"/>
           </listitem>
         </varlistentry>
@@ -1681,6 +1684,9 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
 
             <para>This command honors <option>--force</option> and <option>--when=</option> similarly
             to <command>halt</command>.</para>
+
+            <para>If a new kernel has been loaded via <command>kexec --load</command>, a
+            <command>kexec</command> will be performed when <command>reboot</command> is invoked.</para>
           </listitem>
         </varlistentry>
 
