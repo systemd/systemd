@@ -44,30 +44,12 @@ static int property_get_listen(
 
         LIST_FOREACH(port, p, s->ports) {
                 _cleanup_free_ char *address = NULL;
-                const char *a;
 
-                switch (p->type) {
-                        case SOCKET_SOCKET: {
-                                r = socket_address_print(&p->address, &address);
-                                if (r)
-                                        return r;
+                r = socket_port_to_address(p, &address);
+                if (r < 0)
+                        return r;
 
-                                a = address;
-                                break;
-                        }
-
-                        case SOCKET_SPECIAL:
-                        case SOCKET_MQUEUE:
-                        case SOCKET_FIFO:
-                        case SOCKET_USB_FUNCTION:
-                                a = p->path;
-                                break;
-
-                        default:
-                                assert_not_reached();
-                }
-
-                r = sd_bus_message_append(reply, "(ss)", socket_port_type_to_string(p), a);
+                r = sd_bus_message_append(reply, "(ss)", socket_port_type_to_string(p), address);
                 if (r < 0)
                         return r;
         }

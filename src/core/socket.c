@@ -2902,6 +2902,40 @@ static const char *socket_sub_state_to_string(Unit *u) {
         return socket_state_to_string(SOCKET(u)->state);
 }
 
+int socket_port_to_address(const SocketPort *p, char **ret) {
+        _cleanup_free_ char *address = NULL;
+        int r;
+
+        assert(p);
+        assert(ret);
+
+        switch (p->type) {
+                case SOCKET_SOCKET: {
+                        r = socket_address_print(&p->address, &address);
+                        if (r < 0)
+                                return r;
+
+                        break;
+                }
+
+                case SOCKET_SPECIAL:
+                case SOCKET_MQUEUE:
+                case SOCKET_FIFO:
+                case SOCKET_USB_FUNCTION:
+                        address = strdup(p->path);
+                        if (!address)
+                                return -ENOMEM;
+                        break;
+
+                default:
+                        assert_not_reached();
+        }
+
+        *ret = TAKE_PTR(address);
+
+        return 0;
+}
+
 const char* socket_port_type_to_string(SocketPort *p) {
 
         assert(p);
