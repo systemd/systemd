@@ -3,6 +3,9 @@
 set -eux
 set -o pipefail
 
+# shellcheck source=test/units/util.sh
+ . "$(dirname "$0")"/util.sh
+
 systemd-analyze log-level debug
 
 # Ensure that the init.scope.d drop-in is applied on boot
@@ -143,7 +146,7 @@ if systemctl --machine "testuser@.host" --user status testsuite-55-testbloat.ser
 if ! systemctl --machine "testuser@.host" --user status testsuite-55-testchill.service; then exit 24; fi
 
 # only run this portion of the test if we can set xattrs
-if setfattr -n user.xattr_test -v 1 /sys/fs/cgroup/; then
+if cgroupfs_supports_user_xattrs; then
     sleep 120 # wait for systemd-oomd kill cool down and elevated memory pressure to come down
 
     mkdir -p /run/systemd/system/testsuite-55-testbloat.service.d/

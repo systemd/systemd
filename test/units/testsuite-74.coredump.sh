@@ -3,6 +3,9 @@
 set -eux
 set -o pipefail
 
+# shellcheck source=test/units/util.sh
+ . "$(dirname "$0")"/util.sh
+
 # Make sure the binary name fits into 15 characters
 CORE_TEST_BIN="/tmp/test-dump"
 CORE_TEST_UNPRIV_BIN="/tmp/test-usr-dump"
@@ -89,15 +92,17 @@ ExecStart=systemd-nspawn --quiet --link-journal=try-guest --keep-unit --machine=
 EOF
 systemctl daemon-reload
 
-machinectl start "$CONTAINER"
-timeout 60 bash -xec "until systemd-run -M '$CONTAINER' -q --wait --pipe true; do sleep .5; done"
+if cgroupfs_supports_user_xattrs; then
+    machinectl start "$CONTAINER"
+    timeout 60 bash -xec "until systemd-run -M '$CONTAINER' -q --wait --pipe true; do sleep .5; done"
 
-[[ "$(systemd-run -M "$CONTAINER" -q --wait --pipe coredumpctl list -q --no-legend /usr/bin/sleep | wc -l)" -eq 0 ]]
-machinectl copy-to "$CONTAINER" "$MAKE_DUMP_SCRIPT"
-systemd-run -M "$CONTAINER" -q --wait --pipe "$MAKE_DUMP_SCRIPT" "/usr/bin/sleep" "SIGABRT"
-systemd-run -M "$CONTAINER" -q --wait --pipe "$MAKE_DUMP_SCRIPT" "/usr/bin/sleep" "SIGTRAP"
-# Wait a bit for the coredumps to get processed
-timeout 30 bash -c "while [[ \$(systemd-run -M $CONTAINER -q --wait --pipe coredumpctl list -q --no-legend /usr/bin/sleep | wc -l) -lt 2 ]]; do sleep 1; done"
+    [[ "$(systemd-run -M "$CONTAINER" -q --wait --pipe coredumpctl list -q --no-legend /usr/bin/sleep | wc -l)" -eq 0 ]]
+    machinectl copy-to "$CONTAINER" "$MAKE_DUMP_SCRIPT"
+    systemd-run -M "$CONTAINER" -q --wait --pipe "$MAKE_DUMP_SCRIPT" "/usr/bin/sleep" "SIGABRT"
+    systemd-run -M "$CONTAINER" -q --wait --pipe "$MAKE_DUMP_SCRIPT" "/usr/bin/sleep" "SIGTRAP"
+    # Wait a bit for the coredumps to get processed
+    timeout 30 bash -c "while [[ \$(systemd-run -M $CONTAINER -q --wait --pipe coredumpctl list -q --no-legend /usr/bin/sleep | wc -l) -lt 2 ]]; do sleep 1; done"
+fi
 
 coredumpctl
 SYSTEMD_LOG_LEVEL=debug coredumpctl
