@@ -135,7 +135,12 @@
     <itemizedlist>
       <listitem><para>For a kernel binary called <filename><replaceable>foo</replaceable>.efi</filename>, it
       will look for files with the <filename>.cred</filename> suffix in a directory named
-      <filename><replaceable>foo</replaceable>.efi.extra.d/</filename> next to it. A <command>cpio</command>
+      <filename><replaceable>foo</replaceable>.efi.extra.d/</filename> next to it. If the kernel binary
+      uses a counter for the purpose of
+      <ulink url="https://systemd.io/AUTOMATIC_BOOT_ASSESSMENT">Automatic Boot Assessment</ulink>, this
+      counter will be ignored. For example, <filename><replaceable>foo</replaceable>+3-0.efi</filename>
+      will look in directory <filename><replaceable>foo</replaceable>.efi.extra.d/</filename>.
+      A <command>cpio</command>
       archive is generated from all files found that way, placing them in the
       <filename>/.extra/credentials/</filename> directory of the initrd file hierarchy. The main initrd may
       then access them in this directory. This is supposed to be used to store auxiliary, encrypted,
