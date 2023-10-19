@@ -379,6 +379,8 @@ struct Manager {
         bool etc_localtime_accessible;
 
         ManagerObjective objective;
+        /* Objective as it was before serialization, mostly to detect soft-reboots */
+        ManagerObjective previous_objective;
 
         /* Flags */
         bool dispatching_load_queue;
