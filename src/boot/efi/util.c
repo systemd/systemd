@@ -646,6 +646,34 @@ void *find_configuration_table(const EFI_GUID *guid) {
         return NULL;
 }
 
+static void remove_boot_count(char16_t *path) {
+        char16_t *prefix_end;
+        const char16_t *tail;
+        uint64_t ignored;
+
+        assert(path);
+
+        prefix_end = strchr16(path, '+');
+        if (!prefix_end)
+                return;
+
+        tail = prefix_end + 1;
+
+        if (!parse_number16(tail, &ignored, &tail))
+                return;
+
+        if (*tail == '-') {
+                ++tail;
+                if (!parse_number16(tail, &ignored, &tail))
+                        return;
+        }
+
+        if (!IN_SET(*tail, '\0', '.'))
+                return;
+
+        strcpy16(prefix_end, tail);
+}
+
 char16_t *get_extra_dir(const EFI_DEVICE_PATH *file_path) {
         if (!file_path)
                 return NULL;
@@ -666,5 +694,6 @@ char16_t *get_extra_dir(const EFI_DEVICE_PATH *file_path) {
                 return NULL;
 
         convert_efi_path(file_path_str);
+        remove_boot_count(file_path_str);
         return xasprintf("%ls.extra.d", file_path_str);
 }
