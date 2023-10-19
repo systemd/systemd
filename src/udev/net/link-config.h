@@ -34,7 +34,7 @@ typedef struct Link {
         sd_device_action_t action;
 
         char *kind;
-        char *driver;
+        const char *driver;
         uint16_t iftype;
         uint32_t flags;
         struct hw_addr_data hw_addr;
