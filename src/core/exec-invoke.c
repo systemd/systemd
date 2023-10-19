@@ -40,6 +40,7 @@
 #include "fd-util.h"
 #include "hexdecoct.h"
 #include "io-util.h"
+#include "iovec-util.h"
 #include "missing_ioprio.h"
 #include "missing_prctl.h"
 #include "missing_securebits.h"

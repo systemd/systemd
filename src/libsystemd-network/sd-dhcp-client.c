@@ -24,7 +24,7 @@
 #include "event-util.h"
 #include "fd-util.h"
 #include "hostname-util.h"
-#include "io-util.h"
+#include "iovec-util.h"
 #include "memory-util.h"
 #include "network-common.h"
 #include "random-util.h"

@@ -9,6 +9,7 @@
 #include "sd-id128.h"
 
 #include "io-util.h"
+#include "iovec-wrapper.h"
 #include "time-util.h"
 
 /* Make sure not to make this smaller than the maximum coredump size.
