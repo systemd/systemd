@@ -1090,10 +1090,7 @@ int systemctl_dispatch_parse_argv(int argc, char *argv[]) {
                 return halt_parse_argv(argc, argv);
 
         } else if (invoked_as(argv, "reboot")) {
-                if (kexec_loaded())
-                        arg_action = ACTION_KEXEC;
-                else
-                        arg_action = ACTION_REBOOT;
+                arg_action = ACTION_REBOOT;
                 return halt_parse_argv(argc, argv);
 
         } else if (invoked_as(argv, "shutdown")) {

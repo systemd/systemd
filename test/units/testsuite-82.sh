@@ -133,9 +133,10 @@ elif [ -f /run/testsuite82.touch ]; then
     # Restart the unit that is not supposed to survive
     systemd-run --collect --service-type=exec --unit=testsuite-82-nosurvive.service sleep infinity
 
-    # Now issue the soft reboot. We should be right back soon.
+    # Now issue the soft reboot. We should be right back soon. Given /run/nextroot exists, we should
+    # automatically do a softreboot instead of normal reboot.
     touch /run/testsuite82.touch2
-    systemctl --no-block soft-reboot
+    systemctl --no-block reboot
 
     # Now block until the soft-boot killing spree kills us
     exec sleep infinity
