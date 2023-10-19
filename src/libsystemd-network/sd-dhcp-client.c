@@ -2161,8 +2161,10 @@ int sd_dhcp_client_send_renew(sd_dhcp_client *client) {
         assert_return(sd_dhcp_client_is_running(client), -ESTALE);
         assert_return(client->fd >= 0, -EINVAL);
 
-        if (!client->lease)
+        if (client->state != DHCP_STATE_BOUND)
                 return 0;
+
+        assert(client->lease);
 
         client->start_delay = 0;
         client->attempt = 1;
