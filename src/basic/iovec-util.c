@@ -3,6 +3,16 @@
 #include "iovec-util.h"
 #include "string-util.h"
 
+size_t iovec_total_size(const struct iovec *i, size_t n) {
+        size_t sum = 0;
+
+        assert(i || n == 0);
+
+        FOREACH_ARRAY(j, i, n)
+                sum += j->iov_len;
+
+        return sum;
+}
 
 char* set_iovec_string_field(struct iovec *iovec, size_t *n_iovec, const char *field, const char *value) {
         char *x;

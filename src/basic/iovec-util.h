@@ -7,14 +7,7 @@
 
 #include "macro.h"
 
-static inline size_t IOVEC_TOTAL_SIZE(const struct iovec *i, size_t n) {
-        size_t r = 0;
-
-        for (size_t j = 0; j < n; j++)
-                r += i[j].iov_len;
-
-        return r;
-}
+size_t iovec_total_size(const struct iovec *i, size_t n);
 
 static inline bool IOVEC_INCREMENT(struct iovec *i, size_t n, size_t k) {
         /* Returns true if there is nothing else to send (bytes written cover all of the iovec),
