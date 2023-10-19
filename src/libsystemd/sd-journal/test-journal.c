@@ -4,7 +4,7 @@
 #include <unistd.h>
 
 #include "chattr-util.h"
-#include "io-util.h"
+#include "iovec-util.h"
 #include "journal-authenticate.h"
 #include "journal-file-util.h"
 #include "journal-vacuum.h"

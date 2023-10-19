@@ -10,7 +10,7 @@
 #include "fileio.h"
 #include "format-util.h"
 #include "fs-util.h"
-#include "io-util.h"
+#include "iovec-util.h"
 #include "lock-util.h"
 #include "nscd-flush.h"
 #include "parse-util.h"
