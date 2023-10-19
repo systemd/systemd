@@ -882,6 +882,7 @@ int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, 
         *m = (Manager) {
                 .runtime_scope = runtime_scope,
                 .objective = _MANAGER_OBJECTIVE_INVALID,
+                .previous_objective = _MANAGER_OBJECTIVE_INVALID,
 
                 .status_unit_format = STATUS_UNIT_FORMAT_DEFAULT,
 
@@ -1972,6 +1973,11 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds, const char *roo
                         if (r < 0)
                                 return log_error_errno(r, "Deserialization failed: %m");
                 }
+
+                /* If we are in a new soft-reboot iteration bump the counter now before starting units, so
+                 * that they can reliably read it. We get the previous objective from serialized state. */
+                if (m->previous_objective == MANAGER_SOFT_REBOOT)
+                        m->soft_reboots_count++;
 
                 /* Any fds left? Find some unit which wants them. This is useful to allow container managers to pass
                  * some file descriptors to us pre-initialized. This enables socket-based activation of entire
