@@ -198,7 +198,7 @@ static int bus_service_method_mount(sd_bus_message *message, void *userdata, sd_
         propagate_directory = strjoina("/run/systemd/propagate/", u->id);
         if (is_image)
                 r = mount_image_in_namespace(
-                                unit_pid->pid,
+                                unit_pid,
                                 propagate_directory,
                                 "/run/systemd/incoming/",
                                 src, dest,
@@ -208,7 +208,7 @@ static int bus_service_method_mount(sd_bus_message *message, void *userdata, sd_
                                 c->mount_image_policy ?: &image_policy_service);
         else
                 r = bind_mount_in_namespace(
-                                unit_pid->pid,
+                                unit_pid,
                                 propagate_directory,
                                 "/run/systemd/incoming/",
                                 src, dest,
