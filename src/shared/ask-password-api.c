@@ -28,6 +28,7 @@
 #include "fs-util.h"
 #include "glyph-util.h"
 #include "io-util.h"
+#include "iovec-util.h"
 #include "keyring-util.h"
 #include "log.h"
 #include "macro.h"

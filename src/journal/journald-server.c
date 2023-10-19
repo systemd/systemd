@@ -28,7 +28,7 @@
 #include "hostname-util.h"
 #include "id128-util.h"
 #include "initrd-util.h"
-#include "io-util.h"
+#include "iovec-util.h"
 #include "journal-authenticate.h"
 #include "journal-file-util.h"
 #include "journal-internal.h"

@@ -6,7 +6,7 @@
 #include "fd-util.h"
 #include "fuzz.h"
 #include "hexdecoct.h"
-#include "io-util.h"
+#include "iovec-util.h"
 #include "varlink.h"
 #include "log.h"
 

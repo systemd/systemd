@@ -21,7 +21,7 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "format-util.h"
-#include "io-util.h"
+#include "iovec-util.h"
 #include "log.h"
 #include "macro.h"
 #include "missing_syscall.h"

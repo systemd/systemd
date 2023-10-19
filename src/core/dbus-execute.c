@@ -20,7 +20,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "hexdecoct.h"
-#include "io-util.h"
+#include "iovec-util.h"
 #include "ioprio-util.h"
 #include "journal-file.h"
 #include "load-fragment.h"

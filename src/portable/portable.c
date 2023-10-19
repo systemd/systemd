@@ -22,7 +22,7 @@
 #include "fileio.h"
 #include "fs-util.h"
 #include "install.h"
-#include "io-util.h"
+#include "iovec-util.h"
 #include "locale-util.h"
 #include "loop-util.h"
 #include "mkdir.h"

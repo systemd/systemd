@@ -17,7 +17,7 @@
 #include "fd-util.h"
 #include "icmp6-util.h"
 #include "in-addr-util.h"
-#include "io-util.h"
+#include "iovec-util.h"
 #include "socket-util.h"
 
 #define IN6ADDR_ALL_ROUTERS_MULTICAST_INIT \

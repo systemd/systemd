@@ -19,6 +19,7 @@
 #include "hostname-util.h"
 #include "idn-util.h"
 #include "io-util.h"
+#include "iovec-util.h"
 #include "memstream-util.h"
 #include "missing_network.h"
 #include "missing_socket.h"

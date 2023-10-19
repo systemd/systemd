@@ -15,7 +15,7 @@
 #include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"
-#include "io-util.h"
+#include "iovec-util.h"
 #include "journal-internal.h"
 #include "journald-kmsg.h"
 #include "journald-server.h"

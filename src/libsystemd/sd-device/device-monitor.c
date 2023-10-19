@@ -20,7 +20,7 @@
 #include "fd-util.h"
 #include "format-util.h"
 #include "hashmap.h"
-#include "io-util.h"
+#include "iovec-util.h"
 #include "missing_socket.h"
 #include "mountpoint-util.h"
 #include "set.h"
