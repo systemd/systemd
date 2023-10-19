@@ -171,7 +171,7 @@ ssize_t dnstls_stream_writev(DnsStream *stream, const struct iovec *iov, size_t 
         assert(stream->encrypted);
         assert(stream->dnstls_data.session);
         assert(iov);
-        assert(IOVEC_TOTAL_SIZE(iov, iovcnt) > 0);
+        assert(iovec_total_size(iov, iovcnt) > 0);
 
         gnutls_record_cork(stream->dnstls_data.session);
 

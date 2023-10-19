@@ -585,7 +585,7 @@ static int pid_notify_with_fds_internal(
                         send_ucred = false;
                 } else {
                         /* Unless we're using SOCK_STREAM, we expect to write all the contents immediately. */
-                        if (type != SOCK_STREAM && (size_t) n < IOVEC_TOTAL_SIZE(msghdr.msg_iov, msghdr.msg_iovlen))
+                        if (type != SOCK_STREAM && (size_t) n < iovec_total_size(msghdr.msg_iov, msghdr.msg_iovlen))
                                 return -EIO;
 
                         /* Make sure we only send fds and ucred once, even if we're using SOCK_STREAM. */
