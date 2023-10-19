@@ -91,6 +91,9 @@ extern const UnitVTable swap_vtable;
 int swap_process_device_new(Manager *m, sd_device *dev);
 int swap_process_device_remove(Manager *m, sd_device *dev);
 
+int swap_get_priority(const Swap *s);
+const char* swap_get_options(const Swap *s);
+
 const char* swap_exec_command_to_string(SwapExecCommand i) _const_;
 SwapExecCommand swap_exec_command_from_string(const char *s) _pure_;
 
