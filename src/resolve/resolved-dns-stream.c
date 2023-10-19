@@ -5,7 +5,7 @@
 
 #include "alloc-util.h"
 #include "fd-util.h"
-#include "io-util.h"
+#include "iovec-util.h"
 #include "macro.h"
 #include "missing_network.h"
 #include "resolved-dns-stream.h"
