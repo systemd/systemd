@@ -1542,6 +1542,219 @@ int exec_context_get_clean_mask(ExecContext *c, ExecCleanMask *ret) {
         return 0;
 }
 
+int exec_context_get_oom_score_adjust(ExecContext *c) {
+        int n, r;
+
+        assert(c);
+
+        if (c->oom_score_adjust_set)
+                n = c->oom_score_adjust;
+        else {
+                n = 0;
+                r = get_oom_score_adjust(&n);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to read /proc/self/oom_score_adj, ignoring: %m");
+        }
+
+        return n;
+}
+
+uint64_t exec_context_get_coredump_filter(ExecContext *c) {
+        uint64_t n;
+        int r;
+
+        assert(c);
+
+        if (c->coredump_filter_set)
+                n = c->coredump_filter;
+        else {
+                _cleanup_free_ char *t = NULL;
+
+                n = COREDUMP_FILTER_MASK_DEFAULT;
+                r = read_one_line_file("/proc/self/coredump_filter", &t);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to read /proc/self/coredump_filter, ignoring: %m");
+                else {
+                        r = safe_atoux64(t, &n);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to parse \"%s\" from /proc/self/coredump_filter, ignoring: %m", t);
+                }
+        }
+
+        return n;
+}
+
+int exec_context_get_nice(ExecContext *c) {
+        int n;
+
+        if (c->nice_set)
+                n = c->nice;
+        else {
+                errno = 0;
+                n = getpriority(PRIO_PROCESS, 0);
+                if (errno > 0)
+                        n = 0;
+        }
+
+        return n;
+}
+
+int exec_context_get_cpu_sched_policy(ExecContext *c) {
+        int n;
+
+        if (c->cpu_sched_set)
+                n = c->cpu_sched_policy;
+        else {
+                n = sched_getscheduler(0);
+                if (n < 0)
+                        n = SCHED_OTHER;
+        }
+
+        return n;
+}
+
+int exec_context_get_cpu_sched_priority(ExecContext *c) {
+        int n;
+
+        if (c->cpu_sched_set)
+                n = c->cpu_sched_priority;
+        else {
+                struct sched_param p = {};
+
+                if (sched_getparam(0, &p) >= 0)
+                        n = p.sched_priority;
+                else
+                        n = 0;
+        }
+
+        return n;
+}
+
+uint64_t exec_context_get_timer_slack_nsec(ExecContext *c) {
+        return c->timer_slack_nsec == NSEC_INFINITY ? (uint64_t) prctl(PR_GET_TIMERSLACK)
+                                                    : (uint64_t) c->timer_slack_nsec;
+}
+
+char **exec_context_get_syscall_filter(ExecContext *c) {
+        _cleanup_strv_free_ char **l = NULL;
+
+#if HAVE_SECCOMP
+        void *id, *val;
+        HASHMAP_FOREACH_KEY(val, id, c->syscall_filter) {
+                _cleanup_free_ char *name = NULL;
+                const char *e = NULL;
+                char *s;
+                int num = PTR_TO_INT(val);
+
+                if (c->syscall_allow_list && num >= 0)
+                        /* syscall with num >= 0 in allow-list is denied. */
+                        continue;
+
+                name = seccomp_syscall_resolve_num_arch(SCMP_ARCH_NATIVE, PTR_TO_INT(id) - 1);
+                if (!name)
+                        continue;
+
+                if (num >= 0) {
+                        e = seccomp_errno_or_action_to_string(num);
+                        if (e) {
+                                s = strjoin(name, ":", e);
+                                if (!s)
+                                        return NULL;
+                        } else {
+                                if (asprintf(&s, "%s:%d", name, num) < 0)
+                                        return NULL;
+                        }
+                } else
+                        s = TAKE_PTR(name);
+
+                if (strv_consume(&l, s) < 0)
+                        return NULL;
+        }
+#endif
+
+        strv_sort(l);
+
+        return TAKE_PTR(l);
+}
+
+char **exec_context_get_syscall_archs(ExecContext *c) {
+        _cleanup_strv_free_ char **l = NULL;
+
+#if HAVE_SECCOMP
+        void *id;
+        SET_FOREACH(id, c->syscall_archs) {
+                const char *name;
+
+                name = seccomp_arch_to_string(PTR_TO_UINT32(id) - 1);
+                if (!name)
+                        continue;
+
+                if (strv_extend(&l, name) < 0)
+                        return NULL;
+        }
+#endif
+
+        strv_sort(l);
+
+        return TAKE_PTR(l);
+}
+
+char **exec_context_get_syscall_log(ExecContext *c) {
+        _cleanup_strv_free_ char **l = NULL;
+
+#if HAVE_SECCOMP
+        void *id, *val;
+        HASHMAP_FOREACH_KEY(val, id, c->syscall_log) {
+                char *name = NULL;
+
+                name = seccomp_syscall_resolve_num_arch(SCMP_ARCH_NATIVE, PTR_TO_INT(id) - 1);
+                if (!name)
+                        continue;
+
+                if (strv_consume(&l, name) < 0)
+                        return NULL;
+        }
+#endif
+
+        strv_sort(l);
+
+        return TAKE_PTR(l);
+}
+
+char **exec_context_get_address_families(ExecContext *c) {
+        _cleanup_strv_free_ char **l = NULL;
+        void *af;
+
+        SET_FOREACH(af, c->address_families) {
+                const char *name;
+
+                name = af_to_name(PTR_TO_INT(af));
+                if (!name)
+                        continue;
+
+                if (strv_extend(&l, name) < 0)
+                        return NULL;
+        }
+
+        strv_sort(l);
+
+        return TAKE_PTR(l);
+}
+
+char** exec_context_get_restrict_filesystems(ExecContext *c) {
+        _cleanup_strv_free_ char **l = NULL;
+
+#if HAVE_LIBBPF
+        l = set_get_strv(c->restrict_filesystems);
+        if (!l)
+                return NULL;
+#endif
+
+        strv_sort(l);
+
+        return TAKE_PTR(l);
+}
+
 void exec_status_start(ExecStatus *s, pid_t pid) {
         assert(s);
 
@@ -2453,6 +2666,16 @@ static const char* const exec_directory_type_symlink_table[_EXEC_DIRECTORY_TYPE_
 };
 
 DEFINE_STRING_TABLE_LOOKUP(exec_directory_type_symlink, ExecDirectoryType);
+
+static const char* const exec_directory_type_mode_table[_EXEC_DIRECTORY_TYPE_MAX] = {
+        [EXEC_DIRECTORY_RUNTIME]       = "RuntimeDirectoryMode",
+        [EXEC_DIRECTORY_STATE]         = "StateDirectoryMode",
+        [EXEC_DIRECTORY_CACHE]         = "CacheDirectoryMode",
+        [EXEC_DIRECTORY_LOGS]          = "LogsDirectoryMode",
+        [EXEC_DIRECTORY_CONFIGURATION] = "ConfigurationDirectoryMode",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(exec_directory_type_mode, ExecDirectoryType);
 
 /* And this table maps ExecDirectoryType too, but to a generic term identifying the type of resource. This
  * one is supposed to be generic enough to be used for unit types that don't use ExecContext and per-unit
