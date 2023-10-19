@@ -22,6 +22,7 @@ static const UdevBuiltin *const builtins[_UDEV_BUILTIN_MAX] = {
 #if HAVE_KMOD
         [UDEV_BUILTIN_KMOD] = &udev_builtin_kmod,
 #endif
+        [UDEV_BUILTIN_NET_DRIVER] = &udev_builtin_net_driver,
         [UDEV_BUILTIN_NET_ID] = &udev_builtin_net_id,
         [UDEV_BUILTIN_NET_LINK] = &udev_builtin_net_setup_link,
         [UDEV_BUILTIN_PATH_ID] = &udev_builtin_path_id,

@@ -32,6 +32,7 @@ libudevd_core_sources = files(
         'udev-builtin-hwdb.c',
         'udev-builtin-input_id.c',
         'udev-builtin-keyboard.c',
+        'udev-builtin-net_driver.c',
         'udev-builtin-net_id.c',
         'udev-builtin-net_setup_link.c',
         'udev-builtin-path_id.c',
