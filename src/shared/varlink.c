@@ -11,6 +11,7 @@
 #include "glyph-util.h"
 #include "hashmap.h"
 #include "io-util.h"
+#include "iovec-util.h"
 #include "list.h"
 #include "path-util.h"
 #include "process-util.h"

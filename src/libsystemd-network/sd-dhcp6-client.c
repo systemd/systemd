@@ -21,7 +21,7 @@
 #include "hexdecoct.h"
 #include "hostname-util.h"
 #include "in-addr-util.h"
-#include "io-util.h"
+#include "iovec-util.h"
 #include "random-util.h"
 #include "socket-util.h"
 #include "sort-util.h"

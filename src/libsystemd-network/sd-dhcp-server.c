@@ -15,7 +15,7 @@
 #include "dns-domain.h"
 #include "fd-util.h"
 #include "in-addr-util.h"
-#include "io-util.h"
+#include "iovec-util.h"
 #include "memory-util.h"
 #include "network-common.h"
 #include "ordered-set.h"
