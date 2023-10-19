@@ -34,6 +34,7 @@
 #include "strv.h"
 #include "unit-name.h"
 #include "unit.h"
+#include "utf8.h"
 
 #define RETRY_UMOUNT_MAX 32
 
@@ -2302,6 +2303,58 @@ static int mount_subsystem_ratelimited(Manager *m) {
                 return false;
 
         return sd_event_source_is_ratelimited(m->mount_event_source);
+}
+
+char* mount_get_what_escaped(const Mount *m) {
+        _cleanup_free_ char *escaped = NULL;
+        const char *s = NULL;
+
+        assert(m);
+
+        if (m->from_proc_self_mountinfo && m->parameters_proc_self_mountinfo.what)
+                s = m->parameters_proc_self_mountinfo.what;
+        else if (m->from_fragment && m->parameters_fragment.what)
+                s = m->parameters_fragment.what;
+
+        if (s) {
+                escaped = utf8_escape_invalid(s);
+                if (!escaped)
+                        return NULL;
+        }
+
+        return escaped ? TAKE_PTR(escaped) : strdup("");
+}
+
+char* mount_get_options_escaped(const Mount *m) {
+        _cleanup_free_ char *escaped = NULL;
+        const char *s = NULL;
+
+        assert(m);
+
+        if (m->from_proc_self_mountinfo && m->parameters_proc_self_mountinfo.options)
+                s = m->parameters_proc_self_mountinfo.options;
+        else if (m->from_fragment && m->parameters_fragment.options)
+                s = m->parameters_fragment.options;
+
+        if (s) {
+                escaped = utf8_escape_invalid(s);
+                if (!escaped)
+                        return NULL;
+        }
+
+        return escaped ? TAKE_PTR(escaped) : strdup("");
+}
+
+const char* mount_get_fstype(const Mount *m) {
+        assert(m);
+
+        if (m->from_proc_self_mountinfo && m->parameters_proc_self_mountinfo.fstype)
+                return m->parameters_proc_self_mountinfo.fstype;
+
+        if (m->from_fragment && m->parameters_fragment.fstype)
+                return m->parameters_fragment.fstype;
+
+        return NULL;
 }
 
 static const char* const mount_exec_command_table[_MOUNT_EXEC_COMMAND_MAX] = {
