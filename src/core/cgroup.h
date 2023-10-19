@@ -389,3 +389,9 @@ CGroupPressureWatch cgroup_pressure_watch_from_string(const char *s) _pure_;
 
 const char *cgroup_device_permissions_to_string(CGroupDevicePermissions p) _const_;
 CGroupDevicePermissions cgroup_device_permissions_from_string(const char *s) _pure_;
+
+const char* cgroup_ip_accounting_metric_to_string(CGroupIPAccountingMetric m) _const_;
+CGroupIPAccountingMetric cgroup_ip_accounting_metric_from_string(const char *s) _pure_;
+
+const char* cgroup_io_accounting_metric_to_string(CGroupIOAccountingMetric m) _const_;
+CGroupIOAccountingMetric cgroup_io_accounting_metric_from_string(const char *s) _pure_;

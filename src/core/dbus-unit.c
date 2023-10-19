@@ -1392,22 +1392,15 @@ static int property_get_ip_counter(
                 void *userdata,
                 sd_bus_error *error) {
 
-        static const char *const table[_CGROUP_IP_ACCOUNTING_METRIC_MAX] = {
-                [CGROUP_IP_INGRESS_BYTES]   = "IPIngressBytes",
-                [CGROUP_IP_EGRESS_BYTES]    = "IPEgressBytes",
-                [CGROUP_IP_INGRESS_PACKETS] = "IPIngressPackets",
-                [CGROUP_IP_EGRESS_PACKETS]  = "IPEgressPackets",
-        };
-
         uint64_t value = UINT64_MAX;
         Unit *u = ASSERT_PTR(userdata);
-        ssize_t metric;
+        CGroupIPAccountingMetric metric;
 
         assert(bus);
         assert(reply);
         assert(property);
 
-        assert_se((metric = string_table_lookup(table, ELEMENTSOF(table), property)) >= 0);
+        assert_se((metric = cgroup_ip_accounting_metric_from_string(property)) >= 0);
         (void) unit_get_ip_accounting(u, metric, &value);
         return sd_bus_message_append(reply, "t", value);
 }
@@ -1421,13 +1414,6 @@ static int property_get_io_counter(
                 void *userdata,
                 sd_bus_error *error) {
 
-        static const char *const table[_CGROUP_IO_ACCOUNTING_METRIC_MAX] = {
-                [CGROUP_IO_READ_BYTES]       = "IOReadBytes",
-                [CGROUP_IO_WRITE_BYTES]      = "IOWriteBytes",
-                [CGROUP_IO_READ_OPERATIONS]  = "IOReadOperations",
-                [CGROUP_IO_WRITE_OPERATIONS] = "IOWriteOperations",
-        };
-
         uint64_t value = UINT64_MAX;
         Unit *u = ASSERT_PTR(userdata);
         ssize_t metric;
@@ -1436,8 +1422,8 @@ static int property_get_io_counter(
         assert(reply);
         assert(property);
 
-        assert_se((metric = string_table_lookup(table, ELEMENTSOF(table), property)) >= 0);
-        (void) unit_get_io_accounting(u, metric, false, &value);
+        assert_se((metric = cgroup_io_accounting_metric_from_string(property)) >= 0);
+        (void) unit_get_io_accounting(u, metric, /* allow_cache= */ false, &value);
         return sd_bus_message_append(reply, "t", value);
 }
 

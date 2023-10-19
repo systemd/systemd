@@ -4470,3 +4470,21 @@ static const char* const cgroup_pressure_watch_table[_CGROUP_PRESSURE_WATCH_MAX]
 };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(cgroup_pressure_watch, CGroupPressureWatch, CGROUP_PRESSURE_WATCH_ON);
+
+static const char* const cgroup_ip_accounting_metric_table[_CGROUP_IP_ACCOUNTING_METRIC_MAX] = {
+        [CGROUP_IP_INGRESS_BYTES]   = "IPIngressBytes",
+        [CGROUP_IP_EGRESS_BYTES]    = "IPEgressBytes",
+        [CGROUP_IP_INGRESS_PACKETS] = "IPIngressPackets",
+        [CGROUP_IP_EGRESS_PACKETS]  = "IPEgressPackets",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(cgroup_ip_accounting_metric, CGroupIPAccountingMetric);
+
+static const char* const cgroup_io_accounting_metric_table[_CGROUP_IO_ACCOUNTING_METRIC_MAX] = {
+        [CGROUP_IO_READ_BYTES]       = "IOReadBytes",
+        [CGROUP_IO_WRITE_BYTES]      = "IOWriteBytes",
+        [CGROUP_IO_READ_OPERATIONS]  = "IOReadOperations",
+        [CGROUP_IO_WRITE_OPERATIONS] = "IOWriteOperations",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(cgroup_io_accounting_metric, CGroupIOAccountingMetric);
