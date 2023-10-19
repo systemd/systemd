@@ -92,16 +92,14 @@ STATIC_DESTRUCTOR_REGISTER(arg_policy_path, freep);
 /* todo:
  *
  *    1. pre-calc sysext + kernel cmdline measurements
- *    3. pre-calc cryptsetup root key measurement
- *    4. create key pair in tpm, with signature-based access policy on itself, and sign result PCR values
- *    5. lock this against tpm counter
- *    6. make cryptsetup honour two PCR signatures
- *    7. add services that lock down firmware, machine id, secureboot policy, … on boot, enable some of them by default
- *    8. add kernel-install plugin that automatically creates UKI .pcrlock file when UKI is installed, and removes it when it is removed again
- *    9. write generated pcrlock signature files to the ESP, one for each installed OS
- *    10. pick up generated pcrlock signature file in sd-stub, pass it via initrd to OS
- *    11. automatically install PE measurement of sd-boot on "bootctl install"
- *    12. maybe make systemd-repart generate .pcrlock for old and new GPT header in /run?
+ *    2. pre-calc cryptsetup root key measurement
+ *    3. make cryptsetup honour two PCR authnv
+ *    4. add services that lock down firmware, machine id, secureboot policy, … on boot, enable some of them by default
+ *    5. add kernel-install plugin that automatically creates UKI .pcrlock file when UKI is installed, and removes it when it is removed again
+ *    6. write generated pcrlock signature files to the ESP as credential, one for each installed OS
+ *    7. pick up generated pcrlock signature file in sd-stub, pass it via initrd to OS
+ *    8. automatically install PE measurement of sd-boot on "bootctl install"
+ *    9. maybe make systemd-repart generate .pcrlock for old and new GPT header in /run?
  */
 
 typedef struct EventLogRecordBank EventLogRecordBank;
