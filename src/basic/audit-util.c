@@ -10,7 +10,7 @@
 #include "audit-util.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "io-util.h"
+#include "iovec-util.h"
 #include "macro.h"
 #include "parse-util.h"
 #include "process-util.h"

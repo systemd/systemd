@@ -12,7 +12,7 @@
 #include "bus-signature.h"
 #include "bus-type.h"
 #include "fd-util.h"
-#include "io-util.h"
+#include "iovec-util.h"
 #include "memfd-util.h"
 #include "memory-util.h"
 #include "string-util.h"

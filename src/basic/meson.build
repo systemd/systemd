@@ -44,6 +44,7 @@ basic_sources = files(
         'initrd-util.c',
         'inotify-util.c',
         'io-util.c',
+        'iovec-util.c',
         'ioprio-util.c',
         'label.c',
         'limits-util.c',
