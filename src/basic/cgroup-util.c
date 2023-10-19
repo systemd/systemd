@@ -364,13 +364,6 @@ static int cg_kill_items(
                         }
                 }
 
-                if (r < 0) {
-                        if (ret >= 0)
-                                return r;
-
-                        return ret;
-                }
-
                 /* To avoid racing against processes which fork
                  * quicker than we can kill them we repeat this until
                  * no new pids need to be killed. */
