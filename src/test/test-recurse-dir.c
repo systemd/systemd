@@ -26,8 +26,7 @@ static int nftw_cb(
                 break;
 
         case FTW_SL:
-                log_debug("ftw found symlink %s", fpath);
-                assert_se(strv_extendf(&list_nftw, "%s→", fpath) >= 0);
+                log_debug("ftw found symlink %s, ignoring.", fpath);
                 break;
 
         case FTW_D:
@@ -71,11 +70,10 @@ static int recurse_dir_callback(
         case RECURSE_DIR_ENTRY:
                 assert_se(!IN_SET(de->d_type, DT_UNKNOWN, DT_DIR));
 
-                log_debug("found %s", path);
+                log_debug("found %s%s", path,
+                          de->d_type == DT_LNK ? ", ignoring." : "");
 
-                if (de->d_type == DT_LNK)
-                        assert_se(strv_extendf(l, "%s→", path) >= 0);
-                else
+                if (de->d_type != DT_LNK)
                         assert_se(strv_extend(l, path) >= 0);
                 break;
 
@@ -131,7 +129,10 @@ int main(int argc, char *argv[]) {
         else
                 p = "/usr/share/man"; /* something hopefully reasonably stable while we run (and limited in size) */
 
-        /* Enumerate the specified dirs in full, once via nftw(), and once via recurse_dir(), and ensure the results are identical */
+        /* Enumerate the specified dirs in full, once via nftw(), and once via recurse_dir(), and ensure the
+         * results are identical. nftw() sometimes skips symlinks (see
+         * https://github.com/systemd/systemd/issues/29603), so ignore them to avoid bogus errors. */
+
         t1 = now(CLOCK_MONOTONIC);
         r = recurse_dir_at(AT_FDCWD, p, 0, UINT_MAX, RECURSE_DIR_SORT|RECURSE_DIR_ENSURE_TYPE|RECURSE_DIR_SAME_MOUNT, recurse_dir_callback, &list_recurse_dir);
         t2 = now(CLOCK_MONOTONIC);
