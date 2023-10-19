@@ -29,9 +29,6 @@ static int builtin_net_setup_link(UdevEvent *event, int argc, char **argv, bool 
         if (r < 0)
                 return log_device_warning_errno(dev, r, "Failed to get link information: %m");
 
-        if (link->driver)
-                udev_builtin_add_property(dev, test, "ID_NET_DRIVER", link->driver);
-
         r = link_get_config(ctx, link);
         if (r < 0) {
                 if (r == -ENOENT) {
