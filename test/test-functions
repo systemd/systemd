@@ -1120,7 +1120,7 @@ install_modules() {
     instmods scsi_debug
 
     if get_bool "$LOOKS_LIKE_SUSE"; then
-        instmods ext4
+        instmods ext4 af_packet
     fi
 }
 
