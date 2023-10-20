@@ -7,8 +7,9 @@
 #include <string.h>
 
 #include "alloc-util.h"
-#include "dhcp-internal.h"
-#include "dhcp-protocol.h"
+#include "dhcp-option.h"
+#include "dhcp-packet.h"
+#include "ether-addr-util.h"
 #include "macro.h"
 #include "memory-util.h"
 

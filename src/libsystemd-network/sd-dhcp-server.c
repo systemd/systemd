@@ -10,8 +10,9 @@
 #include "sd-id128.h"
 
 #include "alloc-util.h"
-#include "dhcp-internal.h"
 #include "dhcp-network.h"
+#include "dhcp-option.h"
+#include "dhcp-packet.h"
 #include "dhcp-server-internal.h"
 #include "dns-domain.h"
 #include "fd-util.h"

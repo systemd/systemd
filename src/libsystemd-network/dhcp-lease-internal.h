@@ -8,8 +8,7 @@
 #include "sd-dhcp-client.h"
 
 #include "alloc-util.h"
-#include "dhcp-internal.h"
-#include "dhcp-protocol.h"
+#include "dhcp-option.h"
 #include "list.h"
 #include "time-util.h"
 
