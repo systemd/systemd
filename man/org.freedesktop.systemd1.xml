@@ -277,6 +277,7 @@ node /org/freedesktop/systemd1 {
       GetDynamicUsers(out a(us) users);
       DumpUnitFileDescriptorStore(in  s name,
                                   out a(suuutuusu) entries);
+      Describe(out s json);
     signals:
       UnitNew(s id,
               o unit);
@@ -611,6 +612,8 @@ node /org/freedesktop/systemd1 {
     <!--method LookupDynamicUserByUID is not documented!-->
 
     <!--method GetDynamicUsers is not documented!-->
+
+    <!--method Describe is not documented!-->
 
     <!--signal UnitNew is not documented!-->
 
@@ -989,6 +992,8 @@ node /org/freedesktop/systemd1 {
     <variablelist class="dbus-method" generated="True" extra-ref="GetDynamicUsers()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="DumpUnitFileDescriptorStore()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="Describe()"/>
 
     <variablelist class="dbus-signal" generated="True" extra-ref="UnitNew"/>
 
@@ -11684,7 +11689,8 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <para><varname>AccessSELinuxContext</varname> and
       <varname>ActivationDetails</varname> were added in version 252.</para>
       <para><function>QueueSignal()</function> was added in version 254.</para>
-      <para><varname>SurviveFinalKillSignal</varname> was added in version 255.</para>
+      <para><varname>SurviveFinalKillSignal</varname> and <function>Describe()</function> were added in
+      version 255.</para>
     </refsect2>
     <refsect2>
       <title>Service Unit Objects</title>
