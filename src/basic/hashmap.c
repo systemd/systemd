@@ -2135,7 +2135,9 @@ int _hashmap_dump_sorted(HashmapBase *h, void ***ret, size_t *ret_n) {
                 return 0;
         }
 
-        entries = new(struct hashmap_base_entry*, _hashmap_size(h));
+        /* We append one more element than needed so that the resulting array can be used as a strv. We
+         * don't count this entry in the returned size. */
+        entries = new(struct hashmap_base_entry*, _hashmap_size(h) + 1);
         if (!entries)
                 return -ENOMEM;
 
@@ -2143,6 +2145,7 @@ int _hashmap_dump_sorted(HashmapBase *h, void ***ret, size_t *ret_n) {
                 entries[n++] = bucket_at(h, idx);
 
         assert(n == _hashmap_size(h));
+        entries[n] = NULL;
 
         typesafe_qsort_r(entries, n, hashmap_entry_compare, h->hash_ops->compare);
 
