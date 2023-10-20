@@ -6,6 +6,7 @@
 #include "sd-dhcp-client.h"
 
 #include "macro.h"
+#include "network-common.h"
 
 typedef enum DHCPState {
         DHCP_STATE_STOPPED,
@@ -23,6 +24,8 @@ typedef enum DHCPState {
 
 const char *dhcp_state_to_string(DHCPState s) _const_;
 
+typedef struct sd_dhcp_client sd_dhcp_client;
+
 extern const struct hash_ops dhcp_option_hash_ops;
 
 int dhcp_client_set_state_callback(
@@ -30,3 +33,20 @@ int dhcp_client_set_state_callback(
                 sd_dhcp_client_callback_t cb,
                 void *userdata);
 int dhcp_client_get_state(sd_dhcp_client *client);
+
+/* If we are invoking callbacks of a dhcp-client, ensure unreffing the
+ * client from the callback doesn't destroy the object we are working
+ * on */
+#define DHCP_CLIENT_DONT_DESTROY(client) \
+        _cleanup_(sd_dhcp_client_unrefp) _unused_ sd_dhcp_client *_dont_destroy_##client = sd_dhcp_client_ref(client)
+
+#define log_dhcp_client_errno(client, error, fmt, ...)          \
+        log_interface_prefix_full_errno(                        \
+                "DHCPv4 client: ",                              \
+                sd_dhcp_client, client,                         \
+                error, fmt, ##__VA_ARGS__)
+#define log_dhcp_client(client, fmt, ...)                       \
+        log_interface_prefix_full_errno_zerook(                 \
+                "DHCPv4 client: ",                              \
+                sd_dhcp_client, client,                         \
+                0, fmt, ##__VA_ARGS__)
