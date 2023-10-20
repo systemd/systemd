@@ -257,8 +257,7 @@ typedef struct Partition {
         int read_only;
         int growfs;
 
-        uint8_t *roothash;
-        size_t roothash_size;
+        struct iovec roothash;
 
         char *split_name_format;
         char *split_path;
@@ -397,7 +396,7 @@ static Partition* partition_free(Partition *p) {
         strv_free(p->subvolumes);
         free(p->verity_match_key);
 
-        free(p->roothash);
+        iovec_done(&p->roothash);
 
         free(p->split_name_format);
         unlink_and_free(p->split_path);
@@ -2803,7 +2802,7 @@ static int context_dump_partitions(Context *context) {
                 if (p->verity != VERITY_OFF) {
                         Partition *hp = p->verity == VERITY_HASH ? p : p->siblings[VERITY_HASH];
 
-                        rh = hp->roothash ? hexmem(hp->roothash, hp->roothash_size) : strdup("TBD");
+                        rh = iovec_is_set(&hp->roothash) ? hexmem(hp->roothash.iov_base, hp->roothash.iov_len) : strdup("TBD");
                         if (!rh)
                                 return log_oom();
                 }
@@ -3080,7 +3079,7 @@ static int context_dump_partition_bar(Context *context) {
 
 static bool context_has_roothash(Context *context) {
         LIST_FOREACH(partitions, p, context->partitions)
-                if (p->roothash)
+                if (iovec_is_set(&p->roothash))
                         return true;
 
         return false;
@@ -3932,8 +3931,6 @@ static int partition_format_verity_hash(
         _cleanup_(partition_target_freep) PartitionTarget *t = NULL;
         _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
         _cleanup_free_ char *hint = NULL;
-        _cleanup_free_ uint8_t *rh = NULL;
-        size_t rhs;
         int r;
 
         assert(context);
@@ -4012,30 +4009,31 @@ static int partition_format_verity_hash(
         r = sym_crypt_get_volume_key_size(cd);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine verity root hash size of partition %s: %m", strna(hint));
-        rhs = (size_t) r;
 
-        rh = malloc(rhs);
-        if (!rh)
+        _cleanup_(iovec_done) struct iovec rh = {
+                .iov_base = malloc(r),
+                .iov_len = r,
+        };
+        if (!rh.iov_base)
                 return log_oom();
 
-        r = sym_crypt_volume_key_get(cd, CRYPT_ANY_SLOT, (char *) rh, &rhs, NULL, 0);
+        r = sym_crypt_volume_key_get(cd, CRYPT_ANY_SLOT, (char *) rh.iov_base, &rh.iov_len, NULL, 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to get verity root hash of partition %s: %m", strna(hint));
 
-        assert(rhs >= sizeof(sd_id128_t) * 2);
+        assert(rh.iov_len >= sizeof(sd_id128_t) * 2);
 
         if (!dp->new_uuid_is_set) {
-                memcpy_safe(dp->new_uuid.bytes, rh, sizeof(sd_id128_t));
+                memcpy_safe(dp->new_uuid.bytes, rh.iov_base, sizeof(sd_id128_t));
                 dp->new_uuid_is_set = true;
         }
 
         if (!p->new_uuid_is_set) {
-                memcpy_safe(p->new_uuid.bytes, rh + rhs - sizeof(sd_id128_t), sizeof(sd_id128_t));
+                memcpy_safe(p->new_uuid.bytes, (uint8_t*) rh.iov_base + (rh.iov_len - sizeof(sd_id128_t)), sizeof(sd_id128_t));
                 p->new_uuid_is_set = true;
         }
 
-        p->roothash = TAKE_PTR(rh);
-        p->roothash_size = rhs;
+        p->roothash = TAKE_IOVEC(rh);
 
         return 0;
 #else
@@ -4044,10 +4042,8 @@ static int partition_format_verity_hash(
 }
 
 static int sign_verity_roothash(
-                const uint8_t *roothash,
-                size_t roothash_size,
-                uint8_t **ret_signature,
-                size_t *ret_signature_size) {
+                const struct iovec *roothash,
+                struct iovec *ret_signature) {
 
 #if HAVE_OPENSSL
         _cleanup_(BIO_freep) BIO *rb = NULL;
@@ -4057,11 +4053,10 @@ static int sign_verity_roothash(
         int sigsz;
 
         assert(roothash);
-        assert(roothash_size > 0);
+        assert(iovec_is_set(roothash));
         assert(ret_signature);
-        assert(ret_signature_size);
 
-        hex = hexmem(roothash, roothash_size);
+        hex = hexmem(roothash->iov_base, roothash->iov_len);
         if (!hex)
                 return log_oom();
 
@@ -4079,8 +4074,8 @@ static int sign_verity_roothash(
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to convert PKCS7 signature to DER: %s",
                                        ERR_error_string(ERR_get_error(), NULL));
 
-        *ret_signature = TAKE_PTR(sig);
-        *ret_signature_size = sigsz;
+        ret_signature->iov_base = TAKE_PTR(sig);
+        ret_signature->iov_len = sigsz;
 
         return 0;
 #else
@@ -4090,11 +4085,10 @@ static int sign_verity_roothash(
 
 static int partition_format_verity_sig(Context *context, Partition *p) {
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
-        _cleanup_free_ uint8_t *sig = NULL;
+        _cleanup_(iovec_done) struct iovec sig = IOVEC_NULL;
         _cleanup_free_ char *text = NULL, *hint = NULL;
         Partition *hp;
         uint8_t fp[X509_FINGERPRINT_SIZE];
-        size_t sigsz = 0; /* avoid false maybe-uninitialized warning */
         int whole_fd, r;
 
         assert(p->verity == VERITY_SIG);
@@ -4114,7 +4108,7 @@ static int partition_format_verity_sig(Context *context, Partition *p) {
 
         assert_se((whole_fd = fdisk_get_devfd(context->fdisk_context)) >= 0);
 
-        r = sign_verity_roothash(hp->roothash, hp->roothash_size, &sig, &sigsz);
+        r = sign_verity_roothash(&hp->roothash, &sig);
         if (r < 0)
                 return r;
 
@@ -4124,12 +4118,12 @@ static int partition_format_verity_sig(Context *context, Partition *p) {
 
         r = json_build(&v,
                         JSON_BUILD_OBJECT(
-                                JSON_BUILD_PAIR("rootHash", JSON_BUILD_HEX(hp->roothash, hp->roothash_size)),
+                                JSON_BUILD_PAIR("rootHash", JSON_BUILD_HEX(hp->roothash.iov_base, hp->roothash.iov_len)),
                                 JSON_BUILD_PAIR(
                                         "certificateFingerprint",
                                         JSON_BUILD_HEX(fp, sizeof(fp))
                                 ),
-                                JSON_BUILD_PAIR("signature", JSON_BUILD_BASE64(sig, sigsz))
+                                JSON_BUILD_PAIR("signature", JSON_BUILD_IOVEC_BASE64(&sig))
                         )
         );
         if (r < 0)
