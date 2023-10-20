@@ -555,8 +555,8 @@ void exec_context_done(ExecContext *c) {
         c->syscall_archs = set_free(c->syscall_archs);
         c->address_families = set_free(c->address_families);
 
-        for (ExecDirectoryType t = 0; t < _EXEC_DIRECTORY_TYPE_MAX; t++)
-                exec_directory_done(&c->directories[t]);
+        FOREACH_ARRAY(d, c->directories, _EXEC_DIRECTORY_TYPE_MAX)
+                exec_directory_done(d);
 
         c->log_level_max = -1;
 
@@ -2487,8 +2487,8 @@ void exec_params_serialized_done(ExecParameters *p) {
         p->cgroup_path = mfree(p->cgroup_path);
 
         if (p->prefix) {
-                for (ExecDirectoryType t = 0; t < _EXEC_DIRECTORY_TYPE_MAX; t++)
-                        free(p->prefix[t]);
+                FOREACH_ARRAY(i, p->prefix, _EXEC_DIRECTORY_TYPE_MAX)
+                        free(*i);
 
                 p->prefix = mfree(p->prefix);
         }
