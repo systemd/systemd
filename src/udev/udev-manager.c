@@ -14,7 +14,7 @@
 #include "fs-util.h"
 #include "hashmap.h"
 #include "inotify-util.h"
-#include "io-util.h"
+#include "iovec-util.h"
 #include "limits-util.h"
 #include "list.h"
 #include "mkdir.h"

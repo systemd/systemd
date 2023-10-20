@@ -9,7 +9,7 @@
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
-#include "io-util.h"
+#include "iovec-util.h"
 #include "journal-importer.h"
 #include "journal-internal.h"
 #include "journal-util.h"
