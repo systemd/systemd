@@ -1068,8 +1068,9 @@ static int mount_in_namespace(
         if (r > 0)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to activate bind mount in target, not running in a mount namespace");
 
-        if (pidref_verify(target) < 0)
-                return log_debug_errno(SYNTHETIC_ERRNO(ESRCH), "Failed to verify target process '" PID_FMT "': %m", target->pid);
+        r = pidref_verify(target);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to verify target process '" PID_FMT "': %m", target->pid);
 
         r = chase(src, NULL, 0, &chased_src_path, &chased_src_fd);
         if (r < 0)
