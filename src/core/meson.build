@@ -46,6 +46,7 @@ libcore_sources = files(
         'load-dropin.c',
         'load-fragment.c',
         'manager-dump.c',
+        'manager-json.c',
         'manager-serialize.c',
         'manager.c',
         'mount.c',
