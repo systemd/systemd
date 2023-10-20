@@ -5,7 +5,7 @@
 
 #include "alloc-util.h"
 #include "fd-util.h"
-#include "io-util.h"
+#include "iovec-util.h"
 #include "macro.h"
 #include "missing_network.h"
 #include "resolved-dns-stream.h"
@@ -331,7 +331,7 @@ static int on_stream_io(sd_event_source *es, int fd, uint32_t revents, void *use
                         IOVEC_MAKE(DNS_PACKET_DATA(s->write_packet), s->write_packet->size),
                 };
 
-                IOVEC_INCREMENT(iov, ELEMENTSOF(iov), s->n_written);
+                iovec_increment(iov, ELEMENTSOF(iov), s->n_written);
 
                 ssize_t ss = dns_stream_writev(s, iov, ELEMENTSOF(iov), 0);
                 if (ss < 0) {

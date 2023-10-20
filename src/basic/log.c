@@ -21,7 +21,7 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "format-util.h"
-#include "io-util.h"
+#include "iovec-util.h"
 #include "log.h"
 #include "macro.h"
 #include "missing_syscall.h"
@@ -541,7 +541,7 @@ static int write_to_syslog(
                 if (!syslog_is_stream)
                         break;
 
-                if (IOVEC_INCREMENT(iovec, ELEMENTSOF(iovec), n))
+                if (iovec_increment(iovec, ELEMENTSOF(iovec), n))
                         break;
         }
 

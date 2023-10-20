@@ -18,6 +18,7 @@
 #include "fs-util.h"
 #include "hexdecoct.h"
 #include "io-util.h"
+#include "iovec-util.h"
 #include "macro.h"
 #include "memory-util.h"
 #include "path-util.h"
