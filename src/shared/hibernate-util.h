@@ -4,39 +4,23 @@
 #include <linux/fiemap.h>
 #include <sys/types.h>
 
-typedef enum SwapType {
-        SWAP_BLOCK,
-        SWAP_FILE,
-        _SWAP_TYPE_MAX,
-        _SWAP_TYPE_INVALID = -EINVAL,
-} SwapType;
-
-/* entry in /proc/swaps */
-typedef struct SwapEntry {
-        char *path;
-        SwapType type;
-        uint64_t size;
-        uint64_t used;
-        int priority;
-} SwapEntry;
-
-SwapEntry* swap_entry_free(SwapEntry *se);
-DEFINE_TRIVIAL_CLEANUP_FUNC(SwapEntry*, swap_entry_free);
-
-/*
- * represents values for /sys/power/resume & /sys/power/resume_offset
- * and the matching /proc/swap entry.
- */
-typedef struct HibernateLocation {
+/* represents values for /sys/power/resume & /sys/power/resume_offset and the corresponding path */
+typedef struct HibernationDevice {
         dev_t devno;
         uint64_t offset; /* in memory pages */
-        SwapEntry *swap;
-} HibernateLocation;
+        char *path;
+} HibernationDevice;
 
-HibernateLocation* hibernate_location_free(HibernateLocation *hl);
-DEFINE_TRIVIAL_CLEANUP_FUNC(HibernateLocation*, hibernate_location_free);
+void hibernation_device_done(HibernationDevice *hibernation_device);
 
-int read_fiemap(int fd, struct fiemap **ret);
-int find_hibernate_location(HibernateLocation **ret_hibernate_location);
+int find_suitable_hibernation_device_full(HibernationDevice *ret_device, uint64_t *ret_size, uint64_t *ret_used);
+static inline int find_suitable_hibernation_device(HibernationDevice *ret) {
+        return find_suitable_hibernation_device_full(ASSERT_PTR(ret), NULL, NULL);
+}
+
+int hibernation_is_safe(void);
+
 int write_resume_config(dev_t devno, uint64_t offset, const char *device);
-bool enough_swap_for_hibernation(void);
+
+/* Only for test-fiemap */
+int read_fiemap(int fd, struct fiemap **ret);
