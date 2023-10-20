@@ -126,8 +126,8 @@
       <varlistentry>
         <term><varname>AllowSuspend=</varname></term>
         <term><varname>AllowHibernation=</varname></term>
-        <term><varname>AllowSuspendThenHibernate=</varname></term>
         <term><varname>AllowHybridSleep=</varname></term>
+        <term><varname>AllowSuspendThenHibernate=</varname></term>
 
         <listitem><para>By default any power-saving mode is advertised if possible (i.e.
         the kernel supports that mode, the necessary resources are available). Those
@@ -144,14 +144,12 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>SuspendMode=</varname></term>
         <term><varname>HibernateMode=</varname></term>
         <term><varname>HybridSleepMode=</varname></term>
 
         <listitem><para>The string to be written to <filename>/sys/power/disk</filename> by, respectively,
-        <citerefentry><refentrytitle>systemd-suspend.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>systemd-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-        or
+        <citerefentry><refentrytitle>systemd-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        and
         <citerefentry><refentrytitle>systemd-hybrid-sleep.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
         More than one value can be specified by separating multiple values with whitespace. They will be
         tried in turn, until one is written without error. If none of the writes succeed, the operation will
@@ -161,6 +159,9 @@
         <command>cat /sys/power/disk</command> to display). See <ulink
         url="https://www.kernel.org/doc/html/latest/admin-guide/pm/sleep-states.html#basic-sysfs-interfaces-for-system-suspend-and-hibernation">the
         kernel documentation</ulink> for more details.</para>
+
+        <para>Note that hybrid sleep corresponds to the <literal>suspend</literal> disk mode. If <varname>HybridSleepMode=</varname>
+        is overridden, you might get plain hibernation instead.
 
         <para>
         <citerefentry><refentrytitle>systemd-suspend-then-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
@@ -172,18 +173,12 @@
 
       <varlistentry>
         <term><varname>SuspendState=</varname></term>
-        <term><varname>HibernateState=</varname></term>
-        <term><varname>HybridSleepState=</varname></term>
 
-        <listitem><para>The string to be written to <filename>/sys/power/state</filename> by, respectively,
-        <citerefentry><refentrytitle>systemd-suspend.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>systemd-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-        or
-        <citerefentry><refentrytitle>systemd-hybrid-sleep.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+        <listitem><para>The string to be written to <filename>/sys/power/state</filename> by <citerefentry>
+        <refentrytitle>systemd-suspend.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
         More than one value can be specified by separating multiple values with whitespace. They will be
         tried in turn, until one is written without error. If none of the writes succeed, the operation will
-        be aborted.
-        </para>
+        be aborted.</para>
 
         <para>The allowed set of values is determined by the kernel and is shown in the file itself (use
         <command>cat /sys/power/state</command> to display). See <ulink
@@ -192,8 +187,7 @@
 
         <para>
         <citerefentry><refentrytitle>systemd-suspend-then-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-        uses the value of <varname>SuspendState=</varname> when suspending and the value of
-        <varname>HibernateState=</varname> when hibernating.</para>
+        uses this value when suspending.</para>
 
         <xi:include href="version-info.xml" xpointer="v203"/></listitem>
       </varlistentry>
