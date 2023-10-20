@@ -180,6 +180,8 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(SocketPort*, socket_port_free);
 
 void socket_free_ports(Socket *s);
 
+int socket_port_to_address(const SocketPort *s, char **ret);
+
 int socket_load_service_unit(Socket *s, int cfd, Unit **ret);
 
 char *socket_fdname(Socket *s);

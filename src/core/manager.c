@@ -866,6 +866,15 @@ void manager_set_switching_root(Manager *m, bool switching_root) {
         m->switching_root = MANAGER_IS_SYSTEM(m) && switching_root;
 }
 
+double manager_get_progress(Manager *m) {
+        assert(m);
+
+        if (MANAGER_IS_FINISHED(m) || m->n_installed_jobs == 0)
+                return 1.0;
+
+        return 1.0 - ((double) hashmap_size(m->jobs) / (double) m->n_installed_jobs);
+}
+
 static int compare_job_priority(const void *a, const void *b) {
         const Job *x = a, *y = b;
 

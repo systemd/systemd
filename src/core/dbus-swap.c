@@ -11,27 +11,6 @@
 #include "swap.h"
 #include "unit.h"
 
-static int swap_get_priority(Swap *s) {
-        assert(s);
-
-        if (s->from_proc_swaps && s->parameters_proc_swaps.priority_set)
-                return s->parameters_proc_swaps.priority;
-
-        if (s->from_fragment && s->parameters_fragment.priority_set)
-                return s->parameters_fragment.priority;
-
-        return -1;
-}
-
-static const char *swap_get_options(Swap *s) {
-        assert(s);
-
-        if (s->from_fragment)
-                return s->parameters_fragment.options;
-
-        return NULL;
-}
-
 static BUS_DEFINE_PROPERTY_GET(property_get_priority, "i", Swap, swap_get_priority);
 static BUS_DEFINE_PROPERTY_GET(property_get_options, "s", Swap, swap_get_options);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_result, swap_result, SwapResult);
