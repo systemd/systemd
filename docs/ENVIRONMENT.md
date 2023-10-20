@@ -136,6 +136,13 @@ All tools:
 
 * `$SYSTEMCTL_SKIP_SYSV=1` — if set, do not call SysV compatibility hooks.
 
+* `$SYSTEMCTL_SKIP_AUTO_KEXEC=1` — if set, do not automatically kexec instead of
+  reboot when a new kernel has been loaded.
+
+* `$SYSTEMCTL_SKIP_AUTO_SOFT_REBOOT=1` — if set, do not automatically soft-reboot
+  instead of reboot when a new root file system has been loaded in
+  `/run/nextroot`.
+
 `systemd-nspawn`:
 
 * `$SYSTEMD_NSPAWN_UNIFIED_HIERARCHY=1` — if set, force `systemd-nspawn` into
