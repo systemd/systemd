@@ -32,6 +32,7 @@
 #include "systemctl-compat-shutdown.h"
 #include "systemctl-compat-telinit.h"
 #include "systemctl-daemon-reload.h"
+#include "systemctl-describe.h"
 #include "systemctl-edit.h"
 #include "systemctl-enable.h"
 #include "systemctl-is-active.h"
@@ -198,6 +199,7 @@ static int systemctl_help(void) {
                "                                      units\n"
                "  whoami [PID...]                     Return unit caller or specified PIDs are\n"
                "                                      part of\n"
+               "  describe                            Dump manager description as JSON\n"
                "\n%3$sUnit File Commands:%4$s\n"
                "  list-unit-files [PATTERN...]        List installed unit files\n"
                "  enable [UNIT...|PATH...]            Enable one or more unit files\n"
@@ -1215,6 +1217,7 @@ static int systemctl_main(int argc, char *argv[]) {
                 { "bind",                  3,        4,        VERB_ONLINE_ONLY, verb_bind                    },
                 { "mount-image",           4,        5,        VERB_ONLINE_ONLY, verb_mount_image             },
                 { "whoami",                VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, verb_whoami                  },
+                { "describe",              VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, verb_describe                },
                 {}
         };
 
