@@ -15,10 +15,12 @@
 
 #include "alloc-util.h"
 #include "device-util.h"
+#include "dhcp-client-internal.h"
 #include "dhcp-identifier.h"
-#include "dhcp-internal.h"
 #include "dhcp-lease-internal.h"
-#include "dhcp-protocol.h"
+#include "dhcp-network.h"
+#include "dhcp-option.h"
+#include "dhcp-packet.h"
 #include "dns-domain.h"
 #include "ether-addr-util.h"
 #include "event-util.h"
@@ -30,6 +32,7 @@
 #include "random-util.h"
 #include "set.h"
 #include "sort-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
@@ -2425,3 +2428,17 @@ int sd_dhcp_client_new(sd_dhcp_client **ret, int anonymize) {
 
         return 0;
 }
+
+static const char* const dhcp_state_table[_DHCP_STATE_MAX] = {
+        [DHCP_STATE_STOPPED]              = "stopped",
+        [DHCP_STATE_INIT]                 = "initialization",
+        [DHCP_STATE_SELECTING]            = "selecting",
+        [DHCP_STATE_INIT_REBOOT]          = "init-reboot",
+        [DHCP_STATE_REBOOTING]            = "rebooting",
+        [DHCP_STATE_REQUESTING]           = "requesting",
+        [DHCP_STATE_BOUND]                = "bound",
+        [DHCP_STATE_RENEWING]             = "renewing",
+        [DHCP_STATE_REBINDING]            = "rebinding",
+};
+
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(dhcp_state, DHCPState);
