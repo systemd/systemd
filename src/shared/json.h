@@ -276,6 +276,7 @@ enum {
         _JSON_BUILD_BYTE_ARRAY,
         _JSON_BUILD_HW_ADDR,
         _JSON_BUILD_STRING_SET,
+        _JSON_BUILD_CALLBACK,
         _JSON_BUILD_PAIR_UNSIGNED_NON_ZERO,
         _JSON_BUILD_PAIR_FINITE_USEC,
         _JSON_BUILD_PAIR_STRING_NON_EMPTY,
@@ -289,6 +290,8 @@ enum {
         _JSON_BUILD_PAIR_HW_ADDR_NON_NULL,
         _JSON_BUILD_MAX,
 };
+
+typedef int (*JsonBuildCallback)(JsonVariant **ret, const char *name, void *userdata);
 
 #define JSON_BUILD_STRING(s) _JSON_BUILD_STRING, (const char*) { s }
 #define JSON_BUILD_INTEGER(i) _JSON_BUILD_INTEGER, (int64_t) { i }
@@ -321,6 +324,7 @@ enum {
 #define JSON_BUILD_ETHER_ADDR(v) JSON_BUILD_BYTE_ARRAY(((const struct ether_addr*) { v })->ether_addr_octet, sizeof(struct ether_addr))
 #define JSON_BUILD_HW_ADDR(v) _JSON_BUILD_HW_ADDR, (const struct hw_addr_data*) { v }
 #define JSON_BUILD_STRING_SET(s) _JSON_BUILD_STRING_SET, (Set *) { s }
+#define JSON_BUILD_CALLBACK(c, u) _JSON_BUILD_CALLBACK, (JsonBuildCallback) { c }, (void*) { u }
 
 #define JSON_BUILD_PAIR_STRING(name, s) JSON_BUILD_PAIR(name, JSON_BUILD_STRING(s))
 #define JSON_BUILD_PAIR_INTEGER(name, i) JSON_BUILD_PAIR(name, JSON_BUILD_INTEGER(i))
@@ -347,6 +351,7 @@ enum {
 #define JSON_BUILD_PAIR_ETHER_ADDR(name, v) JSON_BUILD_PAIR(name, JSON_BUILD_ETHER_ADDR(v))
 #define JSON_BUILD_PAIR_HW_ADDR(name, v) JSON_BUILD_PAIR(name, JSON_BUILD_HW_ADDR(v))
 #define JSON_BUILD_PAIR_STRING_SET(name, s) JSON_BUILD_PAIR(name, JSON_BUILD_STRING_SET(s))
+#define JSON_BUILD_PAIR_CALLBACK(name, c, u) JSON_BUILD_PAIR(name, JSON_BUILD_CALLBACK(c, u))
 
 #define JSON_BUILD_PAIR_UNSIGNED_NON_ZERO(name, u) _JSON_BUILD_PAIR_UNSIGNED_NON_ZERO, (const char*) { name }, (uint64_t) { u }
 #define JSON_BUILD_PAIR_FINITE_USEC(name, u) _JSON_BUILD_PAIR_FINITE_USEC, (const char*) { name }, (usec_t) { u }

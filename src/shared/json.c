@@ -3351,6 +3351,7 @@ int json_parse_file_at(
 int json_buildv(JsonVariant **ret, va_list ap) {
         JsonStack *stack = NULL;
         size_t n_stack = 1;
+        const char *name = NULL;
         int r;
 
         assert_return(ret, -EINVAL);
@@ -3912,6 +3913,43 @@ int json_buildv(JsonVariant **ret, va_list ap) {
                         break;
                 }
 
+                case _JSON_BUILD_CALLBACK: {
+                        JsonBuildCallback cb;
+                        void *userdata;
+
+                        if (!IN_SET(current->expect, EXPECT_TOPLEVEL, EXPECT_OBJECT_VALUE, EXPECT_ARRAY_ELEMENT)) {
+                                r = -EINVAL;
+                                goto finish;
+                        }
+
+                        cb = va_arg(ap, JsonBuildCallback);
+                        userdata = va_arg(ap, void *);
+
+                        if (current->n_suppress == 0) {
+                                if (cb) {
+                                        r = cb(&add, name, userdata);
+                                        if (r < 0)
+                                                goto finish;
+                                }
+
+                                if (!add)
+                                        add = JSON_VARIANT_MAGIC_NULL;
+
+                                name = NULL;
+                        }
+
+                        n_subtract = 1;
+
+                        if (current->expect == EXPECT_TOPLEVEL)
+                                current->expect = EXPECT_END;
+                        else if (current->expect == EXPECT_OBJECT_VALUE)
+                                current->expect = EXPECT_OBJECT_KEY;
+                        else
+                                assert(current->expect == EXPECT_ARRAY_ELEMENT);
+
+                        break;
+                }
+
                 case _JSON_BUILD_OBJECT_BEGIN:
 
                         if (!IN_SET(current->expect, EXPECT_TOPLEVEL, EXPECT_OBJECT_VALUE, EXPECT_ARRAY_ELEMENT)) {
@@ -3965,17 +4003,16 @@ int json_buildv(JsonVariant **ret, va_list ap) {
                         break;
 
                 case _JSON_BUILD_PAIR: {
-                        const char *n;
 
                         if (current->expect != EXPECT_OBJECT_KEY) {
                                 r = -EINVAL;
                                 goto finish;
                         }
 
-                        n = va_arg(ap, const char *);
+                        name = va_arg(ap, const char *);
 
                         if (current->n_suppress == 0) {
-                                r = json_variant_new_string(&add, n);
+                                r = json_variant_new_string(&add, name);
                                 if (r < 0)
                                         goto finish;
                         }
@@ -3987,7 +4024,6 @@ int json_buildv(JsonVariant **ret, va_list ap) {
                 }
 
                 case _JSON_BUILD_PAIR_CONDITION: {
-                        const char *n;
                         bool b;
 
                         if (current->expect != EXPECT_OBJECT_KEY) {
@@ -3996,10 +4032,10 @@ int json_buildv(JsonVariant **ret, va_list ap) {
                         }
 
                         b = va_arg(ap, int);
-                        n = va_arg(ap, const char *);
+                        name = va_arg(ap, const char *);
 
                         if (b && current->n_suppress == 0) {
-                                r = json_variant_new_string(&add, n);
+                                r = json_variant_new_string(&add, name);
                                 if (r < 0)
                                         goto finish;
                         }
