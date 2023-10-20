@@ -8,7 +8,7 @@
 #include "sd-dhcp-server.h"
 #include "sd-event.h"
 
-#include "dhcp-internal.h"
+#include "dhcp-option.h"
 #include "network-common.h"
 #include "ordered-set.h"
 #include "time-util.h"

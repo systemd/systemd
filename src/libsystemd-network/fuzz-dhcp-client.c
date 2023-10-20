@@ -4,11 +4,11 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-#include "alloc-util.h"
-#include "fuzz.h"
-#include "sd-event.h"
-
 #include "sd-dhcp-client.c"
+
+#include "alloc-util.h"
+#include "dhcp-network.h"
+#include "fuzz.h"
 
 int dhcp_network_bind_raw_socket(
                 int ifindex,

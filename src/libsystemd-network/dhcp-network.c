@@ -13,9 +13,9 @@
 #include <linux/if_infiniband.h>
 #include <linux/if_packet.h>
 
-#include "dhcp-internal.h"
+#include "dhcp-network.h"
+#include "dhcp-protocol.h"
 #include "fd-util.h"
-#include "socket-util.h"
 #include "unaligned.h"
 
 static int _bind_raw_socket(

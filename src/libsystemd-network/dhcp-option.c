@@ -8,9 +8,10 @@
 #include <stdio.h>
 
 #include "alloc-util.h"
-#include "dhcp-internal.h"
+#include "dhcp-option.h"
 #include "dhcp-server-internal.h"
 #include "memory-util.h"
+#include "ordered-set.h"
 #include "strv.h"
 #include "utf8.h"
 
