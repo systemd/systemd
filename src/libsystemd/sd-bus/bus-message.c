@@ -12,7 +12,7 @@
 #include "bus-signature.h"
 #include "bus-type.h"
 #include "fd-util.h"
-#include "io-util.h"
+#include "iovec-util.h"
 #include "memfd-util.h"
 #include "memory-util.h"
 #include "string-util.h"
@@ -1506,7 +1506,7 @@ _public_ int sd_bus_message_append_string_iovec(
         assert_return(iov || n == 0, -EINVAL);
         assert_return(!m->poisoned, -ESTALE);
 
-        size = IOVEC_TOTAL_SIZE(iov, n);
+        size = iovec_total_size(iov, n);
 
         r = sd_bus_message_append_string_space(m, size, &p);
         if (r < 0)
@@ -2160,7 +2160,7 @@ _public_ int sd_bus_message_append_array_iovec(
         assert_return(iov || n == 0, -EINVAL);
         assert_return(!m->poisoned, -ESTALE);
 
-        size = IOVEC_TOTAL_SIZE(iov, n);
+        size = iovec_total_size(iov, n);
 
         r = sd_bus_message_append_array_space(m, type, size, &p);
         if (r < 0)
