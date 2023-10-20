@@ -284,14 +284,10 @@ the directory, and add the following contents:
             },
             "MIMode": "gdb",
             "sourceFileMap": {
-                "/work/build/../src": {
+                "/root/src/systemd": {
                     "editorPath": "${workspaceFolder}",
                     "useForBreakpoints": false
                 },
-                "/work/build/*": {
-                    "editorPath": "${workspaceFolder}/mkosi.builddir",
-                    "useForBreakpoints": false
-                }
             }
         }
     ]

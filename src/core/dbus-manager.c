@@ -67,6 +67,7 @@ static BUS_DEFINE_PROPERTY_GET(property_get_default_timeout_abort_usec, "t", Man
 static BUS_DEFINE_PROPERTY_GET_GLOBAL(property_get_watchdog_device, "s", watchdog_get_device());
 static BUS_DEFINE_PROPERTY_GET_GLOBAL(property_get_watchdog_last_ping_realtime, "t", watchdog_get_last_ping(CLOCK_REALTIME));
 static BUS_DEFINE_PROPERTY_GET_GLOBAL(property_get_watchdog_last_ping_monotonic, "t", watchdog_get_last_ping(CLOCK_MONOTONIC));
+static BUS_DEFINE_PROPERTY_GET(property_get_progress, "d", Manager, manager_get_progress);
 
 static int property_get_virtualization(
                 sd_bus *bus,
@@ -205,29 +206,6 @@ static int property_set_log_level(
         }
 
         return 0;
-}
-
-static int property_get_progress(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        Manager *m = ASSERT_PTR(userdata);
-        double d;
-
-        assert(bus);
-        assert(reply);
-
-        if (MANAGER_IS_FINISHED(m))
-                d = 1.0;
-        else
-                d = 1.0 - ((double) hashmap_size(m->jobs) / (double) m->n_installed_jobs);
-
-        return sd_bus_message_append(reply, "d", d);
 }
 
 static int property_get_environment(
