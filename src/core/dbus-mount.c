@@ -22,21 +22,13 @@ static int property_get_what(
 
         _cleanup_free_ char *escaped = NULL;
         Mount *m = ASSERT_PTR(userdata);
-        const char *s = NULL;
 
         assert(bus);
         assert(reply);
 
-        if (m->from_proc_self_mountinfo && m->parameters_proc_self_mountinfo.what)
-                s = m->parameters_proc_self_mountinfo.what;
-        else if (m->from_fragment && m->parameters_fragment.what)
-                s = m->parameters_fragment.what;
-
-        if (s) {
-                escaped = utf8_escape_invalid(s);
-                if (!escaped)
-                        return -ENOMEM;
-        }
+        escaped = mount_get_what_escaped(m);
+        if (!escaped)
+                return -ENOMEM;
 
         return sd_bus_message_append_basic(reply, 's', escaped);
 }
@@ -52,31 +44,15 @@ static int property_get_options(
 
         _cleanup_free_ char *escaped = NULL;
         Mount *m = ASSERT_PTR(userdata);
-        const char *s = NULL;
 
         assert(bus);
         assert(reply);
 
-        if (m->from_proc_self_mountinfo && m->parameters_proc_self_mountinfo.options)
-                s = m->parameters_proc_self_mountinfo.options;
-        else if (m->from_fragment && m->parameters_fragment.options)
-                s = m->parameters_fragment.options;
-
-        if (s) {
-                escaped = utf8_escape_invalid(s);
-                if (!escaped)
-                        return -ENOMEM;
-        }
+        escaped = mount_get_options_escaped(m);
+        if (!escaped)
+                return -ENOMEM;
 
         return sd_bus_message_append_basic(reply, 's', escaped);
-}
-
-static const char *mount_get_fstype(const Mount *m) {
-        if (m->from_proc_self_mountinfo && m->parameters_proc_self_mountinfo.fstype)
-                return m->parameters_proc_self_mountinfo.fstype;
-        else if (m->from_fragment && m->parameters_fragment.fstype)
-                return m->parameters_fragment.fstype;
-        return NULL;
 }
 
 static BUS_DEFINE_PROPERTY_GET(property_get_type, "s", Mount, mount_get_fstype);
