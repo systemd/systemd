@@ -59,22 +59,6 @@ enum {
         DHCP_PORT_CLIENT                        = 68,
 };
 
-enum DHCPState {
-        DHCP_STATE_STOPPED,
-        DHCP_STATE_INIT,
-        DHCP_STATE_SELECTING,
-        DHCP_STATE_INIT_REBOOT,
-        DHCP_STATE_REBOOTING,
-        DHCP_STATE_REQUESTING,
-        DHCP_STATE_BOUND,
-        DHCP_STATE_RENEWING,
-        DHCP_STATE_REBINDING,
-        _DHCP_STATE_MAX,
-        _DHCP_STATE_INVALID                     = -EINVAL,
-};
-
-typedef enum DHCPState DHCPState;
-
 enum {
         BOOTREQUEST                             = 1,
         BOOTREPLY                               = 2,
@@ -114,5 +98,3 @@ enum {
         DHCP_FQDN_FLAG_E = (1 << 2),
         DHCP_FQDN_FLAG_N = (1 << 3),
 };
-
-const char *dhcp_state_to_string(DHCPState s) _const_;
