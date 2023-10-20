@@ -11,6 +11,7 @@
 
 #include "alloc-util.h"
 #include "dhcp-internal.h"
+#include "dhcp-network.h"
 #include "dhcp-server-internal.h"
 #include "dns-domain.h"
 #include "fd-util.h"

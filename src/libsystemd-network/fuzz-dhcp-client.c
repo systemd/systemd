@@ -7,6 +7,7 @@
 #include "sd-dhcp-client.c"
 
 #include "alloc-util.h"
+#include "dhcp-network.h"
 #include "fuzz.h"
 
 int dhcp_network_bind_raw_socket(
