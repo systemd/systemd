@@ -5,17 +5,13 @@
   Copyright © 2013 Intel Corporation. All rights reserved.
 ***/
 
-#include <linux/if_packet.h>
-#include <net/ethernet.h>
 #include <stdint.h>
 
 #include "sd-dhcp-client.h"
 
 #include "dhcp-client-internal.h"
 #include "dhcp-protocol.h"
-#include "ether-addr-util.h"
 #include "network-common.h"
-#include "socket-util.h"
 
 typedef struct sd_dhcp_option {
         unsigned n_ref;
@@ -31,22 +27,6 @@ typedef struct DHCPServerData {
 } DHCPServerData;
 
 typedef struct sd_dhcp_client sd_dhcp_client;
-
-int dhcp_network_bind_raw_socket(
-                int ifindex,
-                union sockaddr_union *link,
-                uint32_t xid,
-                const struct hw_addr_data *hw_addr,
-                const struct hw_addr_data *bcast_addr,
-                uint16_t arp_type,
-                uint16_t port,
-                bool so_priority_set,
-                int so_priority);
-int dhcp_network_bind_udp_socket(int ifindex, be32_t address, uint16_t port, int ip_service_type);
-int dhcp_network_send_raw_socket(int s, const union sockaddr_union *link,
-                                 const void *packet, size_t len);
-int dhcp_network_send_udp_socket(int s, be32_t address, uint16_t port,
-                                 const void *packet, size_t len);
 
 int dhcp_option_append(DHCPMessage *message, size_t size, size_t *offset, uint8_t overload,
                        uint8_t code, size_t optlen, const void *optval);
