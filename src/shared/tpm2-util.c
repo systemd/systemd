@@ -4483,6 +4483,7 @@ static const char* tpm2_userspace_event_type_table[_TPM2_USERSPACE_EVENT_TYPE_MA
 
 DEFINE_STRING_TABLE_LOOKUP(tpm2_userspace_event_type, Tpm2UserspaceEventType);
 
+#if HAVE_OPENSSL
 const char *tpm2_userspace_log_path(void) {
         return secure_getenv("SYSTEMD_MEASURE_LOG_USERSPACE") ?: "/run/log/systemd/tpm2-measure.log";
 }
@@ -4626,6 +4627,7 @@ static int tpm2_userspace_log(
 
         return 1;
 }
+#endif
 
 int tpm2_extend_bytes(
                 Tpm2Context *c,
