@@ -18,9 +18,9 @@
 
 #include "alloc-util.h"
 #include "dhcp-identifier.h"
-#include "dhcp-internal.h"
 #include "dhcp-network.h"
-#include "dhcp-protocol.h"
+#include "dhcp-option.h"
+#include "dhcp-packet.h"
 #include "ether-addr-util.h"
 #include "fd-util.h"
 #include "random-util.h"
