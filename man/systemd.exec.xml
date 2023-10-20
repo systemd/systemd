@@ -3294,7 +3294,12 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
         <varname>ExecStart=</varname> command line use <literal>${CREDENTIALS_DIRECTORY}/mycred</literal>,
         e.g. <literal>ExecStart=cat ${CREDENTIALS_DIRECTORY}/mycred</literal>. In order to reference the path
         a credential may be read from within a <varname>Environment=</varname> line use
-        <literal>%d/mycred</literal>, e.g. <literal>Environment=MYCREDPATH=%d/mycred</literal>.</para>
+        <literal>%d/mycred</literal>, e.g. <literal>Environment=MYCREDPATH=%d/mycred</literal>. For system
+        services the path may also be referenced as
+        <literal>/run/credentials/<replaceable>UNITNAME</replaceable></literal> in cases where no
+        interpolation is possible, e.g. configuration files of software that does not yet support credentials
+        natively. <varname>$CREDENTIALS_DIRECTORY</varname> is considered the primary interface to look for
+        credentials, though, since it also works for user services.</para>
 
         <para>Currently, an accumulated credential size limit of 1 MB per unit is enforced.</para>
 
