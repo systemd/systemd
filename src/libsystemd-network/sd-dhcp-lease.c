@@ -13,9 +13,8 @@
 #include "sd-dhcp-lease.h"
 
 #include "alloc-util.h"
-#include "dhcp-internal.h"
 #include "dhcp-lease-internal.h"
-#include "dhcp-protocol.h"
+#include "dhcp-option.h"
 #include "dns-domain.h"
 #include "env-file.h"
 #include "fd-util.h"
@@ -24,6 +23,7 @@
 #include "hexdecoct.h"
 #include "hostname-util.h"
 #include "in-addr-util.h"
+#include "network-common.h"
 #include "network-internal.h"
 #include "parse-util.h"
 #include "stdio-util.h"

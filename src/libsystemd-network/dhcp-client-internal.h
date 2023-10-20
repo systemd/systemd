@@ -26,8 +26,6 @@ const char *dhcp_state_to_string(DHCPState s) _const_;
 
 typedef struct sd_dhcp_client sd_dhcp_client;
 
-extern const struct hash_ops dhcp_option_hash_ops;
-
 int dhcp_client_set_state_callback(
                 sd_dhcp_client *client,
                 sd_dhcp_client_callback_t cb,
