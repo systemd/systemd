@@ -141,7 +141,7 @@ All tools:
 
 * `$SYSTEMCTL_SKIP_AUTO_SOFT_REBOOT=1` — if set, do not automatically soft-reboot
   instead of reboot when a new root file system has been loaded in
-  `/run/nextroot`.
+  `/run/nextroot/`.
 
 `systemd-nspawn`:
 
