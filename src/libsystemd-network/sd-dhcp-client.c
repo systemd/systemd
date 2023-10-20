@@ -18,6 +18,7 @@
 #include "dhcp-identifier.h"
 #include "dhcp-internal.h"
 #include "dhcp-lease-internal.h"
+#include "dhcp-network.h"
 #include "dhcp-protocol.h"
 #include "dns-domain.h"
 #include "ether-addr-util.h"
