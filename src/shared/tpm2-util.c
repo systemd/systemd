@@ -3090,7 +3090,7 @@ static int find_signature(
  *
  * Since we (currently) hardcode to always using SHA256 for hashing, this returns an error if the public key
  * nameAlg is not TPM2_ALG_SHA256. */
-int tpm2_calculate_name(const TPMT_PUBLIC *public, TPM2B_NAME *ret_name) {
+int tpm2_calculate_pubkey_name(const TPMT_PUBLIC *public, TPM2B_NAME *ret_name) {
         TSS2_RC rc;
         int r;
 
@@ -3354,7 +3354,7 @@ int tpm2_calculate_policy_authorize(
                                        "Offset 0x%zx wrong after marshalling PolicyAuthorize command", offset);
 
         TPM2B_NAME name = {};
-        r = tpm2_calculate_name(&public->publicArea, &name);
+        r = tpm2_calculate_pubkey_name(&public->publicArea, &name);
         if (r < 0)
                 return r;
 

@@ -859,18 +859,18 @@ static void check_name(const TPM2B_NAME *name, const char *expect) {
         assert_se(memcmp(name->name, e, e_len) == 0);
 }
 
-TEST(calculate_name) {
+TEST(calculate_pubkey_name) {
         TPM2B_PUBLIC public;
         TPM2B_NAME name;
 
         /* RSA */
         tpm2b_public_rsa_init(&public, "9ec7341c52093ac40a1965a5df10432513c539adcf905e30577ab6ebc88ffe53cd08cef12ed9bec6125432f4fada3629b8b96d31b8f507aa35029188fe396da823fcb236027f7fbb01b0da3d87be7f999390449ced604bdf7e26c48657cc0671000f1147da195c3861c96642e54427cb7a11572e07567ec3fd6316978abc4bd92b27bb0a0e4958e599804eeb41d682b3b7fc1f960209f80a4fb8a1b64abfd96bf5d554e73cdd6ad1c8becb4fcf5e8f0c3e621d210e5e2f308f6520ad9a966779231b99f06c5989e5a23a9415c8808ab89ce81117632e2f8461cd4428bded40979236aeadafe8de3f51660a45e1dbc87694e6a36360201cca3ff9e7263e712727");
-        assert_se(tpm2_calculate_name(&public.publicArea, &name) >= 0);
+        assert_se(tpm2_calculate_pubkey_name(&public.publicArea, &name) >= 0);
         check_name(&name, "000be78f74a470dd92e979ca067cdb2293a35f075e8560b436bd2ccea5da21486a07");
 
         /* ECC */
         tpm2b_public_ecc_init(&public, TPM2_ECC_NIST_P256, "238e02ee4fd5598add6b502429f1815418515e4b0d6551c8e816b38cb15451d1", "70c2d491769775ec43ccd5a571c429233e9d30cf0f486c2e01acd6cb32ba93b6");
-        assert_se(tpm2_calculate_name(&public.publicArea, &name) >= 0);
+        assert_se(tpm2_calculate_pubkey_name(&public.publicArea, &name) >= 0);
         check_name(&name, "000b302787187ba19c82011c987bd2dcdbb652b3a543ccc5cb0b49c33d4caae604a6");
 }
 
