@@ -1076,7 +1076,7 @@ int transfer_acquire_instance(Transfer *t, Instance *i) {
                         /* Try with AT_SYMLINK_NOFOLLOW first, because it's the safe thing to do. Older
                          * kernels don't support that however, in that case we fall back to chmod(). Not as
                          * safe, but shouldn't be a problem, given that we don't create symlinks here. */
-                        if (fchmodat(AT_FDCWD, t->temporary_path, f.mode, AT_SYMLINK_NOFOLLOW) < 0 &&
+                        if (fchmodat_best(AT_FDCWD, t->temporary_path, f.mode, AT_SYMLINK_NOFOLLOW) < 0 &&
                             (!ERRNO_IS_NOT_SUPPORTED(errno) || chmod(t->temporary_path, f.mode) < 0))
                                 return log_error_errno(errno, "Failed to adjust mode of '%s': %m", t->temporary_path);
 
