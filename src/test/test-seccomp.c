@@ -16,12 +16,12 @@
 
 #include "alloc-util.h"
 #include "capability-util.h"
+#include "fs-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "macro.h"
 #include "memory-util.h"
 #include "missing_sched.h"
-#include "missing_syscall.h"
 #include "nsflags.h"
 #include "nulstr-util.h"
 #include "process-util.h"
@@ -1008,16 +1008,9 @@ static int real_open(const char *path, int flags, mode_t mode) {
 }
 
 static int try_fchmodat2(int dirfd, const char *path, mode_t mode, int flags) {
-        /* glibc does not provide a direct wrapper for fchmodat2(). Let's hence define our own wrapper for
-         * testing purposes that calls the real syscall, on architectures and in environments where
-         * SYS_fchmodat2 is defined. Otherwise, let's just fall back to the glibc fchmodat() call. */
-
-        int r;
-        r = fchmodat2(dirfd, path, mode, flags);
-        /* The syscall might still be unsupported by kernel or libseccomp. */
-        if (r < 0 && errno == ENOSYS)
-                return fchmodat(dirfd, path, mode, flags);
-        return r;
+        /* glibc does not provide a direct wrapper for the fchmodat2() system call. fchmodat_best(), which we
+         * use in place of fchmodat() treewide, does the acceptable thing. */
+        return fchmodat_best(dirfd, path, mode, flags);
 }
 
 TEST(restrict_suid_sgid) {
