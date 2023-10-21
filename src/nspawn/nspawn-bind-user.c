@@ -225,7 +225,7 @@ int bind_user_prepare(
         STRV_FOREACH(n, bind_user) {
                 _cleanup_(user_record_unrefp) UserRecord *u = NULL, *cu = NULL;
                 _cleanup_(group_record_unrefp) GroupRecord *g = NULL, *cg = NULL;
-                _cleanup_free_ char *sm = NULL, *sd = NULL;
+                _cleanup_free_ char *sm = NULL, *sd = NULL, *options = NULL;
                 CustomMount *cm;
 
                 r = userdb_by_name(*n, USERDB_DONT_SYNTHESIZE, &u);
@@ -286,6 +286,10 @@ int bind_user_prepare(
                 if (!sd)
                         return log_oom();
 
+                options = strdup("norbind");
+                if (!options)
+                        return log_oom();
+
                 cm = reallocarray(*custom_mounts, sizeof(CustomMount), *n_custom_mounts + 1);
                 if (!cm)
                         return log_oom();
@@ -296,6 +300,7 @@ int bind_user_prepare(
                         .type = CUSTOM_MOUNT_BIND,
                         .source = TAKE_PTR(sm),
                         .destination = TAKE_PTR(sd),
+                        .options = TAKE_PTR(options),
                 };
 
                 c->data[c->n_data++] = (BindUserData) {
