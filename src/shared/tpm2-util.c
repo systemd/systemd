@@ -2345,7 +2345,7 @@ int tpm2_create_loaded(
         return 0;
 }
 
-int tpm2_marshal_private(const TPM2B_PRIVATE *private, void **ret, size_t *ret_size) {
+static int tpm2_marshal_private(const TPM2B_PRIVATE *private, void **ret, size_t *ret_size) {
         size_t max_size = sizeof(*private), blob_size = 0;
         _cleanup_free_ void *blob = NULL;
         TSS2_RC rc;
@@ -2368,7 +2368,7 @@ int tpm2_marshal_private(const TPM2B_PRIVATE *private, void **ret, size_t *ret_s
         return 0;
 }
 
-int tpm2_unmarshal_private(const void *data, size_t size, TPM2B_PRIVATE *ret_private) {
+static int tpm2_unmarshal_private(const void *data, size_t size, TPM2B_PRIVATE *ret_private) {
         TPM2B_PRIVATE private = {};
         size_t offset = 0;
         TSS2_RC rc;
@@ -2388,7 +2388,7 @@ int tpm2_unmarshal_private(const void *data, size_t size, TPM2B_PRIVATE *ret_pri
         return 0;
 }
 
-int tpm2_marshal_public(const TPM2B_PUBLIC *public, void **ret, size_t *ret_size) {
+static int tpm2_marshal_public(const TPM2B_PUBLIC *public, void **ret, size_t *ret_size) {
         size_t max_size = sizeof(*public), blob_size = 0;
         _cleanup_free_ void *blob = NULL;
         TSS2_RC rc;
@@ -2411,7 +2411,7 @@ int tpm2_marshal_public(const TPM2B_PUBLIC *public, void **ret, size_t *ret_size
         return 0;
 }
 
-int tpm2_unmarshal_public(const void *data, size_t size, TPM2B_PUBLIC *ret_public) {
+static int tpm2_unmarshal_public(const void *data, size_t size, TPM2B_PUBLIC *ret_public) {
         TPM2B_PUBLIC public = {};
         size_t offset = 0;
         TSS2_RC rc;
