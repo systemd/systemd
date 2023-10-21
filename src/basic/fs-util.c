@@ -304,6 +304,19 @@ int fchmod_opath(int fd, mode_t m) {
         return 0;
 }
 
+int fchmodat_best(int dirfd, const char *path, mode_t mode, int flags) {
+        /* Use the best fchmodat() available. We call fchmodat2() on architectures
+         * and in environments where __NR_fchmodat2 is defined. Otherwise, let's
+         * just fall back to the glibc fchmodat() call. */
+
+        int r;
+        r = fchmodat2(dirfd, path, mode, flags);
+        /* The syscall might be unsupported by kernel or libseccomp. */
+        if (r < 0 && errno == ENOSYS)
+                return fchmodat(dirfd, path, mode, flags);
+        return r;
+}
+
 int futimens_opath(int fd, const struct timespec ts[2]) {
         /* Similar to fchmod_opath() but for futimens() */
 
