@@ -749,6 +749,35 @@ int tpm2_handle_new(Tpm2Context *context, Tpm2Handle **ret_handle) {
         return 0;
 }
 
+static int tpm2_read_public(
+                Tpm2Context *c,
+                const Tpm2Handle *session,
+                const Tpm2Handle *handle,
+                TPM2B_PUBLIC **ret_public,
+                TPM2B_NAME **ret_name,
+                TPM2B_NAME **ret_qname) {
+
+        TSS2_RC rc;
+
+        assert(c);
+        assert(handle);
+
+        rc = sym_Esys_ReadPublic(
+                        c->esys_context,
+                        handle->esys_handle,
+                        session ? session->esys_handle : ESYS_TR_NONE,
+                        ESYS_TR_NONE,
+                        ESYS_TR_NONE,
+                        ret_public,
+                        ret_name,
+                        ret_qname);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to read public info: %s", sym_Tss2_RC_Decode(rc));
+
+        return 0;
+}
+
 /* Create a Tpm2Handle object that references a pre-existing handle in the TPM, at the handle index provided.
  * This should be used only for persistent, transient, or NV handles; and the handle must already exist in
  * the TPM at the specified handle index. The handle index should not be 0. Returns 1 if found, 0 if the
@@ -999,35 +1028,6 @@ static int tpm2_credit_random(Tpm2Context *c) {
         r = touch(TPM2_CREDIT_RANDOM_FLAG_PATH);
         if (r < 0)
                 log_debug_errno(r, "Failed to touch '" TPM2_CREDIT_RANDOM_FLAG_PATH "', ignoring: %m");
-
-        return 0;
-}
-
-int tpm2_read_public(
-                Tpm2Context *c,
-                const Tpm2Handle *session,
-                const Tpm2Handle *handle,
-                TPM2B_PUBLIC **ret_public,
-                TPM2B_NAME **ret_name,
-                TPM2B_NAME **ret_qname) {
-
-        TSS2_RC rc;
-
-        assert(c);
-        assert(handle);
-
-        rc = sym_Esys_ReadPublic(
-                        c->esys_context,
-                        handle->esys_handle,
-                        session ? session->esys_handle : ESYS_TR_NONE,
-                        ESYS_TR_NONE,
-                        ESYS_TR_NONE,
-                        ret_public,
-                        ret_name,
-                        ret_qname);
-        if (rc != TSS2_RC_SUCCESS)
-                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                       "Failed to read public info: %s", sym_Tss2_RC_Decode(rc));
 
         return 0;
 }
