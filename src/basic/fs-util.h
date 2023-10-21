@@ -44,6 +44,8 @@ static inline int fchmod_and_chown(int fd, mode_t mode, uid_t uid, gid_t gid) {
 int fchmod_umask(int fd, mode_t mode);
 int fchmod_opath(int fd, mode_t m);
 
+int fchmodat_best(int dirfd, const char *path, mode_t mode, int flags);
+
 int futimens_opath(int fd, const struct timespec ts[2]);
 
 int fd_warn_permissions(const char *path, int fd);
