@@ -321,7 +321,7 @@ static int rm_rf_children_impl(
                                         ret = r;
 
                                 if (FLAGS_SET(flags, REMOVE_CHMOD_RESTORE))
-                                        (void) fchmodat(dirfd(todos[n_todo-1].dir), dirname, old_mode & 07777, 0);
+                                        (void) fchmodat_best(dirfd(todos[n_todo-1].dir), dirname, old_mode & 07777, 0);
                         }
                         dirname = mfree(dirname);
 
