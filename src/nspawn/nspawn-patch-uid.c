@@ -11,6 +11,7 @@
 #include "fileio.h"
 #include "fs-util.h"
 #include "missing_magic.h"
+#include "missing_syscall.h"
 #include "nspawn-def.h"
 #include "nspawn-patch-uid.h"
 #include "stat-util.h"
@@ -239,10 +240,14 @@ static int patch_fd(int fd, const char *name, const struct stat *st, uid_t shift
 
                 /* The Linux kernel alters the mode in some cases of chown(). Let's undo this. */
                 if (name) {
+                        /* It looks like older glibc (before 2016) did not support AT_SYMLINK_NOFOLLOW. */
                         if (!S_ISLNK(st->st_mode))
-                                r = fchmodat(fd, name, st->st_mode, 0);
-                        else /* AT_SYMLINK_NOFOLLOW is not available for fchmodat() */
-                                r = 0;
+                                r = fchmodat_best(fd, name, st->st_mode, 0);
+                        else {
+                                r = fchmodat2(fd, name, st->st_mode, AT_SYMLINK_NOFOLLOW);
+                                if (r < 0)
+                                        r = 0;
+                        }
                 } else
                         r = fchmod(fd, st->st_mode);
                 if (r < 0)
