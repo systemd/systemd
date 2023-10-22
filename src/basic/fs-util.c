@@ -288,8 +288,21 @@ int fchmod_umask(int fd, mode_t m) {
 
 int fchmod_opath(int fd, mode_t m) {
         /* This function operates also on fd that might have been opened with
-         * O_PATH. Indeed fchmodat() doesn't have the AT_EMPTY_PATH flag like
-         * fchownat() does. */
+         * O_PATH. The tool set we have is non-intuitive:
+         * - fchmod(2) only operates on open files (i. e., fds with an open file description);
+         * - fchmodat(2) does not have a flag arg like fchownat(2) does, so no way to pass AT_EMPTY_PATH;
+         *   + it should not be confused with the libc fchmodat(3) interface, which adds 4th flag argument,
+         *     but does not support AT_EMPTY_PATH (only supports AT_SYMLINK_NOFOLLOW);
+         * - fchmodat2(2) supports all the AT_* flags, but is still very recent.
+         *
+         * We try to use fchmodat2(), and, if it is not supported, resort
+         * to the /proc/self/fd dance. */
+
+        if (fchmodat2(fd, "", m, AT_EMPTY_PATH) < 0) {
+                if (errno != ENOSYS)
+                        return -errno;
+        } else
+                return 0;
 
         if (chmod(FORMAT_PROC_FD_PATH(fd), m) < 0) {
                 if (errno != ENOENT)
@@ -302,6 +315,19 @@ int fchmod_opath(int fd, mode_t m) {
         }
 
         return 0;
+}
+
+int fchmodat_best(int dirfd, const char *path, mode_t mode, int flags) {
+        /* Use the best fchmodat() available. We call fchmodat2() on architectures
+         * and in environments where __NR_fchmodat2 is defined. Otherwise, let's
+         * just fall back to the glibc fchmodat() call. */
+
+        int r;
+        r = RET_NERRNO(fchmodat2(dirfd, path, mode, flags));
+        /* The syscall might be unsupported by kernel or libseccomp. */
+        if (r < 0 && errno == ENOSYS)
+                return fchmodat(dirfd, path, mode, flags);
+        return r;
 }
 
 int futimens_opath(int fd, const struct timespec ts[2]) {
