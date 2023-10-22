@@ -89,8 +89,17 @@ int parse_sleep_config(SleepConfig **ret) {
         sc->allow[SLEEP_SUSPEND_THEN_HIBERNATE] = allow_s2h >= 0 ? allow_s2h
                 : (allow_suspend != 0 && allow_hibernate != 0);
 
-        if (!sc->states[SLEEP_SUSPEND])
-                sc->states[SLEEP_SUSPEND] = strv_new("mem", "standby", "freeze");
+        if (!sc->states[SLEEP_SUSPEND]) {
+                _cleanup_free_ char *text = NULL;
+
+                if (read_one_line_file("/sys/power/mem_sleep", &text) >= 0) {
+                        if (string_contains_word_strv(text, NULL, STRV_MAKE("[s2idle]"), NULL) > 0)
+                                sc->states[SLEEP_SUSPEND] = strv_new("freeze");
+                        else
+                                sc->states[SLEEP_SUSPEND] = strv_new("mem");
+                } else
+                        sc->states[SLEEP_SUSPEND] = strv_new("mem", "standby", "freeze");
+        }
         if (!sc->modes[SLEEP_HIBERNATE])
                 sc->modes[SLEEP_HIBERNATE] = strv_new("platform", "shutdown");
         if (!sc->states[SLEEP_HIBERNATE])
