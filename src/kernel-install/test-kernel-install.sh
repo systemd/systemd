@@ -269,3 +269,40 @@ test -d "$BOOT_ROOT/hoge/1.1.1"
 test ! -e "$BOOT_ROOT/hoge/1.1.1"
 test -d "$BOOT_ROOT/hoge"
 rmdir "$BOOT_ROOT/hoge"
+
+###########################################
+# tests for --json=
+###########################################
+output="$("$kernel_install" -v --json=pretty inspect 1.1.1 "$D/sources/linux")"
+
+diff -u <(echo "$output") - <<EOF
+{
+	"MachineID" : "3e0484f3634a418b8e6a39e8828b03e3",
+	"KernelImageType" : "unknown",
+	"Layout" : "other",
+	"BootRoot" : "$BOOT_ROOT",
+	"EntryTokenType" : "literal",
+	"EntryToken" : "the-token",
+	"EntryDirectory" : "$BOOT_ROOT/the-token/1.1.1",
+	"KernelVersion" : "1.1.1",
+	"Kernel" : "$D/sources/linux",
+	"Initrds" : null,
+	"InitrdGenerator" : "none",
+	"UKIGenerator" : null,
+	"Plugins" : [
+		"$D/00-skip.install"
+	],
+	"PluginEnvironment" : [
+		"LC_COLLATE=C.UTF-8",
+		"KERNEL_INSTALL_VERBOSE=1",
+		"KERNEL_INSTALL_IMAGE_TYPE=unknown",
+		"KERNEL_INSTALL_MACHINE_ID=3e0484f3634a418b8e6a39e8828b03e3",
+		"KERNEL_INSTALL_ENTRY_TOKEN=the-token",
+		"KERNEL_INSTALL_BOOT_ROOT=$BOOT_ROOT",
+		"KERNEL_INSTALL_LAYOUT=other",
+		"KERNEL_INSTALL_INITRD_GENERATOR=none",
+		"KERNEL_INSTALL_UKI_GENERATOR=",
+		"KERNEL_INSTALL_STAGING_AREA=/tmp/kernel-install.staging.XXXXXX"
+	]
+}
+EOF
