@@ -5431,6 +5431,24 @@ char *tpm2_pcr_mask_to_string(uint32_t mask) {
         return TAKE_PTR(s);
 }
 
+const uint16_t tpm2_hash_algorithms[] = {
+        TPM2_ALG_SHA1,
+        TPM2_ALG_SHA256,
+        TPM2_ALG_SHA384,
+        TPM2_ALG_SHA512,
+        0,
+};
+
+assert_cc(ELEMENTSOF(tpm2_hash_algorithms) == TPM2_N_HASH_ALGORITHMS + 1);
+
+size_t tpm2_hash_algorithm_index(uint16_t algorithm) {
+        for (size_t i = 0; i < TPM2_N_HASH_ALGORITHMS; i++)
+                if (tpm2_hash_algorithms[i] == algorithm)
+                        return i;
+
+        return SIZE_MAX;
+}
+
 int tpm2_make_pcr_json_array(uint32_t pcr_mask, JsonVariant **ret) {
         _cleanup_(json_variant_unrefp) JsonVariant *a = NULL;
         int r;
