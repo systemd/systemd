@@ -3817,7 +3817,7 @@ int tpm2_tpm2b_public_from_pem(const void *pem, size_t pem_size, TPM2B_PUBLIC *r
 /* Marshal the public and private objects into a single nonstandard 'blob'. This is not a (publicly) standard
  * format, this is specific to how we currently store the sealed object. This 'blob' can be unmarshalled by
  * tpm2_unmarshal_blob(). */
-int tpm2_marshal_blob(
+static int tpm2_marshal_blob(
                 const TPM2B_PUBLIC *public,
                 const TPM2B_PRIVATE *private,
                 void **ret_blob,
@@ -3856,7 +3856,7 @@ int tpm2_marshal_blob(
 /* Unmarshal the 'blob' into public and private objects. This is not a (publicly) standard format, this is
  * specific to how we currently store the sealed object. This expects the 'blob' to have been created by
  * tpm2_marshal_blob(). */
-int tpm2_unmarshal_blob(
+static int tpm2_unmarshal_blob(
                 const void *blob,
                 size_t blob_size,
                 TPM2B_PUBLIC *ret_public,
@@ -4109,7 +4109,7 @@ int tpm2_seal(Tpm2Context *c,
         log_debug("Marshalling private and public part of HMAC key.");
 
         _cleanup_free_ void *blob = NULL;
-        size_t blob_size;
+        size_t blob_size = 0;
         r = tpm2_marshal_blob(public, private, &blob, &blob_size);
         if (r < 0)
                 return log_debug_errno(r, "Could not create sealed blob: %m");
