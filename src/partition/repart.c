@@ -4087,7 +4087,7 @@ static int partition_format_verity_hash(
                 p->new_uuid_is_set = true;
         }
 
-        p->roothash = TAKE_IOVEC(rh);
+        p->roothash = TAKE_STRUCT(rh);
 
         return 0;
 #else
@@ -4139,7 +4139,7 @@ static int sign_verity_roothash(
 
 static int partition_format_verity_sig(Context *context, Partition *p) {
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
-        _cleanup_(iovec_done) struct iovec sig = IOVEC_NULL;
+        _cleanup_(iovec_done) struct iovec sig = {};
         _cleanup_free_ char *text = NULL, *hint = NULL;
         Partition *hp;
         uint8_t fp[X509_FINGERPRINT_SIZE];
