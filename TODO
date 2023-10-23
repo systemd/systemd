@@ -133,6 +133,23 @@ Deprecations and removals:
 
 Features:
 
+* pcrlock:
+  - make signed PCR work together with pcrlock
+  - add kernel-install plugin that automatically creates UKI .pcrlock file when
+    UKI is installed, and removes it when it is removed again
+  - automatically install PE measurement of sd-boot on "bootctl install"
+  - write generated pcrlock signature files to the ESP as credential, one for
+    each installed OS & pick up generated pcrlock signature file in sd-stub,
+    pass it via initrd to OS
+  - pre-calc sysext + kernel cmdline measurements
+  - pre-calc cryptsetup root key measurement
+  - maybe make systemd-repart generate .pcrlock for old and new GPT header in
+    /run?
+  - Add support for more than 8 branches per PCR OR
+  - add "systemd-pcrlock lock-kernel-current" or so which synthesizes .pcrlock
+    policy from currently booted kernel/event log, to close gap for first boot
+    for pre-built images
+
 * add a new systemd-project@.service that is very similar to user@.service but
   uses DynamicUser=1 and no PAMName= to invoke an unprivileged somewhat
   light-weight service manager. Use HOME=/var/lib/systemd/projects/%i as home
@@ -285,54 +302,6 @@ Features:
 * systemd-mount should only consider modern file systems when mounting, similar
   to systemd-dissect
 
-* new "systemd-pcrlock" component for dealing with PCR4. Design idea:
-  1. define /{etc,usr,var/lib}/pcrlock.d/<component>/<version>.pcrlock
-  2. these files contain list of hashes that will be measured when component is
-     run, per PCR
-  3. each component involved in the boot that is deterministically measured can
-     place one or more of these files in those dirs (shim, sd-boot,
-     sd-stub/UKI, cryptsetup, pcrphase, pcrfs, …)
-  4. since each component has its own dir, with multiple files in them, package
-     such as kernels (of which there can be multiple installed at the same
-     time) can be grouped together: only one of them is measured at a time.
-  5. whenever a new component is added or an old one removed, or the PCR lock
-     shall be relaxed or tightened the systemd-pcrlock tool is invoked.
-  6. tool iterates through all these files, orders them alphabetically by
-     component, then matches them up with current measurements (as per uefi
-     event log), identifying by hash, accepting that the "beginning" of the
-     measurements might not be recognizable.
-  7. Then calculates expected PCR values starting with the "unrecognized
-     head" from the event log, then continuing with all of components
-     defined via the .pcrlock files (but dropping out the "recognized tail"
-     from the uefi event log). (This might mean combinatorial explosion, if
-     there are multiple shims, multiple sd-boot, and so on.)
-  8. Generates a public/private key pair on the TPM
-  9. Generates a counter object in the TPM, with a policy that allows only
-     one-by-one increase with signature policy by the public/private key pair.
-  10. now signs policies of all expected PCR values with the generated keypair,
-      using all combinations of components defined in the .pcrlock files
-      restricting it to the counter + 1.
-  11. locks down the keypair with a signed policy with its own public key
-  12. generates JSON file of all these policies with their signatures, drops
-      them as singleton in ESP
-  13. increases the counter by one.
-  14. after boot sd-stub picks JSON up from ESP, passes it to userspace via
-      .extra
-  15. JSON contained policies can now be used to unlock disk as well as the
-      public/key itself for signing further policies, as well as increment for
-      the counter
-  16. whenever any of the components above is added/removed new JSON file with
-      signatures for counter + 1 is generated, dropped in ESP, then counter
-      increased. (i.e. this means the "recognized tail" of the event log is
-      deterministically swapped out)
-  17. when firmware update is expected, relaxed signed policy is generated for
-      next boot only valid if counter is increased (this means the
-      "unrecognized head" for the event log can change without losing access)
-  18. on every boot checks if releaxed policy is in effect, if so, new strict
-      policy is generated and counter increased.
-  Net result: Removes downgrade attack surface + Locks OS to firmware + Allows
-              downgrades within bounds
-
 * add another PE section ".fname" or so that encodes the intended filename for
   PE file, and validate that when loading add-ons and similar before using
   it. This is particularly relevant when we load multiple add-ons and want to
@@ -454,30 +423,6 @@ Features:
 
 * SIGRTMIN+18 and memory pressure handling should still be added to: hostnamed,
   localed, oomd, timedated.
-
-* in order to make binding to PCR 4 realistic:
-  - generate one keypair "U" and store it in a tpm2 nvindex.
-  - Generate another keypair "P" and store it in a second tpm2 nvindex.
-  - allocate a persistent counter object "C" in the tpm2
-  - Enroll all user objects (i.e. luks volumes, creds, …) to a tpm2 policy
-    signed by U.
-  - Lock both U and P down with a tpm2 policy signed by P (yes, P can only be
-    used if a signature by P itself can be provided)
-  - For regular reboots generate a signature for a restrictive PCR4 + counter C
-    based policy with key P. Place signature in EFI var, so it can be found on
-    next boot
-  - For reboots where a firmware update is expected generate a signature with a
-    more open policy against just counter C. Place signature in same EFI var.
-  - Increase C whenever switching between these two signature types.
-  - During early boot, use the signature from the EFI var to unlock U and P.
-    Use it to generate a signature for unlocking user objects given the current
-    PCR 4 value, store that away into /run somewhere, for user during the whole
-    later boot.
-  - When booting up automatically update the mentioned efi var so that it
-    contains the restrictive signature. But also generate a signature ahead of
-    time that could be used in case during the current boot we later detect we might
-    need to reboot for a firmware update. Store that in /run somewhere, so that
-    it can be placed in the EFI var, if needed.
 
 * repart/gpt-auto/DDIs: maybe introduce a concept of "extension" partitions,
   that have a new type uuid and can "extend" earlier partitions, to work around
@@ -1016,12 +961,6 @@ Features:
   via TPM2. Specifically, for StateDirectory= (and related dirs) use fscrypt to
   set up the directory so that it can only be accessed if host and app are in
   order.
-
-* TPM2: extend unlock policy to protect against version downgrades in signed
-  policies: policy probably must take some nvram based generation counter into
-  account that can only monotonically increase and can be used to invalidate
-  old PCR signatures. Otherwise people could downgrade to old signed PCR sets
-  whenever they want.
 
 * update HACKING.md to suggest developing systemd with the ideas from:
   https://0pointer.net/blog/testing-my-system-code-in-usr-without-modifying-usr.html
