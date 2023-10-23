@@ -33,16 +33,53 @@ static const char* const sleep_operation_table[_SLEEP_OPERATION_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(sleep_operation, SleepOperation);
 
+static char* const* const sleep_default_state_table[_SLEEP_OPERATION_CONFIG_MAX] = {
+        [SLEEP_SUSPEND]      = STRV_MAKE("mem", "standby", "freeze"),
+        [SLEEP_HIBERNATE]    = STRV_MAKE("disk"),
+        [SLEEP_HYBRID_SLEEP] = STRV_MAKE("disk"),
+};
+
+static char* const* const sleep_default_mode_table[_SLEEP_OPERATION_CONFIG_MAX] = {
+        /* Not used by SLEEP_SUSPEND */
+        [SLEEP_HIBERNATE]    = STRV_MAKE("platform", "shutdown"),
+        [SLEEP_HYBRID_SLEEP] = STRV_MAKE("suspend", "platform", "shutdown"),
+};
+
 SleepConfig* sleep_config_free(SleepConfig *sc) {
         if (!sc)
                 return NULL;
 
         for (SleepOperation i = 0; i < _SLEEP_OPERATION_CONFIG_MAX; i++) {
-                strv_free(sc->modes[i]);
                 strv_free(sc->states[i]);
+                strv_free(sc->modes[i]);
         }
 
         return mfree(sc);
+}
+
+static void sleep_config_validate_state_and_mode(SleepConfig *sc) {
+        assert(sc);
+
+        /* So we should really not allow setting SuspendState= to 'disk', which means hibernation. We have
+         * SLEEP_HIBERNATE for proper hibernation support, which includes checks for resume support (through
+         * EFI variable or resume= kernel command line option). It's simply not sensible to call the suspend
+         * operation but eventually do an unsafe hibernation. */
+        if (strv_contains(sc->states[SLEEP_SUSPEND], "disk")) {
+                strv_remove(sc->states[SLEEP_SUSPEND], "disk");
+                log_warning("Sleep state 'disk' is not supported by operation %s, ignoring.",
+                            sleep_operation_to_string(SLEEP_SUSPEND));
+        }
+        assert(!sc->modes[SLEEP_SUSPEND]);
+
+        /* People should use hybrid-sleep instead of setting HibernateMode=suspend. Warn about it but don't
+         * drop it in this case. */
+        if (strv_contains(sc->modes[SLEEP_HIBERNATE], "suspend"))
+                log_warning("Sleep mode 'suspend' should not be used by operation %s. Please use %s instead.",
+                            sleep_operation_to_string(SLEEP_HIBERNATE), sleep_operation_to_string(SLEEP_HYBRID_SLEEP));
+
+        if (!strv_contains(sc->modes[SLEEP_HYBRID_SLEEP], "suspend"))
+                log_warning("Sleep mode 'suspend' is not set for operation %s. This would likely result in a plain hibernation.",
+                            sleep_operation_to_string(SLEEP_HYBRID_SLEEP));
 }
 
 int parse_sleep_config(SleepConfig **ret) {
@@ -60,20 +97,22 @@ int parse_sleep_config(SleepConfig **ret) {
         };
 
         const ConfigTableItem items[] = {
-                { "Sleep", "AllowSuspend",              config_parse_tristate, 0, &allow_suspend                  },
-                { "Sleep", "AllowHibernation",          config_parse_tristate, 0, &allow_hibernate                },
-                { "Sleep", "AllowSuspendThenHibernate", config_parse_tristate, 0, &allow_s2h                      },
-                { "Sleep", "AllowHybridSleep",          config_parse_tristate, 0, &allow_hybrid_sleep             },
+                { "Sleep", "AllowSuspend",              config_parse_tristate,    0,               &allow_suspend                 },
+                { "Sleep", "AllowHibernation",          config_parse_tristate,    0,               &allow_hibernate               },
+                { "Sleep", "AllowSuspendThenHibernate", config_parse_tristate,    0,               &allow_s2h                     },
+                { "Sleep", "AllowHybridSleep",          config_parse_tristate,    0,               &allow_hybrid_sleep            },
 
-                { "Sleep", "SuspendMode",               config_parse_strv,     0, sc->modes + SLEEP_SUSPEND       },
-                { "Sleep", "SuspendState",              config_parse_strv,     0, sc->states + SLEEP_SUSPEND      },
-                { "Sleep", "HibernateMode",             config_parse_strv,     0, sc->modes + SLEEP_HIBERNATE     },
-                { "Sleep", "HibernateState",            config_parse_strv,     0, sc->states + SLEEP_HIBERNATE    },
-                { "Sleep", "HybridSleepMode",           config_parse_strv,     0, sc->modes + SLEEP_HYBRID_SLEEP  },
-                { "Sleep", "HybridSleepState",          config_parse_strv,     0, sc->states + SLEEP_HYBRID_SLEEP },
+                { "Sleep", "SuspendState",              config_parse_strv,        0,               sc->states + SLEEP_SUSPEND     },
+                { "Sleep", "SuspendMode",               config_parse_warn_compat, DISABLED_LEGACY, NULL                           },
 
-                { "Sleep", "HibernateDelaySec",         config_parse_sec,      0, &sc->hibernate_delay_usec       },
-                { "Sleep", "SuspendEstimationSec",      config_parse_sec,      0, &sc->suspend_estimation_usec    },
+                { "Sleep", "HibernateState",            config_parse_warn_compat, DISABLED_LEGACY, NULL                           },
+                { "Sleep", "HibernateMode",             config_parse_strv,        0,               sc->modes + SLEEP_HIBERNATE    },
+
+                { "Sleep", "HybridSleepState",          config_parse_warn_compat, DISABLED_LEGACY, NULL                           },
+                { "Sleep", "HybridSleepMode",           config_parse_strv,        0,               sc->modes + SLEEP_HYBRID_SLEEP },
+
+                { "Sleep", "HibernateDelaySec",         config_parse_sec,         0,               &sc->hibernate_delay_usec      },
+                { "Sleep", "SuspendEstimationSec",      config_parse_sec,         0,               &sc->suspend_estimation_usec   },
                 {}
         };
 
@@ -89,26 +128,26 @@ int parse_sleep_config(SleepConfig **ret) {
         sc->allow[SLEEP_SUSPEND_THEN_HIBERNATE] = allow_s2h >= 0 ? allow_s2h
                 : (allow_suspend != 0 && allow_hibernate != 0);
 
-        if (!sc->states[SLEEP_SUSPEND])
-                sc->states[SLEEP_SUSPEND] = strv_new("mem", "standby", "freeze");
-        if (!sc->modes[SLEEP_HIBERNATE])
-                sc->modes[SLEEP_HIBERNATE] = strv_new("platform", "shutdown");
-        if (!sc->states[SLEEP_HIBERNATE])
-                sc->states[SLEEP_HIBERNATE] = strv_new("disk");
-        if (!sc->modes[SLEEP_HYBRID_SLEEP])
-                sc->modes[SLEEP_HYBRID_SLEEP] = strv_new("suspend", "platform", "shutdown");
-        if (!sc->states[SLEEP_HYBRID_SLEEP])
-                sc->states[SLEEP_HYBRID_SLEEP] = strv_new("disk");
+        for (SleepOperation i = 0; i < _SLEEP_OPERATION_CONFIG_MAX; i++) {
+                if (!sc->states[i] && sleep_default_state_table[i]) {
+                        sc->states[i] = strv_copy(sleep_default_state_table[i]);
+                        if (!sc->states[i])
+                                return log_oom();
+                }
+
+                if (!sc->modes[i] && sleep_default_mode_table[i]) {
+                        sc->modes[i] = strv_copy(sleep_default_mode_table[i]);
+                        if (!sc->modes[i])
+                                return log_oom();
+                }
+        }
+
         if (sc->suspend_estimation_usec == 0)
                 sc->suspend_estimation_usec = DEFAULT_SUSPEND_ESTIMATION_USEC;
 
-        /* Ensure values set for all required fields */
-        if (!sc->states[SLEEP_SUSPEND] || !sc->modes[SLEEP_HIBERNATE]
-            || !sc->states[SLEEP_HIBERNATE] || !sc->modes[SLEEP_HYBRID_SLEEP] || !sc->states[SLEEP_HYBRID_SLEEP])
-                return log_oom();
+        sleep_config_validate_state_and_mode(sc);
 
         *ret = TAKE_PTR(sc);
-
         return 0;
 }
 
@@ -270,15 +309,15 @@ static int sleep_supported_internal(
                 return false;
         }
 
-        r = sleep_mode_supported(sleep_config->modes[operation]);
-        if (r < 0)
-                return r;
-        if (r == 0) {
-                *ret_support = SLEEP_STATE_OR_MODE_NOT_SUPPORTED;
-                return false;
-        }
-
         if (IN_SET(operation, SLEEP_HIBERNATE, SLEEP_HYBRID_SLEEP)) {
+                r = sleep_mode_supported(sleep_config->modes[operation]);
+                if (r < 0)
+                        return r;
+                if (r == 0) {
+                        *ret_support = SLEEP_STATE_OR_MODE_NOT_SUPPORTED;
+                        return false;
+                }
+
                 r = hibernation_is_safe();
                 if (r == -ENOTRECOVERABLE) {
                         *ret_support = SLEEP_RESUME_NOT_SUPPORTED;
@@ -290,7 +329,8 @@ static int sleep_supported_internal(
                 }
                 if (r < 0)
                         return r;
-        }
+        } else
+                assert(!sleep_config->modes[operation]);
 
         *ret_support = SLEEP_SUPPORTED;
         return true;
