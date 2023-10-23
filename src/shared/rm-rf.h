@@ -25,6 +25,8 @@ int fstatat_harder(int dfd,
                 int fstatat_flags,
                 RemoveFlags remove_flags);
 
+/* Note: directory file descriptors passed to the functions below must be
+ * positioned at the beginning. If the fd was already used for reading, rewind it. */
 int rm_rf_children(int fd, RemoveFlags flags, const struct stat *root_dev);
 int rm_rf_child(int fd, const char *name, RemoveFlags flags);
 int rm_rf_at(int dir_fd, const char *path, RemoveFlags flags);
