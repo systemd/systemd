@@ -4406,6 +4406,16 @@ int tpm2_extend_bytes(
 }
 #endif
 
+const uint16_t tpm2_hash_algorithms[] = {
+        TPM2_ALG_SHA1,
+        TPM2_ALG_SHA256,
+        TPM2_ALG_SHA384,
+        TPM2_ALG_SHA512,
+        0,
+};
+
+assert_cc(ELEMENTSOF(tpm2_hash_algorithms) == TPM2_N_HASH_ALGORITHMS + 1);
+
 char *tpm2_pcr_mask_to_string(uint32_t mask) {
         _cleanup_free_ char *s = NULL;
 

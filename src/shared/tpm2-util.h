@@ -26,6 +26,8 @@ static inline bool TPM2_PCR_MASK_VALID(uint32_t pcr_mask) {
 
 #define FOREACH_PCR_IN_MASK(pcr, mask) BIT_FOREACH(pcr, mask)
 
+#define TPM2_N_HASH_ALGORITHMS 4U
+
 #if HAVE_TPM2
 
 #include <tss2/tss2_esys.h>
@@ -276,6 +278,8 @@ const char *tpm2_asym_alg_to_string(uint16_t alg) _const_;
 int tpm2_asym_alg_from_string(const char *alg) _pure_;
 
 char *tpm2_pcr_mask_to_string(uint32_t mask);
+
+extern const uint16_t tpm2_hash_algorithms[];
 
 typedef struct {
         uint32_t search_pcr_mask;
