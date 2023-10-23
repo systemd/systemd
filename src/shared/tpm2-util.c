@@ -4860,6 +4860,127 @@ int tpm2_undefine_policy_nv_index(
         log_debug("Undefined NV index 0x%x", nv_index);
         return 0;
 }
+
+int tpm2_seal_data(
+                Tpm2Context *c,
+                const struct iovec *data,
+                const Tpm2Handle *primary_handle,
+                const Tpm2Handle *encryption_session,
+                const TPM2B_DIGEST *policy,
+                struct iovec *ret_public,
+                struct iovec *ret_private) {
+
+        int r;
+
+        assert(c);
+        assert(data);
+        assert(primary_handle);
+
+        if (data->iov_len >= sizeof_field(TPMS_SENSITIVE_CREATE, data.buffer))
+                return -E2BIG;
+
+        TPMT_PUBLIC hmac_template = {
+                .type = TPM2_ALG_KEYEDHASH,
+                .nameAlg = TPM2_ALG_SHA256,
+                .objectAttributes = TPMA_OBJECT_FIXEDTPM | TPMA_OBJECT_FIXEDPARENT,
+                .parameters.keyedHashDetail.scheme.scheme = TPM2_ALG_NULL,
+                .unique.keyedHash.size = data->iov_len,
+                .authPolicy = policy ? *policy : TPM2B_DIGEST_MAKE(NULL, TPM2_SHA256_DIGEST_SIZE),
+        };
+
+        TPMS_SENSITIVE_CREATE hmac_sensitive = {
+                .data.size = hmac_template.unique.keyedHash.size,
+        };
+
+        CLEANUP_ERASE(hmac_sensitive);
+
+        memcpy_safe(hmac_sensitive.data.buffer, data->iov_base, data->iov_len);
+
+        _cleanup_(Esys_Freep) TPM2B_PUBLIC *public = NULL;
+        _cleanup_(Esys_Freep) TPM2B_PRIVATE *private = NULL;
+        r = tpm2_create(c, primary_handle, encryption_session, &hmac_template, &hmac_sensitive, &public, &private);
+        if (r < 0)
+                return r;
+
+        _cleanup_(iovec_done) struct iovec public_blob = IOVEC_NULL, private_blob = IOVEC_NULL;
+
+        r = tpm2_marshal_private(private, &private_blob.iov_base, &private_blob.iov_len);
+        if (r < 0)
+                return r;
+
+        r = tpm2_marshal_public(public, &public_blob.iov_base, &public_blob.iov_len);
+        if (r < 0)
+                return r;
+
+        if (ret_public)
+                *ret_public = TAKE_IOVEC(public_blob);
+        if (ret_private)
+                *ret_private = TAKE_IOVEC(private_blob);
+
+        return 0;
+}
+
+int tpm2_unseal_data(
+                Tpm2Context *c,
+                const struct iovec *public_blob,
+                const struct iovec *private_blob,
+                const Tpm2Handle *primary_handle,
+                const Tpm2Handle *policy_session,
+                const Tpm2Handle *encryption_session,
+                struct iovec *ret_data) {
+
+        TSS2_RC rc;
+        int r;
+
+        assert(c);
+        assert(public_blob);
+        assert(private_blob);
+        assert(primary_handle);
+
+        TPM2B_PUBLIC public;
+        r = tpm2_unmarshal_public(public_blob->iov_base, public_blob->iov_len, &public);
+        if (r < 0)
+                return r;
+
+        TPM2B_PRIVATE private;
+        r = tpm2_unmarshal_private(private_blob->iov_base, private_blob->iov_len, &private);
+        if (r < 0)
+                return r;
+
+        _cleanup_(tpm2_handle_freep) Tpm2Handle *what = NULL;
+        r = tpm2_load(c, primary_handle, NULL, &public, &private, &what);
+        if (r < 0)
+                return r;
+
+        _cleanup_(Esys_Freep) TPM2B_SENSITIVE_DATA* unsealed = NULL;
+        rc = sym_Esys_Unseal(
+                        c->esys_context,
+                        what->esys_handle,
+                        policy_session ? policy_session->esys_handle : ESYS_TR_NONE,
+                        encryption_session ? encryption_session->esys_handle : ESYS_TR_NONE,
+                        ESYS_TR_NONE,
+                        &unsealed);
+        if (rc == TPM2_RC_PCR_CHANGED)
+                return log_debug_errno(SYNTHETIC_ERRNO(ESTALE),
+                                       "PCR changed while unsealing.");
+        if (rc != TSS2_RC_SUCCESS)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to unseal data: %s", sym_Tss2_RC_Decode(rc));
+
+        _cleanup_(iovec_done) struct iovec d = IOVEC_NULL;
+        d = (struct iovec) {
+                .iov_base = memdup(unsealed->buffer, unsealed->size),
+                .iov_len = unsealed->size,
+        };
+
+        explicit_bzero_safe(unsealed->buffer, unsealed->size);
+
+        if (!d.iov_base)
+                return log_oom_debug();
+
+        *ret_data = TAKE_IOVEC(d);
+        return 0;
+}
 #endif /* HAVE_TPM2 */
 
 int tpm2_list_devices(void) {
