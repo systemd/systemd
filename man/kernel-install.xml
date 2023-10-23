@@ -40,7 +40,9 @@
       <command>kernel-install</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
       <arg choice="plain">inspect</arg>
+      <arg choice="opt"><replaceable>KERNEL-VERSION</replaceable></arg>
       <arg choice="opt"><replaceable>KERNEL-IMAGE</replaceable></arg>
+      <arg choice="opt" rep="repeat"><replaceable>INITRD-FILE</replaceable></arg>
     </cmdsynopsis>
   </refsynopsisdiv>
 
@@ -176,11 +178,14 @@
         </listitem>
       </varlistentry>
       <varlistentry>
-        <term><command>inspect [<replaceable>KERNEL-IMAGE</replaceable>]</command></term>
+        <term>
+          <command>inspect [[<replaceable>KERNEL-VERSION</replaceable>] <replaceable>KERNEL-IMAGE</replaceable>] [<replaceable>INITRD-FILE</replaceable> ...]</command>
+        </term>
         <listitem>
           <para>Shows the various paths and parameters configured or auto-detected. In particular shows the
           values of the various <varname>$KERNEL_INSTALL_*</varname> environment variables listed
-          below.</para>
+          below. The <option>--json</option> option can be used to get the output of this verb as a JSON
+          object.</para>
 
           <xi:include href="version-info.xml" xpointer="v251"/>
         </listitem>
@@ -298,6 +303,8 @@
 
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
+      <xi:include href="standard-options.xml" xpointer="no-pager"/>
+      <xi:include href="standard-options.xml" xpointer="json" />
     </variablelist>
   </refsect1>
 

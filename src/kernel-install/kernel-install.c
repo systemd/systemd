@@ -13,6 +13,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "find-esp.h"
+#include "format-table.h"
 #include "id128-util.h"
 #include "kernel-image.h"
 #include "main-func.h"
@@ -32,6 +33,8 @@ static bool arg_verbose = false;
 static char *arg_esp_path = NULL;
 static char *arg_xbootldr_path = NULL;
 static int arg_make_entry_directory = -1; /* tristate */
+static PagerFlags arg_pager_flags = 0;
+static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
 
 STATIC_DESTRUCTOR_REGISTER(arg_esp_path, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_xbootldr_path, freep);
@@ -860,8 +863,6 @@ static int context_build_arguments(Context *c) {
                 break;
 
         case ACTION_INSPECT:
-                assert(!c->version);
-                assert(!c->initrds);
                 verb = "add|remove";
                 break;
 
@@ -1081,13 +1082,25 @@ static int verb_remove(int argc, char *argv[], void *userdata) {
 
 static int verb_inspect(int argc, char *argv[], void *userdata) {
         Context *c = ASSERT_PTR(userdata);
-        _cleanup_free_ char *joined = NULL;
+        _cleanup_(table_unrefp) Table *t = NULL;
         int r;
 
         c->action = ACTION_INSPECT;
 
-        if (argc >= 2) {
+        if (argc == 2) {
                 r = context_set_kernel(c, argv[1]);
+                if (r < 0)
+                        return r;
+        } else if (argc >= 3) {
+                r = context_set_version(c, argv[1]);
+                if (r < 0)
+                        return r;
+
+                r = context_set_kernel(c, argv[2]);
+                if (r < 0)
+                        return r;
+
+                r = context_set_initrds(c, strv_skip(argv, 3));
                 if (r < 0)
                         return r;
         }
@@ -1096,24 +1109,57 @@ static int verb_inspect(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        printf("%sBoot Loader Entries:%s\n", ansi_underline(), ansi_normal());
-        printf("    $BOOT: %s\n", c->boot_root);
-        printf("    Token: %s\n", c->entry_token);
-        puts("");
+        t = table_new_vertical();
+        if (!t)
+                return log_oom();
 
-        printf("%sUsing plugins:%s\n", ansi_underline(), ansi_normal());
-        strv_print_full(c->plugins, "    ");
-        puts("");
+        r = table_add_many(t,
+                           TABLE_FIELD, "Machine ID",
+                           TABLE_UUID, c->machine_id,
+                           TABLE_FIELD, "Kernel Image Type",
+                           TABLE_STRING, kernel_image_type_to_string(c->kernel_image_type),
+                           TABLE_FIELD, "Layout",
+                           TABLE_STRING, context_get_layout(c),
+                           TABLE_FIELD, "$BOOT",
+                           TABLE_STRING, c->boot_root,
+                           TABLE_FIELD, "Entry Token Type",
+                           TABLE_STRING, boot_entry_token_type_to_string(c->entry_token_type),
+                           TABLE_FIELD, "Entry Token",
+                           TABLE_STRING, c->entry_token,
+                           TABLE_FIELD, "Entry Directory",
+                           TABLE_STRING, c->entry_dir,
+                           TABLE_FIELD, "Kernel Version",
+                           TABLE_STRING, c->version,
+                           TABLE_FIELD, "Kernel",
+                           TABLE_STRING, c->kernel,
+                           TABLE_FIELD, "Initrds",
+                           TABLE_STRV, c->initrds,
+                           TABLE_FIELD, "Initrd Generator",
+                           TABLE_STRING, c->initrd_generator,
+                           TABLE_FIELD, "UKI Generator",
+                           TABLE_STRING, c->uki_generator,
+                           TABLE_FIELD, "Plugins",
+                           TABLE_STRV, c->plugins,
+                           TABLE_FIELD, "Plugin Environment",
+                           TABLE_STRV, c->envp,
+                           TABLE_FIELD, "Plugin Arguments",
+                           TABLE_STRV, strv_skip(c->argv, 1));
+        if (r < 0)
+                return table_log_add_error(r);
 
-        printf("%sPlugin environment:%s\n", ansi_underline(), ansi_normal());
-        strv_print_full(c->envp, "    ");
-        puts("");
+        table_set_ersatz_string(t, TABLE_ERSATZ_UNSET);
 
-        printf("%sPlugin arguments:%s\n", ansi_underline(), ansi_normal());
-        joined = strv_join(strv_skip(c->argv, 1), " ");
-        printf("    %s\n", strna(joined));
+        for (size_t row = 1; row < table_get_rows(t); row++) {
+                _cleanup_free_ char *name = NULL;
 
-        return 0;
+                name = strdup(table_get_at(t, row, 0));
+                if (!name)
+                        return log_oom();
+
+                table_set_json_field_name(t, row - 1, delete_chars(name, " "));
+        }
+
+        return table_print_with_pager(t, arg_json_format_flags, arg_pager_flags, /* show_header= */ false);
 }
 
 static int help(void) {
@@ -1127,9 +1173,9 @@ static int help(void) {
         printf("%1$s [OPTIONS...] COMMAND ...\n\n"
                "%2$sAdd and remove kernel and initrd images to and from /boot%3$s\n"
                "\nUsage:\n"
-               "  kernel-install [OPTIONS...] add KERNEL-VERSION KERNEL-IMAGE [INITRD-FILE...]\n"
+               "  kernel-install [OPTIONS...] add KERNEL-VERSION KERNEL-IMAGE [INITRD ...]\n"
                "  kernel-install [OPTIONS...] remove KERNEL-VERSION\n"
-               "  kernel-install [OPTIONS...] inspect [KERNEL-IMAGE]\n"
+               "  kernel-install [OPTIONS...] inspect KERNEL-VERSION KERNEL-IMAGE [INITRD ...]\n"
                "\n"
                "Options:\n"
                "  -h --help              Show this help\n"
@@ -1141,6 +1187,9 @@ static int help(void) {
                "                         Create $BOOT/ENTRY-TOKEN/ directory\n"
                "     --entry-token=machine-id|os-id|os-image-id|auto|literal:…\n"
                "                         Entry token to use for this installation\n"
+               "     --no-pager          Do not pipe inspect output into a pager\n"
+               "     --json=pretty|short|off\n"
+               "                         Generate JSON output\n"
                "\n"
                "This program may also be invoked as 'installkernel':\n"
                "  installkernel  [OPTIONS...] VERSION VMLINUZ [MAP] [INSTALLATION-DIR]\n"
@@ -1162,6 +1211,8 @@ static int parse_argv(int argc, char *argv[], Context *c) {
                 ARG_BOOT_PATH,
                 ARG_MAKE_ENTRY_DIRECTORY,
                 ARG_ENTRY_TOKEN,
+                ARG_NO_PAGER,
+                ARG_JSON,
         };
         static const struct option options[] = {
                 { "help",                 no_argument,       NULL, 'h'                      },
@@ -1171,6 +1222,8 @@ static int parse_argv(int argc, char *argv[], Context *c) {
                 { "boot-path",            required_argument, NULL, ARG_BOOT_PATH            },
                 { "make-entry-directory", required_argument, NULL, ARG_MAKE_ENTRY_DIRECTORY },
                 { "entry-token",          required_argument, NULL, ARG_ENTRY_TOKEN          },
+                { "no-pager",             no_argument,       NULL, ARG_NO_PAGER             },
+                { "json",                 required_argument, NULL, ARG_JSON                 },
                 {}
         };
         int t, r;
@@ -1222,6 +1275,16 @@ static int parse_argv(int argc, char *argv[], Context *c) {
                                 return r;
                         break;
 
+                case ARG_NO_PAGER:
+                        arg_pager_flags |= PAGER_DISABLE;
+                        break;
+
+                case ARG_JSON:
+                        r = parse_json_argument(optarg, &arg_json_format_flags);
+                        if (r < 0)
+                                return r;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -1236,7 +1299,7 @@ static int run(int argc, char* argv[]) {
         static const Verb verbs[] = {
                 { "add",         3,        VERB_ANY, 0,            verb_add            },
                 { "remove",      2,        VERB_ANY, 0,            verb_remove         },
-                { "inspect",     1,        2,        VERB_DEFAULT, verb_inspect        },
+                { "inspect",     1,        VERB_ANY, VERB_DEFAULT, verb_inspect        },
                 {}
         };
         _cleanup_(context_done) Context c = {
