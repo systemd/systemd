@@ -8,9 +8,9 @@
 #include "alloc-util.h"
 #include "macro.h"
 
-size_t iovec_total_size(const struct iovec *i, size_t n);
+size_t iovec_total_size(const struct iovec *iovec, size_t n);
 
-bool iovec_increment(struct iovec *i, size_t n, size_t k);
+bool iovec_increment(struct iovec *iovec, size_t n, size_t k);
 
 #define IOVEC_NULL (const struct iovec) {}
 
@@ -38,11 +38,11 @@ static inline void iovec_done_erase(struct iovec *iovec) {
         iovec->iov_len = 0;
 }
 
-static inline bool iovec_is_set(const struct iovec *iov) {
-        return iov && iov->iov_len > 0 && iov->iov_base;
+static inline bool iovec_is_set(const struct iovec *iovec) {
+        return iovec && iovec->iov_len > 0 && iovec->iov_base;
 }
 
 char* set_iovec_string_field(struct iovec *iovec, size_t *n_iovec, const char *field, const char *value);
 char* set_iovec_string_field_free(struct iovec *iovec, size_t *n_iovec, const char *field, char *value);
 
-void iovec_array_free(struct iovec *iov, size_t n);
+void iovec_array_free(struct iovec *iovec, size_t n);
