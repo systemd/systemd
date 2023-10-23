@@ -12,8 +12,6 @@ size_t iovec_total_size(const struct iovec *iovec, size_t n);
 
 bool iovec_increment(struct iovec *iovec, size_t n, size_t k);
 
-#define IOVEC_NULL (const struct iovec) {}
-
 #define IOVEC_MAKE(base, len) (struct iovec) { .iov_base = (base), .iov_len = (len) }
 #define IOVEC_MAKE_STRING(string)                       \
         ({                                              \
@@ -21,7 +19,7 @@ bool iovec_increment(struct iovec *iovec, size_t n, size_t k);
                 IOVEC_MAKE((char*) _s, strlen(_s));     \
         })
 
-#define TAKE_IOVEC(p) TAKE_GENERIC((p), struct iovec, IOVEC_NULL)
+#define TAKE_IOVEC(p) TAKE_GENERIC((p), struct iovec, {})
 
 static inline void iovec_done(struct iovec *iovec) {
         /* A _cleanup_() helper that frees the iov_base in the iovec */
