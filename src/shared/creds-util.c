@@ -171,7 +171,7 @@ int read_credential_with_decryption(const char *name, void **ret, size_t *ret_si
                         UINT64_MAX, SIZE_MAX,
                         READ_FULL_FILE_SECURE,
                         NULL,
-                        (char**) data, &sz);
+                        (char**) &data, &sz);
         if (r == -ENOENT)
                 goto not_found;
         if (r < 0)
