@@ -19,8 +19,6 @@ bool iovec_increment(struct iovec *iovec, size_t n, size_t k);
                 IOVEC_MAKE((char*) _s, strlen(_s));     \
         })
 
-#define TAKE_IOVEC(p) TAKE_GENERIC((p), struct iovec, {})
-
 static inline void iovec_done(struct iovec *iovec) {
         /* A _cleanup_() helper that frees the iov_base in the iovec */
         assert(iovec);
