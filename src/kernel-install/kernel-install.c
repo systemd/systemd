@@ -14,6 +14,7 @@
 #include "fileio.h"
 #include "find-esp.h"
 #include "id128-util.h"
+#include "json.h"
 #include "kernel-image.h"
 #include "main-func.h"
 #include "mkdir.h"
@@ -32,6 +33,7 @@ static bool arg_verbose = false;
 static char *arg_esp_path = NULL;
 static char *arg_xbootldr_path = NULL;
 static int arg_make_entry_directory = -1; /* tristate */
+static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
 
 STATIC_DESTRUCTOR_REGISTER(arg_esp_path, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_xbootldr_path, freep);
@@ -860,7 +862,6 @@ static int context_build_arguments(Context *c) {
                 break;
 
         case ACTION_INSPECT:
-                assert(!c->version);
                 assert(!c->initrds);
                 verb = "add|remove";
                 break;
@@ -1086,8 +1087,20 @@ static int verb_inspect(int argc, char *argv[], void *userdata) {
 
         c->action = ACTION_INSPECT;
 
-        if (argc >= 2) {
+        if (argc == 2) {
                 r = context_set_kernel(c, argv[1]);
+                if (r < 0)
+                        return r;
+        } else if (argc >= 3) {
+                r = context_set_version(c, argv[1]);
+                if (r < 0)
+                        return r;
+
+                r = context_set_kernel(c, argv[2]);
+                if (r < 0)
+                        return r;
+
+                r = context_set_initrds(c, strv_skip(argv, 3));
                 if (r < 0)
                         return r;
         }
@@ -1096,22 +1109,47 @@ static int verb_inspect(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        printf("%sBoot Loader Entries:%s\n", ansi_underline(), ansi_normal());
-        printf("    $BOOT: %s\n", c->boot_root);
-        printf("    Token: %s\n", c->entry_token);
-        puts("");
+        if (arg_json_format_flags & JSON_FORMAT_OFF) {
+                printf("%sBoot Loader Entries:%s\n", ansi_underline(), ansi_normal());
+                printf("    $BOOT: %s\n", c->boot_root);
+                printf("    Token: %s\n", c->entry_token);
+                puts("");
 
-        printf("%sUsing plugins:%s\n", ansi_underline(), ansi_normal());
-        strv_print_full(c->plugins, "    ");
-        puts("");
+                printf("%sUsing plugins:%s\n", ansi_underline(), ansi_normal());
+                strv_print_full(c->plugins, "    ");
+                puts("");
 
-        printf("%sPlugin environment:%s\n", ansi_underline(), ansi_normal());
-        strv_print_full(c->envp, "    ");
-        puts("");
+                printf("%sPlugin environment:%s\n", ansi_underline(), ansi_normal());
+                strv_print_full(c->envp, "    ");
+                puts("");
 
-        printf("%sPlugin arguments:%s\n", ansi_underline(), ansi_normal());
-        joined = strv_join(strv_skip(c->argv, 1), " ");
-        printf("    %s\n", strna(joined));
+                printf("%sPlugin arguments:%s\n", ansi_underline(), ansi_normal());
+                joined = strv_join(strv_skip(c->argv, 1), " ");
+                printf("    %s\n", strna(joined));
+        } else {
+                _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+
+                r = json_build(&v, JSON_BUILD_OBJECT(
+                                JSON_BUILD_PAIR_UUID("MachineId", c->machine_id),
+                                JSON_BUILD_PAIR_STRING("KernelImageType", kernel_image_type_to_string(c->kernel_image_type)),
+                                JSON_BUILD_PAIR_STRING("Layout", context_get_layout(c)),
+                                JSON_BUILD_PAIR_STRING("BootRoot", c->boot_root),
+                                JSON_BUILD_PAIR_STRING("EntryTokenType", boot_entry_token_type_to_string(c->entry_token_type)),
+                                JSON_BUILD_PAIR_STRING("EntryToken", c->entry_token),
+                                JSON_BUILD_PAIR_STRING("EntryDirectory", c->entry_dir),
+                                JSON_BUILD_PAIR_STRING("Version", c->version),
+                                JSON_BUILD_PAIR_STRING("Kernel", c->kernel),
+                                JSON_BUILD_PAIR_STRV("Initrds", c->initrds),
+                                JSON_BUILD_PAIR_STRING("InitrdGenerator", c->initrd_generator),
+                                JSON_BUILD_PAIR_STRING("UkiGenerator", c->uki_generator),
+                                JSON_BUILD_PAIR_STRV("Plugins", c->plugins),
+                                JSON_BUILD_PAIR_STRV("PluginEnvironment", c->envp),
+                                JSON_BUILD_PAIR_STRV("PluginArguments", strv_skip(c->argv, 1))));
+                if (r < 0)
+                        return r;
+
+                (void) json_variant_dump(v, arg_json_format_flags, stdout, NULL);
+        }
 
         return 0;
 }
@@ -1127,9 +1165,9 @@ static int help(void) {
         printf("%1$s [OPTIONS...] COMMAND ...\n\n"
                "%2$sAdd and remove kernel and initrd images to and from /boot%3$s\n"
                "\nUsage:\n"
-               "  kernel-install [OPTIONS...] add KERNEL-VERSION KERNEL-IMAGE [INITRD-FILE...]\n"
+               "  kernel-install [OPTIONS...] add KERNEL-VERSION KERNEL-IMAGE [INITRD ...]\n"
                "  kernel-install [OPTIONS...] remove KERNEL-VERSION\n"
-               "  kernel-install [OPTIONS...] inspect [KERNEL-IMAGE]\n"
+               "  kernel-install [OPTIONS...] inspect KERNEL-VERSION KERNEL-IMAGE [INITRD ...]\n"
                "\n"
                "Options:\n"
                "  -h --help              Show this help\n"
@@ -1141,6 +1179,8 @@ static int help(void) {
                "                         Create $BOOT/ENTRY-TOKEN/ directory\n"
                "     --entry-token=machine-id|os-id|os-image-id|auto|literal:…\n"
                "                         Entry token to use for this installation\n"
+               "     --json=pretty|short|off\n"
+               "                         Generate JSON output\n"
                "\n"
                "This program may also be invoked as 'installkernel':\n"
                "  installkernel  [OPTIONS...] VERSION VMLINUZ [MAP] [INSTALLATION-DIR]\n"
@@ -1162,6 +1202,7 @@ static int parse_argv(int argc, char *argv[], Context *c) {
                 ARG_BOOT_PATH,
                 ARG_MAKE_ENTRY_DIRECTORY,
                 ARG_ENTRY_TOKEN,
+                ARG_JSON,
         };
         static const struct option options[] = {
                 { "help",                 no_argument,       NULL, 'h'                      },
@@ -1171,6 +1212,7 @@ static int parse_argv(int argc, char *argv[], Context *c) {
                 { "boot-path",            required_argument, NULL, ARG_BOOT_PATH            },
                 { "make-entry-directory", required_argument, NULL, ARG_MAKE_ENTRY_DIRECTORY },
                 { "entry-token",          required_argument, NULL, ARG_ENTRY_TOKEN          },
+                { "json",                 required_argument, NULL, ARG_JSON                 },
                 {}
         };
         int t, r;
@@ -1222,6 +1264,12 @@ static int parse_argv(int argc, char *argv[], Context *c) {
                                 return r;
                         break;
 
+                case ARG_JSON:
+                        r = parse_json_argument(optarg, &arg_json_format_flags);
+                        if (r < 0)
+                                return r;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -1236,7 +1284,7 @@ static int run(int argc, char* argv[]) {
         static const Verb verbs[] = {
                 { "add",         3,        VERB_ANY, 0,            verb_add            },
                 { "remove",      2,        VERB_ANY, 0,            verb_remove         },
-                { "inspect",     1,        2,        VERB_DEFAULT, verb_inspect        },
+                { "inspect",     1,        3,        VERB_DEFAULT, verb_inspect        },
                 {}
         };
         _cleanup_(context_done) Context c = {
