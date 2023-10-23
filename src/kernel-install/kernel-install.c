@@ -14,9 +14,12 @@
 #include "fileio.h"
 #include "find-esp.h"
 #include "id128-util.h"
+#include "image-policy.h"
+#include "json.h"
 #include "kernel-image.h"
 #include "main-func.h"
 #include "mkdir.h"
+#include "mount-util.h"
 #include "parse-argument.h"
 #include "path-util.h"
 #include "pretty-print.h"
@@ -32,9 +35,15 @@ static bool arg_verbose = false;
 static char *arg_esp_path = NULL;
 static char *arg_xbootldr_path = NULL;
 static int arg_make_entry_directory = -1; /* tristate */
+static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
+static char *arg_root = NULL;
+static char *arg_image = NULL;
+static ImagePolicy *arg_image_policy = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_esp_path, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_xbootldr_path, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 
 typedef enum Action {
         ACTION_ADD,
@@ -114,9 +123,9 @@ static int context_open_root(Context *c) {
         assert(c);
         assert(c->rfd < 0);
 
-        c->rfd = open("/", O_CLOEXEC | O_DIRECTORY | O_PATH);
+        c->rfd = open(empty_to_root(arg_root), O_CLOEXEC | O_DIRECTORY | O_PATH);
         if (c->rfd < 0)
-                return log_error_errno(errno, "Failed to open root directory: %m");
+                return log_error_errno(errno, "Failed to open root directory '%s': %m", empty_to_root(arg_root));
 
         return 0;
 }
@@ -254,7 +263,7 @@ static int context_set_conf_root(Context *c, const char *s, const char *source) 
 static int context_set_kernel(Context *c, const char *s) {
         assert(c);
         /* The path specified via command line should be relative to CWD. */
-        return context_set_path(c, AT_FDCWD, s, "command line", "kernel image file", &c->kernel);
+        return context_set_path(c, c->rfd, s, "command line", "kernel image file", &c->kernel);
 }
 
 static int context_set_path_strv(Context *c, int rfd, char* const* strv, const char *source, const char *name, char ***dest) {
@@ -860,7 +869,6 @@ static int context_build_arguments(Context *c) {
                 break;
 
         case ACTION_INSPECT:
-                assert(!c->version);
                 assert(!c->initrds);
                 verb = "add|remove";
                 break;
@@ -1018,6 +1026,9 @@ static int verb_add(int argc, char *argv[], void *userdata) {
         assert(argc >= 3);
         assert(argv);
 
+        if (arg_root)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "'add' does not support --root=.");
+
         if (bypass())
                 return 0;
 
@@ -1059,6 +1070,9 @@ static int verb_remove(int argc, char *argv[], void *userdata) {
         assert(argc >= 2);
         assert(argv);
 
+        if (arg_root)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "'remove' does not support --root=.");
+
         if (argc > 2)
                 log_debug("Too many arguments specified. 'kernel-install remove' takes only kernel version. "
                           "Ignoring residual arguments.");
@@ -1086,8 +1100,20 @@ static int verb_inspect(int argc, char *argv[], void *userdata) {
 
         c->action = ACTION_INSPECT;
 
-        if (argc >= 2) {
+        if (argc == 2) {
                 r = context_set_kernel(c, argv[1]);
+                if (r < 0)
+                        return r;
+        } else if (argc >= 3) {
+                r = context_set_version(c, argv[1]);
+                if (r < 0)
+                        return r;
+
+                r = context_set_kernel(c, argv[2]);
+                if (r < 0)
+                        return r;
+
+                r = context_set_initrds(c, strv_skip(argv, 3));
                 if (r < 0)
                         return r;
         }
@@ -1096,22 +1122,47 @@ static int verb_inspect(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        printf("%sBoot Loader Entries:%s\n", ansi_underline(), ansi_normal());
-        printf("    $BOOT: %s\n", c->boot_root);
-        printf("    Token: %s\n", c->entry_token);
-        puts("");
+        if (arg_json_format_flags & JSON_FORMAT_OFF) {
+                printf("%sBoot Loader Entries:%s\n", ansi_underline(), ansi_normal());
+                printf("    $BOOT: %s\n", c->boot_root);
+                printf("    Token: %s\n", c->entry_token);
+                puts("");
 
-        printf("%sUsing plugins:%s\n", ansi_underline(), ansi_normal());
-        strv_print_full(c->plugins, "    ");
-        puts("");
+                printf("%sUsing plugins:%s\n", ansi_underline(), ansi_normal());
+                strv_print_full(c->plugins, "    ");
+                puts("");
 
-        printf("%sPlugin environment:%s\n", ansi_underline(), ansi_normal());
-        strv_print_full(c->envp, "    ");
-        puts("");
+                printf("%sPlugin environment:%s\n", ansi_underline(), ansi_normal());
+                strv_print_full(c->envp, "    ");
+                puts("");
 
-        printf("%sPlugin arguments:%s\n", ansi_underline(), ansi_normal());
-        joined = strv_join(strv_skip(c->argv, 1), " ");
-        printf("    %s\n", strna(joined));
+                printf("%sPlugin arguments:%s\n", ansi_underline(), ansi_normal());
+                joined = strv_join(strv_skip(c->argv, 1), " ");
+                printf("    %s\n", strna(joined));
+        } else {
+                _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+
+                r = json_build(&v, JSON_BUILD_OBJECT(
+                                JSON_BUILD_PAIR_UUID("MachineId", c->machine_id),
+                                JSON_BUILD_PAIR_STRING("KernelImageType", kernel_image_type_to_string(c->kernel_image_type)),
+                                JSON_BUILD_PAIR_STRING("Layout", context_get_layout(c)),
+                                JSON_BUILD_PAIR_STRING("BootRoot", c->boot_root),
+                                JSON_BUILD_PAIR_STRING("EntryTokenType", boot_entry_token_type_to_string(c->entry_token_type)),
+                                JSON_BUILD_PAIR_STRING("EntryToken", c->entry_token),
+                                JSON_BUILD_PAIR_STRING("EntryDirectory", c->entry_dir),
+                                JSON_BUILD_PAIR_STRING("Version", c->version),
+                                JSON_BUILD_PAIR_STRING("Kernel", c->kernel),
+                                JSON_BUILD_PAIR_STRV("Initrds", c->initrds),
+                                JSON_BUILD_PAIR_STRING("InitrdGenerator", c->initrd_generator),
+                                JSON_BUILD_PAIR_STRING("UkiGenerator", c->uki_generator),
+                                JSON_BUILD_PAIR_STRV("Plugins", c->plugins),
+                                JSON_BUILD_PAIR_STRV("PluginEnvironment", c->envp),
+                                JSON_BUILD_PAIR_STRV("PluginArguments", strv_skip(c->argv, 1))));
+                if (r < 0)
+                        return r;
+
+                (void) json_variant_dump(v, arg_json_format_flags, stdout, NULL);
+        }
 
         return 0;
 }
@@ -1127,9 +1178,9 @@ static int help(void) {
         printf("%1$s [OPTIONS...] COMMAND ...\n\n"
                "%2$sAdd and remove kernel and initrd images to and from /boot%3$s\n"
                "\nUsage:\n"
-               "  kernel-install [OPTIONS...] add KERNEL-VERSION KERNEL-IMAGE [INITRD-FILE...]\n"
+               "  kernel-install [OPTIONS...] add KERNEL-VERSION KERNEL-IMAGE [INITRD ...]\n"
                "  kernel-install [OPTIONS...] remove KERNEL-VERSION\n"
-               "  kernel-install [OPTIONS...] inspect [KERNEL-IMAGE]\n"
+               "  kernel-install [OPTIONS...] inspect KERNEL-VERSION KERNEL-IMAGE [INITRD ...]\n"
                "\n"
                "Options:\n"
                "  -h --help              Show this help\n"
@@ -1141,6 +1192,9 @@ static int help(void) {
                "                         Create $BOOT/ENTRY-TOKEN/ directory\n"
                "     --entry-token=machine-id|os-id|os-image-id|auto|literal:…\n"
                "                         Entry token to use for this installation\n"
+               "     --json=pretty|short|off\n"
+               "                         Generate JSON output\n"
+               "     --root=PATH         Operate on an alternate filesystem root\n"
                "\n"
                "This program may also be invoked as 'installkernel':\n"
                "  installkernel  [OPTIONS...] VERSION VMLINUZ [MAP] [INSTALLATION-DIR]\n"
@@ -1162,6 +1216,10 @@ static int parse_argv(int argc, char *argv[], Context *c) {
                 ARG_BOOT_PATH,
                 ARG_MAKE_ENTRY_DIRECTORY,
                 ARG_ENTRY_TOKEN,
+                ARG_JSON,
+                ARG_ROOT,
+                ARG_IMAGE,
+                ARG_IMAGE_POLICY,
         };
         static const struct option options[] = {
                 { "help",                 no_argument,       NULL, 'h'                      },
@@ -1171,6 +1229,10 @@ static int parse_argv(int argc, char *argv[], Context *c) {
                 { "boot-path",            required_argument, NULL, ARG_BOOT_PATH            },
                 { "make-entry-directory", required_argument, NULL, ARG_MAKE_ENTRY_DIRECTORY },
                 { "entry-token",          required_argument, NULL, ARG_ENTRY_TOKEN          },
+                { "json",                 required_argument, NULL, ARG_JSON                 },
+                { "root",                 required_argument, NULL, ARG_ROOT                 },
+                { "image",                required_argument, NULL, ARG_IMAGE                },
+                { "image-policy",         required_argument, NULL, ARG_IMAGE_POLICY         },
                 {}
         };
         int t, r;
@@ -1222,12 +1284,39 @@ static int parse_argv(int argc, char *argv[], Context *c) {
                                 return r;
                         break;
 
+                case ARG_JSON:
+                        r = parse_json_argument(optarg, &arg_json_format_flags);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_ROOT:
+                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_root);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_IMAGE:
+                        r = parse_path_argument(optarg, false, &arg_image);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_IMAGE_POLICY:
+                        r = parse_image_policy_argument(optarg, &arg_image_policy);
+                        if (r < 0)
+                                return r;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
                 default:
                         assert_not_reached();
                 }
+
+        if (arg_image && arg_root)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Please specify either --root= or --image=, the combination of both is not supported.");
 
         return 1;
 }
@@ -1236,7 +1325,7 @@ static int run(int argc, char* argv[]) {
         static const Verb verbs[] = {
                 { "add",         3,        VERB_ANY, 0,            verb_add            },
                 { "remove",      2,        VERB_ANY, 0,            verb_remove         },
-                { "inspect",     1,        2,        VERB_DEFAULT, verb_inspect        },
+                { "inspect",     1,        3,        VERB_DEFAULT, verb_inspect        },
                 {}
         };
         _cleanup_(context_done) Context c = {
@@ -1246,6 +1335,8 @@ static int run(int argc, char* argv[]) {
                 .layout = _LAYOUT_INVALID,
                 .entry_token_type = BOOT_ENTRY_TOKEN_AUTO,
         };
+        _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
+        _cleanup_(umount_and_freep) char *mounted_dir = NULL;
         int r;
 
         log_setup();
@@ -1253,6 +1344,27 @@ static int run(int argc, char* argv[]) {
         r = parse_argv(argc, argv, &c);
         if (r <= 0)
                 return r;
+
+        if (arg_image) {
+                assert(!arg_root);
+
+                r = mount_image_privately_interactively(
+                                arg_image,
+                                arg_image_policy,
+                                DISSECT_IMAGE_GENERIC_ROOT |
+                                DISSECT_IMAGE_REQUIRE_ROOT |
+                                DISSECT_IMAGE_RELAX_VAR_CHECK |
+                                DISSECT_IMAGE_VALIDATE_OS,
+                                &mounted_dir,
+                                /* ret_dir_fd= */ NULL,
+                                &loop_device);
+                if (r < 0)
+                        return r;
+
+                arg_root = strdup(mounted_dir);
+                if (!arg_root)
+                        return log_oom();
+        }
 
         r = context_init(&c);
         if (r < 0)
