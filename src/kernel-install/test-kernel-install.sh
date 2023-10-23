@@ -269,3 +269,8 @@ test -d "$BOOT_ROOT/hoge/1.1.1"
 test ! -e "$BOOT_ROOT/hoge/1.1.1"
 test -d "$BOOT_ROOT/hoge"
 rmdir "$BOOT_ROOT/hoge"
+
+###########################################
+# tests for --json=
+###########################################
+"$kernel_install" -v --json=pretty inspect "$D/sources/linux" 1.1.1
