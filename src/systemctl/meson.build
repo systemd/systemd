@@ -9,6 +9,7 @@ systemctl_sources = files(
         'systemctl-compat-shutdown.c',
         'systemctl-compat-telinit.c',
         'systemctl-daemon-reload.c',
+        'systemctl-describe.c',
         'systemctl-edit.c',
         'systemctl-enable.c',
         'systemctl-is-active.c',
