@@ -30,6 +30,7 @@
 #include "install.h"
 #include "log.h"
 #include "manager-dump.h"
+#include "manager-json.h"
 #include "os-util.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -2933,6 +2934,34 @@ static int method_dump_unit_descriptor_store(sd_bus_message *message, void *user
         return method_generic_unit_operation(message, userdata, error, bus_service_method_dump_file_descriptor_store, 0);
 }
 
+static int method_describe(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        _cleanup_free_ char *text = NULL;
+        Manager *manager = ASSERT_PTR(userdata);
+        int r;
+
+        assert(message);
+
+        r = manager_build_json(manager, &v);
+        if (r < 0)
+                return log_error_errno(r, "Failed to build JSON data: %m");
+
+        r = json_variant_format(v, 0, &text);
+        if (r < 0)
+                return log_error_errno(r, "Failed to format JSON data: %m");
+
+        r = sd_bus_message_new_method_return(message, &reply);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(reply, "s", text);
+        if (r < 0)
+                return r;
+
+        return sd_bus_send(NULL, reply, NULL);
+}
+
 const sd_bus_vtable bus_manager_vtable[] = {
         SD_BUS_VTABLE_START(0),
 
@@ -3490,6 +3519,11 @@ const sd_bus_vtable bus_manager_vtable[] = {
                                 SD_BUS_ARGS("s", name),
                                 SD_BUS_RESULT("a(suuutuusu)", entries),
                                 method_dump_unit_descriptor_store,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("Describe",
+                                SD_BUS_NO_ARGS,
+                                SD_BUS_RESULT("s", json),
+                                method_describe,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
 
         SD_BUS_SIGNAL_WITH_ARGS("UnitNew",
