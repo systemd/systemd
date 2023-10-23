@@ -451,16 +451,18 @@ static int parse_argv(int argc, char *argv[]) {
                 }
         }
 
-        if ((arg_enroll_type == ENROLL_FIDO2 && arg_unlock_type == UNLOCK_FIDO2)
-                        && !(arg_fido2_device && arg_unlock_fido2_device))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "When both enrolling and unlocking with FIDO2 tokens, automatic discovery is unsupported. "
-                                       "Please specify device paths for enrolling and unlocking respectively.");
+        if (arg_enroll_type == ENROLL_FIDO2) {
 
-        if (arg_enroll_type == ENROLL_FIDO2 && !arg_fido2_device) {
-                r = fido2_find_device_auto(&arg_fido2_device);
-                if (r < 0)
-                        return r;
+                if (arg_unlock_type == UNLOCK_FIDO2 && !(arg_fido2_device && arg_unlock_fido2_device))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "When both enrolling and unlocking with FIDO2 tokens, automatic discovery is unsupported. "
+                                               "Please specify device paths for enrolling and unlocking respectively.");
+
+                if (!arg_fido2_device) {
+                        r = fido2_find_device_auto(&arg_fido2_device);
+                        if (r < 0)
+                                return r;
+                }
         }
 
         if (optind >= argc)
