@@ -749,6 +749,35 @@ int tpm2_handle_new(Tpm2Context *context, Tpm2Handle **ret_handle) {
         return 0;
 }
 
+static int tpm2_read_public(
+                Tpm2Context *c,
+                const Tpm2Handle *session,
+                const Tpm2Handle *handle,
+                TPM2B_PUBLIC **ret_public,
+                TPM2B_NAME **ret_name,
+                TPM2B_NAME **ret_qname) {
+
+        TSS2_RC rc;
+
+        assert(c);
+        assert(handle);
+
+        rc = sym_Esys_ReadPublic(
+                        c->esys_context,
+                        handle->esys_handle,
+                        session ? session->esys_handle : ESYS_TR_NONE,
+                        ESYS_TR_NONE,
+                        ESYS_TR_NONE,
+                        ret_public,
+                        ret_name,
+                        ret_qname);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to read public info: %s", sym_Tss2_RC_Decode(rc));
+
+        return 0;
+}
+
 /* Create a Tpm2Handle object that references a pre-existing handle in the TPM, at the handle index provided.
  * This should be used only for persistent, transient, or NV handles; and the handle must already exist in
  * the TPM at the specified handle index. The handle index should not be 0. Returns 1 if found, 0 if the
@@ -999,35 +1028,6 @@ static int tpm2_credit_random(Tpm2Context *c) {
         r = touch(TPM2_CREDIT_RANDOM_FLAG_PATH);
         if (r < 0)
                 log_debug_errno(r, "Failed to touch '" TPM2_CREDIT_RANDOM_FLAG_PATH "', ignoring: %m");
-
-        return 0;
-}
-
-int tpm2_read_public(
-                Tpm2Context *c,
-                const Tpm2Handle *session,
-                const Tpm2Handle *handle,
-                TPM2B_PUBLIC **ret_public,
-                TPM2B_NAME **ret_name,
-                TPM2B_NAME **ret_qname) {
-
-        TSS2_RC rc;
-
-        assert(c);
-        assert(handle);
-
-        rc = sym_Esys_ReadPublic(
-                        c->esys_context,
-                        handle->esys_handle,
-                        session ? session->esys_handle : ESYS_TR_NONE,
-                        ESYS_TR_NONE,
-                        ESYS_TR_NONE,
-                        ret_public,
-                        ret_name,
-                        ret_qname);
-        if (rc != TSS2_RC_SUCCESS)
-                return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                       "Failed to read public info: %s", sym_Tss2_RC_Decode(rc));
 
         return 0;
 }
@@ -3817,7 +3817,7 @@ int tpm2_tpm2b_public_from_pem(const void *pem, size_t pem_size, TPM2B_PUBLIC *r
 /* Marshal the public and private objects into a single nonstandard 'blob'. This is not a (publicly) standard
  * format, this is specific to how we currently store the sealed object. This 'blob' can be unmarshalled by
  * tpm2_unmarshal_blob(). */
-int tpm2_marshal_blob(
+static int tpm2_marshal_blob(
                 const TPM2B_PUBLIC *public,
                 const TPM2B_PRIVATE *private,
                 void **ret_blob,
@@ -3856,7 +3856,7 @@ int tpm2_marshal_blob(
 /* Unmarshal the 'blob' into public and private objects. This is not a (publicly) standard format, this is
  * specific to how we currently store the sealed object. This expects the 'blob' to have been created by
  * tpm2_marshal_blob(). */
-int tpm2_unmarshal_blob(
+static int tpm2_unmarshal_blob(
                 const void *blob,
                 size_t blob_size,
                 TPM2B_PUBLIC *ret_public,
@@ -4109,7 +4109,7 @@ int tpm2_seal(Tpm2Context *c,
         log_debug("Marshalling private and public part of HMAC key.");
 
         _cleanup_free_ void *blob = NULL;
-        size_t blob_size;
+        size_t blob_size = 0;
         r = tpm2_marshal_blob(public, private, &blob, &blob_size);
         if (r < 0)
                 return log_debug_errno(r, "Could not create sealed blob: %m");
