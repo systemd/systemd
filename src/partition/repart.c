@@ -4087,7 +4087,7 @@ static int partition_format_verity_hash(
                 p->new_uuid_is_set = true;
         }
 
-        p->roothash = TAKE_IOVEC(rh);
+        p->roothash = TAKE_STRUCT(rh);
 
         return 0;
 #else
