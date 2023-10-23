@@ -63,11 +63,8 @@ char* set_iovec_string_field_free(struct iovec *iovec, size_t *n_iovec, const ch
 }
 
 void iovec_array_free(struct iovec *iovec, size_t n) {
-        if (!iovec)
-                return;
-
-        for (size_t i = 0; i < n; i++)
-                free(iovec[i].iov_base);
+        FOREACH_ARRAY(i, iovec, n)
+                free(i->iov_base);
 
         free(iovec);
 }
