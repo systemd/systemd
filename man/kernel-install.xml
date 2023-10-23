@@ -322,9 +322,9 @@
 
       <para><varname>$KERNEL_INSTALL_STAGING_AREA</varname> is set for plugins to a path to a directory.
       Plugins may drop files in that directory, and they will be installed as part of the loader entry, based
-      on the file name and extension: Files named <filename>initrd*</filename> will be installed as <replaceable>INITRD-FILE</replaceable>s, 
+      on the file name and extension: Files named <filename>initrd*</filename> will be installed as <replaceable>INITRD-FILE</replaceable>s,
       and files named <filename>microcode*</filename> will be prepended before <replaceable>INITRD-FILE</replaceable>s.</para>
-      
+
     </refsect2>
 
     <refsect2>
