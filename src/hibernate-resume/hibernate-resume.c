@@ -12,7 +12,7 @@
 #include "parse-util.h"
 #include "static-destruct.h"
 
-HibernateInfo arg_info = {};
+static HibernateInfo arg_info = {};
 
 STATIC_DESTRUCTOR_REGISTER(arg_info, hibernate_info_done);
 
