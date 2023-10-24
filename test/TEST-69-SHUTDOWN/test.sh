@@ -26,6 +26,16 @@ EOF
 test_append_files() {
     local workspace="${1:?}"
 
+    # Shorten the service stop/abort timeouts to let systemd SIGKILL stubborn
+    # processes as soon as possible, as we don't really care about them in this
+    # particular test
+    mkdir -p "$workspace/etc/systemd/system.conf.d"
+    cat >"$workspace/etc/systemd/system.conf.d/99-timeout.conf" <<EOF
+[Manager]
+DefaultTimeoutStopSec=30s
+DefaultTimeoutAbortSec=30s
+EOF
+
     inst /usr/bin/screen
     echo "PS1='screen\$WINDOW # '" >>"$workspace/root/.bashrc"
     echo 'startup_message off' >"$workspace/etc/screenrc"
