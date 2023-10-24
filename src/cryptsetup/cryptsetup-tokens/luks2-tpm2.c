@@ -57,10 +57,6 @@ int acquire_luks2_key(
         if ((flags & TPM2_FLAGS_USE_PIN) && !pin)
                 return -ENOANO;
 
-        /* If we're using a PIN, and the luks header has a salt, it better have a pin too */
-        if ((flags & TPM2_FLAGS_USE_PIN) && salt_size > 0 && !pin)
-                return -ENOANO;
-
         if (pin && salt_size > 0) {
                 uint8_t salted_pin[SHA256_DIGEST_SIZE] = {};
                 CLEANUP_ERASE(salted_pin);
