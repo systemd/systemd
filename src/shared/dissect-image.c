@@ -2790,7 +2790,7 @@ static int verity_partition(
                         return log_debug_errno(r, "Failed to activate verity device %s: %m", node);
 
         check:
-                if (!restore_deferred_remove){
+                if (!restore_deferred_remove) {
                         /* To avoid races, disable automatic removal on umount while setting up the new device. Restore it on failure. */
                         r = dm_deferred_remove_cancel(name);
                         /* -EBUSY and -ENXIO: the device has already been removed or being removed. We cannot
