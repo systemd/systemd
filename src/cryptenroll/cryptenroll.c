@@ -100,28 +100,35 @@ static int help(void) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...] BLOCK-DEVICE\n"
-               "\n%sEnroll a security token or authentication credential to a LUKS volume.%s\n\n"
+        printf("%1$s [OPTIONS...] BLOCK-DEVICE\n\n"
+               "%5$sEnroll a security token or authentication credential to a LUKS volume.%6$s\n\n"
                "  -h --help            Show this help\n"
                "     --version         Show package version\n"
-               "     --password        Enroll a user-supplied password\n"
-               "     --recovery-key    Enroll a recovery key\n"
+               "     --wipe-slot=SLOT1,SLOT2,…\n"
+               "                       Wipe specified slots\n"
+               "\n%3$sUnlocking:%4$s\n"
                "     --unlock-key-file=PATH\n"
                "                       Use a file to unlock the volume\n"
                "     --unlock-fido2-device=PATH\n"
                "                       Use a FIDO2 device to unlock the volume\n"
+               "\n%3$sSimple Enrollment:%4$s\n"
+               "     --password        Enroll a user-supplied password\n"
+               "     --recovery-key    Enroll a recovery key\n"
+               "\n%3$sPKCS11 Enrollment:%4$s\n"
                "     --pkcs11-token-uri=URI\n"
                "                       Specify PKCS#11 security token URI\n"
-               "     --fido2-credential-algorithm=STRING\n"
-               "                       Specify COSE algorithm for FIDO2 credential\n"
+               "\n%3$sFIDO2 Enrollment:%4$s\n"
                "     --fido2-device=PATH\n"
                "                       Enroll a FIDO2-HMAC security token\n"
+               "     --fido2-credential-algorithm=STRING\n"
+               "                       Specify COSE algorithm for FIDO2 credential\n"
                "     --fido2-with-client-pin=BOOL\n"
                "                       Whether to require entering a PIN to unlock the volume\n"
                "     --fido2-with-user-presence=BOOL\n"
                "                       Whether to require user presence to unlock the volume\n"
                "     --fido2-with-user-verification=BOOL\n"
                "                       Whether to require user verification to unlock the volume\n"
+               "\n%3$sTPM2 Enrollment:%4$s\n"
                "     --tpm2-device=PATH\n"
                "                       Enroll a TPM2 device\n"
                "     --tpm2-pcrs=PCR1+PCR2+PCR3+…\n"
@@ -135,13 +142,13 @@ static int help(void) {
                "                       file\n"
                "     --tpm2-with-pin=BOOL\n"
                "                       Whether to require entering a PIN to unlock the volume\n"
-               "     --wipe-slot=SLOT1,SLOT2,…\n"
-               "                       Wipe specified slots\n"
-               "\nSee the %s for details.\n",
+               "\nSee the %2$s for details.\n",
                program_invocation_short_name,
-               ansi_highlight(),
+               link,
+               ansi_underline(),
                ansi_normal(),
-               link);
+               ansi_highlight(),
+               ansi_normal());
 
         return 0;
 }
