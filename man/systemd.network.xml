@@ -2220,6 +2220,20 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>RapidCommit=</varname></term>
+        <listitem>
+          <para>Takes a boolean. The DHCPv4 client can obtain configuration parameters from a DHCPv4 server
+          through a rapid two-message exchange (discover and ack). When the rapid commit option is set by
+          both the DHCPv4 client and the DHCPv4 server, the two-message exchange is used. Otherwise, the
+          four-message exchange (discover, offer, request, and ack) is used. The two-message exchange
+          provides faster client configuration. See
+          <ulink url="https://tools.ietf.org/html/rfc4039">RFC 4039</ulink> for details.
+          Defaults to true.</para>
+
+          <xi:include href="version-info.xml" xpointer="v255"/>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
         <term><varname>Anonymize=</varname></term>
         <listitem>
           <para>Takes a boolean. When true, the options sent to the DHCP server will follow the
