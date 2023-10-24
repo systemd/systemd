@@ -1028,7 +1028,7 @@ finish:
 }
 
 static int mount_in_namespace(
-                PidRef *target,
+                const PidRef *target,
                 const char *propagate_path,
                 const char *incoming_path,
                 const char *src,
