@@ -145,12 +145,9 @@
 
       <varlistentry>
         <term><varname>HibernateMode=</varname></term>
-        <term><varname>HybridSleepMode=</varname></term>
 
-        <listitem><para>The string to be written to <filename>/sys/power/disk</filename> by, respectively,
-        <citerefentry><refentrytitle>systemd-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-        and
-        <citerefentry><refentrytitle>systemd-hybrid-sleep.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+        <listitem><para>The string to be written to <filename>/sys/power/disk</filename> by <citerefentry>
+        <refentrytitle>systemd-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
         More than one value can be specified by separating multiple values with whitespace. They will be
         tried in turn, until one is written without error. If none of the writes succeed, the operation will
         be aborted.</para>
@@ -160,8 +157,10 @@
         url="https://www.kernel.org/doc/html/latest/admin-guide/pm/sleep-states.html#basic-sysfs-interfaces-for-system-suspend-and-hibernation">the
         kernel documentation</ulink> for more details.</para>
 
-        <para>Note that hybrid sleep corresponds to the <literal>suspend</literal> disk mode. If <varname>HybridSleepMode=</varname>
-        is overridden, you might get plain hibernation instead.</para>
+        <para>
+        <citerefentry><refentrytitle>systemd-hybrid-sleep.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        uses the <literal>suspend</literal> disk mode. But if that's not supported, it will fall back to
+        modes specified in this option automatically, i.e. a plain hibernation is performed instead.</para>
 
         <para>
         <citerefentry><refentrytitle>systemd-suspend-then-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>

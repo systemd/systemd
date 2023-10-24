@@ -42,7 +42,7 @@ static char* const* const sleep_default_state_table[_SLEEP_OPERATION_CONFIG_MAX]
 static char* const* const sleep_default_mode_table[_SLEEP_OPERATION_CONFIG_MAX] = {
         /* Not used by SLEEP_SUSPEND */
         [SLEEP_HIBERNATE]    = STRV_MAKE("platform", "shutdown"),
-        [SLEEP_HYBRID_SLEEP] = STRV_MAKE("suspend", "platform", "shutdown"),
+        [SLEEP_HYBRID_SLEEP] = STRV_MAKE("suspend"),
 };
 
 SleepConfig* sleep_config_free(SleepConfig *sc) {
@@ -76,10 +76,6 @@ static void sleep_config_validate_state_and_mode(SleepConfig *sc) {
         if (strv_contains(sc->modes[SLEEP_HIBERNATE], "suspend"))
                 log_warning("Sleep mode 'suspend' should not be used by operation %s. Please use %s instead.",
                             sleep_operation_to_string(SLEEP_HIBERNATE), sleep_operation_to_string(SLEEP_HYBRID_SLEEP));
-
-        if (!strv_contains(sc->modes[SLEEP_HYBRID_SLEEP], "suspend"))
-                log_warning("Sleep mode 'suspend' is not set for operation %s. This would likely result in a plain hibernation.",
-                            sleep_operation_to_string(SLEEP_HYBRID_SLEEP));
 }
 
 int parse_sleep_config(SleepConfig **ret) {
@@ -97,22 +93,22 @@ int parse_sleep_config(SleepConfig **ret) {
         };
 
         const ConfigTableItem items[] = {
-                { "Sleep", "AllowSuspend",              config_parse_tristate,    0,               &allow_suspend                 },
-                { "Sleep", "AllowHibernation",          config_parse_tristate,    0,               &allow_hibernate               },
-                { "Sleep", "AllowSuspendThenHibernate", config_parse_tristate,    0,               &allow_s2h                     },
-                { "Sleep", "AllowHybridSleep",          config_parse_tristate,    0,               &allow_hybrid_sleep            },
+                { "Sleep", "AllowSuspend",              config_parse_tristate,    0,               &allow_suspend               },
+                { "Sleep", "AllowHibernation",          config_parse_tristate,    0,               &allow_hibernate             },
+                { "Sleep", "AllowSuspendThenHibernate", config_parse_tristate,    0,               &allow_s2h                   },
+                { "Sleep", "AllowHybridSleep",          config_parse_tristate,    0,               &allow_hybrid_sleep          },
 
-                { "Sleep", "SuspendState",              config_parse_strv,        0,               sc->states + SLEEP_SUSPEND     },
-                { "Sleep", "SuspendMode",               config_parse_warn_compat, DISABLED_LEGACY, NULL                           },
+                { "Sleep", "SuspendState",              config_parse_strv,        0,               sc->states + SLEEP_SUSPEND   },
+                { "Sleep", "SuspendMode",               config_parse_warn_compat, DISABLED_LEGACY, NULL                         },
 
-                { "Sleep", "HibernateState",            config_parse_warn_compat, DISABLED_LEGACY, NULL                           },
-                { "Sleep", "HibernateMode",             config_parse_strv,        0,               sc->modes + SLEEP_HIBERNATE    },
+                { "Sleep", "HibernateState",            config_parse_warn_compat, DISABLED_LEGACY, NULL                         },
+                { "Sleep", "HibernateMode",             config_parse_strv,        0,               sc->modes + SLEEP_HIBERNATE  },
 
-                { "Sleep", "HybridSleepState",          config_parse_warn_compat, DISABLED_LEGACY, NULL                           },
-                { "Sleep", "HybridSleepMode",           config_parse_strv,        0,               sc->modes + SLEEP_HYBRID_SLEEP },
+                { "Sleep", "HybridSleepState",          config_parse_warn_compat, DISABLED_LEGACY, NULL                         },
+                { "Sleep", "HybridSleepMode",           config_parse_warn_compat, DISABLED_LEGACY, NULL                         },
 
-                { "Sleep", "HibernateDelaySec",         config_parse_sec,         0,               &sc->hibernate_delay_usec      },
-                { "Sleep", "SuspendEstimationSec",      config_parse_sec,         0,               &sc->suspend_estimation_usec   },
+                { "Sleep", "HibernateDelaySec",         config_parse_sec,         0,               &sc->hibernate_delay_usec    },
+                { "Sleep", "SuspendEstimationSec",      config_parse_sec,         0,               &sc->suspend_estimation_usec },
                 {}
         };
 
@@ -141,6 +137,9 @@ int parse_sleep_config(SleepConfig **ret) {
                                 return log_oom();
                 }
         }
+
+        if (strv_extend_strv(&sc->modes[SLEEP_HYBRID_SLEEP], sc->modes[SLEEP_HIBERNATE], /* filter_duplicates = */ true) < 0)
+                return log_oom();
 
         if (sc->suspend_estimation_usec == 0)
                 sc->suspend_estimation_usec = DEFAULT_SUSPEND_ESTIMATION_USEC;
