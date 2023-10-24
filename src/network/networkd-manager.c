@@ -692,7 +692,7 @@ int manager_start(Manager *m) {
                 log_warning_errno(r, "Failed to update state file %s, ignoring: %m", m->state_file);
 
         HASHMAP_FOREACH(link, m->links_by_index) {
-                r = link_save(link);
+                r = link_save_and_clean(link);
                 if (r < 0)
                         log_link_warning_errno(link, r, "Failed to update link state file %s, ignoring: %m", link->state_file);
         }
