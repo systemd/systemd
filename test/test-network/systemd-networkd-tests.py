@@ -5237,7 +5237,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertIn('DHCPADVERTISE(veth-peer)', output)
         self.assertIn('DHCPREQUEST(veth-peer)', output)
         self.assertIn('DHCPREPLY(veth-peer)', output)
-        self.assertNotIn('rapid-commit', output)
+        self.assertNotIn('14:rapid-commit', output)
 
     def test_dhcp_client_ipv6_dbus_status(self):
         copy_network_unit('25-veth.netdev', '25-dhcp-server-veth-peer.network', '25-dhcp-client-ipv6-only.network')

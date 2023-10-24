@@ -1473,7 +1473,8 @@ static int dhcp4_configure(Link *link) {
         if (link->dhcp_client)
                 return log_link_debug_errno(link, SYNTHETIC_ERRNO(EBUSY), "DHCPv4 client is already configured.");
 
-        r = sd_dhcp_client_new(&link->dhcp_client, link->network->dhcp_anonymize);
+        r = sd_dhcp_client_new(&link->dhcp_client, link->network->dhcp_anonymize,
+                        link->network->dhcp_use_rapid_commit);
         if (r < 0)
                 return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to allocate DHCPv4 client: %m");
 

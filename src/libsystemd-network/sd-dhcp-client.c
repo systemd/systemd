@@ -94,6 +94,7 @@ struct sd_dhcp_client {
         bool request_broadcast;
         Set *req_opts;
         bool anonymize;
+        bool rapid_commit;
         be32_t last_addr;
         struct hw_addr_data hw_addr;
         struct hw_addr_data bcast_addr;
@@ -1131,6 +1132,13 @@ static int client_send_discover(sd_dhcp_client *client) {
                         return r;
         }
 
+        if (!client->anonymize && client->rapid_commit) {
+                r = dhcp_option_append(&discover->dhcp, optlen, &optoffset, 0,
+                                SD_DHCP_OPTION_RAPID_COMMIT, 0, NULL);
+                if (r < 0)
+                        return r;
+        }
+
         r = client_append_common_discover_request_options(client, discover, &optoffset, optlen);
         if (r < 0)
                 return r;
@@ -1583,9 +1591,12 @@ static int client_parse_message(
 
         switch (client->state) {
         case DHCP_STATE_SELECTING:
-                if (r != DHCP_OFFER)
+                if (r == DHCP_ACK && (!client->rapid_commit || !lease->rapid_commit))
                         return log_dhcp_client_errno(client, SYNTHETIC_ERRNO(ENOMSG),
-                                                     "received message was not an OFFER, ignoring.");
+                                                     "received rapid ACK without rapid commit option, ignoring.");
+                if (!IN_SET(r, DHCP_OFFER, DHCP_ACK))
+                        return log_dhcp_client_errno(client, SYNTHETIC_ERRNO(ENOMSG),
+                                                     "received message was not an OFFER or rapid ACK, ignoring.");
 
                 if (lease->lifetime == 0 && client->fallback_lease_lifetime > 0)
                         lease->lifetime = client->fallback_lease_lifetime;
@@ -1641,7 +1652,7 @@ static int client_parse_message(
         return 0;
 }
 
-static int client_handle_offer(sd_dhcp_client *client, DHCPMessage *message, size_t len) {
+static int client_handle_offer_or_rapid_ack(sd_dhcp_client *client, DHCPMessage *message, size_t len) {
         _cleanup_(sd_dhcp_lease_unrefp) sd_dhcp_lease *lease = NULL;
         int r;
 
@@ -1653,6 +1664,11 @@ static int client_handle_offer(sd_dhcp_client *client, DHCPMessage *message, siz
                 return r;
 
         dhcp_lease_unref_and_replace(client->lease, lease);
+
+        if (client->lease->rapid_commit) {
+                log_dhcp_client(client, "ACK");
+                return SD_DHCP_CLIENT_EVENT_IP_ACQUIRE;
+        }
 
         if (client_notify(client, SD_DHCP_CLIENT_EVENT_SELECTING) < 0)
                 return -ENOMSG;
@@ -1961,6 +1977,27 @@ static int client_enter_bound(sd_dhcp_client *client, int notify_event) {
         return client_enter_bound_now(client, notify_event);
 }
 
+static int client_restart(sd_dhcp_client *client) {
+        int r;
+        assert(client);
+
+        client_notify(client, SD_DHCP_CLIENT_EVENT_EXPIRED);
+
+        r = client_initialize(client);
+        if (r < 0)
+                return r;
+
+        r = client_start_delayed(client);
+        if (r < 0)
+                return r;
+
+        log_dhcp_client(client, "REBOOT in %s", FORMAT_TIMESPAN(client->start_delay, USEC_PER_SEC));
+
+        client->start_delay = CLAMP(client->start_delay * 2,
+                                    RESTART_AFTER_NAK_MIN_USEC, RESTART_AFTER_NAK_MAX_USEC);
+        return 0;
+}
+
 static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message, int len) {
         DHCP_CLIENT_DONT_DESTROY(client);
         int r;
@@ -1972,13 +2009,24 @@ static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message, i
         switch (client->state) {
         case DHCP_STATE_SELECTING:
 
-                r = client_handle_offer(client, message, len);
+                r = client_handle_offer_or_rapid_ack(client, message, len);
                 if (ERRNO_IS_NEG_RESOURCE(r))
                         goto error;
+
+                if (r == -EADDRNOTAVAIL) {
+                        /* got a rapid NAK, let's restart the client */
+                        r = client_restart(client);
+                        if (r < 0)
+                                goto error;
+                }
                 if (r < 0)
                         return 0; /* invalid message, let's ignore it */
 
-                r = client_enter_requesting(client);
+                if (client->lease->rapid_commit)
+                        /* got a succssful rapid commit */
+                        r = client_enter_bound(client, r);
+                else
+                        r = client_enter_requesting(client);
                 break;
 
         case DHCP_STATE_REBOOTING:
@@ -1991,20 +2039,10 @@ static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message, i
                         goto error;
                 if (r == -EADDRNOTAVAIL) {
                         /* got a NAK, let's restart the client */
-                        client_notify(client, SD_DHCP_CLIENT_EVENT_EXPIRED);
-
-                        r = client_initialize(client);
+                        r = client_restart(client);
                         if (r < 0)
                                 goto error;
 
-                        r = client_start_delayed(client);
-                        if (r < 0)
-                                goto error;
-
-                        log_dhcp_client(client, "REBOOT in %s", FORMAT_TIMESPAN(client->start_delay, USEC_PER_SEC));
-
-                        client->start_delay = CLAMP(client->start_delay * 2,
-                                                    RESTART_AFTER_NAK_MIN_USEC, RESTART_AFTER_NAK_MAX_USEC);
                         return 0;
                 }
                 if (r < 0)
@@ -2434,7 +2472,7 @@ static sd_dhcp_client *dhcp_client_free(sd_dhcp_client *client) {
 
 DEFINE_TRIVIAL_REF_UNREF_FUNC(sd_dhcp_client, sd_dhcp_client, dhcp_client_free);
 
-int sd_dhcp_client_new(sd_dhcp_client **ret, int anonymize) {
+int sd_dhcp_client_new(sd_dhcp_client **ret, int anonymize, bool rapid_commit) {
         const uint8_t *opts;
         size_t n_opts;
         int r;
@@ -2455,6 +2493,7 @@ int sd_dhcp_client_new(sd_dhcp_client **ret, int anonymize) {
                 .anonymize = !!anonymize,
                 .max_attempts = UINT64_MAX,
                 .ip_service_type = -1,
+                .rapid_commit = rapid_commit,
         };
         /* NOTE: this could be moved to a function. */
         if (anonymize) {
