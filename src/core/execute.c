@@ -108,22 +108,24 @@ int exec_context_tty_size(const ExecContext *context, unsigned *ret_rows, unsign
 
 void exec_context_tty_reset(const ExecContext *context, const ExecParameters *p) {
         _cleanup_close_ int _fd = -EBADF, lock_fd = -EBADF;
-        const char *path = exec_context_tty_path(ASSERT_PTR(context));
         int fd;
+
+        assert(context);
+
+        const char *path = exec_context_tty_path(context);
 
         if (p && p->stdin_fd >= 0)
                 fd = p->stdin_fd;
         else if (path) {
                 fd = _fd = open_terminal(path, O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
                 if (fd < 0)
-                        return;
+                        return (void) log_debug_errno(fd, "Failed to open terminal '%s', ignoring: %m", path);
         } else
                 return;   /* nothing to do */
 
         /* Take a synchronization lock for the duration of the setup that we do here.
-         * systemd-vconsole-setup.service also takes the lock to avoid being interrupted.
-         * We open a new fd that will be closed automatically, and operate on it for convenience.
-         */
+         * systemd-vconsole-setup.service also takes the lock to avoid being interrupted. We open a new fd
+         * that will be closed automatically, and operate on it for convenience. */
         lock_fd = lock_dev_console();
         if (lock_fd < 0)
                 return (void) log_debug_errno(lock_fd,
