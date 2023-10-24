@@ -1236,7 +1236,9 @@ static int tpm2_get_or_create_srk(
                 return 0;
 
         /* No SRK, create and persist one */
-        TPM2B_PUBLIC template = { .size = sizeof(TPMT_PUBLIC), };
+        TPM2B_PUBLIC template = {
+                .size = sizeof(TPMT_PUBLIC),
+        };
         r = tpm2_get_best_srk_template(c, &template.publicArea);
         if (r < 0)
                 return log_error_errno(r, "Could not get best SRK template: %m");
@@ -2746,7 +2748,9 @@ int tpm2_digest_many(
         if (extend)
                 sha256_process_bytes(digest->buffer, digest->size, &ctx);
         else {
-                *digest = (TPM2B_DIGEST){ .size = SHA256_DIGEST_SIZE, };
+                *digest = (TPM2B_DIGEST) {
+                        .size = SHA256_DIGEST_SIZE,
+                };
                 if (n_data == 0) /* If not extending and no data, return zero hash */
                         return 0;
         }
@@ -4046,7 +4050,9 @@ int tpm2_unseal(const char *device,
                         return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                                "Failed to deserialize primary key: %s", sym_Tss2_RC_Decode(rc));
         } else if (primary_alg != 0) {
-                TPM2B_PUBLIC template = { .size = sizeof(TPMT_PUBLIC), };
+                TPM2B_PUBLIC template = {
+                        .size = sizeof(TPMT_PUBLIC),
+                };
                 r = tpm2_get_legacy_template(primary_alg, &template.publicArea);
                 if (r < 0)
                         return log_error_errno(r, "Could not get legacy template: %m");
