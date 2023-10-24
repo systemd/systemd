@@ -2609,16 +2609,35 @@ static int validate_signature_userspace(const VeritySettings *verity) {
 }
 
 static int do_crypt_activate_verity(
-                struct crypt_device *cd,
+                DissectedPartition *m,
+                DissectedPartition *v,
                 const char *name,
-                const VeritySettings *verity) {
+                const VeritySettings *verity,
+                struct crypt_device **ret_cd) {
 
+        _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
         bool check_signature;
         int r, k;
 
-        assert(cd);
+        assert(m);
+        assert(v);
         assert(name);
         assert(verity);
+        assert(ret_cd);
+
+        r = sym_crypt_init(&cd, verity->data_path ?: v->node);
+        if (r < 0)
+                return r;
+
+        cryptsetup_enable_logging(cd);
+
+        r = sym_crypt_load(cd, CRYPT_VERITY, NULL);
+        if (r < 0)
+                return r;
+
+        r = sym_crypt_set_data_device(cd, m->node);
+        if (r < 0)
+                return r;
 
         if (verity->root_hash_sig) {
                 r = getenv_bool_secure("SYSTEMD_DISSECT_VERITY_SIGNATURE");
@@ -2641,8 +2660,10 @@ static int do_crypt_activate_verity(
                                 verity->root_hash_sig,
                                 verity->root_hash_sig_size,
                                 CRYPT_ACTIVATE_READONLY);
-                if (r >= 0)
-                        return r;
+                if (r >= 0) {
+                        *ret_cd = TAKE_PTR(cd);
+                        return 0;
+                }
 
                 log_debug_errno(r, "Validation of dm-verity signature failed via the kernel, trying userspace validation instead: %m");
 #else
@@ -2664,12 +2685,17 @@ static int do_crypt_activate_verity(
                                                "Activation of signed Verity volume worked neither via the kernel nor in userspace, can't activate.");
         }
 
-        return sym_crypt_activate_by_volume_key(
+        r = sym_crypt_activate_by_volume_key(
                         cd,
                         name,
                         verity->root_hash,
                         verity->root_hash_size,
                         CRYPT_ACTIVATE_READONLY);
+        if (r < 0)
+                return r;
+
+        *ret_cd = TAKE_PTR(cd);
+        return 0;
 }
 
 static usec_t verity_timeout(void) {
@@ -2702,7 +2728,7 @@ static int verity_partition(
                 DissectImageFlags flags,
                 DecryptedImage *d) {
 
-        _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
+        _cleanup_(sym_crypt_freep) struct crypt_device *crypt_device = NULL;
         _cleanup_(dm_deferred_remove_cleanp) char *restore_deferred_remove = NULL;
         _cleanup_free_ char *node = NULL, *name = NULL;
         _cleanup_close_ int mount_node_fd = -EBADF;
@@ -2745,20 +2771,6 @@ static int verity_partition(
         if (r < 0)
                 return r;
 
-        r = sym_crypt_init(&cd, verity->data_path ?: v->node);
-        if (r < 0)
-                return r;
-
-        cryptsetup_enable_logging(cd);
-
-        r = sym_crypt_load(cd, CRYPT_VERITY, NULL);
-        if (r < 0)
-                return r;
-
-        r = sym_crypt_set_data_device(cd, m->node);
-        if (r < 0)
-                return r;
-
         if (!GREEDY_REALLOC0(d->decrypted, d->n_decrypted + 1))
                 return -ENOMEM;
 
@@ -2766,7 +2778,7 @@ static int verity_partition(
          * In case of ENODEV/ENOENT, which can happen if another process is activating at the exact same time,
          * retry a few times before giving up. */
         for (unsigned i = 0; i < N_DEVICE_NODE_LIST_ATTEMPTS; i++) {
-                _cleanup_(sym_crypt_freep) struct crypt_device *existing_cd = NULL;
+                _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
                 _cleanup_close_ int fd = -EBADF;
 
                 /* First, check if the device already exists. */
@@ -2777,9 +2789,10 @@ static int verity_partition(
                         goto check; /* The device already exists. Let's check it. */
 
                 /* The symlink to the device node does not exist yet. Assume not activated, and let's activate it. */
-                r = do_crypt_activate_verity(cd, name, verity);
+                r = do_crypt_activate_verity(m, v, name, verity, &cd);
                 if (r >= 0)
                         goto try_open; /* The device is activated. Let's open it. */
+                log_debug_errno(r, "do_crypt_activate_verity(%s): %m", name);
                 /* libdevmapper can return EINVAL when the device is already in the activation stage.
                  * There's no way to distinguish this situation from a genuine error due to invalid
                  * parameters, so immediately fall back to activating the device with a unique name.
@@ -2795,7 +2808,7 @@ static int verity_partition(
                         return log_debug_errno(r, "Failed to activate verity device %s: %m", node);
 
         check:
-                if (!restore_deferred_remove){
+                if (!restore_deferred_remove) {
                         /* To avoid races, disable automatic removal on umount while setting up the new device. Restore it on failure. */
                         r = dm_deferred_remove_cancel(name);
                         /* -EBUSY and -ENXIO: the device has already been removed or being removed. We cannot
@@ -2811,7 +2824,9 @@ static int verity_partition(
                                 return log_oom_debug();
                 }
 
-                r = verity_can_reuse(verity, name, &existing_cd);
+                r = verity_can_reuse(verity, name, &cd);
+                if (r < 0)
+                        log_debug_errno(r, "verity_can_reuse(%s): %m", name);
                 /* Same as above, -EINVAL can randomly happen when it actually means -EEXIST */
                 if (r == -EINVAL && FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE))
                         break;
@@ -2847,10 +2862,8 @@ static int verity_partition(
                         }
                 }
 
+                crypt_device = TAKE_PTR(cd);
                 mount_node_fd = TAKE_FD(fd);
-                if (existing_cd)
-                        crypt_free_and_replace(cd, existing_cd);
-
                 goto success;
 
         try_again:
@@ -2859,17 +2872,8 @@ static int verity_partition(
         }
 
         /* All trials failed or a conflicting verity device exists. Let's try to activate with a unique name. */
-        if (FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE)) {
-                /* Before trying to activate with unique name, we need to free crypt_device object.
-                 * Otherwise, we get error from libcryptsetup like the following:
-                 * ------
-                 * systemd[1234]: Cannot use device /dev/loop5 which is in use (already mapped or mounted).
-                 * ------
-                 */
-                sym_crypt_free(cd);
-                cd = NULL;
+        if (FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE))
                 return verity_partition(designator, m, v, verity, flags & ~DISSECT_IMAGE_VERITY_SHARE, d);
-        }
 
         return log_debug_errno(SYNTHETIC_ERRNO(EBUSY), "All attempts to activate verity device %s failed.", name);
 
@@ -2879,7 +2883,7 @@ success:
 
         d->decrypted[d->n_decrypted++] = (DecryptedPartition) {
                 .name = TAKE_PTR(name),
-                .device = TAKE_PTR(cd),
+                .device = TAKE_PTR(crypt_device),
         };
 
         m->decrypted_node = TAKE_PTR(node);
