@@ -139,7 +139,8 @@ int enroll_tpm2(struct crypt_device *cd,
                 const char *pubkey_path,
                 uint32_t pubkey_pcr_mask,
                 const char *signature_path,
-                bool use_pin) {
+                bool use_pin,
+                const char *pcrlock_path) {
 
         _cleanup_(erase_and_freep) void *secret = NULL;
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *signature_json = NULL;
@@ -207,6 +208,15 @@ int enroll_tpm2(struct crypt_device *cd,
                         return log_debug_errno(r, "Failed to read TPM PCR signature: %m");
         }
 
+        _cleanup_(tpm2_pcrlock_policy_done) Tpm2PCRLockPolicy pcrlock_policy = {};
+        if (pcrlock_path) {
+                r = tpm2_pcrlock_policy_load(pcrlock_path, &pcrlock_policy);
+                if (r < 0)
+                        return r;
+
+                flags |= TPM2_FLAGS_USE_PCRLOCK;
+        }
+
         _cleanup_(tpm2_context_unrefp) Tpm2Context *tpm2_context = NULL;
         r = tpm2_context_new(device, &tpm2_context);
         if (r < 0)
@@ -248,7 +258,7 @@ int enroll_tpm2(struct crypt_device *cd,
                         n_hash_pcr_values,
                         pubkey ? &public : NULL,
                         use_pin,
-                        /* pcrlock_policy= */ NULL,
+                        pcrlock_path ? &pcrlock_policy : NULL,
                         &policy);
         if (r < 0)
                 return r;
@@ -289,7 +299,7 @@ int enroll_tpm2(struct crypt_device *cd,
                                 pubkey_pcr_mask,
                                 signature_json,
                                 pin_str,
-                                /* pcrlock_policy= */ NULL,
+                                pcrlock_path ? &pcrlock_policy : NULL,
                                 /* primary_alg= */ 0,
                                 blob, blob_size,
                                 policy.buffer, policy.size,
