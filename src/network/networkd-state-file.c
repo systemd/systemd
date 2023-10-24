@@ -567,7 +567,7 @@ static void link_save_domains(Link *link, FILE *f, OrderedSet *static_domains, D
         }
 }
 
-int link_save(Link *link) {
+static int link_save(Link *link) {
         const char *admin_state, *oper_state, *carrier_state, *address_state, *ipv4_address_state, *ipv6_address_state,
                 *captive_portal;
         _cleanup_(unlink_and_freep) char *temp_path = NULL;
@@ -845,13 +845,19 @@ void link_clean(Link *link) {
         link_unref(set_remove(link->manager->dirty_links, link));
 }
 
-int link_save_and_clean(Link *link) {
-        int r;
+int link_save_and_clean_full(Link *link, bool also_save_manager) {
+        int r, k = 0;
+
+        assert(link);
+        assert(link->manager);
+
+        if (also_save_manager)
+                k = manager_save(link->manager);
 
         r = link_save(link);
         if (r < 0)
                 return r;
 
         link_clean(link);
-        return 0;
+        return k;
 }
