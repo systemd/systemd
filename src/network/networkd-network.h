@@ -138,6 +138,7 @@ struct Network {
         bool dhcp_socket_priority_set;
         bool dhcp_anonymize;
         bool dhcp_send_hostname;
+        bool dhcp_send_hostname_set;
         int dhcp_broadcast;
         int dhcp_ipv6_only_mode;
         bool dhcp_use_rapid_commit;
@@ -173,6 +174,8 @@ struct Network {
         /* DHCPv6 Client support */
         bool dhcp6_use_address;
         bool dhcp6_use_pd_prefix;
+        bool dhcp6_send_hostname;
+        bool dhcp6_send_hostname_set;
         bool dhcp6_use_dns;
         bool dhcp6_use_dns_set;
         bool dhcp6_use_hostname;
@@ -188,6 +191,7 @@ struct Network {
         DUID dhcp6_duid;
         uint8_t dhcp6_pd_prefix_length;
         struct in6_addr dhcp6_pd_prefix_hint;
+        char *dhcp6_hostname;
         char *dhcp6_mudurl;
         char **dhcp6_user_class;
         char **dhcp6_vendor_class;
