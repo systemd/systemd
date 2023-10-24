@@ -5,19 +5,10 @@ set -e
 TEST_DESCRIPTION="Test Soft-Rebooting"
 # We temporarily remount rootfs read-only, so ignore any missing coverage
 IGNORE_MISSING_COVERAGE=yes
+# Prevent shutdown in test suite, the expect script does that manually.
+TEST_SKIP_SHUTDOWN=yes
 
 # shellcheck source=test/test-functions
 . "$TEST_BASE_DIR/test-functions"
-
-test_append_files() {
-    local workspace="${1:?}"
-    # prevent shutdown in test suite, the expect script does that manually.
-    mkdir -p "${workspace:?}/etc/systemd/system/end.service.d"
-    cat >"$workspace/etc/systemd/system/end.service.d/99-override.conf" <<EOF
-[Service]
-ExecStart=
-ExecStart=/bin/true
-EOF
-}
 
 do_test "$@"

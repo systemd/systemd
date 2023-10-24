@@ -561,13 +561,13 @@ run_qemu() {
         "systemd.unit=testsuite.target"
         "systemd.wants=testsuite-$1.service"
         "noresume"
+        "oops=panic"
         ${TEST_MATCH_SUBTEST:+"systemd.setenv=TEST_MATCH_SUBTEST=$TEST_MATCH_SUBTEST"}
         ${TEST_MATCH_TESTCASE:+"systemd.setenv=TEST_MATCH_TESTCASE=$TEST_MATCH_TESTCASE"}
     )
 
-    if ! get_bool "$INTERACTIVE_DEBUG"; then
+    if ! get_bool "$INTERACTIVE_DEBUG" && ! get_bool "$TEST_SKIP_SHUTDOWN"; then
         kernel_params+=(
-            "oops=panic"
             "panic=1"
             "systemd.wants=end.service"
         )
@@ -666,7 +666,7 @@ run_nspawn() {
 
     if get_bool "$INTERACTIVE_DEBUG"; then
         nspawn_options+=("--console=interactive")
-    else
+    elif ! get_bool "$TEST_SKIP_SHUTDOWN"; then
         kernel_params+=("systemd.wants=end.service")
     fi
 
