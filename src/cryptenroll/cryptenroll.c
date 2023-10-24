@@ -43,6 +43,7 @@ static bool arg_tpm2_pin = false;
 static char *arg_tpm2_public_key = NULL;
 static uint32_t arg_tpm2_public_key_pcr_mask = 0;
 static char *arg_tpm2_signature = NULL;
+static char *arg_tpm2_pcrlock = NULL;
 static char *arg_node = NULL;
 static int *arg_wipe_slots = NULL;
 static size_t arg_n_wipe_slots = 0;
@@ -65,6 +66,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_tpm2_device, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_hash_pcr_values, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_public_key, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_signature, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_tpm2_pcrlock, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_node, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_wipe_slots, freep);
 
@@ -144,6 +146,8 @@ static int help(void) {
                "     --tpm2-signature=PATH\n"
                "                       Validate public key enrollment works with JSON signature\n"
                "                       file\n"
+               "     --tpm2-pcrlock=PATH\n"
+               "                       Specify pcrlock policy to lock against\n"
                "     --tpm2-with-pin=BOOL\n"
                "                       Whether to require entering a PIN to unlock the volume\n"
                "\nSee the %2$s for details.\n",
@@ -173,6 +177,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_TPM2_PUBLIC_KEY_PCRS,
                 ARG_TPM2_SIGNATURE,
                 ARG_TPM2_PIN,
+                ARG_TPM2_PCRLOCK,
                 ARG_WIPE_SLOT,
                 ARG_FIDO2_WITH_PIN,
                 ARG_FIDO2_WITH_UP,
@@ -200,11 +205,12 @@ static int parse_argv(int argc, char *argv[]) {
                 { "tpm2-public-key-pcrs",         required_argument, NULL, ARG_TPM2_PUBLIC_KEY_PCRS  },
                 { "tpm2-signature",               required_argument, NULL, ARG_TPM2_SIGNATURE        },
                 { "tpm2-with-pin",                required_argument, NULL, ARG_TPM2_PIN              },
+                { "tpm2-pcrlock",                 required_argument, NULL, ARG_TPM2_PCRLOCK          },
                 { "wipe-slot",                    required_argument, NULL, ARG_WIPE_SLOT             },
                 {}
         };
 
-        bool auto_hash_pcr_values = true, auto_public_key_pcr_mask = true;
+        bool auto_hash_pcr_values = true, auto_public_key_pcr_mask = true, auto_pcrlock = true;
         int c, r;
 
         assert(argc >= 0);
@@ -412,6 +418,14 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
+                case ARG_TPM2_PCRLOCK:
+                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_tpm2_pcrlock);
+                        if (r < 0)
+                                return r;
+
+                        auto_pcrlock = false;
+                        break;
+
                 case ARG_WIPE_SLOT: {
                         const char *p = optarg;
 
@@ -500,12 +514,23 @@ static int parse_argv(int argc, char *argv[]) {
                 }
         }
 
+        if (auto_pcrlock) {
+                assert(!arg_tpm2_pcrlock);
+
+                r = tpm2_pcrlock_search_file(NULL, NULL, &arg_tpm2_pcrlock);
+                if (r < 0) {
+                        if (r != -ENOENT)
+                                log_warning_errno(r, "Search for pcrlock.json failed, assuming it does not exist: %m");
+                } else
+                        log_info("Automatically using pcrlock policy '%s'.", arg_tpm2_pcrlock);
+        }
+
         if (auto_public_key_pcr_mask && arg_tpm2_public_key) {
                 assert(arg_tpm2_public_key_pcr_mask == 0);
                 arg_tpm2_public_key_pcr_mask = INDEX_TO_MASK(uint32_t, TPM2_PCR_KERNEL_BOOT);
         }
 
-        if (auto_hash_pcr_values) {
+        if (auto_hash_pcr_values && !arg_tpm2_pcrlock) { /* Only lock to PCR 7 by default if no pcrlock policy is around (which is a better replacement) */
                 assert(arg_tpm2_n_hash_pcr_values == 0);
 
                 if (!GREEDY_REALLOC_APPEND(
@@ -690,7 +715,7 @@ static int run(int argc, char *argv[]) {
                 break;
 
         case ENROLL_TPM2:
-                slot = enroll_tpm2(cd, vk, vks, arg_tpm2_device, arg_tpm2_seal_key_handle, arg_tpm2_hash_pcr_values, arg_tpm2_n_hash_pcr_values, arg_tpm2_public_key, arg_tpm2_public_key_pcr_mask, arg_tpm2_signature, arg_tpm2_pin);
+                slot = enroll_tpm2(cd, vk, vks, arg_tpm2_device, arg_tpm2_seal_key_handle, arg_tpm2_hash_pcr_values, arg_tpm2_n_hash_pcr_values, arg_tpm2_public_key, arg_tpm2_public_key_pcr_mask, arg_tpm2_signature, arg_tpm2_pin, arg_tpm2_pcrlock);
                 break;
 
         case _ENROLL_TYPE_INVALID:
