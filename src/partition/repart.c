@@ -150,10 +150,8 @@ static X509 *arg_certificate = NULL;
 static char *arg_tpm2_device = NULL;
 static Tpm2PCRValue *arg_tpm2_hash_pcr_values = NULL;
 static size_t arg_tpm2_n_hash_pcr_values = 0;
-static bool arg_tpm2_hash_pcr_values_use_default = true;
 static char *arg_tpm2_public_key = NULL;
 static uint32_t arg_tpm2_public_key_pcr_mask = 0;
-static bool arg_tpm2_public_key_pcr_mask_use_default = true;
 static bool arg_split = false;
 static GptPartitionType *arg_filter_partitions = NULL;
 static size_t arg_n_filter_partitions = 0;
@@ -6487,6 +6485,7 @@ static int parse_argv(int argc, char *argv[]) {
                 {}
         };
 
+        bool auto_hash_pcr_values = true, auto_public_key_pcr_mask = true;
         int c, r;
 
         assert(argc >= 0);
@@ -6707,7 +6706,7 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
                 case ARG_TPM2_PCRS:
-                        arg_tpm2_hash_pcr_values_use_default = false;
+                        auto_hash_pcr_values = false;
                         r = tpm2_parse_pcr_argument_append(optarg, &arg_tpm2_hash_pcr_values, &arg_tpm2_n_hash_pcr_values);
                         if (r < 0)
                                 return r;
@@ -6722,7 +6721,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_TPM2_PUBLIC_KEY_PCRS:
-                        arg_tpm2_public_key_pcr_mask_use_default = false;
+                        auto_public_key_pcr_mask = false;
                         r = tpm2_parse_pcr_argument_to_mask(optarg, &arg_tpm2_public_key_pcr_mask);
                         if (r < 0)
                                 return r;
@@ -6936,15 +6935,21 @@ static int parse_argv(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "A path to an image file must be specified when --split is used.");
 
-        if (arg_tpm2_public_key_pcr_mask_use_default && arg_tpm2_public_key)
+        if (auto_public_key_pcr_mask && arg_tpm2_public_key) {
+                assert(arg_tpm2_public_key_pcr_mask == 0);
                 arg_tpm2_public_key_pcr_mask = INDEX_TO_MASK(uint32_t, TPM2_PCR_KERNEL_BOOT);
+        }
 
-        if (arg_tpm2_hash_pcr_values_use_default && !GREEDY_REALLOC_APPEND(
-                        arg_tpm2_hash_pcr_values,
-                        arg_tpm2_n_hash_pcr_values,
-                        &TPM2_PCR_VALUE_MAKE(TPM2_PCR_INDEX_DEFAULT, /* hash= */ 0, /* value= */ {}),
-                        1))
-                return log_oom();
+        if (auto_hash_pcr_values) {
+                assert(arg_tpm2_n_hash_pcr_values == 0);
+
+                if (!GREEDY_REALLOC_APPEND(
+                                    arg_tpm2_hash_pcr_values,
+                                    arg_tpm2_n_hash_pcr_values,
+                                    &TPM2_PCR_VALUE_MAKE(TPM2_PCR_INDEX_DEFAULT, /* hash= */ 0, /* value= */ {}),
+                                    1))
+                        return log_oom();
+        }
 
         if (arg_pretty < 0 && isatty(STDOUT_FILENO))
                 arg_pretty = true;
