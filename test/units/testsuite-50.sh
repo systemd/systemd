@@ -316,6 +316,7 @@ grep -F "squashfs" "${image_dir}/result/b" | grep -q -F "noatime"
 busctl get-property org.freedesktop.systemd1 /org/freedesktop/systemd1/unit/testservice_2d50b_2eservice org.freedesktop.systemd1.Service RootImageOptions | grep -F "nosuid,dev,%foo"
 
 # Now do some checks with MountImages, both by itself, with options and in combination with RootImage, and as single FS or GPT image
+for _ in {0..20}; do
 systemd-run -P -p MountImages="${image}.gpt:/run/img1 ${image}.raw:/run/img2" cat /run/img1/usr/lib/os-release | grep -q -F "MARKER=1"
 systemd-run -P -p MountImages="${image}.gpt:/run/img1 ${image}.raw:/run/img2" cat /run/img2/usr/lib/os-release | grep -q -F "MARKER=1"
 systemd-run -P -p MountImages="${image}.gpt:/run/img1 ${image}.raw:/run/img2:nosuid,dev" mount | grep -F "squashfs" | grep -q -F "nosuid"
@@ -325,6 +326,7 @@ systemd-run -P -p MountImages="${image}.raw:/run/img2\:3:nosuid" mount | grep -F
 systemd-run -P -p TemporaryFileSystem=/run -p RootImage="${image}.raw" -p MountImages="${image}.gpt:/run/img1 ${image}.raw:/run/img2" cat /usr/lib/os-release | grep -q -F "MARKER=1"
 systemd-run -P -p TemporaryFileSystem=/run -p RootImage="${image}.raw" -p MountImages="${image}.gpt:/run/img1 ${image}.raw:/run/img2" cat /run/img1/usr/lib/os-release | grep -q -F "MARKER=1"
 systemd-run -P -p TemporaryFileSystem=/run -p RootImage="${image}.gpt" -p RootHash="${roothash}" -p MountImages="${image}.gpt:/run/img1 ${image}.raw:/run/img2" cat /run/img2/usr/lib/os-release | grep -q -F "MARKER=1"
+done
 cat >/run/systemd/system/testservice-50c.service <<EOF
 [Service]
 MountAPIVFS=yes
