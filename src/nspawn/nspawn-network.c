@@ -236,7 +236,8 @@ static int shorten_ifname(char *ifname) {
 int setup_veth(const char *machine_name,
                pid_t pid,
                char iface_name[IFNAMSIZ],
-               bool bridge) {
+               bool bridge,
+               struct ether_addr *provided_mac) {
 
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         struct ether_addr mac_host, mac_container;
@@ -255,9 +256,12 @@ int setup_veth(const char *machine_name,
         if (r > 0)
                 a = strjoina(bridge ? "vb-" : "ve-", machine_name);
 
-        r = generate_mac(machine_name, &mac_container, CONTAINER_HASH_KEY, 0);
-        if (r < 0)
-                return log_error_errno(r, "Failed to generate predictable MAC address for container side: %m");
+        if (ether_addr_is_null(provided_mac)){
+                r = generate_mac(machine_name, &mac_container, CONTAINER_HASH_KEY, 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to generate predictable MAC address for container side: %m");
+        } else
+                mac_container = *provided_mac;
 
         r = generate_mac(machine_name, &mac_host, HOST_HASH_KEY, 0);
         if (r < 0)
