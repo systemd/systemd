@@ -231,11 +231,23 @@ cryptsetup_start_and_check empty_nokey
 if [[ -r /etc/softhsm2.conf ]]; then
     # Test unlocking with a PKCS#11 token
     export SOFTHSM2_CONF="/etc/softhsm2.conf"
+
     PIN="1234" systemd-cryptenroll --pkcs11-token-uri="pkcs11:token=TestToken;object=RSATestKey" --unlock-key-file="$IMAGE_EMPTY_KEYFILE" "$IMAGE_EMPTY"
     cryptsetup_start_and_check empty_pkcs11_auto
     cryptsetup luksKillSlot -q "$IMAGE_EMPTY" 2
     cryptsetup token remove --token-id 0 "$IMAGE_EMPTY"
+
+    PIN="1234" systemd-cryptenroll --pkcs11-token-uri="pkcs11:token=TestToken;object=RSATestKey;type=cert" --unlock-key-file="$IMAGE_EMPTY_KEYFILE" "$IMAGE_EMPTY"
+    cryptsetup_start_and_check empty_pkcs11_auto
+    cryptsetup luksKillSlot -q "$IMAGE_EMPTY" 2
+    cryptsetup token remove --token-id 0 "$IMAGE_EMPTY"
+
     PIN="1234" systemd-cryptenroll --pkcs11-token-uri="pkcs11:token=TestToken;object=ECTestKey" --unlock-key-file="$IMAGE_EMPTY_KEYFILE" "$IMAGE_EMPTY"
+    cryptsetup_start_and_check empty_pkcs11_auto
+    cryptsetup luksKillSlot -q "$IMAGE_EMPTY" 2
+    cryptsetup token remove --token-id 0 "$IMAGE_EMPTY"
+
+    PIN="1234" systemd-cryptenroll --pkcs11-token-uri="pkcs11:token=TestToken;object=ECTestKey;type=cert" --unlock-key-file="$IMAGE_EMPTY_KEYFILE" "$IMAGE_EMPTY"
     cryptsetup_start_and_check empty_pkcs11_auto
     cryptsetup luksKillSlot -q "$IMAGE_EMPTY" 2
     cryptsetup token remove --token-id 0 "$IMAGE_EMPTY"
