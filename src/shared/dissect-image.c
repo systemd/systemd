@@ -2792,6 +2792,7 @@ static int verity_partition(
                 r = do_crypt_activate_verity(m, v, name, verity, &cd);
                 if (r >= 0)
                         goto try_open; /* The device is activated. Let's open it. */
+                log_debug_errno(r, "do_crypt_activate_verity(%s): %m", name);
                 /* libdevmapper can return EINVAL when the device is already in the activation stage.
                  * There's no way to distinguish this situation from a genuine error due to invalid
                  * parameters, so immediately fall back to activating the device with a unique name.
@@ -2824,6 +2825,8 @@ static int verity_partition(
                 }
 
                 r = verity_can_reuse(verity, name, &cd);
+                if (r < 0)
+                        log_debug_errno(r, "verity_can_reuse(%s): %m", name);
                 /* Same as above, -EINVAL can randomly happen when it actually means -EEXIST */
                 if (r == -EINVAL && FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE))
                         break;
