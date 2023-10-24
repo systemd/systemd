@@ -187,6 +187,8 @@ struct Network {
         DUID dhcp6_duid;
         uint8_t dhcp6_pd_prefix_length;
         struct in6_addr dhcp6_pd_prefix_hint;
+        bool dhcp6_send_hostname;
+        char *dhcp6_hostname;
         char *dhcp6_mudurl;
         char **dhcp6_user_class;
         char **dhcp6_vendor_class;

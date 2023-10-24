@@ -2814,6 +2814,30 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
         </listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>SendHostname=</varname></term>
+        <listitem>
+          <para>When true (the default), the machine's hostname (or the value specified with
+          <varname>Hostname=</varname>, described below) will be sent to the DHCPv6 server. Note that the
+          hostname must consist only of 7-bit ASCII lower-case characters and no spaces or dots, and be
+          formatted as a valid DNS domain name. Otherwise, the hostname is not sent even if this option
+          is true.</para>
+
+          <xi:include href="version-info.xml" xpointer="v255"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Hostname=</varname></term>
+        <listitem>
+          <para>Use this value for the hostname which is sent to the DHCPv6 server, instead of machine's
+          hostname. Note that the specified hostname must consist only of 7-bit ASCII lower-case
+          characters and no spaces or dots, and be formatted as a valid DNS domain name.</para>
+
+          <xi:include href="version-info.xml" xpointer="v255"/>
+        </listitem>
+      </varlistentry>
+
       <!-- How to use the DHCP lease -->
 
       <varlistentry>
