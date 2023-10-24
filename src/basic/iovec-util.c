@@ -3,24 +3,24 @@
 #include "iovec-util.h"
 #include "string-util.h"
 
-size_t iovec_total_size(const struct iovec *i, size_t n) {
+size_t iovec_total_size(const struct iovec *iovec, size_t n) {
         size_t sum = 0;
 
-        assert(i || n == 0);
+        assert(iovec || n == 0);
 
-        FOREACH_ARRAY(j, i, n)
+        FOREACH_ARRAY(j, iovec, n)
                 sum += j->iov_len;
 
         return sum;
 }
 
-bool iovec_increment(struct iovec *i, size_t n, size_t k) {
-        assert(i || n == 0);
+bool iovec_increment(struct iovec *iovec, size_t n, size_t k) {
+        assert(iovec || n == 0);
 
         /* Returns true if there is nothing else to send (bytes written cover all of the iovec),
          * false if there's still work to do. */
 
-        FOREACH_ARRAY(j, i, n) {
+        FOREACH_ARRAY(j, iovec, n) {
                 size_t sub;
 
                 if (j->iov_len == 0)
@@ -62,12 +62,9 @@ char* set_iovec_string_field_free(struct iovec *iovec, size_t *n_iovec, const ch
         return x;
 }
 
-void iovec_array_free(struct iovec *iov, size_t n) {
-        if (!iov)
-                return;
+void iovec_array_free(struct iovec *iovec, size_t n) {
+        FOREACH_ARRAY(i, iovec, n)
+                free(i->iov_base);
 
-        for (size_t i = 0; i < n; i++)
-                free(iov[i].iov_base);
-
-        free(iov);
+        free(iovec);
 }
