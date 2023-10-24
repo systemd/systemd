@@ -845,13 +845,19 @@ void link_clean(Link *link) {
         link_unref(set_remove(link->manager->dirty_links, link));
 }
 
-int link_save_and_clean(Link *link) {
-        int r;
+int link_save_and_clean_full(Link *link, bool also_save_manager) {
+        int r, k = 0;
+
+        assert(link);
+        assert(link->manager);
+
+        if (also_save_manager)
+                k = manager_save(link->manager);
 
         r = link_save(link);
         if (r < 0)
                 return r;
 
         link_clean(link);
-        return 0;
+        return k;
 }
