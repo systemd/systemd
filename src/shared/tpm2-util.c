@@ -2529,6 +2529,12 @@ int tpm2_get_best_pcr_bank(
         assert(c);
         assert(ret);
 
+        if (pcr_mask == 0) {
+                log_debug("Asked to pick best PCR bank but no PCRs selected we could derive this from. Defaulting to SHA256.");
+                *ret = TPM2_ALG_SHA256; /* if no PCRs are selected this doesn't matter anyway... */
+                return 0;
+        }
+
         FOREACH_TPMS_PCR_SELECTION_IN_TPML_PCR_SELECTION(selection, &c->capability_pcrs) {
                 TPMI_ALG_HASH hash = selection->hash;
                 int good;
