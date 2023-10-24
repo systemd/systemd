@@ -2541,6 +2541,12 @@ int tpm2_get_best_pcr_bank(
         assert(c);
         assert(ret);
 
+        if (pcr_mask == 0) {
+                log_debug("Asked to pick best PCR bank but no PCRs selected we could derive this from. Defaulting to SHA256.");
+                *ret = TPM2_ALG_SHA256; /* if no PCRs are selected this doesn't matter anyway... */
+                return 0;
+        }
+
         FOREACH_TPMS_PCR_SELECTION_IN_TPML_PCR_SELECTION(selection, &c->capability_pcrs) {
                 TPMI_ALG_HASH hash = selection->hash;
                 int good;
@@ -4204,7 +4210,7 @@ int tpm2_unseal(Tpm2Context *c,
 
         /* Older code did not save the pcr_bank, and unsealing needed to detect the best pcr bank to use,
          * so we need to handle that legacy situation. */
-        if (pcr_bank == UINT16_MAX) {
+        if (pcr_bank == UINT16_MAX && (hash_pcr_mask|pubkey_pcr_mask) != 0) {
                 r = tpm2_get_best_pcr_bank(c, hash_pcr_mask|pubkey_pcr_mask, &pcr_bank);
                 if (r < 0)
                         return r;
