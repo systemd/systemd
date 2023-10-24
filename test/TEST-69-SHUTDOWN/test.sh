@@ -4,7 +4,9 @@ set -e
 
 TEST_DESCRIPTION="shutdown testing"
 IMAGE_NAME="shutdown"
-TEST_NO_QEMU=1
+TEST_NO_QEMU=yes
+# Prevent shutdown in test suite, the expect script does that manually.
+TEST_SKIP_SHUTDOWN=yes
 
 # shellcheck source=test/test-functions
 . "${TEST_BASE_DIR:?}/test-functions"
@@ -23,13 +25,7 @@ EOF
 
 test_append_files() {
     local workspace="${1:?}"
-    # prevent shutdown in test suite, the expect script does that manually.
-    mkdir -p "${workspace:?}/etc/systemd/system/end.service.d"
-    cat >"$workspace/etc/systemd/system/end.service.d/99-override.conf" <<EOF
-[Service]
-ExecStart=
-ExecStart=/bin/true
-EOF
+
     inst /usr/bin/screen
     echo "PS1='screen\$WINDOW # '" >>"$workspace/root/.bashrc"
     echo 'startup_message off' >"$workspace/etc/screenrc"
