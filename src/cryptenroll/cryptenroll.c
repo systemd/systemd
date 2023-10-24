@@ -493,15 +493,21 @@ static int parse_argv(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        if (auto_public_key_pcr_mask && arg_tpm2_public_key)
+        if (auto_public_key_pcr_mask && arg_tpm2_public_key) {
+                assert(arg_tpm2_public_key_pcr_mask == 0);
                 arg_tpm2_public_key_pcr_mask = INDEX_TO_MASK(uint32_t, TPM2_PCR_KERNEL_BOOT);
+        }
 
-        if (auto_hash_pcr_values && !GREEDY_REALLOC_APPEND(
-                        arg_tpm2_hash_pcr_values,
-                        arg_tpm2_n_hash_pcr_values,
-                        &TPM2_PCR_VALUE_MAKE(TPM2_PCR_INDEX_DEFAULT, /* hash= */ 0, /* value= */ {}),
-                        1))
-                return log_oom();
+        if (auto_hash_pcr_values) {
+                assert(arg_tpm2_n_hash_pcr_values == 0);
+
+                if (!GREEDY_REALLOC_APPEND(
+                                    arg_tpm2_hash_pcr_values,
+                                    arg_tpm2_n_hash_pcr_values,
+                                    &TPM2_PCR_VALUE_MAKE(TPM2_PCR_INDEX_DEFAULT, /* hash= */ 0, /* value= */ {}),
+                                    1))
+                        return log_oom();
+        }
 
         return 1;
 }
