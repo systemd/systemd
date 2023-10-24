@@ -531,7 +531,7 @@ static int save_external_coredump(
                 _cleanup_close_ int fd_compressed = -EBADF;
                 uint64_t uncompressed_size = 0;
 
-                if (lseek(fd, 0, SEEK_SET) == (off_t) -1)
+                if (lseek(fd, 0, SEEK_SET) < 0)
                         return log_error_errno(errno, "Failed to seek on coredump %s: %m", fn);
 
                 fn_compressed = strjoin(fn, default_compression_extension());
@@ -595,7 +595,7 @@ static int save_external_coredump(
         if (fstat(fd, &st) < 0)
                 return log_error_errno(errno, "Failed to fstat core file %s: %m", coredump_tmpfile_name(tmp));
 
-        if (lseek(fd, 0, SEEK_SET) == (off_t) -1)
+        if (lseek(fd, 0, SEEK_SET) < 0)
                 return log_error_errno(errno, "Failed to seek on coredump %s: %m", fn);
 
         *ret_filename = TAKE_PTR(fn);
@@ -614,7 +614,7 @@ static int allocate_journal_field(int fd, size_t size, char **ret, size_t *ret_s
         assert(ret);
         assert(ret_size);
 
-        if (lseek(fd, 0, SEEK_SET) == (off_t) -1)
+        if (lseek(fd, 0, SEEK_SET) < 0)
                 return log_warning_errno(errno, "Failed to seek: %m");
 
         field = malloc(9 + size);

@@ -3561,7 +3561,7 @@ static int partition_target_prepare(
         };
 
         if (!need_path) {
-                if (lseek(whole_fd, p->offset, SEEK_SET) == (off_t) -1)
+                if (lseek(whole_fd, p->offset, SEEK_SET) < 0)
                         return log_error_errno(errno, "Failed to seek to partition offset: %m");
 
                 t->whole_fd = whole_fd;
@@ -3637,10 +3637,10 @@ static int partition_target_sync(Context *context, Partition *p, PartitionTarget
         } else if (t->fd >= 0) {
                 struct stat st;
 
-                if (lseek(whole_fd, p->offset, SEEK_SET) == (off_t) -1)
+                if (lseek(whole_fd, p->offset, SEEK_SET) < 0)
                         return log_error_errno(errno, "Failed to seek to partition offset: %m");
 
-                if (lseek(t->fd, 0, SEEK_SET) == (off_t) -1)
+                if (lseek(t->fd, 0, SEEK_SET) < 0)
                         return log_error_errno(errno, "Failed to seek to start of temporary file: %m");
 
                 if (fstat(t->fd, &st) < 0)
@@ -4194,7 +4194,7 @@ static int partition_format_verity_sig(Context *context, Partition *p) {
         if (r < 0)
                 return log_error_errno(r, "Failed to pad string to %s", FORMAT_BYTES(p->new_size));
 
-        if (lseek(whole_fd, p->offset, SEEK_SET) == (off_t) -1)
+        if (lseek(whole_fd, p->offset, SEEK_SET) < 0)
                 return log_error_errno(errno, "Failed to seek to partition %s offset: %m", strna(hint));
 
         r = loop_write(whole_fd, text, p->new_size);

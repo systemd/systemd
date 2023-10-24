@@ -51,6 +51,13 @@
 #error "neither int nor long are four bytes long?!?"
 #endif
 
+static inline uint64_t u64_multiply_safe(uint64_t a, uint64_t b) {
+        if (_unlikely_(a != 0 && b > (UINT64_MAX / a)))
+                return 0; /* overflow */
+
+        return a * b;
+}
+
 /* align to next higher power-of-2 (except for: 0 => 0, overflow => 0) */
 static inline unsigned long ALIGN_POWER2(unsigned long u) {
 
