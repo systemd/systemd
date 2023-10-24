@@ -567,7 +567,7 @@ static void link_save_domains(Link *link, FILE *f, OrderedSet *static_domains, D
         }
 }
 
-int link_save(Link *link) {
+static int link_save(Link *link) {
         const char *admin_state, *oper_state, *carrier_state, *address_state, *ipv4_address_state, *ipv6_address_state,
                 *captive_portal;
         _cleanup_(unlink_and_freep) char *temp_path = NULL;
