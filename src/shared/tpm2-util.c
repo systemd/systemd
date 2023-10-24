@@ -1235,7 +1235,9 @@ int tpm2_get_or_create_srk(
                 return 0; /* 0 → SRK already set up */
 
         /* No SRK, create and persist one */
-        TPM2B_PUBLIC template = { .size = sizeof(TPMT_PUBLIC), };
+        TPM2B_PUBLIC template = {
+                .size = sizeof(TPMT_PUBLIC),
+        };
         r = tpm2_get_best_srk_template(c, &template.publicArea);
         if (r < 0)
                 return log_debug_errno(r, "Could not get best SRK template: %m");
@@ -2539,6 +2541,12 @@ int tpm2_get_best_pcr_bank(
         assert(c);
         assert(ret);
 
+        if (pcr_mask == 0) {
+                log_debug("Asked to pick best PCR bank but no PCRs selected we could derive this from. Defaulting to SHA256.");
+                *ret = TPM2_ALG_SHA256; /* if no PCRs are selected this doesn't matter anyway... */
+                return 0;
+        }
+
         FOREACH_TPMS_PCR_SELECTION_IN_TPML_PCR_SELECTION(selection, &c->capability_pcrs) {
                 TPMI_ALG_HASH hash = selection->hash;
                 int good;
@@ -2758,7 +2766,9 @@ int tpm2_digest_many(
         if (extend)
                 sha256_process_bytes(digest->buffer, digest->size, &ctx);
         else {
-                *digest = (TPM2B_DIGEST){ .size = SHA256_DIGEST_SIZE, };
+                *digest = (TPM2B_DIGEST) {
+                        .size = SHA256_DIGEST_SIZE,
+                };
                 if (n_data == 0) /* If not extending and no data, return zero hash */
                         return 0;
         }
@@ -4212,7 +4222,9 @@ int tpm2_unseal(Tpm2Context *c,
                 if (r < 0)
                         return r;
         } else if (primary_alg != 0) {
-                TPM2B_PUBLIC template = { .size = sizeof(TPMT_PUBLIC), };
+                TPM2B_PUBLIC template = {
+                        .size = sizeof(TPMT_PUBLIC),
+                };
                 r = tpm2_get_legacy_template(primary_alg, &template.publicArea);
                 if (r < 0)
                         return log_debug_errno(r, "Could not get legacy template: %m");
