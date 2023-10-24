@@ -313,11 +313,13 @@
       <varlistentry>
         <term><option>--pkcs11-token-uri=</option><replaceable>URI</replaceable></term>
 
-        <listitem><para>Enroll a PKCS#11 security token or smartcard (e.g. a YubiKey). Expects a PKCS#11
-        smartcard URI referring to the token. Alternatively the special value <literal>auto</literal> may
-        be specified, in order to automatically determine the URI of a currently plugged in security token
-        (of which there must be exactly one). The special value <literal>list</literal> may be used to
-        enumerate all suitable PKCS#11 tokens currently plugged in.</para>
+        <listitem><para>Enroll a PKCS#11 security token or smartcard (e.g. a YubiKey). Expects a PKCS#11 URI
+        that allows to find an X.509 certificate on the token. The URI must also be suitable to find
+        a related private key after changing the type of object in it. Alternatively the special value
+        <literal>auto</literal> may be specified, in order to automatically determine the suitable URI if
+        a single security token containing a single key pair is plugged in. The special value
+        <literal>list</literal> may be used to enumerate all suitable PKCS#11 tokens currently plugged in.
+        </para>
 
         <para>The PKCS#11 token must contain an RSA or EC key pair which will be used to unlock a LUKS2 volume.
         For RSA, a randomly generated volume key is encrypted with a public key in the token, and stored in
