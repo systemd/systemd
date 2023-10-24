@@ -5074,6 +5074,15 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
                       ra_mode='ra-stateless')
         self.wait_online(['veth99:routable', 'veth-peer:routable'])
 
+        # DHCPv6 REPLY for INFORMATION-REQUEST may be received after the link entered configured state.
+        # Let's wait for the expected DNS server being listed in the state file.
+        for _ in range(100):
+            output = read_link_state_file('veth99')
+            print(output)
+            if 'DNS=2600::ee' in output:
+                break
+            time.sleep(.2)
+
         # Check link state file
         print('## link state file')
         output = read_link_state_file('veth99')
@@ -5120,6 +5129,9 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, 'token :: dev veth99')
 
+        # Make manager and link state file updated
+        check_output(*resolvectl_cmd, 'revert', 'veth99', env=env)
+
         # Check link state file
         print('## link state file')
         output = read_link_state_file('veth99')
@@ -5164,6 +5176,9 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         output = check_output('ip -6 route list dev veth99 2001:1234:5:9fff:ff:ff:ff:ff')
         print(output)
         self.assertRegex(output, 'via fe80::1034:56ff:fe78:9abd')
+
+        # Make manager and link state file updated
+        check_output(*resolvectl_cmd, 'revert', 'veth99', env=env)
 
         # Check link state file
         print('## link state file')
