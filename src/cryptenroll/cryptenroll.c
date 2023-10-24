@@ -474,6 +474,18 @@ static int parse_argv(int argc, char *argv[]) {
                 }
         }
 
+        if (optind >= argc)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "No block device node specified, refusing.");
+
+        if (argc > optind+1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Too many arguments, refusing.");
+
+        r = parse_path_argument(argv[optind], false, &arg_node);
+        if (r < 0)
+                return r;
+
         if (arg_enroll_type == ENROLL_FIDO2) {
 
                 if (arg_unlock_type == UNLOCK_FIDO2 && !(arg_fido2_device && arg_unlock_fido2_device))
@@ -487,18 +499,6 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
                 }
         }
-
-        if (optind >= argc)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "No block device node specified, refusing.");
-
-        if (argc > optind+1)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Too many arguments, refusing.");
-
-        r = parse_path_argument(argv[optind], false, &arg_node);
-        if (r < 0)
-                return r;
 
         if (auto_public_key_pcr_mask && arg_tpm2_public_key) {
                 assert(arg_tpm2_public_key_pcr_mask == 0);
