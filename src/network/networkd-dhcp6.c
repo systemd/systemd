@@ -522,10 +522,10 @@ static int dhcp6_set_hostname(sd_dhcp6_client *client, Link *link) {
 
         assert(link);
 
-        if (!link->network->dhcp_send_hostname)
+        if (!link->network->dhcp6_send_hostname)
                 hn = NULL;
-        else if (link->network->dhcp_hostname)
-                hn = link->network->dhcp_hostname;
+        else if (link->network->dhcp6_hostname)
+                hn = link->network->dhcp6_hostname;
         else {
                 r = gethostname_strict(&hostname);
                 if (r < 0 && r != -ENXIO) /* ENXIO: no hostname set or hostname is "localhost" */
