@@ -1485,6 +1485,10 @@ static int dhcp4_configure(Link *link) {
         if (r < 0)
                 return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to attach device: %m");
 
+        r = sd_dhcp_client_set_rapid_commit(link->dhcp_client, link->network->dhcp_use_rapid_commit);
+        if (r < 0)
+                return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to set rapid commit: %m");
+
         r = sd_dhcp_client_set_mac(link->dhcp_client,
                                    link->hw_addr.bytes,
                                    link->bcast_addr.length > 0 ? link->bcast_addr.bytes : NULL,

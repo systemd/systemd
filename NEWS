@@ -73,6 +73,11 @@ CHANGES WITH 255 in spe:
           already use 'prefixstable' addresses with wireless networks, the
           stable address chosen will be changed by the update.
 
+        * The DHCPv4 client gained a RapidCommit option, default true, which
+          enables RFC4039 Rapid Commit behavior to obtain a lease in a
+          simplified 2-message exchange instead of the typical 4-message
+          exchange if also supported by the DHCP server.
+
         Changes in systemd-analyze:
 
         * "systemd-analyze plot" has gained tooltips on each unit name with
