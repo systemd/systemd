@@ -27,7 +27,6 @@ executables += [
                 'public' : true,
                 'conditions' : [
                           'HAVE_BLKID',
-                          'ENABLE_BOOTLOADER',
                 ],
                 'sources' : bootctl_sources,
                 'link_with' : boot_link_with,
@@ -57,7 +56,6 @@ executables += [
                 'name' : 'systemd-measure',
                 'conditions' : [
                         'HAVE_BLKID',
-                        'ENABLE_BOOTLOADER',
                         'HAVE_OPENSSL',
                         'HAVE_TPM2',
                 ],
