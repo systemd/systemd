@@ -43,6 +43,15 @@ static const char* const boot_entry_type_json_table[_BOOT_ENTRY_TYPE_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP_TO_STRING(boot_entry_type_json, BootEntryType);
 
+BootEntryAddon* boot_entry_addon_free(BootEntryAddon *addon) {
+        if (!addon)
+                return NULL;
+
+        free(addon->location);
+        free(addon->cmdline);
+        return mfree(addon);
+}
+
 static void boot_entry_free(BootEntry *entry) {
         assert(entry);
 
@@ -57,6 +66,7 @@ static void boot_entry_free(BootEntry *entry) {
         free(entry->machine_id);
         free(entry->architecture);
         strv_free(entry->options);
+        free(entry->local_addons.arr);
         free(entry->kernel);
         free(entry->efi);
         strv_free(entry->initrd);
@@ -435,6 +445,7 @@ void boot_config_free(BootConfig *config) {
         for (size_t i = 0; i < config->n_entries; i++)
                 boot_entry_free(config->entries + i);
         free(config->entries);
+        free(config->global_addons.arr);
 
         set_free(config->inodes_seen);
 }
@@ -753,13 +764,12 @@ static int boot_entry_load_unified(
 static int find_sections(
                 int fd,
                 const char *path,
-                char **ret_osrelease,
-                char **ret_cmdline) {
+                IMAGE_SECTION_HEADER **ret_sections,
+                PeHeader **ret_pe_header) {
 
-        _cleanup_free_ IMAGE_SECTION_HEADER *sections = NULL;
         _cleanup_free_ IMAGE_DOS_HEADER *dos_header = NULL;
-        _cleanup_free_ char *osrel = NULL, *cmdline = NULL;
-        _cleanup_free_ PeHeader *pe_header = NULL;
+        IMAGE_SECTION_HEADER *sections;
+        PeHeader *pe_header;
         int r;
 
         assert(fd >= 0);
@@ -773,23 +783,217 @@ static int find_sections(
         if (r < 0)
                 return log_warning_errno(r, "Failed to parse PE sections of '%s': %m", path);
 
-        if (!pe_is_uki(pe_header, sections))
-                return log_warning_errno(SYNTHETIC_ERRNO(EBADMSG), "Parsed PE file '%s' is not a UKI.", path);
+        if (ret_pe_header)
+                *ret_pe_header = TAKE_PTR(pe_header);
+        if (ret_sections)
+                *ret_sections = TAKE_PTR(sections);
 
-        r = pe_read_section_data(fd, pe_header, sections, ".osrel", PE_SECTION_SIZE_MAX, (void**) &osrel, NULL);
-        if (r < 0)
-                return log_warning_errno(r, "Failed to read .osrel section of '%s': %m", path);
+        return 0;
+}
+
+static int find_cmdline_section(
+                int fd,
+                const char *path,
+                IMAGE_SECTION_HEADER *sections,
+                PeHeader *pe_header,
+                char **ret_cmdline) {
+
+        int r;
+        char *cmdline = NULL;
+
+        if (!ret_cmdline)
+                return 0;
 
         r = pe_read_section_data(fd, pe_header, sections, ".cmdline", PE_SECTION_SIZE_MAX, (void**) &cmdline, NULL);
-        if (r < 0 && r != -ENXIO) /* cmdline is optional */
+        if (r == -ENXIO) /* cmdline is optional */
+                *ret_cmdline = NULL;
+        else if (r < 0)
                 return log_warning_errno(r, "Failed to read .cmdline section of '%s': %m", path);
-
-        if (ret_osrelease)
-                *ret_osrelease = TAKE_PTR(osrel);
-        if (ret_cmdline)
+        else if (ret_cmdline)
                 *ret_cmdline = TAKE_PTR(cmdline);
 
         return 0;
+}
+
+static int find_osrel_section(
+                int fd,
+                const char *path,
+                IMAGE_SECTION_HEADER *sections,
+                PeHeader *pe_header,
+                char **ret_osrelease) {
+
+        int r;
+
+        if (!ret_osrelease)
+                return 0;
+
+        r = pe_read_section_data(fd, pe_header, sections, ".osrel", PE_SECTION_SIZE_MAX, (void**) ret_osrelease, NULL);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to read .osrel section of '%s': %m", path);
+
+        return 0;
+}
+
+static int find_uki_sections(
+                int fd,
+                const char *path,
+                char **ret_osrelease,
+                char **ret_cmdline) {
+
+        _cleanup_free_ IMAGE_SECTION_HEADER *sections = NULL;
+        _cleanup_free_ PeHeader *pe_header = NULL;
+        int r;
+
+        r = find_sections(fd, path, &sections, &pe_header);
+        if (r < 0)
+                return r;
+
+        if (!pe_is_uki(pe_header, sections))
+                return log_warning_errno(SYNTHETIC_ERRNO(EBADMSG), "Parsed PE file '%s' is not a UKI.", path);
+
+        r = find_osrel_section(fd, path, sections, pe_header, ret_osrelease);
+        if (r < 0)
+                return r;
+
+        r = find_cmdline_section(fd, path, sections, pe_header, ret_cmdline);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+static int find_addon_sections(
+                int fd,
+                const char *path,
+                char **ret_cmdline) {
+
+        _cleanup_free_ IMAGE_SECTION_HEADER *sections = NULL;
+        _cleanup_free_ PeHeader *pe_header = NULL;
+        int r;
+
+        r = find_sections(fd, path, &sections, &pe_header);
+        if (r < 0)
+                return r;
+
+        return find_cmdline_section(fd, path, sections, pe_header, ret_cmdline);
+}
+
+static int insert_boot_entry_addon_array(
+                char *location,
+                char *cmdline,
+                BootEntryAddonArray *addons) {
+
+        if (addons->size % BOOT_ENTRY_ADDON_ARRAY_SIZE == 0) {
+                size_t new_size = addons->size + BOOT_ENTRY_ADDON_ARRAY_SIZE;
+
+                addons->arr = reallocarray(addons->arr, new_size, sizeof(BootEntryAddon));
+                if (!addons->arr)
+                        return log_oom();
+        }
+
+        addons->arr[addons->size].location = location;
+        addons->arr[addons->size].cmdline = cmdline;
+        addons->size++;
+
+        return 0;
+}
+
+static int boot_entries_find_unified_addons(
+                BootConfig *config,
+                int d_fd,
+                const char *addon_dir,
+                const char *root,
+                BootEntryAddonArray *addons) {
+
+        _cleanup_closedir_ DIR *d = NULL;
+        _cleanup_free_ char *full = NULL;
+        int r;
+
+        assert(addons);
+        assert(config);
+
+        r = chase_and_opendirat(d_fd, addon_dir, CHASE_AT_RESOLVE_IN_ROOT, &full, &d);
+        if (r == -ENOENT)
+                return 0;
+        if (r < 0)
+                return log_error_errno(r, "Failed to open '%s/%s': %m", root, addon_dir);
+
+        addons->size = 0;
+        addons->arr = NULL;
+
+        FOREACH_DIRENT(de, d, return log_error_errno(errno, "Failed to read %s: %m", full)) {
+                _cleanup_free_ char *j = NULL, *cmdline = NULL, *location = NULL;
+                _cleanup_close_ int fd = -EBADF;
+
+                if (!dirent_is_file(de))
+                        continue;
+
+                if (!endswith_no_case(de->d_name, ".addon.efi"))
+                        continue;
+
+                fd = openat(dirfd(d), de->d_name, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOFOLLOW|O_NOCTTY);
+                if (fd < 0) {
+                        log_warning_errno(errno, "Failed to open %s/%s, ignoring: %m", full, de->d_name);
+                        continue;
+                }
+
+                r = config_check_inode_relevant_and_unseen(config, fd, de->d_name);
+                if (r < 0)
+                        return r;
+                if (r == 0) /* inode already seen or otherwise not relevant */
+                        continue;
+
+                j = path_join(full, de->d_name);
+                if (!j)
+                        return log_oom();
+
+                if (find_addon_sections(fd, j, &cmdline) < 0)
+                        continue;
+
+                location = strdup(j);
+                if (!location)
+                        return log_oom();
+
+                r = insert_boot_entry_addon_array(TAKE_PTR(location), TAKE_PTR(cmdline), addons);
+                if (r < 0)
+                        return r;
+        }
+        return 0;
+}
+
+static int boot_entries_find_unified_global_addons(
+                BootConfig *config,
+                const char *root,
+                const char *d_name) {
+
+        int r;
+        _cleanup_closedir_ DIR *d = NULL;
+
+        r = chase_and_opendir(root, NULL, CHASE_PROHIBIT_SYMLINKS, NULL, &d);
+        if (r == -ENOENT)
+                return 0;
+        if (r < 0)
+                return log_error_errno(r, "Failed to open '%s/%s': %m", root, d_name);
+
+        return boot_entries_find_unified_addons(config, dirfd(d), d_name, root, &config->global_addons);
+}
+
+static int boot_entries_find_unified_local_addons(
+                BootConfig *config,
+                int d_fd,
+                const char *d_name,
+                const char *root,
+                BootEntry *ret) {
+
+        _cleanup_free_ char *addon_dir = NULL;
+
+        assert(ret);
+
+        addon_dir = strjoin(d_name, ".extra.d");
+        if (!addon_dir)
+                return log_oom();
+
+        return boot_entries_find_unified_addons(config, d_fd, addon_dir, root, &ret->local_addons);
 }
 
 static int boot_entries_find_unified(
@@ -839,10 +1043,15 @@ static int boot_entries_find_unified(
                 if (!j)
                         return log_oom();
 
-                if (find_sections(fd, j, &osrelease, &cmdline) < 0)
+                if (find_uki_sections(fd, j, &osrelease, &cmdline) < 0)
                         continue;
 
                 r = boot_entry_load_unified(root, j, osrelease, cmdline, config->entries + config->n_entries);
+                if (r < 0)
+                        continue;
+
+                /* look for .efi.extra.d */
+                r = boot_entries_find_unified_local_addons(config, dirfd(d), de->d_name, full, config->entries + config->n_entries);
                 if (r < 0)
                         continue;
 
@@ -1062,6 +1271,8 @@ int boot_config_load(
         int r;
 
         assert(config);
+        config->global_addons.arr = NULL;
+        config->global_addons.size = 0;
 
         if (esp_path) {
                 r = boot_loader_read_conf_path(config, esp_path, "/loader/loader.conf");
@@ -1073,6 +1284,10 @@ int boot_config_load(
                         return r;
 
                 r = boot_entries_find_unified(config, esp_path, "/EFI/Linux/");
+                if (r < 0)
+                        return r;
+
+                r = boot_entries_find_unified_global_addons(config, esp_path, "/loader/addons/");
                 if (r < 0)
                         return r;
         }
@@ -1238,13 +1453,130 @@ static void boot_entry_file_list(
                 *ret_status = status;
 }
 
+static void print_addon(
+                BootEntryAddon *addon,
+                const char *addon_str) {
+
+        printf("  %s: %s\n", addon_str, addon->location);
+        printf("      cmdline: %s%s\n", special_glyph(SPECIAL_GLYPH_TREE_RIGHT), addon->cmdline);
+}
+
+static int print_cmdline(
+                const BootEntry *e,
+                const BootEntryAddonArray *global_arr) {
+
+        _cleanup_free_ char *final_cmdline = NULL;
+
+        assert(e);
+
+        if (!strv_isempty(e->options)) {
+                _cleanup_free_ char *t = NULL, *t2 = NULL;
+                _cleanup_strv_free_ char **ts = NULL;
+
+                t = strv_join(e->options, " ");
+                if (!t)
+                        return log_oom();
+
+                ts = strv_split_newlines(t);
+                if (!ts)
+                        return log_oom();
+
+                t2 = strv_join(ts, "\n              ");
+                if (!t2)
+                        return log_oom();
+
+                printf("  defCmdline: %s\n", t2);
+                final_cmdline = TAKE_PTR(t2);
+        }
+
+        FOREACH_ARRAY(addon, global_arr->arr, global_arr->size) {
+                print_addon(addon, "globalAddon");
+                if (!strextend(&final_cmdline, " ", addon->cmdline))
+                        return log_oom();
+        }
+
+        FOREACH_ARRAY(addon, e->local_addons.arr, e->local_addons.size) {
+                /* Add space at the beginning of addon_str to align it correctly */
+                print_addon(addon, " localAddon");
+                if (!strextend(&final_cmdline, " ", addon->cmdline))
+                        return log_oom();
+        }
+
+        if (final_cmdline)
+                printf(" finalCmdline: %s\n", final_cmdline);
+
+        return 0;
+}
+
+static int json_addon(
+                BootEntryAddon *addon,
+                const char *addon_str,
+                JsonVariant **array) {
+
+        int r;
+
+        r = json_variant_append_arrayb(array,
+                        JSON_BUILD_OBJECT(
+                                JSON_BUILD_PAIR(addon_str, JSON_BUILD_STRING(addon->location)),
+                                JSON_BUILD_PAIR("cmdline", JSON_BUILD_STRING(addon->cmdline))));
+        if (r < 0)
+                return log_oom();
+
+        return 0;
+}
+
+static int json_cmdline(
+                const BootEntry *e,
+                const BootEntryAddonArray *global_arr,
+                JsonVariant **v) {
+
+        _cleanup_free_ char *final_cmdline = NULL, *def_cmdline = NULL;
+        _cleanup_(json_variant_unrefp) JsonVariant *addons_array = NULL;
+        int r;
+
+        assert(e);
+
+        if (!strv_isempty(e->options)) {
+                def_cmdline = strv_join(e->options, " ");
+                if (!def_cmdline)
+                        return log_oom();
+                final_cmdline = TAKE_PTR(def_cmdline);
+        }
+
+        FOREACH_ARRAY(addon, global_arr->arr, global_arr->size) {
+                r = json_addon(addon, "globalAddon", &addons_array);
+                if (r < 0)
+                        return r;
+                if (!strextend(&final_cmdline, " ", addon->cmdline))
+                        return log_oom();
+        }
+
+        FOREACH_ARRAY(addon, e->local_addons.arr, e->local_addons.size) {
+                r = json_addon(addon, "localAddon", &addons_array);
+                if (r < 0)
+                        return r;
+                if (!strextend(&final_cmdline, " ", addon->cmdline))
+                        return log_oom();
+        }
+
+        r = json_variant_merge_objectb(
+                v, JSON_BUILD_OBJECT(
+                                JSON_BUILD_PAIR_CONDITION(def_cmdline, "defCmdline", JSON_BUILD_STRING(def_cmdline)),
+                                JSON_BUILD_PAIR("addons", JSON_BUILD_VARIANT(addons_array)),
+                                JSON_BUILD_PAIR_CONDITION(final_cmdline, "finalCmdline", JSON_BUILD_STRING(final_cmdline))));
+        if (r < 0)
+                return log_oom();
+        return 0;
+}
+
 int show_boot_entry(
                 const BootEntry *e,
+                const BootEntryAddonArray *global_addons,
                 bool show_as_default,
                 bool show_as_selected,
                 bool show_reported) {
 
-        int status = 0;
+        int status = 0, r = 0;
 
         /* Returns 0 on success, negative on processing error, and positive if something is wrong with the
            boot entry itself. */
@@ -1323,24 +1655,9 @@ int show_boot_entry(
                                      *s,
                                      &status);
 
-        if (!strv_isempty(e->options)) {
-                _cleanup_free_ char *t = NULL, *t2 = NULL;
-                _cleanup_strv_free_ char **ts = NULL;
-
-                t = strv_join(e->options, " ");
-                if (!t)
-                        return log_oom();
-
-                ts = strv_split_newlines(t);
-                if (!ts)
-                        return log_oom();
-
-                t2 = strv_join(ts, "\n              ");
-                if (!t2)
-                        return log_oom();
-
-                printf("      options: %s\n", t2);
-        }
+        r = print_cmdline(e, global_addons);
+        if (r < 0)
+                return r;
 
         if (e->device_tree)
                 boot_entry_file_list("devicetree", e->root, e->device_tree, &status);
@@ -1363,15 +1680,8 @@ int show_boot_entries(const BootConfig *config, JsonFormatFlags json_format) {
                 _cleanup_(json_variant_unrefp) JsonVariant *array = NULL;
 
                 for (size_t i = 0; i < config->n_entries; i++) {
-                        _cleanup_free_ char *opts = NULL;
                         const BootEntry *e = config->entries + i;
                         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
-
-                        if (!strv_isempty(e->options)) {
-                                opts = strv_join(e->options, " ");
-                                if (!opts)
-                                        return log_oom();
-                        }
 
                         r = json_variant_merge_objectb(
                                         &v, JSON_BUILD_OBJECT(
@@ -1385,12 +1695,15 @@ int show_boot_entries(const BootConfig *config, JsonFormatFlags json_format) {
                                                        JSON_BUILD_PAIR_CONDITION(e->version, "version", JSON_BUILD_STRING(e->version)),
                                                        JSON_BUILD_PAIR_CONDITION(e->machine_id, "machineId", JSON_BUILD_STRING(e->machine_id)),
                                                        JSON_BUILD_PAIR_CONDITION(e->architecture, "architecture", JSON_BUILD_STRING(e->architecture)),
-                                                       JSON_BUILD_PAIR_CONDITION(opts, "options", JSON_BUILD_STRING(opts)),
                                                        JSON_BUILD_PAIR_CONDITION(e->kernel, "linux", JSON_BUILD_STRING(e->kernel)),
                                                        JSON_BUILD_PAIR_CONDITION(e->efi, "efi", JSON_BUILD_STRING(e->efi)),
                                                        JSON_BUILD_PAIR_CONDITION(!strv_isempty(e->initrd), "initrd", JSON_BUILD_STRV(e->initrd)),
                                                        JSON_BUILD_PAIR_CONDITION(e->device_tree, "devicetree", JSON_BUILD_STRING(e->device_tree)),
                                                        JSON_BUILD_PAIR_CONDITION(!strv_isempty(e->device_tree_overlay), "devicetreeOverlay", JSON_BUILD_STRV(e->device_tree_overlay))));
+                        if (r < 0)
+                                return log_oom();
+
+                        r = json_cmdline(e, &config->global_addons, &v);
                         if (r < 0)
                                 return log_oom();
 
@@ -1419,6 +1732,7 @@ int show_boot_entries(const BootConfig *config, JsonFormatFlags json_format) {
                 for (size_t n = 0; n < config->n_entries; n++) {
                         r = show_boot_entry(
                                         config->entries + n,
+                                        &config->global_addons,
                                         /* show_as_default= */  n == (size_t) config->default_entry,
                                         /* show_as_selected= */ n == (size_t) config->selected_entry,
                                         /* show_discovered= */  true);
