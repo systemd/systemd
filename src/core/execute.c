@@ -116,7 +116,8 @@ void exec_context_tty_reset(const ExecContext *context, const ExecParameters *p)
 
         if (p && p->stdin_fd >= 0)
                 fd = p->stdin_fd;
-        else if (path) {
+        else if (context->tty_path || is_terminal_input(c->std_input) ||
+                        is_terminal_output(c->std_output) || is_terminal_output(c->std_error)) {
                 fd = _fd = open_terminal(path, O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
                 if (fd < 0)
                         return (void) log_debug_errno(fd, "Failed to open terminal '%s', ignoring: %m", path);
