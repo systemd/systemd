@@ -16,8 +16,14 @@ int serialize_item_escaped(FILE *f, const char *key, const char *value);
 int serialize_item_format(FILE *f, const char *key, const char *value, ...) _printf_(3,4);
 int serialize_item_hexmem(FILE *f, const char *key, const void *p, size_t l);
 int serialize_item_base64mem(FILE *f, const char *key, const void *p, size_t l);
-int serialize_fd(FILE *f, FDSet *fds, const char *key, int fd);
-int serialize_fd_many(FILE *f, FDSet *fds, const char *key, const int fd_array[], size_t n_fd_array);
+int serialize_fd_full(FILE *f, FDSet *fds, const char *key, int fd, int *index);
+static inline int serialize_fd(FILE *f, FDSet *fds, const char *key, int fd) {
+        return serialize_fd_full(f, fds, key, fd, /* index= */ NULL);
+}
+int serialize_fd_many_full(FILE *f, FDSet *fds, const char *key, const int fd_array[], size_t n_fd_array, int *index);
+static inline int serialize_fd_many(FILE *f, FDSet *fds, const char *key, const int fd_array[], size_t n_fd_array) {
+        return serialize_fd_many_full(f, fds, key, fd_array, n_fd_array, /* index= */ NULL);
+}
 int serialize_usec(FILE *f, const char *key, usec_t usec);
 int serialize_dual_timestamp(FILE *f, const char *key, const dual_timestamp *t);
 int serialize_strv(FILE *f, const char *key, char **l);
@@ -38,8 +44,10 @@ static inline int serialize_item_tristate(FILE *f, const char *key, int value) {
 
 int deserialize_read_line(FILE *f, char **ret);
 
-int deserialize_fd(FDSet *fds, const char *value);
-int deserialize_fd_many(FDSet *fds, const char *value, size_t n, int *ret);
+int deserialize_fd_from_set(FDSet *fds, const char *value);
+int deserialize_fd_many_from_set(FDSet *fds, const char *value, size_t n, int *ret);
+int deserialize_fd_from_array(int *fds_array, size_t n_fds_array, const char *value);
+int deserialize_fd_many_from_array(int *fds_array, size_t n_fds_array, const char *value, size_t n, int *ret);
 int deserialize_usec(const char *value, usec_t *ret);
 int deserialize_dual_timestamp(const char *value, dual_timestamp *ret);
 int deserialize_environment(const char *value, char ***environment);
