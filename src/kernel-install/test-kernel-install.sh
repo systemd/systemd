@@ -277,10 +277,10 @@ output="$("$kernel_install" -v --json=pretty inspect 1.1.1 "$D/sources/linux")"
 
 diff -u <(echo "$output") - <<EOF
 {
-	"MachineID" : "3e0484f3-634a-418b-8e6a-39e8828b03e3",
+	"MachineID" : "3e0484f3634a418b8e6a39e8828b03e3",
 	"KernelImageType" : "unknown",
 	"Layout" : "other",
-	"\$BOOT" : "$BOOT_ROOT",
+	"BootRoot" : "$BOOT_ROOT",
 	"EntryTokenType" : "literal",
 	"EntryToken" : "the-token",
 	"EntryDirectory" : "$BOOT_ROOT/the-token/1.1.1",
@@ -303,13 +303,6 @@ diff -u <(echo "$output") - <<EOF
 		"KERNEL_INSTALL_INITRD_GENERATOR=none",
 		"KERNEL_INSTALL_UKI_GENERATOR=",
 		"KERNEL_INSTALL_STAGING_AREA=/tmp/kernel-install.staging.XXXXXX"
-	],
-	"PluginArguments" : [
-		"add|remove",
-		"1.1.1",
-		"$BOOT_ROOT/the-token/1.1.1",
-		"$D/sources/linux",
-		"[INITRD...]"
 	]
 }
 EOF
