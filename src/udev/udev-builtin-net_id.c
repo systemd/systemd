@@ -921,7 +921,7 @@ static int get_usb_specifier(sd_device *dev, char **ret) {
                 return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL),
                                               "sysname \"%s\" does not have '-' in the expected place.", sysname);
 
-        ports = strdupa(s + 1);
+        ports = strdupa_safe(s + 1);
         s = strchr(ports, ':');
         if (!s)
                 return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL),
