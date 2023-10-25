@@ -182,3 +182,10 @@ cgroupfs_supports_user_xattrs() {
     setfattr --name="$xattr" --value=254 /sys/fs/cgroup
     [[ "$(getfattr --name="$xattr" --absolute-names --only-values /sys/fs/cgroup)" -eq 254 ]]
 }
+
+tpm_has_pcr() {
+    local algorithm="${1:?}"
+    local pcr="${2:?}"
+
+    [[ -f "/sys/class/tpm/tpm0/pcr-$algorithm/$pcr" ]]
+}
