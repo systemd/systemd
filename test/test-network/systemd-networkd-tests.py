@@ -5539,6 +5539,25 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         print(f"State = {state}")
         self.assertEqual(state, 'bound')
 
+    def test_dhcp_client_rapid_commit(self):
+        copy_network_unit('25-veth.netdev', '25-dhcp-server-veth-peer.network', '25-dhcp-client.network')
+        start_networkd()
+        self.wait_online(['veth-peer:carrier'])
+
+        start_dnsmasq('--dhcp-rapid-commit')
+        self.wait_online(['veth99:routable', 'veth-peer:routable'])
+
+        state = get_dhcp4_client_state('veth99')
+        print(f"DHCPv4 client state = {state}")
+        self.assertEqual(state, 'bound')
+
+        output = read_dnsmasq_log_file()
+        print(output)
+        self.assertIn('DHCPDISCOVER(veth-peer)', output)
+        self.assertNotIn('DHCPOFFER(veth-peer)', output)
+        self.assertNotIn('DHCPREQUEST(veth-peer)', output)
+        self.assertIn('DHCPACK(veth-peer)', output)
+
     def test_dhcp_client_ipv6_only_mode_without_ipv6_connectivity(self):
         copy_network_unit('25-veth.netdev',
                           '25-dhcp-server-ipv6-only-mode.network',
