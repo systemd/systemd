@@ -853,7 +853,7 @@ static int parse_fstab_one(
                 bool accept_root, /* This takes an effect only when prefix_sysroot is true. */
                 bool use_swap_enabled) {
 
-        _cleanup_free_ char *what = NULL, *where = NULL;
+        _cleanup_free_ char *what = NULL, *where = NULL, *opts = NULL;
         MountPointFlags flags;
         bool is_swap, where_changed;
         int r;
@@ -935,6 +935,17 @@ static int parse_fstab_one(
                         prefix_sysroot ?                    SPECIAL_INITRD_FS_TARGET :
                         mount_is_network(fstype, options) ? SPECIAL_REMOTE_FS_TARGET :
                                                             SPECIAL_LOCAL_FS_TARGET;
+
+        /* nofail or noauto don't make sense for critical filesystems we must mount in initrd. */
+        if ((is_sysroot || is_sysroot_usr) && ((flags & (MOUNT_NOFAIL|MOUNT_NOAUTO)) != 0)) {
+                flags &= ~(MOUNT_NOFAIL|MOUNT_NOAUTO);
+                r = fstab_filter_options(options, "noauto\0nofail\0", NULL, NULL, NULL, &opts);
+                if (r < 0)
+                        return r;
+
+                log_debug("'noauto' and 'nofail' options are ignored for /sysroot/ and /sysroot/usr/ mounts.");
+                options = opts;
+        }
 
         r = add_mount(source,
                       arg_dest,
