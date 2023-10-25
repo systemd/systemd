@@ -56,7 +56,6 @@ executables += [
                 'name' : 'systemd-measure',
                 'conditions' : [
                         'HAVE_BLKID',
-                        'ENABLE_BOOTLOADER',
                         'HAVE_OPENSSL',
                         'HAVE_TPM2',
                 ],
