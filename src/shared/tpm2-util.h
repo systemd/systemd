@@ -121,6 +121,8 @@ int tpm2_marshal_private(const TPM2B_PRIVATE *private, void **ret, size_t *ret_s
 int tpm2_unmarshal_private(const void *data, size_t size, TPM2B_PRIVATE *ret_private);
 int tpm2_marshal_public(const TPM2B_PUBLIC *public, void **ret, size_t *ret_size);
 int tpm2_unmarshal_public(const void *data, size_t size, TPM2B_PUBLIC *ret_public);
+int tpm2_marshal_nv_public(const TPM2B_NV_PUBLIC *nv_public, void **ret, size_t *ret_size);
+int tpm2_unmarshal_nv_public(const void *data, size_t size, TPM2B_NV_PUBLIC *ret_nv_public);
 
 bool tpm2_supports_alg(Tpm2Context *c, TPM2_ALG_ID alg);
 bool tpm2_supports_command(Tpm2Context *c, TPM2_CC command);
