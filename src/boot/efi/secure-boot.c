@@ -37,6 +37,7 @@ EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path, bool 
         assert(path);
 
         EFI_STATUS err;
+        unsigned timeout_sec = 15;
 
         clear_screen(COLOR_NORMAL);
 
@@ -52,7 +53,6 @@ EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path, bool 
         if (!is_safe) {
                 printf("Warning: Enrolling custom Secure Boot keys might soft-brick your machine!\n");
 
-                unsigned timeout_sec = 15;
                 for (;;) {
                         printf("\rEnrolling in %2u s, press any key to abort.", timeout_sec);
 
@@ -117,6 +117,11 @@ EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path, bool 
                 }
         }
 
+        if (timeout_sec == 0) {
+                printf("\nCustom SecureBoot keys successfully enrolled, rebooting the system now!");
+        } else {
+                printf("Custom SecureBoot keys successfully enrolled, rebooting the system now!");
+        }
         /* The system should be in secure boot mode now and we could continue a regular boot. But at least
          * TPM PCR7 measurements should change on next boot. Reboot now so that any OS we load does not end
          * up relying on the old PCR state. */
