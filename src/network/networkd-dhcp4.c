@@ -1519,6 +1519,12 @@ static int dhcp4_configure(Link *link) {
                 if (r < 0)
                         return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to set initial DHCPv4 address: %m");
 
+                if (link->network->dhcp_use_rapid_commit) {
+                        r = sd_dhcp_client_set_request_option(link->dhcp_client, SD_DHCP_OPTION_RAPID_COMMIT);
+                        if (r < 0)
+                                return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to set request flag for rapid commit: %m");
+                }
+
                 if (link->network->dhcp_use_mtu) {
                         r = sd_dhcp_client_set_request_option(link->dhcp_client, SD_DHCP_OPTION_MTU_INTERFACE);
                         if (r < 0)
