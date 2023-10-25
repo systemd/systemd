@@ -133,6 +133,14 @@ test_one() (
 )
 
 for f in "$src"/test-*.input; do
+    # If /mnt is a symlink, then the expected output from this
+    # test scenario will not match the actual output
+    if test "$f" = "$src/test-18-options.fstab.input" -a "$(readlink /mnt)" != "/mnt"
+    then
+        echo "Skip $f because /mnt is a symlink"
+        continue
+    fi
+
     test_one "$f" yes
     test_one "$f" no
 done
