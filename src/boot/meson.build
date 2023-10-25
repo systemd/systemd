@@ -27,7 +27,6 @@ executables += [
                 'public' : true,
                 'conditions' : [
                           'HAVE_BLKID',
-                          'ENABLE_BOOTLOADER',
                 ],
                 'sources' : bootctl_sources,
                 'link_with' : boot_link_with,
