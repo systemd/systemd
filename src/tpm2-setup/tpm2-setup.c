@@ -63,6 +63,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "version",     no_argument,       NULL, ARG_VERSION     },
                 { "tpm2-device", required_argument, NULL, ARG_TPM2_DEVICE },
                 { "early",       required_argument, NULL, ARG_EARLY       },
+                {}
         };
 
         int c, r;
