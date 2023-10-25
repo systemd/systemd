@@ -109,6 +109,7 @@ _public_ int cryptsetup_token_open_pin(
                         pubkey_pcr_mask,
                         params.signature_path,
                         pin_string,
+                        params.pcrlock_path,
                         primary_alg,
                         blob,
                         blob_size,
@@ -239,6 +240,7 @@ _public_ void cryptsetup_token_dump(
         crypt_log(cd, "\ttpm2-blob:        %s\n", blob_str);
         crypt_log(cd, "\ttpm2-policy-hash:" CRYPT_DUMP_LINE_SEP "%s\n", policy_hash_str);
         crypt_log(cd, "\ttpm2-pin:         %s\n", true_false(flags & TPM2_FLAGS_USE_PIN));
+        crypt_log(cd, "\ttpm2-pcrlock:     %s\n", true_false(flags & TPM2_FLAGS_USE_PCRLOCK));
         crypt_log(cd, "\ttpm2-salt:        %s\n", true_false(salt));
         crypt_log(cd, "\ttpm2-srk:         %s\n", true_false(srk_buf));
 }

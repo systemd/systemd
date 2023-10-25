@@ -150,10 +150,9 @@ static X509 *arg_certificate = NULL;
 static char *arg_tpm2_device = NULL;
 static Tpm2PCRValue *arg_tpm2_hash_pcr_values = NULL;
 static size_t arg_tpm2_n_hash_pcr_values = 0;
-static bool arg_tpm2_hash_pcr_values_use_default = true;
 static char *arg_tpm2_public_key = NULL;
 static uint32_t arg_tpm2_public_key_pcr_mask = 0;
-static bool arg_tpm2_public_key_pcr_mask_use_default = true;
+static char *arg_tpm2_pcrlock = NULL;
 static bool arg_split = false;
 static GptPartitionType *arg_filter_partitions = NULL;
 static size_t arg_n_filter_partitions = 0;
@@ -177,6 +176,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_certificate, X509_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_device, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_hash_pcr_values, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_public_key, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_tpm2_pcrlock, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_filter_partitions, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_copy_from, strv_freep);
@@ -3823,8 +3823,21 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                                 return log_error_errno(r, "Could not get hash mask: %m");
                 }
 
+                _cleanup_(tpm2_pcrlock_policy_done) Tpm2PCRLockPolicy pcrlock_policy = {};
+                if (arg_tpm2_pcrlock) {
+                        r = tpm2_pcrlock_policy_load(arg_tpm2_pcrlock, &pcrlock_policy);
+                        if (r < 0)
+                                return r;
+                }
+
                 TPM2B_DIGEST policy = TPM2B_DIGEST_MAKE(NULL, TPM2_SHA256_DIGEST_SIZE);
-                r = tpm2_calculate_sealing_policy(arg_tpm2_hash_pcr_values, arg_tpm2_n_hash_pcr_values, pubkey ? &public : NULL, /* use_pin= */ false, &policy);
+                r = tpm2_calculate_sealing_policy(
+                                arg_tpm2_hash_pcr_values,
+                                arg_tpm2_n_hash_pcr_values,
+                                pubkey ? &public : NULL,
+                                /* use_pin= */ false,
+                                arg_tpm2_pcrlock ? &pcrlock_policy : NULL,
+                                &policy);
                 if (r < 0)
                         return log_error_errno(r, "Could not calculate sealing policy digest: %m");
 
@@ -6437,6 +6450,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_TPM2_PCRS,
                 ARG_TPM2_PUBLIC_KEY,
                 ARG_TPM2_PUBLIC_KEY_PCRS,
+                ARG_TPM2_PCRLOCK,
                 ARG_SPLIT,
                 ARG_INCLUDE_PARTITIONS,
                 ARG_EXCLUDE_PARTITIONS,
@@ -6474,6 +6488,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "tpm2-pcrs",            required_argument, NULL, ARG_TPM2_PCRS            },
                 { "tpm2-public-key",      required_argument, NULL, ARG_TPM2_PUBLIC_KEY      },
                 { "tpm2-public-key-pcrs", required_argument, NULL, ARG_TPM2_PUBLIC_KEY_PCRS },
+                { "tpm2-pcrlock",         required_argument, NULL, ARG_TPM2_PCRLOCK         },
                 { "split",                required_argument, NULL, ARG_SPLIT                },
                 { "include-partitions",   required_argument, NULL, ARG_INCLUDE_PARTITIONS   },
                 { "exclude-partitions",   required_argument, NULL, ARG_EXCLUDE_PARTITIONS   },
@@ -6487,6 +6502,7 @@ static int parse_argv(int argc, char *argv[]) {
                 {}
         };
 
+        bool auto_hash_pcr_values = true, auto_public_key_pcr_mask = true, auto_pcrlock = true;
         int c, r;
 
         assert(argc >= 0);
@@ -6707,7 +6723,7 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
                 case ARG_TPM2_PCRS:
-                        arg_tpm2_hash_pcr_values_use_default = false;
+                        auto_hash_pcr_values = false;
                         r = tpm2_parse_pcr_argument_append(optarg, &arg_tpm2_hash_pcr_values, &arg_tpm2_n_hash_pcr_values);
                         if (r < 0)
                                 return r;
@@ -6722,11 +6738,19 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_TPM2_PUBLIC_KEY_PCRS:
-                        arg_tpm2_public_key_pcr_mask_use_default = false;
+                        auto_public_key_pcr_mask = false;
                         r = tpm2_parse_pcr_argument_to_mask(optarg, &arg_tpm2_public_key_pcr_mask);
                         if (r < 0)
                                 return r;
 
+                        break;
+
+                case ARG_TPM2_PCRLOCK:
+                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_tpm2_pcrlock);
+                        if (r < 0)
+                                return r;
+
+                        auto_pcrlock = false;
                         break;
 
                 case ARG_SPLIT:
@@ -6936,15 +6960,32 @@ static int parse_argv(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "A path to an image file must be specified when --split is used.");
 
-        if (arg_tpm2_public_key_pcr_mask_use_default && arg_tpm2_public_key)
-                arg_tpm2_public_key_pcr_mask = INDEX_TO_MASK(uint32_t, TPM2_PCR_KERNEL_BOOT);
+        if (auto_pcrlock) {
+                assert(!arg_tpm2_pcrlock);
 
-        if (arg_tpm2_hash_pcr_values_use_default && !GREEDY_REALLOC_APPEND(
-                        arg_tpm2_hash_pcr_values,
-                        arg_tpm2_n_hash_pcr_values,
-                        &TPM2_PCR_VALUE_MAKE(TPM2_PCR_INDEX_DEFAULT, /* hash= */ 0, /* value= */ {}),
-                        1))
-                return log_oom();
+                r = tpm2_pcrlock_search_file(NULL, NULL, &arg_tpm2_pcrlock);
+                if (r < 0) {
+                        if (r != -ENOENT)
+                                log_warning_errno(r, "Search for pcrlock.json failed, assuming it does not exist: %m");
+                } else
+                        log_info("Automatically using pcrlock policy '%s'.", arg_tpm2_pcrlock);
+        }
+
+        if (auto_public_key_pcr_mask && arg_tpm2_public_key) {
+                assert(arg_tpm2_public_key_pcr_mask == 0);
+                arg_tpm2_public_key_pcr_mask = INDEX_TO_MASK(uint32_t, TPM2_PCR_KERNEL_BOOT);
+        }
+
+        if (auto_hash_pcr_values && !arg_tpm2_pcrlock) { /* Only lock to PCR 7 if no pcr policy is specified. */
+                assert(arg_tpm2_n_hash_pcr_values == 0);
+
+                if (!GREEDY_REALLOC_APPEND(
+                                    arg_tpm2_hash_pcr_values,
+                                    arg_tpm2_n_hash_pcr_values,
+                                    &TPM2_PCR_VALUE_MAKE(TPM2_PCR_INDEX_DEFAULT, /* hash= */ 0, /* value= */ {}),
+                                    1))
+                        return log_oom();
+        }
 
         if (arg_pretty < 0 && isatty(STDOUT_FILENO))
                 arg_pretty = true;

@@ -22,6 +22,7 @@ int acquire_luks2_key(
                 uint32_t pubkey_pcr_mask,
                 const char *signature_path,
                 const char *pin,
+                const char *pcrlock_path,
                 uint16_t primary_alg,
                 const void *key_data,
                 size_t key_data_size,
@@ -57,10 +58,6 @@ int acquire_luks2_key(
         if ((flags & TPM2_FLAGS_USE_PIN) && !pin)
                 return -ENOANO;
 
-        /* If we're using a PIN, and the luks header has a salt, it better have a pin too */
-        if ((flags & TPM2_FLAGS_USE_PIN) && salt_size > 0 && !pin)
-                return -ENOANO;
-
         if (pin && salt_size > 0) {
                 uint8_t salted_pin[SHA256_DIGEST_SIZE] = {};
                 CLEANUP_ERASE(salted_pin);
@@ -80,6 +77,13 @@ int acquire_luks2_key(
                         return log_error_errno(r, "Failed to load PCR signature: %m");
         }
 
+        _cleanup_(tpm2_pcrlock_policy_done) Tpm2PCRLockPolicy pcrlock_policy = {};
+        if (FLAGS_SET(flags, TPM2_FLAGS_USE_PCRLOCK)) {
+                r = tpm2_pcrlock_policy_load(pcrlock_path, &pcrlock_policy);
+                if (r < 0)
+                        return r;
+        }
+
         _cleanup_(tpm2_context_unrefp) Tpm2Context *tpm2_context = NULL;
         r = tpm2_context_new(device, &tpm2_context);
         if (r < 0)
@@ -92,6 +96,7 @@ int acquire_luks2_key(
                         pubkey_pcr_mask,
                         signature_json,
                         pin,
+                        FLAGS_SET(flags, TPM2_FLAGS_USE_PCRLOCK) ? &pcrlock_policy : NULL,
                         primary_alg,
                         key_data, key_data_size,
                         policy_hash, policy_hash_size,
