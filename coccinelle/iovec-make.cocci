@@ -13,9 +13,13 @@ expression x, p, l;
 - x.iov_len = l;
 + x = IOVEC_MAKE(p, l);
 @@
+/* Don't run this transformation on iovec_done() and iovec_done_erase(),
+ * since the result, albeit correct, is a bit funky. */
+ position pos : script:python() { pos[0].current_element != "iovec_done" and
+                                  pos[0].current_element != "iovec_done_erase" };
 expression x, p, l;
 @@
-- x->iov_base = p;
+- x->iov_base@pos = p;
 - x->iov_len = l;
 + *x = IOVEC_MAKE(p, l);
 @@
