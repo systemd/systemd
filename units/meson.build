@@ -660,6 +660,7 @@ units = [
         { 'file' : 'user-runtime-dir@.service.in' },
         { 'file' : 'user.slice' },
         { 'file' : 'user@.service.in' },
+        { 'file' : 'systemd-project@.service.in' },
         {
           'file' : 'var-lib-machines.mount',
           'conditions' : ['ENABLE_MACHINED'],
