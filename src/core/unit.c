@@ -5306,7 +5306,7 @@ int unit_set_exec_params(Unit *u, ExecParameters *p) {
         p->received_credentials_directory = u->manager->received_credentials_directory;
         p->received_encrypted_credentials_directory = u->manager->received_encrypted_credentials_directory;
 
-        p->shall_confirm_spawn = !!u->manager->confirm_spawn;
+        p->shall_confirm_spawn = u->manager->confirm_spawn;
 
         p->fallback_smack_process_label = u->manager->defaults.smack_process_label;
 
