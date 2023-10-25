@@ -512,6 +512,7 @@ void exec_context_revert_tty(ExecContext *c);
 int exec_context_get_clean_directories(ExecContext *c, char **prefix, ExecCleanMask mask, char ***ret);
 int exec_context_get_clean_mask(ExecContext *c, ExecCleanMask *ret);
 
+bool exec_context_needs_term(const ExecContext *c);
 const char *exec_context_tty_path(const ExecContext *context);
 int exec_context_tty_size(const ExecContext *context, unsigned *ret_rows, unsigned *ret_cols);
 void exec_context_tty_reset(const ExecContext *context, const ExecParameters *p);
