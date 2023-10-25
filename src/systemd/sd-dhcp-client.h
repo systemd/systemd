@@ -160,7 +160,7 @@ sd_dhcp_client *sd_dhcp_client_unref(sd_dhcp_client *client);
 
 /* NOTE: anonymize parameter is used to initialize PRL memory with different
  * options when using RFC7844 Anonymity Profiles */
-int sd_dhcp_client_new(sd_dhcp_client **ret, int anonymize);
+__extension__ int sd_dhcp_client_new(sd_dhcp_client **ret, int anonymize, bool rapid_commit);
 
 int sd_dhcp_client_id_to_string(const void *data, size_t len, char **ret);
 

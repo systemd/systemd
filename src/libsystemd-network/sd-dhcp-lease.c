@@ -735,6 +735,12 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void
                         log_debug_errno(r, "Failed to parse router addresses, ignoring: %m");
                 break;
 
+        case SD_DHCP_OPTION_RAPID_COMMIT:
+                if (len > 0)
+                        log_debug("Invalid DHCP Rapid Commit option, ignorning.");
+                lease->rapid_commit = true;
+                break;
+
         case SD_DHCP_OPTION_DOMAIN_NAME_SERVER:
                 r = lease_parse_in_addrs(option, len, &lease->servers[SD_DHCP_LEASE_DNS].addr, &lease->servers[SD_DHCP_LEASE_DNS].size);
                 if (r < 0)
