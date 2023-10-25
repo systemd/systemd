@@ -131,9 +131,25 @@ int terminal_urlify_man(const char *page, const char *section, char **ret) {
         return terminal_urlify(url, text, ret);
 }
 
-static int cat_file(const char *filename, bool newline) {
+typedef enum {
+        LINE_SECTION,
+        LINE_COMMENT,
+        LINE_NORMAL,
+} LineType;
+
+static LineType classify_line_type(const char *line, CatFlags flags) {
+        const char *t = skip_leading_chars(line, WHITESPACE);
+
+        if ((flags & CAT_FORMAT_HAS_SECTIONS) && *t == '[')
+                return LINE_SECTION;
+        if (IN_SET(*t, '#', ';', '\0'))
+                return LINE_COMMENT;
+        return LINE_NORMAL;
+}
+
+static int cat_file(const char *filename, bool newline, CatFlags flags) {
         _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_free_ char *urlified = NULL;
+        _cleanup_free_ char *urlified = NULL, *section = NULL, *old_section = NULL;
         int r;
 
         f = fopen(filename, "re");
@@ -160,7 +176,36 @@ static int cat_file(const char *filename, bool newline) {
                 if (r == 0)
                         break;
 
-                puts(line);
+                LineType line_type = classify_line_type(line, flags);
+                if (flags & CAT_TLDR) {
+                        if (line_type == LINE_SECTION) {
+                                /* The start of a section, let's not print it yet. */
+                                free_and_replace(section, line);
+                                continue;
+                        }
+
+                        if (line_type == LINE_COMMENT)
+                                continue;
+
+                        /* Before we print the actual line, print the last section header */
+                        if (section) {
+                                /* Do not print redundant section headers */
+                                if (!streq_ptr(section, old_section))
+                                        printf("%s%s%s\n",
+                                               ansi_highlight_cyan(),
+                                               section,
+                                               ansi_normal());
+
+                                free_and_replace(old_section, section);
+                        }
+                }
+
+                printf("%s%s%s\n",
+                       line_type == LINE_SECTION ? ansi_highlight_cyan() :
+                       line_type == LINE_COMMENT ? ansi_highlight_grey() :
+                       "",
+                       line,
+                       line_type != LINE_NORMAL ? ansi_normal() : "");
         }
 
         return 0;
@@ -170,18 +215,13 @@ int cat_files(const char *file, char **dropins, CatFlags flags) {
         int r;
 
         if (file) {
-                r = cat_file(file, false);
-                if (r == -ENOENT && (flags & CAT_FLAGS_MAIN_FILE_OPTIONAL))
-                        printf("%s# Configuration file %s not found%s\n",
-                               ansi_highlight_magenta(),
-                               file,
-                               ansi_normal());
-                else if (r < 0)
+                r = cat_file(file, /* newline= */ false, flags);
+                if (r < 0)
                         return log_warning_errno(r, "Failed to cat %s: %m", file);
         }
 
         STRV_FOREACH(path, dropins) {
-                r = cat_file(*path, file || path != dropins);
+                r = cat_file(*path, /* newline= */ file || path != dropins, flags);
                 if (r < 0)
                         return log_warning_errno(r, "Failed to cat %s: %m", *path);
         }
@@ -213,7 +253,10 @@ void print_separator(void) {
 
 static int guess_type(const char **name, char ***prefixes, bool *is_collection, const char **extension) {
         /* Try to figure out if name is like tmpfiles.d/ or systemd/system-presets/,
-         * i.e. a collection of directories without a main config file. */
+         * i.e. a collection of directories without a main config file.
+         * Incidentally, all those formats don't use sections. So we return a single
+         * is_collection boolean, which also means that the format doesn't use sections.
+         */
 
         _cleanup_free_ char *n = NULL;
         bool usr = false, run = false, coll = false;
@@ -279,7 +322,7 @@ static int guess_type(const char **name, char ***prefixes, bool *is_collection, 
         return 0;
 }
 
-int conf_files_cat(const char *root, const char *name) {
+int conf_files_cat(const char *root, const char *name, CatFlags flags) {
         _cleanup_strv_free_ char **dirs = NULL, **files = NULL;
         _cleanup_free_ char *path = NULL;
         char **prefixes = NULL; /* explicit initialization to appease gcc */
@@ -335,5 +378,8 @@ int conf_files_cat(const char *root, const char *name) {
                 return log_error_errno(r, "Failed to query file list: %m");
 
         /* Show */
-        return cat_files(path, files, 0);
+        if (is_collection)
+                flags |= CAT_FORMAT_HAS_SECTIONS;
+
+        return cat_files(path, files, flags);
 }
