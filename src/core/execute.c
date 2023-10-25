@@ -73,6 +73,20 @@
 #include "user-util.h"
 #include "utmp-wtmp.h"
 
+static bool is_terminal_input(ExecInput i) {
+        return IN_SET(i,
+                      EXEC_INPUT_TTY,
+                      EXEC_INPUT_TTY_FORCE,
+                      EXEC_INPUT_TTY_FAIL);
+}
+
+static bool is_terminal_output(ExecOutput o) {
+        return IN_SET(o,
+                      EXEC_OUTPUT_TTY,
+                      EXEC_OUTPUT_KMSG_AND_CONSOLE,
+                      EXEC_OUTPUT_JOURNAL_AND_CONSOLE);
+}
+
 const char *exec_context_tty_path(const ExecContext *context) {
         assert(context);
 
@@ -114,9 +128,10 @@ void exec_context_tty_reset(const ExecContext *context, const ExecParameters *p)
 
         const char *path = exec_context_tty_path(context);
 
-        if (p && p->stdin_fd >= 0)
+        if (p && p->stdin_fd >= 0 && isatty(p->stdin_fd))
                 fd = p->stdin_fd;
-        else if (path) {
+        else if (path && (context->tty_path || is_terminal_input(context->std_input) ||
+                        is_terminal_output(context->std_output) || is_terminal_output(context->std_error))) {
                 fd = _fd = open_terminal(path, O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
                 if (fd < 0)
                         return (void) log_debug_errno(fd, "Failed to open terminal '%s', ignoring: %m", path);
@@ -146,20 +161,6 @@ void exec_context_tty_reset(const ExecContext *context, const ExecParameters *p)
 
         if (context->tty_vt_disallocate && path)
                 (void) vt_disallocate(path);
-}
-
-static bool is_terminal_input(ExecInput i) {
-        return IN_SET(i,
-                      EXEC_INPUT_TTY,
-                      EXEC_INPUT_TTY_FORCE,
-                      EXEC_INPUT_TTY_FAIL);
-}
-
-static bool is_terminal_output(ExecOutput o) {
-        return IN_SET(o,
-                      EXEC_OUTPUT_TTY,
-                      EXEC_OUTPUT_KMSG_AND_CONSOLE,
-                      EXEC_OUTPUT_JOURNAL_AND_CONSOLE);
 }
 
 bool exec_needs_network_namespace(const ExecContext *context) {
