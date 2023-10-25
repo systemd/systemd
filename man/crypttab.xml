@@ -719,6 +719,22 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>tpm2-pcrlock=</option></term>
+
+        <listitem><para>Takes an absolute path to a TPM2 pcrlock policy file, as produced by the
+        <citerefentry><refentrytitle>systemd-pcrlock</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        tool. This permits locking LUKS2 volumes to a local policy of allowed PCR values with
+        variants. See
+        <citerefentry><refentrytitle>systemd-cryptenroll</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        for details on enrolling TPM2 pcrlock policies. If this option is not specified but it is attempted
+        to unlock a LUKS2 volume with a TPM2 pcrlock enrollment a suitable signature file
+        <filename>pcrlock.json</filename> is searched for in <filename>/run/systemd/</filename> and
+        <filename>/var/lib/systemd/</filename> (in this order).</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>tpm2-measure-pcr=</option></term>
 
         <listitem><para>Controls whether to measure the volume key of the encrypted volume to a TPM2 PCR. If
