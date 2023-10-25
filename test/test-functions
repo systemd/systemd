@@ -169,6 +169,7 @@ BASICTOOLS=(
     echo
     env
     false
+    findmnt
     flock
     getconf
     getent
@@ -188,6 +189,7 @@ BASICTOOLS=(
     login
     losetup
     lsattr
+    lsblk
     lz4cat
     mkfifo
     mknod
