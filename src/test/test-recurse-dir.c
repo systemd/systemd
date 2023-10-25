@@ -3,6 +3,7 @@
 #include <ftw.h>
 
 #include "log.h"
+#include "missing_magic.h"
 #include "recurse-dir.h"
 #include "strv.h"
 #include "tests.h"
@@ -119,7 +120,7 @@ int main(int argc, char *argv[]) {
         _cleanup_strv_free_ char **list_recurse_dir = NULL;
         const char *p;
         usec_t t1, t2, t3, t4;
-        int r;
+        int fd;
 
         log_show_color(true);
         test_setup_logging(LOG_INFO);
@@ -129,18 +130,26 @@ int main(int argc, char *argv[]) {
         else
                 p = "/usr/share/man"; /* something hopefully reasonably stable while we run (and limited in size) */
 
+        fd = open(p, O_DIRECTORY|O_CLOEXEC);
+        if (fd < 0 && errno == ENOENT) {
+                log_warning_errno(errno, "Couldn't open directory %s, ignoring: %m", p);
+                return EXIT_TEST_SKIP;
+        }
+        /* If the test directory is on an overlayfs then files and their direcory may return different st_dev
+         * in stat results, which confuses nftw into thinking they're on different filesystems
+         * and won't return the result when the FTW_MOUNT flag is set. */
+        if (fd_is_fs_type(fd, OVERLAYFS_SUPER_MAGIC)) {
+                log_warning("Directory %s is on overlayfs, skipping due to nftw mountpoint detection false-positives", p);
+                return EXIT_TEST_SKIP;
+        }
+
         /* Enumerate the specified dirs in full, once via nftw(), and once via recurse_dir(), and ensure the
          * results are identical. nftw() sometimes skips symlinks (see
          * https://github.com/systemd/systemd/issues/29603), so ignore them to avoid bogus errors. */
 
         t1 = now(CLOCK_MONOTONIC);
-        r = recurse_dir_at(AT_FDCWD, p, 0, UINT_MAX, RECURSE_DIR_SORT|RECURSE_DIR_ENSURE_TYPE|RECURSE_DIR_SAME_MOUNT, recurse_dir_callback, &list_recurse_dir);
+        assert_se(recurse_dir(fd, p, 0, UINT_MAX, RECURSE_DIR_SORT|RECURSE_DIR_ENSURE_TYPE|RECURSE_DIR_SAME_MOUNT, recurse_dir_callback, &list_recurse_dir) >= 0);
         t2 = now(CLOCK_MONOTONIC);
-        if (r == -ENOENT) {
-                log_warning_errno(r, "Couldn't open directory %s, ignoring: %m", p);
-                return EXIT_TEST_SKIP;
-        }
-        assert_se(r >= 0);
 
         t3 = now(CLOCK_MONOTONIC);
         assert_se(nftw(p, nftw_cb, 64, FTW_PHYS|FTW_MOUNT) >= 0);
