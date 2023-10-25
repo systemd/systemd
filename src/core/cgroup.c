@@ -1500,6 +1500,9 @@ void unit_modify_nft_set(Unit *u, bool add) {
         CGroupContext *c = ASSERT_PTR(unit_get_cgroup_context(u));
 
         FOREACH_ARRAY(nft_set, c->nft_set_context.sets, c->nft_set_context.n_sets) {
+                if (nft_set->source != NFT_SET_SOURCE_CGROUP)
+                        continue;
+
                 uint64_t element = u->cgroup_id;
 
                 r = nft_set_element_modify_any(u->manager->fw_ctx, add, nft_set->nfproto, nft_set->table, nft_set->set, &element, sizeof(element));
