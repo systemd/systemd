@@ -49,7 +49,7 @@ static void test_request_basic(sd_event *e) {
                 printf("* %s\n", __func__);
 
         /* Initialize client without Anonymize settings. */
-        r = sd_dhcp_client_new(&client, false);
+        r = sd_dhcp_client_new(&client, false, false);
 
         assert_se(r >= 0);
         assert_se(client);
@@ -109,7 +109,7 @@ static void test_request_anonymize(sd_event *e) {
                 printf("* %s\n", __func__);
 
         /* Initialize client with Anonymize settings. */
-        r = sd_dhcp_client_new(&client, true);
+        r = sd_dhcp_client_new(&client, true, true);
 
         assert_se(r >= 0);
         assert_se(client);
@@ -283,7 +283,7 @@ static void test_discover_message(sd_event *e) {
         if (verbose)
                 printf("* %s\n", __func__);
 
-        r = sd_dhcp_client_new(&client, false);
+        r = sd_dhcp_client_new(&client, false, false);
         assert_se(r >= 0);
         assert_se(client);
 
@@ -500,7 +500,7 @@ static void test_addr_acq(sd_event *e) {
         if (verbose)
                 printf("* %s\n", __func__);
 
-        r = sd_dhcp_client_new(&client, false);
+        r = sd_dhcp_client_new(&client, false, false);
         assert_se(r >= 0);
         assert_se(client);
 
