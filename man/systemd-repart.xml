@@ -389,6 +389,16 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--tpm2-pcrlock=</option><arg>PATH</arg></term>
+
+        <listitem><para>Configures a TPM2 pcrlock policy to bind encryption to. See
+        <citerefentry><refentrytitle>systemd-cryptenroll</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        for details on this option.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--split=</option><arg>BOOL</arg></term>
 
         <listitem><para>Enables generation of split artifacts from partitions configured with
