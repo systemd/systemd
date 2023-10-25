@@ -1607,7 +1607,7 @@ int config_parse_router_home_agent_lifetime(
                 return 0;
         }
 
-        if (usec == USEC_INFINITY || usec == 0 ||
+        if (!timestamp_is_set(usec) ||
             usec > RADV_HOME_AGENT_MAX_LIFETIME_USEC) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Invalid [%s] %s=, ignoring assignment: %s", section, lvalue, rvalue);
