@@ -1427,6 +1427,7 @@ void session_leave_vt(Session *s) {
                 return;
 
         session_device_pause_all(s);
+        s->left = true;
         r = vt_release(s->vtfd, /* restore = */ false);
         if (r == -EIO) {
                 /* Handle the same VT hung-up case as in session_restore_vt */

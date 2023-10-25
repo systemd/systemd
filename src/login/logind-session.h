@@ -106,6 +106,7 @@ struct Session {
         bool stopping:1;
 
         bool was_active:1;
+        bool left:1;
 
         sd_bus_message *create_message;
 
