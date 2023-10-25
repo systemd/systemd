@@ -936,6 +936,10 @@ static int parse_fstab_one(
                         mount_is_network(fstype, options) ? SPECIAL_REMOTE_FS_TARGET :
                                                             SPECIAL_LOCAL_FS_TARGET;
 
+        /* Setting nofail for /sysroot/usr doesn't make sense so let's just silently ignore it. */
+        if (is_sysroot_usr && (flags & MOUNT_NOFAIL))
+                flags &= ~MOUNT_NOFAIL;
+
         r = add_mount(source,
                       arg_dest,
                       what,
