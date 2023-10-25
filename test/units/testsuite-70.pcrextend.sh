@@ -23,6 +23,41 @@ at_exit() {
 
 trap at_exit EXIT
 
+# Temporarily override sd-pcrextend's sanity checks
+export SYSTEMD_FORCE_MEASURE=1
+
+"$SD_PCREXTEND" --help
+"$SD_PCREXTEND" --version
+"$SD_PCREXTEND" foo
+"$SD_PCREXTEND" --machine-id
+"$SD_PCREXTEND" --tpm2-device=list
+"$SD_PCREXTEND" --tpm2-device=auto foo
+"$SD_PCREXTEND" --tpm2-device=/dev/tpm0 foo
+"$SD_PCREXTEND" --bank=sha256 foo
+"$SD_PCREXTEND" --bank=sha256 --bank=sha256 foo
+"$SD_PCREXTEND" --graceful foo
+"$SD_PCREXTEND" --pcr=15 foo
+"$SD_PCREXTEND" --file-system=/
+"$SD_PCREXTEND" --file-system=/tmp --file-system=/
+"$SD_PCREXTEND" --file-system=/tmp --file-system=/ --pcr=15 --pcr=11
+
+if tpm_has_pcr sha1 11; then
+    "$SD_PCREXTEND" --bank=sha1 --pcr=11 foo
+fi
+
+(! "$SD_PCREXTEND")
+(! "$SD_PCREXTEND" "")
+(! "$SD_PCREXTEND" foo bar)
+(! "$SD_PCREXTEND" --bank= foo)
+(! "$SD_PCREXTEND" --tpm2-device= foo)
+(! "$SD_PCREXTEND" --tpm2-device=/dev/null foo)
+(! "$SD_PCREXTEND" --pcr= foo)
+(! "$SD_PCREXTEND" --pcr=-1 foo)
+(! "$SD_PCREXTEND" --pcr=1024 foo)
+(! "$SD_PCREXTEND" --foo=bar)
+
+unset SYSTEMD_FORCE_MEASURE
+
 # Note: since we're reading the TPM event log as json-seq, the same rules apply to the output
 #       as well, i.e. each record is prefixed by RS (0x1E, 036) and suffixed by LF (0x0A, 012).
 #       LF is usually eaten by bash, but RS needs special handling.
@@ -72,5 +107,18 @@ test "$(jq --seq --slurp ".[$RECORD_COUNT].pcr" </run/log/systemd/tpm2-measure.l
 DIGEST_EXPECTED="$(echo -n "foobar" | openssl dgst -hex -sha256 -r)"
 DIGEST_CURRENT="$(jq --seq --slurp --raw-output ".[$RECORD_COUNT].digests[] | select(.hashAlg == \"sha256\").digest" </run/log/systemd/tpm2-measure.log) *stdin"
 test "$DIGEST_EXPECTED" == "$DIGEST_CURRENT"
+
+# Measure a file system into PCR 15
+tpm2_pcrread sha256:15 -Q -o /tmp/oldpcr15
+SYSTEMD_FORCE_MEASURE=1 "$SD_PCREXTEND" --file-system=/
+# Put together the "file system word" we just sent to the TPM
+#   file-system:MOUNTPOINT:TYPE:UUID:LABEL:PART_ENTRY_UUID:PART_ENTRY_TYPE:PART_ENTRY_NAME
+ROOT_DEVICE="$(findmnt -n -o SOURCE /)"
+FS_WORD="$(lsblk -n -o MOUNTPOINT,FSTYPE,UUID,LABEL,PARTUUID,PARTTYPE,PARTLABEL "$ROOT_DEVICE" | sed -r 's/[ ]+/:/g')"
+tpm2_pcrread sha256:15 -Q -o /tmp/newpcr15
+
+# And check if it matches with the current PCR 15 state
+diff /tmp/newpcr15 \
+     <(cat /tmp/oldpcr15 <(echo -n "file-system:$FS_WORD" | openssl dgst -binary -sha256) | openssl dgst -binary -sha256)
 
 rm -f /tmp/oldpcr{11,15} /tmp/newpcr{11,15}
