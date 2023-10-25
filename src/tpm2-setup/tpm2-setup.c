@@ -32,7 +32,7 @@ static int help(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_oom();
 
-        printf("%1$s [OPTIONS...] COMMAND\n"
+        printf("%1$s [OPTIONS...]\n"
                "\n%5$sSet up the TPM2 Storage Root Key (SRK).%6$s\n"
                "\n%3$sOptions:%4$s\n"
                "  -h --help               Show this help\n"
@@ -63,6 +63,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "version",     no_argument,       NULL, ARG_VERSION     },
                 { "tpm2-device", required_argument, NULL, ARG_TPM2_DEVICE },
                 { "early",       required_argument, NULL, ARG_EARLY       },
+                {}
         };
 
         int c, r;
