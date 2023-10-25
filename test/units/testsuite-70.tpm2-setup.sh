@@ -11,8 +11,17 @@ if [[ ! -x "${SD_TPM2SETUP:?}" ]]; then
     exit 0
 fi
 
-# Run this, just to get sanitizer coverage. The tools should be idempotent, hence run the multiple times.
+"$SD_TPM2SETUP" --help
+"$SD_TPM2SETUP" --version
+"$SD_TPM2SETUP" --tpm2-device=list
+"$SD_TPM2SETUP" --tpm2-device=auto
+"$SD_TPM2SETUP" --tpm2-device=/dev/tpm0
 "$SD_TPM2SETUP" --early=yes
 "$SD_TPM2SETUP" --early=yes
 "$SD_TPM2SETUP" --early=no
 "$SD_TPM2SETUP" --early=no
+
+(! "$SD_TPM2SETUP" "")
+(! "$SD_TPM2SETUP" --tpm2-device=)
+(! "$SD_TPM2SETUP" --tpm2-device=/dev/null)
+(! "$SD_TPM2SETUP" --foo=bar)
