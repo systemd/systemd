@@ -14,6 +14,23 @@ if [[ ! -x "${SD_PCREXTEND:?}" ]] || ! tpm_has_pcr sha256 11 || ! tpm_has_pcr sh
     exit 0
 fi
 
+at_exit() {
+    if [[ $? -ne 0 ]]; then
+        # Dump the event log on fail, to make debugging a bit easier
+        jq --seq --slurp </run/log/systemd/tpm2-measure.log
+    fi
+}
+
+trap at_exit EXIT
+
+# Note: since we're reading the TPM event log as json-seq, the same rules apply to the output
+#       as well, i.e. each record is prefixed by RS (0x1E, 036) and suffixed by LF (0x0A, 012).
+#       LF is usually eaten by bash, but RS needs special handling.
+
+# Save the number of events in the current event log, so we can skip them when
+# checking changes caused by following tests
+RECORD_COUNT="$(jq --seq --slurp '. | length' </run/log/systemd/tpm2-measure.log | tr -d '\036')"
+
 # Let's measure the machine ID
 tpm2_pcrread sha256:15 -Q -o /tmp/oldpcr15
 mv /etc/machine-id /etc/machine-id.save
@@ -26,12 +43,13 @@ tpm2_pcrread sha256:15 -Q -o /tmp/newpcr15
 diff /tmp/newpcr15 \
      <(cat /tmp/oldpcr15 <(echo -n "machine-id:994013bf23864ee7992eab39a96dd3bb" | openssl dgst -binary -sha256) | openssl dgst -binary -sha256)
 
-rm -f /tmp/oldpcr15 /tmp/newpcr15
+# Check that the event log record was properly written
+test "$(jq --seq --slurp ".[$RECORD_COUNT].pcr" </run/log/systemd/tpm2-measure.log)" == "$(printf '\x1e15')"
+DIGEST_EXPECTED="$(echo -n "machine-id:994013bf23864ee7992eab39a96dd3bb" | openssl dgst -hex -sha256 -r)"
+DIGEST_CURRENT="$(jq --seq --slurp --raw-output ".[$RECORD_COUNT].digests[] | select(.hashAlg == \"sha256\").digest" </run/log/systemd/tpm2-measure.log) *stdin"
+test "$DIGEST_EXPECTED" == "$DIGEST_CURRENT"
 
-# Check that the event log record was properly written:
-test "$(jq --seq --slurp '.[0].pcr' < /run/log/systemd/tpm2-measure.log)" == "$(printf '\x1e15')"
-test "$(jq --seq --slurp --raw-output '.[0].digests[1].digest' < /run/log/systemd/tpm2-measure.log) *stdin" == "$(echo -n "machine-id:994013bf23864ee7992eab39a96dd3bb" | openssl dgst -hex -sha256 -r)"
-
+RECORD_COUNT=$((RECORD_COUNT + 1))
 # And similar for the boot phase measurement into PCR 11
 tpm2_pcrread sha256:11 -Q -o /tmp/oldpcr11
 # Do the equivalent of 'SYSTEMD_FORCE_MEASURE=1 "$SD_PCREXTEND" foobar' via Varlink, just to test the Varlink logic (but first we need to patch out the conditionalization...)
@@ -49,10 +67,10 @@ tpm2_pcrread sha256:11 -Q -o /tmp/newpcr11
 diff /tmp/newpcr11 \
     <(cat /tmp/oldpcr11 <(echo -n "foobar" | openssl dgst -binary -sha256) | openssl dgst -binary -sha256)
 
-# Check the event log for the 2nd record
-jq --seq --slurp < /run/log/systemd/tpm2-measure.log
+# Check the event log for the 2nd new record since $RECORD_COUNT
+test "$(jq --seq --slurp ".[$RECORD_COUNT].pcr" </run/log/systemd/tpm2-measure.log)" == "$(printf '\x1e11')"
+DIGEST_EXPECTED="$(echo -n "foobar" | openssl dgst -hex -sha256 -r)"
+DIGEST_CURRENT="$(jq --seq --slurp --raw-output ".[$RECORD_COUNT].digests[] | select(.hashAlg == \"sha256\").digest" </run/log/systemd/tpm2-measure.log) *stdin"
+test "$DIGEST_EXPECTED" == "$DIGEST_CURRENT"
 
-test "$(jq --seq --slurp .[1].pcr < /run/log/systemd/tpm2-measure.log)" == "$(printf '\x1e11')"
-test "$(jq --seq --slurp --raw-output .[1].digests[0].digest < /run/log/systemd/tpm2-measure.log) *stdin" == "$(echo -n "foobar" | openssl dgst -hex -sha256 -r)"
-
-rm -f /tmp/oldpcr11 /tmp/newpcr11
+rm -f /tmp/oldpcr{11,15} /tmp/newpcr{11,15}
