@@ -15,9 +15,11 @@
 #include "find-esp.h"
 #include "format-table.h"
 #include "id128-util.h"
+#include "image-policy.h"
 #include "kernel-image.h"
 #include "main-func.h"
 #include "mkdir.h"
+#include "mount-util.h"
 #include "parse-argument.h"
 #include "path-util.h"
 #include "pretty-print.h"
@@ -35,9 +37,14 @@ static char *arg_xbootldr_path = NULL;
 static int arg_make_entry_directory = -1; /* tristate */
 static PagerFlags arg_pager_flags = 0;
 static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
+static char *arg_root = NULL;
+static char *arg_image = NULL;
+static ImagePolicy *arg_image_policy = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_esp_path, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_xbootldr_path, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 
 typedef enum Action {
         ACTION_ADD,
@@ -117,9 +124,9 @@ static int context_open_root(Context *c) {
         assert(c);
         assert(c->rfd < 0);
 
-        c->rfd = open("/", O_CLOEXEC | O_DIRECTORY | O_PATH);
+        c->rfd = open(empty_to_root(arg_root), O_CLOEXEC | O_DIRECTORY | O_PATH);
         if (c->rfd < 0)
-                return log_error_errno(errno, "Failed to open root directory: %m");
+                return log_error_errno(errno, "Failed to open root directory '%s': %m", empty_to_root(arg_root));
 
         return 0;
 }
@@ -1019,6 +1026,9 @@ static int verb_add(int argc, char *argv[], void *userdata) {
         assert(argc >= 3);
         assert(argv);
 
+        if (arg_root)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "'add' does not support --root=.");
+
         if (bypass())
                 return 0;
 
@@ -1059,6 +1069,9 @@ static int verb_remove(int argc, char *argv[], void *userdata) {
 
         assert(argc >= 2);
         assert(argv);
+
+        if (arg_root)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "'remove' does not support --root=.");
 
         if (argc > 2)
                 log_debug("Too many arguments specified. 'kernel-install remove' takes only kernel version. "
@@ -1186,18 +1199,20 @@ static int help(void) {
                "  kernel-install [OPTIONS...] inspect [KERNEL-VERSION] KERNEL-IMAGE [INITRD ...]\n"
                "\n"
                "Options:\n"
-               "  -h --help              Show this help\n"
-               "     --version           Show package version\n"
-               "  -v --verbose           Increase verbosity\n"
-               "     --esp-path=PATH     Path to the EFI System Partition (ESP)\n"
-               "     --boot-path=PATH    Path to the $BOOT partition\n"
+               "  -h --help                    Show this help\n"
+               "     --version                 Show package version\n"
+               "  -v --verbose                 Increase verbosity\n"
+               "     --esp-path=PATH           Path to the EFI System Partition (ESP)\n"
+               "     --boot-path=PATH          Path to the $BOOT partition\n"
                "     --make-entry-directory=yes|no|auto\n"
-               "                         Create $BOOT/ENTRY-TOKEN/ directory\n"
+               "                               Create $BOOT/ENTRY-TOKEN/ directory\n"
                "     --entry-token=machine-id|os-id|os-image-id|auto|literal:…\n"
-               "                         Entry token to use for this installation\n"
-               "     --no-pager          Do not pipe inspect output into a pager\n"
-               "     --json=pretty|short|off\n"
-               "                         Generate JSON output\n"
+               "                               Entry token to use for this installation\n"
+               "     --no-pager                Do not pipe inspect output into a pager\n"
+               "     --json=pretty|short|off   Generate JSON output\n"
+               "     --root=PATH               Operate on an alternate filesystem root\n"
+               "     --image=PATH              Operate on disk image as filesystem root\n"
+               "     --image-policy=POLICY     Specify disk image dissection policy\n"
                "\n"
                "This program may also be invoked as 'installkernel':\n"
                "  installkernel  [OPTIONS...] VERSION VMLINUZ [MAP] [INSTALLATION-DIR]\n"
@@ -1221,6 +1236,9 @@ static int parse_argv(int argc, char *argv[], Context *c) {
                 ARG_ENTRY_TOKEN,
                 ARG_NO_PAGER,
                 ARG_JSON,
+                ARG_ROOT,
+                ARG_IMAGE,
+                ARG_IMAGE_POLICY,
         };
         static const struct option options[] = {
                 { "help",                 no_argument,       NULL, 'h'                      },
@@ -1232,6 +1250,9 @@ static int parse_argv(int argc, char *argv[], Context *c) {
                 { "entry-token",          required_argument, NULL, ARG_ENTRY_TOKEN          },
                 { "no-pager",             no_argument,       NULL, ARG_NO_PAGER             },
                 { "json",                 required_argument, NULL, ARG_JSON                 },
+                { "root",                 required_argument, NULL, ARG_ROOT                 },
+                { "image",                required_argument, NULL, ARG_IMAGE                },
+                { "image-policy",         required_argument, NULL, ARG_IMAGE_POLICY         },
                 {}
         };
         int t, r;
@@ -1293,12 +1314,33 @@ static int parse_argv(int argc, char *argv[], Context *c) {
                                 return r;
                         break;
 
+                case ARG_ROOT:
+                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_root);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_IMAGE:
+                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_image);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_IMAGE_POLICY:
+                        r = parse_image_policy_argument(optarg, &arg_image_policy);
+                        if (r < 0)
+                                return r;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
                 default:
                         assert_not_reached();
                 }
+
+        if (arg_image && arg_root)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Please specify either --root= or --image=, the combination of both is not supported.");
 
         return 1;
 }
@@ -1317,6 +1359,8 @@ static int run(int argc, char* argv[]) {
                 .layout = _LAYOUT_INVALID,
                 .entry_token_type = BOOT_ENTRY_TOKEN_AUTO,
         };
+        _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
+        _cleanup_(umount_and_freep) char *mounted_dir = NULL;
         int r;
 
         log_setup();
@@ -1324,6 +1368,27 @@ static int run(int argc, char* argv[]) {
         r = parse_argv(argc, argv, &c);
         if (r <= 0)
                 return r;
+
+        if (arg_image) {
+                assert(!arg_root);
+
+                r = mount_image_privately_interactively(
+                                arg_image,
+                                arg_image_policy,
+                                DISSECT_IMAGE_GENERIC_ROOT |
+                                DISSECT_IMAGE_REQUIRE_ROOT |
+                                DISSECT_IMAGE_RELAX_VAR_CHECK |
+                                DISSECT_IMAGE_VALIDATE_OS,
+                                &mounted_dir,
+                                /* ret_dir_fd= */ NULL,
+                                &loop_device);
+                if (r < 0)
+                        return r;
+
+                arg_root = strdup(mounted_dir);
+                if (!arg_root)
+                        return log_oom();
+        }
 
         r = context_init(&c);
         if (r < 0)
