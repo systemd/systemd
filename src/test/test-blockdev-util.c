@@ -8,12 +8,14 @@ static void test_path_is_encrypted_one(const char *p, int expect) {
         int r;
 
         r = path_is_encrypted(p);
-        if (r == -ENOENT || ERRNO_IS_NEG_PRIVILEGE(r))
+        if (IN_SET(r, -ENOENT, -ELOOP) || ERRNO_IS_NEG_PRIVILEGE(r))
                 /* This might fail, if btrfs is used and we run in a container. In that case we cannot
                  * resolve the device node paths that BTRFS_IOC_DEV_INFO returns, because the device nodes
                  * are unlikely to exist in the container. But if we can't stat() them we cannot determine
                  * the dev_t of them, and thus cannot figure out if they are encrypted. Hence let's just
-                 * ignore ENOENT here. Also skip the test if we lack privileges. */
+                 * ignore ENOENT here. Also skip the test if we lack privileges.
+                 * ELOOP might happen if the mount point is a symlink, as seen with under
+                 * some rpm-ostree distros */
                 return;
         assert_se(r >= 0);
 
