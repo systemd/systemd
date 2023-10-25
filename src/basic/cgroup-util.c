@@ -691,17 +691,17 @@ int cg_get_xattr_malloc(const char *path, const char *name, char **ret) {
 }
 
 int cg_get_xattr_bool(const char *path, const char *name) {
-        _cleanup_free_ char *val = NULL;
+        _cleanup_free_ char *fs = NULL;
         int r;
 
         assert(path);
         assert(name);
 
-        r = cg_get_xattr_malloc(path, name, &val);
+        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, path, NULL, &fs);
         if (r < 0)
                 return r;
 
-        return parse_boolean(val);
+        return getxattr_at_bool(AT_FDCWD, fs, name, /* flags= */ 0);
 }
 
 int cg_remove_xattr(const char *path, const char *name) {
