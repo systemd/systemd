@@ -1902,13 +1902,7 @@ static int client_enter_bound_now(sd_dhcp_client *client, int notify_event) {
         close_and_replace(client->fd, r);
         client_initialize_io_events(client, client_receive_message_udp);
 
-        if (IN_SET(client->state, DHCP_STATE_RENEWING, DHCP_STATE_REBINDING) &&
-            notify_event == SD_DHCP_CLIENT_EVENT_IP_ACQUIRE)
-                /* FIXME: hmm, maybe this is a bug... */
-                log_dhcp_client(client, "client_handle_ack() returned SD_DHCP_CLIENT_EVENT_IP_ACQUIRE while DHCP client is %s the address, skipping callback.",
-                                client->state == DHCP_STATE_RENEWING ? "renewing" : "rebinding");
-        else
-                client_notify(client, notify_event);
+        client_notify(client, notify_event);
 
         return 0;
 }
