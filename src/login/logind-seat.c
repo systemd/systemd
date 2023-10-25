@@ -225,8 +225,20 @@ int seat_set_active(Seat *s, Session *session) {
         assert(s);
         assert(!session || session->seat == s);
 
-        if (session == s->active)
+        /* When logind receives the SIGRTMIN signal from the kernel, it will
+         * execute session_leave_vt and stop all devices of the session; at
+         * this time, if the session is active and there is no change in the
+         * session, then the session does not have the permissions of the device,
+         * and the machine will have a black screen and suspended animation.
+         * Therefore, if the active session has executed session_leave_vt ,
+         * A resume is required here. */
+        if (session == s->active) {
+                if (session) {
+                        log_debug("Active session remains unchanged, resuming session devices.");
+                        session_device_resume_all(session);
+                }
                 return 0;
+        }
 
         old_active = s->active;
         s->active = session;
