@@ -31,6 +31,14 @@ except AttributeError:
 exe_with_args = sys.argv[1:]
 temp_dir = tempfile.TemporaryDirectory(prefix='test-systemd-tmpfiles.')
 
+# If /tmp isn't owned by either 'root' or the current user
+# systemd-tmpfiles will exit with "Detected unsafe path transition"
+# breaking this test
+tmpowner = os.stat("/tmp").st_uid
+if tmpowner != 0 and tmpowner != os.getuid():
+    print("Skip: /tmp is not owned by 'root' or current user")
+    sys.exit(EXIT_TEST_SKIP)
+
 def test_line(line, *, user, returncode=EX_DATAERR, extra={}):
     args = ['--user'] if user else []
     print('Running {} on {!r}'.format(' '.join(exe_with_args + args), line))
