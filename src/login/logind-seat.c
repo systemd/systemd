@@ -225,8 +225,14 @@ int seat_set_active(Seat *s, Session *session) {
         assert(s);
         assert(!session || session->seat == s);
 
-        if (session == s->active)
+        if (session == s->active) {
+		if (session && session->leaved) {
+			log_warning("seat_set_active something wrong resume cur");
+			session_device_resume_all(session);
+			session->leaved = false;
+		}
                 return 0;
+	}
 
         old_active = s->active;
         s->active = session;
@@ -241,6 +247,7 @@ int seat_set_active(Seat *s, Session *session) {
         if (session && session->started) {
                 session_send_changed(session, "Active", NULL);
                 session_device_resume_all(session);
+                session->leaved = false;
         }
 
         if (!session || session->started)
