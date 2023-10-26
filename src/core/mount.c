@@ -908,7 +908,7 @@ static void mount_dump(Unit *u, FILE *f, const char *prefix) {
 
 static int mount_spawn(Mount *m, ExecCommand *c, PidRef *ret_pid) {
 
-        _cleanup_(exec_params_clear) ExecParameters exec_params = EXEC_PARAMETERS_INIT(
+        _cleanup_(exec_params_shallow_clear) ExecParameters exec_params = EXEC_PARAMETERS_INIT(
                         EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_APPLY_TTY_STDIN);
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         pid_t pid;
