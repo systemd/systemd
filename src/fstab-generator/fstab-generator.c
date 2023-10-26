@@ -478,11 +478,8 @@ static int add_mount(
                 MountPointFlags flags,
                 const char *target_unit) {
 
-        _cleanup_free_ char
-                *name = NULL,
-                *automount_name = NULL,
-                *filtered = NULL,
-                *where_escaped = NULL;
+        _cleanup_free_ char *name = NULL, *automount_name = NULL, *filtered = NULL, *where_escaped = NULL,
+                *opts_root_filtered = NULL;
         _cleanup_strv_free_ char **wanted_by = NULL, **required_by = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
@@ -524,7 +521,7 @@ static int add_mount(
                 if (flags & MOUNT_NOFAIL)
                         log_warning("Ignoring \"nofail\" option for root device");
                 if (flags & MOUNT_AUTOMOUNT)
-                        log_warning("Ignoring \"automount\" option for root device");
+                        log_warning("Ignoring \"x-systemd.automount\" option for root device");
                 if (!strv_isempty(wanted_by))
                         log_warning("Ignoring \"x-systemd.wanted-by=\" option for root device");
                 if (!strv_isempty(required_by))
@@ -533,6 +530,14 @@ static int add_mount(
                 required_by = strv_free(required_by);
                 wanted_by = strv_free(wanted_by);
                 SET_FLAG(flags, MOUNT_NOAUTO | MOUNT_NOFAIL | MOUNT_AUTOMOUNT, false);
+
+                r = fstab_filter_options(opts,
+                                         "noauto\0nofail\0x-systemd.automount\0x-systemd.wanted-by\0x-systemd.required-by\0",
+                                         NULL, NULL, NULL, &opts_root_filtered);
+                if (r < 0)
+                        return r;
+
+                opts = opts_root_filtered;
         }
 
         r = unit_name_from_path(where, ".mount", &name);
