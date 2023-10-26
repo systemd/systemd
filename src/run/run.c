@@ -17,23 +17,27 @@
 #include "bus-unit-util.h"
 #include "bus-wait-for-jobs.h"
 #include "calendarspec.h"
+#include "chase.h"
 #include "color-util.h"
 #include "env-util.h"
 #include "escape.h"
 #include "exit-status.h"
 #include "fd-util.h"
 #include "format-util.h"
+#include "fs-util.h"
 #include "main-func.h"
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
 #include "process-util.h"
+#include "project-util.h"
 #include "ptyfwd.h"
 #include "signal-util.h"
 #include "spawn-polkit-agent.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "uid-alloc-range.h"
 #include "unit-def.h"
 #include "unit-name.h"
 #include "user-util.h"
@@ -257,6 +261,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "version",            no_argument,       NULL, ARG_VERSION            },
                 { "user",               no_argument,       NULL, ARG_USER               },
                 { "system",             no_argument,       NULL, ARG_SYSTEM             },
+                { "project",            required_argument, NULL, 'J'                    },
                 { "scope",              no_argument,       NULL, ARG_SCOPE              },
                 { "unit",               required_argument, NULL, 'u'                    },
                 { "description",        required_argument, NULL, ARG_DESCRIPTION        },
@@ -309,7 +314,7 @@ static int parse_argv(int argc, char *argv[]) {
         /* Resetting to 0 forces the invocation of an internal initialization routine of getopt_long()
          * that checks for GNU extensions in optstring ('-' or '+' at the beginning). */
         optind = 0;
-        while ((c = getopt_long(argc, argv, "+hrH:M:E:p:tPqGdSu:", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "+hrJ:H:M:E:p:tPqGdSu:", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -329,6 +334,18 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_SYSTEM:
                         arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
+                        break;
+
+                case 'J':
+                        r = project_name_is_valid(optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Unable to validate project name '%s': %m", optarg);
+                        if (r == 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid project name: %s", optarg);
+
+                        arg_host = optarg;
+                        arg_transport = BUS_TRANSPORT_PROJECT;
+                        arg_runtime_scope = RUNTIME_SCOPE_USER;
                         break;
 
                 case ARG_SCOPE:
@@ -1602,6 +1619,28 @@ static int acquire_invocation_id(sd_bus *bus, const char *unit, sd_id128_t *ret)
         return !sd_id128_is_null(*ret);
 }
 
+static int chown_to_project(const char *path, const char *project) {
+        _cleanup_free_ char *p = NULL;
+        int r;
+
+        assert(path);
+        assert(project);
+
+        p = path_join("/run/projects/", project);
+        if (!p)
+                return -ENOMEM;
+
+        struct stat st;
+        r = chase_and_stat(p, /* root= */ NULL, CHASE_SAFE|CHASE_PROHIBIT_SYMLINKS, /* ret_path= */ NULL, &st);
+        if (r < 0)
+                return r;
+
+        if (uid_is_system(st.st_uid) || gid_is_system(st.st_gid)) /* paranoid safety check */
+                return -EPERM;
+
+        return chmod_and_chown(path, 0600, st.st_uid, st.st_gid);
+}
+
 static int start_transient_service(sd_bus *bus) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -1614,7 +1653,7 @@ static int start_transient_service(sd_bus *bus) {
 
         if (arg_stdio == ARG_STDIO_PTY) {
 
-                if (arg_transport == BUS_TRANSPORT_LOCAL) {
+                if (IN_SET(arg_transport, BUS_TRANSPORT_LOCAL, BUS_TRANSPORT_PROJECT)) {
                         master = posix_openpt(O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
                         if (master < 0)
                                 return log_error_errno(errno, "Failed to acquire pseudo tty: %m");
@@ -1622,6 +1661,14 @@ static int start_transient_service(sd_bus *bus) {
                         r = ptsname_malloc(master, &pty_path);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to determine tty name: %m");
+
+                        if (arg_transport == BUS_TRANSPORT_PROJECT) {
+                                /* If we are in project mode, we must give the project UID/GID access to the PTY we just allocated first. */
+
+                                r = chown_to_project(pty_path, arg_host);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to chown tty to project UID/GID: %m");
+                        }
 
                         if (unlockpt(master) < 0)
                                 return log_error_errno(errno, "Failed to unlock tty: %m");
@@ -2295,7 +2342,7 @@ static int run(int argc, char* argv[]) {
          * limited direct connection */
         if (arg_wait ||
             arg_stdio != ARG_STDIO_NONE ||
-            (arg_runtime_scope == RUNTIME_SCOPE_USER && arg_transport != BUS_TRANSPORT_LOCAL))
+            (arg_runtime_scope == RUNTIME_SCOPE_USER && !IN_SET(arg_transport, BUS_TRANSPORT_LOCAL, BUS_TRANSPORT_PROJECT)))
                 r = bus_connect_transport(arg_transport, arg_host, arg_runtime_scope, &bus);
         else
                 r = bus_connect_transport_systemd(arg_transport, arg_host, arg_runtime_scope, &bus);
