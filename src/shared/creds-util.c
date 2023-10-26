@@ -856,6 +856,7 @@ int encrypt_credential_and_warn(
                                 tpm2_n_hash_pcr_values,
                                 pubkey ? &public : NULL,
                                 /* use_pin= */ false,
+                                /* pcrlock_policy= */ NULL,
                                 &tpm2_policy);
                 if (r < 0)
                         return log_error_errno(r, "Could not calculate sealing policy digest: %m");
@@ -1219,6 +1220,7 @@ int decrypt_credential_and_warn(
                                 z ? le64toh(z->pcr_mask) : 0,
                                 signature_json,
                                 /* pin= */ NULL,
+                                /* pcrlock_policy= */ NULL,
                                 le16toh(t->primary_alg),
                                 t->policy_hash_and_blob,
                                 le32toh(t->blob_size),
