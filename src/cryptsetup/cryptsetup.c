@@ -100,6 +100,7 @@ static bool arg_tpm2_device_auto = false;
 static uint32_t arg_tpm2_pcr_mask = UINT32_MAX;
 static char *arg_tpm2_signature = NULL;
 static bool arg_tpm2_pin = false;
+static char *arg_tpm2_pcrlock = NULL;
 static bool arg_headless = false;
 static usec_t arg_token_timeout_usec = 30*USEC_PER_SEC;
 static unsigned arg_tpm2_measure_pcr = UINT_MAX; /* This and the following field is about measuring the unlocked volume key to the local TPM */
@@ -116,6 +117,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_fido2_rp_id, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_device, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_signature, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_measure_banks, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_tpm2_pcrlock, freep);
 
 static const char* const passphrase_type_table[_PASSPHRASE_TYPE_MAX] = {
         [PASSPHRASE_REGULAR] = "passphrase",
@@ -423,6 +425,16 @@ static int parse_one_option(const char *option) {
                 }
 
                 arg_tpm2_pin = r;
+
+        } else if ((val = startswith(option, "tpm2-pcrlock="))) {
+
+                if (!path_is_absolute(val))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "TPM2 pcrlock policy path \"%s\" is not absolute, refusing.", val);
+
+                r = free_and_strdup(&arg_tpm2_pcrlock, val);
+                if (r < 0)
+                        return log_oom();
 
         } else if ((val = startswith(option, "tpm2-measure-pcr="))) {
                 unsigned pcr;
@@ -1590,6 +1602,7 @@ static int attach_luks2_by_tpm2_via_plugin(
                 .search_pcr_mask = arg_tpm2_pcr_mask,
                 .device = arg_tpm2_device,
                 .signature_path = arg_tpm2_signature,
+                .pcrlock_path = arg_tpm2_pcrlock,
         };
 
         if (!libcryptsetup_plugins_support())
@@ -1649,6 +1662,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                         /* pubkey= */ NULL, /* pubkey_size= */ 0,
                                         /* pubkey_pcr_mask= */ 0,
                                         /* signature_path= */ NULL,
+                                        /* pcrlock_path= */ NULL,
                                         /* primary_alg= */ 0,
                                         key_file, arg_keyfile_size, arg_keyfile_offset,
                                         key_data, key_data_size,
@@ -1746,6 +1760,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                                 pubkey, pubkey_size,
                                                 pubkey_pcr_mask,
                                                 arg_tpm2_signature,
+                                                arg_tpm2_pcrlock,
                                                 primary_alg,
                                                 /* key_file= */ NULL, /* key_file_size= */ 0, /* key_file_offset= */ 0, /* no key file */
                                                 blob, blob_size,
