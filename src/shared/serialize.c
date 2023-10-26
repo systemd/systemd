@@ -99,7 +99,8 @@ int serialize_item_format(FILE *f, const char *key, const char *format, ...) {
         return 1;
 }
 
-int serialize_fd(FILE *f, FDSet *fds, const char *key, int fd) {
+int serialize_fd_full(FILE *f, FDSet *fds, const char *key, int fd, int *index) {
+        _cleanup_free_ char *k = NULL;
         int copy;
 
         assert(f);
@@ -109,15 +110,30 @@ int serialize_fd(FILE *f, FDSet *fds, const char *key, int fd) {
         if (fd < 0)
                 return 0;
 
-        copy = fdset_put_dup(fds, fd);
+        if (index) {
+                copy = fdset_put_dup_indexed(fds, fd, (*index)++);
+
+                k = strjoin(key, "-by-fd-index");
+                if (!k)
+                        return log_oom();
+                key = k;
+        } else
+                copy = fdset_put_dup(fds, fd);
         if (copy < 0)
                 return log_error_errno(copy, "Failed to add file descriptor to serialization set: %m");
 
         return serialize_item_format(f, key, "%i", copy);
 }
 
-int serialize_fd_many(FILE *f, FDSet *fds, const char *key, const int fd_array[], size_t n_fd_array) {
-        _cleanup_free_ char *t = NULL;
+int serialize_fd_many_full(
+                FILE *f,
+                FDSet *fds,
+                const char *key,
+                const int fd_array[],
+                size_t n_fd_array,
+                int *index) {
+
+        _cleanup_free_ char *t = NULL, *k = NULL;
 
         assert(f);
 
@@ -132,12 +148,22 @@ int serialize_fd_many(FILE *f, FDSet *fds, const char *key, const int fd_array[]
                 if (fd_array[i] < 0)
                         return -EBADF;
 
-                copy = fdset_put_dup(fds, fd_array[i]);
+                if (index)
+                        copy = fdset_put_dup_indexed(fds, fd_array[i], (*index)++);
+                else
+                        copy = fdset_put_dup(fds, fd_array[i]);
                 if (copy < 0)
                         return log_error_errno(copy, "Failed to add file descriptor to serialization set: %m");
 
                 if (strextendf_with_separator(&t, " ", "%i", copy) < 0)
                         return log_oom();
+        }
+
+        if (index) {
+                k = strjoin(key, "-by-fd-index");
+                if (!k)
+                        return log_oom();
+                key = k;
         }
 
         return serialize_item(f, key, t);
@@ -316,11 +342,14 @@ int deserialize_read_line(FILE *f, char **ret) {
         return 1;
 }
 
-int deserialize_fd(FDSet *fds, const char *value) {
+int deserialize_fd_from_set(FDSet *fds, const char *value) {
         _cleanup_close_ int our_fd = -EBADF;
         int parsed_fd;
 
         assert(value);
+
+        if (!fds)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid fd set.");
 
         parsed_fd = parse_fd(value);
         if (parsed_fd < 0)
@@ -333,7 +362,7 @@ int deserialize_fd(FDSet *fds, const char *value) {
         return TAKE_FD(our_fd);
 }
 
-int deserialize_fd_many(FDSet *fds, const char *value, size_t n, int *ret) {
+int deserialize_fd_many_from_set(FDSet *fds, const char *value, size_t n, int *ret) {
         int r, *fd_array = NULL;
         size_t m = 0;
 
@@ -362,7 +391,7 @@ int deserialize_fd_many(FDSet *fds, const char *value, size_t n, int *ret) {
                 if (m >= n) /* Too many */
                         return -EINVAL;
 
-                fd = deserialize_fd(fds, w);
+                fd = deserialize_fd_from_set(fds, w);
                 if (fd < 0)
                         return fd;
 
@@ -371,6 +400,67 @@ int deserialize_fd_many(FDSet *fds, const char *value, size_t n, int *ret) {
 
         memcpy(ret, fd_array, m * sizeof(int));
         fd_array = mfree(fd_array);
+
+        return 0;
+}
+
+int deserialize_fd_from_array(int *fds_array, size_t n_fds_array, const char *value) {
+        size_t i;
+        int r;
+
+        assert(value);
+
+        if (!fds_array || n_fds_array == 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid fd array.");
+
+        r = safe_atozu(value, &i);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to parse FD index out of value: %s", value);
+
+        if (i >= n_fds_array)
+                return log_debug_errno(SYNTHETIC_ERRNO(ERANGE), "FD index %zu not in fd array.", i);
+
+        return TAKE_FD(fds_array[i]);
+}
+
+int deserialize_fd_many_from_array(int *fds_array, size_t n_fds_array, const char *value, size_t n, int *ret) {
+        int r, *fd_array_out = NULL;
+        size_t m = 0;
+
+        assert(value);
+
+        fd_array_out = new(int, n);
+        if (!fd_array_out)
+                return -ENOMEM;
+
+        CLEANUP_ARRAY(fd_array_out, m, close_many_and_free);
+
+        for (;;) {
+                _cleanup_free_ char *w = NULL;
+                int fd;
+
+                r = extract_first_word(&value, &w, NULL, 0);
+                if (r < 0)
+                        return r;
+                if (r == 0) {
+                        if (m < n) /* Too few */
+                                return -EINVAL;
+
+                        break;
+                }
+
+                if (m >= n) /* Too many */
+                        return -EINVAL;
+
+                fd = deserialize_fd_from_array(fds_array, n_fds_array, w);
+                if (fd < 0)
+                        return fd;
+
+                fd_array_out[m++] = fd;
+        }
+
+        memcpy(ret, fd_array_out, m * sizeof(int));
+        fd_array_out = mfree(fd_array_out);
 
         return 0;
 }
@@ -465,7 +555,7 @@ int deserialize_pidref(FDSet *fds, const char *value, PidRef *ret) {
 
         e = startswith(value, "@");
         if (e) {
-                int fd = deserialize_fd(fds, e);
+                int fd = deserialize_fd_from_set(fds, e);
 
                 if (fd < 0)
                         return fd;
