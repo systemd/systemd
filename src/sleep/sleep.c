@@ -167,43 +167,6 @@ static int write_mode(char * const *modes) {
         return r;
 }
 
-/* Return true if wakeup type is APM timer */
-static int check_wakeup_type(void) {
-        static const char dmi_object_path[] = "/sys/firmware/dmi/entries/1-0/raw";
-        uint8_t wakeup_type_byte, tablesize;
-        _cleanup_free_ char *buf = NULL;
-        size_t bufsize;
-        int r;
-
-        /* implementation via dmi/entries */
-        r = read_full_virtual_file(dmi_object_path, &buf, &bufsize);
-        if (r < 0)
-                return log_debug_errno(r, "Unable to read %s: %m", dmi_object_path);
-        if (bufsize < 25)
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Only read %zu bytes from %s (expected 25)",
-                                       bufsize, dmi_object_path);
-
-        /* index 1 stores the size of table */
-        tablesize = (uint8_t) buf[1];
-        if (tablesize < 25)
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Table size less than the index[0x18] where waketype byte is available.");
-
-        wakeup_type_byte = (uint8_t) buf[24];
-        /* 0 is Reserved and 8 is AC Power Restored. As per table 12 in
-         * https://www.dmtf.org/sites/default/files/standards/documents/DSP0134_3.4.0.pdf */
-        if (wakeup_type_byte >= 128)
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Expected value in range 0-127");
-
-        if (wakeup_type_byte == 3) {
-                log_debug("DMI BIOS System Information indicates wakeup type is APM Timer");
-                return true;
-        }
-
-        return false;
-}
-
 static int lock_all_homes(void) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
@@ -242,12 +205,12 @@ static int execute(
                 SleepOperation operation,
                 const char *action) {
 
-        char *arguments[] = {
+        const char *arguments[] = {
                 NULL,
-                (char*) "pre",
+                "pre",
                 /* NB: we use 'arg_operation' instead of 'operation' here, as we want to communicate the overall
                  * operation here, not the specific one, in case of s2h. */
-                (char*) sleep_operation_to_string(arg_operation),
+                sleep_operation_to_string(arg_operation),
                 NULL
         };
         static const char* const dirs[] = {
@@ -257,18 +220,13 @@ static int execute(
 
         _cleanup_(hibernation_device_done) HibernationDevice hibernation_device = {};
         _cleanup_close_ int state_fd = -EBADF;
-        char **modes, **states;
         int r;
 
         assert(sleep_config);
         assert(operation >= 0);
-        assert(operation < _SLEEP_OPERATION_MAX);
-        assert(operation != SLEEP_SUSPEND_THEN_HIBERNATE); /* Handled by execute_s2h() instead */
+        assert(operation < _SLEEP_OPERATION_CONFIG_MAX); /* Others are handled by execute_s2h() instead */
 
-        states = sleep_config->states[operation];
-        modes = sleep_config->modes[operation];
-
-        if (strv_isempty(states))
+        if (strv_isempty(sleep_config->states[operation]))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "No sleep states configured for sleep operation %s, can't sleep.",
                                        sleep_operation_to_string(operation));
@@ -296,16 +254,16 @@ static int execute(
 
                         r = write_resume_config(hibernation_device.devno, hibernation_device.offset, hibernation_device.path);
                         if (r < 0) {
-                                if (is_efi_boot())
-                                        (void) efi_set_variable(EFI_SYSTEMD_VARIABLE(HibernateLocation), NULL, 0);
-
-                                return log_error_errno(r, "Failed to prepare for hibernation: %m");
+                                log_error_errno(r, "Failed to write hibernation device to /sys/power/resume or /sys/power/resume_offset: %m");
+                                goto fail;
                         }
                 }
 
-                r = write_mode(modes);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to write mode to /sys/power/disk: %m");
+                r = write_mode(sleep_config->modes[operation]);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to write mode to /sys/power/disk: %m");
+                        goto fail;
+                }
         }
 
         /* Pass an action string to the call-outs. This is mostly our operation string, except if the
@@ -313,19 +271,18 @@ static int execute(
         if (!action)
                 action = sleep_operation_to_string(operation);
 
-        r = setenv("SYSTEMD_SLEEP_ACTION", action, 1);
-        if (r != 0)
-                log_warning_errno(errno, "Error setting SYSTEMD_SLEEP_ACTION=%s, ignoring: %m", action);
+        if (setenv("SYSTEMD_SLEEP_ACTION", action, /* overwrite = */ 1) < 0)
+                log_warning_errno(errno, "Failed to set SYSTEMD_SLEEP_ACTION=%s, ignoring: %m", action);
 
-        (void) execute_directories(dirs, DEFAULT_TIMEOUT_USEC, NULL, NULL, arguments, NULL, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
+        (void) execute_directories(dirs, DEFAULT_TIMEOUT_USEC, NULL, NULL, (char **) arguments, NULL, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
         (void) lock_all_homes();
 
         log_struct(LOG_INFO,
                    "MESSAGE_ID=" SD_MESSAGE_SLEEP_START_STR,
-                   LOG_MESSAGE("Entering sleep state '%s'...", sleep_operation_to_string(operation)),
+                   LOG_MESSAGE("Performing sleep operation '%s'...", sleep_operation_to_string(operation)),
                    "SLEEP=%s", sleep_operation_to_string(arg_operation));
 
-        r = write_state(state_fd, states);
+        r = write_state(state_fd, sleep_config->states[operation]);
         if (r < 0)
                 log_struct_errno(LOG_ERR, r,
                                  "MESSAGE_ID=" SD_MESSAGE_SLEEP_STOP_STR,
@@ -334,13 +291,57 @@ static int execute(
         else
                 log_struct(LOG_INFO,
                            "MESSAGE_ID=" SD_MESSAGE_SLEEP_STOP_STR,
-                           LOG_MESSAGE("System returned from sleep state."),
+                           LOG_MESSAGE("System returned from sleep operation '%s'.", sleep_operation_to_string(arg_operation)),
                            "SLEEP=%s", sleep_operation_to_string(arg_operation));
 
-        arguments[1] = (char*) "post";
-        (void) execute_directories(dirs, DEFAULT_TIMEOUT_USEC, NULL, NULL, arguments, NULL, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
+        arguments[1] = "post";
+        (void) execute_directories(dirs, DEFAULT_TIMEOUT_USEC, NULL, NULL, (char **) arguments, NULL, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
+
+        if (r >= 0)
+                return 0;
+
+fail:
+        if (sleep_operation_is_hibernation(operation) && is_efi_boot())
+                (void) efi_set_variable(EFI_SYSTEMD_VARIABLE(HibernateLocation), NULL, 0);
 
         return r;
+}
+
+/* Return true if wakeup type is APM timer */
+static int check_wakeup_type(void) {
+        static const char dmi_object_path[] = "/sys/firmware/dmi/entries/1-0/raw";
+        uint8_t wakeup_type_byte, tablesize;
+        _cleanup_free_ char *buf = NULL;
+        size_t bufsize;
+        int r;
+
+        /* implementation via dmi/entries */
+        r = read_full_virtual_file(dmi_object_path, &buf, &bufsize);
+        if (r < 0)
+                return log_debug_errno(r, "Unable to read %s: %m", dmi_object_path);
+        if (bufsize < 25)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Only read %zu bytes from %s (expected 25)",
+                                       bufsize, dmi_object_path);
+
+        /* index 1 stores the size of table */
+        tablesize = (uint8_t) buf[1];
+        if (tablesize < 25)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Table size less than the index[0x18] where waketype byte is available.");
+
+        wakeup_type_byte = (uint8_t) buf[24];
+        /* 0 is Reserved and 8 is AC Power Restored. As per table 12 in
+         * https://www.dmtf.org/sites/default/files/standards/documents/DSP0134_3.4.0.pdf */
+        if (wakeup_type_byte >= 128)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Expected value in range 0-127");
+
+        if (wakeup_type_byte == 3) {
+                log_debug("DMI BIOS System Information indicates wakeup type is APM Timer");
+                return true;
+        }
+
+        return false;
 }
 
 static int custom_timer_suspend(const SleepConfig *sleep_config) {
