@@ -284,7 +284,7 @@ static int execute(
         setvbuf(f, NULL, _IONBF, 0);
 
         /* Configure hibernation settings if we are supposed to hibernate */
-        if (!strv_isempty(modes)) {
+        if (sleep_operation_is_hibernation(operation)) {
                 bool resume_set;
 
                 r = find_suitable_hibernation_device(&hibernation_device);

@@ -305,7 +305,7 @@ static int sleep_supported_internal(
                 return false;
         }
 
-        if (IN_SET(operation, SLEEP_HIBERNATE, SLEEP_HYBRID_SLEEP)) {
+        if (sleep_operation_is_hibernation(operation)) {
                 r = sleep_mode_supported(sleep_config->modes[operation]);
                 if (r < 0)
                         return r;
