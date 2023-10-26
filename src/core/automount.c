@@ -926,7 +926,7 @@ static int automount_deserialize_item(Unit *u, const char *key, const char *valu
                 }
         } else if (streq(key, "pipe-fd")) {
                 safe_close(a->pipe_fd);
-                a->pipe_fd = deserialize_fd(fds, value);
+                a->pipe_fd = deserialize_fd_from_set(fds, value);
         } else
                 log_unit_debug(u, "Unknown serialization key: %s", key);
 

@@ -206,4 +206,51 @@ TEST(fdset_new_array) {
         assert_se(fdset_contains(fdset, 13));
 }
 
+TEST(fdset_indexed) {
+        _cleanup_close_ int fd = -EBADF;
+        int copyindex = -1, index = 0, ret_fd;
+        _cleanup_fdset_free_ FDSet *fdset = NULL;
+        _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-fdset_indexed.XXXXXX";
+
+        fd = mkostemp_safe(name);
+        assert_se(fd >= 0);
+
+        fdset = fdset_new();
+        assert_se(fdset);
+
+        copyindex = fdset_put_dup_indexed(fdset, fd, index++);
+        assert_se(copyindex >= 0 && copyindex != index);
+        assert_se(fdset_contains_index(fdset, copyindex));
+        assert_se(!fdset_contains(fdset, fd));
+
+        copyindex = fdset_put_dup_indexed(fdset, fd, index++);
+        assert_se(copyindex >= 0 && copyindex != index);
+        assert_se(fdset_contains_index(fdset, copyindex));
+        assert_se(!fdset_contains(fdset, fd));
+
+        copyindex = fdset_put_dup_indexed(fdset, fd, index++);
+        assert_se(copyindex >= 0 && copyindex != index);
+        assert_se(fdset_contains_index(fdset, copyindex));
+        assert_se(!fdset_contains(fdset, fd));
+
+        _cleanup_free_ int *fds_array = NULL;
+        size_t n_fds_array;
+
+        n_fds_array = fdset_to_array_indexed(fdset, &fds_array);
+        assert_se(n_fds_array == 3);
+
+        ret_fd = fdset_remove_indexed(fdset, --index);
+        assert_se(ret_fd >= 0);
+        assert(fds_array[index] == ret_fd);
+        ret_fd = safe_close(ret_fd);
+        ret_fd = fdset_remove_indexed(fdset, --index);
+        assert_se(ret_fd >= 0);
+        ret_fd = safe_close(ret_fd);
+        ret_fd = fdset_remove_indexed(fdset, --index);
+        assert_se(ret_fd >= 0);
+        ret_fd = safe_close(ret_fd);
+
+        assert_se(fdset_isempty(fdset));
+}
+
 DEFINE_TEST_MAIN(LOG_INFO);
