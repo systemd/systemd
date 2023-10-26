@@ -8,7 +8,7 @@ static VARLINK_DEFINE_METHOD(
                 VARLINK_DEFINE_INPUT(userName, VARLINK_STRING, VARLINK_NULLABLE),
                 VARLINK_DEFINE_INPUT(service, VARLINK_STRING, 0),
                 VARLINK_DEFINE_OUTPUT(record, VARLINK_OBJECT, 0),
-                VARLINK_DEFINE_OUTPUT(incomplete, VARLINK_BOOL, 0));
+                VARLINK_DEFINE_OUTPUT(incomplete, VARLINK_BOOL, VARLINK_NULLABLE));
 
 static VARLINK_DEFINE_METHOD(
                 GetGroupRecord,
@@ -16,7 +16,7 @@ static VARLINK_DEFINE_METHOD(
                 VARLINK_DEFINE_INPUT(groupName, VARLINK_STRING, VARLINK_NULLABLE),
                 VARLINK_DEFINE_INPUT(service, VARLINK_STRING, 0),
                 VARLINK_DEFINE_OUTPUT(record, VARLINK_OBJECT, 0),
-                VARLINK_DEFINE_OUTPUT(incomplete, VARLINK_BOOL, 0));
+                VARLINK_DEFINE_OUTPUT(incomplete, VARLINK_BOOL, VARLINK_NULLABLE));
 
 static VARLINK_DEFINE_METHOD(
                 GetMemberships,
