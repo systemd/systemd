@@ -1848,22 +1848,23 @@ static void generate_boot_entry_titles(Config *config) {
 
 static bool is_sd_boot(EFI_FILE *root_dir, const char16_t *loader_path) {
         EFI_STATUS err;
-        static const char * const sections[] = {
-                ".sdmagic",
-                NULL
-        };
-        size_t offset = 0, size = 0, read;
+        size_t read, nsections;
+        _cleanup_free_ struct PeSectionDescriptor *sections;
         _cleanup_free_ char *content = NULL;
 
         assert(root_dir);
         assert(loader_path);
 
-        err = pe_file_locate_sections(root_dir, loader_path, sections, &offset, &size);
-        if (err != EFI_SUCCESS || size != sizeof(SD_MAGIC))
+        err = pe_file_locate_sections(root_dir, loader_path, &sections, &nsections);
+        if (err != EFI_SUCCESS)
                 return false;
 
-        err = file_read(root_dir, loader_path, offset, size, &content, &read);
-        if (err != EFI_SUCCESS || size != read)
+        struct PeSectionDescriptor *sdmagic_section = pe_bsearch_section(sections, nsections, ".sdmagic");
+        if (sdmagic_section == NULL)
+                return false;
+
+        err = file_read(root_dir, loader_path, sdmagic_section->offset, sdmagic_section->size, &content, &read);
+        if (err != EFI_SUCCESS || sdmagic_section->size != read)
                 return false;
 
         return memcmp(content, SD_MAGIC, sizeof(SD_MAGIC)) == 0;
@@ -2090,23 +2091,15 @@ static void config_load_type2_entries(
                 return;
 
         for (;;) {
-                enum {
-                        SECTION_CMDLINE,
-                        SECTION_OSREL,
-                        _SECTION_MAX,
-                };
-
-                static const char * const sections[_SECTION_MAX + 1] = {
-                        [SECTION_CMDLINE] = ".cmdline",
-                        [SECTION_OSREL]   = ".osrel",
-                        NULL,
-                };
-
                 _cleanup_free_ char16_t *os_pretty_name = NULL, *os_image_id = NULL, *os_name = NULL, *os_id = NULL,
                         *os_image_version = NULL, *os_version = NULL, *os_version_id = NULL, *os_build_id = NULL;
                 const char16_t *good_name, *good_version, *good_sort_key;
-                _cleanup_free_ char *content = NULL;
-                size_t offs[_SECTION_MAX] = {}, szs[_SECTION_MAX] = {}, pos = 0;
+                _cleanup_free_ char *osrel_content = NULL;
+                _cleanup_free_ char *cmdline_content = NULL;
+                _cleanup_free_ struct PeSectionDescriptor *sections;
+                ;
+                size_t nsections;
+                size_t pos = 0;
                 char *line, *key, *value;
 
                 err = readdir(linux_dir, &f, &f_size);
@@ -2123,16 +2116,19 @@ static void config_load_type2_entries(
                         continue;
 
                 /* look for .osrel and .cmdline sections in the .efi binary */
-                err = pe_file_locate_sections(linux_dir, f->FileName, sections, offs, szs);
-                if (err != EFI_SUCCESS || szs[SECTION_OSREL] == 0)
+                err = pe_file_locate_sections(linux_dir, f->FileName, &sections, &nsections);
+                if (err != EFI_SUCCESS)
                         continue;
 
-                err = file_read(linux_dir, f->FileName, offs[SECTION_OSREL], szs[SECTION_OSREL], &content, NULL);
+                struct PeSectionDescriptor *section_osrel = pe_bsearch_section(sections, nsections, ".osrel");
+                if (section_osrel == NULL)
+                        continue;
+                err = file_read(linux_dir, f->FileName, section_osrel->offset, section_osrel->size, &osrel_content, NULL);
                 if (err != EFI_SUCCESS)
                         continue;
 
                 /* read properties from the embedded os-release file */
-                while ((line = line_get_key_value(content, "=", &pos, &key, &value)))
+                while ((line = line_get_key_value(osrel_content, "=", &pos, &key, &value)))
                         if (streq8(key, "PRETTY_NAME")) {
                                 free(os_pretty_name);
                                 os_pretty_name = xstr8_to_16(value);
@@ -2198,16 +2194,15 @@ static void config_load_type2_entries(
                 config_add_entry(config, entry);
                 boot_entry_parse_tries(entry, u"\\EFI\\Linux", f->FileName, u".efi");
 
-                if (szs[SECTION_CMDLINE] == 0)
+                struct PeSectionDescriptor *section_cmdline = pe_bsearch_section(sections, nsections, ".cmdline");
+                if (section_cmdline == NULL)
                         continue;
-
-                content = mfree(content);
 
                 /* read the embedded cmdline file */
                 size_t cmdline_len;
-                err = file_read(linux_dir, f->FileName, offs[SECTION_CMDLINE], szs[SECTION_CMDLINE], &content, &cmdline_len);
+                err = file_read(linux_dir, f->FileName, section_cmdline->offset, section_cmdline->size, &cmdline_content, &cmdline_len);
                 if (err == EFI_SUCCESS) {
-                        entry->options = xstrn8_to_16(content, cmdline_len);
+                        entry->options = xstrn8_to_16(cmdline_content, cmdline_len);
                         mangle_stub_cmdline(entry->options);
                         entry->options_implied = true;
                 }

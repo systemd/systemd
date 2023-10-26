@@ -140,48 +140,49 @@ static size_t section_table_offset(const DosFileHeader *dos, const PeFileHeader 
         return dos->ExeHeader + offsetof(PeFileHeader, OptionalHeader) + pe->FileHeader.SizeOfOptionalHeader;
 }
 
-static void locate_sections(
+static ssize_t locate_section(
                 const PeSectionHeader section_table[],
                 size_t n_table,
-                const char * const sections[],
-                size_t *offsets,
-                size_t *sizes,
+                const char *section_name,
+                size_t *offset,
+                size_t *size,
                 bool in_memory) {
 
         assert(section_table);
-        assert(sections);
-        assert(offsets);
-        assert(sizes);
+        assert(section_name);
+        assert(offset);
+        assert(size);
 
         for (size_t i = 0; i < n_table; i++) {
                 const PeSectionHeader *sect = section_table + i;
 
-                for (size_t j = 0; sections[j]; j++) {
-                        if (memcmp(sect->Name, sections[j], strlen8(sections[j])) != 0)
-                                continue;
+                if (memcmp(sect->Name, section_name, strlen8(section_name)) != 0)
+                        continue;
 
-                        offsets[j] = in_memory ? sect->VirtualAddress : sect->PointerToRawData;
-                        sizes[j] = sect->VirtualSize;
-                }
+                *offset = in_memory ? sect->VirtualAddress : sect->PointerToRawData;
+                *size = sect->VirtualSize;
+                return i;
         }
+
+        return -1;
 }
 
 static uint32_t get_compatibility_entry_address(const DosFileHeader *dos, const PeFileHeader *pe) {
         size_t addr = 0, size = 0;
-        static const char *sections[] = { ".compat", NULL };
 
         /* The kernel may provide alternative PE entry points for different PE architectures. This allows
          * booting a 64-bit kernel on 32-bit EFI that is otherwise running on a 64-bit CPU. The locations of any
          * such compat entry points are located in a special PE section. */
 
-        locate_sections((const PeSectionHeader *) ((const uint8_t *) dos + section_table_offset(dos, pe)),
-                        pe->FileHeader.NumberOfSections,
-                        sections,
-                        &addr,
-                        &size,
-                        /*in_memory=*/true);
+        ssize_t idx = locate_section(
+                (const PeSectionHeader *) ((const uint8_t *) dos + section_table_offset(dos, pe)),
+                pe->FileHeader.NumberOfSections,
+                ".compat",
+                &addr,
+                &size,
+                /*in_memory=*/true);
 
-        if (size == 0)
+        if (idx < 0)
                 return 0;
 
         typedef struct {
@@ -239,15 +240,58 @@ EFI_STATUS pe_kernel_info(const void *base, uint32_t *ret_compat_address) {
         return EFI_SUCCESS;
 }
 
-EFI_STATUS pe_memory_locate_sections(const void *base, const char * const sections[], size_t *addrs, size_t *sizes) {
+static void locate_sections(
+                const PeSectionHeader section_table[],
+                size_t n_table,
+                struct PeSectionDescriptor **out_sections,
+                size_t *out_nsections,
+                bool in_memory) {
+
+        assert(section_table);
+        assert(out_sections);
+        assert(out_nsections);
+
+        *out_sections = xmalloc_multiply(sizeof **out_sections, n_table);
+        *out_nsections = 0;
+
+        for (const PeSectionHeader *section_hdr = section_table; section_hdr < section_table + n_table; ++section_hdr) {
+                struct PeSectionDescriptor *desc = *out_sections + *out_nsections++;
+                memcpy(desc->name, section_hdr->Name, sizeof section_hdr->Name);
+                desc->name[sizeof section_hdr->Name] = 0;
+                desc->offset = in_memory ? section_hdr->VirtualAddress : section_hdr->PointerToRawData;
+                desc->size = section_hdr->VirtualSize;
+        }
+
+        /* Sort sections
+         * NOTE: maybe bubblesort isn't ideal, but surely there aren't that many sections?
+         */
+        bool dirty;
+        do {
+                dirty = false;
+                for (size_t i = 1; i < *out_nsections; ++i) {
+                        int ret = strcmp8((*out_sections)[i-1].name,
+                                          (*out_sections)[i].name);
+                        if (ret > 0) {
+                                dirty = true;
+                                struct PeSectionDescriptor tmp = (*out_sections)[i-1];
+                                (*out_sections)[i-1] = (*out_sections)[i];
+                                (*out_sections)[i] = tmp;
+                        }
+                }
+        } while (dirty);
+}
+
+EFI_STATUS pe_memory_locate_sections(
+                const void *base,
+                struct PeSectionDescriptor **out_sections,
+                size_t *out_nsections) {
         const DosFileHeader *dos;
         const PeFileHeader *pe;
         size_t offset;
 
         assert(base);
-        assert(sections);
-        assert(addrs);
-        assert(sizes);
+        assert(out_sections);
+        assert(out_nsections);
 
         dos = (const DosFileHeader *) base;
         if (!verify_dos(dos))
@@ -260,9 +304,8 @@ EFI_STATUS pe_memory_locate_sections(const void *base, const char * const sectio
         offset = section_table_offset(dos, pe);
         locate_sections((PeSectionHeader *) ((uint8_t *) base + offset),
                         pe->FileHeader.NumberOfSections,
-                        sections,
-                        addrs,
-                        sizes,
+                        out_sections,
+                        out_nsections,
                         /*in_memory=*/true);
 
         return EFI_SUCCESS;
@@ -271,9 +314,8 @@ EFI_STATUS pe_memory_locate_sections(const void *base, const char * const sectio
 EFI_STATUS pe_file_locate_sections(
                 EFI_FILE *dir,
                 const char16_t *path,
-                const char * const sections[],
-                size_t *offsets,
-                size_t *sizes) {
+                struct PeSectionDescriptor **out_sections,
+                size_t *out_nsections) {
         _cleanup_free_ PeSectionHeader *section_table = NULL;
         _cleanup_(file_closep) EFI_FILE *handle = NULL;
         DosFileHeader dos;
@@ -283,9 +325,8 @@ EFI_STATUS pe_file_locate_sections(
 
         assert(dir);
         assert(path);
-        assert(sections);
-        assert(offsets);
-        assert(sizes);
+        assert(out_sections);
+        assert(out_nsections);
 
         err = dir->Open(dir, &handle, (char16_t *) path, EFI_FILE_MODE_READ, 0ULL);
         if (err != EFI_SUCCESS)
@@ -326,7 +367,24 @@ EFI_STATUS pe_file_locate_sections(
                 return EFI_LOAD_ERROR;
 
         locate_sections(section_table, pe.FileHeader.NumberOfSections,
-                        sections, offsets, sizes, /*in_memory=*/false);
+                        out_sections, out_nsections, /*in_memory=*/false);
 
         return EFI_SUCCESS;
+}
+
+struct PeSectionDescriptor *pe_bsearch_section(struct PeSectionDescriptor *sections, size_t nsections, const char *section)
+{
+        size_t left = 0, right = nsections - 1;
+        while (left <= right) {
+                size_t mid = (left + right) / 2;
+                int ret = strcmp8(sections[mid].name, section);
+                if (ret < 0) {
+                        left = mid + 1;
+                } else if (ret > 0) {
+                        right = mid - 1;
+                } else {
+                        return sections + mid;
+                }
+        }
+        return NULL;
 }
