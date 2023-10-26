@@ -75,3 +75,8 @@ if ! systemd-detect-virt -cq; then
     systemd-run --wait --pipe -p ProtectKernelLogs=no -p User=testuser \
         bash -xec "test -r /dev/kmsg"
 fi
+
+systemd-run --wait --pipe -p BindPaths="/etc /home:/mnt:norbind -/foo/bar/baz:/usr:rbind" \
+    bash -xec "mountpoint /etc; test -d /etc/systemd; mountpoint /mnt; ! mountpoint /usr"
+systemd-run --wait --pipe -p BindReadOnlyPaths="/etc /home:/mnt:norbind -/foo/bar/baz:/usr:rbind" \
+    bash -xec "test ! -w /etc; test ! -w /mnt; ! mountpoint /usr"
