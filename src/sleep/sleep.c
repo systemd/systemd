@@ -123,44 +123,45 @@ static int write_efi_hibernate_location(const HibernationDevice *hibernation_dev
 #endif
 }
 
-static int write_mode(char **modes) {
+static int write_state(int fd, char * const *states) {
+        int r = 0;
+
+        assert(fd >= 0);
+        assert(states);
+
+        STRV_FOREACH(state, states) {
+                _cleanup_fclose_ FILE *f = NULL;
+                int k;
+
+                k = fdopen_independent(fd, "we", &f);
+                if (k < 0)
+                        return RET_GATHER(r, k);
+
+                k = write_string_stream(f, *state, WRITE_STRING_FILE_DISABLE_BUFFER);
+                if (k >= 0) {
+                        log_debug("Using sleep state '%s'.", *state);
+                        return 0;
+                }
+
+                RET_GATHER(r, log_debug_errno(k, "Failed to write '%s' to /sys/power/state: %m", *state));
+        }
+
+        return r;
+}
+
+static int write_mode(char * const *modes) {
         int r = 0;
 
         STRV_FOREACH(mode, modes) {
                 int k;
 
                 k = write_string_file("/sys/power/disk", *mode, WRITE_STRING_FILE_DISABLE_BUFFER);
-                if (k >= 0)
+                if (k >= 0) {
+                        log_debug("Using sleep disk mode '%s'.", *mode);
                         return 0;
+                }
 
-                log_debug_errno(k, "Failed to write '%s' to /sys/power/disk: %m", *mode);
-                if (r >= 0)
-                        r = k;
-        }
-
-        return r;
-}
-
-static int write_state(FILE **f, char **states) {
-        int r = 0;
-
-        assert(f);
-        assert(*f);
-
-        STRV_FOREACH(state, states) {
-                int k;
-
-                k = write_string_stream(*f, *state, WRITE_STRING_FILE_DISABLE_BUFFER);
-                if (k >= 0)
-                        return 0;
-                log_debug_errno(k, "Failed to write '%s' to /sys/power/state: %m", *state);
-                if (r >= 0)
-                        r = k;
-
-                fclose(*f);
-                *f = fopen("/sys/power/state", "we");
-                if (!*f)
-                        return -errno;
+                RET_GATHER(r, log_debug_errno(k, "Failed to write '%s' to /sys/power/disk: %m", *mode));
         }
 
         return r;
@@ -255,7 +256,7 @@ static int execute(
         };
 
         _cleanup_(hibernation_device_done) HibernationDevice hibernation_device = {};
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_close_ int state_fd = -EBADF;
         char **modes, **states;
         int r;
 
@@ -272,13 +273,10 @@ static int execute(
                                        "No sleep states configured for sleep operation %s, can't sleep.",
                                        sleep_operation_to_string(operation));
 
-        /* This file is opened first, so that if we hit an error,
-         * we can abort before modifying any state. */
-        f = fopen("/sys/power/state", "we");
-        if (!f)
-                return log_error_errno(errno, "Failed to open /sys/power/state: %m");
-
-        setvbuf(f, NULL, _IONBF, 0);
+        /* This file is opened first, so that if we hit an error, we can abort before modifying any state. */
+        state_fd = open("/sys/power/state", O_WRONLY|O_CLOEXEC);
+        if (state_fd < 0)
+                return -errno;
 
         /* Configure hibernation settings if we are supposed to hibernate */
         if (sleep_operation_is_hibernation(operation)) {
@@ -327,7 +325,7 @@ static int execute(
                    LOG_MESSAGE("Entering sleep state '%s'...", sleep_operation_to_string(operation)),
                    "SLEEP=%s", sleep_operation_to_string(arg_operation));
 
-        r = write_state(&f, states);
+        r = write_state(state_fd, states);
         if (r < 0)
                 log_struct_errno(LOG_ERR, r,
                                  "MESSAGE_ID=" SD_MESSAGE_SLEEP_STOP_STR,
