@@ -73,6 +73,10 @@ CHANGES WITH 255 in spe:
           already use 'prefixstable' addresses with wireless networks, the
           stable address chosen will be changed by the update.
 
+		* The SendHostname and Hostname options are now available for the
+		  DHCPv6 client, independent of the DHCPv4 option, so that these
+		  configuration values can be set independently for each client.
+
         Changes in systemd-analyze:
 
         * "systemd-analyze plot" has gained tooltips on each unit name with
