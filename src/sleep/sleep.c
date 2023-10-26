@@ -555,7 +555,8 @@ static int help(void) {
                "  hibernate              Hibernate the system\n"
                "  hybrid-sleep           Both hibernate and suspend the system\n"
                "  suspend-then-hibernate Initially suspend and then hibernate\n"
-               "                         the system after a fixed period of time\n"
+               "                         the system after a fixed period of time or\n"
+               "                         when battery is low\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                link);
