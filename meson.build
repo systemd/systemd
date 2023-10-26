@@ -1603,6 +1603,7 @@ foreach term : ['analyze',
                 'userdb',
                 'utmp',
                 'vconsole',
+                'vmspawn',
                 'xdg-autostart']
         have = get_option(term)
         name = 'ENABLE_' + term.underscorify().to_upper()
@@ -2206,6 +2207,7 @@ subdir('src/userdb')
 subdir('src/varlinkctl')
 subdir('src/vconsole')
 subdir('src/veritysetup')
+subdir('src/vmspawn')
 subdir('src/volatile-root')
 subdir('src/xdg-autostart-generator')
 
@@ -2796,6 +2798,7 @@ foreach tuple : [
         ['tmpfiles'],
         ['userdb'],
         ['vconsole'],
+        ['vmspawn'],
         ['xdg-autostart'],
 
         # optional features
