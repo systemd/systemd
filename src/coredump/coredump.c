@@ -1402,7 +1402,7 @@ static int can_forward_coredump(pid_t pid) {
 
 static int forward_coredump_to_container(Context *context) {
         _cleanup_close_ int pidnsfd = -EBADF, mntnsfd = -EBADF, netnsfd = -EBADF, usernsfd = -EBADF, rootfd = -EBADF;
-        _cleanup_close_pair_ int pair[2] = PIPE_EBADF;
+        _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
         pid_t pid, child;
         struct ucred ucred = {
                 .pid = context->pid,

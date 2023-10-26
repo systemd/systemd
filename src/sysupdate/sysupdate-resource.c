@@ -267,7 +267,7 @@ static int download_manifest(
                 size_t *ret_size) {
 
         _cleanup_free_ char *buffer = NULL, *suffixed_url = NULL;
-        _cleanup_close_pair_ int pfd[2] = PIPE_EBADF;
+        _cleanup_close_pair_ int pfd[2] = EBADF_PAIR;
         _cleanup_fclose_ FILE *manifest = NULL;
         size_t size = 0;
         pid_t pid;

@@ -484,7 +484,7 @@ int bus_image_common_remove(
                 Image *image,
                 sd_bus_error *error) {
 
-        _cleanup_close_pair_ int errno_pipe_fd[2] = PIPE_EBADF;
+        _cleanup_close_pair_ int errno_pipe_fd[2] = EBADF_PAIR;
         _cleanup_(sigkill_waitp) pid_t child = 0;
         PortableState state;
         int r;

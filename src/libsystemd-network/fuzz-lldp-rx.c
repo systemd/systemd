@@ -10,7 +10,7 @@
 #include "fuzz.h"
 #include "lldp-network.h"
 
-static int test_fd[2] = PIPE_EBADF;
+static int test_fd[2] = EBADF_PAIR;
 
 int lldp_network_bind_raw_socket(int ifindex) {
         if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, test_fd) < 0)

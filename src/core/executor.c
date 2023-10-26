@@ -180,12 +180,12 @@ int main(int argc, char *argv[]) {
         _cleanup_(exec_command_done) ExecCommand command = {};
         _cleanup_(exec_params_serialized_done) ExecParameters params = EXEC_PARAMETERS_INIT(/* flags= */ 0);
         _cleanup_(exec_shared_runtime_done) ExecSharedRuntime shared = {
-                .netns_storage_socket = PIPE_EBADF,
-                .ipcns_storage_socket = PIPE_EBADF,
+                .netns_storage_socket = EBADF_PAIR,
+                .ipcns_storage_socket = EBADF_PAIR,
         };
         _cleanup_(dynamic_creds_done) DynamicCreds dynamic_creds = {};
         _cleanup_(exec_runtime_clear) ExecRuntime runtime = {
-                .ephemeral_storage_socket = PIPE_EBADF,
+                .ephemeral_storage_socket = EBADF_PAIR,
                 .shared = &shared,
                 .dynamic_creds = &dynamic_creds,
         };

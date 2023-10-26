@@ -654,7 +654,7 @@ int rearrange_stdio(int original_input_fd, int original_output_fd, int original_
                       original_output_fd,
                       original_error_fd },
             null_fd = -EBADF,                        /* If we open /dev/null, we store the fd to it here */
-            copy_fd[3] = { -EBADF, -EBADF, -EBADF }, /* This contains all fds we duplicate here
+            copy_fd[3] = EBADF_TRIPLET,              /* This contains all fds we duplicate here
                                                       * temporarily, and hence need to close at the end. */
             r;
         bool null_readable, null_writable;
