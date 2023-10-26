@@ -7,7 +7,7 @@
 #include "icmp6-util-unix.h"
 
 send_ra_t send_ra_function = NULL;
-int test_fd[2] = PIPE_EBADF;
+int test_fd[2] = EBADF_PAIR;
 
 static struct in6_addr dummy_link_local = {
         .s6_addr = {

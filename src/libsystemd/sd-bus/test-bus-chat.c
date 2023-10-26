@@ -212,7 +212,7 @@ static void* client1(void *p) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         const char *hello;
         int r;
-        _cleanup_close_pair_ int pp[2] = PIPE_EBADF;
+        _cleanup_close_pair_ int pp[2] = EBADF_PAIR;
         char x;
 
         r = sd_bus_open_user(&bus);

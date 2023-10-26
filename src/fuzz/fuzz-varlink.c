@@ -85,7 +85,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         struct iovec server_iov = IOVEC_MAKE((void*) data, size), client_iov = IOVEC_MAKE((void*) data, size);
         /* Important: the declaration order matters here! we want that the fds are closed on return after the
          * event sources, hence we declare the fds first, the event sources second */
-        _cleanup_close_pair_ int server_pair[2] = PIPE_EBADF, client_pair[2] = PIPE_EBADF;
+        _cleanup_close_pair_ int server_pair[2] = EBADF_PAIR, client_pair[2] = EBADF_PAIR;
         _cleanup_(sd_event_source_unrefp) sd_event_source *idle_event_source = NULL,
                 *server_event_source = NULL, *client_event_source = NULL;
         _cleanup_(varlink_server_unrefp) VarlinkServer *s = NULL;

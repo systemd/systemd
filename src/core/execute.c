@@ -1994,8 +1994,8 @@ static int exec_shared_runtime_allocate(ExecSharedRuntime **ret, const char *id)
 
         *n = (ExecSharedRuntime) {
                 .id = TAKE_PTR(id_copy),
-                .netns_storage_socket = PIPE_EBADF,
-                .ipcns_storage_socket = PIPE_EBADF,
+                .netns_storage_socket = EBADF_PAIR,
+                .ipcns_storage_socket = EBADF_PAIR,
         };
 
         *ret = n;
@@ -2057,7 +2057,7 @@ static int exec_shared_runtime_make(
                 ExecSharedRuntime **ret) {
 
         _cleanup_(namespace_cleanup_tmpdirp) char *tmp_dir = NULL, *var_tmp_dir = NULL;
-        _cleanup_close_pair_ int netns_storage_socket[2] = PIPE_EBADF, ipcns_storage_socket[2] = PIPE_EBADF;
+        _cleanup_close_pair_ int netns_storage_socket[2] = EBADF_PAIR, ipcns_storage_socket[2] = EBADF_PAIR;
         int r;
 
         assert(m);
@@ -2391,7 +2391,7 @@ int exec_runtime_make(
                 ExecSharedRuntime *shared,
                 DynamicCreds *creds,
                 ExecRuntime **ret) {
-        _cleanup_close_pair_ int ephemeral_storage_socket[2] = PIPE_EBADF;
+        _cleanup_close_pair_ int ephemeral_storage_socket[2] = EBADF_PAIR;
         _cleanup_free_ char *ephemeral = NULL;
         _cleanup_(exec_runtime_freep) ExecRuntime *rt = NULL;
         int r;

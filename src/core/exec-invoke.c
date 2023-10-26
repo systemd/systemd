@@ -2080,7 +2080,7 @@ static int build_pass_environment(const ExecContext *c, char ***ret) {
 
 static int setup_private_users(uid_t ouid, gid_t ogid, uid_t uid, gid_t gid) {
         _cleanup_free_ char *uid_map = NULL, *gid_map = NULL;
-        _cleanup_close_pair_ int errno_pipe[2] = PIPE_EBADF;
+        _cleanup_close_pair_ int errno_pipe[2] = EBADF_PAIR;
         _cleanup_close_ int unshare_ready_fd = -EBADF;
         _cleanup_(sigkill_waitp) pid_t pid = 0;
         uint64_t c = 1;
@@ -3906,7 +3906,7 @@ int exec_invoke(
         _cleanup_free_ int *fds = NULL;
         _cleanup_strv_free_ char **fdnames = NULL;
 
-        int socket_fd = -EBADF, named_iofds[3] = { -EBADF, -EBADF, -EBADF }, *params_fds = NULL;
+        int socket_fd = -EBADF, named_iofds[3] = EBADF_TRIPLET, *params_fds = NULL;
         size_t n_storage_fds = 0, n_socket_fds = 0;
 
         assert(command);

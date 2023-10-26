@@ -83,7 +83,7 @@ TEST(tmpdir) {
 }
 
 static void test_shareable_ns(unsigned long nsflag) {
-        _cleanup_close_pair_ int s[2] = PIPE_EBADF;
+        _cleanup_close_pair_ int s[2] = EBADF_PAIR;
         pid_t pid1, pid2, pid3;
         int r, n = 0;
         siginfo_t si;
