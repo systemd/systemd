@@ -34,6 +34,8 @@
     <para><command>systemd-vmspawn</command> may be used to start a virtual machine from an OS image. In many ways it is similar to <citerefentry
     project='man-pages'><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>, but it
     launches a full virtual machine instead of using namespaces.</para>
+
+    <para>Note: systemd-vmspawn requires the user to be in the <literal>kvm</literal> group to use the VSock options.</para>
   </refsect1>
 
   <refsect1>
@@ -80,6 +82,21 @@
         <para>Configure whether to use KVM.</para>
         <para>If the option is not specified KVM support will be detected automatically.
         If yes is specified KVM is always used, and vice versa if no is set KVM is never used.</para>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--qemu-vsock=</option></term>
+
+        <para>Configure whether to use VSock networking.</para>
+        <para>If the option is not specified VSock support will be detected automatically.
+        If yes is specified VSocks are always used, and vice versa if no is set VSocks are never used.</para>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--vsock-cid=</option></term>
+
+        <para>Configure vmspawn to use a specific CID for the guest.</para>
+        <para>If the option is not specified the guest will be assigned the lowest free CID.</para>
       </varlistentry>
 
       <varlistentry>
