@@ -420,7 +420,7 @@ int varlink_connect_address(Varlink **ret, const char *address) {
 }
 
 int varlink_connect_exec(Varlink **ret, const char *_command, char **_argv) {
-        _cleanup_close_pair_ int pair[2] = PIPE_EBADF;
+        _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
         _cleanup_(sigkill_waitp) pid_t pid = 0;
         _cleanup_free_ char *command = NULL;
         _cleanup_strv_free_ char **argv = NULL;

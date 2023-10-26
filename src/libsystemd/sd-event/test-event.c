@@ -199,8 +199,8 @@ static void test_basic_one(bool with_pidfd) {
         sd_event *e = NULL;
         sd_event_source *w = NULL, *x = NULL, *y = NULL, *z = NULL, *q = NULL, *t = NULL;
         static const char ch = 'x';
-        int a[2] = PIPE_EBADF, b[2] = PIPE_EBADF,
-            d[2] = PIPE_EBADF, k[2] = PIPE_EBADF;
+        int a[2] = EBADF_PAIR, b[2] = EBADF_PAIR,
+            d[2] = EBADF_PAIR, k[2] = EBADF_PAIR;
         uint64_t event_now;
         int64_t priority;
 
@@ -629,7 +629,7 @@ static int ratelimit_expired(sd_event_source *s, void *userdata) {
 }
 
 TEST(ratelimit) {
-        _cleanup_close_pair_ int p[2] = PIPE_EBADF;
+        _cleanup_close_pair_ int p[2] = EBADF_PAIR;
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
         _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
         uint64_t interval;
@@ -841,7 +841,7 @@ TEST(leave_ratelimit) {
         bool expect_ratelimit = false, manually_left_ratelimit = false;
         _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
-        _cleanup_close_pair_ int pfd[2] = PIPE_EBADF;
+        _cleanup_close_pair_ int pfd[2] = EBADF_PAIR;
         unsigned c = 0;
         int r;
 
