@@ -1277,15 +1277,33 @@ _public_ int sd_bus_open(sd_bus **ret) {
         return sd_bus_open_with_description(ret, NULL);
 }
 
-int bus_set_address_system(sd_bus *b) {
+static int bus_get_address_system(char **ret) {
+        _cleanup_free_ char *a = NULL;
         const char *e;
+
+        e = secure_getenv("DBUS_SYSTEM_BUS_ADDRESS");
+        if (!e)
+                e = DEFAULT_SYSTEM_BUS_ADDRESS;
+
+        a = strdup(e);
+        if (!a)
+                return -ENOMEM;
+
+        *ret = TAKE_PTR(a);
+        return 0;
+}
+
+int bus_set_address_system(sd_bus *b) {
+        _cleanup_free_ char *a = NULL;
         int r;
 
         assert(b);
 
-        e = secure_getenv("DBUS_SYSTEM_BUS_ADDRESS");
+        r = bus_get_address_system(&a);
+        if (r < 0)
+                return r;
 
-        r = sd_bus_set_address(b, e ?: DEFAULT_SYSTEM_BUS_ADDRESS);
+        r = sd_bus_set_address(b, a);
         if (r < 0)
                 return r;
 
@@ -1333,31 +1351,47 @@ _public_ int sd_bus_open_system(sd_bus **ret) {
         return sd_bus_open_system_with_description(ret, NULL);
 }
 
-int bus_set_address_user(sd_bus *b) {
-        const char *a;
-        _cleanup_free_ char *_a = NULL;
-        int r;
+static int bus_get_address_user(char **ret) {
+        _cleanup_free_ char *a = NULL;
+        const char *e;
 
-        assert(b);
-
-        a = secure_getenv("DBUS_SESSION_BUS_ADDRESS");
-        if (!a) {
-                const char *e;
-                _cleanup_free_ char *ee = NULL;
+        e = secure_getenv("DBUS_SESSION_BUS_ADDRESS");
+        if (!e) {
+                _cleanup_free_ char *ee = NULL, *buf = NULL;
 
                 e = secure_getenv("XDG_RUNTIME_DIR");
-                if (!e)
-                        return log_debug_errno(SYNTHETIC_ERRNO(ENOMEDIUM),
-                                               "sd-bus: $XDG_RUNTIME_DIR not set, cannot connect to user bus.");
+                if (!e) {
+                        if (asprintf(&buf, "/run/user/" UID_FMT, geteuid()) < 0)
+                                return -ENOMEM;
+
+                        e = buf;
+                }
 
                 ee = bus_address_escape(e);
                 if (!ee)
                         return -ENOMEM;
 
-                if (asprintf(&_a, DEFAULT_USER_BUS_ADDRESS_FMT, ee) < 0)
+                if (asprintf(&a, DEFAULT_USER_BUS_ADDRESS_FMT, ee) < 0)
                         return -ENOMEM;
-                a = _a;
+        } else {
+                a = strdup(e);
+                if (!a)
+                        return -ENOMEM;
         }
+
+        *ret = TAKE_PTR(a);
+        return 0;
+}
+
+int bus_set_address_user(sd_bus *b) {
+        _cleanup_free_ char *a = NULL;
+        int r;
+
+        assert(b);
+
+        r = bus_get_address_user(&a);
+        if (r < 0)
+                return r;
 
         r = sd_bus_set_address(b, a);
         if (r < 0)
@@ -1523,96 +1557,6 @@ _public_ int sd_bus_open_system_remote(sd_bus **ret, const char *host) {
         return 0;
 }
 
-int bus_set_address_machine(sd_bus *b, RuntimeScope runtime_scope, const char *machine) {
-        _cleanup_free_ char *a = NULL;
-        const char *rhs;
-
-        assert(b);
-        assert(machine);
-
-        rhs = strchr(machine, '@');
-        if (rhs || runtime_scope == RUNTIME_SCOPE_USER) {
-                _cleanup_free_ char *u = NULL, *eu = NULL, *erhs = NULL;
-
-                /* If there's an "@" in the container specification, we'll connect as a user specified at its
-                 * left hand side, which is useful in combination with user=true. This isn't as trivial as it
-                 * might sound: it's not sufficient to enter the container and connect to some socket there,
-                 * since the --user socket path depends on $XDG_RUNTIME_DIR which is set via PAM. Thus, to be
-                 * able to connect, we need to have a PAM session. Our way out?  We use systemd-run to get
-                 * into the container and acquire a PAM session there, and then invoke systemd-stdio-bridge
-                 * in it, which propagates the bus transport to us. */
-
-                if (rhs) {
-                        if (rhs > machine)
-                                u = strndup(machine, rhs - machine);
-                        else
-                                u = getusername_malloc(); /* Empty user name, let's use the local one */
-                        if (!u)
-                                return -ENOMEM;
-
-                        eu = bus_address_escape(u);
-                        if (!eu)
-                                return -ENOMEM;
-
-                        rhs++;
-                } else {
-                        /* No "@" specified but we shall connect to the user instance? Then assume root (and
-                         * not a user named identically to the calling one). This means:
-                         *
-                         *     --machine=foobar --user    → connect to user bus of root user in container "foobar"
-                         *     --machine=@foobar --user   → connect to user bus of user named like the calling user in container "foobar"
-                         *
-                         * Why? so that behaviour for "--machine=foobar --system" is roughly similar to
-                         * "--machine=foobar --user": both times we unconditionally connect as root user
-                         * regardless what the calling user is. */
-
-                        rhs = machine;
-                }
-
-                if (!isempty(rhs)) {
-                        erhs = bus_address_escape(rhs);
-                        if (!erhs)
-                                return -ENOMEM;
-                }
-
-                /* systemd-run -M… -PGq --wait -pUser=… -pPAMName=login systemd-stdio-bridge */
-
-                a = strjoin("unixexec:path=systemd-run,"
-                            "argv1=-M", erhs ?: ".host", ","
-                            "argv2=-PGq,"
-                            "argv3=--wait,"
-                            "argv4=-pUser%3d", eu ?: "root", ",",
-                            "argv5=-pPAMName%3dlogin,"
-                            "argv6=systemd-stdio-bridge");
-                if (!a)
-                        return -ENOMEM;
-
-                if (runtime_scope == RUNTIME_SCOPE_USER) {
-                        /* Ideally we'd use the "--user" switch to systemd-stdio-bridge here, but it's only
-                         * available in recent systemd versions. Using the "-p" switch with the explicit path
-                         * is a working alternative, and is compatible with older versions, hence that's what
-                         * we use here. */
-                        if (!strextend(&a, ",argv7=-punix:path%3d%24%7bXDG_RUNTIME_DIR%7d/bus"))
-                                return -ENOMEM;
-                }
-        } else {
-                _cleanup_free_ char *e = NULL;
-
-                /* Just a container name, we can go the simple way, and just join the container, and connect
-                 * to the well-known path of the system bus there. */
-
-                e = bus_address_escape(machine);
-                if (!e)
-                        return -ENOMEM;
-
-                a = strjoin("x-machine-unix:machine=", e);
-                if (!a)
-                        return -ENOMEM;
-        }
-
-        return free_and_replace(b->address, a);
-}
-
 static int user_and_machine_valid(const char *user_and_machine) {
         const char *h;
 
@@ -1685,21 +1629,136 @@ static int user_and_machine_equivalent(const char *user_and_machine) {
         return STR_IN_SET(f, "@", "@.host");
 }
 
+int bus_set_address_machine(sd_bus *b, RuntimeScope runtime_scope, const char *machine) {
+        _cleanup_free_ char *a = NULL;
+        const char *rhs;
+        int r;
+
+        assert(b);
+        assert(machine);
+
+        r = user_and_machine_valid(machine);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -EINVAL;
+
+        /* Shortcut things if we'd end up on this host and as the same user.  */
+        if (user_and_machine_equivalent(machine)) {
+                if (runtime_scope == RUNTIME_SCOPE_USER)
+                        r = bus_get_address_user(&a);
+                else
+                        r = bus_get_address_system(&a);
+                if (r < 0)
+                        return r;
+                goto finish;
+        }
+
+        rhs = strchr(machine, '@');
+        if (rhs || runtime_scope == RUNTIME_SCOPE_USER) {
+                _cleanup_free_ char *u = NULL, *eu = NULL, *erhs = NULL;
+
+                /* If there's an "@" in the container specification, we'll connect as a user specified at its
+                 * left hand side, which is useful in combination with user=true. This isn't as trivial as it
+                 * might sound: it's not sufficient to enter the container and connect to some socket there,
+                 * since the --user socket path depends on $XDG_RUNTIME_DIR which is set via PAM. Thus, to be
+                 * able to connect, we need to have a PAM session. Our way out?  We use systemd-run to get
+                 * into the container and acquire a PAM session there, and then invoke systemd-stdio-bridge
+                 * in it, which propagates the bus transport to us. */
+
+                if (rhs) {
+                        if (rhs > machine)
+                                u = strndup(machine, rhs - machine);
+                        else
+                                u = getusername_malloc(); /* Empty user name, let's use the local one */
+                        rhs++;
+                } else {
+                        /* No "@" specified but we shall connect to the user instance? Then assume root (and
+                         * not a user named identically to the calling one). This means:
+                         *
+                         *     --machine=foobar --user    → connect to user bus of root user in container "foobar"
+                         *     --machine=@foobar --user   → connect to user bus of user named like the calling user in container "foobar"
+                         *
+                         * Why? so that behaviour for "--machine=foobar --system" is roughly similar to
+                         * "--machine=foobar --user": both times we unconditionally connect as root user
+                         * regardless what the calling user is. */
+
+                        rhs = machine;
+                        u = strdup("root");
+                }
+
+                if (!u || !(eu = bus_address_escape(u)))
+                        return -ENOMEM;
+
+                if (isempty(rhs))
+                        rhs = ".host";
+
+                erhs = bus_address_escape(rhs);
+                if (!erhs)
+                        return -ENOMEM;
+
+                a = strjoin("unixexec:path=systemd-run,"
+                            "argv1=-M", erhs, ","
+                            "argv2=-PGq,"
+                            "argv3=--wait,"
+                            "argv4=-pUser%3d", eu, ",");
+                if (!a)
+                        return -ENOMEM;
+
+                if (streq(erhs, ".host")) {
+                        /* If we're connecting to the local system we know that systemd-stdio-bridge is
+                         * recent enough and does not require a new PAM session for resolving the path of the
+                         * user runtime directory. */
+
+                        /* systemd-run -M… -PGq --wait -pUser=… systemd-stdio-bridge -M@host */
+
+                        if (!strextend(&a,
+                                       "argv5=systemd-stdio-bridge,",
+                                       "argv6=-M@.host"))
+                                return -ENOMEM;
+
+                        if (runtime_scope == RUNTIME_SCOPE_USER)
+                                if (!strextend(&a, ",argv7=--user"))
+                                        return -ENOMEM;
+                } else {
+                        /* Otherwise Using the "-p" switch with the explicit path is a working alternative,
+                         * and is compatible with older versions. */
+
+                        /* systemd-run -M… -PGq --wait -pUser=… -pPAMName=login systemd-stdio-bridge -punix:path=${XDG_RUNTIME_DIR}/bus */
+
+                        if (!strextend(&a,
+                                       "argv5=-pPAMName%3dlogin,"
+                                       "argv6=systemd-stdio-bridge"))
+                                return -ENOMEM;
+
+                        if (runtime_scope == RUNTIME_SCOPE_USER)
+                                if (!strextend(&a, ",argv7=-punix:path%3d%24%7bXDG_RUNTIME_DIR%7d/bus"))
+                                        return -ENOMEM;
+                 }
+        } else {
+                _cleanup_free_ char *e = NULL;
+
+                /* Just a container name, we can go the simple way, and just join the container, and connect
+                 * to the well-known path of the system bus there. */
+
+                e = bus_address_escape(machine);
+                if (!e)
+                        return -ENOMEM;
+
+                a = strjoin("x-machine-unix:machine=", e);
+                if (!a)
+                        return -ENOMEM;
+        }
+finish:
+        return free_and_replace(b->address, a);
+}
+
 _public_ int sd_bus_open_system_machine(sd_bus **ret, const char *user_and_machine) {
         _cleanup_(bus_freep) sd_bus *b = NULL;
         int r;
 
         assert_return(user_and_machine, -EINVAL);
         assert_return(ret, -EINVAL);
-
-        if (user_and_machine_equivalent(user_and_machine))
-                return sd_bus_open_system(ret);
-
-        r = user_and_machine_valid(user_and_machine);
-        if (r < 0)
-                return r;
-
-        assert_return(r > 0, -EINVAL);
 
         r = sd_bus_new(&b);
         if (r < 0)
@@ -1726,16 +1785,6 @@ _public_ int sd_bus_open_user_machine(sd_bus **ret, const char *user_and_machine
 
         assert_return(user_and_machine, -EINVAL);
         assert_return(ret, -EINVAL);
-
-        /* Shortcut things if we'd end up on this host and as the same user.  */
-        if (user_and_machine_equivalent(user_and_machine))
-                return sd_bus_open_user(ret);
-
-        r = user_and_machine_valid(user_and_machine);
-        if (r < 0)
-                return r;
-
-        assert_return(r > 0, -EINVAL);
 
         r = sd_bus_new(&b);
         if (r < 0)
