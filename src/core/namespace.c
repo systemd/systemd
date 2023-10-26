@@ -88,6 +88,7 @@ typedef struct MountEntry {
         bool noexec:1;            /* Shall set MS_NOEXEC on the mount itself */
         bool exec:1;              /* Shall clear MS_NOEXEC on the mount itself */
         bool applied:1;           /* Already applied */
+        bool skip_postprocessing:1; /* Avoid remounting (r/o, nodev, nosuid) */
         char *path_malloc;        /* Use this instead of 'path_const' if we had to allocate memory */
         const char *unprefixed_path_const; /* If the path was amended with a prefix, these will save the original */
         char *unprefixed_path_malloc;
@@ -1101,7 +1102,7 @@ static int mount_private_dev(MountEntry *m, RuntimeScope scope) {
         (void) rmdir(dev);
         (void) rmdir(temporary_mount);
 
-        return 0;
+        return 1;
 
 fail:
         if (devpts)
@@ -1139,7 +1140,11 @@ static int mount_bind_dev(const MountEntry *m) {
         if (r > 0) /* make this a NOP if /dev is already a mount point */
                 return 0;
 
-        return mount_nofollow_verbose(LOG_DEBUG, "/dev", mount_entry_path(m), NULL, MS_BIND|MS_REC, NULL);
+        r = mount_nofollow_verbose(LOG_DEBUG, "/dev", mount_entry_path(m), NULL, MS_BIND|MS_REC, NULL);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to mount /dev to %s: %m", mount_entry_path(m));
+
+        return 1;
 }
 
 static int mount_bind_sysfs(const MountEntry *m) {
@@ -1156,7 +1161,11 @@ static int mount_bind_sysfs(const MountEntry *m) {
                 return 0;
 
         /* Bind mount the host's version so that we get all child mounts of it, too. */
-        return mount_nofollow_verbose(LOG_DEBUG, "/sys", mount_entry_path(m), NULL, MS_BIND|MS_REC, NULL);
+        r = mount_nofollow_verbose(LOG_DEBUG, "/sys", mount_entry_path(m), NULL, MS_BIND|MS_REC, NULL);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to mount /dev to %s: %m", mount_entry_path(m));
+
+        return 1;
 }
 
 static int mount_private_apivfs(
@@ -1201,7 +1210,11 @@ static int mount_private_apivfs(
                 /* We lack permissions to mount a new instance, and it is not already mounted. But we can
                  * access the host's, so as a final fallback bind-mount it to the destination, as most likely
                  * we are inside a user manager in an unprivileged user namespace. */
-                return mount_nofollow_verbose(LOG_DEBUG, bind_source, entry_path, /* fstype = */ NULL, MS_BIND|MS_REC, /* opts = */ NULL);
+                r = mount_nofollow_verbose(LOG_DEBUG, bind_source, entry_path, /* fstype = */ NULL, MS_BIND|MS_REC, /* opts = */ NULL);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to mount '%s' to '%s': %m", bind_source, entry_path);
+
+                return 1;
 
         } else if (r < 0)
                 return r;
@@ -1219,7 +1232,7 @@ static int mount_private_apivfs(
         /* We mounted a new instance now. Let's bind mount the children over now. This matters for nspawn
          * where a bunch of files are overmounted, in particular the boot id. */
         (void) bind_mount_submounts(bind_source, entry_path);
-        return 0;
+        return 1;
 }
 
 static int mount_private_sysfs(const MountEntry *m, const NamespaceParameters *p) {
@@ -1295,7 +1308,7 @@ static int mount_tmpfs(const MountEntry *m) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to fix label of '%s' as '%s': %m", entry_path, inner_path);
 
-        return 0;
+        return 1;
 }
 
 static int mount_run(const MountEntry *m) {
@@ -1327,7 +1340,7 @@ static int mount_mqueuefs(const MountEntry *m) {
         if (r < 0)
                 return r;
 
-        return 0;
+        return 1;
 }
 
 static int mount_image(
@@ -1388,7 +1401,7 @@ static int mount_image(
         if (r < 0)
                 return log_debug_errno(r, "Failed to mount image %s on %s: %m", mount_entry_source(m), mount_entry_path(m));
 
-        return 0;
+        return 1;
 }
 
 static int mount_overlay(const MountEntry *m) {
@@ -1404,8 +1417,10 @@ static int mount_overlay(const MountEntry *m) {
         r = mount_nofollow_verbose(LOG_DEBUG, "overlay", mount_entry_path(m), "overlay", MS_RDONLY, options);
         if (r == -ENOENT && m->ignore)
                 return 0;
+        if (r < 0)
+                return log_debug_errno(r, "Failed to mount new OverlayFS to %s: %m", mount_entry_path(m));
 
-        return r;
+        return 1;
 }
 
 static int follow_symlink(
@@ -1450,6 +1465,10 @@ static int apply_one_mount(
         bool rbind = true, make = false;
         const char *what;
         int r;
+
+        /* Return 1 when the mount should be post-processed (remounted r/o, etc.), 0 otherwise. In most
+         * cases post-processing is the right thing, the typical exception is when the mount is gracefully
+         * skipped. */
 
         assert(m);
         assert(p);
@@ -1505,7 +1524,7 @@ static int apply_one_mount(
                                                mount_entry_path(m));
                 if (r > 0) /* Nothing to do here, it is already a mount. We just later toggle the MS_RDONLY
                             * and MS_NOEXEC bits for the mount point if needed. */
-                        return 0;
+                        return 1;
                 /* This isn't a mount point yet, let's make it one. */
                 what = mount_entry_path(m);
                 break;
@@ -1665,7 +1684,7 @@ static int apply_one_mount(
         }
 
         log_debug("Successfully mounted %s to %s", what, mount_entry_path(m));
-        return 0;
+        return 1;
 }
 
 static int make_read_only(const MountEntry *m, char **deny_list, FILE *proc_self_mountinfo) {
@@ -1675,6 +1694,9 @@ static int make_read_only(const MountEntry *m, char **deny_list, FILE *proc_self
 
         assert(m);
         assert(proc_self_mountinfo);
+
+        if (m->skip_postprocessing)
+                return 0;
 
         if (mount_entry_read_only(m) || m->mode == PRIVATE_DEV) {
                 new_flags |= MS_RDONLY;
@@ -1721,6 +1743,9 @@ static int make_noexec(const MountEntry *m, char **deny_list, FILE *proc_self_mo
         assert(m);
         assert(proc_self_mountinfo);
 
+        if (m->skip_postprocessing)
+                return 0;
+
         if (mount_entry_noexec(m)) {
                 new_flags |= MS_NOEXEC;
                 flags_mask |= MS_NOEXEC;
@@ -1753,6 +1778,9 @@ static int make_nosuid(const MountEntry *m, FILE *proc_self_mountinfo) {
 
         assert(m);
         assert(proc_self_mountinfo);
+
+        if (m->skip_postprocessing)
+                return 0;
 
         submounts = !IN_SET(m->mode, EMPTY_DIR, TMPFS);
 
@@ -1921,11 +1949,14 @@ static int apply_mounts(
                                 break;
                         }
 
+                        /* Returns 1 if the mount should be post-processed, 0 otherwise */
                         r = apply_one_mount(root, m, p);
                         if (r < 0) {
                                 mount_entry_path_debug_string(root, m, error_path);
                                 return r;
                         }
+                        if (r == 0)
+                                m->skip_postprocessing = true;
 
                         m->applied = true;
                 }
