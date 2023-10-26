@@ -5078,7 +5078,6 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         # Let's wait for the expected DNS server being listed in the state file.
         for _ in range(100):
             output = read_link_state_file('veth99')
-            print(output)
             if 'DNS=2600::ee' in output:
                 break
             time.sleep(.2)
