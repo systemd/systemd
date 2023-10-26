@@ -500,7 +500,7 @@ static int parse_argv(int argc, char *argv[]) {
                 }
         }
 
-        if (auto_public_key_pcr_mask && arg_tpm2_public_key) {
+        if (auto_public_key_pcr_mask) {
                 assert(arg_tpm2_public_key_pcr_mask == 0);
                 arg_tpm2_public_key_pcr_mask = INDEX_TO_MASK(uint32_t, TPM2_PCR_KERNEL_BOOT);
         }

@@ -194,7 +194,7 @@ int enroll_tpm2(struct crypt_device *cd,
         r = tpm2_load_pcr_public_key(pubkey_path, &pubkey, &pubkey_size);
         if (r < 0) {
                 if (pubkey_path || signature_path || r != -ENOENT)
-                        return log_error_errno(r, "Failed read TPM PCR public key: %m");
+                        return log_error_errno(r, "Failed to read TPM PCR public key: %m");
 
                 log_debug_errno(r, "Failed to read TPM2 PCR public key, proceeding without: %m");
                 pubkey_pcr_mask = 0;
