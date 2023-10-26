@@ -31,15 +31,13 @@ in_container() {
     systemd-detect-virt -qc
 }
 
-# Filter out "unwanted" options, i.e. options that the fstab-generator doesn't
-# propagate to the final mount unit
-opt_filter_consumed() {(
+opt_filter() (
     set +x
     local opt split_options filtered_options
 
     IFS="," read -ra split_options <<< "${1:?}"
     for opt in "${split_options[@]}"; do
-        if [[ "$opt" =~ ^x-systemd.device-timeout= ]]; then
+        if [[ "$opt" =~ ${2:?} ]]; then
             continue
         fi
 
@@ -47,7 +45,7 @@ opt_filter_consumed() {(
     done
 
     IFS=","; printf "%s" "${filtered_options[*]}"
-)}
+)
 
 # Run the given generator $1 with target directory $2 - clean the target
 # directory beforehand

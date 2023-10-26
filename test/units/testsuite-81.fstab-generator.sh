@@ -148,7 +148,12 @@ check_fstab_mount_units() {
         fi
         if [[ -n "$opts" ]] && [[ "$opts" != defaults ]]; then
             # Some options are not propagated to the generated unit
-            filtered_options="$(opt_filter_consumed "$opts")"
+            if [[ "$where" == / ]]; then
+                filtered_options="$(opt_filter "$opts" "(noauto|nofail|x-systemd.(wanted-by=|required-by=|automount|device-timeout=))")"
+            else
+                filtered_options="$(opt_filter "$opts" "^x-systemd.device-timeout=")"
+            fi
+
             if [[ "${filtered_options[*]}" != defaults ]]; then
                 grep -qE "^Options=.*$filtered_options.*$" "$out_dir/$unit"
             fi
