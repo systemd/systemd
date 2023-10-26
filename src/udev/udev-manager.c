@@ -1197,7 +1197,7 @@ Manager* manager_new(void) {
 
         *manager = (Manager) {
                 .inotify_fd = -EBADF,
-                .worker_watch = PIPE_EBADF,
+                .worker_watch = EBADF_PAIR,
                 .log_level = LOG_INFO,
                 .resolve_name_timing = RESOLVE_NAME_EARLY,
                 .timeout_usec = 180 * USEC_PER_SEC,

@@ -39,11 +39,11 @@ static void exec_fuzz_one(FILE *f, FDSet *fdset) {
         DynamicCreds dynamic_creds = {};
         ExecCommand command = {};
         ExecSharedRuntime shared = {
-                .netns_storage_socket = PIPE_EBADF,
-                .ipcns_storage_socket = PIPE_EBADF,
+                .netns_storage_socket = EBADF_PAIR,
+                .ipcns_storage_socket = EBADF_PAIR,
         };
         ExecRuntime runtime = {
-                .ephemeral_storage_socket = PIPE_EBADF,
+                .ephemeral_storage_socket = EBADF_PAIR,
                 .shared = &shared,
                 .dynamic_creds = &dynamic_creds,
         };

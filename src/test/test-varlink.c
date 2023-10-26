@@ -324,7 +324,7 @@ int main(int argc, char *argv[]) {
         _cleanup_(rm_rf_physical_and_freep) char *tmpdir = NULL;
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
-        _cleanup_close_pair_ int block_fds[2] = PIPE_EBADF;
+        _cleanup_close_pair_ int block_fds[2] = EBADF_PAIR;
         pthread_t t;
         const char *sp;
 

@@ -739,9 +739,9 @@ static int parse_elf(int fd, const char *executable, char **ret, JsonVariant **r
 }
 
 int parse_elf_object(int fd, const char *executable, bool fork_disable_dump, char **ret, JsonVariant **ret_package_metadata) {
-        _cleanup_close_pair_ int error_pipe[2] = PIPE_EBADF,
-                                 return_pipe[2] = PIPE_EBADF,
-                                 json_pipe[2] = PIPE_EBADF;
+        _cleanup_close_pair_ int error_pipe[2] = EBADF_PAIR,
+                                 return_pipe[2] = EBADF_PAIR,
+                                 json_pipe[2] = EBADF_PAIR;
         _cleanup_(json_variant_unrefp) JsonVariant *package_metadata = NULL;
         _cleanup_free_ char *buf = NULL;
         int r;

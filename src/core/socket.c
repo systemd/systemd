@@ -1495,7 +1495,7 @@ static int socket_address_listen_in_cgroup(
                 const char *label) {
 
         _cleanup_(pidref_done) PidRef pid = PIDREF_NULL;
-        _cleanup_close_pair_ int pair[2] = PIPE_EBADF;
+        _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
         int fd, r;
 
         assert(s);
@@ -2986,7 +2986,7 @@ static int socket_accept_do(Socket *s, int fd) {
 
 static int socket_accept_in_cgroup(Socket *s, SocketPort *p, int fd) {
         _cleanup_(pidref_done) PidRef pid = PIDREF_NULL;
-        _cleanup_close_pair_ int pair[2] = PIPE_EBADF;
+        _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
         int cfd, r;
 
         assert(s);

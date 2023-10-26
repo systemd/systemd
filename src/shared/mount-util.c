@@ -852,7 +852,7 @@ static int mount_in_namespace_legacy(
                 const ImagePolicy *image_policy,
                 bool is_image) {
 
-        _cleanup_close_pair_ int errno_pipe_fd[2] = PIPE_EBADF;
+        _cleanup_close_pair_ int errno_pipe_fd[2] = EBADF_PAIR;
         char mount_slave[] = "/tmp/propagate.XXXXXX", *mount_tmp, *mount_outside, *p;
         bool mount_slave_created = false, mount_slave_mounted = false,
                 mount_tmp_created = false, mount_tmp_mounted = false,
@@ -1079,7 +1079,7 @@ static int mount_in_namespace(
                 bool is_image) {
 
         _cleanup_(dissected_image_unrefp) DissectedImage *img = NULL;
-        _cleanup_close_pair_ int errno_pipe_fd[2] = PIPE_EBADF;
+        _cleanup_close_pair_ int errno_pipe_fd[2] = EBADF_PAIR;
         _cleanup_close_ int mntns_fd = -EBADF, root_fd = -EBADF, pidns_fd = -EBADF, chased_src_fd = -EBADF,
                             new_mount_fd = -EBADF;
         _cleanup_free_ char *chased_src_path = NULL;

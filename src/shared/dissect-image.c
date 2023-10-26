@@ -3377,7 +3377,7 @@ int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_
         };
 
         _cleanup_strv_free_ char **machine_info = NULL, **os_release = NULL, **initrd_release = NULL, **sysext_release = NULL, **confext_release = NULL;
-        _cleanup_close_pair_ int error_pipe[2] = PIPE_EBADF;
+        _cleanup_close_pair_ int error_pipe[2] = EBADF_PAIR;
         _cleanup_(rmdir_and_freep) char *t = NULL;
         _cleanup_(sigkill_waitp) pid_t child = 0;
         sd_id128_t machine_id = SD_ID128_NULL;

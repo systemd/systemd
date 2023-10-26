@@ -9,7 +9,7 @@
 #include "fuzz-journald.h"
 #include "journald-stream.h"
 
-static int stream_fds[2] = PIPE_EBADF;
+static int stream_fds[2] = EBADF_PAIR;
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         Server s;

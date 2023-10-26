@@ -230,7 +230,7 @@ int udev_event_spawn(
                 size_t ressize,
                 bool *ret_truncated) {
 
-        _cleanup_close_pair_ int outpipe[2] = PIPE_EBADF, errpipe[2] = PIPE_EBADF;
+        _cleanup_close_pair_ int outpipe[2] = EBADF_PAIR, errpipe[2] = EBADF_PAIR;
         _cleanup_strv_free_ char **argv = NULL;
         char **envp = NULL;
         Spawn spawn;

@@ -12,7 +12,7 @@
 #include "string-util.h"
 
 int bus_container_connect_socket(sd_bus *b) {
-        _cleanup_close_pair_ int pair[2] = PIPE_EBADF;
+        _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
         _cleanup_close_ int pidnsfd = -EBADF, mntnsfd = -EBADF, usernsfd = -EBADF, rootfd = -EBADF;
         int r, error_buf = 0;
         pid_t child;

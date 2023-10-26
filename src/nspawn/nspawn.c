@@ -4762,8 +4762,8 @@ static int run_container(
         _cleanup_(release_lock_file) LockFile uid_shift_lock = LOCK_FILE_INIT;
         _cleanup_close_ int etc_passwd_lock = -EBADF;
         _cleanup_close_pair_ int
-                fd_inner_socket_pair[2] = PIPE_EBADF,
-                fd_outer_socket_pair[2] = PIPE_EBADF;
+                fd_inner_socket_pair[2] = EBADF_PAIR,
+                fd_outer_socket_pair[2] = EBADF_PAIR;
 
         _cleanup_close_ int notify_socket = -EBADF, mntns_fd = -EBADF, fd_kmsg_fifo = -EBADF;
         _cleanup_(barrier_destroy) Barrier barrier = BARRIER_NULL;

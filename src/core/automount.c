@@ -558,7 +558,7 @@ static void automount_trigger_notify(Unit *u, Unit *other) {
 }
 
 static void automount_enter_waiting(Automount *a) {
-        _cleanup_close_pair_ int pipe_fd[2] = PIPE_EBADF;
+        _cleanup_close_pair_ int pipe_fd[2] = EBADF_PAIR;
         _cleanup_close_ int ioctl_fd = -EBADF;
         char name[STRLEN("systemd-") + DECIMAL_STR_MAX(pid_t) + 1];
         _cleanup_free_ char *options = NULL;

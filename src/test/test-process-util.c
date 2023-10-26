@@ -859,7 +859,7 @@ TEST(get_process_threads) {
         assert_se(r >= 0);
 
         if (r == 0) {
-                _cleanup_close_pair_ int pfd[2] = PIPE_EBADF, ppfd[2] = PIPE_EBADF;
+                _cleanup_close_pair_ int pfd[2] = EBADF_PAIR, ppfd[2] = EBADF_PAIR;
                 pthread_t t, tt;
                 char x;
 

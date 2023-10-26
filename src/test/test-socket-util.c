@@ -333,7 +333,7 @@ TEST(pass_many_fds_contents_read) {
                         "/tmp/test-socket-util-passfd-contents-read-XXXXXX",
                         "/tmp/test-socket-util-passfd-contents-read-XXXXXX"
                 };
-                int tmpfds[3] = { -EBADF, -EBADF, -EBADF };
+                int tmpfds[3] = EBADF_TRIPLET;
 
                 pair[0] = safe_close(pair[0]);
 
