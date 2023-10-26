@@ -52,30 +52,31 @@
 
 typedef enum MountMode {
         /* This is ordered by priority! */
-        INACCESSIBLE,
-        OVERLAY_MOUNT,
-        MOUNT_IMAGES,
-        BIND_MOUNT,
-        BIND_MOUNT_RECURSIVE,
-        PRIVATE_TMP,
-        PRIVATE_TMP_READONLY,
-        PRIVATE_DEV,
-        BIND_DEV,
-        EMPTY_DIR,
-        PRIVATE_SYSFS,
-        BIND_SYSFS,
-        PROCFS,
-        READONLY,
-        READWRITE,
-        NOEXEC,
-        EXEC,
-        TMPFS,
-        RUN,
-        EXTENSION_DIRECTORIES, /* Bind-mounted outside the root directory, and used by subsequent mounts */
-        EXTENSION_IMAGES, /* Mounted outside the root directory, and used by subsequent mounts */
-        MQUEUEFS,
-        READWRITE_IMPLICIT, /* Should have the lowest priority. */
+        MOUNT_INACCESSIBLE,
+        MOUNT_OVERLAY,
+        MOUNT_IMAGE,
+        MOUNT_BIND,
+        MOUNT_BIND_RECURSIVE,
+        MOUNT_PRIVATE_TMP,
+        MOUNT_PRIVATE_TMP_READ_ONLY,
+        MOUNT_PRIVATE_DEV,
+        MOUNT_BIND_DEV,
+        MOUNT_EMPTY_DIR,
+        MOUNT_PRIVATE_SYSFS,
+        MOUNT_BIND_SYSFS,
+        MOUNT_PROCFS,
+        MOUNT_READ_ONLY,
+        MOUNT_READ_WRITE,
+        MOUNT_NOEXEC,
+        MOUNT_EXEC,
+        MOUNT_TMPFS,
+        MOUNT_RUN,
+        MOUNT_EXTENSION_DIRECTORY, /* Bind-mounted outside the root directory, and used by subsequent mounts */
+        MOUNT_EXTENSION_IMAGE,     /* Mounted outside the root directory, and used by subsequent mounts */
+        MOUNT_MQUEUEFS,
+        MOUNT_READ_WRITE_IMPLICIT, /* Should have the lowest priority. */
         _MOUNT_MODE_MAX,
+        _MOUNT_MODE_INVALID = -EINVAL,
 } MountMode;
 
 typedef enum MountEntryState {
@@ -88,7 +89,7 @@ typedef enum MountEntryState {
 
 typedef struct MountEntry {
         const char *path_const;   /* Memory allocated on stack or static */
-        MountMode mode:5;
+        MountMode mode;
         bool ignore:1;            /* Ignore if path does not exist? */
         bool has_prefix:1;        /* Already is prefixed by the root dir? */
         bool read_only:1;         /* Shall this mount point be read-only? */
@@ -116,51 +117,51 @@ typedef struct MountList {
 /* If MountAPIVFS= is used, let's mount /sys, /proc, /dev and /run into the it, but only as a fallback if the user hasn't mounted
  * something there already. These mounts are hence overridden by any other explicitly configured mounts. */
 static const MountEntry apivfs_table[] = {
-        { "/proc",               PROCFS,       false },
-        { "/dev",                BIND_DEV,     false },
-        { "/sys",                BIND_SYSFS,   false },
-        { "/run",                RUN,          false, .options_const = "mode=0755" TMPFS_LIMITS_RUN, .flags = MS_NOSUID|MS_NODEV|MS_STRICTATIME },
+        { "/proc",               MOUNT_PROCFS,       false },
+        { "/dev",                MOUNT_BIND_DEV,     false },
+        { "/sys",                MOUNT_BIND_SYSFS,   false },
+        { "/run",                MOUNT_RUN,          false, .options_const = "mode=0755" TMPFS_LIMITS_RUN, .flags = MS_NOSUID|MS_NODEV|MS_STRICTATIME },
 };
 
 /* ProtectKernelTunables= option and the related filesystem APIs */
 static const MountEntry protect_kernel_tunables_proc_table[] = {
-        { "/proc/acpi",          READONLY,           true  },
-        { "/proc/apm",           READONLY,           true  }, /* Obsolete API, there's no point in permitting access to this, ever */
-        { "/proc/asound",        READONLY,           true  },
-        { "/proc/bus",           READONLY,           true  },
-        { "/proc/fs",            READONLY,           true  },
-        { "/proc/irq",           READONLY,           true  },
-        { "/proc/kallsyms",      INACCESSIBLE,       true  },
-        { "/proc/kcore",         INACCESSIBLE,       true  },
-        { "/proc/latency_stats", READONLY,           true  },
-        { "/proc/mtrr",          READONLY,           true  },
-        { "/proc/scsi",          READONLY,           true  },
-        { "/proc/sys",           READONLY,           true  },
-        { "/proc/sysrq-trigger", READONLY,           true  },
-        { "/proc/timer_stats",   READONLY,           true  },
+        { "/proc/acpi",          MOUNT_READ_ONLY,           true  },
+        { "/proc/apm",           MOUNT_READ_ONLY,           true  }, /* Obsolete API, there's no point in permitting access to this, ever */
+        { "/proc/asound",        MOUNT_READ_ONLY,           true  },
+        { "/proc/bus",           MOUNT_READ_ONLY,           true  },
+        { "/proc/fs",            MOUNT_READ_ONLY,           true  },
+        { "/proc/irq",           MOUNT_READ_ONLY,           true  },
+        { "/proc/kallsyms",      MOUNT_INACCESSIBLE,        true  },
+        { "/proc/kcore",         MOUNT_INACCESSIBLE,        true  },
+        { "/proc/latency_stats", MOUNT_READ_ONLY,           true  },
+        { "/proc/mtrr",          MOUNT_READ_ONLY,           true  },
+        { "/proc/scsi",          MOUNT_READ_ONLY,           true  },
+        { "/proc/sys",           MOUNT_READ_ONLY,           true  },
+        { "/proc/sysrq-trigger", MOUNT_READ_ONLY,           true  },
+        { "/proc/timer_stats",   MOUNT_READ_ONLY,           true  },
 };
 
 static const MountEntry protect_kernel_tunables_sys_table[] = {
-        { "/sys",                READONLY,           false },
-        { "/sys/fs/bpf",         READONLY,           true  },
-        { "/sys/fs/cgroup",      READWRITE_IMPLICIT, false }, /* READONLY is set by ProtectControlGroups= option */
-        { "/sys/fs/selinux",     READWRITE_IMPLICIT, true  },
-        { "/sys/kernel/debug",   READONLY,           true  },
-        { "/sys/kernel/tracing", READONLY,           true  },
+        { "/sys",                MOUNT_READ_ONLY,           false },
+        { "/sys/fs/bpf",         MOUNT_READ_ONLY,           true  },
+        { "/sys/fs/cgroup",      MOUNT_READ_WRITE_IMPLICIT, false }, /* READ_ONLY is set by ProtectControlGroups= option */
+        { "/sys/fs/selinux",     MOUNT_READ_WRITE_IMPLICIT, true  },
+        { "/sys/kernel/debug",   MOUNT_READ_ONLY,           true  },
+        { "/sys/kernel/tracing", MOUNT_READ_ONLY,           true  },
 };
 
 /* ProtectKernelModules= option */
 static const MountEntry protect_kernel_modules_table[] = {
-        { "/usr/lib/modules",    INACCESSIBLE, true  },
+        { "/usr/lib/modules",    MOUNT_INACCESSIBLE, true  },
 };
 
 /* ProtectKernelLogs= option */
 static const MountEntry protect_kernel_logs_proc_table[] = {
-        { "/proc/kmsg",          INACCESSIBLE, true },
+        { "/proc/kmsg",          MOUNT_INACCESSIBLE, true },
 };
 
 static const MountEntry protect_kernel_logs_dev_table[] = {
-        { "/dev/kmsg",           INACCESSIBLE, true },
+        { "/dev/kmsg",           MOUNT_INACCESSIBLE, true },
 };
 
 /*
@@ -168,38 +169,38 @@ static const MountEntry protect_kernel_logs_dev_table[] = {
  * system should be protected by ProtectSystem=
  */
 static const MountEntry protect_home_read_only_table[] = {
-        { "/home",               READONLY,     true  },
-        { "/run/user",           READONLY,     true  },
-        { "/root",               READONLY,     true  },
+        { "/home",               MOUNT_READ_ONLY,     true  },
+        { "/run/user",           MOUNT_READ_ONLY,     true  },
+        { "/root",               MOUNT_READ_ONLY,     true  },
 };
 
 /* ProtectHome=tmpfs table */
 static const MountEntry protect_home_tmpfs_table[] = {
-        { "/home",               TMPFS,        true, .read_only = true, .options_const = "mode=0755" TMPFS_LIMITS_EMPTY_OR_ALMOST, .flags = MS_NODEV|MS_STRICTATIME },
-        { "/run/user",           TMPFS,        true, .read_only = true, .options_const = "mode=0755" TMPFS_LIMITS_EMPTY_OR_ALMOST, .flags = MS_NODEV|MS_STRICTATIME },
-        { "/root",               TMPFS,        true, .read_only = true, .options_const = "mode=0700" TMPFS_LIMITS_EMPTY_OR_ALMOST, .flags = MS_NODEV|MS_STRICTATIME },
+        { "/home",               MOUNT_TMPFS,        true, .read_only = true, .options_const = "mode=0755" TMPFS_LIMITS_EMPTY_OR_ALMOST, .flags = MS_NODEV|MS_STRICTATIME },
+        { "/run/user",           MOUNT_TMPFS,        true, .read_only = true, .options_const = "mode=0755" TMPFS_LIMITS_EMPTY_OR_ALMOST, .flags = MS_NODEV|MS_STRICTATIME },
+        { "/root",               MOUNT_TMPFS,        true, .read_only = true, .options_const = "mode=0700" TMPFS_LIMITS_EMPTY_OR_ALMOST, .flags = MS_NODEV|MS_STRICTATIME },
 };
 
 /* ProtectHome=yes table */
 static const MountEntry protect_home_yes_table[] = {
-        { "/home",               INACCESSIBLE, true  },
-        { "/run/user",           INACCESSIBLE, true  },
-        { "/root",               INACCESSIBLE, true  },
+        { "/home",               MOUNT_INACCESSIBLE, true  },
+        { "/run/user",           MOUNT_INACCESSIBLE, true  },
+        { "/root",               MOUNT_INACCESSIBLE, true  },
 };
 
 /* ProtectSystem=yes table */
 static const MountEntry protect_system_yes_table[] = {
-        { "/usr",                READONLY,     false },
-        { "/boot",               READONLY,     true  },
-        { "/efi",                READONLY,     true  },
+        { "/usr",                MOUNT_READ_ONLY,     false },
+        { "/boot",               MOUNT_READ_ONLY,     true  },
+        { "/efi",                MOUNT_READ_ONLY,     true  },
 };
 
 /* ProtectSystem=full includes ProtectSystem=yes */
 static const MountEntry protect_system_full_table[] = {
-        { "/usr",                READONLY,     false },
-        { "/boot",               READONLY,     true  },
-        { "/efi",                READONLY,     true  },
-        { "/etc",                READONLY,     false },
+        { "/usr",                MOUNT_READ_ONLY,     false },
+        { "/boot",               MOUNT_READ_ONLY,     true  },
+        { "/efi",                MOUNT_READ_ONLY,     true  },
+        { "/etc",                MOUNT_READ_ONLY,     false },
 };
 
 /* ProtectSystem=strict table. In this strict mode, we mount everything read-only, except for /proc, /dev,
@@ -208,45 +209,45 @@ static const MountEntry protect_system_full_table[] = {
  * left writable, as ProtectHome= shall manage those, orthogonally).
  */
 static const MountEntry protect_system_strict_table[] = {
-        { "/",                   READONLY,           false },
-        { "/proc",               READWRITE_IMPLICIT, false },      /* ProtectKernelTunables= */
-        { "/sys",                READWRITE_IMPLICIT, false },      /* ProtectKernelTunables= */
-        { "/dev",                READWRITE_IMPLICIT, false },      /* PrivateDevices= */
-        { "/home",               READWRITE_IMPLICIT, true  },      /* ProtectHome= */
-        { "/run/user",           READWRITE_IMPLICIT, true  },      /* ProtectHome= */
-        { "/root",               READWRITE_IMPLICIT, true  },      /* ProtectHome= */
+        { "/",                   MOUNT_READ_ONLY,          false },
+        { "/proc",               MOUNT_READ_WRITE_IMPLICIT, false },      /* ProtectKernelTunables= */
+        { "/sys",                MOUNT_READ_WRITE_IMPLICIT, false },      /* ProtectKernelTunables= */
+        { "/dev",                MOUNT_READ_WRITE_IMPLICIT, false },      /* PrivateDevices= */
+        { "/home",               MOUNT_READ_WRITE_IMPLICIT, true  },      /* ProtectHome= */
+        { "/run/user",           MOUNT_READ_WRITE_IMPLICIT, true  },      /* ProtectHome= */
+        { "/root",               MOUNT_READ_WRITE_IMPLICIT, true  },      /* ProtectHome= */
 };
 
 /* ProtectHostname=yes able */
 static const MountEntry protect_hostname_table[] = {
-        { "/proc/sys/kernel/hostname",   READONLY, false },
-        { "/proc/sys/kernel/domainname", READONLY, false },
+        { "/proc/sys/kernel/hostname",   MOUNT_READ_ONLY, false },
+        { "/proc/sys/kernel/domainname", MOUNT_READ_ONLY, false },
 };
 
 static const char * const mount_mode_table[_MOUNT_MODE_MAX] = {
-        [INACCESSIBLE]          = "inaccessible",
-        [OVERLAY_MOUNT]         = "overlay",
-        [MOUNT_IMAGES]          = "mount-images",
-        [BIND_MOUNT]            = "bind",
-        [BIND_MOUNT_RECURSIVE]  = "rbind",
-        [PRIVATE_TMP]           = "private-tmp",
-        [PRIVATE_TMP_READONLY]  = "private-tmp-read-only",
-        [PRIVATE_DEV]           = "private-dev",
-        [BIND_DEV]              = "bind-dev",
-        [EMPTY_DIR]             = "empty",
-        [PRIVATE_SYSFS]         = "private-sysfs",
-        [BIND_SYSFS]            = "bind-sysfs",
-        [PROCFS]                = "procfs",
-        [READONLY]              = "read-only",
-        [READWRITE]             = "read-write",
-        [NOEXEC]                = "noexec",
-        [EXEC]                  = "exec",
-        [TMPFS]                 = "tmpfs",
-        [RUN]                   = "run",
-        [EXTENSION_DIRECTORIES] = "extension-directories",
-        [EXTENSION_IMAGES]      = "extension-images",
-        [MQUEUEFS]              = "mqueuefs",
-        [READWRITE_IMPLICIT]    = "read-write-implicit",
+        [MOUNT_INACCESSIBLE]          = "inaccessible",
+        [MOUNT_OVERLAY]               = "overlay",
+        [MOUNT_IMAGE]                 = "image",
+        [MOUNT_BIND]                  = "bind",
+        [MOUNT_BIND_RECURSIVE]        = "bind-recursive",
+        [MOUNT_PRIVATE_TMP]           = "private-tmp",
+        [MOUNT_PRIVATE_TMP_READ_ONLY] = "private-tmp-read-only",
+        [MOUNT_PRIVATE_DEV]           = "private-dev",
+        [MOUNT_BIND_DEV]              = "bind-dev",
+        [MOUNT_EMPTY_DIR]             = "empty-dir",
+        [MOUNT_PRIVATE_SYSFS]         = "private-sysfs",
+        [MOUNT_BIND_SYSFS]            = "bind-sysfs",
+        [MOUNT_PROCFS]                = "procfs",
+        [MOUNT_READ_ONLY]             = "read-only",
+        [MOUNT_READ_WRITE]            = "read-write",
+        [MOUNT_NOEXEC]                = "noexec",
+        [MOUNT_EXEC]                  = "exec",
+        [MOUNT_TMPFS]                 = "tmpfs",
+        [MOUNT_RUN]                   = "run",
+        [MOUNT_EXTENSION_DIRECTORY]   = "extension-directory",
+        [MOUNT_EXTENSION_IMAGE]       = "extension-image",
+        [MOUNT_MQUEUEFS]              = "mqueuefs",
+        [MOUNT_READ_WRITE_IMPLICIT]   = "read-write-implicit",
 };
 
 /* Helper struct for naming simplicity and reusability */
@@ -301,19 +302,19 @@ static void mount_entry_consume_prefix(MountEntry *p, char *new_path) {
 static bool mount_entry_read_only(const MountEntry *p) {
         assert(p);
 
-        return p->read_only || IN_SET(p->mode, READONLY, INACCESSIBLE, PRIVATE_TMP_READONLY);
+        return p->read_only || IN_SET(p->mode, MOUNT_READ_ONLY, MOUNT_INACCESSIBLE, MOUNT_PRIVATE_TMP_READ_ONLY);
 }
 
 static bool mount_entry_noexec(const MountEntry *p) {
         assert(p);
 
-        return p->noexec || IN_SET(p->mode, NOEXEC, INACCESSIBLE, PRIVATE_SYSFS, BIND_SYSFS, PROCFS);
+        return p->noexec || IN_SET(p->mode, MOUNT_NOEXEC, MOUNT_INACCESSIBLE, MOUNT_PRIVATE_SYSFS, MOUNT_BIND_SYSFS, MOUNT_PROCFS);
 }
 
 static bool mount_entry_exec(const MountEntry *p) {
         assert(p);
 
-        return p->exec || p->mode == EXEC;
+        return p->exec || p->mode == MOUNT_EXEC;
 }
 
 static const char *mount_entry_source(const MountEntry *p) {
@@ -359,7 +360,7 @@ static MountEntry *mount_list_extend(MountList *ml) {
 static int append_access_mounts(MountList *ml, char **strv, MountMode mode, bool forcibly_require_prefix) {
         assert(ml);
 
-        /* Adds a list of user-supplied READWRITE/READWRITE_IMPLICIT/READONLY/INACCESSIBLE entries */
+        /* Adds a list of user-supplied READ_WRITE/READ_WRITE_IMPLICIT/READ_ONLY/INACCESSIBLE entries */
 
         STRV_FOREACH(i, strv) {
                 bool ignore = false, needs_prefix = false;
@@ -406,7 +407,7 @@ static int append_empty_dir_mounts(MountList *ml, char **strv) {
 
                 *me = (MountEntry) {
                         .path_const = *i,
-                        .mode = EMPTY_DIR,
+                        .mode = MOUNT_EMPTY_DIR,
                         .ignore = false,
                         .read_only = true,
                         .options_const = "mode=0755" TMPFS_LIMITS_EMPTY_OR_ALMOST,
@@ -428,7 +429,7 @@ static int append_bind_mounts(MountList *ml, const BindMount *binds, size_t n) {
 
                 *me = (MountEntry) {
                         .path_const = b->destination,
-                        .mode = b->recursive ? BIND_MOUNT_RECURSIVE : BIND_MOUNT,
+                        .mode = b->recursive ? MOUNT_BIND_RECURSIVE : MOUNT_BIND,
                         .read_only = b->read_only,
                         .nosuid = b->nosuid,
                         .source_const = b->source,
@@ -450,7 +451,7 @@ static int append_mount_images(MountList *ml, const MountImage *mount_images, si
 
                 *me = (MountEntry) {
                         .path_const = m->destination,
-                        .mode = MOUNT_IMAGES,
+                        .mode = MOUNT_IMAGE,
                         .source_const = m->source,
                         .image_options_const = m->mount_options,
                         .ignore = m->ignore_enoent,
@@ -533,7 +534,7 @@ static int append_extensions(
                         .image_options_const = m->mount_options,
                         .ignore = m->ignore_enoent,
                         .source_const = m->source,
-                        .mode = EXTENSION_IMAGES,
+                        .mode = MOUNT_EXTENSION_IMAGE,
                         .has_prefix = true,
                 };
         }
@@ -590,7 +591,7 @@ static int append_extensions(
                 *me = (MountEntry) {
                         .path_malloc = TAKE_PTR(mount_point),
                         .source_malloc = TAKE_PTR(source),
-                        .mode = EXTENSION_DIRECTORIES,
+                        .mode = MOUNT_EXTENSION_DIRECTORY,
                         .ignore = ignore_enoent,
                         .has_prefix = true,
                         .read_only = true,
@@ -613,7 +614,7 @@ static int append_extensions(
                 *me = (MountEntry) {
                         .path_malloc = TAKE_PTR(prefixed_hierarchy),
                         .options_malloc = TAKE_PTR(overlays[i]),
-                        .mode = OVERLAY_MOUNT,
+                        .mode = MOUNT_OVERLAY,
                         .has_prefix = true,
                         .ignore = true, /* If the source image doesn't set the ignore bit it will fail earlier. */
                 };
@@ -653,7 +654,7 @@ static int append_tmpfs_mounts(MountList *ml, const TemporaryFileSystem *tmpfs, 
 
                 *me = (MountEntry) {
                         .path_const = t->path,
-                        .mode = TMPFS,
+                        .mode = MOUNT_TMPFS,
                         .read_only = ro,
                         .options_malloc = TAKE_PTR(o),
                         .flags = flags,
@@ -733,10 +734,10 @@ static int mount_path_compare(const MountEntry *a, const MountEntry *b) {
 
         /* ExtensionImages/Directories will be used by other mounts as a base, so sort them first
          * regardless of the prefix - they are set up in the propagate directory anyway */
-        d = -CMP(a->mode == EXTENSION_IMAGES, b->mode == EXTENSION_IMAGES);
+        d = -CMP(a->mode == MOUNT_EXTENSION_IMAGE, b->mode == MOUNT_EXTENSION_IMAGE);
         if (d != 0)
                 return d;
-        d = -CMP(a->mode == EXTENSION_DIRECTORIES, b->mode == EXTENSION_DIRECTORIES);
+        d = -CMP(a->mode == MOUNT_EXTENSION_DIRECTORY, b->mode == MOUNT_EXTENSION_DIRECTORY);
         if (d != 0)
                 return d;
 
@@ -820,7 +821,7 @@ static void drop_inaccessible(MountList *ml) {
                         continue;
                 }
 
-                clear = f->mode == INACCESSIBLE ? mount_entry_path(f) : NULL;
+                clear = f->mode == MOUNT_INACCESSIBLE ? mount_entry_path(f) : NULL;
 
                 *t = *f;
                 t++;
@@ -839,8 +840,8 @@ static void drop_nop(MountList *ml) {
 
         for (f = ml->mounts, t = ml->mounts; f < ml->mounts + ml->n_mounts; f++) {
 
-                /* Only suppress such subtrees for READONLY, READWRITE and READWRITE_IMPLICIT entries */
-                if (IN_SET(f->mode, READONLY, READWRITE, READWRITE_IMPLICIT)) {
+                /* Only suppress such subtrees for READ_ONLY, READ_WRITE and READ_WRITE_IMPLICIT entries */
+                if (IN_SET(f->mode, MOUNT_READ_ONLY, MOUNT_READ_WRITE, MOUNT_READ_WRITE_IMPLICIT)) {
                         MountEntry *found = NULL;
 
                         /* Now let's find the first parent of the entry we are looking at. */
@@ -881,7 +882,7 @@ static void drop_outside_root(MountList *ml, const char *root_directory) {
         for (f = ml->mounts, t = ml->mounts; f < ml->mounts + ml->n_mounts; f++) {
 
                 /* ExtensionImages/Directories bases are opened in /run/systemd/unit-extensions on the host */
-                if (!IN_SET(f->mode, EXTENSION_IMAGES, EXTENSION_DIRECTORIES) && !path_startswith(mount_entry_path(f), root_directory)) {
+                if (!IN_SET(f->mode, MOUNT_EXTENSION_IMAGE, MOUNT_EXTENSION_DIRECTORY) && !path_startswith(mount_entry_path(f), root_directory)) {
                         log_debug("%s is outside of root directory.", mount_entry_path(f));
                         mount_entry_done(f);
                         continue;
@@ -1366,7 +1367,7 @@ static int mount_image(
         if (r < 0)
                 return log_debug_errno(r, "Failed to extract extension name from %s: %m", mount_entry_source(m));
 
-        if (m->mode == EXTENSION_IMAGES) {
+        if (m->mode == MOUNT_EXTENSION_IMAGE) {
                 r = parse_os_release(
                                 empty_to_root(root_directory),
                                 "ID", &host_os_release_id,
@@ -1484,7 +1485,7 @@ static int apply_one_mount(
 
         switch (m->mode) {
 
-        case INACCESSIBLE: {
+        case MOUNT_INACCESSIBLE: {
                 _cleanup_free_ char *runtime_dir = NULL;
                 struct stat target;
 
@@ -1518,11 +1519,11 @@ static int apply_one_mount(
                 break;
         }
 
-        case READONLY:
-        case READWRITE:
-        case READWRITE_IMPLICIT:
-        case EXEC:
-        case NOEXEC:
+        case MOUNT_READ_ONLY:
+        case MOUNT_READ_WRITE:
+        case MOUNT_READ_WRITE_IMPLICIT:
+        case MOUNT_EXEC:
+        case MOUNT_NOEXEC:
                 r = path_is_mount_point(mount_entry_path(m), root_directory, 0);
                 if (r == -ENOENT && m->ignore)
                         return 0;
@@ -1536,7 +1537,7 @@ static int apply_one_mount(
                 what = mount_entry_path(m);
                 break;
 
-        case EXTENSION_DIRECTORIES: {
+        case MOUNT_EXTENSION_DIRECTORY: {
                 _cleanup_free_ char *host_os_release_id = NULL, *host_os_release_version_id = NULL,
                                 *host_os_release_level = NULL, *extension_name = NULL;
                 _cleanup_strv_free_ char **extension_release = NULL;
@@ -1588,11 +1589,11 @@ static int apply_one_mount(
                 _fallthrough_;
         }
 
-        case BIND_MOUNT:
+        case MOUNT_BIND:
                 rbind = false;
 
                 _fallthrough_;
-        case BIND_MOUNT_RECURSIVE: {
+        case MOUNT_BIND_RECURSIVE: {
                 _cleanup_free_ char *chased = NULL;
 
                 /* Since mount() will always follow symlinks we chase the symlinks on our own first. Note
@@ -1617,44 +1618,44 @@ static int apply_one_mount(
                 break;
         }
 
-        case EMPTY_DIR:
-        case TMPFS:
+        case MOUNT_EMPTY_DIR:
+        case MOUNT_TMPFS:
                 return mount_tmpfs(m);
 
-        case PRIVATE_TMP:
-        case PRIVATE_TMP_READONLY:
+        case MOUNT_PRIVATE_TMP:
+        case MOUNT_PRIVATE_TMP_READ_ONLY:
                 what = mount_entry_source(m);
                 make = true;
                 break;
 
-        case PRIVATE_DEV:
+        case MOUNT_PRIVATE_DEV:
                 return mount_private_dev(m, p->runtime_scope);
 
-        case BIND_DEV:
+        case MOUNT_BIND_DEV:
                 return mount_bind_dev(m);
 
-        case PRIVATE_SYSFS:
+        case MOUNT_PRIVATE_SYSFS:
                 return mount_private_sysfs(m, p);
 
-        case BIND_SYSFS:
+        case MOUNT_BIND_SYSFS:
                 return mount_bind_sysfs(m);
 
-        case PROCFS:
+        case MOUNT_PROCFS:
                 return mount_procfs(m, p);
 
-        case RUN:
+        case MOUNT_RUN:
                 return mount_run(m);
 
-        case MQUEUEFS:
+        case MOUNT_MQUEUEFS:
                 return mount_mqueuefs(m);
 
-        case MOUNT_IMAGES:
+        case MOUNT_IMAGE:
                 return mount_image(m, NULL, p->mount_image_policy);
 
-        case EXTENSION_IMAGES:
+        case MOUNT_EXTENSION_IMAGE:
                 return mount_image(m, root_directory, p->extension_image_policy);
 
-        case OVERLAY_MOUNT:
+        case MOUNT_OVERLAY:
                 return mount_overlay(m);
 
         default:
@@ -1705,7 +1706,7 @@ static int make_read_only(const MountEntry *m, char **deny_list, FILE *proc_self
         if (m->state != MOUNT_APPLIED)
                 return 0;
 
-        if (mount_entry_read_only(m) || m->mode == PRIVATE_DEV) {
+        if (mount_entry_read_only(m) || m->mode == MOUNT_PRIVATE_DEV) {
                 new_flags |= MS_RDONLY;
                 flags_mask |= MS_RDONLY;
         }
@@ -1724,7 +1725,7 @@ static int make_read_only(const MountEntry *m, char **deny_list, FILE *proc_self
          * and running Linux <= 4.17. */
         submounts =
                 mount_entry_read_only(m) &&
-                !IN_SET(m->mode, EMPTY_DIR, TMPFS);
+                !IN_SET(m->mode, MOUNT_EMPTY_DIR, MOUNT_TMPFS);
         if (submounts)
                 r = bind_remount_recursive_with_mountinfo(mount_entry_path(m), new_flags, flags_mask, deny_list, proc_self_mountinfo);
         else
@@ -1764,7 +1765,7 @@ static int make_noexec(const MountEntry *m, char **deny_list, FILE *proc_self_mo
         if (flags_mask == 0) /* No Change? */
                 return 0;
 
-        submounts = !IN_SET(m->mode, EMPTY_DIR, TMPFS);
+        submounts = !IN_SET(m->mode, MOUNT_EMPTY_DIR, MOUNT_TMPFS);
 
         if (submounts)
                 r = bind_remount_recursive_with_mountinfo(mount_entry_path(m), new_flags, flags_mask, deny_list, proc_self_mountinfo);
@@ -1789,8 +1790,7 @@ static int make_nosuid(const MountEntry *m, FILE *proc_self_mountinfo) {
         if (m->state != MOUNT_APPLIED)
                 return 0;
 
-        submounts = !IN_SET(m->mode, EMPTY_DIR, TMPFS);
-
+        submounts = !IN_SET(m->mode, MOUNT_EMPTY_DIR, MOUNT_TMPFS);
         if (submounts)
                 r = bind_remount_recursive_with_mountinfo(mount_entry_path(m), MS_NOSUID, MS_NOSUID, NULL, proc_self_mountinfo);
         else
@@ -1942,7 +1942,7 @@ static int apply_mounts(
                                 continue;
 
                         /* ExtensionImages/Directories are first opened in the propagate directory, not in the root_directory */
-                        r = follow_symlink(!IN_SET(m->mode, EXTENSION_IMAGES, EXTENSION_DIRECTORIES) ? root : NULL, m);
+                        r = follow_symlink(!IN_SET(m->mode, MOUNT_EXTENSION_IMAGE, MOUNT_EXTENSION_DIRECTORY) ? root : NULL, m);
                         if (r < 0) {
                                 mount_entry_path_debug_string(root, m, error_path);
                                 return r;
@@ -1998,7 +1998,7 @@ static int apply_mounts(
 
         /* Third round, flip the noexec bits with a simplified deny list. */
         for (size_t j = 0; j < ml->n_mounts; j++)
-                if (IN_SET((ml->mounts+j)->mode, EXEC, NOEXEC))
+                if (IN_SET((ml->mounts+j)->mode, MOUNT_EXEC, MOUNT_NOEXEC))
                         deny_list[j] = (char*) mount_entry_path(ml->mounts+j);
         deny_list[ml->n_mounts] = NULL;
 
@@ -2176,23 +2176,23 @@ int setup_namespace(const NamespaceParameters *p, char **error_path) {
                         return r;
         }
 
-        r = append_access_mounts(&ml, p->read_write_paths, READWRITE, require_prefix);
+        r = append_access_mounts(&ml, p->read_write_paths, MOUNT_READ_WRITE, require_prefix);
         if (r < 0)
                 return r;
 
-        r = append_access_mounts(&ml, p->read_only_paths, READONLY, require_prefix);
+        r = append_access_mounts(&ml, p->read_only_paths, MOUNT_READ_ONLY, require_prefix);
         if (r < 0)
                 return r;
 
-        r = append_access_mounts(&ml, p->inaccessible_paths, INACCESSIBLE, require_prefix);
+        r = append_access_mounts(&ml, p->inaccessible_paths, MOUNT_INACCESSIBLE, require_prefix);
         if (r < 0)
                 return r;
 
-        r = append_access_mounts(&ml, p->exec_paths, EXEC, require_prefix);
+        r = append_access_mounts(&ml, p->exec_paths, MOUNT_EXEC, require_prefix);
         if (r < 0)
                 return r;
 
-        r = append_access_mounts(&ml, p->no_exec_paths, NOEXEC, require_prefix);
+        r = append_access_mounts(&ml, p->no_exec_paths, MOUNT_NOEXEC, require_prefix);
         if (r < 0)
                 return r;
 
@@ -2217,7 +2217,7 @@ int setup_namespace(const NamespaceParameters *p, char **error_path) {
 
                 *me = (MountEntry) {
                         .path_const = "/tmp",
-                        .mode = ro ? PRIVATE_TMP_READONLY : PRIVATE_TMP,
+                        .mode = ro ? MOUNT_PRIVATE_TMP_READ_ONLY : MOUNT_PRIVATE_TMP,
                         .source_const = p->tmp_dir,
                 };
         }
@@ -2231,7 +2231,7 @@ int setup_namespace(const NamespaceParameters *p, char **error_path) {
 
                 *me = (MountEntry) {
                         .path_const = "/var/tmp",
-                        .mode = ro ? PRIVATE_TMP_READONLY : PRIVATE_TMP,
+                        .mode = ro ? MOUNT_PRIVATE_TMP_READ_ONLY : MOUNT_PRIVATE_TMP,
                         .source_const = p->var_tmp_dir,
                 };
         }
@@ -2251,7 +2251,7 @@ int setup_namespace(const NamespaceParameters *p, char **error_path) {
 
                 *me = (MountEntry) {
                         .path_const = "/dev",
-                        .mode = PRIVATE_DEV,
+                        .mode = MOUNT_PRIVATE_DEV,
                         .flags = DEV_MOUNT_OPTIONS,
                 };
         }
@@ -2308,7 +2308,7 @@ int setup_namespace(const NamespaceParameters *p, char **error_path) {
 
                 *me = (MountEntry) {
                         .path_const = "/sys/fs/cgroup",
-                        .mode = READONLY,
+                        .mode = MOUNT_READ_ONLY,
                 };
         }
 
@@ -2348,7 +2348,7 @@ int setup_namespace(const NamespaceParameters *p, char **error_path) {
 
                 *me = (MountEntry) {
                         .path_const = "/sys",
-                        .mode = PRIVATE_SYSFS,
+                        .mode = MOUNT_PRIVATE_SYSFS,
                 };
         }
 
@@ -2359,7 +2359,7 @@ int setup_namespace(const NamespaceParameters *p, char **error_path) {
 
                 *me = (MountEntry) {
                         .path_const = "/dev/mqueue",
-                        .mode = MQUEUEFS,
+                        .mode = MOUNT_MQUEUEFS,
                         .flags = MS_NOSUID | MS_NODEV | MS_NOEXEC | MS_RELATIME,
                 };
         }
@@ -2374,7 +2374,7 @@ int setup_namespace(const NamespaceParameters *p, char **error_path) {
 
                 *me = (MountEntry) {
                         .path_const = "/run/credentials",
-                        .mode = TMPFS,
+                        .mode = MOUNT_TMPFS,
                         .read_only = true,
                         .options_const = "mode=0755" TMPFS_LIMITS_EMPTY_OR_ALMOST,
                         .flags = MS_NODEV|MS_STRICTATIME|MS_NOSUID|MS_NOEXEC,
@@ -2386,7 +2386,7 @@ int setup_namespace(const NamespaceParameters *p, char **error_path) {
 
                 *me = (MountEntry) {
                         .path_const = p->creds_path,
-                        .mode = BIND_MOUNT,
+                        .mode = MOUNT_BIND,
                         .read_only = true,
                         .source_const = p->creds_path,
                         .ignore = true,
@@ -2401,7 +2401,7 @@ int setup_namespace(const NamespaceParameters *p, char **error_path) {
 
                 *me = (MountEntry) {
                         .path_const = "/run/credentials",
-                        .mode = INACCESSIBLE,
+                        .mode = MOUNT_INACCESSIBLE,
                         .ignore = true,
                 };
         }
@@ -2419,7 +2419,7 @@ int setup_namespace(const NamespaceParameters *p, char **error_path) {
 
                 *me = (MountEntry) {
                         .path_const = "/run/systemd/journal",
-                        .mode = BIND_MOUNT_RECURSIVE,
+                        .mode = MOUNT_BIND_RECURSIVE,
                         .read_only = true,
                         .source_malloc = TAKE_PTR(q),
                 };
@@ -2434,7 +2434,7 @@ int setup_namespace(const NamespaceParameters *p, char **error_path) {
                 *me = (MountEntry) {
                         .source_const = p->propagate_dir,
                         .path_const = p->incoming_dir,
-                        .mode = BIND_MOUNT,
+                        .mode = MOUNT_BIND,
                         .read_only = true,
                 };
         }
@@ -2447,7 +2447,7 @@ int setup_namespace(const NamespaceParameters *p, char **error_path) {
                 *me = (MountEntry) {
                         .path_const = p->notify_socket,
                         .source_const = p->notify_socket,
-                        .mode = BIND_MOUNT,
+                        .mode = MOUNT_BIND,
                         .read_only = true,
                 };
         }
@@ -2460,7 +2460,7 @@ int setup_namespace(const NamespaceParameters *p, char **error_path) {
                 *me = (MountEntry) {
                         .path_const = "/run/host/.os-release-stage/",
                         .source_const = p->host_os_release_stage,
-                        .mode = BIND_MOUNT,
+                        .mode = MOUNT_BIND,
                         .read_only = true,
                         .ignore = true, /* Live copy, don't hard-fail if it goes missing */
                 };
