@@ -3781,7 +3781,7 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                         r = tpm2_load_pcr_public_key(arg_tpm2_public_key, &pubkey, &pubkey_size);
                         if (r < 0) {
                                 if (arg_tpm2_public_key || r != -ENOENT)
-                                        return log_error_errno(r, "Failed read TPM PCR public key: %m");
+                                        return log_error_errno(r, "Failed to read TPM PCR public key: %m");
 
                                 log_debug_errno(r, "Failed to read TPM2 PCR public key, proceeding without: %m");
                                 arg_tpm2_public_key_pcr_mask = 0;
@@ -6935,7 +6935,7 @@ static int parse_argv(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "A path to an image file must be specified when --split is used.");
 
-        if (auto_public_key_pcr_mask && arg_tpm2_public_key) {
+        if (auto_public_key_pcr_mask) {
                 assert(arg_tpm2_public_key_pcr_mask == 0);
                 arg_tpm2_public_key_pcr_mask = INDEX_TO_MASK(uint32_t, TPM2_PCR_KERNEL_BOOT);
         }
