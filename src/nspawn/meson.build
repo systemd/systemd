@@ -3,7 +3,6 @@
 libnspawn_core_sources = files(
         'nspawn-bind-user.c',
         'nspawn-cgroup.c',
-        'nspawn-creds.c',
         'nspawn-expose-ports.c',
         'nspawn-mount.c',
         'nspawn-network.c',
