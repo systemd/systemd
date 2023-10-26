@@ -140,13 +140,11 @@ static int show_cgroup_name(
         bool delegate;
         int r;
 
-        if (FLAGS_SET(flags, OUTPUT_CGROUP_XATTRS) || FLAGS_SET(flags, OUTPUT_CGROUP_ID)) {
-                fd = open(path, O_PATH|O_CLOEXEC|O_NOFOLLOW|O_DIRECTORY, 0);
-                if (fd < 0)
-                        log_debug_errno(errno, "Failed to open cgroup '%s', ignoring: %m", path);
-        }
+        fd = open(path, O_PATH|O_CLOEXEC|O_NOFOLLOW|O_DIRECTORY, 0);
+        if (fd < 0)
+                return log_debug_errno(errno, "Failed to open cgroup '%s', ignoring: %m", path);
 
-        r = cg_is_delegated(fd >= 0 ? FORMAT_PROC_FD_PATH(fd) : path);
+        r = cg_is_delegated_fd(fd);
         if (r < 0)
                 log_debug_errno(r, "Failed to check if cgroup is delegated, ignoring: %m");
         delegate = r > 0;
@@ -156,11 +154,11 @@ static int show_cgroup_name(
                 int mnt_id = -1;
 
                 if (name_to_handle_at(
-                                    fd < 0 ? AT_FDCWD : fd,
-                                    fd < 0 ? path : "",
+                                    fd,
+                                    "",
                                     &fh.file_handle,
                                     &mnt_id,
-                                    fd < 0 ? 0 : AT_EMPTY_PATH) < 0)
+                                    AT_EMPTY_PATH) < 0)
                         log_debug_errno(errno, "Failed to determine cgroup ID of %s, ignoring: %m", path);
                 else
                         cgroupid = CG_FILE_HANDLE_CGROUPID(fh);
@@ -187,7 +185,7 @@ static int show_cgroup_name(
 
         printf("\n");
 
-        if (FLAGS_SET(flags, OUTPUT_CGROUP_XATTRS) && fd >= 0) {
+        if (FLAGS_SET(flags, OUTPUT_CGROUP_XATTRS)) {
                 _cleanup_free_ char *nl = NULL;
 
                 r = flistxattr_malloc(fd, &nl);
@@ -266,7 +264,7 @@ int show_cgroup_by_path(
                         continue;
 
                 if (!shown_pids) {
-                        show_cgroup_one_by_path(path, prefix, n_columns, true, flags);
+                        (void) show_cgroup_one_by_path(path, prefix, n_columns, true, flags);
                         shown_pids = true;
                 }
 
@@ -292,7 +290,7 @@ int show_cgroup_by_path(
                 return r;
 
         if (!shown_pids)
-                show_cgroup_one_by_path(path, prefix, n_columns, !!last, flags);
+                (void) show_cgroup_one_by_path(path, prefix, n_columns, !!last, flags);
 
         if (last) {
                 r = show_cgroup_name(last, prefix, SPECIAL_GLYPH_TREE_RIGHT, flags);

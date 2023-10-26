@@ -686,17 +686,17 @@ int cg_get_xattr_malloc(const char *path, const char *name, char **ret) {
 }
 
 int cg_get_xattr_bool(const char *path, const char *name) {
-        _cleanup_free_ char *val = NULL;
+        _cleanup_free_ char *fs = NULL;
         int r;
 
         assert(path);
         assert(name);
 
-        r = cg_get_xattr_malloc(path, name, &val);
+        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, path, NULL, &fs);
         if (r < 0)
                 return r;
 
-        return parse_boolean(val);
+        return getxattr_at_bool(AT_FDCWD, fs, name, /* flags= */ 0);
 }
 
 int cg_remove_xattr(const char *path, const char *name) {
@@ -2263,17 +2263,27 @@ int cg_is_delegated(const char *path) {
         assert(path);
 
         r = cg_get_xattr_bool(path, "trusted.delegate");
-        if (ERRNO_IS_NEG_XATTR_ABSENT(r)) {
-                /* If the trusted xattr isn't set (preferred), then check the
-                 * untrusted one. Under the assumption that whoever is trusted
-                 * enough to own the cgroup, is also trusted enough to decide
-                 * if it is delegated or not this should be safe. */
-                r = cg_get_xattr_bool(path, "user.delegate");
-                if (ERRNO_IS_NEG_XATTR_ABSENT(r))
-                        return false;
-        }
+        if (!ERRNO_IS_NEG_XATTR_ABSENT(r))
+                return r;
 
-        return r;
+        /* If the trusted xattr isn't set (preferred), then check the untrusted one. Under the assumption
+         * that whoever is trusted enough to own the cgroup, is also trusted enough to decide if it is
+         * delegated or not this should be safe. */
+        r = cg_get_xattr_bool(path, "user.delegate");
+        return ERRNO_IS_NEG_XATTR_ABSENT(r) ? false : r;
+}
+
+int cg_is_delegated_fd(int fd) {
+        int r;
+
+        assert(fd >= 0);
+
+        r = getxattr_at_bool(fd, /* path= */ NULL, "trusted.delegate", /* flags= */ 0);
+        if (!ERRNO_IS_NEG_XATTR_ABSENT(r))
+                return r;
+
+        r = getxattr_at_bool(fd, /* path= */ NULL, "user.delegate", /* flags= */ 0);
+        return ERRNO_IS_NEG_XATTR_ABSENT(r) ? false : r;
 }
 
 int cg_has_coredump_receive(const char *path) {
