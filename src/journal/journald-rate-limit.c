@@ -115,8 +115,7 @@ static bool journal_ratelimit_group_expired(JournalRateLimitGroup *g, usec_t ts)
 static void journal_ratelimit_vacuum(JournalRateLimit *r, usec_t ts) {
         assert(r);
 
-        /* Makes room for at least one new item, but drop all
-         * expored items too. */
+        /* Makes room for at least one new item, but drop all expired items too. */
 
         while (r->n_groups >= GROUPS_MAX ||
                (r->lru_tail && journal_ratelimit_group_expired(r->lru_tail, ts)))

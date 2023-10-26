@@ -640,7 +640,7 @@ static int dir_cleanup(
                  * we have modern statx() we use it instead of fstat() and do proper mount point checks,
                  * while on older kernels's well do traditional st_dev based detection of mount points.
                  *
-                 * Using statx() for detecting mount points also has the benfit that we handle weird file
+                 * Using statx() for detecting mount points also has the benefit that we handle weird file
                  * systems such as overlayfs better where each file is originating from a different
                  * st_dev. */
 
