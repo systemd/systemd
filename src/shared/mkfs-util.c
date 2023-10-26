@@ -222,12 +222,13 @@ static int protofile_print_item(
                 data->has_filename_with_spaces = true;
         }
 
-        fprintf(data->file, "%s %c%c%c%03o 0 0 ",
+        fprintf(data->file, "%s %c%c%c%03o "UID_FMT" "GID_FMT" ",
                 copy ?: de->d_name,
                 type,
                 sx->stx_mode & S_ISUID ? 'u' : '-',
                 sx->stx_mode & S_ISGID ? 'g' : '-',
-                (unsigned) (sx->stx_mode & 0777));
+                (unsigned) (sx->stx_mode & 0777),
+                sx->stx_uid, sx->stx_gid);
 
         if (S_ISREG(sx->stx_mode)) {
                 _cleanup_free_ char *p = NULL;
@@ -300,7 +301,8 @@ static int make_protofile(const char *root, char **ret_path, bool *ret_has_filen
               "0 0\n"
               "d--755 0 0\n", f);
 
-        r = recurse_dir_at(AT_FDCWD, root, STATX_TYPE|STATX_MODE, UINT_MAX, RECURSE_DIR_SORT, protofile_print_item, &data);
+        r = recurse_dir_at(AT_FDCWD, root, STATX_TYPE|STATX_MODE|STATX_UID|STATX_GID, UINT_MAX,
+                           RECURSE_DIR_SORT, protofile_print_item, &data);
         if (r < 0)
                 return log_error_errno(r, "Failed to recurse through %s: %m", root);
 
