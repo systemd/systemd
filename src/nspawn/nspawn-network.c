@@ -237,7 +237,7 @@ int setup_veth(const char *machine_name,
                pid_t pid,
                char iface_name[IFNAMSIZ],
                bool bridge,
-               struct ether_addr *provided_mac) {
+               const struct ether_addr *provided_mac) {
 
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         struct ether_addr mac_host, mac_container;
