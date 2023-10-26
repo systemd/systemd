@@ -230,7 +230,7 @@ DHCPv4.UseGateway,                           config_parse_tristate,             
 DHCPv4.QuickAck,                             config_parse_bool,                                        0,                             offsetof(Network, dhcp_quickack)
 DHCPv4.RequestOptions,                       config_parse_dhcp_request_options,                        AF_INET,                       0
 DHCPv4.Anonymize,                            config_parse_bool,                                        0,                             offsetof(Network, dhcp_anonymize)
-DHCPv4.SendHostname,                         config_parse_bool,                                        0,                             offsetof(Network, dhcp_send_hostname)
+DHCPv4.SendHostname,                         config_parse_dhcp_send_hostname,                          AF_INET,                       0
 DHCPv4.Hostname,                             config_parse_hostname,                                    0,                             offsetof(Network, dhcp_hostname)
 DHCPv4.Label,                                config_parse_dhcp_label,                                  0,                             offsetof(Network, dhcp_label)
 DHCPv4.RequestBroadcast,                     config_parse_tristate,                                    0,                             offsetof(Network, dhcp_broadcast)
@@ -269,6 +269,8 @@ DHCPv6.UseDomains,                           config_parse_dhcp_use_domains,     
 DHCPv6.UseNTP,                               config_parse_dhcp_use_ntp,                                AF_INET6,                      0
 DHCPv6.UseCaptivePortal,                     config_parse_bool,                                        0,                             offsetof(Network, dhcp6_use_captive_portal)
 DHCPv6.MUDURL,                               config_parse_mud_url,                                     0,                             offsetof(Network, dhcp6_mudurl)
+DHCPv6.SendHostname,                         config_parse_dhcp_send_hostname,                          AF_INET6,                      0
+DHCPv6.Hostname,                             config_parse_hostname,                                    0,                             offsetof(Network, dhcp6_hostname)
 DHCPv6.RequestOptions,                       config_parse_dhcp_request_options,                        AF_INET6,                      0
 DHCPv6.UserClass,                            config_parse_dhcp_user_or_vendor_class,                   AF_INET6,                      offsetof(Network, dhcp6_user_class)
 DHCPv6.VendorClass,                          config_parse_dhcp_user_or_vendor_class,                   AF_INET6,                      offsetof(Network, dhcp6_vendor_class)
@@ -582,7 +584,7 @@ DHCP.UseDomains,                             config_parse_dhcp_use_domains,     
 DHCP.UseDomainName,                          config_parse_dhcp_use_domains,                            AF_UNSPEC,                     0
 DHCP.UseRoutes,                              config_parse_bool,                                        0,                             offsetof(Network, dhcp_use_routes)
 DHCP.Anonymize,                              config_parse_bool,                                        0,                             offsetof(Network, dhcp_anonymize)
-DHCP.SendHostname,                           config_parse_bool,                                        0,                             offsetof(Network, dhcp_send_hostname)
+DHCP.SendHostname,                           config_parse_dhcp_send_hostname,                          AF_UNSPEC,                     0
 DHCP.Hostname,                               config_parse_hostname,                                    0,                             offsetof(Network, dhcp_hostname)
 DHCP.RequestBroadcast,                       config_parse_tristate,                                    0,                             offsetof(Network, dhcp_broadcast)
 DHCP.CriticalConnection,                     config_parse_tristate,                                    0,                             offsetof(Network, dhcp_critical)
