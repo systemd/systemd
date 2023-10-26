@@ -40,7 +40,7 @@ int acquire_bus(BusFocus focus, sd_bus **ret) {
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--global is not supported for this operation.");
 
         /* We only go directly to the manager, if we are using a local transport */
-        if (arg_transport != BUS_TRANSPORT_LOCAL)
+        if (!IN_SET(arg_transport, BUS_TRANSPORT_LOCAL, BUS_TRANSPORT_CAPSULE))
                 focus = BUS_FULL;
 
         if (getenv_bool("SYSTEMCTL_FORCE_BUS") > 0)
