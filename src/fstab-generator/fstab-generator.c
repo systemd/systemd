@@ -466,6 +466,42 @@ static int write_extra_dependencies(FILE *f, const char *opts) {
         return 0;
 }
 
+static int mandatory_mount_drop_unapplicable_options(
+                MountPointFlags *flags,
+                const char *where,
+                const char *options,
+                char **ret_options) {
+
+        int r;
+
+        assert(flags);
+        assert(where);
+        assert(options);
+        assert(ret_options);
+
+        if (!(*flags & (MOUNT_NOAUTO|MOUNT_NOFAIL|MOUNT_AUTOMOUNT))) {
+                _cleanup_free_ char *opts = NULL;
+
+                opts = strdup(options);
+                if (!opts)
+                        return -ENOMEM;
+
+                *ret_options = TAKE_PTR(opts);
+                return 0;
+        }
+
+        log_debug("Mount '%s' is mandatory, ignoring 'noauto', 'nofail', and 'x-systemd.automount' options.",
+                  where);
+
+        *flags &= ~(MOUNT_NOAUTO|MOUNT_NOFAIL|MOUNT_AUTOMOUNT);
+
+        r = fstab_filter_options(options, "noauto\0nofail\0x-systemd.automount\0", NULL, NULL, NULL, ret_options);
+        if (r < 0)
+                return r;
+
+        return 1;
+}
+
 static int add_mount(
                 const char *source,
                 const char *dest,
@@ -478,11 +514,8 @@ static int add_mount(
                 MountPointFlags flags,
                 const char *target_unit) {
 
-        _cleanup_free_ char
-                *name = NULL,
-                *automount_name = NULL,
-                *filtered = NULL,
-                *where_escaped = NULL;
+        _cleanup_free_ char *name = NULL, *automount_name = NULL, *filtered = NULL, *where_escaped = NULL,
+                *opts_root_filtered = NULL;
         _cleanup_strv_free_ char **wanted_by = NULL, **required_by = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
@@ -519,20 +552,18 @@ static int add_mount(
                 return r;
 
         if (path_equal(where, "/")) {
-                if (flags & MOUNT_NOAUTO)
-                        log_warning("Ignoring \"noauto\" option for root device");
-                if (flags & MOUNT_NOFAIL)
-                        log_warning("Ignoring \"nofail\" option for root device");
-                if (flags & MOUNT_AUTOMOUNT)
-                        log_warning("Ignoring \"automount\" option for root device");
+                r = mandatory_mount_drop_unapplicable_options(&flags, where, opts, &opts_root_filtered);
+                if (r < 0)
+                        return r;
+                opts = opts_root_filtered;
+
                 if (!strv_isempty(wanted_by))
-                        log_warning("Ignoring \"x-systemd.wanted-by=\" option for root device");
+                        log_debug("Ignoring 'x-systemd.wanted-by=' option for root device.");
                 if (!strv_isempty(required_by))
-                        log_warning("Ignoring \"x-systemd.required-by=\" option for root device");
+                        log_debug("Ignoring 'x-systemd.required-by=' option for root device.");
 
                 required_by = strv_free(required_by);
                 wanted_by = strv_free(wanted_by);
-                SET_FLAG(flags, MOUNT_NOAUTO | MOUNT_NOFAIL | MOUNT_AUTOMOUNT, false);
         }
 
         r = unit_name_from_path(where, ".mount", &name);
@@ -936,14 +967,11 @@ static int parse_fstab_one(
                         mount_is_network(fstype, options) ? SPECIAL_REMOTE_FS_TARGET :
                                                             SPECIAL_LOCAL_FS_TARGET;
 
-        /* nofail or noauto don't make sense for critical filesystems we must mount in initrd. */
-        if ((is_sysroot || is_sysroot_usr) && ((flags & (MOUNT_NOFAIL|MOUNT_NOAUTO)) != 0)) {
-                flags &= ~(MOUNT_NOFAIL|MOUNT_NOAUTO);
-                r = fstab_filter_options(options, "noauto\0nofail\0", NULL, NULL, NULL, &opts);
+        /* nofail, noauto and x-systemd.automount don't make sense for critical filesystems we must mount in initrd. */
+        if (is_sysroot || is_sysroot_usr) {
+                r = mandatory_mount_drop_unapplicable_options(&flags, where, options, &opts);
                 if (r < 0)
                         return r;
-
-                log_debug("'noauto' and 'nofail' options are ignored for /sysroot/ and /sysroot/usr/ mounts.");
                 options = opts;
         }
 
