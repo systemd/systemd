@@ -26,14 +26,7 @@
 #include "service.h"
 
 static void exec_fuzz_one(FILE *f, FDSet *fdset) {
-        _cleanup_(exec_params_serialized_done) ExecParameters params = {
-                .stdin_fd         = -EBADF,
-                .stdout_fd        = -EBADF,
-                .stderr_fd        = -EBADF,
-                .exec_fd          = -EBADF,
-                .user_lookup_fd   = -EBADF,
-                .bpf_outer_map_fd = -EBADF,
-        };
+        _cleanup_(exec_params_deep_clear) ExecParameters params = EXEC_PARAMETERS_INIT(/* flags= */ 0);
         _cleanup_(exec_context_done) ExecContext exec_context = {};
         _cleanup_(cgroup_context_done) CGroupContext cgroup_context = {};
         DynamicCreds dynamic_creds = {};
