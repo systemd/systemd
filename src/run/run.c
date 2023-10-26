@@ -199,6 +199,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "version",            no_argument,       NULL, ARG_VERSION            },
                 { "user",               no_argument,       NULL, ARG_USER               },
                 { "system",             no_argument,       NULL, ARG_SYSTEM             },
+                { "project",            required_argument, NULL, 'J'                    },
                 { "scope",              no_argument,       NULL, ARG_SCOPE              },
                 { "unit",               required_argument, NULL, 'u'                    },
                 { "description",        required_argument, NULL, ARG_DESCRIPTION        },
@@ -249,7 +250,7 @@ static int parse_argv(int argc, char *argv[]) {
         /* Resetting to 0 forces the invocation of an internal initialization routine of getopt_long()
          * that checks for GNU extensions in optstring ('-' or '+' at the beginning). */
         optind = 0;
-        while ((c = getopt_long(argc, argv, "+hrH:M:E:p:tPqGdSu:", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "+hrJ:H:M:E:p:tPqGdSu:", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -269,6 +270,15 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_SYSTEM:
                         arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
+                        break;
+
+                case 'J':
+                        if (!valid_user_group_name(optarg, /* flags= */ 0))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Project name not valid: %s", optarg);
+
+                        arg_host = optarg;
+                        arg_transport = BUS_TRANSPORT_PROJECT;
+                        arg_runtime_scope = RUNTIME_SCOPE_USER;
                         break;
 
                 case ARG_SCOPE:
@@ -1947,7 +1957,7 @@ static int run(int argc, char* argv[]) {
 
         /* If --wait is used connect via the bus, unconditionally, as ref/unref is not supported via the limited direct
          * connection */
-        if (arg_wait || arg_stdio != ARG_STDIO_NONE || (arg_runtime_scope == RUNTIME_SCOPE_USER && arg_transport != BUS_TRANSPORT_LOCAL))
+        if (arg_wait || arg_stdio != ARG_STDIO_NONE || (arg_runtime_scope == RUNTIME_SCOPE_USER && !IN_SET(arg_transport, BUS_TRANSPORT_LOCAL, BUS_TRANSPORT_PROJECT)))
                 r = bus_connect_transport(arg_transport, arg_host, arg_runtime_scope, &bus);
         else
                 r = bus_connect_transport_systemd(arg_transport, arg_host, arg_runtime_scope, &bus);
