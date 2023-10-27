@@ -74,6 +74,109 @@ if ! systemd-detect-virt -cq; then
         bash -xec "test ! -r /dev/kmsg"
     systemd-run --wait --pipe -p ProtectKernelLogs=no -p User=testuser \
         bash -xec "test -r /dev/kmsg"
+
+    # Check if we correctly serialize, deserialize, and set directives that
+    # have more complex internal handling
+    #
+    # Funny detail: this originally used the underlying rootfs device, but that,
+    # for some reason, caused "divide error" in kernel, followed by a kernel panic
+    TEMPFILE="$(mktemp)"
+    LODEV="$(losetup --show -f "$TEMPFILE")"
+    ROOT_DEV_MAJ_MIN="$(lsblk -nro MAJ:MIN "$LODEV")"
+    EXPECTED_IO_MAX="$ROOT_DEV_MAJ_MIN rbps=1000 wbps=1000000000000 riops=2000000000 wiops=4000"
+    EXPECTED_IO_LATENCY="$ROOT_DEV_MAJ_MIN target=69000"
+    SERVICE_NAME="test-io-directives-$RANDOM.service"
+    CGROUP_PATH="/sys/fs/cgroup/system.slice/$SERVICE_NAME"
+
+    # IO*=
+    ARGUMENTS=(
+        # Throw in a couple of invalid entries just to test things out
+        -p IOReadBandwidthMax="/foo/bar 1M"
+        -p IOReadBandwidthMax="/foo/baz 1M"
+        -p IOReadBandwidthMax="$LODEV 1M"
+        -p IOReadBandwidthMax="$LODEV 1K"
+        -p IOWriteBandwidthMax="$LODEV 1G"
+        -p IOWriteBandwidthMax="$LODEV 1T"
+        -p IOReadIOPSMax="$LODEV 2G"
+        -p IOWriteIOPSMax="$LODEV 4K"
+        -p IODeviceLatencyTargetSec="$LODEV 666ms"
+        -p IODeviceLatencyTargetSec="/foo/bar 69ms"
+        -p IODeviceLatencyTargetSec="$LODEV 69ms"
+        -p IOReadBandwidthMax="/foo/bar 1M"
+        -p IOReadBandwidthMax="/foo/baz 1M"
+        # TODO: IODeviceWeight= doesn't work on loop devices and virtual disks
+        -p IODeviceWeight="$LODEV 999"
+        -p IODeviceWeight="/foo/bar 999"
+    )
+
+    systemd-run --wait --pipe --unit "$SERVICE_NAME" "${ARGUMENTS[@]}" \
+        bash -xec "diff <(echo $EXPECTED_IO_MAX) $CGROUP_PATH/io.max; diff <(echo $EXPECTED_IO_LATENCY) $CGROUP_PATH/io.latency"
+
+    # CPUScheduling=
+    ARGUMENTS=(
+        -p CPUSchedulingPolicy=rr   # ID: 2
+        -p CPUSchedulingPolicy=fifo # ID: 1
+        -p CPUSchedulingPriority=5  # Actual prio: 94 (99 - prio)
+        -p CPUSchedulingPriority=10 # Actual prio: 89 (99 - prio)
+    )
+
+    systemd-run --wait --pipe --unit "$SERVICE_NAME" "${ARGUMENTS[@]}" \
+        bash -xec 'grep -E "^policy\s*:\s*1$" /proc/self/sched; grep -E "^prio\s*:\s*89$" /proc/self/sched'
+
+    # Device*=
+    ARGUMENTS=(
+        -p DevicePolicy=closed
+        -p DevicePolicy=strict
+        -p DeviceAllow="char-mem rm"  # Allow read & mknod for /dev/{null,zero,...}
+        -p DeviceAllow="/dev/loop0 rw"
+        -p DeviceAllow="/dev/loop0 w" # Allow write for /dev/loop0
+        # Everything else should be disallowed per the strict policy
+    )
+
+    systemd-run --wait --pipe --unit "$SERVICE_NAME" "${ARGUMENTS[@]}" \
+        bash -xec 'test -r /dev/null; test ! -w /dev/null; test ! -r /dev/loop0; test -w /dev/loop0; test ! -r /dev/tty; test ! -w /dev/tty'
+
+    # SocketBind*=
+    ARGUMENTS=(
+        -p SocketBindAllow=
+        -p SocketBindAllow=1234
+        -p SocketBindAllow=ipv4:udp:any
+        -p SocketBindAllow=ipv6:6666
+        # Everything but the last assignment is superfluous, but it still excercises
+        # the parsing machinery
+        -p SocketBindDeny=
+        -p SocketBindDeny=1111
+        -p SocketBindDeny=ipv4:1111
+        -p SocketBindDeny=ipv4:any
+        -p SocketBindDeny=ipv4:tcp:any
+        -p SocketBindDeny=ipv4:udp:10000-11000
+        -p SocketBindDeny=ipv6:1111
+        -p SocketBindDeny=any
+    )
+
+    # We should fail with EPERM when trying to bind to a socket not on the allow list
+    # (nc exits with 2 in that case)
+    systemd-run --wait -p SuccessExitStatus="1 2" --pipe "${ARGUMENTS[@]}" \
+        bash -xec 'timeout 1s nc -l 127.0.0.1 9999; exit 42'
+    systemd-run --wait -p SuccessExitStatus="1 2" --pipe "${ARGUMENTS[@]}" \
+        bash -xec 'timeout 1s nc -l ::1 9999; exit 42'
+    systemd-run --wait -p SuccessExitStatus="1 2" --pipe "${ARGUMENTS[@]}" \
+        bash -xec 'timeout 1s nc -6 -u -l ::1 9999; exit 42'
+    systemd-run --wait -p SuccessExitStatus="1 2" --pipe "${ARGUMENTS[@]}" \
+        bash -xec 'timeout 1s nc -4 -l 127.0.0.1 6666; exit 42'
+    # Consequently, we should succeed when binding to a socket on the allow list
+    # and keep listening on it until we're killed by `timeout` (EC 124)
+    systemd-run --wait --pipe -p SuccessExitStatus=124 "${ARGUMENTS[@]}" \
+        bash -xec 'timeout 1s nc -4 -l 127.0.0.1 1234; exit 1'
+    systemd-run --wait --pipe -p SuccessExitStatus=124 "${ARGUMENTS[@]}" \
+        bash -xec 'timeout 1s nc -4 -u -l 127.0.0.1 5678; exit 1'
+    systemd-run --wait --pipe -p SuccessExitStatus=124 "${ARGUMENTS[@]}" \
+        bash -xec 'timeout 1s nc -6 -l ::1 1234; exit 1'
+    systemd-run --wait --pipe -p SuccessExitStatus=124 "${ARGUMENTS[@]}" \
+        bash -xec 'timeout 1s nc -6 -l ::1 6666; exit 1'
+
+    losetup -d "$LODEV"
+    rm -f "$TEMPFILE"
 fi
 
 systemd-run --wait --pipe -p BindPaths="/etc /home:/mnt:norbind -/foo/bar/baz:/usr:rbind" \
