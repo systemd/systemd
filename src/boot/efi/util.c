@@ -390,10 +390,15 @@ void clear_screen(size_t attr) {
         ST->ConOut->ClearScreen(ST->ConOut);
 }
 
-void sort_pointer_array(
-                void **array,
+static void *array_element(const void *array, size_t stride, size_t i) {
+        return (uint8_t *) array + stride * i;
+}
+
+void sort_array(
+                void *array,
+                size_t stride,
                 size_t n_members,
-                compare_pointer_func_t compare) {
+                compare_func_t compare) {
 
         assert(array || n_members == 0);
         assert(compare);
@@ -403,17 +408,41 @@ void sort_pointer_array(
 
         for (size_t i = 1; i < n_members; i++) {
                 size_t k;
-                void *entry = array[i];
+                uint8_t tmp[stride];
+                memcpy(tmp, array_element(array, stride, i), stride);
 
                 for (k = i; k > 0; k--) {
-                        if (compare(array[k - 1], entry) <= 0)
+                        if (compare(array_element(array, stride, k - 1), tmp) <= 0)
                                 break;
 
-                        array[k] = array[k - 1];
+                        memcpy(array_element(array, stride, k),
+                               array_element(array, stride, k - 1),
+                               stride);
                 }
 
-                array[k] = entry;
+                memcpy(array_element(array, stride, k), tmp, stride);
         }
+}
+
+void *bsearch_array(
+                const void *key,
+                const void *array,
+                size_t stride,
+                size_t n_members,
+                compare_func_t compare) {
+        size_t left_idx = 0, right_idx = n_members - 1;
+        while (left_idx <= right_idx) {
+                size_t mid_idx = (left_idx + right_idx) / 2;
+                const void *mid_elem = array_element(array, stride, mid_idx);
+                int ret = compare(mid_elem, key);
+                if (ret < 0)
+                        left_idx = mid_idx + 1;
+                else if (ret > 0)
+                        right_idx = mid_idx - 1;
+                else
+                        return (void *) mid_elem;
+        }
+        return NULL;
 }
 
 EFI_STATUS get_file_info(EFI_FILE *handle, EFI_FILE_INFO **ret, size_t *ret_size) {
