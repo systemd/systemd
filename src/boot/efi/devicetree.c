@@ -71,9 +71,10 @@ EFI_STATUS devicetree_install(struct devicetree_state *state, EFI_FILE *root_dir
         assert(root_dir);
         assert(name);
 
+        /* Capture the original value for the devicetree table. NULL is not an error in this case so we don't
+         * need to check the return value. NULL simply means the system fw had no devicetree initially (and
+         * is the correct value to use to return to the initial state if needed). */
         state->orig = find_configuration_table(MAKE_GUID_PTR(EFI_DTB_TABLE));
-        if (!state->orig)
-                return EFI_UNSUPPORTED;
 
         err = root_dir->Open(root_dir, &handle, name, EFI_FILE_MODE_READ, EFI_FILE_READ_ONLY);
         if (err != EFI_SUCCESS)
@@ -112,9 +113,10 @@ EFI_STATUS devicetree_install_from_memory(
         assert(state);
         assert(dtb_buffer && dtb_length > 0);
 
+        /* Capture the original value for the devicetree table. NULL is not an error in this case so we don't
+         * need to check the return value. NULL simply means the system fw had no devicetree initially (and
+         * is the correct value to use to return to the initial state if needed). */
         state->orig = find_configuration_table(MAKE_GUID_PTR(EFI_DTB_TABLE));
-        if (!state->orig)
-                return EFI_UNSUPPORTED;
 
         err = devicetree_allocate(state, dtb_length);
         if (err != EFI_SUCCESS)
