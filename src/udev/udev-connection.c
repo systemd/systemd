@@ -3,7 +3,7 @@
 #include "udev-connection.h"
 #include "udev-varlink.h"
 
-int udev_connection_init(UdevConnection *conn) {
+int udev_connection_init(UdevConnection *conn, usec_t timeout) {
         int r;
 
         r = udev_varlink_connect(&conn->link);
@@ -13,6 +13,12 @@ int udev_connection_init(UdevConnection *conn) {
         r = udev_ctrl_new(&conn->uctrl);
         if (r < 0)
                 return log_error_errno(r, "Failed to initialize udev control: %m");
+
+        r = varlink_set_relative_timeout(conn->link, timeout);
+        if (r < 0)
+                return log_error_errno(r, "Failed to apply timeout: %m");
+
+        conn->timeout = timeout; /* for uctrl */
 
         return 0;
 }
