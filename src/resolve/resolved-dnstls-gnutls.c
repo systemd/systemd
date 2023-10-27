@@ -6,7 +6,7 @@
 
 #include <gnutls/socket.h>
 
-#include "io-util.h"
+#include "iovec-util.h"
 #include "resolved-dns-stream.h"
 #include "resolved-dnstls.h"
 #include "resolved-manager.h"
