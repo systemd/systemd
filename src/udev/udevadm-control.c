@@ -24,6 +24,7 @@
 #include "syslog-util.h"
 #include "time-util.h"
 #include "udevadm.h"
+#include "udev-connection.h"
 #include "udev-ctrl.h"
 #include "virt.h"
 
@@ -47,7 +48,7 @@ static int help(void) {
 }
 
 int control_main(int argc, char *argv[], void *userdata) {
-        _cleanup_(udev_ctrl_unrefp) UdevCtrl *uctrl = NULL;
+        _cleanup_(udev_connection_done) UdevConnection conn = {};
         usec_t timeout = 60 * USEC_PER_SEC;
         int c, r;
 
@@ -82,14 +83,14 @@ int control_main(int argc, char *argv[], void *userdata) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "This command expects one or more options.");
 
-        r = udev_ctrl_new(&uctrl);
+        r = udev_connection_init(&conn);
         if (r < 0)
                 return log_error_errno(r, "Failed to initialize udev control: %m");
 
         while ((c = getopt_long(argc, argv, "el:sSRp:m:t:Vh", options, NULL)) >= 0)
                 switch (c) {
                 case 'e':
-                        r = udev_ctrl_send_exit(uctrl);
+                        r = udev_ctrl_send_exit(conn.uctrl);
                         if (r == -ENOANO)
                                 log_warning("Cannot specify --exit after --exit, ignoring.");
                         else if (r < 0)
@@ -100,28 +101,28 @@ int control_main(int argc, char *argv[], void *userdata) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse log level '%s': %m", optarg);
 
-                        r = udev_ctrl_send_set_log_level(uctrl, r);
+                        r = udev_ctrl_send_set_log_level(conn.uctrl, r);
                         if (r == -ENOANO)
                                 log_warning("Cannot specify --log-level after --exit, ignoring.");
                         else if (r < 0)
                                 return log_error_errno(r, "Failed to send request to set log level: %m");
                         break;
                 case 's':
-                        r = udev_ctrl_send_stop_exec_queue(uctrl);
+                        r = udev_ctrl_send_stop_exec_queue(conn.uctrl);
                         if (r == -ENOANO)
                                 log_warning("Cannot specify --stop-exec-queue after --exit, ignoring.");
                         else if (r < 0)
                                 return log_error_errno(r, "Failed to send request to stop exec queue: %m");
                         break;
                 case 'S':
-                        r = udev_ctrl_send_start_exec_queue(uctrl);
+                        r = udev_ctrl_send_start_exec_queue(conn.uctrl);
                         if (r == -ENOANO)
                                 log_warning("Cannot specify --start-exec-queue after --exit, ignoring.");
                         else if (r < 0)
                                 return log_error_errno(r, "Failed to send request to start exec queue: %m");
                         break;
                 case 'R':
-                        r = udev_ctrl_send_reload(uctrl);
+                        r = udev_ctrl_send_reload(conn.uctrl);
                         if (r == -ENOANO)
                                 log_warning("Cannot specify --reload after --exit, ignoring.");
                         else if (r < 0)
@@ -131,7 +132,7 @@ int control_main(int argc, char *argv[], void *userdata) {
                         if (!strchr(optarg, '='))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "expect <KEY>=<value> instead of '%s'", optarg);
 
-                        r = udev_ctrl_send_set_env(uctrl, optarg);
+                        r = udev_ctrl_send_set_env(conn.uctrl, optarg);
                         if (r == -ENOANO)
                                 log_warning("Cannot specify --property after --exit, ignoring.");
                         else if (r < 0)
@@ -144,7 +145,7 @@ int control_main(int argc, char *argv[], void *userdata) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse maximum number of children '%s': %m", optarg);
 
-                        r = udev_ctrl_send_set_children_max(uctrl, i);
+                        r = udev_ctrl_send_set_children_max(conn.uctrl, i);
                         if (r == -ENOANO)
                                 log_warning("Cannot specify --children-max after --exit, ignoring.");
                         else if (r < 0)
@@ -152,7 +153,7 @@ int control_main(int argc, char *argv[], void *userdata) {
                         break;
                 }
                 case ARG_PING:
-                        r = udev_ctrl_send_ping(uctrl);
+                        r = udev_connection_send_ping(&conn);
                         if (r == -ENOANO)
                                 log_error("Cannot specify --ping after --exit, ignoring.");
                         else if (r < 0)
@@ -177,7 +178,7 @@ int control_main(int argc, char *argv[], void *userdata) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Extraneous argument: %s", argv[optind]);
 
-        r = udev_ctrl_wait(uctrl, timeout);
+        r = udev_connection_wait(&conn, timeout);
         if (r < 0)
                 return log_error_errno(r, "Failed to wait for daemon to reply: %m");
 
