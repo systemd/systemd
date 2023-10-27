@@ -565,6 +565,26 @@ static int manager_memory_pressure_listen(Manager *m) {
         return 0;
 }
 
+static int dnssec_init(Manager *m) {
+        int r;
+
+        assert(m);
+
+        r = dns_trust_anchor_load(&m->trust_anchor);
+        if (r < 0)
+                return r;
+
+        r = manager_init_dnssec_algorithms(m);
+        if (r < 0)
+                return log_error_errno(r, "Failed to initialize list of allowed DNSSEC algorithms: %m");
+
+        r = manager_init_dnssec_digests(m);
+        if (r < 0)
+                return log_error_errno(r, "Failed to initialize list of allowed DNSSEC digests: %m");
+
+        return 0;
+}
+
 int manager_new(Manager **ret) {
         _cleanup_(manager_freep) Manager *m = NULL;
         int r;
@@ -597,9 +617,12 @@ int manager_new(Manager **ret) {
 
                 .sigrtmin18_info.memory_pressure_handler = manager_memory_pressure,
                 .sigrtmin18_info.memory_pressure_userdata = m,
+
+                .dnssec_algorithms = NULL,
+                .dnssec_digests = NULL,
         };
 
-        r = dns_trust_anchor_load(&m->trust_anchor);
+        r = dnssec_init(m);
         if (r < 0)
                 return r;
 
@@ -759,6 +782,9 @@ Manager *manager_free(Manager *m) {
 
         dns_trust_anchor_flush(&m->trust_anchor);
         manager_etc_hosts_flush(m);
+
+        m->dnssec_algorithms = set_free(m->dnssec_algorithms);
+        m->dnssec_digests = set_free(m->dnssec_digests);
 
         return mfree(m);
 }
