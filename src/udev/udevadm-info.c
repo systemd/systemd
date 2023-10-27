@@ -392,7 +392,7 @@ static void cleanup_dir_after_db_cleanup(DIR *dir, DIR *datadir) {
 
                 if (faccessat(dirfd(datadir), dent->d_name, F_OK, AT_SYMLINK_NOFOLLOW) >= 0)
                         /* The corresponding udev database file still exists.
-                         * Assuming the parsistent flag is set for the database. */
+                         * Assuming the persistent flag is set for the database. */
                         continue;
 
                 (void) unlinkat(dirfd(dir), dent->d_name, 0);
