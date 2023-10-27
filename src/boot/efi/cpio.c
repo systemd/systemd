@@ -394,7 +394,7 @@ EFI_STATUS pack_cpio(
 
         /* Now, sort the files we found, to make this uniform and stable (and to ensure the TPM measurements
          * are not dependent on read order) */
-        sort_pointer_array((void**) items, n_items, (compare_pointer_func_t) strcmp16);
+        sort_array((void *) items, sizeof *items, n_items, (compare_func_t) strcmp16_indirect);
 
         /* Generate the leading directory inodes right before adding the first files, to the
          * archive. Otherwise the cpio archive cannot be unpacked, since the leading dirs won't exist. */
