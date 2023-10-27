@@ -16,7 +16,7 @@
 #include "path-util.h"
 #include "strv.h"
 #include "time-util.h"
-#include "udev-ctrl.h"
+#include "udev-connection.h"
 #include "udev-util.h"
 #include "udevadm.h"
 #include "unit-def.h"
@@ -198,21 +198,21 @@ int settle_main(int argc, char *argv[], void *userdata) {
         (void) emit_deprecation_warning();
 
         if (getuid() == 0) {
-                _cleanup_(udev_ctrl_unrefp) UdevCtrl *uctrl = NULL;
+                _cleanup_(udev_connection_done) UdevConnection conn = {};
 
                 /* guarantee that the udev daemon isn't pre-processing */
 
-                r = udev_ctrl_new(&uctrl);
+                r = udev_connection_init(&conn);
                 if (r < 0)
                         return log_error_errno(r, "Failed to create control socket for udev daemon: %m");
 
-                r = udev_ctrl_send_ping(uctrl);
+                r = udev_connection_send_ping(&conn);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to connect to udev daemon, ignoring: %m");
                         return 0;
                 }
 
-                r = udev_ctrl_wait(uctrl, MAX(5 * USEC_PER_SEC, arg_timeout_usec));
+                r = udev_connection_wait(&conn, MAX(5 * USEC_PER_SEC, arg_timeout_usec));
                 if (r < 0)
                         return log_error_errno(r, "Failed to wait for daemon to reply: %m");
         } else {
