@@ -83,7 +83,16 @@ int control_main(int argc, char *argv[], void *userdata) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "This command expects one or more options.");
 
-        r = udev_connection_init(&conn);
+        while ((c = getopt_long(argc, argv, "el:sSRp:m:t:Vh", options, NULL)) >= 0)
+                if (c == 't') {
+                        r = parse_sec(optarg, &timeout);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse timeout value '%s': %m", optarg);
+                        break;
+                }
+        optind = 0;
+
+        r = udev_connection_init(&conn, timeout);
         if (r < 0)
                 return log_error_errno(r, "Failed to initialize udev control: %m");
 
@@ -159,10 +168,7 @@ int control_main(int argc, char *argv[], void *userdata) {
                         else if (r < 0)
                                 return log_error_errno(r, "Failed to send a ping message: %m");
                         break;
-                case 't':
-                        r = parse_sec(optarg, &timeout);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse timeout value '%s': %m", optarg);
+                case 't': /* Already handled, ignore */
                         break;
                 case 'V':
                         return print_version();
@@ -178,7 +184,7 @@ int control_main(int argc, char *argv[], void *userdata) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Extraneous argument: %s", argv[optind]);
 
-        r = udev_connection_wait(&conn, timeout);
+        r = udev_connection_wait(&conn);
         if (r < 0)
                 return log_error_errno(r, "Failed to wait for daemon to reply: %m");
 
