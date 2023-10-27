@@ -41,6 +41,7 @@ int dynamic_creds_realize(DynamicCreds *creds, char **suggested_paths, uid_t *ui
 DynamicCreds *dynamic_creds_unref(DynamicCreds *creds);
 DynamicCreds *dynamic_creds_destroy(DynamicCreds *creds);
 void dynamic_creds_done(DynamicCreds *creds);
+void dynamic_creds_close(DynamicCreds *creds);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(DynamicCreds*, dynamic_creds_unref);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DynamicCreds*, dynamic_creds_destroy);
