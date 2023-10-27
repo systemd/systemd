@@ -67,6 +67,7 @@ int sd_netlink_add_match(sd_netlink *nl, sd_netlink_slot **ret_slot, uint16_t ma
 
 int sd_netlink_attach_event(sd_netlink *nl, sd_event *e, int64_t priority);
 int sd_netlink_detach_event(sd_netlink *nl);
+sd_event* sd_netlink_get_event(sd_netlink *nl);
 int sd_netlink_attach_filter(sd_netlink *nl, size_t len, const struct sock_filter *filter);
 
 /* Message construction */
