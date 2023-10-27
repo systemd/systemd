@@ -4487,6 +4487,7 @@ const char *tpm2_userspace_log_path(void) {
         return secure_getenv("SYSTEMD_MEASURE_LOG_USERSPACE") ?: "/run/log/systemd/tpm2-measure.log";
 }
 
+#if HAVE_OPENSSL
 static int tpm2_userspace_log_open(void) {
         _cleanup_close_ int fd = -EBADF;
         struct stat st;
@@ -4626,6 +4627,7 @@ static int tpm2_userspace_log(
 
         return 1;
 }
+#endif
 
 int tpm2_extend_bytes(
                 Tpm2Context *c,
