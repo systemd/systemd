@@ -158,6 +158,8 @@ option('quotacheck', type : 'boolean',
        description : 'support for the quotacheck tools')
 option('sysusers', type : 'boolean',
        description : 'support for the sysusers configuration')
+option('storagetm', type : 'boolean',
+       description : 'support for Storage Target Mode')
 option('tmpfiles', type : 'boolean',
        description : 'support for tmpfiles.d')
 option('importd', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
