@@ -858,3 +858,14 @@ void dynamic_creds_done(DynamicCreds *creds) {
                 dynamic_user_free(creds->group);
         creds->group = creds->user = dynamic_user_free(creds->user);
 }
+
+void dynamic_creds_close(DynamicCreds *creds) {
+        if (!creds)
+                return;
+
+        if (creds->user)
+                safe_close_pair(creds->user->storage_socket);
+
+        if (creds->group && creds->group != creds->user)
+                safe_close_pair(creds->group->storage_socket);
+}
