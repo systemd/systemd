@@ -693,16 +693,14 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                         prefix, bpf_cgroup_attach_type_to_string(p->attach_type), p->bpffs_path);
 
         if (c->socket_bind_allow) {
-                fprintf(f, "%sSocketBindAllow:", prefix);
-                LIST_FOREACH(socket_bind_items, bi, c->socket_bind_allow)
-                        cgroup_context_dump_socket_bind_item(bi, f);
+                fprintf(f, "%sSocketBindAllow: ", prefix);
+                cgroup_context_dump_socket_bind_items(c->socket_bind_allow, f);
                 fputc('\n', f);
         }
 
         if (c->socket_bind_deny) {
-                fprintf(f, "%sSocketBindDeny:", prefix);
-                LIST_FOREACH(socket_bind_items, bi, c->socket_bind_deny)
-                        cgroup_context_dump_socket_bind_item(bi, f);
+                fprintf(f, "%sSocketBindDeny: ", prefix);
+                cgroup_context_dump_socket_bind_items(c->socket_bind_deny, f);
                 fputc('\n', f);
         }
 
@@ -725,13 +723,26 @@ void cgroup_context_dump_socket_bind_item(const CGroupSocketBindItem *item, FILE
         }
 
         if (item->nr_ports == 0)
-                fprintf(f, " %s%s%s%sany", family, colon1, protocol, colon2);
+                fprintf(f, "%s%s%s%sany", family, colon1, protocol, colon2);
         else if (item->nr_ports == 1)
-                fprintf(f, " %s%s%s%s%" PRIu16, family, colon1, protocol, colon2, item->port_min);
+                fprintf(f, "%s%s%s%s%" PRIu16, family, colon1, protocol, colon2, item->port_min);
         else {
                 uint16_t port_max = item->port_min + item->nr_ports - 1;
-                fprintf(f, " %s%s%s%s%" PRIu16 "-%" PRIu16, family, colon1, protocol, colon2,
+                fprintf(f, "%s%s%s%s%" PRIu16 "-%" PRIu16, family, colon1, protocol, colon2,
                         item->port_min, port_max);
+        }
+}
+
+void cgroup_context_dump_socket_bind_items(const CGroupSocketBindItem *items, FILE *f) {
+        bool first = true;
+
+        LIST_FOREACH(socket_bind_items, bi, items) {
+                if (first)
+                        first = false;
+                else
+                        fputc(' ', f);
+
+                cgroup_context_dump_socket_bind_item(bi, f);
         }
 }
 
