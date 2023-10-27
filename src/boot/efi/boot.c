@@ -1659,11 +1659,15 @@ static void config_load_type1_entries(
         }
 }
 
-static int boot_entry_compare(const BootEntry *a, const BootEntry *b) {
+static int boot_entry_compare_indirect(const BootEntry **a_ind, const BootEntry **b_ind) {
+        const BootEntry *a, *b;
         int r;
 
-        assert(a);
-        assert(b);
+        assert(a_ind);
+        assert(b_ind);
+
+        a = *a_ind;
+        b = *b_ind;
 
         /* Order entries that have no tries left to the end of the list */
         r = CMP(a->tries_left == 0, b->tries_left == 0);
@@ -2577,7 +2581,7 @@ static void config_load_all_entries(
         config_load_xbootldr(config, loaded_image->DeviceHandle);
 
         /* Sort entries after version number */
-        sort_pointer_array((void **) config->entries, config->n_entries, (compare_pointer_func_t) boot_entry_compare);
+        sort_array((void *) config->entries, sizeof *config->entries, config->n_entries, (compare_func_t) boot_entry_compare_indirect);
 
         /* If we find some well-known loaders, add them to the end of the list */
         config_add_entry_osx(config);
