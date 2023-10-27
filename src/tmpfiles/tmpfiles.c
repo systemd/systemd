@@ -1161,7 +1161,7 @@ static int parse_acls_from_arg(Item *item) {
         r = parse_acl(item->argument, &item->acl_access, &item->acl_access_exec,
                       &item->acl_default, !item->append_or_force);
         if (r < 0)
-                log_full_errno(arg_graceful && IN_SET(r, -ENOENT, -ESRCH) ? LOG_DEBUG : LOG_WARNING,
+                log_full_errno(arg_graceful && IN_SET(r, -EINVAL, -ENOENT, -ESRCH) ? LOG_DEBUG : LOG_WARNING,
                                r, "Failed to parse ACL \"%s\", ignoring: %m", item->argument);
 #else
         log_warning("ACLs are not supported, ignoring.");
