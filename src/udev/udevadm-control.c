@@ -16,6 +16,7 @@
 #include "syslog-util.h"
 #include "time-util.h"
 #include "udevadm.h"
+#include "udev-connection.h"
 #include "udev-ctrl.h"
 #include "virt.h"
 
@@ -175,63 +176,63 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int send_control_commands(void) {
-        _cleanup_(udev_ctrl_unrefp) UdevCtrl *uctrl = NULL;
+        _cleanup_(udev_connection_done) UdevConnection conn = {};
         int r;
 
-        r = udev_ctrl_new(&uctrl);
+        r = udev_connection_init(&conn);
         if (r < 0)
-                return log_error_errno(r, "Failed to initialize udev control: %m");
+                return log_error_errno(r, "Failed to initialize udev connection: %m");
 
         if (arg_exit) {
-                r = udev_ctrl_send_exit(uctrl);
+                r = udev_ctrl_send_exit(conn.uctrl);
                 if (r < 0)
                        return log_error_errno(r, "Failed to send exit request: %m");
                 return 0;
         }
 
         if (arg_log_level >= 0) {
-                r = udev_ctrl_send_set_log_level(uctrl, arg_log_level);
+                r = udev_ctrl_send_set_log_level(conn.uctrl, arg_log_level);
                 if (r < 0)
                         return log_error_errno(r, "Failed to send request to set log level: %m");
         }
 
         if (arg_start_exec_queue == false) {
-                r = udev_ctrl_send_stop_exec_queue(uctrl);
+                r = udev_ctrl_send_stop_exec_queue(conn.uctrl);
                 if (r < 0)
                         return log_error_errno(r, "Failed to send request to stop exec queue: %m");
         }
 
         if (arg_start_exec_queue == true) {
-                r = udev_ctrl_send_start_exec_queue(uctrl);
+                r = udev_ctrl_send_start_exec_queue(conn.uctrl);
                 if (r < 0)
                         return log_error_errno(r, "Failed to send request to start exec queue: %m");
         }
 
         if (arg_reload) {
-                r = udev_ctrl_send_reload(uctrl);
+                r = udev_ctrl_send_reload(conn.uctrl);
                 if (r < 0)
                         return log_error_errno(r, "Failed to send reload request: %m");
         }
 
         STRV_FOREACH(env, arg_env) {
-                r = udev_ctrl_send_set_env(uctrl, *env);
+                r = udev_ctrl_send_set_env(conn.uctrl, *env);
                 if (r < 0)
                         return log_error_errno(r, "Failed to send request to update environment: %m");
         }
 
         if (arg_max_children >= 0) {
-                r = udev_ctrl_send_set_children_max(uctrl, arg_max_children);
+                r = udev_ctrl_send_set_children_max(conn.uctrl, arg_max_children);
                 if (r < 0)
                         return log_error_errno(r, "Failed to send request to set number of children: %m");
         }
 
         if (arg_ping) {
-                r = udev_ctrl_send_ping(uctrl);
+                r = udev_ctrl_send_ping(conn.uctrl);
                 if (r < 0)
                         return log_error_errno(r, "Failed to send a ping message: %m");
         }
 
-        r = udev_ctrl_wait(uctrl, arg_timeout);
+        r = udev_connection_wait(&conn, arg_timeout);
         if (r < 0)
                 return log_error_errno(r, "Failed to wait for daemon to reply: %m");
 
