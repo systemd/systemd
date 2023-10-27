@@ -13,10 +13,13 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "find-esp.h"
+#include "format-table.h"
 #include "id128-util.h"
+#include "image-policy.h"
 #include "kernel-image.h"
 #include "main-func.h"
 #include "mkdir.h"
+#include "mount-util.h"
 #include "parse-argument.h"
 #include "path-util.h"
 #include "pretty-print.h"
@@ -32,9 +35,16 @@ static bool arg_verbose = false;
 static char *arg_esp_path = NULL;
 static char *arg_xbootldr_path = NULL;
 static int arg_make_entry_directory = -1; /* tristate */
+static PagerFlags arg_pager_flags = 0;
+static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
+static char *arg_root = NULL;
+static char *arg_image = NULL;
+static ImagePolicy *arg_image_policy = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_esp_path, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_xbootldr_path, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 
 typedef enum Action {
         ACTION_ADD,
@@ -114,9 +124,9 @@ static int context_open_root(Context *c) {
         assert(c);
         assert(c->rfd < 0);
 
-        c->rfd = open("/", O_CLOEXEC | O_DIRECTORY | O_PATH);
+        c->rfd = open(empty_to_root(arg_root), O_CLOEXEC | O_DIRECTORY | O_PATH);
         if (c->rfd < 0)
-                return log_error_errno(errno, "Failed to open root directory: %m");
+                return log_error_errno(errno, "Failed to open root directory '%s': %m", empty_to_root(arg_root));
 
         return 0;
 }
@@ -254,7 +264,7 @@ static int context_set_conf_root(Context *c, const char *s, const char *source) 
 static int context_set_kernel(Context *c, const char *s) {
         assert(c);
         /* The path specified via command line should be relative to CWD. */
-        return context_set_path(c, AT_FDCWD, s, "command line", "kernel image file", &c->kernel);
+        return context_set_path(c, c->rfd, s, "command line", "kernel image file", &c->kernel);
 }
 
 static int context_set_path_strv(Context *c, int rfd, char* const* strv, const char *source, const char *name, char ***dest) {
@@ -860,8 +870,6 @@ static int context_build_arguments(Context *c) {
                 break;
 
         case ACTION_INSPECT:
-                assert(!c->version);
-                assert(!c->initrds);
                 verb = "add|remove";
                 break;
 
@@ -1018,6 +1026,9 @@ static int verb_add(int argc, char *argv[], void *userdata) {
         assert(argc >= 3);
         assert(argv);
 
+        if (arg_root)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "'add' does not support --root=.");
+
         if (bypass())
                 return 0;
 
@@ -1059,6 +1070,9 @@ static int verb_remove(int argc, char *argv[], void *userdata) {
         assert(argc >= 2);
         assert(argv);
 
+        if (arg_root)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "'remove' does not support --root=.");
+
         if (argc > 2)
                 log_debug("Too many arguments specified. 'kernel-install remove' takes only kernel version. "
                           "Ignoring residual arguments.");
@@ -1081,13 +1095,25 @@ static int verb_remove(int argc, char *argv[], void *userdata) {
 
 static int verb_inspect(int argc, char *argv[], void *userdata) {
         Context *c = ASSERT_PTR(userdata);
-        _cleanup_free_ char *joined = NULL;
+        _cleanup_(table_unrefp) Table *t = NULL;
         int r;
 
         c->action = ACTION_INSPECT;
 
-        if (argc >= 2) {
+        if (argc == 2) {
                 r = context_set_kernel(c, argv[1]);
+                if (r < 0)
+                        return r;
+        } else if (argc >= 3) {
+                r = context_set_version(c, argv[1]);
+                if (r < 0)
+                        return r;
+
+                r = context_set_kernel(c, argv[2]);
+                if (r < 0)
+                        return r;
+
+                r = context_set_initrds(c, strv_skip(argv, 3));
                 if (r < 0)
                         return r;
         }
@@ -1096,24 +1122,65 @@ static int verb_inspect(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        printf("%sBoot Loader Entries:%s\n", ansi_underline(), ansi_normal());
-        printf("    $BOOT: %s\n", c->boot_root);
-        printf("    Token: %s\n", c->entry_token);
-        puts("");
+        t = table_new_vertical();
+        if (!t)
+                return log_oom();
 
-        printf("%sUsing plugins:%s\n", ansi_underline(), ansi_normal());
-        strv_print_full(c->plugins, "    ");
-        puts("");
+        r = table_add_many(t,
+                           TABLE_FIELD, "Machine ID",
+                           TABLE_ID128, c->machine_id,
+                           TABLE_FIELD, "Kernel Image Type",
+                           TABLE_STRING, kernel_image_type_to_string(c->kernel_image_type),
+                           TABLE_FIELD, "Layout",
+                           TABLE_STRING, context_get_layout(c),
+                           TABLE_FIELD, "Boot Root",
+                           TABLE_STRING, c->boot_root,
+                           TABLE_FIELD, "Entry Token Type",
+                           TABLE_STRING, boot_entry_token_type_to_string(c->entry_token_type),
+                           TABLE_FIELD, "Entry Token",
+                           TABLE_STRING, c->entry_token,
+                           TABLE_FIELD, "Entry Directory",
+                           TABLE_STRING, c->entry_dir,
+                           TABLE_FIELD, "Kernel Version",
+                           TABLE_STRING, c->version,
+                           TABLE_FIELD, "Kernel",
+                           TABLE_STRING, c->kernel,
+                           TABLE_FIELD, "Initrds",
+                           TABLE_STRV, c->initrds,
+                           TABLE_FIELD, "Initrd Generator",
+                           TABLE_STRING, c->initrd_generator,
+                           TABLE_FIELD, "UKI Generator",
+                           TABLE_STRING, c->uki_generator,
+                           TABLE_FIELD, "Plugins",
+                           TABLE_STRV, c->plugins,
+                           TABLE_FIELD, "Plugin Environment",
+                           TABLE_STRV, c->envp);
+        if (r < 0)
+                return table_log_add_error(r);
 
-        printf("%sPlugin environment:%s\n", ansi_underline(), ansi_normal());
-        strv_print_full(c->envp, "    ");
-        puts("");
+        if (arg_json_format_flags & JSON_FORMAT_OFF) {
+                r = table_add_many(t,
+                                   TABLE_FIELD, "Plugin Arguments",
+                                   TABLE_STRV, strv_skip(c->argv, 1));
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
 
-        printf("%sPlugin arguments:%s\n", ansi_underline(), ansi_normal());
-        joined = strv_join(strv_skip(c->argv, 1), " ");
-        printf("    %s\n", strna(joined));
+        table_set_ersatz_string(t, TABLE_ERSATZ_UNSET);
 
-        return 0;
+        for (size_t row = 1; row < table_get_rows(t); row++) {
+                _cleanup_free_ char *name = NULL;
+
+                name = strdup(table_get_at(t, row, 0));
+                if (!name)
+                        return log_oom();
+
+                r = table_set_json_field_name(t, row - 1, delete_chars(name, " "));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set JSON field name: %m");
+        }
+
+        return table_print_with_pager(t, arg_json_format_flags, arg_pager_flags, /* show_header= */ false);
 }
 
 static int help(void) {
@@ -1127,9 +1194,9 @@ static int help(void) {
         printf("%1$s [OPTIONS...] COMMAND ...\n\n"
                "%2$sAdd and remove kernel and initrd images to and from /boot%3$s\n"
                "\nUsage:\n"
-               "  kernel-install [OPTIONS...] add KERNEL-VERSION KERNEL-IMAGE [INITRD-FILE...]\n"
+               "  kernel-install [OPTIONS...] add KERNEL-VERSION KERNEL-IMAGE [INITRD ...]\n"
                "  kernel-install [OPTIONS...] remove KERNEL-VERSION\n"
-               "  kernel-install [OPTIONS...] inspect [KERNEL-IMAGE]\n"
+               "  kernel-install [OPTIONS...] inspect [KERNEL-VERSION] KERNEL-IMAGE [INITRD ...]\n"
                "\n"
                "Options:\n"
                "  -h --help              Show this help\n"
@@ -1141,6 +1208,10 @@ static int help(void) {
                "                         Create $BOOT/ENTRY-TOKEN/ directory\n"
                "     --entry-token=machine-id|os-id|os-image-id|auto|literal:…\n"
                "                         Entry token to use for this installation\n"
+               "     --no-pager          Do not pipe inspect output into a pager\n"
+               "     --json=pretty|short|off\n"
+               "                         Generate JSON output\n"
+               "     --root=PATH         Operate on an alternate filesystem root\n"
                "\n"
                "This program may also be invoked as 'installkernel':\n"
                "  installkernel  [OPTIONS...] VERSION VMLINUZ [MAP] [INSTALLATION-DIR]\n"
@@ -1162,6 +1233,11 @@ static int parse_argv(int argc, char *argv[], Context *c) {
                 ARG_BOOT_PATH,
                 ARG_MAKE_ENTRY_DIRECTORY,
                 ARG_ENTRY_TOKEN,
+                ARG_NO_PAGER,
+                ARG_JSON,
+                ARG_ROOT,
+                ARG_IMAGE,
+                ARG_IMAGE_POLICY,
         };
         static const struct option options[] = {
                 { "help",                 no_argument,       NULL, 'h'                      },
@@ -1171,6 +1247,11 @@ static int parse_argv(int argc, char *argv[], Context *c) {
                 { "boot-path",            required_argument, NULL, ARG_BOOT_PATH            },
                 { "make-entry-directory", required_argument, NULL, ARG_MAKE_ENTRY_DIRECTORY },
                 { "entry-token",          required_argument, NULL, ARG_ENTRY_TOKEN          },
+                { "no-pager",             no_argument,       NULL, ARG_NO_PAGER             },
+                { "json",                 required_argument, NULL, ARG_JSON                 },
+                { "root",                 required_argument, NULL, ARG_ROOT                 },
+                { "image",                required_argument, NULL, ARG_IMAGE                },
+                { "image-policy",         required_argument, NULL, ARG_IMAGE_POLICY         },
                 {}
         };
         int t, r;
@@ -1222,12 +1303,43 @@ static int parse_argv(int argc, char *argv[], Context *c) {
                                 return r;
                         break;
 
+                case ARG_NO_PAGER:
+                        arg_pager_flags |= PAGER_DISABLE;
+                        break;
+
+                case ARG_JSON:
+                        r = parse_json_argument(optarg, &arg_json_format_flags);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_ROOT:
+                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_root);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_IMAGE:
+                        r = parse_path_argument(optarg, false, &arg_image);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_IMAGE_POLICY:
+                        r = parse_image_policy_argument(optarg, &arg_image_policy);
+                        if (r < 0)
+                                return r;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
                 default:
                         assert_not_reached();
                 }
+
+        if (arg_image && arg_root)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Please specify either --root= or --image=, the combination of both is not supported.");
 
         return 1;
 }
@@ -1236,7 +1348,7 @@ static int run(int argc, char* argv[]) {
         static const Verb verbs[] = {
                 { "add",         3,        VERB_ANY, 0,            verb_add            },
                 { "remove",      2,        VERB_ANY, 0,            verb_remove         },
-                { "inspect",     1,        2,        VERB_DEFAULT, verb_inspect        },
+                { "inspect",     1,        VERB_ANY, VERB_DEFAULT, verb_inspect        },
                 {}
         };
         _cleanup_(context_done) Context c = {
@@ -1246,6 +1358,8 @@ static int run(int argc, char* argv[]) {
                 .layout = _LAYOUT_INVALID,
                 .entry_token_type = BOOT_ENTRY_TOKEN_AUTO,
         };
+        _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
+        _cleanup_(umount_and_freep) char *mounted_dir = NULL;
         int r;
 
         log_setup();
@@ -1253,6 +1367,27 @@ static int run(int argc, char* argv[]) {
         r = parse_argv(argc, argv, &c);
         if (r <= 0)
                 return r;
+
+        if (arg_image) {
+                assert(!arg_root);
+
+                r = mount_image_privately_interactively(
+                                arg_image,
+                                arg_image_policy,
+                                DISSECT_IMAGE_GENERIC_ROOT |
+                                DISSECT_IMAGE_REQUIRE_ROOT |
+                                DISSECT_IMAGE_RELAX_VAR_CHECK |
+                                DISSECT_IMAGE_VALIDATE_OS,
+                                &mounted_dir,
+                                /* ret_dir_fd= */ NULL,
+                                &loop_device);
+                if (r < 0)
+                        return r;
+
+                arg_root = strdup(mounted_dir);
+                if (!arg_root)
+                        return log_oom();
+        }
 
         r = context_init(&c);
         if (r < 0)
