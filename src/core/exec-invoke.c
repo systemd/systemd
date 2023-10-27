@@ -3459,6 +3459,50 @@ static int close_remaining_fds(
         return close_all_fds(dont_close, n_dont_close);
 }
 
+static int close_and_invalidate_all_fds(
+                ExecParameters *params,
+                ExecRuntime *runtime,
+                const int *dont_close, size_t n_dont_close) {
+
+        int r;
+
+        assert(params);
+
+        r = close_all_fds(dont_close, n_dont_close);
+        if (r < 0)
+                return r;
+
+        /* We are done, invalidate all leftovers so that we don't double-close any of them in case there's a
+         * failure later and sd-executor cleanup-on-exit happens */
+
+        params->stdin_fd = params->stdout_fd = params->stderr_fd = params->user_lookup_fd = -EBADF;
+
+        if (runtime) {
+                runtime->ephemeral_storage_socket[0] = -EBADF;
+                runtime->ephemeral_storage_socket[1] = -EBADF;
+        }
+
+        if (runtime && runtime->shared) {
+                runtime->shared->netns_storage_socket[0] = -EBADF;
+                runtime->shared->netns_storage_socket[1] = -EBADF;
+                runtime->shared->ipcns_storage_socket[0] = -EBADF;
+                runtime->shared->ipcns_storage_socket[1] = -EBADF;
+        }
+
+        if (runtime && runtime->dynamic_creds) {
+                if (runtime->dynamic_creds->user) {
+                        runtime->dynamic_creds->user->storage_socket[0] = -EBADF;
+                        runtime->dynamic_creds->user->storage_socket[1] = -EBADF;
+                }
+                if (runtime->dynamic_creds->group) {
+                        runtime->dynamic_creds->group->storage_socket[0] = -EBADF;
+                        runtime->dynamic_creds->group->storage_socket[1] = -EBADF;
+                }
+        }
+
+        return r;
+}
+
 static int send_user_lookup(
                 const char *unit_id,
                 int user_lookup_fd,
@@ -4736,7 +4780,7 @@ int exec_invoke(
          * more. We do keep exec_fd however, if we have it, since we need to keep it open until the final
          * execve(). */
 
-        r = close_all_fds(keep_fds, n_keep_fds);
+        r = close_and_invalidate_all_fds(params, runtime, keep_fds, n_keep_fds);
         if (r >= 0)
                 r = shift_fds(fds, n_fds);
         if (r >= 0)
