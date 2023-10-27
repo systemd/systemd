@@ -532,6 +532,15 @@ int vconsole_write_data(Context *c) {
                 return 0;
         }
 
+        /* Add comment at the beginning of the string vector */
+        char *comment = strdup("# Rewritten by localectl");
+        r = strv_insert(&l, 0, comment);
+        if (r < 0)
+            free(comment);
+            return r;
+
+        free(comment);
+
         r = write_env_file_label("/etc/vconsole.conf", l);
         if (r < 0)
                 return r;
