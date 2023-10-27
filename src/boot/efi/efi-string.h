@@ -40,7 +40,7 @@ static inline int strcmp16(const char16_t *s1, const char16_t *s2) {
 }
 
 static inline int strcmp16_indirect(const char16_t **s1, const char16_t **s2) {
-        return strcmp16(*s1, *s2);
+        return strcmp16(*ASSERT_PTR(s1), *ASSERT_PTR(s2));
 }
 
 static inline int strcasecmp8(const char *s1, const char *s2) {
