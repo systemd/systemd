@@ -397,7 +397,7 @@ static EFI_STATUS load_addons(
 
         /* Now, sort the files we found, to make this uniform and stable (and to ensure the TPM measurements
          * are not dependent on read order) */
-        sort_pointer_array((void**) items, n_items, (compare_pointer_func_t) strcmp16);
+        sort_array((void *) items, sizeof *items, n_items, (compare_func_t) strcmp16_indirect);
 
         for (size_t i = 0; i < n_items; i++) {
                 _cleanup_free_ struct PeSectionDescriptor *sections = NULL;

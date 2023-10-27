@@ -240,6 +240,10 @@ EFI_STATUS pe_kernel_info(const void *base, uint32_t *ret_compat_address) {
         return EFI_SUCCESS;
 }
 
+static int compare_section_descriptors(const struct PeSectionDescriptor *a, const struct PeSectionDescriptor *b) {
+        return strcmp8(a->name, b->name);
+}
+
 static void locate_sections(
                 const PeSectionHeader section_table[],
                 size_t n_table,
@@ -262,23 +266,8 @@ static void locate_sections(
                 desc->size = section_hdr->VirtualSize;
         }
 
-        /* Sort sections
-         * NOTE: maybe bubblesort isn't ideal, but surely there aren't that many sections?
-         */
-        bool dirty;
-        do {
-                dirty = false;
-                for (size_t i = 1; i < *ret_n_sections; ++i) {
-                        int ret = strcmp8((*ret_sections)[i-1].name,
-                                          (*ret_sections)[i].name);
-                        if (ret > 0) {
-                                dirty = true;
-                                struct PeSectionDescriptor tmp = (*ret_sections)[i-1];
-                                (*ret_sections)[i-1] = (*ret_sections)[i];
-                                (*ret_sections)[i] = tmp;
-                        }
-                }
-        } while (dirty);
+        /* Sort section descriptors */
+        sort_array(*ret_sections, sizeof **ret_sections, *ret_n_sections, (compare_func_t) compare_section_descriptors);
 }
 
 EFI_STATUS pe_memory_locate_sections(
@@ -372,18 +361,13 @@ EFI_STATUS pe_file_locate_sections(
         return EFI_SUCCESS;
 }
 
-struct PeSectionDescriptor *pe_bsearch_section(struct PeSectionDescriptor *sections, size_t n_sections, const char *section)
-{
-        size_t left = 0, right = n_sections - 1;
-        while (left <= right) {
-                size_t mid = (left + right) / 2;
-                int ret = strcmp8(sections[mid].name, section);
-                if (ret < 0)
-                        left = mid + 1;
-                else if (ret > 0)
-                        right = mid - 1;
-                else
-                        return sections + mid;
-        }
-        return NULL;
+static int compare_name_to_section_descriptor(const char *key, const struct PeSectionDescriptor *elem) {
+        return strcmp8(key, elem->name);
+}
+
+struct PeSectionDescriptor *pe_bsearch_section(
+                const struct PeSectionDescriptor *sections,
+                size_t n_sections,
+                const char *section_name) {
+        return bsearch_array(section_name, sections, sizeof *sections, n_sections, (compare_func_t) compare_name_to_section_descriptor);
 }

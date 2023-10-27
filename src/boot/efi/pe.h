@@ -23,6 +23,6 @@ EFI_STATUS pe_memory_locate_sections(
                 size_t *ret_n_sections);
 
 struct PeSectionDescriptor *pe_bsearch_section(
-                struct PeSectionDescriptor *sections,
+                const struct PeSectionDescriptor *sections,
                 size_t n_sections,
                 const char *section_name);
