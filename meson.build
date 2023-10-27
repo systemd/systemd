@@ -1533,6 +1533,8 @@ have = get_option('sysupdate').require(
         error_message : 'fdisk and openssl required').allowed()
 conf.set10('ENABLE_SYSUPDATE', have)
 
+conf.set10('ENABLE_STORAGETM', get_option('storagetm'))
+
 have = get_option('importd').require(
         conf.get('HAVE_LIBCURL') == 1 and
         conf.get('HAVE_OPENSSL_OR_GCRYPT') == 1 and
@@ -2196,10 +2198,11 @@ subdir('src/systemctl')
 subdir('src/sysupdate')
 subdir('src/sysusers')
 subdir('src/sysv-generator')
+subdir('src/storagetm')
 subdir('src/timedate')
 subdir('src/timesync')
-subdir('src/tpm2-setup')
 subdir('src/tmpfiles')
+subdir('src/tpm2-setup')
 subdir('src/tty-ask-password-agent')
 subdir('src/update-done')
 subdir('src/update-utmp')
@@ -2793,6 +2796,7 @@ foreach tuple : [
         ['systemd-analyze',        conf.get('ENABLE_ANALYZE') == 1],
         ['sysupdate'],
         ['sysusers'],
+        ['storagetm'],
         ['timedated'],
         ['timesyncd'],
         ['tmpfiles'],
