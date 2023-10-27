@@ -3862,6 +3862,33 @@ static int exec_context_named_iofds(
         return targets == 0 ? 0 : -ENOENT;
 }
 
+static void exec_shared_runtime_close(ExecSharedRuntime *shared) {
+        if (!shared)
+                return;
+
+        safe_close_pair(shared->netns_storage_socket);
+        safe_close_pair(shared->ipcns_storage_socket);
+}
+
+static void exec_runtime_close(ExecRuntime *rt) {
+        if (!rt)
+                return;
+
+        safe_close_pair(rt->ephemeral_storage_socket);
+
+        exec_shared_runtime_close(rt->shared);
+        dynamic_creds_close(rt->dynamic_creds);
+}
+
+static void exec_params_close(ExecParameters *p) {
+        if (!p)
+                return;
+
+        p->stdin_fd = safe_close(p->stdin_fd);
+        p->stdout_fd = safe_close(p->stdout_fd);
+        p->stderr_fd = safe_close(p->stderr_fd);
+}
+
 int exec_invoke(
                 const ExecCommand *command,
                 const ExecContext *context,
@@ -4734,7 +4761,10 @@ int exec_invoke(
         /* We repeat the fd closing here, to make sure that nothing is leaked from the PAM modules. Note that
          * we are more aggressive this time, since we don't need socket_fd and the netns and ipcns fds any
          * more. We do keep exec_fd however, if we have it, since we need to keep it open until the final
-         * execve(). */
+         * execve(). But first, close the remaining sockets in the context objects. */
+
+        exec_runtime_close(runtime);
+        exec_params_close(params);
 
         r = close_all_fds(keep_fds, n_keep_fds);
         if (r >= 0)
