@@ -492,7 +492,7 @@ int trigger_main(int argc, char *argv[], void *userdata) {
         if (ping) {
                 _cleanup_(udev_connection_done) UdevConnection conn = {};
 
-                r = udev_connection_init(&conn);
+                r = udev_connection_init(&conn, ping_timeout_usec);
                 if (r < 0)
                         return log_error_errno(r, "Failed to initialize udev control: %m");
 
@@ -500,7 +500,7 @@ int trigger_main(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to connect to udev daemon: %m");
 
-                r = udev_connection_wait(&conn, ping_timeout_usec);
+                r = udev_connection_wait(&conn);
                 if (r < 0)
                         return log_error_errno(r, "Failed to wait for daemon to reply: %m");
         }

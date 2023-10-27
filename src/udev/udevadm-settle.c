@@ -202,7 +202,7 @@ int settle_main(int argc, char *argv[], void *userdata) {
 
                 /* guarantee that the udev daemon isn't pre-processing */
 
-                r = udev_connection_init(&conn);
+                r = udev_connection_init(&conn, MAX(5 * USEC_PER_SEC, arg_timeout_usec));
                 if (r < 0)
                         return log_error_errno(r, "Failed to create control socket for udev daemon: %m");
 
@@ -212,7 +212,7 @@ int settle_main(int argc, char *argv[], void *userdata) {
                         return 0;
                 }
 
-                r = udev_connection_wait(&conn, MAX(5 * USEC_PER_SEC, arg_timeout_usec));
+                r = udev_connection_wait(&conn);
                 if (r < 0)
                         return log_error_errno(r, "Failed to wait for daemon to reply: %m");
         } else {
