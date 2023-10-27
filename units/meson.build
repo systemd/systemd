@@ -560,6 +560,14 @@ units = [
           'symlinks' : ['sysinit.target.wants/'],
         },
         {
+          'file' : 'systemd-storagetm.service.in',
+          'conditions' : ['ENABLE_STORAGETM'],
+        },
+        {
+          'file' : 'storage-target-mode.target',
+          'conditions' : ['ENABLE_STORAGETM'],
+        },
+        {
           'file' : 'systemd-time-wait-sync.service.in',
           'conditions' : ['ENABLE_TIMESYNCD'],
         },
