@@ -560,6 +560,14 @@ units = [
           'symlinks' : ['sysinit.target.wants/'],
         },
         {
+          'file' : 'systemd-tgtmode.service.in',
+          'conditions' : ['ENABLE_TGTMODE'],
+        },
+        {
+          'file' : 'tgtmode.target',
+          'conditions' : ['ENABLE_TGTMODE'],
+        },
+        {
           'file' : 'systemd-time-wait-sync.service.in',
           'conditions' : ['ENABLE_TIMESYNCD'],
         },
