@@ -179,7 +179,7 @@ int control_main(int argc, char *argv[], void *userdata) {
         if (r <= 0)
                 return r;
 
-        r = udev_connection_init(&conn);
+        r = udev_connection_init(&conn, arg_timeout);
         if (r < 0)
                 return log_error_errno(r, "Failed to initialize udev connection: %m");
 
@@ -232,7 +232,7 @@ int control_main(int argc, char *argv[], void *userdata) {
                         return log_error_errno(r, "Failed to send a ping message: %m");
         }
 
-        r = udev_connection_wait(&conn, arg_timeout);
+        r = udev_connection_wait(&conn);
         if (r < 0)
                 return log_error_errno(r, "Failed to wait for daemon to reply: %m");
 
