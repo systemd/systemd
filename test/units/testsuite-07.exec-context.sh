@@ -80,3 +80,6 @@ systemd-run --wait --pipe -p BindPaths="/etc /home:/mnt:norbind -/foo/bar/baz:/u
     bash -xec "mountpoint /etc; test -d /etc/systemd; mountpoint /mnt; ! mountpoint /usr"
 systemd-run --wait --pipe -p BindReadOnlyPaths="/etc /home:/mnt:norbind -/foo/bar/baz:/usr:rbind" \
     bash -xec "test ! -w /etc; test ! -w /mnt; ! mountpoint /usr"
+
+# Ensure that clean-up codepaths work correctly if activation ultimately fails
+(! systemd-run --wait --pipe -p DynamicUser=yes -p WorkingDirectory=/nonexistent echo hello)
