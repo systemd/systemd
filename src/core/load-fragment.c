@@ -276,6 +276,10 @@ int config_parse_unit_deps(
         assert(lvalue);
         assert(rvalue);
 
+        /* If we encounter an empty string, reset the dependency list for that type */
+        if (isempty(rvalue))
+                u->dep_names_list[d] = strv_free(u->dep_names_list[d]);
+
         for (const char *p = rvalue;;) {
                 _cleanup_free_ char *word = NULL, *k = NULL;
                 int r;
@@ -308,9 +312,9 @@ int config_parse_unit_deps(
                         continue;
                 }
 
-                r = unit_add_dependency_by_name(u, d, k, true, UNIT_DEPENDENCY_FILE);
+                r = strv_extend(&u->dep_names_list[d], k);
                 if (r < 0)
-                        log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to add dependency on %s, ignoring: %m", k);
+                        return log_oom();
         }
 }
 
