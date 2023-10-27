@@ -8,7 +8,7 @@ fatal() { echo >&2 -e "\033[31;1m$1\033[0m"; exit 1; }
 success() { echo >&2 -e "\033[32;1m$1\033[0m"; }
 
 ARGS=(
-    "--optimization=0"
+    "--optimization=0 -Dopenssl=disabled -Dtpm=true -Dtpm2=enabled"
     "--optimization=s"
     "--optimization=3 -Db_lto=true -Ddns-over-tls=false"
     "--optimization=3 -Db_lto=false -Dtpm2=disabled -Dlibfido2=disabled -Dp11kit=disabled"
