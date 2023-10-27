@@ -23,6 +23,8 @@
 #include <netinet/in.h>
 #include <sys/types.h>
 
+#include "sd-dhcp6-option.h"
+
 #include "_sd-common.h"
 
 _SD_BEGIN_DECLARATIONS;
@@ -77,6 +79,7 @@ int sd_dhcp6_lease_get_ntp_addrs(sd_dhcp6_lease *lease, const struct in6_addr **
 int sd_dhcp6_lease_get_ntp_fqdn(sd_dhcp6_lease *lease, char ***ret);
 int sd_dhcp6_lease_get_fqdn(sd_dhcp6_lease *lease, const char **ret);
 int sd_dhcp6_lease_get_captive_portal(sd_dhcp6_lease *lease, const char **ret);
+int sd_dhcp6_lease_get_vendor_options(sd_dhcp6_lease *lease, sd_dhcp6_option ***ret);
 
 sd_dhcp6_lease *sd_dhcp6_lease_ref(sd_dhcp6_lease *lease);
 sd_dhcp6_lease *sd_dhcp6_lease_unref(sd_dhcp6_lease *lease);
