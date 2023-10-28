@@ -20,6 +20,10 @@ typedef enum SleepOperation {
 const char* sleep_operation_to_string(SleepOperation s) _const_;
 SleepOperation sleep_operation_from_string(const char *s) _pure_;
 
+static inline bool sleep_operation_is_hibernation(SleepOperation operation) {
+        return IN_SET(operation, SLEEP_HIBERNATE, SLEEP_HYBRID_SLEEP);
+}
+
 typedef struct SleepConfig {
         bool allow[_SLEEP_OPERATION_MAX];
 
