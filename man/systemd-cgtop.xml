@@ -144,8 +144,8 @@
         <listitem><para>Count only userspace processes instead of all
         tasks. By default, all tasks are counted: each kernel thread
         and each userspace thread individually. With this setting,
-        kernel threads are excluded from the counting and each
-        userspace process only counts as one, regardless how many
+        kernel threads are excluded from the count and each userspace
+        process only counts as one task, regardless of how many
         threads it consists of. This setting may also be toggled at
         runtime by pressing the <keycap>P</keycap> key. This option
         may not be combined with
@@ -159,8 +159,8 @@
         threads instead of all tasks. By default, all tasks are
         counted: each kernel thread and each userspace thread
         individually. With this setting, kernel threads are included in
-        the counting and each userspace process only counts as on one,
-        regardless how many threads it consists of. This setting may
+        the count and each userspace process only counts as one task,
+        regardless of how many threads it consists of. This setting may
         also be toggled at runtime by pressing the <keycap>k</keycap>
         key. This option may not be combined with
         <option>-P</option>.</para></listitem>
