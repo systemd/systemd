@@ -57,6 +57,39 @@ SleepConfig* sleep_config_free(SleepConfig *sc) {
         return mfree(sc);
 }
 
+static int config_parse_sleep_mode(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_strv_free_ char **modes = NULL;
+        char ***sv = ASSERT_PTR(data);
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                modes = strv_new(NULL);
+                if (!modes)
+                        return log_oom();
+        } else {
+                r = strv_split_full(&modes, rvalue, NULL, EXTRACT_UNQUOTE|EXTRACT_RETAIN_ESCAPE);
+                if (r < 0)
+                        return log_oom();
+        }
+
+        return free_and_replace(*sv, modes);
+}
+
 static void sleep_config_validate_state_and_mode(SleepConfig *sc) {
         assert(sc);
 
@@ -102,7 +135,7 @@ int parse_sleep_config(SleepConfig **ret) {
                 { "Sleep", "SuspendMode",               config_parse_warn_compat, DISABLED_LEGACY, NULL                         },
 
                 { "Sleep", "HibernateState",            config_parse_warn_compat, DISABLED_LEGACY, NULL                         },
-                { "Sleep", "HibernateMode",             config_parse_strv,        0,               sc->modes + SLEEP_HIBERNATE  },
+                { "Sleep", "HibernateMode",             config_parse_sleep_mode,  0,               sc->modes + SLEEP_HIBERNATE  },
 
                 { "Sleep", "HybridSleepState",          config_parse_warn_compat, DISABLED_LEGACY, NULL                         },
                 { "Sleep", "HybridSleepMode",           config_parse_warn_compat, DISABLED_LEGACY, NULL                         },
