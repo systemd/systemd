@@ -180,6 +180,7 @@ shared_sources = files(
         'varlink-io.systemd.oom.c',
         'varlink-io.systemd.service.c',
         'varlink-io.systemd.sysext.c',
+        'varlink-io.systemd.udev.c',
         'varlink-org.varlink.service.c',
         'verb-log-control.c',
         'verbs.c',
