@@ -44,7 +44,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_env, strv_freep);
 
 static int send_reload(UdevConnection *conn) {
         assert(conn);
-        assert(conn->link || conn->uctrl);
+        assert(!conn->link != !conn->uctrl);
 
         if (!conn->link)
                 return udev_ctrl_send_reload(conn->uctrl);
@@ -57,7 +57,7 @@ static int send_set_log_level(UdevConnection *conn, int level) {
         int r;
 
         assert(conn);
-        assert(conn->link || conn->uctrl);
+        assert(!conn->link != !conn->uctrl);
 
         if (!conn->link)
                 return udev_ctrl_send_set_log_level(conn->uctrl, level);
@@ -71,7 +71,7 @@ static int send_set_log_level(UdevConnection *conn, int level) {
 
 static int send_stop_exec_queue(UdevConnection *conn) {
         assert(conn);
-        assert(conn->link || conn->uctrl);
+        assert(!conn->link != !conn->uctrl);
 
         if (!conn->link)
                 return udev_ctrl_send_stop_exec_queue(conn->uctrl);
@@ -81,7 +81,7 @@ static int send_stop_exec_queue(UdevConnection *conn) {
 
 static int send_start_exec_queue(UdevConnection *conn) {
         assert(conn);
-        assert(conn->link || conn->uctrl);
+        assert(!conn->link != !conn->uctrl);
 
         if (!conn->link)
                 return udev_ctrl_send_start_exec_queue(conn->uctrl);
@@ -119,7 +119,7 @@ static int send_set_env(UdevConnection *conn, char **env) {
 
         assert(conn);
         assert(env);
-        assert(conn->link || conn->uctrl);
+        assert(!conn->link != !conn->uctrl);
 
         if (!conn->link) {
                 STRV_FOREACH(e, env) {
@@ -174,7 +174,7 @@ static int send_set_children_max(UdevConnection *conn, unsigned n) {
         int r;
 
         assert(conn);
-        assert(conn->link || conn->uctrl);
+        assert(!conn->link != !conn->uctrl);
 
         if (!conn->link)
                 return udev_ctrl_send_set_children_max(conn->uctrl, n);
@@ -188,7 +188,7 @@ static int send_set_children_max(UdevConnection *conn, unsigned n) {
 
 static int send_exit(UdevConnection *conn) {
         assert(conn);
-        assert(conn->link || conn->uctrl);
+        assert(!conn->link != !conn->uctrl);
 
         if (!conn->link)
                 return udev_ctrl_send_exit(conn->uctrl);
