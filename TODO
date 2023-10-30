@@ -175,18 +175,18 @@ Features:
 * systemd-repart: add support for formatting dm-crypt + dm-integrity file
   systems.
 
-* homed: add small tool that exposes a homed home dir via nvme-over-tcp (just a
-  bunch of sysfs writes). Then, teach homed/pam_systemd_homed with a user name
-  such as lennart%nvmettcp_192.168.100.77_8787_nqn to log in from any linux
-  host with the same home dir. Similar maybe for nbd, iscsi? this should then
-  first ask for the local root pw, to authenticate that logging in like this is
-  ok, and would then be followed by another password prompt asking for the
-  user's own password. Also, do something similar for CIFS: if you log in via
+* homed: use systemd-storagetm to expose home dirs via nvme-tcp. Then,
+  teach homed/pam_systemd_homed with a user name such as
+  lennart%nvme_tcp_192.168.100.77_8787 to log in from any linux host with the
+  same home dir. Similar maybe for nbd, iscsi? this should then first ask for
+  the local root pw, to authenticate that logging in like this is ok, and would
+  then be followed by another password prompt asking for the user's own
+  password. Also, do something similar for CIFS: if you log in via
   lennart%cifs-someserver_someshare, then set up the homed dir for it
-  automatically. The PAM module should update the user name used for login to the
-  short version once it set up the user. Some care should be taken, so that the
-  long version can be still be resolved via NSS afterwards, to deal with PAM
-  clients that do not support PAM sessions where PAM_USER changes half-way.
+  automatically. The PAM module should update the user name used for login to
+  the short version once it set up the user. Some care should be taken, so that
+  the long version can be still be resolved via NSS afterwards, to deal with
+  PAM clients that do not support PAM sessions where PAM_USER changes half-way.
 
 * redefine /var/lib/extensions/ as the dir one can place all three of sysext,
   confext as well is multi-modal DDIs that qualify as both. Then introduce
