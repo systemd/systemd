@@ -3,6 +3,7 @@
 #include "udev-manager.h"
 #include "udev-varlink.h"
 #include "varlink-io.systemd.service.h"
+#include "varlink-io.systemd.udev.h"
 
 static int vl_method_reload(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
@@ -97,7 +98,8 @@ int manager_open_varlink(Manager *m) {
 
         r = varlink_server_add_interface_many(
                         m->varlink_server,
-                        &vl_interface_io_systemd_service);
+                        &vl_interface_io_systemd_service,
+                        &vl_interface_io_systemd_udev);
         if (r < 0)
                 return r;
 
