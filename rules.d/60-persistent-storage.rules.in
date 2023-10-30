@@ -134,17 +134,6 @@ KERNEL!="sr*|mmcblk[0-9]boot[0-9]", IMPORT{builtin}="blkid"
 LABEL="persistent_storage_blkid_probe_end"
 {% endif %}
 
-# Decrease devlink priority for whole disk of ISO hybrid images, and make the
-# priority for partitions in the image relatively higher. This is for the case
-# that a disk and one of its partition have the same label or so.
-# See issue #28468.
-ENV{ID_FS_TYPE}=="iso9660", ENV{DEVTYPE}=="disk", OPTIONS+="link_priority=-10"
-
-# Decrease devlink priority for encrypted partitions, and make the priority for
-# decrypted DM devices relatively higher. This is for the case that an encrypted
-# partition and its decrypted DM device have the same label.
-ENV{ID_FS_USAGE}=="crypto", OPTIONS+="link_priority=-10"
-
 # by-label/by-uuid links (filesystem metadata)
 ENV{ID_FS_USAGE}=="filesystem|other|crypto", ENV{ID_FS_UUID_ENC}=="?*", SYMLINK+="disk/by-uuid/$env{ID_FS_UUID_ENC}"
 ENV{ID_FS_USAGE}=="filesystem|other|crypto", ENV{ID_FS_LABEL_ENC}=="?*", SYMLINK+="disk/by-label/$env{ID_FS_LABEL_ENC}"
