@@ -38,6 +38,7 @@ radvd_pid_file = '/run/networkd-ci/test-radvd.pid'
 
 systemd_lib_paths = ['/usr/lib/systemd', '/lib/systemd']
 which_paths = ':'.join(systemd_lib_paths + os.getenv('PATH', os.defpath).lstrip(':').split(':'))
+systemd_source_dir = None
 
 networkd_bin = shutil.which('systemd-networkd', path=which_paths)
 resolved_bin = shutil.which('systemd-resolved', path=which_paths)
@@ -48,6 +49,7 @@ networkctl_bin = shutil.which('networkctl', path=which_paths)
 resolvectl_bin = shutil.which('resolvectl', path=which_paths)
 timedatectl_bin = shutil.which('timedatectl', path=which_paths)
 udevadm_bin = shutil.which('udevadm', path=which_paths)
+systemd_udev_rules_build_dir = None
 
 use_valgrind = False
 valgrind_cmd = ''
@@ -336,6 +338,20 @@ def remove_networkd_conf_dropin(*dropins):
 
 def clear_networkd_conf_dropins():
     rm_rf(networkd_conf_dropin_dir)
+
+def setup_systemd_udev_rules():
+    if not systemd_udev_rules_build_dir:
+        return
+
+    mkdir_p(udev_rules_dir)
+
+    for path in [systemd_udev_rules_build_dir, os.path.join(systemd_source_dir, "rules.d")]:
+        print(f"Copying udev rules from {path} to {udev_rules_dir}")
+
+        for rule in os.listdir(path):
+            if not rule.endswith(".rules"):
+                continue
+            cp(os.path.join(path, rule), udev_rules_dir)
 
 def copy_udev_rule(*rules):
     """Copy udev rules"""
@@ -719,6 +735,7 @@ def setUpModule():
     clear_networkd_conf_dropins()
     clear_udev_rules()
 
+    setup_systemd_udev_rules()
     copy_udev_rule('00-debug-net.rules')
 
     # Save current state
@@ -6656,6 +6673,7 @@ class NetworkdMTUTests(unittest.TestCase, Utilities):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--build-dir', help='Path to build dir', dest='build_dir')
+    parser.add_argument('--source-dir', help='Path to source dir/git tree', dest='source_dir')
     parser.add_argument('--networkd', help='Path to systemd-networkd', dest='networkd_bin')
     parser.add_argument('--resolved', help='Path to systemd-resolved', dest='resolved_bin')
     parser.add_argument('--timesyncd', help='Path to systemd-timesyncd', dest='timesyncd_bin')
@@ -6686,6 +6704,7 @@ if __name__ == '__main__':
         resolvectl_bin = os.path.join(ns.build_dir, 'resolvectl')
         timedatectl_bin = os.path.join(ns.build_dir, 'timedatectl')
         udevadm_bin = os.path.join(ns.build_dir, 'udevadm')
+        systemd_udev_rules_build_dir = os.path.join(ns.build_dir, 'rules.d')
     else:
         if ns.networkd_bin:
             networkd_bin = ns.networkd_bin
@@ -6705,6 +6724,13 @@ if __name__ == '__main__':
             timedatectl_bin = ns.timedatectl_bin
         if ns.udevadm_bin:
             udevadm_bin = ns.udevadm_bin
+
+    if ns.source_dir:
+        systemd_source_dir = ns.source_dir
+    else:
+        systemd_source_dir = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../"))
+    if not os.path.exists(os.path.join(systemd_source_dir, "meson_options.txt")):
+        raise RuntimeError(f"{systemd_source_dir} doesn't appear to be a systemd source tree")
 
     use_valgrind = ns.use_valgrind
     enable_debug = ns.enable_debug
