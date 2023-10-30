@@ -2819,7 +2819,8 @@ SystemCallErrorNumber=EPERM</programlisting>
         input will be connected to the socket the service was activated from, which is primarily useful for
         compatibility with daemons designed for use with the traditional <citerefentry
         project='freebsd'><refentrytitle>inetd</refentrytitle><manvolnum>8</manvolnum></citerefentry> socket activation
-        daemon.</para>
+        daemon (<varname>$LISTEN_FDS</varname> (and related) environment variables are not passed when
+        <option>socket</option> value is configured).</para>
 
         <para>The <option>fd:<replaceable>name</replaceable></option> option connects standard input to a specific,
         named file descriptor provided by a socket unit. The name may be specified as part of this option, following a
