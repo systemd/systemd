@@ -48,6 +48,7 @@ networkctl_bin = shutil.which('networkctl', path=which_paths)
 resolvectl_bin = shutil.which('resolvectl', path=which_paths)
 timedatectl_bin = shutil.which('timedatectl', path=which_paths)
 udevadm_bin = shutil.which('udevadm', path=which_paths)
+systemd_udev_rules_dir = None
 
 use_valgrind = False
 valgrind_cmd = ''
@@ -336,6 +337,26 @@ def remove_networkd_conf_dropin(*dropins):
 
 def clear_networkd_conf_dropins():
     rm_rf(networkd_conf_dropin_dir)
+
+def setup_systemd_udev_rules():
+    if not systemd_udev_rules_dir:
+        return
+
+    # Copy non-templated rule files from the source tree as well
+    src_udev_rules = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../rules.d/")
+    # Sanity check that we're still in our source tree
+    if not os.path.exists(os.path.join(src_udev_rules, "meson.build")):
+        raise RuntimeError(f"{src_udev_rules} doesn't appear to be in our source tree")
+
+    mkdir_p(udev_rules_dir)
+
+    for path in [systemd_udev_rules_dir, os.path.normpath(src_udev_rules)]:
+        print(f"Copying udev rules from {path} to {udev_rules_dir}")
+
+        for rule in os.listdir(path):
+            if not rule.endswith(".rules"):
+                continue
+            cp(os.path.join(path, rule), udev_rules_dir)
 
 def copy_udev_rule(*rules):
     """Copy udev rules"""
@@ -760,6 +781,7 @@ def setUpModule():
     clear_networkd_conf_dropins()
     clear_udev_rules()
 
+    setup_systemd_udev_rules()
     copy_udev_rule('00-debug-net.rules')
 
     # Save current state
@@ -6722,6 +6744,7 @@ if __name__ == '__main__':
         resolvectl_bin = os.path.join(ns.build_dir, 'resolvectl')
         timedatectl_bin = os.path.join(ns.build_dir, 'timedatectl')
         udevadm_bin = os.path.join(ns.build_dir, 'udevadm')
+        systemd_udev_rules_dir = os.path.join(ns.build_dir, 'rules.d')
     else:
         if ns.networkd_bin:
             networkd_bin = ns.networkd_bin
