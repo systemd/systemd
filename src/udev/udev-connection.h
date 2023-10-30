@@ -15,7 +15,7 @@ void udev_connection_done(UdevConnection *conn);
 
 static inline int udev_connection_send_ping(UdevConnection *conn) {
         assert(conn);
-        assert(conn->link || conn->uctrl);
+        assert(!conn->link != !conn->uctrl);
 
         if (!conn->link)
                 return udev_ctrl_send_ping(conn->uctrl);
@@ -25,7 +25,7 @@ static inline int udev_connection_send_ping(UdevConnection *conn) {
 
 static inline int udev_connection_wait(UdevConnection *conn) {
         assert(conn);
-        assert(conn->link || conn->uctrl);
+        assert(!conn->link != !conn->uctrl);
 
         if (conn->uctrl)
                 return udev_ctrl_wait(conn->uctrl, conn->timeout);
