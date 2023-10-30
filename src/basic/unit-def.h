@@ -253,6 +253,8 @@ typedef enum UnitDependency {
         /* Propagate stops */
         UNIT_PROPAGATES_STOP_TO,
         UNIT_STOP_PROPAGATED_FROM,
+        UNIT_PROPAGATES_RAW_STOP_TO,
+        UNIT_RAW_STOP_PROPAGATED_FROM,
 
         /* Joins namespace of */
         UNIT_JOINS_NAMESPACE_OF,

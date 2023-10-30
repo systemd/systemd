@@ -3192,6 +3192,8 @@ static int unit_add_dependency_impl(
                 [UNIT_RELOAD_PROPAGATED_FROM] = UNIT_PROPAGATES_RELOAD_TO,
                 [UNIT_PROPAGATES_STOP_TO]     = UNIT_STOP_PROPAGATED_FROM,
                 [UNIT_STOP_PROPAGATED_FROM]   = UNIT_PROPAGATES_STOP_TO,
+                [UNIT_PROPAGATES_RAW_STOP_TO] = UNIT_RAW_STOP_PROPAGATED_FROM,
+                [UNIT_RAW_STOP_PROPAGATED_FROM]=UNIT_PROPAGATES_RAW_STOP_TO,
                 [UNIT_JOINS_NAMESPACE_OF]     = UNIT_JOINS_NAMESPACE_OF, /* symmetric! 👓 */
                 [UNIT_REFERENCES]             = UNIT_REFERENCED_BY,
                 [UNIT_REFERENCED_BY]          = UNIT_REFERENCES,
