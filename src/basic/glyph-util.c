@@ -134,6 +134,8 @@ const char *special_glyph_full(SpecialGlyph code, bool force_utf) {
                         [SPECIAL_GLYPH_SPARKLES]                = u8"✨",
                         [SPECIAL_GLYPH_LOW_BATTERY]             = u8"🪫",
                         [SPECIAL_GLYPH_WARNING_SIGN]            = u8"⚠️",
+                        [SPECIAL_GLYPH_COMPUTER_DISK]           = u8"💽",
+                        [SPECIAL_GLYPH_WORLD]                   = u8"🌍",
                 },
         };
 
