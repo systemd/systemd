@@ -458,6 +458,11 @@ disk images with `--image=` or similar:
   activating via FIDO2, PKCS#11, TPM2, i.e. mechanisms natively supported by
   `systemd-cryptsetup`. Defaults to enabled.
 
+* `$SYSTEMD_CRYPTSETUP_TOKEN_PATH` – takes a path to a directory in the file
+  system. If specified overrides where libcryptsetup will look for token
+  modules (.so). This is useful for debugging token modules: set this
+  environment variable to the build directory and you are set.
+
 Various tools that read passwords from the TTY, such as `systemd-cryptenroll`
 and `homectl`:
 
