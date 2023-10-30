@@ -603,7 +603,7 @@ static void write_env_var(FILE *f, const char *v) {
         fputc_unlocked('\n', f);
 }
 
-int write_env_file_at(int dir_fd, const char *fname, char **l) {
+int write_env_file(int dir_fd, const char *fname, char **headers, char **l) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *p = NULL;
         int r;
@@ -616,6 +616,12 @@ int write_env_file_at(int dir_fd, const char *fname, char **l) {
                 return r;
 
         (void) fchmod_umask(fileno(f), 0644);
+
+        STRV_FOREACH(i, headers) {
+                assert(isempty(*i) || startswith(*i, "#"));
+                fputs_unlocked(*i, f);
+                fputc_unlocked('\n', f);
+        }
 
         STRV_FOREACH(i, l)
                 write_env_var(f, *i);
