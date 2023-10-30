@@ -138,12 +138,21 @@ Features:
   the internet, i.e. for direct host-to-host connection. Set it for thunderbolt
   networking, and for "laplink"-style network cables. Then make netword match
   against that prop in a .network file we ship by default. Would be
-  particularly useful in storage target mode (i.e. NVME-TCP) modes.
+  particularly useful in storage target mode (i.e. NVME-TCP) modes. i.e. do
+  what https://christian.kellner.me/2018/05/24/thunderbolt-networking-on-linux/
+  and
+  https://github.com/NetworkManager/NetworkManager/blob/main/data/90-nm-thunderbolt.rules#L11
+  do for NM, but generically.
 
 * add support for activating nvme-oF devices at boot automatically via kernel
   cmdline, and maybe even support a syntax such as
   root=nvme:<trtype>:<traddr>:<trsvcid>:<nqn>:<partition> to boot directly from
   nvme-oF
+
+* systemd-network-generator: add ip=link-local or so which configures all
+  network devices, but for ipv4ll/ipv6ll only, i.e. restricted to link-local
+  addressing. usecase: storage target mode (NVMe-TCP), where it makes sense for
+  security reasons to limit access to local links.
 
 * add a new systemd-project@.service that is very similar to user@.service but
   uses DynamicUser=1 and no PAMName= to invoke an unprivileged somewhat
