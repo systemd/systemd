@@ -1044,6 +1044,7 @@ manpages = [
  ['systemd-socket-proxyd', '8', [], ''],
  ['systemd-soft-reboot.service', '8', [], ''],
  ['systemd-stdio-bridge', '1', [], ''],
+ ['systemd-storagetm.service', '8', ['systemd-storagetm'], 'ENABLE_STORAGETM'],
  ['systemd-stub',
   '7',
   ['linuxaa64.efi.stub', 'linuxia32.efi.stub', 'linuxx64.efi.stub', 'sd-stub'],
