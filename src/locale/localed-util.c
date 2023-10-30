@@ -532,7 +532,7 @@ int vconsole_write_data(Context *c) {
                 return 0;
         }
 
-        r = write_env_file_label("/etc/vconsole.conf", l);
+        r = write_env_file_label(AT_FDCWD, "/etc/vconsole.conf", NULL, l);
         if (r < 0)
                 return r;
 
