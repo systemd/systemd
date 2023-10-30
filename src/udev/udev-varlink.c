@@ -95,6 +95,12 @@ int manager_open_varlink(Manager *m) {
 
         varlink_server_set_userdata(m->varlink_server, m);
 
+        r = varlink_server_add_interface_many(
+                        m->varlink_server,
+                        &vl_interface_io_systemd_service);
+        if (r < 0)
+                return r;
+
         r = varlink_server_bind_method_many(
                         m->varlink_server,
                         "io.systemd.service.Ping", varlink_method_ping,
