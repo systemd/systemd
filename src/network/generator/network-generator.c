@@ -17,10 +17,10 @@
 
 /*
   # .network
-  ip={dhcp|on|any|dhcp6|auto6|either6|link6}
-  ip=<interface>:{dhcp|on|any|dhcp6|auto6|link6}[:[<mtu>][:<macaddr>]]
-  ip=<client-IP>:[<peer>]:<gateway-IP>:<netmask>:<client_hostname>:<interface>:{none|off|dhcp|on|any|dhcp6|auto6|link6|ibft}[:[<mtu>][:<macaddr>]]
-  ip=<client-IP>:[<peer>]:<gateway-IP>:<netmask>:<client_hostname>:<interface>:{none|off|dhcp|on|any|dhcp6|auto6|link6|ibft}[:[<dns1>][:<dns2>]]
+  ip={dhcp|on|any|dhcp6|auto6|either6|link6|link-local}
+  ip=<interface>:{dhcp|on|any|dhcp6|auto6|link6|link-local}[:[<mtu>][:<macaddr>]]
+  ip=<client-IP>:[<peer>]:<gateway-IP>:<netmask>:<client_hostname>:<interface>:{none|off|dhcp|on|any|dhcp6|auto6|link6|ibft|link-local}[:[<mtu>][:<macaddr>]]
+  ip=<client-IP>:[<peer>]:<gateway-IP>:<netmask>:<client_hostname>:<interface>:{none|off|dhcp|on|any|dhcp6|auto6|link6|ibft|link-local}[:[<dns1>][:<dns2>]]
   rd.route=<net>/<netmask>:<gateway>[:<interface>]
   nameserver=<IP> [nameserver=<IP> ...]
   rd.peerdns=0
@@ -44,34 +44,56 @@
 */
 
 static const char * const dracut_dhcp_type_table[_DHCP_TYPE_MAX] = {
-        [DHCP_TYPE_NONE]    = "none",
-        [DHCP_TYPE_OFF]     = "off",
-        [DHCP_TYPE_ON]      = "on",
-        [DHCP_TYPE_ANY]     = "any",
-        [DHCP_TYPE_DHCP]    = "dhcp",
-        [DHCP_TYPE_DHCP6]   = "dhcp6",
-        [DHCP_TYPE_AUTO6]   = "auto6",
-        [DHCP_TYPE_EITHER6] = "either6",
-        [DHCP_TYPE_IBFT]    = "ibft",
-        [DHCP_TYPE_LINK6]   = "link6",
+        [DHCP_TYPE_NONE]       = "none",
+        [DHCP_TYPE_OFF]        = "off",
+        [DHCP_TYPE_ON]         = "on",
+        [DHCP_TYPE_ANY]        = "any",
+        [DHCP_TYPE_DHCP]       = "dhcp",
+        [DHCP_TYPE_DHCP6]      = "dhcp6",
+        [DHCP_TYPE_AUTO6]      = "auto6",
+        [DHCP_TYPE_EITHER6]    = "either6",
+        [DHCP_TYPE_IBFT]       = "ibft",
+        [DHCP_TYPE_LINK6]      = "link6",
+        [DHCP_TYPE_LINK_LOCAL] = "link-local",
 };
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(dracut_dhcp_type, DHCPType);
 
 static const char * const networkd_dhcp_type_table[_DHCP_TYPE_MAX] = {
-        [DHCP_TYPE_NONE]    = "no",
-        [DHCP_TYPE_OFF]     = "no",
-        [DHCP_TYPE_ON]      = "yes",
-        [DHCP_TYPE_ANY]     = "yes",
-        [DHCP_TYPE_DHCP]    = "ipv4",
-        [DHCP_TYPE_DHCP6]   = "ipv6",
-        [DHCP_TYPE_AUTO6]   = "no",   /* TODO: enable other setting? */
-        [DHCP_TYPE_EITHER6] = "ipv6", /* TODO: enable other setting? */
-        [DHCP_TYPE_IBFT]    = "no",
-        [DHCP_TYPE_LINK6]   = "no",
+        [DHCP_TYPE_NONE]       = "no",
+        [DHCP_TYPE_OFF]        = "no",
+        [DHCP_TYPE_ON]         = "yes",
+        [DHCP_TYPE_ANY]        = "yes",
+        [DHCP_TYPE_DHCP]       = "ipv4",
+        [DHCP_TYPE_DHCP6]      = "ipv6",
+        [DHCP_TYPE_AUTO6]      = "no",   /* TODO: enable other setting? */
+        [DHCP_TYPE_EITHER6]    = "ipv6", /* TODO: enable other setting? */
+        [DHCP_TYPE_IBFT]       = "no",
+        [DHCP_TYPE_LINK6]      = "no",
+        [DHCP_TYPE_LINK_LOCAL] = "no",
 };
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(networkd_dhcp_type, DHCPType);
+
+static const char * const networkd_ipv6ra_type_table[_DHCP_TYPE_MAX] = {
+        [DHCP_TYPE_NONE]       = "no",
+        [DHCP_TYPE_OFF]        = "no",
+        [DHCP_TYPE_LINK6]      = "no",
+        [DHCP_TYPE_LINK_LOCAL] = "no",
+        /* We omit the other entries, to leave the default in effect */
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(networkd_ipv6ra_type, DHCPType);
+
+static const char * const networkd_link_local_type_table[_DHCP_TYPE_MAX] = {
+        [DHCP_TYPE_NONE]       = "no",
+        [DHCP_TYPE_OFF]        = "no",
+        [DHCP_TYPE_LINK6]      = "ipv6",
+        [DHCP_TYPE_LINK_LOCAL] = "yes",
+        /* We omit the other entries, to leave the default in effect */
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(networkd_link_local_type, DHCPType);
 
 static Address *address_free(Address *address) {
         if (!address)
@@ -1130,6 +1152,16 @@ void network_dump(Network *network, FILE *f) {
         dhcp = networkd_dhcp_type_to_string(network->dhcp_type);
         if (dhcp)
                 fprintf(f, "DHCP=%s\n", dhcp);
+
+        const char *ll;
+        ll = networkd_link_local_type_to_string(network->dhcp_type);
+        if (ll)
+                fprintf(f, "LinkLocalAddressing=%s\n", ll);
+
+        const char *ra;
+        ra = networkd_ipv6ra_type_to_string(network->dhcp_type);
+        if (ra)
+                fprintf(f, "IPv6AcceptRA=%s\n", ra);
 
         if (!strv_isempty(network->dns))
                 STRV_FOREACH(dns, network->dns)
