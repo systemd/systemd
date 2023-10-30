@@ -626,6 +626,7 @@ systemctl status foo.service 2>&1 | grep -q -F "Warning"
 systemd-sysext merge
 systemd-sysext unmerge
 systemctl status foo.service 2>&1 | grep -v -q -F "Warning"
+rm /var/lib/extensions/app-reload.raw
 
 # Test systemd-repart --make-ddi=:
 if command -v mksquashfs >/dev/null 2>&1; then
