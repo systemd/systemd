@@ -62,6 +62,35 @@ int (*sym_crypt_set_data_offset)(struct crypt_device *cd, uint64_t data_offset);
 int (*sym_crypt_header_restore)(struct crypt_device *cd, const char *requested_type, const char *backup_file);
 int (*sym_crypt_volume_key_keyring)(struct crypt_device *cd, int enable);
 
+/* Unfortunately libcryptsetup provides neither an environment variable to redirect where to look for token
+ * modules, nor does it have an API to change the token lookup path at runtime. The maintainers suggest using
+ * ELF interposition instead (see https://gitlab.com/cryptsetup/cryptsetup/-/issues/846). Hence let's do
+ * that: let's interpose libcryptsetup's crypt_token_external_path() function with our own, that *does*
+ * honour an environment variable where to look for tokens. This is tremendously useful for debugging
+ * libcryptsetup tokens: set the environment variable to your build dir and you can easily test token modules
+ * without jumping through various hoops. */
+
+const char *my_crypt_token_external_path(void); /* prototype for our own implementation */
+
+/* Let's make our implementation the default implementation for crypt_token_external_path(). */
+__asm__(".symver my_crypt_token_external_path, crypt_token_external_path@@@");
+
+/* Mark as "public", to guarantee its export */
+_public_ const char *my_crypt_token_external_path(void) {
+        const char *e;
+
+        e = secure_getenv("SYSTEMD_CRYPTSETUP_TOKEN_PATH");
+        if (e)
+                return e;
+
+        /* Now chain invoke the next implementation in the list (which should be libcryptsetup's */
+        typeof(crypt_token_external_path) *func = (typeof(crypt_token_external_path)*) dlsym(RTLD_NEXT, "crypt_token_external_path");
+        if (func)
+                return func();
+
+        return NULL;
+}
+
 static void cryptsetup_log_glue(int level, const char *msg, void *usrptr) {
 
         switch (level) {
