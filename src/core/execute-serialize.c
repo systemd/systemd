@@ -3395,9 +3395,11 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         r = free_and_strdup(&c->smack_process_label, val);
                         if (r < 0)
                                 return r;
-                } else if ((val = startswith(l, "exec-context-personality=")))
+                } else if ((val = startswith(l, "exec-context-personality="))) {
                         c->personality = personality_from_string(val);
-                else if ((val = startswith(l, "exec-context-lock-personality="))) {
+                        if (c->personality == PERSONALITY_INVALID)
+                                return -EINVAL;
+                } else if ((val = startswith(l, "exec-context-lock-personality="))) {
                         r = parse_boolean(val);
                         if (r < 0)
                                 return r;
