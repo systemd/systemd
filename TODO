@@ -144,11 +144,6 @@ Features:
   root=nvme:<trtype>:<traddr>:<trsvcid>:<nqn>:<partition> to boot directly from
   nvme-oF
 
-* systemd-network-generator: add ip=link-local or so which configures all
-  network devices, but for ipv4ll/ipv6ll only, i.e. restricted to link-local
-  addressing. usecase: storage target mode (NVMe-TCP), where it makes sense for
-  security reasons to limit access to local links.
-
 * add a new systemd-project@.service that is very similar to user@.service but
   uses DynamicUser=1 and no PAMName= to invoke an unprivileged somewhat
   light-weight service manager. Use HOME=/var/lib/systemd/projects/%i as home
