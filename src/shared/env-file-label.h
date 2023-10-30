@@ -6,3 +6,5 @@
  * for all */
 
 int write_env_file_label(int dir_fd, const char *fname, char **headers, char **l);
+
+int write_vconsole_conf_label(char **l);
