@@ -1,0 +1,12 @@
+# This file is part of systemd.
+
+# Network interfaces for which only Link-Local communication (i.e. IPv4LL, …)
+# makes sense, because they almost certainy will point to another host, not an
+# internet router.
+
+# (Note: matches against drivers go into 82-net-auto-link-local.rules instead)
+
+# Prolific USB-to-USB links (https://www.prolific.com.tw/US/ShowProduct.aspx?pcid=43)
+usb:v067Bp25A1*
+usb:v067Bp27A1*
+ ID_NET_AUTO_LINK_LOCAL_ONLY=1
