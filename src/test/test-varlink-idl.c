@@ -17,6 +17,7 @@
 #include "varlink-io.systemd.oom.h"
 #include "varlink-io.systemd.service.h"
 #include "varlink-io.systemd.sysext.h"
+#include "varlink-io.systemd.udev.h"
 #include "varlink-org.varlink.service.h"
 
 static VARLINK_DEFINE_ENUM_TYPE(
