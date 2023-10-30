@@ -637,3 +637,11 @@ int write_env_file(int dir_fd, const char *fname, char **headers, char **l) {
         (void) unlinkat(dir_fd, p, 0);
         return r;
 }
+
+int write_vconsole_conf(int dir_fd, const char *fname, char **l) {
+        char **headers = STRV_MAKE(
+                "# Written by systemd-localed(8) or systemd-firstboot(1), read by systemd-localed",
+                "# and systemd-vconsole-setup(8). Use localectl(1) to update this file.");
+
+        return write_env_file(dir_fd, fname, headers, l);
+}
