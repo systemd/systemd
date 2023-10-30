@@ -20,3 +20,5 @@ int load_env_file_pairs_fd(int fd, const char *fname, char ***ret);
 int merge_env_file(char ***env, FILE *f, const char *fname);
 
 int write_env_file(int dir_fd, const char *fname, char **headers, char **l);
+
+int write_vconsole_conf(int dir_fd, const char *fname, char **l);
