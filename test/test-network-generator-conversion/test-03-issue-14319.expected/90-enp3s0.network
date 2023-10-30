@@ -7,6 +7,8 @@ Name=enp3s0
 
 [Network]
 DHCP=no
+LinkLocalAddressing=no
+IPv6AcceptRA=no
 
 [DHCP]
 
