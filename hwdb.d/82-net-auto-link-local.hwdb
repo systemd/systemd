@@ -1,0 +1,9 @@
+# This file is part of systemd.
+
+# Lists devices that are host-to-host links and hence typically should not do
+# DHCP but just link-local IP, i.e. IPv4LL and suchlike.
+
+# Prolific USB-to-USB links (https://www.prolific.com.tw/US/ShowProduct.aspx?pcid=43)
+usb:v067Bp25A1*
+usb:v067Bp27A1*
+ ID_NET_AUTO_LINK_LOCAL_ONLY=1
