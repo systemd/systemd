@@ -16,3 +16,14 @@ VARLINK_DEFINE_INTERFACE(
                 &vl_method_Ping,
                 &vl_method_Reload,
                 &vl_method_SetLogLevel);
+
+int varlink_method_ping(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+        assert(link);
+
+        if (json_variant_elements(parameters) > 0)
+                return varlink_error_invalid_parameter(link, parameters);
+
+        log_debug("Received io.systemd.system.Ping");
+
+        return varlink_reply(link, NULL);
+}
