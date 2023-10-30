@@ -9,18 +9,21 @@ int udev_connection_init(UdevConnection *conn, usec_t timeout) {
         assert(conn);
 
         r = udev_varlink_connect(&conn->link);
-        if (r < 0)
-                return log_error_errno(r, "Failed to initialize varlink connection: %m");
+        if (r >= 0) {
+                r = sd_varlink_set_relative_timeout(conn->link, timeout);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to apply timeout: %m");
+
+                return 0;
+        }
+
+        log_warning("Failed to initialize varlink connection, falling back to legacy udev control: %m");
 
         r = udev_ctrl_new(&conn->uctrl);
         if (r < 0)
                 return log_error_errno(r, "Failed to initialize udev control: %m");
 
-        r = sd_varlink_set_relative_timeout(conn->link, timeout);
-        if (r < 0)
-                return log_error_errno(r, "Failed to apply timeout: %m");
-
-        conn->timeout = timeout; /* for uctrl */
+        conn->timeout = timeout;
 
         return 0;
 }
@@ -35,7 +38,7 @@ void udev_connection_done(UdevConnection *conn) {
 
 int udev_connection_wait(UdevConnection *conn) {
         assert(conn);
-        assert(conn->link || conn->uctrl);
+        assert(!conn->link != !conn->uctrl);
 
         if (conn->uctrl)
                 return udev_ctrl_wait(conn->uctrl, conn->timeout);
@@ -45,7 +48,7 @@ int udev_connection_wait(UdevConnection *conn) {
 
 int udev_connection_send_ping(UdevConnection *conn) {
         assert(conn);
-        assert(conn->link || conn->uctrl);
+        assert(!conn->link != !conn->uctrl);
 
         if (!conn->link)
                 return udev_ctrl_send_ping(conn->uctrl);
