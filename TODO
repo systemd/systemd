@@ -133,16 +133,11 @@ Deprecations and removals:
 
 Features:
 
-* hwdb: add a new field that can be used to mark network devices where only
-  ipv4ll/ipv6ll makes sense, i.e. which should not expect to be connected to
-  the internet, i.e. for direct host-to-host connection. Set it for thunderbolt
-  networking, and for "laplink"-style network cables. Then make netword match
-  against that prop in a .network file we ship by default. Would be
-  particularly useful in storage target mode (i.e. NVME-TCP) modes. i.e. do
-  what https://christian.kellner.me/2018/05/24/thunderbolt-networking-on-linux/
-  and
-  https://github.com/NetworkManager/NetworkManager/blob/main/data/90-nm-thunderbolt.rules#L11
-  do for NM, but generically.
+* networkd: controlled by build-time options install some of the
+  *.network.example files we install currently as regular files *.network. For
+  many cases it's what you want: just configure the damn network. Hopefully
+  this can be enabled on Fedora even, though into a separate sub-RPM, so that
+  we don't conflict with NM.
 
 * add support for activating nvme-oF devices at boot automatically via kernel
   cmdline, and maybe even support a syntax such as
