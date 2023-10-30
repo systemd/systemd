@@ -74,10 +74,16 @@ if ! systemd-detect-virt -cq; then
         bash -xec "test ! -r /dev/kmsg"
     systemd-run --wait --pipe -p ProtectKernelLogs=no -p User=testuser \
         bash -xec "test -r /dev/kmsg"
+fi
 
-    # Check if we correctly serialize, deserialize, and set directives that
-    # have more complex internal handling
-    #
+systemd-run --wait --pipe -p BindPaths="/etc /home:/mnt:norbind -/foo/bar/baz:/usr:rbind" \
+    bash -xec "mountpoint /etc; test -d /etc/systemd; mountpoint /mnt; ! mountpoint /usr"
+systemd-run --wait --pipe -p BindReadOnlyPaths="/etc /home:/mnt:norbind -/foo/bar/baz:/usr:rbind" \
+    bash -xec "test ! -w /etc; test ! -w /mnt; ! mountpoint /usr"
+
+# Check if we correctly serialize, deserialize, and set directives that
+# have more complex internal handling
+if ! systemd-detect-virt -cq; then
     # Funny detail: this originally used the underlying rootfs device, but that,
     # for some reason, caused "divide error" in kernel, followed by a kernel panic
     TEMPFILE="$(mktemp)"
@@ -139,53 +145,50 @@ if ! systemd-detect-virt -cq; then
     systemd-run --wait --pipe --unit "$SERVICE_NAME" "${ARGUMENTS[@]}" \
         bash -xec 'test -r /dev/null; test ! -w /dev/null; test ! -r /dev/loop0; test -w /dev/loop0; test ! -r /dev/tty; test ! -w /dev/tty'
 
-    # SocketBind*=
-    ARGUMENTS=(
-        -p SocketBindAllow=
-        -p SocketBindAllow=1234
-        -p SocketBindAllow=ipv4:udp:any
-        -p SocketBindAllow=ipv6:6666
-        # Everything but the last assignment is superfluous, but it still exercises
-        # the parsing machinery
-        -p SocketBindDeny=
-        -p SocketBindDeny=1111
-        -p SocketBindDeny=ipv4:1111
-        -p SocketBindDeny=ipv4:any
-        -p SocketBindDeny=ipv4:tcp:any
-        -p SocketBindDeny=ipv4:udp:10000-11000
-        -p SocketBindDeny=ipv6:1111
-        -p SocketBindDeny=any
-    )
+    if ! systemctl --version | grep -qF -- "-BPF_FRAMEWORK"; then
+        # SocketBind*=
+        ARGUMENTS=(
+            -p SocketBindAllow=
+            -p SocketBindAllow=1234
+            -p SocketBindAllow=ipv4:udp:any
+            -p SocketBindAllow=ipv6:6666
+            # Everything but the last assignment is superfluous, but it still exercises
+            # the parsing machinery
+            -p SocketBindDeny=
+            -p SocketBindDeny=1111
+            -p SocketBindDeny=ipv4:1111
+            -p SocketBindDeny=ipv4:any
+            -p SocketBindDeny=ipv4:tcp:any
+            -p SocketBindDeny=ipv4:udp:10000-11000
+            -p SocketBindDeny=ipv6:1111
+            -p SocketBindDeny=any
+        )
 
-    # We should fail with EPERM when trying to bind to a socket not on the allow list
-    # (nc exits with 2 in that case)
-    systemd-run --wait -p SuccessExitStatus="1 2" --pipe "${ARGUMENTS[@]}" \
-        bash -xec 'timeout 1s nc -l 127.0.0.1 9999; exit 42'
-    systemd-run --wait -p SuccessExitStatus="1 2" --pipe "${ARGUMENTS[@]}" \
-        bash -xec 'timeout 1s nc -l ::1 9999; exit 42'
-    systemd-run --wait -p SuccessExitStatus="1 2" --pipe "${ARGUMENTS[@]}" \
-        bash -xec 'timeout 1s nc -6 -u -l ::1 9999; exit 42'
-    systemd-run --wait -p SuccessExitStatus="1 2" --pipe "${ARGUMENTS[@]}" \
-        bash -xec 'timeout 1s nc -4 -l 127.0.0.1 6666; exit 42'
-    # Consequently, we should succeed when binding to a socket on the allow list
-    # and keep listening on it until we're killed by `timeout` (EC 124)
-    systemd-run --wait --pipe -p SuccessExitStatus=124 "${ARGUMENTS[@]}" \
-        bash -xec 'timeout 1s nc -4 -l 127.0.0.1 1234; exit 1'
-    systemd-run --wait --pipe -p SuccessExitStatus=124 "${ARGUMENTS[@]}" \
-        bash -xec 'timeout 1s nc -4 -u -l 127.0.0.1 5678; exit 1'
-    systemd-run --wait --pipe -p SuccessExitStatus=124 "${ARGUMENTS[@]}" \
-        bash -xec 'timeout 1s nc -6 -l ::1 1234; exit 1'
-    systemd-run --wait --pipe -p SuccessExitStatus=124 "${ARGUMENTS[@]}" \
-        bash -xec 'timeout 1s nc -6 -l ::1 6666; exit 1'
+        # We should fail with EPERM when trying to bind to a socket not on the allow list
+        # (nc exits with 2 in that case)
+        systemd-run --wait -p SuccessExitStatus="1 2" --pipe "${ARGUMENTS[@]}" \
+            bash -xec 'timeout 1s nc -l 127.0.0.1 9999; exit 42'
+        systemd-run --wait -p SuccessExitStatus="1 2" --pipe "${ARGUMENTS[@]}" \
+            bash -xec 'timeout 1s nc -l ::1 9999; exit 42'
+        systemd-run --wait -p SuccessExitStatus="1 2" --pipe "${ARGUMENTS[@]}" \
+            bash -xec 'timeout 1s nc -6 -u -l ::1 9999; exit 42'
+        systemd-run --wait -p SuccessExitStatus="1 2" --pipe "${ARGUMENTS[@]}" \
+            bash -xec 'timeout 1s nc -4 -l 127.0.0.1 6666; exit 42'
+        # Consequently, we should succeed when binding to a socket on the allow list
+        # and keep listening on it until we're killed by `timeout` (EC 124)
+        systemd-run --wait --pipe -p SuccessExitStatus=124 "${ARGUMENTS[@]}" \
+            bash -xec 'timeout 1s nc -4 -l 127.0.0.1 1234; exit 1'
+        systemd-run --wait --pipe -p SuccessExitStatus=124 "${ARGUMENTS[@]}" \
+            bash -xec 'timeout 1s nc -4 -u -l 127.0.0.1 5678; exit 1'
+        systemd-run --wait --pipe -p SuccessExitStatus=124 "${ARGUMENTS[@]}" \
+            bash -xec 'timeout 1s nc -6 -l ::1 1234; exit 1'
+        systemd-run --wait --pipe -p SuccessExitStatus=124 "${ARGUMENTS[@]}" \
+            bash -xec 'timeout 1s nc -6 -l ::1 6666; exit 1'
+    fi
 
     losetup -d "$LODEV"
     rm -f "$TEMPFILE"
 fi
-
-systemd-run --wait --pipe -p BindPaths="/etc /home:/mnt:norbind -/foo/bar/baz:/usr:rbind" \
-    bash -xec "mountpoint /etc; test -d /etc/systemd; mountpoint /mnt; ! mountpoint /usr"
-systemd-run --wait --pipe -p BindReadOnlyPaths="/etc /home:/mnt:norbind -/foo/bar/baz:/usr:rbind" \
-    bash -xec "test ! -w /etc; test ! -w /mnt; ! mountpoint /usr"
 
 # Ensure that clean-up codepaths work correctly if activation ultimately fails
 (! systemd-run --wait --pipe -p DynamicUser=yes -p WorkingDirectory=/nonexistent echo hello)
