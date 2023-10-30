@@ -198,6 +198,9 @@
     number. <function>sd_listen_fds_with_names()</function> does the
     same but also parses <varname>$LISTEN_FDNAMES</varname> if
     set.</para>
+
+  <para>Services that specify <varname>StandardInput=socket</varname> are not meant to use
+  these functions as their environment is free of <varname>$LISTEN_FDS</varname> variable.</para>
   </refsect1>
 
   <refsect1>
