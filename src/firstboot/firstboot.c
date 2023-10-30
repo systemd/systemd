@@ -534,7 +534,7 @@ static int process_keymap(int rfd) {
 
         keymap = STRV_MAKE(strjoina("KEYMAP=", arg_keymap));
 
-        r = write_env_file(pfd, f, NULL, keymap);
+        r = write_vconsole_conf(pfd, f, keymap);
         if (r < 0)
                 return log_error_errno(r, "Failed to write /etc/vconsole.conf: %m");
 
