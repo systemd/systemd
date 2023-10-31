@@ -2036,7 +2036,7 @@ static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message, i
                         return 0; /* invalid message, let's ignore it */
 
                 if (client->lease->rapid_commit)
-                        /* got a succssful rapid commit */
+                        /* got a successful rapid commit */
                         r = client_enter_bound(client, r);
                 else
                         r = client_enter_requesting(client);
