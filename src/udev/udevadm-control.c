@@ -18,6 +18,7 @@
 #include "udevadm.h"
 #include "udev-connection.h"
 #include "udev-ctrl.h"
+#include "udev-varlink.h"
 #include "virt.h"
 
 static char **arg_env = NULL;
@@ -51,6 +52,23 @@ static int send_reload(UdevConnection *conn) {
                 return udev_ctrl_send_reload(conn->uctrl);
 
         return udev_varlink_call(conn->link, "io.systemd.service.Reload", NULL, NULL);
+}
+
+static int send_set_log_level(UdevConnection *conn, int level) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        int r;
+
+        assert(conn);
+        assert(conn->link || conn->uctrl);
+
+        if (!conn->link)
+                return udev_ctrl_send_set_log_level(conn->uctrl, level);
+
+        r = sd_json_buildo(&v, SD_JSON_BUILD_PAIR("level", SD_JSON_BUILD_INTEGER(level)));
+        if (r < 0)
+                return log_error_errno(r, "Failed to build json object: %m");
+
+        return udev_varlink_call(conn->link, "io.systemd.service.SetLogLevel", v, NULL);
 }
 
 static int help(void) {
@@ -201,7 +219,7 @@ static int send_control_commands(void) {
         }
 
         if (arg_log_level >= 0) {
-                r = udev_ctrl_send_set_log_level(conn.uctrl, arg_log_level);
+                r = send_set_log_level(&conn, arg_log_level);
                 if (r < 0)
                         return log_error_errno(r, "Failed to send request to set log level: %m");
         }
