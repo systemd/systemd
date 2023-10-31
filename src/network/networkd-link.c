@@ -1465,6 +1465,7 @@ static int link_check_initialized(Link *link) {
 
 int manager_udev_process_link(Manager *m, sd_device *device, sd_device_action_t action) {
         int r, ifindex;
+        const char *s;
         Link *link;
 
         assert(m);
@@ -1496,6 +1497,15 @@ int manager_udev_process_link(Manager *m, sd_device *device, sd_device_action_t 
                 /* TODO:
                  * What happens when a device is initialized, then soon renamed after that? When we detect
                  * such, maybe we should cancel or postpone all queued requests for the interface. */
+                return 0;
+        }
+
+        r = sd_device_get_property_value(device, "ID_NET_MANAGED_BY", &s);
+        if (r < 0 && r != -ENOENT)
+                log_device_debug_errno(device, r, "Failed to get ID_NET_MANAGED_BY udev property, ignoring: %m");
+        if (r >= 0 && !streq(s, "io.systemd.Network")) {
+                log_device_debug(device, "Interface is requested to be managed by '%s', not managing the interface.", s);
+                link_set_state(link, LINK_STATE_UNMANAGED);
                 return 0;
         }
 
