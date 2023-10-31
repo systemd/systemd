@@ -12,6 +12,7 @@
 #include "dhcp6-option.h"
 #include "dhcp6-protocol.h"
 #include "macro.h"
+#include "set.h"
 #include "time-util.h"
 
 struct sd_dhcp6_lease {
@@ -45,6 +46,8 @@ struct sd_dhcp6_lease {
         size_t sntp_count;
         char *fqdn;
         char *captive_portal;
+        struct sd_dhcp6_option **sorted_vendor_options;
+        Set *vendor_options;
 };
 
 int dhcp6_lease_set_clientid(sd_dhcp6_lease *lease, const uint8_t *id, size_t len);
