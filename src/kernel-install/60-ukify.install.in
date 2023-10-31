@@ -202,7 +202,7 @@ def kernel_cmdline(opts) -> str:
 
 
 def initrd_list(opts) -> list[Path]:
-    microcode = sorted(opts.staging_area.glob('microcode/*'))
+    microcode = sorted(opts.staging_area.glob('microcode*'))
     initrd = sorted(opts.staging_area.glob('initrd*'))
 
     # Order taken from 90-loaderentry.install
