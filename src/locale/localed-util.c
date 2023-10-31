@@ -532,7 +532,7 @@ int vconsole_write_data(Context *c) {
                 return 0;
         }
 
-        r = write_env_file_label("/etc/vconsole.conf", l);
+        r = write_vconsole_conf_label(l);
         if (r < 0)
                 return r;
 
@@ -568,7 +568,7 @@ int x11_write_data(Context *c) {
 
         fputs("# Written by systemd-localed(8), read by systemd-localed and Xorg. It's\n"
               "# probably wise not to edit this file manually. Use localectl(1) to\n"
-              "# instruct systemd-localed to update it.\n"
+              "# update this file.\n"
               "Section \"InputClass\"\n"
               "        Identifier \"system-keyboard\"\n"
               "        MatchIsKeyboard \"on\"\n", f);

@@ -446,7 +446,7 @@ static int process_locale(int rfd) {
 
         locales[i] = NULL;
 
-        r = write_env_file_at(pfd, f, locales);
+        r = write_env_file(pfd, f, NULL, locales);
         if (r < 0)
                 return log_error_errno(r, "Failed to write /etc/locale.conf: %m");
 
@@ -534,7 +534,7 @@ static int process_keymap(int rfd) {
 
         keymap = STRV_MAKE(strjoina("KEYMAP=", arg_keymap));
 
-        r = write_env_file_at(pfd, f, keymap);
+        r = write_vconsole_conf(pfd, f, keymap);
         if (r < 0)
                 return log_error_errno(r, "Failed to write /etc/vconsole.conf: %m");
 
