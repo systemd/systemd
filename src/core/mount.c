@@ -1957,9 +1957,27 @@ static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
         return 0;
 }
 
+static int mount_enumerate_late(sd_event_source *s, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        int r;
+
+        /* Do not delay manager instance start with long mountinfo parsing */
+        if (!m->ready_sent)
+                return 0;
+
+        r = mount_load_proc_self_mountinfo(m, /* set_flags = */ false);
+        if (r < 0)
+                return log_error_errno(r, "Failed to load mountinfo: %m");
+        r = sd_event_source_set_enabled(s, SD_EVENT_OFF);
+        if (r < 0)
+                return log_error_errno(r, "Failed to disable late event source: %m");
+        return r;
+}
+
 static void mount_shutdown(Manager *m) {
         assert(m);
 
+        m->mount_enumerate_source = sd_event_source_disable_unref(m->mount_enumerate_source);
         m->mount_event_source = sd_event_source_disable_unref(m->mount_event_source);
 
         mnt_unref_monitor(m->mount_monitor);
@@ -2106,11 +2124,27 @@ static void mount_enumerate(Manager *m) {
                 }
 
                 (void) sd_event_source_set_description(m->mount_event_source, "mount-monitor-dispatch");
+
+                if (!MANAGER_IS_SYSTEM(m)) {
+                        r = sd_event_add_post(m->event, &m->mount_enumerate_source, mount_enumerate_late, m);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to add late mount enumerate source: %m");
+                                goto fail;
+                        }
+
+                        r = sd_event_source_set_priority(m->mount_enumerate_source, SD_EVENT_PRIORITY_IDLE);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to adjust mount enumerate priority: %m");
+                                goto fail;
+                        }
+                }
         }
 
-        r = mount_load_proc_self_mountinfo(m, false);
-        if (r < 0)
-                goto fail;
+        if (MANAGER_IS_SYSTEM(m)) {
+                r = mount_load_proc_self_mountinfo(m, /* set_flags = */ false);
+                if (r < 0)
+                        goto fail;
+        }
 
         return;
 
