@@ -20,6 +20,33 @@ static int vl_method_reload(Varlink *link, JsonVariant *parameters, VarlinkMetho
         return varlink_reply(link, NULL);
 }
 
+static int vl_method_set_log_level(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+        static const JsonDispatch dispatch_table[] = {
+                {"level", JSON_VARIANT_INTEGER, json_dispatch_int64, 0, JSON_MANDATORY},
+                {}
+        };
+
+        Manager *m = ASSERT_PTR(userdata);
+        int64_t level;
+        int r;
+
+        assert(link);
+        assert(parameters);
+
+        r = varlink_dispatch(link, parameters, dispatch_table, &level);
+        if (r < 0)
+                return r;
+
+        if (LOG_PRI(level) != level)
+                return varlink_error_invalid_parameter(link, parameters);
+
+        log_debug("Received io.systemd.system.SetLogLevel(%" PRIi64 ")", level);
+
+        manager_set_log_level(m, level);
+
+        return varlink_reply(link, NULL);
+}
+
 int udev_varlink_connect(Varlink **ret) {
         _cleanup_(varlink_flush_close_unrefp) Varlink *link = NULL;
         int r;
@@ -69,7 +96,8 @@ int manager_open_varlink(Manager *m) {
         r = varlink_server_bind_method_many(
                         m->varlink_server,
                         "io.systemd.service.Ping", varlink_method_ping,
-                        "io.systemd.service.Reload", vl_method_reload);
+                        "io.systemd.service.Reload", vl_method_reload,
+                        "io.systemd.service.SetLogLevel", vl_method_set_log_level);
         if (r < 0)
                 return r;
 
