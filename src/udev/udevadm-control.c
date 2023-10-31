@@ -170,6 +170,23 @@ static int send_set_env(UdevConnection *conn, char **env) {
         return send_pending_env(conn->link, assignments, names, set);
 }
 
+static int send_set_children_max(UdevConnection *conn, unsigned n) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        int r;
+
+        assert(conn);
+        assert(conn->link || conn->uctrl);
+
+        if (!conn->link)
+                return udev_ctrl_send_set_children_max(conn->uctrl, n);
+
+        r = sd_json_buildo(&v, SD_JSON_BUILD_PAIR("n", SD_JSON_BUILD_UNSIGNED(n)));
+        if (r < 0)
+                return log_error_errno(r, "Failed to build json object: %m");
+
+        return udev_varlink_call(conn->link, "io.systemd.udev.SetChildrenMax", v, NULL);
+}
+
 static int help(void) {
         printf("%s control OPTION\n\n"
                "Control the udev daemon.\n\n"
@@ -348,7 +365,7 @@ static int send_control_commands(void) {
         }
 
         if (arg_max_children >= 0) {
-                r = udev_ctrl_send_set_children_max(conn.uctrl, arg_max_children);
+                r = send_set_children_max(&conn, arg_max_children);
                 if (r < 0)
                         return log_error_errno(r, "Failed to send request to set number of children: %m");
         }

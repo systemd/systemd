@@ -123,6 +123,30 @@ static int vl_method_unset_environment(sd_varlink *link, sd_json_variant *parame
         return sd_varlink_reply(link, NULL);
 }
 
+static int vl_method_set_children_max(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                {"n", SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint64, 0, SD_JSON_MANDATORY},
+                {}
+        };
+
+        Manager *m = ASSERT_PTR(userdata);
+        uint64_t n;
+        int r;
+
+        assert(link);
+        assert(parameters);
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &n);
+        if (r < 0)
+                return r;
+
+        log_debug("Received io.systemd.udev.SetChildrenMax(%" PRIu64 ")", n);
+
+        manager_set_children_max(m, n);
+
+        return sd_varlink_reply(link, NULL);
+}
+
 int udev_varlink_connect(sd_varlink **ret) {
         _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *link = NULL;
         int r;
@@ -183,6 +207,7 @@ int manager_open_varlink(Manager *m) {
                         "io.systemd.service.Reload", vl_method_reload,
                         "io.systemd.service.SetLogLevel", vl_method_set_log_level,
 
+                        "io.systemd.udev.SetChildrenMax", vl_method_set_children_max,
                         "io.systemd.udev.SetEnvironment", vl_method_set_environment,
                         "io.systemd.udev.UnsetEnvironment", vl_method_unset_environment,
                         "io.systemd.udev.StartExecQueue", vl_method_start_exec_queue,
