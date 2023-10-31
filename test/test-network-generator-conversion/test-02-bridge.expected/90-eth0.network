@@ -7,6 +7,8 @@ Name=eth0
 
 [Network]
 DHCP=no
+LinkLocalAddressing=no
+IPv6AcceptRA=no
 DNS=10.10.10.10
 DNS=10.10.10.11
 Bridge=bridge99
