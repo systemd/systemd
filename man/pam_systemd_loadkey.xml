@@ -3,31 +3,31 @@
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
-<refentry id="pam_kernel_keyring" conditional='HAVE_PAM' xmlns:xi="http://www.w3.org/2001/XInclude">
+<refentry id="pam_systemd_loadkey" conditional='HAVE_PAM' xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
-    <title>pam_kernel_keyring</title>
+    <title>pam_systemd_loadkey</title>
     <productname>systemd</productname>
   </refentryinfo>
 
   <refmeta>
-    <refentrytitle>pam_kernel_keyring</refentrytitle>
+    <refentrytitle>pam_systemd_loadkey</refentrytitle>
     <manvolnum>8</manvolnum>
   </refmeta>
 
   <refnamediv>
-    <refname>pam_kernel_keyring</refname>
+    <refname>pam_systemd_loadkey</refname>
     <refpurpose>Read password from kernel keyring and set it as PAM authtok</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
-    <para><filename>pam_kernel_keyring.so</filename></para>
+    <para><filename>pam_systemd_loadkey.so</filename></para>
   </refsynopsisdiv>
 
   <refsect1>
     <title>Description</title>
 
-    <para><command>pam_kernel_keyring</command> reads a NUL-separated password list from the kernel keyring,
+    <para><command>pam_systemd_loadkey</command> reads a NUL-separated password list from the kernel keyring,
     and sets the last password in the list as the PAM authtok.</para>
 
     <para>The password list is supposed to be stored earlier by
@@ -74,7 +74,7 @@
     Then add the following lines to your display manager's PAM config under <literal>/etc/pam.d</literal> (e.g. sddm-autologin):</para>
 
     <programlisting>
-    -auth       optional    pam_kernel_keyring.so
+    -auth       optional    pam_systemd_loadkey.so
     -session    optional    pam_gnome_keyring.so auto_start
     -session    optional    pam_kwallet5.so auto_start
     </programlisting>
@@ -89,7 +89,7 @@
     <para>In this setup, early during the boot process,
     <citerefentry><refentrytitle>systemd-cryptsetup@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     will ask for the passphrase and store it in the kernel keyring with the keyname <literal>cryptsetup</literal>.
-    Then when the display manager does the autologin, pam_kernel_keyring will read the passphrase from the kernel keyring,
+    Then when the display manager does the autologin, pam_systemd_loadkey will read the passphrase from the kernel keyring,
     set it as the PAM authtok, and then pam_gnome_keyring and pam_kwallet5 will unlock with the same passphrase.</para>
   </refsect1>
 

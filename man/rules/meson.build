@@ -65,7 +65,7 @@ manpages = [
  ['org.freedesktop.systemd1', '5', [], ''],
  ['org.freedesktop.timedate1', '5', [], 'ENABLE_TIMEDATED'],
  ['os-release', '5', ['extension-release', 'initrd-release'], ''],
- ['pam_kernel_keyring', '8', [], 'HAVE_PAM'],
+ ['pam_systemd_loadkey', '8', [], 'HAVE_PAM'],
  ['pam_systemd', '8', [], 'HAVE_PAM'],
  ['pam_systemd_home', '8', [], 'ENABLE_PAM_HOME'],
  ['portablectl', '1', [], 'ENABLE_PORTABLED'],

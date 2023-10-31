@@ -44,7 +44,7 @@ _public_ int pam_sm_authenticate(
                         pam_syslog(handle, LOG_WARNING, "Unknown parameter '%s', ignoring.", argv[i]);
         }
 
-        pam_debug_syslog(handle, debug, "pam-kernel-keyring initializing");
+        pam_debug_syslog(handle, debug, "pam-systemd-loadkey initializing");
 
         /* Retrive the key. */
 

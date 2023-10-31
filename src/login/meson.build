@@ -115,12 +115,12 @@ modules += [
                 'version-script' : meson.current_source_dir() / 'pam_systemd.sym',
         },
         pam_template + {
-                'name' : 'pam_kernel_keyring',
+                'name' : 'pam_systemd_loadkey',
                 'conditions' : [
                         'HAVE_PAM',
                 ],
-                'sources' : files('pam_kernel_keyring.c'),
-                'version-script' : meson.current_source_dir() / 'pam_kernel_keyring.sym',
+                'sources' : files('pam_systemd_loadkey.c'),
+                'version-script' : meson.current_source_dir() / 'pam_systemd_loadkey.sym',
         },
 ]
 
