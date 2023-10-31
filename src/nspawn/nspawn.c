@@ -3828,8 +3828,23 @@ static int outer_child(
         if (arg_userns_mode != USER_NAMESPACE_NO &&
             IN_SET(arg_userns_ownership, USER_NAMESPACE_OWNERSHIP_MAP, USER_NAMESPACE_OWNERSHIP_AUTO) &&
             arg_uid_shift != 0) {
+                _cleanup_free_ char *usr_subtree = NULL;
+                char *dirs[3];
+                size_t i = 0;
 
-                r = remount_idmap(directory, arg_uid_shift, arg_uid_range, UID_INVALID, REMOUNT_IDMAPPING_HOST_ROOT);
+                dirs[i++] = (char*) directory;
+
+                if (dissected_image && dissected_image->partitions[PARTITION_USR].found) {
+                        usr_subtree = path_join(directory, "/usr");
+                        if (!usr_subtree)
+                                return log_oom();
+
+                        dirs[i++] = usr_subtree;
+                }
+
+                dirs[i] = NULL;
+
+                r = remount_idmap(dirs, arg_uid_shift, arg_uid_range, UID_INVALID, REMOUNT_IDMAPPING_HOST_ROOT);
                 if (r == -EINVAL || ERRNO_IS_NEG_NOT_SUPPORTED(r)) {
                         /* This might fail because the kernel or file system doesn't support idmapping. We
                          * can't really distinguish this nicely, nor do we have any guarantees about the

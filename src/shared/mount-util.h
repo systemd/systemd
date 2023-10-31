@@ -124,8 +124,8 @@ typedef enum RemountIdmapping {
 } RemountIdmapping;
 
 int make_userns(uid_t uid_shift, uid_t uid_range, uid_t owner, RemountIdmapping idmapping);
-int remount_idmap_fd(const char *p, int userns_fd);
-int remount_idmap(const char *p, uid_t uid_shift, uid_t uid_range, uid_t owner, RemountIdmapping idmapping);
+int remount_idmap_fd(char **p, int userns_fd);
+int remount_idmap(char **p, uid_t uid_shift, uid_t uid_range, uid_t owner, RemountIdmapping idmapping);
 
 int bind_mount_submounts(
                 const char *source,
