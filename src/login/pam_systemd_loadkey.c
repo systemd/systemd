@@ -14,7 +14,7 @@
 #include "pam-util.h"
 #include "strv.h"
 
-/* By default, this module retieves the key stored by systemd-cryptsetup.
+/* By default, this module retrieves the key stored by systemd-cryptsetup.
  * This can be overridden by the keyname= parameter. */
 static const char* DEFAULT_KEYNAME = "cryptsetup";
 
@@ -57,13 +57,11 @@ _public_ int pam_sm_authenticate(
                 } else if (errno == EKEYEXPIRED) {
                         pam_debug_syslog(handle, debug, "Key expired: %s", keyname);
                         return PAM_AUTHINFO_UNAVAIL;
-                } else {
+                } else
                         return pam_syslog_errno(handle, LOG_ERR, errno, "Failed to look up the key: %m");
-                }
         }
 
         _cleanup_(erase_and_freep) void *p = NULL;
-        _cleanup_(strv_free_erasep) char **passwords = NULL;
         size_t n;
         int r;
 
@@ -73,24 +71,23 @@ _public_ int pam_sm_authenticate(
 
         /* Split the key by NUL. Set the last item as authtok. */
 
-        passwords = strv_parse_nulstr(p, n);
-        if (!passwords) {
-                pam_debug_syslog(handle, debug, "Failed to split the key by NUL");
-                return PAM_AUTHINFO_UNAVAIL;
-        }
+        _cleanup_(strv_free_erasep) char **passwords = strv_parse_nulstr(p, n);
+        if (!passwords)
+                return pam_log_oom(handle);
 
         size_t passwords_len = strv_length(passwords);
         if (passwords_len == 0) {
                 pam_debug_syslog(handle, debug, "Key is empty");
                 return PAM_AUTHINFO_UNAVAIL;
-        }
+        } else if (passwords_len > 1)
+                pam_debug_syslog(handle, debug, "Multiple passwords found in the key. Using the last one");
 
         r = pam_set_item(handle, PAM_AUTHTOK, passwords[passwords_len - 1]);
 
         if (r != PAM_SUCCESS)
                 return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to set PAM auth token: @PAMERR@");
-        else
-                return PAM_SUCCESS;
+
+        return PAM_SUCCESS;
 }
 
 _public_ int pam_sm_setcred(
