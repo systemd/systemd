@@ -26,6 +26,7 @@
 #include "udevadm.h"
 #include "udev-connection.h"
 #include "udev-ctrl.h"
+#include "udev-varlink.h"
 #include "virt.h"
 
 static int send_reload(UdevConnection *conn) {
@@ -36,6 +37,23 @@ static int send_reload(UdevConnection *conn) {
                 return udev_ctrl_send_reload(conn->uctrl);
 
         return udev_varlink_call(conn->link, "io.systemd.service.Reload", NULL, NULL);
+}
+
+static int send_set_log_level(UdevConnection *conn, int level) {
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        int r;
+
+        assert(conn);
+        assert(conn->link || conn->uctrl);
+
+        if (!conn->link)
+                return udev_ctrl_send_set_log_level(conn->uctrl, level);
+
+        r = json_build(&v, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("level", JSON_BUILD_INTEGER(level))));
+        if (r < 0)
+                return log_error_errno(r, "Failed to build json object: %m");
+
+        return udev_varlink_call(conn->link, "io.systemd.service.SetLogLevel", v, NULL);
 }
 
 static int help(void) {
@@ -120,7 +138,7 @@ int control_main(int argc, char *argv[], void *userdata) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse log level '%s': %m", optarg);
 
-                        r = udev_ctrl_send_set_log_level(conn.uctrl, r);
+                        r = send_set_log_level(&conn, r);
                         if (r == -ENOANO)
                                 log_warning("Cannot specify --log-level after --exit, ignoring.");
                         else if (r < 0)
