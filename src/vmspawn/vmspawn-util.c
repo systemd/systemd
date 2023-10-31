@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <stdio.h>
+#include <linux/vhost.h>
+#include <sys/ioctl.h>
 
-#include "alloc-util.h"
 #include "architecture.h"
 #include "conf-files.h"
 #include "errno-util.h"
@@ -38,6 +38,21 @@ int qemu_check_kvm_support(void) {
         }
         if (errno == EPERM) {
                 log_debug_errno(errno, "Permission denied to access /dev/kvm. Not using KVM acceleration.");
+                return false;
+        }
+
+        return -errno;
+}
+
+int qemu_check_vsock_support(void) {
+        if (access("/dev/vhost-vsock", R_OK | W_OK) >= 0)
+                return true;
+        if (errno == ENOENT) {
+                log_debug_errno(errno, "/dev/vhost-vsock not found. Not adding a vsock device to the virtual machine.");
+                return false;
+        }
+        if (errno == EPERM) {
+                log_debug_errno(errno, "Permission denied to access /dev/vhost-vsock. Not adding a vsock device to the virtual machine.");
                 return false;
         }
 
@@ -235,4 +250,36 @@ int find_qemu_binary(char **ret_qemu_binary) {
                 return -ENOMEM;
 
         return find_executable(qemu_arch_specific, ret_qemu_binary);
+}
+
+int machine_cid(unsigned *ret_machine_cid) {
+        int r;
+        uint64_t cid;
+        _cleanup_close_ int vfd = -EBADF;
+
+        /* Enumerate all machine CIDs in [3..UINT_MAX) until we find a free CID.
+         * if there are no free addresses return SYNTHETIC_ERRNO(EADDRNOTAVAIL)
+         * if ioctl returns an unexpected error forward that
+         */
+
+        r = open("/dev/vhost-vsock", O_RDWR | O_CLOEXEC);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to open /dev/vhost-vsock as read/write: %m");
+        vfd = r;
+
+        for (cid = 3; cid < UINT_MAX; cid++) {
+                r = ioctl(vfd, VHOST_VSOCK_SET_GUEST_CID, &cid);
+                if (r >= 0)
+                        goto success;
+                if (errno != EADDRINUSE)
+                        return -errno;
+        }
+
+        return log_debug_errno(SYNTHETIC_ERRNO(EADDRNOTAVAIL), "Enumerated entire CID space and found no free CIDs.");
+
+success:
+        if (ret_machine_cid)
+                *ret_machine_cid = (unsigned int)cid;
+
+        return 0;
 }

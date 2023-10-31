@@ -9,6 +9,7 @@
 #include "alloc-util.h"
 #include "architecture.h"
 #include "build.h"
+#include "common-signal.h"
 #include "copy.h"
 #include "creds-util.h"
 #include "escape.h"
@@ -24,6 +25,9 @@
 #include "path-util.h"
 #include "pretty-print.h"
 #include "process-util.h"
+#include "sd-event.h"
+#include "signal-util.h"
+#include "socket-util.h"
 #include "strv.h"
 #include "tmpfile-util.h"
 #include "vmspawn-settings.h"
@@ -34,6 +38,8 @@ static char *arg_image = NULL;
 static char *arg_qemu_smp = NULL;
 static uint64_t arg_qemu_mem = 2ULL * 1024ULL * 1024ULL * 1024ULL;
 static int arg_qemu_kvm = -1;
+static int arg_qemu_vsock = -1;
+static uint64_t arg_vsock_cid = UINT64_MAX;
 static bool arg_qemu_gui = false;
 static int arg_secure_boot = -1;
 static MachineCredential *arg_credentials = NULL;
@@ -67,6 +73,8 @@ static int help(void) {
                "     --qemu-smp=SMP         Configure guest's SMP settings\n"
                "     --qemu-mem=MEM         Configure guest's RAM size\n"
                "     --qemu-kvm=            Configure whether to use KVM or not\n"
+               "     --qemu-vsock=          Configure whether to use qemu with a vsock or not\n"
+               "     --vsock-cid=           Specify the CID to use for the qemu guest's vsock\n"
                "     --qemu-gui             Start QEMU in graphical mode\n"
                "     --secure-boot=         Configure whether to search for firmware which supports Secure Boot\n\n"
                "%3$sCredentials:%4$s\n"
@@ -93,6 +101,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_QEMU_SMP,
                 ARG_QEMU_MEM,
                 ARG_QEMU_KVM,
+                ARG_QEMU_VSOCK,
+                ARG_VSOCK_CID,
                 ARG_QEMU_GUI,
                 ARG_SECURE_BOOT,
                 ARG_SET_CREDENTIAL,
@@ -107,6 +117,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "qemu-smp",        required_argument, NULL, ARG_QEMU_SMP        },
                 { "qemu-mem",        required_argument, NULL, ARG_QEMU_MEM        },
                 { "qemu-kvm",        required_argument, NULL, ARG_QEMU_KVM        },
+                { "qemu-vsock",      required_argument, NULL, ARG_QEMU_VSOCK      },
+                { "vsock-cid",       required_argument, NULL, ARG_VSOCK_CID       },
                 { "qemu-gui",        no_argument,       NULL, ARG_QEMU_GUI        },
                 { "secure-boot",     required_argument, NULL, ARG_SECURE_BOOT     },
                 { "set-credential",  required_argument, NULL, ARG_SET_CREDENTIAL  },
@@ -158,6 +170,25 @@ static int parse_argv(int argc, char *argv[]) {
                             return log_error_errno(r, "Failed to parse --qemu-kvm=%s: %m", optarg);
                         break;
 
+                case ARG_QEMU_VSOCK:
+                        r = parse_tristate(optarg, &arg_qemu_vsock);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --qemu-vsock=%s: %m", optarg);
+                        break;
+
+                case ARG_VSOCK_CID: {
+                        unsigned int cid;
+                        if (isempty(optarg))
+                                cid = VMADDR_CID_ANY;
+                        else {
+                                r = safe_atou(optarg, &cid);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse --vsock-cid=%s: %m", optarg);
+                        }
+                        arg_vsock_cid = (uint64_t)cid;
+                        break;
+                }
+
                 case ARG_QEMU_GUI:
                         arg_qemu_gui = true;
                         break;
@@ -208,11 +239,163 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
+static int open_vsock(void) {
+        _cleanup_close_ int vsock_fd = -EBADF;
+        int r;
+        static const union sockaddr_union bind_addr = {
+                .vm.svm_family = AF_VSOCK,
+                .vm.svm_cid = VMADDR_CID_ANY,
+                .vm.svm_port = VMADDR_PORT_ANY,
+        };
+
+        vsock_fd = socket(AF_VSOCK, SOCK_STREAM|SOCK_CLOEXEC, 0);
+        if (vsock_fd < 0)
+                return log_error_errno(errno, "Failed to open AF_VSOCK socket: %m");
+
+        r = bind(vsock_fd, &bind_addr.sa, sizeof(bind_addr.vm));
+        if (r < 0)
+                return log_error_errno(errno, "Failed to bind to vsock to address %u:%u: %m", bind_addr.vm.svm_cid, bind_addr.vm.svm_port);
+
+        r = listen(vsock_fd, 10);
+        if (r < 0)
+                return log_error_errno(errno, "Failed to listen on vsock: %m");
+
+        return TAKE_FD(vsock_fd);
+}
+
+static int vmspawn_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
+        char buf[NOTIFY_BUFFER_MAX+1];
+        const char *p = NULL;
+        struct iovec iovec = {
+                .iov_base = buf,
+                .iov_len = sizeof(buf)-1,
+        };
+        struct msghdr msghdr = {
+                .msg_iov = &iovec,
+                .msg_iovlen = 1,
+        };
+        ssize_t n;
+        _cleanup_strv_free_ char **tags = NULL;
+        int r, *exit_status = ASSERT_PTR(userdata);
+
+        n = recvmsg_safe(fd, &msghdr, MSG_DONTWAIT);
+        if (ERRNO_IS_NEG_TRANSIENT(n))
+                return 0;
+        if (n == -EXFULL) {
+                log_warning_errno(n, "Got message with truncated control data, ignoring: %m");
+                return 0;
+        }
+        if (n < 0)
+                return log_warning_errno(n, "Couldn't read notification socket: %m");
+
+        if ((size_t) n >= sizeof(buf)) {
+                log_warning("Received notify message exceeded maximum size. Ignoring.");
+                return 0;
+        }
+
+        buf[n] = 0;
+        tags = strv_split(buf, "\n\r");
+        if (!tags)
+                return log_oom();
+
+        STRV_FOREACH(s, tags)
+                log_debug("Received tag %s from notify socket", *s);
+
+        if (strv_contains(tags, "READY=1")) {
+                r = sd_notify(false, "READY=1\n");
+                if (r < 0)
+                        log_warning_errno(r, "Failed to send readiness notification, ignoring: %m");
+        }
+
+        p = strv_find_startswith(tags, "STATUS=");
+        if (p)
+                (void) sd_notifyf(false, "STATUS=Container running: %s", p);
+
+        p = strv_find_startswith(tags, "EXIT_STATUS=");
+        if (p) {
+                r = safe_atoi(p, exit_status);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to parse exit status from %s, ignoring: %m", p);
+        }
+
+        /* we will only receive one message from each connection so disable this source once one is received */
+        source = sd_event_source_disable_unref(source);
+
+        return 0;
+}
+
+static int vmspawn_dispatch_vsock_connections(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
+        int r;
+        sd_event *event;
+
+        assert(userdata);
+
+        if (revents != EPOLLIN) {
+                log_warning("Got unexpected poll event for vsock fd.");
+                return 0;
+        }
+
+        r = accept4(fd, NULL, NULL, SOCK_CLOEXEC|SOCK_NONBLOCK);
+        if (r < 0) {
+                log_warning_errno(errno, "Failed to accept connection from vsock fd (%m), ignoring...");
+                return 0;
+        }
+
+        int conn_fd = r;
+        event = sd_event_source_get_event(source);
+        if (!event)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "Failed to retrieve event from event source, exiting task");
+
+        /* add a new floating task to read from the connection */
+        r = sd_event_add_io(event, NULL, conn_fd, revents, vmspawn_dispatch_notify_fd, userdata);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate notify connection event source: %m");
+
+        return 0;
+}
+
+static int setup_notify_parent(sd_event *event, int fd, int *exit_status, sd_event_source **notify_event_source) {
+        int r;
+
+        r = sd_event_add_io(event, notify_event_source, fd, EPOLLIN, vmspawn_dispatch_vsock_connections, exit_status);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate notify socket event source: %m");
+
+        (void) sd_event_source_set_description(*notify_event_source, "vmspawn-notify-sock");
+
+        return 0;
+}
+
+static int on_orderly_shutdown(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
+        pid_t pid;
+
+        pid = PTR_TO_PID(userdata);
+        if (pid > 0) {
+                /* TODO: actually talk to qemu and ask the guest to shutdown here */
+                if (kill(pid, SIGKILL) >= 0) {
+                        log_info("Trying to halt qemu. Send SIGTERM again to trigger immediate termination.");
+                        sd_event_source_set_userdata(s, NULL);
+                        return 0;
+                }
+        }
+
+        sd_event_exit(sd_event_source_get_event(s), 0);
+        return 0;
+}
+
+static int on_child_exit(sd_event_source *s, const siginfo_t *si, void *userdata) {
+        sd_event_exit(sd_event_source_get_event(s), 0);
+        return 0;
+}
+
 static int run_virtual_machine(void) {
         _cleanup_(ovmf_config_freep) OvmfConfig *ovmf_config = NULL;
         _cleanup_strv_free_ char **cmdline = NULL;
-        _cleanup_free_ char *machine = NULL, *qemu_binary = NULL, *mem = NULL, *kcl = NULL;
+        _cleanup_free_ char *machine = NULL, *qemu_binary = NULL, *mem = NULL;
         int r;
+#ifdef ARCHITECTURE_SUPPORTS_SMBIOS
+        _cleanup_close_ int vsock_fd = -EBADF;
+#endif
 
         bool use_kvm = arg_qemu_kvm > 0;
         if (arg_qemu_kvm < 0) {
@@ -256,9 +439,37 @@ static int run_virtual_machine(void) {
                 "-m", mem,
                 "-object", "rng-random,filename=/dev/urandom,id=rng0",
                 "-device", "virtio-rng-pci,rng=rng0,id=rng-device0",
-                "-nic", "user,model=virtio-net-pci",
-                "-cpu", "max"
+                "-nic", "user,model=virtio-net-pci"
         );
+
+        bool use_vsock = arg_qemu_vsock > 0;
+        if (arg_qemu_vsock < 0) {
+                r = qemu_check_vsock_support();
+                if (r < 0)
+                        return log_error_errno(r, "Failed to check for VSock support: %m");
+
+                use_vsock = r;
+        }
+
+        unsigned int child_cid = VMADDR_CID_ANY;
+        if (use_vsock) {
+                if (arg_vsock_cid <= UINT_MAX)
+                        child_cid = (unsigned int)arg_vsock_cid;
+                else {
+                        r = machine_cid(&child_cid);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to allocate a CID for the guest: %m");
+                }
+
+                r = strv_extend(&cmdline, "-device");
+                if (r < 0)
+                        return log_oom();
+                r = strv_extendf(&cmdline, "vhost-vsock-pci,guest-cid=%u", child_cid);
+                if (r < 0)
+                        return log_oom();
+        }
+
+        strv_extend_strv(&cmdline, STRV_MAKE("-cpu", "max"), false);
 
         if (arg_qemu_gui) {
                 r = strv_extend_strv(&cmdline, STRV_MAKE("-vga", "virtio"), /* filter_duplicates= */ false);
@@ -357,9 +568,9 @@ static int run_virtual_machine(void) {
         if (r < 0)
                 return log_oom();
 
-        if (strv_length(arg_parameters) != 0) {
+        if (!strv_isempty(arg_parameters)) {
 #if ARCHITECTURE_SUPPORTS_SMBIOS
-                kcl = strv_join(arg_parameters, " ");
+                _cleanup_free_ char *kcl = strv_join(arg_parameters, " ");
                 if (!kcl)
                         return log_oom();
 
@@ -370,10 +581,47 @@ static int run_virtual_machine(void) {
                 r = strv_extendf(&cmdline, "type=11,value=io.systemd.stub.kernel-cmdline-extra=%s", kcl);
                 if (r < 0)
                         return log_oom();
+                log_debug("kcl=%s", kcl);
 #else
                 log_warning("Cannot append extra args to kernel cmdline, native architecture doesn't support SMBIOS");
 #endif
         }
+
+#ifdef ARCHITECTURE_SUPPORTS_SMBIOS
+        if (use_vsock) {
+                r = open_vsock();
+                if (r < 0)
+                        return log_error_errno(r, "Failed to open vsock: %m");
+                vsock_fd = r;
+
+                r = strv_extend(&cmdline, "-smbios");
+                if (r < 0)
+                        return log_oom();
+
+                union sockaddr_union addr;
+                socklen_t addr_len = sizeof addr.vm;
+                r = getsockname(vsock_fd, &addr.sa, &addr_len);
+                if (r < 0)
+                        return log_error_errno(errno, "Failed to call getsockname on vsock: %m");
+                if (addr_len < sizeof addr.vm)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "getsockname didn't return enough data: %m");
+                if (addr.vm.svm_family != AF_VSOCK)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "getsockname returned data for the wrong socket type: %m");
+
+                log_info("Using vsock-stream:%u:%u", (unsigned) VMADDR_CID_HOST, addr.vm.svm_port);
+                r = strv_extendf(&cmdline, "type=11,value=io.systemd.credential:vmm.notify_socket=vsock-stream:%u:%u", (unsigned) VMADDR_CID_HOST, addr.vm.svm_port);
+                if (r < 0)
+                        return log_oom();
+        }
+#endif
+
+        _cleanup_(sd_event_source_unrefp) sd_event_source *notify_event_source = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        r = sd_event_new(&event);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get default event source: %m");
+
+        (void) sd_event_set_watchdog(event, true);
 
         pid_t child_pid;
         r = safe_fork(qemu_binary, 0, &child_pid);
@@ -390,7 +638,38 @@ static int run_virtual_machine(void) {
                 _exit(EXIT_FAILURE);
         }
 
-        return wait_for_terminate_and_check(qemu_binary, child_pid, WAIT_LOG);
+#ifdef ARCHITECTURE_SUPPORTS_SMBIOS
+        int exit_status = INT_MAX;
+        if (use_vsock)
+                setup_notify_parent(event, vsock_fd, &exit_status, &notify_event_source);
+#endif
+
+        /* shutdown qemu when we are shutdown */
+        (void) sd_event_add_signal(event, NULL, SIGINT, on_orderly_shutdown, PID_TO_PTR(child_pid));
+        (void) sd_event_add_signal(event, NULL, SIGTERM, on_orderly_shutdown, PID_TO_PTR(child_pid));
+
+        (void) sd_event_add_signal(event, NULL, SIGRTMIN+18, sigrtmin18_handler, NULL);
+
+        /* Exit when the child exits */
+        (void) sd_event_add_child(event, NULL, child_pid, WEXITED, on_child_exit, NULL);
+
+        r = sd_event_loop(event);
+        if (r < 0)
+                return log_error_errno(r, "Failed to run event loop: %m");
+
+#ifdef ARCHITECTURE_SUPPORTS_SMBIOS
+        if (use_vsock) {
+                if (exit_status == INT_MAX) {
+                        log_warning("Couldn't retrieve inner EXIT_STATUS from vsock");
+                        return EXIT_FAILURE;
+                }
+                if (exit_status != 0)
+                        log_warning("Non-zero exit code received: %d", exit_status);
+                return exit_status;
+        }
+#endif
+
+        return 0;
 }
 
 static int run(int argc, char *argv[]) {
@@ -406,6 +685,8 @@ static int run(int argc, char *argv[]) {
                 log_error("Missing required argument -i/--image, quitting");
                 goto finish;
         }
+
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, SIGTERM, SIGINT, SIGRTMIN+18, -1) >= 0);
 
         r = run_virtual_machine();
 finish:
