@@ -1324,41 +1324,68 @@ int make_userns(uid_t uid_shift, uid_t uid_range, uid_t owner, RemountIdmapping 
 }
 
 int remount_idmap_fd(
-                const char *p,
+                char **paths,
                 int userns_fd) {
 
-        _cleanup_close_ int mount_fd = -EBADF;
         int r;
 
-        assert(p);
         assert(userns_fd >= 0);
 
-        /* Clone the mount point */
-        mount_fd = open_tree(-1, p, OPEN_TREE_CLONE | OPEN_TREE_CLOEXEC);
-        if (mount_fd < 0)
-                return log_debug_errno(errno, "Failed to open tree of mounted filesystem '%s': %m", p);
+        /* This remounts all specified paths with the specified userns as idmap. It will do so in in the
+         * order specified in the strv: the expectation is that the top-level directories are at the
+         * beginning, and nested directories in the right, so that the tree can be built correctly from left
+         * to right. */
 
-        /* Set the user namespace mapping attribute on the cloned mount point */
-        if (mount_setattr(mount_fd, "", AT_EMPTY_PATH | AT_RECURSIVE,
-                          &(struct mount_attr) {
-                                  .attr_set = MOUNT_ATTR_IDMAP,
-                                  .userns_fd = userns_fd,
-                          }, sizeof(struct mount_attr)) < 0)
-                return log_debug_errno(errno, "Failed to change bind mount attributes for '%s': %m", p);
+        size_t n = strv_length(paths);
+        if (n == 0) /* Nothing to do? */
+                return 0;
 
-        /* Remove the old mount point */
-        r = umount_verbose(LOG_DEBUG, p, UMOUNT_NOFOLLOW);
-        if (r < 0)
-                return r;
+        int *mount_fds = NULL;
+        size_t n_mounts_fds = 0;
 
-        /* And place the cloned version in its place */
-        if (move_mount(mount_fd, "", -1, p, MOVE_MOUNT_F_EMPTY_PATH) < 0)
-                return log_debug_errno(errno, "Failed to attach UID mapped mount to '%s': %m", p);
+        CLEANUP_ARRAY(mount_fds, n_mounts_fds, close_many_and_free);
+
+        mount_fds = new(int, n);
+        if (!mount_fds)
+                return log_oom_debug();
+
+        for (size_t i = 0; i < n; i++) {
+                int mntfd;
+
+                /* Clone the mount point */
+                mntfd = mount_fds[n_mounts_fds] = open_tree(-EBADF, paths[i], OPEN_TREE_CLONE | OPEN_TREE_CLOEXEC);
+                if (mount_fds[n_mounts_fds] < 0)
+                        return log_debug_errno(errno, "Failed to open tree of mounted filesystem '%s': %m", paths[i]);
+
+                n_mounts_fds++;
+
+                /* Set the user namespace mapping attribute on the cloned mount point */
+                if (mount_setattr(mntfd, "", AT_EMPTY_PATH,
+                                  &(struct mount_attr) {
+                                          .attr_set = MOUNT_ATTR_IDMAP,
+                                          .userns_fd = userns_fd,
+                                  }, sizeof(struct mount_attr)) < 0)
+                        return log_debug_errno(errno, "Failed to change bind mount attributes for clone of '%s': %m", paths[i]);
+        }
+
+        for (size_t i = n; i > 0; i--) { /* Unmount the paths right-to-left */
+                /* Remove the old mount points now that we have a idmapped mounts as replacement for all of them */
+                r = umount_verbose(LOG_DEBUG, paths[i-1], UMOUNT_NOFOLLOW);
+                if (r < 0)
+                        return r;
+        }
+
+        for (size_t i = 0; i < n; i++) { /* Mount the replacement mounts left-to-right */
+                /* And place the cloned version in its place */
+                log_debug("Mounting idmapped fs to '%s'", paths[i]);
+                if (move_mount(mount_fds[i], "", -EBADF, paths[i], MOVE_MOUNT_F_EMPTY_PATH) < 0)
+                        return log_debug_errno(errno, "Failed to attach UID mapped mount to '%s': %m", paths[i]);
+        }
 
         return 0;
 }
 
-int remount_idmap(const char *p, uid_t uid_shift, uid_t uid_range, uid_t owner, RemountIdmapping idmapping) {
+int remount_idmap(char **p, uid_t uid_shift, uid_t uid_range, uid_t owner, RemountIdmapping idmapping) {
         _cleanup_close_ int userns_fd = -EBADF;
 
         userns_fd = make_userns(uid_shift, uid_range, owner, idmapping);

@@ -2021,7 +2021,7 @@ static int mount_partition(
                                 (void) fs_grow(node, -EBADF, p);
 
                         if (userns_fd >= 0) {
-                                r = remount_idmap_fd(p, userns_fd);
+                                r = remount_idmap_fd(STRV_MAKE(p), userns_fd);
                                 if (r < 0)
                                         return r;
                         }

@@ -828,7 +828,7 @@ static int mount_bind(const char *dest, CustomMount *m, uid_t uid_shift, uid_t u
         }
 
         if (idmapping != REMOUNT_IDMAPPING_NONE) {
-                r = remount_idmap(where, uid_shift, uid_range, source_st.st_uid, idmapping);
+                r = remount_idmap(STRV_MAKE(where), uid_shift, uid_range, source_st.st_uid, idmapping);
                 if (r < 0)
                         return log_error_errno(r, "Failed to map ids for bind mount %s: %m", where);
         }
