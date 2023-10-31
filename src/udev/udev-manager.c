@@ -867,53 +867,33 @@ int manager_update_environment(Manager *manager, const char *env) {
         assert(env);
 
         eq = strchr(env, '=');
-        if (!eq) {
-                log_error("Invalid key format '%s'", env);
-                return 1;
-        }
+        if (!eq)
+                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Invalid key format '%s'", env);
 
         key = strndup(env, eq - env);
-        if (!key) {
-                log_oom();
-                return 1;
-        }
+        if (!key)
+                return log_oom();
 
         old_val = hashmap_remove2(manager->properties, key, (void **) &old_key);
-
-        r = hashmap_ensure_allocated(&manager->properties, &string_hash_ops);
-        if (r < 0) {
-                log_oom();
-                return 1;
-        }
 
         eq++;
         if (isempty(eq)) {
                 log_debug("Unsetting environment key '%s'", key);
 
-                r = hashmap_put(manager->properties, key, NULL);
-                if (r < 0) {
-                        log_oom();
-                        return 1;
-                }
+                r = hashmap_ensure_put(&manager->properties, &string_hash_ops, key, NULL);
+                if (r < 0)
+                        return r;
         } else {
-                val = strdup(eq);
-                if (!val) {
-                        log_oom();
-                        return 1;
-                }
-
                 log_debug("Setting environment key '%s=%s'", key, val);
 
-                r = hashmap_put(manager->properties, key, val);
-                if (r < 0) {
-                        log_oom();
-                        return 1;
-                }
+                r = hashmap_put_strdup_full(&manager->properties, &string_hash_ops, key, val);
+                if (r < 0)
+                        return r;
         }
 
         key = val = NULL;
 
-        manager_kill_workers(manager, false);
+        manager_kill_workers(manager, /* force = */ false);
 
         return 0;
 }
@@ -921,6 +901,7 @@ int manager_update_environment(Manager *manager, const char *env) {
 /* receive the udevd message from userspace */
 static int on_ctrl_msg(UdevCtrl *uctrl, UdevCtrlMessageType type, const UdevCtrlMessageValue *value, void *userdata) {
         Manager *manager = ASSERT_PTR(userdata);
+        int r;
 
         assert(value);
 
@@ -949,7 +930,8 @@ static int on_ctrl_msg(UdevCtrl *uctrl, UdevCtrlMessageType type, const UdevCtrl
                 manager_reload(manager, /* force = */ true);
                 break;
         case UDEV_CTRL_SET_ENV:
-                if (manager_update_environment(manager, value->buf) != 0)
+                r = manager_update_environment(manager, value->buf);
+                if (r < 0)
                         return 1;
                 break;
         case UDEV_CTRL_SET_CHILDREN_MAX:
