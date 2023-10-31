@@ -114,6 +114,14 @@ modules += [
                 'sources' : files('pam_systemd.c'),
                 'version-script' : meson.current_source_dir() / 'pam_systemd.sym',
         },
+        pam_template + {
+                'name' : 'pam_kernel_keyring',
+                'conditions' : [
+                        'HAVE_PAM',
+                ],
+                'sources' : files('pam_kernel_keyring.c'),
+                'version-script' : meson.current_source_dir() / 'pam_kernel_keyring.sym',
+        },
 ]
 
 enable_logind = conf.get('ENABLE_LOGIND') == 1
