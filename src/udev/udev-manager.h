@@ -65,5 +65,6 @@ int manager_main(Manager *manager);
 int manager_open_varlink(Manager *m);
 
 void manager_reload(Manager *manager, bool force);
+void manager_set_log_level(Manager *manager, int level);
 
 bool devpath_conflict(const char *a, const char *b);

@@ -889,13 +889,7 @@ static int on_ctrl_msg(UdevCtrl *uctrl, UdevCtrlMessageType type, const UdevCtrl
 
                 log_debug("Received udev control message (SET_LOG_LEVEL), setting log_level=%i", value->intval);
 
-                r = log_get_max_level();
-                if (r == value->intval)
-                        break;
-
-                log_set_max_level(value->intval);
-                manager->log_level = value->intval;
-                manager_kill_workers(manager, false);
+                manager_set_log_level(manager, value->intval);
                 break;
         case UDEV_CTRL_STOP_EXEC_QUEUE:
                 log_debug("Received udev control message (STOP_EXEC_QUEUE)");
@@ -1416,4 +1410,16 @@ int manager_main(Manager *manager) {
 
         (void) sd_notify(/* unset= */ false, NOTIFY_STOPPING);
         return r;
+}
+
+void manager_set_log_level(Manager *manager, int level) {
+        assert(manager);
+
+        if (level == log_get_max_level())
+                return;
+
+        log_set_max_level(level);
+        manager->log_level = level;
+
+        manager_kill_workers(manager, /* force = */ false);
 }
