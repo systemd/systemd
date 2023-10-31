@@ -279,9 +279,9 @@
         <para><varname>SystemMaxFileSize=</varname> and <varname>RuntimeMaxFileSize=</varname> control how
         large individual journal files may grow at most. This influences the granularity in which disk space
         is made available through rotation, i.e. deletion of historic data. Defaults to one eighth of the
-        values configured with <varname>SystemMaxUse=</varname> and <varname>RuntimeMaxUse=</varname>, so
-        that usually seven rotated journal files are kept as history. If the journal compact mode is enabled
-        (enabled by default), the maximum file size is capped to 4G.</para>
+        values configured with <varname>SystemMaxUse=</varname> and <varname>RuntimeMaxUse=</varname> capped
+        to 128M, so that usually seven rotated journal files are kept as history. If the journal compact 
+        mode is enabled (enabled by default), the maximum file size is capped to 4G.</para>
 
         <para>Specify values in bytes or use K, M, G, T, P, E as units for the specified sizes (equal to
         1024, 1024², … bytes). Note that size limits are enforced synchronously when journal files are
