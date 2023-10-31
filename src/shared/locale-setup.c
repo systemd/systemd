@@ -208,7 +208,7 @@ int locale_context_save(LocaleContext *c, char ***ret_set, char ***ret_unset) {
                 return 0;
         }
 
-        r = write_env_file_label("/etc/locale.conf", set);
+        r = write_env_file_label(AT_FDCWD, "/etc/locale.conf", NULL, set);
         if (r < 0)
                 return r;
 
