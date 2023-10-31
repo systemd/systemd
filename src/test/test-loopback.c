@@ -13,10 +13,8 @@ TEST_RET(loopback_setup) {
         int r;
 
         if (unshare(CLONE_NEWUSER | CLONE_NEWNET) < 0) {
-                if (ERRNO_IS_PRIVILEGE(errno) || ERRNO_IS_NOT_SUPPORTED(errno)) {
-                        log_notice("Skipping test, lacking privileges or namespaces not supported");
-                        return EXIT_TEST_SKIP;
-                }
+                if (ERRNO_IS_PRIVILEGE(errno) || ERRNO_IS_NOT_SUPPORTED(errno))
+                        return log_tests_skipped("lacking privileges or namespaces not supported");
                 return log_error_errno(errno, "Failed to create user+network namespace: %m");
         }
 
