@@ -719,6 +719,7 @@ static Network *network_free(Network *network) {
 
         /* DHCPv6 client */
         free(network->dhcp6_mudurl);
+        free(network->dhcp6_hostname);
         strv_free(network->dhcp6_user_class);
         strv_free(network->dhcp6_vendor_class);
         set_free(network->dhcp6_request_options);
