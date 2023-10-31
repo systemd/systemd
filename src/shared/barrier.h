@@ -34,7 +34,7 @@ struct Barrier {
         int64_t barriers;
 };
 
-#define BARRIER_NULL {-1, -1, {-1, -1}, 0}
+#define BARRIER_NULL {-EBADF, -EBADF, {-EBADF, -EBADF}, 0}
 
 int barrier_create(Barrier *obj);
 Barrier* barrier_destroy(Barrier *b);
