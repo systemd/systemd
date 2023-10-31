@@ -2543,11 +2543,17 @@ static int method_can_shutdown_or_sleep(
         assert(a);
 
         if (a->sleep_operation >= 0) {
-                r = sleep_supported(a->sleep_operation);
+                SleepSupport support;
+
+                r = sleep_supported_full(a->sleep_operation, &support);
                 if (r < 0)
                         return r;
-                if (r == 0)
+                if (r == 0) {
+                        if (support == SLEEP_DISABLED)
+                                return sd_bus_reply_method_return(message, "s", "no");
+
                         return sd_bus_reply_method_return(message, "s", "na");
+                }
         }
 
         r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_EUID, &creds);
