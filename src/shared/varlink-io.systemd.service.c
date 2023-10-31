@@ -27,3 +27,29 @@ int varlink_method_ping(Varlink *link, JsonVariant *parameters, VarlinkMethodFla
 
         return varlink_reply(link, NULL);
 }
+
+int varlink_method_set_log_level(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+        static const JsonDispatch dispatch_table[] = {
+                {"level", JSON_VARIANT_INTEGER, json_dispatch_int64, 0},
+                {}
+        };
+
+        int64_t level;
+        int r;
+
+        assert(link);
+        assert(parameters);
+
+        if (json_variant_elements(parameters) != 2)
+                return varlink_error_invalid_parameter(link, parameters);
+
+        r = json_dispatch(parameters, dispatch_table, NULL, 0, &level);
+        if (r < 0)
+                return r;
+
+        log_debug("Received io.systemd.system.SetLogLevel(%" PRIi64 ")", level);
+
+        log_set_max_level(LOG_PRI(level));
+
+        return varlink_reply(link, NULL);
+}
