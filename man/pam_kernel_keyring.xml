@@ -70,16 +70,16 @@
     manager, and want to unlock Gnome Keyring / KDE KWallet automatically. So in total, you only enter one password
     during boot.</para>
 
-    <para>You need to set the password of your Gnome Keyring/Kwallet to the same as your LUKS passphrase.
-    Then add the following lines to your display manager's PAM file under <literal>/etc/pam.d</literal>:</para>
+    <para>You need to set the password of your Gnome Keyring/KWallet to the same as your LUKS passphrase.
+    Then add the following lines to your display manager's PAM config under <literal>/etc/pam.d</literal> (e.g. sddm-autologin):</para>
 
     <programlisting>
-      -auth       optional    pam_kernel_keyring.so
-      -session    optional    pam_gnome_keyring.so auto_start
-      -session    optional    pam_kwallet5.so auto_start
+    -auth       optional    pam_kernel_keyring.so
+    -session    optional    pam_gnome_keyring.so auto_start
+    -session    optional    pam_kwallet5.so auto_start
     </programlisting>
 
-    <para>You also need to add the following to your display manager's systemd service file, so it can access root's keyring:</para>
+    <para>And add the following lines to your display manager's systemd service file, so it can access root's keyring:</para>
 
     <programlisting>
     [Service]
