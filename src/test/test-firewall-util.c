@@ -107,7 +107,7 @@ int main(int argc, char *argv[]) {
         assert_se(ctx);
 
         if (ctx->backend == FW_BACKEND_NONE)
-                return EXIT_TEST_SKIP;
+                return log_tests_skipped("no firewall backend supported");
 
         if (test_v4(ctx) && ctx->backend == FW_BACKEND_NFTABLES)
                 test_v6(ctx);

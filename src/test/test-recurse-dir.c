@@ -132,19 +132,15 @@ int main(int argc, char *argv[]) {
                 p = "/usr/share/man"; /* something hopefully reasonably stable while we run (and limited in size) */
 
         fd = open(p, O_DIRECTORY|O_CLOEXEC);
-        if (fd < 0 && errno == ENOENT) {
-                log_warning_errno(errno, "Couldn't open directory %s, ignoring: %m", p);
-                return EXIT_TEST_SKIP;
-        }
+        if (fd < 0 && errno == ENOENT)
+                return log_tests_skipped_errno(errno, "Couldn't open directory %s", p);
         assert_se(fd >= 0);
 
         /* If the test directory is on an overlayfs then files and their directory may return different
          * st_dev in stat results, which confuses nftw into thinking they're on different filesystems and
          * won't return the result when the FTW_MOUNT flag is set. */
-        if (fd_is_fs_type(fd, OVERLAYFS_SUPER_MAGIC)) {
-                log_tests_skipped("nftw mountpoint detection produces false-positives on overlayfs");
-                return EXIT_TEST_SKIP;
-        }
+        if (fd_is_fs_type(fd, OVERLAYFS_SUPER_MAGIC))
+                return log_tests_skipped("nftw mountpoint detection produces false-positives on overlayfs");
 
         /* Enumerate the specified dirs in full, once via nftw(), and once via recurse_dir(), and ensure the
          * results are identical. nftw() sometimes skips symlinks (see
