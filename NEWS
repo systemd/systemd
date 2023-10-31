@@ -37,6 +37,11 @@ CHANGES WITH 255 in spe:
           Transitions between real systems should be done with "systemctl soft-reboot"
           instead.
 
+        * The ip=off and ip=none kernel command line options interpreted by
+          systemd-network-generator will now result in IPv6RA + link-local
+          addressing to be disabled, too. Previously DHCP was turned off, but
+          IPv6RA and IPv6 link-local addressing was left enabled.
+
         Device Management:
 
         * udev will now create symlinks to loopback block devices in the
