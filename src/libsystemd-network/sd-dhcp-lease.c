@@ -737,7 +737,7 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void
 
         case SD_DHCP_OPTION_RAPID_COMMIT:
                 if (len > 0)
-                        log_debug("Invalid DHCP Rapid Commit option, ignorning.");
+                        log_debug("Invalid DHCP Rapid Commit option, ignoring.");
                 lease->rapid_commit = true;
                 break;
 

@@ -746,5 +746,5 @@ secure (as no sandboxing restrictions can be enforced).
 
 Compatibility support for System V services in systemd is deprecated. Please
 make sure to update the package in question to provide proper, native systemd
-unit files. Contact vendor if necesssary. Compatibility support for System V
+unit files. Contact vendor if necessary. Compatibility support for System V
 services is deprecated and will be removed soon.

@@ -145,7 +145,7 @@ if ! systemd-detect-virt -cq; then
         -p SocketBindAllow=1234
         -p SocketBindAllow=ipv4:udp:any
         -p SocketBindAllow=ipv6:6666
-        # Everything but the last assignment is superfluous, but it still excercises
+        # Everything but the last assignment is superfluous, but it still exercises
         # the parsing machinery
         -p SocketBindDeny=
         -p SocketBindDeny=1111

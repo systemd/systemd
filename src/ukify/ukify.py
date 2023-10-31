@@ -1590,7 +1590,7 @@ def finalize_options(opts):
             opts.sb_cert = pathlib.Path(opts.sb_cert)
 
     if bool(opts.sb_key) ^ bool(opts.sb_cert):
-        # one param only given, sbsign need boths
+        # one param only given, sbsign needs both
         raise ValueError('--secureboot-private-key= and --secureboot-certificate= must be specified together')
     elif bool(opts.sb_key) and bool(opts.sb_cert):
         # both param given, infer sbsign and in case it was given, ensure signtool=sbsign

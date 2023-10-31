@@ -138,9 +138,9 @@ int main(int argc, char *argv[]) {
         }
         assert_se(fd >= 0);
 
-        /* If the test directory is on an overlayfs then files and their direcory may return different st_dev
-         * in stat results, which confuses nftw into thinking they're on different filesystems
-         * and won't return the result when the FTW_MOUNT flag is set. */
+        /* If the test directory is on an overlayfs then files and their directory may return different
+         * st_dev in stat results, which confuses nftw into thinking they're on different filesystems and
+         * won't return the result when the FTW_MOUNT flag is set. */
         if (fd_is_fs_type(fd, OVERLAYFS_SUPER_MAGIC)) {
                 log_tests_skipped("nftw mountpoint detection produces false-positives on overlayfs");
                 return EXIT_TEST_SKIP;
