@@ -989,6 +989,17 @@ int manager_unset_environment(Manager *manager, char **names) {
         return update_environment(manager, names, unset_environment_one);
 }
 
+void manager_set_children_max(Manager *manager, unsigned n) {
+        assert(manager);
+
+        manager->children_max = n;
+
+        /* When 0 is specified, determine the maximum based on the system resources. */
+        manager_set_default_children_max(manager);
+
+        notify_ready(manager);
+}
+
 /* receive the udevd message from userspace */
 static int on_ctrl_msg(UdevCtrl *uctrl, UdevCtrlMessageType type, const UdevCtrlMessageValue *value, void *userdata) {
         Manager *manager = ASSERT_PTR(userdata);
@@ -1053,12 +1064,7 @@ static int on_ctrl_msg(UdevCtrl *uctrl, UdevCtrlMessageType type, const UdevCtrl
                 }
 
                 log_debug("Received udev control message (SET_MAX_CHILDREN), setting children_max=%i", value->intval);
-                manager->children_max = value->intval;
-
-                /* When 0 is specified, determine the maximum based on the system resources. */
-                manager_set_default_children_max(manager);
-
-                notify_ready(manager);
+                manager_set_children_max(manager, value->intval);
                 break;
         case UDEV_CTRL_PING:
                 log_debug("Received udev control message (PING)");
