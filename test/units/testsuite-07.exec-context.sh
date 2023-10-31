@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: LGPL-2.1-or-later
+# shellcheck disable=SC2016
 set -eux
 set -o pipefail
 
@@ -74,10 +75,16 @@ if ! systemd-detect-virt -cq; then
         bash -xec "test ! -r /dev/kmsg"
     systemd-run --wait --pipe -p ProtectKernelLogs=no -p User=testuser \
         bash -xec "test -r /dev/kmsg"
+fi
 
-    # Check if we correctly serialize, deserialize, and set directives that
-    # have more complex internal handling
-    #
+systemd-run --wait --pipe -p BindPaths="/etc /home:/mnt:norbind -/foo/bar/baz:/usr:rbind" \
+    bash -xec "mountpoint /etc; test -d /etc/systemd; mountpoint /mnt; ! mountpoint /usr"
+systemd-run --wait --pipe -p BindReadOnlyPaths="/etc /home:/mnt:norbind -/foo/bar/baz:/usr:rbind" \
+    bash -xec "test ! -w /etc; test ! -w /mnt; ! mountpoint /usr"
+
+# Check if we correctly serialize, deserialize, and set directives that
+# have more complex internal handling
+if ! systemd-detect-virt -cq; then
     # Funny detail: this originally used the underlying rootfs device, but that,
     # for some reason, caused "divide error" in kernel, followed by a kernel panic
     TEMPFILE="$(mktemp)"
@@ -139,53 +146,150 @@ if ! systemd-detect-virt -cq; then
     systemd-run --wait --pipe --unit "$SERVICE_NAME" "${ARGUMENTS[@]}" \
         bash -xec 'test -r /dev/null; test ! -w /dev/null; test ! -r /dev/loop0; test -w /dev/loop0; test ! -r /dev/tty; test ! -w /dev/tty'
 
-    # SocketBind*=
-    ARGUMENTS=(
-        -p SocketBindAllow=
-        -p SocketBindAllow=1234
-        -p SocketBindAllow=ipv4:udp:any
-        -p SocketBindAllow=ipv6:6666
-        # Everything but the last assignment is superfluous, but it still exercises
-        # the parsing machinery
-        -p SocketBindDeny=
-        -p SocketBindDeny=1111
-        -p SocketBindDeny=ipv4:1111
-        -p SocketBindDeny=ipv4:any
-        -p SocketBindDeny=ipv4:tcp:any
-        -p SocketBindDeny=ipv4:udp:10000-11000
-        -p SocketBindDeny=ipv6:1111
-        -p SocketBindDeny=any
-    )
+    if ! systemctl --version | grep -qF -- "-BPF_FRAMEWORK"; then
+        # SocketBind*=
+        ARGUMENTS=(
+            -p SocketBindAllow=
+            -p SocketBindAllow=1234
+            -p SocketBindAllow=ipv4:udp:any
+            -p SocketBindAllow=ipv6:6666
+            # Everything but the last assignment is superfluous, but it still exercises
+            # the parsing machinery
+            -p SocketBindDeny=
+            -p SocketBindDeny=1111
+            -p SocketBindDeny=ipv4:1111
+            -p SocketBindDeny=ipv4:any
+            -p SocketBindDeny=ipv4:tcp:any
+            -p SocketBindDeny=ipv4:udp:10000-11000
+            -p SocketBindDeny=ipv6:1111
+            -p SocketBindDeny=any
+        )
 
-    # We should fail with EPERM when trying to bind to a socket not on the allow list
-    # (nc exits with 2 in that case)
-    systemd-run --wait -p SuccessExitStatus="1 2" --pipe "${ARGUMENTS[@]}" \
-        bash -xec 'timeout 1s nc -l 127.0.0.1 9999; exit 42'
-    systemd-run --wait -p SuccessExitStatus="1 2" --pipe "${ARGUMENTS[@]}" \
-        bash -xec 'timeout 1s nc -l ::1 9999; exit 42'
-    systemd-run --wait -p SuccessExitStatus="1 2" --pipe "${ARGUMENTS[@]}" \
-        bash -xec 'timeout 1s nc -6 -u -l ::1 9999; exit 42'
-    systemd-run --wait -p SuccessExitStatus="1 2" --pipe "${ARGUMENTS[@]}" \
-        bash -xec 'timeout 1s nc -4 -l 127.0.0.1 6666; exit 42'
-    # Consequently, we should succeed when binding to a socket on the allow list
-    # and keep listening on it until we're killed by `timeout` (EC 124)
-    systemd-run --wait --pipe -p SuccessExitStatus=124 "${ARGUMENTS[@]}" \
-        bash -xec 'timeout 1s nc -4 -l 127.0.0.1 1234; exit 1'
-    systemd-run --wait --pipe -p SuccessExitStatus=124 "${ARGUMENTS[@]}" \
-        bash -xec 'timeout 1s nc -4 -u -l 127.0.0.1 5678; exit 1'
-    systemd-run --wait --pipe -p SuccessExitStatus=124 "${ARGUMENTS[@]}" \
-        bash -xec 'timeout 1s nc -6 -l ::1 1234; exit 1'
-    systemd-run --wait --pipe -p SuccessExitStatus=124 "${ARGUMENTS[@]}" \
-        bash -xec 'timeout 1s nc -6 -l ::1 6666; exit 1'
+        # We should fail with EPERM when trying to bind to a socket not on the allow list
+        # (nc exits with 2 in that case)
+        systemd-run --wait -p SuccessExitStatus="1 2" --pipe "${ARGUMENTS[@]}" \
+            bash -xec 'timeout 1s nc -l 127.0.0.1 9999; exit 42'
+        systemd-run --wait -p SuccessExitStatus="1 2" --pipe "${ARGUMENTS[@]}" \
+            bash -xec 'timeout 1s nc -l ::1 9999; exit 42'
+        systemd-run --wait -p SuccessExitStatus="1 2" --pipe "${ARGUMENTS[@]}" \
+            bash -xec 'timeout 1s nc -6 -u -l ::1 9999; exit 42'
+        systemd-run --wait -p SuccessExitStatus="1 2" --pipe "${ARGUMENTS[@]}" \
+            bash -xec 'timeout 1s nc -4 -l 127.0.0.1 6666; exit 42'
+        # Consequently, we should succeed when binding to a socket on the allow list
+        # and keep listening on it until we're killed by `timeout` (EC 124)
+        systemd-run --wait --pipe -p SuccessExitStatus=124 "${ARGUMENTS[@]}" \
+            bash -xec 'timeout 1s nc -4 -l 127.0.0.1 1234; exit 1'
+        systemd-run --wait --pipe -p SuccessExitStatus=124 "${ARGUMENTS[@]}" \
+            bash -xec 'timeout 1s nc -4 -u -l 127.0.0.1 5678; exit 1'
+        systemd-run --wait --pipe -p SuccessExitStatus=124 "${ARGUMENTS[@]}" \
+            bash -xec 'timeout 1s nc -6 -l ::1 1234; exit 1'
+        systemd-run --wait --pipe -p SuccessExitStatus=124 "${ARGUMENTS[@]}" \
+            bash -xec 'timeout 1s nc -6 -l ::1 6666; exit 1'
+    fi
 
     losetup -d "$LODEV"
     rm -f "$TEMPFILE"
 fi
 
-systemd-run --wait --pipe -p BindPaths="/etc /home:/mnt:norbind -/foo/bar/baz:/usr:rbind" \
-    bash -xec "mountpoint /etc; test -d /etc/systemd; mountpoint /mnt; ! mountpoint /usr"
-systemd-run --wait --pipe -p BindReadOnlyPaths="/etc /home:/mnt:norbind -/foo/bar/baz:/usr:rbind" \
-    bash -xec "test ! -w /etc; test ! -w /mnt; ! mountpoint /usr"
+# {Cache,Configuration,Logs,Runtime,State}Directory=
+ARGUMENTS=(
+    -p CacheDirectory="foo/bar/baz"
+    -p CacheDirectory="foo"
+    -p CacheDirectory="context"
+    -p CacheDirectoryMode="0123"
+    -p CacheDirectoryMode="0666"
+    -p ConfigurationDirectory="context/foo also_context/bar context/nested/baz"
+    -p ConfigurationDirectoryMode="0400"
+    -p LogsDirectory="context/foo"
+    -p LogsDirectory=""
+    -p LogsDirectory="context/a/very/nested/logs/dir"
+    -p RuntimeDirectory="context"
+    -p RuntimeDirectory="also_context"
+    -p RuntimeDirectoryPreserve=yes
+    -p StateDirectory="context"
+    -p StateDirectory="./././././././context context context"
+    -p StateDirectoryMode="0000"
+)
+
+rm -rf /run/context
+systemd-run --wait --pipe "${ARGUMENTS[@]}" \
+    bash -xec '[[ $CACHE_DIRECTORY == /var/cache/context:/var/cache/foo:/var/cache/foo/bar/baz ]];
+               [[ $(stat -c "%a" ${CACHE_DIRECTORY##*:}) == 666 ]]'
+systemd-run --wait --pipe "${ARGUMENTS[@]}" \
+    bash -xec '[[ $CONFIGURATION_DIRECTORY == /etc/also_context/bar:/etc/context/foo:/etc/context/nested/baz ]];
+               [[ $(stat -c "%a" ${CONFIGURATION_DIRECTORY##*:}) == 400 ]]'
+systemd-run --wait --pipe "${ARGUMENTS[@]}" \
+    bash -xec '[[ $LOGS_DIRECTORY == /var/log/context/a/very/nested/logs/dir:/var/log/context/foo ]];
+               [[ $(stat -c "%a" ${LOGS_DIRECTORY##*:}) == 755 ]]'
+systemd-run --wait --pipe "${ARGUMENTS[@]}" \
+    bash -xec '[[ $RUNTIME_DIRECTORY == /run/also_context:/run/context ]];
+               [[ $(stat -c "%a" ${RUNTIME_DIRECTORY##*:}) == 755 ]];
+               [[ $(stat -c "%a" ${RUNTIME_DIRECTORY%%:*}) == 755 ]]'
+systemd-run --wait --pipe "${ARGUMENTS[@]}" \
+    bash -xec '[[ $STATE_DIRECTORY == /var/lib/context ]]; [[ $(stat -c "%a" $STATE_DIRECTORY) == 0 ]]'
+test -d /run/context
+rm -rf /var/{cache,lib,log}/context /etc/{also_,}context
+
+# Limit*=
+#
+# Note: keep limits of LimitDATA= and LimitAS= unlimited, otherwise ASan (LSan)
+# won't be able to mmap the shadow maps
+ARGUMENTS=(
+    -p LimitCPU=15
+    -p LimitCPU=10:15         # ulimit -t
+    -p LimitFSIZE=7K          # ulimit -f
+    -p LimitDATA=8T:infinity
+    -p LimitDATA=infinity     # ulimit -d
+    -p LimitSTACK=8M          # ulimit -s
+    -p LimitCORE=infinity
+    -p LimitCORE=17M          # ulimit -c
+    -p LimitRSS=27G           # ulimit -m
+    -p LimitNOFILE=7:127      # ulimit -n
+    -p LimitAS=infinity       # ulimit -v
+    -p LimitNPROC=1
+    -p LimitNPROC=64:infinity # ulimit -u
+    -p LimitMEMLOCK=37M       # ulimit -l
+    -p LimitLOCKS=19:1021     # ulimit -x
+    -p LimitSIGPENDING=21     # ulimit -i
+    -p LimitMSGQUEUE=666      # ulimit -q
+    -p LimitNICE=4            # ulimit -e
+    -p LimitRTPRIO=8          # ulimit -r
+    -p LimitRTTIME=666666     # ulimit -R
+)
+# Do all the checks in one giant inline shell blob to avoid the overhead of spawning
+# a new service for each check
+#
+# Note: ulimit shows storage-related values in 1024-byte increments*
+#
+# * in POSIX mode -c a -f options show values in 512-byte increments; let's hope
+#   we never run in the POSIX mode
+systemd-run --wait --pipe "${ARGUMENTS[@]}" \
+    bash -xec 'KB=1; MB=$((KB * 1024)); GB=$((MB * 1024)); TB=$((GB * 1024));
+               : CPU;        [[ $(ulimit -St) -eq 10 ]];           [[ $(ulimit -Ht) -eq 15 ]];
+               : FSIZE;      [[ $(ulimit -Sf) -eq $((7 * KB)) ]];  [[ $(ulimit -Hf) -eq $((7 * KB)) ]];
+               : DATA;       [[ $(ulimit -Sd) == unlimited  ]];    [[ $(ulimit -Hd) == unlimited ]];
+               : STACK;      [[ $(ulimit -Ss) -eq $((8 * MB)) ]];  [[ $(ulimit -Hs) -eq $((8 * MB)) ]];
+               : CORE;       [[ $(ulimit -Sc) -eq $((17 * MB)) ]]; [[ $(ulimit -Hc) -eq $((17 * MB)) ]];
+               : RSS;        [[ $(ulimit -Sm) -eq $((27 * GB)) ]]; [[ $(ulimit -Hm) -eq $((27 * GB)) ]];
+               : NOFILE;     [[ $(ulimit -Sn) -eq 7 ]];            [[ $(ulimit -Hn) -eq 127 ]];
+               : AS;         [[ $(ulimit -Sv) == unlimited ]];     [[ $(ulimit -Hv) == unlimited ]];
+               : NPROC;      [[ $(ulimit -Su) -eq 64 ]];           [[ $(ulimit -Hu) == unlimited ]];
+               : MEMLOCK;    [[ $(ulimit -Sl) -eq $((37 * MB)) ]]; [[ $(ulimit -Hl) -eq $((37 * MB)) ]];
+               : LOCKS;      [[ $(ulimit -Sx) -eq 19 ]];           [[ $(ulimit -Hx) -eq 1021 ]];
+               : SIGPENDING; [[ $(ulimit -Si) -eq 21 ]];           [[ $(ulimit -Hi) -eq 21 ]];
+               : MSGQUEUE;   [[ $(ulimit -Sq) -eq 666 ]];          [[ $(ulimit -Hq) -eq 666 ]];
+               : NICE;       [[ $(ulimit -Se) -eq 4 ]];            [[ $(ulimit -He) -eq 4 ]];
+               : RTPRIO;     [[ $(ulimit -Sr) -eq 8 ]];            [[ $(ulimit -Hr) -eq 8 ]];
+               : RTTIME;     [[ $(ulimit -SR) -eq 666666 ]];       [[ $(ulimit -HR) -eq 666666 ]];'
 
 # Ensure that clean-up codepaths work correctly if activation ultimately fails
-(! systemd-run --wait --pipe -p DynamicUser=yes -p WorkingDirectory=/nonexistent echo hello)
+touch /run/not-a-directory
+mkdir /tmp/root
+touch /tmp/root/foo
+chmod +x /tmp/root/foo
+(! systemd-run --wait --pipe false)
+(! systemd-run --wait --pipe -p DynamicUser=yes -p WorkingDirectory=/nonexistent true)
+(! systemd-run --wait --pipe -p RuntimeDirectory=not-a-directory true)
+(! systemd-run --wait --pipe -p RootDirectory=/tmp/root this-shouldnt-exist)
+(! systemd-run --wait --pipe -p RootDirectory=/tmp/root /foo)
+(! systemd-run --wait --pipe --service-type=oneshot -p ExecStartPre=-/foo/bar/baz -p ExecStart=-/foo/bar/baz -p RootDirectory=/tmp/root -- "- foo")
