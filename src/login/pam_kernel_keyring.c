@@ -87,8 +87,8 @@ _public_ int pam_sm_authenticate(
 
         r = pam_set_item(handle, PAM_AUTHTOK, passwords[passwords_len - 1]);
 
-        if (r < 0)
-                return pam_syslog_errno(handle, LOG_ERR, r, "Failed to set authtoken: %m");
+        if (r != PAM_SUCCESS)
+                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to set PAM auth token: @PAMERR@");
         else
                 return PAM_SUCCESS;
 }
