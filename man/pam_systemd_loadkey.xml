@@ -51,13 +51,17 @@
         <listitem><para>Takes a string argument which sets the keyname to read.
         The default is <literal>cryptsetup</literal>, which is used by
         <citerefentry><refentrytitle>systemd-cryptsetup@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-        to store LUKS passphrase during boot.</para></listitem>
+        to store LUKS passphrase during boot.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>debug</varname></term>
 
-        <listitem><para>The module will log debugging information as it operates.</para></listitem>
+        <listitem><para>The module will log debugging information as it operates.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
