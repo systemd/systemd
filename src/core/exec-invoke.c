@@ -4532,7 +4532,7 @@ int exec_invoke(
         }
 
         if (needs_setuid && context->pam_name && username) {
-                /* Let's call into PAM after we set up our own idea of resource limits to that pam_limits
+                /* Let's call into PAM after we set up our own idea of resource limits so that pam_limits
                  * wins here. (See above.) */
 
                 /* All fds passed in the fds array will be closed in the pam child process. */
@@ -4566,7 +4566,7 @@ int exec_invoke(
         if (needs_sandboxing && exec_context_need_unprivileged_private_users(context, params)) {
                 /* If we're unprivileged, set up the user namespace first to enable use of the other namespaces.
                  * Users with CAP_SYS_ADMIN can set up user namespaces last because they will be able to
-                 * set up the all of the other namespaces (i.e. network, mount, UTS) without a user namespace. */
+                 * set up all of the other namespaces (i.e. network, mount, UTS) without a user namespace. */
 
                 r = setup_private_users(saved_uid, saved_gid, uid, gid);
                 /* If it was requested explicitly and we can't set it up, fail early. Otherwise, continue and let
@@ -4654,7 +4654,7 @@ int exec_invoke(
                 }
 
         /* Drop groups as early as possible.
-         * This needs to be done after PrivateDevices=y setup as device nodes should be owned by the host's root.
+         * This needs to be done after PrivateDevices=yes setup as device nodes should be owned by the host's root.
          * For non-root in a userns, devices will be owned by the user/group before the group change, and nobody. */
         if (needs_setuid) {
                 _cleanup_free_ gid_t *gids_to_enforce = NULL;
