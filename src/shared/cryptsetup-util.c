@@ -73,10 +73,11 @@ int (*sym_crypt_volume_key_keyring)(struct crypt_device *cd, int enable);
 const char *my_crypt_token_external_path(void); /* prototype for our own implementation */
 
 /* Let's make our implementation the default implementation for crypt_token_external_path(). */
-__asm__(".symver my_crypt_token_external_path, crypt_token_external_path@@");
+
+/* Old gcc: __asm__(".symver my_crypt_token_external_path, crypt_token_external_path@@"); */
 
 /* Mark as "public", to guarantee its export */
-_used_ _public_ const char *my_crypt_token_external_path(void) {
+_public_ __attribute__((__symver__ ("crypt_token_external_path@@"))) const char *my_crypt_token_external_path(void) {
         const char *e;
 
         e = secure_getenv("SYSTEMD_CRYPTSETUP_TOKEN_PATH");
