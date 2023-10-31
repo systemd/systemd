@@ -1104,6 +1104,7 @@ int manager_monitor_send(
                 int error,
                 DnsQuestion *question_idna,
                 DnsQuestion *question_utf8,
+                DnsPacket *question_bypass,
                 DnsQuestion *collected_questions,
                 DnsAnswer *answer) {
 
@@ -1118,10 +1119,21 @@ int manager_monitor_send(
         if (set_isempty(m->varlink_subscription))
                 return 0;
 
-        /* Merge both questions format into one */
+        /* Merge all questions into one */
         r = dns_question_merge(question_idna, question_utf8, &merged);
         if (r < 0)
                 return log_error_errno(r, "Failed to merge UTF8/IDNA questions: %m");
+
+        if (question_bypass) {
+                _cleanup_(dns_question_unrefp) DnsQuestion *merged2 = NULL;
+
+                r = dns_question_merge(merged, question_bypass->question, &merged2);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to merge UTF8/IDNA questions and DNS packet question: %m");
+
+                dns_question_unref(merged);
+                merged = TAKE_PTR(merged2);
+        }
 
         /* Convert the current primary question to JSON */
         r = dns_question_to_json(merged, &jquestion);
