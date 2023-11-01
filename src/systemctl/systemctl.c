@@ -830,14 +830,9 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_CHECK_INHIBITORS:
-                        if (streq(optarg, "auto"))
-                                arg_check_inhibitors = -1;
-                        else {
-                                r = parse_boolean(optarg);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to parse --check-inhibitors= argument: %s", optarg);
-                                arg_check_inhibitors = r;
-                        }
+                        r = parse_tristate_full(optarg, "auto", &arg_check_inhibitors);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --check-inhibitors= argument: %s", optarg);
                         break;
 
                 case ARG_PLAIN:
