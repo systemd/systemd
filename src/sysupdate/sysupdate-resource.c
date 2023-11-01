@@ -531,7 +531,12 @@ Instance* resource_find_instance(Resource *rr, const char *version) {
                 .metadata.version = (char*) version,
         }, *k = &key;
 
-        return typesafe_bsearch(&k, rr->instances, rr->n_instances, instance_cmp);
+        Instance **found;
+        found = typesafe_bsearch(&k, rr->instances, rr->n_instances, instance_cmp);
+        if (!found)
+                return NULL;
+
+        return *found;
 }
 
 int resource_resolve_path(

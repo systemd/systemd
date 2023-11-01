@@ -22,12 +22,12 @@ static int partition_policy_compare(const PartitionPolicy *a, const PartitionPol
         return CMP(ASSERT_PTR(a)->designator, ASSERT_PTR(b)->designator);
 }
 
-static PartitionPolicy* image_policy_bsearch(const ImagePolicy *policy, PartitionDesignator designator) {
+static const PartitionPolicy* image_policy_bsearch(const ImagePolicy *policy, PartitionDesignator designator) {
         if (!policy)
                 return NULL;
 
         return typesafe_bsearch(
-                        &(PartitionPolicy) { .designator = designator },
+                        &(const PartitionPolicy) { .designator = designator },
                         ASSERT_PTR(policy)->policies,
                         ASSERT_PTR(policy)->n_policies,
                         partition_policy_compare);
@@ -78,7 +78,7 @@ static PartitionPolicyFlags partition_policy_normalized_flags(const PartitionPol
 
 PartitionPolicyFlags image_policy_get(const ImagePolicy *policy, PartitionDesignator designator) {
         PartitionDesignator data_designator = _PARTITION_DESIGNATOR_INVALID;
-        PartitionPolicy *pp;
+        const PartitionPolicy *pp;
 
         /* No policy means: everything may be used in any mode */
         if (!policy)
