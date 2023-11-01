@@ -1450,6 +1450,7 @@ static int varlink_main_server_init(Manager *m) {
                         "io.systemd.Resolve.ResolveRecord",   vl_method_resolve_record,
                         "io.systemd.service.Ping",            varlink_method_ping,
                         "io.systemd.service.SetLogLevel",     varlink_method_set_log_level,
+                        "io.systemd.service.GetLogLevel",     varlink_method_get_log_level,
                         "io.systemd.service.GetEnvironment",  varlink_method_get_environment);
         if (r < 0)
                 return log_error_errno(r, "Failed to register varlink methods: %m");
