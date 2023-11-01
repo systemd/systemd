@@ -75,7 +75,7 @@ jobs:
       SYSTEMD_LOG_LEVEL: debug
 
     steps:
-    - uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608
+    - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
     - uses: systemd/mkosi@16e63baaeadf7a5b100c5b5bf780c61c29878cfc
 
     - name: Configure
