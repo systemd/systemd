@@ -1413,14 +1413,38 @@ static int mount_image(
 }
 
 static int mount_overlay(const MountEntry *m) {
-        const char *options;
+        _cleanup_free_ char *options = NULL, *dirs = NULL;
+        _cleanup_strv_free_ char **overlays = NULL;
         int r;
 
         assert(m);
 
-        options = strjoina("lowerdir=", mount_entry_options(m));
-
         (void) mkdir_p_label(mount_entry_path(m), 0755);
+
+        /* Extension hierarchies are optional (e.g.: confext might not have /opt) so check if they actually
+         * exist in an image before attempting to create an overlay with them, otherwise the mount will
+         * fail. We can't check before this, as the images will not be mounted until now. */
+
+        overlays = strv_split(mount_entry_options(m), ":");
+        if (!overlays)
+                return log_oom_debug();
+
+        STRV_FOREACH(o, overlays) {
+                if (is_dir(*o, /* follow= */ false) <= 0)
+                        continue;
+                if (!strextend_with_separator(&dirs, ":", *o))
+                        return log_oom_debug();
+        }
+
+        if (!strchr(dirs, ':')) {
+                log_debug("None of the overlays specified in '%s' exist at the source, skipping.",
+                          mount_entry_options(m));
+                return 0; /* Only the root is set? Then there's nothing to overlay */
+        }
+
+        options = strjoin("lowerdir=", dirs);
+        if (!options)
+                return log_oom_debug();
 
         r = mount_nofollow_verbose(LOG_DEBUG, "overlay", mount_entry_path(m), "overlay", MS_RDONLY, options);
         if (r == -ENOENT && m->ignore)
