@@ -1017,7 +1017,7 @@ int config_parse_tristate(
                 void *data,
                 void *userdata) {
 
-        int k, *t = ASSERT_PTR(data);
+        int r, *t = ASSERT_PTR(data);
 
         assert(filename);
         assert(lvalue);
@@ -1031,14 +1031,13 @@ int config_parse_tristate(
                 return 0;
         }
 
-        k = parse_boolean(rvalue);
-        if (k < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, k,
+        r = parse_tristate(rvalue, t);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to parse boolean value for %s=, ignoring: %s", lvalue, rvalue);
                 return 0;
         }
 
-        *t = k;
         return 0;
 }
 
