@@ -24,6 +24,11 @@ static SD_VARLINK_DEFINE_METHOD(
 static SD_VARLINK_DEFINE_ERROR(
                 InconsistentEnvironment);
 
+static SD_VARLINK_DEFINE_METHOD(
+                GetLogLevel,
+                SD_VARLINK_FIELD_COMMENT("The current maximum log level."),
+                SD_VARLINK_DEFINE_OUTPUT(level, SD_VARLINK_INT, 0));
+
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_service,
                 "io.systemd.service",
@@ -34,6 +39,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_Reload,
                 SD_VARLINK_SYMBOL_COMMENT("Sets the maximum log level."),
                 &vl_method_SetLogLevel,
+                SD_VARLINK_SYMBOL_COMMENT("Gets the current maximum log level."),
+                &vl_method_GetLogLevel,
                 SD_VARLINK_SYMBOL_COMMENT("Get current environment block."),
                 &vl_method_GetEnvironment,
                 SD_VARLINK_SYMBOL_COMMENT("Returned if the environment block is currently not in a valid state."),
