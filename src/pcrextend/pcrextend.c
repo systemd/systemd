@@ -282,8 +282,8 @@ static int vl_method_extend(Varlink *link, JsonVariant *parameters, VarlinkMetho
 
         assert(link);
 
-        r = json_dispatch(parameters, dispatch_table, NULL, 0, &p);
-        if (r < 0)
+        r = varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
                 return r;
 
         if (!TPM2_PCR_INDEX_VALID(p.pcr))
