@@ -37,7 +37,7 @@
     <title>Description</title>
 
     <para>Configuration files in the <filename>environment.d/</filename> directories contain lists of
-    environment variable assignments for services started by the systemd user instance.
+    environment variable assignments passed to services started by the systemd user instance.
     <citerefentry><refentrytitle>systemd-environment-d-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     parses them and updates the environment exported by the systemd user instance. See below for an
     discussion of which processes inherit those variables.</para>
@@ -91,18 +91,24 @@
   <refsect1>
     <title>Applicability</title>
 
-    <para>Environment variables exported by the user manager (<command>systemd --user</command> instance
-    started in the <filename>user@<replaceable>uid</replaceable>.service</filename> system service) apply to
-    any services started by that manager. In particular, this may include services which run user shells. For
-    example in the GNOME environment, the graphical terminal emulator runs as the
+    <para>Environment variables exported by the user service manager (<command>systemd --user</command>
+    instance started in the <filename>user@<replaceable>uid</replaceable>.service</filename> system service)
+    are passed to any services started by that service manager. In particular, this may include services
+    which run user shells. For example in the GNOME environment, the graphical terminal emulator runs as the
     <filename>gnome-terminal-server.service</filename> user unit, which in turn runs the user shell, so that
     shell will inherit environment variables exported by the user manager. For other instances of the shell,
-    not launched by the user manager, the environment they inherit is defined by the program that starts
-    them. Hint: in general,
-    <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-    units contain programs launched by systemd, and
-    <citerefentry><refentrytitle>systemd.scope</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-    units contain programs launched by something else.</para>
+    not launched by the user service manager, the environment they inherit is defined by the program that
+    starts them. Hint: in general,
+    <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry> units
+    contain programs launched by systemd, and
+    <citerefentry><refentrytitle>systemd.scope</refentrytitle><manvolnum>5</manvolnum></citerefentry> units
+    contain programs launched by something else.</para>
+
+    <para>Note that these files do not affect the environment block of the service manager itself, but
+    exclusively the environment blocks passed to the services it manages. Environment variables set that way
+    thus cannot be used to influence behaviour of the service manager. In order to make changes to the
+    service manager's environment block the environment must be modified before the user's service manager is
+    invoked, for example from the system service manager or via a PAM module.</para>
 
     <para>Specifically, for ssh logins, the
     <citerefentry project='die-net'><refentrytitle>sshd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
