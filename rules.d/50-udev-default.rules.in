@@ -26,6 +26,8 @@ ENV{MODALIAS}!="", IMPORT{builtin}="hwdb --subsystem=$env{SUBSYSTEM}"
 # To keep the backward compatibility, let's set ID_PATH for them.
 SUBSYSTEM=="pci|usb|platform", IMPORT{builtin}="path_id"
 
+SUBSYSTEM=="net", IMPORT{builtin}="net_driver"
+
 ACTION!="add", GOTO="default_end"
 
 SUBSYSTEM=="tty", KERNEL=="ptmx", GROUP="tty", MODE="0666"
