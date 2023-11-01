@@ -315,8 +315,8 @@ static int vl_method_resolve_hostname(Varlink *link, JsonVariant *parameters, Va
         if (FLAGS_SET(flags, VARLINK_METHOD_ONEWAY))
                 return -EINVAL;
 
-        r = json_dispatch(parameters, dispatch_table, NULL, 0, &p);
-        if (r < 0)
+        r = varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
                 return r;
 
         if (p.ifindex < 0)
@@ -491,8 +491,8 @@ static int vl_method_resolve_address(Varlink *link, JsonVariant *parameters, Var
         if (FLAGS_SET(flags, VARLINK_METHOD_ONEWAY))
                 return -EINVAL;
 
-        r = json_dispatch(parameters, dispatch_table, NULL, 0, &p);
-        if (r < 0)
+        r = varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
                 return r;
 
         if (p.ifindex < 0)
