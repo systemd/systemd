@@ -91,7 +91,6 @@ finit_module	6312
 flistxattr	6188
 flock	6071
 fork	6056
-fp_udfiex_crtl
 fremovexattr	6191
 fsconfig	6431
 fsetxattr	6182
