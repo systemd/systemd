@@ -13,7 +13,7 @@
 #include "tpm2-util.h"
 
 static int get_pin(usec_t until, AskPasswordFlags ask_password_flags, bool headless, char **ret_pin_str) {
-        _cleanup_free_ char *pin_str = NULL;
+        _cleanup_(erase_and_freep) char *pin_str = NULL;
         _cleanup_strv_free_erase_ char **pin = NULL;
         int r;
 
