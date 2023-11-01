@@ -92,6 +92,21 @@ int varlink_method_set_log_level(sd_varlink *link, sd_json_variant *parameters, 
         return sd_varlink_reply(link, NULL);
 }
 
+int varlink_method_get_log_level(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        int r;
+
+        assert(link);
+        assert(parameters);
+
+        r = sd_varlink_dispatch(link, parameters, /* dispatch_table= */ NULL, /* userdata= */ NULL);
+        if (r != 0)
+                return r;
+
+        log_debug("Received io.systemd.service.GetLogLevel()");
+
+        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_INTEGER("level", log_get_max_level()));
+}
+
 int varlink_method_get_environment(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         uid_t uid;
         int r;
