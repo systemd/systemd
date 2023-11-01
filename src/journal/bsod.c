@@ -114,7 +114,7 @@ static int acquire_first_emergency_log_message(char **ret) {
 static int find_next_free_vt(int fd, int *ret_free_vt, int *ret_original_vt) {
         struct vt_stat terminal_status;
 
-        assert(fd);
+        assert(fd >= 0);
         assert(ret_free_vt);
         assert(ret_original_vt);
 
