@@ -761,6 +761,12 @@ int sd_netlink_detach_event(sd_netlink *nl) {
         return 0;
 }
 
+sd_event* sd_netlink_get_event(sd_netlink *nl) {
+        assert_return(nl, NULL);
+
+        return nl->event;
+}
+
 int netlink_add_match_internal(
                 sd_netlink *nl,
                 sd_netlink_slot **ret_slot,
