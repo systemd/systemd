@@ -5,7 +5,7 @@
 #     ninja -C build update-man-rules
 manpages = [
 ['binfmt.d', '5', [], 'ENABLE_BINFMT'],
- ['bootctl', '1', [], ''],
+ ['bootctl', '1', [], 'ENABLE_BOOTLOADER'],
  ['bootup', '7', [], ''],
  ['busctl', '1', [], ''],
  ['coredump.conf', '5', ['coredump.conf.d'], 'ENABLE_COREDUMP'],
@@ -65,9 +65,9 @@ manpages = [
  ['org.freedesktop.systemd1', '5', [], ''],
  ['org.freedesktop.timedate1', '5', [], 'ENABLE_TIMEDATED'],
  ['os-release', '5', ['extension-release', 'initrd-release'], ''],
- ['pam_systemd_loadkey', '8', [], 'HAVE_PAM'],
  ['pam_systemd', '8', [], 'HAVE_PAM'],
  ['pam_systemd_home', '8', [], 'ENABLE_PAM_HOME'],
+ ['pam_systemd_loadkey', '8', [], 'HAVE_PAM'],
  ['portablectl', '1', [], 'ENABLE_PORTABLED'],
  ['poweroff', '8', ['halt', 'reboot'], ''],
  ['pstore.conf', '5', ['pstore.conf.d'], 'ENABLE_PSTORE'],
@@ -991,7 +991,7 @@ manpages = [
    'systemd-makefs',
    'systemd-mkswap@.service'],
   ''],
- ['systemd-measure', '1', [], ''],
+ ['systemd-measure', '1', [], 'ENABLE_BOOTLOADER'],
  ['systemd-modules-load.service', '8', ['systemd-modules-load'], 'HAVE_KMOD'],
  ['systemd-mount', '1', ['systemd-umount'], ''],
  ['systemd-network-generator.service', '8', ['systemd-network-generator'], ''],
