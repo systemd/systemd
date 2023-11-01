@@ -84,9 +84,6 @@ acpi:CORE*:
 acpi:CPLM*:
  ID_VENDOR_FROM_DATABASE=Capella Microsystems Inc.
 
-acpi:CSOT*:
- ID_VENDOR_FROM_DATABASE=China Star Optoelectronics Technology Co., Ltd
-
 acpi:DELL*:
  ID_VENDOR_FROM_DATABASE=Dell, Inc.
 
@@ -152,6 +149,9 @@ acpi:HIMX*:
 
 acpi:HISI*:
  ID_VENDOR_FROM_DATABASE=HiSilicon Technologies Co., Ltd.
+
+acpi:HJMC*:
+ ID_VENDOR_FROM_DATABASE=Hangzhou hj-micro Technology Co., Ltd
 
 acpi:HPIC*:
  ID_VENDOR_FROM_DATABASE=HP Inc.
@@ -305,6 +305,9 @@ acpi:RKCP*:
 
 acpi:RPIL*:
  ID_VENDOR_FROM_DATABASE=Raspberry Pi
+
+acpi:RSCV*:
+ ID_VENDOR_FROM_DATABASE=RISC-V International (RVI)
 
 acpi:RVOS*:
  ID_VENDOR_FROM_DATABASE=Rivos Inc.
@@ -1776,6 +1779,9 @@ acpi:CSS*:
 acpi:CST*:
  ID_VENDOR_FROM_DATABASE=CSTI Inc
 
+acpi:CSW*:
+ ID_VENDOR_FROM_DATABASE=China Star Optoelectronics Technology Co., Ltd
+
 acpi:CTA*:
  ID_VENDOR_FROM_DATABASE=CoSystems Inc
 
@@ -2273,6 +2279,9 @@ acpi:DXD*:
 
 acpi:DXL*:
  ID_VENDOR_FROM_DATABASE=Dextera Labs Inc
+
+acpi:DXN*:
+ ID_VENDOR_FROM_DATABASE=Dixon Technologies (India) Limited
 
 acpi:DXP*:
  ID_VENDOR_FROM_DATABASE=Data Expert Corporation
@@ -3780,6 +3789,9 @@ acpi:IVI*:
 acpi:IVM*:
  ID_VENDOR_FROM_DATABASE=Iiyama North America
 
+acpi:IVO*:
+ ID_VENDOR_FROM_DATABASE=InfoVision Optoelectronics (Kunshan) Co.,Ltd China
+
 acpi:IVR*:
  ID_VENDOR_FROM_DATABASE=Inlife-Handnet Co., Ltd.
 
@@ -4229,6 +4241,9 @@ acpi:LMI*:
 
 acpi:LMP*:
  ID_VENDOR_FROM_DATABASE=Leda Media Products
+
+acpi:LMS*:
+ ID_VENDOR_FROM_DATABASE=Lumens Digital Optics Inc.
 
 acpi:LMT*:
  ID_VENDOR_FROM_DATABASE=Laser Master
@@ -4848,6 +4863,9 @@ acpi:MTR*:
 acpi:MTS*:
  ID_VENDOR_FROM_DATABASE=Multi-Tech Systems
 
+acpi:MTT*:
+ ID_VENDOR_FROM_DATABASE=Moore Threads Virtual Display
+
 acpi:MTU*:
  ID_VENDOR_FROM_DATABASE=Mark of the Unicorn Inc
 
@@ -5291,6 +5309,9 @@ acpi:OLY*:
 
 acpi:OMC*:
  ID_VENDOR_FROM_DATABASE=OBJIX Multimedia Corporation
+
+acpi:OMG*:
+ ID_VENDOR_FROM_DATABASE=RODE
 
 acpi:OMN*:
  ID_VENDOR_FROM_DATABASE=Omnitel
@@ -6063,6 +6084,9 @@ acpi:RPT*:
 acpi:RRI*:
  ID_VENDOR_FROM_DATABASE=Radicom Research Inc
 
+acpi:RRO*:
+ ID_VENDOR_FROM_DATABASE=AVARRO
+
 acpi:RSC*:
  ID_VENDOR_FROM_DATABASE=PhotoTelesis
 
@@ -6131,6 +6155,9 @@ acpi:RZS*:
 
 acpi:SAA*:
  ID_VENDOR_FROM_DATABASE=Sanritz Automation Co.,Ltd.
+
+acpi:SAB*:
+ ID_VENDOR_FROM_DATABASE=Structab AB
 
 acpi:SAE*:
  ID_VENDOR_FROM_DATABASE=Saab Aerotech

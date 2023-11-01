@@ -9,8 +9,8 @@
 #	The latest version can be obtained from
 #		http://www.linux-usb.org/usb.ids
 #
-# Version: 2023.05.17
-# Date:    2023-05-17 20:34:13
+# Version: 2023.08.24
+# Date:    2023-08-24 20:34:10
 #
 
 # Vendors, devices and interfaces. Please keep sorted.
@@ -22937,6 +22937,7 @@
 3310  MUDITA Sp. z o.o.
 	0100  Pure
 	0101  Pure tethering
+	0300  Harmony
 3333  InLine
 	3333  2 port KVM switch model 60652K
 3334  AEI
@@ -23553,6 +23554,7 @@
 	0026  AX201 Bluetooth
 	0029  AX200 Bluetooth
 	0032  AX210 Bluetooth
+	0033  AX211 Bluetooth
 	0716  Modem Flashloader
 	07da  Centrino Bluetooth Wireless Transceiver
 	07db  Atom C2000 Root Hub
