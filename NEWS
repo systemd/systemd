@@ -66,7 +66,7 @@ CHANGES WITH 255 in spe:
           when the kernel supports it, to improve robustness and reliability.
 
         * A new option SurviveFinalKillSignal= is now supported to configure a
-          unit to skip units on the final sigterm/sigkill spree on shutdown. This
+          unit to skip units on the final SIGTERM/SIGKILL spree on shutdown. This
           is part of the required configuration to let a unit's processes survive
           a soft-reboot operation without being interrupted.
 
@@ -109,7 +109,7 @@ CHANGES WITH 255 in spe:
         * Scope units can now be created passing PIDFDs instead of PIDs to select
           the processes they should include.
 
-        * Sending sigrtmin+18 with 0x500 as value will now cause the manager to
+        * Sending SIGRTMIN+18 with 0x500 as value will now cause the manager to
           dump the list of currently pending jobs.
 
         * If the kernel supports MOVE_MOUNT_BENEATH, the systemctl and machinectl
@@ -132,7 +132,7 @@ CHANGES WITH 255 in spe:
 
         * The internal systemd-pcrphase executable has been renamed to systemd-pcrextend.
 
-        * systemd-pcrextend now exposes a varlink interface at io.systemd.PCRExtend
+        * systemd-pcrextend now exposes a Varlink interface at io.systemd.PCRExtend
           that can be used to do measurements and event logging on demand.
 
         * TPM measurements are now also written to an event log at
@@ -170,7 +170,7 @@ CHANGES WITH 255 in spe:
           set-timeout option, to allow completely disabling the boot menu,
           including the hotkey.
 
-        * systemd-boot will now measure the contente of loader.conf in PCR5.
+        * systemd-boot will now measure the content of loader.conf in PCR5.
 
         * systemd-stub will now concatenate the content of all kernel command-line
           addons before measuring them in PCR12, in a single measurement, instead
@@ -186,11 +186,11 @@ CHANGES WITH 255 in spe:
 
         systemd-repart:
 
-        * A new option --copy-from that synthesizes partition definitions from
+        * A new option --copy-from= that synthesizes partition definitions from
           the given image, which are then applied to the systemd-repart algorithm,
           has been added.
 
-        * A new option --copy-source has been added, which can be used to specify
+        * A new option --copy-source= has been added, which can be used to specify
           a directory to which CopyFiles= is considered relative to.
 
         * New --make-ddi=confext, --make-ddi=sysext and --make-ddi=portable options
@@ -208,7 +208,7 @@ CHANGES WITH 255 in spe:
 
         Journal:
 
-        * The journalctl --lines parameter now accepts +N to show the oldest N
+        * The journalctl --lines= parameter now accepts +N to show the oldest N
           entries instead of the newest.
 
         Device Management:
@@ -251,7 +251,7 @@ CHANGES WITH 255 in spe:
           already use 'prefixstable' addresses with wireless networks, the
           stable address chosen will be changed by the update.
 
-        * The DHCPv4 client gained a RapidCommit option, default true, which
+        * The DHCPv4 client gained a RapidCommit= option, default true, which
           enables RFC4039 Rapid Commit behavior to obtain a lease in a
           simplified 2-message exchange instead of the typical 4-message
           exchange if also supported by the DHCP server.
@@ -262,7 +262,7 @@ CHANGES WITH 255 in spe:
         * The DHCPv4 client gained a new RequestAddress= option that allows
           to send a preferred IP address in the initial DHCPDISCOVER message.
 
-        * The SendHostname and Hostname options are now available for the
+        * The SendHostname= and Hostname= options are now available for the
           DHCPv6 client, independent of the DHCPv4 option, so that these
           configuration values can be set independently for each client.
 
@@ -271,15 +271,15 @@ CHANGES WITH 255 in spe:
 
         * The DHCPv6 client can now be configured to use a custom DUIDType.
 
-        * The DHCPv6 server can now be configured to use a custom hot limit
+        * The DHCPv6 server can now be configured to use a custom hop limit
           via HopLimit=.
 
         * HopLimit= can now be used to configure a per-route hop limit.
 
-        * TCPRetransmissionTimeOutSec= can now be used to configured a per-route
+        * TCPRetransmissionTimeOutSec= can now be used to configure a per-route
           TCP retransmission timeout.
 
-        * A new directive `NFTSet=` provides a method for integrating network
+        * A new directive NFTSet= provides a method for integrating network
           configuration into firewall rules with NFT sets. The benefit of using
           this setting is that static network configuration or dynamically
           obtained network addresses can be used in firewall rules with the
@@ -318,7 +318,7 @@ CHANGES WITH 255 in spe:
           system has been setup in /run/nextroot/ when a reboot operation
           is invoked.
 
-        * systemd-sysext and systemd-confext now expose a varlink service
+        * systemd-sysext and systemd-confext now expose a Varlink service
           at io.systemd.sysext.
 
         * wall messages now work even when utmp support is disabled, using
@@ -332,10 +332,6 @@ CHANGES WITH 255 in spe:
 
         * systemd-sysupdate now accepts directories in the MatchPattern= option.
 
-        * systemd-coredump running on the host now supports forwarding core
-          files to systemd-coredump running in the container where the crash
-          has happened, if both sides are configured to do so.
-
         * systemd-run will now output the invocation ID of the launched
           transient unit.
 
@@ -344,7 +340,7 @@ CHANGES WITH 255 in spe:
           combination with --cat-config to suppress uninteresting configuration
           lines, such as comments.
 
-        * systemd-resolved gained a new DumpStatistics varlink method, and
+        * systemd-resolved gained a new DumpStatistics() Varlink method, and
           resolvectl gained a new corresponding show-server-state verb that
           calls it.
 
@@ -2110,7 +2106,7 @@ CHANGES WITH 252 🎃:
           sends the setting only once, causing it to be lost if resolved was
           restarted at any point.
 
-        * systemd-resolved now exposes a varlink socket at
+        * systemd-resolved now exposes a Varlink socket at
           /run/systemd/resolve/io.systemd.Resolve.Monitor, accessible only for
           root. Processed DNS requests in a JSON format will be published to
           any clients connected to this socket.
