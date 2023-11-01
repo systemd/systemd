@@ -29,6 +29,7 @@ static bool arg_ping = false;
 static bool arg_reload = false;
 static bool arg_exit = false;
 static int arg_max_children = -1;
+static bool arg_get_log_level = false;
 static int arg_log_level = -1;
 static int arg_start_exec_queue = -1;
 static int arg_trace = -1;
@@ -45,7 +46,8 @@ static bool arg_has_control_commands(void) {
                 !strv_isempty(arg_env) ||
                 arg_max_children >= 0 ||
                 arg_ping ||
-                arg_trace >= 0;
+                arg_trace >= 0 ||
+                arg_get_log_level;
 }
 
 static int help(void) {
@@ -55,6 +57,7 @@ static int help(void) {
                "  -V --version             Show package version\n"
                "  -e --exit                Instruct the daemon to cleanup and exit\n"
                "  -l --log-level=LEVEL     Set the udev log level for the daemon\n"
+               "  -L --get-log-level       Get the current log level\n"
                "  -s --stop-exec-queue     Do not execute events, queue only\n"
                "  -S --start-exec-queue    Execute events, flush queue\n"
                "  -R --reload              Reload rules and databases\n"
@@ -80,6 +83,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "exit",             no_argument,       NULL, 'e'                  },
                 { "log-level",        required_argument, NULL, 'l'                  },
                 { "log-priority",     required_argument, NULL, 'l'                  }, /* for backward compatibility */
+                { "get-log-level",    no_argument,       NULL, 'L'                  },
                 { "stop-exec-queue",  no_argument,       NULL, 's'                  },
                 { "start-exec-queue", no_argument,       NULL, 'S'                  },
                 { "reload",           no_argument,       NULL, 'R'                  },
@@ -112,6 +116,9 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_log_level = log_level_from_string(optarg);
                         if (arg_log_level < 0)
                                 return log_error_errno(arg_log_level, "Failed to parse log level '%s': %m", optarg);
+                        break;
+                case 'L':
+                        arg_get_log_level = true;
                         break;
 
                 case 's':
@@ -206,6 +213,9 @@ static int send_control_commands_via_ctrl(void) {
                 return 0;
         }
 
+        if (arg_get_log_level)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Failed to send request to get log level: %m");
+
         if (arg_log_level >= 0) {
                 r = udev_ctrl_send_set_log_level(uctrl, arg_log_level);
                 if (r < 0)
@@ -269,6 +279,31 @@ static int send_control_commands(void) {
 
         if (arg_exit)
                 return varlink_call_and_log(link, "io.systemd.Udev.Exit", /* parameters = */ NULL, /* reply = */ NULL);
+
+        if (arg_get_log_level) {
+                static const sd_json_dispatch_field dispatch_table[] = {
+                        {"level", SD_JSON_VARIANT_INTEGER, sd_json_dispatch_int64, 0, SD_JSON_MANDATORY},
+                        {}
+                };
+
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+                _cleanup_free_ char *level_str = NULL;
+                int64_t level;
+
+                r = varlink_call_and_log(link, "io.systemd.service.GetLogLevel", /* parameters = */ NULL, &v);
+                if (r < 0)
+                        return r;
+
+                r = sd_varlink_dispatch(link, v, dispatch_table, &level);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to dispatch server response: %m");
+
+                r = log_level_to_string_alloc(r, &level_str);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to convert log level to string: %m");
+
+                printf("%s\n", level_str);
+        }
 
         if (arg_log_level >= 0) {
                 r = varlink_callbo_and_log(link, "io.systemd.service.SetLogLevel", /* reply = */ NULL,
