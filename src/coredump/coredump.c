@@ -792,57 +792,54 @@ static int submit_coredump(
         (void) coredump_vacuum(-1, arg_keep_free, arg_max_use);
 
         /* Always stream the coredump to disk, if that's possible */
-        r = save_external_coredump(context, input_fd,
-                                   &filename, &coredump_node_fd, &coredump_fd,
-                                   &coredump_size, &coredump_compressed_size, &truncated);
-        if (r < 0)
-                /* Skip whole core dumping part */
-                goto log;
+        written = save_external_coredump(
+                        context, input_fd,
+                        &filename, &coredump_node_fd, &coredump_fd,
+                        &coredump_size, &coredump_compressed_size, &truncated) >= 0;
+        if (written) {
+                /* If we could write it to disk we can now process it. */
+                /* If we don't want to keep the coredump on disk, remove it now, as later on we
+                 * will lack the privileges for it. However, we keep the fd to it, so that we can
+                 * still process it and log it. */
+                r = maybe_remove_external_coredump(filename, coredump_node_fd >= 0 ? coredump_compressed_size : coredump_size);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        (void) iovw_put_string_field(iovw, "COREDUMP_FILENAME=", filename);
+                else if (arg_storage == COREDUMP_STORAGE_EXTERNAL)
+                        log_info("The core will not be stored: size %"PRIu64" is greater than %"PRIu64" (the configured maximum)",
+                                 coredump_node_fd >= 0 ? coredump_compressed_size : coredump_size, arg_external_size_max);
 
-        written = true;
+                /* Vacuum again, but exclude the coredump we just created */
+                (void) coredump_vacuum(coredump_node_fd >= 0 ? coredump_node_fd : coredump_fd, arg_keep_free, arg_max_use);
+        }
 
-        /* If we don't want to keep the coredump on disk, remove it now, as later on we
-         * will lack the privileges for it. However, we keep the fd to it, so that we can
-         * still process it and log it. */
-        r = maybe_remove_external_coredump(filename, coredump_node_fd >= 0 ? coredump_compressed_size : coredump_size);
-        if (r < 0)
-                return r;
-        if (r == 0)
-                (void) iovw_put_string_field(iovw, "COREDUMP_FILENAME=", filename);
-        else if (arg_storage == COREDUMP_STORAGE_EXTERNAL)
-                log_info("The core will not be stored: size %"PRIu64" is greater than %"PRIu64" (the configured maximum)",
-                         coredump_node_fd >= 0 ? coredump_compressed_size : coredump_size, arg_external_size_max);
-
-        /* Vacuum again, but exclude the coredump we just created */
-        (void) coredump_vacuum(coredump_node_fd >= 0 ? coredump_node_fd : coredump_fd, arg_keep_free, arg_max_use);
-
-        /* Now, let's drop privileges to become the user who owns the segfaulted process
-         * and allocate the coredump memory under the user's uid. This also ensures that
-         * the credentials journald will see are the ones of the coredumping user, thus
-         * making sure the user gets access to the core dump. Let's also get rid of all
-         * capabilities, if we run as root, we won't need them anymore. */
+        /* Now, let's drop privileges to become the user who owns the segfaulted process and allocate the
+         * coredump memory under the user's uid. This also ensures that the credentials journald will see are
+         * the ones of the coredumping user, thus making sure the user gets access to the core dump. Let's
+         * also get rid of all capabilities, if we run as root, we won't need them anymore. */
         r = change_uid_gid(context);
         if (r < 0)
                 return log_error_errno(r, "Failed to drop privileges: %m");
 
-        /* Try to get a stack trace if we can */
-        if (coredump_size > arg_process_size_max)
-                log_debug("Not generating stack trace: core size %"PRIu64" is greater "
-                          "than %"PRIu64" (the configured maximum)",
-                          coredump_size, arg_process_size_max);
-        else if (coredump_fd >= 0) {
-                bool skip = startswith(context->meta[META_COMM], "systemd-coredum"); /* COMM is 16 bytes usually */
+        if (written) {
+                /* Try to get a stack trace if we can */
+                if (coredump_size > arg_process_size_max)
+                        log_debug("Not generating stack trace: core size %"PRIu64" is greater "
+                                  "than %"PRIu64" (the configured maximum)",
+                                  coredump_size, arg_process_size_max);
+                else if (coredump_fd >= 0) {
+                        bool skip = startswith(context->meta[META_COMM], "systemd-coredum"); /* COMM is 16 bytes usually */
 
-                (void) parse_elf_object(coredump_fd,
-                                        context->meta[META_EXE],
-                                        /* fork_disable_dump= */ skip, /* avoid loops */
-                                        &stacktrace,
-                                        &json_metadata);
+                        (void) parse_elf_object(coredump_fd,
+                                                context->meta[META_EXE],
+                                                /* fork_disable_dump= */ skip, /* avoid loops */
+                                                &stacktrace,
+                                                &json_metadata);
+                }
         }
 
-log:
         _cleanup_free_ char *core_message = NULL;
-
         core_message = strjoin(
                         "Process ", context->meta[META_ARGV_PID],
                         " (", context->meta[META_COMM],
