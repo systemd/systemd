@@ -5,8 +5,6 @@ set -o pipefail
 
 # TODO:
 #   - /proc/cmdline parsing
-#   - figure out token support (apart from TPM2, as that's covered by TEST-70-TPM2)
-#       - this might help https://www.qemu.org/docs/master/system/devices/ccid.html
 #   - expect + interactive auth?
 
 # We set up an encrypted /var partition which should get mounted automatically
@@ -164,6 +162,7 @@ empty0               $IMAGE_EMPTY    -                               headless=1,
 empty1               $IMAGE_EMPTY    -                               headless=1,try-empty-password=1
 # This one expects the key to be under /{etc,run}/cryptsetup-keys.d/empty_nokey.key
 empty_nokey          $IMAGE_EMPTY    -                               headless=1
+empty_pkcs11_auto    $IMAGE_EMPTY    -                               headless=1,pkcs11-uri=auto
 
 detached             $IMAGE_DETACHED $IMAGE_DETACHED_KEYFILE         headless=1,header=$IMAGE_DETACHED_HEADER,keyfile-offset=32,keyfile-size=16
 detached_store0      $IMAGE_DETACHED $IMAGE_DETACHED_KEYFILE         headless=1,header=/header:LABEL=header_store,keyfile-offset=32,keyfile-size=16
@@ -206,6 +205,17 @@ cryptsetup_start_and_check -f empty_nokey
 mkdir -p /run/cryptsetup-keys.d
 cp "$IMAGE_EMPTY_KEYFILE" /run/cryptsetup-keys.d/empty_nokey.key
 cryptsetup_start_and_check empty_nokey
+
+# Test unlocking with a PKCS#11 token
+export SOFTHSM2_CONF="/etc/softhsm2.conf"
+PIN="1234" systemd-cryptenroll --pkcs11-token-uri="pkcs11:token=TestToken;object=RSATestKey" --unlock-key-file="$IMAGE_EMPTY_KEYFILE" "$IMAGE_EMPTY"
+cryptsetup_start_and_check empty_pkcs11_auto
+cryptsetup luksKillSlot -q "$IMAGE_EMPTY" 2
+cryptsetup token remove --token-id 0 "$IMAGE_EMPTY"
+PIN="1234" systemd-cryptenroll --pkcs11-token-uri="pkcs11:token=TestToken;object=ECTestKey" --unlock-key-file="$IMAGE_EMPTY_KEYFILE" "$IMAGE_EMPTY"
+cryptsetup_start_and_check empty_pkcs11_auto
+cryptsetup luksKillSlot -q "$IMAGE_EMPTY" 2
+cryptsetup token remove --token-id 0 "$IMAGE_EMPTY"
 
 cryptsetup_start_and_check detached
 cryptsetup_start_and_check detached_store{0..2}
