@@ -138,6 +138,12 @@ const char* const systemd_features =
         " -LIBCRYPTSETUP"
 #endif
 
+#if HAVE_LIBCRYPTSETUP_PLUGINS
+        " +LIBCRYPTSETUP_PLUGINS"
+#else
+        " -LIBCRYPTSETUP_PLUGINS"
+#endif
+
 #if HAVE_LIBFDISK
         " +LIBFDISK"
 #else
