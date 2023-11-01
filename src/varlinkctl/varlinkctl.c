@@ -230,7 +230,7 @@ static int verb_info(int argc, char *argv[], void *userdata) {
                 };
                 _cleanup_(get_info_data_done) GetInfoData data = {};
 
-                r = json_dispatch(reply, dispatch_table, NULL, JSON_LOG, &data);
+                r = json_dispatch(reply, dispatch_table, JSON_LOG, &data);
                 if (r < 0)
                         return r;
 
@@ -314,7 +314,7 @@ static int verb_introspect(int argc, char *argv[], void *userdata) {
                 const char *description = NULL;
                 unsigned line = 0, column = 0;
 
-                r = json_dispatch(reply, dispatch_table, NULL, JSON_LOG, &description);
+                r = json_dispatch(reply, dispatch_table, JSON_LOG, &description);
                 if (r < 0)
                         return r;
 

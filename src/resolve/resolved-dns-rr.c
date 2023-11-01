@@ -1869,7 +1869,7 @@ int dns_resource_key_from_json(JsonVariant *v, DnsResourceKey **ret) {
         assert(v);
         assert(ret);
 
-        r = json_dispatch(v, dispatch_table, NULL, 0, NULL);
+        r = json_dispatch(v, dispatch_table, 0, NULL);
         if (r < 0)
                 return r;
 

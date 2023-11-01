@@ -115,6 +115,9 @@ int varlink_error_errno(Varlink *v, int error);
 int varlink_notify(Varlink *v, JsonVariant *parameters);
 int varlink_notifyb(Varlink *v, ...);
 
+/* Parsing incoming data via json_dispatch() and generate a nice error on parse errors */
+int varlink_dispatch(Varlink *v, JsonVariant *parameters, const JsonDispatch table[], void *userdata);
+
 /* Write outgoing fds into the socket (to be associated with the next enqueued message) */
 int varlink_push_fd(Varlink *v, int fd);
 int varlink_dup_fd(Varlink *v, int fd);

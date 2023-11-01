@@ -48,8 +48,8 @@ int varlink_method_set_log_level(Varlink *link, JsonVariant *parameters, Varlink
         if (json_variant_elements(parameters) != 2)
                 return varlink_error_invalid_parameter(link, parameters);
 
-        r = json_dispatch(parameters, dispatch_table, NULL, 0, &level);
-        if (r < 0)
+        r = varlink_dispatch(link, parameters, dispatch_table, &level);
+        if (r != 0)
                 return r;
 
         if (LOG_PRI(level) != level)

@@ -96,7 +96,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         if (r < 0)
                 return 0;
 
-        r = json_dispatch(v, data_dispatch, NULL, 0, &config);
+        r = json_dispatch(v, data_dispatch, 0, &config);
         if (r < 0)
                 return 0;
 

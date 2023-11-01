@@ -50,7 +50,7 @@ static int dispatch_privileged(const char *name, JsonVariant *variant, JsonDispa
                 {},
         };
 
-        return json_dispatch(variant, privileged_dispatch_table, NULL, flags, userdata);
+        return json_dispatch(variant, privileged_dispatch_table, flags, userdata);
 }
 
 static int dispatch_binding(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
@@ -78,7 +78,7 @@ static int dispatch_binding(const char *name, JsonVariant *variant, JsonDispatch
         if (!m)
                 return 0;
 
-        return json_dispatch(m, binding_dispatch_table, NULL, flags, userdata);
+        return json_dispatch(m, binding_dispatch_table, flags, userdata);
 }
 
 static int dispatch_per_machine(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
@@ -131,7 +131,7 @@ static int dispatch_per_machine(const char *name, JsonVariant *variant, JsonDisp
                 if (!matching)
                         continue;
 
-                r = json_dispatch(e, per_machine_dispatch_table, NULL, flags, userdata);
+                r = json_dispatch(e, per_machine_dispatch_table, flags, userdata);
                 if (r < 0)
                         return r;
         }
@@ -164,7 +164,7 @@ static int dispatch_status(const char *name, JsonVariant *variant, JsonDispatchF
         if (!m)
                 return 0;
 
-        return json_dispatch(m, status_dispatch_table, NULL, flags, userdata);
+        return json_dispatch(m, status_dispatch_table, flags, userdata);
 }
 
 static int group_record_augment(GroupRecord *h, JsonDispatchFlags json_flags) {
@@ -230,7 +230,7 @@ int group_record_load(
         if (r < 0)
                 return r;
 
-        r = json_dispatch(h->json, group_dispatch_table, NULL, json_flags, h);
+        r = json_dispatch(h->json, group_dispatch_table, json_flags, h);
         if (r < 0)
                 return r;
 
