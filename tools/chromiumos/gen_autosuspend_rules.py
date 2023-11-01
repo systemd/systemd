@@ -151,6 +151,8 @@ USB_IDS += [
     "0bda:0136",
     # Realtek (SD card reader) (falco)
     "0bda:0177",
+    # Realtek (SD card reader) (pirrha)
+    "0bda:0129",
 ]
 
 # Security Key
