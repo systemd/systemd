@@ -818,7 +818,7 @@ static int feature_to_string_compare_func(const FeatureToString *a, const Featur
 }
 
 static void print_feature(Feature feature, const char *prefix) {
-        FeatureToString *found, in = {
+        const FeatureToString *found, in = {
                 .feature = feature,
         };
 
