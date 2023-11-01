@@ -84,7 +84,7 @@ CHANGES WITH 255 in spe:
           able to use control group as a selector in firewall rules easily and this in
           turn allows more fine grained filtering. Also, NFT rules for cgroup matching
           use numeric cgroup IDs, which change every time a service is restarted, making
-          them hard to use in systemd environment.
+          them hard to use in a systemd environment.
 
         * A new option CoredumpReceive= can be set, together with Delegate=yes, to
           make systemd-coredump on the host forward core files from processes crashed
@@ -370,7 +370,7 @@ CHANGES WITH 255 in spe:
         * A new meson option configfiledir can be used to change where
           configuration files with default values are installed to.
 
-        * Options and verbs in manpages are now tagged with the version they
+        * Options and verbs in man pages are now tagged with the version they
           were first introduced in.
 
 CHANGES WITH 254:
