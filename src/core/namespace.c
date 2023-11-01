@@ -107,6 +107,7 @@ typedef struct MountEntry {
         unsigned long flags;      /* Mount flags used by EMPTY_DIR and TMPFS. Do not include MS_RDONLY here, but please use read_only. */
         unsigned n_followed;
         LIST_HEAD(MountOptions, image_options_const);
+        char **overlay_layers;
 } MountEntry;
 
 typedef struct MountList {
@@ -336,6 +337,7 @@ static void mount_entry_done(MountEntry *p) {
         p->unprefixed_path_malloc = mfree(p->unprefixed_path_malloc);
         p->source_malloc = mfree(p->source_malloc);
         p->options_malloc = mfree(p->options_malloc);
+        p->overlay_layers = strv_free(p->overlay_layers);
 }
 
 static void mount_list_done(MountList *ml) {
@@ -461,6 +463,15 @@ static int append_mount_images(MountList *ml, const MountImage *mount_images, si
         return 0;
 }
 
+static void free_overlays(char ***overlays, size_t n) {
+        assert(overlays || n == 0);
+
+        for (size_t i = 0; i < n; i++)
+                strv_free(overlays[i]);
+
+        free(overlays);
+}
+
 static int append_extensions(
                 MountList *ml,
                 const char *root,
@@ -470,7 +481,8 @@ static int append_extensions(
                 size_t n,
                 char **extension_directories) {
 
-        _cleanup_strv_free_ char **overlays = NULL;
+        char ***overlays = NULL;
+        size_t n_overlays = 0;
         int r;
 
         assert(ml);
@@ -480,21 +492,19 @@ static int append_extensions(
 
         assert(extension_dir);
 
-        /* Prepare a list of overlays, that will have as each element a string suitable for being
-         * passed as a lowerdir= parameter, so start with the hierarchy on the root.
+        n_overlays = strv_length(hierarchies);
+        if (n_overlays == 0)
+                return 0;
+
+        /* Prepare a list of overlays, that will have as each element a strv containing all the layers that
+         * will later be concatenated as a lowerdir= parameter for the mount operation.
          * The overlays vector will have the same number of elements and will correspond to the
          * hierarchies vector, so they can be iterated upon together. */
-        STRV_FOREACH(hierarchy, hierarchies) {
-                _cleanup_free_ char *prefixed_hierarchy = NULL;
+        overlays = new0(char**, n_overlays);
+        if (!overlays)
+                return -ENOMEM;
 
-                prefixed_hierarchy = path_join(root, *hierarchy);
-                if (!prefixed_hierarchy)
-                        return -ENOMEM;
-
-                r = strv_consume(&overlays, TAKE_PTR(prefixed_hierarchy));
-                if (r < 0)
-                        return r;
-        }
+        CLEANUP_ARRAY(overlays, n_overlays, free_overlays);
 
         /* First, prepare a mount for each image, but these won't be visible to the unit, instead
          * they will be mounted in our propagate directory, and used as a source for the overlay. */
@@ -506,28 +516,18 @@ static int append_extensions(
                         return -ENOMEM;
 
                 for (size_t j = 0; hierarchies && hierarchies[j]; ++j) {
-                        _cleanup_free_ char *prefixed_hierarchy = NULL, *escaped = NULL, *lowerdir = NULL;
-
-                        prefixed_hierarchy = path_join(mount_point, hierarchies[j]);
+                        char *prefixed_hierarchy = path_join(mount_point, hierarchies[j]);
                         if (!prefixed_hierarchy)
                                 return -ENOMEM;
 
-                        escaped = shell_escape(prefixed_hierarchy, ",:");
-                        if (!escaped)
-                                return -ENOMEM;
-
-                        /* Note that lowerdir= parameters are in 'reverse' order, so the
-                         * top-most directory in the overlay comes first in the list. */
-                        lowerdir = strjoin(escaped, ":", overlays[j]);
-                        if (!lowerdir)
-                                return -ENOMEM;
-
-                        free_and_replace(overlays[j], lowerdir);
+                        r = strv_consume(&overlays[j], TAKE_PTR(prefixed_hierarchy));
+                        if (r < 0)
+                                return r;
                 }
 
                 MountEntry *me = mount_list_extend(ml);
                 if (!me)
-                        return log_oom_debug();
+                        return -ENOMEM;
 
                 *me = (MountEntry) {
                         .path_malloc = TAKE_PTR(mount_point),
@@ -565,28 +565,18 @@ static int append_extensions(
                         return -ENOMEM;
 
                 for (size_t j = 0; hierarchies && hierarchies[j]; ++j) {
-                        _cleanup_free_ char *prefixed_hierarchy = NULL, *escaped = NULL, *lowerdir = NULL;
-
-                        prefixed_hierarchy = path_join(mount_point, hierarchies[j]);
+                        char *prefixed_hierarchy = path_join(mount_point, hierarchies[j]);
                         if (!prefixed_hierarchy)
                                 return -ENOMEM;
 
-                        escaped = shell_escape(prefixed_hierarchy, ",:");
-                        if (!escaped)
-                                return -ENOMEM;
-
-                        /* Note that lowerdir= parameters are in 'reverse' order, so the
-                         * top-most directory in the overlay comes first in the list. */
-                        lowerdir = strjoin(escaped, ":", overlays[j]);
-                        if (!lowerdir)
-                                return -ENOMEM;
-
-                        free_and_replace(overlays[j], lowerdir);
+                        r = strv_consume(&overlays[j], TAKE_PTR(prefixed_hierarchy));
+                        if (r < 0)
+                                return r;
                 }
 
                 MountEntry *me = mount_list_extend(ml);
                 if (!me)
-                        return log_oom_debug();
+                        return -ENOMEM;
 
                 *me = (MountEntry) {
                         .path_malloc = TAKE_PTR(mount_point),
@@ -609,11 +599,11 @@ static int append_extensions(
 
                 MountEntry *me = mount_list_extend(ml);
                 if (!me)
-                        return log_oom_debug();
+                        return -ENOMEM;
 
                 *me = (MountEntry) {
                         .path_malloc = TAKE_PTR(prefixed_hierarchy),
-                        .options_malloc = TAKE_PTR(overlays[i]),
+                        .overlay_layers = TAKE_PTR(overlays[i]),
                         .mode = MOUNT_OVERLAY,
                         .has_prefix = true,
                         .ignore = true, /* If the source image doesn't set the ignore bit it will fail earlier. */
@@ -1413,12 +1403,40 @@ static int mount_image(
 }
 
 static int mount_overlay(const MountEntry *m) {
-        const char *options;
+        _cleanup_free_ char *options = NULL, *layers = NULL;
         int r;
 
         assert(m);
 
-        options = strjoina("lowerdir=", mount_entry_options(m));
+        /* Extension hierarchies are optional (e.g.: confext might not have /opt) so check if they actually
+         * exist in an image before attempting to create an overlay with them, otherwise the mount will
+         * fail. We can't check before this, as the images will not be mounted until now. */
+
+        /* Note that lowerdir= parameters are in 'reverse' order, so the top-most directory in the overlay
+         * comes first in the list. */
+        STRV_FOREACH_BACKWARDS(o, m->overlay_layers) {
+                _cleanup_free_ char *escaped = NULL;
+
+                if (is_dir(*o, /* follow= */ false) <= 0)
+                        continue;
+
+                escaped = shell_escape(*o, ",:");
+                if (!escaped)
+                        return log_oom_debug();
+
+                if (!strextend_with_separator(&layers, ":", escaped))
+                        return log_oom_debug();
+        }
+
+        if (!layers) {
+                log_debug("None of the overlays specified in '%s' exist at the source, skipping.",
+                          mount_entry_options(m));
+                return 0; /* Only the root is set? Then there's nothing to overlay */
+        }
+
+        options = strjoin("lowerdir=", layers, ":", mount_entry_path(m)); /* The root goes in last */
+        if (!options)
+                return log_oom_debug();
 
         (void) mkdir_p_label(mount_entry_path(m), 0755);
 
