@@ -91,7 +91,6 @@ finit_module
 flistxattr
 flock
 fork
-fp_udfiex_crtl
 fremovexattr
 fsconfig
 fsetxattr

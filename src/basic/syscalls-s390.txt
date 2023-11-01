@@ -91,7 +91,6 @@ finit_module	344
 flistxattr	232
 flock	143
 fork	2
-fp_udfiex_crtl
 fremovexattr	235
 fsconfig	431
 fsetxattr	226
