@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 project('systemd', 'c',
-        version : '254',
+        version : '255',
         license : 'LGPLv2+',
         default_options: [
                 'c_std=gnu11',
@@ -13,8 +13,8 @@ project('systemd', 'c',
         meson_version : '>= 0.60.0',
        )
 
-libsystemd_version = '0.37.0'
-libudev_version = '1.7.7'
+libsystemd_version = '0.38.0'
+libudev_version = '1.7.8'
 
 conf = configuration_data()
 conf.set_quoted('PROJECT_URL', 'https://systemd.io/')
