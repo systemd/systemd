@@ -613,7 +613,7 @@ static int dhcp6_lease_insert_vendor_option(
                 uint16_t option_code,
                 const void *data,
                 size_t len,
-                uint16_t enterprise_id) {
+                uint32_t enterprise_id) {
 
         _cleanup_(sd_dhcp6_option_unrefp) sd_dhcp6_option *option = NULL;
 
