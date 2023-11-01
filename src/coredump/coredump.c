@@ -778,10 +778,9 @@ static int submit_coredump(
         _cleanup_close_ int coredump_fd = -EBADF, coredump_node_fd = -EBADF;
         _cleanup_free_ char *filename = NULL, *coredump_data = NULL;
         _cleanup_free_ char *stacktrace = NULL;
-        char *core_message;
         const char *module_name;
         uint64_t coredump_size = UINT64_MAX, coredump_compressed_size = UINT64_MAX;
-        bool truncated = false;
+        bool truncated = false, written = false;
         JsonVariant *module_json;
         int r;
 
@@ -799,6 +798,8 @@ static int submit_coredump(
         if (r < 0)
                 /* Skip whole core dumping part */
                 goto log;
+
+        written = true;
 
         /* If we don't want to keep the coredump on disk, remove it now, as later on we
          * will lack the privileges for it. However, we keep the fd to it, so that we can
@@ -840,13 +841,23 @@ static int submit_coredump(
         }
 
 log:
-        core_message = strjoina("Process ", context->meta[META_ARGV_PID],
-                                " (", context->meta[META_COMM], ") of user ",
-                                context->meta[META_ARGV_UID], " dumped core.",
-                                context->is_journald && filename ? "\nCoredump diverted to " : NULL,
-                                context->is_journald && filename ? filename : NULL);
+        _cleanup_free_ char *core_message = NULL;
 
-        core_message = strjoina(core_message, stacktrace ? "\n\n" : NULL, stacktrace);
+        core_message = strjoin(
+                        "Process ", context->meta[META_ARGV_PID],
+                        " (", context->meta[META_COMM],
+                        ") of user ", context->meta[META_ARGV_UID],
+                        written ? " dumped core." : " terminated abnormally without generating a coredump.");
+        if (!core_message)
+                return log_oom();
+
+        if (context->is_journald && filename)
+                if (!strextend(&core_message, "\nCoredump diverted to ", filename))
+                        return log_oom();
+
+        if (stacktrace)
+                if (!strextend(&core_message, "\n\n", stacktrace))
+                        return log_oom();
 
         if (context->is_journald)
                 /* We might not be able to log to the journal, so let's always print the message to another
