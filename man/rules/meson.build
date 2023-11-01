@@ -67,6 +67,7 @@ manpages = [
  ['os-release', '5', ['extension-release', 'initrd-release'], ''],
  ['pam_systemd', '8', [], 'HAVE_PAM'],
  ['pam_systemd_home', '8', [], 'ENABLE_PAM_HOME'],
+ ['pam_systemd_loadkey', '8', [], 'HAVE_PAM'],
  ['portablectl', '1', [], 'ENABLE_PORTABLED'],
  ['poweroff', '8', ['halt', 'reboot'], ''],
  ['pstore.conf', '5', ['pstore.conf.d'], 'ENABLE_PSTORE'],
