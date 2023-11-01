@@ -103,6 +103,96 @@ static void sd_eviocrevoke(int fd) {
         }
 }
 
+#if BPF_FRAMEWORK
+#include "bpf-dlopen.h"
+#include "bpf/logind-revoke-skel.h"
+
+static struct logind_revoke_bpf *logind_revoke_bpf_free(struct logind_revoke_bpf *obj) {
+        /* logind_revoke_bpf__destroy handles object == NULL case */
+        (void) logind_revoke_bpf__destroy(obj);
+
+        return NULL;
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct logind_revoke_bpf *, logind_revoke_bpf_free);
+
+static int hidraw_bpf_attach(struct logind_revoke_bpf **ret_obj) {
+        _cleanup_(logind_revoke_bpf_freep) struct logind_revoke_bpf *obj = NULL;
+        int r;
+
+        assert(ret_obj);
+
+        r = dlopen_bpf();
+        if (r < 0) {
+                log_info_errno(r, "Failed to open libbpf, revoke for hidraw is not supported: %m");
+                return -ENOTSUP;
+        }
+
+        obj = logind_revoke_bpf__open();
+        if (!obj)
+                return log_error_errno(errno, "Failed to open BPF object: %m");
+
+        r = logind_revoke_bpf__load(obj);
+        if (r < 0)
+                return log_error_errno(-r, "Failed to load BPF object");
+
+        *ret_obj = TAKE_PTR(obj);
+
+        return 0;
+}
+
+struct hidraw_revoke_syscall_args {
+        int fd;
+};
+
+static void sd_hidraw_revoke(int fd) {
+        struct hidraw_revoke_syscall_args args = { .fd = fd };
+        _cleanup_(logind_revoke_bpf_freep) struct logind_revoke_bpf *obj = NULL;
+        int r;
+        log_warning( "■ ■ ■ ■ %s:%d: revoking", __func__, __LINE__);
+
+        {
+                uint8_t buffer[64];
+                r = read(fd, buffer, sizeof buffer);
+                assert(r >= 0 || errno == EAGAIN);
+        }
+
+        DECLARE_LIBBPF_OPTS(bpf_test_run_opts, tattrs,
+                        .ctx_in = &args,
+                        .ctx_size_in = sizeof(args),
+                        );
+
+        assert(fd >= 0);
+
+        r = hidraw_bpf_attach(&obj);
+        if (r == 0) {
+                int bpf_fd = sym_bpf_program__fd(obj->progs.hidraw_revoke);
+                r = sym_bpf_prog_test_run_opts(bpf_fd, &tattrs);
+                if (r < 0)
+                        log_warning_errno(-r, "Revoking hidraw failed: %m");
+        }
+
+        {
+                uint8_t buffer[64];
+                r = read(fd, buffer, sizeof buffer);
+                if (r >= 0 || errno != ENODEV)
+                        log_warning("■ ■ ■ ■ %s:%d: read %d (%d) from fd %d", __func__, __LINE__, r, errno, fd);
+        }
+}
+
+#else
+
+static void sd_hidraw_revoke(int fd) {
+        static bool warned = false;
+
+        if (!warned)
+                log_warning("Kernel does not support hidraw-revocation");
+
+        warned = true;
+}
+
+#endif
+
 static int sd_drmsetmaster(int fd) {
         assert(fd >= 0);
         return RET_NERRNO(ioctl(fd, DRM_IOCTL_SET_MASTER, 0));
@@ -120,8 +210,10 @@ static int session_device_open(SessionDevice *sd, bool active) {
         assert(sd->type != DEVICE_TYPE_UNKNOWN);
         assert(sd->node);
 
+        log_warning("■ ■ ■ ■ %s:%d: opening for %s as %u (%u)", __func__, __LINE__, sd->node, getuid(), geteuid());
         /* open device and try to get a udev_device from it */
         fd = open(sd->node, O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
+        log_warning("■ ■ ■ ■ %s:%d: fd %d errno %d", __func__, __LINE__, fd, errno);
         if (fd < 0)
                 return -errno;
 
@@ -145,6 +237,11 @@ static int session_device_open(SessionDevice *sd, bool active) {
         case DEVICE_TYPE_EVDEV:
                 if (!active)
                         sd_eviocrevoke(fd);
+                break;
+
+        case DEVICE_TYPE_HIDRAW:
+                if (!active)
+                        sd_hidraw_revoke(fd);
                 break;
 
         case DEVICE_TYPE_UNKNOWN:
@@ -180,12 +277,13 @@ static int session_device_start(SessionDevice *sd) {
                 break;
 
         case DEVICE_TYPE_EVDEV:
-                /* Evdev devices are revoked while inactive. Reopen it and we are fine. */
+        case DEVICE_TYPE_HIDRAW:
+                /* Evdev/Hidraw devices are revoked while inactive. Reopen it and we are fine. */
                 r = session_device_open(sd, true);
                 if (r < 0)
                         return r;
 
-                /* For evdev devices, the file descriptor might be left uninitialized. This might happen while resuming
+                /* For hidraw devices, the file descriptor might be left uninitialized. This might happen while resuming
                  * into a session and logind has been restarted right before. */
                 close_and_replace(sd->fd, r);
                 break;
@@ -229,6 +327,14 @@ static void session_device_stop(SessionDevice *sd) {
                 sd_eviocrevoke(sd->fd);
                 break;
 
+        case DEVICE_TYPE_HIDRAW:
+                /* Revoke access on hidraw file-descriptors during deactivation.
+                 * This will basically prevent any operations on the fd and
+                 * cannot be undone. Good side is: it needs no CAP_SYS_ADMIN
+                 * protection this way. */
+                sd_hidraw_revoke(sd->fd);
+                break;
+
         case DEVICE_TYPE_UNKNOWN:
         default:
                 /* fallback for devices without synchronization */
@@ -252,6 +358,10 @@ static DeviceType detect_device_type(sd_device *dev) {
         } else if (streq(subsystem, "input")) {
                 if (startswith(sysname, "event"))
                         type = DEVICE_TYPE_EVDEV;
+        } else if (streq(subsystem, "hidraw")) {
+                log_warning("■ ■ ■ ■ %s:%d:", __func__, __LINE__);
+                if (startswith(sysname, "hidraw"))
+                        type = DEVICE_TYPE_HIDRAW;
         }
 
         return type;
@@ -275,21 +385,27 @@ static int session_device_verify(SessionDevice *sd) {
 
         /* detect device type so we can find the correct sysfs parent */
         sd->type = detect_device_type(dev);
-        if (sd->type == DEVICE_TYPE_UNKNOWN)
-                return -ENODEV;
 
-        else if (sd->type == DEVICE_TYPE_EVDEV) {
+        /* Prevent opening unsupported devices. Especially devices of
+         * subsystem "input" must be opened via the evdev node as
+         * we require EVIOCREVOKE. */
+        switch (sd->type) {
+        case DEVICE_TYPE_EVDEV:
                 /* for evdev devices we need the parent node as device */
                 if (sd_device_get_parent_with_subsystem_devtype(p, "input", NULL, &dev) < 0)
                         return -ENODEV;
                 if (sd_device_get_syspath(dev, &sp) < 0)
                         return -ENODEV;
+                break;
 
-        } else if (sd->type != DEVICE_TYPE_DRM)
-                /* Prevent opening unsupported devices. Especially devices of
-                 * subsystem "input" must be opened via the evdev node as
-                 * we require EVIOCREVOKE. */
+        case DEVICE_TYPE_HIDRAW:
+        case DEVICE_TYPE_DRM:
+                break;
+
+        case  DEVICE_TYPE_UNKNOWN:
+        default:
                 return -ENODEV;
+        }
 
         /* search for an existing seat device and return it if available */
         sd->device = hashmap_get(sd->session->manager->devices, sp);

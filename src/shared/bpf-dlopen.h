@@ -26,6 +26,8 @@ extern int (*sym_bpf_object__attach_skeleton)(struct bpf_object_skeleton *);
 extern void (*sym_bpf_object__detach_skeleton)(struct bpf_object_skeleton *);
 extern void (*sym_bpf_object__destroy_skeleton)(struct bpf_object_skeleton *);
 extern const char* (*sym_bpf_program__name)(const struct bpf_program *);
+extern int (*sym_bpf_program__fd)(const struct bpf_program *);
+extern int (*sym_bpf_prog_test_run_opts)(int prog_fd, struct bpf_test_run_opts *opts);
 extern libbpf_print_fn_t (*sym_libbpf_set_print)(libbpf_print_fn_t);
 extern long (*sym_libbpf_get_error)(const void *);
 
