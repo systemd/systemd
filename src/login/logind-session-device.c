@@ -275,21 +275,26 @@ static int session_device_verify(SessionDevice *sd) {
 
         /* detect device type so we can find the correct sysfs parent */
         sd->type = detect_device_type(dev);
-        if (sd->type == DEVICE_TYPE_UNKNOWN)
-                return -ENODEV;
 
-        else if (sd->type == DEVICE_TYPE_EVDEV) {
+        /* Prevent opening unsupported devices. Especially devices of
+         * subsystem "input" must be opened via the evdev node as
+         * we require EVIOCREVOKE. */
+        switch (sd->type) {
+        case DEVICE_TYPE_EVDEV:
                 /* for evdev devices we need the parent node as device */
                 if (sd_device_get_parent_with_subsystem_devtype(p, "input", NULL, &dev) < 0)
                         return -ENODEV;
                 if (sd_device_get_syspath(dev, &sp) < 0)
                         return -ENODEV;
+                break;
 
-        } else if (sd->type != DEVICE_TYPE_DRM)
-                /* Prevent opening unsupported devices. Especially devices of
-                 * subsystem "input" must be opened via the evdev node as
-                 * we require EVIOCREVOKE. */
+        case DEVICE_TYPE_DRM:
+                break;
+
+        case  DEVICE_TYPE_UNKNOWN:
+        default:
                 return -ENODEV;
+        }
 
         /* search for an existing seat device and return it if available */
         sd->device = hashmap_get(sd->session->manager->devices, sp);
