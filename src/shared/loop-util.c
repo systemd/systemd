@@ -88,7 +88,7 @@ static int open_lock_fd(int primary_fd, int operation) {
 }
 
 static int loop_configure_verify_direct_io(int fd, const struct loop_config *c) {
-        assert(fd);
+        assert(fd >= 0);
         assert(c);
 
         if (FLAGS_SET(c->info.lo_flags, LO_FLAGS_DIRECT_IO)) {
