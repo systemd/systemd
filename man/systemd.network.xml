@@ -81,7 +81,7 @@
     set will never be matched by any .network files – unless the property's value is the string
     <literal>io.systemd.Network</literal> – even if the [Match] section would otherwise match. This may be
     used to exclude specific network interfaces from <command>systemd-networkd</command>'s management, while
-    keeping the [Match] section generic. The <varname>ID_NET_MANAGED_BY=</varname> poperty thus declares
+    keeping the [Match] section generic. The <varname>ID_NET_MANAGED_BY=</varname> property thus declares
     intended <emphasis>ownership</emphasis> of the device, and permits ensuring that concurrent network
     management implementations do not compete for management of specific devices.</para>
 
