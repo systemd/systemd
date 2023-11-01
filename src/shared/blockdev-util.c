@@ -104,7 +104,7 @@ int block_device_get_whole_disk(sd_device *dev, sd_device **ret) {
         return 0;
 }
 
-static int block_device_get_originating(sd_device *dev, sd_device **ret) {
+int block_device_get_originating(sd_device *dev, sd_device **ret) {
         _cleanup_(sd_device_unrefp) sd_device *first_found = NULL;
         const char *suffix;
         dev_t devnum = 0;  /* avoid false maybe-uninitialized warning */
