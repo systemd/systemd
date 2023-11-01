@@ -187,7 +187,7 @@ CHANGES WITH 255 in spe:
         systemd-repart:
 
         * A new option --copy-from that synthesizes partition definitions from
-          the given image, wich are then applied to the systemd-repart algorithm,
+          the given image, which are then applied to the systemd-repart algorithm,
           has been added.
 
         * A new option --copy-source has been added, which can be used to specify
@@ -321,7 +321,7 @@ CHANGES WITH 255 in spe:
         * systemd-sysext and systemd-confext now expose a varlink service
           at io.systemd.sysext.
 
-        * wall messsages now work even when utmp support is disabled, using
+        * wall messages now work even when utmp support is disabled, using
           systemd-logind to query the necessary information.
 
         * systemd-logind now sends a new PrepareForShutdownWithMetadata D-Bus
