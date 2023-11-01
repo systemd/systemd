@@ -91,7 +91,6 @@ finit_module	5307
 flistxattr	5188
 flock	5071
 fork	5056
-fp_udfiex_crtl
 fremovexattr	5191
 fsconfig	5431
 fsetxattr	5182
