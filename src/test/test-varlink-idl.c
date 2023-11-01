@@ -15,7 +15,9 @@
 #include "varlink-io.systemd.Resolve.h"
 #include "varlink-io.systemd.UserDatabase.h"
 #include "varlink-io.systemd.oom.h"
+#include "varlink-io.systemd.service.h"
 #include "varlink-io.systemd.sysext.h"
+#include "varlink-io.systemd.udev.h"
 #include "varlink-org.varlink.service.h"
 
 static VARLINK_DEFINE_ENUM_TYPE(
@@ -137,6 +139,8 @@ TEST(parse_format) {
         test_parse_format_one(&vl_interface_io_systemd);
         print_separator();
         test_parse_format_one(&vl_interface_io_systemd_PCRExtend);
+        print_separator();
+        test_parse_format_one(&vl_interface_io_systemd_service);
         print_separator();
         test_parse_format_one(&vl_interface_io_systemd_sysext);
         print_separator();
