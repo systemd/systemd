@@ -149,6 +149,13 @@ static void sd_hidraw_revoke(int fd) {
         struct hidraw_revoke_syscall_args args = { .fd = fd };
         _cleanup_(logind_revoke_bpf_freep) struct logind_revoke_bpf *obj = NULL;
         int r;
+        log_warning( "■ ■ ■ ■ %s:%d: revoking", __func__, __LINE__);
+
+        {
+                uint8_t buffer[64];
+                r = read(fd, buffer, sizeof buffer);
+                assert(r >= 0 || errno == EAGAIN);
+        }
 
         DECLARE_LIBBPF_OPTS(bpf_test_run_opts, tattrs,
                         .ctx_in = &args,
@@ -163,6 +170,13 @@ static void sd_hidraw_revoke(int fd) {
                 r = sym_bpf_prog_test_run_opts(bpf_fd, &tattrs);
                 if (r < 0)
                         log_warning_errno(-r, "Revoking hidraw failed: %m");
+        }
+
+        {
+                uint8_t buffer[64];
+                r = read(fd, buffer, sizeof buffer);
+                if (r >= 0 || errno != ENODEV)
+                        log_warning("■ ■ ■ ■ %s:%d: read %d (%d) from fd %d", __func__, __LINE__, r, errno, fd);
         }
 }
 
@@ -196,8 +210,10 @@ static int session_device_open(SessionDevice *sd, bool active) {
         assert(sd->type != DEVICE_TYPE_UNKNOWN);
         assert(sd->node);
 
+        log_warning("■ ■ ■ ■ %s:%d: opening for %s as %u (%u)", __func__, __LINE__, sd->node, getuid(), geteuid());
         /* open device and try to get a udev_device from it */
         fd = open(sd->node, O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
+        log_warning("■ ■ ■ ■ %s:%d: fd %d errno %d", __func__, __LINE__, fd, errno);
         if (fd < 0)
                 return -errno;
 
@@ -343,6 +359,7 @@ static DeviceType detect_device_type(sd_device *dev) {
                 if (startswith(sysname, "event"))
                         type = DEVICE_TYPE_EVDEV;
         } else if (streq(subsystem, "hidraw")) {
+                log_warning("■ ■ ■ ■ %s:%d:", __func__, __LINE__);
                 if (startswith(sysname, "hidraw"))
                         type = DEVICE_TYPE_HIDRAW;
         }
