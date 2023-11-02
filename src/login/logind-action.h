@@ -5,6 +5,7 @@
 
 typedef enum HandleAction {
         HANDLE_IGNORE,
+
         HANDLE_POWEROFF,
         _HANDLE_ACTION_SHUTDOWN_FIRST = HANDLE_POWEROFF,
         HANDLE_REBOOT,
@@ -12,19 +13,32 @@ typedef enum HandleAction {
         HANDLE_KEXEC,
         HANDLE_SOFT_REBOOT,
         _HANDLE_ACTION_SHUTDOWN_LAST = HANDLE_SOFT_REBOOT,
+
         HANDLE_SUSPEND,
         _HANDLE_ACTION_SLEEP_FIRST = HANDLE_SUSPEND,
         HANDLE_HIBERNATE,
         HANDLE_HYBRID_SLEEP,
         HANDLE_SUSPEND_THEN_HIBERNATE,
-        _HANDLE_ACTION_SLEEP_LAST = HANDLE_SUSPEND_THEN_HIBERNATE,
+        HANDLE_SLEEP, /* A "high-level" action that automatically choose an appropriate low-level sleep action */
+        _HANDLE_ACTION_SLEEP_LAST = HANDLE_SLEEP,
+
         HANDLE_LOCK,
         HANDLE_FACTORY_RESET,
+
         _HANDLE_ACTION_MAX,
         _HANDLE_ACTION_INVALID = -EINVAL,
 } HandleAction;
 
 typedef struct HandleActionData HandleActionData;
+
+typedef enum HandleActionSleepMask {
+        HANDLE_SLEEP_SUSPEND_MASK                = 1U << HANDLE_SUSPEND,
+        HANDLE_SLEEP_HIBERNATE_MASK              = 1U << HANDLE_HIBERNATE,
+        HANDLE_SLEEP_HYBRID_SLEEP_MASK           = 1U << HANDLE_HYBRID_SLEEP,
+        HANDLE_SLEEP_SUSPEND_THEN_HIBERNATE_MASK = 1U << HANDLE_SUSPEND_THEN_HIBERNATE,
+} HandleActionSleepMask;
+
+#define HANDLE_ACTION_SLEEP_MASK_DEFAULT (HANDLE_SLEEP_SUSPEND_THEN_HIBERNATE_MASK|HANDLE_SLEEP_SUSPEND_MASK|HANDLE_SLEEP_HIBERNATE_MASK)
 
 #include "logind-inhibit.h"
 #include "logind.h"
@@ -55,6 +69,9 @@ struct HandleActionData {
         const char* log_verb;
 };
 
+int handle_action_get_enabled_sleep_actions(HandleActionSleepMask mask, char ***ret);
+HandleAction handle_action_sleep_select(HandleActionSleepMask mask);
+
 int manager_handle_action(
                 Manager *m,
                 InhibitWhat inhibit_key,
@@ -70,3 +87,5 @@ HandleAction handle_action_from_string(const char *s) _pure_;
 const HandleActionData* handle_action_lookup(HandleAction handle);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_handle_action);
+
+CONFIG_PARSER_PROTOTYPE(config_parse_handle_action_sleep);
