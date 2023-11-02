@@ -963,6 +963,9 @@ static int attach_tcrypt(
                 uint32_t flags) {
 
         int r = 0;
+        char **tmp_passwords;
+        char **p;
+        int password_count;
         _cleanup_(erase_and_freep) char *passphrase = NULL;
         struct crypt_params_tcrypt params = {
                 .flags = CRYPT_TCRYPT_LEGACY_MODES,
@@ -992,24 +995,37 @@ static int attach_tcrypt(
                 params.veracrypt_pim = arg_tcrypt_veracrypt_pim;
 
         if (key_data) {
-                params.passphrase = key_data;
-                params.passphrase_size = key_data_size;
+                tmp_passwords = (char**)malloc(sizeof(char*)*1);
+                tmp_passwords[0] = key_data;
+        } else if (key_file) {
+                 r = read_one_line_file(key_file, &passphrase);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to read password file '%s': %m", key_file);
+                        return -EAGAIN; /* log with the actual error, but return EAGAIN */
+                }
+                tmp_passwords = (char**)malloc(sizeof(char*)*1);
+                tmp_passwords[0] = passphrase;
         } else {
-                if (key_file) {
-                        r = read_one_line_file(key_file, &passphrase);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to read password file '%s': %m", key_file);
-                                return -EAGAIN; /* log with the actual error, but return EAGAIN */
-                        }
-
-                        params.passphrase = passphrase;
-                } else
-                        params.passphrase = passwords[0];
-
-                params.passphrase_size = strlen(params.passphrase);
+                password_count = 0;
+                STRV_FOREACH(p, passwords){
+                        password_count++;
+                }
+                tmp_passwords = (char**)malloc(sizeof(char*)*password_count);
+                password_count = 0; 
+                STRV_FOREACH(p,passwords){
+                        tmp_passwords[password_count] = *p;
+                        password_count++;
+                }
         }
-
-        r = crypt_load(cd, CRYPT_TCRYPT, &params);
+        r = -EINVAL;
+        STRV_FOREACH(p, tmp_passwords){
+                params.passphrase = *p;
+                params.passphrase_size = strlen(*p);
+                r = crypt_load(cd, CRYPT_TCRYPT, &params);
+                if (r >= 0)
+                        break;
+        }
+        free(tmp_passwords);
         if (r < 0) {
                 if (r == -EPERM) {
                         if (key_data)
