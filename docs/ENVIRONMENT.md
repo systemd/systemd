@@ -566,3 +566,9 @@ SYSTEMD_HOME_DEBUG_SUFFIX=foo \
 
 * `$SYSTEMD_REPART_OVERRIDE_FSTYPE` – if set the value will override the file
   system type specified in Format= lines in partition definition files.
+
+`systemd-nspawn`, `systemd-networkd`:
+
+* `$SYSTEMD_FIREWALL_BACKEND` – takes a string, either `iptables` or
+  `nftables`. Selects the firewall backend to use. If not specified tries to
+  use `nftables` and falls back to `iptables` if that's not available.
