@@ -100,6 +100,8 @@ jobs:
         [Host]
         ExtraSearchPaths=!*
         QemuVsock=yes
+        # Sometimes we run on a host with /dev/kvm, but it is broken, so explicitly disable it
+        QemuKvm=no
         Ephemeral=yes
         EOF
 
