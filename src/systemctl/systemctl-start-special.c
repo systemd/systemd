@@ -84,7 +84,7 @@ static int load_kexec_kernel(void) {
         if (arg_dry_run)
                 return 0;
 
-        r = safe_fork("(kexec)", FORK_WAIT|FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG, &pid);
+        r = safe_fork("(kexec)", FORK_WAIT|FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG, &pid);
         if (r < 0)
                 return r;
         if (r == 0) {
