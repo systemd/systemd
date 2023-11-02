@@ -42,7 +42,7 @@ static usec_t when_wall(usec_t n, usec_t elapse) {
 bool logind_wall_tty_filter(const char *tty, bool is_local, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
 
-        assert(m->scheduled_shutdown_action);
+        assert(handle_action_valid(m->scheduled_shutdown_action));
 
         const char *p = path_startswith(tty, "/dev/");
         if (!p)
@@ -52,7 +52,7 @@ bool logind_wall_tty_filter(const char *tty, bool is_local, void *userdata) {
          * can assume that if the system enters sleep or hibernation, this will be visible in an obvious way
          * for any local user. And once the systems exits sleep or hibernation, the notification would be
          * just noise, in particular for auto-suspend. */
-        if (is_local && HANDLE_ACTION_IS_SLEEP(m->scheduled_shutdown_action->handle))
+        if (is_local && HANDLE_ACTION_IS_SLEEP(m->scheduled_shutdown_action))
                 return false;
 
         return !streq_ptr(p, m->scheduled_shutdown_tty);
@@ -61,7 +61,7 @@ bool logind_wall_tty_filter(const char *tty, bool is_local, void *userdata) {
 static int warn_wall(Manager *m, usec_t n) {
         assert(m);
 
-        if (!m->scheduled_shutdown_action)
+        if (!handle_action_valid(m->scheduled_shutdown_action))
                 return 0;
 
         bool left = m->scheduled_shutdown_timeout > n;
@@ -70,7 +70,7 @@ static int warn_wall(Manager *m, usec_t n) {
         if (asprintf(&l, "%s%sThe system will %s %s%s!",
                      strempty(m->wall_message),
                      isempty(m->wall_message) ? "" : "\n",
-                     handle_action_verb_to_string(m->scheduled_shutdown_action->handle),
+                     handle_action_verb_to_string(m->scheduled_shutdown_action),
                      left ? "at " : "now",
                      left ? FORMAT_TIMESTAMP(m->scheduled_shutdown_timeout) : "") < 0) {
 
@@ -84,7 +84,7 @@ static int warn_wall(Manager *m, usec_t n) {
 
         log_struct(level,
                    LOG_MESSAGE("%s", l),
-                   "ACTION=%s", handle_action_to_string(m->scheduled_shutdown_action->handle),
+                   "ACTION=%s", handle_action_to_string(m->scheduled_shutdown_action),
                    "MESSAGE_ID=" SD_MESSAGE_SHUTDOWN_SCHEDULED_STR,
                    username ? "OPERATOR=%s" : NULL, username);
 
@@ -134,7 +134,7 @@ int manager_setup_wall_message_timer(Manager *m) {
 
         /* wall message handling */
 
-        if (!m->scheduled_shutdown_action)
+        if (!handle_action_valid(m->scheduled_shutdown_action))
                 return 0;
 
         if (elapse > 0 && elapse < n)
