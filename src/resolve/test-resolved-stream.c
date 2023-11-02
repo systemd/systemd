@@ -151,7 +151,7 @@ static void *tls_dns_server(void *p) {
         r = safe_fork_full("(test-resolved-stream-tls-openssl)",
                            (int[]) { fd_tls, fd_tls, STDOUT_FILENO },
                            NULL, 0,
-                           FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG|FORK_REARRANGE_STDIO|FORK_LOG|FORK_REOPEN_LOG,
+                           FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REARRANGE_STDIO|FORK_LOG|FORK_REOPEN_LOG,
                            &openssl_pid);
         assert_se(r >= 0);
         if (r == 0) {
@@ -336,7 +336,7 @@ static void try_isolate_network(void) {
         /* First test if CLONE_NEWUSER/CLONE_NEWNET can actually work for us, i.e. we can open the namespaces
          * and then still access the build dir we are run from. We do that in a child process since it's
          * nasty if we have to go back from the namespace once we entered it and realized it cannot work. */
-        r = safe_fork("(usernstest)", FORK_DEATHSIG|FORK_LOG|FORK_WAIT, NULL);
+        r = safe_fork("(usernstest)", FORK_DEATHSIG_SIGKILL|FORK_LOG|FORK_WAIT, NULL);
         if (r == 0) { /* child */
                 _cleanup_free_ char *rt = NULL, *d = NULL;
 

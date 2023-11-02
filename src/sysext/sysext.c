@@ -377,8 +377,8 @@ static int vl_method_unmerge(Varlink *link, JsonVariant *parameters, VarlinkMeth
 
         assert(link);
 
-        r = json_dispatch(parameters, dispatch_table, NULL, 0, &p);
-        if (r < 0)
+        r = varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
                 return r;
 
         r = parse_image_class_parameter(link, p.class, &image_class, &hierarchies);
@@ -973,7 +973,7 @@ static int merge(ImageClass image_class,
         pid_t pid;
         int r;
 
-        r = safe_fork("(sd-merge)", FORK_DEATHSIG|FORK_LOG|FORK_NEW_MOUNTNS, &pid);
+        r = safe_fork("(sd-merge)", FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_NEW_MOUNTNS, &pid);
         if (r < 0)
                 return log_error_errno(r, "Failed to fork off child: %m");
         if (r == 0) {
@@ -1115,17 +1115,12 @@ static int parse_merge_parameters(Varlink *link, JsonVariant *parameters, Method
                 { "noexec",   JSON_VARIANT_BOOLEAN, json_dispatch_boolean,      offsetof(MethodMergeParameters, noexec),    0 },
                 {}
         };
-        int r;
 
         assert(link);
         assert(parameters);
         assert(p);
 
-        r = json_dispatch(parameters, dispatch_table, NULL, 0, p);
-        if (r < 0)
-                return r;
-
-        return 0;
+        return varlink_dispatch(link, parameters, dispatch_table, p);
 }
 
 static int vl_method_merge(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
@@ -1142,7 +1137,7 @@ static int vl_method_merge(Varlink *link, JsonVariant *parameters, VarlinkMethod
         assert(link);
 
         r = parse_merge_parameters(link, parameters, &p);
-        if (r < 0)
+        if (r != 0)
                 return r;
 
         r = parse_image_class_parameter(link, p.class, &image_class, &hierarchies);
@@ -1245,7 +1240,7 @@ static int vl_method_refresh(Varlink *link, JsonVariant *parameters, VarlinkMeth
         assert(link);
 
         r = parse_merge_parameters(link, parameters, &p);
-        if (r < 0)
+        if (r != 0)
                 return r;
 
         r = parse_image_class_parameter(link, p.class, &image_class, &hierarchies);
@@ -1322,8 +1317,8 @@ static int vl_method_list(Varlink *link, JsonVariant *parameters, VarlinkMethodF
 
         assert(link);
 
-        r = json_dispatch(parameters, dispatch_table, NULL, 0, &p);
-        if (r < 0)
+        r = varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
                 return r;
 
         r = parse_image_class_parameter(link, p.class, &image_class, NULL);

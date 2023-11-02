@@ -74,7 +74,7 @@ static int process_managed_oom_message(Manager *m, uid_t uid, JsonVariant *param
                 if (!json_variant_is_object(c))
                         continue;
 
-                r = json_dispatch(c, dispatch_table, NULL, 0, &message);
+                r = json_dispatch(c, dispatch_table, 0, &message);
                 if (r == -ENOMEM)
                         return r;
                 if (r < 0)

@@ -981,7 +981,7 @@ static int mount_in_namespace_legacy(
                 goto finish;
         }
 
-        r = namespace_fork("(sd-bindmnt)", "(sd-bindmnt-inner)", NULL, 0, FORK_RESET_SIGNALS|FORK_DEATHSIG,
+        r = namespace_fork("(sd-bindmnt)", "(sd-bindmnt-inner)", NULL, 0, FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM,
                            pidns_fd, mntns_fd, -1, -1, root_fd, &child);
         if (r < 0)
                 goto finish;
@@ -1184,7 +1184,7 @@ static int mount_in_namespace(
                            "(sd-bindmnt-inner)",
                            /* except_fds= */ NULL,
                            /* n_except_fds= */ 0,
-                           FORK_RESET_SIGNALS|FORK_DEATHSIG,
+                           FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM,
                            pidns_fd,
                            mntns_fd,
                            /* netns_fd= */ -1,
@@ -1378,11 +1378,11 @@ int remount_idmap_fd(
         int *mount_fds = NULL;
         size_t n_mounts_fds = 0;
 
-        CLEANUP_ARRAY(mount_fds, n_mounts_fds, close_many_and_free);
-
         mount_fds = new(int, n);
         if (!mount_fds)
                 return log_oom_debug();
+
+        CLEANUP_ARRAY(mount_fds, n_mounts_fds, close_many_and_free);
 
         for (size_t i = 0; i < n; i++) {
                 int mntfd;

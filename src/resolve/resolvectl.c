@@ -1100,7 +1100,7 @@ static int show_statistics(int argc, char **argv, void *userdata) {
                 {},
         };
 
-        r = json_dispatch(reply, statistics_dispatch_table, NULL, JSON_LOG, &statistics);
+        r = json_dispatch(reply, statistics_dispatch_table, JSON_LOG, &statistics);
         if (r < 0)
                 return r;
 
@@ -1123,7 +1123,7 @@ static int show_statistics(int argc, char **argv, void *userdata) {
                 {},
         };
 
-        r = json_dispatch(statistics.transactions, transactions_dispatch_table, NULL, JSON_LOG, &transactions);
+        r = json_dispatch(statistics.transactions, transactions_dispatch_table, JSON_LOG, &transactions);
         if (r < 0)
                 return r;
 
@@ -1140,7 +1140,7 @@ static int show_statistics(int argc, char **argv, void *userdata) {
                 {},
         };
 
-        r = json_dispatch(statistics.cache, cache_dispatch_table, NULL, JSON_LOG, &cache);
+        r = json_dispatch(statistics.cache, cache_dispatch_table, JSON_LOG, &cache);
         if (r < 0)
                 return r;
 
@@ -1159,7 +1159,7 @@ static int show_statistics(int argc, char **argv, void *userdata) {
                 {},
         };
 
-        r = json_dispatch(statistics.dnssec, dnssec_dispatch_table, NULL, JSON_LOG, &dnsssec);
+        r = json_dispatch(statistics.dnssec, dnssec_dispatch_table, JSON_LOG, &dnsssec);
         if (r < 0)
                 return r;
 
@@ -2732,7 +2732,7 @@ static void monitor_query_dump(JsonVariant *v) {
                 {}
         };
 
-        r = json_dispatch(v, dispatch_table, NULL, 0, NULL);
+        r = json_dispatch(v, dispatch_table, 0, NULL);
         if (r < 0)
                 return (void) log_warning("Received malformed monitor message, ignoring.");
 
@@ -2858,7 +2858,7 @@ static int dump_cache_item(JsonVariant *item) {
         _cleanup_(dns_resource_key_unrefp) DnsResourceKey *k = NULL;
         int r, c = 0;
 
-        r = json_dispatch(item, dispatch_table, NULL, JSON_LOG, &item_info);
+        r = json_dispatch(item, dispatch_table, JSON_LOG, &item_info);
         if (r < 0)
                 return r;
 
@@ -2920,7 +2920,7 @@ static int dump_cache_scope(JsonVariant *scope) {
                 {},
         };
 
-        r = json_dispatch(scope, dispatch_table, NULL, JSON_LOG, &scope_info);
+        r = json_dispatch(scope, dispatch_table, JSON_LOG, &scope_info);
         if (r < 0)
                 return r;
 
@@ -3036,7 +3036,7 @@ static int dump_server_state(JsonVariant *server) {
                 {},
         };
 
-        r = json_dispatch(server, dispatch_table, NULL, JSON_LOG|JSON_PERMISSIVE, &server_state);
+        r = json_dispatch(server, dispatch_table, JSON_LOG|JSON_PERMISSIVE, &server_state);
         if (r < 0)
                 return r;
 

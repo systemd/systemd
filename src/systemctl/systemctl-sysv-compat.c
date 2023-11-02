@@ -210,7 +210,7 @@ int enable_sysv_units(const char *verb, char **args) {
                 if (!arg_quiet)
                         log_info("Executing: %s", l);
 
-                j = safe_fork("(sysv-install)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG, &pid);
+                j = safe_fork("(sysv-install)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG, &pid);
                 if (j < 0)
                         return j;
                 if (j == 0) {

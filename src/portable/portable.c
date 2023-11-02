@@ -421,7 +421,7 @@ static int portable_extract_by_path(
                 if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, seq) < 0)
                         return log_debug_errno(errno, "Failed to allocated SOCK_SEQPACKET socket: %m");
 
-                r = safe_fork("(sd-dissect)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE|FORK_LOG, &child);
+                r = safe_fork("(sd-dissect)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE|FORK_LOG, &child);
                 if (r < 0)
                         return r;
                 if (r == 0) {
