@@ -40,7 +40,7 @@ monitor_check_rr() (
     # displayed. We turn off pipefail for this, since we don't care about the
     # lhs of this pipe expression, we only care about the rhs' result to be
     # clean
-    timeout -v 30s journalctl -u resmontest.service --since "$since" -f --full | grep -m1 "$match"
+    timeout -v 30s journalctl -u resolvectl-monitor.service --since "$since" -f --full | grep -m1 "$match"
 )
 
 # Test for resolvectl, resolvconf
@@ -238,7 +238,8 @@ resolvectl status
 resolvectl log-level debug
 
 # Start monitoring queries
-systemd-run -u resmontest.service -p Type=notify resolvectl monitor
+systemd-run -u resolvectl-monitor.service -p Type=notify resolvectl monitor
+systemd-run -u resolvectl-monitor-json.service -p Type=notify resolvectl monitor --json=short
 
 # Check if all the zones are valid (zone-check always returns 0, so let's check
 # if it produces any errors/warnings)
@@ -529,7 +530,25 @@ grep -qF "fd00:dead:beef:cafe::123" "$RUN_OUT"
 #run dig +dnssec this.does.not.exist.untrusted.test
 #grep -qF "status: NXDOMAIN" "$RUN_OUT"
 
-systemctl stop resmontest.service
+# Issue: https://github.com/systemd/systemd/issues/29580 (part #1)
+dig @127.0.0.54 signed.test
+
+systemctl stop resolvectl-monitor.service
+systemctl stop resolvectl-monitor-json.service
+
+# Issue: https://github.com/systemd/systemd/issues/29580 (part #2)
+#
+# Check for any warnings regarding malformed messages
+(! journalctl -u resolvectl-monitor.service -u reseolvectl-monitor-json.service -p warning --grep malformed)
+# Verify that all queries recorded by `resolvectl monitor --json` produced a valid JSON
+# with expected fields
+journalctl -p info -o cat _SYSTEMD_UNIT="resolvectl-monitor-json.service" | while read -r line; do
+    # Check that both "question" and "answer" fields are arrays
+    #
+    # The expression is slightly more complicated due to the fact that the "answer" field is optional,
+    # so we need to select it only if it's present, otherwise the type == "array" check would fail
+    echo "$line" | jq -e '[. | .question, (select(has("answer")) | .answer) | type == "array"] | all'
+done
 
 # Test serve stale feature and NFTSet= if nftables is installed
 if command -v nft >/dev/null; then
