@@ -964,7 +964,6 @@ static int attach_tcrypt(
 
         _cleanup_strv_free_erase_ char **tmp_passwords = NULL;
         _cleanup_strv_free_erase_ char **p = NULL;
-        unsigned password_count;
         int r = 0;
         _cleanup_(erase_and_freep) char *passphrase = NULL;
         struct crypt_params_tcrypt params = {
