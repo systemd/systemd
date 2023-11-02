@@ -280,7 +280,7 @@ TEST(make_mount_switch_root) {
                 r = safe_fork("(switch-root)",
                               FORK_RESET_SIGNALS |
                               FORK_CLOSE_ALL_FDS |
-                              FORK_DEATHSIG |
+                              FORK_DEATHSIG_SIGTERM |
                               FORK_WAIT |
                               FORK_REOPEN_LOG |
                               FORK_LOG |
@@ -332,7 +332,7 @@ TEST(umount_recursive) {
                 r = safe_fork("(umount-rec)",
                               FORK_RESET_SIGNALS |
                               FORK_CLOSE_ALL_FDS |
-                              FORK_DEATHSIG |
+                              FORK_DEATHSIG_SIGTERM |
                               FORK_WAIT |
                               FORK_REOPEN_LOG |
                               FORK_LOG |
@@ -406,7 +406,7 @@ TEST(fd_make_mount_point) {
         r = safe_fork("(make_mount-point)",
                       FORK_RESET_SIGNALS |
                       FORK_CLOSE_ALL_FDS |
-                      FORK_DEATHSIG |
+                      FORK_DEATHSIG_SIGTERM |
                       FORK_WAIT |
                       FORK_REOPEN_LOG |
                       FORK_LOG |

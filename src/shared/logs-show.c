@@ -1692,7 +1692,7 @@ static int get_boot_id_for_machine(const char *machine, sd_id128_t *boot_id) {
         if (socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) < 0)
                 return -errno;
 
-        r = namespace_fork("(sd-bootidns)", "(sd-bootid)", NULL, 0, FORK_RESET_SIGNALS|FORK_DEATHSIG,
+        r = namespace_fork("(sd-bootidns)", "(sd-bootid)", NULL, 0, FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL,
                            pidnsfd, mntnsfd, -1, -1, rootfd, &child);
         if (r < 0)
                 return r;

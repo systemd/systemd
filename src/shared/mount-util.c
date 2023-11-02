@@ -981,7 +981,7 @@ static int mount_in_namespace_legacy(
                 goto finish;
         }
 
-        r = namespace_fork("(sd-bindmnt)", "(sd-bindmnt-inner)", NULL, 0, FORK_RESET_SIGNALS|FORK_DEATHSIG,
+        r = namespace_fork("(sd-bindmnt)", "(sd-bindmnt-inner)", NULL, 0, FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM,
                            pidns_fd, mntns_fd, -1, -1, root_fd, &child);
         if (r < 0)
                 goto finish;
@@ -1184,7 +1184,7 @@ static int mount_in_namespace(
                            "(sd-bindmnt-inner)",
                            /* except_fds= */ NULL,
                            /* n_except_fds= */ 0,
-                           FORK_RESET_SIGNALS|FORK_DEATHSIG,
+                           FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM,
                            pidns_fd,
                            mntns_fd,
                            /* netns_fd= */ -1,
