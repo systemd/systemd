@@ -24,7 +24,7 @@ executables += [
                 'dependencies' : [
                         libcryptsetup,
                         libopenssl,
-                        libp11kit,
+                        libp11kit_cflags,
                 ],
         },
         generator_template + {
