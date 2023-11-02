@@ -98,6 +98,8 @@ struct Manager {
 
         usec_t stop_idle_session_usec;
 
+        HandleActionSleepMask handle_action_sleep_mask;
+
         HandleAction handle_power_key;
         HandleAction handle_power_key_long_press;
         HandleAction handle_reboot_key;
