@@ -33,7 +33,7 @@ static int network_save(Network *network, const char *dest_dir) {
 
         if (asprintf(&p, "%s/%s-%s.network",
                      dest_dir,
-                     isempty(network->ifname) ? "91" : "90",
+                     isempty(network->ifname) ? "71" : "70",
                      isempty(network->ifname) ? "default" : network->ifname) < 0)
                 return log_oom();
 
@@ -59,7 +59,7 @@ static int netdev_save(NetDev *netdev, const char *dest_dir) {
 
         netdev_dump(netdev, f);
 
-        if (asprintf(&p, "%s/90-%s.netdev", dest_dir, netdev->ifname) < 0)
+        if (asprintf(&p, "%s/70-%s.netdev", dest_dir, netdev->ifname) < 0)
                 return log_oom();
 
         r = conservative_rename(temp_path, p);
@@ -86,7 +86,7 @@ static int link_save(Link *link, const char *dest_dir) {
 
         if (asprintf(&p, "%s/%s-%s.link",
                      dest_dir,
-                     !isempty(link->ifname) ? "90" : !hw_addr_is_null(&link->mac) ? "91" : "92",
+                     !isempty(link->ifname) ? "70" : !hw_addr_is_null(&link->mac) ? "71" : "72",
                      link->filename) < 0)
                 return log_oom();
 
