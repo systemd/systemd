@@ -31,10 +31,11 @@ if conf.get('ENABLE_NETWORKD') == 1
                         install_dir : networkdir)
         endif
 
-        if install_sysconfdir
-                install_emptydir(sysconfdir / 'systemd/network')
-        endif
 endif
 
 install_data('99-default.link',
              install_dir : networkdir)
+
+if install_sysconfdir
+        install_emptydir(sysconfdir / 'systemd/network')
+endif
