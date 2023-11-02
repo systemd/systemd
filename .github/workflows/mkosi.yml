@@ -99,6 +99,8 @@ jobs:
                                # Root device can take a long time to appear, so let's bump the timeout.
                                systemd.default_device_timeout_sec=180
         QemuVsock=yes
+        # Sometimes we run on a host with /dev/kvm, but it is broken, so explicitly disable it
+        QemuKvm=no
         Ephemeral=yes
         EOF
 
