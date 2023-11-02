@@ -170,13 +170,6 @@ Features:
   dir. Similar for $XDG_RUNTIME_DIR. Start project@%i.target. Use LogField= to
   add a field identifying the project.
 
-* logind: add a new dbus call Sleep() which automatically redirects to one of
-  Suspend(), Hibernate(), SuspendThenHibernate() depending on what is
-  available, and also subject to some local configuration in
-  logind.conf. Should default to SuspendThenHibernate() if available, and then
-  fallback to Suspend() and finally Hibernate() if not. Then expose this as
-  "systemctl sleep", and tell DEs to default to this.
-
 * in sd-boot and sd-stub measure the SMBIOS vendor strings to some PCR (at
   least some subset of them that look like systemd stuff), because apparently
   some firmware does not, but systemd honours it. avoid duplicate measurement
