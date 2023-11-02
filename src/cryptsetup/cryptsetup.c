@@ -962,6 +962,8 @@ static int attach_tcrypt(
                 char **passwords,
                 uint32_t flags) {
 
+        _cleanup_strv_free_erase_ char **tmp_passwords = NULL;
+        _cleanup_strv_free_erase_ char **p = NULL;
         int r = 0;
         _cleanup_(erase_and_freep) char *passphrase = NULL;
         struct crypt_params_tcrypt params = {
@@ -992,24 +994,25 @@ static int attach_tcrypt(
                 params.veracrypt_pim = arg_tcrypt_veracrypt_pim;
 
         if (key_data) {
-                params.passphrase = key_data;
-                params.passphrase_size = key_data_size;
+                strv_insert(&tmp_passwords, 0, key_data);
+        } else if (key_file) {
+                 r = read_one_line_file(key_file, &passphrase);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to read password file '%s': %m", key_file);
+                        return -EAGAIN; /* log with the actual error, but return EAGAIN */
+                }
+                strv_insert(&tmp_passwords, 0, passphrase);
         } else {
-                if (key_file) {
-                        r = read_one_line_file(key_file, &passphrase);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to read password file '%s': %m", key_file);
-                                return -EAGAIN; /* log with the actual error, but return EAGAIN */
-                        }
-
-                        params.passphrase = passphrase;
-                } else
-                        params.passphrase = passwords[0];
-
-                params.passphrase_size = strlen(params.passphrase);
+                tmp_passwords = strv_copy(passwords);
         }
-
-        r = crypt_load(cd, CRYPT_TCRYPT, &params);
+        r = -EINVAL;
+        STRV_FOREACH(p, tmp_passwords){
+                params.passphrase = *p;
+                params.passphrase_size = strlen(*p);
+                r = crypt_load(cd, CRYPT_TCRYPT, &params);
+                if (r >= 0)
+                        break;
+        }
         if (r < 0) {
                 if (r == -EPERM) {
                         if (key_data)
