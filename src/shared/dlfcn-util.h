@@ -15,6 +15,11 @@ int dlopen_many_sym_or_warn_sentinel(void **dlp, const char *filename, int log_l
 #define dlopen_many_sym_or_warn(dlp, filename, log_level, ...) \
         dlopen_many_sym_or_warn_sentinel(dlp, filename, log_level, __VA_ARGS__, NULL)
 
+#define DLSYM_PROTOTYPE(symbol)                 \
+        extern typeof(symbol)* sym_##symbol
+#define DLSYM_FUNCTION(symbol)                  \
+        typeof(symbol)* sym_##symbol = NULL
+
 /* Macro useful for putting together variable/symbol name pairs when calling dlsym_many_or_warn(). Assumes
  * that each library symbol to resolve will be placed in a variable with the "sym_" prefix, i.e. a symbol
  * "foobar" is loaded into a variable "sym_foobar". */
