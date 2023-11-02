@@ -602,7 +602,7 @@ static int find_libraries(const char *exec, char ***ret) {
         r = safe_fork_full("(spawn-ldd)",
                            (int[]) { -EBADF, outpipe[1], errpipe[1] },
                            NULL, 0,
-                           FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG|FORK_REARRANGE_STDIO|FORK_LOG, &pid);
+                           FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REARRANGE_STDIO|FORK_LOG, &pid);
         assert_se(r >= 0);
         if (r == 0) {
                 execlp("ldd", "ldd", exec, NULL);
@@ -1299,7 +1299,7 @@ static int prepare_ns(const char *process_name) {
         r = safe_fork(process_name,
                       FORK_RESET_SIGNALS |
                       FORK_CLOSE_ALL_FDS |
-                      FORK_DEATHSIG |
+                      FORK_DEATHSIG_SIGTERM |
                       FORK_WAIT |
                       FORK_REOPEN_LOG |
                       FORK_LOG |

@@ -1380,6 +1380,12 @@ pid_t clone_with_nested_stack(int (*fn)(void *), int flags, void *userdata) {
         return pid;
 }
 
+static int fork_flags_to_signal(ForkFlags flags) {
+        return (flags & FORK_DEATHSIG_SIGTERM) ? SIGTERM :
+                (flags & FORK_DEATHSIG_SIGINT) ? SIGINT :
+                                                 SIGKILL;
+}
+
 int safe_fork_full(
                 const char *name,
                 const int stdio_fds[3],
@@ -1409,9 +1415,10 @@ int safe_fork_full(
                 fflush(stderr); /* This one shouldn't be necessary, stderr should be unbuffered anyway, but let's better be safe than sorry */
         }
 
-        if (flags & (FORK_RESET_SIGNALS|FORK_DEATHSIG)) {
-                /* We temporarily block all signals, so that the new child has them blocked initially. This way, we can
-                 * be sure that SIGTERMs are not lost we might send to the child. */
+        if (flags & (FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_DEATHSIG_SIGINT)) {
+                /* We temporarily block all signals, so that the new child has them blocked initially. This
+                 * way, we can be sure that SIGTERMs are not lost we might send to the child. (Note that for
+                 * FORK_DEATHSIG_SIGKILL we don't bother, since it cannot be blocked anyway.) */
 
                 assert_se(sigfillset(&ss) >= 0);
                 block_signals = block_all = true;
@@ -1512,8 +1519,8 @@ int safe_fork_full(
                                        r, "Failed to rename process, ignoring: %m");
         }
 
-        if (flags & (FORK_DEATHSIG|FORK_DEATHSIG_SIGINT))
-                if (prctl(PR_SET_PDEATHSIG, (flags & FORK_DEATHSIG_SIGINT) ? SIGINT : SIGTERM) < 0) {
+        if (flags & (FORK_DEATHSIG_SIGTERM|FORK_DEATHSIG_SIGINT|FORK_DEATHSIG_SIGKILL))
+                if (prctl(PR_SET_PDEATHSIG, fork_flags_to_signal(flags)) < 0) {
                         log_full_errno(prio, errno, "Failed to set death signal: %m");
                         _exit(EXIT_FAILURE);
                 }
@@ -1538,7 +1545,7 @@ int safe_fork_full(
                 }
         }
 
-        if (flags & FORK_DEATHSIG) {
+        if (flags & (FORK_DEATHSIG_SIGTERM|FORK_DEATHSIG_SIGKILL|FORK_DEATHSIG_SIGINT)) {
                 pid_t ppid;
                 /* Let's see if the parent PID is still the one we started from? If not, then the parent
                  * already died by the time we set PR_SET_PDEATHSIG, hence let's emulate the effect */
@@ -1547,8 +1554,9 @@ int safe_fork_full(
                 if (ppid == 0)
                         /* Parent is in a different PID namespace. */;
                 else if (ppid != original_pid) {
-                        log_debug("Parent died early, raising SIGTERM.");
-                        (void) raise(SIGTERM);
+                        int sig = fork_flags_to_signal(flags);
+                        log_debug("Parent died early, raising %s.", signal_to_string(sig));
+                        (void) raise(sig);
                         _exit(EXIT_FAILURE);
                 }
         }
@@ -1664,7 +1672,7 @@ int namespace_fork(
         r = safe_fork_full(outer_name,
                            NULL,
                            except_fds, n_except_fds,
-                           (flags|FORK_DEATHSIG) & ~(FORK_REOPEN_LOG|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE), ret_pid);
+                           (flags|FORK_DEATHSIG_SIGINT|FORK_DEATHSIG_SIGTERM|FORK_DEATHSIG_SIGKILL) & ~(FORK_REOPEN_LOG|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE), ret_pid);
         if (r < 0)
                 return r;
         if (r == 0) {

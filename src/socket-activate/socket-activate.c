@@ -223,7 +223,7 @@ static int fork_and_exec_process(const char *child, char **argv, int fd) {
                 return log_oom();
 
         r = safe_fork("(activate)",
-                      FORK_RESET_SIGNALS | FORK_DEATHSIG | FORK_RLIMIT_NOFILE_SAFE | FORK_LOG,
+                      FORK_RESET_SIGNALS | FORK_DEATHSIG_SIGTERM | FORK_RLIMIT_NOFILE_SAFE | FORK_LOG,
                       &child_pid);
         if (r < 0)
                 return r;
