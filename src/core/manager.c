@@ -441,14 +441,21 @@ static int manager_setup_time_change(Manager *m) {
 }
 
 static int manager_read_timezone_stat(Manager *m) {
+        _cleanup_free_ char *link_path = NULL;
         struct stat st;
         bool changed;
+        int r;
 
         assert(m);
 
+        r = find_localtime_last_symlink(&link_path);
+        if (r < 0) {
+                return r;
+        }
+
         /* Read the current stat() data of /etc/localtime so that we detect changes */
-        if (lstat("/etc/localtime", &st) < 0) {
-                log_debug_errno(errno, "Failed to stat /etc/localtime, ignoring: %m");
+        if (lstat(link_path, &st) < 0) {
+                log_debug_errno(errno, "Failed to stat %s, ignoring: %m", link_path);
                 changed = m->etc_localtime_accessible;
                 m->etc_localtime_accessible = false;
         } else {
@@ -465,8 +472,14 @@ static int manager_read_timezone_stat(Manager *m) {
 }
 
 static int manager_setup_timezone_change(Manager *m) {
+        _cleanup_free_ char *link_path = NULL;
         _cleanup_(sd_event_source_unrefp) sd_event_source *new_event = NULL;
         int r;
+
+        r = find_localtime_last_symlink(&link_path);
+        if (r < 0) {
+                return r;
+        }
 
         assert(m);
 
@@ -484,14 +497,18 @@ static int manager_setup_timezone_change(Manager *m) {
          * Note that we create the new event source first here, before releasing the old one. This should optimize
          * behaviour as this way sd-event can reuse the old watch in case the inode didn't change. */
 
-        r = sd_event_add_inotify(m->event, &new_event, "/etc/localtime",
+        r = sd_event_add_inotify(m->event, &new_event, link_path,
                                  IN_ATTRIB|IN_MOVE_SELF|IN_CLOSE_WRITE|IN_DONT_FOLLOW, manager_dispatch_timezone_change, m);
         if (r == -ENOENT) {
                 /* If the file doesn't exist yet, subscribe to /etc instead, and wait until it is created either by
                  * O_CREATE or by rename() */
+                _cleanup_free_ char *parent = NULL;
 
-                log_debug_errno(r, "/etc/localtime doesn't exist yet, watching /etc instead.");
-                r = sd_event_add_inotify(m->event, &new_event, "/etc",
+                r = path_extract_directory(link_path, &parent);
+                if (r < 0)
+                        return r;
+                log_debug_errno(r, "%s doesn't exist yet, watching %s instead.", link_path, parent);
+                r = sd_event_add_inotify(m->event, &new_event, parent,
                                          IN_CREATE|IN_MOVED_TO|IN_ONLYDIR, manager_dispatch_timezone_change, m);
         }
         if (r < 0)
