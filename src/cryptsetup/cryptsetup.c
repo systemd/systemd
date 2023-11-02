@@ -963,7 +963,6 @@ static int attach_tcrypt(
                 uint32_t flags) {
 
         _cleanup_strv_free_erase_ char **tmp_passwords = NULL;
-        _cleanup_strv_free_erase_ char **p = NULL;
         int r = 0;
         _cleanup_(erase_and_freep) char *passphrase = NULL;
         struct crypt_params_tcrypt params = {
@@ -994,7 +993,7 @@ static int attach_tcrypt(
                 params.veracrypt_pim = arg_tcrypt_veracrypt_pim;
 
         if (key_data) {
-                strv_insert(&tmp_passwords, 0, key_data);
+                strv_insert(&tmp_passwords, 0, (char *) key_data);
         } else if (key_file) {
                  r = read_one_line_file(key_file, &passphrase);
                 if (r < 0) {
