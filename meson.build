@@ -1288,6 +1288,7 @@ conf.set10('HAVE_LIBIDN2', have)
 libiptc = dependency('libiptc',
                      required : get_option('libiptc'))
 conf.set10('HAVE_LIBIPTC', libiptc.found())
+libiptc_cflags = libiptc.partial_dependency(includes: true, compile_args: true)
 
 libqrencode = dependency('libqrencode',
                          version : '>= 3',
