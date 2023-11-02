@@ -17,3 +17,5 @@ WLANInterfaceType=ad-hoc
 
 [Network]
 LinkLocalAddressing=yes
+IPv6AcceptRA=no
+MulticastDNS=yes
