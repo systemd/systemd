@@ -19,6 +19,7 @@
 #include "bus-map-properties.h"
 #include "bus-polkit.h"
 #include "bus-unit-util.h"
+#include "chase.h"
 #include "clock-util.h"
 #include "conf-files.h"
 #include "constants.h"
@@ -288,10 +289,15 @@ static int context_read_data(Context *c) {
 }
 
 static int context_write_data_timezone(Context *c) {
-        _cleanup_free_ char *p = NULL;
+        _cleanup_free_ char *p = NULL, *link_path = NULL, *link_dir = NULL, *relpath = NULL;
         const char *source;
+        int r;
 
         assert(c);
+
+        r = find_localtime_last_symlink(&link_path);
+        if (r < 0)
+                return r;
 
         /* No timezone is very similar to UTC. Hence in either of these cases link the UTC file in. Except if
          * it isn't installed, in which case we remove the symlink altogether. Since glibc defaults to an
@@ -302,31 +308,43 @@ static int context_write_data_timezone(Context *c) {
 
                 if (access("/usr/share/zoneinfo/UTC", F_OK) < 0) {
 
-                        if (unlink("/etc/localtime") < 0 && errno != ENOENT)
+                        if (unlink(link_path) < 0 && errno != ENOENT)
                                 return -errno;
 
                         return 0;
                 }
 
-                source = "../usr/share/zoneinfo/UTC";
+                source = "/usr/share/zoneinfo/UTC";
         } else {
-                p = path_join("../usr/share/zoneinfo", c->zone);
+                p = path_join("/usr/share/zoneinfo", c->zone);
                 if (!p)
                         return -ENOMEM;
 
                 source = p;
         }
 
-        return symlink_atomic(source, "/etc/localtime");
+        r = path_extract_directory(link_path, &link_dir);
+        if (r < 0)
+                return r;
+
+        r = path_make_relative(link_dir, source, &relpath);
+        if (r < 0)
+                return r;
+
+        return symlink_atomic(relpath, link_path);
 }
 
 static int context_write_data_local_rtc(Context *c) {
-        _cleanup_free_ char *s = NULL, *w = NULL;
+        _cleanup_free_ char *resolved_path = NULL, *s = NULL, *w = NULL;
         int r;
 
         assert(c);
 
-        r = read_full_file("/etc/adjtime", &s, NULL);
+        r = chase("/etc/adjtime", /* root= */ NULL, CHASE_NONEXISTENT, &resolved_path, /* ret_fd= */ NULL);
+        if (r < 0)
+                return r;
+
+        r = read_full_file(resolved_path, &s, NULL);
         if (r < 0) {
                 if (r != -ENOENT)
                         return r;
@@ -378,7 +396,7 @@ static int context_write_data_local_rtc(Context *c) {
                 *(char*) mempcpy(stpcpy(stpcpy(mempcpy(w, s, a), prepend), c->local_rtc ? "LOCAL" : "UTC"), e, b) = 0;
 
                 if (streq(w, NULL_ADJTIME_UTC)) {
-                        if (unlink("/etc/adjtime") < 0)
+                        if (unlink(resolved_path) < 0)
                                 if (errno != ENOENT)
                                         return -errno;
 
@@ -390,7 +408,7 @@ static int context_write_data_local_rtc(Context *c) {
         if (r < 0)
                 return r;
 
-        return write_string_file_atomic_label("/etc/adjtime", w);
+        return write_string_file_atomic_label(resolved_path, w);
 }
 
 static int context_update_ntp_status(Context *c, sd_bus *bus, sd_bus_message *m) {
