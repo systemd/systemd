@@ -1247,6 +1247,7 @@ libxenctrl = dependency('xencontrol',
                         version : '>= 4.9',
                         required : get_option('xenctrl'))
 conf.set10('HAVE_XENCTRL', libxenctrl.found())
+libxenctrl_cflags = libxenctrl.partial_dependency(includes: true, compile_args: true)
 
 feature = get_option('pam')
 libpam = dependency('pam',
