@@ -6,9 +6,12 @@
 #include "test-tables.h"
 
 static void test_sleep_handle_action(void) {
-        for (int action = _HANDLE_ACTION_SLEEP_FIRST, action < _HANDLE_ACTION_SLEEP_LAST; action++) {
+        for (int action = _HANDLE_ACTION_SLEEP_FIRST; action < _HANDLE_ACTION_SLEEP_LAST; action++) {
                 HandleActionData *data;
                 const char *sleep_operation_str, *handle_action_str;
+
+                if (action == HANDLE_SLEEP)
+                        continue;
 
                 assert_se(data = handle_action_lookup(action));
 
