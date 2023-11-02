@@ -69,7 +69,7 @@ modules += [
                 'sources' : cryptsetup_token_systemd_pkcs11_sources,
                 'dependencies' : [
                         libcryptsetup,
-                        libp11kit,
+                        libp11kit_cflags,
                 ],
         },
 ]
