@@ -65,6 +65,7 @@ static int manager_new(Manager **ret) {
                 .reserve_vt_fd = -EBADF,
                 .enable_wall_messages = true,
                 .idle_action_not_before_usec = now(CLOCK_MONOTONIC),
+                .scheduled_shutdown_action = _HANDLE_ACTION_INVALID,
         };
 
         m->devices = hashmap_new(&device_hash_ops);
