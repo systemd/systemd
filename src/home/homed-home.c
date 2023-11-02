@@ -1184,7 +1184,7 @@ static int home_start_work(Home *h, const char *verb, UserRecord *hr, UserRecord
         r = safe_fork_full("(sd-homework)",
                            (int[]) { stdin_fd, stdout_fd, STDERR_FILENO },
                            NULL, 0,
-                           FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG|FORK_REARRANGE_STDIO|FORK_LOG|FORK_REOPEN_LOG, &pid);
+                           FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REARRANGE_STDIO|FORK_LOG|FORK_REOPEN_LOG, &pid);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -2080,7 +2080,7 @@ int home_killall(Home *h) {
 
         /* Let's kill everything matching the specified UID */
         r = safe_fork("(sd-killer)",
-                      FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG|FORK_WAIT|FORK_LOG|FORK_REOPEN_LOG,
+                      FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGKILL|FORK_WAIT|FORK_LOG|FORK_REOPEN_LOG,
                       NULL);
         if (r < 0)
                 return r;

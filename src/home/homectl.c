@@ -2025,7 +2025,7 @@ static int with_home(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        r = safe_fork("(with)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE|FORK_REOPEN_LOG, &pid);
+        r = safe_fork("(with)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE|FORK_REOPEN_LOG, &pid);
         if (r < 0)
                 return r;
         if (r == 0) {
