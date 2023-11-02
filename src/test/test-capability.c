@@ -254,7 +254,7 @@ static void test_capability_get_ambient(void) {
 
         assert_se(capability_get_ambient(&c) >= 0);
 
-        r = safe_fork("(getambient)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_WAIT|FORK_LOG, NULL);
+        r = safe_fork("(getambient)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_WAIT|FORK_LOG, NULL);
         assert_se(r >= 0);
 
         if (r == 0) {
