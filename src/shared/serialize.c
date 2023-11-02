@@ -99,7 +99,8 @@ int serialize_item_format(FILE *f, const char *key, const char *format, ...) {
         return 1;
 }
 
-int serialize_fd(FILE *f, FDSet *fds, const char *key, int fd) {
+int serialize_fd_full(FILE *f, FDSet *fds, const char *key, int fd, bool indexed) {
+        _cleanup_free_ char *k = NULL;
         int copy;
 
         assert(f);
@@ -109,15 +110,32 @@ int serialize_fd(FILE *f, FDSet *fds, const char *key, int fd) {
         if (fd < 0)
                 return 0;
 
-        copy = fdset_put_dup(fds, fd);
+        if (indexed)
+                copy = fdset_put_dup_indexed(fds, fd, /* index= */ -1);
+        else
+                copy = fdset_put_dup(fds, fd);
         if (copy < 0)
                 return log_error_errno(copy, "Failed to add file descriptor to serialization set: %m");
+
+        if (indexed) {
+                k = strjoin(key, "-by-fd-index");
+                if (!k)
+                        return log_oom();
+                key = k;
+        }
 
         return serialize_item_format(f, key, "%i", copy);
 }
 
-int serialize_fd_many(FILE *f, FDSet *fds, const char *key, const int fd_array[], size_t n_fd_array) {
-        _cleanup_free_ char *t = NULL;
+int serialize_fd_many_full(
+                FILE *f,
+                FDSet *fds,
+                const char *key,
+                const int fd_array[],
+                size_t n_fd_array,
+                bool indexed) {
+
+        _cleanup_free_ char *t = NULL, *k = NULL;
 
         assert(f);
 
@@ -132,12 +150,22 @@ int serialize_fd_many(FILE *f, FDSet *fds, const char *key, const int fd_array[]
                 if (fd_array[i] < 0)
                         return -EBADF;
 
-                copy = fdset_put_dup(fds, fd_array[i]);
+                if (indexed)
+                        copy = fdset_put_dup_indexed(fds, fd_array[i], /* index= */ -1);
+                else
+                        copy = fdset_put_dup(fds, fd_array[i]);
                 if (copy < 0)
                         return log_error_errno(copy, "Failed to add file descriptor to serialization set: %m");
 
                 if (strextendf_with_separator(&t, " ", "%i", copy) < 0)
                         return log_oom();
+        }
+
+        if (indexed) {
+                k = strjoin(key, "-by-fd-index");
+                if (!k)
+                        return log_oom();
+                key = k;
         }
 
         return serialize_item(f, key, t);
@@ -316,24 +344,30 @@ int deserialize_read_line(FILE *f, char **ret) {
         return 1;
 }
 
-int deserialize_fd(FDSet *fds, const char *value) {
+int deserialize_fd_full(FDSet *fds, const char *value, bool indexed) {
         _cleanup_close_ int our_fd = -EBADF;
-        int parsed_fd;
+        int r;
 
         assert(value);
 
-        parsed_fd = parse_fd(value);
-        if (parsed_fd < 0)
-                return log_debug_errno(parsed_fd, "Failed to parse file descriptor serialization: %s", value);
+        if (!fds)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid fd set.");
 
-        our_fd = fdset_remove(fds, parsed_fd); /* Take possession of the fd */
+        r = parse_fd(value);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to parse file descriptor serialization: %s", value);
+
+        if (indexed)
+                our_fd = fdset_remove_indexed(fds, r); /* Take possession of the fd */
+        else
+                our_fd = fdset_remove(fds, r); /* Take possession of the fd */
         if (our_fd < 0)
                 return log_debug_errno(our_fd, "Failed to acquire fd from serialization fds: %m");
 
         return TAKE_FD(our_fd);
 }
 
-int deserialize_fd_many(FDSet *fds, const char *value, size_t n, int *ret) {
+int deserialize_fd_many_full(FDSet *fds, const char *value, size_t n, int *ret, bool indexed) {
         int r, *fd_array = NULL;
         size_t m = 0;
 
@@ -362,7 +396,7 @@ int deserialize_fd_many(FDSet *fds, const char *value, size_t n, int *ret) {
                 if (m >= n) /* Too many */
                         return -EINVAL;
 
-                fd = deserialize_fd(fds, w);
+                fd = deserialize_fd_full(fds, w, indexed);
                 if (fd < 0)
                         return fd;
 
