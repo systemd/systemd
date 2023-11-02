@@ -1182,7 +1182,7 @@ static int crypt_activate_by_token_pin_ask_password(
                 const char *credential_name) {
 
 #if HAVE_LIBCRYPTSETUP_PLUGINS
-        AskPasswordFlags flags = ASK_PASSWORD_PUSH_CACHE | ASK_PASSWORD_ACCEPT_CACHED;
+        AskPasswordFlags flags = arg_ask_password_flags | ASK_PASSWORD_PUSH_CACHE | ASK_PASSWORD_ACCEPT_CACHED;
         _cleanup_strv_free_erase_ char **pins = NULL;
         int r;
 
