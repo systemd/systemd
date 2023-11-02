@@ -452,7 +452,7 @@ int varlink_connect_exec(Varlink **ret, const char *_command, char **_argv) {
                         /* stdio_fds= */ NULL,
                         /* except_fds= */ (int[]) { pair[1] },
                         /* n_except_fds= */ 1,
-                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG|FORK_REOPEN_LOG|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE,
+                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REOPEN_LOG|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE,
                         &pid);
         if (r < 0)
                 return log_debug_errno(r, "Failed to spawn process: %m");

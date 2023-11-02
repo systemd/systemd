@@ -228,7 +228,7 @@ static int run_fsck(const char *node, const char *fstype) {
         }
 
         r = safe_fork("(fsck)",
-                      FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_DEATHSIG|FORK_LOG|FORK_STDOUT_TO_STDERR|FORK_CLOSE_ALL_FDS,
+                      FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_STDOUT_TO_STDERR|FORK_CLOSE_ALL_FDS,
                       &fsck_pid);
         if (r < 0)
                 return r;
@@ -2596,7 +2596,7 @@ static int ext4_offline_resize_fs(
 
         /* resize2fs requires that the file system is force checked first, do so. */
         r = safe_fork("(e2fsck)",
-                      FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_DEATHSIG|FORK_LOG|FORK_STDOUT_TO_STDERR|FORK_CLOSE_ALL_FDS,
+                      FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_STDOUT_TO_STDERR|FORK_CLOSE_ALL_FDS,
                       &fsck_pid);
         if (r < 0)
                 return r;
@@ -2628,7 +2628,7 @@ static int ext4_offline_resize_fs(
 
         /* Resize the thing */
         r = safe_fork("(e2resize)",
-                      FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_DEATHSIG|FORK_LOG|FORK_WAIT|FORK_STDOUT_TO_STDERR|FORK_CLOSE_ALL_FDS,
+                      FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT|FORK_STDOUT_TO_STDERR|FORK_CLOSE_ALL_FDS,
                       &resize_pid);
         if (r < 0)
                 return r;

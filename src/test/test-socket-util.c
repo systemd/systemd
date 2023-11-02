@@ -158,7 +158,7 @@ TEST(in_addr_is_multicast) {
 TEST(getpeercred_getpeergroups) {
         int r;
 
-        r = safe_fork("(getpeercred)", FORK_DEATHSIG|FORK_LOG|FORK_WAIT, NULL);
+        r = safe_fork("(getpeercred)", FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT, NULL);
         assert_se(r >= 0);
 
         if (r == 0) {
@@ -228,7 +228,7 @@ TEST(passfd_read) {
 
         assert_se(socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) >= 0);
 
-        r = safe_fork("(passfd_read)", FORK_DEATHSIG|FORK_LOG|FORK_WAIT, NULL);
+        r = safe_fork("(passfd_read)", FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT, NULL);
         assert_se(r >= 0);
 
         if (r == 0) {
@@ -270,7 +270,7 @@ TEST(passfd_contents_read) {
 
         assert_se(socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) >= 0);
 
-        r = safe_fork("(passfd_contents_read)", FORK_DEATHSIG|FORK_LOG|FORK_WAIT, NULL);
+        r = safe_fork("(passfd_contents_read)", FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT, NULL);
         assert_se(r >= 0);
 
         if (r == 0) {
@@ -322,7 +322,7 @@ TEST(pass_many_fds_contents_read) {
 
         assert_se(socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) >= 0);
 
-        r = safe_fork("(passfd_contents_read)", FORK_DEATHSIG|FORK_LOG|FORK_WAIT, NULL);
+        r = safe_fork("(passfd_contents_read)", FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT, NULL);
         assert_se(r >= 0);
 
         if (r == 0) {
@@ -382,7 +382,7 @@ TEST(receive_nopassfd) {
 
         assert_se(socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) >= 0);
 
-        r = safe_fork("(receive_nopassfd)", FORK_DEATHSIG|FORK_LOG|FORK_WAIT, NULL);
+        r = safe_fork("(receive_nopassfd)", FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT, NULL);
         assert_se(r >= 0);
 
         if (r == 0) {
@@ -418,7 +418,7 @@ TEST(send_nodata_nofd) {
 
         assert_se(socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) >= 0);
 
-        r = safe_fork("(send_nodata_nofd)", FORK_DEATHSIG|FORK_LOG|FORK_WAIT, NULL);
+        r = safe_fork("(send_nodata_nofd)", FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT, NULL);
         assert_se(r >= 0);
 
         if (r == 0) {
@@ -451,7 +451,7 @@ TEST(send_emptydata) {
 
         assert_se(socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) >= 0);
 
-        r = safe_fork("(send_emptydata)", FORK_DEATHSIG|FORK_LOG|FORK_WAIT, NULL);
+        r = safe_fork("(send_emptydata)", FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT, NULL);
         assert_se(r >= 0);
 
         if (r == 0) {

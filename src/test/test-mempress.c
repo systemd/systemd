@@ -226,7 +226,7 @@ TEST(real_pressure) {
 
         assert_se(pipe2(pipe_fd, O_CLOEXEC) >= 0);
 
-        r = safe_fork("(eat-memory)", FORK_RESET_SIGNALS|FORK_DEATHSIG, &pid);
+        r = safe_fork("(eat-memory)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM, &pid);
         assert_se(r >= 0);
         if (r == 0) {
                 real_pressure_eat_memory(pipe_fd[0]);

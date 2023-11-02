@@ -226,7 +226,7 @@ static int lock_device(
 
                         BLOCK_SIGNALS(SIGCHLD);
 
-                        r = safe_fork("(timed-flock)", FORK_DEATHSIG|FORK_LOG, &flock_pid);
+                        r = safe_fork("(timed-flock)", FORK_DEATHSIG_SIGKILL|FORK_LOG, &flock_pid);
                         if (r < 0)
                                 return r;
                         if (r == 0) {
@@ -349,7 +349,7 @@ int lock_main(int argc, char *argv[], void *userdata) {
         /* Ignore SIGINT and allow the forked process to receive it */
         (void) ignore_signals(SIGINT);
 
-        r = safe_fork("(lock)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_CLOSE_ALL_FDS|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG, &pid);
+        r = safe_fork("(lock)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_CLOSE_ALL_FDS|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG, &pid);
         if (r < 0)
                 return r;
         if (r == 0) {

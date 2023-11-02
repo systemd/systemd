@@ -45,7 +45,7 @@ static int do_spawn(const char *path, char *argv[], int stdout_fd, pid_t *pid, b
                 return 0;
         }
 
-        r = safe_fork("(direxec)", FORK_DEATHSIG|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE, &_pid);
+        r = safe_fork("(direxec)", FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE, &_pid);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -250,7 +250,7 @@ int execute_strv(
          * them to finish. Optionally a timeout is applied. If a file with the same name
          * exists in more than one directory, the earliest one wins. */
 
-        r = safe_fork("(sd-executor)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG, &executor_pid);
+        r = safe_fork("(sd-executor)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_LOG, &executor_pid);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -541,7 +541,7 @@ int fork_agent(const char *name, const int except[], size_t n_except, pid_t *ret
                            NULL,
                            except,
                            n_except,
-                           FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_CLOSE_ALL_FDS|FORK_REOPEN_LOG|FORK_RLIMIT_NOFILE_SAFE,
+                           FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_CLOSE_ALL_FDS|FORK_REOPEN_LOG|FORK_RLIMIT_NOFILE_SAFE,
                            ret_pid);
         if (r < 0)
                 return r;

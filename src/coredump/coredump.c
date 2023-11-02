@@ -1443,7 +1443,7 @@ static int forward_coredump_to_container(Context *context) {
                 return log_debug_errno(r, "Failed to join namespaces of PID " PID_FMT ": %m", pid);
 
         r = namespace_fork("(sd-coredumpns)", "(sd-coredump)", NULL, 0,
-                           FORK_RESET_SIGNALS|FORK_DEATHSIG,
+                           FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM,
                            pidnsfd, mntnsfd, netnsfd, usernsfd, rootfd, &child);
         if (r < 0)
                 return log_debug_errno(r, "Failed to fork into namespaces of PID " PID_FMT ": %m", pid);

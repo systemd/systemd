@@ -280,7 +280,7 @@ int udev_event_spawn(
         r = safe_fork_full("(spawn)",
                            (int[]) { -EBADF, outpipe[WRITE_END], errpipe[WRITE_END] },
                            NULL, 0,
-                           FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG|FORK_REARRANGE_STDIO|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE,
+                           FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REARRANGE_STDIO|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE,
                            &pid);
         if (r < 0)
                 return log_device_error_errno(event->dev, r,

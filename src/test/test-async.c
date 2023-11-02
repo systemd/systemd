@@ -30,7 +30,7 @@ TEST(asynchronous_close) {
         assert_se(fcntl(fd, F_GETFD) == -1);
         assert_se(errno == EBADF);
 
-        r = safe_fork("(subreaper)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG|FORK_LOG|FORK_WAIT, NULL);
+        r = safe_fork("(subreaper)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGKILL|FORK_LOG|FORK_WAIT, NULL);
         assert(r >= 0);
 
         if (r == 0) {
@@ -63,7 +63,7 @@ TEST(asynchronous_rm_rf) {
         /* Do this once more, form a subreaper. Which is nice, because we can watch the async child even
          * though detached */
 
-        r = safe_fork("(subreaper)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG|FORK_LOG|FORK_WAIT, NULL);
+        r = safe_fork("(subreaper)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT, NULL);
         assert_se(r >= 0);
 
         if (r == 0) {

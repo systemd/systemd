@@ -91,7 +91,7 @@ static int spawn_child(const char* child, char** argv) {
         r = safe_fork_full("(remote)",
                            (int[]) {STDIN_FILENO, fd[1], STDERR_FILENO },
                            NULL, 0,
-                           FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG|FORK_REARRANGE_STDIO|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE, &child_pid);
+                           FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REARRANGE_STDIO|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE, &child_pid);
         if (r < 0) {
                 safe_close_pair(fd);
                 return r;

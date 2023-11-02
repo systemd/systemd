@@ -930,7 +930,7 @@ int exec_setup_credentials(
         if (r < 0 && r != -EEXIST)
                 return r;
 
-        r = safe_fork("(sd-mkdcreds)", FORK_DEATHSIG|FORK_WAIT|FORK_NEW_MOUNTNS, NULL);
+        r = safe_fork("(sd-mkdcreds)", FORK_DEATHSIG_SIGTERM|FORK_WAIT|FORK_NEW_MOUNTNS, NULL);
         if (r < 0) {
                 _cleanup_(rmdir_and_freep) char *u = NULL; /* remove the temporary workspace if we can */
                 _cleanup_free_ char *t = NULL;
