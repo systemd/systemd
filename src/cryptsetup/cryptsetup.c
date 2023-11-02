@@ -1399,7 +1399,8 @@ static int attach_luks2_by_pkcs11_via_plugin(
         systemd_pkcs11_plugin_params params = {
                 .friendly_name = friendly_name,
                 .until = until,
-                .headless = headless
+                .headless = headless,
+                .askpw_flags = arg_ask_password_flags,
         };
 
         r = crypt_activate_by_token_pin(cd, name, "systemd-pkcs11", CRYPT_ANY_TOKEN, NULL, 0, &params, flags);

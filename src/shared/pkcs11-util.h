@@ -8,6 +8,7 @@
 #  include <p11-kit/uri.h>
 #endif
 
+#include "ask-password-api.h"
 #include "macro.h"
 #include "openssl-util.h"
 #include "time-util.h"
@@ -47,7 +48,7 @@ char *pkcs11_token_manufacturer_id(const CK_TOKEN_INFO *token_info);
 char *pkcs11_token_model(const CK_TOKEN_INFO *token_info);
 
 int pkcs11_token_login_by_pin(CK_FUNCTION_LIST *m, CK_SESSION_HANDLE session, const CK_TOKEN_INFO *token_info, const char *token_label, const void *pin, size_t pin_size);
-int pkcs11_token_login(CK_FUNCTION_LIST *m, CK_SESSION_HANDLE session, CK_SLOT_ID slotid, const CK_TOKEN_INFO *token_info, const char *friendly_name, const char *icon_name, const char *key_name, const char *credential_name, usec_t until, bool headless, char **ret_used_pin);
+int pkcs11_token_login(CK_FUNCTION_LIST *m, CK_SESSION_HANDLE session, CK_SLOT_ID slotid, const CK_TOKEN_INFO *token_info, const char *friendly_name, const char *icon_name, const char *key_name, const char *credential_name, usec_t until, AskPasswordFlags ask_password_flags, bool headless, char **ret_used_pin);
 
 int pkcs11_token_find_x509_certificate(CK_FUNCTION_LIST *m, CK_SESSION_HANDLE session, P11KitUri *search_uri, CK_OBJECT_HANDLE *ret_object);
 #if HAVE_OPENSSL
@@ -75,6 +76,7 @@ typedef struct {
         size_t decrypted_key_size;
         bool free_encrypted_key;
         bool headless;
+        AskPasswordFlags askpw_flags;
 } pkcs11_crypt_device_callback_data;
 
 void pkcs11_crypt_device_callback_data_release(pkcs11_crypt_device_callback_data *data);
@@ -102,6 +104,7 @@ typedef struct {
         const char *friendly_name;
         usec_t until;
         bool headless;
+        AskPasswordFlags askpw_flags;
 } systemd_pkcs11_plugin_params;
 
 int pkcs11_list_tokens(void);
