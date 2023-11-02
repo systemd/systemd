@@ -174,6 +174,7 @@ profiledir = libexecdir / 'portable' / 'profile'
 repartdefinitionsdir = libexecdir / 'repart/definitions'
 ntpservicelistdir = prefixdir / 'lib/systemd/ntp-units.d'
 credstoredir = prefixdir / 'lib/credstore'
+pcrlockdir = prefixdir / 'lib/pcrlock.d'
 
 configfiledir = get_option('configfiledir')
 if configfiledir == ''
@@ -2171,6 +2172,7 @@ subdir('src/oom')
 subdir('src/partition')
 subdir('src/path')
 subdir('src/pcrextend')
+subdir('src/pcrlock')
 subdir('src/portable')
 subdir('src/pstore')
 subdir('src/quotacheck')
