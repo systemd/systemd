@@ -28,6 +28,16 @@ assert_eq() {(
     fi
 )}
 
+assert_le() {(
+    set +ex
+
+    if [[ "${1:?}" -gt "${2:?}" ]]; then
+        echo "FAIL: '$1' > '$2'" >&2
+        exit 1
+    fi
+)}
+
+
 assert_in() {(
     set +ex
 
