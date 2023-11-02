@@ -11,6 +11,7 @@
 #include "bus-get-properties.h"
 #include "bus-log-control-api.h"
 #include "bus-polkit.h"
+#include "chase.h"
 #include "constants.h"
 #include "env-file-label.h"
 #include "env-file.h"
@@ -594,23 +595,28 @@ static void unset_statp(struct stat **p) {
 
 static int context_write_data_static_hostname(Context *c) {
         _cleanup_(unset_statp) struct stat *s = NULL;
+        _cleanup_free_ char *resolved_path = NULL;
         int r;
 
         assert(c);
+
+        r = chase("/etc/hostname", /* root= */ NULL, CHASE_NONEXISTENT, &resolved_path, /* ret_fd= */ NULL);
+        if (r < 0)
+                return r;
 
         /* Make sure that if we fail here, we invalidate the cached information, since it was updated
          * already, even if we can't make it hit the disk. */
         s = &c->etc_hostname_stat;
 
         if (isempty(c->data[PROP_STATIC_HOSTNAME])) {
-                if (unlink("/etc/hostname") < 0 && errno != ENOENT)
+                if (unlink(resolved_path) < 0 && errno != ENOENT)
                         return -errno;
 
                 TAKE_PTR(s);
                 return 0;
         }
 
-        r = write_string_file_atomic_label("/etc/hostname", c->data[PROP_STATIC_HOSTNAME]);
+        r = write_string_file_atomic_label(resolved_path, c->data[PROP_STATIC_HOSTNAME]);
         if (r < 0)
                 return r;
 
@@ -619,6 +625,7 @@ static int context_write_data_static_hostname(Context *c) {
 }
 
 static int context_write_data_machine_info(Context *c) {
+        _cleanup_free_ char *resolved_path = NULL;
         _cleanup_(unset_statp) struct stat *s = NULL;
         static const char * const name[_PROP_MAX] = {
                 [PROP_PRETTY_HOSTNAME] = "PRETTY_HOSTNAME",
@@ -632,11 +639,17 @@ static int context_write_data_machine_info(Context *c) {
 
         assert(c);
 
+        r = chase("/etc/machine-info", NULL, CHASE_NONEXISTENT, &resolved_path, NULL);
+        if (r < 0) {
+                return r;
+        }
+
         /* Make sure that if we fail here, we invalidate the cached information, since it was updated
          * already, even if we can't make it hit the disk. */
         s = &c->etc_machine_info_stat;
 
-        r = load_env_file(NULL, "/etc/machine-info", &l);
+        r = load_env_file(NULL, resolved_path, &l);
+
         if (r < 0 && r != -ENOENT)
                 return r;
 
@@ -649,14 +662,14 @@ static int context_write_data_machine_info(Context *c) {
         }
 
         if (strv_isempty(l)) {
-                if (unlink("/etc/machine-info") < 0 && errno != ENOENT)
+                if (unlink(resolved_path) < 0 && errno != ENOENT)
                         return -errno;
 
                 TAKE_PTR(s);
                 return 0;
         }
 
-        r = write_env_file_label(AT_FDCWD, "/etc/machine-info", NULL, l);
+        r = write_env_file_label(AT_FDCWD, resolved_path, NULL, l);
         if (r < 0)
                 return r;
 
