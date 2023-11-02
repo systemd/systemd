@@ -1401,7 +1401,7 @@ int calendar_spec_next_usec(const CalendarSpec *spec, usec_t usec, usec_t *ret_n
         if (shared == MAP_FAILED)
                 return negative_errno();
 
-        r = safe_fork("(sd-calendar)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG|FORK_WAIT, NULL);
+        r = safe_fork("(sd-calendar)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGKILL|FORK_WAIT, NULL);
         if (r < 0) {
                 (void) munmap(shared, sizeof *shared);
                 return r;

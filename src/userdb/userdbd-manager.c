@@ -149,7 +149,7 @@ static int start_one_worker(Manager *m) {
                         "(sd-worker)",
                         /* stdio_fds= */ NULL,
                         &m->listen_fd, 1,
-                        FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_REOPEN_LOG|FORK_LOG|FORK_CLOSE_ALL_FDS,
+                        FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_REOPEN_LOG|FORK_LOG|FORK_CLOSE_ALL_FDS,
                         &pid);
         if (r < 0)
                 return log_error_errno(r, "Failed to fork new worker child: %m");
