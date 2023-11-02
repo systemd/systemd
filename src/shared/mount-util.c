@@ -1343,11 +1343,11 @@ int remount_idmap_fd(
         int *mount_fds = NULL;
         size_t n_mounts_fds = 0;
 
-        CLEANUP_ARRAY(mount_fds, n_mounts_fds, close_many_and_free);
-
         mount_fds = new(int, n);
         if (!mount_fds)
                 return log_oom_debug();
+
+        CLEANUP_ARRAY(mount_fds, n_mounts_fds, close_many_and_free);
 
         for (size_t i = 0; i < n; i++) {
                 int mntfd;
