@@ -40,6 +40,8 @@ void manager_reset_config(Manager *m) {
         m->inhibit_delay_max = 5 * USEC_PER_SEC;
         m->user_stop_delay = 10 * USEC_PER_SEC;
 
+        m->handle_action_sleep_mask = HANDLE_ACTION_SLEEP_MASK_DEFAULT;
+
         m->handle_power_key = HANDLE_POWEROFF;
         m->handle_power_key_long_press = HANDLE_IGNORE;
         m->handle_reboot_key = HANDLE_REBOOT;
