@@ -962,10 +962,10 @@ static int attach_tcrypt(
                 char **passwords,
                 uint32_t flags) {
 
+        _cleanup_strv_free_erase_ char **tmp_passwords = NULL;
+        _cleanup_strv_free_erase_ char **p = NULL;
+        unsigned password_count;
         int r = 0;
-        char **tmp_passwords;
-        char **p;
-        int password_count;
         _cleanup_(erase_and_freep) char *passphrase = NULL;
         struct crypt_params_tcrypt params = {
                 .flags = CRYPT_TCRYPT_LEGACY_MODES,
@@ -995,27 +995,16 @@ static int attach_tcrypt(
                 params.veracrypt_pim = arg_tcrypt_veracrypt_pim;
 
         if (key_data) {
-                tmp_passwords = (char**)malloc(sizeof(char*)*1);
-                tmp_passwords[0] = key_data;
+                strv_insert(&tmp_passwords, 0, key_data);
         } else if (key_file) {
                  r = read_one_line_file(key_file, &passphrase);
                 if (r < 0) {
                         log_error_errno(r, "Failed to read password file '%s': %m", key_file);
                         return -EAGAIN; /* log with the actual error, but return EAGAIN */
                 }
-                tmp_passwords = (char**)malloc(sizeof(char*)*1);
-                tmp_passwords[0] = passphrase;
+                strv_insert(&tmp_passwords, 0, passphrase);
         } else {
-                password_count = 0;
-                STRV_FOREACH(p, passwords){
-                        password_count++;
-                }
-                tmp_passwords = (char**)malloc(sizeof(char*)*password_count);
-                password_count = 0; 
-                STRV_FOREACH(p,passwords){
-                        tmp_passwords[password_count] = *p;
-                        password_count++;
-                }
+                tmp_passwords = strv_copy(passwords);
         }
         r = -EINVAL;
         STRV_FOREACH(p, tmp_passwords){
@@ -1025,7 +1014,6 @@ static int attach_tcrypt(
                 if (r >= 0)
                         break;
         }
-        free(tmp_passwords);
         if (r < 0) {
                 if (r == -EPERM) {
                         if (key_data)
