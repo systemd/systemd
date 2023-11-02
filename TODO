@@ -1275,8 +1275,6 @@ Features:
     - libpam (only when called from PID 1)
     - bzip2, xz, lz4 (always — gzip and zstd should probably stay static deps the way they are,
       since they are so basic and our defaults)
-  o move into separate libsystemd-shared-iptables.so .so
-    - iptables-libs (only used by nspawn + networkd)
 
 * seccomp: maybe use seccomp_merge() to merge our filters per-arch if we can.
   Apparently kernel performance is much better with fewer larger seccomp
