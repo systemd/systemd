@@ -1578,6 +1578,20 @@ static int make_tpm2_device_monitor(
         return 0;
 }
 
+static bool use_token_plugins(void) {
+        int r;
+
+        /* Disable tokens if we shall measure, since we won't get access to the volume key then. */
+        if (arg_tpm2_measure_pcr != UINT_MAX)
+                return false;
+
+        r = getenv_bool("SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE");
+        if (r < 0 && r != -ENXIO)
+                log_debug_errno(r, "Failed to parse $SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE value, ignoring: %m");
+
+        return r != 0;
+}
+
 static int attach_luks2_by_tpm2_via_plugin(
                 struct crypt_device *cd,
                 const char *name,
@@ -2260,7 +2274,7 @@ static int run(int argc, char *argv[]) {
                         }
 
                         /* Tokens are available in LUKS2 only, but it is ok to call (and fail) with LUKS1. */
-                        if (!key_file && !key_data && getenv_bool("SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE") != 0) {
+                        if (!key_file && !key_data && use_token_plugins()) {
                                 r = crypt_activate_by_token_pin_ask_password(
                                                 cd,
                                                 volume,
