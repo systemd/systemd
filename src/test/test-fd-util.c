@@ -650,7 +650,7 @@ TEST(dir_fd_is_root) {
         assert_se(path_is_root("/") > 0);
         assert_se(mount_nofollow_verbose(LOG_DEBUG, "/", "/", NULL, MS_BIND|MS_REC, NULL) >= 0);
         assert_se(path_is_root("/usr") == 0);
-        assert_se(path_is_root("/") == 0); /* Ouch!!! */
+        assert_se(path_is_root("/") > 0);
         assert_se(chroot("/../") >= 0); /* Interestingly(?), chroot("/") does not work. */
         assert_se(path_is_root("/usr") == 0);
         assert_se(path_is_root("/") > 0);
