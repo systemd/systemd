@@ -569,6 +569,7 @@ run_qemu() {
     if ! get_bool "$INTERACTIVE_DEBUG" && ! get_bool "$TEST_SKIP_SHUTDOWN"; then
         kernel_params+=(
             "panic=1"
+            "softlockup_panic=1"
             "systemd.wants=end.service"
         )
     fi
