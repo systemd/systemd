@@ -16,6 +16,5 @@ Property=ID_NET_AUTO_LINK_LOCAL_ONLY=1
 
 [Network]
 LinkLocalAddressing=yes
-DHCP=no
 IPv6AcceptRA=no
 MulticastDNS=yes
