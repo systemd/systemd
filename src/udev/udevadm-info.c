@@ -58,8 +58,35 @@ static const char *arg_export_prefix = NULL;
 static usec_t arg_wait_for_initialization_timeout = 0;
 static PagerFlags arg_pager_flags = 0;
 static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
+static ActionType arg_action = ACTION_QUERY;
+static QueryType arg_query = QUERY_ALL;
+static char **arg_devices = NULL;
+static char *arg_name = NULL;
+static bool arg_cleanup_db = false;
+static char **arg_attr_match = NULL;
+static char **arg_attr_nomatch = NULL;
+static char **arg_name_match = NULL;
+static char **arg_parent_match = NULL;
+static char **arg_property_match = NULL;
+static char **arg_subsystem_match = NULL;
+static char **arg_subsystem_nomatch = NULL;
+static char **arg_sysname_match = NULL;
+static char **arg_tag_match = NULL;
+static int arg_initialized_match = -1;
+static bool has_positional_args = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_properties, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_devices, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_name, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_attr_match, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_attr_nomatch, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_name_match, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_parent_match, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_property_match, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_subsystem_match, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_subsystem_nomatch, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_sysname_match, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_tag_match, strv_freep);
 
 /* Put a limit on --tree descent level to not exhaust our stack */
 #define TREE_DEPTH_MAX 64
@@ -895,11 +922,132 @@ static int parse_key_value_argument(const char *s, char **key, char **value) {
         return 0;
 }
 
-int info_main(int argc, char *argv[], void *userdata) {
-        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
-        _cleanup_strv_free_ char **devices = NULL;
-        _cleanup_free_ char *name = NULL;
-        int c, r, ret;
+static int add_match_parent(sd_device_enumerator *e, const char *s, const char *dir) {
+        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        int r;
+
+        assert(e);
+        assert(s);
+        assert(dir);
+
+        r = find_device(optarg, dir, &dev);
+        if (r < 0)
+                return log_error_errno(r, "Failed to open the device '%s': %m", optarg);
+
+        r = device_enumerator_add_match_parent_incremental(e, dev);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add parent match '%s': %m", optarg);
+
+        return 0;
+}
+
+static int setup_matches(sd_device_enumerator *e) {
+        int r;
+
+        assert(e);
+
+        STRV_FOREACH(s, arg_subsystem_match) {
+                r = sd_device_enumerator_add_match_subsystem(e, *s, /* match= */ true);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add subsystem match '%s': %m", *s);
+        }
+
+        STRV_FOREACH(s, arg_subsystem_nomatch) {
+                r = sd_device_enumerator_add_match_subsystem(e, *s, /* match= */ false);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add negative subsystem match '%s': %m", *s);
+        }
+
+        STRV_FOREACH(a, arg_attr_match) {
+                _cleanup_free_ char *k = NULL, *v = NULL;
+
+                r = parse_key_value_argument(*a, &k, &v);
+                if (r < 0)
+                        return r;
+
+                r = sd_device_enumerator_add_match_sysattr(e, k, v, /* match= */ true);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add sysattr match '%s=%s': %m", k, v);
+        }
+
+        STRV_FOREACH(a, arg_attr_nomatch) {
+                _cleanup_free_ char *k = NULL, *v = NULL;
+
+                r = parse_key_value_argument(*a, &k, &v);
+                if (r < 0)
+                        return r;
+
+                r = sd_device_enumerator_add_match_sysattr(e, k, v, /* match= */ false);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add negative sysattr match '%s=%s': %m", k, v);
+        }
+
+        STRV_FOREACH(p, arg_property_match) {
+                _cleanup_free_ char *k = NULL, *v = NULL;
+
+                r = parse_key_value_argument(*p, &k, &v);
+                if (r < 0)
+                        return r;
+
+                r = sd_device_enumerator_add_match_property_required(e, k, v);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add property match '%s=%s': %m", k, v);
+        }
+
+        STRV_FOREACH(t, arg_tag_match) {
+                r = sd_device_enumerator_add_match_tag(e, *t);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add tag match '%s': %m", *t);
+        }
+
+        STRV_FOREACH(s, arg_sysname_match) {
+                r = sd_device_enumerator_add_match_sysname(e, *s);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add sysname match '%s': %m", *s);
+        }
+
+        STRV_FOREACH(n, arg_name_match) {
+                r = add_match_parent(e, *n, "/dev");
+                if (r < 0)
+                        return r;
+        }
+
+        STRV_FOREACH(p, arg_parent_match) {
+                r = add_match_parent(e, *p, "/sys");
+                if (r < 0)
+                        return r;
+        }
+
+        if (arg_initialized_match != -1) {
+                r = device_enumerator_add_match_is_initialized(e, arg_initialized_match);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set initialized filter: %m");
+        }
+
+        return 0;
+}
+
+static int check_args(void) {
+        if (arg_action == ACTION_DEVICE_ID_FILE && has_positional_args)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                "Positional arguments are not allowed with -d/--device-id-of-file.");
+
+        if (arg_action != ACTION_TREE && strv_isempty(arg_devices))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "A device name or path is required");
+
+        if (IN_SET(arg_action, ACTION_ATTRIBUTE_WALK, ACTION_TREE) && strv_length(arg_devices) > 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Only one device may be specified with -a/--attribute-walk and -t/--tree");
+
+        if (arg_export && arg_value)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "-x/--export or -P/--export-prefix cannot be used with --value");
+
+        return 1;
+}
+
+static int parse_argv(int argc, char *argv[]) {
 
         enum {
                 ARG_PROPERTY = 0x100,
@@ -952,11 +1100,14 @@ int info_main(int argc, char *argv[], void *userdata) {
                 {}
         };
 
-        ActionType action = ACTION_QUERY;
-        QueryType query = QUERY_ALL;
+        int c, r;
+
+        assert(argc >= 0);
+        assert(argv);
 
         while ((c = getopt_long(argc, argv, "atced:n:p:q:rxP:w::Vh", options, NULL)) >= 0)
                 switch (c) {
+
                 case ARG_PROPERTY:
                         /* Make sure that if the empty property list was specified, we won't show any
                            properties. */
@@ -970,9 +1121,11 @@ int info_main(int argc, char *argv[], void *userdata) {
                                         return log_oom();
                         }
                         break;
+
                 case ARG_VALUE:
                         arg_value = true;
                         break;
+
                 case 'n':
                 case 'p': {
                         const char *prefix = c == 'n' ? "/dev/" : "/sys/";
@@ -982,55 +1135,64 @@ int info_main(int argc, char *argv[], void *userdata) {
                         if (!path)
                                 return log_oom();
 
-                        r = strv_consume(&devices, path);
+                        r = strv_consume(&arg_devices, path);
                         if (r < 0)
                                 return log_oom();
                         break;
                 }
 
                 case 'q':
-                        action = ACTION_QUERY;
+                        arg_action = ACTION_QUERY;
                         if (streq(optarg, "property") || streq(optarg, "env"))
-                                query = QUERY_PROPERTY;
+                                arg_query = QUERY_PROPERTY;
                         else if (streq(optarg, "name"))
-                                query = QUERY_NAME;
+                                arg_query = QUERY_NAME;
                         else if (streq(optarg, "symlink"))
-                                query = QUERY_SYMLINK;
+                                arg_query = QUERY_SYMLINK;
                         else if (streq(optarg, "path"))
-                                query = QUERY_PATH;
+                                arg_query = QUERY_PATH;
                         else if (streq(optarg, "all"))
-                                query = QUERY_ALL;
+                                arg_query = QUERY_ALL;
                         else
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "unknown query type");
                         break;
+
                 case 'r':
                         arg_root = true;
                         break;
+
                 case 'd':
-                        action = ACTION_DEVICE_ID_FILE;
-                        r = free_and_strdup(&name, optarg);
+                        arg_action = ACTION_DEVICE_ID_FILE;
+                        r = free_and_strdup(&arg_name, optarg);
                         if (r < 0)
                                 return log_oom();
                         break;
+
                 case 'a':
-                        action = ACTION_ATTRIBUTE_WALK;
+                        arg_action = ACTION_ATTRIBUTE_WALK;
                         break;
+
                 case 't':
-                        action = ACTION_TREE;
+                        arg_action = ACTION_TREE;
                         break;
+
                 case 'e':
-                        action = ACTION_EXPORT;
+                        arg_action = ACTION_EXPORT;
                         break;
+
                 case 'c':
-                        cleanup_db();
-                        return 0;
+                        arg_cleanup_db = true;
+                        break;
+
                 case 'x':
                         arg_export = true;
                         break;
+
                 case 'P':
                         arg_export = true;
                         arg_export_prefix = optarg;
                         break;
+
                 case 'w':
                         if (optarg) {
                                 r = parse_sec(optarg, &arg_wait_for_initialization_timeout);
@@ -1039,10 +1201,13 @@ int info_main(int argc, char *argv[], void *userdata) {
                         } else
                                 arg_wait_for_initialization_timeout = USEC_INFINITY;
                         break;
+
                 case 'V':
                         return print_version();
+
                 case 'h':
                         return help();
+
                 case ARG_NO_PAGER:
                         arg_pager_flags |= PAGER_DISABLE;
                         break;
@@ -1054,149 +1219,134 @@ int info_main(int argc, char *argv[], void *userdata) {
                         break;
 
                 case ARG_SUBSYSTEM_MATCH:
+                        r = strv_extend(&arg_subsystem_match, optarg);
+                        if (r < 0)
+                                return log_oom();
+                        break;
+
                 case ARG_SUBSYSTEM_NOMATCH:
-                        r = ensure_device_enumerator(&e);
+                        r = strv_extend(&arg_subsystem_nomatch, optarg);
                         if (r < 0)
-                                return r;
-
-                        r = sd_device_enumerator_add_match_subsystem(e, optarg, c == ARG_SUBSYSTEM_MATCH);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to add%s subsystem match '%s': %m",
-                                                       c == ARG_SUBSYSTEM_MATCH ? "" : " negative", optarg);
-
+                                return log_oom();
                         break;
 
                 case ARG_ATTR_MATCH:
-                case ARG_ATTR_NOMATCH: {
-                        _cleanup_free_ char *k = NULL, *v = NULL;
+                        if (!strchr(optarg, '='))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                "expect <ATTR>=<value> instead of '%s'", optarg);
 
-                        r = ensure_device_enumerator(&e);
+                        r = strv_extend(&arg_attr_match, optarg);
                         if (r < 0)
-                                return r;
-
-                        r = parse_key_value_argument(optarg, &k, &v);
-                        if (r < 0)
-                                return r;
-
-                        r = sd_device_enumerator_add_match_sysattr(e, k, v, c == ARG_ATTR_MATCH);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to add%s sysattr match '%s=%s': %m",
-                                                       c == ARG_ATTR_MATCH ? "" : " negative", k, v);
+                                return log_oom();
                         break;
-                }
 
-                case ARG_PROPERTY_MATCH: {
-                        _cleanup_free_ char *k = NULL, *v = NULL;
+                case ARG_ATTR_NOMATCH:
+                        if (!strchr(optarg, '='))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                "expect <ATTR>=<value> instead of '%s'", optarg);
 
-                        r = ensure_device_enumerator(&e);
+                        r = strv_extend(&arg_attr_nomatch, optarg);
                         if (r < 0)
-                                return r;
-
-                        r = parse_key_value_argument(optarg, &k, &v);
-                        if (r < 0)
-                                return r;
-
-                        r = sd_device_enumerator_add_match_property_required(e, k, v);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to add property match '%s=%s': %m", k, v);
+                                return log_oom();
                         break;
-                }
+
+                case ARG_PROPERTY_MATCH:
+                        if (!strchr(optarg, '='))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                "expect <PROPERTY>=<value> instead of '%s'", optarg);
+
+                        r = strv_extend(&arg_property_match, optarg);
+                        if (r < 0)
+                                return log_oom();
+                        break;
 
                 case ARG_TAG_MATCH:
-                        r = ensure_device_enumerator(&e);
+                        r = strv_extend(&arg_tag_match, optarg);
                         if (r < 0)
-                                return r;
-
-                        r = sd_device_enumerator_add_match_tag(e, optarg);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to add tag match '%s': %m", optarg);
+                                return log_oom();
                         break;
 
                 case ARG_SYSNAME_MATCH:
-                        r = ensure_device_enumerator(&e);
+                        r = strv_extend(&arg_sysname_match, optarg);
                         if (r < 0)
-                                return r;
-
-                        r = sd_device_enumerator_add_match_sysname(e, optarg);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to add sysname match '%s': %m", optarg);
+                                return log_oom();
                         break;
 
                 case ARG_NAME_MATCH:
-                case ARG_PARENT_MATCH: {
-                        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
-
-                        r = find_device(optarg, c == ARG_NAME_MATCH ? "/dev" : "/sys", &dev);
+                        r = strv_extend(&arg_name_match, optarg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to open the device '%s': %m", optarg);
-
-                        r = ensure_device_enumerator(&e);
-                        if (r < 0)
-                                return r;
-
-                        r = device_enumerator_add_match_parent_incremental(e, dev);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to add parent match '%s': %m", optarg);
+                                return log_oom();
                         break;
-                }
+
+                case ARG_PARENT_MATCH:
+                        r = strv_extend(&arg_parent_match, optarg);
+                        if (r < 0)
+                                return log_oom();
+                        break;
 
                 case ARG_INITIALIZED_MATCH:
-                case ARG_INITIALIZED_NOMATCH:
-                        r = ensure_device_enumerator(&e);
-                        if (r < 0)
-                                return r;
+                        arg_initialized_match = MATCH_INITIALIZED_YES;
+                        break;
 
-                        r = device_enumerator_add_match_is_initialized(e, c == ARG_INITIALIZED_MATCH ? MATCH_INITIALIZED_YES : MATCH_INITIALIZED_NO);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to set initialized filter: %m");
+                case ARG_INITIALIZED_NOMATCH:
+                        arg_initialized_match = MATCH_INITIALIZED_NO;
                         break;
 
                 case '?':
                         return -EINVAL;
+
                 default:
                         assert_not_reached();
                 }
 
-        if (action == ACTION_DEVICE_ID_FILE) {
-                if (argv[optind])
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Positional arguments are not allowed with -d/--device-id-of-file.");
-                assert(name);
-                return stat_device(name, arg_export, arg_export_prefix);
+        r = strv_extend_strv(&arg_devices, argv + optind, /* filter_duplicates= */ false);
+        if (r < 0)
+                return log_error_errno(r, "Failed to build argument list: %m");
+        has_positional_args = r > 0;
+
+        return check_args();
+}
+
+int info_main(int argc, char *argv[], void *userdata) {
+        int r, ret;
+
+        r = parse_argv(argc, argv);
+        if (r <= 0)
+                return r;
+
+        if (arg_cleanup_db) {
+                cleanup_db();
+                return 0;
         }
 
-        if (action == ACTION_EXPORT) {
+        if (arg_action == ACTION_DEVICE_ID_FILE) {
+                assert(arg_name);
+                return stat_device(arg_name, arg_export, arg_export_prefix);
+        }
+
+        pager_open(arg_pager_flags);
+
+        if (strv_isempty(arg_devices)) {
+                assert(arg_action == ACTION_TREE);
+                return print_tree(NULL);
+        }
+
+        if (arg_action == ACTION_EXPORT) {
+                _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+
                 r = ensure_device_enumerator(&e);
+                if (r < 0)
+                        return r;
+
+                r = setup_matches(e);
                 if (r < 0)
                         return r;
 
                 return export_devices(e);
         }
 
-        r = strv_extend_strv(&devices, argv + optind, false);
-        if (r < 0)
-                return log_error_errno(r, "Failed to build argument list: %m");
-
-        if (action != ACTION_TREE && strv_isempty(devices))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "A device name or path is required");
-        if (IN_SET(action, ACTION_ATTRIBUTE_WALK, ACTION_TREE) && strv_length(devices) > 1)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Only one device may be specified with -a/--attribute-walk and -t/--tree");
-
-        if (arg_export && arg_value)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "-x/--export or -P/--export-prefix cannot be used with --value");
-
-        pager_open(arg_pager_flags);
-
-        if (strv_isempty(devices)) {
-                assert(action == ACTION_TREE);
-                return print_tree(NULL);
-        }
-
         ret = 0;
-        STRV_FOREACH(p, devices) {
+        STRV_FOREACH(p, arg_devices) {
                 _cleanup_(sd_device_unrefp) sd_device *device = NULL;
 
                 r = find_device(*p, NULL, &device);
@@ -1226,14 +1376,14 @@ int info_main(int argc, char *argv[], void *userdata) {
                         device = d;
                 }
 
-                if (action == ACTION_QUERY)
-                        r = query_device(query, device);
-                else if (action == ACTION_ATTRIBUTE_WALK) {
+                if (arg_action == ACTION_QUERY)
+                        r = query_device(arg_query, device);
+                else if (arg_action == ACTION_ATTRIBUTE_WALK) {
                         if (sd_json_format_enabled(arg_json_format_flags))
                                 r = print_device_chain_in_json(device);
                         else
                                 r = print_device_chain(device);
-                } else if (action == ACTION_TREE)
+                } else if (arg_action == ACTION_TREE)
                         r = print_tree(device);
                 else
                         assert_not_reached();
