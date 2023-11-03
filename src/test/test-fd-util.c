@@ -644,6 +644,16 @@ TEST(dir_fd_is_root) {
         assert_se((fd = open(y, O_CLOEXEC|O_PATH|O_DIRECTORY|O_NOFOLLOW)) >= 0);
         assert_se(dir_fd_is_root(fd) == 0);
         assert_se(dir_fd_is_root_or_cwd(fd) == 0);
+
+        /* For issue #29559. */
+        assert_se(path_is_root("/usr") == 0);
+        assert_se(path_is_root("/") > 0);
+        assert_se(mount_nofollow_verbose(LOG_DEBUG, "/", "/", NULL, MS_BIND|MS_REC, NULL) >= 0);
+        assert_se(path_is_root("/usr") == 0);
+        assert_se(path_is_root("/") > 0);
+        assert_se(chroot("/../") >= 0); /* Interestingly(?), chroot("/") does not work. */
+        assert_se(path_is_root("/usr") == 0);
+        assert_se(path_is_root("/") > 0);
 }
 
 TEST(fd_get_path) {
