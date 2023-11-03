@@ -80,11 +80,11 @@ typedef enum MountMode {
 } MountMode;
 
 typedef enum MountEntryState {
-      MOUNT_PENDING,
-      MOUNT_APPLIED,
-      MOUNT_SKIPPED,
-      _MOUNT_ENTRY_STATE_MAX,
-      _MOUNT_ENTRY_STATE_INVALID = -EINVAL,
+        MOUNT_PENDING,
+        MOUNT_APPLIED,
+        MOUNT_SKIPPED,
+        _MOUNT_ENTRY_STATE_MAX,
+        _MOUNT_ENTRY_STATE_INVALID = -EINVAL,
 } MountEntryState;
 
 typedef struct MountEntry {
