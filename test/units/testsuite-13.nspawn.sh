@@ -40,7 +40,7 @@ export SYSTEMD_LOG_TARGET=journal
 at_exit() {
     set +e
 
-    mountpoint -q /var/lib/machines && umount /var/lib/machines
+    mountpoint -q /var/lib/machines && umount --recursive /var/lib/machines
     rm -f /run/systemd/nspawn/*.nspawn
 }
 
@@ -839,6 +839,35 @@ matrix_run_one() {
     rm -fr "$root"
 
     return 0
+}
+
+testcase_check_os_release() {
+    # https://github.com/systemd/systemd/issues/29185
+    local common_opts root
+
+    root="$(mktemp -d /var/lib/machines/testsuite-13.check_os_release.XXX)"
+    ln -s usr/{bin,sbin,lib,lib64} "$root"
+    common_opts=(
+        --boot
+        --register=no
+        --directory="$root"
+        --bind-ro=/usr
+        systemd.unit="poweroff.target"
+    )
+
+    # Empty /etc/ & /usr/
+    (! systemd-nspawn "${common_opts[@]}")
+    (! SYSTEMD_NSPAWN_CHECK_OS_RELEASE=1 systemd-nspawn "${common_opts[@]}")
+    (! SYSTEMD_NSPAWN_CHECK_OS_RELEASE=foo systemd-nspawn "${common_opts[@]}")
+    SYSTEMD_NSPAWN_CHECK_OS_RELEASE=0 systemd-nspawn "${common_opts[@]}"
+
+    # Empty /usr/ + a broken /etc/os-release -> /usr/os-release symlink
+    ln -svrf "$root/etc/os-release" "$root/usr/os-release"
+    (! systemd-nspawn "${common_opts[@]}")
+    (! SYSTEMD_NSPAWN_CHECK_OS_RELEASE=1 systemd-nspawn "${common_opts[@]}")
+    SYSTEMD_NSPAWN_CHECK_OS_RELEASE=0 systemd-nspawn "${common_opts[@]}"
+
+    rm -fr "$root"
 }
 
 run_testcases
