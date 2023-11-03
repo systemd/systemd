@@ -57,6 +57,24 @@ EOF
     rm -rf /run/systemd/logind.conf.d
 }
 
+testcase_sleep_automated() {
+    local sleep suspend
+
+    cat >/run/systemd/logind.conf.d/sleep-operations.conf <<EOF
+[Login]
+SleepOperations=suspend
+EOF
+
+    systemctl restart systemd-logind.service
+
+    assert_eq "$(busctl get-property org.freedesktop.login1 /org/freedesktop/login1 org.freedesktop.login1.Manager SleepOperations)" "as 1 suspend"
+
+    sleep="$(busctl call org.freedesktop.login1 /org/freedesktop/login1 org.freedesktop.login1.Manager CanSleep)"
+    suspend="$(busctl call org.freedesktop.login1 /org/freedesktop/login1 org.freedesktop.login1.Manager CanSuspend)"
+
+    assert_eq "$sleep" "$suspend"
+}
+
 testcase_started() {
     local pid
 
