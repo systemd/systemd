@@ -88,6 +88,15 @@ char** strv_free_erase(char **l) {
         return mfree(l);
 }
 
+void strv_free_many(char ***strvs, size_t n) {
+        assert(strvs || n == 0);
+
+        FOREACH_ARRAY (i, strvs, n)
+                strv_free(*i);
+
+        free(strvs);
+}
+
 char** strv_copy_n(char * const *l, size_t m) {
         _cleanup_strv_free_ char **result = NULL;
         char **k;
