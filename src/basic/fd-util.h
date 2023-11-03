@@ -106,7 +106,10 @@ int fd_is_opath(int fd);
 int read_nr_open(void);
 int fd_get_diskseq(int fd, uint64_t *ret);
 
-int path_is_root_at(int dir_fd, const char *path);
+int path_is_root_at_internal(int dir_fd, const char *path, bool check_bind_root);
+static inline int path_is_root_at(int dir_fd, const char *path) {
+        return path_is_root_at_internal(dir_fd, path, true);
+}
 static inline int path_is_root(const char *path) {
         return path_is_root_at(AT_FDCWD, path);
 }
