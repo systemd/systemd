@@ -45,6 +45,12 @@ CHANGES WITH 255 in spe:
         * The NAMING_BRIDGE_MULTIFUNCTION_SLOT naming scheme has been deprecated
           and is now disabled.
 
+        * SuspendMode=, HibernateState= and HybridSleepState= in the [Sleep]
+          section of systemd-sleep.conf are now deprecated and have no effect.
+          They did not (and could not) take any value other than the respective
+          default. HybridSleepMode= is also deprecated, and will now always use
+          the 'suspend' disk mode.
+
         Service Manager:
 
         * The way services are spawned has been overhauled. Previously, a
