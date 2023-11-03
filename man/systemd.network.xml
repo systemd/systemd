@@ -2567,9 +2567,13 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
       <varlistentry>
         <term><varname>UseGateway=</varname></term>
         <listitem>
-          <para>When true, the gateway will be requested from the DHCP server and added to the routing
-          table with a metric of 1024, and a scope of <option>link</option>. When unset, the value
-          specified with <varname>UseRoutes=</varname> is used.</para>
+          <para>When true, and the DHCP server provides a Router option, the default gateway based on the
+          router address will be configured. Defaults to unset, and the value specified with
+          <varname>UseRoutes=</varname> will be used.</para>
+
+          <para>Note, when the server provides both the Router and Classless Static Routes option, and
+          <varname>UseRoutes=</varname> is enabled, the Router option is always ignored regardless of this
+          setting. See <ulink url="https://datatracker.ietf.org/doc/html/rfc3442">RFC 3442</ulink>.</para>
 
           <xi:include href="version-info.xml" xpointer="v246"/>
         </listitem>
