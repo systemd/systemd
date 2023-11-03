@@ -44,6 +44,15 @@
   limiting in most cases even.)
 */
 
+/* The "safe" integer range that JSON implementations typically can parse safely, as these are the range of
+ * the significand in IEEE 754 double precision floating points (i.e. ±2^53-1). These is the safe integer
+ * range suggested by JSON-I, i.e. RFC 7493 Section 2.2.
+ *
+ * The various xyz_safe() variants of the calls below will automatically serialize integers outside of this
+ * range as strings containing a decimal representation, and parse them where needed. */
+#define JSON_INTEGER_SAFE_MIN INT64_C(-9007199254740991)
+#define JSON_INTEGER_SAFE_MAX INT64_C(9007199254740991)
+
 typedef struct JsonVariant JsonVariant;
 
 typedef enum JsonVariantType {
@@ -66,7 +75,9 @@ int json_variant_new_base32hex(JsonVariant **ret, const void *p, size_t n);
 int json_variant_new_hex(JsonVariant **ret, const void *p, size_t n);
 int json_variant_new_octescape(JsonVariant **ret, const void *p, size_t n);
 int json_variant_new_integer(JsonVariant **ret, int64_t i);
+int json_variant_new_integer_safe(JsonVariant **ret, int64_t i);
 int json_variant_new_unsigned(JsonVariant **ret, uint64_t u);
+int json_variant_new_unsigned_safe(JsonVariant **ret, uint64_t u);
 int json_variant_new_real(JsonVariant **ret, double d);
 int json_variant_new_boolean(JsonVariant **ret, bool b);
 int json_variant_new_array(JsonVariant **ret, JsonVariant **array, size_t n);
@@ -97,7 +108,9 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(JsonVariant *, json_variant_unref);
 
 const char *json_variant_string(JsonVariant *v);
 int64_t json_variant_integer(JsonVariant *v);
+int64_t json_variant_integer_safe(JsonVariant *v);
 uint64_t json_variant_unsigned(JsonVariant *v);
+uint64_t json_variant_unsigned_safe(JsonVariant *v);
 double json_variant_real(JsonVariant *v);
 bool json_variant_boolean(JsonVariant *v);
 
@@ -112,9 +125,13 @@ static inline bool json_variant_is_integer(JsonVariant *v) {
         return json_variant_has_type(v, JSON_VARIANT_INTEGER);
 }
 
+bool json_variant_is_integer_safe(JsonVariant *v);
+
 static inline bool json_variant_is_unsigned(JsonVariant *v) {
         return json_variant_has_type(v, JSON_VARIANT_UNSIGNED);
 }
+
+bool json_variant_is_unsigned_safe(JsonVariant *v);
 
 static inline bool json_variant_is_real(JsonVariant *v) {
         return json_variant_has_type(v, JSON_VARIANT_REAL);
@@ -141,6 +158,7 @@ static inline bool json_variant_is_null(JsonVariant *v) {
 }
 
 bool json_variant_is_negative(JsonVariant *v);
+bool json_variant_is_negative_safe(JsonVariant *v);
 bool json_variant_is_blank_object(JsonVariant *v);
 bool json_variant_is_blank_array(JsonVariant *v);
 bool json_variant_is_normalized(JsonVariant *v);
@@ -207,7 +225,9 @@ int json_variant_set_field(JsonVariant **v, const char *field, JsonVariant *valu
 int json_variant_set_fieldb(JsonVariant **v, const char *field, ...);
 int json_variant_set_field_string(JsonVariant **v, const char *field, const char *value);
 int json_variant_set_field_integer(JsonVariant **v, const char *field, int64_t value);
+int json_variant_set_field_integer_safe(JsonVariant **v, const char *field, int64_t value);
 int json_variant_set_field_unsigned(JsonVariant **v, const char *field, uint64_t value);
+int json_variant_set_field_unsigned_safe(JsonVariant **v, const char *field, uint64_t value);
 int json_variant_set_field_boolean(JsonVariant **v, const char *field, bool b);
 int json_variant_set_field_strv(JsonVariant **v, const char *field, char **l);
 
@@ -252,7 +272,9 @@ static inline int json_parse_file(FILE *f, const char *path, JsonParseFlags flag
 enum {
         _JSON_BUILD_STRING,
         _JSON_BUILD_INTEGER,
+        _JSON_BUILD_INTEGER_SAFE,
         _JSON_BUILD_UNSIGNED,
+        _JSON_BUILD_UNSIGNED_SAFE,
         _JSON_BUILD_REAL,
         _JSON_BUILD_BOOLEAN,
         _JSON_BUILD_ARRAY_BEGIN,
@@ -296,7 +318,9 @@ typedef int (*JsonBuildCallback)(JsonVariant **ret, const char *name, void *user
 
 #define JSON_BUILD_STRING(s) _JSON_BUILD_STRING, (const char*) { s }
 #define JSON_BUILD_INTEGER(i) _JSON_BUILD_INTEGER, (int64_t) { i }
+#define JSON_BUILD_INTEGER_SAFE(i) _JSON_BUILD_INTEGER_SAFE, (int64_t) { i }
 #define JSON_BUILD_UNSIGNED(u) _JSON_BUILD_UNSIGNED, (uint64_t) { u }
+#define JSON_BUILD_UNSIGNED_SAFE(u) _JSON_BUILD_UNSIGNED_SAFE, (uint64_t) { u }
 #define JSON_BUILD_REAL(d) _JSON_BUILD_REAL, (double) { d }
 #define JSON_BUILD_BOOLEAN(b) _JSON_BUILD_BOOLEAN, (bool) { b }
 #define JSON_BUILD_ARRAY(...) _JSON_BUILD_ARRAY_BEGIN, __VA_ARGS__, _JSON_BUILD_ARRAY_END
@@ -330,7 +354,9 @@ typedef int (*JsonBuildCallback)(JsonVariant **ret, const char *name, void *user
 
 #define JSON_BUILD_PAIR_STRING(name, s) JSON_BUILD_PAIR(name, JSON_BUILD_STRING(s))
 #define JSON_BUILD_PAIR_INTEGER(name, i) JSON_BUILD_PAIR(name, JSON_BUILD_INTEGER(i))
+#define JSON_BUILD_PAIR_INTEGER_SAFE(name, i) JSON_BUILD_PAIR(name, JSON_BUILD_INTEGER_SAFE(i))
 #define JSON_BUILD_PAIR_UNSIGNED(name, u) JSON_BUILD_PAIR(name, JSON_BUILD_UNSIGNED(u))
+#define JSON_BUILD_PAIR_UNSIGNED_SAFE(name, u) JSON_BUILD_PAIR(name, JSON_BUILD_UNSIGNED_SAFE(u))
 #define JSON_BUILD_PAIR_REAL(name, d) JSON_BUILD_PAIR(name, JSON_BUILD_REAL(d))
 #define JSON_BUILD_PAIR_BOOLEAN(name, b) JSON_BUILD_PAIR(name, JSON_BUILD_BOOLEAN(b))
 #define JSON_BUILD_PAIR_ARRAY(name, ...) JSON_BUILD_PAIR(name, JSON_BUILD_ARRAY(__VA_ARGS__))
@@ -410,7 +436,9 @@ int json_dispatch_tristate(const char *name, JsonVariant *variant, JsonDispatchF
 int json_dispatch_variant(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata);
 int json_dispatch_variant_noref(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata);
 int json_dispatch_int64(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata);
+int json_dispatch_int64_safe(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata);
 int json_dispatch_uint64(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata);
+int json_dispatch_uint64_safe(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata);
 int json_dispatch_uint32(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata);
 int json_dispatch_int32(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata);
 int json_dispatch_uint16(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata);

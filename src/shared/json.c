@@ -322,6 +322,34 @@ int json_variant_new_integer(JsonVariant **ret, int64_t i) {
         return 0;
 }
 
+int json_variant_new_integer_safe(JsonVariant **ret, int64_t i) {
+        JsonVariant *v;
+        int r;
+
+        assert_return(ret, -EINVAL);
+
+        if (i == 0) {
+                *ret = JSON_VARIANT_MAGIC_ZERO_INTEGER;
+                return 0;
+        }
+
+        /* If this value is outside of the "safe" range, let's format things as strings. */
+        if (i < JSON_INTEGER_SAFE_MIN || i > JSON_INTEGER_SAFE_MAX) {
+                char buf[DECIMAL_STR_MAX(int64_t)];
+                xsprintf(buf, "%" PRIi64, i);
+                return json_variant_new_string(ret, buf);
+        }
+
+        r = json_variant_new(&v, JSON_VARIANT_INTEGER, sizeof(i));
+        if (r < 0)
+                return r;
+
+        v->value.integer = i;
+        *ret = v;
+
+        return 0;
+}
+
 int json_variant_new_unsigned(JsonVariant **ret, uint64_t u) {
         JsonVariant *v;
         int r;
@@ -330,6 +358,32 @@ int json_variant_new_unsigned(JsonVariant **ret, uint64_t u) {
         if (u == 0) {
                 *ret = JSON_VARIANT_MAGIC_ZERO_UNSIGNED;
                 return 0;
+        }
+
+        r = json_variant_new(&v, JSON_VARIANT_UNSIGNED, sizeof(u));
+        if (r < 0)
+                return r;
+
+        v->value.unsig = u;
+        *ret = v;
+
+        return 0;
+}
+
+int json_variant_new_unsigned_safe(JsonVariant **ret, uint64_t u) {
+        JsonVariant *v;
+        int r;
+
+        assert_return(ret, -EINVAL);
+        if (u == 0) {
+                *ret = JSON_VARIANT_MAGIC_ZERO_UNSIGNED;
+                return 0;
+        }
+
+        if (u > JSON_INTEGER_SAFE_MAX) {
+                char buf[DECIMAL_STR_MAX(uint64_t)];
+                xsprintf(buf, "%" PRIu64, u);
+                return json_variant_new_string(ret, buf);
         }
 
         r = json_variant_new(&v, JSON_VARIANT_UNSIGNED, sizeof(u));
@@ -978,6 +1032,18 @@ mismatch:
         return 0;
 }
 
+int64_t json_variant_integer_safe(JsonVariant *v) {
+
+        if (json_variant_is_string(v)) {
+                int64_t i;
+
+                if (safe_atoi64(json_variant_string(v), &i) >= 0)
+                        return i;
+        }
+
+        return json_variant_integer(v);
+}
+
 uint64_t json_variant_unsigned(JsonVariant *v) {
         if (!v)
                 goto mismatch;
@@ -1021,6 +1087,18 @@ uint64_t json_variant_unsigned(JsonVariant *v) {
 mismatch:
         log_debug("Non-integer JSON variant requested as unsigned, returning 0.");
         return 0;
+}
+
+uint64_t json_variant_unsigned_safe(JsonVariant *v) {
+
+        if (json_variant_is_string(v)) {
+                uint64_t u;
+
+                if (safe_atou64(json_variant_string(v), &u) >= 0)
+                        return u;
+        }
+
+        return json_variant_unsigned(v);
 }
 
 double json_variant_real(JsonVariant *v) {
@@ -1103,6 +1181,13 @@ bool json_variant_is_negative(JsonVariant *v) {
 mismatch:
         log_debug("Non-integer JSON variant tested for negativity, returning false.");
         return false;
+}
+
+bool json_variant_is_negative_safe(JsonVariant *v) {
+        if (json_variant_is_integer_safe(v))
+                return json_variant_integer_safe(v) < 0;
+
+        return json_variant_is_negative(v);
 }
 
 bool json_variant_is_blank_object(JsonVariant *v) {
@@ -1202,6 +1287,28 @@ bool json_variant_has_type(JsonVariant *v, JsonVariantType type) {
                 return fp_equal((double) (int64_t) v->value.real, v->value.real);
         if (rt == JSON_VARIANT_REAL && type == JSON_VARIANT_UNSIGNED)
                 return fp_equal((double) (uint64_t) v->value.real, v->value.real);
+
+        return false;
+}
+
+bool json_variant_is_integer_safe(JsonVariant *v) {
+
+        if (json_variant_is_integer(v))
+                return true;
+
+        if (json_variant_is_string(v))
+                return safe_atoi64(json_variant_string(v), NULL) >= 0;
+
+        return false;
+}
+
+bool json_variant_is_unsigned_safe(JsonVariant *v) {
+
+        if (json_variant_is_unsigned(v))
+                return true;
+
+        if (json_variant_is_string(v))
+                return safe_atou64(json_variant_string(v), NULL) >= 0;
 
         return false;
 }
@@ -1995,11 +2102,33 @@ int json_variant_set_field_integer(JsonVariant **v, const char *field, int64_t i
         return json_variant_set_field(v, field, m);
 }
 
+int json_variant_set_field_integer_safe(JsonVariant **v, const char *field, int64_t i) {
+        _cleanup_(json_variant_unrefp) JsonVariant *m = NULL;
+        int r;
+
+        r = json_variant_new_integer_safe(&m, i);
+        if (r < 0)
+                return r;
+
+        return json_variant_set_field(v, field, m);
+}
+
 int json_variant_set_field_unsigned(JsonVariant **v, const char *field, uint64_t u) {
         _cleanup_(json_variant_unrefp) JsonVariant *m = NULL;
         int r;
 
         r = json_variant_new_unsigned(&m, u);
+        if (r < 0)
+                return r;
+
+        return json_variant_set_field(v, field, m);
+}
+
+int json_variant_set_field_unsigned_safe(JsonVariant **v, const char *field, uint64_t u) {
+        _cleanup_(json_variant_unrefp) JsonVariant *m = NULL;
+        int r;
+
+        r = json_variant_new_unsigned_safe(&m, u);
         if (r < 0)
                 return r;
 
@@ -3408,7 +3537,8 @@ int json_buildv(JsonVariant **ret, va_list ap) {
                         break;
                 }
 
-                case _JSON_BUILD_INTEGER: {
+                case _JSON_BUILD_INTEGER:
+                case _JSON_BUILD_INTEGER_SAFE: {
                         int64_t j;
 
                         if (!IN_SET(current->expect, EXPECT_TOPLEVEL, EXPECT_OBJECT_VALUE, EXPECT_ARRAY_ELEMENT)) {
@@ -3419,7 +3549,7 @@ int json_buildv(JsonVariant **ret, va_list ap) {
                         j = va_arg(ap, int64_t);
 
                         if (current->n_suppress == 0) {
-                                r = json_variant_new_integer(&add, j);
+                                r = (command == _JSON_BUILD_INTEGER_SAFE ? json_variant_new_integer_safe : json_variant_new_integer)(&add, j);
                                 if (r < 0)
                                         goto finish;
                         }
@@ -3436,7 +3566,8 @@ int json_buildv(JsonVariant **ret, va_list ap) {
                         break;
                 }
 
-                case _JSON_BUILD_UNSIGNED: {
+                case _JSON_BUILD_UNSIGNED:
+                case _JSON_BUILD_UNSIGNED_SAFE: {
                         uint64_t j;
 
                         if (!IN_SET(current->expect, EXPECT_TOPLEVEL, EXPECT_OBJECT_VALUE, EXPECT_ARRAY_ELEMENT)) {
@@ -3447,7 +3578,7 @@ int json_buildv(JsonVariant **ret, va_list ap) {
                         j = va_arg(ap, uint64_t);
 
                         if (current->n_suppress == 0) {
-                                r = json_variant_new_unsigned(&add, j);
+                                r = (command == _JSON_BUILD_UNSIGNED_SAFE ? json_variant_new_unsigned_safe : json_variant_new_unsigned)(&add, j);
                                 if (r < 0)
                                         goto finish;
                         }
@@ -4665,6 +4796,18 @@ int json_dispatch_int64(const char *name, JsonVariant *variant, JsonDispatchFlag
         return 0;
 }
 
+int json_dispatch_int64_safe(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
+        int64_t *i = ASSERT_PTR(userdata);
+
+        assert(variant);
+
+        if (!json_variant_is_integer_safe(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an integer, nor one formatted as string.", strna(name));
+
+        *i = json_variant_integer_safe(variant);
+        return 0;
+}
+
 int json_dispatch_uint64(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
         uint64_t *u = ASSERT_PTR(userdata);
 
@@ -4674,6 +4817,18 @@ int json_dispatch_uint64(const char *name, JsonVariant *variant, JsonDispatchFla
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an unsigned integer.", strna(name));
 
         *u = json_variant_unsigned(variant);
+        return 0;
+}
+
+int json_dispatch_uint64_safe(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
+        uint64_t *u = ASSERT_PTR(userdata);
+
+        assert(variant);
+
+        if (!json_variant_is_unsigned_safe(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an unsigned integer, nor one formatted as string.", strna(name));
+
+        *u = json_variant_unsigned_safe(variant);
         return 0;
 }
 
