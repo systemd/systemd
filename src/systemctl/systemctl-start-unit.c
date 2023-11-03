@@ -236,6 +236,7 @@ const struct action_metadata action_table[_ACTION_MAX] = {
         [ACTION_HIBERNATE]              = { SPECIAL_HIBERNATE_TARGET,              "hibernate",              "replace-irreversibly" },
         [ACTION_HYBRID_SLEEP]           = { SPECIAL_HYBRID_SLEEP_TARGET,           "hybrid-sleep",           "replace-irreversibly" },
         [ACTION_SUSPEND_THEN_HIBERNATE] = { SPECIAL_SUSPEND_THEN_HIBERNATE_TARGET, "suspend-then-hibernate", "replace-irreversibly" },
+        [ACTION_SLEEP]                  = { NULL, /* handled only by logind */     "sleep",                  NULL                   },
 };
 
 enum action verb_to_action(const char *verb) {
@@ -293,6 +294,8 @@ int verb_start(int argc, char *argv[], void *userdata) {
                 enum action action;
 
                 action = verb_to_action(argv[0]);
+
+                assert(action != ACTION_SLEEP);
 
                 if (action != _ACTION_INVALID) {
                         /* A command in style "systemctl reboot", "systemctl poweroff", … */

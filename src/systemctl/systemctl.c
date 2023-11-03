@@ -248,6 +248,8 @@ static int systemctl_help(void) {
                "  soft-reboot                         Shut down and reboot userspace\n"
                "  exit [EXIT_CODE]                    Request user instance or container exit\n"
                "  switch-root [ROOT [INIT]]           Change to a different root file system\n"
+               "  sleep                               Put the system to sleep (through one of\n"
+               "                                      the operations below)\n"
                "  suspend                             Suspend the system\n"
                "  hibernate                           Hibernate the system\n"
                "  hybrid-sleep                        Hibernate and suspend the system\n"
@@ -1181,6 +1183,7 @@ static int systemctl_main(int argc, char *argv[]) {
                 { "reboot",                VERB_ANY, 1,        VERB_ONLINE_ONLY, verb_start_system_special    },
                 { "kexec",                 VERB_ANY, 1,        VERB_ONLINE_ONLY, verb_start_system_special    },
                 { "soft-reboot",           VERB_ANY, 1,        VERB_ONLINE_ONLY, verb_start_system_special    },
+                { "sleep",                 VERB_ANY, 1,        VERB_ONLINE_ONLY, verb_start_system_special    },
                 { "suspend",               VERB_ANY, 1,        VERB_ONLINE_ONLY, verb_start_system_special    },
                 { "hibernate",             VERB_ANY, 1,        VERB_ONLINE_ONLY, verb_start_system_special    },
                 { "hybrid-sleep",          VERB_ANY, 1,        VERB_ONLINE_ONLY, verb_start_system_special    },
@@ -1325,6 +1328,7 @@ static int run(int argc, char *argv[]) {
                 break;
 
         case ACTION_EXIT:
+        case ACTION_SLEEP:
         case ACTION_SUSPEND:
         case ACTION_HIBERNATE:
         case ACTION_HYBRID_SLEEP:
