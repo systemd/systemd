@@ -159,8 +159,7 @@
 
         <para>
         <citerefentry><refentrytitle>systemd-suspend-then-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-        uses the value of <varname>SuspendMode=</varname> when suspending and the value of
-        <varname>HibernateMode=</varname> when hibernating.</para>
+        uses the value of <varname>HibernateMode=</varname> when hibernating.</para>
 
         <xi:include href="version-info.xml" xpointer="v203"/></listitem>
       </varlistentry>
