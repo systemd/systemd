@@ -67,6 +67,11 @@ CHANGES WITH 255 in spe:
 
         Changes in systemd-analyze:
 
+        * A new experimental systemd-vmspawn tool has been added, that aims to
+          provide for VMs the same interfaces and functionality that
+          systemd-nspawn provides for containers. For now it supports QEMU as a
+          backend, and exposes some of its options to the user.
+
         * "systemd-analyze plot" has gained tooltips on each unit name with
           related-unit information in its svg output, such as Before=,
           Requires=, and similar properties.
