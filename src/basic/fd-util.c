@@ -904,7 +904,7 @@ int fd_get_diskseq(int fd, uint64_t *ret) {
         return 0;
 }
 
-int path_is_root_at(int dir_fd, const char *path) {
+int path_is_root_at_internal(int dir_fd, const char *path, bool check_bind_root) {
         STRUCT_NEW_STATX_DEFINE(st);
         STRUCT_NEW_STATX_DEFINE(pst);
         _cleanup_close_ int fd = -EBADF;
@@ -944,6 +944,13 @@ int path_is_root_at(int dir_fd, const char *path) {
          * Note, statx() does not provide the mount ID and path_get_mnt_id_at() does not work when an old
          * kernel is used. In that case, let's assume that we do not have such spurious mount points in an
          * early boot stage, and silently skip the following check. */
+
+        if (check_bind_root &&
+            path_is_root_at_internal(AT_FDCWD, "/", /* check_bind_root = */ false) == 0)
+                /* This can happen when 'mount --rbind / /' without chrooting to the new root.
+                 * See https://github.com/systemd/systemd/issues/29559#issuecomment-1779608424.
+                 * In that case, the mount ID check below does not work. Let's skip it. */
+                return true;
 
         if (!FLAGS_SET(st.nsx.stx_mask, STATX_MNT_ID)) {
                 int mntid;
