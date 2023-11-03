@@ -553,12 +553,12 @@ int unbase64char(char c) {
 
         offset += '9' - '0' + 1;
 
-        if (c == '+')
+        if (IN_SET(c, '+', '-')) /* Support both the regular and the URL safe character set (see above) */
                 return offset;
 
         offset++;
 
-        if (c == '/')
+        if (IN_SET(c, '/', '_')) /* ditto */
                 return offset;
 
         return -EINVAL;
