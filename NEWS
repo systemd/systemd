@@ -416,6 +416,8 @@ CHANGES WITH 255 in spe:
         * systemd-sysext and systemd-confext now expose a Varlink service
           at io.systemd.sysext.
 
+        * portable services now accept confexts as extensions.
+
         * systemd-sysupdate now accepts directories in the MatchPattern= option.
 
         * systemd-run will now output the invocation ID of the launched
