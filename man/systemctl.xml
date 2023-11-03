@@ -1756,6 +1756,21 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         </varlistentry>
 
         <varlistentry>
+          <term><command>sleep</command></term>
+
+          <listitem>
+            <para>Put the system into sleep, through <command>suspend</command>, <command>hibernate</command>,
+            <command>hybrid-sleep</command>, or <command>suspend-then-hibernate</command>. The sleep operation
+            to use is automatically selected by <citerefentry>
+            <refentrytitle>systemd-logind.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+            Refer to <varname>SleepOperations=</varname> setting of <citerefentry>
+            <refentrytitle>logind.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry> for more details.
+            This command is asynchronous, and will return after the sleep operation is successfully enqueued.
+            It will not wait for the sleep/resume cycle to complete.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><command>suspend</command></term>
 
           <listitem>
