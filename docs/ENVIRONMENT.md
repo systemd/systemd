@@ -157,6 +157,10 @@ All tools:
 * `$SYSTEMD_NSPAWN_TMPFS_TMP=0` — if set, do not overmount `/tmp/` in the
   container with a tmpfs, but leave the directory from the image in place.
 
+* `$SYSTEMD_NSPAWN_CHECK_OS_RELEASE=0` — if set, do not fail when trying to
+  boot an OS tree without an os-release file (useful when trying to boot a
+  container with empty `/etc/` and bind-mounted `/usr/`)
+
 * `$SYSTEMD_SUPPRESS_SYNC=1` — if set, all disk synchronization syscalls are
   blocked to the container payload (e.g. `sync()`, `fsync()`, `syncfs()`, …)
   and the `O_SYNC`/`O_DSYNC` flags are made unavailable to `open()` and
