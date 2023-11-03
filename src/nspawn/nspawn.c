@@ -5659,8 +5659,10 @@ static int run(int argc, char *argv[]) {
 
                         if (arg_pivot_root_new) {
                                 b = path_join(arg_directory, arg_pivot_root_new);
-                                if (!b)
-                                        return log_oom();
+                                if (!b) {
+                                        r = log_oom();
+                                        goto finish;
+                                }
 
                                 p = b;
                         } else
@@ -5678,8 +5680,10 @@ static int run(int argc, char *argv[]) {
                                 p = path_join(arg_directory, arg_pivot_root_new, "/usr/");
                         else
                                 p = path_join(arg_directory, "/usr/");
-                        if (!p)
-                                return log_oom();
+                        if (!p) {
+                                r = log_oom();
+                                goto finish;
+                        }
 
                         if (laccess(p, F_OK) < 0) {
                                 r = log_error_errno(SYNTHETIC_ERRNO(EINVAL),
