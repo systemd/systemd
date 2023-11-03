@@ -184,65 +184,50 @@ int control_main(int argc, char *argv[], void *userdata) {
 
         if (arg_exit) {
                 r = udev_ctrl_send_exit(uctrl);
-                if (r == -ENOANO)
-                        log_warning("Cannot specify --exit after --exit, ignoring.");
-                else if (r < 0)
-                        return log_error_errno(r, "Failed to send exit request: %m");
+                if (r < 0)
+                       return log_error_errno(r, "Failed to send exit request: %m");
+                return 0;
         }
 
         if (arg_log_level >= 0) {
                 r = udev_ctrl_send_set_log_level(uctrl, r);
-                if (r == -ENOANO)
-                        log_warning("Cannot specify --log-level after --exit, ignoring.");
-                else if (r < 0)
+                if (r < 0)
                         return log_error_errno(r, "Failed to send request to set log level: %m");
         }
 
         if (arg_start_exec_queue == false) {
                 r = udev_ctrl_send_stop_exec_queue(uctrl);
-                if (r == -ENOANO)
-                        log_warning("Cannot specify --stop-exec-queue after --exit, ignoring.");
-                else if (r < 0)
+                if (r < 0)
                         return log_error_errno(r, "Failed to send request to stop exec queue: %m");
         }
 
         if (arg_start_exec_queue == true) {
                 r = udev_ctrl_send_start_exec_queue(uctrl);
-                if (r == -ENOANO)
-                        log_warning("Cannot specify --start-exec-queue after --exit, ignoring.");
-                else if (r < 0)
+                if (r < 0)
                         return log_error_errno(r, "Failed to send request to start exec queue: %m");
         }
 
         if (arg_reload) {
                 r = udev_ctrl_send_reload(uctrl);
-                if (r == -ENOANO)
-                        log_warning("Cannot specify --reload after --exit, ignoring.");
-                else if (r < 0)
+                if (r < 0)
                         return log_error_errno(r, "Failed to send reload request: %m");
         }
 
         STRV_FOREACH(env, arg_env) {
                 r = udev_ctrl_send_set_env(uctrl, *env);
-                if (r == -ENOANO)
-                        log_warning("Cannot specify --property after --exit, ignoring.");
-                else if (r < 0)
+                if (r < 0)
                         return log_error_errno(r, "Failed to send request to update environment: %m");
         }
 
         if (arg_max_children) {
                 r = udev_ctrl_send_set_children_max(uctrl, arg_max_children);
-                if (r == -ENOANO)
-                        log_warning("Cannot specify --children-max after --exit, ignoring.");
-                else if (r < 0)
+                if (r < 0)
                         return log_error_errno(r, "Failed to send request to set number of children: %m");
         }
 
         if (arg_ping) {
                 r = udev_ctrl_send_ping(uctrl);
-                if (r == -ENOANO)
-                        log_error("Cannot specify --ping after --exit, ignoring.");
-                else if (r < 0)
+                if (r < 0)
                         return log_error_errno(r, "Failed to send a ping message: %m");
         }
 
