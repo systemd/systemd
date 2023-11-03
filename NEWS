@@ -34,12 +34,13 @@ CHANGES WITH 255 in spe:
           release to be enabled by default.
 
         * "systemctl switch-root" is now restricted to initrd transitions only.
-          Transitions between real systems should be done with "systemctl soft-reboot"
-          instead.
 
-        * The ip=off and ip=none kernel command line options interpreted by
+          Transitions between real systems should be done with
+          "systemctl soft-reboot" instead.
+
+        * The "ip=off" and "ip=none" kernel command line options interpreted by
           systemd-network-generator will now result in IPv6RA + link-local
-          addressing to be disabled, too. Previously DHCP was turned off, but
+          addressing being disabled, too. Previously DHCP was turned off, but
           IPv6RA and IPv6 link-local addressing was left enabled.
 
         * The NAMING_BRIDGE_MULTIFUNCTION_SLOT naming scheme has been deprecated
@@ -55,16 +56,16 @@ CHANGES WITH 255 in spe:
 
         * The way services are spawned has been overhauled. Previously, a
           process was forked that shared all of the manager's memory (via
-          copy-on-write) while doing all the required set ups (e.g.: mount
+          copy-on-write) while doing all the required setup (e.g.: mount
           namespaces, CGroup configuration, etc.) before exec'ing the target
           executable. This was problematic for various reasons: several glibc
           APIs were called that are not supposed to be used after a fork but
           before an exec, copy-on-write meant that if either process (the
           manager or the child) touched a memory page a copy was triggered, and
           also the memory footprint of the child process was that of the
-          manager but with the memory limits of the service.  From this version
+          manager, but with the memory limits of the service. From this version
           onward, the new process is spawned using CLONE_VM and CLONE_VFORK
-          semantics via posix_spawn(), and it immediately execs a new internal
+          semantics via posix_spawn(3), and it immediately execs a new internal
           binary, systemd-executor, that receives the configuration to apply
           via memfd, and sets up the process before exec'ing the target
           executable.
@@ -73,10 +74,10 @@ CHANGES WITH 255 in spe:
           instead of PIDs when the kernel supports it, to improve robustness
           and reliability.
 
-        * A new option SurviveFinalKillSignal= is now supported to configure a
-          unit to skip units on the final SIGTERM/SIGKILL spree on shutdown. This
-          is part of the required configuration to let a unit's processes survive
-          a soft-reboot operation without being interrupted.
+        * A new option SurviveFinalKillSignal= can be used to configure the
+          unit to be skipped in the final SIGTERM/SIGKILL spree on shutdown.
+          This is part of the required configuration to let a unit's processes
+          survive a soft-reboot operation.
 
         * System extension images (sysext) can now set
           EXTENSION_RELOAD_MANAGER=1 in their extension-release files to
@@ -88,19 +89,20 @@ CHANGES WITH 255 in spe:
         * The ExtensionImages= and ExtensionDirectories= options now support
           confexts images/directories.
 
-        * A new option NFTSet= provides a method for integrating dynamic cgroup IDs
-          into firewall rules with NFT sets. The benefit of using this setting is to be
-          able to use control group as a selector in firewall rules easily and this in
-          turn allows more fine grained filtering. Also, NFT rules for cgroup matching
-          use numeric cgroup IDs, which change every time a service is restarted, making
-          them hard to use in a systemd environment.
+        * A new option NFTSet= provides a method for integrating dynamic cgroup
+          IDs into firewall rules with NFT sets. The benefit of using this
+          setting is to be able to use control group as a selector in firewall
+          rules easily and this in turn allows more fine grained filtering.
+          Also, NFT rules for cgroup matching use numeric cgroup IDs, which
+          change every time a service is restarted, making them hard to use in
+          systemd environment.
 
         * A new option CoredumpReceive= can be set for service and scope units,
           together with Delegate=yes, to make systemd-coredump on the host
-          forward core files from processes crashed inside the delegated CGroup
-          subtree to systemd-coredump running in the container. This new option
-          is by default used by systemd-nspawn containers that use the "--boot"
-          switch, i.e. are fully booted up.
+          forward core files from processes crashing inside the delegated
+          CGroup subtree to systemd-coredump running in the container. This new
+          option is by default used by systemd-nspawn containers that use the
+          "--boot" switch.
 
         * A new ConditionSecurity=measured-uki option is now available, to ensure
           a unit can only run when the system has been booted from a measured UKI.
@@ -111,22 +113,22 @@ CHANGES WITH 255 in spe:
         * The $USER environment variable is now always set for services, while
           previously it was only set if User= was specified. A new option
           SetLoginEnvironment= is now supported to determine whether to also set
-          $HOME, $LOGNAME and $SHELL.
+          $HOME, $LOGNAME, and $SHELL.
 
         * Socket units now support a new pair of
           PollLimitBurst=/PollLimitInterval= options to configure a limit on
           how often polling events on the file descriptors backing this unit
           will be considered within a time window.
 
-        * Scope units can now be created passing PIDFDs instead of PIDs to select
+        * Scope units can now be created using PIDFDs instead of PIDs to select
           the processes they should include.
 
         * Sending SIGRTMIN+18 with 0x500 as sigqueue() value will now cause the
           manager to dump the list of currently pending jobs.
 
-        * If the kernel supports MOVE_MOUNT_BENEATH, the systemctl and machinectl
-          bind and mount-image verbs will now cause the new mount to to replace
-          the old mount (if any), instead of overmounting it.
+        * If the kernel supports MOVE_MOUNT_BENEATH, the systemctl and
+          machinectl bind and mount-image verbs will now cause the new mount to
+          replace the old mount (if any), instead of overmounting it.
 
         TPM2 Support + Disk Encryption & Authentication:
 
@@ -181,14 +183,6 @@ CHANGES WITH 255 in spe:
 
         systemd-boot, systemd-stub, ukify, bootctl, kernel-install:
 
-        * The 90-loaderentry kernel-install hook now supports installing device
-          trees.
-
-        * ukify is no longer considered experimental, and now ships in /usr/bin/.
-
-        * ukify gained a new verb, inspect, that describes the sections of a UKI
-          and print the content of the well-known sections.
-
         * bootctl will now show whether the system was booted from a UKI in its
           status output.
 
@@ -225,18 +219,29 @@ CHANGES WITH 255 in spe:
           passed from systemd-boot when running inside Confidential VMs with UEFI
           SecureBoot enabled.
 
+        * ukify is no longer considered experimental, and now ships in /usr/bin/.
+
+        * ukify gained a new verb inspect to describe the sections of a UKI and
+          print the contents of the well-known sections.
+
+        * ukify gained a new verb genkey to generate a set of of key pairs for
+          signing UKIs and their PCR data.
+
+        * The 90-loaderentry kernel-install hook now supports installing device
+          trees.
+
         systemd-repart:
 
-        * A new option --copy-from= that synthesizes partition definitions from
-          the given image, which are then applied to the systemd-repart algorithm,
-          has been added.
+        * A new option --copy-from= has been added that synthesizes partition
+          definitions from the given image, which are then applied by the
+          systemd-repart algorithm.
 
         * A new option --copy-source= has been added, which can be used to specify
           a directory to which CopyFiles= is considered relative to.
 
-        * New --make-ddi=confext, --make-ddi=sysext and --make-ddi=portable options
-          have been added to make it easier to generate these types of DDIs,
-          without having to provide repart.d definitions for them.
+        * New --make-ddi=confext, --make-ddi=sysext, and --make-ddi=portable
+          options have been added to make it easier to generate these types of
+          DDIs, without having to provide repart.d definitions for them.
 
         * The dm-verity salt and UUID will now be derived from the specified
           seed value.
@@ -258,11 +263,11 @@ CHANGES WITH 255 in spe:
         * udev will now create symlinks to loopback block devices in the
           /dev/disk/by-loop-ref/ directory that are based on the .lo_file_name
           string field selected during allocation. The systemd-dissect tool and
-          the util-linux losetup command now supports a complementing new
-          switch --loop-ref= for selecting the string. This means a loopback
-          block device may now be allocated under a caller-chosen reference and
-          can subsequently be referenced by that without first having to look
-          up the block device name the caller ended up with.
+          the util-linux losetup command now supports a complementing new switch
+          --loop-ref= for selecting the string. This means a loopback block
+          device may now be allocated under a caller-chosen reference and can
+          subsequently be referenced without first having to look up the block
+          device name the caller ended up with.
 
         * udev also creates symlinks to loopback block devices in the
           /dev/disk/by-loop-inode/ directory based on the .st_dev/st_ino fields
@@ -299,16 +304,16 @@ CHANGES WITH 255 in spe:
           is now dropped, as it never worked, hence it should not be used by
           anyone.
 
-        * The 'prefixstable' ipv6 address generation mode now considers the
-          SSID when generating stable addresses, so that a different stable
-          address is used when roaming between wireless networks. If you
-          already use 'prefixstable' addresses with wireless networks, the
-          stable address chosen will be changed by the update.
+        * The 'prefixstable' ipv6 address generation mode now considers the SSID
+          when generating stable addresses, so that a different stable address
+          is used when roaming between wireless networks. If you already use
+          'prefixstable' addresses with wireless networks, the stable address
+          will be changed by the update.
 
-        * The DHCPv4 client gained a RapidCommit= option, default true, which
+        * The DHCPv4 client gained a RapidCommit option, true by default, which
           enables RFC4039 Rapid Commit behavior to obtain a lease in a
           simplified 2-message exchange instead of the typical 4-message
-          exchange if also supported by the DHCP server.
+          exchange, if also supported by the DHCP server.
 
         * The DHCPv4 client gained new InitialCongestionWindow= and
           InitialAdvertisedReceiveWindow= options for route configurations.
@@ -320,7 +325,7 @@ CHANGES WITH 255 in spe:
           (RFC8925).
 
         * The SendHostname= and Hostname= options are now available for the
-          DHCPv6 client, independent of the DHCPv4 option, so that these
+          DHCPv6 client, independently of the DHCPv4= option, so that these
           configuration values can be set independently for each client.
 
         * The DHCPv4 and DHCPv6 client state can now be queried via D-Bus,
@@ -345,10 +350,10 @@ CHANGES WITH 255 in spe:
           indirection of NFT set types.
 
         * The [IPv6AcceptRA] section supports the following new options:
-          UsePREF64=, UseHopLimit=, UseICMP6RateLimit= and NFTSet=.
+          UsePREF64=, UseHopLimit=, UseICMP6RateLimit=, and NFTSet=.
 
         * The [IPv6SendRA] section supports the following new options:
-          RetransmitSec=, HopLimit=, HomeAgent=, HomeAgentLifetimeSec= and
+          RetransmitSec=, HopLimit=, HomeAgent=, HomeAgentLifetimeSec=, and
           HomeAgentPreference=.
 
         * A new [IPv6PREF64Prefix] set of options, containing Prefix= and
@@ -356,7 +361,7 @@ CHANGES WITH 255 in spe:
           advertisements (RFC8781).
 
         * The network generator now configures the interfaces with only
-          link-local addressing if ip=link-local is specified on the kernel
+          link-local addressing if "ip=link-local" is specified on the kernel
           command line.
 
         * The prefix of the configuration files generated by the network
@@ -381,20 +386,19 @@ CHANGES WITH 255 in spe:
         * systemctl is-failed now checks the system state if no unit is
           specified.
 
-        * systemctl will now automatically soft-reboot if a new root file
-          system has been setup in /run/nextroot/ when a reboot operation
-          is invoked.
+        * systemctl will now automatically soft-reboot if a new root file system
+          is found under /run/nextroot/ when a reboot operation is invoked.
 
         Login management:
 
-        * wall messages now work even when utmp support is disabled, using
+        * Wall messages now work even when utmp support is disabled, using
           systemd-logind to query the necessary information.
 
         * systemd-logind now sends a new PrepareForShutdownWithMetadata D-Bus
-          signal before shutdown/reboot/soft-reboot, that includes additional
-          information with respect to what PrepareForShutdown has. Currently
-          the additional information is the type of operation that is about to
-          be executed.
+          signal before shutdown/reboot/soft-reboot that includes additional
+          information compared to the PrepareForShutdown signal. Currently the
+          additional information is the type of operation that is about to be
+          executed.
 
         Hibernation & Suspend:
 
@@ -432,9 +436,9 @@ CHANGES WITH 255 in spe:
           transient unit.
 
         * systemd-analyze, systemd-tmpfiles, systemd-sysusers, systemd-sysctl,
-          and systemd-binfmt gained a new --tldr option that can be used in
-          combination with --cat-config to suppress uninteresting configuration
-          lines, such as comments.
+          and systemd-binfmt gained a new --tldr option that can be used instead
+          of --cat-config to suppress uninteresting configuration lines, such as
+          comments and whitespace.
 
         * resolvectl gained a new "show-server-state" command that shows
           current statistics of the resolver. This is backed by a new
@@ -448,19 +452,19 @@ CHANGES WITH 255 in spe:
 
         * seccomp now supports the LoongArch64 architecture.
 
-        * systemd-id128 now supports a new -P option to show only values, and
-          combining --app with the show verb.
+        * systemd-id128 now supports a new -P option to show only values. The
+          combination of -P and --app options is also supported.
 
-        * A new pam_systemd_loadkey.so PAM module is now available, which
-          allows automatically fetching the passphrase used by cryptsetup to
-          unlock the root file system and setting it as the PAM authtok. This
-          enables, among other things, configuring auto-unlock of the GNOME
-          Keyring / KDE Wallet when autologin is configured.
+        * A new pam_systemd_loadkey.so PAM module is now available, which will
+          automatically fetch the passphrase used by cryptsetup to unlock the
+          root file system and set it as the PAM authtok. This enables, among
+          other things, configuring auto-unlock of the GNOME Keyring / KDE
+          Wallet when autologin is configured.
 
         * Many meson options now use the 'feature' type, which means they
           take enabled/disabled/auto as values.
 
-        * A new meson option configfiledir can be used to change where
+        * A new meson option -Dconfigfiledir= can be used to change where
           configuration files with default values are installed to.
 
         * Options and verbs in man pages are now tagged with the version they
@@ -904,9 +908,6 @@ CHANGES WITH 254:
 
         * ukify has been updated to allow building these UEFI PE "add-on"
           images, using the new 'addon<EFI-ARCH>.efi.stub'.
-
-        * ukify gained a new "genkey" verb for generating a set of of key pairs
-          to sign UKIs and their PCR data with.
 
         * ukify now accepts SBAT information to place in the .sbat PE section
           of UKIs and addons. If a UKI is built the SBAT information from the
