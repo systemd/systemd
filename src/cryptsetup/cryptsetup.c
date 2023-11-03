@@ -1180,20 +1180,20 @@ static int crypt_activate_by_token_pin_ask_password(
                 const char *type,
                 usec_t until,
                 bool headless,
-                void *usrptr,
+                void *userdata,
                 uint32_t activation_flags,
                 const char *message,
                 const char *key_name,
                 const char *credential_name) {
 
 #if HAVE_LIBCRYPTSETUP_PLUGINS
-        AskPasswordFlags flags = ASK_PASSWORD_PUSH_CACHE | ASK_PASSWORD_ACCEPT_CACHED;
+        AskPasswordFlags flags = arg_ask_password_flags | ASK_PASSWORD_PUSH_CACHE | ASK_PASSWORD_ACCEPT_CACHED;
         _cleanup_strv_free_erase_ char **pins = NULL;
         int r;
 
-        r = crypt_activate_by_token_pin(cd, name, type, CRYPT_ANY_TOKEN, NULL, 0, usrptr, activation_flags);
+        r = crypt_activate_by_token_pin(cd, name, type, CRYPT_ANY_TOKEN, /* pin=*/ NULL, /* pin_size= */ 0, userdata, activation_flags);
         if (r > 0) /* returns unlocked keyslot id on success */
-                r = 0;
+                return 0;
         if (r != -ENOANO) /* needs pin or pin is wrong */
                 return r;
 
@@ -1202,9 +1202,9 @@ static int crypt_activate_by_token_pin_ask_password(
                 return r;
 
         STRV_FOREACH(p, pins) {
-                r = crypt_activate_by_token_pin(cd, name, type, CRYPT_ANY_TOKEN, *p, strlen(*p), usrptr, activation_flags);
+                r = crypt_activate_by_token_pin(cd, name, type, CRYPT_ANY_TOKEN, *p, strlen(*p), userdata, activation_flags);
                 if (r > 0) /* returns unlocked keyslot id on success */
-                        r = 0;
+                        return 0;
                 if (r != -ENOANO) /* needs pin or pin is wrong */
                         return r;
         }
@@ -1214,14 +1214,14 @@ static int crypt_activate_by_token_pin_ask_password(
 
         for (;;) {
                 pins = strv_free_erase(pins);
-                r = ask_password_auto(message, "drive-harddisk", NULL, key_name, credential_name, until, flags, &pins);
+                r = ask_password_auto(message, "drive-harddisk", /* id= */ NULL, key_name, credential_name, until, flags, &pins);
                 if (r < 0)
                         return r;
 
                 STRV_FOREACH(p, pins) {
-                        r = crypt_activate_by_token_pin(cd, name, type, CRYPT_ANY_TOKEN, *p, strlen(*p), usrptr, activation_flags);
+                        r = crypt_activate_by_token_pin(cd, name, type, CRYPT_ANY_TOKEN, *p, strlen(*p), userdata, activation_flags);
                         if (r > 0) /* returns unlocked keyslot id on success */
-                                r = 0;
+                                return 0;
                         if (r != -ENOANO) /* needs pin or pin is wrong */
                                 return r;
                 }
@@ -1239,7 +1239,7 @@ static int attach_luks2_by_fido2_via_plugin(
                 const char *name,
                 usec_t until,
                 bool headless,
-                void *usrptr,
+                void *userdata,
                 uint32_t activation_flags) {
 
         return crypt_activate_by_token_pin_ask_password(
@@ -1248,7 +1248,7 @@ static int attach_luks2_by_fido2_via_plugin(
                         "systemd-fido2",
                         until,
                         headless,
-                        usrptr,
+                        userdata,
                         activation_flags,
                         "Please enter security token PIN:",
                         "fido2-pin",
@@ -1404,7 +1404,8 @@ static int attach_luks2_by_pkcs11_via_plugin(
         systemd_pkcs11_plugin_params params = {
                 .friendly_name = friendly_name,
                 .until = until,
-                .headless = headless
+                .headless = headless,
+                .askpw_flags = arg_ask_password_flags,
         };
 
         r = crypt_activate_by_token_pin(cd, name, "systemd-pkcs11", CRYPT_ANY_TOKEN, NULL, 0, &params, flags);
@@ -1581,6 +1582,20 @@ static int make_tpm2_device_monitor(
         *ret_event = TAKE_PTR(event);
         *ret_monitor = TAKE_PTR(monitor);
         return 0;
+}
+
+static bool use_token_plugins(void) {
+        int r;
+
+        /* Disable tokens if we shall measure, since we won't get access to the volume key then. */
+        if (arg_tpm2_measure_pcr != UINT_MAX)
+                return false;
+
+        r = getenv_bool("SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE");
+        if (r < 0 && r != -ENXIO)
+                log_debug_errno(r, "Failed to parse $SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE value, ignoring: %m");
+
+        return r != 0;
 }
 
 static int attach_luks2_by_tpm2_via_plugin(
@@ -2265,14 +2280,14 @@ static int run(int argc, char *argv[]) {
                         }
 
                         /* Tokens are available in LUKS2 only, but it is ok to call (and fail) with LUKS1. */
-                        if (!key_file && !key_data && getenv_bool("SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE") != 0) {
+                        if (!key_file && !key_data && use_token_plugins()) {
                                 r = crypt_activate_by_token_pin_ask_password(
                                                 cd,
                                                 volume,
-                                                NULL,
+                                                /* type= */ NULL,
                                                 until,
                                                 arg_headless,
-                                                NULL,
+                                                /* userdata= */ NULL,
                                                 flags,
                                                 "Please enter LUKS2 token PIN:",
                                                 "luks2-pin",

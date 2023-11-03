@@ -973,7 +973,7 @@ static int merge(ImageClass image_class,
         pid_t pid;
         int r;
 
-        r = safe_fork("(sd-merge)", FORK_DEATHSIG|FORK_LOG|FORK_NEW_MOUNTNS, &pid);
+        r = safe_fork("(sd-merge)", FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_NEW_MOUNTNS, &pid);
         if (r < 0)
                 return log_error_errno(r, "Failed to fork off child: %m");
         if (r == 0) {

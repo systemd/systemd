@@ -55,7 +55,7 @@ static int luks2_pkcs11_callback(
                 if (rv != CKR_OK) {
                         crypt_log_error(data->cd,
                                        "Failed to acquire updated security token information for slot %lu: %s",
-                                       slot_id, p11_kit_strerror(rv));
+                                       slot_id, sym_p11_kit_strerror(rv));
                         return -EIO;
                 }
                 token_info = &updated_token_info;
@@ -158,6 +158,7 @@ static int acquire_luks2_key_systemd(
 
         data.friendly_name = params->friendly_name;
         data.headless = params->headless;
+        data.askpw_flags = params->askpw_flags;
         data.until = params->until;
 
         /* The functions called here log about all errors, except for EAGAIN which means "token not found right now" */

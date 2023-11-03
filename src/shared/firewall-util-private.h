@@ -6,6 +6,7 @@
 
 #include "sd-netlink.h"
 
+#include "firewall-util.h"
 #include "in-addr-util.h"
 
 typedef enum FirewallBackend {

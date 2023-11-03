@@ -5426,7 +5426,7 @@ int unit_fork_helper_process(Unit *u, const char *name, PidRef *ret) {
 
         (void) unit_realize_cgroup(u);
 
-        r = safe_fork(name, FORK_REOPEN_LOG|FORK_DEATHSIG, &pid);
+        r = safe_fork(name, FORK_REOPEN_LOG|FORK_DEATHSIG_SIGTERM, &pid);
         if (r < 0)
                 return r;
         if (r > 0) {

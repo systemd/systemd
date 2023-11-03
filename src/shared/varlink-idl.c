@@ -6,6 +6,8 @@
 #include "varlink-idl.h"
 #include "set.h"
 
+#define DEPTH_MAX 64U
+
 enum {
         COLOR_SYMBOL_TYPE,   /* interface, method, type, error */
         COLOR_FIELD_TYPE,    /* string, bool, … */
@@ -562,13 +564,14 @@ static int varlink_idl_subparse_whitespace(
         return 1;
 }
 
-static int varlink_idl_subparse_struct_or_enum(const char **p, unsigned *line, unsigned *column, VarlinkSymbol **symbol, size_t *n_fields, VarlinkFieldDirection direction);
+static int varlink_idl_subparse_struct_or_enum(const char **p, unsigned *line, unsigned *column, VarlinkSymbol **symbol, size_t *n_fields, VarlinkFieldDirection direction, unsigned depth);
 
 static int varlink_idl_subparse_field_type(
                 const char **p,
                 unsigned *line,
                 unsigned *column,
-                VarlinkField *field) {
+                VarlinkField *field,
+                unsigned depth) {
 
         size_t l;
         int r;
@@ -638,7 +641,8 @@ static int varlink_idl_subparse_field_type(
                                 column,
                                 &symbol,
                                 &n_fields,
-                                VARLINK_REGULAR);
+                                VARLINK_REGULAR,
+                                depth + 1);
                 if (r < 0)
                         return r;
 
@@ -677,7 +681,8 @@ static int varlink_idl_subparse_struct_or_enum(
                 unsigned *column,
                 VarlinkSymbol **symbol,
                 size_t *n_fields,
-                VarlinkFieldDirection direction) {
+                VarlinkFieldDirection direction,
+                unsigned depth) {
 
         enum {
                 STATE_OPEN,
@@ -697,6 +702,9 @@ static int varlink_idl_subparse_struct_or_enum(
         assert(symbol);
         assert(*symbol);
         assert(n_fields);
+
+        if (depth > DEPTH_MAX)
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Maximum nesting depth reached (%u).", *line, *column, DEPTH_MAX);
 
         while (state != STATE_DONE) {
                 _cleanup_free_ char *token = NULL;
@@ -765,7 +773,7 @@ static int varlink_idl_subparse_struct_or_enum(
                                         .field_direction = direction,
                                 };
 
-                                r = varlink_idl_subparse_field_type(p, line, column, field);
+                                r = varlink_idl_subparse_field_type(p, line, column, field, depth);
                                 if (r < 0)
                                         return r;
 
@@ -992,7 +1000,7 @@ int varlink_idl_parse(
                         symbol->symbol_type = VARLINK_METHOD;
                         symbol->name = TAKE_PTR(token);
 
-                        r = varlink_idl_subparse_struct_or_enum(&text, line, column, &symbol, &n_fields, VARLINK_INPUT);
+                        r = varlink_idl_subparse_struct_or_enum(&text, line, column, &symbol, &n_fields, VARLINK_INPUT, 0);
                         if (r < 0)
                                 return r;
 
@@ -1009,7 +1017,7 @@ int varlink_idl_parse(
                         if (!streq(token, "->"))
                                 return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Unexpected token '%s'.", *line, *column, token);
 
-                        r = varlink_idl_subparse_struct_or_enum(&text, line, column, &symbol, &n_fields, VARLINK_OUTPUT);
+                        r = varlink_idl_subparse_struct_or_enum(&text, line, column, &symbol, &n_fields, VARLINK_OUTPUT, 0);
                         if (r < 0)
                                 return r;
 
@@ -1037,7 +1045,7 @@ int varlink_idl_parse(
                         symbol->symbol_type = _VARLINK_SYMBOL_TYPE_INVALID; /* don't know yet if enum or struct, will be field in by varlink_idl_subparse_struct_or_enum() */
                         symbol->name = TAKE_PTR(token);
 
-                        r = varlink_idl_subparse_struct_or_enum(&text, line, column, &symbol, &n_fields, VARLINK_REGULAR);
+                        r = varlink_idl_subparse_struct_or_enum(&text, line, column, &symbol, &n_fields, VARLINK_REGULAR, 0);
                         if (r < 0)
                                 return r;
 
@@ -1065,7 +1073,7 @@ int varlink_idl_parse(
                         symbol->symbol_type = VARLINK_ERROR;
                         symbol->name = TAKE_PTR(token);
 
-                        r = varlink_idl_subparse_struct_or_enum(&text, line, column, &symbol, &n_fields, VARLINK_REGULAR);
+                        r = varlink_idl_subparse_struct_or_enum(&text, line, column, &symbol, &n_fields, VARLINK_REGULAR, 0);
                         if (r < 0)
                                 return r;
 

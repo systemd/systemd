@@ -133,11 +133,14 @@ Deprecations and removals:
 
 Features:
 
-* networkd: controlled by build-time options install some of the
-  *.network.example files we install currently as regular files *.network. For
-  many cases it's what you want: just configure the damn network. Hopefully
-  this can be enabled on Fedora even, though into a separate sub-RPM, so that
-  we don't conflict with NM.
+* sd-boot: allow synthesizing additional type1 entries via SMBIOS vendor strings
+
+* storagetm:
+  - add USB mass storage device logic, so that all local disks are also exposed
+    as mass storage devices on systems that have a USB controller that can
+    operate in device mode
+  - add NVMe authentication
+  - show login details also via plymouth
 
 * add support for activating nvme-oF devices at boot automatically via kernel
   cmdline, and maybe even support a syntax such as
@@ -175,18 +178,18 @@ Features:
 * systemd-repart: add support for formatting dm-crypt + dm-integrity file
   systems.
 
-* homed: add small tool that exposes a homed home dir via nvme-over-tcp (just a
-  bunch of sysfs writes). Then, teach homed/pam_systemd_homed with a user name
-  such as lennart%nvmettcp_192.168.100.77_8787_nqn to log in from any linux
-  host with the same home dir. Similar maybe for nbd, iscsi? this should then
-  first ask for the local root pw, to authenticate that logging in like this is
-  ok, and would then be followed by another password prompt asking for the
-  user's own password. Also, do something similar for CIFS: if you log in via
+* homed: use systemd-storagetm to expose home dirs via nvme-tcp. Then,
+  teach homed/pam_systemd_homed with a user name such as
+  lennart%nvme_tcp_192.168.100.77_8787 to log in from any linux host with the
+  same home dir. Similar maybe for nbd, iscsi? this should then first ask for
+  the local root pw, to authenticate that logging in like this is ok, and would
+  then be followed by another password prompt asking for the user's own
+  password. Also, do something similar for CIFS: if you log in via
   lennart%cifs-someserver_someshare, then set up the homed dir for it
-  automatically. The PAM module should update the user name used for login to the
-  short version once it set up the user. Some care should be taken, so that the
-  long version can be still be resolved via NSS afterwards, to deal with PAM
-  clients that do not support PAM sessions where PAM_USER changes half-way.
+  automatically. The PAM module should update the user name used for login to
+  the short version once it set up the user. Some care should be taken, so that
+  the long version can be still be resolved via NSS afterwards, to deal with
+  PAM clients that do not support PAM sessions where PAM_USER changes half-way.
 
 * redefine /var/lib/extensions/ as the dir one can place all three of sysext,
   confext as well is multi-modal DDIs that qualify as both. Then introduce
@@ -504,16 +507,12 @@ Features:
   grow exponentially in size to ensure O(log(n)) time for finding them on
   access.
 
-* split out execute.c into new "systemd-executor" binary. Then make PID 1 fork
-  that off via vfork(), and then let that executor do the hard work. Ultimately
-  the executor then gets replaced by the real binary sooner or later. Reason:
-  currently the intermediary "stub" process is a CoW trap that doubles memory
-  usage of PID 1 on each service start. Also, strictly speaking we are not
-  allowed to do NSS from the stub process yet we do anyway. Next steps would
-  then be maybe use CLONE_INTO_CGROUP for the executor, given that we don't
-  need glibc anymore in the stub process then. Then, switch nspawn to just be a
-  frontend for this too, so that we have to ways into the executor: via unit
-  files/dbus/varlin through PID1 and via cmdline/OCI through nspawn.
+* Use CLONE_INTO_CGROUP to spawn systemd-executor, once glibc supports it in
+  posix_spawn().
+
+* Make nspawn to a frontend for systemd-executor, so that we have to ways into
+  the executor: via unit files/dbus/varlink through PID1 and via cmdline/OCI
+  through nspawn.
 
 * sd-stub: detect if we are running with uefi console output on serial, and if so
   automatically add console= to kernel cmdline matching the same port.
@@ -1410,8 +1409,6 @@ Features:
     - libpam (only when called from PID 1)
     - bzip2, xz, lz4 (always — gzip and zstd should probably stay static deps the way they are,
       since they are so basic and our defaults)
-  o move into separate libsystemd-shared-iptables.so .so
-    - iptables-libs (only used by nspawn + networkd)
 
 * seccomp: maybe use seccomp_merge() to merge our filters per-arch if we can.
   Apparently kernel performance is much better with fewer larger seccomp
