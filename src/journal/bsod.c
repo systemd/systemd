@@ -20,6 +20,7 @@
 #include "pretty-print.h"
 #include "qrcode-util.h"
 #include "sigbus.h"
+#include "signal-util.h"
 #include "sysctl-util.h"
 #include "terminal-util.h"
 
@@ -132,7 +133,7 @@ static int find_next_free_vt(int fd, int *ret_free_vt, int *ret_original_vt) {
 }
 
 static int display_emergency_message_fullscreen(const char *message) {
-        int r, free_vt = 0, original_vt = 0;
+        int r, ret = 0, free_vt = 0, original_vt = 0;
         unsigned qr_code_start_row = 1, qr_code_start_column = 1;
         char tty[STRLEN("/dev/tty") + DECIMAL_STR_MAX(int) + 1];
         _cleanup_close_ int fd = -EBADF;
@@ -176,8 +177,10 @@ static int display_emergency_message_fullscreen(const char *message) {
                 log_warning_errno(r, "Failed to move terminal cursor position, ignoring: %m");
 
         r = loop_write(fd, "The current boot has failed!", SIZE_MAX);
-        if (r < 0)
-                return log_warning_errno(r, "Failed to write to terminal: %m");
+        if (r < 0) {
+                ret = log_warning_errno(r, "Failed to write to terminal: %m");
+                goto cleanup;
+        }
 
         qr_code_start_row = w.ws_row * 3U / 5U;
         qr_code_start_column = w.ws_col * 3U / 4U;
@@ -186,12 +189,16 @@ static int display_emergency_message_fullscreen(const char *message) {
                 log_warning_errno(r, "Failed to move terminal cursor position, ignoring: %m");
 
         r = loop_write(fd, message, SIZE_MAX);
-        if (r < 0)
-                return log_warning_errno(r, "Failed to write emergency message to terminal: %m");
+        if (r < 0) {
+                ret = log_warning_errno(r, "Failed to write emergency message to terminal: %m");
+                goto cleanup;
+        }
 
         r = fdopen_independent(fd, "r+", &stream);
-        if (r < 0)
-                return log_error_errno(errno, "Failed to open output file: %m");
+        if (r < 0) {
+                ret = log_error_errno(errno, "Failed to open output file: %m");
+                goto cleanup;
+        }
 
         r = print_qrcode_full(stream, "Scan the QR code", message, qr_code_start_row, qr_code_start_column, w.ws_col, w.ws_row);
         if (r < 0)
@@ -202,17 +209,20 @@ static int display_emergency_message_fullscreen(const char *message) {
                 log_warning_errno(r, "Failed to move terminal cursor position, ignoring: %m");
 
         r = loop_write(fd, "Press any key to exit...", SIZE_MAX);
-        if (r < 0)
-                return log_warning_errno(r, "Failed to write to terminal: %m");
+        if (r < 0) {
+                ret = log_warning_errno(r, "Failed to write to terminal: %m");
+                goto cleanup;
+        }
 
         r = read_one_char(stream, &read_character_buffer, USEC_INFINITY, NULL);
-        if (r < 0)
-                return log_error_errno(r, "Failed to read character: %m");
+        if (r < 0 && r != -EINTR)
+                ret = log_error_errno(r, "Failed to read character: %m");
 
+cleanup:
         if (ioctl(fd, VT_ACTIVATE, original_vt) < 0)
                 return log_error_errno(errno, "Failed to switch back to original VT: %m");
 
-        return 0;
+        return ret;
 }
 
 static int parse_argv(int argc, char * argv[]) {
@@ -262,13 +272,20 @@ static int parse_argv(int argc, char * argv[]) {
 }
 
 static int run(int argc, char *argv[]) {
-        int r;
+        /* Don't use SA_RESTART here, as we don't want to restart syscalls on signal
+         * to get out of read_one_char() when needed */
+        static const struct sigaction nop_sigaction = {
+                .sa_handler = nop_signal_handler,
+                .sa_flags = 0,
+        };
         _cleanup_free_ char *message = NULL;
+        int r;
 
         log_open();
         log_parse_environment();
 
         sigbus_install();
+        assert_se(sigaction_many(&nop_sigaction, SIGTERM, SIGINT) >= 0);
 
         r = parse_argv(argc, argv);
         if (r <= 0)
