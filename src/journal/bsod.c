@@ -20,6 +20,7 @@
 #include "pretty-print.h"
 #include "qrcode-util.h"
 #include "sigbus.h"
+#include "signal-util.h"
 #include "sysctl-util.h"
 #include "terminal-util.h"
 
@@ -206,7 +207,7 @@ static int display_emergency_message_fullscreen(const char *message) {
                 return log_warning_errno(r, "Failed to write to terminal: %m");
 
         r = read_one_char(stream, &read_character_buffer, USEC_INFINITY, NULL);
-        if (r < 0)
+        if (r < 0 && r != -EINTR)
                 return log_error_errno(r, "Failed to read character: %m");
 
         if (ioctl(fd, VT_ACTIVATE, original_vt) < 0)
@@ -262,13 +263,20 @@ static int parse_argv(int argc, char * argv[]) {
 }
 
 static int run(int argc, char *argv[]) {
-        int r;
+        /* Don't use SA_RESTART here, as we don't want to restart syscalls on signal
+         * to get out of read_one_char() when needed */
+        static const struct sigaction nop_sigaction = {
+                .sa_handler = nop_signal_handler,
+                .sa_flags = 0,
+        };
         _cleanup_free_ char *message = NULL;
+        int r;
 
         log_open();
         log_parse_environment();
 
         sigbus_install();
+        assert_se(sigaction_many(&nop_sigaction, SIGTERM, SIGINT) >= 0);
 
         r = parse_argv(argc, argv);
         if (r <= 0)
