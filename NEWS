@@ -151,6 +151,27 @@ CHANGES WITH 255 in spe:
           Canonical Event Log format. Previously we'd only log them to the
           journal, where they however were subject to rotation and similar.
 
+        * A new component "systemd-pcrlock" has been added that allows managing
+          local TPM2 PCR policies for PCRs 0-7 and similar, which are hard to
+          predict by the OS vendor because of the inherently local nature of
+          what measurements they contain, such as firmware versions of the
+          system and extension cards and suchlike. pcrlock can predict PCR
+          measurements ahead of time based on various inputs, such as the local
+          TPM2 event log, GPT partition tables, PE binaries, UKI kernels, and
+          various other things. It can then pre-calculate a TPM2 policy from
+          this, which it stores in an TPM2 NV index. TPM2 objects (such as disk
+          encryption keys) can be locked against this NV index, so that they
+          are locked against a specific combination of system firmware and
+          state. Alternatives for each component are supported to allowlist
+          multiple kernel versions or boot loader version simultaneously
+          without losing access to the disk encryption keys. The tool can also
+          be used to analyze and validate the local TPM2 event
+          log. systemd-cryptsetup, systemd-cryptenroll, systemd-repart have all
+          been updated to support such policies. There's currently no support
+          for locking the system's root disk against a pcrlock policy, this
+          will be added soon. Moreover, it is currently not possible to combine
+          a pcrlock policy with a signed PCR policy.
+
         systemd-boot, systemd-stub, ukify, bootctl, kernel-install:
 
         * The 90-loaderentry kernel-install hook now supports installing device
