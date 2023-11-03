@@ -1492,7 +1492,7 @@ static int attach_luks_or_plain_or_bitlk_by_pkcs11(
                                 return r;
 
                         log_notice("Security token %s not present for unlocking volume %s, please plug it in.",
-                                   uri, friendly);
+                                   strempty(uri), friendly);
 
                         /* Let's immediately rescan in case the token appeared in the time we needed
                          * to create and configure the monitor */
