@@ -13,6 +13,7 @@ dd if=/dev/urandom of=/var/tmp/storagetm.test bs=1024 count=10240
 systemd-run -u teststoragetm.service -p Type=notify /usr/lib/systemd/systemd-storagetm /var/tmp/storagetm.test --nqn=quux
 
 nvme connect-all -t tcp -a 127.0.0.1 -s 16858 --hostid="$(cat /proc/sys/kernel/random/uuid)"
+udevadm wait --settle /dev/nvme1n1
 
 dd if=/dev/nvme1n1 bs=1024 | cmp /var/tmp/storagetm.test -
 
