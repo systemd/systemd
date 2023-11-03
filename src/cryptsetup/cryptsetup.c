@@ -1014,6 +1014,7 @@ static int attach_tcrypt(
                                 break;
                 }
         }
+
         if (r < 0) {
                 if (r == -EPERM) {
                         if (key_data)
