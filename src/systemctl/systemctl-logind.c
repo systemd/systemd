@@ -51,6 +51,7 @@ int logind_reboot(enum action a) {
                 [ACTION_HIBERNATE]              = "Hibernate",
                 [ACTION_HYBRID_SLEEP]           = "HybridSleep",
                 [ACTION_SUSPEND_THEN_HIBERNATE] = "SuspendThenHibernate",
+                [ACTION_SLEEP]                  = "Sleep",
         };
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -71,7 +72,7 @@ int logind_reboot(enum action a) {
         polkit_agent_open_maybe();
         (void) logind_set_wall_message(bus);
 
-        const char *method_with_flags = strjoina(actions[a], "WithFlags");
+        const char *method_with_flags = a == ACTION_SLEEP ? actions[a] : strjoina(actions[a], "WithFlags");
 
         log_debug("%s org.freedesktop.login1.Manager %s dbus call.",
                   arg_dry_run ? "Would execute" : "Executing", method_with_flags);
@@ -105,6 +106,8 @@ int logind_reboot(enum action a) {
                 return 0;
         if (!sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_METHOD))
                 return log_error_errno(r, "Call to %s failed: %s", actions[a], bus_error_message(&error, r));
+
+        assert(a != ACTION_SLEEP);
 
         /* Fall back to original methods in case there is an older version of systemd-logind */
         log_debug("Method %s not available: %s. Falling back to %s", method_with_flags, bus_error_message(&error, r), actions[a]);
