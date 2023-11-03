@@ -18,6 +18,7 @@ enum action {
         ACTION_KEXEC,
         ACTION_SOFT_REBOOT,
         ACTION_EXIT,
+        ACTION_SLEEP,
         ACTION_SUSPEND,
         ACTION_HIBERNATE,
         ACTION_HYBRID_SLEEP,
