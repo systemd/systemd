@@ -229,6 +229,9 @@ int verb_start_special(int argc, char *argv[], void *userdata) {
                         arg_no_block = true;
                         break;
 
+                case ACTION_SLEEP:
+                        return logind_reboot(a);
+
                 case ACTION_EXIT:
                         /* Since exit is so close in behaviour to power-off/reboot, let's also make
                          * it asynchronous, in order to not confuse the user needlessly with unexpected
