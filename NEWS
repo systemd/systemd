@@ -357,10 +357,10 @@ CHANGES WITH 255 in spe:
           to make them have higher precedence over the default configuration
           files.
 
-        * Added -Ddefault-network=BOOL meson option, to make install more
-          default .network files, which match more generic setups, e.g.
-          89-ethernet.network matches all Ethernet interfaces and enables both
-          DHCPv4 and DHCPv6 clients.
+        * Added a new -Ddefault-network=BOOL meson option, that causes more
+          .network files to be installed as enabled by default. These configuration
+          files will which match generic setups, e.g. 89-ethernet.network matches
+          all Ethernet interfaces and enables both DHCPv4 and DHCPv6 clients.
 
         * If a ID_NET_MANAGED_BY= udev property is set on a network device and
           it is any other string than "io.systemd.Network" then networkd will
@@ -507,7 +507,7 @@ CHANGES WITH 255 in spe:
           assigned may now be controlled via the $SYSTEMD_NSPAWN_NETWORK_MAC
           environment variable.
 
-        * The libiptc dependency is not implemented via dlopen(), so that tools
+        * The libiptc dependency is now implemented via dlopen(), so that tools
           such as networkd and nspawn no longer have a hard dependency on the
           shared library when compiled with support for libiptc.
 
