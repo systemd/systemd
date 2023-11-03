@@ -133,11 +133,14 @@ Deprecations and removals:
 
 Features:
 
-* networkd: controlled by build-time options install some of the
-  *.network.example files we install currently as regular files *.network. For
-  many cases it's what you want: just configure the damn network. Hopefully
-  this can be enabled on Fedora even, though into a separate sub-RPM, so that
-  we don't conflict with NM.
+* sd-boot: allow synthesizing additional type1 entries via SMBIOS vendor strings
+
+* storagetm:
+  - add USB mass storage device logic, so that all local disks are also exposed
+    as mass storage devices on systems that have a USB controller that can
+    operate in device mode
+  - add NVMe authentication
+  - show login details also via plymouth
 
 * add support for activating nvme-oF devices at boot automatically via kernel
   cmdline, and maybe even support a syntax such as
@@ -504,16 +507,12 @@ Features:
   grow exponentially in size to ensure O(log(n)) time for finding them on
   access.
 
-* split out execute.c into new "systemd-executor" binary. Then make PID 1 fork
-  that off via vfork(), and then let that executor do the hard work. Ultimately
-  the executor then gets replaced by the real binary sooner or later. Reason:
-  currently the intermediary "stub" process is a CoW trap that doubles memory
-  usage of PID 1 on each service start. Also, strictly speaking we are not
-  allowed to do NSS from the stub process yet we do anyway. Next steps would
-  then be maybe use CLONE_INTO_CGROUP for the executor, given that we don't
-  need glibc anymore in the stub process then. Then, switch nspawn to just be a
-  frontend for this too, so that we have to ways into the executor: via unit
-  files/dbus/varlin through PID1 and via cmdline/OCI through nspawn.
+* Use CLONE_INTO_CGROUP to spawn systemd-executor, once glibc supports it in
+  posix_spawn().
+
+* Make nspawn to a frontend for systemd-executor, so that we have to ways into
+  the executor: via unit files/dbus/varlink through PID1 and via cmdline/OCI
+  through nspawn.
 
 * sd-stub: detect if we are running with uefi console output on serial, and if so
   automatically add console= to kernel cmdline matching the same port.
