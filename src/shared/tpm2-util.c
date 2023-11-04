@@ -5729,7 +5729,7 @@ int tpm2_calculate_policy_super_pcr(
         assert_se(prediction);
         assert_se(pcr_policy);
 
-        /* Start with a zero policy if not specified otheriwse */
+        /* Start with a zero policy if not specified otherwise. */
         TPM2B_DIGEST super_pcr_policy_digest = *pcr_policy;
 
         /* First we look for all PCRs that have exactly one allowed hash value, and generate a single PolicyPCR policy from them */

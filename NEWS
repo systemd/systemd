@@ -510,7 +510,7 @@ CHANGES WITH 255 in spe:
           different from the existing sd_device_enumerator_add_match_property()
           matches of which one one needs to apply.
 
-        * The MAC adress the veth side of an nspawn container shall get
+        * The MAC address the veth side of an nspawn container shall get
           assigned may now be controlled via the $SYSTEMD_NSPAWN_NETWORK_MAC
           environment variable.
 
