@@ -30,7 +30,7 @@ typedef struct FSSHeader FSSHeader;
 
 /* Object types */
 typedef enum ObjectType {
-        OBJECT_UNUSED, /* also serves as "any type" or "additional context" */
+        OBJECT_UNUSED, /* also serves as "any type" or "additional category" */
         OBJECT_DATA,
         OBJECT_FIELD,
         OBJECT_ENTRY,
