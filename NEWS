@@ -176,7 +176,8 @@ CHANGES WITH 255 in spe:
           been updated to support such policies. There's currently no support
           for locking the system's root disk against a pcrlock policy, this
           will be added soon. Moreover, it is currently not possible to combine
-          a pcrlock policy with a signed PCR policy.
+          a pcrlock policy with a signed PCR policy. This component is
+          experimental and its public interface is subject to change.
 
         systemd-boot, systemd-stub, ukify, bootctl, kernel-install:
 
@@ -406,10 +407,11 @@ CHANGES WITH 255 in spe:
 
         Other:
 
-        * A new experimental systemd-vmspawn tool has been added, that aims to
-          provide for VMs the same interfaces and functionality that
-          systemd-nspawn provides for containers. For now it supports QEMU as a
-          backend, and exposes some of its options to the user.
+        * A new systemd-vmspawn tool has been added, that aims to provide for VMs
+          the same interfaces and functionality that systemd-nspawn provides for
+          containers. For now it supports QEMU as a backend, and exposes some of
+          its options to the user. This component is experimental and its public
+          interface is subject to change.
 
         * "systemd-analyze plot" has gained tooltips on each unit name with
           related-unit information in its svg output, such as Before=,
