@@ -219,7 +219,7 @@ int control_main(int argc, char *argv[], void *userdata) {
                         return log_error_errno(r, "Failed to send request to update environment: %m");
         }
 
-        if (arg_max_children) {
+        if (arg_max_children >= 0) {
                 r = udev_ctrl_send_set_children_max(uctrl, arg_max_children);
                 if (r < 0)
                         return log_error_errno(r, "Failed to send request to set number of children: %m");
