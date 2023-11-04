@@ -237,7 +237,7 @@ rm -rf /var/{cache,lib,log}/context /etc/{also_,}context
 ARGUMENTS=(
     -p LimitCPU=15
     -p LimitCPU=10:15         # ulimit -t
-    -p LimitFSIZE=7K          # ulimit -f
+    -p LimitFSIZE=96G         # ulimit -f
     -p LimitDATA=8T:infinity
     -p LimitDATA=infinity     # ulimit -d
     -p LimitSTACK=8M          # ulimit -s
@@ -267,7 +267,7 @@ ARGUMENTS=(
 systemd-run --wait --pipe "${ARGUMENTS[@]}" \
     bash -xec 'KB=1; MB=$((KB * 1024)); GB=$((MB * 1024)); TB=$((GB * 1024));
                : CPU;        [[ $(ulimit -St) -eq 10 ]];           [[ $(ulimit -Ht) -eq 15 ]];
-               : FSIZE;      [[ $(ulimit -Sf) -eq $((7 * KB)) ]];  [[ $(ulimit -Hf) -eq $((7 * KB)) ]];
+               : FSIZE;      [[ $(ulimit -Sf) -eq $((96 * GB)) ]]; [[ $(ulimit -Hf) -eq $((96 * GB)) ]];
                : DATA;       [[ $(ulimit -Sd) == unlimited  ]];    [[ $(ulimit -Hd) == unlimited ]];
                : STACK;      [[ $(ulimit -Ss) -eq $((8 * MB)) ]];  [[ $(ulimit -Hs) -eq $((8 * MB)) ]];
                : CORE;       [[ $(ulimit -Sc) -eq $((17 * MB)) ]]; [[ $(ulimit -Hc) -eq $((17 * MB)) ]];
@@ -290,7 +290,7 @@ mkdir /tmp/root
 touch /tmp/root/foo
 chmod +x /tmp/root/foo
 (! systemd-run --wait --pipe false)
-(! systemd-run --wait --pipe -p DynamicUser=yes -p WorkingDirectory=/nonexistent true)
+(! systemd-run --wait --pipe --unit "test-dynamicuser-fail" -p DynamicUser=yes -p WorkingDirectory=/nonexistent true)
 (! systemd-run --wait --pipe -p RuntimeDirectory=not-a-directory true)
 (! systemd-run --wait --pipe -p RootDirectory=/tmp/root this-shouldnt-exist)
 (! systemd-run --wait --pipe -p RootDirectory=/tmp/root /foo)
