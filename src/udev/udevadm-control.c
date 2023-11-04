@@ -190,7 +190,7 @@ int control_main(int argc, char *argv[], void *userdata) {
         }
 
         if (arg_log_level >= 0) {
-                r = udev_ctrl_send_set_log_level(uctrl, r);
+                r = udev_ctrl_send_set_log_level(uctrl, arg_log_level);
                 if (r < 0)
                         return log_error_errno(r, "Failed to send request to set log level: %m");
         }
