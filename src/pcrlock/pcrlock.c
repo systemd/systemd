@@ -2960,7 +2960,7 @@ static int event_log_ensure_secureboot_consistency(EventLog *el) {
                 records[found] = rec;
         }
 
-        /* Check for existance */
+        /* Check for existence */
         for (size_t i = 0; i < ELEMENTSOF(table); i++)
                 if (table[i].required && !records[i])
                         return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Required record '%s' not found, refusing.", table[i].name);
@@ -3658,7 +3658,7 @@ static int verb_lock_uki(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to append JSON record array: %m");
 
-                /* And then apppend a record for the section contents digests as well */
+                /* And then append a record for the section contents digests as well */
                 r = json_variant_append_arrayb(
                                 &array,
                                 JSON_BUILD_OBJECT(

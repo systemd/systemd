@@ -47,9 +47,9 @@
     and <literal>content_type</literal> record fields are not used and ignored if present. Each pcrlock file
     defines one set of expected, ordered PCR measurements of a specific component of the boot.</para>
 
-    <para>*.pcrlock files may be placed in various <filename>.d/</filename> drop-in directores (see above for
-    a full list). All matching files discovered in these directories are sorted alphabetically by their file
-    name (without taking the actual directory they were found in into account): pcrlock files with
+    <para>*.pcrlock files may be placed in various <filename>.d/</filename> drop-in directories (see above
+    for a full list). All matching files discovered in these directories are sorted alphabetically by their
+    file name (without taking the actual directory they were found in into account): pcrlock files with
     alphabetically earlier names are expected to cover measurements done before those with alphabetically
     later names. In order to make positioning pcrlock files in the boot process convenient the files are
     expected (by convention, this is not enforced) to be named

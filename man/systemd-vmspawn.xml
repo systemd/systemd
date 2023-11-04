@@ -147,7 +147,7 @@
   <refsect1>
     <title>Exit status</title>
 
-    <para>If an error occured the value errno is propagated to the return code.
+    <para>If an error occurred the value errno is propagated to the return code.
     Otherwise EXIT_SUCCESS is returned.</para>
   </refsect1>
 
