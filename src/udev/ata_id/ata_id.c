@@ -111,10 +111,15 @@ static int disk_identify_command(
                  *  T10 04-262r8 ATA Command Pass-Through
                  *
                  * from http://www.t10.org/ftp/t10/document.04/04-262r8.pdf
+                 *
+                 * Cannot use Check Condition (CK_COND) as some USB-SATA chipsets (e.g. enclosures)
+                 * do not return the sense condition result even with CK_COND specified.
+                 * This matches the hdparm logic.
+                 * 
                  */
                 [0] = 0xa1,     /* OPERATION CODE: 12 byte pass through */
                 [1] = 4 << 1,   /* PROTOCOL: PIO Data-in */
-                [2] = 0x2e,     /* OFF_LINE=0, CK_COND=1, T_DIR=1, BYT_BLOK=1, T_LENGTH=2 */
+                [2] = 0x0e,     /* OFF_LINE=0, CK_COND=0, T_DIR=1, BYT_BLOK=1, T_LENGTH=2 */
                 [3] = 0,        /* FEATURES */
                 [4] = 1,        /* SECTORS */
                 [5] = 0,        /* LBA LOW */
@@ -137,31 +142,47 @@ static int disk_identify_command(
                 .din_xferp = (uintptr_t) buf,
                 .timeout = COMMAND_TIMEOUT_MSEC,
         };
+        int ret;
 
-        if (ioctl(fd, SG_IO, &io_v4) != 0) {
-                if (errno != EINVAL)
-                        return log_debug_errno(errno, "ioctl v4 failed: %m");
-
-                /* could be that the driver doesn't do version 4, try version 3 */
-                struct sg_io_hdr io_hdr = {
-                        .interface_id = 'S',
-                        .cmdp = (unsigned char*) cdb,
-                        .cmd_len = sizeof (cdb),
-                        .dxferp = buf,
-                        .dxfer_len = buf_len,
-                        .sbp = sense,
-                        .mx_sb_len = sizeof (sense),
-                        .dxfer_direction = SG_DXFER_FROM_DEV,
-                        .timeout = COMMAND_TIMEOUT_MSEC,
-                };
-
-                if (ioctl(fd, SG_IO, &io_hdr) != 0)
-                        return log_debug_errno(errno, "ioctl v3 failed: %m");
+        ret = ioctl(fd, SG_IO, &io_v4);
+        if (ret == 0) {
+                 /* even if the ioctl succeeds, we need to check the return value */
+                if (!(io_v4.device_status == 0 &&
+                io_v4.transport_status == 0 &&
+                io_v4.driver_status == 0)) {
+                        errno = EIO;
+                        return -1;
+                }
+                                
         } else {
-                if (!((sense[0] & 0x7f) == 0x72 && desc[0] == 0x9 && desc[1] == 0x0c) &&
-                    !((sense[0] & 0x7f) == 0x70 && sense[12] == 0x00 && sense[13] == 0x1d))
-                        return log_debug_errno(SYNTHETIC_ERRNO(EIO), "ioctl v4 failed: %m");
-        }
+                /* could be that the driver doesn't do version 4, try version 3 */
+                if (errno == EINVAL) {
+                        struct sg_io_hdr io_hdr = {
+                                .interface_id = 'S',
+                                .cmdp = (unsigned char*) cdb,
+                                .cmd_len = sizeof (cdb),
+                                .dxferp = buf,
+                                .dxfer_len = buf_len,
+                                .sbp = sense,
+                                .mx_sb_len = sizeof (sense),
+                                .dxfer_direction = SG_DXFER_FROM_DEV,
+                                .timeout = COMMAND_TIMEOUT_MSEC,
+                        };
+
+                        ret = ioctl(fd, SG_IO, &io_hdr);
+                        if (ret != 0)
+                                return ret;
+
+                        /* even if the ioctl succeeds, we need to check the return value */
+                        if (!(io_hdr.status == 0 &&
+                              io_hdr.host_status == 0 &&
+                              io_hdr.driver_status == 0)) {
+                                errno = EIO;
+                                return -1;
+                        }                                
+                } else
+                        return ret;
+        };
 
         return 0;
 }
