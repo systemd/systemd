@@ -530,6 +530,11 @@ CHANGES WITH 255 in spe:
           such as networkd and nspawn no longer have a hard dependency on the
           shared library when compiled with support for libiptc.
 
+        * New rpm macros have been added: %systemd_user_daemon_reexec does
+          daemon-reexec for all user managers, and %systemd_postun_with_reload
+          and %systemd_user_postun_with_reload do a reload for system and user
+          units on upgrades.
+
         Contributions from: 김인수, Abderrahim Kitouni, Adam Williamson,
         Alexandre Peixoto Ferreira, Alex Hudspith, Alvin Alvarado,
         André Paiusco, Antonio Alvarez Feijoo, Anton Lundin,
