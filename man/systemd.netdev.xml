@@ -712,11 +712,11 @@
       <varlistentry>
         <term><varname>ReduceARPProxy=</varname></term>
         <listitem>
-          <para>Takes a boolean. When true, bridge-connected VXLAN tunnel
-          endpoint answers ARP requests from the local bridge on behalf
-          of remote Distributed Overlay Virtual Ethernet
+          <para>Takes a boolean. When true, bridge-connected VXLAN tunnel endpoint answers ARP requests from
+          the local bridge on behalf of remote
           <ulink url="https://en.wikipedia.org/wiki/Distributed_Overlay_Virtual_Ethernet">
-          (DOVE)</ulink> clients. Defaults to false.</para>
+            Distributed Overlay Virtual Ethernet (DOVE)</ulink>
+          clients. Defaults to false.</para>
 
           <xi:include href="version-info.xml" xpointer="v233"/>
         </listitem>
