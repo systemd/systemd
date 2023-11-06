@@ -490,7 +490,7 @@
 
       <varlistentry>
         <term><option>--dry-run</option></term>
-        <listitem><para>Dry run for <option>--unlink</option> and <option>--cleanup</option>.</para>
+        <listitem><para>Dry run for <option>unlink</option> and <option>cleanup</option>.</para>
 
         <para>In dry run mode, the unlink and cleanup operations only print the files that would get deleted
         without actually deleting them.</para>
