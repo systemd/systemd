@@ -884,12 +884,12 @@
         <term><varname>JoinsNamespaceOf=</varname></term>
 
         <listitem><para>For units that start processes (such as service units), lists one or more other units
-        whose network and/or temporary file namespace to join. If this is specified on a unit (say, a.service
-        has <varname>JoinsNamespaceOf=b.service</varname>), then this the inverse dependency
-        (<varname>JoinsNamespaceOf=a.service</varname> for b.service) is implied. This only applies to unit
-        types which support the <varname>PrivateNetwork=</varname>, <varname>NetworkNamespacePath=</varname>,
-        <varname>PrivateIPC=</varname>, <varname>IPCNamespacePath=</varname>, and
-        <varname>PrivateTmp=</varname> directives (see
+        whose network and/or temporary file namespace to join. If this is specified on a unit (say,
+        <filename>a.service</filename> has <varname>JoinsNamespaceOf=b.service</varname>), then the inverse
+        dependency (<varname>JoinsNamespaceOf=a.service</varname> for b.service) is implied. This only
+        applies to unit types which support the <varname>PrivateNetwork=</varname>,
+        <varname>NetworkNamespacePath=</varname>, <varname>PrivateIPC=</varname>,
+        <varname>IPCNamespacePath=</varname>, and <varname>PrivateTmp=</varname> directives (see
         <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
         details). If a unit that has this setting set is started, its processes will see the same
         <filename>/tmp/</filename>, <filename>/var/tmp/</filename>, IPC namespace and network namespace as

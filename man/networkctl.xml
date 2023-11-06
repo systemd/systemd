@@ -436,7 +436,8 @@ s - Service VLAN, m - Two-port MAC Relay (TPMR)
         the main configuration file. Unless <option>--no-reload</option> is specified,
         <command>systemd-networkd</command> will be reloaded after the edit of the
         <filename>.network</filename> or <filename>.netdev</filename> files finishes.
-        The same applies for <filename>.link</filename> files and <command>systemd-udevd</command>.
+        The same applies for <filename>.link</filename> files and
+        <citerefentry><refentrytitle>systemd-udevd</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
         Note that the changed link settings are not automatically applied after reloading.
         To achieve that, trigger uevents for the corresponding interface. Refer to
         <citerefentry><refentrytitle>systemd.link</refentrytitle><manvolnum>5</manvolnum></citerefentry>
@@ -514,8 +515,7 @@ s - Service VLAN, m - Two-port MAC Relay (TPMR)
       </varlistentry>
 
       <varlistentry>
-        <term><option>--drop-in=</option></term>
-        <replaceable>NAME</replaceable>
+        <term><option>--drop-in=</option><replaceable>NAME</replaceable></term>
 
         <listitem>
           <para>When used with <command>edit</command>, edit the drop-in file <replaceable>NAME</replaceable>
@@ -529,8 +529,11 @@ s - Service VLAN, m - Two-port MAC Relay (TPMR)
         <term><option>--no-reload</option></term>
 
         <listitem>
-          <para>When used with <command>edit</command>, <command>systemd-networkd</command>
-          or <command>systemd-udevd</command> will not be reloaded after the editing finishes.</para>
+          <para>When used with <command>edit</command>,
+          <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+          or
+          <citerefentry><refentrytitle>systemd-udevd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+          will not be reloaded after the editing finishes.</para>
 
         <xi:include href="version-info.xml" xpointer="v254"/>
         </listitem>

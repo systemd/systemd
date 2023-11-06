@@ -211,7 +211,9 @@
         invoked. This option may be used multiple times to pass multiple file descriptors in a single
         notification message.</para>
 
-        <para>To use this functionality from a <command>bash</command> shell, use an expression like the following:</para>
+        <para>To use this functionality from a
+        <citerefentry project='man-pages'><refentrytitle>bash</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        shell, use an expression like the following:</para>
         <programlisting>systemd-notify --fd=4 --fd=5 4&lt;/some/file 5&lt;/some/other/file</programlisting>
 
         <xi:include href="version-info.xml" xpointer="v254"/></listitem>

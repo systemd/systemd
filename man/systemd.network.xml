@@ -2430,7 +2430,9 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
         <term><varname>UseCaptivePortal=</varname></term>
         <listitem>
           <para>When true (the default), the captive portal advertised by the DHCP server will be recorded
-          and made available to client programs and displayed in the networkctl status output per-link.</para>
+          and made available to client programs and displayed in the
+          <citerefentry><refentrytitle>networkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+          status output per-link.</para>
 
           <xi:include href="version-info.xml" xpointer="v254"/>
         </listitem>
@@ -2881,7 +2883,9 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
         <term><varname>UseCaptivePortal=</varname></term>
         <listitem>
           <para>When true (the default), the captive portal advertised by the DHCPv6 server will be recorded
-          and made available to client programs and displayed in the networkctl status output per-link.</para>
+          and made available to client programs and displayed in the
+          <citerefentry><refentrytitle>networkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+          status output per-link.</para>
 
           <xi:include href="version-info.xml" xpointer="v254"/>
         </listitem>
@@ -3297,7 +3301,9 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         <term><varname>UseCaptivePortal=</varname></term>
         <listitem>
           <para>When true (the default), the captive portal received in the Router Advertisement will be recorded
-          and made available to client programs and displayed in the networkctl status output per-link.</para>
+          and made available to client programs and displayed in the
+          <citerefentry><refentrytitle>networkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+          status output per-link.</para>
 
           <xi:include href="version-info.xml" xpointer="v254"/>
         </listitem>
@@ -3306,9 +3312,11 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
       <varlistentry>
         <term><varname>UsePREF64=</varname></term>
         <listitem>
-          <para>When true, the IPv6 PREF64 (or NAT64) prefixes received in the Router Advertisement will be recorded
-          and made available to client programs and displayed in the <command>networkctl</command> status output per-link.
-          See <ulink url="https://tools.ietf.org/html/rfc8781">RFC 8781</ulink>. Defaults to false.</para>
+          <para>When true, the IPv6 PREF64 (or NAT64) prefixes received in the Router Advertisement will be
+          recorded and made available to client programs and displayed in the
+          <citerefentry><refentrytitle>networkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+          status output per-link. See <ulink url="https://tools.ietf.org/html/rfc8781">RFC 8781</ulink>.
+          Defaults to false.</para>
 
           <xi:include href="version-info.xml" xpointer="v255"/>
         </listitem>

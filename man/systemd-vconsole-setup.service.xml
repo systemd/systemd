@@ -57,7 +57,7 @@
     <title>Credentials</title>
 
     <para><command>systemd-vconsole-setup</command> supports the service credentials logic as implemented by
-    <varname>ImportCredential=</varname><varname>LoadCredential=</varname>/<varname>SetCredential=</varname>
+    <varname>ImportCredential=</varname>/<varname>LoadCredential=</varname>/<varname>SetCredential=</varname>
     (see <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
     details). The following credentials are used when passed in:</para>
 

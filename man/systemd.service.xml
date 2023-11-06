@@ -167,7 +167,7 @@
             been forked off (i.e. immediately after <function>fork()</function>, and before various process
             attributes have been configured and in particular before the new process has called
             <function>execve()</function> to invoke the actual service binary). Typically,
-            <varname>Type=</varname><option>exec</option> (see below) is the better choice, see below.</para>
+            <varname>Type=</varname><option>exec</option> is the better choice, see below.</para>
 
             <para>It is expected that the process configured with <varname>ExecStart=</varname> is the main
             process of the service. In this mode, if the process offers functionality to other processes on
@@ -239,7 +239,7 @@
             socket provided by systemd. If <varname>NotifyAccess=</varname> is missing or set to
             <option>none</option>, it will be forcibly set to <option>main</option>.</para>
 
-            <para>If the service supports reloading, and uses the a signal to start the reload, using
+            <para>If the service supports reloading, and uses a signal to start the reload, using
             <option>notify-reload</option> instead is recommended.</para></listitem>
 
             <listitem><para>Behavior of <option>notify-reload</option> is similar to <option>notify</option>,
@@ -1239,8 +1239,9 @@
         <constant>stop</constant> the event is logged but the unit is terminated cleanly by the service
         manager. If set to <constant>kill</constant> and one of the unit's processes is killed by the OOM
         killer the kernel is instructed to kill all remaining processes of the unit too, by setting the
-        <filename>memory.oom.group</filename> attribute to <constant>1</constant>; also see <ulink
-        url="https://docs.kernel.org/admin-guide/cgroup-v2.html">kernel documentation</ulink>.</para>
+        <filename>memory.oom.group</filename> attribute to <constant>1</constant>; also see kernel
+        page <ulink url="https://docs.kernel.org/admin-guide/cgroup-v2.html">Control Group v2</ulink>.
+        </para>
 
         <para>Defaults to the setting <varname>DefaultOOMPolicy=</varname> in
         <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
