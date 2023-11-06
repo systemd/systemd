@@ -526,6 +526,8 @@ int trigger_main(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to create device monitor object: %m");
 
+                (void) sd_device_monitor_set_receive_buffer_size(m, 128*1024*1024);
+
                 r = sd_device_monitor_attach_event(m, event);
                 if (r < 0)
                         return log_error_errno(r, "Failed to attach event to device monitor: %m");
