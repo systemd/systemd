@@ -509,7 +509,7 @@ CHANGES WITH 255 in spe:
 
           https://systemd.io/FILE_DESCRIPTOR_STORE
           https://systemd.io/TPM2_PCR_MEASUREMENTS
-          https://systemd.io/MOUNT_REQUIREMENTS.md
+          https://systemd.io/MOUNT_REQUIREMENTS
 
         * The codebase now recognizes the suffix .confext.raw and .sysext.raw
           as alternative to the .raw suffix generally accepted for DDIs. It is
