@@ -66,8 +66,6 @@ static int setup_monitor(MonitorNetlinkGroup sender, sd_event *event, sd_device_
         if (r < 0)
                 return log_error_errno(r, "Failed to create netlink socket: %m");
 
-        (void) sd_device_monitor_set_receive_buffer_size(monitor, 128*1024*1024);
-
         r = sd_device_monitor_attach_event(monitor, event);
         if (r < 0)
                 return log_error_errno(r, "Failed to attach event: %m");
