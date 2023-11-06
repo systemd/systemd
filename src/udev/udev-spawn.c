@@ -227,7 +227,7 @@ int udev_event_spawn(
                 bool accept_failure,
                 const char *cmd,
                 char *result,
-                size_t ressize,
+                size_t result_size,
                 bool *ret_truncated) {
 
         _cleanup_close_pair_ int outpipe[2] = PIPE_EBADF, errpipe[2] = PIPE_EBADF;
@@ -239,7 +239,7 @@ int udev_event_spawn(
 
         assert(event);
         assert(event->dev);
-        assert(result || ressize == 0);
+        assert(result || result_size == 0);
 
         /* pipes from child to parent */
         if (result || log_get_max_level() >= LOG_INFO)
@@ -307,7 +307,7 @@ int udev_event_spawn(
                 .fd_stdout = outpipe[READ_END],
                 .fd_stderr = errpipe[READ_END],
                 .result = result,
-                .result_size = ressize,
+                .result_size = result_size,
         };
         r = spawn_wait(&spawn);
         if (r < 0)
