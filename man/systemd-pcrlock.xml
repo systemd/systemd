@@ -462,15 +462,15 @@
         point in the sorted list of defined components to analyze/predict PCRs to. Typically, the
         <command>systemd-pcrlock</command> tool is invoked from a fully booted system after boot-up and
         before shutdown. This means various components that are defined for shutdown have not been measured
-        yet, and should not be searched for. This option allows to restrict which components are considered
-        for analysis (taking only components before some point into account, ignoring components after
-        them). The expected string is ordered against the filenames of the components defined. Any components
-        with a lexicographically later name are ignored. This logic applies to the <command>log</command>,
-        <command>predict</command>, and <command>make-policy</command> verbs. If a colon-separated pair of
-        strings are specified then they select which phases of the boot to include in the
-        prediction/policy. The first string defines where the first prediction shall be made, and the second
-        string defines where the last prediction shall be made. All such predictions are then combined into
-        one set.</para>
+        yet, and should not be searched for. This option allows one to restrict which components are
+        considered for analysis (taking only components before some point into account, ignoring components
+        after them). The expected string is ordered against the filenames of the components defined. Any
+        components with a lexicographically later name are ignored. This logic applies to the
+        <command>log</command>, <command>predict</command>, and <command>make-policy</command> verbs. If a
+        colon-separated pair of strings are specified then they select which phases of the boot to include
+        in the prediction/policy. The first string defines where the first prediction shall be made, and the
+        second string defines where the last prediction shall be made. All such predictions are then combined
+        into one set.</para>
 
         <para>If used with <command>list-components</command> the selected location range will be highlighted
         in the component list.</para>
