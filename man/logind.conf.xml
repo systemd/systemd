@@ -143,18 +143,10 @@
         <term><varname>IdleAction=</varname></term>
 
         <listitem><para>Configures the action to take when the system
-        is idle. Takes one of
-        <literal>ignore</literal>,
-        <literal>poweroff</literal>,
-        <literal>reboot</literal>,
-        <literal>halt</literal>,
-        <literal>kexec</literal>,
-        <literal>suspend</literal>,
-        <literal>hibernate</literal>,
-        <literal>hybrid-sleep</literal>,
-        <literal>suspend-then-hibernate</literal>, and
-        <literal>lock</literal>.
-        Defaults to <literal>ignore</literal>.</para>
+        is idle. Takes one of <literal>ignore</literal>, <literal>poweroff</literal>, <literal>reboot</literal>,
+        <literal>halt</literal>, <literal>kexec</literal>, <literal>suspend</literal>, <literal>hibernate</literal>,
+        <literal>hybrid-sleep</literal>, <literal>suspend-then-hibernate</literal>, <literal>sleep</literal>,
+        and <literal>lock</literal>. Defaults to <literal>ignore</literal>.</para>
 
         <para>Note that this requires that user sessions correctly
         report the idle status to the system. The system will execute
@@ -201,6 +193,20 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>SleepOperation=</varname></term>
+
+        <listitem><para>Takes a list of sleep operations. Possible values are <literal>suspend</literal>,
+        <literal>hibernate</literal>, <literal>hybrid-sleep</literal>, and <literal>suspend-then-hibernate</literal>.
+        Controls the candidate sleep operations for the <literal>sleep</literal> action. When <literal>sleep</literal>
+        action is performed, the specified sleep operations are checked in a fixed order (<literal>suspend-then-hibernate</literal>
+        → <literal>hybrid-sleep</literal> → <literal>suspend</literal> → <literal>hibernate</literal>), and
+        the first one supported by the machine is used to put the system into sleep. Defaults to
+        <literal>suspend-then-hibernate suspend hibernate</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>HandlePowerKey=</varname></term>
         <term><varname>HandlePowerKeyLongPress=</varname></term>
         <term><varname>HandleRebootKey=</varname></term>
@@ -215,10 +221,9 @@
 
         <listitem><para>Controls how logind shall handle the system power, reboot and sleep keys and the lid
         switch to trigger actions such as system power-off, reboot or suspend. Can be one of
-        <literal>ignore</literal>, <literal>poweroff</literal>, <literal>reboot</literal>,
-        <literal>halt</literal>, <literal>kexec</literal>, <literal>suspend</literal>,
-        <literal>hibernate</literal>, <literal>hybrid-sleep</literal>,
-        <literal>suspend-then-hibernate</literal>, <literal>lock</literal>, and
+        <literal>ignore</literal>, <literal>poweroff</literal>, <literal>reboot</literal>, <literal>halt</literal>,
+        <literal>kexec</literal>, <literal>suspend</literal>, <literal>hibernate</literal>, <literal>hybrid-sleep</literal>,
+        <literal>suspend-then-hibernate</literal>, <literal>sleep</literal>, <literal>lock</literal>, and
         <literal>factory-reset</literal>.  If <literal>ignore</literal>, <command>systemd-logind</command>
         will never handle these keys. If <literal>lock</literal>, all running sessions will be screen-locked;
         otherwise, the specified action will be taken in the respective event. Only input devices with the
