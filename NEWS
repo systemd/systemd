@@ -712,9 +712,9 @@ CHANGES WITH 254:
           store enabled.
 
         * A new service option FileDescriptorStorePreserve= has been added that
-          allows tuning the life-cycle of the per-service file descriptor
-          store. If set to "yes", the entries in the fd store are retained even
-          after the service has been fully stopped.
+          allows tuning the lifecycle of the per-service file descriptor store.
+          If set to "yes", the entries in the fd store are retained even after
+          the service has been fully stopped.
 
         * The "systemctl clean" command may now be used to clear the fdstore of
           a service.
