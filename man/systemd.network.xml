@@ -864,9 +864,9 @@ Table=1234</programlisting></para>
       <varlistentry>
         <term><varname>IPv6HopLimit=</varname></term>
         <listitem>
-          <para>Configures IPv6 Hop Limit. For each router that forwards the packet, the hop limit is
-          decremented by 1. When the hop limit field reaches zero, the packet is discarded. When unset,
-          the kernel's default will be used.</para>
+          <para>Configures IPv6 Hop Limit. Takes an integer in the range 1…255. For each router that
+          forwards the packet, the hop limit is decremented by 1. When the hop limit field reaches zero, the
+          packet is discarded. When unset, the kernel's default will be used.</para>
 
           <xi:include href="version-info.xml" xpointer="v228"/>
         </listitem>
