@@ -882,6 +882,7 @@ org.freedesktop.systemd1.Mount.ManagedOOMSwap
 org.freedesktop.systemd1.Mount.MemoryAccounting
 org.freedesktop.systemd1.Mount.MemoryAvailable
 org.freedesktop.systemd1.Mount.MemoryCurrent
+org.freedesktop.systemd1.Mount.MemoryPeak
 org.freedesktop.systemd1.Mount.MemoryDenyWriteExecute
 org.freedesktop.systemd1.Mount.MemoryHigh
 org.freedesktop.systemd1.Mount.MemoryLimit
@@ -1072,6 +1073,7 @@ org.freedesktop.systemd1.Scope.ManagedOOMSwap
 org.freedesktop.systemd1.Scope.MemoryAccounting
 org.freedesktop.systemd1.Scope.MemoryAvailable
 org.freedesktop.systemd1.Scope.MemoryCurrent
+org.freedesktop.systemd1.Scope.MemoryPeak
 org.freedesktop.systemd1.Scope.MemoryHigh
 org.freedesktop.systemd1.Scope.MemoryLimit
 org.freedesktop.systemd1.Scope.MemoryLow
@@ -1259,6 +1261,7 @@ org.freedesktop.systemd1.Service.ManagedOOMSwap
 org.freedesktop.systemd1.Service.MemoryAccounting
 org.freedesktop.systemd1.Service.MemoryAvailable
 org.freedesktop.systemd1.Service.MemoryCurrent
+org.freedesktop.systemd1.Service.MemoryPeak
 org.freedesktop.systemd1.Service.MemoryDenyWriteExecute
 org.freedesktop.systemd1.Service.MemoryHigh
 org.freedesktop.systemd1.Service.MemoryLimit
@@ -1459,6 +1462,7 @@ org.freedesktop.systemd1.Slice.ManagedOOMSwap
 org.freedesktop.systemd1.Slice.MemoryAccounting
 org.freedesktop.systemd1.Slice.MemoryAvailable
 org.freedesktop.systemd1.Slice.MemoryCurrent
+org.freedesktop.systemd1.Slice.MemoryPeak
 org.freedesktop.systemd1.Slice.MemoryHigh
 org.freedesktop.systemd1.Slice.MemoryLimit
 org.freedesktop.systemd1.Slice.MemoryLow
@@ -1633,6 +1637,7 @@ org.freedesktop.systemd1.Socket.MaxConnectionsPerSource
 org.freedesktop.systemd1.Socket.MemoryAccounting
 org.freedesktop.systemd1.Socket.MemoryAvailable
 org.freedesktop.systemd1.Socket.MemoryCurrent
+org.freedesktop.systemd1.Socket.MemoryPeak
 org.freedesktop.systemd1.Socket.MemoryDenyWriteExecute
 org.freedesktop.systemd1.Socket.MemoryHigh
 org.freedesktop.systemd1.Socket.MemoryLimit
@@ -1913,6 +1918,7 @@ org.freedesktop.systemd1.Swap.ManagedOOMSwap
 org.freedesktop.systemd1.Swap.MemoryAccounting
 org.freedesktop.systemd1.Swap.MemoryAvailable
 org.freedesktop.systemd1.Swap.MemoryCurrent
+org.freedesktop.systemd1.Swap.MemoryPeak
 org.freedesktop.systemd1.Swap.MemoryDenyWriteExecute
 org.freedesktop.systemd1.Swap.MemoryHigh
 org.freedesktop.systemd1.Swap.MemoryLimit
