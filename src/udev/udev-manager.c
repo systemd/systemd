@@ -1225,15 +1225,6 @@ int manager_init(Manager *manager, int fd_ctrl, int fd_uevent) {
         if (r < 0)
                 return log_error_errno(r, "Failed to initialize device monitor: %m");
 
-        /* Bump receiver buffer, but only if we are not called via socket activation, as in that
-         * case systemd sets the receive buffer size for us, and the value in the .socket unit
-         * should take full effect. */
-        if (fd_uevent < 0) {
-                r = sd_device_monitor_set_receive_buffer_size(manager->monitor, 128 * 1024 * 1024);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to set receive buffer size for device monitor, ignoring: %m");
-        }
-
         (void) sd_device_monitor_set_description(manager->monitor, "manager");
 
         r = device_monitor_enable_receiving(manager->monitor);

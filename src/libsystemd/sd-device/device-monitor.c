@@ -215,6 +215,15 @@ int device_monitor_new_full(sd_device_monitor **ret, MonitorNetlinkGroup group, 
                 }
         }
 
+        /* Let's bump the receive buffer size, but only if we are not called via socket activation, as in
+         * that case the service manager sets the receive buffer size for us, and the value in the .socket
+         * unit should take full effect. */
+        if (fd < 0) {
+                r = sd_device_monitor_set_receive_buffer_size(m, 128*1024*1024);
+                if (r < 0)
+                        log_monitor_errno(m, r, "Failed to increase receive buffer size, ignoring: %m");
+        }
+
         *ret = TAKE_PTR(m);
         return 0;
 

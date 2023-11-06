@@ -205,10 +205,6 @@ static int manager_connect_udev(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to initialize device monitor: %m");
 
-        r = sd_device_monitor_set_receive_buffer_size(m->device_monitor, RCVBUF_SIZE);
-        if (r < 0)
-                log_warning_errno(r, "Failed to increase buffer size for device monitor, ignoring: %m");
-
         r = sd_device_monitor_filter_add_match_subsystem_devtype(m->device_monitor, "net", NULL);
         if (r < 0)
                 return log_error_errno(r, "Could not add device monitor filter for net subsystem: %m");

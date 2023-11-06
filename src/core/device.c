@@ -1028,11 +1028,6 @@ static void device_enumerate(Manager *m) {
                         goto fail;
                 }
 
-                /* This will fail if we are unprivileged, but that
-                 * should not matter much, as user instances won't run
-                 * during boot. */
-                (void) sd_device_monitor_set_receive_buffer_size(m->device_monitor, 128*1024*1024);
-
                 r = sd_device_monitor_filter_add_match_tag(m->device_monitor, "systemd");
                 if (r < 0) {
                         log_error_errno(r, "Failed to add udev tag match: %m");
