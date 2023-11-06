@@ -3004,7 +3004,8 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         if not manage_foreign_routes:
             copy_networkd_conf_dropin('networkd-manage-foreign-routes-no.conf')
 
-        copy_network_unit('25-route-static.network', '12-dummy.netdev')
+        copy_network_unit('25-route-static.network', '12-dummy.netdev',
+                          '25-route-static-test1.network', '11-dummy.netdev')
         start_networkd()
         self.wait_online(['dummy98:routable'])
 
@@ -3084,6 +3085,8 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         output = check_output('ip route show 192.168.10.1')
         print(output)
         self.assertIn('192.168.10.1 proto static', output)
+        self.assertIn('nexthop via 149.10.123.59 dev test1 weight 20', output)
+        self.assertIn('nexthop via 149.10.123.60 dev test1 weight 30', output)
         self.assertIn('nexthop via 149.10.124.59 dev dummy98 weight 10', output)
         self.assertIn('nexthop via 149.10.124.60 dev dummy98 weight 5', output)
 
@@ -3093,6 +3096,8 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         # old ip command does not show IPv6 gateways...
         self.assertIn('192.168.10.2 proto static', output)
         self.assertIn('nexthop', output)
+        self.assertIn('dev test1 weight 20', output)
+        self.assertIn('dev test1 weight 30', output)
         self.assertIn('dev dummy98 weight 10', output)
         self.assertIn('dev dummy98 weight 5', output)
 
@@ -3101,6 +3106,8 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         print(output)
         # old ip command does not show 'nexthop' keyword and weight...
         self.assertIn('2001:1234:5:7fff:ff:ff:ff:ff', output)
+        self.assertIn('via 2001:1234:5:6fff:ff:ff:ff:ff dev test1', output)
+        self.assertIn('via 2001:1234:5:7fff:ff:ff:ff:ff dev test1', output)
         self.assertIn('via 2001:1234:5:8fff:ff:ff:ff:ff dev dummy98', output)
         self.assertIn('via 2001:1234:5:9fff:ff:ff:ff:ff dev dummy98', output)
 
