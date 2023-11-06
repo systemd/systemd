@@ -136,7 +136,8 @@
           backslash, lowercase t, backslash, lowercase n.</para>
 
           <para>The string can be prefixed with a lowercase e (e"string\n") to mark the string as
-          <ulink url="https://en.wikipedia.org/wiki/Escape_sequences_in_C#Table_of_escape_sequences">C-style escaped</ulink>.
+          C-style escaped, see
+          <ulink url="https://en.wikipedia.org/wiki/Escape_sequences_in_C#Table_of_escape_sequences">Escape sequences in C</ulink>.
           For example, e"string\n" is parsed as 7 characters: 6 lowercase letters and a newline.
           This can be useful for writing special characters when a kernel driver requires them.</para>
 
