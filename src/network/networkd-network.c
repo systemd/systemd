@@ -466,7 +466,6 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .ipv4_route_localnet = -1,
                 .ipv6_privacy_extensions = _IPV6_PRIVACY_EXTENSIONS_INVALID,
                 .ipv6_dad_transmits = -1,
-                .ipv6_hop_limit = -1,
                 .ipv6_proxy_ndp = -1,
                 .proxy_arp = -1,
                 .ipv4_rp_filter = _IP_REVERSE_PATH_FILTER_INVALID,

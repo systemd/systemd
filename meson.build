@@ -174,6 +174,7 @@ profiledir = libexecdir / 'portable' / 'profile'
 repartdefinitionsdir = libexecdir / 'repart/definitions'
 ntpservicelistdir = prefixdir / 'lib/systemd/ntp-units.d'
 credstoredir = prefixdir / 'lib/credstore'
+pcrlockdir = prefixdir / 'lib/pcrlock.d'
 
 configfiledir = get_option('configfiledir')
 if configfiledir == ''
@@ -1609,6 +1610,7 @@ foreach term : ['analyze',
                 'userdb',
                 'utmp',
                 'vconsole',
+                'vmspawn',
                 'xdg-autostart']
         have = get_option(term)
         name = 'ENABLE_' + term.underscorify().to_upper()
@@ -2175,6 +2177,7 @@ subdir('src/oom')
 subdir('src/partition')
 subdir('src/path')
 subdir('src/pcrextend')
+subdir('src/pcrlock')
 subdir('src/portable')
 subdir('src/pstore')
 subdir('src/quotacheck')
@@ -2213,6 +2216,7 @@ subdir('src/userdb')
 subdir('src/varlinkctl')
 subdir('src/vconsole')
 subdir('src/veritysetup')
+subdir('src/vmspawn')
 subdir('src/volatile-root')
 subdir('src/xdg-autostart-generator')
 
@@ -2804,6 +2808,7 @@ foreach tuple : [
         ['tmpfiles'],
         ['userdb'],
         ['vconsole'],
+        ['vmspawn'],
         ['xdg-autostart'],
 
         # optional features
