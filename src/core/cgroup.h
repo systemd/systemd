@@ -353,6 +353,7 @@ int unit_watch_all_pids(Unit *u);
 int unit_synthesize_cgroup_empty_event(Unit *u);
 
 int unit_get_memory_current(Unit *u, uint64_t *ret);
+int unit_get_memory_peak(Unit *u, uint64_t *ret);
 int unit_get_memory_available(Unit *u, uint64_t *ret);
 int unit_get_tasks_current(Unit *u, uint64_t *ret);
 int unit_get_cpu_usage(Unit *u, nsec_t *ret);
