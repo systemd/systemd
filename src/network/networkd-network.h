@@ -323,7 +323,7 @@ struct Network {
         int ipv4_accept_local;
         int ipv4_route_localnet;
         int ipv6_dad_transmits;
-        int ipv6_hop_limit;
+        uint8_t ipv6_hop_limit;
         int proxy_arp;
         uint32_t ipv6_mtu;
         IPv6PrivacyExtensions ipv6_privacy_extensions;

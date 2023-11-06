@@ -178,7 +178,7 @@ static int link_set_ipv6_hop_limit(Link *link) {
         if (!link->network)
                 return 0;
 
-        if (link->network->ipv6_hop_limit < 0)
+        if (link->network->ipv6_hop_limit <= 0)
                 return 0;
 
         return sysctl_write_ip_property_int(AF_INET6, link->ifname, "hop_limit", link->network->ipv6_hop_limit);
