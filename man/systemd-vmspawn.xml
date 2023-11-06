@@ -39,7 +39,7 @@
   <refsect1>
     <title>Options</title>
 
-    <para>The arguments are passed straight through to QEMU, extending its command line arguments.</para>
+    <para>The excess arguments are passed as extra kernel command line arguments using SMBIOS.</para>
 
     <para>The following options are understood:</para>
 
