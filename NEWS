@@ -505,7 +505,7 @@ CHANGES WITH 255 in spe:
         * All tools that parse timestamps now can also parse RFC3339 style
           timestamps that include the "T" and Z" characters.
 
-        * New documentation as been added:
+        * New documentation has been added:
 
           https://systemd.io/FILE_DESCRIPTOR_STORE
           https://systemd.io/TPM2_PCR_MEASUREMENTS
