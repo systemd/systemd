@@ -86,15 +86,17 @@
     <variablelist>
       <varlistentry>
         <term>
-          <command>add</command>
-          <replaceable>KERNEL-VERSION</replaceable>
-          <replaceable>KERNEL-IMAGE</replaceable> [<replaceable>INITRD-FILE</replaceable> ...]
+          <command>add [[[<replaceable>KERNEL-VERSION</replaceable>] <replaceable>KERNEL-IMAGE</replaceable>] [<replaceable>INITRD-FILE</replaceable> ...]]</command>
         </term>
 
         <listitem>
-          <para>This command expects a kernel version string and a path to a kernel image file as arguments.
-          Optionally, one or more initrd images may be specified as well (note that plugins might generate
-          additional ones).</para>
+          <para>This command takes a kernel version string and a path to a kernel image file as arguments. If
+          the former is omitted, specified as an empty string or as "-" it defaults to the current kernel
+          version, i.e. the same string <command>uname -r</command> returns. If the latter is omitted,
+          specified as an empty string or as "-" defaults to
+          <filename>/usr/lib/modules/<replaceable>KERNEL_VERSION</replaceable>/vmlinuz</filename>. Optionally,
+          one or more initrd images may be specified as well (note that plugins might generate additional
+          ones).</para>
 
           <para>The executable files from <filename>/usr/lib/kernel/install.d/*.install</filename> and
           <filename>/etc/kernel/install.d/*.install</filename> (i.e. the plugins) are called with the

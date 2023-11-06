@@ -2,6 +2,7 @@
 
 #include <getopt.h>
 #include <stdbool.h>
+#include <sys/utsname.h>
 
 #include "boot-entry.h"
 #include "build.h"
@@ -15,6 +16,7 @@
 #include "fileio.h"
 #include "find-esp.h"
 #include "format-table.h"
+#include "fs-util.h"
 #include "id128-util.h"
 #include "image-policy.h"
 #include "kernel-image.h"
@@ -1024,9 +1026,12 @@ static bool bypass(void) {
 
 static int verb_add(int argc, char *argv[], void *userdata) {
         Context *c = ASSERT_PTR(userdata);
+        _cleanup_free_ char *vmlinuz = NULL;
+        const char *version, *kernel;
+        char **initrds;
+        struct utsname un;
         int r;
 
-        assert(argc >= 3);
         assert(argv);
 
         if (arg_root)
@@ -1037,15 +1042,44 @@ static int verb_add(int argc, char *argv[], void *userdata) {
 
         c->action = ACTION_ADD;
 
-        r = context_set_version(c, argv[1]);
+        /* We use the same order of arguments that "inspect" introduced, i.e. if only on argument is
+         * specified we take it as the kernel path, not the version, i.e. it's the first argument that is
+         * optional, not the 2nd. */
+        version = argc > 2 ? empty_or_dash_to_null(argv[1]) : NULL;
+        kernel = argc > 2 ? empty_or_dash_to_null(argv[2]) :
+                (argc > 1 ? empty_or_dash_to_null(argv[1]) : NULL);
+        initrds = strv_skip(argv, 3);
+
+        if (!version) {
+                assert_se(uname(&un) >= 0);
+                version = un.release;
+        }
+
+        if (!kernel) {
+                vmlinuz = path_join("/usr/lib/modules/", version, "/vmlinuz");
+                if (!vmlinuz)
+                        return log_oom();
+
+                r = laccess(vmlinuz, F_OK);
+                if (r < 0) {
+                        if (r == -ENOENT)
+                                return log_error_errno(r, "Kernel image not installed to '%s', requiring manual kernel image path specification.", vmlinuz);
+
+                        return log_error_errno(r, "Failed to determin if kernel image is installed to '%s': %m", vmlinuz);
+                }
+
+                kernel = vmlinuz;
+        }
+
+        r = context_set_version(c, version);
         if (r < 0)
                 return r;
 
-        r = context_set_kernel(c, argv[2]);
+        r = context_set_kernel(c, kernel);
         if (r < 0)
                 return r;
 
-        r = context_set_initrds(c, strv_skip(argv, 3));
+        r = context_set_initrds(c, initrds);
         if (r < 0)
                 return r;
 
@@ -1084,6 +1118,10 @@ static int verb_remove(int argc, char *argv[], void *userdata) {
                 return 0;
 
         c->action = ACTION_REMOVE;
+
+        /* Note, we do not automatically derive the kernel version to remove from uname() here (unlike we do
+         * it for the "add" verb), since we don't want to make it too easy to uninstall your running
+         * kernel, as a safety precaution */
 
         r = context_set_version(c, argv[1]);
         if (r < 0)
@@ -1259,7 +1297,7 @@ static int help(void) {
         printf("%1$s [OPTIONS...] COMMAND ...\n\n"
                "%5$sAdd and remove kernel and initrd images to and from /boot/%6$s\n"
                "\n%3$sUsage:%4$s\n"
-               "  kernel-install [OPTIONS...] add KERNEL-VERSION KERNEL-IMAGE [INITRD ...]\n"
+               "  kernel-install [OPTIONS...] add [[[KERNEL-VERSION] KERNEL-IMAGE] [INITRD ...]]\n"
                "  kernel-install [OPTIONS...] remove KERNEL-VERSION\n"
                "  kernel-install [OPTIONS...] inspect [KERNEL-VERSION] KERNEL-IMAGE [INITRD ...]\n"
                "  kernel-install [OPTIONS...] list\n"
@@ -1421,7 +1459,7 @@ static int parse_argv(int argc, char *argv[], Context *c) {
 
 static int run(int argc, char* argv[]) {
         static const Verb verbs[] = {
-                { "add",         3,        VERB_ANY, 0,            verb_add            },
+                { "add",         VERB_ANY, VERB_ANY, 0,            verb_add            },
                 { "remove",      2,        VERB_ANY, 0,            verb_remove         },
                 { "inspect",     1,        VERB_ANY, VERB_DEFAULT, verb_inspect        },
                 { "list",        VERB_ANY, 1,        0,            verb_list           },
