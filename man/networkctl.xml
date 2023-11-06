@@ -72,7 +72,7 @@
               <varlistentry>
                 <term>missing</term>
                 <listitem>
-                    <para>the device is missing</para>
+                    <para>The device is missing.</para>
 
                     <xi:include href="version-info.xml" xpointer="v245"/>
                 </listitem>
@@ -80,7 +80,7 @@
               <varlistentry>
                 <term>off</term>
                 <listitem>
-                  <para>the device is powered down</para>
+                  <para>The device is powered down.</para>
 
                   <xi:include href="version-info.xml" xpointer="v240"/>
                 </listitem>
@@ -88,7 +88,7 @@
               <varlistentry>
                 <term>no-carrier</term>
                 <listitem>
-                  <para>the device is powered up, but it does not yet have a carrier</para>
+                  <para>The device is powered up, but does not yet have a carrier.</para>
 
                   <xi:include href="version-info.xml" xpointer="v240"/>
                 </listitem>
@@ -96,7 +96,7 @@
               <varlistentry>
                 <term>dormant</term>
                 <listitem>
-                  <para>the device has a carrier, but is not yet ready for normal traffic</para>
+                  <para>The device has a carrier, but is not yet ready for normal traffic.</para>
 
                   <xi:include href="version-info.xml" xpointer="v240"/>
                 </listitem>
@@ -104,7 +104,8 @@
               <varlistentry>
                 <term>degraded-carrier</term>
                 <listitem>
-                  <para>one of the bonding or bridge slave network interfaces is in off, no-carrier, or dormant state, and the master interface has no address.</para>
+                  <para>One of the bonding or bridge slave network interfaces is in off, no-carrier, or
+                  dormant state, and the master interface has no address.</para>
 
                   <xi:include href="version-info.xml" xpointer="v242"/>
                 </listitem>
@@ -112,8 +113,8 @@
               <varlistentry>
                 <term>carrier</term>
                 <listitem>
-                  <para>the link has a carrier, or for bond or bridge master, all bonding or bridge slave
-                  network interfaces are enslaved to the master</para>
+                  <para>The link has carrier, or for bond or bridge master, all bonding or bridge slave
+                  network interfaces are enslaved to the master.</para>
 
                   <xi:include href="version-info.xml" xpointer="v240"/>
                 </listitem>
@@ -121,7 +122,7 @@
               <varlistentry>
                 <term>degraded</term>
                 <listitem>
-                  <para>the link has carrier and addresses valid on the local link configured. For bond or
+                  <para>The link has carrier and addresses valid on the local link configured. For bond or
                   bridge master this means that not all slave network interfaces have carrier but at least
                   one does.</para>
 
@@ -131,7 +132,8 @@
               <varlistentry>
                 <term>enslaved</term>
                 <listitem>
-                  <para>the link has carrier and is enslaved to bond or bridge master network interface</para>
+                  <para>The link has carrier and is enslaved to bond or bridge master network interface.
+                  </para>
 
                   <xi:include href="version-info.xml" xpointer="v242"/>
                 </listitem>
@@ -139,7 +141,7 @@
               <varlistentry>
                 <term>routable</term>
                 <listitem>
-                  <para>the link has carrier and routable address configured. For bond or bridge master it is
+                  <para>The link has carrier and routable address configured. For bond or bridge master it is
                   not necessary for all slave network interfaces to have carrier, but at least one must.</para>
 
                   <xi:include href="version-info.xml" xpointer="v240"/>
@@ -153,7 +155,8 @@
               <varlistentry>
                 <term>pending</term>
                 <listitem>
-                  <para>udev is still processing the link, we don't yet know if we will manage it</para>
+                  <para><citerefentry><refentrytitle>systemd-udevd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                  is still processing the link, we don't yet know if we will manage it.</para>
 
                   <xi:include href="version-info.xml" xpointer="v240"/>
                 </listitem>
@@ -161,7 +164,8 @@
               <varlistentry>
                 <term>initialized</term>
                 <listitem>
-                  <para>udev has processed the link, but we don't yet know if we will manage it</para>
+                  <para><citerefentry><refentrytitle>systemd-udevd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+                  has processed the link, but we don't yet know if we will manage it.</para>
 
                   <xi:include href="version-info.xml" xpointer="v251"/>
                 </listitem>
@@ -169,7 +173,7 @@
               <varlistentry>
                 <term>configuring</term>
                 <listitem>
-                  <para>in the process of retrieving configuration or configuring the link</para>
+                  <para>Configuration for the link is being retrieved or the link is being configured.</para>
 
                   <xi:include href="version-info.xml" xpointer="v240"/>
                 </listitem>
@@ -177,7 +181,7 @@
               <varlistentry>
                 <term>configured</term>
                 <listitem>
-                  <para>link configured successfully</para>
+                  <para>Link has been configured successfully.</para>
 
                   <xi:include href="version-info.xml" xpointer="v240"/>
                 </listitem>
@@ -185,7 +189,7 @@
               <varlistentry>
                 <term>unmanaged</term>
                 <listitem>
-                  <para>networkd is not handling the link</para>
+                  <para><command>systemd-networkd</command> is not handling the link.</para>
 
                   <xi:include href="version-info.xml" xpointer="v240"/>
                 </listitem>
@@ -193,7 +197,7 @@
               <varlistentry>
                 <term>failed</term>
                 <listitem>
-                  <para>networkd failed to manage the link</para>
+                  <para><command>systemd-networkd</command> failed to configure the link.</para>
 
                   <xi:include href="version-info.xml" xpointer="v240"/>
                 </listitem>
@@ -201,7 +205,7 @@
               <varlistentry>
                 <term>linger</term>
                 <listitem>
-                  <para>the link is gone, but has not yet been dropped by networkd</para>
+                  <para>The link is gone, but has not yet been dropped by <command>systemd-networkd</command>.</para>
 
                   <xi:include href="version-info.xml" xpointer="v240"/>
                 </listitem>
@@ -246,7 +250,7 @@
             <varlistentry>
               <term>unknown</term>
               <listitem>
-                <para>all links have unknown online status (i.e. there are no required links)</para>
+                <para>All links have unknown online status (i.e. there are no required links).</para>
 
                 <xi:include href="version-info.xml" xpointer="v249"/>
               </listitem>
@@ -254,7 +258,7 @@
             <varlistentry>
               <term>offline</term>
               <listitem>
-                <para>all required links are offline</para>
+                <para>All required links are offline.</para>
 
                 <xi:include href="version-info.xml" xpointer="v249"/>
               </listitem>
@@ -262,7 +266,7 @@
             <varlistentry>
               <term>partial</term>
               <listitem>
-                <para>some, but not all, required links are online</para>
+                <para>Some, but not all, required links are online.</para>
 
                 <xi:include href="version-info.xml" xpointer="v249"/>
               </listitem>
@@ -270,7 +274,7 @@
             <varlistentry>
               <term>online</term>
               <listitem>
-                <para>all required links are online</para>
+                <para>All required links are online.</para>
 
                 <xi:include href="version-info.xml" xpointer="v249"/>
               </listitem>
@@ -436,7 +440,8 @@ s - Service VLAN, m - Two-port MAC Relay (TPMR)
         the main configuration file. Unless <option>--no-reload</option> is specified,
         <command>systemd-networkd</command> will be reloaded after the edit of the
         <filename>.network</filename> or <filename>.netdev</filename> files finishes.
-        The same applies for <filename>.link</filename> files and <command>systemd-udevd</command>.
+        The same applies for <filename>.link</filename> files and
+        <citerefentry><refentrytitle>systemd-udevd</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
         Note that the changed link settings are not automatically applied after reloading.
         To achieve that, trigger uevents for the corresponding interface. Refer to
         <citerefentry><refentrytitle>systemd.link</refentrytitle><manvolnum>5</manvolnum></citerefentry>
@@ -514,8 +519,7 @@ s - Service VLAN, m - Two-port MAC Relay (TPMR)
       </varlistentry>
 
       <varlistentry>
-        <term><option>--drop-in=</option></term>
-        <replaceable>NAME</replaceable>
+        <term><option>--drop-in=</option><replaceable>NAME</replaceable></term>
 
         <listitem>
           <para>When used with <command>edit</command>, edit the drop-in file <replaceable>NAME</replaceable>
@@ -529,8 +533,11 @@ s - Service VLAN, m - Two-port MAC Relay (TPMR)
         <term><option>--no-reload</option></term>
 
         <listitem>
-          <para>When used with <command>edit</command>, <command>systemd-networkd</command>
-          or <command>systemd-udevd</command> will not be reloaded after the editing finishes.</para>
+          <para>When used with <command>edit</command>,
+          <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+          or
+          <citerefentry><refentrytitle>systemd-udevd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+          will not be reloaded after the editing finishes.</para>
 
         <xi:include href="version-info.xml" xpointer="v254"/>
         </listitem>

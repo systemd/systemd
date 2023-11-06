@@ -77,17 +77,17 @@
         [[<replaceable>NAME</replaceable>] <replaceable>TYPE</replaceable>]
         <replaceable>DOMAIN</replaceable></term>
 
-        <listitem><para>Resolve <ulink url="https://tools.ietf.org/html/rfc6763">DNS-SD</ulink> and <ulink
-        url="https://tools.ietf.org/html/rfc2782">SRV</ulink> services, depending on the specified list of
-        parameters.  If three parameters are passed the first is assumed to be the DNS-SD service name, the
-        second the <constant class='dns'>SRV</constant> service type, and the third the domain to search in.
-        In this case a full DNS-SD style <constant class='dns'>SRV</constant> and <constant
-        class='dns'>TXT</constant> lookup is executed. If only two parameters are specified, the first is
-        assumed to be the <constant class='dns'>SRV</constant> service type, and the second the domain to look
-        in. In this case no <constant class='dns'>TXT</constant> resource record is requested. Finally, if
-        only one parameter is specified, it is assumed to be a domain name, that is already prefixed with an
-        <constant class='dns'>SRV</constant> type, and an <constant class='dns'>SRV</constant> lookup is done
-        (no <constant class='dns'>TXT</constant>).</para>
+        <listitem><para>Resolve <ulink url="https://tools.ietf.org/html/rfc6763">RFC 6763 DNS-SD</ulink> and
+        <ulink url="https://tools.ietf.org/html/rfc2782">RFC 2782 SRV</ulink> services, depending on the
+        specified list of parameters. If three parameters are passed the first is assumed to be the DNS-SD
+        service name, the second the <constant class='dns'>SRV</constant> service type, and the third the
+        domain to search in. In this case a full DNS-SD style <constant class='dns'>SRV</constant> and
+        <constant class='dns'>TXT</constant> lookup is executed. If only two parameters are specified, the
+        first is assumed to be the <constant class='dns'>SRV</constant> service type, and the second the
+        domain to look in. In this case no <constant class='dns'>TXT</constant> resource record is requested.
+        Finally, if only one parameter is specified, it is assumed to be a domain name, that is already
+        prefixed with an <constant class='dns'>SRV</constant> type, and an <constant
+        class='dns'>SRV</constant> lookup is done (no <constant class='dns'>TXT</constant>).</para>
 
         <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>

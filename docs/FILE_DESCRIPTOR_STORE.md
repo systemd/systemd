@@ -47,7 +47,7 @@ conveniently be used to serialize service state into and then place in the
 fdstore, in order to implement service restarts with full service state being
 passed over.
 
-# Basic Mechanism
+## Basic Mechanism
 
 The fdstore is enabled per-service via the
 [`FileDescriptorStoreMax=`](https://www.freedesktop.org/software/systemd/man/systemd.service.html#FileDescriptorStoreMax=)
@@ -76,7 +76,7 @@ both operates on IPv4 and IPv6 and treats both more or less the same.).
 
 And that's already the gist of it.
 
-# Seamless Service Restarts
+## Seamless Service Restarts
 
 A system service that provides a client-facing interface that shall be able to
 seamlessly restart can make use of this in a scheme like the following:
@@ -100,14 +100,14 @@ general principle of guaranteeing a pristine execution environment, a pristine
 security context, and a pristine resource management context for freshly
 started services, without uncontrolled "leftovers" from previous runs. For
 example: leaving processes from previous runs generally negatively affects
-life-cycle management (i.e. `KillMode=none` must be set), which disables large
+lifecycle management (i.e. `KillMode=none` must be set), which disables large
 parts of the service managers state tracking, resource management (as resource
 counters cannot start at zero during service activation anymore, since the old
 processes remaining skew them), security policies (as processes with possibly
 out-of-date security policies – SElinux, AppArmor, any LSM, seccomp, BPF — in
 effect remain), and similar.
 
-# File Descriptor Store Life-cycle
+## File Descriptor Store Lifecycle
 
 By default any file descriptor stored in the fdstore for which a `POLLHUP` or
 `POLLERR` is seen is automatically closed and removed from the fdstore. This
@@ -148,7 +148,7 @@ way will not receive an automatic `POLLHUP` event anymore if the service code
 issues `close()` on the socket. It must accompany it with an `FDSTOREREMOVE=1`
 notification to the service manager, so that the fd is comprehensively closed.
 
-# Access Control
+## Access Control
 
 Access to the fds in the file descriptor store is generally restricted to the
 service code itself. Pushing fds into or removing fds from the fdstore is
@@ -160,7 +160,7 @@ By default only the main service process hence can push/remove fds, but by
 setting `NotifyAccess=all` this may be relaxed to allow arbitrary service
 child processes to do the same.
 
-# Soft Reboot
+## Soft Reboot
 
 The fdstore is particularly interesting in [soft
 reboot](https://www.freedesktop.org/software/systemd/man/systemd-soft-reboot.service.html)
@@ -181,7 +181,7 @@ continuously).
 For further details see [Resource
 Pass-Through](https://www.freedesktop.org/software/systemd/man/systemd-soft-reboot.service.html#Resource%20Pass-Through).
 
-# initrd Transitions
+## Initrd Transitions
 
 The fdstore may also be used to pass file descriptors for resources from the
 initrd context to the main system. Restarting all processes after the
@@ -198,7 +198,7 @@ The soft reboot cycle transition and the initrd→host transition are
 semantically very similar, hence similar rules apply, and in both cases it is
 recommended to use the fdstore if pinned resources shall be passed over.
 
-# Debugging
+## Debugging
 
 The
 [`systemd-analyze`](https://www.freedesktop.org/software/systemd/man/systemd-analyze.html#systemd-analyze%20fdstore%20%5BUNIT...%5D)
