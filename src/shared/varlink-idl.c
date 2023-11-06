@@ -379,7 +379,7 @@ VarlinkInterface* varlink_interface_free(VarlinkInterface *interface) {
                 return NULL;
 
         /* So here's the thing: in most cases we want that users of this define their interface descriptions
-         * in C code, and hence the definitions are constant and immutable during the life-cycle of the
+         * in C code, and hence the definitions are constant and immutable during the lifecycle of the
          * system. Because of that we define all structs with const* pointers. It makes it very nice and
          * straight-forward to populate these structs with literal C strings. However, in some not so common
          * cases we also want to allocate these structures dynamically on the heap, when parsing interface

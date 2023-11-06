@@ -100,7 +100,7 @@ general principle of guaranteeing a pristine execution environment, a pristine
 security context, and a pristine resource management context for freshly
 started services, without uncontrolled "leftovers" from previous runs. For
 example: leaving processes from previous runs generally negatively affects
-life-cycle management (i.e. `KillMode=none` must be set), which disables large
+lifecycle management (i.e. `KillMode=none` must be set), which disables large
 parts of the service managers state tracking, resource management (as resource
 counters cannot start at zero during service activation anymore, since the old
 processes remaining skew them), security policies (as processes with possibly
