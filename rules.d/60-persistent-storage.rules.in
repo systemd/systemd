@@ -145,6 +145,19 @@ ENV{ID_WWN_WITH_EXTENSION}=="?*", SYMLINK+="disk/by-id/wwn-$env{ID_WWN_WITH_EXTE
 ENV{ID_PART_ENTRY_UUID}=="?*", SYMLINK+="disk/by-partuuid/$env{ID_PART_ENTRY_UUID}"
 ENV{ID_PART_ENTRY_SCHEME}=="gpt", ENV{ID_PART_ENTRY_NAME}=="?*", SYMLINK+="disk/by-partlabel/$env{ID_PART_ENTRY_NAME}"
 
+# by-path/<path>/by-* links (path + partition/filesystem metadata)
+ENV{ID_PATH}=="", GOTO="persistent_storage_by-path_parts_end"
+ENV{DEVTYPE}!="partition", GOTO="persistent_storage_by-path_parts_end"
+
+SYMLINK+="disk/by-path/$env{ID_PATH}-part/by-partnum/%n"
+ENV{ID_PART_ENTRY_UUID}=="?*", SYMLINK+="disk/by-path/$env{ID_PATH}-part/by-partuuid/$env{ID_PART_ENTRY_UUID}"
+ENV{ID_PART_ENTRY_SCHEME}=="gpt", ENV{ID_PART_ENTRY_NAME}=="?*", SYMLINK+="disk/by-path/$env{ID_PATH}-part/by-partlabel/$env{ID_PART_ENTRY_NAME}"
+
+ENV{ID_FS_USAGE}=="filesystem|other|crypto", ENV{ID_FS_UUID_ENC}=="?*", SYMLINK+="disk/by-path/$env{ID_PATH}-part/by-uuid/$env{ID_FS_UUID_ENC}"
+ENV{ID_FS_USAGE}=="filesystem|other|crypto", ENV{ID_FS_LABEL_ENC}=="?*", SYMLINK+="disk/by-path/$env{ID_PATH}-part/by-label/$env{ID_FS_LABEL_ENC}"
+
+LABEL="persistent_storage_by-path_parts_end"
+
 # by-diskseq link (if an app is told to open a path like this, they may parse
 # the diskseq number from the path, then issue BLKGETDISKSEQ to verify they really got
 # the right device, to access specific disks in a race-free fashion)
