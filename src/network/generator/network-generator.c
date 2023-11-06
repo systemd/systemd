@@ -528,11 +528,13 @@ static int parse_cmdline_ip_mtu_mac(Context *context, const char *ifname, int fa
         else
                 mtu = strndupa_safe(value, p - value);
 
-        r = network_set_mtu(context, ifname, family, mtu);
-        if (r < 0)
-                return r;
+        if (!isempty(mtu)) {
+                r = network_set_mtu(context, ifname, family, mtu);
+                if (r < 0)
+                        return r;
+        }
 
-        if (!p)
+        if (!p || isempty(p + 1))
                 return 0;
 
         r = network_set_mac_address(context, ifname, p + 1);
