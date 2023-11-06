@@ -17,7 +17,8 @@ TEST(sbat_section_text) {
                  SBAT_BOOT_SECTION_TEXT,
                  SBAT_STUB_SECTION_TEXT
 #else
-                 "(not defined)"
+                 "(not defined)",
+                 ""
 #endif
         );
 }
