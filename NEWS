@@ -436,7 +436,7 @@ CHANGES WITH 255 in spe:
         * systemd-sysupdate now accepts directories in the MatchPattern= option.
 
         * systemd-run will now output the invocation ID of the launched
-          transient unit.
+          transient unit and its peak memory usage.
 
         * systemd-analyze, systemd-tmpfiles, systemd-sysusers, systemd-sysctl,
           and systemd-binfmt gained a new --tldr option that can be used instead
