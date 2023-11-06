@@ -112,7 +112,7 @@
     suitable for shipping resources that are processed by subsystems running in earliest boot. Specifically,
     OS extension images are not suitable for shipping system services or
     <citerefentry><refentrytitle>systemd-sysusers</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-    definitions. See the <ulink url="https://systemd.io/PORTABLE_SERVICES">Portable Services Documentation</ulink>
+    definitions. See the <ulink url="https://systemd.io/PORTABLE_SERVICES">Portable Services</ulink> page
     for a simple mechanism for shipping system services in disk images, in a similar fashion to OS
     extensions. Note the different isolation on these two mechanisms: while system extension directly extend
     the underlying OS image with additional files that appear in a way very similar to as if they were
