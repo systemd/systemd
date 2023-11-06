@@ -611,9 +611,47 @@ static int parse_netmask_or_prefixlen(int family, const char **value, unsigned c
         return 0;
 }
 
+static int parse_ip_dns_address_one(Context *context, const char *ifname, int family, const char **value) {
+        const char *p = *value, *q, *buf;
+        int r;
+
+        if (isempty(p))
+                return 0;
+
+        if (family == AF_INET6) {
+                if (p[0] != '[')
+                        return -EINVAL;
+
+                q = strchr(p + 1, ']');
+                if (!q)
+                        return -EINVAL;
+
+                buf = strndupa_safe(p + 1, q - p - 1);
+                p = q + 1;
+        } else {
+                q = strchr(p, ':');
+                if (!q)
+                        buf = *value;
+                else
+                        buf = strndupa_safe(*value, q - *value);
+
+                p += strlen(buf);
+        }
+
+        r = network_set_dns(context, ifname, buf);
+        if (r < 0)
+                return r;
+
+        if (p[0] == ':')
+                p++;
+
+        *value = p;
+        return 0;
+}
+
 static int parse_cmdline_ip_address(Context *context, int family, const char *value) {
         union in_addr_union addr = {}, peer = {}, gateway = {};
-        const char *hostname = NULL, *ifname, *dhcp_type, *dns, *p;
+        const char *hostname = NULL, *ifname, *dhcp_type, *p;
         unsigned char prefixlen;
         int r;
 
@@ -689,20 +727,12 @@ static int parse_cmdline_ip_address(Context *context, int family, const char *va
 
         /* Next, try [<dns1>][:<dns2>] */
         value = p + 1;
-        p = strchr(value, ':');
-        if (!p) {
-                r = network_set_dns(context, ifname, value);
-                if (r < 0)
-                        return r;
-        } else {
-                dns = strndupa_safe(value, p - value);
-                r = network_set_dns(context, ifname, dns);
-                if (r < 0)
-                        return r;
-                r = network_set_dns(context, ifname, p + 1);
-                if (r < 0)
-                        return r;
-        }
+        r = parse_ip_dns_address_one(context, ifname, family, &value);
+        if (r < 0)
+                return r;
+        r = parse_ip_dns_address_one(context, ifname, family, &value);
+        if (r < 0)
+                return r;
 
         return 0;
 }
