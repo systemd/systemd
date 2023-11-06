@@ -5,7 +5,7 @@ layout: default
 SPDX-License-Identifier: LGPL-2.1-or-later
 ---
 
-# Safely Building Images
+# Building Images Safely
 
 In many scenarios OS installations are shipped as pre-built images, that
 require no further installation process beyond simple `dd`-ing the image to
