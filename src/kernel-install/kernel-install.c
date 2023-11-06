@@ -1126,6 +1126,28 @@ static int do_add(
         return context_execute(c);
 }
 
+static int kernel_from_version(const char *version, char **ret_kernel) {
+        _cleanup_free_ char *vmlinuz = NULL;
+        int r;
+
+        assert(version);
+
+        vmlinuz = path_join("/usr/lib/modules/", version, "/vmlinuz");
+        if (!vmlinuz)
+                return log_oom();
+
+        r = laccess(vmlinuz, F_OK);
+        if (r < 0) {
+                if (r == -ENOENT)
+                        return log_error_errno(r, "Kernel image not installed to '%s', requiring manual kernel image path specification.", vmlinuz);
+
+                return log_error_errno(r, "Failed to determin if kernel image is installed to '%s': %m", vmlinuz);
+        }
+
+        *ret_kernel = TAKE_PTR(vmlinuz);
+        return 0;
+}
+
 static int verb_add(int argc, char *argv[], void *userdata) {
         Context *c = ASSERT_PTR(userdata);
         _cleanup_free_ char *vmlinuz = NULL;
@@ -1158,17 +1180,9 @@ static int verb_add(int argc, char *argv[], void *userdata) {
         }
 
         if (!kernel) {
-                vmlinuz = path_join("/usr/lib/modules/", version, "/vmlinuz");
-                if (!vmlinuz)
-                        return log_oom();
-
-                r = laccess(vmlinuz, F_OK);
-                if (r < 0) {
-                        if (r == -ENOENT)
-                                return log_error_errno(r, "Kernel image not installed to '%s', requiring manual kernel image path specification.", vmlinuz);
-
-                        return log_error_errno(r, "Failed to determin if kernel image is installed to '%s': %m", vmlinuz);
-                }
+                r = kernel_from_version(version, &vmlinuz);
+                if (r < 0)
+                        return r;
 
                 kernel = vmlinuz;
         }
@@ -1301,27 +1315,48 @@ static int verb_remove(int argc, char *argv[], void *userdata) {
 static int verb_inspect(int argc, char *argv[], void *userdata) {
         Context *c = ASSERT_PTR(userdata);
         _cleanup_(table_unrefp) Table *t = NULL;
+        _cleanup_free_ char *vmlinuz = NULL;
+        const char *version, *kernel;
+        char **initrds;
+        struct utsname un;
         int r;
 
         c->action = ACTION_INSPECT;
 
-        if (argc == 2) {
-                r = context_set_kernel(c, argv[1]);
-                if (r < 0)
-                        return r;
-        } else if (argc >= 3) {
-                r = context_set_version(c, argv[1]);
-                if (r < 0)
-                        return r;
+        /* When only a single parameter is specified 'inspect' it's the kernel image path, and not the kernel
+         * version. i.e. it's the first argument that is optional, not the 2nd. That's a bit unfortunate, but
+         * we keep the behaviour for compatibility. If users want to specify only the version (and have the
+         * kernel image path derived automatically), then they may specify an empty string or "dash" as
+         * kernel image path. */
+        version = argc > 2 ? empty_or_dash_to_null(argv[1]) : NULL;
+        kernel = argc > 2 ? empty_or_dash_to_null(argv[2]) :
+                (argc > 1 ? empty_or_dash_to_null(argv[1]) : NULL);
+        initrds = strv_skip(argv, 3);
 
-                r = context_set_kernel(c, argv[2]);
-                if (r < 0)
-                        return r;
-
-                r = context_set_initrds(c, strv_skip(argv, 3));
-                if (r < 0)
-                        return r;
+        if (!version) {
+                assert_se(uname(&un) >= 0);
+                version = un.release;
         }
+
+        if (!kernel) {
+                r = kernel_from_version(version, &vmlinuz);
+                if (r < 0)
+                        return r;
+
+                kernel = vmlinuz;
+        }
+
+        r = context_set_version(c, version);
+        if (r < 0)
+                return r;
+
+        r = context_set_kernel(c, kernel);
+        if (r < 0)
+                return r;
+
+        r = context_set_initrds(c, initrds);
+        if (r < 0)
+                return r;
 
         r = context_prepare_execution(c);
         if (r < 0)
@@ -1464,7 +1499,8 @@ static int help(void) {
                "  kernel-install [OPTIONS...] add [[[KERNEL-VERSION] KERNEL-IMAGE] [INITRD ...]]\n"
                "  kernel-install [OPTIONS...] add-all\n"
                "  kernel-install [OPTIONS...] remove KERNEL-VERSION\n"
-               "  kernel-install [OPTIONS...] inspect [KERNEL-VERSION] KERNEL-IMAGE [INITRD ...]\n"
+               "  kernel-install [OPTIONS...] inspect [[[KERNEL-VERSION] KERNEL-IMAGE]\n"
+               "                                      [INITRD ...]]\n"
                "  kernel-install [OPTIONS...] list\n"
                "\n%3$sOptions:%4$s\n"
                "  -h --help                    Show this help\n"
