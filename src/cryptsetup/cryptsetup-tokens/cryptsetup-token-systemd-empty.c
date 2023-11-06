@@ -52,8 +52,8 @@ _public_ int cryptsetup_token_open_pin(
  *   (alternatively: name is set to null, flags contains CRYPT_ACTIVATE_ALLOW_UNBOUND_KEY
  *   and token is assigned to at least single keyslot).
  *
- * - if plugin defines validate function (systemd-empty does not) it must have passed the
- *   check (aka return 0)
+ * - if plugin defines validate function (see cryptsetup_token_validate below) it must have
+ *   passed the check (aka return 0)
  */
 _public_ int cryptsetup_token_open(
                 struct crypt_device *cd, /* is always LUKS2 context */
@@ -71,4 +71,28 @@ _public_ int cryptsetup_token_open(
  */
 _public_ void cryptsetup_token_buffer_free(void *buffer, size_t buffer_len) {
         free(buffer);
+}
+
+/*
+ * Note:
+ *   If plugin is available in library path, it's called in before following libcryptsetup calls:
+ *
+ *   crypt_token_json_set, crypt_dump, any crypt_activate_by_token_* flavour
+ */
+ _public_ int cryptsetup_token_validate(
+                struct crypt_device *cd, /* is always LUKS2 context */
+                const char *json /* contains valid 'type' and 'keyslots' fields. 'type' is 'systemd-empty' */) {
+
+        return 0; /* Nothing to validate */
+}
+
+/*
+ * prints systemd-empty token content in crypt_dump().
+ * 'type' and 'keyslots' fields are printed by libcryptsetup
+ */
+_public_ void cryptsetup_token_dump(
+                struct crypt_device *cd /* is always LUKS2 context */,
+                const char *json /* validated 'systemd-empty' token if cryptsetup_token_validate is defined */) {
+
+        /* Nothing to dump */
 }
