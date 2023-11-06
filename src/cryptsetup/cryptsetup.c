@@ -1034,9 +1034,9 @@ static int attach_tcrypt(
                         else if (key_file)
                                 log_error_errno(r, "Failed to activate using password file '%s'. (Key data not correct?)", key_file);
                         else
-                                log_error_errno(r, "Failed to activate using passwords.");
+                                log_error_errno(r, "Failed to activate using supplied passwords.");
 
-                        return -EAGAIN; /* log the actual error, but return EAGAIN */
+                        return -EPERM; /* log the actual error, but return EAGAIN */
                 }
 
                 return log_error_errno(r, "Failed to load tcrypt superblock on device %s: %m", crypt_get_device_name(cd));
