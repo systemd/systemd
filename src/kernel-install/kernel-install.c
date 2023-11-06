@@ -3,10 +3,11 @@
 #include <getopt.h>
 #include <stdbool.h>
 
-#include "build.h"
 #include "boot-entry.h"
+#include "build.h"
 #include "chase.h"
 #include "conf-files.h"
+#include "dirent-util.h"
 #include "env-file.h"
 #include "env-util.h"
 #include "exec-util.h"
@@ -23,6 +24,7 @@
 #include "parse-argument.h"
 #include "path-util.h"
 #include "pretty-print.h"
+#include "recurse-dir.h"
 #include "rm-rf.h"
 #include "stat-util.h"
 #include "string-table.h"
@@ -40,6 +42,7 @@ static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
 static char *arg_root = NULL;
 static char *arg_image = NULL;
 static ImagePolicy *arg_image_policy = NULL;
+static bool arg_legend = true;
 
 STATIC_DESTRUCTOR_REGISTER(arg_esp_path, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_xbootldr_path, freep);
@@ -1183,6 +1186,68 @@ static int verb_inspect(int argc, char *argv[], void *userdata) {
         return table_print_with_pager(t, arg_json_format_flags, arg_pager_flags, /* show_header= */ false);
 }
 
+static int verb_list(int argc, char *argv[], void *userdata) {
+        _cleanup_close_ int fd = -EBADF;
+        int r;
+
+        fd = open("/usr/lib/modules", O_DIRECTORY|O_RDONLY|O_CLOEXEC);
+        if (fd < 0)
+                return log_error_errno(fd, "Failed to open /usr/lib/modules/: %m");
+
+        _cleanup_free_ DirectoryEntries *de = NULL;
+        r = readdir_all(fd, RECURSE_DIR_SORT|RECURSE_DIR_IGNORE_DOT, &de);
+        if (r < 0)
+                return log_error_errno(r, "Failed to numerate /usr/lib/modules/ contents: %m");
+
+        _cleanup_(table_unrefp) Table *table = NULL;
+        table = table_new("version", "has kernel", "path");
+        if (!table)
+                return log_oom();
+
+        table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
+        table_set_align_percent(table, table_get_cell(table, 0, 1), 100);
+
+        FOREACH_ARRAY(d, de->entries, de->n_entries) {
+
+                _cleanup_free_ char *j = path_join("/usr/lib/modules/", (*d)->d_name);
+                if (!j)
+                        return log_oom();
+
+                r = dirent_ensure_type(fd, *d);
+                if (r < 0) {
+                        if (r != -ENOENT) /* don't log if just gone by now */
+                                log_debug_errno(r, "Failed to check if '%s' is a directory, ignoring: %m", j);
+                        continue;
+                }
+
+                if ((*d)->d_type != DT_DIR)
+                        continue;
+
+                _cleanup_free_ char *fn = path_join((*d)->d_name, "vmlinuz");
+                if (!fn)
+                        return log_oom();
+
+                bool exists;
+                if (faccessat(fd, fn, F_OK, AT_SYMLINK_NOFOLLOW) < 0) {
+                        if (errno != ENOENT)
+                                log_debug_errno(errno, "Failed to check if '/usr/lib/modules/%s/vmlinuz' exists, ignoring: %m", (*d)->d_name);
+
+                        exists = false;
+                } else
+                        exists = true;
+
+                r = table_add_many(table,
+                                   TABLE_STRING, (*d)->d_name,
+                                   TABLE_BOOLEAN_CHECKMARK, exists,
+                                   TABLE_SET_COLOR, ansi_highlight_green_red(exists),
+                                   TABLE_PATH, j);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        return table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, arg_legend);
+}
+
 static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -1192,13 +1257,13 @@ static int help(void) {
                 return log_oom();
 
         printf("%1$s [OPTIONS...] COMMAND ...\n\n"
-               "%2$sAdd and remove kernel and initrd images to and from /boot%3$s\n"
-               "\nUsage:\n"
+               "%5$sAdd and remove kernel and initrd images to and from /boot/%6$s\n"
+               "\n%3$sUsage:%4$s\n"
                "  kernel-install [OPTIONS...] add KERNEL-VERSION KERNEL-IMAGE [INITRD ...]\n"
                "  kernel-install [OPTIONS...] remove KERNEL-VERSION\n"
                "  kernel-install [OPTIONS...] inspect [KERNEL-VERSION] KERNEL-IMAGE [INITRD ...]\n"
-               "\n"
-               "Options:\n"
+               "  kernel-install [OPTIONS...] list\n"
+               "\n%3$sOptions:%4$s\n"
                "  -h --help                    Show this help\n"
                "     --version                 Show package version\n"
                "  -v --verbose                 Increase verbosity\n"
@@ -1210,6 +1275,7 @@ static int help(void) {
                "                               Entry token to use for this installation\n"
                "     --no-pager                Do not pipe inspect output into a pager\n"
                "     --json=pretty|short|off   Generate JSON output\n"
+               "     --no-legend               Do not show the headers and footers\n"
                "     --root=PATH               Operate on an alternate filesystem root\n"
                "     --image=PATH              Operate on disk image as filesystem root\n"
                "     --image-policy=POLICY     Specify disk image dissection policy\n"
@@ -1218,11 +1284,13 @@ static int help(void) {
                "  installkernel  [OPTIONS...] VERSION VMLINUZ [MAP] [INSTALLATION-DIR]\n"
                "(The optional arguments are passed by kernel build system, but ignored.)\n"
                "\n"
-               "See the %4$s for details.\n",
+               "See the %2$s for details.\n",
                program_invocation_short_name,
-               ansi_highlight(),
+               link,
+               ansi_underline(),
                ansi_normal(),
-               link);
+               ansi_highlight(),
+               ansi_normal());
 
         return 0;
 }
@@ -1230,6 +1298,7 @@ static int help(void) {
 static int parse_argv(int argc, char *argv[], Context *c) {
         enum {
                 ARG_VERSION = 0x100,
+                ARG_NO_LEGEND,
                 ARG_ESP_PATH,
                 ARG_BOOT_PATH,
                 ARG_MAKE_ENTRY_DIRECTORY,
@@ -1253,6 +1322,7 @@ static int parse_argv(int argc, char *argv[], Context *c) {
                 { "root",                 required_argument, NULL, ARG_ROOT                 },
                 { "image",                required_argument, NULL, ARG_IMAGE                },
                 { "image-policy",         required_argument, NULL, ARG_IMAGE_POLICY         },
+                { "no-legend",            no_argument,       NULL, ARG_NO_LEGEND            },
                 {}
         };
         int t, r;
@@ -1268,6 +1338,10 @@ static int parse_argv(int argc, char *argv[], Context *c) {
 
                 case ARG_VERSION:
                         return version();
+
+                case ARG_NO_LEGEND:
+                        arg_legend = false;
+                        break;
 
                 case 'v':
                         log_set_max_level(LOG_DEBUG);
@@ -1350,6 +1424,7 @@ static int run(int argc, char* argv[]) {
                 { "add",         3,        VERB_ANY, 0,            verb_add            },
                 { "remove",      2,        VERB_ANY, 0,            verb_remove         },
                 { "inspect",     1,        VERB_ANY, VERB_DEFAULT, verb_inspect        },
+                { "list",        VERB_ANY, 1,        0,            verb_list           },
                 {}
         };
         _cleanup_(context_done) Context c = {
