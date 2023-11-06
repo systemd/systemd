@@ -448,7 +448,7 @@
           property or none at all.</para>
 
           <para>Some firmware and hypervisor implementations report unreasonably high numbers for the
-          on-board index. To prevent the generation of bogus onbard interface names, index numbers greater
+          on-board index. To prevent the generation of bogus on-board interface names, index numbers greater
           than 16381 (2¹⁴-1) were ignored. For s390 PCI devices index values up to 65535 (2¹⁶-1) are valid.
           To account for that, the limit was increased to 65535.</para>
 

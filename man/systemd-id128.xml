@@ -137,8 +137,8 @@
         <term><option>--uuid</option></term>
 
         <listitem><para>Generate output as a UUID formatted in the "canonical representation", with five
-        groups of digits separated by hyphens. See the
-        <ulink url="https://en.wikipedia.org/wiki/Universally_unique_identifier#Format">wikipedia</ulink>
+        groups of digits separated by hyphens. See the Wikipedia entry for
+        <ulink url="https://en.wikipedia.org/wiki/Universally_unique_identifier#Format">Universally Unique Identifiers</ulink>
         for more discussion.</para>
 
         <xi:include href="version-info.xml" xpointer="v244"/></listitem>

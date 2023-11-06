@@ -51,10 +51,10 @@
 
       <listitem><para><option>verity</option> for partitions that shall exist and be used, with Verity
       authentication. (Note: if a DDI image carries a data partition, along with a Verity partition and a
-      signature partition for it, and only the <option>verity</option> flag is set – and
-      <option>signed</option> is not –, then the image will be set up with Verity, but the signature data will
-      not be used. Or in other words: any DDI with a set of partitions that qualify for
-      <option>signature</option> also implicitly qualifies for <option>verity</option>, and in fact
+      signature partition for it, and only the <option>verity</option> flag is set (<option>signed</option>
+      is not), then the image will be set up with Verity, but the signature data will not be used. Or in
+      other words: any DDI with a set of partitions that qualify for <option>signature</option> also
+      implicitly qualifies for <option>verity</option>, and in fact also
       <option>unprotected</option>).</para></listitem>
 
       <listitem><para><option>signed</option> for partitions that shall exist and be used, with Verity
@@ -130,9 +130,9 @@
 
     <para>Most systemd components that support operating with disk images support a
     <option>--image-policy=</option> command line option to specify the image policy to use, and default to
-    relatively open policies by default (typically the <literal>*</literal> policy, as described above),
-    under the assumption that trust in disk images is established before the images are passed to the program
-    in question.</para>
+    relatively open policies (typically the <literal>*</literal> policy, as described above), under the
+    assumption that trust in disk images is established before the images are passed to the program in
+    question.</para>
 
     <para>For the host image itself
     <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
