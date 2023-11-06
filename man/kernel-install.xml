@@ -152,6 +152,20 @@
         </listitem>
       </varlistentry>
       <varlistentry>
+        <term>
+          <command>add-all</command>
+        </term>
+
+        <listitem>
+          <para>This is the same as <command>add</command> (see above), but invokes the operation iteratively
+          for every installed kernel in <filename>/usr/lib/modules/</filename>. This operation is only
+          supported on systems where the kernel image is installed in
+          <filename>/usr/lib/modules/<replaceable>KERNEL-VERSION</replaceable>/vmlinuz</filename>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v255"/>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
         <term><command>remove <replaceable>KERNEL-VERSION</replaceable></command></term>
         <listitem>
           <para>This command expects a kernel version string as single argument.</para>
