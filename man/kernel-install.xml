@@ -44,6 +44,11 @@
       <arg choice="opt"><replaceable>KERNEL-IMAGE</replaceable></arg>
       <arg choice="opt" rep="repeat"><replaceable>INITRD-FILE</replaceable></arg>
     </cmdsynopsis>
+    <cmdsynopsis>
+      <command>kernel-install</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">list</arg>
+    </cmdsynopsis>
   </refsynopsisdiv>
 
   <refsect1>
@@ -190,6 +195,15 @@
           <xi:include href="version-info.xml" xpointer="v251"/>
         </listitem>
       </varlistentry>
+      <varlistentry>
+        <term><command>list</command></term>
+        <listitem>
+          <para>Shows the various installed kernels. This enumerates the subdirectories of
+          <filename>/usr/lib/modules/</filename>, and shows whether a kernel image is installed there.</para>
+
+          <xi:include href="version-info.xml" xpointer="v255"/>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
@@ -332,6 +346,7 @@
       <xi:include href="standard-options.xml" xpointer="no-pager"/>
       <xi:include href="standard-options.xml" xpointer="json" />
       <xi:include href="standard-options.xml" xpointer="image-policy-open" />
+      <xi:include href="standard-options.xml" xpointer="no-legend"/>
     </variablelist>
   </refsect1>
 
