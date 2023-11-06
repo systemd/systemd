@@ -277,6 +277,12 @@ int tpm2_hash_alg_from_string(const char *alg) _pure_;
 const char *tpm2_asym_alg_to_string(uint16_t alg) _const_;
 int tpm2_asym_alg_from_string(const char *alg) _pure_;
 
+const char *tpm2_sym_alg_to_string(uint16_t alg) _const_;
+int tpm2_sym_alg_from_string(const char *alg) _pure_;
+
+const char *tpm2_sym_mode_to_string(uint16_t mode) _const_;
+int tpm2_sym_mode_from_string(const char *mode) _pure_;
+
 char *tpm2_pcr_mask_to_string(uint32_t mask);
 
 extern const uint16_t tpm2_hash_algorithms[];

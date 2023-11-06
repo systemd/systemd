@@ -4783,6 +4783,62 @@ int tpm2_asym_alg_from_string(const char *alg) {
         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown asymmetric algorithm name '%s'", alg);
 }
 
+const char *tpm2_sym_alg_to_string(uint16_t alg) {
+        switch (alg) {
+#if HAVE_TPM2
+        case TPM2_ALG_AES:
+                return "aes";
+#endif
+        default:
+                log_debug("Unknown symmetric algorithm id 0x%" PRIx16, alg);
+                return NULL;
+        }
+}
+
+int tpm2_sym_alg_from_string(const char *alg) {
+#if HAVE_TPM2
+        if (strcaseeq_ptr(alg, "aes"))
+                return TPM2_ALG_AES;
+#endif
+        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown symmetric algorithm name '%s'", alg);
+}
+
+const char *tpm2_sym_mode_to_string(uint16_t mode) {
+        switch (mode) {
+#if HAVE_TPM2
+        case TPM2_ALG_CTR:
+                return "ctr";
+        case TPM2_ALG_OFB:
+                return "ofb";
+        case TPM2_ALG_CBC:
+                return "cbc";
+        case TPM2_ALG_CFB:
+                return "cfb";
+        case TPM2_ALG_ECB:
+                return "ecb";
+#endif
+        default:
+                log_debug("Unknown symmetric mode id 0x%" PRIx16, mode);
+                return NULL;
+        }
+}
+
+int tpm2_sym_mode_from_string(const char *mode) {
+#if HAVE_TPM2
+        if (strcaseeq_ptr(mode, "ctr"))
+                return TPM2_ALG_CTR;
+        if (strcaseeq_ptr(mode, "ofb"))
+                return TPM2_ALG_OFB;
+        if (strcaseeq_ptr(mode, "cbc"))
+                return TPM2_ALG_CBC;
+        if (strcaseeq_ptr(mode, "cfb"))
+                return TPM2_ALG_CFB;
+        if (strcaseeq_ptr(mode, "ecb"))
+                return TPM2_ALG_ECB;
+#endif
+        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown symmetric mode name '%s'", mode);
+}
+
 Tpm2Support tpm2_support(void) {
         Tpm2Support support = TPM2_SUPPORT_NONE;
         int r;
