@@ -80,7 +80,7 @@
     <literal>t</literal>, <literal>d</literal> (but not
     <literal>b</literal>), as defined by the <ulink
     url="https://dbus.freedesktop.org/doc/dbus-specification.html#basic-types">Basic
-    Types</ulink> section of the D-Bus specification, and listed in
+    D-Bus Types</ulink> section of the D-Bus specification, and listed in
     <citerefentry><refentrytitle>sd_bus_message_append_basic</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
     Pointer <parameter>p</parameter> must point to an array of size
     <parameter>size</parameter> bytes containing items of the

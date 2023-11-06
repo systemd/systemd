@@ -111,7 +111,7 @@
       <para>If the stub and/or the kernel contain <literal>.sbat</literal> sections they will be merged in
       the UKI so that revocation updates affecting either are considered when the UKI is loaded by Shim. For
       more information on SBAT see
-      <ulink url="https://github.com/rhboot/shim/blob/main/SBAT.md">Shim's documentation.</ulink>
+      <ulink url="https://github.com/rhboot/shim/blob/main/SBAT.md">Shim documentation</ulink>.
       </para>
     </refsect2>
 
@@ -243,7 +243,7 @@
           <term><option>--summary</option></term>
 
           <listitem><para>Print a summary of loaded config and exit. This is useful to check how the options
-          form the configuration file and the command line are combined.</para>
+          from the configuration file and the command line are combined.</para>
 
           <xi:include href="version-info.xml" xpointer="v254"/></listitem>
         </varlistentry>
@@ -478,7 +478,7 @@
           DBX/MOKX. If not specified manually, a default metadata entry consisting of
           <literal>uki,1,UKI,uki,1,https://www.freedesktop.org/software/systemd/man/systemd-stub.html</literal>
           will be used, to ensure it is always possible to revoke UKIs and addons. For more information on
-          SBAT see <ulink url="https://github.com/rhboot/shim/blob/main/SBAT.md">Shim's documentation.</ulink>
+          SBAT see <ulink url="https://github.com/rhboot/shim/blob/main/SBAT.md">Shim documentation</ulink>.
           </para>
 
           <xi:include href="version-info.xml" xpointer="v254"/></listitem>
@@ -512,8 +512,8 @@
 
           <para>On the command line, this option may be specified more than once, similarly to the
           <option>--pcr-private-key=</option> option. If not present, the public keys will be extracted from
-          the private keys. On the command line, if present, the this option must be specified the same number
-          of times as the <option>--pcr-private-key=</option> option.</para>
+          the private keys. On the command line, if present, this option must be specified the same number of
+          times as the <option>--pcr-private-key=</option> option.</para>
 
           <xi:include href="version-info.xml" xpointer="v253"/></listitem>
         </varlistentry>
@@ -662,13 +662,13 @@ Writing public key for PCR signing to /etc/kernel/pcr-system.pub.pem
       <para>(Both operations need to be done as root to allow write access
       to <filename>/etc/kernel/</filename>.)</para>
 
-      <para>Subsequent invocations of using the config file
+      <para>Subsequent invocations using the config file
       (<command>ukify build --config=/etc/kernel/uki.conf</command>)
       will use this certificate and key files. Note that the
       <citerefentry><refentrytitle>kernel-install</refentrytitle><manvolnum>8</manvolnum></citerefentry>
       plugin <filename>60-ukify.install</filename> uses <filename>/etc/kernel/uki.conf</filename>
       by default, so after this file has been created, installations of kernels that create a UKI on the
-      local machine using <command>kernel-install</command> would perform signing using this config.</para>
+      local machine using <command>kernel-install</command> will perform signing using this config.</para>
     </example>
   </refsect1>
 

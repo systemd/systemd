@@ -461,8 +461,8 @@
         case of the system manager, this includes variables set by the kernel based on the kernel command line.</para>
 
         <para>Setting environment variables for the manager process may be useful to modify its behaviour.
-        See <ulink url="https://systemd.io/ENVIRONMENT">ENVIRONMENT</ulink> for a descriptions of some
-        variables understood by <command>systemd</command>.</para>
+        See <ulink url="https://systemd.io/ENVIRONMENT">Known Environment Variables</ulink> for a
+        descriptions of some variables understood by <command>systemd</command>.</para>
 
         <para>Simple <literal>%</literal>-specifier expansion is supported, see below for a list of supported
         specifiers.</para>

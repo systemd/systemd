@@ -166,8 +166,9 @@
         or loopback file instead of a directory. The device node or file system image file needs to contain a
         file system without a partition table, or a file system within an MBR/MS-DOS or GPT partition table
         with only a single Linux-compatible partition, or a set of file systems within a GPT partition table
-        that follows the <ulink url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">Discoverable Partitions
-        Specification</ulink>.</para>
+        that follows the
+        <ulink url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">
+          Discoverable Partitions Specification</ulink>.</para>
 
         <para>When <varname>DevicePolicy=</varname> is set to <literal>closed</literal> or
         <literal>strict</literal>, or set to <literal>auto</literal> and <varname>DeviceAllow=</varname> is
@@ -207,8 +208,9 @@
         <citerefentry project='man-pages'><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
         </para>
 
-        <para>Valid partition names follow the <ulink
-        url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">Discoverable Partitions Specification</ulink>:
+        <para>Valid partition names follow the
+        <ulink url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">
+          Discoverable Partitions Specification</ulink>:
         <constant>root</constant>, <constant>usr</constant>, <constant>home</constant>, <constant>srv</constant>,
         <constant>esp</constant>, <constant>xbootldr</constant>, <constant>tmp</constant>,
         <constant>var</constant>.</para>
@@ -230,10 +232,11 @@
 
         <para>To make sure making ephemeral copies can be made efficiently, the root directory or root image
         should be located on the same filesystem as <filename>/var/lib/systemd/ephemeral-trees/</filename>.
-        When using <varname>RootEphemeral=</varname> with root directories, btrfs should be used as the
-        filesystem and the root directory should ideally be a subvolume which <command>systemd</command> can
-        snapshot to make the ephemeral copy. For root images, a filesystem with support for reflinks should
-        be used to ensure an efficient ephemeral copy.</para>
+        When using <varname>RootEphemeral=</varname> with root directories,
+        <citerefentry project='url'><refentrytitle url='https://btrfs.wiki.kernel.org/index.php/Manpage/btrfs(5)'>btrfs</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        should be used as the filesystem and the root directory should ideally be a subvolume which
+        <command>systemd</command> can snapshot to make the ephemeral copy. For root images, a filesystem
+        with support for reflinks should be used to ensure an efficient ephemeral copy.</para>
 
         <xi:include href="system-only.xml" xpointer="singular"/>
 
@@ -302,8 +305,9 @@
 
         <para>This option is supported only for disk images that contain a single file system, without an
         enveloping partition table. Images that contain a GPT partition table should instead include both
-        root file system and matching Verity data in the same image, implementing the <ulink
-        url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">Discoverable Partitions Specification</ulink>.</para>
+        root file system and matching Verity data in the same image, implementing the
+        <ulink url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">
+          Discoverable Partitions Specification</ulink>.</para>
 
         <xi:include href="system-only.xml" xpointer="singular"/>
 
@@ -831,9 +835,9 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         <varname>SystemCallFilter=</varname>, or <varname>SystemCallLog=</varname> are specified. Note that
         even if this setting is overridden by them, <command>systemctl show</command> shows the original
         value of this setting. In case the service will be run in a new mount namespace anyway and SELinux is
-        disabled, all file systems are mounted with <constant>MS_NOSUID</constant> flag. Also see <ulink
-        url="https://docs.kernel.org/userspace-api/no_new_privs.html">No New Privileges
-        Flag</ulink>.</para>
+        disabled, all file systems are mounted with <constant>MS_NOSUID</constant> flag. Also see
+        <ulink url="https://docs.kernel.org/userspace-api/no_new_privs.html">No New Privileges Flag</ulink>.
+        </para>
 
         <para>Note that this setting only has an effect on the unit's processes themselves (or any processes
         directly or indirectly forked off them). It has no effect on processes potentially invoked on request
@@ -1913,7 +1917,7 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
 
         <para>Note that this functionality might not be available, for example if KSM is disabled in the
         kernel, or the kernel doesn't support controlling KSM at the process level through
-        <function>prctl()</function>.</para>
+        <citerefentry><refentrytitle>prctl</refentrytitle><manvolnum>2</manvolnum></citerefentry>.</para>
 
         <xi:include href="version-info.xml" xpointer="v254"/>
         </listitem>
@@ -2787,37 +2791,39 @@ SystemCallErrorNumber=EPERM</programlisting>
         <listitem><para>Similar to <varname>Environment=</varname>, but reads the environment variables from
         a text file. The text file should contain newline-separated variable assignments. Empty lines, lines
         without an <literal>=</literal> separator, or lines starting with <literal>;</literal> or
-        <literal>#</literal> will be ignored, which may be used for commenting. The file must be UTF-8
-        encoded. Valid characters are <ulink
-        url="https://www.unicode.org/glossary/#unicode_scalar_value">unicode scalar values</ulink> other than
-        <ulink url="https://www.unicode.org/glossary/#noncharacter">noncharacters</ulink>, U+0000 NUL, and
-        U+FEFF <ulink url="https://www.unicode.org/glossary/#byte_order_mark">byte order mark</ulink>.
-        Control codes other than NUL are allowed.</para>
+        <literal>#</literal> will be ignored, which may be used for commenting. The file must be encoded with
+        UTF-8. Valid characters are
+        <ulink url="https://www.unicode.org/glossary/#unicode_scalar_value">unicode scalar values</ulink>
+        other than
+        <ulink url="https://www.unicode.org/glossary/#noncharacter">unicode noncharacters</ulink>,
+        <constant>U+0000</constant> <constant>NUL</constant>, and <constant>U+FEFF</constant>
+        <ulink url="https://www.unicode.org/glossary/#byte_order_mark">unicode byte order mark</ulink>.
+        Control codes other than <constant>NUL</constant> are allowed.</para>
 
         <para>In the file, an unquoted value after the <literal>=</literal> is parsed with the same backslash-escape
         rules as <ulink
-        url="https://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html#tag_18_02_01">unquoted
-        text</ulink> in a POSIX shell, but unlike in a shell, interior whitespace is preserved and quotes after the
+        url="https://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html#tag_18_02_01">POSIX shell unquoted
+        text</ulink>, but unlike in a shell, interior whitespace is preserved and quotes after the
         first non-whitespace character are preserved. Leading and trailing whitespace (space, tab, carriage return) is
         discarded, but interior whitespace within the line is preserved verbatim. A line ending with a backslash will be
         continued to the following one, with the newline itself discarded. A backslash
         <literal>\</literal> followed by any character other than newline will preserve the following character, so that
         <literal>\\</literal> will become the value <literal>\</literal>.</para>
 
-        <para>In the file, a <literal>'</literal>-quoted value after the <literal>=</literal> can span multiple lines
-        and contain any character verbatim other than single quote, like <ulink
-        url="https://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html#tag_18_02_02">single-quoted
-        text</ulink> in a POSIX shell. No backslash-escape sequences are recognized. Leading and trailing whitespace
-        outside of the single quotes is discarded.</para>
+        <para>In the file, a <literal>'</literal>-quoted value after the <literal>=</literal> can span
+        multiple lines and contain any character verbatim other than single quote, like <ulink
+        url="https://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html#tag_18_02_02">POSIX
+        shell single-quoted text</ulink>. No backslash-escape sequences are recognized. Leading and trailing
+        whitespace outside of the single quotes is discarded.</para>
 
-        <para>In the file, a <literal>"</literal>-quoted value after the <literal>=</literal> can span multiple lines,
-        and the same escape sequences are recognized as in <ulink
-        url="https://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html#tag_18_02_03">double-quoted
-        text</ulink> of a POSIX shell. Backslash (<literal>\</literal>) followed by any of <literal>"\`$</literal> will
-        preserve that character. A backslash followed by newline is a line continuation, and the newline itself is
-        discarded. A backslash followed by any other character is ignored; both the backslash and the following
-        character are preserved verbatim. Leading and trailing whitespace outside of the double quotes is
-        discarded.</para>
+        <para>In the file, a <literal>"</literal>-quoted value after the <literal>=</literal> can span
+        multiple lines, and the same escape sequences are recognized as in <ulink
+        url="https://pubs.opengroup.org/onlinepubs/9699919799/utilities/V3_chap02.html#tag_18_02_03">POSIX
+        shell double-quoted text</ulink>. Backslash (<literal>\</literal>) followed by any of
+        <literal>"\`$</literal> will preserve that character. A backslash followed by newline is a line
+        continuation, and the newline itself is discarded. A backslash followed by any other character is
+        ignored; both the backslash and the following character are preserved verbatim. Leading and trailing
+        whitespace outside of the double quotes is discarded.</para>
 
         <para>The argument passed should be an absolute filename or wildcard expression, optionally prefixed with
         <literal>-</literal>, which indicates that if the file does not exist, it will not be read and no error or
@@ -3174,7 +3180,7 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
         <varname>RateLimitBurst=</varname> configured in
         <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
         Note that this only applies to log messages that are processed by the logging subsystem, i.e. by
-        <citerefentry><refentrytitle>systemd-journald.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        <citerefentry><refentrytitle>systemd-journald.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
         This means that if you connect a service's stderr directly to a file via
         <varname>StandardOutput=file:…</varname> or a similar setting, the rate limiting will not be applied
         to messages written that way (but it will be enforced for messages generated via
@@ -4141,9 +4147,9 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
           <varname>FileDescriptorStoreMax=</varname> is set to a non-zero value (see
           <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
           for details). Applications may check this environment variable before sending file descriptors to
-          the service manager via <function>sd_pid_notify_with_fds()</function> (see
-          <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry> for
-          details).</para>
+          the service manager via
+          <citerefentry><refentrytitle>sd_pid_notify_with_fds</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+        </para>
 
           <xi:include href="version-info.xml" xpointer="v254"/></listitem>
         </varlistentry>

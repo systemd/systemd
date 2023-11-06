@@ -560,7 +560,8 @@ Dec 08 20:44:48 container systemd[1]: Started /bin/touch /tmp/foo.</programlisti
     <example>
       <title>Allowing access to the tty</title>
 
-      <para>The following command invokes <citerefentry project='man-pages'><refentrytitle>bash</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      <para>The following command invokes
+      <citerefentry project='man-pages'><refentrytitle>bash</refentrytitle><manvolnum>1</manvolnum></citerefentry>
       as a service passing its standard input, output and error to the calling TTY.</para>
 
       <programlisting># systemd-run -t --send-sighup bash</programlisting>
@@ -618,18 +619,22 @@ There is a screen on:
       </programlisting>
 
       <para>The first argument is expanded by the shell (double quotes), but the second one is not expanded
-      by the shell (single quotes). <command>echo</command> is called with [<literal>/usr/bin/echo</literal>,
+      by the shell (single quotes).
+      <citerefentry project='man-pages'><refentrytitle>echo</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      is called with [<literal>/usr/bin/echo</literal>,
       <literal>[]</literal>, <literal>[${INVOCATION_ID}]</literal>] as the argument array, and then
-      <command>systemd</command> generates <varname>${INVOCATION_ID}</varname> and substitutes it in the
-      command-line. This substitution could not be done on the client side, because the target ID that will
-      be set for the service isn't known before the call is made.</para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      generates <varname>${INVOCATION_ID}</varname> and substitutes it in the command-line. This substitution
+      could not be done on the client side, because the target ID that will be set for the service isn't
+      known before the call is made.</para>
     </example>
 
     <example>
       <title>Variable expansion and output redirection using a shell</title>
 
-      <para>Variable expansion by <command>systemd</command> can be disabled with
-      <varname>--expand-environment=no</varname>.</para>
+      <para>Variable expansion by
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      can be disabled with <varname>--expand-environment=no</varname>.</para>
 
       <para>Disabling variable expansion can be useful if the command to execute contains dollar characters
       and escaping them would be inconvenient. For example, when a shell is used:</para>
@@ -639,9 +644,10 @@ There is a screen on:
 /bin/bash 12345
       </programlisting>
 
-      <para>The last argument is passed verbatim to the <command>bash</command> shell which is started by the
-      service unit. The shell expands <literal>$SHELL</literal> to the path of the shell, and
-      <literal>$$</literal> to its process number, and then those strings are passed to the
+      <para>The last argument is passed verbatim to the
+      <citerefentry project='man-pages'><refentrytitle>bash</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      shell which is started by the service unit. The shell expands <literal>$SHELL</literal> to the path of
+      the shell, and <literal>$$</literal> to its process number, and then those strings are passed to the
       <command>echo</command> built-in and printed to standard output (which in this case is connected to the
       calling terminal).</para>
     </example>

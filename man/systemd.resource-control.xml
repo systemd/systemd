@@ -1143,7 +1143,7 @@ NFTSet=cgroup:inet:filter:my_service user:inet:filter:serviceuser
         <listitem>
           <para><varname>BPFProgram=</varname> allows attaching custom BPF programs to the cgroup of a
           unit. (This generalizes the functionality exposed via <varname>IPEgressFilterPath=</varname> and
-          and <varname>IPIngressFilterPath=</varname> for other hooks.)  Cgroup-bpf hooks in the form of BPF
+          <varname>IPIngressFilterPath=</varname> for other hooks.)  Cgroup-bpf hooks in the form of BPF
           programs loaded to the BPF filesystem are attached with cgroup-bpf attach flags determined by the
           unit. For details about attachment types and flags see <ulink
           url="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/plain/include/uapi/linux/bpf.h"><filename>bpf.h</filename></ulink>. Also
@@ -1154,13 +1154,27 @@ NFTSet=cgroup:inet:filter:my_service user:inet:filter:serviceuser
           <replaceable>type</replaceable>:<replaceable>program-path</replaceable>.</para>
 
           <para>The BPF program type is equivalent to the BPF attach type used in
-          <command>bpftool</command>. It may be one of <constant>egress</constant>,
-          <constant>ingress</constant>, <constant>sock_create</constant>, <constant>sock_ops</constant>,
-          <constant>device</constant>, <constant>bind4</constant>, <constant>bind6</constant>,
-          <constant>connect4</constant>, <constant>connect6</constant>, <constant>post_bind4</constant>,
-          <constant>post_bind6</constant>, <constant>sendmsg4</constant>, <constant>sendmsg6</constant>,
-          <constant>sysctl</constant>, <constant>recvmsg4</constant>, <constant>recvmsg6</constant>,
-          <constant>getsockopt</constant>, <constant>setsockopt</constant>.</para>
+          <citerefentry project='mankier'><refentrytitle>bpftool</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+          It may be one of
+          <constant>egress</constant>,
+          <constant>ingress</constant>,
+          <constant>sock_create</constant>,
+          <constant>sock_ops</constant>,
+          <constant>device</constant>,
+          <constant>bind4</constant>,
+          <constant>bind6</constant>,
+          <constant>connect4</constant>,
+          <constant>connect6</constant>,
+          <constant>post_bind4</constant>,
+          <constant>post_bind6</constant>,
+          <constant>sendmsg4</constant>,
+          <constant>sendmsg6</constant>,
+          <constant>sysctl</constant>,
+          <constant>recvmsg4</constant>,
+          <constant>recvmsg6</constant>,
+          <constant>getsockopt</constant>,
+          or <constant>setsockopt</constant>.
+          </para>
 
           <para>The specified program path must be an absolute path referencing a BPF program inode in the
           bpffs file system (which generally means it must begin with <filename>/sys/fs/bpf/</filename>). If
@@ -1545,7 +1559,7 @@ DeviceAllow=/dev/loop-control
         <varname>$MEMORY_PRESSURE_WATCH</varname> environment variable to the literal string
         <filename>/dev/null</filename>. If <literal>on</literal> tells the service to watch for memory
         pressure events. This enables memory accounting for the service, and ensures the
-        <filename>memory.pressure</filename> cgroup attribute files is accessible for read and write to the
+        <filename>memory.pressure</filename> cgroup attribute file is accessible for reading and writing by the
         service's user. It then sets the <varname>$MEMORY_PRESSURE_WATCH</varname> environment variable for
         processes invoked by the unit to the file system path to this file. The threshold information
         configured with <varname>MemoryPressureThresholdSec=</varname> is encoded in the
