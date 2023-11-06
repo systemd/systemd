@@ -153,9 +153,9 @@
         be aborted.</para>
 
         <para>The allowed set of values is determined by the kernel and is shown in the file itself (use
-        <command>cat /sys/power/disk</command> to display). See <ulink
-        url="https://www.kernel.org/doc/html/latest/admin-guide/pm/sleep-states.html#basic-sysfs-interfaces-for-system-suspend-and-hibernation">the
-        kernel documentation</ulink> for more details.</para>
+        <command>cat /sys/power/disk</command> to display). See the kernel documentation page
+        <ulink url="https://www.kernel.org/doc/html/latest/admin-guide/pm/sleep-states.html#basic-sysfs-interfaces-for-system-suspend-and-hibernation">
+          Basic sysfs Interfaces for System Suspend and Hibernation</ulink> for more details.</para>
 
         <para>
         <citerefentry><refentrytitle>systemd-suspend-then-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
@@ -175,8 +175,8 @@
 
         <para>The allowed set of values is determined by the kernel and is shown in the file itself (use
         <command>cat /sys/power/state</command> to display). See <ulink
-        url="https://www.kernel.org/doc/html/latest/admin-guide/pm/sleep-states.html#basic-sysfs-interfaces-for-system-suspend-and-hibernation">the
-        kernel documentation</ulink> for more details.</para>
+        url="https://www.kernel.org/doc/html/latest/admin-guide/pm/sleep-states.html#basic-sysfs-interfaces-for-system-suspend-and-hibernation">
+          Basic sysfs Interfaces for System Suspend and Hibernation</ulink> for more details.</para>
 
         <para>
         <citerefentry><refentrytitle>systemd-suspend-then-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>

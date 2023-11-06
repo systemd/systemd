@@ -556,8 +556,9 @@
         <para>Note that VeraCrypt enforces a minimal allowed PIM value depending on the
         password strength and the hash algorithm used for key derivation, however
         <option>veracrypt-pim=</option> is not checked against these bounds.
-        <ulink url="https://www.veracrypt.fr/en/Personal%20Iterations%20Multiplier%20%28PIM%29.html">See
-        documentation</ulink> for more information.</para>
+        See
+        <ulink url="https://www.veracrypt.fr/en/Personal%20Iterations%20Multiplier%20%28PIM%29.html">Veracrypt Personal Iterations Multiplier</ulink>
+        documentation for more information.</para>
 
         <xi:include href="version-info.xml" xpointer="v254"/>
         </listitem>
@@ -980,8 +981,9 @@ external   /dev/sda3       keyfile:LABEL=keydev keyfile-timeout=10s,cipher=xchac
       <itemizedlist>
         <listitem><para>We use RSA2048, which is the longest key size current Yubikeys support</para></listitem>
         <listitem><para>We use Yubikey key slot 9d, since that's apparently the keyslot to use for decryption purposes,
-        <ulink url="https://developers.yubico.com/PIV/Introduction/Certificate_slots.html">see
-        documentation</ulink>.</para></listitem>
+        see
+        <ulink url="https://developers.yubico.com/PIV/Introduction/Certificate_slots.html">Yubico PIV certificate slots</ulink>.
+        </para></listitem>
       </itemizedlist>
     </example>
 
