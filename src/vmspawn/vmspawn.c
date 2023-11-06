@@ -211,7 +211,7 @@ static int parse_argv(int argc, char *argv[]) {
 static int run_virtual_machine(void) {
         _cleanup_(ovmf_config_freep) OvmfConfig *ovmf_config = NULL;
         _cleanup_strv_free_ char **cmdline = NULL;
-        _cleanup_free_ char *machine = NULL, *qemu_binary = NULL, *mem = NULL;
+        _cleanup_free_ char *machine = NULL, *qemu_binary = NULL, *mem = NULL, *kcl = NULL;
         int r;
 
         bool use_kvm = arg_qemu_kvm > 0;
@@ -357,9 +357,23 @@ static int run_virtual_machine(void) {
         if (r < 0)
                 return log_oom();
 
-        r = strv_extend_strv(&cmdline, arg_parameters, false);
-        if (r < 0)
-                return log_oom();
+        if (strv_length(arg_parameters) != 0) {
+#if ARCHITECTURE_SUPPORTS_SMBIOS
+                kcl = strv_join(arg_parameters, " ");
+                if (!kcl)
+                        return log_oom();
+
+                r = strv_extend(&cmdline, "-smbios");
+                if (r < 0)
+                        return log_oom();
+
+                r = strv_extendf(&cmdline, "type=11,value=io.systemd.stub.kernel-cmdline-extra=%s", kcl);
+                if (r < 0)
+                        return log_oom();
+#else
+                log_warning("Cannot append extra args to kernel cmdline, native architecture doesn't support SMBIOS");
+#endif
+        }
 
         pid_t child_pid;
         r = safe_fork(qemu_binary, 0, &child_pid);
