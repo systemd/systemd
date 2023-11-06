@@ -5,7 +5,7 @@ layout: default
 SPDX-License-Identifier: LGPL-2.1-or-later
 ---
 
-# Portable Services Introduction
+# Portable Services
 
 systemd (since version 239) supports a concept of "Portable Services".
 "Portable Services" are a delivery method for system services that uses
