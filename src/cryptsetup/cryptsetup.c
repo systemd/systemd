@@ -1036,7 +1036,7 @@ static int attach_tcrypt(
                         else
                                 log_error_errno(r, "Failed to activate using supplied passwords.");
 
-                        return -EPERM; /* log the actual error, but return EAGAIN */
+                        return r;
                 }
 
                 return log_error_errno(r, "Failed to load tcrypt superblock on device %s: %m", crypt_get_device_name(cd));
