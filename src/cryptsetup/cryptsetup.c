@@ -994,31 +994,37 @@ static int attach_tcrypt(
         if (key_data) {
                 params.passphrase = key_data;
                 params.passphrase_size = key_data_size;
+                r = crypt_load(cd, CRYPT_TCRYPT, &params);
+        } else if (key_file) {
+                r = read_one_line_file(key_file, &passphrase);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to read password file '%s': %m", key_file);
+                        return -EAGAIN; /* log with the actual error, but return EAGAIN */
+                }
+                params.passphrase = passphrase;
+                params.passphrase_size = strlen(passphrase);
+                r = crypt_load(cd, CRYPT_TCRYPT, &params);
         } else {
-                if (key_file) {
-                        r = read_one_line_file(key_file, &passphrase);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to read password file '%s': %m", key_file);
-                                return -EAGAIN; /* log with the actual error, but return EAGAIN */
-                        }
-
-                        params.passphrase = passphrase;
-                } else
-                        params.passphrase = passwords[0];
-
-                params.passphrase_size = strlen(params.passphrase);
+                r = -EINVAL;
+                STRV_FOREACH(p, passwords){
+                        params.passphrase = *p;
+                        params.passphrase_size = strlen(*p);
+                        r = crypt_load(cd, CRYPT_TCRYPT, &params);
+                        if (r >= 0)
+                                break;
+                }
         }
 
-        r = crypt_load(cd, CRYPT_TCRYPT, &params);
         if (r < 0) {
                 if (r == -EPERM) {
                         if (key_data)
                                 log_error_errno(r, "Failed to activate using discovered key. (Key not correct?)");
-
-                        if (key_file)
+                        else if (key_file)
                                 log_error_errno(r, "Failed to activate using password file '%s'. (Key data not correct?)", key_file);
+                        else
+                                log_error_errno(r, "Failed to activate using supplied passwords.");
 
-                        return -EAGAIN; /* log the actual error, but return EAGAIN */
+                        return r;
                 }
 
                 return log_error_errno(r, "Failed to load tcrypt superblock on device %s: %m", crypt_get_device_name(cd));
