@@ -2,17 +2,20 @@
 
 #include <getopt.h>
 #include <stdbool.h>
+#include <sys/utsname.h>
 
-#include "build.h"
 #include "boot-entry.h"
+#include "build.h"
 #include "chase.h"
 #include "conf-files.h"
+#include "dirent-util.h"
 #include "env-file.h"
 #include "env-util.h"
 #include "exec-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "find-esp.h"
+#include "format-table.h"
 #include "id128-util.h"
 #include "kernel-image.h"
 #include "main-func.h"
@@ -20,6 +23,7 @@
 #include "parse-argument.h"
 #include "path-util.h"
 #include "pretty-print.h"
+#include "recurse-dir.h"
 #include "rm-rf.h"
 #include "stat-util.h"
 #include "string-table.h"
@@ -32,6 +36,9 @@ static bool arg_verbose = false;
 static char *arg_esp_path = NULL;
 static char *arg_xbootldr_path = NULL;
 static int arg_make_entry_directory = -1; /* tristate */
+static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
+static PagerFlags arg_pager_flags = 0;
+static bool arg_legend = true;
 
 STATIC_DESTRUCTOR_REGISTER(arg_esp_path, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_xbootldr_path, freep);
@@ -86,6 +93,8 @@ typedef struct Context {
         char **envp;
 } Context;
 
+#define CONTEXT_NULL (Context) { .rfd = -EBADF }
+
 static void context_done(Context *c) {
         assert(c);
 
@@ -108,6 +117,75 @@ static void context_done(Context *c) {
         strv_free(c->envp);
 
         safe_close(c->rfd);
+}
+
+static int context_copy(const Context *source, Context *ret) {
+        int r;
+
+        assert(source);
+        assert(ret);
+
+        _cleanup_(context_done) Context copy = (Context) {
+                .rfd = -EBADF,
+                .action = source->action,
+                .machine_id = source->machine_id,
+                .machine_id_is_random = source->machine_id_is_random,
+                .kernel_image_type = source->kernel_image_type,
+                .layout = source->layout,
+                .entry_token_type = source->entry_token_type,
+        };
+
+        copy.rfd = fd_reopen(source->rfd, O_CLOEXEC|O_DIRECTORY|O_PATH);
+        if (copy.rfd < 0)
+                return copy.rfd;
+
+        r = strdup_or_null(source->layout_other, &copy.layout_other);
+        if (r < 0)
+                return r;
+        r = strdup_or_null(source->conf_root, &copy.conf_root);
+        if (r < 0)
+                return r;
+        r = strdup_or_null(source->boot_root, &copy.boot_root);
+        if (r < 0)
+                return r;
+        r = strdup_or_null(source->entry_token, &copy.entry_token);
+        if (r < 0)
+                return r;
+        r = strdup_or_null(source->entry_dir, &copy.entry_dir);
+        if (r < 0)
+                return r;
+        r = strdup_or_null(source->version, &copy.version);
+        if (r < 0)
+                return r;
+        r = strdup_or_null(source->kernel, &copy.kernel);
+        if (r < 0)
+                return r;
+        copy.initrds = strv_copy(source->initrds);
+        if (!copy.initrds)
+                return -ENOMEM;
+        r = strdup_or_null(source->initrd_generator, &copy.initrd_generator);
+        if (r < 0)
+                return r;
+        r = strdup_or_null(source->uki_generator, &copy.uki_generator);
+        if (r < 0)
+                return r;
+        r = strdup_or_null(source->staging_area, &copy.staging_area);
+        if (r < 0)
+                return r;
+        copy.plugins = strv_copy(source->plugins);
+        if (!copy.plugins)
+                return -ENOMEM;
+        copy.argv = strv_copy(source->argv);
+        if (!copy.argv)
+                return -ENOMEM;
+        copy.envp = strv_copy(source->envp);
+        if (!copy.envp)
+                return -ENOMEM;
+
+        *ret = copy;
+        copy = CONTEXT_NULL;
+
+        return 0;
 }
 
 static int context_open_root(Context *c) {
@@ -1011,27 +1089,27 @@ static bool bypass(void) {
         return true;
 }
 
-static int verb_add(int argc, char *argv[], void *userdata) {
-        Context *c = ASSERT_PTR(userdata);
+static int do_add(
+                Context *c,
+                const char *version,
+                const char *kernel,
+                char **initrds) {
+
         int r;
 
-        assert(argc >= 3);
-        assert(argv);
+        assert(c);
+        assert(version);
+        assert(kernel);
 
-        if (bypass())
-                return 0;
-
-        c->action = ACTION_ADD;
-
-        r = context_set_version(c, argv[1]);
+        r = context_set_version(c, version);
         if (r < 0)
                 return r;
 
-        r = context_set_kernel(c, argv[2]);
+        r = context_set_kernel(c, kernel);
         if (r < 0)
                 return r;
 
-        r = context_set_initrds(c, strv_skip(argv, 3));
+        r = context_set_initrds(c, initrds);
         if (r < 0)
                 return r;
 
@@ -1040,6 +1118,125 @@ static int verb_add(int argc, char *argv[], void *userdata) {
                 return r;
 
         return context_execute(c);
+}
+
+static int verb_add(int argc, char *argv[], void *userdata) {
+        Context *c = ASSERT_PTR(userdata);
+        _cleanup_free_ char *vmlinuz = NULL;
+        const char *version, *kernel;
+        char **initrds;
+        struct utsname un;
+
+        assert(argv);
+
+        if (bypass())
+                return 0;
+
+        c->action = ACTION_ADD;
+
+        version = argc > 1 ? argv[1] : NULL;
+        kernel = argc > 2 ? argv[2] : NULL;
+        initrds = strv_skip(argv, 3);
+
+        if (!version) {
+                assert_se(uname(&un) >= 0);
+                version = un.release;
+        }
+
+        if (!kernel) {
+                vmlinuz = path_join("/usr/lib/modules/", version, "/vmlinuz");
+                if (!vmlinuz)
+                        return log_oom();
+
+                if (access(vmlinuz, F_OK) < 0) {
+                        if (errno == ENOENT)
+                                return log_error_errno(ENOENT, "Kernel image not installed to '%s', requiring manual kernel image path specification.", vmlinuz);
+
+                        return log_error_errno(errno, "Failed to determin if kernel image is installed to '%s': %m", vmlinuz);
+                }
+
+                kernel = vmlinuz;
+        }
+
+        return do_add(c, version, kernel, initrds);
+}
+
+static int verb_add_all(int argc, char *argv[], void *userdata) {
+        Context *c = ASSERT_PTR(userdata);
+        _cleanup_close_ int fd = -EBADF;
+        size_t n = 0;
+        int ret = 0, r;
+
+        assert(argv);
+
+        if (bypass())
+                return 0;
+
+        c->action = ACTION_ADD;
+
+        fd = open("/usr/lib/modules", O_DIRECTORY|O_RDONLY|O_CLOEXEC);
+        if (fd < 0)
+                return log_error_errno(fd, "Failed to open /usr/lib/modules/: %m");
+
+        _cleanup_free_ DirectoryEntries *de = NULL;
+        r = readdir_all(fd, RECURSE_DIR_SORT|RECURSE_DIR_IGNORE_DOT, &de);
+        if (r < 0)
+                return log_error_errno(r, "Failed to numerate /usr/lib/modules/ contents: %m");
+
+        FOREACH_ARRAY(d, de->entries, de->n_entries) {
+
+                _cleanup_free_ char *j = path_join("/usr/lib/modules/", (*d)->d_name);
+                if (!j)
+                        return log_oom();
+
+                r = dirent_ensure_type(fd, *d);
+                if (r < 0) {
+                        if (r != -ENOENT) /* don't log if just gone by now */
+                                log_debug_errno(r, "Failed to check if '%s' is a directory, ignoring: %m", j);
+                        continue;
+                }
+
+                if ((*d)->d_type != DT_DIR)
+                        continue;
+
+                _cleanup_free_ char *fn = path_join((*d)->d_name, "vmlinuz");
+                if (!fn)
+                        return log_oom();
+
+                if (faccessat(fd, fn, F_OK, AT_SYMLINK_NOFOLLOW) < 0) {
+                        if (errno != ENOENT)
+                                log_debug_errno(errno, "Failed to check if '/usr/lib/modules/%s/vmlinuz' exists, ignoring: %m", (*d)->d_name);
+
+                        log_notice("Not adding version '%s', because kernel image not found.", (*d)->d_name);
+                        continue;
+                }
+
+                _cleanup_(context_done) Context copy = CONTEXT_NULL;
+
+                r = context_copy(c, &copy);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to copy execution context: %m");
+
+                _cleanup_free_ char *full = path_join("/usr/lib/modules/", fn);
+                if (!full)
+                        return log_oom();
+
+                r = do_add(&copy,
+                           /* version= */ (*d)->d_name,
+                           /* kernel= */ full,
+                           /* initrds= */ NULL);
+                RET_GATHER(ret, r);
+
+                if (r >= 0)
+                        n++;
+        }
+
+        if (n > 0)
+                log_info("Installed %zu kernels.", n);
+        else if (ret == 0)
+                ret = log_error_errno(SYNTHETIC_ERRNO(ENOENT), "No kernels to install found.");
+
+        return ret;
 }
 
 static int run_as_installkernel(int argc, char *argv[], Context *c) {
@@ -1054,6 +1251,7 @@ static int run_as_installkernel(int argc, char *argv[], Context *c) {
 
 static int verb_remove(int argc, char *argv[], void *userdata) {
         Context *c = ASSERT_PTR(userdata);
+        const char *version;
         int r;
 
         assert(argc >= 2);
@@ -1068,7 +1266,13 @@ static int verb_remove(int argc, char *argv[], void *userdata) {
 
         c->action = ACTION_REMOVE;
 
-        r = context_set_version(c, argv[1]);
+        version = argv[1];
+
+        /* Note, we do not automatically derive the kernel version to remove from uname() here (unlike we do
+         * it for the "add" verb), since we don't want to make it too easy to uninstall your running
+         * kernel, as a safety precaution */
+
+        r = context_set_version(c, version);
         if (r < 0)
                 return r;
 
@@ -1082,12 +1286,14 @@ static int verb_remove(int argc, char *argv[], void *userdata) {
 static int verb_inspect(int argc, char *argv[], void *userdata) {
         Context *c = ASSERT_PTR(userdata);
         _cleanup_free_ char *joined = NULL;
+        const char *version;
         int r;
 
         c->action = ACTION_INSPECT;
+        version = argc > 1 ? argv[1] : NULL;
 
-        if (argc >= 2) {
-                r = context_set_kernel(c, argv[1]);
+        if (version) {
+                r = context_set_kernel(c, version);
                 if (r < 0)
                         return r;
         }
@@ -1116,6 +1322,68 @@ static int verb_inspect(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
+static int verb_list(int argc, char *argv[], void *userdata) {
+        _cleanup_close_ int fd = -EBADF;
+        int r;
+
+        fd = open("/usr/lib/modules", O_DIRECTORY|O_RDONLY|O_CLOEXEC);
+        if (fd < 0)
+                return log_error_errno(fd, "Failed to open /usr/lib/modules/: %m");
+
+        _cleanup_free_ DirectoryEntries *de = NULL;
+        r = readdir_all(fd, RECURSE_DIR_SORT|RECURSE_DIR_IGNORE_DOT, &de);
+        if (r < 0)
+                return log_error_errno(r, "Failed to numerate /usr/lib/modules/ contents: %m");
+
+        _cleanup_(table_unrefp) Table *table = NULL;
+        table = table_new("version", "kernel", "path");
+        if (!table)
+                return log_oom();
+
+        table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
+        table_set_align_percent(table, table_get_cell(table, 0, 1), 100);
+
+        FOREACH_ARRAY(d, de->entries, de->n_entries) {
+
+                _cleanup_free_ char *j = path_join("/usr/lib/modules/", (*d)->d_name);
+                if (!j)
+                        return log_oom();
+
+                r = dirent_ensure_type(fd, *d);
+                if (r < 0) {
+                        if (r != -ENOENT) /* don't log if just gone by now */
+                                log_debug_errno(r, "Failed to check if '%s' is a directory, ignoring: %m", j);
+                        continue;
+                }
+
+                if ((*d)->d_type != DT_DIR)
+                        continue;
+
+                _cleanup_free_ char *fn = path_join((*d)->d_name, "vmlinuz");
+                if (!fn)
+                        return log_oom();
+
+                bool exists;
+                if (faccessat(fd, fn, F_OK, AT_SYMLINK_NOFOLLOW) < 0) {
+                        if (errno != ENOENT)
+                                log_debug_errno(errno, "Failed to check if '/usr/lib/modules/%s/vmlinuz' exists, ignoring: %m", (*d)->d_name);
+
+                        exists = false;
+                } else
+                        exists = true;
+
+                r = table_add_many(table,
+                                   TABLE_STRING, (*d)->d_name,
+                                   TABLE_BOOLEAN_CHECKMARK, exists,
+                                   TABLE_SET_COLOR, ansi_highlight_green_red(exists),
+                                   TABLE_PATH, j);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        return table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, arg_legend);
+}
+
 static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -1125,13 +1393,15 @@ static int help(void) {
                 return log_oom();
 
         printf("%1$s [OPTIONS...] COMMAND ...\n\n"
-               "%2$sAdd and remove kernel and initrd images to and from /boot%3$s\n"
-               "\nUsage:\n"
-               "  kernel-install [OPTIONS...] add KERNEL-VERSION KERNEL-IMAGE [INITRD-FILE...]\n"
+               "%5$sAdd and remove kernel and initrd images to and from /boot/%6$s\n"
+               "\n%3$sUsage:%4$s\n"
+               "  kernel-install [OPTIONS...] add [KERNEL-VERSION [KERNEL-IMAGE\n"
+               "                                  [INITRD-FILE...]]]\n"
+               "  kernel-install [OPTIONS...] add-all\n"
                "  kernel-install [OPTIONS...] remove KERNEL-VERSION\n"
                "  kernel-install [OPTIONS...] inspect [KERNEL-IMAGE]\n"
-               "\n"
-               "Options:\n"
+               "  kernel-install [OPTIONS...] list\n"
+               "\n%3$sOptions:%4$s\n"
                "  -h --help              Show this help\n"
                "     --version           Show package version\n"
                "  -v --verbose           Increase verbosity\n"
@@ -1141,16 +1411,22 @@ static int help(void) {
                "                         Create $BOOT/ENTRY-TOKEN/ directory\n"
                "     --entry-token=machine-id|os-id|os-image-id|auto|literal:…\n"
                "                         Entry token to use for this installation\n"
+               "     --no-pager          Do not pipe output into a pager\n"
+               "     --no-legend         Do not show the headers and footers\n"
+               "     --json=pretty|short|off\n"
+               "                         Generate JSON output\n"
                "\n"
                "This program may also be invoked as 'installkernel':\n"
                "  installkernel  [OPTIONS...] VERSION VMLINUZ [MAP] [INSTALLATION-DIR]\n"
                "(The optional arguments are passed by kernel build system, but ignored.)\n"
                "\n"
-               "See the %4$s for details.\n",
+               "See the %2$s for details.\n",
                program_invocation_short_name,
-               ansi_highlight(),
+               link,
+               ansi_underline(),
                ansi_normal(),
-               link);
+               ansi_highlight(),
+               ansi_normal());
 
         return 0;
 }
@@ -1158,10 +1434,13 @@ static int help(void) {
 static int parse_argv(int argc, char *argv[], Context *c) {
         enum {
                 ARG_VERSION = 0x100,
+                ARG_NO_PAGER,
+                ARG_NO_LEGEND,
                 ARG_ESP_PATH,
                 ARG_BOOT_PATH,
                 ARG_MAKE_ENTRY_DIRECTORY,
                 ARG_ENTRY_TOKEN,
+                ARG_JSON,
         };
         static const struct option options[] = {
                 { "help",                 no_argument,       NULL, 'h'                      },
@@ -1171,6 +1450,8 @@ static int parse_argv(int argc, char *argv[], Context *c) {
                 { "boot-path",            required_argument, NULL, ARG_BOOT_PATH            },
                 { "make-entry-directory", required_argument, NULL, ARG_MAKE_ENTRY_DIRECTORY },
                 { "entry-token",          required_argument, NULL, ARG_ENTRY_TOKEN          },
+                { "no-pager",             no_argument,       NULL, ARG_NO_PAGER             },
+                { "json",                 required_argument, NULL, ARG_JSON                 },
                 {}
         };
         int t, r;
@@ -1186,6 +1467,14 @@ static int parse_argv(int argc, char *argv[], Context *c) {
 
                 case ARG_VERSION:
                         return version();
+
+                case ARG_NO_PAGER:
+                        arg_pager_flags |= PAGER_DISABLE;
+                        break;
+
+                case ARG_NO_LEGEND:
+                        arg_legend = false;
+                        break;
 
                 case 'v':
                         log_set_max_level(LOG_DEBUG);
@@ -1222,6 +1511,13 @@ static int parse_argv(int argc, char *argv[], Context *c) {
                                 return r;
                         break;
 
+                case ARG_JSON:
+                        r = parse_json_argument(optarg, &arg_json_format_flags);
+                        if (r <= 0)
+                                return r;
+
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -1234,9 +1530,11 @@ static int parse_argv(int argc, char *argv[], Context *c) {
 
 static int run(int argc, char* argv[]) {
         static const Verb verbs[] = {
-                { "add",         3,        VERB_ANY, 0,            verb_add            },
+                { "add",         1,        VERB_ANY, 0,            verb_add            },
+                { "add-all",     1,        1,        0,            verb_add_all        },
                 { "remove",      2,        VERB_ANY, 0,            verb_remove         },
-                { "inspect",     1,        2,        VERB_DEFAULT, verb_inspect        },
+                { "inspect",     VERB_ANY, 2,        VERB_DEFAULT, verb_inspect        },
+                { "list",        1,        VERB_ANY, 0,            verb_list           },
                 {}
         };
         _cleanup_(context_done) Context c = {

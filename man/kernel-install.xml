@@ -42,6 +42,11 @@
       <arg choice="plain">inspect</arg>
       <arg choice="opt"><replaceable>KERNEL-IMAGE</replaceable></arg>
     </cmdsynopsis>
+    <cmdsynopsis>
+      <command>kernel-install</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">list</arg>
+    </cmdsynopsis>
   </refsynopsisdiv>
 
   <refsect1>
@@ -79,15 +84,16 @@
     <variablelist>
       <varlistentry>
         <term>
-          <command>add</command>
-          <replaceable>KERNEL-VERSION</replaceable>
-          <replaceable>KERNEL-IMAGE</replaceable> [<replaceable>INITRD-FILE</replaceable> ...]
+          <command>add</command> [<replaceable>KERNEL-VERSION</replaceable> [<replaceable>KERNEL-IMAGE</replaceable> [<replaceable>INITRD-FILE</replaceable> ...]]]
         </term>
 
         <listitem>
-          <para>This command expects a kernel version string and a path to a kernel image file as arguments.
-          Optionally, one or more initrd images may be specified as well (note that plugins might generate
-          additional ones).</para>
+          <para>This command takes a kernel version string and a path to a kernel image file as arguments. If
+          the latter is omitted defaults to
+          <filename>/usr/lib/modules/<replaceable>KERNEL_VERSION</replaceable>/vmlinuz</filename>, if the
+          former is omitted too it defaults to the current kernel version, i.e. the same string <command>uname
+          -r</command> returns. Optionally, one or more initrd images may be specified as well (note that
+          plugins might generate additional ones).</para>
 
           <para>The executable files from <filename>/usr/lib/kernel/install.d/*.install</filename> and
           <filename>/etc/kernel/install.d/*.install</filename> (i.e. the plugins) are called with the
@@ -143,6 +149,20 @@
         </listitem>
       </varlistentry>
       <varlistentry>
+        <term>
+          <command>add-all</command>
+        </term>
+
+        <listitem>
+          <para>This is the same as <command>add</command> (see above), but invokes the operation iteratively
+          for every installed kernel in <filename>/usr/lib/modules/</filename>. This operation is only
+          supported on systems where the kernel image is installed in
+          <filename>/usr/lib/modules/<replaceable>KERNEL-VERSION</replaceable>/vmlinuz</filename>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v255"/>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
         <term><command>remove <replaceable>KERNEL-VERSION</replaceable></command></term>
         <listitem>
           <para>This command expects a kernel version string as single argument.</para>
@@ -183,6 +203,15 @@
           below.</para>
 
           <xi:include href="version-info.xml" xpointer="v251"/>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><command>list</command></term>
+        <listitem>
+          <para>Shows the various installed kernels This enumerates the subdirectories of
+          <filename>/usr/lib/modules/</filename>, and shows whether a kernel image is installed there.</para>
+
+          <xi:include href="version-info.xml" xpointer="v255"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -433,9 +462,9 @@
 
       <para><varname>$KERNEL_INSTALL_STAGING_AREA</varname> is set for plugins to a path to a directory.
       Plugins may drop files in that directory, and they will be installed as part of the loader entry, based
-      on the file name and extension: Files named <filename>initrd*</filename> will be installed as <replaceable>INITRD-FILE</replaceable>s, 
+      on the file name and extension: Files named <filename>initrd*</filename> will be installed as <replaceable>INITRD-FILE</replaceable>s,
       and files named <filename>microcode*</filename> will be prepended before <replaceable>INITRD-FILE</replaceable>s.</para>
-      
+
     </refsect2>
 
     <refsect2>
@@ -607,6 +636,31 @@
           <xi:include href="version-info.xml" xpointer="v255"/>
         </listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><filename>/usr/lib/modules/<replaceable>KERNEL-VERSION/</replaceable></filename></term>
+
+        <listitem>
+          <para>Location for installed kernel modules and other kernel related resources. For each locally
+          installed kernel a directory named after the kernel version (<command>uname -r</command>) is
+          kept.</para>
+
+          <xi:include href="version-info.xml" xpointer="v255"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><filename>/usr/lib/modules/<replaceable>KERNEL-VERSION/vmlinuz</replaceable></filename></term>
+
+        <listitem>
+          <para>Location for installed kernel images. This is the recommended location for OS package
+          managers to install kernel images into (as applicable), from which <command>kernel-install
+          add</command> then copies it into the final boot partition.</para>
+
+          <xi:include href="version-info.xml" xpointer="v255"/>
+        </listitem>
+      </varlistentry>
+
     </variablelist>
 
     <para>For various cases listed above, if the <varname>$KERNEL_INSTALL_CONF_ROOT</varname> environment
