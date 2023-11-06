@@ -58,18 +58,18 @@ EOF
 }
 
 testcase_sleep_automated() {
-    assert_eq "$(busctl get-property org.freedesktop.login1 /org/freedesktop/login1 org.freedesktop.login1.Manager SleepOperation)" 'as 2 "suspend-then-hibernate" "suspend"'
+    assert_eq "$(busctl get-property org.freedesktop.login1 /org/freedesktop/login1 org.freedesktop.login1.Manager SleepOperation)" 'as 3 "suspend-then-hibernate" "suspend" "hibernate"'
 
     mkdir -p /run/systemd/logind.conf.d
 
     cat >/run/systemd/logind.conf.d/sleep-operations.conf <<EOF
 [Login]
-SleepOperation=suspend
+SleepOperation=suspend hybrid-sleep
 EOF
 
     systemctl restart systemd-logind.service
 
-    assert_eq "$(busctl get-property org.freedesktop.login1 /org/freedesktop/login1 org.freedesktop.login1.Manager SleepOperation)" 'as 1 "suspend"'
+    assert_eq "$(busctl get-property org.freedesktop.login1 /org/freedesktop/login1 org.freedesktop.login1.Manager SleepOperation)" 'as 2 "hybrid-sleep" "suspend"'
 
     busctl call org.freedesktop.login1 /org/freedesktop/login1 org.freedesktop.login1.Manager CanSleep
 
