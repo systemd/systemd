@@ -130,6 +130,9 @@ CHANGES WITH 255 in spe:
           machinectl bind and mount-image verbs will now cause the new mount to
           replace the old mount (if any), instead of overmounting it.
 
+        * Units now have a MemoryPeak property, which contains the value of
+          cgroup v2's memory.peak property.
+
         TPM2 Support + Disk Encryption & Authentication:
 
         * systemd-cryptenroll now allows specifying a PCR bank and explicit hash
@@ -433,7 +436,7 @@ CHANGES WITH 255 in spe:
         * systemd-sysupdate now accepts directories in the MatchPattern= option.
 
         * systemd-run will now output the invocation ID of the launched
-          transient unit.
+          transient unit and its peak memory usage.
 
         * systemd-analyze, systemd-tmpfiles, systemd-sysusers, systemd-sysctl,
           and systemd-binfmt gained a new --tldr option that can be used instead
