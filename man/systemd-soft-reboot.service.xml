@@ -43,18 +43,18 @@
       <listitem><para>The second phase of regular shutdown, as implemented by
       <citerefentry><refentrytitle>systemd-shutdown</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para></listitem>
 
-      <listitem><para>The third phase of regular shutdown, i.e. the return to the initrd
-      context</para></listitem>
+      <listitem><para>The third phase of regular shutdown, i.e. the return to the initrd context.
+      </para></listitem>
 
-      <listitem><para>The hardware reboot operation</para></listitem>
+      <listitem><para>The hardware reboot operation.</para></listitem>
 
-      <listitem><para>The firmware initialization</para></listitem>
+      <listitem><para>The firmware initialization.</para></listitem>
 
-      <listitem><para>The boot loader initialization</para></listitem>
+      <listitem><para>The boot loader initialization.</para></listitem>
 
-      <listitem><para>The kernel initialization</para></listitem>
+      <listitem><para>The kernel initialization.</para></listitem>
 
-      <listitem><para>The initrd initialization</para></listitem>
+      <listitem><para>The initrd initialization.</para></listitem>
     </itemizedlist>
 
     <para>However this form of reboot comes with drawbacks as well:</para>
