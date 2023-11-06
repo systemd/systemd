@@ -464,6 +464,31 @@
             </para>
           </listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><filename>/usr/lib/modules/<replaceable>KERNEL-VERSION/</replaceable></filename></term>
+
+        <listitem>
+          <para>Location for installed kernel modules and other kernel related resources. For each locally
+          installed kernel a directory named after the kernel version (<command>uname -r</command>) is
+          kept.</para>
+
+          <xi:include href="version-info.xml" xpointer="v255"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><filename>/usr/lib/modules/<replaceable>KERNEL-VERSION/vmlinuz</replaceable></filename></term>
+
+        <listitem>
+          <para>Location for installed kernel images. This is the recommended location for OS package
+          managers to install kernel images into (as applicable), from which <command>kernel-install
+          add</command> then copies it into the final boot partition.</para>
+
+          <xi:include href="version-info.xml" xpointer="v255"/>
+        </listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 
