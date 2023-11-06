@@ -2174,7 +2174,7 @@ static int show_pcr_table(EventLog *el, JsonVariant **ret_variant) {
 
         assert(el);
 
-        table = table_new_raw(7 + el->n_algorithms*2);
+        table = table_new_raw(8 + el->n_algorithms*2);
         if (!table)
                 return log_oom();
 
@@ -2183,7 +2183,8 @@ static int show_pcr_table(EventLog *el, JsonVariant **ret_variant) {
         r = table_add_many(table,
                            TABLE_HEADER, "pcr",
                            TABLE_SET_ALIGN_PERCENT, 100,
-                           TABLE_HEADER, "",
+                           TABLE_HEADER, "", /* color block column */
+                           TABLE_HEADER, "", /* emoji column */
                            TABLE_HEADER, "pcrname",
                            TABLE_HEADER, "count",
                            TABLE_SET_ALIGN_PERCENT, 100,
@@ -2205,17 +2206,35 @@ static int show_pcr_table(EventLog *el, JsonVariant **ret_variant) {
                 return r;
 
         if (!FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF))
-                (void) table_hide_column_from_display(table, (size_t) 1); /* hide color block column */
+                (void) table_hide_column_from_display(table, (size_t) 1, (size_t) 2); /* hide color block and emoji column */
+        else if (!emoji_enabled())
+                (void) table_hide_column_from_display(table, (size_t) 2);
 
-        (void) table_set_json_field_name(table, 4, "hashMatchesEventLog");
-        (void) table_set_json_field_name(table, 5, "allEventsMatched");
-        (void) table_set_json_field_name(table, 6, "noMissingComponents");
+        (void) table_set_json_field_name(table, 5, "hashMatchesEventLog");
+        (void) table_set_json_field_name(table, 6, "allEventsMatched");
+        (void) table_set_json_field_name(table, 7, "noMissingComponents");
 
         for (uint32_t pcr = 0; pcr < TPM2_PCRS_MAX; pcr++) {
+                /* Check if the PCR hash value matches the event log data */
+                bool hash_match = event_log_pcr_checks_out(el, el->registers + pcr);
+
+                /* Whether all records in this PCR have a matching component */
+                bool fully_recognized = el->registers[pcr].fully_recognized;
+
+                /* Whether any unmatched components touch this PCR */
+                bool missing_components = FLAGS_SET(el->missing_component_pcrs, UINT32_C(1) << pcr);
+
+                const char *emoji = special_glyph(
+                                !hash_match ? SPECIAL_GLYPH_DEPRESSED_SMILEY :
+                                !fully_recognized ? SPECIAL_GLYPH_UNHAPPY_SMILEY :
+                                missing_components ?  SPECIAL_GLYPH_SLIGHTLY_HAPPY_SMILEY :
+                                SPECIAL_GLYPH_HAPPY_SMILEY);
+
                 r = table_add_many(table,
                                    TABLE_UINT32, pcr,
                                    TABLE_STRING, special_glyph(SPECIAL_GLYPH_FULL_BLOCK),
                                    TABLE_SET_COLOR, color_for_pcr(el, pcr),
+                                   TABLE_STRING, emoji,
                                    TABLE_STRING, tpm2_pcr_index_to_string(pcr));
                 if (r < 0)
                         return table_log_add_error(r);
@@ -2226,15 +2245,6 @@ static int show_pcr_table(EventLog *el, JsonVariant **ret_variant) {
                         r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
                 if (r < 0)
                         return table_log_add_error(r);
-
-                /* Check if the PCR hash value matches the event log data */
-                bool hash_match = event_log_pcr_checks_out(el, el->registers + pcr);
-
-                /* Whether all records in this PCR have a matching component */
-                bool fully_recognized = el->registers[pcr].fully_recognized;
-
-                /* Whether any unmatched components touch this PCR */
-                bool missing_components = FLAGS_SET(el->missing_component_pcrs, UINT32_C(1) << pcr);
 
                 r = table_add_many(table,
                                    TABLE_BOOLEAN_CHECKMARK, hash_match,
