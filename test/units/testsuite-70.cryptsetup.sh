@@ -176,16 +176,16 @@ systemd-cryptenroll --wipe-slot=tpm2 "$IMAGE"
 PRIMARY=/tmp/primary.ctx
 tpm2_createprimary -c "$PRIMARY"
 PERSISTENT_LINE=$(tpm2_evictcontrol -c "$PRIMARY" | grep persistent-handle)
-PERSISTENT="0x${PERSISTENT_LINE##*0x}"
+PERSISTENT_HANDLE="0x${PERSISTENT_LINE##*0x}"
 tpm2_flushcontext -t
 
 systemd-cryptenroll --wipe-slot=tpm2 "$IMAGE"
-PASSWORD=passphrase systemd-cryptenroll --tpm2-device=auto --tpm2-seal-key-handle="${PERSISTENT#0x}" "$IMAGE"
+PASSWORD=passphrase systemd-cryptenroll --tpm2-device=auto --tpm2-seal-key-handle="${PERSISTENT_HANDLE#0x}" "$IMAGE"
 systemd-cryptsetup attach test-volume "$IMAGE" - tpm2-device=auto,headless=1
 systemd-cryptsetup detach test-volume
 
 systemd-cryptenroll --wipe-slot=tpm2 "$IMAGE"
-PASSWORD=passphrase systemd-cryptenroll --tpm2-device=auto --tpm2-seal-key-handle="$PERSISTENT" "$IMAGE"
+PASSWORD=passphrase systemd-cryptenroll --tpm2-device=auto --tpm2-seal-key-handle="$PERSISTENT_HANDLE" "$IMAGE"
 systemd-cryptsetup attach test-volume "$IMAGE" - tpm2-device=auto,headless=1
 systemd-cryptsetup detach test-volume
 
