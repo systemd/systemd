@@ -1003,9 +1003,6 @@ Features:
   uses RootDirectory= or RootImage=. (Might also over-mount
   /sys/class/dmi/id/*{uuid,serial} with /dev/null).
 
-* kernel-install:
-  - add --all switch for rerunning kernel-install for all installed kernels
-
 * doc: prep a document explaining resolved's internal objects, i.e. Query
   vs. Question vs. Transaction vs. Stream and so on.
 
