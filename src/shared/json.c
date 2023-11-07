@@ -4631,8 +4631,13 @@ int json_dispatch_int64(const char *name, JsonVariant *variant, JsonDispatchFlag
 
         assert(variant);
 
+        /* Also accept numbers formatted as string, to increase compatibility with less capable JSON
+         * implementations that cannot do 64bit integers. */
+        if (json_variant_is_string(variant) && safe_atoi64(json_variant_string(variant), i) >= 0)
+                return 0;
+
         if (!json_variant_is_integer(variant))
-                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an integer.", strna(name));
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an integer, nor one formatted as decimal string.", strna(name));
 
         *i = json_variant_integer(variant);
         return 0;
@@ -4643,8 +4648,16 @@ int json_dispatch_uint64(const char *name, JsonVariant *variant, JsonDispatchFla
 
         assert(variant);
 
+        /* Since 64bit values (in particular unsigned ones) in JSON are problematic, let's also accept them
+         * formatted as strings. If this is not desired make sure to set the .type field in JsonDispatch to
+         * JSON_UNSIGNED rather than _JSON_VARIANT_TYPE_INVALID, so that json_dispatch() already filters out
+         * the non-matching type. */
+
+        if (json_variant_is_string(variant) && safe_atou64(json_variant_string(variant), u) >= 0)
+                return 0;
+
         if (!json_variant_is_unsigned(variant))
-                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an unsigned integer.", strna(name));
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an unsigned integer, nor one formatted as decimal string.", strna(name));
 
         *u = json_variant_unsigned(variant);
         return 0;
@@ -4652,61 +4665,73 @@ int json_dispatch_uint64(const char *name, JsonVariant *variant, JsonDispatchFla
 
 int json_dispatch_uint32(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
         uint32_t *u = ASSERT_PTR(userdata);
+        uint64_t u64;
+        int r;
 
         assert(variant);
 
-        if (!json_variant_is_unsigned(variant))
-                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an unsigned integer.", strna(name));
+        r = json_dispatch_uint64(name, variant, flags, &u64);
+        if (r < 0)
+                return r;
 
-        if (json_variant_unsigned(variant) > UINT32_MAX)
+        if (u64 > UINT32_MAX)
                 return json_log(variant, flags, SYNTHETIC_ERRNO(ERANGE), "JSON field '%s' out of bounds.", strna(name));
 
-        *u = (uint32_t) json_variant_unsigned(variant);
+        *u = (uint32_t) u64;
         return 0;
 }
 
 int json_dispatch_int32(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
         int32_t *i = ASSERT_PTR(userdata);
+        int64_t i64;
+        int r;
 
         assert(variant);
 
-        if (!json_variant_is_integer(variant))
-                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an integer.", strna(name));
+        r = json_dispatch_int64(name, variant, flags, &i64);
+        if (r < 0)
+                return r;
 
-        if (json_variant_integer(variant) < INT32_MIN || json_variant_integer(variant) > INT32_MAX)
+        if (i64 < INT32_MIN || i64 > INT32_MAX)
                 return json_log(variant, flags, SYNTHETIC_ERRNO(ERANGE), "JSON field '%s' out of bounds.", strna(name));
 
-        *i = (int32_t) json_variant_integer(variant);
+        *i = (int32_t) i64;
         return 0;
 }
 
 int json_dispatch_int16(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
         int16_t *i = ASSERT_PTR(userdata);
+        int64_t i64;
+        int r;
 
         assert(variant);
 
-        if (!json_variant_is_integer(variant))
-                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an integer.", strna(name));
+        r = json_dispatch_int64(name, variant, flags, &i64);
+        if (r < 0)
+                return r;
 
-        if (json_variant_integer(variant) < INT16_MIN || json_variant_integer(variant) > INT16_MAX)
+        if (i64 < INT16_MIN || i64 > INT16_MAX)
                 return json_log(variant, flags, SYNTHETIC_ERRNO(ERANGE), "JSON field '%s' out of bounds.", strna(name));
 
-        *i = (int16_t) json_variant_integer(variant);
+        *i = (int16_t) i64;
         return 0;
 }
 
 int json_dispatch_uint16(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
-        uint16_t *i = ASSERT_PTR(userdata);
+        uint16_t *u = ASSERT_PTR(userdata);
+        uint64_t u64;
+        int r;
 
         assert(variant);
 
-        if (!json_variant_is_unsigned(variant))
-                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an unsigned integer.", strna(name));
+        r = json_dispatch_uint64(name, variant, flags, &u64);
+        if (r < 0)
+                return r;
 
-        if (json_variant_unsigned(variant) > UINT16_MAX)
+        if (u64 > UINT16_MAX)
                 return json_log(variant, flags, SYNTHETIC_ERRNO(ERANGE), "JSON field '%s' out of bounds.", strna(name));
 
-        *i = (uint16_t) json_variant_unsigned(variant);
+        *u = (uint16_t) u64;
         return 0;
 }
 
