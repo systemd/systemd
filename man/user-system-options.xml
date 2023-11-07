@@ -55,4 +55,15 @@
       implied.</para>
     </listitem>
   </varlistentry>
+
+  <varlistentry id='project'>
+    <term><option>-J</option></term>
+    <term><option>--project=</option></term>
+
+    <listitem id='project-text'>
+      <para>Execute operation on a project. Specify a project name to connect to. See
+      <citerefentry><refentrytitle>project@.service</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+      details about projects.</para>
+    </listitem>
+  </varlistentry>
 </variablelist>
