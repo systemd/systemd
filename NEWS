@@ -176,12 +176,12 @@ CHANGES WITH 255 in spe:
           state. Alternatives for each component are supported to allowlist
           multiple kernel versions or boot loader version simultaneously
           without losing access to the disk encryption keys. The tool can also
-          be used to analyze and validate the local TPM2 event
-          log. systemd-cryptsetup, systemd-cryptenroll, systemd-repart have all
-          been updated to support such policies. There's currently no support
-          for locking the system's root disk against a pcrlock policy, this
-          will be added soon. Moreover, it is currently not possible to combine
-          a pcrlock policy with a signed PCR policy. This component is
+          be used to analyze and validate the local TPM2 event log.
+          systemd-cryptsetup, systemd-cryptenroll, systemd-repart have all been
+          updated to support such policies. There's currently no support for
+          locking the system's root disk against a pcrlock policy, this will be
+          added soon. Moreover, it is currently not possible to combine a
+          pcrlock policy with a signed PCR policy. This component is
           experimental and its public interface is subject to change.
 
         systemd-boot, systemd-stub, ukify, bootctl, kernel-install:
