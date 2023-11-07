@@ -44,6 +44,11 @@
       <arg choice="opt"><replaceable>KERNEL-IMAGE</replaceable></arg>
       <arg choice="opt" rep="repeat"><replaceable>INITRD-FILE</replaceable></arg>
     </cmdsynopsis>
+    <cmdsynopsis>
+      <command>kernel-install</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">list</arg>
+    </cmdsynopsis>
   </refsynopsisdiv>
 
   <refsect1>
@@ -81,15 +86,17 @@
     <variablelist>
       <varlistentry>
         <term>
-          <command>add</command>
-          <replaceable>KERNEL-VERSION</replaceable>
-          <replaceable>KERNEL-IMAGE</replaceable> [<replaceable>INITRD-FILE</replaceable> ...]
+          <command>add [[[<replaceable>KERNEL-VERSION</replaceable>] <replaceable>KERNEL-IMAGE</replaceable>] [<replaceable>INITRD-FILE</replaceable> ...]]</command>
         </term>
 
         <listitem>
-          <para>This command expects a kernel version string and a path to a kernel image file as arguments.
-          Optionally, one or more initrd images may be specified as well (note that plugins might generate
-          additional ones).</para>
+          <para>This command takes a kernel version string and a path to a kernel image file as arguments. If
+          the former is omitted, specified as an empty string or as "-" it defaults to the current kernel
+          version, i.e. the same string <command>uname -r</command> returns. If the latter is omitted,
+          specified as an empty string or as "-" defaults to
+          <filename>/usr/lib/modules/<replaceable>KERNEL_VERSION</replaceable>/vmlinuz</filename>. Optionally,
+          one or more initrd images may be specified as well (note that plugins might generate additional
+          ones).</para>
 
           <para>The executable files from <filename>/usr/lib/kernel/install.d/*.install</filename> and
           <filename>/etc/kernel/install.d/*.install</filename> (i.e. the plugins) are called with the
@@ -145,6 +152,20 @@
         </listitem>
       </varlistentry>
       <varlistentry>
+        <term>
+          <command>add-all</command>
+        </term>
+
+        <listitem>
+          <para>This is the same as <command>add</command> (see above), but invokes the operation iteratively
+          for every installed kernel in <filename>/usr/lib/modules/</filename>. This operation is only
+          supported on systems where the kernel image is installed in
+          <filename>/usr/lib/modules/<replaceable>KERNEL-VERSION</replaceable>/vmlinuz</filename>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v255"/>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
         <term><command>remove <replaceable>KERNEL-VERSION</replaceable></command></term>
         <listitem>
           <para>This command expects a kernel version string as single argument.</para>
@@ -179,15 +200,26 @@
       </varlistentry>
       <varlistentry>
         <term>
-          <command>inspect [[<replaceable>KERNEL-VERSION</replaceable>] <replaceable>KERNEL-IMAGE</replaceable>] [<replaceable>INITRD-FILE</replaceable> ...]</command>
+          <command>inspect [[[<replaceable>KERNEL-VERSION</replaceable>] <replaceable>KERNEL-IMAGE</replaceable>] [<replaceable>INITRD-FILE</replaceable> ...]]</command>
         </term>
         <listitem>
+          <para>Takes the same parameters as <command>add</command>.</para>
+
           <para>Shows the various paths and parameters configured or auto-detected. In particular shows the
-          values of the various <varname>$KERNEL_INSTALL_*</varname> environment variables listed
-          below. The <option>--json</option> option can be used to get the output of this verb as a JSON
-          object.</para>
+          values of the various <varname>$KERNEL_INSTALL_*</varname> environment variables listed below, as
+          they would be passed to plugins. The <option>--json</option> option can be used to get the output
+          of this verb as a JSON object.</para>
 
           <xi:include href="version-info.xml" xpointer="v251"/>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><command>list</command></term>
+        <listitem>
+          <para>Shows the various installed kernels. This enumerates the subdirectories of
+          <filename>/usr/lib/modules/</filename>, and shows whether a kernel image is installed there.</para>
+
+          <xi:include href="version-info.xml" xpointer="v255"/>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -332,6 +364,7 @@
       <xi:include href="standard-options.xml" xpointer="no-pager"/>
       <xi:include href="standard-options.xml" xpointer="json" />
       <xi:include href="standard-options.xml" xpointer="image-policy-open" />
+      <xi:include href="standard-options.xml" xpointer="no-legend"/>
     </variablelist>
   </refsect1>
 
@@ -641,6 +674,31 @@
           <xi:include href="version-info.xml" xpointer="v255"/>
         </listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><filename>/usr/lib/modules/<replaceable>KERNEL-VERSION/</replaceable></filename></term>
+
+        <listitem>
+          <para>Location for installed kernel modules and other kernel related resources. For each locally
+          installed kernel a directory named after the kernel version (<command>uname -r</command>) is
+          kept.</para>
+
+          <xi:include href="version-info.xml" xpointer="v255"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><filename>/usr/lib/modules/<replaceable>KERNEL-VERSION/vmlinuz</replaceable></filename></term>
+
+        <listitem>
+          <para>Location for installed kernel images. This is the recommended location for OS package
+          managers to install kernel images into (as applicable), from which <command>kernel-install
+          add</command> then copies it into the final boot partition.</para>
+
+          <xi:include href="version-info.xml" xpointer="v255"/>
+        </listitem>
+      </varlistentry>
+
     </variablelist>
 
     <para>For various cases listed above, if the <varname>$KERNEL_INSTALL_CONF_ROOT</varname> environment
