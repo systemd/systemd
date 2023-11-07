@@ -6014,14 +6014,14 @@ int tpm2_pcrlock_policy_load(
                 return log_error_errno(r, "Failed to parse existing pcrlock policy file '%s': %m", discovered_path);
 
         JsonDispatch policy_dispatch[] = {
-                { "pcrBank",    JSON_VARIANT_STRING,  json_dispatch_tpm2_algorithm, offsetof(Tpm2PCRLockPolicy, algorithm),       JSON_MANDATORY },
-                { "pcrValues",  JSON_VARIANT_ARRAY,   json_dispatch_variant,        offsetof(Tpm2PCRLockPolicy, prediction_json), JSON_MANDATORY },
-                { "nvIndex",    JSON_VARIANT_INTEGER, json_dispatch_uint32,         offsetof(Tpm2PCRLockPolicy, nv_index),        JSON_MANDATORY },
-                { "nvHandle",   JSON_VARIANT_STRING,  json_dispatch_unbase64_iovec, offsetof(Tpm2PCRLockPolicy, nv_handle),       JSON_MANDATORY },
-                { "nvPublic",   JSON_VARIANT_STRING,  json_dispatch_unbase64_iovec, offsetof(Tpm2PCRLockPolicy, nv_public),       JSON_MANDATORY },
-                { "srkHandle",  JSON_VARIANT_STRING,  json_dispatch_unbase64_iovec, offsetof(Tpm2PCRLockPolicy, srk_handle),      JSON_MANDATORY },
-                { "pinPublic",  JSON_VARIANT_STRING,  json_dispatch_unbase64_iovec, offsetof(Tpm2PCRLockPolicy, pin_public),      JSON_MANDATORY },
-                { "pinPrivate", JSON_VARIANT_STRING,  json_dispatch_unbase64_iovec, offsetof(Tpm2PCRLockPolicy, pin_private),     JSON_MANDATORY },
+                { "pcrBank",    JSON_VARIANT_STRING,        json_dispatch_tpm2_algorithm, offsetof(Tpm2PCRLockPolicy, algorithm),       JSON_MANDATORY },
+                { "pcrValues",  JSON_VARIANT_ARRAY,         json_dispatch_variant,        offsetof(Tpm2PCRLockPolicy, prediction_json), JSON_MANDATORY },
+                { "nvIndex",    _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint32,         offsetof(Tpm2PCRLockPolicy, nv_index),        JSON_MANDATORY },
+                { "nvHandle",   JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec, offsetof(Tpm2PCRLockPolicy, nv_handle),       JSON_MANDATORY },
+                { "nvPublic",   JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec, offsetof(Tpm2PCRLockPolicy, nv_public),       JSON_MANDATORY },
+                { "srkHandle",  JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec, offsetof(Tpm2PCRLockPolicy, srk_handle),      JSON_MANDATORY },
+                { "pinPublic",  JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec, offsetof(Tpm2PCRLockPolicy, pin_public),      JSON_MANDATORY },
+                { "pinPrivate", JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec, offsetof(Tpm2PCRLockPolicy, pin_private),     JSON_MANDATORY },
                 {}
         };
 

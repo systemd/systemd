@@ -137,13 +137,13 @@ static bool validate_efi_hibernate_location(EFIHibernateLocation *e) {
 static int get_efi_hibernate_location(EFIHibernateLocation **ret) {
 
         static const JsonDispatch dispatch_table[] = {
-                { "uuid",                  JSON_VARIANT_STRING,   json_dispatch_id128,  offsetof(EFIHibernateLocation, uuid),           JSON_MANDATORY             },
-                { "offset",                JSON_VARIANT_UNSIGNED, json_dispatch_uint64, offsetof(EFIHibernateLocation, offset),         JSON_MANDATORY             },
-                { "kernelVersion",         JSON_VARIANT_STRING,   json_dispatch_string, offsetof(EFIHibernateLocation, kernel_version), JSON_PERMISSIVE|JSON_DEBUG },
-                { "osReleaseId",           JSON_VARIANT_STRING,   json_dispatch_string, offsetof(EFIHibernateLocation, id),             JSON_PERMISSIVE|JSON_DEBUG },
-                { "osReleaseImageId",      JSON_VARIANT_STRING,   json_dispatch_string, offsetof(EFIHibernateLocation, image_id),       JSON_PERMISSIVE|JSON_DEBUG },
-                { "osReleaseVersionId",    JSON_VARIANT_STRING,   json_dispatch_string, offsetof(EFIHibernateLocation, version_id),     JSON_PERMISSIVE|JSON_DEBUG },
-                { "osReleaseImageVersion", JSON_VARIANT_STRING,   json_dispatch_string, offsetof(EFIHibernateLocation, image_version),  JSON_PERMISSIVE|JSON_DEBUG },
+                { "uuid",                  JSON_VARIANT_STRING,        json_dispatch_id128,  offsetof(EFIHibernateLocation, uuid),           JSON_MANDATORY             },
+                { "offset",                _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64, offsetof(EFIHibernateLocation, offset),         JSON_MANDATORY             },
+                { "kernelVersion",         JSON_VARIANT_STRING,        json_dispatch_string, offsetof(EFIHibernateLocation, kernel_version), JSON_PERMISSIVE|JSON_DEBUG },
+                { "osReleaseId",           JSON_VARIANT_STRING,        json_dispatch_string, offsetof(EFIHibernateLocation, id),             JSON_PERMISSIVE|JSON_DEBUG },
+                { "osReleaseImageId",      JSON_VARIANT_STRING,        json_dispatch_string, offsetof(EFIHibernateLocation, image_id),       JSON_PERMISSIVE|JSON_DEBUG },
+                { "osReleaseVersionId",    JSON_VARIANT_STRING,        json_dispatch_string, offsetof(EFIHibernateLocation, version_id),     JSON_PERMISSIVE|JSON_DEBUG },
+                { "osReleaseImageVersion", JSON_VARIANT_STRING,        json_dispatch_string, offsetof(EFIHibernateLocation, image_version),  JSON_PERMISSIVE|JSON_DEBUG },
                 {},
         };
 
