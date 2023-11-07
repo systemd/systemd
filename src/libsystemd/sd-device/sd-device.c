@@ -74,6 +74,7 @@ static sd_device *device_free(sd_device *device) {
         ordered_hashmap_free(device->properties_db);
         hashmap_free(device->sysattr_values);
         set_free(device->sysattrs);
+        set_free(device->sysattrs_allowlist);
         set_free(device->all_tags);
         set_free(device->current_tags);
         set_free(device->devlinks);
@@ -2335,6 +2336,9 @@ _public_ int sd_device_get_sysattr_value(sd_device *device, const char *sysattr,
 
         assert_return(device, -EINVAL);
         assert_return(sysattr, -EINVAL);
+
+        if (device->sysattrs_allowlist && !set_contains(device->sysattrs_allowlist, sysattr))
+                return -ENOTSUP;
 
         /* look for possibly already cached result */
         r = device_get_cached_sysattr_value(device, sysattr, ret_value);
