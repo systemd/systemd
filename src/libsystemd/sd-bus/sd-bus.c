@@ -257,6 +257,8 @@ _public_ int sd_bus_new(sd_bus **ret) {
                 .close_on_exit = true,
                 .ucred = UCRED_INVALID,
                 .runtime_scope = _RUNTIME_SCOPE_INVALID,
+                .connect_as_uid = UID_INVALID,
+                .connect_as_gid = GID_INVALID,
         };
 
         /* We guarantee that wqueue always has space for at least one entry */
@@ -717,7 +719,7 @@ static void skip_address_key(const char **p) {
 }
 
 static int parse_unix_address(sd_bus *b, const char **p, char **guid) {
-        _cleanup_free_ char *path = NULL, *abstract = NULL;
+        _cleanup_free_ char *path = NULL, *abstract = NULL, *uids = NULL, *gids = NULL;
         size_t l;
         int r;
 
@@ -740,6 +742,18 @@ static int parse_unix_address(sd_bus *b, const char **p, char **guid) {
                         continue;
 
                 r = parse_address_key(p, "abstract", &abstract);
+                if (r < 0)
+                        return r;
+                else if (r > 0)
+                        continue;
+
+                r = parse_address_key(p, "uid", &uids);
+                if (r < 0)
+                        return r;
+                else if (r > 0)
+                        continue;
+
+                r = parse_address_key(p, "gid", &gids);
                 if (r < 0)
                         return r;
                 else if (r > 0)
@@ -779,6 +793,17 @@ static int parse_unix_address(sd_bus *b, const char **p, char **guid) {
 
                 memcpy(b->sockaddr.un.sun_path+1, abstract, l);
                 b->sockaddr_size = offsetof(struct sockaddr_un, sun_path) + 1 + l;
+        }
+
+        if (uids) {
+                r = parse_uid(uids, &b->connect_as_uid);
+                if (r < 0)
+                        return r;
+        }
+        if (gids) {
+                r = parse_gid(gids, &b->connect_as_gid);
+                if (r < 0)
+                        return r;
         }
 
         b->is_local = true;
