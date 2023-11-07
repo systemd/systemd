@@ -969,22 +969,15 @@ static int on_ctrl_msg(UdevCtrl *uctrl, UdevCtrlMessageType type, const UdevCtrl
                         return 1;
                 }
 
-                if (r == 0) {
+                if (r == 0)
                         log_debug("Received udev control message (ENV), unsetting '%s'", key);
-
-                        r = update_properties_consume(&manager->properties, TAKE_PTR(key), NULL);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to unset property: %m");
-                                return 1;
-                        }
-                } else {
+                else
                         log_debug("Received udev control message (ENV), setting '%s=%s'", key, val);
 
-                        r = update_properties_consume(&manager->properties, TAKE_PTR(key), TAKE_PTR(val));
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to set property: %m");
-                                return 1;
-                        }
+                r = update_properties_consume(&manager->properties, TAKE_PTR(key), TAKE_PTR(val));
+                if (r < 0) {
+                        log_error_errno(r, "Failed to update property: %m");
+                        return 1;
                 }
 
                 manager_kill_workers(manager, false);
