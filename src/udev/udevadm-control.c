@@ -91,6 +91,85 @@ static int send_start_exec_queue(UdevConnection *conn) {
         return udev_varlink_call(conn->link, "io.systemd.udev.StartExecQueue", NULL, NULL);
 }
 
+static int send_pending_env(sd_varlink *link, char **assignments, char **names, bool set) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        char **env = set ? assignments : names;
+        int r;
+
+        assert(link);
+
+        if (!env)
+                return 0;
+
+        r = sd_json_buildo(&v, SD_JSON_BUILD_PAIR(set ? "assignments" : "names", SD_JSON_BUILD_STRV(env)));
+        if (r < 0)
+                return log_error_errno(r, "Failed to build json object: %m");
+
+        return udev_varlink_call(
+                        link,
+                        set ? "io.systemd.udev.SetEnvironment" : "io.systemd.udev.UnsetEnvironment",
+                        v,
+                        NULL);
+}
+
+static int send_set_env(UdevConnection *conn, char **env) {
+        _cleanup_free_ char **assignments = NULL;
+        _cleanup_strv_free_ char **names = NULL;
+        bool set = true;
+        int r;
+
+        assert(conn);
+        assert(env);
+        assert(conn->link || conn->uctrl);
+
+        if (!conn->link) {
+                STRV_FOREACH(e, env) {
+                        r = udev_ctrl_send_set_env(conn->uctrl, *e);
+                        if (r < 0)
+                                return r;
+                }
+
+                return 0;
+        }
+
+        STRV_FOREACH(e, env) {
+                char *eq;
+                bool has_value;
+
+                eq = strchr(*e, '=');
+                assert(eq);
+
+                has_value = *(eq + 1);
+                if (has_value != set) {
+                        r = send_pending_env(conn->link, assignments, names, set);
+                        if (r < 0)
+                                return r;
+
+                        set = has_value;
+                        if (set)
+                                assignments = mfree(assignments);
+                        else
+                                names = strv_free(names);
+                }
+
+                if (set)
+                        r = strv_extend(&assignments, *e);
+                else {
+                        char *key;
+
+                        key = strndup(*e, eq - *e);
+                        if (!key)
+                                return log_oom();
+
+                        r = strv_consume(&names, key);
+                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to extend env. list: %m");
+        }
+
+        return send_pending_env(conn->link, assignments, names, set);
+}
+
 static int help(void) {
         printf("%s control OPTION\n\n"
                "Control the udev daemon.\n\n"
@@ -262,8 +341,8 @@ static int send_control_commands(void) {
                         return log_error_errno(r, "Failed to send reload request: %m");
         }
 
-        STRV_FOREACH(env, arg_env) {
-                r = udev_ctrl_send_set_env(conn.uctrl, *env);
+        if (arg_env) {
+                r = send_set_env(&conn, arg_env);
                 if (r < 0)
                         return log_error_errno(r, "Failed to send request to update environment: %m");
         }
