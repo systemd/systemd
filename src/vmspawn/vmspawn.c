@@ -68,7 +68,7 @@ static int help(void) {
                "     --qemu-mem=MEM         Configure guest's RAM size\n"
                "     --qemu-kvm=            Configure whether to use KVM or not\n"
                "     --qemu-gui             Start QEMU in graphical mode\n"
-               "     --secure-boot=         Configure whether to search for firmware which supports Secure Boot\n\n"
+               "     --secure-boot=         Configure searching for firmware with SB support\n\n"
                "%3$sCredentials:%4$s\n"
                "     --set-credential=ID:VALUE\n"
                "                            Pass a credential with literal value to container.\n"
