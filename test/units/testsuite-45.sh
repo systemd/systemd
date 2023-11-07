@@ -208,19 +208,34 @@ assert_ntp() {
     assert_eq "$(busctl get-property org.freedesktop.timedate1 /org/freedesktop/timedate1 org.freedesktop.timedate1 NTP)" "b $1"
 }
 
-start_mon() {
-    busctl monitor --match="type='signal',sender=org.freedesktop.timedate1,member='PropertiesChanged',path=/org/freedesktop/timedate1" >"$mon" &
-    MONPID=$!
+assert_timedated_signal() {
+    local timestamp="${1:?}"
+    local value="${2:?}"
+    local args=(-q -n 1 --since="$timestamp" -p info _SYSTEMD_UNIT="busctl-monitor.service")
+
+    journalctl --sync
+
+    for _ in {0..9}; do
+        if journalctl "${args[@]}" --grep .; then
+            [[ "$(journalctl "${args[@]}" -o cat | tr -d '\n' | jq -r '.payload.data[1].NTP.data')" == "$value" ]];
+            return 0
+        fi
+
+        sleep .5
+    done
+
+    return 1
 }
 
-wait_mon() {
-    for i in {1..10}; do
-        (( i > 1 )) && sleep 1
-        if grep -q "$1" "$mon"; then break; fi
+assert_timesyncd_state() {
+    local state="${1:?}"
+
+    for _ in {0..9}; do
+        [[ "$(systemctl show systemd-timesyncd.service -P ActiveState)" == "$state" ]] && return 0
+        sleep .5
     done
-    assert_in "$2" "$(cat "$mon")"
-    kill "$MONPID"
-    wait "$MONPID" 2>/dev/null || true
+
+    return 1
 }
 
 testcase_ntp() {
@@ -241,40 +256,31 @@ EOF
         systemctl daemon-reload
     fi
 
-    mon=$(mktemp -t dbusmon.XXXXXX)
+    systemd-run --unit busctl-monitor.service --service-type=exec \
+        busctl monitor --json=short --match="type='signal',sender=org.freedesktop.timedate1,member='PropertiesChanged',path=/org/freedesktop/timedate1"
 
-    echo 'disable NTP'
+    : 'Disable NTP'
     timedatectl set-ntp false
-    for i in {1..10}; do
-        (( i > 1 )) && sleep 1
-        if [[ "$(systemctl show systemd-timesyncd --property ActiveState)" == "ActiveState=inactive" ]]; then
-            break;
-        fi
-    done
-    assert_eq "$(systemctl show systemd-timesyncd --property ActiveState)" "ActiveState=inactive"
+    assert_timesyncd_state "inactive"
     assert_ntp "false"
     assert_rc 3 systemctl is-active --quiet systemd-timesyncd
 
-    echo 'enable NTP'
-    start_mon
+    : 'Enable NTP'
+    ts="$(date +"%F %T.%6N")"
     timedatectl set-ntp true
-    wait_mon "NTP" "BOOLEAN true"
+    assert_timedated_signal "$ts" "true"
     assert_ntp "true"
-    for i in {1..10}; do
-        (( i > 1 )) && sleep 1
-        if [[ "$(systemctl show systemd-timesyncd --property ActiveState)" == "ActiveState=active" ]]; then
-            break;
-        fi
-    done
-    assert_eq "$(systemctl show systemd-timesyncd --property ActiveState)" "ActiveState=active"
+    assert_timesyncd_state "active"
     assert_rc 0 systemctl is-active --quiet systemd-timesyncd
 
-    echo 're-disable NTP'
-    start_mon
+    : 'Re-disable NTP'
+    ts="$(date +"%F %T.%6N")"
     timedatectl set-ntp false
-    wait_mon "NTP" "BOOLEAN false"
+    assert_timedated_signal "$ts" "false"
     assert_ntp "false"
     assert_rc 3 systemctl is-active --quiet systemd-timesyncd
+
+    systemctl stop busctl-monitor.service
 }
 
 run_testcases
