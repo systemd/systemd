@@ -118,6 +118,21 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--vtpm=</option><replaceable>BOOL</replaceable></term>
+
+        <listitem>
+          <para>Configure whether to use qemu with a virtual TPM or not.</para>
+          <para>If the option is not specified vmspawn will detect the presence of <citerefentry project='man-pages'>
+          <refentrytitle>swtpm</refentrytitle><manvolnum>8</manvolnum></citerefentry> and use it if available.
+          If yes is specified <citerefentry project='man-pages'><refentrytitle>swtpm</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+          is always used, and vice versa if no is set <citerefentry project='man-pages'><refentrytitle>swtpm</refentrytitle>
+          <manvolnum>8</manvolnum></citerefentry> is never used.</para>
+          <para>Note: the virtual TPM used may change in future.</para>
+          <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--qemu-gui</option></term>
 
         <listitem><para>Start QEMU in graphical mode.</para>
