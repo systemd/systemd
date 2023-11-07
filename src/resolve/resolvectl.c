@@ -1466,8 +1466,6 @@ static int map_link_domains(sd_bus *bus, const char *member, sd_bus_message *m, 
         if (r < 0)
                 return r;
 
-        strv_sort(*l);
-
         return 0;
 }
 
