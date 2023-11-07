@@ -751,4 +751,66 @@ TEST(json_array_append_nodup) {
         assert_se(json_variant_equal(s, nd));
 }
 
+TEST(json_dispatch) {
+        struct foobar {
+                uint64_t a, b;
+                int64_t c, d;
+                uint32_t e, f;
+                int32_t g, h;
+                uint16_t i, j;
+                int16_t k, l;
+        } foobar = {};
+
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+
+        assert_se(json_build(&v, JSON_BUILD_OBJECT(
+                                             JSON_BUILD_PAIR("a", JSON_BUILD_UNSIGNED(UINT64_MAX)),
+                                             JSON_BUILD_PAIR("b", JSON_BUILD_STRING("18446744073709551615")),
+                                             JSON_BUILD_PAIR("c", JSON_BUILD_INTEGER(INT64_MIN)),
+                                             JSON_BUILD_PAIR("d", JSON_BUILD_STRING("-9223372036854775808")),
+                                             JSON_BUILD_PAIR("e", JSON_BUILD_UNSIGNED(UINT32_MAX)),
+                                             JSON_BUILD_PAIR("f", JSON_BUILD_STRING("4294967295")),
+                                             JSON_BUILD_PAIR("g", JSON_BUILD_INTEGER(INT32_MIN)),
+                                             JSON_BUILD_PAIR("h", JSON_BUILD_STRING("-2147483648")),
+                                             JSON_BUILD_PAIR("i", JSON_BUILD_UNSIGNED(UINT16_MAX)),
+                                             JSON_BUILD_PAIR("j", JSON_BUILD_STRING("65535")),
+                                             JSON_BUILD_PAIR("k", JSON_BUILD_INTEGER(INT16_MIN)),
+                                             JSON_BUILD_PAIR("l", JSON_BUILD_STRING("-32768")))) >= 0);
+
+        assert_se(json_variant_dump(v, JSON_FORMAT_PRETTY_AUTO|JSON_FORMAT_COLOR_AUTO, stdout, /* prefix= */ NULL) >= 0);
+
+        JsonDispatch table[] = {
+                { "a", _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64, offsetof(struct foobar, a) },
+                { "b", _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64, offsetof(struct foobar, b) },
+                { "c", _JSON_VARIANT_TYPE_INVALID, json_dispatch_int64,  offsetof(struct foobar, c) },
+                { "d", _JSON_VARIANT_TYPE_INVALID, json_dispatch_int64,  offsetof(struct foobar, d) },
+                { "e", _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint32, offsetof(struct foobar, e) },
+                { "f", _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint32, offsetof(struct foobar, f) },
+                { "g", _JSON_VARIANT_TYPE_INVALID, json_dispatch_int32,  offsetof(struct foobar, g) },
+                { "h", _JSON_VARIANT_TYPE_INVALID, json_dispatch_int32,  offsetof(struct foobar, h) },
+                { "i", _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint16, offsetof(struct foobar, i) },
+                { "j", _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint16, offsetof(struct foobar, j) },
+                { "k", _JSON_VARIANT_TYPE_INVALID, json_dispatch_int16,  offsetof(struct foobar, k) },
+                { "l", _JSON_VARIANT_TYPE_INVALID, json_dispatch_int16,  offsetof(struct foobar, l) },
+                {}
+        };
+
+        assert_se(json_dispatch(v, table, JSON_LOG, &foobar) >= 0);
+
+        assert_se(foobar.a == UINT64_MAX);
+        assert_se(foobar.b == UINT64_MAX);
+        assert_se(foobar.c == INT64_MIN);
+        assert_se(foobar.d == INT64_MIN);
+
+        assert_se(foobar.e == UINT32_MAX);
+        assert_se(foobar.f == UINT32_MAX);
+        assert_se(foobar.g == INT32_MIN);
+        assert_se(foobar.h == INT32_MIN);
+
+        assert_se(foobar.i == UINT16_MAX);
+        assert_se(foobar.j == UINT16_MAX);
+        assert_se(foobar.k == INT16_MIN);
+        assert_se(foobar.l == INT16_MIN);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
