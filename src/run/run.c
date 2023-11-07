@@ -1049,6 +1049,7 @@ typedef struct RunContext {
         uint64_t inactive_enter_usec;
         char *result;
         uint64_t cpu_usage_nsec;
+        uint64_t memory_peak;
         uint64_t ip_ingress_bytes;
         uint64_t ip_egress_bytes;
         uint64_t io_read_bytes;
@@ -1110,6 +1111,7 @@ static int run_context_update(RunContext *c, const char *path) {
                 { "ExecMainCode",                    "i",    NULL,    offsetof(RunContext, exit_code)           },
                 { "ExecMainStatus",                  "i",    NULL,    offsetof(RunContext, exit_status)         },
                 { "CPUUsageNSec",                    "t",    NULL,    offsetof(RunContext, cpu_usage_nsec)      },
+                { "MemoryPeak",                      "t",    NULL,    offsetof(RunContext, memory_peak)         },
                 { "IPIngressBytes",                  "t",    NULL,    offsetof(RunContext, ip_ingress_bytes)    },
                 { "IPEgressBytes",                   "t",    NULL,    offsetof(RunContext, ip_egress_bytes)     },
                 { "IOReadBytes",                     "t",    NULL,    offsetof(RunContext, io_read_bytes)       },
@@ -1391,6 +1393,7 @@ static int start_transient_service(sd_bus *bus) {
         if (arg_wait || arg_stdio != ARG_STDIO_NONE) {
                 _cleanup_(run_context_free) RunContext c = {
                         .cpu_usage_nsec = NSEC_INFINITY,
+                        .memory_peak = UINT64_MAX,
                         .ip_ingress_bytes = UINT64_MAX,
                         .ip_egress_bytes = UINT64_MAX,
                         .io_read_bytes = UINT64_MAX,
@@ -1485,6 +1488,9 @@ static int start_transient_service(sd_bus *bus) {
                         if (c.cpu_usage_nsec != NSEC_INFINITY)
                                 log_info("CPU time consumed: %s",
                                          FORMAT_TIMESPAN(DIV_ROUND_UP(c.cpu_usage_nsec, NSEC_PER_USEC), USEC_PER_MSEC));
+
+                        if (c.memory_peak != UINT64_MAX)
+                                log_info("Memory peak: %s", FORMAT_BYTES(c.memory_peak));
 
                         if (c.ip_ingress_bytes != UINT64_MAX)
                                 log_info("IP traffic received: %s", FORMAT_BYTES(c.ip_ingress_bytes));
