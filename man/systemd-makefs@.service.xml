@@ -57,7 +57,7 @@
     each filesystem type (<filename>/sbin/mkfs.<replaceable>type</replaceable></filename>
     or <filename>/sbin/mkswap</filename>). For certain file system types (currently
     ext2/ext3/<citerefentry project='man-pages'><refentrytitle>ext4</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-    <citerefentry project='url'><refentrytitle url='https://btrfs.wiki.kernel.org/index.php/Manpage/btrfs(5)'>btrfs</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+    <citerefentry project='url'><refentrytitle url='https://btrfs.readthedocs.io/en/latest/btrfs-man5.html'>btrfs</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
     <citerefentry project='man-pages'><refentrytitle>xfs</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
     f2fs, vfat) and for swap devices, it will configure reasonable defaults and set
     the file system label and UUID based on the device name.</para>
@@ -70,7 +70,7 @@
     number specific to each file system, so only certain types are supported.
     Currently:
     <citerefentry project='man-pages'><refentrytitle>ext4</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-    <citerefentry project='url'><refentrytitle url='https://btrfs.wiki.kernel.org/index.php/Manpage/btrfs(5)'>btrfs</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+    <citerefentry project='url'><refentrytitle url='https://btrfs.readthedocs.io/en/latest/btrfs-man5.html'>btrfs</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
     <citerefentry project='man-pages'><refentrytitle>xfs</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
     <!-- yes, that's what the man page is called. -->
     and dm-crypt partitions (see
@@ -89,7 +89,7 @@
       <citerefentry><refentrytitle>systemd.mount</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-repart</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-      <citerefentry project='man-pages'><refentrytitle>mkfs.btrfs</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry project='url'><refentrytitle url='https://btrfs.readthedocs.io/en/latest/mkfs.btrfs.html'>mkfs.btrfs</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>mkfs.cramfs</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>mkfs.ext4</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>mkfs.fat</refentrytitle><manvolnum>8</manvolnum></citerefentry>,

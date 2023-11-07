@@ -111,7 +111,7 @@
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>fsck</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-quotacheck.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-      <citerefentry project='man-pages'><refentrytitle>fsck.btrfs</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry project='url'><refentrytitle url='https://btrfs.readthedocs.io/en/latest/fsck.btrfs.html'>fsck.btrfs</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>fsck.cramfs</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>fsck.ext4</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>fsck.fat</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
