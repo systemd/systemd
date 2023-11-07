@@ -1609,9 +1609,14 @@ static int client_parse_message(
                                 return log_dhcp_client_errno(client, SYNTHETIC_ERRNO(ENOMSG),
                                                              "received rapid ACK without Rapid Commit option, ignoring.");
                 } else if (r == DHCP_OFFER) {
-                        if (lease->rapid_commit)
-                                return log_dhcp_client_errno(client, SYNTHETIC_ERRNO(ENOMSG),
-                                                             "received OFFER with Rapid Commit option, ignoring");
+                        if (lease->rapid_commit) {
+                                /* Some RFC incompliant servers provides an OFFER with a rapid commit option.
+                                 * See https://github.com/systemd/systemd/issues/29904.
+                                 * Let's support such servers gracefully. */
+                                log_dhcp_client_errno(client, SYNTHETIC_ERRNO(ENOMSG),
+                                                      "received OFFER with Rapid Commit option, ignoring.");
+                                lease->rapid_commit = false;
+                        }
                         if (lease->lifetime == 0 && client->fallback_lease_lifetime > 0)
                                 lease->lifetime = client->fallback_lease_lifetime;
                 } else
