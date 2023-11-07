@@ -156,7 +156,7 @@ option('backlight', type : 'boolean',
        description : 'support for restoring backlight state')
 option('vconsole', type : 'boolean',
        description : 'support for vconsole configuration')
-option('vmspawn', type : 'boolean', value: false,
+option('vmspawn', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'install the systemd-vmspawn tool')
 option('quotacheck', type : 'boolean',
        description : 'support for the quotacheck tools')
