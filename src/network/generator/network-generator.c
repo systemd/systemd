@@ -389,14 +389,17 @@ static int network_set_hostname(Context *context, const char *ifname, const char
         return free_and_strdup(&network->hostname, hostname);
 }
 
-static int network_set_mtu(Context *context, const char *ifname, int family, const char *mtu) {
+static int network_set_mtu(Context *context, const char *ifname, const char *mtu) {
         Network *network;
+
+        if (isempty(mtu))
+                return 0;
 
         network = network_get(context, ifname);
         if (!network)
                 return -ENODEV;
 
-        return parse_mtu(family, mtu, &network->mtu);
+        return parse_mtu(AF_UNSPEC, mtu, &network->mtu);
 }
 
 static int network_set_mac_address(Context *context, const char *ifname, const char *mac) {
@@ -519,7 +522,7 @@ static int network_set_bond(Context *context, const char *ifname, const char *va
         return free_and_strdup(&network->bond, value);
 }
 
-static int parse_cmdline_ip_mtu_mac(Context *context, const char *ifname, int family, const char *value) {
+static int parse_cmdline_ip_mtu_mac(Context *context, const char *ifname, const char *value) {
         const char *mtu, *p;
         int r;
 
@@ -531,11 +534,9 @@ static int parse_cmdline_ip_mtu_mac(Context *context, const char *ifname, int fa
         else
                 mtu = strndupa_safe(value, p - value);
 
-        if (!isempty(mtu)) {
-                r = network_set_mtu(context, ifname, family, mtu);
-                if (r < 0)
-                        return r;
-        }
+        r = network_set_mtu(context, ifname, mtu);
+        if (r < 0)
+                return r;
 
         if (!p || isempty(p + 1))
                 return 0;
@@ -726,7 +727,7 @@ static int parse_cmdline_ip_address(Context *context, int family, const char *va
                 return 0;
 
         /* First, try [<mtu>][:<macaddr>] */
-        r = parse_cmdline_ip_mtu_mac(context, ifname, AF_UNSPEC, p + 1);
+        r = parse_cmdline_ip_mtu_mac(context, ifname, p + 1);
         if (r >= 0)
                 return 0;
 
@@ -768,7 +769,7 @@ static int parse_cmdline_ip_interface(Context *context, const char *value) {
         if (!p)
                 return 0;
 
-        return parse_cmdline_ip_mtu_mac(context, ifname, AF_UNSPEC, p + 1);
+        return parse_cmdline_ip_mtu_mac(context, ifname, p + 1);
 }
 
 static int parse_cmdline_ip(Context *context, const char *key, const char *value) {
