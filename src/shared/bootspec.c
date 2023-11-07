@@ -566,7 +566,7 @@ static int config_check_inode_relevant_and_unseen(BootConfig *config, int fd, co
         if (fstat(fd, &st) < 0)
                 return log_error_errno(errno, "Failed to stat('%s'): %m", fname);
         if (!S_ISREG(st.st_mode)) {
-                log_debug("File '%s' is not a reguar file, ignoring.", fname);
+                log_debug("File '%s' is not a regular file, ignoring.", fname);
                 return false;
         }
 
