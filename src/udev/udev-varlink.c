@@ -70,6 +70,58 @@ static int vl_method_start_exec_queue(Varlink *link, JsonVariant *parameters, Va
         return update_exec_queue(link, parameters, userdata, /* stop = */ false);
 }
 
+static int vl_method_set_environment(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+        static const JsonDispatch dispatch_table[] = {
+                {"assignments", JSON_VARIANT_ARRAY, json_dispatch_strv, 0, JSON_MANDATORY},
+                {}
+        };
+
+        Manager *m = ASSERT_PTR(userdata);
+        char **assignments;
+        int r;
+
+        assert(link);
+        assert(parameters);
+
+        r = varlink_dispatch(link, parameters, dispatch_table, &assignments);
+        if (r < 0)
+                return r;
+
+        log_debug("Received io.systemd.udev.SetEnvironment()");
+
+        r = manager_set_environment(m, assignments);
+        if (r < 0)
+                return r;
+
+        return varlink_reply(link, NULL);
+}
+
+static int vl_method_unset_environment(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+        static const JsonDispatch dispatch_table[] = {
+                {"assignments", JSON_VARIANT_ARRAY, json_dispatch_strv, 0, JSON_MANDATORY},
+                {}
+        };
+
+        Manager *m = ASSERT_PTR(userdata);
+        char **names;
+        int r;
+
+        assert(link);
+        assert(parameters);
+
+        r = varlink_dispatch(link, parameters, dispatch_table, &names);
+        if (r < 0)
+                return r;
+
+        log_debug("Received io.systemd.udev.UnsetEnvironment()");
+
+        r = manager_set_environment(m, names);
+        if (r < 0)
+                return r;
+
+        return varlink_reply(link, NULL);
+}
+
 int udev_varlink_connect(Varlink **ret) {
         _cleanup_(varlink_flush_close_unrefp) Varlink *link = NULL;
         int r;
@@ -128,6 +180,8 @@ int manager_open_varlink(Manager *m) {
                         "io.systemd.service.Reload", vl_method_reload,
                         "io.systemd.service.SetLogLevel", vl_method_set_log_level,
 
+                        "io.systemd.udev.SetEnvironment", vl_method_set_environment,
+                        "io.systemd.udev.UnsetEnvironment", vl_method_unset_environment,
                         "io.systemd.udev.StartExecQueue", vl_method_start_exec_queue,
                         "io.systemd.udev.StopExecQueue",  vl_method_stop_exec_queue);
         if (r < 0)
