@@ -716,7 +716,7 @@ static int server_send_nak_or_ignore(sd_dhcp_server *server, bool init_reboot, D
                 return log_dhcp_server_errno(server, r, "Could not send NAK message: %m");
 
         log_dhcp_server(server, "NAK (0x%x)", be32toh(req->message->xid));
-        return DHCP_NAK;
+        return 0;
 }
 
 static int server_send_forcerenew(
@@ -1064,7 +1064,7 @@ static int server_ack_request(sd_dhcp_server *server, DHCPRequest *req, DHCPLeas
         if (server->callback)
                 server->callback(server, SD_DHCP_SERVER_EVENT_LEASE_CHANGED, server->callback_userdata);
 
-        return DHCP_ACK;
+        return 0;
 }
 
 static int dhcp_server_cleanup_expired_leases(sd_dhcp_server *server) {
@@ -1216,14 +1216,14 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message, siz
                         return log_dhcp_server_errno(server, r, "Could not send offer: %m");
 
                 log_dhcp_server(server, "OFFER (0x%x)", be32toh(req->message->xid));
-                return DHCP_OFFER;
+                return 0;
         }
         case DHCP_DECLINE:
                 log_dhcp_server(server, "DECLINE (0x%x): %s", be32toh(req->message->xid), strna(error_message));
 
                 /* TODO: make sure we don't offer this address again */
 
-                return 1;
+                return 0;
 
         case DHCP_REQUEST: {
                 be32_t address;
