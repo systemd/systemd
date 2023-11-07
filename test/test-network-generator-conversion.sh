@@ -302,6 +302,9 @@ INVALID_COMMAND_LINES=(
     "ip=fdef:c400:bd01:1096::2::[fdef:c400:bd01:1096::1]:64::ipv6:off:[fdef:c400:bd01:1096::aaaa]"
     "ip=[fdef:c400:bd01:1096::2]::[fdef:c400:bd01:1096::1]:64::ipv6:off:foo"
     "ip=[fdef:c400:bd01:1096::2]::[fdef:c400:bd01:1096::1]:64::ipv6:off:[fdef:c400:bd01:1096::aaaa]:foo"
+    "ip=[fdef:c400:bd01:1096::2]::[fdef:c400:bd01:1096::1]:64::ipv6:off:[fdef:c400:bd01:1096::aaaa]:[fdef:c400:bd01:1096::bbbb]:"
+    "ip=:::::dhcp99:dhcp6:10.0.0.128:10.0.0.129:"
+    "ip=:::::dhcp99:dhcp6:10.0.0.128:[fdef:c400:bd01:1096::bbbb]:"
 )
 for cmdline in "${INVALID_COMMAND_LINES[@]}"; do
     (! SYSTEMD_LOG_LEVEL=debug SYSTEMD_PROC_CMDLINE="$cmdline" "$GENERATOR_BIN")
