@@ -1367,6 +1367,7 @@ static int client_timeout_resend(
                 } else if (client->attempt >= client->max_attempts)
                         goto error;
 
+                client->request_sent = time_now;
                 break;
 
         case DHCP_STATE_SELECTING:
@@ -1374,9 +1375,7 @@ static int client_timeout_resend(
                 if (r < 0 && client->attempt >= client->max_attempts)
                         goto error;
 
-                if (client->rapid_commit)
-                        client->request_sent = time_now;
-
+                client->request_sent = time_now;
                 break;
 
         case DHCP_STATE_INIT_REBOOT:
