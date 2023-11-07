@@ -233,7 +233,7 @@
         <para>To make sure making ephemeral copies can be made efficiently, the root directory or root image
         should be located on the same filesystem as <filename>/var/lib/systemd/ephemeral-trees/</filename>.
         When using <varname>RootEphemeral=</varname> with root directories,
-        <citerefentry project='url'><refentrytitle url='https://btrfs.wiki.kernel.org/index.php/Manpage/btrfs(5)'>btrfs</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        <citerefentry project='url'><refentrytitle url='https://btrfs.readthedocs.io/en/latest/btrfs-man5.html'>btrfs</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         should be used as the filesystem and the root directory should ideally be a subvolume which
         <command>systemd</command> can snapshot to make the ephemeral copy. For root images, a filesystem
         with support for reflinks should be used to ensure an efficient ephemeral copy.</para>
