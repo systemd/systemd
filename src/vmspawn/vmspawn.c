@@ -3,7 +3,6 @@
 #include <getopt.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include <sys/wait.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -22,17 +21,22 @@
 #include "log.h"
 #include "machine-credential.h"
 #include "main-func.h"
+#include "mkdir.h"
 #include "pager.h"
 #include "parse-argument.h"
 #include "parse-util.h"
+#include "path-lookup.h"
 #include "path-util.h"
 #include "pretty-print.h"
 #include "process-util.h"
+#include "rm-rf.h"
 #include "sd-event.h"
 #include "signal-util.h"
 #include "socket-util.h"
 #include "strv.h"
 #include "tmpfile-util.h"
+#include "unit-name.h"
+#include "vmspawn-scope.h"
 #include "vmspawn-settings.h"
 #include "vmspawn-util.h"
 
@@ -45,16 +49,20 @@ static uint64_t arg_qemu_mem = UINT64_C(2) * U64_GB;
 static int arg_qemu_kvm = -1;
 static int arg_qemu_vsock = -1;
 static unsigned arg_vsock_cid = VMADDR_CID_ANY;
+static int arg_tpm = -1;
 static bool arg_qemu_gui = false;
 static int arg_secure_boot = -1;
 static MachineCredentialContext arg_credentials = {};
 static SettingsMask arg_settings_mask = 0;
 static char **arg_parameters = NULL;
 static char *arg_firmware = NULL;
+static char *arg_runtime_directory = NULL;
+static bool arg_runtime_directory_created = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_machine, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_qemu_smp, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_runtime_directory, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_parameters, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_credentials, machine_credential_context_done);
 STATIC_DESTRUCTOR_REGISTER(arg_firmware, freep);
@@ -84,6 +92,7 @@ static int help(void) {
                "     --qemu-kvm=BOOL        Configure whether to use KVM or not\n"
                "     --qemu-vsock=BOOL      Configure whether to use qemu with a vsock or not\n"
                "     --vsock-cid=           Specify the CID to use for the qemu guest's vsock\n"
+               "     --tpm=BOOL             Configure whether to use a virtual TPM or not\n"
                "     --qemu-gui             Start QEMU in graphical mode\n"
                "     --secure-boot=BOOL     Configure whether to search for firmware which\n"
                "                            supports Secure Boot\n"
@@ -117,6 +126,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_QEMU_KVM,
                 ARG_QEMU_VSOCK,
                 ARG_VSOCK_CID,
+                ARG_TPM,
                 ARG_QEMU_GUI,
                 ARG_SECURE_BOOT,
                 ARG_SET_CREDENTIAL,
@@ -136,6 +146,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "qemu-kvm",        required_argument, NULL, ARG_QEMU_KVM        },
                 { "qemu-vsock",      required_argument, NULL, ARG_QEMU_VSOCK      },
                 { "vsock-cid",       required_argument, NULL, ARG_VSOCK_CID       },
+                { "tpm",             required_argument, NULL, ARG_TPM             },
                 { "qemu-gui",        no_argument,       NULL, ARG_QEMU_GUI        },
                 { "secure-boot",     required_argument, NULL, ARG_SECURE_BOOT     },
                 { "set-credential",  required_argument, NULL, ARG_SET_CREDENTIAL  },
@@ -226,6 +237,12 @@ static int parse_argv(int argc, char *argv[]) {
 
                                 arg_vsock_cid = cid;
                         }
+                        break;
+
+                case ARG_TPM:
+                        r = parse_tristate(optarg, &arg_tpm);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --tpm=%s: %m", optarg);
                         break;
 
                 case ARG_QEMU_GUI:
@@ -482,12 +499,80 @@ static int cmdline_add_vsock(char ***cmdline, int vsock_fd) {
         return 0;
 }
 
+static int start_tpm(sd_bus *bus, const char *scope, const char *tpm, const char **ret_state_tempdir) {
+        _cleanup_(rm_rf_physical_and_freep) char *state_dir = NULL;
+        _cleanup_free_ char *scope_prefix = NULL;
+        _cleanup_(socket_service_pair_done) SocketServicePair ssp = {
+                .socket_type = SOCK_STREAM,
+        };
+        int r;
+
+        assert(bus);
+        assert(scope);
+        assert(tpm);
+        assert(ret_state_tempdir);
+
+        r = unit_name_to_prefix(scope, &scope_prefix);
+        if (r < 0)
+                return log_error_errno(r, "Failed to strip .scope suffix from scope: %m");
+
+        ssp.unit_name_prefix = strjoin(scope_prefix, "-tpm");
+        if (!ssp.unit_name_prefix)
+                return log_oom();
+
+        state_dir = path_join(arg_runtime_directory, ssp.unit_name_prefix);
+        if (!state_dir)
+                return log_oom();
+
+        if (arg_runtime_directory_created) {
+                ssp.runtime_directory = path_join("systemd/vmspawn", ssp.unit_name_prefix);
+                if (!ssp.runtime_directory)
+                        return log_oom();
+        }
+
+        ssp.listen_address = path_join(state_dir, "sock");
+        if (!ssp.listen_address)
+                return log_oom();
+
+        ssp.exec_start = strv_new(tpm, "socket", "--tpm2", "--tpmstate");
+        if (!ssp.exec_start)
+                return log_oom();
+
+        r = strv_extendf(&ssp.exec_start, "dir=%s", state_dir);
+        if (r < 0)
+                return log_oom();
+
+        r = strv_extend_many(&ssp.exec_start, "--ctrl", "type=unixio,fd=3");
+        if (r < 0)
+                return log_oom();
+
+        r = start_socket_service_pair(bus, scope, &ssp);
+        if (r < 0)
+                return r;
+
+        *ret_state_tempdir = TAKE_PTR(state_dir);
+
+        return 0;
+}
+
 static int run_virtual_machine(void) {
         _cleanup_(ovmf_config_freep) OvmfConfig *ovmf_config = NULL;
-        _cleanup_strv_free_ char **cmdline = NULL;
-        _cleanup_free_ char *machine = NULL, *qemu_binary = NULL, *mem = NULL;
-        int r;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_close_ int vsock_fd = -EBADF;
+        _cleanup_free_ char *machine = NULL, *qemu_binary = NULL, *mem = NULL, *trans_scope = NULL;
+        _cleanup_strv_free_ char **cmdline = NULL;
+        int r;
+
+        if (getuid() == 0)
+                r = sd_bus_open_system(&bus);
+        else
+                r = sd_bus_open_user(&bus);
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to systemd bus: %m");
+
+        r = start_transient_scope(bus, arg_machine, /* allow_pidfd= */ true, &trans_scope);
+        if (r < 0)
+                return r;
 
         bool use_kvm = arg_qemu_kvm > 0;
         if (arg_qemu_kvm < 0) {
@@ -537,6 +622,19 @@ static int run_virtual_machine(void) {
         );
         if (!cmdline)
                 return log_oom();
+
+        /* if we are going to be starting any units with state then create our runtime dir */
+        if (arg_tpm != 0) {
+                r = runtime_directory(&arg_runtime_directory, "systemd/vmspawn");
+                if (r < 0)
+                        return log_error_errno(r, "Failed to lookup runtime directory: %m");
+                if (r) {
+                        r = mkdir_p(arg_runtime_directory, 0755);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to create runtime directory: %m");
+                        arg_runtime_directory_created = true;
+                }
+        }
 
         bool use_vsock = arg_qemu_vsock > 0 && ARCHITECTURE_SUPPORTS_SMBIOS;
         if (arg_qemu_vsock < 0) {
@@ -684,6 +782,58 @@ static int run_virtual_machine(void) {
                         return log_oom();
         } else
                 log_warning("Cannot append extra args to kernel cmdline, native architecture doesn't support SMBIOS");
+
+        /* disable TPM autodetection if the user's hardware doesn't support it */
+        if (!ARCHITECTURE_SUPPORTS_TPM) {
+                if (arg_tpm < 0) {
+                        arg_tpm = 0;
+                        log_debug("TPM not support on %s, disabling tpm autodetection and continuing", architecture_to_string(native_architecture()));
+                } else if (arg_tpm > 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "TPM not supported on %s, aborting", architecture_to_string(native_architecture()));
+        }
+
+        _cleanup_free_ char *swtpm = NULL;
+        if (arg_tpm != 0) {
+                r = find_executable("swtpm", &swtpm);
+                if (r < 0) {
+                        /* log if the user asked for swtpm and we cannot find it */
+                        if (arg_tpm > 0)
+                                return log_error_errno(r, "Failed to find swtpm binary: %m");
+                        /* also log if we got an error other than ENOENT from find_executable */
+                        else if (r != -ENOENT && arg_tpm < 0)
+                                return log_error_errno(r, "Error detecting swtpm: %m");
+                }
+        }
+
+        _cleanup_free_ const char *tpm_state_tempdir = NULL;
+        if (swtpm) {
+                r = start_tpm(bus, trans_scope, swtpm, &tpm_state_tempdir);
+                if (r < 0) {
+                        /* only bail if the user asked for a tpm */
+                        if (arg_tpm > 0)
+                                return log_error_errno(r, "Failed to start tpm: %m");
+                        log_debug_errno(r, "Failed to start tpm, ignoring: %m");
+                }
+
+                r = strv_extend(&cmdline, "-chardev");
+                if (r < 0)
+                        return log_oom();
+
+                r = strv_extendf(&cmdline, "socket,id=chrtpm,path=%s/sock", tpm_state_tempdir);
+                if (r < 0)
+                        return log_oom();
+
+                r = strv_extend_many(&cmdline, "-tpmdev", "emulator,id=tpm0,chardev=chrtpm");
+                if (r < 0)
+                        return log_oom();
+
+                if (native_architecture() == ARCHITECTURE_X86_64)
+                        r = strv_extend_many(&cmdline, "-device", "tpm-tis,tpmdev=tpm0");
+                else if (IN_SET(native_architecture(), ARCHITECTURE_ARM64, ARCHITECTURE_ARM64_BE))
+                        r = strv_extend_many(&cmdline, "-device", "tpm-tis-device,tpmdev=tpm0");
+                if (r < 0)
+                        return log_oom();
+        }
 
         if (use_vsock) {
                 vsock_fd = open_vsock();
