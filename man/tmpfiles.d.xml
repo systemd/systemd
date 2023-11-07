@@ -241,9 +241,9 @@ L     /tmp/foobar -    -    -     -   /dev/null</programlisting>
           non-btrfs file systems, this line type is identical to <varname>d</varname>.</para>
 
           <para>If the subvolume already exists, no change to the quota hierarchy is made, regardless of whether the
-          subvolume is already attached to a quota group or not. Also see <varname>Q</varname> below. See <citerefentry
-          project='die-net'><refentrytitle>btrfs-qgroup</refentrytitle><manvolnum>8</manvolnum></citerefentry> for
-          details about the btrfs quota group concept.</para>
+          subvolume is already attached to a quota group or not. Also see <varname>Q</varname> below. See
+          <citerefentry project='url'><refentrytitle url='https://btrfs.readthedocs.io/en/latest/btrfs-qgroup.html'>btrfs-qgroup</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+          for details about the btrfs quota group concept.</para>
 
           <xi:include href="version-info.xml" xpointer="v228"/></listitem>
         </varlistentry>
@@ -900,8 +900,8 @@ e! /var/cache/krb5rcache - - - 0
       <citerefentry project='man-pages'><refentrytitle>setfacl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>getfacl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>chattr</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry project='die-net'><refentrytitle>btrfs-subvolume</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-      <citerefentry project='die-net'><refentrytitle>btrfs-qgroup</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      <citerefentry project='url'><refentrytitle url='https://btrfs.readthedocs.io/en/latest/btrfs-subvolume.html'>btrfs-subvolume</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry project='url'><refentrytitle url='https://btrfs.readthedocs.io/en/latest/btrfs-qgroup.html'>btrfs-qgroup</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     </para>
   </refsect1>
 
