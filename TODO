@@ -54,7 +54,7 @@ External:
   - init=/bin/sh vs. "emergency" mode, vs. "rescue" mode, vs. "multi-user" mode, vs. "graphical" mode, and the debug shell
   - how to create your own target
   - instantiated apache, dovecot and so on
-  - hooking a script into various stages of shutdown/rearly booot
+  - hooking a script into various stages of shutdown/early boot
 
 Regularly:
 
@@ -98,7 +98,7 @@ Deprecations and removals:
 * Remove any support for booting without /usr pre-mounted in the initrd entirely.
   Update INITRD_INTERFACE.md accordingly.
 
-* remove cgrouspv1 support EOY 2023. As per
+* remove cgroupv1 support EOY 2023. As per
   https://lists.freedesktop.org/archives/systemd-devel/2022-July/048120.html
   and then rework cgroupsv2 support around fds, i.e. keep one fd per active
   unit around, and always operate on that, instead of cgroup fs paths.
@@ -143,7 +143,7 @@ Features:
 * measure some string via pcrphase whenever we end up booting into emergency
   mode.
 
-* homed: add a basic form of of secrets management to homed, that stores
+* homed: add a basic form of secrets management to homed, that stores
   secrets in $HOME somewhere, is protected by the accounts own authentication
   mechanisms. Should implement something PKCS#11-like that can be used to
   implement emulated FIDO2 in unpriv userspace on top (which should happen
@@ -304,7 +304,7 @@ Features:
 * .service with invalid Sockets= starts successfully.
 
 * landlock: lock down RuntimeDirectory= via landlock, so that services lose
-  ability to write anywehere else below /run/. Similar for
+  ability to write anywhere else below /run/. Similar for
   StateDirectory=. Benefit would be clear delegation via unit files: services
   get the directories they get, and nothing else even if they wanted to.
 
