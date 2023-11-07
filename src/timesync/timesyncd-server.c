@@ -66,15 +66,11 @@ static int enable_ntp_server_defer_event(Manager *m, ServerType type) {
         assert(m);
         assert((type >= 0) && (type < _SERVER_TYPE_MAX));
 
-        r = sd_event_source_set_enabled(m->deferred_ntp_server_event_source, SD_EVENT_ONESHOT);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to reenable system ntp server change event source!");
+        m->ntp_server_change_mask |= 1U << type;
 
         r = bus_manager_emit_ntp_server_changed(m);
         if (r < 0)
                 return r;
-
-        m->ntp_server_change_mask |= 1U << type;
 
         return 1;
 }

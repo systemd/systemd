@@ -1227,8 +1227,8 @@ static int manager_save_time_and_rearm(Manager *m, usec_t t) {
 static const char* ntp_server_property_name[_SERVER_TYPE_MAX] = {
         [SERVER_SYSTEM]   = "SystemNTPServers",
         [SERVER_FALLBACK] = "FallbackNTPServers",
-        [SERVER_LINK] = "LinkNTPServers",
-        [SERVER_RUNTIME] = "RuntimeNTPServers",
+        [SERVER_LINK]     = "LinkNTPServers",
+        [SERVER_RUNTIME]  = "RuntimeNTPServers",
 };
 
 static int ntp_server_emit_changed_strv(Manager *manager, char **properties) {
