@@ -142,9 +142,9 @@ static void resolve_hostname_reply_destroy(ResolveHostnameReply *p) {
 }
 
 static const JsonDispatch resolve_hostname_reply_dispatch_table[] = {
-        { "addresses", JSON_VARIANT_ARRAY,    json_dispatch_variant, offsetof(ResolveHostnameReply, addresses), JSON_MANDATORY },
-        { "name",      JSON_VARIANT_STRING,   json_dispatch_string,  offsetof(ResolveHostnameReply, name),      0              },
-        { "flags",     JSON_VARIANT_UNSIGNED, json_dispatch_uint64,  offsetof(ResolveHostnameReply, flags),     0              },
+        { "addresses", JSON_VARIANT_ARRAY,         json_dispatch_variant, offsetof(ResolveHostnameReply, addresses), JSON_MANDATORY },
+        { "name",      JSON_VARIANT_STRING,        json_dispatch_string,  offsetof(ResolveHostnameReply, name),      0              },
+        { "flags",     _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,  offsetof(ResolveHostnameReply, flags),     0              },
         {}
 };
 
@@ -573,8 +573,8 @@ static void resolve_address_reply_destroy(ResolveAddressReply *p) {
 }
 
 static const JsonDispatch resolve_address_reply_dispatch_table[] = {
-        { "names", JSON_VARIANT_ARRAY,    json_dispatch_variant, offsetof(ResolveAddressReply, names), JSON_MANDATORY },
-        { "flags", JSON_VARIANT_UNSIGNED, json_dispatch_uint64,  offsetof(ResolveAddressReply, flags), 0              },
+        { "names", JSON_VARIANT_ARRAY,         json_dispatch_variant, offsetof(ResolveAddressReply, names), JSON_MANDATORY },
+        { "flags", _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,  offsetof(ResolveAddressReply, flags), 0              },
         {}
 };
 

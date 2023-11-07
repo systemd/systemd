@@ -190,28 +190,28 @@ int group_record_load(
                 UserRecordLoadFlags load_flags) {
 
         static const JsonDispatch group_dispatch_table[] = {
-                { "groupName",      JSON_VARIANT_STRING,   json_dispatch_user_group_name,  offsetof(GroupRecord, group_name),       JSON_RELAX},
-                { "realm",          JSON_VARIANT_STRING,   json_dispatch_realm,            offsetof(GroupRecord, realm),            0         },
-                { "description",    JSON_VARIANT_STRING,   json_dispatch_gecos,            offsetof(GroupRecord, description),      0         },
-                { "disposition",    JSON_VARIANT_STRING,   json_dispatch_user_disposition, offsetof(GroupRecord, disposition),      0         },
-                { "service",        JSON_VARIANT_STRING,   json_dispatch_string,           offsetof(GroupRecord, service),          JSON_SAFE },
-                { "lastChangeUSec", JSON_VARIANT_UNSIGNED, json_dispatch_uint64,           offsetof(GroupRecord, last_change_usec), 0         },
-                { "gid",            JSON_VARIANT_UNSIGNED, json_dispatch_uid_gid,          offsetof(GroupRecord, gid),              0         },
-                { "members",        JSON_VARIANT_ARRAY,    json_dispatch_user_group_list,  offsetof(GroupRecord, members),          JSON_RELAX},
-                { "administrators", JSON_VARIANT_ARRAY,    json_dispatch_user_group_list,  offsetof(GroupRecord, administrators),   JSON_RELAX},
+                { "groupName",      JSON_VARIANT_STRING,        json_dispatch_user_group_name,  offsetof(GroupRecord, group_name),       JSON_RELAX},
+                { "realm",          JSON_VARIANT_STRING,        json_dispatch_realm,            offsetof(GroupRecord, realm),            0         },
+                { "description",    JSON_VARIANT_STRING,        json_dispatch_gecos,            offsetof(GroupRecord, description),      0         },
+                { "disposition",    JSON_VARIANT_STRING,        json_dispatch_user_disposition, offsetof(GroupRecord, disposition),      0         },
+                { "service",        JSON_VARIANT_STRING,        json_dispatch_string,           offsetof(GroupRecord, service),          JSON_SAFE },
+                { "lastChangeUSec", _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,           offsetof(GroupRecord, last_change_usec), 0         },
+                { "gid",            JSON_VARIANT_UNSIGNED,      json_dispatch_uid_gid,          offsetof(GroupRecord, gid),              0         },
+                { "members",        JSON_VARIANT_ARRAY,         json_dispatch_user_group_list,  offsetof(GroupRecord, members),          JSON_RELAX},
+                { "administrators", JSON_VARIANT_ARRAY,         json_dispatch_user_group_list,  offsetof(GroupRecord, administrators),   JSON_RELAX},
 
-                { "privileged",     JSON_VARIANT_OBJECT,   dispatch_privileged,            0,                                       0         },
+                { "privileged",     JSON_VARIANT_OBJECT,        dispatch_privileged,            0,                                       0         },
 
                 /* Not defined for now, for groups, but let's at least generate sensible errors about it */
-                { "secret",         JSON_VARIANT_OBJECT,   json_dispatch_unsupported,      0,                                       0         },
+                { "secret",         JSON_VARIANT_OBJECT,        json_dispatch_unsupported,      0,                                       0         },
 
                 /* Ignore the perMachine, binding and status stuff here, and process it later, so that it overrides whatever is set above */
-                { "perMachine",     JSON_VARIANT_ARRAY,    NULL,                           0,                                       0         },
-                { "binding",        JSON_VARIANT_OBJECT,   NULL,                           0,                                       0         },
-                { "status",         JSON_VARIANT_OBJECT,   NULL,                           0,                                       0         },
+                { "perMachine",     JSON_VARIANT_ARRAY,         NULL,                           0,                                       0         },
+                { "binding",        JSON_VARIANT_OBJECT,        NULL,                           0,                                       0         },
+                { "status",         JSON_VARIANT_OBJECT,        NULL,                           0,                                       0         },
 
                 /* Ignore 'signature', we check it with explicit accessors instead */
-                { "signature",      JSON_VARIANT_ARRAY,    NULL,                           0,                                       0          },
+                { "signature",      JSON_VARIANT_ARRAY,         NULL,                           0,                                       0         },
                 {},
         };
 

@@ -50,10 +50,10 @@ static int process_managed_oom_message(Manager *m, uid_t uid, JsonVariant *param
         int r;
 
         static const JsonDispatch dispatch_table[] = {
-                { "mode",     JSON_VARIANT_STRING,   managed_oom_mode,     offsetof(ManagedOOMMessage, mode),     JSON_MANDATORY },
-                { "path",     JSON_VARIANT_STRING,   json_dispatch_string, offsetof(ManagedOOMMessage, path),     JSON_MANDATORY },
-                { "property", JSON_VARIANT_STRING,   json_dispatch_string, offsetof(ManagedOOMMessage, property), JSON_MANDATORY },
-                { "limit",    JSON_VARIANT_UNSIGNED, json_dispatch_uint32, offsetof(ManagedOOMMessage, limit),    0 },
+                { "mode",     JSON_VARIANT_STRING,        managed_oom_mode,     offsetof(ManagedOOMMessage, mode),     JSON_MANDATORY },
+                { "path",     JSON_VARIANT_STRING,        json_dispatch_string, offsetof(ManagedOOMMessage, path),     JSON_MANDATORY },
+                { "property", JSON_VARIANT_STRING,        json_dispatch_string, offsetof(ManagedOOMMessage, property), JSON_MANDATORY },
+                { "limit",    _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint32, offsetof(ManagedOOMMessage, limit),    0              },
                 {},
         };
 

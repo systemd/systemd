@@ -32,7 +32,7 @@ int varlink_method_ping(Varlink *link, JsonVariant *parameters, VarlinkMethodFla
 
 int varlink_method_set_log_level(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
         static const JsonDispatch dispatch_table[] = {
-                {"level", JSON_VARIANT_INTEGER, json_dispatch_int64, 0, JSON_MANDATORY},
+                { "level", _JSON_VARIANT_TYPE_INVALID, json_dispatch_int64, 0, JSON_MANDATORY },
                 {}
         };
 
