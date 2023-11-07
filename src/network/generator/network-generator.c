@@ -716,9 +716,6 @@ static int parse_ip_dns_address_one(Context *context, const char *ifname, const 
         if (r < 0)
                 return r;
 
-        if (p[0] == ':')
-                p++;
-
         *value = p;
         return 0;
 }
@@ -808,9 +805,15 @@ static int parse_cmdline_ip_address(Context *context, int family, const char *va
         r = parse_ip_dns_address_one(context, ifname, &value);
         if (r < 0)
                 return r;
+
+        value += *value == ':';
         r = parse_ip_dns_address_one(context, ifname, &value);
         if (r < 0)
                 return r;
+
+        /* refuse unexpected trailing strings */
+        if (!isempty(value))
+                return -EINVAL;
 
         return 0;
 }
