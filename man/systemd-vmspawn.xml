@@ -44,59 +44,73 @@
     <para>The following options are understood:</para>
 
     <refsect2>
-    <title>Image Options</title>
+      <title>Image Options</title>
 
-    <variablelist>
-      <varlistentry>
-        <term><option>-i</option></term>
-        <term><option>--image=</option></term>
+      <variablelist>
+        <varlistentry>
+          <term><option>-i</option></term>
+          <term><option>--image=</option></term>
 
-        <listitem><para>Root file system disk image (or device node) for the virtual machine.</para></listitem>
-      </varlistentry>
-    </variablelist>
+          <listitem><para>Root file system disk image (or device node) for the virtual machine.</para>
+
+          <xi:include href="version-info.xml" xpointer="v255"/>
+          </listitem>
+        </varlistentry>
+      </variablelist>
     </refsect2>
 
     <refsect2>
-    <title>Host Configuration</title>
+      <title>Host Configuration</title>
 
-    <variablelist>
-      <varlistentry>
-        <term><option>--qemu-smp=</option><replaceable>SMP</replaceable></term>
+      <variablelist>
+        <varlistentry>
+          <term><option>--qemu-smp=</option><replaceable>SMP</replaceable></term>
 
-        <listitem><para>Configures the number of CPUs to start the virtual machine with.</para>
-        <para>Defaults to 1.</para></listitem>
-      </varlistentry>
+          <listitem><para>Configures the number of CPUs to start the virtual machine with.
+          Defaults to 1.</para>
 
-      <varlistentry>
-        <term><option>--qemu-mem=</option><replaceable>MEM</replaceable></term>
+          <xi:include href="version-info.xml" xpointer="v255"/>
+          </listitem>
+        </varlistentry>
 
-        <listitem><para>Configures the amount of memory to start the virtual machine with.</para>
-        <para>Defaults to 2G.</para></listitem>
-      </varlistentry>
+        <varlistentry>
+          <term><option>--qemu-mem=</option><replaceable>MEM</replaceable></term>
 
-      <varlistentry>
-        <term><option>--qemu-kvm=</option></term>
+          <listitem><para>Configures the amount of memory to start the virtual machine with.
+          Defaults to 2G.</para>
 
-        <para>Configure whether to use KVM.</para>
-        <para>If the option is not specified KVM support will be detected automatically.
-        If yes is specified KVM is always used, and vice versa if no is set KVM is never used.</para>
-      </varlistentry>
+          <xi:include href="version-info.xml" xpointer="v255"/>
+          </listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><option>--qemu-gui</option></term>
+        <varlistentry>
+          <term><option>--qemu-kvm=</option></term>
 
-        <listitem><para>Start QEMU in graphical mode.</para></listitem>
-      </varlistentry>
+          <listitem><para>Configures whether to use KVM. If the option is not specified KVM support will be
+          detected automatically. If true, KVM is always used, and if false, KVM is never used.</para>
 
-      <varlistentry>
-        <term><option>--secboot=</option></term>
+          <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+        </varlistentry>
 
-        <listitem><para>Configure whether to search for firmware which supports secure boot.</para></listitem>
-        <para>If the option is not specified the first firmware which is detected will be used.
-        If the option is set to yes then the first firmware with secure boot support will be selected.
-        If no is specified then the first firmware without secure boot will be selected.</para>
-      </varlistentry>
-    </variablelist>
+        <varlistentry>
+          <term><option>--qemu-gui</option></term>
+
+          <listitem><para>Start QEMU in graphical mode.</para>
+
+          <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--secboot=</option></term>
+
+          <listitem><para>Configures whether to search for firmware which supports secure boot. If the option
+          is not specified, the first firmware which is detected will be used. If true, then the first
+          firmware with secure boot support will be selected. If false, then the first firmware without
+          secure boot will be selected.</para>
+
+          <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+        </varlistentry>
+      </variablelist>
 
     </refsect2>
     <refsect2>
@@ -116,19 +130,21 @@
           use C-style escaping (i.e. <literal>\n</literal> to embed a newline, or <literal>\x00</literal> to
           embed a <constant>NUL</constant> byte). Note that the invoking shell might already apply unescaping
           once, hence this might require double escaping!.</para>
-          </listitem>
+
+          <xi:include href="version-info.xml" xpointer="v255"/></listitem>
         </varlistentry>
       </variablelist>
 
-    </refsect2><refsect2>
-    <title>Other</title>
+    </refsect2>
+    <refsect2>
+      <title>Other</title>
 
-    <variablelist>
-      <xi:include href="standard-options.xml" xpointer="no-pager" />
-      <xi:include href="standard-options.xml" xpointer="help" />
-      <xi:include href="standard-options.xml" xpointer="version" />
-    </variablelist>
-   </refsect2>
+      <variablelist>
+        <xi:include href="standard-options.xml" xpointer="no-pager" />
+        <xi:include href="standard-options.xml" xpointer="help" />
+        <xi:include href="standard-options.xml" xpointer="version" />
+      </variablelist>
+    </refsect2>
   </refsect1>
 
   <xi:include href="common-variables.xml" />
@@ -139,8 +155,10 @@
     <example>
       <title>Run an Arch Linux VM image generated by mkosi</title>
 
-      <programlisting># mkosi -d arch -p systemd -p linux --autologin -o image.raw -f build
-      # systemd-vmspawn --image=image.raw</programlisting>
+      <programlisting>
+$ mkosi -d arch -p systemd -p linux --autologin -o image.raw -f build
+$ systemd-vmspawn --image=image.raw
+      </programlisting>
     </example>
   </refsect1>
 
@@ -155,7 +173,7 @@
     <title>See Also</title>
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>mkosi</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>mkosi</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     </para>
   </refsect1>
 </refentry>
