@@ -88,7 +88,7 @@ Janitorial Clean-ups:
   string_hash_ops_free everywhere, so that destruction is implicit rather than
   explicit. Similar, for other special hashmap/set/ordered_hashmap destructors.
 
-* generators sometimes apply C escaping and somethines specifier escaping to
+* generators sometimes apply C escaping and sometimes specifier escaping to
   paths and similar strings they write out. Sometimes both. We should clean
   this up, and should probably always apply both, i.e. introduce
   unit_file_escape() or so, which applies both.
@@ -98,7 +98,7 @@ Deprecations and removals:
 * Remove any support for booting without /usr pre-mounted in the initrd entirely.
   Update INITRD_INTERFACE.md accordingly.
 
-* remove cgroupv1 support EOY 2023. As per
+* remove cgroups v1 support EOY 2023. As per
   https://lists.freedesktop.org/archives/systemd-devel/2022-July/048120.html
   and then rework cgroupsv2 support around fds, i.e. keep one fd per active
   unit around, and always operate on that, instead of cgroup fs paths.
@@ -1155,8 +1155,8 @@ Features:
     defined on the host, plus all images installed into /var/lib/machines/,
     /var/lib/portable/ and so on.
   - figure out what to do about system extensions (i.e. they need to imply an
-    update component, since otherwise system extenion' sysupdate.d/ files would
-    override the host's update files.)
+    update component, since otherwise sysupdate.d/ files would override the
+    host's update files.)
   - Allow invocation with a single transfer definition, i.e. with
     --definitions= pointing to a file rather than a dir.
   - add ability to disable implicit decompression of downloaded artifacts,
@@ -1998,7 +1998,7 @@ Features:
     if LimitNPROC= is used without User= we should warn and refuse
     operation.
   - journalctl --verify: don't show files that are currently being
-    written to as FAIL, but instead show that their are being written to.
+    written to as FAIL, but instead show that they are being written to.
   - add journalctl -H that talks via ssh to a remote peer and passes through
     binary logs data
   - add a version of --merge which also merges /var/log/journal/remote
@@ -2424,7 +2424,7 @@ Features:
      them at shutdown; store them in client->ia_na
    - write more test cases
    - implement reconfigure support, see 5.3., 15.11. and 22.20.
-   - implement support for temporary adressess (IA_TA)
+   - implement support for temporary addresses (IA_TA)
    - implement dhcpv6 authentication
    - investigate the usefulness of Confirm messages; i.e. are there any
      situations where the link changes without any loss in carrier detection
