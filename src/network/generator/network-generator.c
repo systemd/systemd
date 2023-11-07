@@ -119,7 +119,7 @@ static int address_new(Network *network, int family, unsigned char prefixlen,
                 .family = family,
                 .prefixlen = prefixlen,
                 .address = *addr,
-                .peer = *peer,
+                .peer = peer ? *peer : IN_ADDR_NULL,
         };
 
         LIST_PREPEND(addresses, network->addresses, address);
@@ -146,6 +146,8 @@ static int route_new(Network *network, int family, unsigned char prefixlen,
         Route *route;
 
         assert(network);
+        assert(IN_SET(family, AF_INET, AF_INET6));
+        assert(dest || gateway);
 
         route = new(Route, 1);
         if (!route)
@@ -155,7 +157,7 @@ static int route_new(Network *network, int family, unsigned char prefixlen,
                 .family = family,
                 .prefixlen = prefixlen,
                 .dest = dest ? *dest : IN_ADDR_NULL,
-                .gateway = *gateway,
+                .gateway = gateway ? *gateway : IN_ADDR_NULL,
         };
 
         LIST_PREPEND(routes, network->routes, route);
@@ -426,7 +428,8 @@ static int network_set_route(Context *context, const char *ifname, int family, u
         Network *network;
         int r;
 
-        if (!in_addr_is_set(family, gateway))
+        if (!(dest && in_addr_is_set(family, dest)) &&
+            !(gateway && in_addr_is_set(family, gateway)))
                 return 0;
 
         network = network_get(context, ifname);
@@ -1150,8 +1153,9 @@ static int route_dump(Route *route, FILE *f) {
         if (in_addr_is_set(route->family, &route->dest))
                 fprintf(f, "Destination=%s\n",
                         IN_ADDR_PREFIX_TO_STRING(route->family, &route->dest, route->prefixlen));
-        fprintf(f, "Gateway=%s\n",
-                IN_ADDR_TO_STRING(route->family, &route->gateway));
+        if (in_addr_is_set(route->family, &route->gateway))
+                fprintf(f, "Gateway=%s\n",
+                        IN_ADDR_TO_STRING(route->family, &route->gateway));
 
         return 0;
 }
