@@ -138,6 +138,9 @@ static int acquire_bus(bool set_monitor, sd_bus **ret) {
                         r = bus_set_address_machine(bus, arg_runtime_scope, arg_host);
                         break;
 
+                /* case BUS_TRANSPORT_PROJECT: */
+                /*         r = bus_set_address_p */
+
                 default:
                         assert_not_reached();
                 }
@@ -2374,6 +2377,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "match",                           required_argument, NULL, ARG_MATCH                           },
                 { "host",                            required_argument, NULL, 'H'                                 },
                 { "machine",                         required_argument, NULL, 'M'                                 },
+                { "project",                         required_argument, NULL, 'J'                                 },
                 { "size",                            required_argument, NULL, ARG_SIZE                            },
                 { "list",                            no_argument,       NULL, ARG_LIST                            },
                 { "quiet",                           no_argument,       NULL, 'q'                                 },
@@ -2395,7 +2399,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hH:M:qjl", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hH:M:J:qjl", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -2477,6 +2481,14 @@ static int parse_argv(int argc, char *argv[]) {
                 case 'M':
                         arg_transport = BUS_TRANSPORT_MACHINE;
                         arg_host = optarg;
+                        break;
+
+                case 'J':
+                        if (!valid_user_group_name(optarg, /* flags= */ 0))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Project name not valid: %s", optarg);
+
+                        arg_host = optarg;
+                        arg_transport = BUS_TRANSPORT_PROJECT;
                         break;
 
                 case 'q':
