@@ -10,6 +10,12 @@
 #define ARCHITECTURE_SUPPORTS_SMBIOS 0
 #endif
 
+#if defined(__x86_64__) || defined(__arm__) || defined(__aarch64__)
+#define ARCHITECTURE_SUPPORTS_TPM 1
+#else
+#define ARCHITECTURE_SUPPORTS_TPM 0
+#endif
+
 #if defined(__arm__) || defined(__aarch64__)
 #define DEFAULT_SERIAL_TTY "ttyAMA0"
 #elif defined(__s390__) || defined(__s390x__)
