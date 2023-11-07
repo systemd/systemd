@@ -151,6 +151,7 @@ Manager* manager_free(Manager *manager) {
 
         sd_device_monitor_unref(manager->monitor);
         udev_ctrl_unref(manager->ctrl);
+        varlink_server_unref(manager->varlink_server);
 
         sd_event_source_unref(manager->inotify_event);
         sd_event_source_unref(manager->kill_workers_event);
@@ -218,7 +219,7 @@ static void manager_kill_workers(Manager *manager, bool force) {
         }
 }
 
-static void manager_exit(Manager *manager) {
+void manager_exit(Manager *manager) {
         assert(manager);
 
         manager->exit = true;
@@ -227,6 +228,7 @@ static void manager_exit(Manager *manager) {
 
         /* close sources of new events and discard buffered events */
         manager->ctrl = udev_ctrl_unref(manager->ctrl);
+        manager->varlink_server = varlink_server_unref(manager->varlink_server);
 
         manager->inotify_event = sd_event_source_disable_unref(manager->inotify_event);
         manager->inotify_fd = safe_close(manager->inotify_fd);
@@ -251,7 +253,7 @@ static void notify_ready(Manager *manager) {
 }
 
 /* reload requested, HUP signal received, rules changed, builtin changed */
-static void manager_reload(Manager *manager, bool force) {
+void manager_reload(Manager *manager, bool force) {
         _cleanup_(udev_rules_freep) UdevRules *rules = NULL;
         usec_t now_usec;
         int r;
@@ -855,6 +857,127 @@ static void manager_set_default_children_max(Manager *manager) {
         log_debug("Set children_max to %u", manager->children_max);
 }
 
+static int split_assignment(const char *assignment, char **ret_key, char **ret_value) {
+        _cleanup_free_ char *key = NULL, *value = NULL;
+        char *eq;
+
+        assert(assignment);
+
+        eq = strchr(assignment, '=');
+        if (!eq)
+                return -EINVAL;
+
+        key = strndup(assignment, eq - assignment);
+        if (!key)
+                return -ENOMEM;
+
+        value = eq++;
+        if (value) {
+                value = strdup(value);
+                if (!value)
+                        return -ENOMEM;
+        }
+
+        if (ret_key)
+                *ret_key = TAKE_PTR(key);
+        if (ret_value)
+                *ret_value = TAKE_PTR(value);
+
+        return !!eq;
+}
+
+static int update_properties_consume(Hashmap **properties, char *key, char *value) {
+        _unused_ _cleanup_free_ char *old_key = NULL, *old_val = NULL;
+        _cleanup_free_ char *k = ASSERT_PTR(key), *v = value;
+        int r;
+
+        assert(properties);
+
+        old_val = hashmap_remove2(*properties, key, (void **) &old_key);
+
+        r = hashmap_ensure_allocated(properties, &string_hash_ops);
+        if (r < 0)
+                return -ENOMEM;
+
+        r = hashmap_put(*properties, k, v);
+        if (r < 0)
+                return -ENOMEM;
+
+        TAKE_PTR(k);
+        TAKE_PTR(v);
+
+        return 0;
+}
+
+static int set_environment_one(Manager *manager, const char *assignment) {
+        char *key, *value;
+        int r;
+
+        assert(manager);
+        assert(assignment);
+
+        r = split_assignment(assignment, &key, &value);
+        if (r < 0)
+                return r;
+
+        return update_properties_consume(&manager->properties, key, value);
+}
+
+static int unset_environment_one(Manager *manager, const char *name) {
+        char *key;
+
+        assert(manager);
+        assert(name);
+
+        key = strdup(name);
+        if (!key)
+                return -ENOMEM;
+
+        return update_properties_consume(&manager->properties, key, NULL);
+}
+
+static int update_environment(Manager *manager, char **env, int (*update)(Manager *, const char *)) {
+        bool modified = false;
+        int r;
+
+        assert(manager);
+        assert(env);
+
+        STRV_FOREACH(e, env) {
+                r = update(manager, *e);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to update property: %m");
+                        break;
+                }
+
+                modified = true;
+        }
+
+        if (modified)
+                manager_kill_workers(manager, /* force = */ false);
+
+        return r;
+}
+
+int manager_set_environment(Manager *manager, char **assignments) {
+        return update_environment(manager, assignments, set_environment_one);
+}
+
+int manager_unset_environment(Manager *manager, char **names) {
+        return update_environment(manager, names, unset_environment_one);
+}
+
+void manager_set_children_max(Manager *manager, unsigned n) {
+        assert(manager);
+
+        manager->children_max = n;
+
+        /* When 0 is specified, determine the maximum based on the system resources. */
+        manager_set_default_children_max(manager);
+
+        notify_ready(manager);
+}
+
 /* receive the udevd message from userspace */
 static int on_ctrl_msg(UdevCtrl *uctrl, UdevCtrlMessageType type, const UdevCtrlMessageValue *value, void *userdata) {
         Manager *manager = ASSERT_PTR(userdata);
@@ -871,13 +994,7 @@ static int on_ctrl_msg(UdevCtrl *uctrl, UdevCtrlMessageType type, const UdevCtrl
 
                 log_debug("Received udev control message (SET_LOG_LEVEL), setting log_level=%i", value->intval);
 
-                r = log_get_max_level();
-                if (r == value->intval)
-                        break;
-
-                log_set_max_level(value->intval);
-                manager->log_level = value->intval;
-                manager_kill_workers(manager, false);
+                manager_set_log_level(manager, value->intval);
                 break;
         case UDEV_CTRL_STOP_EXEC_QUEUE:
                 log_debug("Received udev control message (STOP_EXEC_QUEUE)");
@@ -893,56 +1010,28 @@ static int on_ctrl_msg(UdevCtrl *uctrl, UdevCtrlMessageType type, const UdevCtrl
                 manager_reload(manager, /* force = */ true);
                 break;
         case UDEV_CTRL_SET_ENV: {
-                _unused_ _cleanup_free_ char *old_val = NULL;
-                _cleanup_free_ char *key = NULL, *val = NULL, *old_key = NULL;
-                const char *eq;
+                _cleanup_free_ char *key = NULL, *val = NULL;
 
-                eq = strchr(value->buf, '=');
-                if (!eq) {
-                        log_error("Invalid key format '%s'", value->buf);
-                        return 1;
-                }
-
-                key = strndup(value->buf, eq - value->buf);
-                if (!key) {
-                        log_oom();
-                        return 1;
-                }
-
-                old_val = hashmap_remove2(manager->properties, key, (void **) &old_key);
-
-                r = hashmap_ensure_allocated(&manager->properties, &string_hash_ops);
+                r = split_assignment(value->buf, &key, &val);
                 if (r < 0) {
-                        log_oom();
+                        if (r == -EINVAL)
+                                log_error("Invalid key format '%s'", value->buf);
+                        else
+                                log_error_errno(r, "Failed to parse property: %m");
                         return 1;
                 }
 
-                eq++;
-                if (isempty(eq)) {
+                if (r == 0)
                         log_debug("Received udev control message (ENV), unsetting '%s'", key);
-
-                        r = hashmap_put(manager->properties, key, NULL);
-                        if (r < 0) {
-                                log_oom();
-                                return 1;
-                        }
-                } else {
-                        val = strdup(eq);
-                        if (!val) {
-                                log_oom();
-                                return 1;
-                        }
-
+                else
                         log_debug("Received udev control message (ENV), setting '%s=%s'", key, val);
 
-                        r = hashmap_put(manager->properties, key, val);
-                        if (r < 0) {
-                                log_oom();
-                                return 1;
-                        }
+                r = update_properties_consume(&manager->properties, TAKE_PTR(key), TAKE_PTR(val));
+                if (r < 0) {
+                        log_error_errno(r, "Failed to update property: %m");
+                        return 1;
                 }
 
-                key = val = NULL;
                 manager_kill_workers(manager, false);
                 break;
         }
@@ -953,12 +1042,7 @@ static int on_ctrl_msg(UdevCtrl *uctrl, UdevCtrlMessageType type, const UdevCtrl
                 }
 
                 log_debug("Received udev control message (SET_MAX_CHILDREN), setting children_max=%i", value->intval);
-                manager->children_max = value->intval;
-
-                /* When 0 is specified, determine the maximum based on the system resources. */
-                manager_set_default_children_max(manager);
-
-                notify_ready(manager);
+                manager_set_children_max(manager, value->intval);
                 break;
         case UDEV_CTRL_PING:
                 log_debug("Received udev control message (PING)");
@@ -1207,7 +1291,7 @@ Manager* manager_new(void) {
         return manager;
 }
 
-int manager_init(Manager *manager, int fd_ctrl, int fd_uevent) {
+int manager_init(Manager *manager, int fd_ctrl, int fd_uevent, int fd_varlink) {
         _cleanup_free_ char *cgroup = NULL;
         int r;
 
@@ -1220,6 +1304,10 @@ int manager_init(Manager *manager, int fd_ctrl, int fd_uevent) {
         r = udev_ctrl_enable_receiving(manager->ctrl);
         if (r < 0)
                 return log_error_errno(r, "Failed to bind udev control socket: %m");
+
+        r = manager_open_varlink(manager, fd_varlink);
+        if (r < 0)
+                return log_error_errno(r, "Failed to initialize varlink server: %m");
 
         r = device_monitor_new_full(&manager->monitor, MONITOR_GROUP_KERNEL, fd_uevent);
         if (r < 0)
@@ -1355,4 +1443,16 @@ int manager_main(Manager *manager) {
 
         (void) sd_notify(/* unset= */ false, NOTIFY_STOPPING);
         return r;
+}
+
+void manager_set_log_level(Manager *manager, int level) {
+        assert(manager);
+
+        if (level == log_get_max_level())
+                return;
+
+        log_set_max_level(level);
+        manager->log_level = level;
+
+        manager_kill_workers(manager, /* force = */ false);
 }

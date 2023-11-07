@@ -11,6 +11,7 @@
 #include "time-util.h"
 #include "udev-ctrl.h"
 #include "udev-rules.h"
+#include "varlink.h"
 
 typedef struct Event Event;
 typedef struct Worker Worker;
@@ -27,6 +28,7 @@ typedef struct Manager {
 
         sd_device_monitor *monitor;
         UdevCtrl *ctrl;
+        VarlinkServer *varlink_server;
         int worker_watch[2];
 
         /* used by udev-watch */
@@ -56,7 +58,16 @@ Manager* manager_new(void);
 Manager* manager_free(Manager *manager);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
 
-int manager_init(Manager *manager, int fd_ctrl, int fd_uevent);
+int manager_init(Manager *manager, int fd_ctrl, int fd_uevent, int fd_varlink);
 int manager_main(Manager *manager);
+
+int manager_open_varlink(Manager *m, int fd);
+
+void manager_reload(Manager *manager, bool force);
+void manager_set_log_level(Manager *manager, int level);
+int manager_set_environment(Manager *manager, char **assignments);
+int manager_unset_environment(Manager *manager, char **names);
+void manager_set_children_max(Manager *manager, unsigned n);
+void manager_exit(Manager *manager);
 
 bool devpath_conflict(const char *a, const char *b);
