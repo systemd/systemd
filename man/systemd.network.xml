@@ -3092,6 +3092,18 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
         </listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>RapidCommit=</varname></term>
+        <listitem>
+          <para>Takes a boolean. When true, the server supports
+          <ulink url="https://datatracker.ietf.org/doc/html/rfc4039">RFC 4039</ulink>. When a client sends
+          a DHCPDISCOVER message with the Rapid Commit option to the server, then the server will reply with
+          a DHCPACK message to the client, instead of DHCPOFFER. Defaults to true.</para>
+
+          <xi:include href="version-info.xml" xpointer="v255"/>
+        </listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 
