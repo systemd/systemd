@@ -84,6 +84,7 @@ struct sd_dhcp_server {
         usec_t max_lease_time;
         usec_t default_lease_time;
         usec_t ipv6_only_preferred_usec;
+        bool rapid_commit;
 
         sd_dhcp_server_callback_t callback;
         void *callback_userdata;
@@ -108,6 +109,7 @@ typedef struct DHCPRequest {
         char *hostname;
         const uint8_t *parameter_request_list;
         size_t parameter_request_list_len;
+        bool rapid_commit;
 } DHCPRequest;
 
 extern const struct hash_ops dhcp_lease_hash_ops;
