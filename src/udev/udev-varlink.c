@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
+#include "strv.h"
 #include "udev-manager.h"
 #include "udev-varlink.h"
 #include "varlink-io.systemd.service.h"
@@ -70,6 +71,58 @@ static int vl_method_start_exec_queue(sd_varlink *link, sd_json_variant *paramet
         return update_exec_queue(link, parameters, userdata, /* stop = */ false);
 }
 
+static int vl_method_set_environment(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                {"assignments", SD_JSON_VARIANT_ARRAY, sd_json_dispatch_strv, 0, SD_JSON_MANDATORY},
+                {}
+        };
+
+        Manager *m = ASSERT_PTR(userdata);
+        _cleanup_strv_free_ char **assignments = NULL;
+        int r;
+
+        assert(link);
+        assert(parameters);
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &assignments);
+        if (r < 0)
+                return r;
+
+        log_debug("Received io.systemd.udev.SetEnvironment()");
+
+        r = manager_set_environment(m, assignments);
+        if (r < 0)
+                return r;
+
+        return sd_varlink_reply(link, NULL);
+}
+
+static int vl_method_unset_environment(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                {"names", SD_JSON_VARIANT_ARRAY, sd_json_dispatch_strv, 0, SD_JSON_MANDATORY},
+                {}
+        };
+
+        Manager *m = ASSERT_PTR(userdata);
+        _cleanup_strv_free_ char **names = NULL;
+        int r;
+
+        assert(link);
+        assert(parameters);
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &names);
+        if (r < 0)
+                return r;
+
+        log_debug("Received io.systemd.udev.UnsetEnvironment()");
+
+        r = manager_unset_environment(m, names);
+        if (r < 0)
+                return r;
+
+        return sd_varlink_reply(link, NULL);
+}
+
 int udev_varlink_connect(sd_varlink **ret) {
         _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *link = NULL;
         int r;
@@ -130,6 +183,8 @@ int manager_open_varlink(Manager *m) {
                         "io.systemd.service.Reload", vl_method_reload,
                         "io.systemd.service.SetLogLevel", vl_method_set_log_level,
 
+                        "io.systemd.udev.SetEnvironment", vl_method_set_environment,
+                        "io.systemd.udev.UnsetEnvironment", vl_method_unset_environment,
                         "io.systemd.udev.StartExecQueue", vl_method_start_exec_queue,
                         "io.systemd.udev.StopExecQueue",  vl_method_stop_exec_queue);
         if (r < 0)
