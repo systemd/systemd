@@ -211,6 +211,7 @@ int sd_dhcp_server_new(sd_dhcp_server **ret, int ifindex) {
                 .bind_to_interface = true,
                 .default_lease_time = DHCP_DEFAULT_LEASE_TIME_USEC,
                 .max_lease_time = DHCP_MAX_LEASE_TIME_USEC,
+                .rapid_commit = true,
         };
 
         *ret = TAKE_PTR(server);
@@ -692,6 +693,15 @@ static int server_send_offer_or_ack(
                         return r;
         }
 
+        if (server->rapid_commit && req->rapid_commit && type == DHCP_ACK) {
+                r = dhcp_option_append(
+                                &packet->dhcp, req->max_optlen, &offset, 0,
+                                SD_DHCP_OPTION_RAPID_COMMIT,
+                                0, NULL);
+                if (r < 0)
+                        return r;
+        }
+
         return dhcp_server_send_packet(server, req, packet, type, offset);
 }
 
@@ -809,6 +819,10 @@ static int parse_request(uint8_t code, uint8_t len, const void *option, void *us
         case SD_DHCP_OPTION_PARAMETER_REQUEST_LIST:
                 req->parameter_request_list = option;
                 req->parameter_request_list_len = len;
+                break;
+
+        case SD_DHCP_OPTION_RAPID_COMMIT:
+                req->rapid_commit = true;
                 break;
         }
 
@@ -1210,6 +1224,9 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message, siz
                         /* no free addresses left */
                         return 0;
 
+                if (server->rapid_commit && req->rapid_commit)
+                        return server_ack_request(server, req, existing_lease, address);
+
                 r = server_send_offer_or_ack(server, req, address, DHCP_OFFER);
                 if (r < 0)
                         /* this only fails on critical errors */
@@ -1273,6 +1290,9 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message, siz
 
                         address = req->message->ciaddr;
                 }
+
+                /* Silently ignore Rapid Commit option in REQUEST message. */
+                req->rapid_commit = false;
 
                 /* disallow our own address */
                 if (address == server->address)
@@ -1542,6 +1562,13 @@ int sd_dhcp_server_set_ipv6_only_preferred_usec(sd_dhcp_server *server, uint64_t
                  return -EINVAL;
 
         server->ipv6_only_preferred_usec = t;
+        return 0;
+}
+
+int sd_dhcp_server_set_rapid_commit(sd_dhcp_server *server, int enabled) {
+        assert_return(server, -EINVAL);
+
+        server->rapid_commit = enabled;
         return 0;
 }
 
