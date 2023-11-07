@@ -926,6 +926,64 @@ static int update_properties_consume(Hashmap **properties, char *key, char *valu
         return 0;
 }
 
+static int set_environment_one(Manager *manager, const char *assignment) {
+        char *key, *value;
+        int r;
+
+        assert(manager);
+        assert(assignment);
+
+        r = split_assignment(assignment, &key, &value);
+        if (r < 0)
+                return r;
+
+        return update_properties_consume(&manager->properties, key, value);
+}
+
+static int unset_environment_one(Manager *manager, const char *name) {
+        char *key;
+
+        assert(manager);
+        assert(name);
+
+        key = strdup(name);
+        if (!key)
+                return -ENOMEM;
+
+        return update_properties_consume(&manager->properties, key, NULL);
+}
+
+static int update_environment(Manager *manager, char **env, int (*update)(Manager *, const char *)) {
+        bool modified = false;
+        int r;
+
+        assert(manager);
+        assert(env);
+
+        STRV_FOREACH(e, env) {
+                r = update(manager, *e);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to update property: %m");
+                        break;
+                }
+
+                modified = true;
+        }
+
+        if (modified)
+                manager_kill_workers(manager, /* force = */ false);
+
+        return r;
+}
+
+int manager_set_environment(Manager *manager, char **assignments) {
+        return update_environment(manager, assignments, set_environment_one);
+}
+
+int manager_unset_environment(Manager *manager, char **names) {
+        return update_environment(manager, names, unset_environment_one);
+}
+
 /* receive the udevd message from userspace */
 static int on_ctrl_msg(UdevCtrl *uctrl, UdevCtrlMessageType type, const UdevCtrlMessageValue *value, void *userdata) {
         Manager *manager = ASSERT_PTR(userdata);
