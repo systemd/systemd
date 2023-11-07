@@ -237,7 +237,7 @@
         capabilities, MAC labels,
         <citerefentry project='man-pages'><refentrytitle>chattr</refentrytitle><manvolnum>1</manvolnum></citerefentry>
         file flags,
-        <citerefentry project='url'><refentrytitle url='https://btrfs.wiki.kernel.org/index.php/Manpage/btrfs(5)'>btrfs</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        <citerefentry project='url'><refentrytitle url='https://btrfs.readthedocs.io/en/latest/btrfs-man5.html'>btrfs</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         subvolume information, and various other file metadata. File content information is shown via a
         SHA256 digest. Additional fields might be added in future. Note that inode information such as link
         counts, inode numbers and timestamps is excluded from the output on purpose, as it typically
