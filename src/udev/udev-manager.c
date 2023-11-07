@@ -857,6 +857,58 @@ static void manager_set_default_children_max(Manager *manager) {
         log_debug("Set children_max to %u", manager->children_max);
 }
 
+static int split_assignment(const char *assignment, char **ret_key, char **ret_value) {
+        _cleanup_free_ char *key = NULL, *value = NULL;
+        char *eq;
+
+        assert(assignment);
+
+        eq = strchr(assignment, '=');
+        if (!eq)
+                return -EINVAL;
+
+        key = strndup(assignment, eq - assignment);
+        if (!key)
+                return -ENOMEM;
+
+        value = eq++;
+        if (value) {
+                value = strdup(value);
+                if (!value)
+                        return -ENOMEM;
+        }
+
+        if (ret_key)
+                *ret_key = TAKE_PTR(key);
+        if (ret_value)
+                *ret_value = TAKE_PTR(value);
+
+        return !!eq;
+}
+
+static int update_properties_consume(Hashmap **properties, char *key, char *value) {
+        _unused_ _cleanup_free_ char *old_key = NULL, *old_val = NULL;
+        _cleanup_free_ char *k = ASSERT_PTR(key), *v = value;
+        int r;
+
+        assert(properties);
+
+        old_val = hashmap_remove2(*properties, key, (void **) &old_key);
+
+        r = hashmap_ensure_allocated(properties, &string_hash_ops);
+        if (r < 0)
+                return -ENOMEM;
+
+        r = hashmap_put(*properties, k, v);
+        if (r < 0)
+                return -ENOMEM;
+
+        TAKE_PTR(k);
+        TAKE_PTR(v);
+
+        return 0;
+}
+
 /* receive the udevd message from userspace */
 static int on_ctrl_msg(UdevCtrl *uctrl, UdevCtrlMessageType type, const UdevCtrlMessageValue *value, void *userdata) {
         Manager *manager = ASSERT_PTR(userdata);
@@ -889,50 +941,28 @@ static int on_ctrl_msg(UdevCtrl *uctrl, UdevCtrlMessageType type, const UdevCtrl
                 manager_reload(manager, /* force = */ true);
                 break;
         case UDEV_CTRL_SET_ENV: {
-                _unused_ _cleanup_free_ char *old_val = NULL;
-                _cleanup_free_ char *key = NULL, *val = NULL, *old_key = NULL;
-                const char *eq;
+                _cleanup_free_ char *key = NULL, *val = NULL;
 
-                eq = strchr(value->buf, '=');
-                if (!eq) {
-                        log_error("Invalid key format '%s'", value->buf);
-                        return 1;
-                }
-
-                key = strndup(value->buf, eq - value->buf);
-                if (!key) {
-                        log_oom();
-                        return 1;
-                }
-
-                old_val = hashmap_remove2(manager->properties, key, (void **) &old_key);
-
-                r = hashmap_ensure_allocated(&manager->properties, &string_hash_ops);
+                r = split_assignment(value->buf, &key, &val);
                 if (r < 0) {
-                        log_oom();
+                        if (r == -EINVAL)
+                                log_error("Invalid key format '%s'", value->buf);
+                        else
+                                log_error_errno(r, "Failed to parse property: %m");
                         return 1;
                 }
 
-                eq++;
-                if (isempty(eq))
+                if (r == 0)
                         log_debug("Received udev control message (ENV), unsetting '%s'", key);
-                else {
-                        val = strdup(eq);
-                        if (!val) {
-                                log_oom();
-                                return 1;
-                        }
-
+                else
                         log_debug("Received udev control message (ENV), setting '%s=%s'", key, val);
-                }
 
-                r = hashmap_put(manager->properties, key, val);
+                r = update_properties_consume(&manager->properties, TAKE_PTR(key), TAKE_PTR(val));
                 if (r < 0) {
-                        log_oom();
+                        log_error_errno(r, "Failed to update property: %m");
                         return 1;
                 }
 
-                key = val = NULL;
                 manager_kill_workers(manager, false);
                 break;
         }
