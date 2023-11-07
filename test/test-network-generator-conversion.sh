@@ -280,6 +280,7 @@ COMMAND_LINES=(
     "ip=:::::dhcp99:dhcp6:666:52:54:00:a7:8f:ac"
     "ip=:::::dhcp99:dhcp6:10.0.0.128"
     "ip=:::::dhcp99:dhcp6:10.0.0.128:10.0.0.129"
+    "ip=:::::dhcp99:dhcp6:10.0.0.128:[fdef:c400:bd01:1096::bbbb]"
     "ip=::::::any"
     "ip=::::::ibft"
 )

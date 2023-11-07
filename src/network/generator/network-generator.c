@@ -471,16 +471,20 @@ static int network_set_route(Context *context, const char *ifname, int family, u
         return route_new(network, family, prefixlen, dest, gateway, NULL);
 }
 
-static int network_set_dns(Context *context, const char *ifname, const char *dns) {
+static int network_set_dns(Context *context, const char *ifname, int family, const char *dns) {
         union in_addr_union a;
         Network *network;
-        int family, r;
+        int r;
 
         assert(context);
         assert(ifname);
+        assert(IN_SET(family, AF_UNSPEC, AF_INET, AF_INET6));
         assert(dns);
 
-        r = in_addr_from_string_auto(dns, &family, &a);
+        if (family == AF_UNSPEC)
+                r = in_addr_from_string_auto(dns, &family, &a);
+        else
+                r = in_addr_from_string(family, dns, &a);
         if (r < 0)
                 return r;
 
@@ -674,13 +678,12 @@ static int parse_netmask_or_prefixlen(int family, const char **value, unsigned c
         return 0;
 }
 
-static int parse_ip_dns_address_one(Context *context, const char *ifname, int family, const char **value) {
+static int parse_ip_dns_address_one(Context *context, const char *ifname, const char **value) {
         const char *p, *q, *buf;
-        int r;
+        int r, family;
 
         assert(context);
         assert(ifname);
-        assert(IN_SET(family, AF_INET, AF_INET6));
         assert(value);
 
         p = ASSERT_PTR(*value);
@@ -688,16 +691,16 @@ static int parse_ip_dns_address_one(Context *context, const char *ifname, int fa
         if (isempty(p))
                 return 0;
 
-        if (family == AF_INET6) {
-                if (p[0] != '[')
-                        return -EINVAL;
-
+        if (p[0] == '[') {
                 q = strchr(p + 1, ']');
                 if (!q)
+                        return -EINVAL;
+                if (!IN_SET(q[1], ':', '\0'))
                         return -EINVAL;
 
                 buf = strndupa_safe(p + 1, q - p - 1);
                 p = q + 1;
+                family = AF_INET6;
         } else {
                 q = strchr(p, ':');
                 if (!q)
@@ -706,9 +709,10 @@ static int parse_ip_dns_address_one(Context *context, const char *ifname, int fa
                         buf = strndupa_safe(*value, q - *value);
 
                 p += strlen(buf);
+                family = AF_INET;
         }
 
-        r = network_set_dns(context, ifname, buf);
+        r = network_set_dns(context, ifname, family, buf);
         if (r < 0)
                 return r;
 
@@ -801,10 +805,10 @@ static int parse_cmdline_ip_address(Context *context, int family, const char *va
 
         /* Next, try [<dns1>][:<dns2>] */
         value = p + 1;
-        r = parse_ip_dns_address_one(context, ifname, family, &value);
+        r = parse_ip_dns_address_one(context, ifname, &value);
         if (r < 0)
                 return r;
-        r = parse_ip_dns_address_one(context, ifname, family, &value);
+        r = parse_ip_dns_address_one(context, ifname, &value);
         if (r < 0)
                 return r;
 
@@ -925,7 +929,7 @@ static int parse_cmdline_nameserver(Context *context, const char *key, const cha
         if (proc_cmdline_value_missing(key, value))
                 return -EINVAL;
 
-        return network_set_dns(context, "", value);
+        return network_set_dns(context, "", AF_UNSPEC, value);
 }
 
 static int parse_cmdline_rd_peerdns(Context *context, const char *key, const char *value) {
