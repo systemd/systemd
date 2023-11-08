@@ -130,7 +130,7 @@ option('homed', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : '
        description : 'install the systemd-homed stack')
 option('networkd', type : 'boolean',
        description : 'install the systemd-networkd stack')
-option('default-network', type : 'boolean', value : true,
+option('default-network', type : 'boolean', value : false,
        description : 'install default .network files')
 option('timedated', type : 'boolean',
        description : 'install the systemd-timedated daemon')
