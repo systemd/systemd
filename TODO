@@ -2162,6 +2162,8 @@ Features:
     avatar/photo or so. This data should be stored along with the user record,
     but probably shouldn't be part of the record itself, since it might be
     large.
+  - add "homectl unbind" command to remove local user record of an inactive
+    home dir
 
 * add a new switch --auto-definitions=yes/no or so to systemd-repart. If
   specified, synthesize a definition automatically if we can: enlarge last
