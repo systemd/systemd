@@ -224,7 +224,11 @@ struct ExecContext {
         ExecInput std_input;
         ExecOutput std_output;
         ExecOutput std_error;
+
+        /* At least one of stdin/stdout/stderr was initialized from an fd passed in. This boolean survives
+         * the fds being closed. This only makes sense for transient units. */
         bool stdio_as_fds;
+
         char *stdio_fdname[3];
         char *stdio_file[3];
 
