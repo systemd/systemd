@@ -19,9 +19,9 @@ at_exit() {
 
 trap at_exit EXIT
 
-export NETWORK_NAME="networkctl-test-$RANDOM.network"
-export NETDEV_NAME="networkctl-test-$RANDOM.netdev"
-export LINK_NAME="90-networkctl-test-$RANDOM.link"
+export NETWORK_NAME="10-networkctl-test-$RANDOM.network"
+export NETDEV_NAME="10-networkctl-test-$RANDOM.netdev"
+export LINK_NAME="10-networkctl-test-$RANDOM.link"
 cat >"/usr/lib/systemd/network/$NETWORK_NAME" <<EOF
 [Match]
 Name=test
