@@ -1,9 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <stdio.h>
-#include <unistd.h>
+#include <linux/vhost.h>
+#include <sys/ioctl.h>
 
-#include "alloc-util.h"
 #include "architecture.h"
 #include "conf-files.h"
 #include "errno-util.h"
@@ -15,7 +14,10 @@
 #include "memory-util.h"
 #include "path-lookup.h"
 #include "path-util.h"
+#include "random-util.h"
 #include "recurse-dir.h"
+#include "siphash24.h"
+#include "socket-util.h"
 #include "sort-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -39,6 +41,32 @@ int qemu_check_kvm_support(void) {
         }
         if (errno == EPERM) {
                 log_debug_errno(errno, "Permission denied to access /dev/kvm. Not using KVM acceleration.");
+                return false;
+        }
+
+        return -errno;
+}
+
+int qemu_check_vsock_support(void) {
+        _cleanup_close_ int fd = -EBADF;
+        /* Just using access() will just check if the device node exists, but not whether a
+         * device driver is behind it (this is a common case since systemd-tmpfiles creates
+         * the device node on boot, typically).
+         *
+         * Hence we open() the path to see if there's actually something behind.
+         *
+         * If not this should return ENODEV.
+         */
+
+        fd = open("/dev/vhost-vsock", O_RDWR|O_CLOEXEC);
+        if (fd >= 0)
+                return true;
+        if (errno == ENODEV) {
+                log_debug_errno(errno, "/dev/vhost-vsock device doesn't exist. Not adding a vsock device to the virtual machine.");
+                return false;
+        }
+        if (errno == EPERM) {
+                log_debug_errno(errno, "Permission denied to access /dev/vhost-vsock. Not adding a vsock device to the virtual machine.");
                 return false;
         }
 
@@ -236,4 +264,80 @@ int find_qemu_binary(char **ret_qemu_binary) {
                 return -ENOMEM;
 
         return find_executable(qemu_arch_specific, ret_qemu_binary);
+}
+
+int vsock_fix_child_cid(unsigned *machine_cid, const char *machine, int *ret_child_sock) {
+        /* this is an arbitrary value picked from /dev/urandom */
+        static const uint8_t sip_key[HASH_KEY_SIZE] = {
+                0x03, 0xad, 0xf0, 0xa4,
+                0x59, 0x2c, 0x77, 0x11,
+                0xda, 0x39, 0x0c, 0xba,
+                0xf5, 0x4c, 0x80, 0x52
+        };
+        struct siphash machine_hash_state, state;
+        _cleanup_close_ int vfd = -EBADF;
+        int r;
+
+        /* uint64_t is required here for the ioctl call, but valid CIDs are only 32 bits */
+        uint64_t cid = *ASSERT_PTR(machine_cid);
+
+        assert(machine);
+        assert(ret_child_sock);
+
+        /* Fix the CID of the AF_VSOCK socket passed to qemu
+         *
+         * If the user has passed us a CID (machine_cid != VMADDR_CID_ANY), then attempt to bind to that CID
+         * and error if we cannot.
+         *
+         * Otherwise hash the machine name to get a random CID and attempt to bind to that.
+         * If it is occupied add more information into the hash and try again.
+         * If after 64 attempts this hasn't worked fallback to truly random CIDs.
+         * If after another 64 attempts this hasn't worked then give up and return EADDRNOTAVAIL.
+         */
+
+        /* remove O_CLOEXEC before this fd is passed to QEMU */
+        vfd = open("/dev/vhost-vsock", O_RDWR|O_CLOEXEC);
+        if (vfd < 0)
+                return log_debug_errno(errno, "Failed to open /dev/vhost-vsock as read/write: %m");
+
+        if (cid != VMADDR_CID_ANY) {
+                r = ioctl(vfd, VHOST_VSOCK_SET_GUEST_CID, &cid);
+                if (r < 0)
+                        return log_debug_errno(errno, "Failed to set CID for child vsock with user provided CID %lu: %m", cid);
+                *ret_child_sock = TAKE_FD(vfd);
+                return 0;
+        }
+
+        siphash24_init(&machine_hash_state, sip_key);
+        siphash24_compress_string(machine, &machine_hash_state);
+        for (unsigned i = 0; i < 64; i++) {
+                state = machine_hash_state;
+                siphash24_compress_safe(&i, sizeof i, &state);
+                uint64_t hash = siphash24_finalize(&state);
+
+                cid = 3 + (hash % (UINT_MAX - 4));
+                r = ioctl(vfd, VHOST_VSOCK_SET_GUEST_CID, &cid);
+                if (r >= 0) {
+                        *machine_cid = cid;
+                        *ret_child_sock = TAKE_FD(vfd);
+                        return 0;
+                }
+                if (errno != EADDRINUSE)
+                        return -errno;
+        }
+
+        for (unsigned i = 0; i < 64; i++) {
+                cid = 3 + random_u64_range(UINT_MAX - 4);
+                r = ioctl(vfd, VHOST_VSOCK_SET_GUEST_CID, &cid);
+                if (r >= 0) {
+                        *machine_cid = cid;
+                        *ret_child_sock = TAKE_FD(vfd);
+                        return 0;
+                }
+
+                if (errno != EADDRINUSE)
+                        return -errno;
+        }
+
+        return log_debug_errno(SYNTHETIC_ERRNO(EADDRNOTAVAIL), "Failed to assign a CID to the guest vsock");
 }
