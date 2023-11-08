@@ -217,7 +217,7 @@ int acquire_luks2_key(
 
         base64_encoded_size = base64mem(decrypted_key, decrypted_key_size, &base64_encoded);
         if (base64_encoded_size < 0)
-                return crypt_log_error_errno(cd, (int) base64_encoded_size, "Can not base64 encode key: %m");
+                return crypt_log_error_errno(cd, (int) base64_encoded_size, "Cannot base64 encode key: %m");
 
         *ret_password = TAKE_PTR(base64_encoded);
         *ret_password_size = base64_encoded_size;
