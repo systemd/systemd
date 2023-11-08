@@ -368,6 +368,9 @@ typedef struct Unit {
         /* Most recently read value of memory.peak */
         uint64_t memory_peak_last;
 
+        /* Most recently read value of memory.swap.peak */
+        uint64_t memory_swap_peak_last;
+
         /* The current counter of OOM kills initiated by systemd-oomd */
         uint64_t managed_oom_kill_last;
 
