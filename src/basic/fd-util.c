@@ -761,7 +761,7 @@ finish:
 }
 
 int fd_reopen(int fd, int flags) {
-        int new_fd, r;
+        int r;
 
         assert(fd >= 0 || fd == AT_FDCWD);
 
@@ -787,19 +787,17 @@ int fd_reopen(int fd, int flags) {
                  * the same way as the non-O_DIRECTORY case. */
                 return -ELOOP;
 
-        if (FLAGS_SET(flags, O_DIRECTORY) || fd == AT_FDCWD) {
+        /* Let's refuse O_CREAT and O_TMPFILE here. These don't make sense when we're operating through an
+         * existing fd anyway. Besides, since we don't handle the third argument (mode) of open(2), we might
+         * even get runtime errors (#29938). */
+        flags &= ~(O_CREAT|O_TMPFILE);
+
+        if (FLAGS_SET(flags, O_DIRECTORY) || fd == AT_FDCWD)
                 /* If we shall reopen the fd as directory we can just go via "." and thus bypass the whole
                  * magic /proc/ directory, and make ourselves independent of that being mounted. */
-                new_fd = openat(fd, ".", flags | O_DIRECTORY);
-                if (new_fd < 0)
-                        return -errno;
+                return RET_NERRNO(openat(fd, ".", flags | O_DIRECTORY));
 
-                return new_fd;
-        }
-
-        assert(fd >= 0);
-
-        new_fd = open(FORMAT_PROC_FD_PATH(fd), flags);
+        int new_fd = open(FORMAT_PROC_FD_PATH(fd), flags);
         if (new_fd < 0) {
                 if (errno != ENOENT)
                         return -errno;
