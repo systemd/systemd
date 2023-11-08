@@ -236,6 +236,30 @@
   </refsect1>
 
   <refsect1>
+    <title>Compatibility</title>
+
+    <para>Security technology both in systemd and in the general industry constantly evolves. In order to
+    provide best security guarantees, the way TPM2, FIDO2, PKCS#11 devices are enrolled is regularly updated
+    in newer versions of systemd. Whenever this happens the following compatibility guarantees are given:</para>
+
+    <itemizedlist>
+      <listitem><para>Old enrollments continue to be supported and may be unlocked with newer versions of
+      <citerefentry><refentrytitle>systemd-cryptsetup@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para></listitem>
+
+      <listitem><para>The opposite is not guaranteed however: it might not be possible to unlock volumes with
+      enrollments done with a newer version of <command>systemd-cryptenroll</command> with an older version
+      of <command>systemd-cryptsetup</command>.</para></listitem>
+    </itemizedlist>
+
+    <para>That said, it is generally recommended to use matching versions of
+    <command>systemd-cryptenroll</command> and <command>systemd-cryptsetup</command>, since this is best
+    tested and supported.</para>
+
+    <para>It might be advisable to re-enroll existing enrollments to take benefit of newer security features,
+    as they are added to systemd.</para>
+  </refsect1>
+
+  <refsect1>
     <title>Options</title>
 
     <para>The following options are understood:</para>

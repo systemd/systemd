@@ -107,6 +107,13 @@
         <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         for details of how search and route-only domains are used.</para>
 
+        <para>Note that configuring the MulticastDNS domain <literal>local</literal> as search or routing
+        domain has the effect of routing lookups for this domain to classic unicast DNS. This may be used to
+        provide compatibility with legacy installations that use this domain in a unicast DNS context,
+        against the IANA assignment of this domain to pure MulticastDNS purposes. Search and routing domains
+        are a unicast DNS concept, they <emphasis>cannot</emphasis> be used to resolve single-label lookups
+        via MulticastDNS.</para>
+
         <xi:include href="version-info.xml" xpointer="v229"/>
         </listitem>
       </varlistentry>
