@@ -747,9 +747,10 @@ finish:
 }
 
 int fd_reopen(int fd, int flags) {
-        int new_fd, r;
+        int r;
 
         assert(fd >= 0 || fd == AT_FDCWD);
+        assert(!FLAGS_SET(flags, O_CREAT));
 
         /* Reopens the specified fd with new flags. This is useful for convert an O_PATH fd into a regular one, or to
          * turn O_RDWR fds into O_RDONLY fds.
@@ -773,19 +774,12 @@ int fd_reopen(int fd, int flags) {
                  * the same way as the non-O_DIRECTORY case. */
                 return -ELOOP;
 
-        if (FLAGS_SET(flags, O_DIRECTORY) || fd == AT_FDCWD) {
+        if (FLAGS_SET(flags, O_DIRECTORY) || fd == AT_FDCWD)
                 /* If we shall reopen the fd as directory we can just go via "." and thus bypass the whole
                  * magic /proc/ directory, and make ourselves independent of that being mounted. */
-                new_fd = openat(fd, ".", flags | O_DIRECTORY);
-                if (new_fd < 0)
-                        return -errno;
+                return RET_NERRNO(openat(fd, ".", flags | O_DIRECTORY));
 
-                return new_fd;
-        }
-
-        assert(fd >= 0);
-
-        new_fd = open(FORMAT_PROC_FD_PATH(fd), flags);
+        int new_fd = open(FORMAT_PROC_FD_PATH(fd), flags);
         if (new_fd < 0) {
                 if (errno != ENOENT)
                         return -errno;
@@ -811,6 +805,7 @@ int fd_reopen_condition(
         int r, new_fd;
 
         assert(fd >= 0);
+        assert(!FLAGS_SET(flags, O_CREAT));
 
         /* Invokes fd_reopen(fd, flags), but only if the existing F_GETFL flags don't match the specified
          * flags (masked by the specified mask). This is useful for converting O_PATH fds into real fds if
