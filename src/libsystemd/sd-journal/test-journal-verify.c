@@ -108,7 +108,7 @@ static int run_test(const char *verification_key, ssize_t max_iterations) {
                 struct iovec iovec;
                 struct dual_timestamp ts;
 
-                dual_timestamp_get(&ts);
+                dual_timestamp_now(&ts);
                 assert_se(asprintf(&test, "RANDOM=%li", random() % RANDOM_RANGE));
                 iovec = IOVEC_MAKE_STRING(test);
                 assert_se(journal_file_append_entry(

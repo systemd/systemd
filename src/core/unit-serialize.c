@@ -526,7 +526,7 @@ int unit_deserialize_state(Unit *u, FILE *f, FDSet *fds) {
          * reboots. */
 
         if (!dual_timestamp_is_set(&u->state_change_timestamp))
-                dual_timestamp_get(&u->state_change_timestamp);
+                dual_timestamp_now(&u->state_change_timestamp);
 
         /* Let's make sure that everything that is deserialized also gets any potential new cgroup settings
          * applied after we are done. For that we invalidate anything already realized, so that we can

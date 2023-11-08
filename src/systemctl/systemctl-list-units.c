@@ -769,7 +769,7 @@ int verb_list_timers(int argc, char *argv[], void *userdata) {
                 if (n < 0)
                         return n;
 
-                dual_timestamp_get(&nw);
+                dual_timestamp_now(&nw);
 
                 FOREACH_ARRAY(u, unit_infos, n) {
                         r = add_timer_info(bus, u, &nw, &timers, &n_timers);
