@@ -224,32 +224,9 @@ int enroll_tpm2(struct crypt_device *cd,
         _cleanup_(tpm2_context_unrefp) Tpm2Context *tpm2_context = NULL;
         TPM2B_PUBLIC device_key_public = {};
         if (device_key) {
-                _cleanup_free_ char *device_key_buffer = NULL;
-                size_t device_key_buffer_size;
-                r = read_full_file(device_key, &device_key_buffer, &device_key_buffer_size);
+                r = tpm2_load_public_key_file(device_key, &device_key_public);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to read device key from file: %m");
-
-                r = dlopen_tpm2();
-                if (r < 0)
-                        return log_debug_errno(r, "TPM2 support not installed: %m");
-
-                TSS2_RC rc;
-                size_t offset = 0;
-                rc = sym_Tss2_MU_TPM2B_PUBLIC_Unmarshal(
-                                (uint8_t*) device_key_buffer,
-                                device_key_buffer_size,
-                                &offset,
-                                &device_key_public);
-                if (rc != TSS2_RC_SUCCESS)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Could not unmarshal public key from file.");
-
-                assert(offset <= device_key_buffer_size);
-                if (offset != device_key_buffer_size)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Found %zu bytes of trailing garbage in public key file.",
-                                               device_key_buffer_size - offset);
+                        return r;
 
                 if (!tpm2_pcr_values_has_all_values(hash_pcr_values, n_hash_pcr_values))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
