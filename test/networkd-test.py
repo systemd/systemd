@@ -87,6 +87,12 @@ def setUpModule():
     # Ensure the unit directory exists so tests can dump files into it.
     os.makedirs(NETWORK_UNITDIR, exist_ok=True)
 
+    # mask all default .network files
+    if os.path.exists('/usr/lib/systemd/network'):
+        for unit in os.listdir('/usr/lib/systemd/network'):
+            if unit.endswith('.network'):
+                os.symlink('/dev/null', os.path.join(NETWORK_UNITDIR, unit))
+
 
 def tearDownModule():
     global tmpmounts
