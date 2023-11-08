@@ -39,7 +39,7 @@ void dhcp_lease_set_timestamp(sd_dhcp_lease *lease, const triple_timestamp *time
         if (timestamp && triple_timestamp_is_set(timestamp))
                 lease->timestamp = *timestamp;
         else
-                triple_timestamp_get(&lease->timestamp);
+                triple_timestamp_now(&lease->timestamp);
 }
 
 int sd_dhcp_lease_get_timestamp(sd_dhcp_lease *lease, clockid_t clock, uint64_t *ret) {

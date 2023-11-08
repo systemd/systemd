@@ -79,12 +79,12 @@ nsec_t now_nsec(clockid_t clock);
 
 usec_t map_clock_usec(usec_t from, clockid_t from_clock, clockid_t to_clock);
 
-dual_timestamp* dual_timestamp_get(dual_timestamp *ts);
+dual_timestamp* dual_timestamp_now(dual_timestamp *ts);
 dual_timestamp* dual_timestamp_from_realtime(dual_timestamp *ts, usec_t u);
 dual_timestamp* dual_timestamp_from_monotonic(dual_timestamp *ts, usec_t u);
 dual_timestamp* dual_timestamp_from_boottime(dual_timestamp *ts, usec_t u);
 
-triple_timestamp* triple_timestamp_get(triple_timestamp *ts);
+triple_timestamp* triple_timestamp_now(triple_timestamp *ts);
 triple_timestamp* triple_timestamp_from_realtime(triple_timestamp *ts, usec_t u);
 triple_timestamp* triple_timestamp_from_boottime(triple_timestamp *ts, usec_t u);
 
