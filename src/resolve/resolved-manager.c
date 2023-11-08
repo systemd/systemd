@@ -1197,8 +1197,11 @@ int manager_send(
         assert(port > 0);
         assert(p);
 
+        /* For mDNS, it is natural that the packet have truncated flag when we have many known answers. */
+        bool truncated = DNS_PACKET_TC(p) && (p->protocol != DNS_PROTOCOL_MDNS || !p->more);
+
         log_debug("Sending %s%s packet with id %" PRIu16 " on interface %i/%s of size %zu.",
-                  DNS_PACKET_TC(p) ? "truncated (!) " : "",
+                  truncated ? "truncated (!) " : "",
                   DNS_PACKET_QR(p) ? "response" : "query",
                   DNS_PACKET_ID(p),
                   ifindex, af_to_name(family),
