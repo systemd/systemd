@@ -1141,7 +1141,7 @@ static int kernel_from_version(const char *version, char **ret_kernel) {
                 if (r == -ENOENT)
                         return log_error_errno(r, "Kernel image not installed to '%s', requiring manual kernel image path specification.", vmlinuz);
 
-                return log_error_errno(r, "Failed to determin if kernel image is installed to '%s': %m", vmlinuz);
+                return log_error_errno(r, "Failed to determine if kernel image is installed to '%s': %m", vmlinuz);
         }
 
         *ret_kernel = TAKE_PTR(vmlinuz);
