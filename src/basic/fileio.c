@@ -1064,7 +1064,9 @@ int fdopen_independent(int fd, const char *mode, FILE **ret) {
         if (mode_flags < 0)
                 return mode_flags;
 
-        copy_fd = fd_reopen(fd, mode_flags);
+        /* Flags returned by fopen_mode_to_flags might contain O_CREAT, but it doesn't make sense for fd_reopen
+         * since we're working on an existing fd anyway. Let's drop it here to avoid triggering assertion. */
+        copy_fd = fd_reopen(fd, mode_flags & ~O_CREAT);
         if (copy_fd < 0)
                 return copy_fd;
 
