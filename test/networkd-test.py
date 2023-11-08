@@ -69,6 +69,8 @@ def setUpModule():
     if subprocess.call(['getent', 'passwd', 'systemd-network']) != 0:
         subprocess.call(['useradd', '--system', '--no-create-home', 'systemd-network'])
 
+    os.makedirs('/run/systemd/network', exist_ok=True)
+
     for d in ['/etc/systemd/network', '/run/systemd/network',
               '/run/systemd/netif', '/run/systemd/resolve']:
         if os.path.isdir(d):
@@ -80,6 +82,9 @@ def setUpModule():
     if os.path.isdir('/run/systemd/netif'):
         os.chmod('/run/systemd/netif', 0o755)
         shutil.chown('/run/systemd/netif', 'systemd-network', 'systemd-network')
+
+    # mask 89-ethernet.network
+    os.symlink("/dev/null", "/run/systemd/network/89-ethernet.network")
 
     # Avoid "Failed to open /dev/tty" errors in containers.
     os.environ['SYSTEMD_LOG_TARGET'] = 'journal'
