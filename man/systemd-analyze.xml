@@ -174,6 +174,11 @@
       <arg choice="plain">pcrs</arg>
       <arg choice="opt" rep="repeat"><replaceable>PCR</replaceable></arg>
     </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-analyze</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">srk</arg> &gt;<arg choice="plain"><replaceable>FILE</replaceable></arg>
+    </cmdsynopsis>
   </refsynopsisdiv>
 
   <refsect1>
@@ -926,6 +931,16 @@ NR NAME                SHA256
 23 application-support 0000000000000000000000000000000000000000000000000000000000000000</programlisting>
       </example>
     </refsect2>
+
+    <refsect2>
+      <title><command>systemd-analyze srk &gt; <replaceable>FILE</replaceable></command></title>
+
+      <para>This command reads the Storage Root Key (SRK) from the TPM2 device, and writes it in marshalled
+      TPM2B_PUBLIC format to stdout. Example:</para>
+
+      <programlisting>systemd-analyze srk &gt; srk.tpm2b_public</programlisting>
+    </refsect2>
+
   </refsect1>
 
   <refsect1>
