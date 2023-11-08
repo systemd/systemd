@@ -715,9 +715,16 @@ TEST(setpriority_closest) {
                         assert_se(ERRNO_IS_PRIVILEGE(errno));
                         full_test = false;
                 } else {
-                        assert_se(setresgid(GID_NOBODY, GID_NOBODY, GID_NOBODY) >= 0);
-                        assert_se(setresuid(UID_NOBODY, UID_NOBODY, UID_NOBODY) >= 0);
-                        full_test = true;
+                        /* However, if the hard limit was above 30, setrlimit would succeed unprivileged, so
+                         * check if the UID/GID can be changed before enabling the full test. */
+                        if (setresgid(GID_NOBODY, GID_NOBODY, GID_NOBODY) < 0) {
+                                assert_se(ERRNO_IS_PRIVILEGE(errno));
+                                full_test = false;
+                        } else if (setresuid(UID_NOBODY, UID_NOBODY, UID_NOBODY) < 0) {
+                                assert_se(ERRNO_IS_PRIVILEGE(errno));
+                                full_test = false;
+                        } else
+                                full_test = true;
                 }
 
                 errno = 0;
