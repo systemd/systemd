@@ -264,7 +264,7 @@ EOF
     fi
 
     systemd-run --unit busctl-monitor.service --service-type=exec \
-        busctl monitor --json=short --match="type='signal',sender=org.freedesktop.timedate1,member='PropertiesChanged',path=/org/freedesktop/timedate1"
+        busctl monitor --json=short --match="type=signal,sender=org.freedesktop.timedate1,member=PropertiesChanged,path=/org/freedesktop/timedate1"
 
     : 'Disable NTP'
     timedatectl set-ntp false
@@ -358,7 +358,7 @@ EOF
     networkctl status ntp99
 
     systemd-run --unit busctl-monitor.service --service-type=exec \
-        busctl monitor --json=short --match="type='signal',sender=org.freedesktop.timesync1,member='PropertiesChanged',path=/org/freedesktop/timesync1"
+        busctl monitor --json=short --match="type=signal,sender=org.freedesktop.timesync1,member=PropertiesChanged,path=/org/freedesktop/timesync1"
 
     # LinkNTPServers
     #
