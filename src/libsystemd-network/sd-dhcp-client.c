@@ -116,7 +116,6 @@ struct sd_dhcp_client {
         uint64_t max_attempts;
         OrderedHashmap *extra_options;
         OrderedHashmap *vendor_options;
-        usec_t request_sent;
         sd_event_source *timeout_t1;
         sd_event_source *timeout_t2;
         sd_event_source *timeout_expire;
@@ -1366,16 +1365,12 @@ static int client_timeout_resend(
                         client->attempt = 0;
                 } else if (client->attempt >= client->max_attempts)
                         goto error;
-
-                client->request_sent = time_now;
                 break;
 
         case DHCP_STATE_SELECTING:
                 r = client_send_discover(client);
                 if (r < 0 && client->attempt >= client->max_attempts)
                         goto error;
-
-                client->request_sent = time_now;
                 break;
 
         case DHCP_STATE_INIT_REBOOT:
@@ -1388,8 +1383,6 @@ static int client_timeout_resend(
 
                 if (client->state == DHCP_STATE_INIT_REBOOT)
                         client_set_state(client, DHCP_STATE_REBOOTING);
-
-                client->request_sent = time_now;
                 break;
 
         case DHCP_STATE_REBOOTING:
@@ -1672,7 +1665,7 @@ static int client_parse_message(
         return 0;
 }
 
-static int client_handle_offer_or_rapid_ack(sd_dhcp_client *client, DHCPMessage *message, size_t len) {
+static int client_handle_offer_or_rapid_ack(sd_dhcp_client *client, DHCPMessage *message, size_t len, const triple_timestamp *timestamp) {
         _cleanup_(sd_dhcp_lease_unrefp) sd_dhcp_lease *lease = NULL;
         int r;
 
@@ -1682,6 +1675,8 @@ static int client_handle_offer_or_rapid_ack(sd_dhcp_client *client, DHCPMessage 
         r = client_parse_message(client, message, len, &lease);
         if (r < 0)
                 return r;
+
+        dhcp_lease_set_timestamp(lease, timestamp);
 
         dhcp_lease_unref_and_replace(client->lease, lease);
 
@@ -1786,7 +1781,7 @@ static bool lease_equal(const sd_dhcp_lease *a, const sd_dhcp_lease *b) {
         return true;
 }
 
-static int client_handle_ack(sd_dhcp_client *client, DHCPMessage *message, size_t len) {
+static int client_handle_ack(sd_dhcp_client *client, DHCPMessage *message, size_t len, const triple_timestamp *timestamp) {
         _cleanup_(sd_dhcp_lease_unrefp) sd_dhcp_lease *lease = NULL;
         int r;
 
@@ -1796,6 +1791,8 @@ static int client_handle_ack(sd_dhcp_client *client, DHCPMessage *message, size_
         r = client_parse_message(client, message, len, &lease);
         if (r < 0)
                 return r;
+
+        dhcp_lease_set_timestamp(lease, timestamp);
 
         if (!client->lease)
                 r = SD_DHCP_CLIENT_EVENT_IP_ACQUIRE;
@@ -1818,8 +1815,7 @@ static int client_set_lease_timeouts(sd_dhcp_client *client) {
         assert(client->event);
         assert(client->lease);
         assert(client->lease->lifetime > 0);
-
-        triple_timestamp_from_boottime(&client->lease->timestamp, client->request_sent);
+        assert(triple_timestamp_is_set(&client->lease->timestamp));
 
         /* don't set timers for infinite leases */
         if (client->lease->lifetime == USEC_INFINITY) {
@@ -1833,7 +1829,6 @@ static int client_set_lease_timeouts(sd_dhcp_client *client) {
         r = sd_event_now(client->event, CLOCK_BOOTTIME, &time_now);
         if (r < 0)
                 return r;
-        assert(client->request_sent <= time_now);
 
         /* verify that 0 < t2 < lifetime */
         if (client->lease->t2 == 0 || client->lease->t2 >= client->lease->lifetime)
@@ -1851,9 +1846,15 @@ static int client_set_lease_timeouts(sd_dhcp_client *client) {
         assert(client->lease->t1 < client->lease->t2);
         assert(client->lease->t2 < client->lease->lifetime);
 
-        client->expire_time = usec_add(client->request_sent, client->lease->lifetime);
-        client->t1_time = usec_add(client->request_sent, client->lease->t1);
-        client->t2_time = usec_add(client->request_sent, client->lease->t2);
+        r = sd_dhcp_lease_get_lifetime_timestamp(client->lease, CLOCK_BOOTTIME, &client->expire_time);
+        if (r < 0)
+                return r;
+        r = sd_dhcp_lease_get_t1_timestamp(client->lease, CLOCK_BOOTTIME, &client->t1_time);
+        if (r < 0)
+                return r;
+        r = sd_dhcp_lease_get_t2_timestamp(client->lease, CLOCK_BOOTTIME, &client->t2_time);
+        if (r < 0)
+                return r;
 
         /* RFC2131 section 4.4.5:
          * Times T1 and T2 SHOULD be chosen with some random "fuzz".
@@ -2060,7 +2061,7 @@ static int client_verify_message_header(sd_dhcp_client *client, DHCPMessage *mes
         return 0;
 }
 
-static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message, size_t len) {
+static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message, size_t len, const triple_timestamp *timestamp) {
         DHCP_CLIENT_DONT_DESTROY(client);
         int r;
 
@@ -2073,7 +2074,7 @@ static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message, s
         switch (client->state) {
         case DHCP_STATE_SELECTING:
 
-                r = client_handle_offer_or_rapid_ack(client, message, len);
+                r = client_handle_offer_or_rapid_ack(client, message, len, timestamp);
                 if (ERRNO_IS_NEG_RESOURCE(r))
                         return r;
                 if (r == -EADDRNOTAVAIL)
@@ -2093,7 +2094,7 @@ static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message, s
         case DHCP_STATE_RENEWING:
         case DHCP_STATE_REBINDING:
 
-                r = client_handle_ack(client, message, len);
+                r = client_handle_ack(client, message, len, timestamp);
                 if (ERRNO_IS_NEG_RESOURCE(r))
                         return r;
                 if (r == -EADDRNOTAVAIL)
@@ -2134,6 +2135,16 @@ static int client_receive_message_udp(
         sd_dhcp_client *client = ASSERT_PTR(userdata);
         _cleanup_free_ DHCPMessage *message = NULL;
         ssize_t len, buflen;
+        /* This needs to be initialized with zero. See #20741. */
+        CMSG_BUFFER_TYPE(CMSG_SPACE_TIMEVAL) control = {};
+        struct iovec iov;
+        struct msghdr msg = {
+                .msg_iov = &iov,
+                .msg_iovlen = 1,
+                .msg_control = &control,
+                .msg_controllen = sizeof(control),
+        };
+        triple_timestamp t = {};
         int r;
 
         assert(s);
@@ -2150,17 +2161,22 @@ static int client_receive_message_udp(
         if (!message)
                 return -ENOMEM;
 
-        len = recv(fd, message, buflen, 0);
-        if (len < 0) {
-                if (ERRNO_IS_TRANSIENT(errno) || ERRNO_IS_DISCONNECT(errno))
-                        return 0;
+        iov = IOVEC_MAKE(message, buflen);
 
-                log_dhcp_client_errno(client, errno, "Could not receive message from UDP socket, ignoring: %m");
+        len = recvmsg_safe(fd, &msg, MSG_DONTWAIT);
+        if (ERRNO_IS_NEG_TRANSIENT(len) || ERRNO_IS_NEG_DISCONNECT(len))
+                return 0;
+        if (len < 0) {
+                log_dhcp_client_errno(client, len, "Could not receive message from UDP socket, ignoring: %m");
                 return 0;
         }
 
+        struct timeval *tv = CMSG_FIND_AND_COPY_DATA(&msg, SOL_SOCKET, SCM_TIMESTAMP, struct timeval);
+        if (tv)
+                triple_timestamp_from_realtime(&t, timeval_load(tv));
+
         log_dhcp_client(client, "Received message from UDP socket, processing.");
-        r = client_handle_message(client, message, len);
+        r = client_handle_message(client, message, len, &t);
         if (r < 0)
                 client_stop(client, r);
 
@@ -2175,7 +2191,9 @@ static int client_receive_message_raw(
 
         sd_dhcp_client *client = ASSERT_PTR(userdata);
         _cleanup_free_ DHCPPacket *packet = NULL;
-        CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(struct tpacket_auxdata))) control;
+        /* This needs to be initialized with zero. See #20741. */
+        CMSG_BUFFER_TYPE(CMSG_SPACE_TIMEVAL +
+                         CMSG_SPACE(sizeof(struct tpacket_auxdata))) control = {};
         struct iovec iov = {};
         struct msghdr msg = {
                 .msg_iov = &iov,
@@ -2185,6 +2203,7 @@ static int client_receive_message_raw(
         };
         struct cmsghdr *cmsg;
         bool checksum = true;
+        triple_timestamp t = {};
         ssize_t buflen, len;
         int r;
 
@@ -2212,11 +2231,15 @@ static int client_receive_message_raw(
                 return 0;
         }
 
-        cmsg = cmsg_find(&msg, SOL_PACKET, PACKET_AUXDATA, CMSG_LEN(sizeof(struct tpacket_auxdata)));
-        if (cmsg) {
-                struct tpacket_auxdata *aux = CMSG_TYPED_DATA(cmsg, struct tpacket_auxdata);
-                checksum = !(aux->tp_status & TP_STATUS_CSUMNOTREADY);
-        }
+        CMSG_FOREACH(cmsg, &msg)
+                if (cmsg->cmsg_level == SOL_PACKET && cmsg->cmsg_type == PACKET_AUXDATA) {
+                        struct tpacket_auxdata *aux = CMSG_TYPED_DATA(cmsg, struct tpacket_auxdata);
+                        checksum = !(aux->tp_status & TP_STATUS_CSUMNOTREADY);
+
+                } else if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SCM_TIMESTAMP) {
+                        struct timeval *tv = CMSG_TYPED_DATA(cmsg, struct timeval);
+                        triple_timestamp_from_realtime(&t, timeval_load(tv));
+                }
 
         if (dhcp_packet_verify_headers(packet, len, checksum, client->port) < 0)
                 return 0;
@@ -2224,7 +2247,7 @@ static int client_receive_message_raw(
         len -= DHCP_IP_UDP_SIZE;
 
         log_dhcp_client(client, "Received message from RAW socket, processing.");
-        r = client_handle_message(client, &packet->dhcp, len);
+        r = client_handle_message(client, &packet->dhcp, len, &t);
         if (r < 0)
                 client_stop(client, r);
 

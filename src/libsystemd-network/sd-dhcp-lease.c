@@ -33,6 +33,15 @@
 #include "tmpfile-util.h"
 #include "unaligned.h"
 
+void dhcp_lease_set_timestamp(sd_dhcp_lease *lease, const triple_timestamp *timestamp) {
+        assert(lease);
+
+        if (timestamp && triple_timestamp_is_set(timestamp))
+                lease->timestamp = *timestamp;
+        else
+                triple_timestamp_get(&lease->timestamp);
+}
+
 int sd_dhcp_lease_get_timestamp(sd_dhcp_lease *lease, clockid_t clock, uint64_t *ret) {
         assert_return(lease, -EINVAL);
         assert_return(TRIPLE_TIMESTAMP_HAS_CLOCK(clock), -EOPNOTSUPP);
