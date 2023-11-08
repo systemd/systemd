@@ -726,6 +726,14 @@ const ImagePolicy image_policy_confext = {
         .default_flags = PARTITION_POLICY_IGNORE,
 };
 
+const ImagePolicy image_policy_confext_strict = {
+        .n_policies = 1,
+        .policies = {
+                { PARTITION_ROOT,     PARTITION_POLICY_SIGNED|PARTITION_POLICY_ABSENT },
+        },
+        .default_flags = PARTITION_POLICY_IGNORE,
+};
+
 const ImagePolicy image_policy_container = {
         /* For systemd-nspawn containers we use all partitions, with the exception of swap */
         .n_policies = 8,
