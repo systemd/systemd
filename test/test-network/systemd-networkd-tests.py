@@ -100,6 +100,9 @@ def mkdir_p(path):
 def touch(path):
     pathlib.Path(path).touch()
 
+def ln_s(target, path):
+    os.symlink(target, path)
+
 # pylint: disable=R1710
 def check_output(*command, **kwargs):
     # This checks the result and returns stdout (and stderr) on success.
@@ -324,6 +327,11 @@ def clear_network_units():
 
     if has_link:
         udev_reload()
+
+def mask_network_unit(*units):
+    mkdir_p(network_unit_dir)
+    for unit in units:
+        ln_s("/dev/null", os.path.join(network_unit_dir, unit))
 
 def copy_networkd_conf_dropin(*dropins):
     """Copy networkd.conf dropin files into the testbed."""
@@ -737,6 +745,8 @@ def networkctl_reload(sleep_time=1):
 
 def setup_common():
     print()
+    # 1. mask the default 89-ethernet.network
+    mask_network_unit('89-ethernet.network')
 
 def tear_down_common():
     # 1. stop DHCP/RA servers
