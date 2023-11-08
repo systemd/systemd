@@ -135,6 +135,12 @@ if tpm_has_pcr sha256 12; then
     tpm2_pcrread -Q -o /tmp/pcr.dat sha256:12
     CURRENT_PCR_VALUE=$(cat /sys/class/tpm/tpm0/pcr-sha256/12)
     tpm2_readpublic -c 0x81000001 -o /tmp/srk.pub
+    systemd-analyze srk > /tmp/srk2.pub
+    cmp /tmp/srk.pub /tmp/srk2.pub
+    if [ -f /run/systemd/tpm2-srk-public-key.tpm2b_public ] ; then
+        cmp /tmp/srk.pub /run/systemd/tpm2-srk-public-key.tpm2b_public
+    fi
+
     PASSWORD=passphrase systemd-cryptenroll --tpm2-device-key=/tmp/srk.pub --tpm2-pcrs="12:sha256=$CURRENT_PCR_VALUE" "$IMAGE"
     systemd-cryptsetup attach test-volume "$IMAGE" - tpm2-device=auto,headless=1
     systemd-cryptsetup detach test-volume
