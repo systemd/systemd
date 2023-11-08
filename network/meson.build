@@ -22,7 +22,7 @@ if conf.get('ENABLE_NETWORKD') == 1
                 foreach f : example_network_files
                         install_data(
                                 f,
-                                rename : fs.replace_suffix(f, ''),
+                                rename : fs.replace_suffix(fs.name(f), ''),
                                 install_dir : networkdir)
                 endforeach
         else
