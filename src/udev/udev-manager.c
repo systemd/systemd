@@ -918,15 +918,9 @@ static int on_ctrl_msg(UdevCtrl *uctrl, UdevCtrlMessageType type, const UdevCtrl
                 }
 
                 eq++;
-                if (isempty(eq)) {
+                if (isempty(eq))
                         log_debug("Received udev control message (ENV), unsetting '%s'", key);
-
-                        r = hashmap_put(manager->properties, key, NULL);
-                        if (r < 0) {
-                                log_oom();
-                                return 1;
-                        }
-                } else {
+                else {
                         val = strdup(eq);
                         if (!val) {
                                 log_oom();
