@@ -2413,7 +2413,7 @@ static int tpm2_unmarshal_private(const void *data, size_t size, TPM2B_PRIVATE *
         return 0;
 }
 
-static int tpm2_marshal_public(const TPM2B_PUBLIC *public, void **ret, size_t *ret_size) {
+int tpm2_marshal_public(const TPM2B_PUBLIC *public, void **ret, size_t *ret_size) {
         size_t max_size = sizeof(*public), blob_size = 0;
         _cleanup_free_ void *blob = NULL;
         TSS2_RC rc;
