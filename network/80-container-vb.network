@@ -16,8 +16,8 @@
 # --network-zone switch. See systemd-nspawn(1) for details.
 
 [Match]
+Kind=veth
 Name=vb-*
-Driver=veth
 
 [Network]
 KeepMaster=yes
