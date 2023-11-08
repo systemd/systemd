@@ -4,6 +4,7 @@
 
 #include "ask-password-api.h"
 #include "build.h"
+#include "cryptenroll-empty.h"
 #include "cryptenroll-fido2.h"
 #include "cryptenroll-list.h"
 #include "cryptenroll-password.h"
@@ -84,6 +85,7 @@ static const char* const enroll_type_table[_ENROLL_TYPE_MAX] = {
         [ENROLL_PKCS11]   = "pkcs11",
         [ENROLL_FIDO2]    = "fido2",
         [ENROLL_TPM2]     = "tpm2",
+        [ENROLL_EMPTY]    = "empty",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(enroll_type, EnrollType);
@@ -94,6 +96,7 @@ static const char *const luks2_token_type_table[_ENROLL_TYPE_MAX] = {
         [ENROLL_PKCS11]   = "systemd-pkcs11",
         [ENROLL_FIDO2]    = "systemd-fido2",
         [ENROLL_TPM2]     = "systemd-tpm2",
+        [ENROLL_EMPTY]    = "systemd-empty",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(luks2_token_type, EnrollType);
@@ -120,6 +123,7 @@ static int help(void) {
                "\n%3$sSimple Enrollment:%4$s\n"
                "     --password        Enroll a user-supplied password\n"
                "     --recovery-key    Enroll a recovery key\n"
+               "     --empty           Enroll an empty key\n"
                "\n%3$sPKCS11 Enrollment:%4$s\n"
                "     --pkcs11-token-uri=URI\n"
                "                       Specify PKCS#11 security token URI\n"
@@ -188,6 +192,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_FIDO2_WITH_UP,
                 ARG_FIDO2_WITH_UV,
                 ARG_FIDO2_CRED_ALG,
+                ARG_EMPTY,
         };
 
         static const struct option options[] = {
@@ -195,6 +200,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "version",                      no_argument,       NULL, ARG_VERSION               },
                 { "password",                     no_argument,       NULL, ARG_PASSWORD              },
                 { "recovery-key",                 no_argument,       NULL, ARG_RECOVERY_KEY          },
+                { "empty",                        no_argument,       NULL, ARG_EMPTY                 },
                 { "unlock-key-file",              required_argument, NULL, ARG_UNLOCK_KEYFILE        },
                 { "unlock-fido2-device",          required_argument, NULL, ARG_UNLOCK_FIDO2_DEVICE   },
                 { "pkcs11-token-uri",             required_argument, NULL, ARG_PKCS11_TOKEN_URI      },
@@ -270,6 +276,14 @@ static int parse_argv(int argc, char *argv[]) {
                                                        "Multiple operations specified at once, refusing.");
 
                         arg_enroll_type = ENROLL_RECOVERY;
+                        break;
+
+                case ARG_EMPTY:
+                        if (arg_enroll_type >= 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Multiple operations specified at once, refusing.");
+
+                        arg_enroll_type = ENROLL_EMPTY;
                         break;
 
                 case ARG_UNLOCK_KEYFILE:
@@ -723,6 +737,10 @@ static int run(int argc, char *argv[]) {
 
         case ENROLL_RECOVERY:
                 slot = enroll_recovery(cd, vk, vks);
+                break;
+
+        case ENROLL_EMPTY:
+                slot = enroll_empty(cd, vk, vks);
                 break;
 
         case ENROLL_PKCS11:
