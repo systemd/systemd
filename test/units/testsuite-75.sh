@@ -168,12 +168,12 @@ fd00:dead:beef:cafe::1 ns1.unsigned.test
 EOF
 
 mkdir -p /etc/systemd/network
-cat >/etc/systemd/network/dns0.netdev <<EOF
+cat >/etc/systemd/network/10-dns0.netdev <<EOF
 [NetDev]
 Name=dns0
 Kind=dummy
 EOF
-cat >/etc/systemd/network/dns0.network <<EOF
+cat >/etc/systemd/network/10-dns0.network <<EOF
 [Match]
 Name=dns0
 
