@@ -711,7 +711,7 @@ static int setup_confirm_stdio(
         if (r < 0)
                 return r;
 
-        r = reset_terminal_fd(fd, true);
+        r = reset_terminal_fd(fd, /* switch_to_text= */ true);
         if (r < 0)
                 return r;
 
