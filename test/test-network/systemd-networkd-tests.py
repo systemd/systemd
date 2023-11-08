@@ -769,6 +769,10 @@ def tear_down_common():
     flush_routes()
 
 def setUpModule():
+    # Hide default .network and .link files
+    if os.path.isdir('/usr/lib/systemd/network'):
+        check_output('mount -t tmpfs none /usr/lib/systemd/network')
+
     rm_rf(networkd_ci_temp_dir)
     cp_r(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'conf'), networkd_ci_temp_dir)
 
@@ -824,6 +828,9 @@ def setUpModule():
     check_output('systemctl restart systemd-udevd.service')
 
 def tearDownModule():
+    if os.path.isdir('/usr/lib/systemd/network'):
+        check_output('umount --lazy /usr/lib/systemd/network')
+
     rm_rf(networkd_ci_temp_dir)
     clear_udev_rules()
     clear_network_units()
