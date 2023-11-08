@@ -449,6 +449,7 @@
       <xi:include href="user-system-options.xml" xpointer="system" />
       <xi:include href="user-system-options.xml" xpointer="host" />
       <xi:include href="user-system-options.xml" xpointer="machine" />
+      <xi:include href="user-system-options.xml" xpointer="project" />
 
       <varlistentry>
         <term><option>-l</option></term>
