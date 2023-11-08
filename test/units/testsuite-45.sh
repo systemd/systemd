@@ -378,7 +378,7 @@ EOF
 
     # RuntimeNTPServers
     #
-    # There's no user-facing API that allows changing this propery (afaik), so let's
+    # There's no user-facing API that allows changing this property (afaik), so let's
     # call SetRuntimeNTPServers() directly to test things out. The inner workings should
     # be exactly the same as in the previous case, so do just one test to make sure
     # things work
