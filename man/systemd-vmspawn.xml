@@ -34,6 +34,8 @@
     <para><command>systemd-vmspawn</command> may be used to start a virtual machine from an OS image. In many ways it is similar to <citerefentry
     project='man-pages'><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>, but it
     launches a full virtual machine instead of using namespaces.</para>
+
+  <para>Note: on Ubuntu/Debian derivatives systemd-vmspawn requires the user to be in the <literal>kvm</literal> group to use the VSock options.</para>
   </refsect1>
 
   <refsect1>
@@ -83,37 +85,77 @@
           </listitem>
         </varlistentry>
 
+      <varlistentry>
+        <term><option>--qemu-kvm=</option><replaceable>BOOL</replaceable></term>
+
+        <listitem><para>Configures whether to use KVM. If the option is not specified KVM support will be
+        detected automatically. If true, KVM is always used, and if false, KVM is never used.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--qemu-vsock=</option><replaceable>BOOL</replaceable></term>
+
+        <listitem>
+          <para>Configure whether to use VSock networking.</para>
+          <para>If the option is not specified VSock support will be detected automatically.
+          If yes is specified VSocks are always used, and vice versa if no is set VSocks are never used.</para>
+          <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--vsock-cid=</option><replaceable>CID</replaceable></term>
+
+        <listitem>
+          <para>Configure vmspawn to use a specific CID for the guest.</para>
+          <para>If the option is not specified or an empty argument is supplied the guest will be assigned a random CID.</para>
+          <para>Valid CIDs are in the range <constant>3</constant> to <constant>4294967294</constant> (<constant>0xFFFF_FFFE</constant>).
+          CIDs outside of this range are reserved.</para>
+          <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--qemu-gui</option></term>
+
+        <listitem><para>Start QEMU in graphical mode.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--secure-boot=</option><replaceable>BOOL</replaceable></term>
+
+        <listitem><para>Configure whether to search for firmware which supports Secure Boot.</para>
+        <para>If the option is not specified the first firmware which is detected will be used.
+        If the option is set to yes then the first firmware with Secure Boot support will be selected.
+        If no is specified then the first firmware without Secure Boot will be selected.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+    </variablelist>
+
+    </refsect2><refsect2>
+      <title>System Identity Options</title>
+
+      <variablelist>
         <varlistentry>
-          <term><option>--qemu-kvm=</option></term>
+          <term><option>-M</option></term>
+          <term><option>--machine=</option></term>
 
-          <listitem><para>Configures whether to use KVM. If the option is not specified KVM support will be
-          detected automatically. If true, KVM is always used, and if false, KVM is never used.</para>
-
-          <xi:include href="version-info.xml" xpointer="v255"/></listitem>
-        </varlistentry>
-
-        <varlistentry>
-          <term><option>--qemu-gui</option></term>
-
-          <listitem><para>Start QEMU in graphical mode.</para>
-
-          <xi:include href="version-info.xml" xpointer="v255"/></listitem>
-        </varlistentry>
-
-        <varlistentry>
-          <term><option>--secboot=</option></term>
-
-          <listitem><para>Configures whether to search for firmware which supports secure boot. If the option
-          is not specified, the first firmware which is detected will be used. If true, then the first
-          firmware with secure boot support will be selected. If false, then the first firmware without
-          secure boot will be selected.</para>
-
-          <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+          <listitem><para>Sets the machine name for this container. This
+          name may be used to identify this container during its runtime
+          (for example in tools like
+          <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+          and similar).</para>
+          <xi:include href="version-info.xml" xpointer="v256"/>
+          </listitem>
         </varlistentry>
       </variablelist>
 
-    </refsect2>
-    <refsect2>
+    </refsect2><refsect2>
       <title>Credentials</title>
 
       <variablelist>
@@ -135,8 +177,7 @@
         </varlistentry>
       </variablelist>
 
-    </refsect2>
-    <refsect2>
+    </refsect2><refsect2>
       <title>Other</title>
 
       <variablelist>
@@ -166,6 +207,7 @@ $ systemd-vmspawn --image=image.raw
     <title>Exit status</title>
 
     <para>If an error occurred the value errno is propagated to the return code.
+    If EXIT_STATUS is supplied by the running image that is returned.
     Otherwise EXIT_SUCCESS is returned.</para>
   </refsect1>
 
