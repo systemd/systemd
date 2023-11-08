@@ -141,9 +141,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_QEMU_SMP:
-                        arg_qemu_smp = strdup(optarg);
-                        if (!arg_qemu_smp)
-                                return log_oom();
+                        r = free_and_strdup_warn(&arg_qemu_smp, optarg);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_QEMU_MEM:
