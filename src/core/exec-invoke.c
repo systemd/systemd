@@ -4369,6 +4369,7 @@ int exec_invoke(
                 }
         }
 
+#if ENABLE_UTMP
         if (context->utmp_id) {
                 const char *line = context->tty_path ?
                         (path_startswith(context->tty_path, "/dev/") ?: context->tty_path) :
@@ -4380,6 +4381,7 @@ int exec_invoke(
                                       USER_PROCESS,
                                       username);
         }
+#endif
 
         if (uid_is_valid(uid)) {
                 r = chown_terminal(STDIN_FILENO, uid);
