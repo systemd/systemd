@@ -1797,7 +1797,7 @@ void exec_status_start(ExecStatus *s, pid_t pid) {
                 .pid = pid,
         };
 
-        dual_timestamp_get(&s->start_timestamp);
+        dual_timestamp_now(&s->start_timestamp);
 }
 
 void exec_status_exit(ExecStatus *s, const ExecContext *context, pid_t pid, int code, int status) {
@@ -1808,7 +1808,7 @@ void exec_status_exit(ExecStatus *s, const ExecContext *context, pid_t pid, int 
                         .pid = pid,
                 };
 
-        dual_timestamp_get(&s->exit_timestamp);
+        dual_timestamp_now(&s->exit_timestamp);
 
         s->code = code;
         s->status = status;

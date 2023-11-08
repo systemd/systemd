@@ -64,23 +64,19 @@ nsec_t now_nsec(clockid_t clock_id) {
         return timespec_load_nsec(&ts);
 }
 
-dual_timestamp* dual_timestamp_get(dual_timestamp *ts) {
+void dual_timestamp_now(dual_timestamp *ts) {
         assert(ts);
 
         ts->realtime = now(CLOCK_REALTIME);
         ts->monotonic = now(CLOCK_MONOTONIC);
-
-        return ts;
 }
 
-triple_timestamp* triple_timestamp_get(triple_timestamp *ts) {
+void triple_timestamp_now(triple_timestamp *ts) {
         assert(ts);
 
         ts->realtime = now(CLOCK_REALTIME);
         ts->monotonic = now(CLOCK_MONOTONIC);
         ts->boottime = now(CLOCK_BOOTTIME);
-
-        return ts;
 }
 
 static usec_t map_clock_usec_internal(usec_t from, usec_t from_base, usec_t to_base) {

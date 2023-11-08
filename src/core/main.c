@@ -2687,7 +2687,7 @@ static int initialize_security(
         assert(security_finish_timestamp);
         assert(ret_error_message);
 
-        dual_timestamp_get(security_start_timestamp);
+        dual_timestamp_now(security_start_timestamp);
 
         r = mac_selinux_setup(loaded_policy);
         if (r < 0) {
@@ -2713,7 +2713,7 @@ static int initialize_security(
                 return r;
         }
 
-        dual_timestamp_get(security_finish_timestamp);
+        dual_timestamp_now(security_finish_timestamp);
         return 0;
 }
 
@@ -2819,7 +2819,7 @@ int main(int argc, char *argv[]) {
 
         /* Take timestamps early on */
         dual_timestamp_from_monotonic(&kernel_timestamp, 0);
-        dual_timestamp_get(&userspace_timestamp);
+        dual_timestamp_now(&userspace_timestamp);
 
         /* Figure out whether we need to do initialize the system, or if we already did that because we are
          * reexecuting. */

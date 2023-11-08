@@ -41,7 +41,7 @@ static void test_non_empty_one(void) {
 
         assert_se(journal_file_open(-1, "test.journal", O_RDWR|O_CREAT, JOURNAL_COMPRESS|JOURNAL_SEAL, 0666, UINT64_MAX, NULL, m, NULL, &f) == 0);
 
-        assert_se(dual_timestamp_get(&ts));
+        assert_se(dual_timestamp_now(&ts));
         assert_se(sd_id128_randomize(&fake_boot_id) == 0);
 
         iovec = IOVEC_MAKE_STRING(test);
@@ -196,7 +196,7 @@ static bool check_compressed(uint64_t compress_threshold, uint64_t data_size) {
 
         assert_se(journal_file_open(-1, "test.journal", O_RDWR|O_CREAT, JOURNAL_COMPRESS|JOURNAL_SEAL, 0666, compress_threshold, NULL, m, NULL, &f) == 0);
 
-        dual_timestamp_get(&ts);
+        dual_timestamp_now(&ts);
 
         iovec = IOVEC_MAKE(data, data_size);
         assert_se(journal_file_append_entry(f, &ts, NULL, &iovec, 1, NULL, NULL, NULL, NULL) == 0);
