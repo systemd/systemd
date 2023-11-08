@@ -16,6 +16,7 @@
 #include "ndisc-protocol.h"
 #include "ndisc-router.h"
 #include "strv.h"
+#include "strxcpyx.h"
 
 DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_ndisc_router, sd_ndisc_router, mfree);
 
@@ -729,7 +730,7 @@ int sd_ndisc_router_dnssl_get_domains(sd_ndisc_router *rt, char ***ret) {
                 }
 
                 /* Check for compression (which is not allowed) */
-                if (*p > 63)
+                if (*p > DNS_LABEL_MAX)
                         return -EBADMSG;
 
                 if (1U + *p + 1U > left)
@@ -743,7 +744,19 @@ int sd_ndisc_router_dnssl_get_domains(sd_ndisc_router *rt, char ***ret) {
                 else
                         e[n++] = '.';
 
-                r = dns_label_escape((char*) p+1, *p, e + n, DNS_LABEL_ESCAPED_MAX);
+                char buf[DNS_LABEL_MAX + 1], label[DNS_LABEL_MAX];
+                const char *q;
+
+                strnscpy(buf, sizeof buf, (const char*) (p+1), *p);
+
+                q = buf;
+                r = dns_label_unescape(&q, label, sizeof label, 0);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return -EBADMSG;
+
+                r = dns_label_escape(label, r, e + n, DNS_LABEL_ESCAPED_MAX);
                 if (r < 0)
                         return r;
 

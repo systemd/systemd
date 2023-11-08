@@ -29,6 +29,7 @@
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "strxcpyx.h"
 #include "time-util.h"
 #include "tmpfile-util.h"
 #include "unaligned.h"
@@ -946,13 +947,13 @@ int dhcp_lease_parse_search_domains(const uint8_t *option, size_t len, char ***d
                         if (c == 0) {
                                 /* End of name */
                                 break;
-                        } else if (c <= 63) {
-                                const char *label;
+                        } else if (c <= DNS_LABEL_MAX) {
+                                char buf[DNS_LABEL_MAX + 1], label[DNS_LABEL_MAX];
+                                const char *q;
 
                                 /* Literal label */
-                                label = (const char*) (option + pos);
-                                pos += c;
-                                if (pos >= len)
+
+                                if (pos + c >= len)
                                         return -EBADMSG;
 
                                 if (!GREEDY_REALLOC(name, n + !first + DNS_LABEL_ESCAPED_MAX))
@@ -963,16 +964,27 @@ int dhcp_lease_parse_search_domains(const uint8_t *option, size_t len, char ***d
                                 else
                                         name[n++] = '.';
 
-                                r = dns_label_escape(label, c, name + n, DNS_LABEL_ESCAPED_MAX);
+                                strnscpy(buf, sizeof buf, (const char*) (option + pos), c);
+
+                                q = buf;
+                                r = dns_label_unescape(&q, label, sizeof label, 0);
+                                if (r < 0)
+                                        return r;
+                                if (r == 0)
+                                        return -EBADMSG;
+
+                                r = dns_label_escape(label, r, name + n, DNS_LABEL_ESCAPED_MAX);
                                 if (r < 0)
                                         return r;
 
+                                pos += c;
                                 n += r;
-                        } else if (FLAGS_SET(c, 0xc0)) {
-                                /* Pointer */
 
+                        } else if (FLAGS_SET(c, 0xc0)) {
                                 uint8_t d;
                                 uint16_t ptr;
+
+                                /* Pointer */
 
                                 if (pos >= len)
                                         return -EBADMSG;
