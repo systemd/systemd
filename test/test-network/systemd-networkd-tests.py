@@ -5129,6 +5129,10 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertNotIn('DHCPREQUEST(veth-peer)', output)
         self.assertNotIn('DHCPREPLY(veth-peer)', output)
 
+        # Check json format
+        output = check_output(*networkctl_cmd, '--json=short', 'status', 'veth99', env=env)
+        check_json(output)
+
         # solicit mode
         stop_dnsmasq()
         start_dnsmasq('--dhcp-option=option6:dns-server,[2600::ee]',
@@ -5179,6 +5183,11 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertIn('DHCPREPLY(veth-peer)', output)
         self.assertIn('sent size:  0 option: 14 rapid-commit', output)
 
+        # Check json format
+        output = check_output(*networkctl_cmd, '--json=short', 'status', 'veth99', env=env)
+        check_json(output)
+
+        # Testing without rapid commit support
         with open(os.path.join(network_unit_dir, '25-dhcp-client-ipv6-only.network'), mode='a', encoding='utf-8') as f:
             f.write('\n[DHCPv6]\nRapidCommit=no\n')
 
@@ -5226,6 +5235,10 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertIn('DHCPREQUEST(veth-peer)', output)
         self.assertIn('DHCPREPLY(veth-peer)', output)
         self.assertNotIn('rapid-commit', output)
+
+        # Check json format
+        output = check_output(*networkctl_cmd, '--json=short', 'status', 'veth99', env=env)
+        check_json(output)
 
     def test_dhcp_client_ipv6_dbus_status(self):
         def get_dbus_dhcp6_client_state(IF):
