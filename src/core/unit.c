@@ -115,6 +115,7 @@ Unit* unit_new(Manager *m, size_t size) {
         u->ref_gid = GID_INVALID;
         u->cpu_usage_last = NSEC_INFINITY;
         u->memory_peak_last = UINT64_MAX;
+        u->memory_swap_peak_last = UINT64_MAX;
         u->cgroup_invalidated_mask |= CGROUP_MASK_BPF_FIREWALL;
         u->failure_action_exit_status = u->success_action_exit_status = -1;
 
@@ -2327,6 +2328,7 @@ static int unit_log_resources(Unit *u) {
         char* message_parts[1 + 2 + 2 + 1], *t;
         nsec_t nsec = NSEC_INFINITY;
         uint64_t memory_peak = UINT64_MAX;
+        uint64_t memory_swap_peak = UINT64_MAX;
         int r;
         const char* const ip_fields[_CGROUP_IP_ACCOUNTING_METRIC_MAX] = {
                 [CGROUP_IP_INGRESS_BYTES]   = "IP_METRIC_INGRESS_BYTES",
@@ -2381,6 +2383,24 @@ static int unit_log_resources(Unit *u) {
 
                 /* Format peak memory for inclusion in the human language message string */
                 t = strjoin(FORMAT_BYTES(memory_peak), " memory peak");
+                if (!t) {
+                        r = log_oom();
+                        goto finish;
+                }
+                message_parts[n_message_parts++] = t;
+        }
+
+        (void) unit_get_memory_swap_peak(u, &memory_swap_peak);
+        if (memory_swap_peak != UINT64_MAX) {
+                /* Format peak swap memory for inclusion in the structured log message */
+                if (asprintf(&t, "MEMORY_SWAP_PEAK=%" PRIu64, memory_swap_peak) < 0) {
+                        r = log_oom();
+                        goto finish;
+                }
+                iovec[n_iovec++] = IOVEC_MAKE_STRING(t);
+
+                /* Format peak swap memory for inclusion in the human language message string */
+                t = strjoin(FORMAT_BYTES(memory_swap_peak), " memory swap peak");
                 if (!t) {
                         r = log_oom();
                         goto finish;
