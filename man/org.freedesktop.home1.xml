@@ -305,9 +305,14 @@ node /org/freedesktop/home1 {
       user record with the new passwords/authentication token data is specified as empty the existing user
       record's settings are propagated down to the home directory storage. This is typically used after a
       user record is updated using <function>UpdateHome()</function> in order to propagate the
-      secrets/authentication tokens down to the storage. This method is equivalent to
-      <function>ChangePassword()</function> on the <classname>org.freedesktop.home1.Home</classname>
-      interface.</para>
+      secrets/authentication tokens down to the storage. Background: depending on the backend the user's
+      authentication credentials are stored at multiple places: the user record kept on the host, the user
+      record kept in the home directory and the encrypted LUKS volume slot. If the home directory is used on
+      a different machined temporarily, and the password is changed there, and then is moved back to the
+      original host, the passwords of the three might get out of sync. By issuing
+      <function>ChangePasswordHome()</function> the three locations are updated to match the newest
+      information. This method is equivalent to <function>ChangePassword()</function> on the
+      <classname>org.freedesktop.home1.Home</classname> interface.</para>
 
       <para><function>LockHome()</function> temporarily suspends access to a home directory, flushing out any
       cryptographic keys from memory. This is only supported on some back-ends, and usually done during system
