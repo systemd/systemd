@@ -16,8 +16,8 @@
 # details.
 
 [Match]
+Kind=veth
 Name=ve-*
-Driver=veth
 
 [Network]
 # Default to using a /28 prefix, giving up to 13 addresses per container.
