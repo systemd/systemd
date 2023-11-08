@@ -305,6 +305,8 @@ int tpm2_unseal_data(Tpm2Context *c, const struct iovec *public, const struct io
 int tpm2_serialize(Tpm2Context *c, const Tpm2Handle *handle, void **ret_serialized, size_t *ret_serialized_size);
 int tpm2_deserialize(Tpm2Context *c, const void *serialized, size_t serialized_size, Tpm2Handle **ret_handle);
 
+int tpm2_load_public_key_file(const char *path, TPM2B_PUBLIC *ret);
+
 /* The tpm2-tss library has many structs that are simply a combination of an array (or object) and
  * size. These macros allow easily initializing or assigning instances of such structs from an existing
  * buffer/object and size, while also checking the size for safety with the struct buffer/object size. If the
@@ -360,8 +362,6 @@ int tpm2_deserialize(Tpm2Context *c, const void *serialized, size_t serialized_s
                                         UNIQ_T(SIZE, uniq), UNIQ_T(BUFSIZE, uniq)) : \
                         0;                                              \
         })
-
-extern TSS2_RC (*sym_Tss2_MU_TPM2B_PUBLIC_Unmarshal)(uint8_t const buffer[], size_t buffer_size, size_t *offset, TPM2B_PUBLIC *dest);
 
 #else /* HAVE_TPM2 */
 typedef struct {} Tpm2Context;
