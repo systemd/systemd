@@ -2012,12 +2012,63 @@ static int client_restart(sd_dhcp_client *client) {
         return 0;
 }
 
+static int client_verify_message_header(sd_dhcp_client *client, DHCPMessage *message, size_t len) {
+        const uint8_t *expected_chaddr = NULL;
+        uint8_t expected_hlen = 0;
+
+        assert(client);
+        assert(message);
+
+        if (len < sizeof(DHCPMessage))
+                return log_dhcp_client_errno(client, SYNTHETIC_ERRNO(EBADMSG),
+                                             "Too small to be a DHCP message: ignoring.");
+
+        if (be32toh(message->magic) != DHCP_MAGIC_COOKIE)
+                return log_dhcp_client_errno(client, SYNTHETIC_ERRNO(EBADMSG),
+                                             "Not a DHCP message: ignoring.");
+
+        if (message->op != BOOTREPLY)
+                return log_dhcp_client_errno(client, SYNTHETIC_ERRNO(EBADMSG),
+                                             "Not a BOOTREPLY message: ignoring.");
+
+        if (message->htype != client->arp_type)
+                return log_dhcp_client_errno(client, SYNTHETIC_ERRNO(EBADMSG),
+                                             "Packet type does not match client type, ignoring.");
+
+        if (client->arp_type == ARPHRD_ETHER) {
+                expected_hlen = ETH_ALEN;
+                expected_chaddr = client->hw_addr.bytes;
+        }
+
+        if (message->hlen != expected_hlen)
+                return log_dhcp_client_errno(client, SYNTHETIC_ERRNO(EBADMSG),
+                                             "Received packet hlen (%u) does not match expected (%u), ignoring.",
+                                             message->hlen, expected_hlen);
+
+        if (memcmp_safe(message->chaddr, expected_chaddr, expected_hlen))
+                return log_dhcp_client_errno(client, SYNTHETIC_ERRNO(EBADMSG),
+                                             "Received chaddr does not match expected: ignoring.");
+
+        if (client->state != DHCP_STATE_BOUND &&
+            be32toh(message->xid) != client->xid)
+                /* in BOUND state, we may receive FORCERENEW with xid set by server,
+                   so ignore the xid in this case */
+                return log_dhcp_client_errno(client, SYNTHETIC_ERRNO(EBADMSG),
+                                             "Received xid (%u) does not match expected (%u), ignoring.",
+                                             be32toh(message->xid), client->xid);
+
+        return 0;
+}
+
 static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message, size_t len) {
         DHCP_CLIENT_DONT_DESTROY(client);
         int r;
 
         assert(client);
         assert(message);
+
+        if (client_verify_message_header(client, message, len) < 0)
+                return 0;
 
         switch (client->state) {
         case DHCP_STATE_SELECTING:
@@ -2082,8 +2133,6 @@ static int client_receive_message_udp(
 
         sd_dhcp_client *client = ASSERT_PTR(userdata);
         _cleanup_free_ DHCPMessage *message = NULL;
-        const uint8_t *expected_chaddr = NULL;
-        uint8_t expected_hlen = 0;
         ssize_t len, buflen;
         int r;
 
@@ -2107,49 +2156,6 @@ static int client_receive_message_udp(
                         return 0;
 
                 log_dhcp_client_errno(client, errno, "Could not receive message from UDP socket, ignoring: %m");
-                return 0;
-        }
-        if ((size_t) len < sizeof(DHCPMessage)) {
-                log_dhcp_client(client, "Too small to be a DHCP message: ignoring");
-                return 0;
-        }
-
-        if (be32toh(message->magic) != DHCP_MAGIC_COOKIE) {
-                log_dhcp_client(client, "Not a DHCP message: ignoring");
-                return 0;
-        }
-
-        if (message->op != BOOTREPLY) {
-                log_dhcp_client(client, "Not a BOOTREPLY message: ignoring");
-                return 0;
-        }
-
-        if (message->htype != client->arp_type) {
-                log_dhcp_client(client, "Packet type does not match client type");
-                return 0;
-        }
-
-        if (client->arp_type == ARPHRD_ETHER) {
-                expected_hlen = ETH_ALEN;
-                expected_chaddr = client->hw_addr.bytes;
-        }
-
-        if (message->hlen != expected_hlen) {
-                log_dhcp_client(client, "Unexpected packet hlen %d", message->hlen);
-                return 0;
-        }
-
-        if (expected_hlen > 0 && memcmp(&message->chaddr[0], expected_chaddr, expected_hlen)) {
-                log_dhcp_client(client, "Received chaddr does not match expected: ignoring");
-                return 0;
-        }
-
-        if (client->state != DHCP_STATE_BOUND &&
-            be32toh(message->xid) != client->xid) {
-                /* in BOUND state, we may receive FORCERENEW with xid set by server,
-                   so ignore the xid in this case */
-                log_dhcp_client(client, "Received xid (%u) does not match expected (%u): ignoring",
-                                be32toh(message->xid), client->xid);
                 return 0;
         }
 
