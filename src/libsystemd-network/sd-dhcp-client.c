@@ -2163,8 +2163,6 @@ static int client_receive_message_raw(
                 log_dhcp_client_errno(client, len, "Could not receive message from raw socket, ignoring: %m");
                 return 0;
         }
-        if ((size_t) len < sizeof(DHCPPacket))
-                return 0;
 
         cmsg = cmsg_find(&msg, SOL_PACKET, PACKET_AUXDATA, CMSG_LEN(sizeof(struct tpacket_auxdata)));
         if (cmsg) {
