@@ -251,6 +251,11 @@
         owned by a different UID when logging in, the home directory and everything underneath it will have
         its ownership changed automatically before login completes.</para>
 
+        <para>Note that changing this option for existing home directories generally has no effect on home
+        directories that already have been registered locally (have a local <emphasis>binding</emphasis>), as
+        the UID used for an account on the local system is determined when the home directory is first
+        activated on it, and then remains in effect until the home directory is removed.</para>
+
         <para>Note that users managed by <command>systemd-homed</command> always have a matching group
         associated with the same name as well as a GID matching the UID of the user. Thus, configuring the
         GID separately is not permitted.</para></listitem>
