@@ -171,8 +171,8 @@ void exec_context_tty_reset(const ExecContext *context, const ExecParameters *p)
         if (context->tty_reset)
                 (void) reset_terminal_fd(fd, /* switch_to_text= */ true);
 
-        if (p && p->stdin_fd >= 0)
-                (void) exec_context_apply_tty_size(context, p->stdin_fd, path);
+        if (fd >= 0)
+                (void) exec_context_apply_tty_size(context, fd, path);
 
         if (context->tty_vt_disallocate && path)
                 (void) vt_disallocate(path);
