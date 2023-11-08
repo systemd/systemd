@@ -15,6 +15,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "getopt-defs.h"
+#include "label-util.h"
 #include "parse-util.h"
 #include "pretty-print.h"
 #include "static-destruct.h"
@@ -197,6 +198,10 @@ int main(int argc, char *argv[]) {
         log_set_always_reopen_console(true);
         log_set_prohibit_ipc(true);
         log_setup();
+
+        r = mac_init();
+        if (r < 0)
+                return log_error_errno(r, "Failed to initialize MAC layer: %m");
 
         r = fdset_new_fill(/* filter_cloexec= */ 0, &fdset);
         if (r < 0)
