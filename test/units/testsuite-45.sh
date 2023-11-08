@@ -205,7 +205,14 @@ LOCAL"
 }
 
 assert_ntp() {
-    assert_eq "$(busctl get-property org.freedesktop.timedate1 /org/freedesktop/timedate1 org.freedesktop.timedate1 NTP)" "b $1"
+    local value="${1:?}"
+
+    for _ in {0..9}; do
+        [[ "$(busctl get-property org.freedesktop.timedate1 /org/freedesktop/timedate1 org.freedesktop.timedate1 NTP)" == "b $value" ]] && return 0
+        sleep .5
+    done
+
+    return 1
 }
 
 assert_timedated_signal() {
