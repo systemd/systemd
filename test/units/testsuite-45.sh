@@ -263,7 +263,7 @@ EOF
         systemctl daemon-reload
     fi
 
-    systemd-run --unit busctl-monitor.service --service-type=exec \
+    systemd-run --unit busctl-monitor.service --service-type=notify \
         busctl monitor --json=short --match="type=signal,sender=org.freedesktop.timedate1,member=PropertiesChanged,path=/org/freedesktop/timedate1"
 
     : 'Disable NTP'
@@ -357,7 +357,7 @@ EOF
     systemctl restart systemd-networkd
     networkctl status ntp99
 
-    systemd-run --unit busctl-monitor.service --service-type=exec \
+    systemd-run --unit busctl-monitor.service --service-type=notify \
         busctl monitor --json=short --match="type=signal,sender=org.freedesktop.timesync1,member=PropertiesChanged,path=/org/freedesktop/timesync1"
 
     # LinkNTPServers
