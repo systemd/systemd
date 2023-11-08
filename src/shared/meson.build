@@ -138,6 +138,7 @@ shared_sources = files(
         'pe-binary.c',
         'pkcs11-util.c',
         'pretty-print.c',
+        'project-util.c',
         'ptyfwd.c',
         'qrcode-util.c',
         'quota-util.c',

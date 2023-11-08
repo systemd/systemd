@@ -20,6 +20,7 @@ typedef enum BusTransport {
         BUS_TRANSPORT_LOCAL,
         BUS_TRANSPORT_REMOTE,
         BUS_TRANSPORT_MACHINE,
+        BUS_TRANSPORT_PROJECT,
         _BUS_TRANSPORT_MAX,
         _BUS_TRANSPORT_INVALID = -EINVAL,
 } BusTransport;
@@ -35,8 +36,12 @@ bool bus_error_is_unknown_service(const sd_bus_error *error);
 
 int bus_check_peercred(sd_bus *c);
 
+int bus_set_address_project_bus(sd_bus *bus, const char *project, int *ret_pin_fd);
+
 int bus_connect_system_systemd(sd_bus **ret_bus);
 int bus_connect_user_systemd(sd_bus **ret_bus);
+int bus_connect_project_systemd(const char *project, sd_bus **ret_bus);
+int bus_connect_project_bus(const char *project, sd_bus **ret_bus);
 
 int bus_connect_transport(BusTransport transport, const char *host, RuntimeScope runtime_scope, sd_bus **bus);
 int bus_connect_transport_systemd(BusTransport transport, const char *host, RuntimeScope runtime_scope, sd_bus **bus);
