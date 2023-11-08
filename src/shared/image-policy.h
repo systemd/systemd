@@ -58,9 +58,10 @@ struct ImagePolicy {
 extern const ImagePolicy image_policy_allow;
 extern const ImagePolicy image_policy_deny;
 extern const ImagePolicy image_policy_ignore;
-extern const ImagePolicy image_policy_sysext;        /* No verity required */
-extern const ImagePolicy image_policy_sysext_strict; /* Signed verity required */
-extern const ImagePolicy image_policy_confext;       /* No verity required */
+extern const ImagePolicy image_policy_sysext;         /* No verity required */
+extern const ImagePolicy image_policy_sysext_strict;  /* Signed verity required */
+extern const ImagePolicy image_policy_confext;        /* No verity required */
+extern const ImagePolicy image_policy_confext_strict; /* Signed verity required */
 extern const ImagePolicy image_policy_container;
 extern const ImagePolicy image_policy_service;
 extern const ImagePolicy image_policy_host;
