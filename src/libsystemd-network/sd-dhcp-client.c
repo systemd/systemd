@@ -2012,12 +2012,11 @@ static int client_restart(sd_dhcp_client *client) {
         return 0;
 }
 
-static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message, int len) {
+static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message, size_t len) {
         DHCP_CLIENT_DONT_DESTROY(client);
         int r;
 
         assert(client);
-        assert(client->event);
         assert(message);
 
         switch (client->state) {
@@ -2025,25 +2024,18 @@ static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message, i
 
                 r = client_handle_offer_or_rapid_ack(client, message, len);
                 if (ERRNO_IS_NEG_RESOURCE(r))
-                        goto error;
-
-                if (r == -EADDRNOTAVAIL) {
+                        return r;
+                if (r == -EADDRNOTAVAIL)
                         /* got a rapid NAK, let's restart the client */
-                        r = client_restart(client);
-                        if (r < 0)
-                                goto error;
-
-                        return 0;
-                }
+                        return client_restart(client);
                 if (r < 0)
                         return 0; /* invalid message, let's ignore it */
 
                 if (client->lease->rapid_commit)
                         /* got a successful rapid commit */
-                        r = client_enter_bound(client, r);
-                else
-                        r = client_enter_requesting(client);
-                break;
+                        return client_enter_bound(client, r);
+
+                return client_enter_requesting(client);
 
         case DHCP_STATE_REBOOTING:
         case DHCP_STATE_REQUESTING:
@@ -2052,48 +2044,34 @@ static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message, i
 
                 r = client_handle_ack(client, message, len);
                 if (ERRNO_IS_NEG_RESOURCE(r))
-                        goto error;
-                if (r == -EADDRNOTAVAIL) {
+                        return r;
+                if (r == -EADDRNOTAVAIL)
                         /* got a NAK, let's restart the client */
-                        r = client_restart(client);
-                        if (r < 0)
-                                goto error;
-
-                        return 0;
-                }
+                        return client_restart(client);
                 if (r < 0)
                         return 0; /* invalid message, let's ignore it */
 
-                r = client_enter_bound(client, r);
-                break;
+                return client_enter_bound(client, r);
 
         case DHCP_STATE_BOUND:
                 r = client_handle_forcerenew(client, message, len);
-                if (r == -ENOMSG)
-                        return 0; /* invalid message, let's ignore it */
+                if (ERRNO_IS_NEG_RESOURCE(r))
+                        return r;
                 if (r < 0)
-                        goto error;
+                        return 0; /* invalid message, let's ignore it */
 
-                r = client_timeout_t1(NULL, 0, client);
-                break;
+                return client_timeout_t1(NULL, 0, client);
 
         case DHCP_STATE_INIT:
         case DHCP_STATE_INIT_REBOOT:
-                r = 0;
-                break;
+                log_dhcp_client(client, "Unexpectedly receive message without sending any requests, ignoring.");
+                return 0;
 
-        case DHCP_STATE_STOPPED:
-                r = -EINVAL;
-                goto error;
         default:
                 assert_not_reached();
         }
 
-error:
-        if (r < 0)
-                client_stop(client, r);
-
-        return r;
+        return 0;
 }
 
 static int client_receive_message_udp(
@@ -2107,6 +2085,7 @@ static int client_receive_message_udp(
         const uint8_t *expected_chaddr = NULL;
         uint8_t expected_hlen = 0;
         ssize_t len, buflen;
+        int r;
 
         assert(s);
 
@@ -2175,7 +2154,10 @@ static int client_receive_message_udp(
         }
 
         log_dhcp_client(client, "Received message from UDP socket, processing.");
-        (void) client_handle_message(client, message, len);
+        r = client_handle_message(client, message, len);
+        if (r < 0)
+                client_stop(client, r);
+
         return 0;
 }
 
@@ -2232,14 +2214,16 @@ static int client_receive_message_raw(
                 checksum = !(aux->tp_status & TP_STATUS_CSUMNOTREADY);
         }
 
-        r = dhcp_packet_verify_headers(packet, len, checksum, client->port);
-        if (r < 0)
+        if (dhcp_packet_verify_headers(packet, len, checksum, client->port) < 0)
                 return 0;
 
         len -= DHCP_IP_UDP_SIZE;
 
         log_dhcp_client(client, "Received message from RAW socket, processing.");
-        (void) client_handle_message(client, &packet->dhcp, len);
+        r = client_handle_message(client, &packet->dhcp, len);
+        if (r < 0)
+                client_stop(client, r);
+
         return 0;
 }
 
