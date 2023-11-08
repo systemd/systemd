@@ -1230,7 +1230,7 @@ libcryptsetup = get_option('libcryptsetup')
 libcryptsetup_plugins = get_option('libcryptsetup-plugins')
 if libcryptsetup_plugins.enabled()
         if libcryptsetup.disabled()
-                error('libcryptsetup-plugins can not be requested without libcryptsetup')
+                error('libcryptsetup-plugins cannot be requested without libcryptsetup')
         endif
         libcryptsetup = libcryptsetup_plugins
 endif
