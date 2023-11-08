@@ -68,7 +68,7 @@ _public_ int cryptsetup_token_open_pin(
 
         r = crypt_normalize_pin(pin, pin_size, &pin_string);
         if (r < 0)
-                return crypt_log_debug_errno(cd, r, "Can not normalize PIN: %m");
+                return crypt_log_debug_errno(cd, r, "Cannot normalize PIN: %m");
 
         if (usrptr)
                 params = *(systemd_tpm2_plugin_params *)usrptr;
@@ -222,15 +222,15 @@ _public_ void cryptsetup_token_dump(
 
         r = crypt_dump_buffer_to_hex_string(blob, blob_size, &blob_str);
         if (r < 0)
-                return (void) crypt_log_debug_errno(cd, r, "Can not dump " TOKEN_NAME " content: %m");
+                return (void) crypt_log_debug_errno(cd, r, "Cannot dump " TOKEN_NAME " content: %m");
 
         r = crypt_dump_buffer_to_hex_string(pubkey, pubkey_size, &pubkey_str);
         if (r < 0)
-                return (void) crypt_log_debug_errno(cd, r, "Can not dump " TOKEN_NAME " content: %m");
+                return (void) crypt_log_debug_errno(cd, r, "Cannot dump " TOKEN_NAME " content: %m");
 
         r = crypt_dump_buffer_to_hex_string(policy_hash, policy_hash_size, &policy_hash_str);
         if (r < 0)
-                return (void) crypt_log_debug_errno(cd, r, "Can not dump " TOKEN_NAME " content: %m");
+                return (void) crypt_log_debug_errno(cd, r, "Cannot dump " TOKEN_NAME " content: %m");
 
         crypt_log(cd, "\ttpm2-hash-pcrs:   %s\n", strna(hash_pcrs_str));
         crypt_log(cd, "\ttpm2-pcr-bank:    %s\n", strna(tpm2_hash_alg_to_string(pcr_bank)));
