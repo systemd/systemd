@@ -1573,7 +1573,12 @@ StateDirectory=aaa/bbb ccc</programlisting>
         permit this. Nest <varname>ReadWritePaths=</varname> inside of <varname>ReadOnlyPaths=</varname> in
         order to provide writable subdirectories within read-only directories. Use
         <varname>ReadWritePaths=</varname> in order to allow-list specific paths for write access if
-        <varname>ProtectSystem=strict</varname> is used.</para>
+        <varname>ProtectSystem=strict</varname> is used. Note that <varname>ReadWritePaths=</varname> cannot
+        be used to gain write access to a file system whose superblock is mounted read-only. On Linux, for
+        each mount point write access is granted only if the mount point itself <emphasis>and</emphasis> the
+        file system superblock backing it are not marked read-only. <varname>ReadWritePaths=</varname> only
+        controls the former, not the latter, hence a read-only file system superblock remains
+        protected.</para>
 
         <para>Paths listed in <varname>InaccessiblePaths=</varname> will be made inaccessible for processes inside
         the namespace along with everything below them in the file system hierarchy. This may be more restrictive than
