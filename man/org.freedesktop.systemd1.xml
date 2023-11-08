@@ -2778,6 +2778,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryPeak = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t MemorySwapPeak = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryAvailable = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t CPUUsageNSec = ...;
@@ -3406,6 +3408,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <!--property MemoryCurrent is not documented!-->
 
     <!--property MemoryPeak is not documented!-->
+
+    <!--property MemorySwapPeak is not documented!-->
 
     <!--property CPUUsageNSec is not documented!-->
 
@@ -4040,6 +4044,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryCurrent"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryPeak"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="MemorySwapPeak"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryAvailable"/>
 
@@ -4839,6 +4845,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryPeak = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t MemorySwapPeak = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryAvailable = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t CPUUsageNSec = ...;
@@ -5478,6 +5486,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
 
     <!--property MemoryPeak is not documented!-->
 
+    <!--property MemorySwapPeak is not documented!-->
+
     <!--property CPUUsageNSec is not documented!-->
 
     <!--property EffectiveCPUs is not documented!-->
@@ -6093,6 +6103,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryCurrent"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryPeak"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="MemorySwapPeak"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryAvailable"/>
 
@@ -6766,6 +6778,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryPeak = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t MemorySwapPeak = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryAvailable = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t CPUUsageNSec = ...;
@@ -7333,6 +7347,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
 
     <!--property MemoryPeak is not documented!-->
 
+    <!--property MemorySwapPeak is not documented!-->
+
     <!--property CPUUsageNSec is not documented!-->
 
     <!--property EffectiveCPUs is not documented!-->
@@ -7862,6 +7878,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryCurrent"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryPeak"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="MemorySwapPeak"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryAvailable"/>
 
@@ -8658,6 +8676,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryPeak = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t MemorySwapPeak = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryAvailable = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t CPUUsageNSec = ...;
@@ -9211,6 +9231,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
 
     <!--property MemoryPeak is not documented!-->
 
+    <!--property MemorySwapPeak is not documented!-->
+
     <!--property CPUUsageNSec is not documented!-->
 
     <!--property EffectiveCPUs is not documented!-->
@@ -9726,6 +9748,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryCurrent"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryPeak"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="MemorySwapPeak"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryAvailable"/>
 
@@ -10381,6 +10405,8 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryPeak = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t MemorySwapPeak = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryAvailable = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t CPUUsageNSec = ...;
@@ -10559,6 +10585,8 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
     <!--property MemoryCurrent is not documented!-->
 
     <!--property MemoryPeak is not documented!-->
+
+    <!--property MemorySwapPeak is not documented!-->
 
     <!--property CPUUsageNSec is not documented!-->
 
@@ -10739,6 +10767,8 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryCurrent"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryPeak"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="MemorySwapPeak"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryAvailable"/>
 
@@ -10948,6 +10978,8 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryPeak = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t MemorySwapPeak = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t MemoryAvailable = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t CPUUsageNSec = ...;
@@ -11146,6 +11178,8 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
     <!--property MemoryCurrent is not documented!-->
 
     <!--property MemoryPeak is not documented!-->
+
+    <!--property MemorySwapPeak is not documented!-->
 
     <!--property CPUUsageNSec is not documented!-->
 
@@ -11356,6 +11390,8 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryCurrent"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryPeak"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="MemorySwapPeak"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="MemoryAvailable"/>
 
@@ -11753,8 +11789,9 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>ExtensionImagePolicy</varname> were added in version 254.</para>
       <para><varname>NFTSet</varname>,
       <varname>SetLoginEnvironment</varname>,
-      <varname>CoredumpReceive</varname>, and
-      <varname>MemoryPeak</varname> were added in version 255.</para>
+      <varname>CoredumpReceive</varname>,
+      <varname>MemoryPeak</varname>, and
+      <varname>MemorySwapPeak</varname> were added in version 255.</para>
     </refsect2>
     <refsect2>
       <title>Socket Unit Objects</title>
@@ -11781,8 +11818,9 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>PollLimitBurst</varname>,
       <varname>NFTSet</varname>,
       <varname>SetLoginEnvironment</varname>,
-      <varname>CoredumpReceive</varname>, and
-      <varname>MemoryPeak</varname> were added in version 255.</para>
+      <varname>CoredumpReceive</varname>,
+      <varname>MemoryPeak</varname>, and
+      <varname>MemorySwapPeak</varname> were added in version 255.</para>
     </refsect2>
     <refsect2>
       <title>Mount Unit Objects</title>
@@ -11807,8 +11845,9 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>ExtensionImagePolicy</varname> were added in version 254.</para>
       <para><varname>NFTSet</varname>,
       <varname>SetLoginEnvironment</varname>,
-      <varname>CoredumpReceive</varname>, and
-      <varname>MemoryPeak</varname> were added in version 255.</para>
+      <varname>CoredumpReceive</varname>,
+      <varname>MemoryPeak</varname>, and
+      <varname>MemorySwapPeak</varname> were added in version 255.</para>
     </refsect2>
     <refsect2>
       <title>Swap Unit Objects</title>
@@ -11833,8 +11872,9 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>ExtensionImagePolicy</varname> were added in version 254.</para>
       <para><varname>NFTSet</varname>,
       <varname>SetLoginEnvironment</varname>,
-      <varname>CoredumpReceive</varname>, and
-      <varname>MemoryPeak</varname> were added in version 255.</para>
+      <varname>CoredumpReceive</varname>,
+      <varname>MemoryPeak</varname>, and
+      <varname>MemorySwapPeak</varname> were added in version 255.</para>
     </refsect2>
     <refsect2>
       <title>Slice Unit Objects</title>
@@ -11850,8 +11890,9 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>MemoryPressureWatch</varname>, and
       <varname>MemoryPressureThresholdUSec</varname> were added in version 254.</para>
       <para><varname>NFTSet</varname>,
-      <varname>CoredumpReceive</varname>, and
-      <varname>MemoryPeak</varname> were added in version 255.</para>
+      <varname>CoredumpReceive</varname>,
+      <varname>MemoryPeak</varname>, and
+      <varname>MemorySwapPeak</varname> were added in version 255.</para>
     </refsect2>
     <refsect2>
       <title>Scope Unit Objects</title>
@@ -11868,8 +11909,9 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>MemoryPressureWatch</varname>, and
       <varname>MemoryPressureThresholdUSec</varname> were added in version 254.</para>
       <para><varname>NFTSet</varname>,
-      <varname>CoredumpReceive</varname>, and
-      <varname>MemoryPeak</varname> were added in version 255.</para>
+      <varname>CoredumpReceive</varname>,
+      <varname>MemoryPeak</varname>, and
+      <varname>MemorySwapPeak</varname> were added in version 255.</para>
     </refsect2>
     <refsect2>
       <title>Job Objects</title>
