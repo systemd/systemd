@@ -242,7 +242,7 @@ COREDUMP_FILENAME=/var/lib/systemd/coredump/core.Web….552351.….zst
         <term><varname>COREDUMP_USER_UNIT=</varname></term>
         <term><varname>COREDUMP_SESSION=</varname></term>
         <listitem><para>The numerical UID of the user owning the login session or systemd user unit of the
-        crashed process, the user manager unit, and the sesion identifier. All three fields are only present
+        crashed process, the user manager unit, and the session identifier. All three fields are only present
         for user processes.</para>
 
         <para>When the crashed process was in container, those are the values <emphasis>outside</emphasis>,
