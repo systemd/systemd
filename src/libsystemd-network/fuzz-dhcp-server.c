@@ -96,7 +96,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         assert_se(add_static_lease(server, 3) >= 0);
         assert_se(add_static_lease(server, 4) >= 0);
 
-        (void) dhcp_server_handle_message(server, (DHCPMessage*) duped, size);
+        (void) dhcp_server_handle_message(server, (DHCPMessage*) duped, size, NULL);
 
         return 0;
 }
