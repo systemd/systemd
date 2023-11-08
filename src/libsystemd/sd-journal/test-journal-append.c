@@ -27,7 +27,7 @@ static int journal_append_message(JournalFile *mj, const char *message) {
         assert(mj);
         assert(message);
 
-        dual_timestamp_get(&ts);
+        dual_timestamp_now(&ts);
         iovec = IOVEC_MAKE_STRING(message);
         return journal_file_append_entry(
                                 mj,

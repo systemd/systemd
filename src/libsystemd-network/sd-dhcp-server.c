@@ -903,7 +903,7 @@ static void request_set_timestamp(DHCPRequest *req, const triple_timestamp *time
         if (timestamp && triple_timestamp_is_set(timestamp))
                 req->timestamp = *timestamp;
         else
-                triple_timestamp_get(&req->timestamp);
+                triple_timestamp_now(&req->timestamp);
 }
 
 static int request_get_lifetime_timestamp(DHCPRequest *req, clockid_t clock, usec_t *ret) {

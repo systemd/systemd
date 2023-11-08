@@ -2530,7 +2530,7 @@ int journal_file_append_entry(
                                                "Invalid monotomic timestamp %" PRIu64 ", refusing entry.",
                                                ts->monotonic);
         } else {
-                dual_timestamp_get(&_ts);
+                dual_timestamp_now(&_ts);
                 ts = &_ts;
         }
 
