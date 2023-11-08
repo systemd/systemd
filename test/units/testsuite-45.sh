@@ -341,12 +341,12 @@ testcase_timesyncd() {
 
     # Create a dummy interface managed by networkd, so we can configure link NTP servers
     mkdir -p /run/systemd/network/
-    cat >/etc/systemd/network/ntp99.netdev <<EOF
+    cat >/etc/systemd/network/10-ntp99.netdev <<EOF
 [NetDev]
 Name=ntp99
 Kind=dummy
 EOF
-    cat >/etc/systemd/network/ntp99.network <<EOF
+    cat >/etc/systemd/network/10-ntp99.network <<EOF
 [Match]
 Name=ntp99
 
