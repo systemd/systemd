@@ -189,4 +189,26 @@ PASSWORD=passphrase systemd-cryptenroll --tpm2-device=auto --tpm2-seal-key-handl
 systemd-cryptsetup attach test-volume "$IMAGE" - tpm2-device=auto,headless=1
 systemd-cryptsetup detach test-volume
 
+# Make sure that --tpm2-device-key= also works with systemd-repart
+tpm2_readpublic -c 0x81000001 -o /tmp/srk.pub
+mkdir /tmp/dditest
+cat > /tmp/dditest/50-root.conf <<EOF
+[Partition]
+Type=root
+Format=ext4
+CopyFiles=/tmp/dditest:/
+Encrypt=tpm2
+EOF
+PASSWORD=passphrase systemd-repart --tpm2-device-key=/tmp/srk.pub --definitions=/tmp/dditest --empty=create --size=50M /tmp/dditest.raw --tpm2-pcrs=
+DEVICE="$(systemd-dissect --attach /tmp/dditest.raw)"
+systemd-cryptsetup attach dditest "$DEVICE"p1 - tpm2-device=auto,headless=yes
+mkdir /tmp/dditest.mnt
+mount -t ext4 /dev/mapper/dditest /tmp/dditest.mnt
+cmp /tmp/dditest.mnt/50-root.conf /tmp/dditest/50-root.conf
+umount /tmp/dditest.mnt
+rmdir /tmp/dditest.mnt
+rm /tmp/dditest.raw
+rm /tmp/dditest/50-root.conf
+rmdir /tmp/dditest
+
 rm -f "$IMAGE" "$PRIMARY"
