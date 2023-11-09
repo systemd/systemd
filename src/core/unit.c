@@ -2318,12 +2318,12 @@ static int raise_level(int log_level, bool condition_info, bool condition_notice
 }
 
 static int unit_log_resources(Unit *u) {
-        struct iovec iovec[1 + _CGROUP_IP_ACCOUNTING_METRIC_MAX + _CGROUP_IO_ACCOUNTING_METRIC_MAX + 4];
+        struct iovec iovec[1 + 1 + _CGROUP_IP_ACCOUNTING_METRIC_MAX + _CGROUP_IO_ACCOUNTING_METRIC_MAX + 4];
         bool any_traffic = false, have_ip_accounting = false, any_io = false, have_io_accounting = false;
         _cleanup_free_ char *igress = NULL, *egress = NULL, *rr = NULL, *wr = NULL;
         int log_level = LOG_DEBUG; /* May be raised if resources consumed over a threshold */
         size_t n_message_parts = 0, n_iovec = 0;
-        char* message_parts[1 + 2 + 2 + 1], *t;
+        char* message_parts[1 + 1 + 2 + 2 + 1], *t;
         nsec_t nsec = NSEC_INFINITY;
         uint64_t memory_peak = UINT64_MAX;
         int r;
