@@ -18,6 +18,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "hash-funcs.h"
 #include "hostname-util.h"
 #include "id128-util.h"
 #include "in-addr-util.h"
@@ -41,6 +42,10 @@
 #include "syslog-util.h"
 #include "time-util.h"
 #include "utf8.h"
+
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(config_file_hash_ops_fclose,
+                                              char, path_hash_func, path_compare,
+                                              FILE, safe_fclose);
 
 int config_item_table_lookup(
                 const void *table,
@@ -485,6 +490,7 @@ static int config_parse_many_files(
                 Hashmap **ret_stats_by_path) {
 
         _cleanup_hashmap_free_ Hashmap *stats_by_path = NULL;
+        _cleanup_ordered_hashmap_free_ OrderedHashmap *dropins = NULL;
         _cleanup_set_free_ Set *inodes = NULL;
         struct stat st;
         int r;
@@ -495,18 +501,38 @@ static int config_parse_many_files(
                         return -ENOMEM;
         }
 
-        /* Get inodes for all drop-ins. Later we'll verify if main config is a symlink to one of them. If so,
-         * we skip reading main config file directly. */
         STRV_FOREACH(fn, files) {
                 _cleanup_free_ struct stat *st_dropin = NULL;
+                _cleanup_fclose_ FILE *f = NULL;
+                int fd;
+
+                f = fopen(*fn, "re");
+                if (!f) {
+                        if (errno == ENOENT)
+                                continue;
+
+                        return -errno;
+                }
+
+                fd = fileno(f);
+
+                r = ordered_hashmap_ensure_put(&dropins, &config_file_hash_ops_fclose, *fn, f);
+                if (r < 0) {
+                        assert(r != -EEXIST);
+                        return r;
+                }
+                assert(r > 0);
+                TAKE_PTR(f);
+
+                /* Get inodes for all drop-ins. Later we'll verify if main config is a symlink to or is
+                 * symlinked as one of them. If so, we skip reading main config file directly. */
 
                 st_dropin = new(struct stat, 1);
                 if (!st_dropin)
                         return -ENOMEM;
 
-                r = RET_NERRNO(stat(*fn, st_dropin));
-                if (r < 0 && r != -ENOENT)
-                        return r;
+                if (fstat(fd, st_dropin) < 0)
+                        return -errno;
 
                 r = set_ensure_consume(&inodes, &inode_hash_ops, TAKE_PTR(st_dropin));
                 if (r < 0)
@@ -515,42 +541,53 @@ static int config_parse_many_files(
 
         /* First read the first found main config file. */
         STRV_FOREACH(fn, conf_files) {
+                _cleanup_fclose_ FILE *f = NULL;
+
+                f = fopen(*fn, "re");
+                if (!f) {
+                        if (errno == ENOENT)
+                                continue;
+
+                        return -errno;
+                }
+
                 if (inodes) {
-                        r = RET_NERRNO(stat(*fn, &st));
-                        if (r < 0 && r != -ENOENT)
-                                return r;
+                        if (fstat(fileno(f), &st) < 0)
+                                return -errno;
 
                         if (set_contains(inodes, &st)) {
-                                log_debug("%s: symlink to drop-in, will be read later.", *fn);
+                                log_debug("%s: symlink to/symlinked as drop-in, will be read later.", *fn);
                                 continue;
                         }
                 }
 
-                r = config_parse(NULL, *fn, NULL, sections, lookup, table, flags, userdata, &st);
+                r = config_parse(NULL, *fn, f, sections, lookup, table, flags, userdata, &st);
                 if (r < 0)
                         return r;
-                if (r == 0)
-                        continue;
+                if (r > 0) {
+                        if (ret_stats_by_path) {
+                                r = hashmap_put_stats_by_path(&stats_by_path, *fn, &st);
+                                if (r < 0)
+                                        return r;
+                        }
 
-                if (ret_stats_by_path) {
-                        r = hashmap_put_stats_by_path(&stats_by_path, *fn, &st);
-                        if (r < 0)
-                                return r;
+                        break;
                 }
-
-                break;
         }
 
         /* Then read all the drop-ins. */
-        STRV_FOREACH(fn, files) {
-                r = config_parse(NULL, *fn, NULL, sections, lookup, table, flags, userdata, &st);
+
+        const char *path_dropin;
+        FILE *f_dropin;
+        ORDERED_HASHMAP_FOREACH_KEY(f_dropin, path_dropin, dropins) {
+                r = config_parse(NULL, path_dropin, f_dropin, sections, lookup, table, flags, userdata, &st);
                 if (r < 0)
                         return r;
                 if (r == 0)
                         continue;
 
                 if (ret_stats_by_path) {
-                        r = hashmap_put_stats_by_path(&stats_by_path, *fn, &st);
+                        r = hashmap_put_stats_by_path(&stats_by_path, path_dropin, &st);
                         if (r < 0)
                                 return r;
                 }
