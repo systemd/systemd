@@ -2333,6 +2333,10 @@ static EFI_STATUS image_start(
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Error making file device path: %m");
 
+        err = tpm_log_image(image_root, entry->loader, /* ret_measured= */ NULL);
+        if (err != EFI_SUCCESS)
+                return log_error_status(err, "Error measuring %ls: %m", entry->loader);
+
         err = shim_load_image(parent_image, path, &image);
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Error loading %ls: %m", entry->loader);
