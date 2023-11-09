@@ -293,4 +293,31 @@ EFI_STATUS tpm_log_load_options(const char16_t *load_options, bool *ret_measured
         return EFI_SUCCESS;
 }
 
+EFI_STATUS tpm_log_image(EFI_FILE *dir, const char16_t *name, bool *ret_measured) {
+        _cleanup_free_ char *content = NULL;
+        size_t size;
+        EFI_STATUS err;
+
+        err = file_read(dir, name, 0, 0, &content, &size);
+        if (err != EFI_SUCCESS)
+                return log_error_status(
+                                err,
+                                "Error loading image (i.e. kernel) before measurement %ls: %m",
+                                name);
+
+        err = tpm_log_event(
+                        TPM2_PCR_KERNEL_INITRD,
+                        POINTER_TO_PHYSICAL_ADDRESS(content),
+                        size,
+                        name,
+                        ret_measured);
+        if (err != EFI_SUCCESS)
+                return log_error_status(
+                                err,
+                                "Unable to add image (i.e. kernel) measurement to PCR %i: %m",
+                                TPM2_PCR_KERNEL_INITRD);
+
+        return EFI_SUCCESS;
+}
+
 #endif

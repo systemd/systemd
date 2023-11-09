@@ -10,6 +10,7 @@ EFI_STATUS tpm_log_event(uint32_t pcrindex, EFI_PHYSICAL_ADDRESS buffer, size_t 
 EFI_STATUS tpm_log_event_ascii(uint32_t pcrindex, EFI_PHYSICAL_ADDRESS buffer, size_t buffer_size, const char *description, bool *ret_measured);
 EFI_STATUS tpm_log_tagged_event(uint32_t pcrindex, EFI_PHYSICAL_ADDRESS buffer, size_t buffer_size, uint32_t event_id, const char16_t *description, bool *ret_measured);
 EFI_STATUS tpm_log_load_options(const char16_t *cmdline, bool *ret_measured);
+EFI_STATUS tpm_log_image(EFI_FILE *dir, const char16_t *name, bool *ret_measured);
 
 #else
 
@@ -36,6 +37,12 @@ static inline EFI_STATUS tpm_log_tagged_event(uint32_t pcrindex, EFI_PHYSICAL_AD
 }
 
 static inline EFI_STATUS tpm_log_load_options(const char16_t *cmdline, bool *ret_measured) {
+        if (ret_measured)
+                *ret_measured = false;
+        return EFI_SUCCESS;
+}
+
+static inline EFI_STATUS tpm_log_image(EFI_FILE *dir, const char16_t *name, bool *ret_measured) {
         if (ret_measured)
                 *ret_measured = false;
         return EFI_SUCCESS;
