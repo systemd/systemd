@@ -507,7 +507,9 @@ static int config_parse_many_files(
                         return -ENOMEM;
 
                 r = RET_NERRNO(stat(*fn, st_dropin));
-                if (r < 0 && r != -ENOENT)
+                if (r == -ENOENT)
+                        continue;
+                if (r < 0)
                         return r;
 
                 r = set_ensure_consume(&inodes, &inode_hash_ops, TAKE_PTR(st_dropin));
@@ -522,7 +524,7 @@ static int config_parse_many_files(
                         if (r < 0 && r != -ENOENT)
                                 return r;
 
-                        if (set_contains(inodes, &st)) {
+                        if (r >= 0 && set_contains(inodes, &st)) {
                                 log_debug("%s: symlink to drop-in, will be read later.", *fn);
                                 continue;
                         }
