@@ -2293,6 +2293,15 @@ static EFI_STATUS initrd_prepare(
                 if (err != EFI_SUCCESS)
                         return err;
 
+                err = tpm_log_event(
+                                TPM2_PCR_KERNEL_INITRD,
+                                POINTER_TO_PHYSICAL_ADDRESS(initrd + size),
+                                read_size,
+                                *i,
+                                /* ret_measured= */ NULL);
+                if (err != EFI_SUCCESS)
+                        return log_error_status(err, "Error measuring %ls: %m", *i);
+
                 /* Make sure the actual read size is what we expected. */
                 assert(size + read_size == new_size);
                 size = new_size;
@@ -2333,16 +2342,20 @@ static EFI_STATUS image_start(
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Error making file device path: %m");
 
+        err = tpm_log_image(image_root, entry->loader, /* ret_measured= */ NULL);
+        if (err != EFI_SUCCESS)
+                return log_error_status(err, "Error measuring %ls: %m", entry->loader);
+
+        err = shim_load_image(parent_image, path, &image);
+        if (err != EFI_SUCCESS)
+                return log_error_status(err, "Error loading %ls: %m", entry->loader);
+
         size_t initrd_size = 0;
         _cleanup_free_ void *initrd = NULL;
         _cleanup_free_ char16_t *options_initrd = NULL;
         err = initrd_prepare(image_root, entry, &options_initrd, &initrd, &initrd_size);
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Error preparing initrd: %m");
-
-        err = shim_load_image(parent_image, path, &image);
-        if (err != EFI_SUCCESS)
-                return log_error_status(err, "Error loading %ls: %m", entry->loader);
 
         /* DTBs are loaded by the kernel before ExitBootServices, and they can be used to map and assign
          * arbitrary memory ranges, so skip them when secure boot is enabled as the DTB here is unverified.
