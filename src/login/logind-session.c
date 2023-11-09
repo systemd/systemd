@@ -170,17 +170,17 @@ void session_set_user(Session *s, User *u) {
         user_update_last_session_timer(u);
 }
 
-int session_set_leader_consume(Session *s, PidRef _leader) {
-        _cleanup_(pidref_done) PidRef pidref = _leader;
+int session_set_leader_consume(Session *s, PidRef leader) {
+        _unused_ _cleanup_(pidref_done) PidRef _leader = leader;
         int r;
 
         assert(s);
-        assert(pidref_is_set(&pidref));
+        assert(pidref_is_set(&leader));
 
-        if (pidref_equal(&s->leader, &pidref))
+        if (pidref_equal(&s->leader, &leader))
                 return 0;
 
-        r = hashmap_put(s->manager->sessions_by_leader, PID_TO_PTR(pidref.pid), s);
+        r = hashmap_put(s->manager->sessions_by_leader, PID_TO_PTR(leader.pid), s);
         if (r < 0)
                 return r;
 
@@ -189,7 +189,7 @@ int session_set_leader_consume(Session *s, PidRef _leader) {
                 pidref_done(&s->leader);
         }
 
-        s->leader = TAKE_PIDREF(pidref);
+        s->leader = TAKE_PIDREF(leader);
         (void) audit_session_from_pid(s->leader.pid, &s->audit_id);
 
         return 1;
