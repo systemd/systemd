@@ -1262,6 +1262,27 @@ int cg_pid_get_unit(pid_t pid, char **ret_unit) {
         return cg_path_get_unit(cgroup, ret_unit);
 }
 
+int cg_pidref_get_unit(const PidRef *pidref, char **ret) {
+        _cleanup_free_ char *unit = NULL;
+        int r;
+
+        assert(ret);
+
+        if (!pidref_is_set(pidref))
+                return -ESRCH;
+
+        r = cg_pid_get_unit(pidref->pid, &unit);
+        if (r < 0)
+                return r;
+
+        r = pidref_verify(pidref);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(unit);
+        return 0;
+}
+
 /**
  * Skip session-*.scope, but require it to be there.
  */
