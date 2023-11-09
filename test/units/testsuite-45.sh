@@ -224,7 +224,7 @@ assert_timedated_signal() {
 
     for _ in {0..9}; do
         if journalctl "${args[@]}" --grep .; then
-            [[ "$(journalctl "${args[@]}" -o cat | tr -d '\n' | jq -r '.payload.data[1].NTP.data')" == "$value" ]];
+            [[ "$(journalctl "${args[@]}" -o cat | jq -r '.payload.data[1].NTP.data')" == "$value" ]];
             return 0
         fi
 
@@ -304,7 +304,7 @@ assert_timesyncd_signal() {
 
     for _ in {0..9}; do
         if journalctl "${args[@]}" --grep .; then
-            [[ "$(journalctl "${args[@]}" -o cat | tr -d '\n' | jq -r ".payload.data[1].$property.data | join(\" \")")" == "$value" ]];
+            [[ "$(journalctl "${args[@]}" -o cat | jq -r ".payload.data[1].$property.data | join(\" \")")" == "$value" ]];
             return 0
         fi
 
