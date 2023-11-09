@@ -267,7 +267,9 @@ EOF
         busctl monitor --json=short --match="type=signal,sender=org.freedesktop.timedate1,member=PropertiesChanged,path=/org/freedesktop/timedate1"
 
     : 'Disable NTP'
+    ts="$(date +"%F %T.%6N")"
     timedatectl set-ntp false
+    assert_timedated_signal "$ts" "false"
     assert_timesyncd_state "inactive"
     assert_ntp "false"
     assert_rc 3 systemctl is-active --quiet systemd-timesyncd
