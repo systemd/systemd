@@ -667,7 +667,7 @@
           only effective when <varname>$KERNEL_INSTALL_LAYOUT</varname> or <varname>layout=</varname> in
           <filename>install.conf</filename> is set to <option>uki</option> and
           <varname>$KERNEL_INSTALL_UKI_GENERATOR</varname> or <varname>uki_generator=</varname> in
-          <filename>install.conf</filename> is set to <option>ukify</option>.
+          <filename>install.conf</filename> is set to <option>ukify</option>, or is unset.
           <varname>$KERNEL_INSTALL_CONF_ROOT</varname> may be used to override the search path; see below for
           details.</para>
 
