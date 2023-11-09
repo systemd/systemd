@@ -6324,6 +6324,8 @@ static int help(void) {
                "                          Enroll signed TPM2 PCR policy against PEM public key\n"
                "     --tpm2-public-key-pcrs=PCR1+PCR2+PCR3+…\n"
                "                          Enroll signed TPM2 PCR policy for specified TPM2 PCRs\n"
+               "     --tpm2-pcrlock=PATH\n"
+               "                          Specify pcrlock policy to lock against\n"
                "     --seed=UUID          128-bit seed UUID to derive all UUIDs from\n"
                "     --size=BYTES         Grow loopback file to specified size\n"
                "     --json=pretty|short|off\n"
