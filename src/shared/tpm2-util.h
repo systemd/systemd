@@ -126,6 +126,7 @@ int tpm2_create_primary(Tpm2Context *c, const Tpm2Handle *session, const TPM2B_P
 int tpm2_create(Tpm2Context *c, const Tpm2Handle *parent, const Tpm2Handle *session, const TPMT_PUBLIC *template, const TPMS_SENSITIVE_CREATE *sensitive, TPM2B_PUBLIC **ret_public, TPM2B_PRIVATE **ret_private);
 int tpm2_create_loaded(Tpm2Context *c, const Tpm2Handle *parent, const Tpm2Handle *session, const TPMT_PUBLIC *template, const TPMS_SENSITIVE_CREATE *sensitive, TPM2B_PUBLIC **ret_public, TPM2B_PRIVATE **ret_private, Tpm2Handle **ret_handle);
 int tpm2_load(Tpm2Context *c, const Tpm2Handle *parent, const Tpm2Handle *session, const TPM2B_PUBLIC *public, const TPM2B_PRIVATE *private, Tpm2Handle **ret_handle);
+int tpm2_marshal_public(const TPM2B_PUBLIC *public, void **ret, size_t *ret_size);
 int tpm2_marshal_nv_public(const TPM2B_NV_PUBLIC *nv_public, void **ret, size_t *ret_size);
 int tpm2_unmarshal_nv_public(const void *data, size_t size, TPM2B_NV_PUBLIC *ret_nv_public);
 int tpm2_marshal_blob(const TPM2B_PUBLIC *public, const TPM2B_PRIVATE *private, const TPM2B_ENCRYPTED_SECRET *seed, void **ret_blob, size_t *ret_blob_size);
@@ -305,6 +306,8 @@ int tpm2_unseal_data(Tpm2Context *c, const struct iovec *public, const struct io
 int tpm2_serialize(Tpm2Context *c, const Tpm2Handle *handle, void **ret_serialized, size_t *ret_serialized_size);
 int tpm2_deserialize(Tpm2Context *c, const void *serialized, size_t serialized_size, Tpm2Handle **ret_handle);
 
+int tpm2_load_public_key_file(const char *path, TPM2B_PUBLIC *ret);
+
 /* The tpm2-tss library has many structs that are simply a combination of an array (or object) and
  * size. These macros allow easily initializing or assigning instances of such structs from an existing
  * buffer/object and size, while also checking the size for safety with the struct buffer/object size. If the
@@ -360,8 +363,6 @@ int tpm2_deserialize(Tpm2Context *c, const void *serialized, size_t serialized_s
                                         UNIQ_T(SIZE, uniq), UNIQ_T(BUFSIZE, uniq)) : \
                         0;                                              \
         })
-
-extern TSS2_RC (*sym_Tss2_MU_TPM2B_PUBLIC_Unmarshal)(uint8_t const buffer[], size_t buffer_size, size_t *offset, TPM2B_PUBLIC *dest);
 
 #else /* HAVE_TPM2 */
 typedef struct {} Tpm2Context;

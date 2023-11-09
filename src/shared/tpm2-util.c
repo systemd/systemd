@@ -88,7 +88,7 @@ static TSS2_RC (*sym_Tss2_MU_TPM2B_NAME_Marshal)(TPM2B_NAME const *src, uint8_t 
 static TSS2_RC (*sym_Tss2_MU_TPM2B_PRIVATE_Marshal)(TPM2B_PRIVATE const *src, uint8_t buffer[], size_t buffer_size, size_t *offset) = NULL;
 static TSS2_RC (*sym_Tss2_MU_TPM2B_PRIVATE_Unmarshal)(uint8_t const buffer[], size_t buffer_size, size_t *offset, TPM2B_PRIVATE  *dest) = NULL;
 static TSS2_RC (*sym_Tss2_MU_TPM2B_PUBLIC_Marshal)(TPM2B_PUBLIC const *src, uint8_t buffer[], size_t buffer_size, size_t *offset) = NULL;
-TSS2_RC (*sym_Tss2_MU_TPM2B_PUBLIC_Unmarshal)(uint8_t const buffer[], size_t buffer_size, size_t *offset, TPM2B_PUBLIC *dest) = NULL;
+static TSS2_RC (*sym_Tss2_MU_TPM2B_PUBLIC_Unmarshal)(uint8_t const buffer[], size_t buffer_size, size_t *offset, TPM2B_PUBLIC *dest) = NULL;
 static TSS2_RC (*sym_Tss2_MU_TPM2B_SENSITIVE_Marshal)(TPM2B_SENSITIVE const *src, uint8_t buffer[], size_t buffer_size, size_t *offset) = NULL;
 static TSS2_RC (*sym_Tss2_MU_TPML_PCR_SELECTION_Marshal)(TPML_PCR_SELECTION const *src, uint8_t buffer[], size_t buffer_size, size_t *offset) = NULL;
 static TSS2_RC (*sym_Tss2_MU_TPMS_NV_PUBLIC_Marshal)(TPMS_NV_PUBLIC const *src, uint8_t buffer[], size_t buffer_size, size_t *offset) = NULL;
@@ -2413,7 +2413,7 @@ static int tpm2_unmarshal_private(const void *data, size_t size, TPM2B_PRIVATE *
         return 0;
 }
 
-static int tpm2_marshal_public(const TPM2B_PUBLIC *public, void **ret, size_t *ret_size) {
+int tpm2_marshal_public(const TPM2B_PUBLIC *public, void **ret, size_t *ret_size) {
         size_t max_size = sizeof(*public), blob_size = 0;
         _cleanup_free_ void *blob = NULL;
         TSS2_RC rc;
@@ -6844,6 +6844,44 @@ int tpm2_pcrlock_policy_load(
 
         *ret_policy = TAKE_STRUCT(policy);
         return 1;
+}
+
+int tpm2_load_public_key_file(const char *path, TPM2B_PUBLIC *ret) {
+        _cleanup_free_ char *device_key_buffer = NULL;
+        TPM2B_PUBLIC device_key_public = {};
+        size_t device_key_buffer_size;
+        TSS2_RC rc;
+        int r;
+
+        assert(path);
+        assert(ret);
+
+        r = dlopen_tpm2();
+        if (r < 0)
+                return log_debug_errno(r, "TPM2 support not installed: %m");
+
+        r = read_full_file(path, &device_key_buffer, &device_key_buffer_size);
+        if (r < 0)
+                return log_error_errno(r, "Failed to read device key from file '%s': %m", path);
+
+        size_t offset = 0;
+        rc = sym_Tss2_MU_TPM2B_PUBLIC_Unmarshal(
+                        (uint8_t*) device_key_buffer,
+                        device_key_buffer_size,
+                        &offset,
+                        &device_key_public);
+        if (rc != TSS2_RC_SUCCESS)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Could not unmarshal public key from file.");
+
+        assert(offset <= device_key_buffer_size);
+        if (offset != device_key_buffer_size)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Found %zu bytes of trailing garbage in public key file.",
+                                       device_key_buffer_size - offset);
+
+        *ret = device_key_public;
+        return 0;
 }
 #endif
 
