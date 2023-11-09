@@ -133,6 +133,10 @@ Deprecations and removals:
 
 Features:
 
+* repart + cryptsetup: support file systems that are encrypted and use verity
+  on top. Usecase: confexts that shall be signed by the admin but also be
+  confidential. Then, add a new --make-ddi=confext-encrypted for this.
+
 * systemd-pcrextend:
   - support measuring to nvindex with PCR update semantics ("fake PCRs")
   - add api for "allocating" such an nvindex
