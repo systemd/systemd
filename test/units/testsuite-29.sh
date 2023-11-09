@@ -185,7 +185,11 @@ status="$(portablectl is-attached --extension /tmp/app10.raw /usr/share/minimal_
 
 portablectl inspect --force --cat --extension /tmp/app10.raw /usr/share/minimal_0.raw app0 | grep -q -F "Extension Release: /tmp/app10.raw"
 
-portablectl detach --force --now --runtime --extension /tmp/app10.raw /usr/share/minimal_0.raw app0
+# Ensure that we can detach even when an image has been deleted already (stop the unit manually as
+# portablectl won't find it)
+rm -f /tmp/app10.raw
+systemctl stop app0.service
+portablectl detach --force --runtime --extension /tmp/app10.raw /usr/share/minimal_0.raw app0
 
 # portablectl also works with directory paths rather than images
 
