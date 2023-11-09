@@ -444,15 +444,21 @@
         enrollment is calculated using the provided TPM2 key. This is useful in situations where the TPM2
         security chip is not available at the time of enrollment.</para>
 
-        <para>The key, in most cases, should be the Storage Root Key (SRK) from the TPM2 security chip. If a
-        key from a different handle (not the SRK) is used, you must specify its handle index using
+        <para>The key, in most cases, should be the Storage Root Key (SRK) from a local TPM2 security
+        chip. If a key from a different handle (not the SRK) is used, you must specify its handle index using
         <option>--tpm2-seal-key-handle=</option>.</para>
 
-        <para>You may use tpm2-tss tools to get the SRK from the TPM2 security chip with <citerefentry
-        project='mankier'><refentrytitle>tpm2_readpublic</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-        for example:</para>
+        <para>The
+        <citerefentry><refentrytitle>systemd-tpm2-setup.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        service writes the SRK to <filename>/run/systemd/tpm2-srk-public-key.tpm2b_public</filename>
+        automatically during boot, in the correct format.</para>
 
-        <programlisting>tpm2_readpublic -c 0x81000001 -o srk.pub</programlisting>
+        <para>Alternatively, you may use <command>systemd-analyze srk</command> to retrieve the SRK from the
+        TPM2 security chip explicitly. See
+        <citerefentry><refentrytitle>systemd-analyze</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        for details. Example:</para>
+
+        <programlisting>systemd-analyze srk &gt; srk.tpm2b_public</programlisting>
 
         <xi:include href="version-info.xml" xpointer="v255"/></listitem>
       </varlistentry>
