@@ -24,6 +24,9 @@ STATIC_DESTRUCTOR_REGISTER(arg_tpm2_device, freep);
 #define TPM2_SRK_PEM_PERSISTENT_PATH "/var/lib/systemd/tpm2-srk-public-key.pem"
 #define TPM2_SRK_PEM_RUNTIME_PATH "/run/systemd/tpm2-srk-public-key.pem"
 
+#define TPM2_SRK_TPM2B_PUBLIC_PERSISTENT_PATH "/var/lib/systemd/tpm2-srk-public-key.tpm2b_public"
+#define TPM2_SRK_TPM2B_PUBLIC_RUNTIME_PATH "/run/systemd/tpm2-srk-public-key.tpm2b_public"
+
 static int help(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -111,7 +114,8 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 struct public_key_data {
-        EVP_PKEY *pkey;
+        EVP_PKEY *pkey;         /* as OpenSSL object */
+        TPM2B_PUBLIC *public;   /* in TPM2 format */
         void *fingerprint;
         size_t fingerprint_size;
         char *fingerprint_hex;
@@ -124,6 +128,10 @@ static void public_key_data_done(struct public_key_data *d) {
         if (d->pkey) {
                 EVP_PKEY_free(d->pkey);
                 d->pkey = NULL;
+        }
+        if (d->public) {
+                Esys_Freep(&d->public);
+                d->public = NULL;
         }
         d->fingerprint = mfree(d->fingerprint);
         d->fingerprint_size = 0;
@@ -192,7 +200,6 @@ static int load_public_key_disk(const char *path, struct public_key_data *ret) {
 static int load_public_key_tpm2(struct public_key_data *ret) {
         _cleanup_(public_key_data_done) struct public_key_data data = {};
         _cleanup_(tpm2_context_unrefp) Tpm2Context *c = NULL;
-        _cleanup_(Esys_Freep) TPM2B_PUBLIC *public = NULL;
         int r;
 
         assert(ret);
@@ -204,7 +211,7 @@ static int load_public_key_tpm2(struct public_key_data *ret) {
         r = tpm2_get_or_create_srk(
                         c,
                         /* session= */ NULL,
-                        &public,
+                        &data.public,
                         /* ret_name= */ NULL,
                         /* ret_qname= */ NULL,
                         NULL);
@@ -215,7 +222,7 @@ static int load_public_key_tpm2(struct public_key_data *ret) {
         else
                 log_info("SRK already stored in the TPM.");
 
-        r = tpm2_tpm2b_public_to_openssl_pkey(public, &data.pkey);
+        r = tpm2_tpm2b_public_to_openssl_pkey(data.public, &data.pkey);
         if (r < 0)
                 return log_error_errno(r, "Failed to convert TPM2 SRK public key to OpenSSL public key: %m");
 
@@ -300,28 +307,64 @@ static int run(int argc, char *argv[]) {
                 public_key_data_done(&persistent_key);
         }
 
-        const char *path = arg_early ? TPM2_SRK_PEM_RUNTIME_PATH : TPM2_SRK_PEM_PERSISTENT_PATH;
-
-        (void) mkdir_parents(path, 0755);
+        const char *pem_path = arg_early ? TPM2_SRK_PEM_RUNTIME_PATH : TPM2_SRK_PEM_PERSISTENT_PATH;
+        (void) mkdir_parents(pem_path, 0755);
 
         /* Write out public key (note that we only do that as a help to the user, we don't make use of this ever */
         _cleanup_(unlink_and_freep) char *t = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        r = fopen_tmpfile_linkable(path, O_WRONLY, &t, &f);
+        r = fopen_tmpfile_linkable(pem_path, O_WRONLY, &t, &f);
         if (r < 0)
-                return log_error_errno(r, "Failed to open SRK public key file '%s' for writing: %m", path);
+                return log_error_errno(r, "Failed to open SRK public key file '%s' for writing: %m", pem_path);
 
         if (PEM_write_PUBKEY(f, tpm2_key.pkey) <= 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to write SRK public key file '%s'.", path);
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to write SRK public key file '%s'.", pem_path);
 
         if (fchmod(fileno(f), 0444) < 0)
-                return log_error_errno(errno, "Failed to adjust access mode of SRK public key file '%s' to 0444: %m", path);
+                return log_error_errno(errno, "Failed to adjust access mode of SRK public key file '%s' to 0444: %m", pem_path);
 
-        r = flink_tmpfile(f, t, path, LINK_TMPFILE_SYNC|LINK_TMPFILE_REPLACE);
+        r = fflush_and_check(f);
         if (r < 0)
-                return log_error_errno(r, "Failed to move SRK public key file to '%s': %m", path);
+                return log_error_errno(r, "Failed to sync SRK key to disk: %m");
 
-        log_info("SRK public key saved to '%s'.", path);
+        r = flink_tmpfile(f, t, pem_path, LINK_TMPFILE_SYNC|LINK_TMPFILE_REPLACE);
+        if (r < 0)
+                return log_error_errno(r, "Failed to move SRK public key file to '%s': %m", pem_path);
+
+        f = safe_fclose(f);
+        t = mfree(t);
+
+        log_info("SRK public key saved to '%s' in PEM format.", pem_path);
+
+        const char *tpm2b_public_path = arg_early ? TPM2_SRK_TPM2B_PUBLIC_RUNTIME_PATH : TPM2_SRK_TPM2B_PUBLIC_PERSISTENT_PATH;
+        (void) mkdir_parents(tpm2b_public_path, 0755);
+
+        /* Now also write this out in TPM2B_PUBLIC format */
+        r = fopen_tmpfile_linkable(tpm2b_public_path, O_WRONLY, &t, &f);
+        if (r < 0)
+                return log_error_errno(r, "Failed to open SRK public key file '%s' for writing: %m", tpm2b_public_path);
+
+        _cleanup_free_ void *marshalled = NULL;
+        size_t marshalled_size = 0;
+        r = tpm2_marshal_public(tpm2_key.public, &marshalled, &marshalled_size);
+        if (r < 0)
+                return log_error_errno(r, "Failed to marshal TPM2_PUBLIC key.");
+
+        if (fwrite(marshalled, 1, marshalled_size, f) != marshalled_size)
+                return log_error_errno(errno, "Failed to write SRK public key file '%s'.", tpm2b_public_path);
+
+        if (fchmod(fileno(f), 0444) < 0)
+                return log_error_errno(errno, "Failed to adjust access mode of SRK public key file '%s' to 0444: %m", tpm2b_public_path);
+
+        r = fflush_and_check(f);
+        if (r < 0)
+                return log_error_errno(r, "Failed to sync SRK key to disk: %m");
+
+        r = flink_tmpfile(f, t, tpm2b_public_path, LINK_TMPFILE_SYNC|LINK_TMPFILE_REPLACE);
+        if (r < 0)
+                return log_error_errno(r, "Failed to move SRK public key file to '%s': %m", tpm2b_public_path);
+
+        log_info("SRK public key saved to '%s' in TPM2B_PUBLIC format.", tpm2b_public_path);
         return 0;
 }
 
