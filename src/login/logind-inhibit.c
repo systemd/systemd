@@ -376,18 +376,20 @@ InhibitWhat manager_inhibit_what(Manager *m, InhibitMode mm) {
         return what;
 }
 
-static int pid_is_active(Manager *m, pid_t pid) {
+static int pidref_is_active_session(Manager *m, const PidRef *pid) {
         Session *s;
         int r;
 
-        /* Get client session.  This is not what you are looking for these days.
+        assert(m);
+        assert(pid);
+
+        /* Get client session. This is not what you are looking for these days.
          * FIXME #6852 */
-        r = manager_get_session_by_pid(m, pid, &s);
+        r = manager_get_session_by_pidref(m, pid, &s);
         if (r < 0)
                 return r;
 
-        /* If there's no session assigned to it, then it's globally
-         * active on all ttys */
+        /* If there's no session assigned to it, then it's globally active on all ttys */
         if (r == 0)
                 return 1;
 
@@ -421,7 +423,7 @@ bool manager_is_inhibited(
                 if (i->mode != mm)
                         continue;
 
-                if (ignore_inactive && pid_is_active(m, i->pid.pid) <= 0)
+                if (ignore_inactive && pidref_is_active_session(m, &i->pid) <= 0)
                         continue;
 
                 if (ignore_uid && i->uid == uid)
