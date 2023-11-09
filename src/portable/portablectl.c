@@ -108,7 +108,10 @@ static int attach_extensions_to_message(sd_bus_message *m, const char *method, c
         STRV_FOREACH(p, extensions) {
                 _cleanup_free_ char *resolved_extension_image = NULL;
 
-                r = determine_image(*p, false, &resolved_extension_image);
+                r = determine_image(
+                                *p,
+                                startswith_strv(method, STRV_MAKE("Get", "Detach")),
+                                &resolved_extension_image);
                 if (r < 0)
                         return r;
 
