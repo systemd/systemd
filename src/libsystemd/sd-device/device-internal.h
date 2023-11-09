@@ -36,6 +36,8 @@ struct sd_device {
         Set *sysattrs; /* names of sysattrs */
         Iterator sysattrs_iterator;
 
+        Set *sysattrs_allowlist; /* names of sysattrs that we can read */
+
         Set *all_tags, *current_tags;
         Iterator all_tags_iterator, current_tags_iterator;
         uint64_t all_tags_iterator_generation, current_tags_iterator_generation; /* generation when iteration was started */

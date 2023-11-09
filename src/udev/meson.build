@@ -36,6 +36,7 @@ libudevd_core_sources = files(
         'udev-builtin-net_id.c',
         'udev-builtin-net_setup_link.c',
         'udev-builtin-path_id.c',
+        'udev-builtin-sysattr_allowlist.c',
         'udev-builtin-usb_id.c',
         'udev-builtin.c',
 )
