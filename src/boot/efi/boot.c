@@ -2293,6 +2293,15 @@ static EFI_STATUS initrd_prepare(
                 if (err != EFI_SUCCESS)
                         return err;
 
+                err = tpm_log_event(
+                                TPM2_PCR_KERNEL_INITRD,
+                                POINTER_TO_PHYSICAL_ADDRESS(initrd + size),
+                                read_size,
+                                *i,
+                                /* ret_measured= */ NULL);
+                if (err != EFI_SUCCESS)
+                        return log_error_status(err, "Error measuring %ls: %m", *i);
+
                 /* Make sure the actual read size is what we expected. */
                 assert(size + read_size == new_size);
                 size = new_size;
