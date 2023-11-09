@@ -4040,11 +4040,12 @@ int unit_get_memory_current(Unit *u, uint64_t *ret) {
         return cg_get_attribute_as_uint64("memory", u->cgroup_path, r > 0 ? "memory.current" : "memory.usage_in_bytes", ret);
 }
 
-static int unit_get_memory_peak_raw(Unit *u, uint64_t *ret) {
+static int unit_get_memory_attr_raw(Unit *u, const char* mem_attribute, uint64_t *ret) {
         int r;
 
         assert(u);
         assert(ret);
+        assert(mem_attribute);
 
         if (!u->cgroup_path)
                 return -ENODATA;
@@ -4062,10 +4063,10 @@ static int unit_get_memory_peak_raw(Unit *u, uint64_t *ret) {
         if (!r)
                 return -ENODATA;
 
-        return cg_get_attribute_as_uint64("memory", u->cgroup_path, "memory.peak", ret);
+        return cg_get_attribute_as_uint64("memory", u->cgroup_path, mem_attribute, ret);
 }
 
-int unit_get_memory_peak(Unit *u, uint64_t *ret) {
+static int unit_get_memory_attr_cached(Unit *u,  const char* mem_attribute, uint64_t* last, uint64_t *ret) {
         uint64_t bytes;
         int r;
 
@@ -4077,77 +4078,31 @@ int unit_get_memory_peak(Unit *u, uint64_t *ret) {
         if (!UNIT_CGROUP_BOOL(u, memory_accounting))
                 return -ENODATA;
 
-        r = unit_get_memory_peak_raw(u, &bytes);
-        if (r == -ENODATA && u->memory_peak_last != UINT64_MAX) {
+        r = unit_get_memory_attr_raw(u, mem_attribute, &bytes);
+        if (r == -ENODATA && *last != UINT64_MAX) {
                 /* If we can't get the memory peak anymore (because the cgroup was already removed, for example),
                  * use our cached value. */
 
                 if (ret)
-                        *ret = u->memory_peak_last;
+                        *ret = *last;
                 return 0;
         }
         if (r < 0)
                 return r;
 
-        u->memory_peak_last = bytes;
+        *last = bytes;
         if (ret)
                 *ret = bytes;
 
         return 0;
 }
 
-static int unit_get_memory_swap_peak_raw(Unit *u, uint64_t *ret) {
-        int r;
-
-        assert(u);
-        assert(ret);
-
-        if (!u->cgroup_path)
-                return -ENODATA;
-
-        /* The root cgroup doesn't expose this information. */
-        if (unit_has_host_root_cgroup(u))
-                return -ENODATA;
-
-        if ((u->cgroup_realized_mask & CGROUP_MASK_MEMORY) == 0)
-                return -ENODATA;
-
-        r = cg_all_unified();
-        if (r < 0)
-                return r;
-        if (!r)
-                return -ENODATA;
-
-        return cg_get_attribute_as_uint64("memory", u->cgroup_path, "memory.swap.peak", ret);
+int unit_get_memory_peak(Unit *u, uint64_t *ret) {
+        return unit_get_memory_attr_cached(u, "memory.peak", &u->memory_peak_last, ret);
 }
 
 int unit_get_memory_swap_peak(Unit *u, uint64_t *ret) {
-        uint64_t bytes;
-        int r;
-
-        assert(u);
-        assert(ret);
-
-        if (!UNIT_CGROUP_BOOL(u, memory_accounting))
-                return -ENODATA;
-
-        r = unit_get_memory_swap_peak_raw(u, &bytes);
-        if (r == -ENODATA && u->memory_swap_peak_last != UINT64_MAX) {
-                /* If we can't get the memory peak anymore (because the cgroup was already removed, for example),
-                 * use our cached value. */
-
-                if (ret)
-                        *ret = u->memory_swap_peak_last;
-                return 0;
-        }
-        if (r < 0)
-                return r;
-
-        u->memory_swap_peak_last = bytes;
-        if (ret)
-                *ret = bytes;
-
-        return 0;
+        return unit_get_memory_attr_cached(u, "memory.swap.peak", &u->memory_swap_peak_last, ret);
 }
 
 int unit_get_tasks_current(Unit *u, uint64_t *ret) {
