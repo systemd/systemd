@@ -33,10 +33,16 @@
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(context_t, context_free, NULL);
 #define _cleanup_context_free_ _cleanup_(context_freep)
 
+typedef enum Initialized {
+        UNINITIALIZED,
+        INITIALIZED,
+        LAZY_INITIALIZED,
+} Initialized;
+
 static int mac_selinux_reload(int seqno);
 
 static int cached_use = -1;
-static bool initialized = false;
+static Initialized initialized = UNINITIALIZED;
 static int last_policyload = 0;
 static struct selabel_handle *label_hnd = NULL;
 static bool have_status_page = false;
@@ -144,7 +150,7 @@ static int open_label_db(void) {
 }
 #endif
 
-int mac_selinux_init(void) {
+static int selinux_init(bool force) {
 #if HAVE_SELINUX
         static const LabelOps label_ops = {
                 .pre = mac_selinux_label_pre,
@@ -152,7 +158,12 @@ int mac_selinux_init(void) {
         };
         int r;
 
-        if (initialized)
+        if (initialized == INITIALIZED)
+                return 1;
+
+        /* Internal call from this module? Unless we were explicitly configured to allow lazy initialization
+         * bail out immediately. */
+        if (!force && initialized != LAZY_INITIALIZED)
                 return 0;
 
         if (!mac_selinux_use())
@@ -182,8 +193,23 @@ int mac_selinux_init(void) {
          * first call without any actual change. */
         last_policyload = selinux_status_policyload();
 
-        initialized = true;
+        initialized = INITIALIZED;
+        return 1;
+#else
+        return 0;
 #endif
+}
+
+int mac_selinux_init(void) {
+        return selinux_init(/* force= */ true);
+}
+
+int mac_selinux_init_lazy(void) {
+#if HAVE_SELINUX
+        if (initialized == UNINITIALIZED)
+                initialized = LAZY_INITIALIZED; /* We'll be back later */
+#endif
+
         return 0;
 }
 
@@ -307,7 +333,10 @@ int mac_selinux_fix_full(
         _cleanup_free_ char *p = NULL;
         int inode_fd, r;
 
-        /* if mac_selinux_init() wasn't called before we are a NOOP */
+        r = selinux_init(/* force= */ false);
+        if (r <= 0)
+                return r;
+
         if (!label_hnd)
                 return 0;
 
@@ -347,8 +376,11 @@ int mac_selinux_apply(const char *path, const char *label) {
         assert(path);
 
 #if HAVE_SELINUX
-        if (!mac_selinux_use())
-                return 0;
+        int r;
+
+        r = selinux_init(/* force= */ false);
+        if (r <= 0)
+                return r;
 
         assert(label);
 
@@ -363,8 +395,11 @@ int mac_selinux_apply_fd(int fd, const char *path, const char *label) {
         assert(fd >= 0);
 
 #if HAVE_SELINUX
-        if (!mac_selinux_use())
-                return 0;
+        int r;
+
+        r = selinux_init(/* force= */ false);
+        if (r <= 0)
+                return r;
 
         assert(label);
 
@@ -378,11 +413,15 @@ int mac_selinux_get_create_label_from_exe(const char *exe, char **label) {
 #if HAVE_SELINUX
         _cleanup_freecon_ char *mycon = NULL, *fcon = NULL;
         security_class_t sclass;
+        int r;
 
         assert(exe);
         assert(label);
 
-        if (!mac_selinux_use())
+        r = selinux_init(/* force= */ false);
+        if (r < 0)
+                return r;
+        if (r == 0)
                 return -EOPNOTSUPP;
 
         if (getcon_raw(&mycon) < 0)
@@ -409,7 +448,12 @@ int mac_selinux_get_our_label(char **ret) {
         assert(ret);
 
 #if HAVE_SELINUX
-        if (!mac_selinux_use())
+        int r;
+
+        r = selinux_init(/* force= */ false);
+        if (r < 0)
+                return r;
+        if (r == 0)
                 return -EOPNOTSUPP;
 
         _cleanup_freecon_ char *con = NULL;
@@ -431,12 +475,16 @@ int mac_selinux_get_child_mls_label(int socket_fd, const char *exe, const char *
         _cleanup_context_free_ context_t pcon = NULL, bcon = NULL;
         const char *range = NULL, *bcon_str = NULL;
         security_class_t sclass;
+        int r;
 
         assert(socket_fd >= 0);
         assert(exe);
         assert(ret_label);
 
-        if (!mac_selinux_use())
+        r = selinux_init(/* force= */ false);
+        if (r < 0)
+                return r;
+        if (r == 0)
                 return -EOPNOTSUPP;
 
         if (getcon_raw(&mycon) < 0)
@@ -504,6 +552,10 @@ static int selinux_create_file_prepare_abspath(const char *abspath, mode_t mode)
         assert(abspath);
         assert(path_is_absolute(abspath));
 
+        r = selinux_init(/* force= */ false);
+        if (r <= 0)
+                return r;
+
         /* Check for policy reload so 'label_hnd' is kept up-to-date by callbacks */
         mac_selinux_maybe_reload();
         if (!label_hnd)
@@ -537,6 +589,10 @@ int mac_selinux_create_file_prepare_at(
         if (dir_fd < 0 && dir_fd != AT_FDCWD)
                 return -EBADF;
 
+        r = selinux_init(/* force= */ false);
+        if (r <= 0)
+                return r;
+
         if (!label_hnd)
                 return 0;
 
@@ -562,12 +618,14 @@ int mac_selinux_create_file_prepare_at(
 
 int mac_selinux_create_file_prepare_label(const char *path, const char *label) {
 #if HAVE_SELINUX
+        int r;
 
         if (!label)
                 return 0;
 
-        if (!mac_selinux_use())
-                return 0;
+        r = selinux_init(/* force= */ false);
+        if (r <= 0)
+                return r;
 
         if (setfscreatecon_raw(label) < 0)
                 return log_enforcing_errno(errno, "Failed to set specified SELinux security context '%s' for '%s': %m", label, strna(path));
@@ -580,7 +638,7 @@ void mac_selinux_create_file_clear(void) {
 #if HAVE_SELINUX
         PROTECT_ERRNO;
 
-        if (!mac_selinux_use())
+        if (selinux_init(/* force= */ false) <= 0)
                 return;
 
         setfscreatecon_raw(NULL);
@@ -590,10 +648,13 @@ void mac_selinux_create_file_clear(void) {
 int mac_selinux_create_socket_prepare(const char *label) {
 
 #if HAVE_SELINUX
+        int r;
+
         assert(label);
 
-        if (!mac_selinux_use())
-                return 0;
+        r = selinux_init(/* force= */ false);
+        if (r <= 0)
+                return r;
 
         if (setsockcreatecon(label) < 0)
                 return log_enforcing_errno(errno, "Failed to set SELinux security context %s for sockets: %m", label);
@@ -607,7 +668,7 @@ void mac_selinux_create_socket_clear(void) {
 #if HAVE_SELINUX
         PROTECT_ERRNO;
 
-        if (!mac_selinux_use())
+        if (selinux_init(/* force= */ false) <= 0)
                 return;
 
         setsockcreatecon_raw(NULL);
@@ -629,6 +690,9 @@ int mac_selinux_bind(int fd, const struct sockaddr *addr, socklen_t addrlen) {
         assert(fd >= 0);
         assert(addr);
         assert(addrlen >= sizeof(sa_family_t));
+
+        if (selinux_init(/* force= */ false) <= 0)
+                goto skipped;
 
         if (!label_hnd)
                 goto skipped;

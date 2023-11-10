@@ -117,14 +117,25 @@ int btrfs_subvol_make_label(const char *path) {
         return mac_smack_fix(path, 0);
 }
 
-int mac_init(void) {
+static int init_internal(bool lazy) {
         int r;
 
         assert(!(mac_selinux_use() && mac_smack_use()));
 
-        r = mac_selinux_init();
+        if (lazy)
+                r = mac_selinux_init_lazy();
+        else
+                r = mac_selinux_init();
         if (r < 0)
                 return r;
 
         return mac_smack_init();
+}
+
+int mac_init_lazy(void) {
+        return init_internal(/* lazy=*/ true);
+}
+
+int mac_init(void) {
+        return init_internal(/* lazy=*/ false);
 }
