@@ -704,8 +704,10 @@ static void print_status_info(
         if (i->memory_current != UINT64_MAX) {
                 printf("     Memory: %s", FORMAT_BYTES(i->memory_current));
 
+                bool show_memory_swap_peak = i->memory_swap_peak != CGROUP_LIMIT_MAX
+                        && i->memory_swap_peak != 0;
                 if (i->memory_peak != CGROUP_LIMIT_MAX ||
-                    i->memory_swap_peak != CGROUP_LIMIT_MAX ||
+                    show_memory_swap_peak ||
                     i->memory_min > 0 ||
                     i->memory_low > 0 || i->startup_memory_low > 0 ||
                     i->memory_high != CGROUP_LIMIT_MAX || i->startup_memory_high != CGROUP_LIMIT_MAX ||
@@ -773,7 +775,7 @@ static void print_status_info(
                                 printf("%speak: %s", prefix, FORMAT_BYTES(i->memory_peak));
                                 prefix = " ";
                         }
-                        if (i->memory_swap_peak != CGROUP_LIMIT_MAX) {
+                        if (show_memory_swap_peak) {
                                 printf("%sswap peak: %s", prefix, FORMAT_BYTES(i->memory_swap_peak));
                                 prefix = " ";
                         }
