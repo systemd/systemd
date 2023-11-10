@@ -20,7 +20,6 @@
 
 #include "alloc-util.h"
 #include "ask-password-api.h"
-#include "constants.h"
 #include "creds-util.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -36,6 +35,7 @@
 #include "missing_syscall.h"
 #include "mkdir-label.h"
 #include "nulstr-util.h"
+#include "plymouth-util.h"
 #include "process-util.h"
 #include "random-util.h"
 #include "signal-util.h"
@@ -211,7 +211,6 @@ int ask_password_plymouth(
                 const char *flag_file,
                 char ***ret) {
 
-        static const union sockaddr_union sa = PLYMOUTH_SOCKET;
         _cleanup_close_ int fd = -EBADF, notify = -EBADF;
         _cleanup_free_ char *packet = NULL;
         ssize_t k;
@@ -238,12 +237,9 @@ int ask_password_plymouth(
                         return -errno;
         }
 
-        fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
+        fd = plymouth_connect(SOCK_NONBLOCK);
         if (fd < 0)
-                return -errno;
-
-        if (connect(fd, &sa.sa, SOCKADDR_UN_LEN(sa.un)) < 0)
-                return -errno;
+                return fd;
 
         if (FLAGS_SET(flags, ASK_PASSWORD_ACCEPT_CACHED)) {
                 packet = strdup("c");

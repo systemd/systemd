@@ -89,11 +89,6 @@
  * in containers so that our children inherit that. */
 #define DEFAULT_RLIMIT_MEMLOCK (1024ULL*1024ULL*8ULL)
 
-#define PLYMOUTH_SOCKET {                                       \
-                .un.sun_family = AF_UNIX,                       \
-                .un.sun_path = "\0/org/freedesktop/plymouthd",  \
-        }
-
 /* Path where PID1 listens for varlink subscriptions from systemd-oomd to notify of changes in ManagedOOM settings. */
 #define VARLINK_ADDR_PATH_MANAGED_OOM_SYSTEM "/run/systemd/io.systemd.ManagedOOM"
 /* Path where systemd-oomd listens for varlink connections from user managers to report changes in ManagedOOM settings. */
