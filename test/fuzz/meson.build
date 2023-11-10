@@ -46,10 +46,11 @@ sanitize_address_undefined = custom_target(
                    project_source_root,
                    '@OUTPUT@',
                    'fuzzers',
-                   '-Dfuzz-tests=true -Db_lundef=false -Db_sanitize=address,undefined --optimization=@0@ @1@ -Dc_args=@2@ -Dcpp_args=@2@ --auto-features=@3@'.format(
+                   ' '.join(get_option('c_args') + '-DFUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION'),
+                   ' '.join(get_option('cpp_args') + '-DFUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION'),
+                   '-Dfuzz-tests=true -Db_lundef=false -Db_sanitize=address,undefined --optimization=@0@ @1@ --auto-features=@2@'.format(
                            get_option('optimization'),
                            get_option('werror') ? '--werror' : '',
-                           '-DFUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION',
                            sanitize_auto_features
                    ),
                    ' '.join(cc.cmd_array()),
