@@ -51,6 +51,7 @@ static int arg_qemu_swtpm = -1;
 static char *arg_qemu_kernel = NULL;
 static char *arg_qemu_initrd = NULL;
 static bool arg_qemu_gui = false;
+static QemuNetworkStack arg_qemu_net = QEMU_NET_USER;
 static int arg_secure_boot = -1;
 static MachineCredential *arg_credentials = NULL;
 static size_t arg_n_credentials = 0;
@@ -94,6 +95,8 @@ static int help(void) {
                "     --qemu-kernel=PATH     Specify the kernel for qemu direct kernel boot\n"
                "     --qemu-initrd=PATH     Specify the initrd for qemu direct kernel boot\n"
                "     --qemu-gui             Start QEMU in graphical mode\n"
+               "     --qemu-net=user|tap|none\n"
+               "                            Configure QEMU's networking stack\n"
                "     --secure-boot=BOOL     Configure whether to search for firmware which\n"
                "                            supports Secure Boot\n\n"
                "%3$sCredentials:%4$s\n"
@@ -126,6 +129,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_QEMU_KERNEL,
                 ARG_QEMU_INITRD,
                 ARG_QEMU_GUI,
+                ARG_QEMU_NET,
                 ARG_SECURE_BOOT,
                 ARG_SET_CREDENTIAL,
                 ARG_LOAD_CREDENTIAL,
@@ -146,6 +150,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "qemu-kernel",     required_argument, NULL, ARG_QEMU_KERNEL     },
                 { "qemu-initrd",     required_argument, NULL, ARG_QEMU_INITRD     },
                 { "qemu-gui",        no_argument,       NULL, ARG_QEMU_GUI        },
+                { "qemu-net",        required_argument, NULL, ARG_QEMU_NET        },
                 { "secure-boot",     required_argument, NULL, ARG_SECURE_BOOT     },
                 { "set-credential",  required_argument, NULL, ARG_SET_CREDENTIAL  },
                 { "load-credential", required_argument, NULL, ARG_LOAD_CREDENTIAL },
@@ -251,6 +256,12 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_QEMU_GUI:
                         arg_qemu_gui = true;
+                        break;
+
+                case ARG_QEMU_NET:
+                        r = parse_qemu_network_stack(optarg, &arg_qemu_net);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --qemu-net=%s: %m", optarg);
                         break;
 
                 case ARG_SECURE_BOOT:
@@ -638,10 +649,25 @@ static int run_virtual_machine(void) {
                 "-smp", arg_qemu_smp ?: "1",
                 "-m", mem,
                 "-object", "rng-random,filename=/dev/urandom,id=rng0",
-                "-device", "virtio-rng-pci,rng=rng0,id=rng-device0",
-                "-nic", "user,model=virtio-net-pci"
+                "-device", "virtio-rng-pci,rng=rng0,id=rng-device0"
         );
         if (!cmdline)
+                return log_oom();
+
+        switch (arg_qemu_net) {
+        case QEMU_NET_NONE:
+                r = strv_extend_strv(&cmdline, STRV_MAKE("-nic", "none"), /* filter_duplicates= */ false);
+                break;
+        case QEMU_NET_USER:
+                r = strv_extend_strv(&cmdline, STRV_MAKE("-nic", "user,model=virtio-net-pci"), /* filter_duplicates= */ false);
+                break;
+        case QEMU_NET_TAP:
+                r = strv_extend_strv(&cmdline, STRV_MAKE("-nic", "tap,script=no,model=virtio-net-pci"), /* filter_duplicates= */ false);
+                break;
+        default:
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid state for arg_qemu_net (%d), aborting.", arg_qemu_net);
+        }
+        if (r < 0)
                 return log_oom();
 
         bool use_vsock = arg_qemu_vsock > 0 && ARCHITECTURE_SUPPORTS_SMBIOS;
