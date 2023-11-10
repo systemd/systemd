@@ -137,6 +137,20 @@ Features:
   on top. Usecase: confexts that shall be signed by the admin but also be
   confidential. Then, add a new --make-ddi=confext-encrypted for this.
 
+* tmpfiles: add new line type for moving files from some source dir to some
+  target dir. then use that to move sysexts/confexts and stuff from initrd
+  tmpfs to /run/, so that host can pick things up.
+
+* tiny varlink service that takes a fd passed in and serves it via http. Then
+  make use of that in networkd, and expose some EFI binary of choice for
+  DHCP/HTTP base EFI boot.
+
+* bootctl: add reboot-to-disk which takes a block device name, and
+  automatically sets things up so that system reboots into that device next.
+
+* maybe: in PID1, when we detect we run in an initrd, make superblock read-only
+  early on, but provide opt-out via kernel cmdline.
+
 * systemd-pcrextend:
   - support measuring to nvindex with PCR update semantics ("fake PCRs")
   - add api for "allocating" such an nvindex
