@@ -18,6 +18,7 @@
 #include "label-util.h"
 #include "parse-util.h"
 #include "pretty-print.h"
+#include "smack-util.h"
 #include "static-destruct.h"
 
 static FILE* arg_serialization = NULL;
@@ -199,9 +200,12 @@ int main(int argc, char *argv[]) {
         log_set_prohibit_ipc(true);
         log_setup();
 
-        r = mac_init();
+        /* Initialize Smack but not SELinux. The former is just a few operations, but the latter is very
+         * slow as it requires loading the entire database in memory, so we will do it lazily only if it is
+         * actually needed, to avoid wasting 2ms-10ms for each sd-executor that gets spawned. */
+        r = mac_smack_init();
         if (r < 0)
-                return log_error_errno(r, "Failed to initialize MAC layer: %m");
+                return log_error_errno(r, "Failed to initialize Smack layer: %m");
 
         r = fdset_new_fill(/* filter_cloexec= */ 0, &fdset);
         if (r < 0)
