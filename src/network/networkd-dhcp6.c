@@ -96,8 +96,6 @@ static int dhcp6_address_ready_callback(Address *address) {
 }
 
 int dhcp6_check_ready(Link *link) {
-        bool has_ready = false;
-        Address *address;
         int r;
 
         assert(link);
@@ -107,16 +105,9 @@ int dhcp6_check_ready(Link *link) {
                 return 0;
         }
 
-        SET_FOREACH(address, link->addresses) {
-                if (address->source != NETWORK_CONFIG_SOURCE_DHCP6)
-                        continue;
-                if (address_is_ready(address)) {
-                        has_ready = true;
-                        break;
-                }
-        }
+        if (!link_check_addresses_ready(link, NETWORK_CONFIG_SOURCE_DHCP6)) {
+                Address *address;
 
-        if (!has_ready) {
                 SET_FOREACH(address, link->addresses)
                         if (address->source == NETWORK_CONFIG_SOURCE_DHCP6)
                                 address->callback = dhcp6_address_ready_callback;
