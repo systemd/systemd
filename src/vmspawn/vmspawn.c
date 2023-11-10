@@ -44,17 +44,19 @@ static int arg_qemu_kvm = -1;
 static int arg_qemu_vsock = -1;
 static uint64_t arg_vsock_cid = UINT64_MAX;
 static int arg_qemu_swtpm = -1;
+static char *arg_qemu_kernel = NULL;
 static bool arg_qemu_gui = false;
 static int arg_secure_boot = -1;
 static MachineCredential *arg_credentials = NULL;
 static size_t arg_n_credentials = 0;
 static SettingsMask arg_settings_mask = 0;
-static char **arg_parameters = NULL;
+static char **arg_kernel_cmdline_extra = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_machine, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_qemu_smp, freep);
-STATIC_DESTRUCTOR_REGISTER(arg_parameters, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_qemu_kernel, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_kernel_cmdline_extra, strv_freep);
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
@@ -81,6 +83,7 @@ static int help(void) {
                "     --qemu-vsock=BOOL      Configure whether to use qemu with a vsock or not\n"
                "     --vsock-cid=           Specify the CID to use for the qemu guest's vsock\n"
                "     --qemu-swtpm=BOOL      Configure whether to use qemu with swtpm or not\n"
+               "     --qemu-kernel=BOOL     Specify the kernel for qemu direct kernel boot\n"
                "     --qemu-gui             Start QEMU in graphical mode\n"
                "     --secure-boot=BOOL     Configure whether to search for firmware which\n"
                "                            supports Secure Boot\n\n"
@@ -113,6 +116,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_QEMU_VSOCK,
                 ARG_VSOCK_CID,
                 ARG_QEMU_SWTPM,
+                ARG_QEMU_KERNEL,
                 ARG_QEMU_GUI,
                 ARG_SECURE_BOOT,
                 ARG_SET_CREDENTIAL,
@@ -131,6 +135,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "qemu-vsock",      required_argument, NULL, ARG_QEMU_VSOCK      },
                 { "vsock-cid",       required_argument, NULL, ARG_VSOCK_CID       },
                 { "qemu-swtpm",      required_argument, NULL, ARG_QEMU_SWTPM      },
+                { "qemu-kernel",     required_argument, NULL, ARG_QEMU_KERNEL      },
                 { "qemu-gui",        no_argument,       NULL, ARG_QEMU_GUI        },
                 { "secure-boot",     required_argument, NULL, ARG_SECURE_BOOT     },
                 { "set-credential",  required_argument, NULL, ARG_SET_CREDENTIAL  },
@@ -223,6 +228,12 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_error_errno(r, "Failed to parse --qemu-swtpm=%s: %m", optarg);
                         break;
 
+                case ARG_QEMU_KERNEL:
+                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_qemu_kernel);
+                        if (r < 0)
+                                return r;
+                        break;
+
                 case ARG_QEMU_GUI:
                         arg_qemu_gui = true;
                         break;
@@ -262,9 +273,9 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
         if (argc > optind) {
-                strv_free(arg_parameters);
-                arg_parameters = strv_copy(argv + optind);
-                if (!arg_parameters)
+                strv_free(arg_kernel_cmdline_extra);
+                arg_kernel_cmdline_extra = strv_copy(argv + optind);
+                if (!arg_kernel_cmdline_extra)
                         return log_oom();
 
                 arg_settings_mask |= SETTING_START_MODE;
@@ -568,6 +579,10 @@ static int run_virtual_machine(void) {
         if (!machine)
                 return log_oom();
 
+        if (arg_qemu_kernel && access(arg_qemu_kernel, F_OK) < 0)
+                return log_error_errno(errno, "Kernel not found at %s: %m", arg_qemu_kernel);
+
+
         r = find_qemu_binary(&qemu_binary);
         if (r == -EOPNOTSUPP)
                 return log_error_errno(r, "Native architecture is not supported by qemu.");
@@ -704,6 +719,12 @@ static int run_virtual_machine(void) {
                         return log_oom();
         }
 
+        if (arg_qemu_kernel) {
+                r = strv_extend_strv(&cmdline, STRV_MAKE("-kernel", arg_qemu_kernel), /* filter_duplicates= */ false);
+                if (r < 0)
+                        return log_oom();
+        }
+
         r = strv_extend(&cmdline, "-drive");
         if (r < 0)
                 return log_oom();
@@ -770,21 +791,27 @@ static int run_virtual_machine(void) {
                 }
         }
 
-        if (!strv_isempty(arg_parameters)) {
-                if (ARCHITECTURE_SUPPORTS_SMBIOS) {
-                        _cleanup_free_ char *kcl = strv_join(arg_parameters, " ");
-                        if (!kcl)
-                                return log_oom();
+        if (!strv_isempty(arg_kernel_cmdline_extra)) {
+                _cleanup_free_ char *kcl = strv_join(arg_kernel_cmdline_extra, " ");
+                if (!kcl)
+                        return log_oom();
 
-                        r = strv_extend(&cmdline, "-smbios");
+                if (arg_qemu_kernel) {
+                        r = strv_extend_strv(&cmdline, STRV_MAKE("-append", kcl), /* filter_duplicates= */ false);
                         if (r < 0)
-                                return log_oom();
+                                log_oom();
+                } else {
+                        if (ARCHITECTURE_SUPPORTS_SMBIOS) {
+                                r = strv_extend(&cmdline, "-smbios");
+                                if (r < 0)
+                                        return log_oom();
 
-                        r = strv_extendf(&cmdline, "type=11,value=io.systemd.stub.kernel-cmdline-extra=%s", kcl);
-                        if (r < 0)
-                                return log_oom();
-                } else
-                        log_warning("Cannot append extra args to kernel cmdline, native architecture doesn't support SMBIOS");
+                                r = strv_extendf(&cmdline, "type=11,value=io.systemd.stub.kernel-cmdline-extra=%s", kcl);
+                                if (r < 0)
+                                        return log_oom();
+                        } else
+                                log_warning("Cannot append extra args to kernel cmdline, native architecture doesn't support SMBIOS");
+                }
         }
 
         if (use_vsock) {
@@ -828,7 +855,6 @@ static int run_virtual_machine(void) {
                 log_error_errno(errno, "Failed to execve %s: %m", qemu_binary);
                 _exit(EXIT_FAILURE);
         }
-
 
         int exit_status = INT_MAX;
         if (use_vsock) {
