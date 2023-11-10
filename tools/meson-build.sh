@@ -2,21 +2,20 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 set -eux
 
-src="$1"
-dst="$2"
-target="$3"
-options="$4"
-CC="$5"
-CXX="$6"
+sourcedir="${1:?}"
+builddir="${2:?}"
+target="${3:?}"
+c_args="${4:?}"
+cpp_args="${5:?}"
+options="${6:?}"
+CC="${7:?}"
+CXX="${8:?}"
 
-# shellcheck disable=SC2086
-[ -f "$dst/build.ninja" ] || CC="$CC" CXX="$CXX" meson setup "$src" "$dst" $options
-
-# Locate ninja binary, on CentOS 7 it is called ninja-build, so
-# use that name if available.
-ninja="ninja"
-if command -v ninja-build >/dev/null ; then
-    ninja="ninja-build"
+if [ ! -f "$builddir/build.ninja" ]; then
+    # shellcheck disable=SC2086
+    CC="$CC" CXX="$CXX" meson setup -Dc_args="$c_args" -Dcpp_args="$cpp_args" "$builddir" "$sourcedir" $options
 fi
 
-"$ninja" -C "$dst" "$target"
+# Locate ninja binary, on CentOS 7 it is called ninja-build, so use that name if available.
+command -v ninja-build >/dev/null && ninja="ninja-build" || ninja="ninja"
+"$ninja" -C "$builddir" "$target"
