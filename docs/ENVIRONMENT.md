@@ -583,3 +583,14 @@ SYSTEMD_HOME_DEBUG_SUFFIX=foo \
 * `$SYSTEMD_FIREWALL_BACKEND` – takes a string, either `iptables` or
   `nftables`. Selects the firewall backend to use. If not specified tries to
   use `nftables` and falls back to `iptables` if that's not available.
+
+`systemd-storagetm`:
+
+* `$SYSTEMD_NVME_MODEL`, `$SYSTEMD_NVME_FIRMWARE`, `$SYSTEMD_NVME_SERIAL`,
+  `$SYSTEMD_NVME_UUID` – these take a model string, firmware version string,
+  serial number string, and UUID formatted as string. If specified these
+  override the defaults exposed on the NVME subsystem and namespace, which are
+  derived from the underlying block device and system identity. Do not set the
+  latter two via the environment variable unless `systemd-storagetm` is invoked
+  to expose a single device only, since those identifiers better should be kept
+  unique.
