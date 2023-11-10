@@ -193,6 +193,7 @@ int enroll_tpm2(struct crypt_device *cd,
                         return log_error_errno(base64_encoded_size, "Failed to base64 encode salted pin: %m");
         }
 
+        TPM2B_PUBLIC public = {};
         r = tpm2_load_pcr_public_key(pubkey_path, &pubkey, &pubkey_size);
         if (r < 0) {
                 if (pubkey_path || signature_path || r != -ENOENT)
@@ -200,13 +201,19 @@ int enroll_tpm2(struct crypt_device *cd,
 
                 log_debug_errno(r, "Failed to read TPM2 PCR public key, proceeding without: %m");
                 pubkey_pcr_mask = 0;
-        } else if (signature_path) {
-                /* Also try to load the signature JSON object, to verify that our enrollment will work.
-                 * This is optional however, skip it if it's not explicitly provided. */
-
-                r = tpm2_load_pcr_signature(signature_path, &signature_json);
+        } else {
+                r = tpm2_tpm2b_public_from_pem(pubkey, pubkey_size, &public);
                 if (r < 0)
-                        return log_debug_errno(r, "Failed to read TPM PCR signature: %m");
+                        return log_error_errno(r, "Could not convert public key to TPM2B_PUBLIC: %m");
+
+                if (signature_path) {
+                        /* Also try to load the signature JSON object, to verify that our enrollment will work.
+                         * This is optional however, skip it if it's not explicitly provided. */
+
+                        r = tpm2_load_pcr_signature(signature_path, &signature_json);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to read TPM PCR signature: %m");
+                }
         }
 
         bool any_pcr_value_specified = tpm2_pcr_values_has_any_values(hash_pcr_values, n_hash_pcr_values);
@@ -224,32 +231,9 @@ int enroll_tpm2(struct crypt_device *cd,
         _cleanup_(tpm2_context_unrefp) Tpm2Context *tpm2_context = NULL;
         TPM2B_PUBLIC device_key_public = {};
         if (device_key) {
-                _cleanup_free_ char *device_key_buffer = NULL;
-                size_t device_key_buffer_size;
-                r = read_full_file(device_key, &device_key_buffer, &device_key_buffer_size);
+                r = tpm2_load_public_key_file(device_key, &device_key_public);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to read device key from file: %m");
-
-                r = dlopen_tpm2();
-                if (r < 0)
-                        return log_debug_errno(r, "TPM2 support not installed: %m");
-
-                TSS2_RC rc;
-                size_t offset = 0;
-                rc = sym_Tss2_MU_TPM2B_PUBLIC_Unmarshal(
-                                (uint8_t*) device_key_buffer,
-                                device_key_buffer_size,
-                                &offset,
-                                &device_key_public);
-                if (rc != TSS2_RC_SUCCESS)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Could not unmarshal public key from file.");
-
-                assert(offset <= device_key_buffer_size);
-                if (offset != device_key_buffer_size)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Found %zu bytes of trailing garbage in public key file.",
-                                               device_key_buffer_size - offset);
+                        return r;
 
                 if (!tpm2_pcr_values_has_all_values(hash_pcr_values, n_hash_pcr_values))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -281,13 +265,6 @@ int enroll_tpm2(struct crypt_device *cd,
                 r = tpm2_pcr_values_to_mask(hash_pcr_values, n_hash_pcr_values, hash_pcr_bank, &hash_pcr_mask);
                 if (r < 0)
                         return log_error_errno(r, "Could not get hash mask: %m");
-        }
-
-        TPM2B_PUBLIC public;
-        if (pubkey) {
-                r = tpm2_tpm2b_public_from_pem(pubkey, pubkey_size, &public);
-                if (r < 0)
-                        return log_error_errno(r, "Could not convert public key to TPM2B_PUBLIC: %m");
         }
 
         TPM2B_DIGEST policy = TPM2B_DIGEST_MAKE(NULL, TPM2_SHA256_DIGEST_SIZE);
