@@ -382,3 +382,31 @@ bool udev_available(void) {
 
         return (cache = (path_is_read_only_fs("/sys/") <= 0));
 }
+
+int device_get_vendor_string(sd_device *device, const char **ret) {
+        int r;
+
+        assert(device);
+
+        FOREACH_STRING(field, "ID_VENDOR_FROM_DATABASE", "ID_VENDOR") {
+                r = sd_device_get_property_value(device, field, ret);
+                if (r != -ENOENT)
+                        return r;
+        }
+
+        return -ENOENT;
+}
+
+int device_get_model_string(sd_device *device, const char **ret) {
+        int r;
+
+        assert(device);
+
+        FOREACH_STRING(field, "ID_MODEL_FROM_DATABASE", "ID_MODEL") {
+                r = sd_device_get_property_value(device, field, ret);
+                if (r != -ENOENT)
+                        return r;
+        }
+
+        return -ENOENT;
+}
