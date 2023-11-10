@@ -199,10 +199,6 @@ int main(int argc, char *argv[]) {
         log_set_prohibit_ipc(true);
         log_setup();
 
-        r = mac_init();
-        if (r < 0)
-                return log_error_errno(r, "Failed to initialize MAC layer: %m");
-
         r = fdset_new_fill(/* filter_cloexec= */ 0, &fdset);
         if (r < 0)
                 return log_error_errno(r, "Failed to create fd set: %m");
@@ -216,6 +212,13 @@ int main(int argc, char *argv[]) {
                 log_set_prohibit_ipc(false);
                 log_open();
         }
+
+        /* Initialize lazily. SMACK is just a few operations, but the SELinux is very slow as it requires
+         * loading the entire database in memory, so we will do it lazily only if it is actually needed, to
+         * avoid wasting 2ms-10ms for each sd-executor that gets spawned. */
+        r = mac_init_lazy();
+        if (r < 0)
+                return log_error_errno(r, "Failed to initialize MAC layer: %m");
 
         r = fdset_remove(fdset, fileno(arg_serialization));
         if (r < 0)
